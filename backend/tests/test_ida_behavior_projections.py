@@ -42,7 +42,7 @@ def test_behavior_minimal_field_set():
     field_names = {f.name for f in fields(Behavior)}
     expected = {
         "behavior_type", "label", "source", "source_ref",
-        "provenance", "confidence", "evidence",
+        "provenance", "confidence", "evidence", "observed_at",
     }
     assert field_names == expected, (
         f"Behavior schema drift · fields={sorted(field_names)}")

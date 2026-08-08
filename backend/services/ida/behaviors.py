@@ -72,6 +72,17 @@ class Behavior:
                                 Mention Extractor emits this)
       · ``confidence``     — ``deterministic`` today
       · ``evidence``       — the raw entity that triggered emission
+      · ``observed_at``    — references (not timestamps) to the exact
+                              artifact / entity / evidence-index the
+                              behavior derives from — trivially
+                              answers "which artifact generated this
+                              behavior?" without evidence-collection
+                              search.  Shape (all keys optional)::
+
+                                  {"artifact_id":    str,
+                                   "entity_id":      str,
+                                   "evidence_index": int,
+                                   "line":           int}
     """
     behavior_type:   str
     label:           str
@@ -80,6 +91,7 @@ class Behavior:
     provenance:      str  = "command_execution"
     confidence:      str  = "deterministic"
     evidence:        Dict[str, Any] = field(default_factory=dict)
+    observed_at:     Dict[str, Any] = field(default_factory=dict)
 
     @property
     def id(self) -> str:

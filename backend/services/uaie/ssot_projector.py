@@ -316,10 +316,25 @@ def project(orchestrator_result: OrchestratorResult,
              *,
              root_input: str = "",
              root_output: str = "",
-             all_plugin_names: Optional[List[str]] = None) -> Dict[str, Any]:
+             all_plugin_names: Optional[List[str]] = None,
+             behaviors: Optional[List[Any]] = None) -> Dict[str, Any]:
     """Project the OrchestratorResult into the canonical Workspace SSOT.
 
     Wraps ``evidence_extractor.build_verdict_card`` — no reimplementation.
+
+    Track B contract (2026-02-05):  If the caller pre-computes
+    ``services.ida.behaviors.Behavior`` objects for the case, they
+    can be passed in via ``behaviors=`` and the projector will:
+        · project them into the SSOT ``behaviors`` and ``impacts``
+          fields (kill-chain / impact-tag projections);
+        · attach the full behavior objects at ``ssot["behaviors_full"]``
+          for the Provenance Endpoint to consume.
+    The projector NEVER synthesizes Behaviors — synthesis is the
+    caller's responsibility (URL adapter path uses
+    ``services.ida.behaviors.generate_behaviors`` on extract_all
+    output; future UAIE-side extractors will do the same before
+    calling ``project``).  This is a strict "project, don't
+    interpret" boundary.
     """
     # Prefer explicit arguments; fall back to the artifacts.
     if not root_input:
@@ -356,6 +371,23 @@ def project(orchestrator_result: OrchestratorResult,
         findings=findings,
     )
 
+    # ── Track B · project pre-computed Behaviors into SSOT fields.
+    # The projector consumes; it never synthesizes.  If the caller
+    # didn't provide behaviors, the SSOT fields are empty — the
+    # projector will NOT invent them from evidence.
+    _kc: List[str]  = []
+    _imp: List[str] = []
+    _behaviors_full: List[Dict[str, Any]] = []
+    if behaviors:
+        from services.ida.projections.kill_chain import project_to_kill_chain
+        from services.ida.projections.impact     import project_to_impacts
+        _kc  = project_to_kill_chain(behaviors)
+        _imp = project_to_impacts(behaviors)
+        _behaviors_full = [
+            (b.to_dict() if hasattr(b, "to_dict") else dict(b))
+            for b in behaviors
+        ]
+
     return {
         "verdict_card":               verdict_card,
         # ── R28.7.5 · Canonical output surface for the anti-regression
@@ -371,6 +403,12 @@ def project(orchestrator_result: OrchestratorResult,
                                        "ai_verdict": (verdict_card or {}).get("verdict")},
         "mitre":                      mitre,
         "lolbas":                     lolbas,
+        # Track B · Behavior-derived kill-chain / impact tags.  These
+        # are the fields the Workspace Projector reads and the v2
+        # engine consumes.  Empty when no behaviors were pre-computed.
+        "behaviors":                  _kc,
+        "impacts":                    _imp,
+        "behaviors_full":             _behaviors_full,
         "chain":                      chain,
         "steps":                      [{"op": c["op"], "args": {}} for c in chain],
         "decode_trace":               decode_trace,

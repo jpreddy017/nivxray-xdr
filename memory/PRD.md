@@ -1,3 +1,39 @@
+## 🟢 2026-02-05 · P0.6 · **Track B · SSOT projector consumes Behaviors + CI invariant**
+
+Per user directive, wired Behaviors into `services.uaie.ssot_projector.project()` under the strict rule *"projector projects, never synthesizes"*.  Added `observed_at` reference field to Behavior and a CI-invariant test that permanently protects the behavior-centric architecture.
+
+### Track B contract
+`ssot_projector.project()` now accepts an optional `behaviors=` parameter (list of Behavior objects pre-computed upstream by the caller):
+- When provided: projector runs `project_to_kill_chain()` + `project_to_impacts()` and writes the results to SSOT fields `behaviors=[…]` + `impacts=[…]`, plus attaches the full behavior objects at `behaviors_full` for the Provenance Endpoint.
+- When absent: SSOT emits `behaviors=[]` + `impacts=[]` — the projector NEVER invents them from evidence.
+
+An AST-level test (`test_projector_does_not_call_behavior_generator`) permanently forbids the projector from importing or calling `generate_behaviors`.
+
+### `observed_at` refinement
+Behavior gained an optional `observed_at: Dict[str, Any]` field carrying references (not timestamps) to the source artifact / entity / evidence-index / line.  Trivially answers "which artifact generated this behavior?" without evidence-collection search.  Preserved through the projector into `behaviors_full`.
+
+### CI invariant
+New `test_ci_invariant_no_framework_map_imports_outside_projections` — every source file OUTSIDE the projection layer, the Behavior generator, and its regression tests is scanned; any reference to `BEHAVIOR_TO_MITRE`, `BEHAVIOR_TO_KILL_CHAIN`, or `BEHAVIOR_TO_IMPACTS` is a violation.  This permanently locks the rule *"no downstream component may derive semantic behavior directly from Evidence"* — everything else must go through `project_to_*` functions.
+
+### Files
+* MODIFIED  `services/ida/behaviors.py`  · added `observed_at` field
+* MODIFIED  `services/uaie/ssot_projector.py`  · `project()` accepts `behaviors=`, emits `behaviors/impacts/behaviors_full` fields (projector consumes, never synthesizes)
+* NEW  `tests/test_track_b_projector_and_ci_invariants.py`  · 5 regression tests (behavior projection + no-synthesis + observed_at preservation + CI invariant)
+* MODIFIED  `tests/test_ida_behavior_projections.py`  · minimal-field-set test updated for `observed_at`
+
+### Talos end-to-end
+Unchanged: 16 Behaviors → 6 critical/high recommendations → verdict `critical`.  Track B is a wiring milestone, not a behavior change.
+
+### Status
+- 108/108 tests green + 1 skip (previous ransomware synthetic skip remains — awaiting Track B being called on the UAIE Workspace path itself)
+- Behavior-centric architecture now locked by CI · impossible to introduce an `Evidence → MITRE` shortcut without violating the invariant
+
+### Constraints honored
+Deterministic-only · projector never synthesizes · behaviors flow one-way (Evidence → Behavior → Projections → SSOT) · Workspace/UI/rule/legacy `derive_mitigations` all untouched · S4 architecture freeze intact.
+
+---
+
+
 ## 🟢 2026-02-05 · P0.5 · **Behavior / Projection separation**
 
 Per user directive, refactored the Behavior schema to be framework-neutral.  Removed `mitre`, `kill_chain_tags`, `impact_tags` from the `Behavior` dataclass.  Each framework projection now lives in an independent module.
