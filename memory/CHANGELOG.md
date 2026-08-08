@@ -4119,3 +4119,20 @@ Success criteria for this specific deployment:
   · 30 s timeout resolved.
   · No new regressions.
   · Feature remains dormant until explicitly enabled.
+
+## 2026-02-08 · P0.15C Release Contract · Amendment 4 · Standing Instruction
+
+Added §−1 "Standing Instruction (next session · read first)" to
+`docs/P0.15C-RELEASE-CONTRACT.md`.  Prepended so it is the first
+thing the next session sees.
+
+**Directive** — P0.15C is an implementation milestone, not an
+architecture milestone.  Architecture is already frozen.  Per
+slice: implement → run existing suites → verify five invariants →
+stop → next slice.  No redesign, no new ADRs, no "while we're
+here" improvements, no design questions unless a genuine blocker
+appears that the contract does not resolve.  Every slice
+independently releasable.
+
+Contract remains FINAL.  Amendment count: 4 (all additive
+clarifications · no architectural changes).
