@@ -99,14 +99,41 @@ class BehaviorSpec:
     description:       str
     introduced_in:     str
     deprecated_in:     str = ""
+    lifecycle:         str = "stable"     # experimental | stable | deprecated
+    visibility:        str = "public"     # public | internal
     producers:         Tuple[str, ...] = ()
     consumers:         Tuple[str, ...] = ()
+    consumer_reach:    Dict[str, bool] = field(default_factory=dict)
     projections:       Dict[str, List[str]] = field(default_factory=dict)
     supporting_rules:  Tuple[str, ...] = ()
     example_triggers:  Tuple[str, ...] = ()
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+
+# ── Consumer Reachability (per user directive · P0.12) ────────────
+# Each downstream consumer declares which behavior_types it reads at
+# runtime.  Deterministic composition — no runtime inspection.
+# recommendation_engine: reachable iff any rule's MITRE tuple
+#                        overlaps the behavior's MITRE projection
+# ssot_projector       : reachable for every behavior (pass-through)
+# provenance_endpoint  : reachable for every behavior (echo in graph)
+# graph_api            : reachable for every behavior
+# workspace_ui         : reserved — no consumer yet
+# llm_summary          : reserved — no consumer yet
+_UNIVERSAL_CONSUMERS = (
+    "ssot_projector", "provenance_endpoint", "graph_api",
+)
+_RESERVED_CONSUMERS  = ("workspace_ui", "llm_summary")
+
+
+def _consumer_reach_for(btype: str) -> Dict[str, bool]:
+    reach: Dict[str, bool] = {c: True for c in _UNIVERSAL_CONSUMERS}
+    reach["recommendation_engine"] = bool(_supporting_rules_for(btype))
+    for r in _RESERVED_CONSUMERS:
+        reach[r] = False
+    return reach
 
 
 def _producers_for(btype: str) -> Tuple[str, ...]:
@@ -202,8 +229,11 @@ def build_registry() -> Dict[str, BehaviorSpec]:
                                     "description pending)"),
             introduced_in  = "P0.3",
             deprecated_in  = "",
+            lifecycle      = "stable",
+            visibility     = "public",
             producers      = _producers_for(btype),
             consumers      = _consumers_for(btype),
+            consumer_reach = _consumer_reach_for(btype),
             projections    = {
                 "mitre":      list(BEHAVIOR_TO_MITRE.get(btype, ())),
                 "kill_chain": list(BEHAVIOR_TO_KILL_CHAIN.get(btype, ())),
