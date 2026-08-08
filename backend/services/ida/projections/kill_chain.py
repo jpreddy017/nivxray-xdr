@@ -64,4 +64,11 @@ def project_to_kill_chain(behaviors: Sequence[Any]) -> List[str]:
     return sorted(tags)
 
 
-__all__ = ["BEHAVIOR_TO_KILL_CHAIN", "project_to_kill_chain"]
+def kill_chain_for(behavior_type: str) -> List[str]:
+    """Return the kill-chain tag list mapped to a single
+    ``behavior_type``."""
+    return list(BEHAVIOR_TO_KILL_CHAIN.get(behavior_type, ()))
+
+
+__all__ = ["BEHAVIOR_TO_KILL_CHAIN", "project_to_kill_chain",
+             "kill_chain_for"]

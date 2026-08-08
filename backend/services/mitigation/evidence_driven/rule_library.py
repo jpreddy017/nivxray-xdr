@@ -49,8 +49,7 @@ INVESTIGATE_RULES: List[RecommendationRule] = [
     RecommendationRule(
         id       = "inv.analyze_ps_chain",
         trigger  = lambda c: ("execution" in c.behaviors and
-                                 ("T1059.001" in c.mitre_techniques
-                                    or "powershell.exe" in c.processes)),
+                                 "T1059.001" in c.mitre_techniques),
         action   = "Analyze the PowerShell process chain — parent/child, "
                     "command line, script block content, spawn depth.",
         reason   = "PowerShell execution is confirmed in this case; the "
@@ -62,9 +61,7 @@ INVESTIGATE_RULES: List[RecommendationRule] = [
     ),
     RecommendationRule(
         id       = "inv.investigate_download",
-        trigger  = lambda c: ("T1105" in c.mitre_techniques
-                                 or "downloadstring" in c.output_text.lower()
-                                 or "downloadfile" in c.output_text.lower()),
+        trigger  = lambda c: "T1105" in c.mitre_techniques,
         action   = "Investigate the downloaded payload — capture the file, "
                     "compute hashes, submit to sandbox, correlate with the "
                     "endpoint's proxy/DNS logs.",
@@ -254,7 +251,7 @@ CONTAIN_RULES: List[RecommendationRule] = [
     RecommendationRule(
         id       = "contain.kill_powershell",
         trigger  = lambda c: (_has_shellcode(c)
-                                 and "powershell.exe" in c.processes),
+                                 and "T1059.001" in c.mitre_techniques),
         action   = "Kill running powershell.exe / pwsh.exe on the affected "
                     "host (procdump before termination if triage-worthy).",
         reason   = "In-memory shellcode reached via PowerShell — stopping "

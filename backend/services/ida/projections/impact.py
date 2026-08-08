@@ -30,4 +30,9 @@ def project_to_impacts(behaviors: Sequence[Any]) -> List[str]:
     return sorted(tags)
 
 
-__all__ = ["BEHAVIOR_TO_IMPACTS", "project_to_impacts"]
+def impacts_for(behavior_type: str) -> List[str]:
+    """Return the impact tag list mapped to a single ``behavior_type``."""
+    return list(BEHAVIOR_TO_IMPACTS.get(behavior_type, ()))
+
+
+__all__ = ["BEHAVIOR_TO_IMPACTS", "project_to_impacts", "impacts_for"]

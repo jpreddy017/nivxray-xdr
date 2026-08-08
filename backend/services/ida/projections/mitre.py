@@ -91,4 +91,11 @@ def project_to_mitre(behaviors: Sequence[Any]) -> List[Dict[str, Any]]:
     return list(seen.values())
 
 
-__all__ = ["BEHAVIOR_TO_MITRE", "project_to_mitre"]
+def mitre_for(behavior_type: str) -> List[str]:
+    """Return the ATT&CK technique list mapped to a single
+    ``behavior_type``.  Public accessor so external callers never
+    import the raw ``BEHAVIOR_TO_MITRE`` map directly."""
+    return list(BEHAVIOR_TO_MITRE.get(behavior_type, ()))
+
+
+__all__ = ["BEHAVIOR_TO_MITRE", "project_to_mitre", "mitre_for"]

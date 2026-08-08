@@ -1,3 +1,65 @@
+## 🟢 2026-02-05 · P0.7 · **Behavior Provenance Endpoint + rule-inspection CI invariant**
+
+Per user directive, exposed the explainable Evidence → Behavior → Projection → Recommendation chain as a stable public API and added the second architectural CI invariant *"No RecommendationRule may inspect raw Evidence"*.
+
+### New endpoint · `POST /api/investigation/behaviors/explain`
+Stable versioned schema (`schema_version: "1.0"`).  Response never leaks internals (no `behaviors_full`).  Every returned behavior carries:
+
+```jsonc
+{
+  "id": "sha1[:12]",           // stable content-hash
+  "behavior_type": "shadow_copy_deletion",
+  "label": "...", "source": "...", "provenance": "...",
+  "confidence": "deterministic",
+  "evidence": { ... raw entity that triggered ... },
+  "observed_at": { "artifact_id": "...", "line": 37 },
+  "projections": {
+    "mitre":      ["T1490"],
+    "kill_chain": ["impact"],
+    "impacts":    ["recovery_inhibited"]
+  },
+  "recommendations": ["erad.protect_shadow_copies", "rec.restore_backups"]
+}
+```
+
+Response envelope: `{schema_version, behaviors[], verdict, summary}`.
+
+### Public accessors (framework-independence layer)
+Added `mitre_for(behavior_type)`, `kill_chain_for(behavior_type)`, `impacts_for(behavior_type)` on each projection module so external callers never import raw maps.  The Provenance endpoint uses these — passing the CI invariant on framework-map imports.
+
+### Rule-library cleanup
+Removed three raw-Evidence inspections that pre-dated the Behavior layer:
+- `inv.analyze_ps_chain` : dropped `"powershell.exe" in c.processes`, uses `T1059.001 in mitre_techniques` alone
+- `inv.investigate_download` : dropped `"downloadstring"/"downloadfile" in c.output_text`, uses `T1105 in mitre_techniques` alone
+- `contain.kill_powershell` : dropped `"powershell.exe" in c.processes`, uses `T1059.001 in mitre_techniques` alone
+
+Purely additive — every removed check was OR'd with a mitre_techniques check that the Behavior layer now satisfies via `powershell_execution` / `powershell_download_execute` behaviors.
+
+### Second CI invariant (rules)
+`test_ci_invariant_no_rule_inspects_raw_evidence` — AST-walks `rule_library.py` and fails on any `<var>.output_text|processes|commands|files|registry_keys` attribute read.  Locks the "Recommendation → Behavior → Projection only" rule permanently.
+
+### Files
+* NEW  `routers/behavior_provenance.py`  · endpoint + stable schema
+* NEW  `tests/test_provenance_endpoint_and_rule_invariants.py`  · 6 tests
+* MODIFIED  `services/ida/projections/mitre.py`  · `mitre_for()` accessor
+* MODIFIED  `services/ida/projections/kill_chain.py`  · `kill_chain_for()` accessor
+* MODIFIED  `services/ida/projections/impact.py`  · `impacts_for()` accessor
+* MODIFIED  `services/mitigation/evidence_driven/rule_library.py`  · 3 raw-evidence inspections removed
+* MODIFIED  `server.py`  · router registration
+
+### Status
+- 112/112 tests green + 1 skip
+- Two structural CI invariants now permanent:
+  1. No framework maps referenced outside projection layer / behavior generator
+  2. No RecommendationRule inspects raw Evidence
+- Talos URL end-to-end unchanged: 16 Behaviors → 6 critical/high recs → verdict `critical`
+
+### Constraints honored
+Deterministic-only · projector never synthesizes · rule library reads projections only · Workspace/UI/`derive_mitigations` untouched · S4 architecture freeze intact.
+
+---
+
+
 ## 🟢 2026-02-05 · P0.6 · **Track B · SSOT projector consumes Behaviors + CI invariant**
 
 Per user directive, wired Behaviors into `services.uaie.ssot_projector.project()` under the strict rule *"projector projects, never synthesizes"*.  Added `observed_at` reference field to Behavior and a CI-invariant test that permanently protects the behavior-centric architecture.
