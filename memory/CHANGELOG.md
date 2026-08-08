@@ -4075,3 +4075,47 @@ criterion blocks the milestone from being marked complete.
 
 **Contract state: FINAL.**  Sole source of truth for the next
 implementation session.
+
+## 2026-02-08 · P0.15C Release Contract · Amendment 3 · Success Criteria layered
+
+Refined §7 to layer success into Functional / Regression /
+Benchmark so the milestone doesn't hard-pin to one vendor
+article's numbers (articles can be edited, corpora evolve):
+
+* **§7.1 Functional Success** — five release invariants pass,
+  Stage Isolation + Never-Modify rules hold.
+* **§7.2 Regression Success** — Vendor Corpus v1 passes end-to-end
+  twice; Flag OFF byte-identical to baseline; Flag ON strictly
+  additive on every article.
+* **§7.3 Benchmark Success** — pinned Octlurk fixture keeps its
+  ≥ 15 tids / ≥ 5 tactics / ≥ 8 rules-firing thresholds under
+  `NVX_VEEE_ENABLED=1`.  Drift that still keeps Vendor Corpus v1
+  green updates the benchmark snapshot instead of blocking the
+  milestone.
+* **§7.4 Workspace Parity** — byte-identical to pre-P0.15C-1 with
+  the flag OFF across the entire corpus + existing pinned suite.
+
+Contract remains FINAL.
+
+---
+
+## 2026-02-08 · Post-deployment verification checklist (user's plan)
+
+The user has clicked Deploy.  Verification checklist to run once
+the deployment completes:
+
+  1. Existing Workspace regression — analyze normal URL /
+     command line / file → confirm identical to pre-deploy.
+  2. Retry the previously "Failed" Securelist case → confirm the
+     30 s timeout is resolved (fix now live).
+  3. Octlurk trajectory still shows only HTML-derived evidence —
+     this is EXPECTED behavior with `NVX_VEEE_ENABLED=0`.
+  4. Backend + frontend logs clean of 5xx / OCR-related noise
+     (VEEE dormant when flag off).
+
+Success criteria for this specific deployment:
+  · Deployment completes.
+  · Workspace behavior unchanged.
+  · 30 s timeout resolved.
+  · No new regressions.
+  · Feature remains dormant until explicitly enabled.
