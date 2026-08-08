@@ -1,3 +1,54 @@
+## 🟢 2026-02-05 · P0.4 · **Behaviors wired into v2 Engine (Priority #1)**
+
+Per user priority ordering, closed the "no MITRE + no behaviors reaching the recommendation engine" gap for URL-ingested investigations.  Refined the Behavior schema with `provenance`, `kill_chain_tags`, `impact_tags`, and a stable content-hash `id`.  Added `collect_outcome_inputs_from_behaviors()` aggregator so Behaviors project cleanly into the `InvestigationOutcome` fields the v2 engine consumes.
+
+### Schema refinement
+```python
+@dataclass(frozen=True)
+class Behavior:
+    behavior_type:   str
+    label:           str
+    source:          str            # command_classifier | malware_lookup | lolbas_lookup | cve_lookup
+    source_ref:      str
+    provenance:      str            # command_execution | malware_reference | lolbas_binary_reference | cve_reference
+    confidence:      str            # deterministic (today)
+    evidence:        Dict[str, Any]
+    mitre:           Tuple[str, ...]
+    kill_chain_tags: Tuple[str, ...]  # engine-facing coarse tactic tags
+    impact_tags:     Tuple[str, ...]  # engine-facing impact keys
+    id (property):   str            # stable sha1[:12] of (type + source_ref + provenance)
+```
+
+### New helper
+`collect_outcome_inputs_from_behaviors(behaviors, provenance_whitelist=None)` — aggregates behaviors into `{behaviors, impacts, mitre_techniques, provenance}` matching the v2 engine's `InvestigationOutcome` fields.  Provenance-whitelist parameter reserved for future tool-mention filtering.
+
+### End-to-end Talos URL result
+`URL → UAIE → Behaviors (16) → outcome inputs → v2 engine → 6 critical/high recommendations`:
+- `erad.stop_encryption`
+- `erad.protect_shadow_copies`
+- `erad.reimage_ransomware`
+- `inv.ransomware_scope`
+- `inv.lateral_movement_trace`
+- `rec.restore_backups`
+
+Verdict: **critical** · one-liner: *"Impact behaviour observed — recovery actions included."*
+
+### Files
+* MODIFIED  `services/ida/behaviors.py`  (provenance + kill-chain + impact tags + id + aggregator)
+* MODIFIED  `tests/test_ida_behavior_generation.py`  (10 new tests, 28 total)
+
+### Constraints honored
+- Deterministic-only lookup · no prose inference · no LLM · no rule-library change · legacy `_classify_command_purpose` unchanged · Workspace/UI/APIs untouched · S4 freeze intact
+- Provenance whitelist reserves the audit boundary for future `tool_reference` / `document_reference` provenance kinds
+
+### Status
+- 105/105 tests green + 1 skip (Track B still pending)
+- Deterministic Behavior → Outcome → Engine wire live
+- v2 Recommendation Engine now finally has "richer semantics" it was designed for
+
+---
+
+
 ## 🟢 2026-02-05 · P0.3 · **Stage 5 · Deterministic Behavior Generation Layer**
 
 Per user directive, added a first-class Behavior generation stage between raw-entity extraction (Stage 4) and MITRE mapping (Stage 6).  Behavior becomes the canonical semantic object; MITRE is one consumer alongside future consumers (recommendations, evidence summary, reports, LLM).

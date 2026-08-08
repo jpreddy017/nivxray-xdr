@@ -27,6 +27,7 @@ STRICT contract:
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field, asdict
 from typing      import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -38,25 +39,72 @@ from typing      import Any, Dict, List, Optional, Sequence, Tuple
 class Behavior:
     """One canonical semantic behavior observed in an investigation.
 
-    ``mitre`` is populated deterministically from ``behavior_type``
-    via ``BEHAVIOR_TO_MITRE`` — callers do not compute it themselves.
+    Fields:
+      · ``behavior_type``  — key into ``BEHAVIOR_TO_MITRE``
+      · ``mitre``          — ATT&CK IDs (populated deterministically)
+      · ``kill_chain_tags``— coarse engine-facing tactic set the v2
+                              recommendation engine consumes (subset
+                              of ``BEHAVIOUR_TAGS`` in
+                              ``evidence_driven.case_context``)
+      · ``impact_tags``    — coarse engine-facing impact set (subset
+                              of ``IMPACT_TAGS`` in case_context)
+      · ``provenance``     — origin quality of the evidence.  This is
+                              the distinction the recommendation
+                              engine uses to decide whether to consume
+                              a behavior:
+                                · ``command_execution``  — a live
+                                     command was observed running.
+                                · ``malware_reference``  — a named
+                                     malware family was identified
+                                     in the SSOT (family fingerprint,
+                                     analyst tagging, IOC hash match).
+                                · ``lolbas_binary_reference`` — a
+                                     LOLBAS binary appeared as an
+                                     extracted file_path artifact.
+                                · ``cve_reference`` — a CVE was
+                                     extracted from the evidence.
+                              (A future ``tool_reference`` /
+                              ``document_reference`` provenance can
+                              be added when a Tool-Mention Extractor
+                              lands.)
+      · ``confidence``     — ``deterministic`` for lookup output
+                              today.  Reserved so a probabilistic
+                              extractor can later emit ``high /
+                              medium / low`` without a schema break.
     """
-    behavior_type: str                          # e.g. "shadow_copy_deletion"
-    label:         str                          # analyst-friendly string
-    source:        str                          # "command_classifier" | "malware_lookup" | "lolbas_lookup" | "cve_lookup"
-    source_ref:    str  = ""                     # e.g. "body.line.37" or the raw command
-    confidence:    str  = "deterministic"        # "deterministic" is the only value today
-    evidence:      Dict[str, Any] = field(default_factory=dict)
-    mitre:         Tuple[str, ...] = ()          # ATT&CK IDs attached by the generator
+    behavior_type:   str
+    label:           str
+    source:          str
+    source_ref:      str  = ""
+    provenance:      str  = "command_execution"
+    confidence:      str  = "deterministic"
+    evidence:        Dict[str, Any] = field(default_factory=dict)
+    mitre:           Tuple[str, ...] = ()
+    kill_chain_tags: Tuple[str, ...] = ()
+    impact_tags:     Tuple[str, ...] = ()
+
+    @property
+    def id(self) -> str:
+        """Stable content-hash id ·  used for dedupe + provenance."""
+        h = hashlib.sha1()
+        h.update(self.behavior_type.encode("utf-8"))
+        h.update(b"\x00")
+        h.update(self.source_ref.encode("utf-8"))
+        h.update(b"\x00")
+        h.update(self.provenance.encode("utf-8"))
+        return h.hexdigest()[:12]
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
-        d["mitre"] = list(self.mitre)
+        d["mitre"]           = list(self.mitre)
+        d["kill_chain_tags"] = list(self.kill_chain_tags)
+        d["impact_tags"]     = list(self.impact_tags)
+        d["id"]              = self.id
         return d
 
 
 # ══════════════════════════════════════════════════════════════════
-# 2. Canonical Behavior → MITRE map (deterministic, ATT&CK-published)
+# 2a. Canonical Behavior → MITRE map (deterministic, ATT&CK-published)
 # ══════════════════════════════════════════════════════════════════
 BEHAVIOR_TO_MITRE: Dict[str, Tuple[str, ...]] = {
     # ── Impact ────────────────────────────────────────────────────
@@ -126,6 +174,98 @@ BEHAVIOR_TO_MITRE: Dict[str, Tuple[str, ...]] = {
     # ── Misc ──────────────────────────────────────────────────────
     "archive_extraction":              ("T1140",),
     "self_deletion":                   ("T1070.004",),
+}
+
+
+# ══════════════════════════════════════════════════════════════════
+# 2b. Behavior → engine-facing kill-chain tag(s)
+#     (matches BEHAVIOUR_TAGS in evidence_driven.case_context)
+# ══════════════════════════════════════════════════════════════════
+BEHAVIOR_TO_KILL_CHAIN: Dict[str, Tuple[str, ...]] = {
+    # Impact
+    "shadow_copy_deletion":            ("impact",),
+    "inhibit_recovery_wmic":           ("impact",),
+    "inhibit_recovery_bcdedit":        ("impact",),
+    "data_encryption_for_impact":      ("impact",),
+
+    # Defense Evasion
+    "signed_binary_proxy_msi":         ("defense_evasion", "execution"),
+    "signed_binary_proxy_mshta":       ("defense_evasion", "execution"),
+    "signed_binary_proxy_rundll32":    ("defense_evasion", "execution"),
+    "signed_binary_proxy_regsvr32":    ("defense_evasion", "execution"),
+    "defense_evasion_disable_tool":    ("defense_evasion",),
+
+    # C2 / Remote Access
+    "remote_access_software":          ("c2",),
+    "protocol_tunneling_ssh":          ("c2", "lateral_movement"),
+    "ingress_tool_transfer":           ("c2",),
+    "certutil_download":               ("c2", "defense_evasion"),
+    "bitsadmin_transfer":              ("c2",),
+
+    # Lateral Movement
+    "remote_service_smb":              ("lateral_movement",),
+    "remote_service_rdp":              ("lateral_movement",),
+    "lateral_movement_psexec":         ("lateral_movement", "execution"),
+    "lateral_movement_impacket":       ("lateral_movement", "execution"),
+
+    # Execution
+    "powershell_execution":            ("execution",),
+    "powershell_encoded_command":      ("execution", "defense_evasion"),
+    "powershell_download_execute":     ("execution", "c2"),
+    "powershell_in_memory":            ("execution", "defense_evasion"),
+    "wmi_execution":                   ("execution",),
+    "scheduled_task_persistence":      ("persistence", "execution"),
+    "scheduled_task_at":               ("persistence", "execution"),
+
+    # Credential Access
+    "credential_dumping_lsass":        ("credential_access",),
+    "credential_dumping_mimikatz":     ("credential_access",),
+
+    # Discovery
+    "discovery_account":               ("discovery",),
+    "discovery_domain_trust":          ("discovery",),
+    "discovery_system_owner":          ("discovery",),
+    "discovery_network_config":        ("discovery",),
+    "discovery_host":                  ("discovery",),
+    "discovery_ad":                    ("discovery",),
+
+    # Exfiltration
+    "data_staging_exfil_rclone":       ("exfiltration", "collection"),
+
+    # Persistence
+    "registry_run_key_persistence":    ("persistence",),
+    "registry_modification":           ("defense_evasion",),
+
+    # Initial Access
+    "phishing_service":                ("recon",),          # user-visible outreach
+    "phishing_email":                  ("recon",),
+    "exploit_public_app":              ("recon", "execution"),
+    "quickassist_it_impersonation":    ("recon", "c2"),
+
+    # Browser
+    "browser_extension_load":          ("persistence", "execution"),
+    "browser_launch_headless":         ("execution",),
+
+    # Misc
+    "archive_extraction":              ("defense_evasion",),
+    "self_deletion":                   ("defense_evasion",),
+}
+
+
+# ══════════════════════════════════════════════════════════════════
+# 2c. Behavior → engine-facing impact tag(s)
+#     (matches IMPACT_TAGS in evidence_driven.case_context)
+# ══════════════════════════════════════════════════════════════════
+BEHAVIOR_TO_IMPACTS: Dict[str, Tuple[str, ...]] = {
+    "shadow_copy_deletion":            ("recovery_inhibited",),
+    "inhibit_recovery_wmic":           ("recovery_inhibited",),
+    "inhibit_recovery_bcdedit":        ("recovery_inhibited",),
+    "data_encryption_for_impact":      ("data_encrypted",),
+    "credential_dumping_lsass":        ("credential_exposed",),
+    "credential_dumping_mimikatz":     ("credential_exposed",),
+    "data_staging_exfil_rclone":       ("data_theft",),
+    "powershell_in_memory":            ("in_memory_execution",),
+    "self_deletion":                   ("data_destroyed",),
 }
 
 
@@ -385,6 +525,20 @@ def generate_behaviors(extraction: Dict[str, Any]) -> List[Behavior]:
         seen_keys.add(key)
         behaviors.append(b)
 
+    def _make(btype: str, *, label: str, source: str, source_ref: str,
+                provenance: str, evidence: Dict[str, Any]) -> Behavior:
+        return Behavior(
+            behavior_type   = btype,
+            label           = label,
+            source          = source,
+            source_ref      = source_ref,
+            provenance      = provenance,
+            evidence        = evidence,
+            mitre           = BEHAVIOR_TO_MITRE.get(btype, ()),
+            kill_chain_tags = BEHAVIOR_TO_KILL_CHAIN.get(btype, ()),
+            impact_tags     = BEHAVIOR_TO_IMPACTS.get(btype, ()),
+        )
+
     # ── 4a. Commands ────────────────────────────────────────────
     for c in (extraction.get("commands") or []):
         cmd  = str(c.get("command") or "")
@@ -396,14 +550,12 @@ def generate_behaviors(extraction: Dict[str, Any]) -> List[Behavior]:
         c["purpose"] = label
         if btype:
             src_ref = f"body.line.{c.get('line')}" if c.get("line") else "commands"
-            _emit(Behavior(
-                behavior_type = btype,
-                label         = label,
-                source        = "command_classifier",
-                source_ref    = src_ref,
-                evidence      = {"command": cmd, "executable": exe},
-                mitre         = BEHAVIOR_TO_MITRE.get(btype, ()),
-            ))
+            _emit(_make(btype,
+                         label      = label,
+                         source     = "command_classifier",
+                         source_ref = src_ref,
+                         provenance = "command_execution",
+                         evidence   = {"command": cmd, "executable": exe}))
 
     # ── 4b. Malware family lookup ───────────────────────────────
     for m in (extraction.get("malware_families") or []):
@@ -411,14 +563,12 @@ def generate_behaviors(extraction: Dict[str, Any]) -> List[Behavior]:
         if not name:
             continue
         for btype in MALWARE_FAMILY_TO_BEHAVIORS.get(name, ()):
-            _emit(Behavior(
-                behavior_type = btype,
-                label         = _label_for(btype, name),
-                source        = "malware_lookup",
-                source_ref    = f"malware:{name}",
-                evidence      = {"malware_family": name},
-                mitre         = BEHAVIOR_TO_MITRE.get(btype, ()),
-            ))
+            _emit(_make(btype,
+                         label      = _label_for(btype, name),
+                         source     = "malware_lookup",
+                         source_ref = f"malware:{name}",
+                         provenance = "malware_reference",
+                         evidence   = {"malware_family": name}))
 
     # ── 4c. LOLBAS binary lookup (via body_artifacts file_paths) ─
     for a in (extraction.get("body_artifacts") or []):
@@ -427,14 +577,12 @@ def generate_behaviors(extraction: Dict[str, Any]) -> List[Behavior]:
         path = str(a.get("value") or "")
         binname = path.split("\\")[-1].split("/")[-1].lower()
         for btype in LOLBAS_BINARY_TO_BEHAVIORS.get(binname, ()):
-            _emit(Behavior(
-                behavior_type = btype,
-                label         = _label_for(btype, binname),
-                source        = "lolbas_lookup",
-                source_ref    = f"file_path:{path}",
-                evidence      = {"binary": binname, "path": path},
-                mitre         = BEHAVIOR_TO_MITRE.get(btype, ()),
-            ))
+            _emit(_make(btype,
+                         label      = _label_for(btype, binname),
+                         source     = "lolbas_lookup",
+                         source_ref = f"file_path:{path}",
+                         provenance = "lolbas_binary_reference",
+                         evidence   = {"binary": binname, "path": path}))
 
     # ── 4d. CVE lookup ─────────────────────────────────────────
     for c in (extraction.get("cves") or []):
@@ -442,14 +590,12 @@ def generate_behaviors(extraction: Dict[str, Any]) -> List[Behavior]:
         if not cid:
             continue
         for btype in CVE_TO_BEHAVIORS.get(cid, ()):
-            _emit(Behavior(
-                behavior_type = btype,
-                label         = _label_for(btype, cid),
-                source        = "cve_lookup",
-                source_ref    = f"cve:{cid}",
-                evidence      = {"cve": cid},
-                mitre         = BEHAVIOR_TO_MITRE.get(btype, ()),
-            ))
+            _emit(_make(btype,
+                         label      = _label_for(btype, cid),
+                         source     = "cve_lookup",
+                         source_ref = f"cve:{cid}",
+                         provenance = "cve_reference",
+                         evidence   = {"cve": cid}))
 
     return behaviors
 
@@ -475,6 +621,65 @@ def collect_mitre_from_behaviors(
                 "evidence": b.label,
             }
     return list(seen.values())
+
+
+def collect_outcome_inputs_from_behaviors(
+    behaviors: Sequence[Behavior],
+    *,
+    provenance_whitelist: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    """Aggregate Behaviors into the engine-facing fields the v2
+    Evidence-Driven Recommendation Engine consumes on the
+    ``InvestigationOutcome``.
+
+    Returns::
+
+        {
+          "behaviors":        [str, ...]        # kill-chain tactic tags
+          "impacts":          [str, ...]        # impact-family tags
+          "mitre_techniques": [str, ...]        # ATT&CK ids
+          "provenance":       {behavior_id: {  # audit trail for UI
+                "behavior_type": ..., "label": ..., "source": ...,
+                "provenance": ..., "source_ref": ...,
+                "mitre": [...], "kill_chain_tags": [...],
+                "impact_tags": [...]}}
+        }
+
+    A ``provenance_whitelist`` (e.g. ``("command_execution",
+    "malware_reference", "lolbas_binary_reference", "cve_reference")``)
+    restricts which Behaviors contribute.  Default ``None`` accepts
+    all provenance kinds.  When the future Tool-Mention Extractor
+    lands, callers can pass a stricter whitelist so narrative
+    references don't influence ransomware / lateral-movement rules
+    unless explicitly opted in.
+    """
+    kc:   set = set()
+    imp:  set = set()
+    tids: set = set()
+    prov: Dict[str, Any] = {}
+    for b in behaviors:
+        if provenance_whitelist and b.provenance not in provenance_whitelist:
+            continue
+        kc.update(b.kill_chain_tags)
+        imp.update(b.impact_tags)
+        tids.update(b.mitre)
+        prov[b.id] = {
+            "behavior_type":   b.behavior_type,
+            "label":           b.label,
+            "source":          b.source,
+            "provenance":      b.provenance,
+            "source_ref":      b.source_ref,
+            "mitre":           list(b.mitre),
+            "kill_chain_tags": list(b.kill_chain_tags),
+            "impact_tags":     list(b.impact_tags),
+            "confidence":      b.confidence,
+        }
+    return {
+        "behaviors":        sorted(kc),
+        "impacts":          sorted(imp),
+        "mitre_techniques": sorted(tids),
+        "provenance":       prov,
+    }
 
 
 # ── helpers ─────────────────────────────────────────────────────
@@ -508,10 +713,13 @@ def _label_for(btype: str, hint: str) -> str:
 __all__ = [
     "Behavior",
     "BEHAVIOR_TO_MITRE",
+    "BEHAVIOR_TO_KILL_CHAIN",
+    "BEHAVIOR_TO_IMPACTS",
     "MALWARE_FAMILY_TO_BEHAVIORS",
     "LOLBAS_BINARY_TO_BEHAVIORS",
     "CVE_TO_BEHAVIORS",
     "classify_command",
     "generate_behaviors",
     "collect_mitre_from_behaviors",
+    "collect_outcome_inputs_from_behaviors",
 ]

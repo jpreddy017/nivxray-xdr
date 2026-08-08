@@ -224,3 +224,158 @@ def test_legacy_classify_command_purpose_still_exists_and_returns_label():
         "vssadmin.exe",
     )
     assert isinstance(label, str) and "Shadow" in label
+
+
+# ══════════════════════════════════════════════════════════════════
+# Schema refinement · provenance, kill-chain tags, impact tags, id
+# ══════════════════════════════════════════════════════════════════
+def test_behavior_id_is_stable_content_hash():
+    ex = _extraction_for_talos_style()
+    a = generate_behaviors(ex)
+    b = generate_behaviors(ex)
+    assert [x.id for x in a] == [x.id for x in b]
+    # Different source_ref → different id
+    ids = {x.id for x in a}
+    assert len(ids) == len(a), "ids collided across distinct behaviors"
+
+
+def test_command_behaviors_have_command_execution_provenance():
+    ex = _extraction_for_talos_style()
+    for b in generate_behaviors(ex):
+        if b.source == "command_classifier":
+            assert b.provenance == "command_execution"
+
+
+def test_malware_lookup_behaviors_have_malware_reference_provenance():
+    ex = _extraction_for_talos_style()
+    for b in generate_behaviors(ex):
+        if b.source == "malware_lookup":
+            assert b.provenance == "malware_reference"
+
+
+def test_lolbas_lookup_behaviors_have_lolbas_binary_reference_provenance():
+    ex = _extraction_for_talos_style()
+    for b in generate_behaviors(ex):
+        if b.source == "lolbas_lookup":
+            assert b.provenance == "lolbas_binary_reference"
+
+
+def test_cve_lookup_behaviors_have_cve_reference_provenance():
+    ex = _extraction_for_talos_style()
+    for b in generate_behaviors(ex):
+        if b.source == "cve_lookup":
+            assert b.provenance == "cve_reference"
+
+
+def test_every_behavior_carries_kill_chain_and_impact_tags_when_mapped():
+    """A Behavior whose type appears in ``BEHAVIOR_TO_KILL_CHAIN``
+    must carry the tag; behaviors without a mapping carry ``()``
+    (no invention)."""
+    from services.ida.behaviors import (
+        BEHAVIOR_TO_KILL_CHAIN, BEHAVIOR_TO_IMPACTS,
+    )
+    for b in generate_behaviors(_extraction_for_talos_style()):
+        assert b.kill_chain_tags == BEHAVIOR_TO_KILL_CHAIN.get(
+            b.behavior_type, ())
+        assert b.impact_tags == BEHAVIOR_TO_IMPACTS.get(
+            b.behavior_type, ())
+
+
+# ══════════════════════════════════════════════════════════════════
+# Wiring · behaviors → engine-facing InvestigationOutcome fields
+# ══════════════════════════════════════════════════════════════════
+def test_collect_outcome_inputs_from_talos_behaviors():
+    from services.ida.behaviors import collect_outcome_inputs_from_behaviors
+    behaviors = generate_behaviors(_extraction_for_talos_style())
+    outcome_inputs = collect_outcome_inputs_from_behaviors(behaviors)
+
+    # ── behaviors (kill-chain tactic tags) ─────────────────────
+    assert "impact"            in outcome_inputs["behaviors"]   # shadow copy, ransomware
+    assert "defense_evasion"   in outcome_inputs["behaviors"]   # msi proxy, disable duo
+    assert "c2"                in outcome_inputs["behaviors"]   # SSH tunnel, remote access
+    assert "lateral_movement"  in outcome_inputs["behaviors"]   # SSH tunnel
+    assert "exfiltration"      in outcome_inputs["behaviors"]   # rclone
+    # ── impacts ─────────────────────────────────────────────────
+    assert "recovery_inhibited" in outcome_inputs["impacts"]
+    assert "data_encrypted"     in outcome_inputs["impacts"]
+    assert "data_theft"         in outcome_inputs["impacts"]
+    # ── MITRE ids aggregated ────────────────────────────────────
+    for tid in ("T1490", "T1218.007", "T1572", "T1567.002",
+                  "T1562.001", "T1486", "T1219", "T1566.004",
+                  "T1190"):
+        assert tid in outcome_inputs["mitre_techniques"], (
+            f"missing {tid}")
+    # ── provenance audit trail ──────────────────────────────────
+    assert len(outcome_inputs["provenance"]) == len(behaviors)
+
+
+def test_collect_outcome_inputs_provenance_whitelist_filters_correctly():
+    """A stricter whitelist (e.g. command_execution only) must
+    reject malware-reference / cve-reference / lolbas-reference
+    behaviors."""
+    from services.ida.behaviors import collect_outcome_inputs_from_behaviors
+    behaviors = generate_behaviors(_extraction_for_talos_style())
+
+    # Command-execution only
+    only_cmd = collect_outcome_inputs_from_behaviors(
+        behaviors, provenance_whitelist=("command_execution",))
+    # ransomware family provenance is malware_reference → excluded
+    assert "data_encrypted" not in only_cmd["impacts"]
+    assert "T1486" not in only_cmd["mitre_techniques"]
+    # certutil/msiexec via LOLBAS provenance → excluded
+    # But msiexec command was ALSO extracted as a command → still present
+    assert "T1218.007" in only_cmd["mitre_techniques"]
+    # Every provenance entry must be command_execution
+    for meta in only_cmd["provenance"].values():
+        assert meta["provenance"] == "command_execution"
+
+
+def test_outcome_inputs_flow_end_to_end_into_v2_engine():
+    """Full wiring — behaviors → outcome fields → engine → recommendations."""
+    from services.mitigation.evidence_driven.investigation_outcome import (
+        empty_outcome,
+    )
+    from services.mitigation.evidence_driven.engine import (
+        evidence_driven_recommendations,
+    )
+    from services.ida.behaviors import (
+        collect_outcome_inputs_from_behaviors,
+    )
+    behaviors = generate_behaviors(_extraction_for_talos_style())
+    inputs    = collect_outcome_inputs_from_behaviors(behaviors)
+
+    outcome = empty_outcome()
+    outcome["behaviors"]        = inputs["behaviors"]
+    outcome["impacts"]          = inputs["impacts"]
+    outcome["mitre_techniques"] = inputs["mitre_techniques"]
+
+    result = evidence_driven_recommendations(investigation_outcome=outcome)
+    rec_ids = {r["id"] for r in result["recommendations"]}
+
+    # With behaviors=[impact] + impacts=[recovery_inhibited, data_encrypted],
+    # the ransomware-family rules should fire.
+    assert "erad.stop_encryption"        in rec_ids
+    assert "erad.protect_shadow_copies"  in rec_ids
+    # SSH tunnel + remote access → c2 behavior tagged
+    # (No specific C2 rule guaranteed to fire without domain IOCs — but the
+    # engine must at least return SOMETHING more than the baseline.)
+    assert len(rec_ids) >= 2, (
+        f"expected multiple recommendations from full behavior graph, "
+        f"got {sorted(rec_ids)}")
+
+
+def test_no_provenance_leakage_between_sources():
+    """command_execution behaviors must not carry
+    malware/lolbas/cve provenance, and vice-versa."""
+    ex = _extraction_for_talos_style()
+    for b in generate_behaviors(ex):
+        if b.provenance == "command_execution":
+            assert b.source == "command_classifier"
+        elif b.provenance == "malware_reference":
+            assert b.source == "malware_lookup"
+        elif b.provenance == "lolbas_binary_reference":
+            assert b.source == "lolbas_lookup"
+        elif b.provenance == "cve_reference":
+            assert b.source == "cve_lookup"
+        else:
+            assert False, f"unexpected provenance {b.provenance!r}"
