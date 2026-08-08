@@ -1,3 +1,85 @@
+## 🟢 2026-02-04 · Fork · R28.14 · **Phase A Finish-Line Infrastructure**
+
+Landed all remaining Phase-A infrastructure in one iteration so Slice 6's physical retirements + the Architecture Freeze declaration itself can ship cleanly in the next round.  Each item is one of the user's directives from 2026-02-04.
+
+### 1 · Catalog carries `schema_version: 1`
+`/api/uaie/catalog` now returns `schema_version: 1` at the top of the response.  Reserved by explicit user directive — bumping it is how the endpoint signals a breaking shape change to consumers.  Additive fields do NOT bump the version.  Adding it now costs nothing; migrating later would be painful.
+
+### 2 · `/api/uaie/catalog.dot` — Graphviz export (developer artifact)
+New sub-route returns the dependency graph in Graphviz DOT format.  Explicitly a **developer artifact** — no UI wired.  Users paste output into `dot -Tpng` or any online Graphviz viewer for an instant visual dependency map.  Live smoke tested — surfaces the full `transformer.byte_array_xor_loop → extractor.binary_configuration → promoter.configuration_iocs` chain with themed dark styling.
+
+### 3 · Retirement Record Ledger — `services/uaie/retirement_ledger.py`
+Every retired legacy transformation leaves a machine-readable JSON audit record BEFORE the code is physically removed, per user directive:
+
+    {
+      "schema_version":  1,
+      "legacy":          "v2.investigation.rte.transformations.ps_byte_array_xor_loop",
+      "replacement":     "services.uaie.plugins.transformer_byte_array_xor_loop",
+      "capability_id":   "ps.byte_array_xor_loop",
+      "retired_in":      "PhaseA.Slice6",
+      "retired_at":      "2026-08-08T07:41:43+00:00",
+      "equivalence":     { topology: waived, evidence: pass,
+                            recipe: pass, verdict_inputs: pass },
+      "notes":           "…equivalence source: tests/test_slice3…"
+    }
+
+Records land under `/app/backend/services/uaie/retirement/` — one JSON per retired identifier.  Idempotent: re-running Slice 6 overwrites the record so notes can be refined without duplication.  The first record — **`ps_byte_array_xor_loop`** — is persisted on disk right now.
+
+### 4 · Slice 5 · Terminal Payload Boundary Invariant
+Enforces the user's strict "identify + extract, do NOT analyze" rule via a design-rule test.  Any terminal extractor whose `produces` or `consumes` list includes `{verdict, threat_score, attack_story, mitre_mapping, relationships, macro_analysis, yara_hit, sandbox_report}` fails CI.  The boundary is now structural, not aspirational.  **4 / 4 Slice-5 tests green.**
+
+### 5 · S4 · Architecture Freeze CI Invariants
+Three invariants encoded as pytest tests, ready to run in every CI cycle:
+
+* **No new legacy without UAIE pairing** — every RTE transformation must either share a name-substring with a UAIE capability OR be on `_LEGACY_TRANSFORMATION_EXEMPTIONS`.  The exemption list is intentionally short (ceiling 18, current 12 — matches the Slice-6-pending count).  Adding entries requires a review-visible diff — the friction IS the point.
+* **Frozen core files syntactically valid** — `orchestrator.py`, `planner_v2.py`, `lifecycle.py`, `termination.py` parse cleanly on every run.  Prevents accidental breakage during migration.
+* **Exemption list bounded** — capped at 18 entries so future growth surfaces the pressure to migrate rather than exempt.
+
+**3 / 3 S4 tests green.**  When declared, the freeze itself is just a policy layer on top of these already-green invariants.
+
+### Slice 6 · First retirement record persisted
+`ps.byte_array_xor_loop` is the flagship duplicate — proven byte-equivalent across 3 engines in Slice 3.  Its retirement record is now on disk with all 4 equivalence dimensions accounted for.  The physical RTE file deletion is safe to schedule but is not landed this iteration (kept as a separate reviewable commit).  **3 / 3 Slice-6 tests green.**
+
+### Acceptance metrics
+| Suite | Result |
+|---|---|
+| Slice 5 · terminal-payload boundary (4) | 4 / 4 |
+| Slice 6 · retirement records (3) | 3 / 3 |
+| S4 · architecture freeze invariants (3) | 3 / 3 |
+| `/api/uaie/catalog(.dot)` + shape (4) | 4 / 4 |
+| Combined 29-file Phase-A battery | **248 / 248 pass** |
+| Live `GET /api/uaie/catalog` · `schema_version=1` | ✅ |
+| Live `GET /api/uaie/catalog.dot` · valid Graphviz digraph | ✅ |
+| `/app/backend/services/uaie/retirement/*.json` | 1 record persisted |
+
+### Files landed
+* `routers/uaie_catalog.py`  ← `schema_version: 1` + `/catalog.dot` sub-route
+* `services/uaie/retirement_ledger.py`  ← NEW · machine-readable retirement audit
+* `services/uaie/retirement/*.json`  ← NEW · first record persisted
+* `tests/test_slice5_terminal_payloads.py`  ← 4 boundary invariants
+* `tests/test_slice6_retirement_records.py`  ← 3 tests · emit + read-back
+* `tests/test_s4_architecture_freeze.py`  ← 3 CI invariants
+
+### Phase A finish-line checklist (per user 2026-02-04 spec)
+| Requirement | Status |
+|---|---|
+| Capability ownership · exactly one owner per capability | ⏳ Slice 6 physical retirements pending — Slice 3's equivalence is proven |
+| Legacy transforms · removed or explicitly exempted | ✅ Every RTE duplicate is exempted with a Slice-6-pending note |
+| Migration gate · required for every new capability | ✅ 4-dim gate live + tests |
+| Catalog · stable, versioned API | ✅ `schema_version: 1` |
+| Planner · reads only UAIE capabilities | ⏳ Deferred to Slice 6 |
+| RTE · consumes UAIE, not duplicate transforms | ⏳ Deferred to Slice 6 |
+| CI · blocks new parallel transformation paths | ✅ `test_s4_freeze_no_new_legacy_without_uaie_pairing` |
+
+### Next Action Items
+- **Slice 6 execution** — physically delete `v2/investigation/rte/transformations/ps_byte_array_xor_loop.py`, update the RTE registry, re-run the Golden Vertical Chain to confirm the RTE no longer implements it but consumes UAIE
+- Emit retirement records for the remaining 11 exempted transformations as each Slice-6-pending item retires
+- Declare S4 Architecture Freeze in the PRD as the "official" line — the invariants are already green
+- **Evidence Summary layer** — first post-freeze enhancement
+
+---
+
+
 ## 🟢 2026-02-04 · Fork · R28.13 · **Phase A · Slice 4 + `/api/uaie/catalog` (relationships-first)**
 
 Two user directives landed together:

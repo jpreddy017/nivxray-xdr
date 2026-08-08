@@ -16,11 +16,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Set
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from services.uaie.migration_gate import build_capability_catalog
 
 router = APIRouter(prefix="/uaie", tags=["uaie"])
+
+
+# ── Response schema version ────────────────────────────────────────
+# Reserved now (per user directive, 2026-02-04) — bumping this is
+# how the endpoint signals a breaking shape change to consumers.
+# Additive fields do NOT bump the version.
+CATALOG_SCHEMA_VERSION = 1
 
 
 def _build_dependency_graph(catalog: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
@@ -113,7 +120,45 @@ def get_capability_catalog() -> Dict[str, Any]:
     """
     catalog = build_capability_catalog()
     return {
+        "schema_version": CATALOG_SCHEMA_VERSION,
         "count":        len(catalog),
         "capabilities": catalog,
         "graph":        _build_dependency_graph(catalog),
     }
+
+
+@router.get("/catalog.dot", response_class=Response)
+def get_capability_catalog_dot() -> Response:
+    """Return the capability dependency graph in Graphviz DOT format.
+
+    Explicitly a **developer artifact** — no UI is wired to this
+    route.  Analysts / contributors can paste the output into any
+    Graphviz viewer (``dot -Tpng``, https://dreampuf.github.io/GraphvizOnline/,
+    …) to get an instant visual dependency map of the UAIE registry.
+    Zero engineering cost on our side — the edges are already derived
+    from ``build_capability_catalog``.
+    """
+    catalog = build_capability_catalog()
+    graph = _build_dependency_graph(catalog)
+    lines: List[str] = [
+        "digraph nvx_capability_catalog {",
+        '  rankdir=LR;',
+        '  node [shape=box, style="rounded,filled", fillcolor="#0f172a", '
+        'fontcolor="#e2e8f0", color="#334155", fontname="JetBrains Mono"];',
+        '  edge [color="#67e8f9", fontcolor="#94a3b8", '
+        'fontname="JetBrains Mono", fontsize=10];',
+        '  bgcolor="#020617";',
+    ]
+    for cap_id, meta in catalog.items():
+        label = cap_id.replace('"', '\\"')
+        subtitle = meta.get("category") or ("legacy"
+                    if not meta.get("contract_registered") else "")
+        if subtitle:
+            label = f"{label}\\n[{subtitle}]"
+        lines.append(f'  "{cap_id}" [label="{label}"];')
+    for e in graph["edges"]:
+        via = ",".join(e["via_artifact_types"])
+        lines.append(f'  "{e["from"]}" -> "{e["to"]}" [label="{via}"];')
+    lines.append("}")
+    return Response(content="\n".join(lines) + "\n",
+                     media_type="text/vnd.graphviz")
