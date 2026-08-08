@@ -41,6 +41,19 @@ class CapabilityFacts:
     evidence: Set[Tuple[str, str]]                = field(default_factory=set)
     recipe:   Tuple[str, ...]                     = ()
     verdict_inputs: Dict[str, Any]                = field(default_factory=dict)
+    # ── 5th dimension · Capability Metadata (NON-BLOCKING) ──────
+    # Machine-readable metadata for each capability that fired during
+    # this run — captured but never enforced by the equivalence gate.
+    # By the end of Phase A this map becomes a complete "capability
+    # catalog" that later phases (planner optimization, visualisation,
+    # docs, auto-dependency validation) can consume for free.
+    #
+    # Shape:  { capability_id: {
+    #              category, requires, produces, consumes,
+    #              deterministic, cost, priority_hint,
+    #              improves, description,
+    #          } }
+    capability_metadata: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 # ── helpers ────────────────────────────────────────────────────────
@@ -123,7 +136,57 @@ def uaie_extract(orchestrator_result) -> CapabilityFacts:
         evidence       = ev,
         recipe         = tuple(recipe),
         verdict_inputs = _uaie_verdict_inputs(orchestrator_result),
+        capability_metadata = _uaie_capability_metadata(recipe),
     )
+
+
+def _uaie_capability_metadata(recipe: List[str]) -> Dict[str, Dict[str, Any]]:
+    """Non-blocking 5th dimension · capture machine-readable metadata
+    for every capability that fired in this run.
+
+    Reads directly from the ``CapabilityContract`` registry when the
+    capability is contract-registered.  Legacy plugins register no
+    contract — their entry is minimal (``{contract_registered: False}``).
+    By Phase A completion every capability in the recipe should carry
+    a full metadata record.
+    """
+    try:
+        from .contract import get as _contract_get
+    except Exception:
+        return {}
+    out: Dict[str, Dict[str, Any]] = {}
+    for cap_id in set(recipe):
+        # Canonicalised recipe uses the migration vocabulary; look up
+        # by the original capability name AND the aliased canonical.
+        found = _contract_get(cap_id)
+        if found is None:
+            # Try inverse alias — the recipe stores the CANONICAL name
+            # while the registry stores the RAW capability id.
+            for k, v in _OP_ALIAS.items():
+                if v == cap_id:
+                    found = _contract_get(k)
+                    if found:
+                        break
+        if found is None:
+            out[cap_id] = {"contract_registered": False}
+            continue
+        contract, _impl = found
+        out[cap_id] = {
+            "contract_registered": True,
+            "id":                  contract.id,
+            "version":             getattr(contract, "version", ""),
+            "category":            getattr(contract, "category", ""),
+            "requires":            list(getattr(contract, "requires", ()) or ()),
+            "optional_requires":   list(getattr(contract, "optional_requires", ()) or ()),
+            "produces":            list(getattr(contract, "produces", ()) or ()),
+            "consumes":            list(getattr(contract, "consumes", ()) or ()),
+            "improves":            list(getattr(contract, "improves", ()) or ()),
+            "deterministic":       bool(getattr(contract, "deterministic", True)),
+            "cost":                int(getattr(contract, "cost", 1) or 1),
+            "priority_hint":       int(getattr(contract, "priority_hint", 0) or 0),
+            "description":         str(getattr(contract, "description", "") or ""),
+        }
+    return out
 
 
 def _uaie_verdict_inputs(orchestrator_result) -> Dict[str, Any]:
@@ -312,4 +375,46 @@ __all__ = [
     "uaie_extract", "legacy_extract",
     "diff_capability_facts", "assert_migration_equivalent",
     "assert_graphs_equivalent",     # re-exported for convenience
+    "build_capability_catalog",
 ]
+
+
+# ══════════════════════════════════════════════════════════════════
+# Capability Catalog · 5th-dimension aggregator
+# ══════════════════════════════════════════════════════════════════
+def build_capability_catalog() -> Dict[str, Dict[str, Any]]:
+    """Return the full machine-readable capability catalog derived from
+    the ``CapabilityContract`` registry.
+
+    Non-blocking — intended for consumers that want the "by Phase A end
+    we have a machine-readable capability catalog essentially for free"
+    guarantee.  Every contract-registered capability shows up here with
+    the same shape ``_uaie_capability_metadata`` uses inside a single
+    run's ``CapabilityFacts``.
+
+    Consumers:
+        · planner optimisation      · analyst-facing docs
+        · UI visualisation          · CI dependency validation
+    """
+    try:
+        from .contract import all_contracts as _all_contracts
+    except Exception:
+        return {}
+    out: Dict[str, Dict[str, Any]] = {}
+    for c in _all_contracts() or []:
+        out[c.id] = {
+            "contract_registered": True,
+            "id":                  c.id,
+            "version":             getattr(c, "version", ""),
+            "category":            getattr(c, "category", ""),
+            "requires":            list(getattr(c, "requires", ()) or ()),
+            "optional_requires":   list(getattr(c, "optional_requires", ()) or ()),
+            "produces":            list(getattr(c, "produces", ()) or ()),
+            "consumes":            list(getattr(c, "consumes", ()) or ()),
+            "improves":            list(getattr(c, "improves", ()) or ()),
+            "deterministic":       bool(getattr(c, "deterministic", True)),
+            "cost":                int(getattr(c, "cost", 1) or 1),
+            "priority_hint":       int(getattr(c, "priority_hint", 0) or 0),
+            "description":         str(getattr(c, "description", "") or ""),
+        }
+    return out

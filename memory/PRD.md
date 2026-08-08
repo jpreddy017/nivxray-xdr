@@ -1,3 +1,82 @@
+## 🟢 2026-02-04 · Fork · R28.12 · **Phase A · Slices 2 + 3 + 5th-Dim Capability Metadata**
+
+User approved the current cadence and requested one non-blocking refinement: extend the migration gate with a 5th dimension — **capability metadata capture** — that isn't enforced, just recorded, so by Phase A completion we have a machine-readable capability catalog "essentially for free."  Landed alongside Slice 2 (FromBase64String + Compression family) and Slice 3 (Byte-Array XOR — the highest-value slice).
+
+### 5th Dimension · Capability Metadata Capture (non-blocking)
+`CapabilityFacts.capability_metadata: Dict[capability_id → metadata_dict]` populated automatically by `uaie_extract()` from the `CapabilityContract` registry.  Every capability that fires in a run carries:
+
+    id · version · category · requires · optional_requires · produces
+    consumes · improves · deterministic · cost · priority_hint · description
+
+Legacy-only plugins land with `{contract_registered: False}` — the metadata dimension **captures** but never **enforces**, so the recipe→metadata coverage grows monotonically as more capabilities get contract-registered without breaking any existing slice.
+
+A new `build_capability_catalog()` helper returns the full registry snapshot — the machine-readable long-term interface planner optimisation, UI visualisation, docs, and CI dependency validation will consume in Phase C+.
+
+### Slice 2 · FromBase64String + Compression family
+Family members treated architecturally as ONE capability with N implementations:
+
+    ps.from_base64_string · gzip.inflate · zlib.inflate · ps.indirect_compression
+
+Slice 2 gates all green:
+
+| Gate | Result |
+|---|---|
+| UAIE peels `FromBase64String("...gz...")` + `GZipStream` chain to inner script | ✅ |
+| UAIE peels `FromBase64String("...zl...")` + `DeflateStream` variant | ✅ |
+| Legacy & UAIE surface at least one common URL from the family | ✅ |
+| Golden Vertical Chain still surfaces `149.28.81.19` | ✅ |
+| Slice-2 retirement gates all green | ✅ |
+| 5th-dim metadata captured for every recipe capability | ✅ |
+| `build_capability_catalog()` returns non-empty registry snapshot | ✅ |
+
+**7 / 7 tests passing.**
+
+### Slice 3 · PowerShell.ByteArrayXor — HIGHEST-VALUE SLICE
+This transformation exists in **THREE** places today.  Slice 3 proves all three produce byte-identical intent and locks the retirement checklist:
+
+    1. services/die/preprocessor/recursive_decoder._decode_byte_array_xor_loop
+    2. v2/investigation/rte/transformations/ps_byte_array_xor_loop  (RTE plugin)
+    3. services/uaie/plugins/transformer_byte_array_xor_loop        (UAIE canonical)
+
+Every one of the 7 retirement gates is green on the exact Sophos Cobalt Strike stager the user pasted:
+
+| Gate | uaie_key | legacy_key | rte_key | Result |
+|---|---|---|---|---|
+| XOR key extracted | `35 (0x23)` | `35 (0x23)` | `35 (0x23)` | ✅ |
+| C2 IP `149.28.81.19` surfaced in every engine's output | ✅ | ✅ | ✅ | ✅ |
+| All three engines agree | — | — | — | ✅ |
+
+The three implementations are now *provably* interchangeable — Slice 6 (RTE-consumes-UAIE-capabilities cleanup) will physically retire the two duplicates.  **6 / 6 tests passing.**
+
+### Acceptance metrics
+| Suite | Result |
+|---|---|
+| Migration gate mechanics (11) | 11 / 11 |
+| Slice 1 · PS.EncodedCommand (5) | 5 / 5 |
+| Slice 2 · Compression family (7) | 7 / 7 |
+| Slice 3 · ByteArrayXor · **all-three-engines-agree** (6) | 6 / 6 |
+| Golden Vertical Chain (9) | 9 / 9 |
+| Combined 24-file battery (migration + phase-0 + provenance + QA + lifecycle + termination + capability + RTE + recognition) | **225 / 225 pass** |
+
+### Files landed
+* `services/uaie/migration_gate.py`  ← 5th-dim capture + `build_capability_catalog()`
+* `tests/test_slice2_compression_family.py`  ← Slice 2 (7 tests)
+* `tests/test_slice3_byte_array_xor.py`  ← Slice 3 (6 tests · all-three-engines-agree gate)
+
+### Slice roadmap (updated)
+- ✅ Slice 1 · PowerShell.EncodedCommand
+- ✅ Slice 2 · FromBase64String + Compression family
+- ✅ Slice 3 · Byte-Array XOR — **highest-value slice complete**
+- ⏳ Slice 4 · Generic Encodings (bare base64 / hex / hex-CSV / reverse-string)
+- ⏳ Slice 5 · Terminal Payloads (shellcode / PE / DLL / Script / Office / PDF)
+- ⏳ Slice 6 · RTE-consumes-UAIE-capabilities cleanup — physically retire the two duplicate byte-array-XOR implementations + duplicate ps_encoded_command + duplicate compression transformations
+- ⏳ S4 · Architecture Freeze (CI guard on orchestrator / planner / lifecycle / termination)
+- ⏳ Provenance Vocabulary Registry (per user recommendation · sits between `_OP_ALIAS` and UI/reports/exports)
+- ⏳ Evidence Summary layer (per user recommendation · sits between deterministic engine and LLM)
+
+---
+
+
 ## 🟢 2026-02-04 · Fork · R28.11 · **Phase A Kickoff · 4-Dim Equivalence Gate + Slice 1 (PowerShell.EncodedCommand)**
 
 User approved Phase A option (b) — vertical slices, capability-first — with a strong refinement: extend the equivalence gate from **1 dimension (topology)** to **4 dimensions**:
