@@ -1,3 +1,88 @@
+## 🟢 2026-02-04 · Fork · R28.13 · **Phase A · Slice 4 + `/api/uaie/catalog` (relationships-first)**
+
+Two user directives landed together:
+
+1. **Slice 4 · Encoding Primitives are byte↔text ONLY** — they must not know anything about PowerShell, Office, Shellcode, or PE.  A CI-style test enforces this design rule structurally.
+2. **`/api/uaie/catalog` exposes RELATIONSHIPS, not just a flat list** — one source of truth for dependency graphs, planner visualisation, capability explorer, and missing-plugin validation.  **No UI is wired to this endpoint yet** — per user directive, the panel is postponed until after Slice 6 + Architecture Freeze.  The endpoint itself is a stable public contract.
+
+### Slice 4 · Encoding Primitives
+Primitives treated as reusable format-only capabilities:
+
+    encoding.base64  ·  encoding.hex  ·  encoding.hex_csv
+    encoding.reverse ·  encoding.utf16le  ·  encoding.utf8
+
+Design-rule invariant (`test_slice4_primitives_are_bytes_to_text_only`) — every primitive contract's `requires` and `produces` list is scanned against `{powershell, office_document, shellcode_bytes, pe_bytes, dotnet_assembly, cs_config_raw}`.  Any hit fails CI.  This locks the boundary structurally so future contributors can't accidentally couple a "hex decoder" to PowerShell semantics.
+
+**9 / 9 Slice-4 tests green:**
+
+| Gate | Result |
+|---|---|
+| Bare base64 → inner text reachable in UAIE | ✅ |
+| Bare base64 primitive observable in legacy engine ops | ✅ |
+| Hex-ASCII primitive reachable through legacy engine | ✅ |
+| Reverse-string primitive present in UAIE plugin tree | ✅ |
+| Hex-CSV plugin (`op_ps_hex_csv_inline`) registered | ✅ |
+| UTF-16LE primitive surfaces inner script via EncodedCommand wrapper | ✅ |
+| Golden Vertical Chain still surfaces `149.28.81.19` | ✅ |
+| Design-rule invariant · primitives are byte↔text only | ✅ |
+| 5th-dim catalog covers every on-disk primitive | ✅ |
+
+### `/api/uaie/catalog` — relationship-rich Capability Catalog endpoint
+`routers/uaie_catalog.py` · `GET /api/uaie/catalog`.  Response shape (STABLE):
+
+    {
+      "count":        int,
+      "capabilities": { <cap_id>: { id, category, requires, optional_requires,
+                                     produces, consumes, improves,
+                                     deterministic, cost, priority_hint,
+                                     description, contract_registered } },
+      "graph": {
+        "edges":   [{ "from": <cap_a>, "to": <cap_b>,
+                        "via_artifact_types": [<artifact_type>, ...] }, ...],
+        "orphans": [{ "capability": <cap_x>,
+                        "unsatisfied_requires": [<type>, ...] }, ...]
+      }
+    }
+
+Edges are derived: `A → B` iff `A.produces ∩ B.requires ≠ ∅`.  Orphans list capabilities whose requires can't be satisfied by anything else in the catalog (planner sanity check).
+
+Live smoke test (real backend):
+
+    count=4  ·  edges=2  ·  orphans=1
+    transformer.byte_array_xor_loop  →  extractor.binary_configuration  via [binary_bytes]
+    extractor.binary_configuration    →  promoter.configuration_iocs     via [configuration]
+
+That's the exact CS-stager-analysis chain visible today.  **4 / 4 endpoint acceptance tests green.**
+
+### Acceptance metrics
+| Suite | Result |
+|---|---|
+| Slice 4 · encoding primitives (9) | 9 / 9 |
+| `/api/uaie/catalog` endpoint (4) | 4 / 4 |
+| Combined 26-file battery (migration + slices 1-4 + golden chain + phase-0 + provenance + QA + lifecycle + termination + capability + RTE + recognition) | **238 / 238 pass** |
+| Live `GET /api/uaie/catalog` HTTP smoke | 200 OK · relationship graph populated |
+
+### Files landed
+* `services/uaie/migration_gate.py`  ← already carrying `build_capability_catalog()` from R28.12
+* `routers/uaie_catalog.py`  ← NEW · `GET /api/uaie/catalog` endpoint + edge/orphan derivation
+* `server.py`  ← wired the router
+* `tests/test_slice4_encoding_primitives.py`  ← 9 tests · byte↔text design-rule invariant
+* `tests/test_uaie_catalog_endpoint.py`  ← 4 tests · stable response shape + edge/orphan invariants
+
+### Slice roadmap (updated)
+- ✅ Slice 1 · PowerShell.EncodedCommand
+- ✅ Slice 2 · FromBase64String + Compression family
+- ✅ Slice 3 · Byte-Array XOR — all-three-engines-agree
+- ✅ Slice 4 · Encoding Primitives (byte↔text only) + `/api/uaie/catalog`
+- ⏳ Slice 5 · Terminal Payloads · **IDENTIFY + EXTRACT, do not ANALYZE** (per user directive) — emit `artifact.type = shellcode / pe / dll / office_document / pdf` and stop
+- ⏳ Slice 6 · RTE-consumes-UAIE-capabilities cleanup — physically retire duplicates
+- ⏳ S4 · Architecture Freeze + CI invariant "no legacy transformation without UAIE capability or explicit exemption"
+- ⏳ Provenance Vocabulary Registry (post-freeze; `_OP_ALIAS` becomes one input)
+- ⏳ Evidence Summary layer (first post-freeze enhancement)
+
+---
+
+
 ## 🟢 2026-02-04 · Fork · R28.12 · **Phase A · Slices 2 + 3 + 5th-Dim Capability Metadata**
 
 User approved the current cadence and requested one non-blocking refinement: extend the migration gate with a 5th dimension — **capability metadata capture** — that isn't enforced, just recorded, so by Phase A completion we have a machine-readable capability catalog "essentially for free."  Landed alongside Slice 2 (FromBase64String + Compression family) and Slice 3 (Byte-Array XOR — the highest-value slice).

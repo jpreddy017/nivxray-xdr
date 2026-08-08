@@ -202,6 +202,13 @@ api.include_router(analyst_v2_router)
 from routers.auto_investigate import router as auto_investigate_router
 api.include_router(auto_investigate_router)
 
+# Phase A · Capability Catalog — read-only endpoint exposing the
+# machine-readable UAIE capability registry + derived dependency
+# graph.  Stable public API; no UI wired to it yet (postponed until
+# after Slice 6 + Architecture Freeze per user directive).
+from routers.uaie_catalog import router as uaie_catalog_router
+api.include_router(uaie_catalog_router)
+
 # AUTO INVESTIGATE — Background Jobs + WebSocket streaming (P0.1).
 # Long-running investigations run off the request loop; the browser
 # gets a job_id immediately and subscribes via WS for live progress.
