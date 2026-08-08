@@ -4046,3 +4046,32 @@ Three additions locked into `docs/P0.15C-RELEASE-CONTRACT.md`:
 
 Definition of Done updated to reference all five invariants and
 the stage contract.
+
+## 2026-02-08 · P0.15C Release Contract · Amendment 2 · FINAL
+
+Two more implementation disciplines locked, plus Success
+Criteria added.  Contract is now marked FINAL — no further
+edits without an ADR revision.
+
+**§0.1 · Stage Isolation Rule** — each acquisition stage lives
+in its own module with exactly ONE public function; no stage
+may call a later stage directly; the orchestrator
+(`services/veee/__init__.py`) owns the pipeline.  Every stage
+is independently unit-testable with a synthetic input.
+
+**§0.2 · Never-Modify-Evidence Rule** — VEEE MUST NEVER mutate
+an existing entry in ``structured_blocks``; only append.  HTML
+evidence is never overwritten or removed by OCR evidence; even
+duplicate OCR text is appended with its own provenance (dedup
+is a downstream concern, not acquisition's).  This makes the
+additivity invariant (§3.2) trivially verifiable.
+
+**§7 · Success Criteria** — three objective, measurable gates
+for the Octlurk retry with the flag ON (≥ 15 MITRE tids,
+≥ 5 tactics, ≥ 8 rules firing, complete provenance on every
+OCR record), Workspace parity with flag OFF, and all
+regression suites green on two consecutive runs.  Failing any
+criterion blocks the milestone from being marked complete.
+
+**Contract state: FINAL.**  Sole source of truth for the next
+implementation session.
