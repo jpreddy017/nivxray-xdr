@@ -1,4 +1,38 @@
-## 🟢 2026-02-04 · Fork · R28.7.5 · **DECODE button — Sophos multi-layer chain fixed** + Generic Artifact-Driven Recursion Landed
+## 🟢 2026-02-04 · Fork · R28.7.6 · **Cobalt Strike XOR-Loop Layer 3 Terminal — LANDED**
+
+**User verification failure trace**: after R28.7.5 the DECODE button peeled Layer 1 (`ps_encoded_command`) + Layer 2 (`ps_indirect_compression_stream`) then reported **`stop_reason: no_transformation`** on the CS stager Layer-2 output — the classic Empire / Nishang / Cobalt Strike `[Byte[]]$var_code = FromBase64String('…') ; for ($x=0; $x -lt $var_code.Count; $x++) { $var_code[$x] = $var_code[$x] -bxor <K> }` idiom.  User pasted the exact partially-decoded output and asked: *"this is not fully decoding"*.
+
+### The gap
+The RTE had no capability for the byte-array XOR loop transformation — Plugin 1 exists in the UAIE registry (`transformer.byte_array_xor_loop`) but the DECODE button pipeline (`recursive_decoder.py` · `_r23_deep_peel_and_merge` → `peel_recursively`) went straight from `from_base64_string` to `gzip / zlib / bare_base64` without a byte-array-XOR-loop matcher.  When Layer-2 text contained `FromBase64String(...)` + `for(...){-bxor K}`, `_decode_frombase64string` would consume the base64 blob first and lose the XOR context.
+
+### The fix (deterministic · no LLM · no malware-family logic)
+1. **New decoder** `_decode_byte_array_xor_loop` — regex-matches the entire idiom (loose whitespace, `$c` / `$var_code` / any var name, hex OR decimal key notation), base64-decodes the blob, applies `b ^ K` for each byte, emits a synthetic printable block with `embedded_iocs` + `extracted_strings` (User-Agents, IPs, function names, path strings).  Same terminal-shellcode surface contract as `_decode_gzip_bytes`.
+2. **Decoder ordering** — placed BEFORE `from_base64_string` in `_DECODERS`.  Rationale: XOR-loop is a MORE SPECIFIC pattern (requires both b64 blob AND a matching `-bxor` loop referencing the same variable) — it MUST win when both are present, otherwise `from_base64_string` would burn the b64 first and the XOR-loop trace would be permanently lost.
+3. **ASCII-strings extractor** — pulls printable-ASCII runs (min-len 5) from the XOR-decoded bytes so analysts see the shellcode's textual fabric (User-Agents, kernel32/wininet API names, paths).
+
+### End-to-end verification — user's exact CS stager payload
+| Check | Result |
+|---|---|
+| Recipe layers | `from_base64_string → gzip → byte_array_xor_loop` ✅ |
+| Extracted **XOR key** | `0x23 (35)` — exact match to user's Layer-2 `-bxor 35` ✅ |
+| Extracted **IP** | `149.28.81.19` ✅ |
+| Extracted **User-Agent** | `Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; BOIE9;PTBR)` ✅ |
+| Extracted **strings** | `D$$[[aYZQ`, `]hnet`, `hwiniThLw&`, `WWWWWh:Vy`, `RRRSRPh`, `hE!^1`, `/EZWf`, `Tu%1X`, `Y%0WO` — verbatim match ✅ |
+| HTTP `POST /api/decode/smart` `iocs.ips` | `['149.28.81.19']` ✅ |
+| HTTP `output_raw` field | Contains the full deep-peel trace incl. `[byte-array XOR loop decoded · key=0x23]` tag ✅ |
+| UI · Playwright DOM scan for `BOIE9` | 1 hit ✅ |
+| UI · Playwright DOM scan for `byte-array XOR` | 2 hits ✅ |
+| UI · Threat Analysis · IOCs panel | Renders `149.28.81.19` chip ✅ |
+| `tests/test_generic_recursion_acceptance.py::test_r28_7_6_cobalt_strike_byte_array_xor_loop_reaches_c2_ioc` | **PASS** ✅ |
+| Combined decoder / UAIE / recursion suites | 209/209 pass ✅ |
+
+### Files landed
+* `services/die/preprocessor/recursive_decoder.py`  ← `_BYTE_ARRAY_XOR_LOOP_RE`, `_decode_byte_array_xor_loop`, `_shellcode_ascii_strings`, `_DECODERS` reorder
+* `tests/test_generic_recursion_acceptance.py`  ← full user-shape regression gate
+
+---
+
+
 
 **User trace (verbatim)**: three manual DECODE clicks needed to unravel a Sophos-shape stager (`cmd.exe /c powershell -enc … → gzip → base64+XOR → shellcode with C2 149.28.81.19`).  User instructed: *"implement option (a) but make it artifact-driven and generic. The orchestrator must NEVER inspect for specific encodings; those decisions belong inside Capability Contracts. Continue until Fixed-Point Certificate proves no further deterministic transformations are applicable."*
 

