@@ -3654,3 +3654,87 @@ behavior_graph_schema_freeze, and coverage_metrics_api.
 preview host; current KPI reads 34.6 % (9 of 26 reachable behaviors
 consumed by ≥ 1 recommendation), universal consumers at 100 %,
 recommendation_engine reachability 31.8 %.
+
+## 2026-02-08 · P0.13 · Phase 3 sprint · Corpus + Regression Gate + Rule Efficiency
+
+**Corpus expansion (3.1 · real-world prioritised)** — grew from 16 →
+34 cases, 70/30 real-world/synthetic mix.  Sources labeled in
+`corpus/manifest.json` (Talos, Unit42, Volexity, Microsoft, CISA,
+SquidLoader, common LOLBAS abuse patterns).  Coverage jump:
+
+    Evidence → Behavior             91.4  → 100.0 %  (+ 8.6 pp)
+    Behavior → Projection           91.4  → 100.0 %  (+ 8.6 pp)
+    Projection → Recommendation     60.0  →  63.6 %  (+ 3.6 pp)
+    Reachable behaviors             26    →  50     (doubled)
+    Dead behaviors                  25    →   7     (−18)
+    corpus_gap dead rules            3    →   0     (eliminated)
+    behavior_gap dead rules          1    →   0     (eliminated)
+
+Also fixed the harness to exclude benign true-negative cases
+(`id.startswith("benign")`) from the coverage denominator — a
+benign payload producing zero behaviors is a correctness property,
+not a coverage failure.
+
+**Regression gate (3.2)** — new pytest under the `coverage_metrics`
+marker enforces on every CI run:
+
+    · HARD FLOORS · E→B ≥ 95, B→P ≥ 95, P→R ≥ 60
+    · KPI TOLERANCE · Reachable-Behaviors may not drop > 2 pp vs
+      baseline (`corpus/reports/baseline.json`)
+    · CONSUMER TOLERANCE · No consumer's reachability may drop
+      > 2 pp vs `corpus/reports/consumer_matrix_baseline.json`
+    · Baseline hygiene · schema_version parity check
+
+Floors are read from the single-source `_TARGETS` in
+`routers/coverage_metrics.py` — tests can never drift from the API.
+The P→R floor is 60 % (honest current baseline + headroom band);
+the 70 % aspiration is surfaced on `/health` as
+`aspirational_target` / `meets_aspirational_target` so Phase 3.5
+rule-library work is trackable without breaking CI.
+
+**Executive KPI view (3.2 refinement)** — new endpoint
+`/api/investigation/coverage/health` returns exactly four primary
+engineering KPIs:
+
+    · Evidence → Behavior                (extraction quality)
+    · Behavior → Projection              (semantic completeness)
+    · Projection → Recommendation        (recommendation coverage)
+    · Reachable-Behaviors                (analyst value)
+
+All other metrics (dead-rule buckets, provenance distribution,
+latency percentiles, rule efficiency) remain on `/summary`,
+`/consumer_matrix`, and `/rule_efficiency` as drill-down surfaces.
+
+**Rule Efficiency (3.3)** — new
+`/api/investigation/coverage/rule_efficiency` + per-rule table in
+the harness output.  Per rule:
+
+    · triggered   — MITRE overlap w/ seen behaviors OR fired ≥ 1×
+    · fired       — number of cases in which the rule emitted a rec
+    · suppressed  — triggered but never fired (guards blocked)
+    · shadowed_by — fires only alongside another same-group rule
+    · status ∈ {fired, shadowed, suppressed, dormant}
+
+Immediate signal from the P0.13 baseline:
+
+    Total rules      21
+    Fired            12   ( 57.1 % efficiency )
+    Shadowed          3   (erad.stop_encryption + erad.protect_shadow_copies
+                            + erad.reimage_ransomware — always co-fire;
+                            consolidation candidate)
+    Suppressed        4   (hunt.b64_gzip_loader, hunt.byte_array_xor,
+                            contain.isolate_host, contain.kill_powershell —
+                            triggered but guarded)
+    Dormant           2   (rules with no MITRE overlap in this corpus)
+
+**Contract lock** — golden JSON at
+`tests/golden/coverage_summary_v1.json` extended with `/health` +
+`/rule_efficiency` shapes.
+
+**Tests · 79/79 pass** across coverage_metrics + regression_gate +
+behavior_registry + track_b + corpus_validation + behavior_graph +
+schema-freeze suites.  Focused CI target unchanged:
+`pytest -m coverage_metrics` (28 tests, ~5 s).
+
+**Live preview smoke test** — all four endpoints respond:
+`/summary`, `/consumer_matrix`, `/health`, `/rule_efficiency`.

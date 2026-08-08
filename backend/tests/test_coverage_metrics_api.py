@@ -186,3 +186,86 @@ def test_reports_dir_is_module_relative(tmp_path: pathlib.Path,
     r = client.get("/api/investigation/coverage/summary")
     assert r.status_code == 200, (
         f"summary broke when CWD != backend/: {r.status_code} {r.text}")
+
+
+# ══════════════════════════════════════════════════════════════════
+# /api/investigation/coverage/health  (executive KPI view · P0.13)
+# ══════════════════════════════════════════════════════════════════
+def test_health_returns_schema_v1_and_four_primary_kpis():
+    r = client.get("/api/investigation/coverage/health")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["schema_version"] == _GOLDEN["schema_version"]
+    for k in _GOLDEN["health_required_top_level"]:
+        assert k in body, f"health missing top-level: {k}"
+    kpis = body["kpis"]
+    for k in _GOLDEN["health_kpi_keys"]:
+        assert k in kpis, f"health.kpis missing: {k}"
+        for f in _GOLDEN["health_kpi_fields"]:
+            assert f in kpis[k], f"health.kpis.{k} missing field: {f}"
+
+
+def test_health_hard_floors_pass_after_p0_12_corpus_expansion():
+    body = client.get("/api/investigation/coverage/health").json()
+    for k in ("evidence_to_behavior",
+                "behavior_to_projection",
+                "projection_to_recommendation"):
+        assert body["kpis"][k]["meets_target"] is True, (
+            f"{k} broke its hard architectural floor")
+
+
+def test_health_reachable_behaviors_kpi_has_no_absolute_target():
+    body = client.get("/api/investigation/coverage/health").json()
+    rb = body["kpis"]["reachable_behaviors"]
+    assert rb["target"] is None, (
+        "Reachable-Behaviors KPI must not carry an absolute target — "
+        "the gate is a *regression tolerance*, not a fixed threshold.")
+
+
+# ══════════════════════════════════════════════════════════════════
+# /api/investigation/coverage/rule_efficiency  (P0.13)
+# ══════════════════════════════════════════════════════════════════
+def test_rule_efficiency_returns_schema_and_required_top_level():
+    r = client.get("/api/investigation/coverage/rule_efficiency")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["schema_version"] == _GOLDEN["schema_version"]
+    for k in _GOLDEN["rule_efficiency_required_top_level"]:
+        assert k in body, f"rule_efficiency missing: {k}"
+
+
+def test_rule_efficiency_summary_shape():
+    body = client.get("/api/investigation/coverage/rule_efficiency").json()
+    s = body["summary"]
+    for f in _GOLDEN["rule_efficiency_summary_fields"]:
+        assert f in s, f"rule_efficiency.summary missing: {f}"
+    # Sanity — buckets must sum to total.
+    assert (s["fired"] + s["shadowed"]
+                + s["suppressed"] + s["dormant"]) == s["total"], (
+        "rule_efficiency buckets must sum to total")
+
+
+def test_rule_efficiency_per_rule_shape_and_status_domain():
+    body = client.get("/api/investigation/coverage/rule_efficiency").json()
+    allowed_status = set(_GOLDEN["rule_efficiency_allowed_status_values"])
+    for row in body["per_rule"]:
+        for f in _GOLDEN["rule_efficiency_per_rule_fields"]:
+            assert f in row, f"per_rule row missing: {f}"
+        assert row["status"] in allowed_status, (
+            f"unknown rule status: {row['status']}")
+        # Rows that fired must have positive count; suppressed
+        # implies zero fires; shadowed implies at least one fire.
+        if row["status"] == "fired":
+            assert row["fired"] > 0 and not row["shadowed_by"]
+        if row["status"] == "shadowed":
+            assert row["fired"] > 0 and row["shadowed_by"]
+        if row["status"] == "suppressed":
+            assert row["fired"] == 0 and row["triggered"] is True
+        if row["status"] == "dormant":
+            assert row["fired"] == 0
+
+
+def test_rule_efficiency_limit_query_arg():
+    body = client.get("/api/investigation/coverage/rule_efficiency",
+                          params={"limit": 3}).json()
+    assert len(body["per_rule"]) == 3

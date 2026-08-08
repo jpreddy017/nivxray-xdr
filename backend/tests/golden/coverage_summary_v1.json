@@ -55,5 +55,55 @@
     "recommendation_engine",
     "workspace_ui",
     "llm_summary"
+  ],
+  "health_required_top_level": [
+    "schema_version",
+    "kpis",
+    "generated_at",
+    "corpus_size"
+  ],
+  "health_kpi_keys": [
+    "evidence_to_behavior",
+    "behavior_to_projection",
+    "projection_to_recommendation",
+    "reachable_behaviors"
+  ],
+  "health_kpi_fields": [
+    "current",
+    "baseline",
+    "delta",
+    "target",
+    "meets_target"
+  ],
+  "rule_efficiency_required_top_level": [
+    "schema_version",
+    "generated_at",
+    "corpus_size",
+    "summary",
+    "per_rule"
+  ],
+  "rule_efficiency_summary_fields": [
+    "total",
+    "fired",
+    "shadowed",
+    "suppressed",
+    "dormant",
+    "efficiency_pct"
+  ],
+  "rule_efficiency_per_rule_fields": [
+    "rule_id",
+    "group",
+    "mitre",
+    "triggered",
+    "fired",
+    "suppressed",
+    "shadowed_by",
+    "status"
+  ],
+  "rule_efficiency_allowed_status_values": [
+    "fired",
+    "shadowed",
+    "suppressed",
+    "dormant"
   ]
 }

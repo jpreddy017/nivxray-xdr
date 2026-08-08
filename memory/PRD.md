@@ -12123,3 +12123,58 @@ recommendation_engine reachability 31.8 %.
   the legacy Workspace, do not touch until explicitly directed
 - Phase B · Adapters as Capabilities
 - Phase F · Fixed-Point Termination Audit + chunked streaming
+
+---
+
+## 2026-02-08 · P0.13 · Phase 3 sprint (3.1 → 3.2 → 3.3) — SHIPPED
+
+Full details in `/app/memory/CHANGELOG.md` (2026-02-08 P0.13 entry).
+
+**What shipped in one back-to-back sprint:**
+1. **Corpus Expansion (3.1)** · 16 → 34 cases · real-world prioritised
+   · coverage E→B 100 %, B→P 100 %, P→R 63.6 %, reachable behaviors
+   doubled to 50 · `corpus_gap` + `behavior_gap` eliminated
+2. **Regression Gate (3.2)** · hard floors (E→B 95, B→P 95, P→R 60)
+   + 2 pp tolerance on Reachable-Behaviors + Consumer Reachability
+   · single-source `_TARGETS` in the router · baseline promotion
+   pattern (`baseline.json`, `consumer_matrix_baseline.json`)
+3. **Executive KPI view** · `GET /api/investigation/coverage/health`
+   returns exactly four primary KPIs; aspirational P→R target of
+   70 % surfaces without breaking CI
+4. **Rule Efficiency (3.3)** · `GET /api/investigation/coverage/rule_efficiency`
+   + `rule_efficiency` block in the harness output
+   · statuses: fired / shadowed / suppressed / dormant
+
+**Endpoints now live (all /api-prefixed, schema v1.0):**
+- `GET /investigation/coverage/summary`
+- `GET /investigation/coverage/consumer_matrix`
+- `GET /investigation/coverage/health`
+- `GET /investigation/coverage/rule_efficiency`
+
+**Files of reference (P0.13 additions):**
+- `/app/backend/routers/coverage_metrics.py`        (extended)
+- `/app/backend/scripts/corpus_validation.py`       (extended)
+- `/app/backend/corpus/manifest.json`               (34 cases)
+- `/app/backend/corpus/reports/baseline.json`       (promoted)
+- `/app/backend/tests/test_coverage_regression_gate.py` (new)
+- `/app/backend/tests/test_coverage_metrics_api.py` (extended · 28 tests)
+- `/app/backend/tests/golden/coverage_summary_v1.json` (extended)
+
+**Immediate Rule-Efficiency signal (baseline):**
+- 3 ransomware-eradication rules always co-fire → consolidation candidate
+- 4 suppressed rules → guard-clause review candidates
+- Efficiency 57.1 % · aspiration ≥ 80 % under Phase 3.5
+
+**Next Phase (3.4 · Investigation Graph UI):**
+- Interactive Evidence → Behavior → Recommendation graph
+- Each node hover exposes: producers, consumers, rules fired,
+  coverage %, registry entry, broken_at status
+- Diagnostic surface, not just visualisation
+
+**Then (3.5 · Rule-Library Expansion + Sparkline):**
+- Rules for signed-binary-proxy, remote-access-software,
+  defense_evasion_disable_tool, exploit_public_app,
+  registry_modification, archive_extraction, self_deletion —
+  moves P→R from 63.6 → ≥ 70 % (aspirational target)
+- Then promote the P→R floor back to 70
+- KPI sparkline on the analyst dashboard

@@ -113,12 +113,19 @@ def run_corpus(manifest: Dict[str, Any]) -> Dict[str, Any]:
         duplicate_behavior_hits += r["duplicate_behavior_hits"]
 
     # ── Layer coverage ────────────────────────────────────────
-    total_cases = len(per_case) or 1
-    cases_with_behaviors = sum(1 for c in per_case if c["behavior_types"])
-    cases_with_projection = sum(1 for c in per_case if c["mitre_ids"]
+    # Benign cases are architectural true-negatives: they SHOULD
+    # produce zero behaviors.  Counting them in the denominator
+    # would conflate the "no false positives" property with a
+    # coverage failure, so they are excluded from the coverage
+    # ratio (they remain in ``per_case`` for full observability).
+    scored_cases = [c for c in per_case
+                        if not str(c.get("id", "")).startswith("benign")]
+    total_cases = len(scored_cases) or 1
+    cases_with_behaviors = sum(1 for c in scored_cases if c["behavior_types"])
+    cases_with_projection = sum(1 for c in scored_cases if c["mitre_ids"]
                                      or c["kill_chain_tags"]
                                      or c["impact_tags"])
-    cases_with_recs = sum(1 for c in per_case if c["recommendation_ids"])
+    cases_with_recs = sum(1 for c in scored_cases if c["recommendation_ids"])
 
     # ── Dead / orphan detection ───────────────────────────────
     all_behavior_types    = set(BEHAVIOR_TO_MITRE.keys())
@@ -153,6 +160,15 @@ def run_corpus(manifest: Dict[str, Any]) -> Dict[str, Any]:
             "max":    round(max(xs) * 1000, 2),
         }
 
+    # ── Rule Efficiency (P0.13) ──────────────────────────────────
+    # Per-rule diagnostic: which rules match evidence, which
+    # actually fire, which are shadowed by stricter rules of the
+    # same category.  This is the counterpart to Consumer
+    # Reachability — one is a behavior-side view, the other a
+    # rule-side view of analyst value.
+    rule_efficiency = _rule_efficiency(per_case, behaviors_seen,
+                                             recommendation_freq)
+
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "generated_at":   time.strftime("%Y-%m-%dT%H:%M:%SZ",
@@ -186,6 +202,7 @@ def run_corpus(manifest: Dict[str, Any]) -> Dict[str, Any]:
                                           * 100, 1)
                                     if total_behaviors else 100.0),
         },
+        "rule_efficiency":           rule_efficiency,
         "latency_ms":                latency_summary,
         "per_case":                  per_case,
     }
@@ -437,6 +454,102 @@ def _find_rule(rule_id: str) -> Any:
             if r.id == rule_id:
                 return r
     return None
+
+
+def _rule_efficiency(per_case: List[Dict[str, Any]],
+                        behaviors_seen: set,
+                        recommendation_freq: Counter) -> Dict[str, Any]:
+    """Per-rule Triggered / Fired / Suppressed / Shadowed table.
+
+        · triggered  — rule's ATT&CK tuple overlapped ≥ 1 seen
+                        behavior's MITRE projection (its precondition
+                        was met by evidence in at least one case)
+        · fired      — the rule actually emitted a recommendation in
+                        ≥ 1 case (``recommendation_freq[rule.id] > 0``)
+        · suppressed — triggered but never fired · guards blocked it
+        · shadowed   — fired, but always alongside ≥ 1 higher-priority
+                        rule of the SAME group (analyst-visible value
+                        may already be delivered by the other rule)
+
+    ``rule_shadow_pairs`` lists the specific shadowing pairs so the
+    triage UI can render them.
+    """
+    # Behaviors → MITRE tids reachable from seen Behaviors.
+    seen_mitre: set = set()
+    for btype in behaviors_seen:
+        seen_mitre.update(BEHAVIOR_TO_MITRE.get(btype, ()))
+
+    # Per-case: which rules co-fired (used for shadow detection).
+    co_fire_matrix: List[Tuple[str, List[str]]] = [
+        (str(c.get("id")), list(c.get("recommendation_ids") or []))
+        for c in per_case
+    ]
+
+    per_rule: List[Dict[str, Any]] = []
+    for group in ("INVESTIGATE_RULES", "HUNT_RULES", "CONTAIN_RULES",
+                    "ERADICATE_RULES", "RECOVER_RULES", "HARDEN_RULES"):
+        for r in getattr(rule_library, group, []):
+            rid       = r.id
+            r_mitre   = set(getattr(r, "mitre", None) or ())
+            fired_ct  = int(recommendation_freq.get(rid, 0))
+            # Triggered = precondition met by evidence in at least
+            # one case.  MITRE overlap is the primary signal;
+            # actually firing also counts (rules may match on
+            # kill_chain / impact / evidence_dims outside MITRE).
+            triggered = bool(r_mitre & seen_mitre) or fired_ct > 0
+
+            # Shadowed detection · rule fired but only alongside
+            # another rule of the same group in every case it fired.
+            shadowed_by: List[str] = []
+            if fired_ct > 0:
+                same_group_ids = {rr.id for rr in
+                                       getattr(rule_library, group, [])
+                                       if rr.id != rid}
+                if same_group_ids:
+                    always_paired: set = None  # type: ignore
+                    for _case_id, fired_here in co_fire_matrix:
+                        if rid not in fired_here:
+                            continue
+                        peers = set(fired_here) & same_group_ids
+                        if always_paired is None:
+                            always_paired = set(peers)
+                        else:
+                            always_paired &= peers
+                    if always_paired:
+                        shadowed_by = sorted(always_paired)
+
+            status = ("fired"      if fired_ct > 0 and not shadowed_by
+                       else "shadowed"   if fired_ct > 0
+                       else "suppressed" if triggered
+                       else "dormant")
+            per_rule.append({
+                "rule_id":          rid,
+                "group":            group.replace("_RULES", "").lower(),
+                "mitre":            sorted(r_mitre),
+                "triggered":        triggered,
+                "fired":            fired_ct,
+                "suppressed":       triggered and fired_ct == 0,
+                "shadowed_by":      shadowed_by,
+                "status":           status,
+            })
+
+    total = len(per_rule) or 1
+    fired      = sum(1 for r in per_rule if r["status"] == "fired")
+    shadowed   = sum(1 for r in per_rule if r["status"] == "shadowed")
+    suppressed = sum(1 for r in per_rule if r["status"] == "suppressed")
+    dormant    = sum(1 for r in per_rule if r["status"] == "dormant")
+
+    return {
+        "per_rule": per_rule,
+        "summary": {
+            "total":        total,
+            "fired":        fired,
+            "shadowed":     shadowed,
+            "suppressed":   suppressed,
+            "dormant":      dormant,
+            "efficiency_pct": round(fired / total * 100, 1),
+        },
+    }
 
 
 # ══════════════════════════════════════════════════════════════════
