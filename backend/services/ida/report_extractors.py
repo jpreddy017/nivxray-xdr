@@ -193,6 +193,24 @@ def extract_all(article_text: str,
     sigma    = _extract_sigma(joined)
     hash_ctx = _extract_hash_context(joined, blocks)
 
+    # ── Stage 5 · Deterministic Behavior Generation ──────────────
+    # Convert commands / malware / LOLBAS / CVE evidence into
+    # canonical Behavior objects, then derive additional MITRE
+    # techniques from those Behaviors.  Purely deterministic
+    # lookups — no prose inference, nothing invented.
+    from .behaviors import generate_behaviors, collect_mitre_from_behaviors
+    behaviors = generate_behaviors({
+        "commands":         commands,
+        "malware_families": malware,
+        "body_artifacts":   body_artifacts,
+        "cves":             cves,
+    })
+    _seen_mitre = {m["id"] for m in mitre}
+    for m in collect_mitre_from_behaviors(behaviors):
+        if m["id"] not in _seen_mitre:
+            mitre.append(m)
+            _seen_mitre.add(m["id"])
+
     return {
         "body_artifacts":     body_artifacts,
         "mitre_techniques":   mitre,
@@ -204,6 +222,8 @@ def extract_all(article_text: str,
         "yara_rules":         yara,
         "sigma_rules":        sigma,
         "hash_context":       hash_ctx,
+        # New in P0.3 · Stage 5 · Behavior Generation.
+        "behaviors":          [b.to_dict() for b in behaviors],
         "totals": {
             "artifacts": len(body_artifacts),
             "mitre":     len(mitre),
@@ -214,6 +234,7 @@ def extract_all(article_text: str,
             "timeline":  len(timeline),
             "yara":      len(yara),
             "sigma":     len(sigma),
+            "behaviors": len(behaviors),
         },
     }
 
@@ -759,9 +780,11 @@ def _empty_extraction() -> Dict[str, Any]:
         "timeline":           [],
         "yara_rules":         [],
         "sigma_rules":        [],
+        "behaviors":          [],
         "totals": {
             "artifacts": 0, "mitre": 0, "cves": 0, "actors": 0,
             "malware": 0, "commands": 0, "timeline": 0, "yara": 0, "sigma": 0,
+            "behaviors": 0,
         },
     }
 

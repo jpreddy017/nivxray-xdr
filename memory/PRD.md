@@ -1,3 +1,46 @@
+## 🟢 2026-02-05 · P0.3 · **Stage 5 · Deterministic Behavior Generation Layer**
+
+Per user directive, added a first-class Behavior generation stage between raw-entity extraction (Stage 4) and MITRE mapping (Stage 6).  Behavior becomes the canonical semantic object; MITRE is one consumer alongside future consumers (recommendations, evidence summary, reports, LLM).
+
+### New architecture
+```
+Evidence  (commands, malware_families, LOLBAS, CVEs)
+    │
+    ▼
+Behavior Generation      ← NEW · deterministic lookup only
+    │
+┌───┼─────────────────────┐
+▼   ▼                     ▼
+MITRE   Recommendations   Evidence Summary / Reports / LLM
+```
+
+### Files
+* NEW  `services/ida/behaviors.py`  · Behavior dataclass, BEHAVIOR_TO_MITRE map (44 canonical behavior types), classify_command / malware / lolbas / cve generators
+* MODIFIED  `services/ida/report_extractors.py`  · `extract_all()` now emits `behaviors: [...]`; `mitre_techniques` is enriched with behavior-derived IDs alongside literal-regex hits (marked with `source` field for provenance)
+* NEW  `tests/test_ida_behavior_generation.py`  · 18 regression tests
+
+### Talos URL result (post-fix)
+| Metric | Before | After |
+|---|---|---|
+| Behavior objects  | (stage did not exist) | **16** |
+| MITRE techniques  | 0 (regex only) | **11** (`T1219 · T1490 · T1218.007 · T1572 · T1021.004 · T1567.002 · T1020 · T1562.001 · T1486 · T1566.004 · T1190`) |
+| Kill-chain stages covered | 0/8 | **7/8** (Initial Access · Execution · Defense Evasion · C&C · Exfiltration · Impact · Vulnerability Exploitation) |
+
+Remaining gap: Discovery + Lateral Movement stages MENTIONED in prose (`ipconfig`, `nltest`, `PsExec`, `RDP`) but never extracted at Stage 4 (command_extractor doesn't parse narrative sentences).  That's a Stage 4 command-extraction gap, not a Behavior gap.  We deliberately do NOT close it via prose inference — that would violate the deterministic contract.
+
+### Constraints honored
+- Every mapping is a DETERMINISTIC lookup — no prose inference, no regex over narrative, no LLM
+- Behavior emitted ONLY when the input entity was already extracted at Stage 4
+- Workspace UI unchanged · legacy `derive_mitigations` byte-identical · existing APIs unchanged · S4 architecture freeze intact
+- Legacy `_classify_command_purpose()` still returns the same label string; new `classify_command()` in `behaviors.py` returns `(label, behavior_type_or_None)`
+
+### Status
+- 95/95 tests green + 1 skip (Talos ransomware synthetic - Track B still pending)
+- Deterministic Behavior/MITRE surface now available for future downstream consumers (v2 recommendation engine, Evidence Summary, ATT&CK UI projection)
+
+---
+
+
 ## 🟢 2026-02-05 · P0.2 · **Real Workspace bridge e2e validation · findings surfaced**
 
 Per user directive, proved the real UAIE Workspace investigation feeds the Evidence-Driven Recommendation Engine via the projector + normalizer pipeline — using the actual `services.uaie.orchestrator.Orchestrator` + `services.uaie.ssot_projector.project()` on four representative payloads.  Not synthetic SSOTs.
