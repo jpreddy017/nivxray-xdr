@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing      import Callable, Dict, List, Optional
+from typing      import Any, Callable, Dict, List, Optional
 
 from .artifact   import Artifact, make_artifact
 from .capability import Capability, for_type as _caps_for_type
@@ -370,26 +370,65 @@ class Orchestrator:
 
     def run(self, root_payload: bytes,
               *,
-              root_type: str = "unknown") -> OrchestratorResult:
+              root_type: str = "unknown",
+              filename: Optional[str] = None,
+              declared_mime: Optional[str] = None) -> OrchestratorResult:
         t0 = time.perf_counter()
-        root = make_artifact(root_payload, root_type,
-                              discovered_by="orchestrator.root")
         result = OrchestratorResult()
-        result.artifacts[root.uri] = root
-        result.states[root.uri] = STATE_NEW
+        # ── R28.8 · Phase 0 · Universal Input Adapter routing ──
+        # When the caller declares ``root_type='unknown'`` (the default
+        # for user pastes / uploaded files), run the Input Adapter
+        # router BEFORE creating the root artifact.  This gives
+        # documents (PDF/DOCX/EML/ZIP), URLs, HTML, JSON and command
+        # lines proper typed root artifacts so their capability
+        # registrations fire natively.  A caller that already knows the
+        # type (e.g. Capability wrappers, tests) bypasses the router
+        # by passing an explicit ``root_type`` other than "unknown".
+        adapter_meta: Dict[str, Any] = {}
+        seed_artifacts: List[Artifact] = []
+        if root_type == "unknown":
+            try:
+                from .adapters import route_input as _route_input
+                _ar = _route_input(root_payload,
+                                     filename=filename,
+                                     declared_mime=declared_mime)
+                adapter_meta = dict(_ar.meta or {})
+                for _diag in _ar.diagnostics or []:
+                    result.warnings.append(
+                        f"adapter · {_diag.get('code')} · "
+                        f"{_diag.get('reason')}"
+                    )
+                seed_artifacts = list(_ar.artifacts or [])
+            except Exception as _e:  # pragma: no cover — defensive
+                result.warnings.append(
+                    f"adapter router failed · {type(_e).__name__}: {_e}"
+                )
+        if not seed_artifacts:
+            # No adapter routing occurred (caller declared type) OR the
+            # router returned nothing (defensive fallback) → seed the
+            # queue with the exact caller-declared root.
+            seed_artifacts = [make_artifact(
+                root_payload, root_type,
+                discovered_by="orchestrator.root")]
+        root = seed_artifacts[0]
+        for a in seed_artifacts:
+            result.artifacts[a.uri] = a
+            result.states[a.uri] = STATE_NEW
         # ── Artifact State Machine (R28.5) ──────────────────────────
         lc = LifecycleRecorder()
-        lc.transition(root.uri, LC_NEW,
-                       actor="orchestrator.root",
-                       reason="root_artifact_created")
-        queue: deque = deque([root])
+        for a in seed_artifacts:
+            lc.transition(a.uri, LC_NEW,
+                           actor="orchestrator.root",
+                           reason=(f"seeded_by_adapter="
+                                     f"{adapter_meta.get('selected_adapter') or 'none'}"))
+        queue: deque = deque(seed_artifacts)
         # Artifact identity is ``(uri, artifact_type)`` — the same bytes
         # may legitimately be re-typed (e.g. by the magic-byte retyper
         # emitting a ``zlib_bytes`` child from a ``base64_decoded``
         # parent whose payload IS the raw zlib bytes).  Deduping on URI
         # alone silently drops those retypes; keying on (uri, type)
         # preserves them while still preventing true duplicates.
-        seen_ids = {(root.uri, root.artifact_type)}
+        seen_ids = {(a.uri, a.artifact_type) for a in seed_artifacts}
 
         while queue:
             if len(result.artifacts) >= self.max_artifacts:

@@ -1,4 +1,59 @@
-## 🟢 2026-02-04 · Fork · R28.7.6 · **Cobalt Strike XOR-Loop Layer 3 Terminal — LANDED**
+## 🟢 2026-02-04 · Fork · R28.8 · **Phase 0 — Universal Input Adapters (RADE)**
+
+**Locked user-supplied ordering**: Phase 0 → A → C → B → D → E → F.  RADE = Recursive Artifact Discovery Engine, not a recursive decoder.
+
+### Architecture invariants locked
+1. Adapters produce ARTIFACTS, never make security decisions
+2. Adapters are format-only.  Zero malware / family knowledge
+3. Adapters never call each other — the UAIE loop re-recognises every child
+4. Adapter selection is content-based (magic bytes / MIME / URL scheme) — never file-extension-only
+5. Adapters ALWAYS succeed at emitting at least one artifact — malformed inputs get a diagnostic-tagged ``raw_bytes`` artifact instead of a dead-end
+
+### Adapters landed (9)
+| Adapter | Priority | Detects via | Produces artifacts |
+|---|---|---|---|
+| `adapter.commandline` | 92 | `%COMSPEC%`, `cmd.exe`, `powershell`, `curl`, `wget`, `sh -c`, `bash -c` markers | `commandline` |
+| `adapter.pdf` | 90 | `%PDF` magic + MIME + filename | `text`, `url` (embedded) |
+| `adapter.docx` | 85 | `PK\x03\x04` + OOXML markers (`word/`, `xl/`, `ppt/`, `[Content_Types].xml`) | `text`, `vba_project_bin`, `embedded_object`, `url` |
+| `adapter.url` | 82 | Line-anchored `https?://…` | `url`, `domain`, `ip` (bare-IP host) |
+| `adapter.eml` | 80 | ≥ 3 RFC-822 header markers | `email_envelope`, `text`, `html`, `url`, `email_attachment` |
+| `adapter.zip` | 75 | `PK\x03\x04` (non-OOXML fallback) | `archive_entry` per file |
+| `adapter.html` | 70 | `<html>` / `<!doctype html>` / ≥ 4 tags | `text`, `url` |
+| `adapter.json` | 65 | parses as JSON | `text`, `url`, `ip`, `hash`, `base64_bare`, `powershell` (leaves) |
+| `adapter.plain_text` | 1 (fallback) | printable ratio > 85 % | `text` |
+
+### Wired into orchestrator
+`Orchestrator.run(payload)` now calls `route_input(payload, filename=…, declared_mime=…)` when `root_type='unknown'`.  Callers that already know the type (Capability wrappers, tests) bypass the router by declaring an explicit `root_type` — backwards-compat preserved.
+
+### Acceptance metrics
+| Suite | Result |
+|---|---|
+| `tests/test_phase0_adapters_acceptance.py` | **17 / 17 pass** |
+| `tests/test_phase0_orchestrator_integration.py` | **6 / 6 pass** (DOCX → text+url ; EML → envelope+body+url ; JSON → url+ip+hash ; ZIP → archive entries ; commandline typed correctly ; declared root_type bypasses router) |
+| Combined decoder / UAIE / recursion / phase-0 battery | **228 / 230 pass**, 2 pre-existing failures unrelated to Phase 0 (verified via git-stash regression check) |
+| HTTP `POST /api/decode/smart` on "Chianed" case input | Still returns `iocs.ips=['149.28.81.19']`, `149.28.81.19` + `BOIE9` in `output` |
+
+### Files landed
+* `services/uaie/adapters/__init__.py`  ← public API
+* `services/uaie/adapters/_base.py`  ← Adapter protocol · `route_input` · registry
+* `services/uaie/adapters/_registry.py`  ← declaration-order registration
+* `services/uaie/adapters/{plain_text,pdf,docx,eml,url,zip_archive,html,json_adapter,commandline}.py`
+* `services/uaie/orchestrator.py`  ← adapter routing wired at ingestion
+* `tests/test_phase0_adapters_acceptance.py`
+* `tests/test_phase0_orchestrator_integration.py`
+
+### Roadmap position
+- ✅ Phase 0 · Universal Input Adapters (this landing)
+- ⏳ Phase A · Engine unification — collapse `services/die/preprocessor/recursive_decoder.py` + `v2/investigation/rte` into Capability Contracts registered in UAIE
+- ⏳ Phase C · Rebuild Attack Story · Incident Graph · Attack Chain · NIST Report on top of SSOT
+- ⏳ Phase B · Migrate extractors to Capability Contract shape
+- ⏳ Phase D · Capability migration pass (evidence / new_artifacts / derived_intelligence 3-bucket)
+- ⏳ Phase E · Regression battery expansion (Emotet macro, Qbot RC4, JWT-in-URL, PDF-with-JS, ZIP-with-embedded-PE)
+- ⏳ Phase F · Chunked streaming for large files
+
+---
+
+
 
 **User verification failure trace**: after R28.7.5 the DECODE button peeled Layer 1 (`ps_encoded_command`) + Layer 2 (`ps_indirect_compression_stream`) then reported **`stop_reason: no_transformation`** on the CS stager Layer-2 output — the classic Empire / Nishang / Cobalt Strike `[Byte[]]$var_code = FromBase64String('…') ; for ($x=0; $x -lt $var_code.Count; $x++) { $var_code[$x] = $var_code[$x] -bxor <K> }` idiom.  User pasted the exact partially-decoded output and asked: *"this is not fully decoding"*.
 
