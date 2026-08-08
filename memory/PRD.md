@@ -1,3 +1,60 @@
+## 🟢 2026-02-05 · P0.10 · **Coverage Improvement Sprint · Traceability + Dead-Rule Classification**
+
+Executed the user's Coverage Improvement Sprint before building the Coverage Metrics API — corpus expanded, new architectural-health metrics added, provenance kinds all exercised.
+
+### Corpus expansion (10 → 16 cases · all 4 provenance kinds now exercised)
+Added 6 new cases:
+- `medusa_ransomware_family_reference` → data_encryption_for_impact via malware_reference
+- `anydesk_screenconnect_simplehelp_remote_access` → remote_access_software × 3 + quickassist_it_impersonation
+- `cve_2024_57727_simplehelp_traversal` → exploit_public_app via cve_reference
+- `mimikatz_credential_dumping` → credential_dumping_mimikatz via malware_reference
+- `sharphound_ad_recon` → discovery_ad via malware_reference
+- `rclone_named_exfil_tool` → data_staging_exfil_rclone via malware_reference
+
+Harness now supports a `structured` field in the manifest that lets a case bypass UAIE and inject `extract_all()`-shaped evidence directly.  This exercises malware_reference + cve_reference provenance without needing real URL fetches.
+
+### New metric · Traceability Completeness
+Per-case + aggregate report of complete vs broken Evidence → Behavior → Projection → Recommendation chains.  Broken-chain reasons captured verbatim (`missing_projection` · `no_supporting_recommendation`).  Emits a defect list, not just a percentage.
+
+Baseline over 16 cases: 26 behaviors → 9 complete chains → 17 broken · **34.6% completeness**.
+
+### Dead-rule classification (5 buckets)
+Every dead rule now categorised so the fix lives in the right place:
+
+| Bucket | Meaning | Count |
+|---|---|---|
+| `legitimately_dormant` | MITRE overlap with seen behavior, but rule has additional guards | 1 (`contain.kill_powershell`) |
+| `corpus_gap`            | Pipeline CAN produce the signal — corpus doesn't exercise it yet | 3 (`contain.isolate_host`, `hunt.b64_gzip_loader`, `hunt.byte_array_xor`) |
+| `behavior_gap`          | MITRE tid not reachable from any Behavior — extractor/vocab gap | 1 (`inv.check_persistence`) |
+| `logic_gap`             | Rule has no MITRE tid at all — trigger depends on non-MITRE dims | 2 (`contain.preserve_memory`, `harden.lolbas_allowlist`) |
+| `mapping_gap`           | Behavior exists but its MITRE mapping is empty (reserved) | 0 |
+
+### Coverage baseline (16-case corpus)
+| Layer | Coverage |
+|---|---|
+| Evidence → Behavior            | 93.8% |
+| Behavior → Projection          | 93.8% |
+| Projection → Recommendation    | 62.5% |
+| Provenance kinds exercised     | 4 / 4 |
+| Traceability complete          | 34.6% |
+| Dead recommendation rules      | 7 (was 9 — corpus expansion killed 2) |
+
+### Files
+* MODIFIED  `corpus/manifest.json`  · 6 new cases (structured provenance)
+* MODIFIED  `scripts/corpus_validation.py`  · `structured` case support · Traceability metric · dead-rule classification helper
+* MODIFIED  `tests/test_corpus_validation.py`  · 6 new regression tests (16 total)
+
+### Status
+- 139/139 tests green + 1 skip
+- Architectural health surface now includes traceability + defect-typed dead rules — a dashboard consumer no longer needs to interpret raw counts
+- Behavior-centric architecture stability confirmed by 16-case corpus
+
+### Constraints honored
+Deterministic-only · no rule / Workspace / UI / derive_mitigations changes · S4 architecture freeze intact · all P0.6/P0.7/P0.8 CI invariants remain green.
+
+---
+
+
 ## 🟢 2026-02-05 · P0.9 · **Large-Corpus Validation Harness + Semantic Contract Freeze (ADR-001)**
 
 Executed the user's operational-maturity pivot.  The behavior-centric architecture is now stable enough to be treated as frozen; the next work is **validation, coverage, health metrics** — not new semantic layers.

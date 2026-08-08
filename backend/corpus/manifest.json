@@ -62,6 +62,66 @@
       "expected": {"behaviors_min": 1},
       "encoding": "base64",
       "payload":  "cG93ZXJzaGVsbCAtTm9QIC1Ob25JIC1XIEhpZGRlbiAtRW5jb2RlZENvbW1hbmQgU1FCRkFGZ0FLQUJPQUdVQWR3QXRBRThBWWdCcUFHVUFZd0IwQUNBQVRnQmxBSFFBTGdCWEFHVUFZZ0JEQUd3QWFRQmxBRzRBZEFBcEFDNEFSQUJ2QUhjQWJnQnNBRzhBWVFCa0FGTUFkQUJ5QUdrQWJnQm5BQ2dBSndCb0FIUUFkQUJ3QURvQUx3QXZBR0VBZEFCMEFHRUFZd0JyQUdVQWNnQXVBR1VBZUFCaEFHMEFjQUJzQUdVQUxnQnVBR1VBZEFBdkFHSUFaUUJoQUdNQWJ3QnVBQzRBY0FCekFERUFKd0FwQUE9PQ=="
+    },
+    {
+      "id":       "medusa_ransomware_family_reference",
+      "family":   "impact",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "note":     "Structured malware_families entry — usually surfaced by report extractor, injected here directly.",
+      "structured": {
+        "malware_families": [{"name": "Medusa"}]
+      }
+    },
+    {
+      "id":       "anydesk_screenconnect_simplehelp_remote_access",
+      "family":   "c2",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [
+          {"name": "AnyDesk"},
+          {"name": "ScreenConnect"},
+          {"name": "SimpleHelp"},
+          {"name": "Quick Assist"}
+        ]
+      }
+    },
+    {
+      "id":       "cve_2024_57727_simplehelp_traversal",
+      "family":   "initial_access",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "cve_reference",
+      "structured": {
+        "cves": [{"id": "CVE-2024-57727"}]
+      }
+    },
+    {
+      "id":       "mimikatz_credential_dumping",
+      "family":   "credential_access",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [{"name": "Mimikatz"}]
+      }
+    },
+    {
+      "id":       "sharphound_ad_recon",
+      "family":   "discovery",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [{"name": "SharpHound"}, {"name": "BloodHound"}]
+      }
+    },
+    {
+      "id":       "rclone_named_exfil_tool",
+      "family":   "exfiltration",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [{"name": "Rclone"}, {"name": "MegaSync"}]
+      }
     }
   ]
 }

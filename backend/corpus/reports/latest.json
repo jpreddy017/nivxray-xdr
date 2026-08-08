@@ -1,14 +1,17 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-08-08T14:22:54Z",
-  "corpus_size": 10,
+  "generated_at": "2026-08-08T14:35:00Z",
+  "corpus_size": 16,
   "coverage": {
-    "evidence_to_behavior_pct": 90.0,
-    "behavior_to_projection_pct": 90.0,
-    "projection_to_recommendation_pct": 70.0
+    "evidence_to_behavior_pct": 93.8,
+    "behavior_to_projection_pct": 93.8,
+    "projection_to_recommendation_pct": 62.5
   },
   "behavior_frequency": {
     "powershell_execution": 3,
+    "data_staging_exfil_rclone": 3,
+    "remote_access_software": 3,
+    "discovery_ad": 2,
     "shadow_copy_deletion": 1,
     "inhibit_recovery_wmic": 1,
     "inhibit_recovery_bcdedit": 1,
@@ -16,29 +19,36 @@
     "defense_evasion_disable_tool": 1,
     "wmi_execution": 1,
     "protocol_tunneling_ssh": 1,
-    "data_staging_exfil_rclone": 1,
     "lateral_movement_psexec": 1,
     "lateral_movement_impacket": 1,
     "discovery_domain_trust": 1,
-    "powershell_encoded_command": 1
+    "powershell_encoded_command": 1,
+    "data_encryption_for_impact": 1,
+    "quickassist_it_impersonation": 1,
+    "exploit_public_app": 1,
+    "credential_dumping_mimikatz": 1
   },
   "provenance_distribution": {
     "lolbas_binary_reference": 7,
-    "command_execution": 8
+    "command_execution": 8,
+    "malware_reference": 10,
+    "cve_reference": 1
   },
   "recommendation_frequency": {
     "inv.lateral_movement_trace": 3,
+    "erad.reimage_ransomware": 2,
+    "erad.stop_encryption": 2,
+    "inv.ransomware_scope": 2,
+    "rec.restore_backups": 2,
     "harden.ps_script_block_logging": 2,
     "hunt.encoded_powershell": 2,
     "inv.analyze_ps_chain": 2,
+    "inv.recon_activity": 2,
     "erad.protect_shadow_copies": 1,
-    "erad.reimage_ransomware": 1,
-    "erad.stop_encryption": 1,
-    "inv.ransomware_scope": 1,
-    "rec.restore_backups": 1,
     "harden.egress_restrict_ps": 1,
     "inv.investigate_download": 1,
-    "inv.recon_activity": 1
+    "erad.rotate_credentials": 1,
+    "inv.check_credential_theft": 1
   },
   "dead_behavior_types": [
     "archive_extraction",
@@ -46,23 +56,17 @@
     "browser_extension_load",
     "browser_launch_headless",
     "credential_dumping_lsass",
-    "credential_dumping_mimikatz",
-    "data_encryption_for_impact",
     "discovery_account",
-    "discovery_ad",
     "discovery_host",
     "discovery_network_config",
     "discovery_system_owner",
-    "exploit_public_app",
     "ingress_tool_transfer",
     "phishing_email",
     "phishing_service",
     "powershell_download_execute",
     "powershell_in_memory",
-    "quickassist_it_impersonation",
     "registry_modification",
     "registry_run_key_persistence",
-    "remote_access_software",
     "remote_service_rdp",
     "remote_service_smb",
     "scheduled_task_at",
@@ -78,25 +82,45 @@
   "behaviors_missing_impact_projection": [
     "certutil_download",
     "defense_evasion_disable_tool",
+    "discovery_ad",
     "discovery_domain_trust",
+    "exploit_public_app",
     "lateral_movement_impacket",
     "lateral_movement_psexec",
     "powershell_encoded_command",
     "powershell_execution",
     "protocol_tunneling_ssh",
+    "quickassist_it_impersonation",
+    "remote_access_software",
     "wmi_execution"
   ],
   "dead_recommendation_rules": [
     "contain.isolate_host",
     "contain.kill_powershell",
     "contain.preserve_memory",
-    "erad.rotate_credentials",
     "harden.lolbas_allowlist",
     "hunt.b64_gzip_loader",
     "hunt.byte_array_xor",
-    "inv.check_credential_theft",
     "inv.check_persistence"
   ],
+  "dead_rule_classification": {
+    "legitimately_dormant": [
+      "contain.kill_powershell"
+    ],
+    "corpus_gap": [
+      "contain.isolate_host",
+      "hunt.b64_gzip_loader",
+      "hunt.byte_array_xor"
+    ],
+    "behavior_gap": [
+      "inv.check_persistence"
+    ],
+    "logic_gap": [
+      "contain.preserve_memory",
+      "harden.lolbas_allowlist"
+    ],
+    "mapping_gap": []
+  },
   "unmapped_evidence_summary": {
     "strings_top": 85,
     "hashes": 51,
@@ -111,46 +135,58 @@
     "mitre_hint": 2,
     "tradecraft.crypto-key-required": 2
   },
-  "duplicate_behavior_hits": 1,
+  "duplicate_behavior_hits": 4,
   "mitre_techniques_seen": [
+    "T1003.001",
     "T1020",
     "T1021.002",
     "T1021.004",
     "T1027",
     "T1047",
     "T1059.001",
+    "T1087.002",
     "T1105",
+    "T1190",
+    "T1219",
     "T1482",
+    "T1486",
     "T1490",
     "T1562.001",
+    "T1566.004",
     "T1567.002",
     "T1570",
     "T1572"
   ],
+  "traceability_aggregate": {
+    "total_behaviors": 26,
+    "complete_chains": 9,
+    "broken_chains": 17,
+    "complete_pct": 34.6
+  },
   "latency_ms": {
     "uaie_orchestrator": {
       "count": 10,
-      "median": 7.74,
-      "p95": 20.69,
-      "max": 26.32
+      "median": 7.82,
+      "p95": 11.19,
+      "max": 15.59
     },
     "behavior_extraction": {
-      "count": 10,
+      "count": 16,
       "median": 0.03,
       "p95": 0.04,
-      "max": 0.06
+      "max": 0.04
     },
     "projection_aggregation": {
-      "count": 10,
-      "median": 0.02,
-      "p95": 0.04,
-      "max": 0.06
+      "count": 16,
+      "median": 0.01,
+      "p95": 0.03,
+      "max": 0.04
     },
     "engine": {
-      "count": 10,
-      "median": 0.06,
+      "count": 16,
+      "median": 0.05,
       "p95": 0.09,
-      "max": 0.1
+      "max": 0.09
     }
   },
   "per_case": [
@@ -171,7 +207,12 @@
       "unmapped_evidence": [
         "transformer_output",
         "transformer_output"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [],
+        "complete_pct": 100.0
+      }
     },
     {
       "id": "ransomware_shadow_wbadmin_bcdedit",
@@ -232,7 +273,12 @@
         "shellcode_report",
         "domain",
         "family"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 3,
+        "broken_chains": [],
+        "complete_pct": 100.0
+      }
     },
     {
       "id": "certutil_urlcache_download",
@@ -307,7 +353,12 @@
         "domain",
         "domain",
         "domain"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 3,
+        "broken_chains": [],
+        "complete_pct": 100.0
+      }
     },
     {
       "id": "wmic_uninstall_duo",
@@ -357,7 +408,41 @@
         "shellcode_report",
         "domain",
         "family"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "a85d6df8ae4c",
+            "behavior_type": "defense_evasion_disable_tool",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1562.001"
+              ],
+              "kill_chain": [
+                "defense_evasion"
+              ],
+              "impacts": []
+            }
+          },
+          {
+            "behavior_id": "9c399c3247fe",
+            "behavior_type": "wmi_execution",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1047"
+              ],
+              "kill_chain": [
+                "execution"
+              ],
+              "impacts": []
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
     },
     {
       "id": "openssh_reverse_tunnel",
@@ -413,7 +498,29 @@
         "ipv4",
         "domain",
         "family"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "7c47a1216215",
+            "behavior_type": "protocol_tunneling_ssh",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1572",
+                "T1021.004"
+              ],
+              "kill_chain": [
+                "c2",
+                "lateral_movement"
+              ],
+              "impacts": []
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
     },
     {
       "id": "rclone_exfil",
@@ -476,7 +583,31 @@
         "shellcode_report",
         "domain",
         "family"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "fab097e2967d",
+            "behavior_type": "data_staging_exfil_rclone",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1567.002",
+                "T1020"
+              ],
+              "kill_chain": [
+                "exfiltration",
+                "collection"
+              ],
+              "impacts": [
+                "data_theft"
+              ]
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
     },
     {
       "id": "psexec_lateral",
@@ -528,7 +659,29 @@
         "shellcode_report",
         "domain",
         "family"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "c5a2b08da3d1",
+            "behavior_type": "lateral_movement_psexec",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1021.002",
+                "T1570"
+              ],
+              "kill_chain": [
+                "lateral_movement",
+                "execution"
+              ],
+              "impacts": []
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
     },
     {
       "id": "impacket_atexec",
@@ -581,7 +734,29 @@
         "shellcode_report",
         "domain",
         "transformer_output"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "057eb5218ed2",
+            "behavior_type": "lateral_movement_impacket",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1021.002",
+                "T1047"
+              ],
+              "kill_chain": [
+                "lateral_movement",
+                "execution"
+              ],
+              "impacts": []
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
     },
     {
       "id": "discovery_nltest_quser_ipconfig",
@@ -616,7 +791,27 @@
         "family",
         "family",
         "family"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "61425008ce3c",
+            "behavior_type": "discovery_domain_trust",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1482"
+              ],
+              "kill_chain": [
+                "discovery"
+              ],
+              "impacts": []
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
     },
     {
       "id": "powershell_encodedcommand_downloadcradle",
@@ -718,7 +913,375 @@
         "url",
         "domain",
         "domain"
-      ]
+      ],
+      "traceability": {
+        "complete_chains": 2,
+        "broken_chains": [],
+        "complete_pct": 100.0
+      }
+    },
+    {
+      "id": "medusa_ransomware_family_reference",
+      "behaviors_count": 1,
+      "behavior_types": [
+        "data_encryption_for_impact"
+      ],
+      "provenance_distribution": [
+        "malware_reference"
+      ],
+      "kill_chain_tags": [
+        "impact"
+      ],
+      "impact_tags": [
+        "data_encrypted"
+      ],
+      "mitre_ids": [
+        "T1486"
+      ],
+      "recommendation_ids": [
+        "erad.reimage_ransomware",
+        "erad.stop_encryption",
+        "inv.ransomware_scope",
+        "rec.restore_backups"
+      ],
+      "verdict": {
+        "severity": "critical",
+        "one_liner": "Impact behaviour observed \u2014 recovery actions included."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [],
+      "traceability": {
+        "complete_chains": 1,
+        "broken_chains": [],
+        "complete_pct": 100.0
+      }
+    },
+    {
+      "id": "anydesk_screenconnect_simplehelp_remote_access",
+      "behaviors_count": 4,
+      "behavior_types": [
+        "remote_access_software",
+        "remote_access_software",
+        "remote_access_software",
+        "quickassist_it_impersonation"
+      ],
+      "provenance_distribution": [
+        "malware_reference",
+        "malware_reference",
+        "malware_reference",
+        "malware_reference"
+      ],
+      "kill_chain_tags": [
+        "c2",
+        "recon"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1219",
+        "T1566.004"
+      ],
+      "recommendation_ids": [],
+      "verdict": {
+        "severity": "informational",
+        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+      },
+      "duplicate_behavior_hits": 1,
+      "unmapped_evidence": [],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "588ad6623f2c",
+            "behavior_type": "remote_access_software",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1219"
+              ],
+              "kill_chain": [
+                "c2"
+              ],
+              "impacts": []
+            }
+          },
+          {
+            "behavior_id": "a5e32f42a4db",
+            "behavior_type": "remote_access_software",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1219"
+              ],
+              "kill_chain": [
+                "c2"
+              ],
+              "impacts": []
+            }
+          },
+          {
+            "behavior_id": "fbaac6954c42",
+            "behavior_type": "remote_access_software",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1219"
+              ],
+              "kill_chain": [
+                "c2"
+              ],
+              "impacts": []
+            }
+          },
+          {
+            "behavior_id": "0d8690873884",
+            "behavior_type": "quickassist_it_impersonation",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1219",
+                "T1566.004"
+              ],
+              "kill_chain": [
+                "recon",
+                "c2"
+              ],
+              "impacts": []
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
+    },
+    {
+      "id": "cve_2024_57727_simplehelp_traversal",
+      "behaviors_count": 1,
+      "behavior_types": [
+        "exploit_public_app"
+      ],
+      "provenance_distribution": [
+        "cve_reference"
+      ],
+      "kill_chain_tags": [
+        "execution",
+        "recon"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1190"
+      ],
+      "recommendation_ids": [],
+      "verdict": {
+        "severity": "informational",
+        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "ebeecf7b4c71",
+            "behavior_type": "exploit_public_app",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1190"
+              ],
+              "kill_chain": [
+                "recon",
+                "execution"
+              ],
+              "impacts": []
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
+    },
+    {
+      "id": "mimikatz_credential_dumping",
+      "behaviors_count": 1,
+      "behavior_types": [
+        "credential_dumping_mimikatz"
+      ],
+      "provenance_distribution": [
+        "malware_reference"
+      ],
+      "kill_chain_tags": [
+        "credential_access"
+      ],
+      "impact_tags": [
+        "credential_exposed"
+      ],
+      "mitre_ids": [
+        "T1003.001"
+      ],
+      "recommendation_ids": [
+        "erad.rotate_credentials",
+        "inv.check_credential_theft"
+      ],
+      "verdict": {
+        "severity": "critical",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "b78d00df309d",
+            "behavior_type": "credential_dumping_mimikatz",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1003.001"
+              ],
+              "kill_chain": [
+                "credential_access"
+              ],
+              "impacts": [
+                "credential_exposed"
+              ]
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
+    },
+    {
+      "id": "sharphound_ad_recon",
+      "behaviors_count": 2,
+      "behavior_types": [
+        "discovery_ad",
+        "discovery_ad"
+      ],
+      "provenance_distribution": [
+        "malware_reference",
+        "malware_reference"
+      ],
+      "kill_chain_tags": [
+        "discovery"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1087.002"
+      ],
+      "recommendation_ids": [
+        "inv.recon_activity"
+      ],
+      "verdict": {
+        "severity": "medium",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
+      },
+      "duplicate_behavior_hits": 1,
+      "unmapped_evidence": [],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "63c0adcd4f68",
+            "behavior_type": "discovery_ad",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1087.002"
+              ],
+              "kill_chain": [
+                "discovery"
+              ],
+              "impacts": []
+            }
+          },
+          {
+            "behavior_id": "d9666130972c",
+            "behavior_type": "discovery_ad",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1087.002"
+              ],
+              "kill_chain": [
+                "discovery"
+              ],
+              "impacts": []
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
+    },
+    {
+      "id": "rclone_named_exfil_tool",
+      "behaviors_count": 2,
+      "behavior_types": [
+        "data_staging_exfil_rclone",
+        "data_staging_exfil_rclone"
+      ],
+      "provenance_distribution": [
+        "malware_reference",
+        "malware_reference"
+      ],
+      "kill_chain_tags": [
+        "collection",
+        "exfiltration"
+      ],
+      "impact_tags": [
+        "data_theft"
+      ],
+      "mitre_ids": [
+        "T1020",
+        "T1567.002"
+      ],
+      "recommendation_ids": [],
+      "verdict": {
+        "severity": "informational",
+        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+      },
+      "duplicate_behavior_hits": 1,
+      "unmapped_evidence": [],
+      "traceability": {
+        "complete_chains": 0,
+        "broken_chains": [
+          {
+            "behavior_id": "f642a6aab708",
+            "behavior_type": "data_staging_exfil_rclone",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1567.002",
+                "T1020"
+              ],
+              "kill_chain": [
+                "exfiltration",
+                "collection"
+              ],
+              "impacts": [
+                "data_theft"
+              ]
+            }
+          },
+          {
+            "behavior_id": "e5fa45e47847",
+            "behavior_type": "data_staging_exfil_rclone",
+            "gap": "no_supporting_recommendation",
+            "projections": {
+              "mitre": [
+                "T1567.002",
+                "T1020"
+              ],
+              "kill_chain": [
+                "exfiltration",
+                "collection"
+              ],
+              "impacts": [
+                "data_theft"
+              ]
+            }
+          }
+        ],
+        "complete_pct": 0.0
+      }
     }
   ]
 }

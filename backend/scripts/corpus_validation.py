@@ -132,6 +132,14 @@ def run_corpus(manifest: Dict[str, Any]) -> Dict[str, Any]:
 
     all_rule_ids = _rule_id_universe()
     dead_rules   = sorted(all_rule_ids - recommendations_seen)
+    dead_rule_classification = _classify_dead_rules(dead_rules, behaviors_seen)
+
+    # ── Traceability aggregate ──────────────────────────────────
+    total_behaviors = sum(c["behaviors_count"] for c in per_case)
+    total_complete  = sum(c["traceability"]["complete_chains"]
+                              for c in per_case)
+    total_broken    = sum(len(c["traceability"]["broken_chains"])
+                              for c in per_case)
 
     # ── Latency stats ─────────────────────────────────────────
     latency_summary: Dict[str, Dict[str, float]] = {}
@@ -166,9 +174,18 @@ def run_corpus(manifest: Dict[str, Any]) -> Dict[str, Any]:
         "behaviors_missing_kill_chain_projection": sorted(behaviors_without_kc),
         "behaviors_missing_impact_projection":     sorted(behaviors_without_imp),
         "dead_recommendation_rules": dead_rules,
+        "dead_rule_classification":  dead_rule_classification,
         "unmapped_evidence_summary": dict(unmapped_evidence.most_common(20)),
         "duplicate_behavior_hits":   duplicate_behavior_hits,
         "mitre_techniques_seen":     sorted(mitre_seen),
+        "traceability_aggregate": {
+            "total_behaviors":  total_behaviors,
+            "complete_chains":  total_complete,
+            "broken_chains":    total_broken,
+            "complete_pct":     (round(total_complete / total_behaviors
+                                          * 100, 1)
+                                    if total_behaviors else 100.0),
+        },
         "latency_ms":                latency_summary,
         "per_case":                  per_case,
     }
@@ -206,17 +223,33 @@ def diff_reports(prev: Dict[str, Any],
 def _run_one_case(case: Dict[str, Any],
                      orch: Orchestrator,
                      stage_lat: Dict[str, List[float]]) -> Dict[str, Any]:
-    payload = _decode_payload(case)
-
-    # Stage · UAIE Orchestrator
-    t0 = time.perf_counter()
-    orch_result = orch.run(payload, filename=case.get("id", "case") + ".txt")
-    stage_lat["uaie_orchestrator"].append(time.perf_counter() - t0)
-
-    # Stage · Behavior extractor
-    t0 = time.perf_counter()
-    behaviors: List[Behavior] = extract_behaviors(orch_result)
-    stage_lat["behavior_extraction"].append(time.perf_counter() - t0)
+    # ── Structured cases (malware / CVE / LOLBAS references) ──
+    # Some evidence surfaces (named malware families, CVE IDs)
+    # don't come from UAIE — they arrive from Stage-4 report
+    # extractors on URL-ingested reports.  The harness lets a case
+    # skip UAIE entirely and inject the ``extract_all()``-shaped
+    # dict directly.  This exercises malware_reference and
+    # cve_reference provenance without needing a real URL.
+    structured = case.get("structured")
+    if structured is not None:
+        from services.ida.behaviors import generate_behaviors
+        t0 = time.perf_counter()
+        behaviors = generate_behaviors(structured)
+        stage_lat["behavior_extraction"].append(
+            time.perf_counter() - t0)
+        orch_result_evidence: List[Any] = []
+    else:
+        payload = _decode_payload(case)
+        t0 = time.perf_counter()
+        orch_result = orch.run(payload,
+                                 filename=case.get("id", "case") + ".txt")
+        stage_lat["uaie_orchestrator"].append(
+            time.perf_counter() - t0)
+        t0 = time.perf_counter()
+        behaviors = extract_behaviors(orch_result)
+        stage_lat["behavior_extraction"].append(
+            time.perf_counter() - t0)
+        orch_result_evidence = list(getattr(orch_result, "evidence", None) or [])
 
     # Stage · Aggregate projections
     t0 = time.perf_counter()
@@ -237,26 +270,62 @@ def _run_one_case(case: Dict[str, Any],
     behavior_types = [b.behavior_type for b in behaviors]
     provenance_bag = [b.provenance    for b in behaviors]
 
-    # ── Duplicate detection · same behavior_type from >1 source_ref ──
+    # ── Duplicate detection ─────────────────────────────────────
     seen: Dict[str, int] = defaultdict(int)
     for b in behaviors:
         seen[b.behavior_type] += 1
     dup_hits = sum(1 for _, n in seen.items() if n > 1)
 
-    # ── Unmapped-evidence surface · UAIE evidence kinds our extractor
-    # never converts to Behaviors.  Uses the EVIDENCE stream, not
-    # inference.
+    # ── Unmapped evidence · UAIE only ───────────────────────────
     consumed_kinds = {"commandline", "text", "lolbas"}
     unmapped: List[str] = []
-    for ev in getattr(orch_result, "evidence", None) or ():
+    for ev in orch_result_evidence:
         kind = getattr(ev, "kind", None)
         if kind and kind not in consumed_kinds:
-            # Every un-consumed kind is a candidate gap — but many
-            # (like "url"/"domain"/"hash") are legitimately consumed
-            # by IOC extractors elsewhere.  We only flag kinds that
-            # are neither consumed by the extractor NOR by the
-            # projector's own IOC surface.  For now record verbatim.
             unmapped.append(kind)
+
+    # ── Traceability Completeness ──────────────────────────────
+    # A "complete chain" is a Behavior that has at least one MITRE
+    # id + at least one kill-chain tag AND is traceable to at
+    # least one fired recommendation (either via MITRE overlap or
+    # via kill-chain/impact tag overlap).
+    complete_chains = 0
+    broken_chains:  List[Dict[str, Any]] = []
+    fired_ids = {r["id"] for r in engine_result.get("recommendations", [])}
+    for b in behaviors:
+        m  = list(BEHAVIOR_TO_MITRE.get(b.behavior_type, ()))
+        kc = list(BEHAVIOR_TO_KILL_CHAIN.get(b.behavior_type, ()))
+        im = list(BEHAVIOR_TO_IMPACTS.get(b.behavior_type, ()))
+        # Chain requirements: MITRE + kill_chain present, AND
+        # at least one fired rec correlates to this Behavior.
+        if not m or not kc:
+            broken_chains.append({
+                "behavior_id":     b.id,
+                "behavior_type":   b.behavior_type,
+                "gap":             "missing_projection",
+                "has_mitre":       bool(m),
+                "has_kill_chain":  bool(kc),
+                "has_impact":      bool(im),
+            })
+            continue
+        # Correlate to fired recs via MITRE overlap.
+        matched = False
+        for r in engine_result.get("recommendations", []):
+            r_mitre = set(r.get("mitre") or ())
+            r_evid  = set(r.get("evidence_dims") or ())
+            if set(m) & r_mitre or set(kc) & r_evid or set(im) & r_evid:
+                matched = True
+                break
+        if matched:
+            complete_chains += 1
+        else:
+            broken_chains.append({
+                "behavior_id":     b.id,
+                "behavior_type":   b.behavior_type,
+                "gap":             "no_supporting_recommendation",
+                "projections":     {"mitre": m, "kill_chain": kc,
+                                       "impacts": im},
+            })
 
     return {
         "id":                       case.get("id"),
@@ -266,12 +335,16 @@ def _run_one_case(case: Dict[str, Any],
         "kill_chain_tags":          inputs["behaviors"],
         "impact_tags":              inputs["impacts"],
         "mitre_ids":                inputs["mitre_techniques"],
-        "recommendation_ids":       sorted(r["id"] for r in
-                                                engine_result.get(
-                                                     "recommendations", [])),
+        "recommendation_ids":       sorted(fired_ids),
         "verdict":                  engine_result.get("verdict"),
         "duplicate_behavior_hits":  dup_hits,
         "unmapped_evidence":        unmapped,
+        "traceability": {
+            "complete_chains":  complete_chains,
+            "broken_chains":    broken_chains,
+            "complete_pct":     (round(complete_chains / len(behaviors) * 100, 1)
+                                    if behaviors else 100.0),
+        },
     }
 
 
@@ -292,6 +365,66 @@ def _rule_id_universe() -> set:
         for r in getattr(rule_library, group, []):
             ids.add(r.id)
     return ids
+
+
+def _classify_dead_rules(dead_rules: List[str],
+                              behaviors_seen: set) -> Dict[str, List[str]]:
+    """Categorise dead rules per user directive (P0.10):
+
+        legitimately_dormant : rare or specialised condition
+        corpus_gap           : the pipeline CAN produce the required
+                                signal — corpus just doesn't exercise
+                                it yet (MITRE tid IS reachable from
+                                some Behavior)
+        behavior_gap         : rule's MITRE tid is NOT reachable from
+                                any Behavior (extractor gap)
+        logic_gap            : rule has no MITRE tid at all — trigger
+                                depends on evidence dims / bags only
+        mapping_gap          : reserved — surfaced when a Behavior
+                                exists but its MITRE mapping is empty
+
+    """
+    # ATT&CK ids reachable from ANY Behavior in the vocab.
+    reachable_mitre: set = set()
+    for _btype, tids in BEHAVIOR_TO_MITRE.items():
+        reachable_mitre.update(tids)
+    # ATT&CK ids reachable from Behaviors we've SEEN in this corpus.
+    seen_mitre: set = set()
+    for btype in behaviors_seen:
+        seen_mitre.update(BEHAVIOR_TO_MITRE.get(btype, ()))
+
+    classified: Dict[str, List[str]] = {
+        "legitimately_dormant": [],
+        "corpus_gap":            [],
+        "behavior_gap":          [],
+        "logic_gap":             [],
+        "mapping_gap":           [],
+    }
+    for rid in dead_rules:
+        rule = _find_rule(rid)
+        rule_mitre = set(getattr(rule, "mitre", None) or ())
+        if not rule_mitre:
+            classified["logic_gap"].append(rid)
+            continue
+        if rule_mitre & seen_mitre:
+            # Rule's MITRE overlapped a seen Behavior but no rec
+            # fired · trigger has additional guards → dormant.
+            classified["legitimately_dormant"].append(rid)
+        elif rule_mitre & reachable_mitre:
+            # Pipeline CAN produce this signal · corpus doesn't.
+            classified["corpus_gap"].append(rid)
+        else:
+            classified["behavior_gap"].append(rid)
+    return classified
+
+
+def _find_rule(rule_id: str) -> Any:
+    for group in ("INVESTIGATE_RULES", "HUNT_RULES", "CONTAIN_RULES",
+                    "ERADICATE_RULES", "RECOVER_RULES", "HARDEN_RULES"):
+        for r in getattr(rule_library, group, []):
+            if r.id == rule_id:
+                return r
+    return None
 
 
 # ══════════════════════════════════════════════════════════════════
