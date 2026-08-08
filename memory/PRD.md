@@ -1,3 +1,110 @@
+## 🟢 2026-02-04 · Fork · R28.15 · **Evidence-Driven Response Recommendation Engine (isolated, feature-flagged)**
+
+Locked to the hard architectural constraint the user articulated: *the existing Workspace must remain frozen and protected*.  The new engine is a **downstream consumer** of the SSOT / decode result — never a mutator.  Ships behind `NVX_EVIDENCE_ENGINE` (defaults ON) so it can be disabled without touching a single line of the Workspace.  Legacy `services.mitigation.derive_mitigations` and `mitigation.schema_version = 1` are **byte-identical** — verified by regression test.
+
+### Architecture
+
+    Existing Workspace  [FROZEN]
+            │
+            ▼
+    Existing Investigation / Evidence SSOT
+            │
+            ├── Existing Workspace consumers   [byte-identical]
+            │
+            └── NEW Evidence-Driven Engine     [isolated · flagged]
+                      │
+                      ├── 12 evidence dimensions (per-user spec)
+                      ├── Trigger-conditioned rule library
+                      └── Evidence-linked provenance per recommendation
+                                │
+                                ▼
+                        Case-specific recommendations
+
+### Files (all NEW — no existing code modified)
+* `services/mitigation/evidence_driven/__init__.py`  · module doctrine
+* `services/mitigation/evidence_driven/case_context.py`  · 12-dimension projection
+* `services/mitigation/evidence_driven/rules.py`  · rule model + engine
+* `services/mitigation/evidence_driven/rule_library.py`  · initial trigger-conditioned library
+* `services/mitigation/evidence_driven/engine.py`  · public entry + feature flag
+* `routers/mitigations_evidence_driven.py`  · `POST /api/decode/mitigations/evidence_driven`
+* `server.py`  · router registration (single additive line)
+* `tests/test_evidence_driven_engine.py`  · 12 tests
+
+### The 12 Evidence Dimensions (all projected in `CaseContext`)
+
+    1. observed_evidence     · processes / commands / files / registry
+    2. detection_types       · signature / heuristic / behavioural / anomaly / pattern / correlation
+    3. behaviors             · execution / persistence / c2 / credential_access / discovery / lateral / impact
+    4. mitre_techniques      · derived from EVIDENCE (not templates)
+    5. malware_family        · via User-Agent + XOR-loop fingerprints
+    6. apt_group             · reserved (populated only with sufficient confidence)
+    7. lolbas_hits           · certutil / bitsadmin / mshta / regsvr32 / etc.
+    8. iocs                  · ips / domains / urls / hashes
+    9. attack_pattern        · obfuscation layer count + kill-chain phases
+   10. impacts               · data_encrypted / credential_exposed / in_memory_execution / recovery_inhibited
+   11. scope                 · affected_hosts / privileged users / critical assets
+   12. detection_confidence  · low / medium / high / confirmed  (derived, not asserted)
+
+### Load-bearing invariants (locked by tests)
+* **Empty case → zero recommendations.**  `test_edr_empty_case_produces_no_recommendations`.
+* **Benign case → zero recommendations.**  `test_edr_benign_input_produces_no_recommendations`.
+* **Every fired rule carries provenance** (`mitre`, `scope`, `evidence` strings, `confidence`, `requires_confirmation`, `prerequisites`).
+* **Broken rule predicates don't crash the engine.**  `test_rule_engine_broken_predicate_does_not_crash`.
+* **Feature flag off = empty response, zero computation.**  `test_edr_feature_flag_off_returns_empty_disabled_payload`.
+* **Legacy Workspace contract byte-identical.**  `test_legacy_derive_mitigations_unchanged_shape` — `schema_version: 1`, buckets `{immediate, hunting, containment, hardening}` preserved.
+
+### Live smoke test on the Sophos CS stager
+
+    schema_version: 2   severity: critical   confidence: confirmed
+    one-liner:      Cobalt Strike beacon stager identified — evidence-driven recommendations tailored to the observed chain.
+    family:         cobalt_strike
+    mitre:          [T1027, T1055, T1059.001, T1140, T1620]
+    behaviors:      [c2, defense_evasion, execution]
+    iocs:           ips=[149.28.81.19]
+    total: 8   by_category: {contain: 3, investigate: 1, hunt: 3, harden: 1}
+
+    [critical][contain    ] contain.block_ip:149.28.81.19       (T1071)
+    [critical][contain    ] contain.isolate_host                (T1055, T1620)
+    [high    ][investigate] inv.analyze_ps_chain                (T1059.001)
+    [high    ][hunt       ] hunt.b64_gzip_loader                (T1140)
+    [high    ][hunt       ] hunt.byte_array_xor                 (T1055, T1620)
+    [high    ][hunt       ] hunt.encoded_powershell             (T1059.001, T1027)
+    [high    ][contain    ] contain.preserve_memory
+    [high    ][harden     ] harden.ps_script_block_logging      (T1059.001)
+
+Every recommendation carries the specific MITRE technique(s) + the concrete evidence string that justified it.  **Not** in this response — because the evidence didn't support them: `rotate-credentials` (no credential-access markers), `re-image` (no ransomware behaviour), `disable-user`, `restore-backups`, `domain-admin reset`.  Trigger discipline enforced.
+
+### Acceptance metrics
+| Suite | Result |
+|---|---|
+| Evidence-Driven Engine (12) | **12 / 12 pass** |
+| Legacy `derive_mitigations` byte-identity check | ✅ preserved |
+| Feature flag OFF · zero output | ✅ verified |
+| Live `POST /api/decode/mitigations/evidence_driven` on Sophos payload | ✅ 8 evidence-linked recs |
+| Live `POST /api/decode/mitigations/evidence_driven` on benign input | ✅ zero recs |
+| Combined Phase-A + Evidence-Engine battery (30 files) | **260 / 260 pass** |
+
+### Regression contract preserved
+| Constraint | Status |
+|---|---|
+| Workspace layout / tabs / navigation | ✅ untouched |
+| Legacy `derive_mitigations` schema `v1` | ✅ preserved |
+| `POST /api/decode/mitigations` (legacy) | ✅ untouched |
+| Workspace APIs / response schemas | ✅ untouched |
+| Investigation / evidence / MITRE / Attack Story flows | ✅ untouched |
+| New engine can be disabled via `NVX_EVIDENCE_ENGINE=off` | ✅ verified |
+| Regression suite green | ✅ 260 / 260 |
+
+### Next Action Items
+- Populate more evidence-driven rules as new attack patterns are observed (ransomware, credential-theft, discovery/recon) — each new rule ships with its trigger-fires + trigger-does-not-fire test pair
+- Optionally wire the analyst UI to consume the new endpoint side-by-side with the legacy one (behind a Workspace-scope UI toggle)
+- Resume Slice-6 physical retirements now that this analyst-facing capability is safely landed
+
+Potential improvement: expose a `?dimensions_only=1` query flag on the endpoint that returns the 12-dimension snapshot WITHOUT the recommendations — perfect input for the future Evidence Summary → LLM pipeline (LLM never sees raw payloads, only structured facts).
+
+---
+
+
 ## 🟢 2026-02-04 · Fork · R28.14 · **Phase A Finish-Line Infrastructure**
 
 Landed all remaining Phase-A infrastructure in one iteration so Slice 6's physical retirements + the Architecture Freeze declaration itself can ship cleanly in the next round.  Each item is one of the user's directives from 2026-02-04.

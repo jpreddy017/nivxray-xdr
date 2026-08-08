@@ -209,6 +209,14 @@ api.include_router(auto_investigate_router)
 from routers.uaie_catalog import router as uaie_catalog_router
 api.include_router(uaie_catalog_router)
 
+# Evidence-Driven Response Recommendation Engine — isolated new
+# downstream consumer of the SSOT / decode result.  Ships behind
+# ``NVX_EVIDENCE_ENGINE`` feature flag (defaults ON).  DOES NOT
+# TOUCH THE LEGACY /api/decode/mitigations SURFACE.
+from routers.mitigations_evidence_driven import (
+    router as edr_router)
+api.include_router(edr_router)
+
 # AUTO INVESTIGATE — Background Jobs + WebSocket streaming (P0.1).
 # Long-running investigations run off the request loop; the browser
 # gets a job_id immediately and subscribes via WS for live progress.
