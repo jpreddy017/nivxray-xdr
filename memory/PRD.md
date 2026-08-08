@@ -1,3 +1,45 @@
+## 🟢 2026-02-05 · P0.5 · **Behavior / Projection separation**
+
+Per user directive, refactored the Behavior schema to be framework-neutral.  Removed `mitre`, `kill_chain_tags`, `impact_tags` from the `Behavior` dataclass.  Each framework projection now lives in an independent module.
+
+### New architecture
+```
+Behavior                (framework-neutral · minimal semantic contract)
+   │
+┌──┼─────────────────────────────────────────┐
+▼  ▼                                         ▼
+services.ida.projections.mitre         ...future D3FEND / NIST / CIS / ...
+services.ida.projections.kill_chain
+services.ida.projections.impact
+```
+
+Behavior fields (final): `behavior_type · label · source · source_ref · provenance · confidence · evidence · id (property)`.  No framework fields on the object.
+
+### New files
+* NEW  `services/ida/projections/__init__.py`  · package doctrine + re-exports
+* NEW  `services/ida/projections/mitre.py`  · `BEHAVIOR_TO_MITRE` + `project_to_mitre()`
+* NEW  `services/ida/projections/kill_chain.py`  · `BEHAVIOR_TO_KILL_CHAIN` + `project_to_kill_chain()`
+* NEW  `services/ida/projections/impact.py`  · `BEHAVIOR_TO_IMPACTS` + `project_to_impacts()`
+* MODIFIED  `services/ida/behaviors.py`  · Behavior schema minimized; aggregator composes projections
+* NEW  `tests/test_ida_behavior_projections.py`  · 8 regression tests locking the separation contract
+
+### Locked invariants
+- `Behavior` field set is exactly `{behavior_type, label, source, source_ref, provenance, confidence, evidence}` (test asserts this via `dataclasses.fields`)
+- No framework fields (`mitre`, `kill_chain_tags`, `impact_tags`, `d3fend`, `nist`, ...) on the Behavior object
+- `collect_outcome_inputs_from_behaviors()` composes independent projections rather than re-implementing maps
+- Empty behaviors → empty projections (no invention)
+- Talos URL end-to-end result unchanged: 16 Behaviors → 6 critical/high recommendations (behavior-preserving refactor)
+
+### Status
+- 113/113 tests green + 1 skip (Track B still pending)
+- Framework independence proven: adding a new framework projection needs zero Behavior edits
+
+### Constraints honored
+Deterministic-only · no prose inference · no LLM · no rule-library change · no Workspace/UI change · S4 freeze intact.
+
+---
+
+
 ## 🟢 2026-02-05 · P0.4 · **Behaviors wired into v2 Engine (Priority #1)**
 
 Per user priority ordering, closed the "no MITRE + no behaviors reaching the recommendation engine" gap for URL-ingested investigations.  Refined the Behavior schema with `provenance`, `kill_chain_tags`, `impact_tags`, and a stable content-hash `id`.  Added `collect_outcome_inputs_from_behaviors()` aggregator so Behaviors project cleanly into the `InvestigationOutcome` fields the v2 engine consumes.

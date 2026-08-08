@@ -268,17 +268,22 @@ def test_cve_lookup_behaviors_have_cve_reference_provenance():
 
 
 def test_every_behavior_carries_kill_chain_and_impact_tags_when_mapped():
-    """A Behavior whose type appears in ``BEHAVIOR_TO_KILL_CHAIN``
-    must carry the tag; behaviors without a mapping carry ``()``
-    (no invention)."""
+    """A Behavior's projections must match the static maps.  With
+    the P0.5 refactor the tags no longer live ON the Behavior — we
+    project them on demand."""
     from services.ida.behaviors import (
         BEHAVIOR_TO_KILL_CHAIN, BEHAVIOR_TO_IMPACTS,
     )
-    for b in generate_behaviors(_extraction_for_talos_style()):
-        assert b.kill_chain_tags == BEHAVIOR_TO_KILL_CHAIN.get(
-            b.behavior_type, ())
-        assert b.impact_tags == BEHAVIOR_TO_IMPACTS.get(
-            b.behavior_type, ())
+    from services.ida.projections.kill_chain import project_to_kill_chain
+    from services.ida.projections.impact     import project_to_impacts
+    behaviors = generate_behaviors(_extraction_for_talos_style())
+    for b in behaviors:
+        expected_kc  = BEHAVIOR_TO_KILL_CHAIN.get(b.behavior_type, ())
+        expected_imp = BEHAVIOR_TO_IMPACTS.get(b.behavior_type, ())
+        actual_kc    = set(project_to_kill_chain([b]))
+        actual_imp   = set(project_to_impacts([b]))
+        assert actual_kc  == set(expected_kc)
+        assert actual_imp == set(expected_imp)
 
 
 # ══════════════════════════════════════════════════════════════════
