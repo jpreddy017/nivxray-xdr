@@ -3789,3 +3789,75 @@ p08_graph_and_uaie_extractor + real_workspace_bridge_e2e +
 track_b_projector_and_ci_invariants + behavior_registry_and_taxonomy
 + corpus_validation + behavior_graph + schema_freeze suites.
 Live preview smoke test green on all four coverage endpoints.
+
+## 2026-02-08 · P0.15A · Evidence Canonicalizer + ADR-002 · Trajectory-gap fix
+
+**ADR-002 · Visual Evidence Extraction Engine (VEEE) architecture
+frozen** at `/app/docs/ADR-002-visual-evidence-extraction-engine.md`.
+Defines the three-layer input contract (VEEE → Canonicalizer →
+Behavior Classifier), the P1-P4 Evidence Provenance Levels, the
+NormalizedEvidence / CanonicalCommand data contracts, failure
+modes, extension points, and the CI invariants downstream code
+must respect once VEEE ships.
+
+**P0.15A · Evidence Canonicalizer** shipped as
+`services/canonicalizer/`.  Pure, deterministic; ADR-002 §3.2
+contract.  Peels launcher wrappers (`cmd.exe /S /C "..."`,
+`powershell -Command "..."`, `powershell -EncodedCommand <b64>`,
+`bash -c "..."`, `mshta.exe <url>`, `rundll32.exe <dll,entry>`,
+`regsvr32.exe`, `wscript.exe`, `cscript.exe`) into a canonical
+`{launcher_chain[], effective_command, effective_head, payload,
+unwrap_depth}` shape.  Wired into `_classify_command_purpose`
+so every call site now sees the canonical form regardless of how
+the command was wrapped.
+
+**Trajectory-gap fix (P0.14)** — the bridge/on-read enrichment
+shipped a few hours before this entry now stands on top of a
+canonicalizer that unlocks 8+ new purpose labels (Scheduled Task
+remote create, Windows Service create/start/failure, Process
+discovery/termination, Domain-controllers enumeration, Credential
+dumping secretsdump-family, Ping C2, Remote-access software
+execution).  All get MITRE bridge entries and TECHNIQUE_TO_TACTIC
+mappings.
+
+**Octlurk regression fixture** (Securelist 2026-02-08) — locks
+end-to-end: 15 OCR-derived Octlurk commands → Canonicalizer →
+classifier → bridge → MITRE.  Coverage spans **6 ATT&CK tactics**
+(discovery, persistence, credential_access, defense_evasion,
+command_and_control, impact).  Pre-P0.15A the same fixture
+collapsed 10 of the 15 to generic "Command execution" — that
+regression is now a hard-fail CI test.
+
+**CI hygiene** — dropped the incomplete
+`services/mitigation/evidence_driven/explainability.py` (was
+tripping the `test_ci_invariant_no_framework_map_imports_outside_projections`
+guard by importing `BEHAVIOR_TO_MITRE` outside the projection
+layer).  Will re-introduce cleanly under P0.15C when the
+Explainability Score UI ships — designed as a projection-layer
+consumer, not a recommendation-layer producer.
+
+**Tests · 202 passed, 1 skipped** across
+canonicalizer + octlurk fixture + purpose-bridge + coverage_metrics
++ regression_gate + evidence_driven suites + behavior_registry +
+track_b + corpus_validation + behavior_graph + schema_freeze.
+Hard floors intact (E→B 100 %, B→P 100 %, P→R 100 %, Reachable
+Behaviors 74 %).
+
+**Files of reference:**
+- `/app/docs/ADR-002-visual-evidence-extraction-engine.md`  (new)
+- `/app/backend/services/canonicalizer/__init__.py`         (new)
+- `/app/backend/services/ida/report_extractors.py`          (integrated)
+- `/app/backend/services/ice/correlate.py`                  (extended bridge)
+- `/app/backend/tests/test_canonicalizer.py`                (new)
+- `/app/backend/tests/test_octlurk_regression_fixture.py`   (new)
+
+**Deferred to next session:**
+- **P0.15B · VEEE** — Tesseract 5 with `--tsv` bounding-box output,
+  image classifier heuristic, vendor CDN allowlist, per-image
+  SHA256 cache, retro-fetch the Securelist Octlurk article for
+  the ADR-002 end-to-end proof.
+- **P0.15C · Acquisition Summary panel + visual-provenance UI** —
+  click-command → jump-to-image-region with bbox highlight.
+- **Recommendation Explainability Score** — reintroduced as a
+  projection-layer consumer (ADR-002 §6 provenance-level
+  awareness).

@@ -797,7 +797,32 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     e.g. "Unzip Edgecution stager", "Python discovery",
     "Microsoft Edge launch (extension load)", "Self-deletion".
     Deterministic — matches the labels vendors publish in their
-    Command-Line IOC tables."""
+    Command-Line IOC tables.
+
+    2026-02-08 · P0.15A · ADR-002 · Canonicalizer integration.
+    Every call is first routed through the Evidence Canonicalizer
+    so wrapped invocations (``cmd /S /C "schtasks …"``,
+    ``powershell -EncodedCommand …``) reach the classifier with
+    their real ``effective_head`` and payload.  The classifier
+    itself is unchanged — it just sees a cleaner input.
+    """
+    # ── Canonicalise (ADR-002 §3.2) ──────────────────────────────
+    # If the caller's head already matches the effective head the
+    # canonicalizer would return, the peel is a no-op — no harm.
+    try:
+        from services.canonicalizer import canonicalize
+        cc = canonicalize(cmd)
+        if cc.unwrap_depth > 0 and cc.effective_head:
+            # Lowercase head so downstream `head in (...)` checks
+            # (which use lowercase tuples) match.  Strip any
+            # residual quotes on payload — shlex(posix=False) keeps
+            # them on quoted arg tokens.
+            head = cc.effective_head.lower()
+            cmd  = cc.payload.strip().strip('"').strip("'")
+    except Exception:
+        # Canonicalizer failures MUST NOT break classification —
+        # gracefully fall back to the original arguments.
+        pass
     c = cmd.lower()
 
     # ── Impact / shadow copy deletion (T1490) ──────────────────────
@@ -837,9 +862,42 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     if "impacket" in c or "wmiexec" in c or "smbexec" in c:
         return "Lateral movement via Impacket"
 
+    # ── Scheduled Task (T1053.005) · Octlurk-family remote SCHTASKS ──
+    if head in ("schtasks", "schtasks.exe"):
+        remote = "/s " in c        # `/S <server>` is the remote flag
+        if "/create" in c or "/run" in c:
+            if remote:
+                return "Scheduled Task remote create"
+            return "Scheduled Task create"
+        if "/query" in c:
+            return "Scheduled Task query"
+        return "Scheduled Task"
+
+    # ── Windows Service persistence via SC (T1543.003) ─────────────
+    if head in ("sc", "sc.exe"):
+        if " create " in " " + c + " ":
+            return "Windows Service create (persistence)"
+        if " failure " in " " + c + " ":
+            return "Windows Service failure-action configure"
+        if " start " in " " + c + " ":
+            return "Windows Service start"
+        return "Windows Service configure"
+
+    # ── Task discovery / termination ───────────────────────────────
+    if head in ("tasklist", "tasklist.exe"):
+        return "Process discovery (tasklist)"
+    if head in ("taskkill", "taskkill.exe"):
+        return "Process termination"
+
     # ── Discovery — net / nltest / whoami / hostname (T1087, T1018) ─
-    if head in ("net", "net.exe") and (" user" in c or " group" in c or " localgroup" in c):
-        return "Account / group discovery"
+    if head in ("net", "net.exe"):
+        if " group " in " " + c + " " and "domain controllers" in c:
+            return "Domain-controllers enumeration"
+        if " start " in " " + c + " ":
+            # `net start "NgcCIntSvc"` — starting a service just installed.
+            return "Windows Service start"
+        if " user" in c or " group" in c or " localgroup" in c:
+            return "Account / group discovery"
     if head in ("nltest", "nltest.exe"):
         return "Domain trust discovery"
     if head in ("whoami", "whoami.exe"):
@@ -848,6 +906,17 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
         return "Host discovery"
     if "adfind" in head or "sharphound" in head or "bloodhound" in head:
         return "Active Directory discovery"
+
+    # ── Credential Access · secretsdump-family invocation ──────────
+    # Pattern e.g. `adobe.exe user@host -no-pass -just-dc-user Administrator`
+    # (impacket secretsdump.py compiled/renamed as adobe.exe on the
+    # Securelist Octlurk campaign).
+    if "-just-dc" in c or "-just-dc-user" in c or "secretsdump" in c:
+        return "Credential dumping (secretsdump-family)"
+
+    # ── Ping for C2 resolution / beacon check ──────────────────────
+    if head in ("ping", "ping.exe") and (" -n " in c or "-n 1" in c):
+        return "Ping (C2 beacon / DNS resolution)"
 
     # ── Registry modification (T1112) ──────────────────────────────
     if head in ("reg", "reg.exe") and " add " in c:
@@ -866,6 +935,10 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     # Python discovery
     if "python" in c and ("--version" in c or " -V" in cmd):
         return "Python interpreter discovery"
+
+    # Remote-access software direct execution — AnyDesk on disk
+    if "anydesk" in c and ".exe" in c:
+        return "Remote-access software execution"
 
     # Microsoft Edge launch with extension load — Edgecution TTP
     if "msedge" in head or "msedge.exe" in c:

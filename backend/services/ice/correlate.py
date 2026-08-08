@@ -61,6 +61,7 @@ _TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1543":     "persistence",
     "T1057":     "discovery",              # Process Discovery
     "T1082":     "discovery",              # System Info Discovery
+    "T1033":     "discovery",              # System Owner / User Discovery
     "T1016":     "discovery",              # System Network Config
     "T1087":     "discovery",              # Account Discovery
     "T1003":     "credential_access",      # OS Credential Dumping
@@ -78,10 +79,17 @@ _TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1490":     "impact",                 # Inhibit System Recovery
     "T1219":     "command_and_control",    # Remote Access Tools
     "T1071":     "command_and_control",    # Application Layer Protocol
+    "T1071.004": "command_and_control",    # DNS
     "T1572":     "command_and_control",    # Protocol Tunneling  (e.g. reverse SSH `-R`)
     "T1112":     "defense_evasion",        # Modify Registry
     "T1190":     "initial_access",         # Exploit Public-Facing Application
     "T1218.007": "defense_evasion",        # Msiexec
+    "T1543.003": "persistence",            # Windows Service
+    "T1018":     "discovery",              # Remote System Discovery
+    "T1489":     "impact",                 # Service Stop
+    "T1003.006": "credential_access",      # DCSync
+    "T1482":     "discovery",              # Domain Trust Discovery
+    "T1087.002": "discovery",              # Domain Account Discovery
 }
 
 
@@ -178,6 +186,52 @@ _PURPOSE_TO_MITRE: Dict[str, List[Dict[str, str]]] = {
     ],
     "Shadow copy deletion (WMIC)": [
         {"id": "T1490", "name": "Inhibit System Recovery"},
+    ],
+    # ── P0.15A · Canonicalizer-unlocked labels (Octlurk campaign) ──
+    "Scheduled Task remote create": [
+        {"id": "T1053.005", "name": "Scheduled Task"},
+        {"id": "T1021.002", "name": "SMB / Windows Admin Shares"},
+    ],
+    "Scheduled Task create": [
+        {"id": "T1053.005", "name": "Scheduled Task"},
+    ],
+    "Scheduled Task query": [
+        {"id": "T1053.005", "name": "Scheduled Task"},
+    ],
+    "Scheduled Task": [
+        {"id": "T1053.005", "name": "Scheduled Task"},
+    ],
+    "Windows Service create (persistence)": [
+        {"id": "T1543.003", "name": "Windows Service"},
+    ],
+    "Windows Service failure-action configure": [
+        {"id": "T1543.003", "name": "Windows Service"},
+    ],
+    "Windows Service start": [
+        {"id": "T1543.003", "name": "Windows Service"},
+    ],
+    "Windows Service configure": [
+        {"id": "T1543.003", "name": "Windows Service"},
+    ],
+    "Process discovery (tasklist)": [
+        {"id": "T1057", "name": "Process Discovery"},
+    ],
+    "Process termination": [
+        {"id": "T1489", "name": "Service Stop"},
+    ],
+    "Domain-controllers enumeration": [
+        {"id": "T1018", "name": "Remote System Discovery"},
+    ],
+    "Credential dumping (secretsdump-family)": [
+        {"id": "T1003",     "name": "OS Credential Dumping"},
+        {"id": "T1003.006", "name": "DCSync"},
+    ],
+    "Ping (C2 beacon / DNS resolution)": [
+        {"id": "T1071.004", "name": "DNS"},
+        {"id": "T1018",     "name": "Remote System Discovery"},
+    ],
+    "Remote-access software execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
     ],
 }
 

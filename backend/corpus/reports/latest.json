@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-08-08T15:25:28Z",
+  "generated_at": "2026-08-08T17:15:03Z",
   "corpus_size": 34,
   "coverage": {
     "evidence_to_behavior_pct": 100.0,
@@ -558,9 +558,9 @@
   "latency_ms": {
     "uaie_orchestrator": {
       "count": 27,
-      "median": 5.87,
-      "p95": 8.93,
-      "max": 15.7
+      "median": 5.83,
+      "p95": 8.85,
+      "max": 15.49
     },
     "behavior_extraction": {
       "count": 34,
@@ -572,13 +572,13 @@
       "count": 34,
       "median": 0.01,
       "p95": 0.02,
-      "max": 0.04
+      "max": 0.03
     },
     "engine": {
       "count": 34,
       "median": 0.04,
       "p95": 0.07,
-      "max": 0.09
+      "max": 0.07
     }
   },
   "per_case": [

@@ -12219,3 +12219,35 @@ See `/app/memory/CHANGELOG.md` (2026-02-08 P0.13 3.5A+3.5B entry).
 
 **Then (3.8 · Dashboard polish):**
 - KPI sparklines, trend widgets, executive dashboard
+
+---
+
+## 2026-02-08 · P0.15A · Evidence Canonicalizer + ADR-002 — SHIPPED
+
+Full details in `/app/memory/CHANGELOG.md` (2026-02-08 P0.15A entry).
+
+**What shipped:**
+1. **ADR-002 · VEEE architecture frozen** — `docs/ADR-002-*.md`
+2. **Evidence Canonicalizer** (`services/canonicalizer/`) — 8 launcher
+   rules, base64-EncodedCommand decode, hard-cap on unwrap depth.
+3. **Classifier integration** — every `_classify_command_purpose`
+   call now goes through the canonicalizer.
+4. **8 new purpose labels + MITRE bridge entries** unlocking full
+   Octlurk-campaign coverage.
+5. **Octlurk regression fixture** — 15 commands, 6 ATT&CK tactics,
+   pinned against regression.
+
+**Next Phase (P0.15B · VEEE — next session):**
+- Tesseract 5 OCR adapter with per-word bounding boxes (`--tsv`).
+- Image classifier heuristic (code-screenshot vs logo/chart).
+- Vendor CDN allowlist for the acquisition adapter.
+- Per-image SHA256 cache.
+- End-to-end proof: retro-fetch the Securelist Octlurk article,
+  expect ≥ 15 canonical commands, ≥ 6 ATT&CK tactics.
+
+**Then (P0.15C · Analyst UX):**
+- Acquisition Summary panel (Images Found / OCR Candidates /
+  Processed / Skipped / Recovered).
+- Click-command → jump-to-image-region with bounding-box overlay.
+- Recommendation Explainability Score (reintroduced under the
+  projection-layer contract).

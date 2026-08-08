@@ -1,0 +1,270 @@
+"""
+NivXRay · Evidence Canonicalizer (P0.15A · ADR-002)
+────────────────────────────────────────────────────
+
+Pure, deterministic. Takes a raw command string in the shape
+threat-report vendors publish (with launcher wrappers such as
+``cmd.exe /S /C "…"`` or ``powershell -EncodedCommand …``) and
+returns the canonical form the Behavior Classifier consumes:
+
+    { launcher_chain:    ["cmd.exe", "powershell.exe"],
+      effective_command: "mshta",
+      effective_head:    "mshta.exe",
+      payload:           "http://…",
+      unwrap_depth:      2,
+      canonicalizer_version: "1.0" }
+
+Every classifier call site routes through here so the classifier
+no longer cares HOW the command was wrapped — only WHAT it does.
+
+Architectural boundary (ADR-002 §8):
+  · This module NEVER emits Behaviors, MITRE tids, or
+    Recommendations.  It converts syntax; semantic interpretation
+    happens downstream.
+"""
+from __future__ import annotations
+
+import base64
+import shlex
+from dataclasses  import dataclass, field, asdict
+from typing       import Any, Dict, List, Optional, Tuple
+
+
+CANONICALIZER_VERSION = "1.0"
+
+# Hard cap · protects against pathological nested wrappers.  ADR-002 §8.
+_MAX_UNWRAP_DEPTH = 4
+
+
+# ══════════════════════════════════════════════════════════════════
+# Launcher rules  (extension point per ADR-002 §7)
+# ══════════════════════════════════════════════════════════════════
+# Each entry declares:
+#   heads      · set of executable names that identify this launcher
+#                (case-insensitive, with or without ``.exe``)
+#   unwrap     · flag arguments after which the *next* token is the
+#                inner command payload.  Order matters — first match wins.
+#   base64     · optional flag whose argument is base64-encoded (e.g.
+#                PowerShell ``-EncodedCommand``).  When present, the
+#                canonicalizer decodes the payload before recursing.
+_LAUNCHER_RULES: Tuple[Dict[str, Any], ...] = (
+    {
+        "name":    "cmd",
+        "heads":   ("cmd", "cmd.exe"),
+        "unwrap":  ("/c", "/r", "/k"),   # /c is the common one; /s /c collapses to /c after tokenising
+        "base64":  (),
+    },
+    {
+        "name":    "powershell",
+        "heads":   ("powershell", "powershell.exe"),
+        "unwrap":  ("-command", "-c"),
+        "base64":  ("-encodedcommand", "-enc", "-e"),
+    },
+    {
+        "name":    "pwsh",
+        "heads":   ("pwsh", "pwsh.exe"),
+        "unwrap":  ("-command", "-c"),
+        "base64":  ("-encodedcommand", "-enc", "-e"),
+    },
+    {
+        "name":    "mshta",
+        "heads":   ("mshta", "mshta.exe"),
+        # mshta payload is the URL/JS itself — not behind a flag.
+        # Handled via ``inline_after_head=True`` below.
+        "unwrap":  (),
+        "base64":  (),
+        "inline_after_head": True,
+    },
+    {
+        "name":    "rundll32",
+        "heads":   ("rundll32", "rundll32.exe"),
+        "unwrap":  (),
+        "base64":  (),
+        "inline_after_head": True,
+    },
+    {
+        "name":    "regsvr32",
+        "heads":   ("regsvr32", "regsvr32.exe"),
+        "unwrap":  (),
+        "base64":  (),
+        "inline_after_head": True,
+    },
+    {
+        "name":    "wscript",
+        "heads":   ("wscript", "wscript.exe"),
+        "unwrap":  (),
+        "base64":  (),
+        "inline_after_head": True,
+    },
+    {
+        "name":    "cscript",
+        "heads":   ("cscript", "cscript.exe"),
+        "unwrap":  (),
+        "base64":  (),
+        "inline_after_head": True,
+    },
+    {
+        "name":    "bash",
+        "heads":   ("bash", "sh"),
+        "unwrap":  ("-c",),
+        "base64":  (),
+    },
+)
+
+
+@dataclass
+class CanonicalCommand:
+    """The single shape every downstream consumer must accept."""
+    raw:                str
+    launcher_chain:     List[str] = field(default_factory=list)
+    effective_command:  str        = ""
+    effective_head:     str        = ""
+    payload:            str        = ""
+    unwrap_depth:       int        = 0
+    canonicalizer_version: str     = CANONICALIZER_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+# ══════════════════════════════════════════════════════════════════
+# Public entry point
+# ══════════════════════════════════════════════════════════════════
+def canonicalize(raw: str) -> CanonicalCommand:
+    """Return a ``CanonicalCommand`` for ``raw``.  Never raises;
+    on any parse error returns a canonical form where
+    ``effective_command == raw`` and ``launcher_chain == []`` so the
+    caller can always trust the shape."""
+    if not raw or not isinstance(raw, str):
+        return CanonicalCommand(raw=raw or "")
+    current = raw.strip()
+    chain: List[str] = []
+    depth = 0
+    while depth < _MAX_UNWRAP_DEPTH:
+        rule, inner = _peel_one_launcher(current)
+        if rule is None:
+            break
+        chain.append(rule["name"] + ".exe")
+        current = inner
+        depth += 1
+    head = _head_of(current)
+    return CanonicalCommand(
+        raw               = raw,
+        launcher_chain    = chain,
+        effective_command = _canonical_name(head),
+        effective_head    = head,
+        payload           = current,
+        unwrap_depth      = depth,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════
+# Internals
+# ══════════════════════════════════════════════════════════════════
+def _head_of(cmd: str) -> str:
+    """Return the first token of ``cmd`` — the executable name."""
+    cmd = (cmd or "").lstrip('"').lstrip("'").strip()
+    if not cmd:
+        return ""
+    # Fast-path: split on the first whitespace, then strip surrounding
+    # quotes.  shlex is heavy for a hot path and we only need the head.
+    head = cmd.split(None, 1)[0]
+    head = head.strip('"').strip("'")
+    # If head is a path (C:\...\foo.exe or /usr/bin/foo), keep the leaf.
+    for sep in ("\\", "/"):
+        if sep in head:
+            head = head.rsplit(sep, 1)[-1]
+    return head
+
+
+def _canonical_name(head: str) -> str:
+    """Strip the ``.exe`` suffix so downstream matches on family."""
+    if not head:
+        return ""
+    h = head.lower()
+    if h.endswith(".exe"):
+        h = h[:-4]
+    return h
+
+
+def _peel_one_launcher(cmd: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """Try to unwrap ``cmd`` by exactly one launcher.  Returns
+    ``(rule, inner)`` on success or ``(None, cmd)`` if ``cmd`` doesn't
+    start with any known launcher."""
+    head = _head_of(cmd)
+    if not head:
+        return (None, cmd)
+    head_lc = head.lower()
+    rule = None
+    for r in _LAUNCHER_RULES:
+        if head_lc in r["heads"] or (
+                head_lc + ".exe" in r["heads"]):
+            rule = r
+            break
+    if rule is None:
+        return (None, cmd)
+
+    # Tokenise the argument list after the head.  shlex handles
+    # nested quotes cleanly which matters for `cmd /S /C "..."`.
+    try:
+        tokens = shlex.split(cmd, posix=False)
+    except ValueError:
+        # unbalanced quotes — give up gracefully.
+        return (None, cmd)
+    if not tokens:
+        return (None, cmd)
+    args = tokens[1:]
+
+    # 1. base64 flag → decode → recurse.
+    for flag in rule.get("base64", ()):
+        for i, tok in enumerate(args):
+            if tok.lower() == flag and i + 1 < len(args):
+                b64_payload = args[i + 1].strip('"').strip("'")
+                decoded = _try_b64_decode(b64_payload)
+                if decoded:
+                    return (rule, decoded)
+
+    # 2. unwrap flag → next token is the inner command string.
+    for flag in rule.get("unwrap", ()):
+        for i, tok in enumerate(args):
+            if tok.lower() == flag and i + 1 < len(args):
+                # Windows quirk: `cmd /S /C "…"` uses /S as a wrapper
+                # flag before /C.  shlex keeps them as sibling tokens
+                # so we don't need to special-case /S — /C or /c is
+                # still the marker.  The inner payload is the very
+                # next token (already de-quoted by shlex).
+                inner = args[i + 1]
+                return (rule, inner.strip())
+
+    # 3. Inline launchers (mshta / rundll32 / regsvr32 / wscript / cscript)
+    # — every token after the head is the payload as a single string.
+    if rule.get("inline_after_head") and args:
+        inner = " ".join(args).strip()
+        return (rule, inner)
+
+    return (None, cmd)
+
+
+def _try_b64_decode(s: str) -> Optional[str]:
+    """Best-effort base64 decode.  PowerShell ``-EncodedCommand``
+    payloads are UTF-16-LE.  Returns None on any failure."""
+    try:
+        raw = base64.b64decode(s, validate=False)
+    except Exception:
+        return None
+    for enc in ("utf-16-le", "utf-8", "latin-1"):
+        try:
+            decoded = raw.decode(enc).strip("\x00")
+        except UnicodeDecodeError:
+            continue
+        # Sanity — only accept decodes that look like commands.
+        if decoded and any(ch.isprintable() for ch in decoded[:32]):
+            return decoded
+    return None
+
+
+__all__ = [
+    "canonicalize",
+    "CanonicalCommand",
+    "CANONICALIZER_VERSION",
+]
