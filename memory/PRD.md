@@ -1,3 +1,55 @@
+## 🟢 2026-02-05 · P0.9 · **Large-Corpus Validation Harness + Semantic Contract Freeze (ADR-001)**
+
+Executed the user's operational-maturity pivot.  The behavior-centric architecture is now stable enough to be treated as frozen; the next work is **validation, coverage, health metrics** — not new semantic layers.
+
+### New files
+* NEW  `scripts/corpus_validation.py`  · CLI harness + `run_corpus()` / `diff_reports()` API
+* NEW  `corpus/manifest.json`  · seed corpus (10 representative cases across benign, impact, ingress, defense-evasion, c2, exfiltration, lateral-movement, discovery, execution/encoded families)
+* NEW  `tests/test_corpus_validation.py`  · 10 regression tests
+* NEW  `docs/ADR-001-semantic-contracts.md`  · frozen-contract document
+
+### Coverage report (`schema_version: "1.0"`) captures
+- Per-layer coverage %: Evidence→Behavior, Behavior→Projection, Projection→Recommendation
+- Behavior frequency distribution + provenance-kind distribution
+- **Dead behavior types** (in vocabulary but never fired)
+- **Orphan behaviors** (fired but no MITRE / kill-chain / impact mapping)
+- **Dead recommendation rules** (never fire against the corpus)
+- **Unmapped evidence** (UAIE evidence kinds the extractor didn't classify — flags Stage-4/5 gaps)
+- **Duplicate-behavior hits** (same behavior_type from >1 source_ref)
+- **Latency per stage** (median · p95 · max in ms) for orchestrator / extractor / aggregator / engine
+- **Regression diff** vs previous report — newly dead rules, resolved dead rules, coverage deltas
+
+### Baseline coverage from the seed corpus
+| Layer | Coverage |
+|---|---|
+| Evidence → Behavior            | 90.0% |
+| Behavior → Projection          | 90.0% |
+| Projection → Recommendation    | 70.0% |
+| Behavior vocabulary exercised  | 13 / 44 types (30%) |
+| Recommendation rules exercised | ~85% (9 dead rules on this small corpus) |
+
+Latency (per case, over 10 cases): orchestrator median 7.7ms · extractor 0.03ms · engine 0.06ms.
+
+### ADR-001 · Semantic contracts frozen
+- Behavior schema (7 fields · framework-neutral)
+- Projection API (`BEHAVIOR_TO_*` + `project_to_*` + `*_for` accessor)
+- Graph schema (`schema_version: 1.1`) — closed set of 6 node types + 3 edge types
+- Provenance vocabulary — closed set of 4 in-use + 2 reserved kinds
+- Recommendation rule input contract — semantic layer + structured IOCs only
+- Producer / Consumer discipline
+- Migration policy: any semantic change requires an explicit schema bump + ADR update
+
+### Status
+- 133/133 tests green + 1 skip (P0.2 synthetic ransomware — superseded by P0.8 UAIE end-to-end)
+- Architectural health baseline captured at `corpus/reports/latest.json` — future runs will diff against it
+- Semantic layer is officially frozen · new work builds on the boundary, not through it
+
+### Constraints honored
+Deterministic-only · Workspace/UI/`derive_mitigations` untouched · S4 architecture freeze intact · all P0.6/P0.7/P0.8 CI invariants remain green.
+
+---
+
+
 ## 🟢 2026-02-05 · P0.8 · **Graph-oriented Provenance + UAIE Behavior Extractor (the last architectural piece)**
 
 Two shipments per user directive:

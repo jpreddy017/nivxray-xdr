@@ -1,0 +1,724 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-08-08T14:22:54Z",
+  "corpus_size": 10,
+  "coverage": {
+    "evidence_to_behavior_pct": 90.0,
+    "behavior_to_projection_pct": 90.0,
+    "projection_to_recommendation_pct": 70.0
+  },
+  "behavior_frequency": {
+    "powershell_execution": 3,
+    "shadow_copy_deletion": 1,
+    "inhibit_recovery_wmic": 1,
+    "inhibit_recovery_bcdedit": 1,
+    "certutil_download": 1,
+    "defense_evasion_disable_tool": 1,
+    "wmi_execution": 1,
+    "protocol_tunneling_ssh": 1,
+    "data_staging_exfil_rclone": 1,
+    "lateral_movement_psexec": 1,
+    "lateral_movement_impacket": 1,
+    "discovery_domain_trust": 1,
+    "powershell_encoded_command": 1
+  },
+  "provenance_distribution": {
+    "lolbas_binary_reference": 7,
+    "command_execution": 8
+  },
+  "recommendation_frequency": {
+    "inv.lateral_movement_trace": 3,
+    "harden.ps_script_block_logging": 2,
+    "hunt.encoded_powershell": 2,
+    "inv.analyze_ps_chain": 2,
+    "erad.protect_shadow_copies": 1,
+    "erad.reimage_ransomware": 1,
+    "erad.stop_encryption": 1,
+    "inv.ransomware_scope": 1,
+    "rec.restore_backups": 1,
+    "harden.egress_restrict_ps": 1,
+    "inv.investigate_download": 1,
+    "inv.recon_activity": 1
+  },
+  "dead_behavior_types": [
+    "archive_extraction",
+    "bitsadmin_transfer",
+    "browser_extension_load",
+    "browser_launch_headless",
+    "credential_dumping_lsass",
+    "credential_dumping_mimikatz",
+    "data_encryption_for_impact",
+    "discovery_account",
+    "discovery_ad",
+    "discovery_host",
+    "discovery_network_config",
+    "discovery_system_owner",
+    "exploit_public_app",
+    "ingress_tool_transfer",
+    "phishing_email",
+    "phishing_service",
+    "powershell_download_execute",
+    "powershell_in_memory",
+    "quickassist_it_impersonation",
+    "registry_modification",
+    "registry_run_key_persistence",
+    "remote_access_software",
+    "remote_service_rdp",
+    "remote_service_smb",
+    "scheduled_task_at",
+    "scheduled_task_persistence",
+    "self_deletion",
+    "signed_binary_proxy_mshta",
+    "signed_binary_proxy_msi",
+    "signed_binary_proxy_regsvr32",
+    "signed_binary_proxy_rundll32"
+  ],
+  "orphan_behavior_types": [],
+  "behaviors_missing_kill_chain_projection": [],
+  "behaviors_missing_impact_projection": [
+    "certutil_download",
+    "defense_evasion_disable_tool",
+    "discovery_domain_trust",
+    "lateral_movement_impacket",
+    "lateral_movement_psexec",
+    "powershell_encoded_command",
+    "powershell_execution",
+    "protocol_tunneling_ssh",
+    "wmi_execution"
+  ],
+  "dead_recommendation_rules": [
+    "contain.isolate_host",
+    "contain.kill_powershell",
+    "contain.preserve_memory",
+    "erad.rotate_credentials",
+    "harden.lolbas_allowlist",
+    "hunt.b64_gzip_loader",
+    "hunt.byte_array_xor",
+    "inv.check_credential_theft",
+    "inv.check_persistence"
+  ],
+  "unmapped_evidence_summary": {
+    "strings_top": 85,
+    "hashes": 51,
+    "transformer_output": 29,
+    "domain": 27,
+    "family": 18,
+    "disassembly": 17,
+    "shellcode_report": 17,
+    "url": 12,
+    "ipv4": 4,
+    "decode_layer": 4,
+    "mitre_hint": 2,
+    "tradecraft.crypto-key-required": 2
+  },
+  "duplicate_behavior_hits": 1,
+  "mitre_techniques_seen": [
+    "T1020",
+    "T1021.002",
+    "T1021.004",
+    "T1027",
+    "T1047",
+    "T1059.001",
+    "T1105",
+    "T1482",
+    "T1490",
+    "T1562.001",
+    "T1567.002",
+    "T1570",
+    "T1572"
+  ],
+  "latency_ms": {
+    "uaie_orchestrator": {
+      "count": 10,
+      "median": 7.74,
+      "p95": 20.69,
+      "max": 26.32
+    },
+    "behavior_extraction": {
+      "count": 10,
+      "median": 0.03,
+      "p95": 0.04,
+      "max": 0.06
+    },
+    "projection_aggregation": {
+      "count": 10,
+      "median": 0.02,
+      "p95": 0.04,
+      "max": 0.06
+    },
+    "engine": {
+      "count": 10,
+      "median": 0.06,
+      "p95": 0.09,
+      "max": 0.1
+    }
+  },
+  "per_case": [
+    {
+      "id": "benign_text",
+      "behaviors_count": 0,
+      "behavior_types": [],
+      "provenance_distribution": [],
+      "kill_chain_tags": [],
+      "impact_tags": [],
+      "mitre_ids": [],
+      "recommendation_ids": [],
+      "verdict": {
+        "severity": "informational",
+        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "transformer_output"
+      ]
+    },
+    {
+      "id": "ransomware_shadow_wbadmin_bcdedit",
+      "behaviors_count": 3,
+      "behavior_types": [
+        "shadow_copy_deletion",
+        "inhibit_recovery_wmic",
+        "inhibit_recovery_bcdedit"
+      ],
+      "provenance_distribution": [
+        "lolbas_binary_reference",
+        "lolbas_binary_reference",
+        "lolbas_binary_reference"
+      ],
+      "kill_chain_tags": [
+        "impact"
+      ],
+      "impact_tags": [
+        "recovery_inhibited"
+      ],
+      "mitre_ids": [
+        "T1490"
+      ],
+      "recommendation_ids": [
+        "erad.protect_shadow_copies",
+        "erad.reimage_ransomware",
+        "erad.stop_encryption",
+        "inv.ransomware_scope",
+        "rec.restore_backups"
+      ],
+      "verdict": {
+        "severity": "critical",
+        "one_liner": "Impact behaviour observed \u2014 recovery actions included."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "mitre_hint",
+        "tradecraft.crypto-key-required",
+        "family",
+        "transformer_output",
+        "transformer_output",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "family"
+      ]
+    },
+    {
+      "id": "certutil_urlcache_download",
+      "behaviors_count": 3,
+      "behavior_types": [
+        "powershell_execution",
+        "certutil_download",
+        "powershell_execution"
+      ],
+      "provenance_distribution": [
+        "command_execution",
+        "lolbas_binary_reference",
+        "lolbas_binary_reference"
+      ],
+      "kill_chain_tags": [
+        "c2",
+        "defense_evasion",
+        "execution"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1027",
+        "T1059.001",
+        "T1105"
+      ],
+      "recommendation_ids": [
+        "harden.egress_restrict_ps",
+        "harden.ps_script_block_logging",
+        "hunt.encoded_powershell",
+        "inv.analyze_ps_chain",
+        "inv.investigate_download"
+      ],
+      "verdict": {
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
+      },
+      "duplicate_behavior_hits": 1,
+      "unmapped_evidence": [
+        "transformer_output",
+        "mitre_hint",
+        "tradecraft.crypto-key-required",
+        "strings_top",
+        "url",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "url",
+        "domain",
+        "domain",
+        "domain",
+        "transformer_output",
+        "transformer_output",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "url",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "url",
+        "domain",
+        "domain",
+        "domain",
+        "domain"
+      ]
+    },
+    {
+      "id": "wmic_uninstall_duo",
+      "behaviors_count": 2,
+      "behavior_types": [
+        "defense_evasion_disable_tool",
+        "wmi_execution"
+      ],
+      "provenance_distribution": [
+        "command_execution",
+        "lolbas_binary_reference"
+      ],
+      "kill_chain_tags": [
+        "defense_evasion",
+        "execution"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1047",
+        "T1562.001"
+      ],
+      "recommendation_ids": [],
+      "verdict": {
+        "severity": "informational",
+        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "family",
+        "family",
+        "transformer_output",
+        "transformer_output",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "family"
+      ]
+    },
+    {
+      "id": "openssh_reverse_tunnel",
+      "behaviors_count": 1,
+      "behavior_types": [
+        "protocol_tunneling_ssh"
+      ],
+      "provenance_distribution": [
+        "command_execution"
+      ],
+      "kill_chain_tags": [
+        "c2",
+        "lateral_movement"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1021.004",
+        "T1572"
+      ],
+      "recommendation_ids": [
+        "inv.lateral_movement_trace"
+      ],
+      "verdict": {
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "strings_top",
+        "ipv4",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "ipv4",
+        "domain",
+        "family",
+        "transformer_output",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "ipv4",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "ipv4",
+        "domain",
+        "family"
+      ]
+    },
+    {
+      "id": "rclone_exfil",
+      "behaviors_count": 1,
+      "behavior_types": [
+        "data_staging_exfil_rclone"
+      ],
+      "provenance_distribution": [
+        "command_execution"
+      ],
+      "kill_chain_tags": [
+        "collection",
+        "exfiltration"
+      ],
+      "impact_tags": [
+        "data_theft"
+      ],
+      "mitre_ids": [
+        "T1020",
+        "T1567.002"
+      ],
+      "recommendation_ids": [],
+      "verdict": {
+        "severity": "informational",
+        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "family",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "family",
+        "transformer_output",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "family"
+      ]
+    },
+    {
+      "id": "psexec_lateral",
+      "behaviors_count": 1,
+      "behavior_types": [
+        "lateral_movement_psexec"
+      ],
+      "provenance_distribution": [
+        "command_execution"
+      ],
+      "kill_chain_tags": [
+        "execution",
+        "lateral_movement"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1021.002",
+        "T1570"
+      ],
+      "recommendation_ids": [
+        "inv.lateral_movement_trace"
+      ],
+      "verdict": {
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "family",
+        "transformer_output",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "family"
+      ]
+    },
+    {
+      "id": "impacket_atexec",
+      "behaviors_count": 1,
+      "behavior_types": [
+        "lateral_movement_impacket"
+      ],
+      "provenance_distribution": [
+        "command_execution"
+      ],
+      "kill_chain_tags": [
+        "execution",
+        "lateral_movement"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1021.002",
+        "T1047"
+      ],
+      "recommendation_ids": [
+        "inv.lateral_movement_trace"
+      ],
+      "verdict": {
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "transformer_output",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "transformer_output",
+        "transformer_output",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "domain",
+        "transformer_output"
+      ]
+    },
+    {
+      "id": "discovery_nltest_quser_ipconfig",
+      "behaviors_count": 1,
+      "behavior_types": [
+        "discovery_domain_trust"
+      ],
+      "provenance_distribution": [
+        "command_execution"
+      ],
+      "kill_chain_tags": [
+        "discovery"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1482"
+      ],
+      "recommendation_ids": [
+        "inv.recon_activity"
+      ],
+      "verdict": {
+        "severity": "medium",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "family",
+        "family",
+        "family",
+        "transformer_output",
+        "family",
+        "family",
+        "family"
+      ]
+    },
+    {
+      "id": "powershell_encodedcommand_downloadcradle",
+      "behaviors_count": 2,
+      "behavior_types": [
+        "powershell_encoded_command",
+        "powershell_execution"
+      ],
+      "provenance_distribution": [
+        "command_execution",
+        "lolbas_binary_reference"
+      ],
+      "kill_chain_tags": [
+        "defense_evasion",
+        "execution"
+      ],
+      "impact_tags": [],
+      "mitre_ids": [
+        "T1027",
+        "T1059.001"
+      ],
+      "recommendation_ids": [
+        "harden.ps_script_block_logging",
+        "hunt.encoded_powershell",
+        "inv.analyze_ps_chain"
+      ],
+      "verdict": {
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
+      },
+      "duplicate_behavior_hits": 0,
+      "unmapped_evidence": [
+        "transformer_output",
+        "decode_layer",
+        "decode_layer",
+        "transformer_output",
+        "transformer_output",
+        "decode_layer",
+        "decode_layer",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "url",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "url",
+        "domain",
+        "domain",
+        "domain",
+        "transformer_output",
+        "strings_top",
+        "url",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "url",
+        "domain",
+        "domain",
+        "strings_top",
+        "url",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "url",
+        "domain",
+        "domain",
+        "transformer_output",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "strings_top",
+        "url",
+        "hashes",
+        "hashes",
+        "hashes",
+        "disassembly",
+        "shellcode_report",
+        "url",
+        "domain",
+        "domain"
+      ]
+    }
+  ]
+}

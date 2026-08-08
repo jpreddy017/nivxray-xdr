@@ -134,6 +134,11 @@ _ALLOWED_MAP_IMPORTS: Tuple[str, ...] = (
     "tests/test_ida_behavior_generation.py",
     "tests/test_ida_behavior_projections.py",
     "tests/test_track_b_projector_and_ci_invariants.py",
+    "tests/test_corpus_validation.py",
+    # Corpus validation harness computes dead-behavior / dead-rule
+    # coverage metrics against the full vocabulary — legitimate
+    # diagnostic consumer (analogous to the projection tests).
+    "scripts/corpus_validation.py",
 )
 
 _BANNED_MAP_NAMES: Tuple[str, ...] = (
