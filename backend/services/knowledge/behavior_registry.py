@@ -410,6 +410,82 @@ _add(_spec("Rundll32 execution", display_name="Rundll32 proxy execution",
               category="Defense Evasion", severity="high",
               techniques=[_t("T1218.011", "System Binary Proxy Execution · Rundll32")]))
 
+# ---- Additional classifier labels (CI-gate discovered 2026-02-09) ----------
+_add(_spec("Account / group discovery",
+              category="Discovery", severity="low",
+              techniques=[_t("T1087", "Account Discovery")]))
+_add(_spec("Active Directory discovery",
+              category="Discovery", severity="medium",
+              techniques=[_t("T1087.002", "Account Discovery · Domain Account")]))
+_add(_spec("Domain trust discovery",
+              category="Discovery", severity="medium",
+              techniques=[_t("T1482", "Domain Trust Discovery")]))
+_add(_spec("Domain-controllers enumeration",
+              category="Discovery", severity="medium",
+              techniques=[_t("T1018", "Remote System Discovery")]))
+_add(_spec("Host discovery",
+              category="Discovery", severity="low",
+              techniques=[_t("T1018", "Remote System Discovery")]))
+_add(_spec("Process discovery (tasklist)",
+              category="Discovery", severity="low",
+              techniques=[_t("T1057", "Process Discovery")]))
+_add(_spec("Scheduled Task",
+              category="Execution", severity="high",
+              techniques=[_t("T1053.005", "Scheduled Task")]))
+_add(_spec("Scheduled Task query",
+              category="Discovery", severity="low",
+              techniques=[_t("T1053.005", "Scheduled Task")]))
+_add(_spec("Credential dumping (secretsdump-family)",
+              category="Credential Access", severity="critical",
+              techniques=[_t("T1003",     "OS Credential Dumping"),
+                              _t("T1003.006", "OS Credential Dumping · DCSync")]))
+_add(_spec("Data staging / exfil (rclone-style)",
+              category="Exfiltration", severity="high",
+              techniques=[_t("T1567",     "Exfiltration Over Web Service"),
+                              _t("T1567.002", "Exfiltration to Cloud Storage")]))
+_add(_spec("MSI execution",
+              category="Execution", severity="medium",
+              techniques=[_t("T1218.007", "System Binary Proxy Execution · Msiexec")]))
+_add(_spec("MSI installation",
+              category="Execution", severity="medium",
+              techniques=[_t("T1218.007", "System Binary Proxy Execution · Msiexec")]))
+_add(_spec("MSI installer child (embedded)",
+              category="Execution", severity="medium",
+              techniques=[_t("T1218.007", "System Binary Proxy Execution · Msiexec")]))
+_add(_spec("Microsoft Edge launch (extension load — Edgecution)",
+              category="Execution", severity="high",
+              techniques=[_t("T1204.002", "User Execution · Malicious File")]))
+_add(_spec("Microsoft Edge launch (headless, extension load — Edgecution)",
+              category="Execution", severity="high",
+              techniques=[_t("T1204.002", "User Execution · Malicious File")]))
+_add(_spec("Ping (C2 beacon / DNS resolution)",
+              category="Command and Control", severity="low",
+              techniques=[_t("T1071",     "Application Layer Protocol"),
+                              _t("T1071.004", "DNS")]))
+_add(_spec("Process termination",
+              category="Defense Evasion", severity="medium",
+              techniques=[_t("T1489", "Service Stop")]))
+_add(_spec("Reverse SSH tunnel",
+              category="Command and Control", severity="high",
+              techniques=[_t("T1572", "Protocol Tunneling"),
+                              _t("T1021.004", "Remote Services · SSH")]))
+_add(_spec("Shadow copy deletion (WMIC)",
+              category="Impact", severity="critical",
+              techniques=[_t("T1490", "Inhibit System Recovery"),
+                              _t("T1047", "Windows Management Instrumentation")]))
+_add(_spec("Software uninstall (defense evasion)",
+              category="Defense Evasion", severity="medium",
+              techniques=[_t("T1562.001", "Impair Defenses · Disable or Modify Tools")]))
+_add(_spec("Windows Service configure",
+              category="Persistence", severity="medium",
+              techniques=[_t("T1543.003", "Create or Modify System Process · Windows Service")]))
+_add(_spec("Windows Service failure-action configure",
+              category="Persistence", severity="medium",
+              techniques=[_t("T1543.003", "Create or Modify System Process · Windows Service")]))
+_add(_spec("Windows Service start",
+              category="Execution", severity="medium",
+              techniques=[_t("T1569.002", "System Services · Service Execution")]))
+
 
 # ══════════════════════════════════════════════════════════════════
 # Public API

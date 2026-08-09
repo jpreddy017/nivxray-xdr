@@ -1,3 +1,84 @@
+## 🟢 2026-02-09 · P0.16 · Behavior Knowledge Base (BKB) · Phases A + B + C shipped (flag OFF)
+
+Resolves the systemic Attack Chain / MITRE Summary / Observed Behaviour inconsistency the user surfaced through multiple case screenshots.  The root cause was ATTRIBUTION MIXING — cluster.mitre was a union of DIE per-command techniques + a legacy purpose-bridge fallback, so a cluster labelled "Registry modification" could carry a Scheduled-Task technique that DIE happened to attach to a sibling command.
+
+### Architecture (four layers, per user directive)
+```
+Evidence → Canonicalizer → Classifier → Behavior label
+                                              │
+                                              ▼
+                                    BKB.lookup(label) ── static knowledge base
+                                              │
+                                              ▼
+                                    BehaviorCluster (per-investigation SSOT)
+                                              │
+                                              ▼
+                                    Every projection (Attack Chain / MITRE Summary /
+                                    Observed Behaviour / Recommendations / Reports)
+```
+
+### Phase A · BKB v1 (`services/knowledge/behavior_registry.py`)
+* Immutable, deterministic static knowledge base — 106 entries after the CI-gate discovery pass.
+* Every entry pins `display_name`, `category`, `severity`, `canonical_techniques[]`, `canonical_tactics[]`, `confidence_model`, `evidence_required[]`, `recommendations[]`, `references[]`.
+* Public API: `lookup(label)`, `has(label)`, `labels()`, `snapshot()`, `as_purpose_to_mitre()` (legacy compat view).
+* Never invents behaviours; static, JSON-safe, side-effect-free.
+
+### Phase B · Comparison harness + report (before ANY Workspace change)
+* `services/diagnostics/bkb_comparison.py` runs the corpus twice — once with legacy attribution, once with canonical BKB — and diffs the per-label technique sets.
+* Report at `corpus/vendor/v1/reports/bkb_projection_diff.json`:
+  * **0 techniques removed** by canonical BKB (no capability regression).
+  * **+2 techniques added** where DIE had silent gaps (`Regsvr32/MSHTA` LOLBins on two fixtures).
+  * **16 unchanged** · **1 unmapped** (`Command execution` fallback, deliberate).
+* Bug reproductions locked in `tests/test_bkb_bug_repros.py`: the exact contamination pattern from the user's screenshot (Registry-modification cluster carrying T1053.005) is reproduced under legacy attribution and eliminated under BKB.
+
+### Phase C · Dual-attribution behind `NVX_BKB_CANONICAL` (flag OFF · production untouched)
+Every cluster now carries both:
+* `cluster.observed_mitre[]` — legacy DIE-derived set (diagnostic only)
+* `cluster.canonical_mitre[]` — BKB-derived set (SSOT when flag on)
+* `cluster.mitre[]` — the active set (observed when flag OFF, canonical when flag ON)
+* `cluster.attribution_source` — `"observed" | "bkb"`
+
+Unknown labels fall back to observed regardless of flag state (safety net).  DIE per-command techniques are preserved on `command.investigation.techniques[]` for the detail drawer — never discarded.
+
+### Strengthened CI gate (`tests/test_bkb_ci_gate.py`)
+* Every non-generic classifier label MUST have a BKB entry (`Command execution` + `Uncategorised` are the only permitted unmapped fallbacks).
+* Every BKB entry must carry techniques, tactics, severity, display_name, category.
+* No duplicate techniques inside a single entry.
+* Every canonical technique's tactic must be declared in the entry.
+* Registry-size floor pinned to prevent silent shrinkage.
+* Discovered and closed 23 previously-emitted labels that had no BKB mapping during this sprint.
+
+### UI polish
+* Removed `"pure projection of behavior.mitre_tactics[]"` debug text from the Trajectory header.
+* Bumped header font size 18 → 22 · weight 700 → 800 · added letter-spacing for prominence.
+
+### Aggregate test status
+- Full suite (BKB + P0.15C + P1 + P4 + Track B + S4 freeze + projections): **325 / 325 pass**
+- Vendor-corpus benchmark (flag ON preview): **commands 19 · behaviors 18 · mitre 18 (+2) · recommendations 42** — BKB canonical projection recovers 2 techniques that legacy DIE missed with zero regression.
+
+### Constraints honored
+- Production behaviour byte-identical (`NVX_BKB_CANONICAL` defaults to OFF)
+- No Workspace flow changes
+- DIE techniques preserved as per-command evidence
+- Every change deterministic, feature-flag-gated, reversible
+
+### Files shipped
+* NEW      `services/knowledge/behavior_registry.py` · 106-entry BKB
+* NEW      `services/knowledge/__init__.py`
+* NEW      `services/diagnostics/bkb_comparison.py`
+* MODIFIED  `services/ice/correlate.py` · dual-attribution on every cluster, BKB-canonical projection under flag, +3 new tactic mappings (T1518/T1007/T1197)
+* MODIFIED  `services/knowledge/behavior_registry.py` · +23 CI-gate-discovered labels
+* MODIFIED  `frontend/src/components/investigation/TrajectoryDiagram.jsx` · header size + debug-text removal
+* NEW      `tests/test_bkb_registry.py` · 12 tests
+* NEW      `tests/test_bkb_bug_repros.py` · 3 tests (Bug B contamination + Bug C agreement)
+* NEW      `tests/test_bkb_ci_gate.py` · 7 tests (coverage + shape + duplicates + tactic agreement)
+* NEW      `tests/test_bkb_phase_c_dual_attribution.py` · 5 tests (flag OFF preservation + flag ON canonical + fallback)
+* NEW      `corpus/vendor/v1/reports/bkb_projection_diff.json` · reviewable diff report
+
+---
+
+
+
 ## 🟢 2026-02-09 · Capability sprint · P1→P4 shipped
 
 Following user re-prioritization ("capability over UI polish"), executed all four remaining tracks sequentially.

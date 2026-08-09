@@ -190,6 +190,32 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [behaviorsKey]);
 
+  // ── Canonical view · full ATT&CK canvas (2026-02-09) ─────────
+  // The user asked for the window to accommodate every MITRE
+  // tactic, not just the ones observed on this case.  We
+  // render all 14 lanes greyed out and only PLACE nodes in the
+  // lanes that carry behaviors (via activeLanes).  This keeps
+  // the analyst's mental model of the full attack matrix even
+  // when only a few tactics fired.
+  const displayLanes = useMemo(() => {
+    if (!isCanonical) return LANES;
+    const active = new Set(activeLanes.map((l) => l.id));
+    return MITRE_LANES.map((l, i) => ({
+      ...l,
+      y:       80 + i * MITRE_LANE_HEIGHT,
+      active:  active.has(l.id),
+    }));
+  }, [isCanonical, activeLanes]);
+
+  // Recompute node Y positions against the full-lane layout so
+  // node.y lands in the correct display lane (not the collapsed
+  // activeLanes index).
+  const laneYFullMap = useMemo(() => {
+    const m = {};
+    for (const l of displayLanes) m[l.id] = l.y;
+    return m;
+  }, [displayLanes]);
+
   const initialNodes = useMemo(
     () => {
       const _t0 = (typeof performance !== "undefined") ? performance.now() : 0;
@@ -233,10 +259,13 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
   }
 
   // ── Canvas dimensions — expand with node positions ────────────
-  const contentW = Math.max(1200, ...(nodes.map((n) => n.x + 220)));
+  // 2026-02-09 · Bumped minimums so the trajectory panel gets
+  // more physical real estate (width × height) — the user
+  // requested a bigger box, not more content.
+  const contentW = Math.max(1600, ...(nodes.map((n) => n.x + 260)));
   const contentH = isCanonical
-    ? Math.max(240, 80 + activeLanes.length * MITRE_LANE_HEIGHT + 40)
-    : 680;
+    ? Math.max(560, 80 + activeLanes.length * MITRE_LANE_HEIGHT + 40)
+    : 900;
 
   // ── Handlers ──────────────────────────────────────────────────
   const onNodeMouseDown = (e, id) => {
@@ -290,8 +319,9 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                     flexWrap: "wrap", gap: 8 }}>
         <div>
           <div style={tagline}>EVIDENCE TRAJECTORY</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#e2e8f0",
-                        marginTop: 2 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#e2e8f0",
+                        marginTop: 4, letterSpacing: 0.2 }}
+                data-testid="trajectory-header-title">
             {isCanonical
               ? `MITRE ATT&CK · ${activeLanes.length} of 14 tactics observed`
               : `Cyber Kill Chain × MITRE ATT&CK · ${LANES.length} swim lanes · drag nodes · pan background · use +/− to zoom`}
@@ -345,7 +375,8 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                     overflowY: "auto",
                     border: "1px solid #1f2b3f",
                     borderRadius: 10, background: "rgba(2,6,23,0.65)",
-                    maxHeight: 720,
+                    minHeight: 560,
+                    maxHeight: 1000,
                     scrollbarColor: "#334467 #0b1220",
                     cursor: dragRef.current ? "grabbing"
                                   : panRef.current ? "grabbing" : "grab" }}>
@@ -820,7 +851,7 @@ function NodeInspector({ node, onClose }) {
       background: "rgba(15,23,42,0.95)",
       border: "1px solid #334467", borderRadius: 10,
       padding: "14px 16px", overflowY: "auto",
-      maxHeight: 720,
+      maxHeight: 1000,
     }}>
       <div style={{ display: "flex", alignItems: "center",
                     justifyContent: "space-between", marginBottom: 8 }}>

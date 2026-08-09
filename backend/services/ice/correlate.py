@@ -784,10 +784,27 @@ def _build_behavior_clusters(commands: List[Dict[str, Any]],
             for bm in bridged:
                 if bm["id"] not in [m["id"] for m in g["mitre"]]:
                     g["mitre"].append(bm)
+
+        # ── P0.16 · Behavior Knowledge Base dual-attribution ────
+        # ``observed_mitre`` = union of DIE per-command techniques
+        #     + legacy purpose-bridge fallback (i.e. the pre-P0.16
+        #     shape of cluster.mitre).  Diagnostic ONLY — never
+        #     consumed by analyst projections.
+        # ``canonical_mitre`` = the BKB.lookup(label).canonical_
+        #     techniques.  The SINGLE source of truth for every
+        #     projection when NVX_BKB_CANONICAL=1.
+        # ``cluster.mitre`` = canonical when the flag is on, else
+        #     observed.  This keeps production byte-identical to
+        #     legacy until the flag is enabled in preview and
+        #     validated.
+        observed_mitre  = list(g["mitre"])
+        canonical_mitre = _canonical_mitre_from_bkb(g["label"])
+        use_canonical   = _bkb_flag_on() and bool(canonical_mitre)
+        active_mitre    = canonical_mitre if use_canonical else observed_mitre
         # Primary tactic = most common tactic across the cluster's mitre.
         tactic_counts: Dict[str, int] = {}
-        for m in g["mitre"]:
-            if m["tactic"]:
+        for m in active_mitre:
+            if m.get("tactic"):
                 tactic_counts[m["tactic"]] = tactic_counts.get(m["tactic"], 0) + 1
         primary_tactic = max(tactic_counts, key=tactic_counts.get) if tactic_counts else None
         # Canonical plural — union of tactic labels the projections
@@ -796,21 +813,53 @@ def _build_behavior_clusters(commands: List[Dict[str, Any]],
         # what the frontend swim-lane keys on.
         mitre_tactics = sorted({
             _TACTIC_LABEL.get(m["tactic"], m["tactic"])
-            for m in g["mitre"]
+            for m in active_mitre
             if m.get("tactic")
         })
-        conf = "high" if g["mitre"] else ("medium" if g["lolbins"] else "low")
+        conf = "high" if active_mitre else ("medium" if g["lolbins"] else "low")
         out.append({
-            "label":          g["label"],
-            "commands":       g["commands"],
-            "command_count":  len(g["commands"]),
-            "mitre":          g["mitre"],
-            "mitre_tactics":  mitre_tactics,
-            "lolbins":        g["lolbins"],
-            "languages":      sorted(g["languages"]),
-            "primary_tactic": primary_tactic,
-            "confidence":     conf,
-            "sources":        g["sources"],
+            "label":            g["label"],
+            "commands":         g["commands"],
+            "command_count":    len(g["commands"]),
+            "mitre":            active_mitre,
+            # Dual-attribution provenance (P0.16):
+            "canonical_mitre":  canonical_mitre,
+            "observed_mitre":   observed_mitre,
+            "attribution_source": ("bkb" if use_canonical else "observed"),
+            "mitre_tactics":    mitre_tactics,
+            "lolbins":          g["lolbins"],
+            "languages":        sorted(g["languages"]),
+            "primary_tactic":   primary_tactic,
+            "confidence":       conf,
+            "sources":          g["sources"],
+        })
+    return out
+
+
+def _bkb_flag_on() -> bool:
+    """Read ``NVX_BKB_CANONICAL`` at call time so tests can toggle
+    the flag with monkeypatch without needing a service reload."""
+    import os
+    return (os.environ.get("NVX_BKB_CANONICAL") or "").strip() in ("1", "true", "yes")
+
+
+def _canonical_mitre_from_bkb(label: str) -> List[Dict[str, str]]:
+    """Look up the label in the Behavior Knowledge Base and return
+    ``[{id, name, tactic}, …]`` shaped for cluster.mitre.  Unknown
+    labels return ``[]`` — callers keep the observed set."""
+    try:
+        from services.knowledge.behavior_registry import lookup
+    except Exception:
+        return []
+    spec = lookup(label)
+    if spec is None:
+        return []
+    out: List[Dict[str, str]] = []
+    for t in spec.canonical_techniques:
+        out.append({
+            "id":     t["id"],
+            "name":   t.get("name") or "",
+            "tactic": tactic_for(t["id"]),
         })
     return out
 
