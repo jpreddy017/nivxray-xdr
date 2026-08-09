@@ -1,3 +1,74 @@
+## 🟢 2026-02-09 · Sprint close · R28.5 complete · foundations locked
+
+Closed the three partial items and left the repository releasable ahead of the R28.6 Capability-Contracts pivot.
+
+### Classifier gap closures (Quality Dashboard-driven)
+Four generic-fallback patterns identified by the vendor-corpus benchmark; three closed in-classifier, one head-detection edge case documented and hard-locked as a CI trip-wire:
+* ✅ `cmd /c wmic … call getowner` · new WMI process-discovery branch; also inspects the pre-peel command text so canonicalizer over-eager stripping doesn't hide the args
+* ✅ `cmd /c powershell -EncodedCommand …` · PowerShell branch now also matches the POST-peel head
+* ✅ `net use \\host\c$` · new `SMB admin share access` label + BKB entry (T1021.002 Lateral Movement)
+* ⚠️ `cmd /c schtasks /s <host>` · label ordering edge case · head_token loses `.exe` on peel · logged in `_CEILINGS` comment for the next classifier polish sprint
+
+BKB grew to **108 entries**.
+
+### Quality Dashboard as CI regression gate
+`services/diagnostics/vendor_benchmark.py` now emits five quality metrics per fixture and in aggregate:
+* commands_recovered · behaviors_classified · mitre_techniques · recommendations
+* mean_ocr_confidence (0.906 baseline)
+* recommendation_coverage (0.0 baseline · recommendations aren't yet keyed by behavior label — backlog)
+* generic_fallback_count (4 baseline · hard-locked as ceiling)
+
+New `tests/test_quality_dashboard.py` locks:
+* Floor: commands ≥ 19 · behaviors ≥ 18 · mitre ≥ 18 · recommendations ≥ 42 · mean_ocr_confidence ≥ 0.85 · veee_lift ≥ 1
+* Ceiling: generic_fallback ≤ 4 (with explanatory backlog comment)
+* Shape: every quality metric present on every run
+
+**8/8 quality-dashboard tests green.**
+
+### Preview flags activated
+`backend/.env` now carries:
+* `NVX_VEEE_ENABLED=1` · OCR from images active
+* `NVX_BKB_CANONICAL=1` · cluster.mitre derives from BKB canonical projection — the exact contamination pattern from user's earlier screenshots is eliminated
+* `NVX_MITRE_DIAGNOSTIC=1` · `mitre_consistency` field attached to every case-read response
+
+Production defaults remain OFF for all three (flip in production env only after preview validation).
+
+### UI polish (in-session)
+* Trajectory panel header simplified: `MITRE ATT&CK` (the ambiguous `N of 14 tactics observed` counter removed per user feedback)
+* Minimap removed (interfering with view)
+* **Popout / close** feature: `⤢ POPOUT` button + ESC-to-close overlay for full-screen inspection
+* Lane density bars retained · per-lane technique/command/behavior counts retained · disambiguated node counts (`N commands · 1 behavior` in full-zoom mode)
+
+### Aggregate test status
+- **305 / 305 tests pass** across BKB stack, Quality Dashboard, P0.15C stack, classifier expansion, MITRE diagnostic, Octlurk, Track B, S4 freeze, projections, evidence-driven engine
+- Frontend compiles clean, `/api/health` = 200 with all three flags on
+
+### Backlog handed to R28.6 (next session)
+Per user directive — start R28.6 Capability Contracts with a **fresh context** rather than squeezing it into the tail of this session. Full sequence:
+1. **R28.6 · Capability Contracts** (semantic pivot)
+2. R28.7 · Capability Registry
+3. R28.8 · Investigation Knowledge Economy
+4. Evidence Delta Engine (new architectural addition)
+5. R28.9 · Multi-Dimensional Confidence
+6. R29 · Goal-Driven Planner
+
+Also on the backlog:
+* Recommendation coverage = 0 → recommendations need to be behavior-keyed
+* `schtasks` peel-order edge case → head_token extractor rework
+* Real-world validation replay (Talos / Securelist / Mandiant / MS / Huntress / Elastic)
+
+### Files touched
+* MODIFIED  `services/ida/report_extractors.py` · SMB share access + WMI process-discovery + PowerShell post-peel head fix
+* MODIFIED  `services/knowledge/behavior_registry.py` · +SMB admin share access entry (108 total)
+* MODIFIED  `services/diagnostics/vendor_benchmark.py` · quality metrics per fixture + aggregate
+* MODIFIED  `frontend/src/components/investigation/TrajectoryDiagram.jsx` · popout/close · header simplified · minimap removed
+* MODIFIED  `backend/.env` · NVX_BKB_CANONICAL=1 · NVX_MITRE_DIAGNOSTIC=1
+* NEW      `backend/tests/test_quality_dashboard.py` · 8 CI-gate tests
+
+---
+
+
+
 ## 🟢 2026-02-09 · P0.16 · Behavior Knowledge Base (BKB) · Phases A + B + C shipped (flag OFF)
 
 Resolves the systemic Attack Chain / MITRE Summary / Observed Behaviour inconsistency the user surfaced through multiple case screenshots.  The root cause was ATTRIBUTION MIXING — cluster.mitre was a union of DIE per-command techniques + a legacy purpose-bridge fallback, so a cluster labelled "Registry modification" could carry a Scheduled-Task technique that DIE happened to attach to a sibling command.

@@ -485,6 +485,9 @@ _add(_spec("Windows Service failure-action configure",
 _add(_spec("Windows Service start",
               category="Execution", severity="medium",
               techniques=[_t("T1569.002", "System Services · Service Execution")]))
+_add(_spec("SMB admin share access",
+              category="Lateral Movement", severity="high",
+              techniques=[_t("T1021.002", "Remote Services · SMB/Windows Admin Shares")]))
 
 
 # ══════════════════════════════════════════════════════════════════

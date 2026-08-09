@@ -872,6 +872,12 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
         return "Lateral movement via PsExec"
     if "impacket" in c or "wmiexec" in c or "smbexec" in c:
         return "Lateral movement via Impacket"
+    # ── SMB admin-share access via `net use \\host\c$` (T1021.002) ─
+    # Head=net · payload starts with `use \\<host>\<share>`.  Also
+    # match `\\<host>\admin$` and IPC$ variants.
+    if head in ("net", "net.exe") and (" use " in " " + c + " " or c.startswith("use ")):
+        if "\\\\" in cmd or "\\\\" in original_cmd or "$" in c:
+            return "SMB admin share access"
 
     # ── LOLBin proxy execution ─────────────────────────────────────
     # Order-sensitive: check specific proxy binaries BEFORE the
@@ -939,16 +945,21 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
         return "Backup catalog deletion (wbadmin)"
 
     # ── WMI command execution (T1047 / T1021) ──────────────────────
-    if head in ("wmic", "wmic.exe"):
+    if head in ("wmic", "wmic.exe") or original_head in ("wmic", "wmic.exe"):
+        # Some canonicalizer variants peel the payload down to the
+        # bare head (`wmic`) — inspect the ORIGINAL command text so
+        # `wmic process ... call getowner` still classifies.
+        scan = c + " " + oc
         # Remote WMI process create → T1047 + T1021
-        if "/node:" in c and ("process call create" in c or "call create" in c):
+        if "/node:" in scan and ("process call create" in scan or "call create" in scan):
             return "Remote WMI process create"
-        if "process call create" in c or "call create" in c:
+        if "process call create" in scan or "call create" in scan:
             return "WMI process create"
         # WMI process discovery — `process where … call getowner`,
         # `call terminate`, or a bare `process list` / `process get`.
-        if "process" in c and ("call getowner" in c or "call terminate" in c
-                                        or "list" in c or " get " in c):
+        if "process" in scan and ("call getowner" in scan or "call terminate" in scan
+                                        or "list" in scan or " get " in scan
+                                        or "where" in scan):
             return "WMI process discovery"
     if head.startswith("powershell") and ("invoke-wmimethod" in c or "invoke-cimmethod" in c):
         if "-computername" in c or "-computer" in c:
