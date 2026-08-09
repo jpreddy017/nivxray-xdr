@@ -87,6 +87,17 @@ class AcquiredResource:
     # them (see the eSentire UNC6692 write-up for a live example).
     structured_blocks: List[str] = field(default_factory=list)
 
+    # 2026-02-09 · P0.15C-1 · VEEE-recovered NormalizedEvidence
+    # records (per ADR-002 §4.1 shape).  Defaults to [] so the
+    # dataclass is byte-identical to pre-P0.15C when the flag is
+    # off (Release invariant §3.1).  When on, this list carries
+    # the FULL VEEE payload including bounding boxes / provenance /
+    # skipped records — the Acquisition Summary panel (P0.15C-2)
+    # reads it directly.  ``structured_blocks`` still receives the
+    # plain-text form so downstream IDA-4 extractors keep seeing
+    # everything they used to, plus the new OCR lines.
+    veee_records: List[Dict[str, Any]] = field(default_factory=list)
+
     # Which fetcher / extractor chain produced the article.
     #   engine  → "trafilatura" · "readability" · "bs4" · "playwright+trafilatura" · "playwright+readability" · "playwright+bs4"
     #   source  → analyst-facing label ("Static article" / "JavaScript-rendered page" / "Heuristic body")
@@ -228,6 +239,36 @@ def acquire_url(url: str) -> AcquiredResource:
         # HTML containers; trafilatura strips the surrounding structure,
         # so we grab them explicitly BEFORE running IDA-4 extractors.
         result.structured_blocks = _extract_structured_blocks(meta_html)
+
+        # 6c. P0.15C-1 · VEEE image-evidence acquisition.
+        # Feature-flagged additive step — when ``NVX_VEEE_ENABLED``
+        # is off (default), this is a no-op and structured_blocks
+        # remains byte-identical to the pre-P0.15C pipeline
+        # (Release invariant §3.1).  When enabled, every OCR-derived
+        # text line is APPENDED to structured_blocks — never
+        # replaces / removes / mutates any existing entry
+        # (Never-Modify Rule §0.2 + Additivity invariant §3.2).
+        try:
+            from services.veee import extract_from_html, is_enabled as _veee_on
+            if _veee_on():
+                _veee_records = extract_from_html(meta_html, base_url=url)
+                # Stash structured records on the resource for the
+                # Acquisition Summary panel (P0.15C-2 — additive
+                # field, defaults to []).  Never mutates
+                # ``structured_blocks`` other than appending the
+                # OCR-derived text.
+                result.veee_records = _veee_records
+                for _rec in _veee_records:
+                    txt = (_rec.get("text") or "").strip()
+                    if txt and _rec.get("type") != "skipped":
+                        # APPEND ONLY.  HTML blocks stay first;
+                        # OCR blocks stack after.  This preserves
+                        # the additivity invariant trivially.
+                        result.structured_blocks.append(txt)
+        except Exception:
+            # VEEE MUST NEVER break acquisition (ADR-002 §6 golden
+            # rule).  Swallow any failure; existing behaviour holds.
+            pass
 
         # Cleanup the per-URL render cache so a long-lived process
         # doesn't accumulate rendered HTML across many acquisitions.

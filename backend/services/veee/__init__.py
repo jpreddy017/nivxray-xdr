@@ -30,6 +30,7 @@ from typing  import Any, Dict, List, Optional
 from services.veee.image_classifier import classify_image
 from services.veee.ocr_engine       import ocr_image, OCRResult
 from services.veee.evidence_extractor import extract_evidence
+from services.veee.image_discovery  import discover_images
 
 
 VEEE_VERSION = "1.0"
@@ -134,6 +135,47 @@ def _skipped_record(image_url: str,
 __all__ = [
     "extract_from_image",
     "extract_from_url",
+    "extract_from_html",
     "is_enabled",
     "VEEE_VERSION",
 ]
+
+
+# ══════════════════════════════════════════════════════════════════
+# P0.15C-1 · Orchestrator — walks an HTML page and returns the
+# NormalizedEvidence records recovered from every <img> tag in it.
+#
+# Contract (per §0.1 Stage Isolation, §0.2 Never-Modify,
+# §3.5 Deterministic Acquisition):
+#   · Pure function · no side effects on the caller's html.
+#   · Deterministic output — same html + same env → identical list.
+#   · When ``NVX_VEEE_ENABLED`` is off, returns ``[]`` immediately.
+#   · Never raises; every failure lands as a "skipped" provenance
+#     record inside the returned list.
+#   · Caller is responsible for APPENDING to ``structured_blocks``
+#     (never replacing / mutating existing entries).
+# ══════════════════════════════════════════════════════════════════
+def extract_from_html(html: str,
+                         base_url: str = "",
+                         max_images: int = 32,
+                         per_image_timeout: float = 5.0,
+                         ) -> List[Dict[str, Any]]:
+    """Return every NormalizedEvidence record VEEE recovers from
+    the ``<img>`` tags in ``html``.
+
+    ``max_images`` bounds acquisition cost (default 32 · Kaspersky
+    Securelist Octlurk carries 16 code screenshots, so this is
+    generous while still avoiding pathological pages).
+
+    ``per_image_timeout`` bounds each individual fetch — a slow
+    CDN can never stall the whole investigation.
+    """
+    if not is_enabled():
+        return []
+    if not html:
+        return []
+    urls = discover_images(html, base_url=base_url)[:max_images]
+    records: List[Dict[str, Any]] = []
+    for u in urls:
+        records.extend(extract_from_url(u, timeout=per_image_timeout))
+    return records

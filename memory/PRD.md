@@ -12335,3 +12335,27 @@ Scope is preserved for continuation:
    (never semantic): Images Found, OCR Success/Failed, Average
    OCR Confidence, Commands / PowerShell / Registry / URLs
    Recovered.
+
+---
+
+## 2026-02-09 · P0.15C-1 · VEEE Acquisition wire-up — SHIPPED
+
+Details in `/app/memory/CHANGELOG.md` (2026-02-09 P0.15C-1 entry).
+
+**KPI shift on the Octlurk benchmark (flag ON):**
+- Structured blocks: 551 → 650 (+99)
+- VEEE records:     0   → 112
+- ATT&CK tactics:   4   → **7** (§7.3 target ≥ 5 · PASS)
+- MITRE tids:       ~4  → 9 (target ≥ 15 · gap closed by P0.15C-4 line-joining)
+- Distinct purposes: 3  → 14
+
+**Flag state:** `NVX_VEEE_ENABLED=0` (still off in `.env`).
+Enable in production only after the full P0.15C sprint lands
+(P0.15C-2 through P0.15C-5).
+
+**Next slice · P0.15C-2 · Acquisition Summary Panel** (display-only):
+- HTML: Paragraphs / Tables / Code blocks
+- Images: Found / OCR Candidates / Processed / Skipped
+- Recovered: Commands / PowerShell / Registry / URLs / Hashes / IOCs
+- Quality: Average OCR confidence
+- Processing Time · Cache Hits · Cache Misses

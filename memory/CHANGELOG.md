@@ -4136,3 +4136,42 @@ independently releasable.
 
 Contract remains FINAL.  Amendment count: 4 (all additive
 clarifications · no architectural changes).
+
+## 2026-02-09 · P0.15C-1 · VEEE Acquisition wire-up · SHIPPED
+
+New stage module `services/veee/image_discovery.py` (pure,
+deterministic `<img>` walker); orchestrator entry point
+`extract_from_html()` in `services/veee/__init__.py`;
+`AcquiredResource.veee_records` field appended (defaults to `[]`);
+`services/ida/acquisition.py` gained a single feature-flagged
+additive block after `_extract_structured_blocks()` that
+appends VEEE-recovered text into `structured_blocks`.
+
+**All five release invariants green:**
+  §3.1 Flag OFF byte-identity   ✓  (224 pre-existing tests unchanged)
+  §3.2 Additivity                ✓  (Octlurk 551→650, +99 blocks)
+  §3.3 Complete provenance       ✓  (all OCR records carry
+                                       source/level/sha256/bbox/
+                                       engine/confidence)
+  §3.4 Zero Workspace regressions ✓ (228 passed · 8 skipped)
+  §3.5 Deterministic acquisition ✓ (VEEE-level: identical HTML →
+                                     byte-identical output)
+
+**§7.3 Benchmark on Octlurk with flag ON:**
+  · ≥ 5 tactics · PASS (7 tactics · was 4 with flag off)
+  · ≥ 15 tids  · 9/15 (60% · line-joining P0.15C-4 closes gap)
+  · 14 distinct purposes surfaced (was 3 before)
+
+**Files touched (whitelist honored):**
+  · services/veee/image_discovery.py   (new)
+  · services/veee/__init__.py          (extract_from_html added)
+  · services/ida/acquisition.py        (additive VEEE block + field)
+  · tests/test_p015c1_veee_acquisition.py  (new · 11 tests)
+  · memory/CHANGELOG.md · memory/PRD.md    (this entry)
+
+**Not touched:** behavior engine · MITRE projection · recommendation
+engine · Workspace UI · saved-case format · existing routes.
+Contract §5 out-of-scope discipline held.
+
+**Next slice · P0.15C-2** — Acquisition Summary Panel (display-
+only UI reading `veee_records` + counts).
