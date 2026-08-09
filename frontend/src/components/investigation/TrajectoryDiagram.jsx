@@ -56,7 +56,7 @@ const MITRE_LANES = [
   { id: "Impact",                 label: "Impact" },
 ];
 
-const MITRE_LANE_HEIGHT = 96;
+const MITRE_LANE_HEIGHT = 108;
 
 // Colour per MITRE tactic — deterministic palette.  Same tactic →
 // same colour every render.  Empty tactics collapse before nodes
@@ -237,6 +237,38 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
     return null;
   }
 
+  // ── Per-lane stats (2026-02-09 · richer lane headers) ────────
+  // For each ATT&CK tactic, aggregate:
+  //   · techniques — unique T-id count across the lane's nodes
+  //   · commands   — sum of node.command_count in the lane
+  //   · behaviors  — number of nodes projected into the lane
+  // Analysts read density at a glance without opening any node.
+  const laneStats = useMemo(() => {
+    const s = {};
+    for (const l of MITRE_LANES) s[l.id] = { techniques: new Set(), commands: 0, behaviors: 0 };
+    for (const n of nodes) {
+      const bucket = s[n.tactic];
+      if (!bucket) continue;
+      bucket.behaviors  += 1;
+      bucket.commands   += (n.command_count || 0);
+      const tech = n.subtitle && n.subtitle.startsWith("T") ? n.subtitle : null;
+      if (tech) bucket.techniques.add(tech);
+    }
+    // Coerce Sets → counts, memoize the max for the progress bar.
+    let maxCmds = 0;
+    const out = {};
+    for (const id in s) {
+      out[id] = {
+        techniques: s[id].techniques.size,
+        commands:   s[id].commands,
+        behaviors:  s[id].behaviors,
+      };
+      if (out[id].commands > maxCmds) maxCmds = out[id].commands;
+    }
+    out.__max_commands = Math.max(1, maxCmds);
+    return out;
+  }, [nodes]);
+
   // ── Canvas dimensions — dynamic (2026-02-09 · scalable canvas) ─
   // Width grows linearly with the number of nodes so 5-node cases
   // fit compactly while 100-node cases get a horizontally-scrolling
@@ -391,13 +423,20 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
           </defs>
 
           <g transform={`translate(${pan.x} ${pan.y})`}>
-            {/* Lane bands — inactive lanes render dimmed
-                (2026-02-09 · scalable-canvas redesign) */}
+            {/* Lane bands — richer headers (2026-02-09 · ATT&CK
+                order preserved · technique + command counts +
+                density bar).  Inactive lanes render dimmed. */}
             {(isCanonical ? activeLanes : LANES).map((lane, i) => {
               const dimmed = isCanonical && lane.active === false;
               const laneColor = isCanonical
                 ? (MITRE_LANE_COLOR[lane.id] || "#94a3b8")
                 : "#94a3b8";
+              const stats = isCanonical ? (laneStats[lane.id] || null) : null;
+              const barMax = 200;
+              const barW   = (stats && laneStats.__max_commands)
+                                  ? Math.round(barMax * stats.commands
+                                                  / laneStats.__max_commands)
+                                  : 0;
               return (
                 <g key={lane.id}
                     data-testid={`trajectory-lane-${lane.id}`}
@@ -408,7 +447,8 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                         fill={dimmed ? "rgba(148,163,184,0.015)"
                                      : (i % 2 ? "rgba(148,163,184,0.03)"
                                              : "rgba(148,163,184,0.06)")} />
-                  <text x={16} y={lane.y}
+                  {/* Lane title */}
+                  <text x={16} y={lane.y - 22}
                         style={{ fontSize: 11,
                                  fill: dimmed ? "#475569" : laneColor,
                                  letterSpacing: "0.14em",
@@ -416,6 +456,29 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                                  fontWeight: isCanonical ? 700 : 400 }}>
                     {lane.label}{dimmed ? " · —" : ""}
                   </text>
+                  {/* Lane stats (technique / command counts) */}
+                  {isCanonical && stats && !dimmed && (
+                    <>
+                      <text x={16} y={lane.y - 6}
+                            style={{ fontSize: 10, fill: "#94a3b8",
+                                     fontFamily: "JetBrains Mono, monospace" }}>
+                        {stats.techniques} technique{stats.techniques === 1 ? "" : "s"}
+                        {" · "}
+                        {stats.commands} command{stats.commands === 1 ? "" : "s"}
+                        {" · "}
+                        {stats.behaviors} behavior{stats.behaviors === 1 ? "" : "s"}
+                      </text>
+                      {/* Density bar — width proportional to lane's
+                          command count vs the busiest lane. */}
+                      <rect x={16} y={lane.y + 4}
+                            width={barMax} height={4} rx={2}
+                            fill="rgba(148,163,184,0.15)" />
+                      <rect x={16} y={lane.y + 4}
+                            width={barW} height={4} rx={2}
+                            fill={laneColor}
+                            fillOpacity={0.85} />
+                    </>
+                  )}
                 </g>
               );
             })}
@@ -459,11 +522,15 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
               //   >= 0.8    → full node card (all metadata)
               const zoomLevel = zoom < 0.5 ? "dot"
                                   : zoom < 0.8 ? "label" : "full";
-              const cnt = n.command_count || 0;
-              const badge = cnt > 1 ? ` × ${cnt}` : "";
+              const cnt         = n.command_count || 0;
+              // Compact-mode still shows a count so analysts don't
+              // miss high-density clusters, but the ambiguous ×N
+              // is dropped from FULL mode where we spell it out.
+              const badgeCompact = cnt > 1 ? ` (${cnt})` : "";
               const displayTitle = (n.title.length > 24
                                           ? n.title.slice(0, 22) + "…"
-                                          : n.title) + badge;
+                                          : n.title)
+                                       + (zoomLevel === "full" ? "" : badgeCompact);
 
               // Dot-only mode — matrix / mini-navigation view.
               if (zoomLevel === "dot") {
@@ -519,11 +586,16 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                     <text x={n.x + 22} y={n.y + 4}
                           style={{ fontSize: 9.5, fill: phaseColor,
                                    fontWeight: 700 }}>
-                      {isCanonical ? n.tactic : n.kill_chain}
+                      {isCanonical ? (n.subtitle || n.tactic) : n.kill_chain}
                     </text>
                     <text x={n.x + 22} y={n.y + 16}
                           style={{ fontSize: 9.5, fill: "#64748b" }}>
-                      {n.subtitle}{isCanonical ? "" : ` · ${n.time}`}
+                      {isCanonical
+                        ? (
+                            (cnt > 0 ? `${cnt} command${cnt === 1 ? "" : "s"} · ` : "")
+                            + "1 behavior"
+                          )
+                        : (n.subtitle + " · " + n.time)}
                     </text>
                   </>
                 )}
