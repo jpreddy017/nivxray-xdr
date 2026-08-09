@@ -43,3 +43,28 @@ def audit_markdown():
         raise HTTPException(status_code=404, detail="Audit markdown not built.")
     with open(p, "r", encoding="utf-8") as fh:
         return PlainTextResponse(fh.read(), media_type="text/markdown; charset=utf-8")
+
+
+@router.get("/audit-reconciliation")
+@router.get("/audit-reconciliation.html")
+def reconciliation_html():
+    """Reconciliation of the original audit against current git HEAD.
+
+    Corrects claims in the original audit that were made without
+    inspecting `/app/backend/v2/` and `/app/backend/engine/`.
+    Use ⌘/Ctrl + P → Save as PDF for a portable copy.
+    """
+    p = os.path.join(_DOCS_DIR, "audit_reconciliation.html")
+    if not os.path.exists(p):
+        raise HTTPException(status_code=404, detail="Reconciliation HTML not built.")
+    return FileResponse(p, media_type="text/html; charset=utf-8")
+
+
+@router.get("/audit-reconciliation.md")
+def reconciliation_md():
+    """Raw markdown of the reconciliation."""
+    p = os.path.join(_DOCS_DIR, "audit_reconciliation.md")
+    if not os.path.exists(p):
+        raise HTTPException(status_code=404, detail="Reconciliation markdown not built.")
+    with open(p, "r", encoding="utf-8") as fh:
+        return PlainTextResponse(fh.read(), media_type="text/markdown; charset=utf-8")
