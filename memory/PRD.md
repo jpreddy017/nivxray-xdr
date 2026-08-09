@@ -12726,3 +12726,38 @@ case-read; frontend renders it read-only in
   `provenance.bounding_box`
 - Consumes existing provenance; no OCR / classifier / semantic
   changes
+
+---
+
+## 2026-08-09 · ADR-004 Step 0 — P0/P1 Bug Hunt & Baseline · ✅ COMPLETE
+
+**Governance**: `memory/adr/ADR-004-canonical-implementation-ledger.md` (freeze) · `memory/P0_P1_BUG_BASELINE.md` (checklist).
+**Status**: PASS · verified independently by backend testing agent (`test_reports/iteration_70.json`).
+**Commit**: `1e84f64`.
+
+### What shipped
+1. **P1-02 defanged IOC extraction FIXED** — `services/ida/artifact_splitter.py` now surfaces `149[.]28[.]81[.]19`, `hxxps://foo[.]com/x`, `45(.)77(.)10(.)5` etc. as first-class `ip`/`url` artifacts with `metadata.defanged=True`.
+2. **5 new regression tests added** — locks P1-02, P1-06 (multi-token inner), P1-09 (AHK false-positive), P1-10 (Wayback fallback), and the 3-way verdict engine parity gate.
+3. **4 baseline snapshots captured** using all 14 pinned `VENDOR_CORPUS_V1` fixtures:
+   - `baseline_verdicts.json`
+   - `baseline_chain_decodes.json`
+   - `baseline_bkb_projections.json` (110 canonical behaviors)
+   - `baseline_iocs.json`
+4. **3-way verdict engine parity snapshot** captured — `baseline_verdict_engine_parity.json`. Honestly captures the divergence between `backend/v2/verdict/engine.py`, `nivxforge/investigation/verdict_engine.py`, and `services/uaie/orchestrator.py`. Becomes the ADR-004 Step 1 gate.
+5. **Baseline harness**: `python -m tests.capture_baseline` regenerates all 4 snapshots deterministically.
+
+### Testing evidence
+- Step-0 targeted suite: **88/88 GREEN** (all new + previously-shipped regression tests).
+- Pipeline hot-path regression: **190 passed / 5 failed / 35 errors** — **byte-identical to pre-Step-0 baseline** (verified via `git stash`). Zero regressions introduced.
+- Independent backend testing agent: **PASS** (`iteration_70.json`).
+
+### New P1 finding surfaced during Step 0
+- **P1-11** · `test_ida_artifact_splitter.py::test_split_file_path_windows` fails — the registry-key extractor over-matches `\Users\...` file paths as `HKEY_USERS\...`. Pre-existing on HEAD (confirmed via `git stash`), added to `P0_P1_BUG_BASELINE.md`.
+
+### FROZEN — awaiting owner approval
+- ADR-004 Step 1: Verdict Engine parity migration.
+- ADR-004 §Q3: BKB vs IKB canonical pick.
+- ADR-004 §Q7: Provenance canonical pick (currently PROVISIONAL).
+- **NO new feature development**.
+
+**Next step (owner-gated)**: Review Step 0 report → authorize (or reject) ADR-004 Step 1.

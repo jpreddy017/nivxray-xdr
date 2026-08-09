@@ -130,29 +130,55 @@ Effort: ~2-3 days to build the harness + capture. Post-migration these become th
 
 | Test | Path | Status |
 |---|---|---|
-| Verdict parity (3-way) | `backend/tests/test_verdict_engine_parity.py` | **MISSING — create** |
-| Defanged IOC extraction | `backend/tests/test_defanged_ioc_extraction.py` | **MISSING — create** |
-| Canonicalizer multi-token inner | `backend/tests/test_canonicalizer_multi_token_inner.py` | **MISSING — create** |
-| AHK false positive | `backend/tests/test_ahk_false_positive.py` | **MISSING — create** |
-| Wayback fallback | `backend/tests/test_wayback_fallback.py` | **MISSING — create** |
-| SSRF blocked | `backend/tests/test_ssrf_blocked.py` | **MISSING — create** |
-| URL vs PowerShell classifier | `backend/tests/test_url_classifier_powershell_bug.py` | ✅ EXISTS (13 tests) |
+| Verdict parity (3-way) | `backend/tests/test_verdict_engine_parity.py` | ✅ EXISTS · 2 tests · GREEN |
+| Defanged IOC extraction | `backend/tests/test_defanged_ioc_extraction.py` | ✅ EXISTS · 20 tests · GREEN |
+| Canonicalizer multi-token inner | `backend/tests/test_canonicalizer_multi_token_inner.py` | ✅ EXISTS · 6 tests · GREEN |
+| AHK false positive | `backend/tests/test_ahk_false_positive.py` | ✅ EXISTS · 8 tests · GREEN |
+| Wayback fallback | `backend/tests/test_wayback_fallback.py` | ✅ EXISTS · 14 tests · GREEN |
+| SSRF blocked | `backend/tests/test_ssrf_blocked.py` | ✅ EXISTS · 6 tests · GREEN |
+| URL vs PowerShell classifier | `backend/tests/test_url_classifier_powershell_bug.py` | ✅ EXISTS · 13 tests · GREEN |
+| Baseline snapshots present | `backend/tests/test_baseline_snapshots_present.py` | ✅ EXISTS · 5 tests · GREEN |
 | BKB CI gate | `backend/tests/test_bkb_ci_gate.py` | ✅ EXISTS |
 | Quality dashboard floors | `backend/tests/test_quality_dashboard.py` | ✅ EXISTS |
 
 ---
 
-## Recommendation
+## Step 0 Completion Log (2026-08-09 · git `1e84f64`)
 
-Complete Step 0 (P0/P1 bug baseline) in this order:
+**STATUS: ✅ PASS** — Independent testing agent verified (report: `test_reports/iteration_70.json`).
 
-1. **Fix P0-01 (SSRF)** — 4 hours. Non-negotiable before any customer-facing test.
-2. **Capture 4 baseline snapshots** — 2-3 days. These are the parity gates.
-3. **Create the 6 missing regression tests** — 1-2 days. These lock the fixes already shipped this session.
-4. **Fix P1-02 (defanged IOC)** — 2 hours. Low-effort correctness improvement.
+### Baselines captured
+| Snapshot | Path | Fixtures |
+|---|---|---|
+| Verdicts | `backend/corpus/vendor/v1/reports/baseline_verdicts.json` | 14 |
+| Chain decodes | `backend/corpus/vendor/v1/reports/baseline_chain_decodes.json` | 14 |
+| BKB projections | `backend/corpus/vendor/v1/reports/baseline_bkb_projections.json` | 110 behaviors |
+| IOC extraction | `backend/corpus/vendor/v1/reports/baseline_iocs.json` | 14 |
+| Verdict engine 3-way parity | `backend/corpus/vendor/v1/reports/baseline_verdict_engine_parity.json` | 14 × 3 engines |
 
-Then and only then start ADR-004 migration step 1 (Verdict Engine).
+### Corpus reality-check
+The plan referenced "20 Tier-1 reports". The **pinned** `VENDOR_CORPUS_V1` in `tests/test_p015c5_vendor_corpus_v1.py` contains **14** fixtures. All Step 0 baselines faithfully use these 14; there is no unpinned 20-fixture set. The 6-fixture delta is a documentation error, not a scope reduction — flagged for owner review.
 
-Estimated Step 0 duration: **3-5 working days**.
+### Test-count summary
+- **Step 0 targeted suite**: 88/88 GREEN (all new + previously-shipped regression tests).
+- **Pipeline hot-path regression**: 190 passed / 5 failed / 35 errors — **byte-identical to the pre-Step-0 baseline** (verified via `git stash`). Zero regressions introduced by Step 0.
+- All 5 failures + 35 errors are pre-existing and catalogued in the P0/P1 bug list above.
+
+### P0/P1 issues status snapshot
+- **P0-01 SSRF**: RESOLVED (false alarm — already mitigated by `_is_private_host`); locked by `test_ssrf_blocked.py` (6 tests).
+- **P0-02 3-way verdict divergence**: SNAPSHOTTED as the ADR-004 Step 1 migration gate (not fixed yet by design).
+- **P1-02 defanged IOC extraction**: FIXED at commit `1e84f64` in `services/ida/artifact_splitter.py` (added `_RE_DEFANGED_IPV4`, `_RE_DEFANGED_URL`, `_refang()`). Locked by 20-test suite.
+- **P1-06 canonicalizer multi-token inner**: previously fixed; now locked by 6-test suite.
+- **P1-09 AHK base64 false positive**: previously fixed; now locked by 8-test suite.
+- **P1-10 Wayback fallback**: previously shipped; now locked by 14-test suite.
+- **P1-NEW (surfaced during Step 0)**: `test_ida_artifact_splitter.py::test_split_file_path_windows` fails — the registry-key extractor incorrectly matches `\Users\...` paths as `HKEY_USERS\...`. Pre-existing on HEAD (confirmed via `git stash`); NOT in P0/P1 catalogue yet. Filed as **P1-11 · Registry-key extractor over-matches Windows file paths**.
+
+### Recommendation
+Step 0 is complete. **Do not begin ADR-004 Step 1 (Verdict Engine parity migration) without explicit owner approval.**
+
+Recommended follow-up before Step 1 begins:
+1. Owner decides how to handle P1-11 (fix now under the "bug fixes allowed under freeze" clause vs. defer to a dedicated Step 0.1).
+2. Owner decides the BKB vs IKB canonical pick (ADR-004 §Q3).
+3. Owner decides the Provenance canonical path (ADR-004 §Q7).
 
 _End of P0/P1 Bug Baseline._
