@@ -425,6 +425,55 @@ _PURPOSE_TO_MITRE: Dict[str, List[Dict[str, str]]] = {
     "Kaseya RMM execution": [
         {"id": "T1219", "name": "Remote Access Software"},
     ],
+
+    # ── 2026-02-09 · Gap fill exposed by MITRE Consistency CI ────
+    # Pre-existing classifier labels that had no _PURPOSE_TO_MITRE
+    # entry.  Filling them makes the projection layer honest —
+    # every label the classifier can emit now bridges to MITRE.
+    "AutoHotkey stager": [
+        {"id": "T1059.006", "name": "Command and Scripting Interpreter · Python/AutoHotkey"},
+    ],
+    "BITSAdmin download": [
+        {"id": "T1105", "name": "Ingress Tool Transfer"},
+        {"id": "T1197", "name": "BITS Jobs"},
+    ],
+    "Certutil download / decode": [
+        {"id": "T1105", "name": "Ingress Tool Transfer"},
+        {"id": "T1140", "name": "Deobfuscate/Decode Files or Information"},
+    ],
+    "Download from remote resource": [
+        {"id": "T1105", "name": "Ingress Tool Transfer"},
+    ],
+    "Host / domain reconnaissance": [
+        {"id": "T1016", "name": "System Network Configuration Discovery"},
+    ],
+    "Microsoft Edge launch": [
+        {"id": "T1204.002", "name": "User Execution · Malicious File"},
+    ],
+    "PowerShell execution via CMD (execution-policy bypass)": [
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+        {"id": "T1562.001", "name": "Impair Defenses · Disable or Modify Tools"},
+    ],
+    "PowerShell process enumeration": [
+        {"id": "T1057", "name": "Process Discovery"},
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+    ],
+    "Python interpreter discovery": [
+        {"id": "T1518", "name": "Software Discovery"},
+    ],
+    "SSH client execution": [
+        {"id": "T1021.004", "name": "Remote Services · SSH"},
+    ],
+    "SSH remote session": [
+        {"id": "T1021.004", "name": "Remote Services · SSH"},
+    ],
+    "Scheduled-task persistence": [
+        {"id": "T1053.005", "name": "Scheduled Task"},
+    ],
+    # NOTE: "Command execution" is the DELIBERATE catch-all fallback
+    # (services/ida/report_extractors.py:998) — it has no MITRE
+    # mapping by design because the technique is unknown.  It's
+    # excluded from the consistency check via a tolerant B2M rule.
 }
 
 

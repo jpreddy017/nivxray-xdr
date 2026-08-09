@@ -1,0 +1,639 @@
+{
+  "corpus_id": "vendor-v1",
+  "count": 2,
+  "history": [
+    {
+      "aggregate": {
+        "delta": {
+          "behaviors": 18,
+          "commands": 19,
+          "mitre": 7,
+          "recommendations": 0
+        },
+        "flag_off": {
+          "behaviors": 0,
+          "commands": 0,
+          "mitre": 0,
+          "recommendations": 42
+        },
+        "flag_on": {
+          "behaviors": 18,
+          "commands": 19,
+          "mitre": 7,
+          "recommendations": 42
+        }
+      },
+      "corpus": {
+        "fixtures": 14,
+        "id": "vendor-v1"
+      },
+      "duration_ms": 2431,
+      "per_fixture": {
+        "flag_off": [
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "talos.001",
+            "html_commands": 3,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "talos.002",
+            "html_commands": 3,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "talos.003",
+            "html_commands": 3,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "securelist.001",
+            "html_commands": 3,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "securelist.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "securelist.003",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "mandiant.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "mandiant"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "mandiant.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "mandiant"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "microsoft.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "microsoft"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "microsoft.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "microsoft"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "elastic.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "elastic"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "elastic.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "elastic"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "huntress.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "huntress"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "huntress.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "huntress"
+          }
+        ],
+        "flag_on": [
+          {
+            "behaviors": 2,
+            "commands": 2,
+            "fixture_id": "talos.001",
+            "html_commands": 3,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 3,
+            "commands": 3,
+            "fixture_id": "talos.002",
+            "html_commands": 3,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 3,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "talos.003",
+            "html_commands": 3,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 2,
+            "commands": 2,
+            "fixture_id": "securelist.001",
+            "html_commands": 3,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "securelist.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 2,
+            "commands": 2,
+            "fixture_id": "securelist.003",
+            "html_commands": 2,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "mandiant.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "mandiant"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "mandiant.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "mandiant"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "microsoft.001",
+            "html_commands": 2,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "microsoft"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "microsoft.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "microsoft"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "elastic.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "elastic"
+          },
+          {
+            "behaviors": 2,
+            "commands": 2,
+            "fixture_id": "elastic.002",
+            "html_commands": 2,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "elastic"
+          },
+          {
+            "behaviors": 1,
+            "commands": 2,
+            "fixture_id": "huntress.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "huntress"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "huntress.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "huntress"
+          }
+        ]
+      },
+      "schema_version": "1.0",
+      "sprint": "sprint-20260809",
+      "timestamp_utc": "2026-08-09T05:05:32.350797+00:00"
+    },
+    {
+      "aggregate": {
+        "delta": {
+          "behaviors": 18,
+          "commands": 19,
+          "mitre": 7,
+          "recommendations": 0
+        },
+        "flag_off": {
+          "behaviors": 0,
+          "commands": 0,
+          "mitre": 0,
+          "recommendations": 42
+        },
+        "flag_on": {
+          "behaviors": 18,
+          "commands": 19,
+          "mitre": 7,
+          "recommendations": 42
+        }
+      },
+      "corpus": {
+        "fixtures": 14,
+        "id": "vendor-v1"
+      },
+      "duration_ms": 2429,
+      "per_fixture": {
+        "flag_off": [
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "talos.001",
+            "html_commands": 3,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "talos.002",
+            "html_commands": 3,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "talos.003",
+            "html_commands": 3,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "securelist.001",
+            "html_commands": 3,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "securelist.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "securelist.003",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "mandiant.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "mandiant"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "mandiant.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "mandiant"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "microsoft.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "microsoft"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "microsoft.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "microsoft"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "elastic.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "elastic"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "elastic.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "elastic"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "huntress.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "huntress"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "huntress.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "huntress"
+          }
+        ],
+        "flag_on": [
+          {
+            "behaviors": 2,
+            "commands": 2,
+            "fixture_id": "talos.001",
+            "html_commands": 3,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 3,
+            "commands": 3,
+            "fixture_id": "talos.002",
+            "html_commands": 3,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 3,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "talos.003",
+            "html_commands": 3,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "talos"
+          },
+          {
+            "behaviors": 2,
+            "commands": 2,
+            "fixture_id": "securelist.001",
+            "html_commands": 3,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "securelist.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 2,
+            "commands": 2,
+            "fixture_id": "securelist.003",
+            "html_commands": 2,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "securelist"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "mandiant.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "mandiant"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "mandiant.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "mandiant"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "microsoft.001",
+            "html_commands": 2,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "microsoft"
+          },
+          {
+            "behaviors": 0,
+            "commands": 0,
+            "fixture_id": "microsoft.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 0,
+            "vendor": "microsoft"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "elastic.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "elastic"
+          },
+          {
+            "behaviors": 2,
+            "commands": 2,
+            "fixture_id": "elastic.002",
+            "html_commands": 2,
+            "mitre": 1,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "elastic"
+          },
+          {
+            "behaviors": 1,
+            "commands": 2,
+            "fixture_id": "huntress.001",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 2,
+            "vendor": "huntress"
+          },
+          {
+            "behaviors": 1,
+            "commands": 1,
+            "fixture_id": "huntress.002",
+            "html_commands": 2,
+            "mitre": 0,
+            "recommendations": 3,
+            "veee_lift": 1,
+            "vendor": "huntress"
+          }
+        ]
+      },
+      "schema_version": "1.0",
+      "sprint": "sprint-baseline",
+      "timestamp_utc": "2026-08-09T05:04:29.549532+00:00"
+    }
+  ],
+  "schema_version": "1.0"
+}

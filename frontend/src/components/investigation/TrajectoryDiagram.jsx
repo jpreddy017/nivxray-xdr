@@ -293,7 +293,7 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
           <div style={{ fontSize: 18, fontWeight: 700, color: "#e2e8f0",
                         marginTop: 2 }}>
             {isCanonical
-              ? `MITRE ATT&CK · ${activeLanes.length} of 14 tactics · pure projection of behavior.mitre_tactics[]`
+              ? `MITRE ATT&CK · ${activeLanes.length} of 14 tactics observed`
               : `Cyber Kill Chain × MITRE ATT&CK · ${LANES.length} swim lanes · drag nodes · pan background · use +/− to zoom`}
           </div>
         </div>
