@@ -945,7 +945,10 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
             return "Remote WMI process create"
         if "process call create" in c or "call create" in c:
             return "WMI process create"
-        if "process" in c and "list" in c:
+        # WMI process discovery — `process where … call getowner`,
+        # `call terminate`, or a bare `process list` / `process get`.
+        if "process" in c and ("call getowner" in c or "call terminate" in c
+                                        or "list" in c or " get " in c):
             return "WMI process discovery"
     if head.startswith("powershell") and ("invoke-wmimethod" in c or "invoke-cimmethod" in c):
         if "-computername" in c or "-computer" in c:
@@ -1094,7 +1097,10 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     # PowerShell process enumeration — use the pre-peel head so
     # `powershell -c <inner>` still routes into the PowerShell
     # branch even after the canonicalizer strips the wrapper.
-    if original_head.startswith("powershell") or original_head.startswith("pwsh"):
+    # ALSO match the POST-peel head so `cmd.exe /c powershell ...`
+    # (where original_head=cmd.exe) still routes correctly.
+    if (original_head.startswith("powershell") or original_head.startswith("pwsh")
+            or head.startswith("powershell") or head.startswith("pwsh")):
         # WMI overlays run BEFORE the generic PowerShell branches
         # so we don't classify `Invoke-WmiMethod` as "PowerShell
         # execution".

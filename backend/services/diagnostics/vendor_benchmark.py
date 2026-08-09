@@ -150,16 +150,41 @@ def _run_pipeline_on_fixture(fixture, *, veee_enabled: bool) -> Dict[str, Any]:
             if tid:
                 tech_ids.add(tid)
 
+    # ── Quality dashboard metrics (2026-02-09 · validation sprint) ─
+    # False "Command execution" fallback count — a rising number
+    # signals classifier gaps.
+    generic_fallback = sum(1 for c in commands
+                                    if (c.get("purpose") or "") == "Command execution")
+    # Mean OCR confidence across VEEE records (0.0 when VEEE is off).
+    _confs = [((r.get("provenance") or {}).get("ocr_confidence"))
+                  for r in veee_records
+                  if r.get("type") != "skipped"
+                    and (r.get("provenance") or {}).get("ocr_confidence") is not None]
+    mean_ocr_conf = (sum(_confs) / len(_confs)) if _confs else 0.0
+    # Recommendation coverage — fraction of behaviors covered by ≥1
+    # recommendation (empty behaviors → 0.0).
+    total_beh    = max(1, len(behaviors))
+    covered_beh  = 0
+    behavior_labels = {b.get("label") for b in behaviors if b.get("label")}
+    for rec in recommendations:
+        target = rec.get("target") or rec.get("behavior") or rec.get("label")
+        if target in behavior_labels:
+            covered_beh += 1
+    coverage = min(1.0, covered_beh / total_beh) if len(behaviors) else 0.0
+
     return {
         "fixture_id":       fixture.fixture_id,
         "vendor":           fixture.vendor,
-        "commands":         len(commands),
-        "behaviors":        len(behaviors),
-        "mitre":            len(tech_ids),
-        "recommendations":  len(recommendations),
-        "html_commands":    len(fixture.commands),   # baked-into-PNG count
-        # A ratio > 0 means VEEE recovered evidence the HTML lacked.
-        "veee_lift":        (len(commands) if veee_enabled else 0),
+        "commands":                len(commands),
+        "behaviors":               len(behaviors),
+        "mitre":                   len(tech_ids),
+        "recommendations":         len(recommendations),
+        "html_commands":           len(fixture.commands),
+        "veee_lift":               (len(commands) if veee_enabled else 0),
+        # Quality-dashboard metrics (2026-02-09):
+        "generic_fallback":        generic_fallback,
+        "mean_ocr_confidence":     round(mean_ocr_conf, 3),
+        "recommendation_coverage": round(coverage, 3),
     }
 
 
@@ -181,12 +206,20 @@ def run_benchmark(*, sprint: Optional[str] = None) -> Dict[str, Any]:
         off_results.append(_run_pipeline_on_fixture(fixture, veee_enabled=False))
         on_results.append(_run_pipeline_on_fixture(fixture, veee_enabled=True))
 
-    def _agg(rows: List[Dict[str, Any]]) -> Dict[str, int]:
+    def _agg(rows: List[Dict[str, Any]]) -> Dict[str, float]:
+        n = max(1, len(rows))
+        confs = [r.get("mean_ocr_confidence") or 0.0 for r in rows
+                     if (r.get("mean_ocr_confidence") or 0.0) > 0.0]
         return {
-            "commands":        sum(r["commands"]        for r in rows),
-            "behaviors":       sum(r["behaviors"]       for r in rows),
-            "mitre":           sum(r["mitre"]           for r in rows),
-            "recommendations": sum(r["recommendations"] for r in rows),
+            "commands":                sum(r["commands"]                for r in rows),
+            "behaviors":               sum(r["behaviors"]               for r in rows),
+            "mitre":                   sum(r["mitre"]                   for r in rows),
+            "recommendations":         sum(r["recommendations"]         for r in rows),
+            # Quality signals (2026-02-09):
+            "generic_fallback":        sum(r.get("generic_fallback", 0)         for r in rows),
+            "mean_ocr_confidence":     round((sum(confs) / len(confs)) if confs else 0.0, 3),
+            "recommendation_coverage": round(sum(r.get("recommendation_coverage", 0.0)
+                                                          for r in rows) / n, 3),
         }
 
     off_agg = _agg(off_results)
