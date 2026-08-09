@@ -1903,6 +1903,37 @@ function WorkspacePageInner() {
     setInvestigationMode(false);
     setInvestigationObject(null);
 
+    // 2026-02-09 · Fast-path detection — classify multi-layer encoded
+    // inputs CLIENT-SIDE and skip `/die/understand` when we already
+    // know we're going to chain-decode.  Saves the ~1–2 s round-trip
+    // that provides no additional information for these inputs.
+    const _fastPartsCheck = splitCommandLines(input);
+    const _fastProse =
+      (input || "").length > 400 &&
+      /(?:^|\n)(?:the\s|talos\s|initial access|discovery|lateral movement|executive summary|engagement\s\d|mandiant|crowdstrike|microsoft defender|securex|falcon overwatch|customer\s|outcome|main research question|defensive)/i
+        .test(input || "");
+    const _fastMultiLayerMarker = /(?:\s-e(?:nc(?:od(?:ed(?:command)?)?)?)?\b\s*[A-Za-z0-9+/=]{100,})|FromBase64String\s*\(\s*["'][A-Za-z0-9+/=]{100,}|IO\.Compression\.Gzip|invoke-expression\s*\(\s*.+FromBase64/i;
+    const _fastSingleMultiLayer =
+      _fastPartsCheck && _fastPartsCheck.length === 1 &&
+      typeof input === "string" &&
+      input.length >= 120 &&
+      _fastMultiLayerMarker.test(input) &&
+      !_fastProse;
+    const _fastChain =
+      (_fastPartsCheck && _fastPartsCheck.length > 1 && _fastPartsCheck.length <= 20 && !_fastProse)
+      || _fastSingleMultiLayer;
+
+    if (_fastChain) {
+      // Fast-path: go straight to chain analysis.  Chain-mode
+      // produces MITRE + IOCs + LOLBAS + verdict + narrative all
+      // by itself — no need for /die/understand or the parallel
+      // /die/analyze + /die/narrate calls.
+      setUnderstandingLoading(false);
+      setStatus("AUTO-INVESTIGATE ▸ CHAIN DECODING…");
+      await runChainAnalysis(_fastPartsCheck, { autoInvoked: true });
+      return;
+    }
+
     // ── IUE first — classify the input before touching decoders ──
     // Per WORKSPACE_ARCHITECTURE_RULES.md · R10: the decoder is a
     // capability, not the driver.  It runs only when the IUE says so.
@@ -1930,21 +1961,11 @@ function WorkspacePageInner() {
     // single-command multi-layer payload, we're going to chain-
     // mode which produces ALL of analyze + narrate + iocs +
     // mitre + lolbas by itself — no need for the parallel calls.
-    const parts = splitCommandLines(input);
-    const looksLikeProse =
-      (input || "").length > 400 &&
-      /(?:^|\n)(?:the\s|talos\s|initial access|discovery|lateral movement|executive summary|engagement\s\d|mandiant|crowdstrike|microsoft defender|securex|falcon overwatch|customer\s|outcome|main research question|defensive)/i
-        .test(input || "");
-    const _multiLayerMarker = /(?:\s-e(?:nc(?:od(?:ed(?:command)?)?)?)?\b\s*[A-Za-z0-9+/=]{100,})|FromBase64String\s*\(\s*["'][A-Za-z0-9+/=]{100,}|IO\.Compression\.Gzip|invoke-expression\s*\(\s*.+FromBase64/i;
-    const _isSingleMultiLayer =
-      parts && parts.length === 1 &&
-      typeof input === "string" &&
-      input.length >= 120 &&
-      _multiLayerMarker.test(input) &&
-      !looksLikeProse;
-    const _willChain =
-      (parts && parts.length > 1 && parts.length <= 20 && !looksLikeProse)
-      || _isSingleMultiLayer;
+    const parts = _fastPartsCheck;
+    const looksLikeProse = _fastProse;
+    const _multiLayerMarker = _fastMultiLayerMarker;
+    const _isSingleMultiLayer = _fastSingleMultiLayer;
+    const _willChain = _fastChain;
 
     // Only fire analyze + narrate when we are NOT going to chain
     // — chain-mode fully supersedes them.
