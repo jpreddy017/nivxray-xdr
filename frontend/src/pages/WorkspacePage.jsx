@@ -1905,7 +1905,32 @@ function WorkspacePageInner() {
       (input || "").length > 400 &&
       /(?:^|\n)(?:the\s|talos\s|initial access|discovery|lateral movement|executive summary|engagement\s\d|mandiant|crowdstrike|microsoft defender|securex|falcon overwatch|customer\s|outcome|main research question|defensive)/i
         .test(input || "");
-    if (parts && parts.length > 1 && parts.length <= 20 && !looksLikeProse) {
+
+    // 2026-02-09 · Auto-Chain for single-command multi-layer encodings.
+    // A common analyst paste is ONE command line containing nested
+    // encodings — the classic Cobalt Strike loader shape:
+    //     `%COMSPEC% /b /c start /b /min powershell -EncodedCommand JAB…`
+    //     `powershell -enc <long base64>`
+    //     `cmd /c powershell FromBase64String(…) | IEX`
+    // The chain endpoint (`/decode/chain`) recursively peels
+    // base64 → utf-16le → base64 → gzip → byte-array-XOR → shellcode
+    // and merges the resulting IOCs / MITRE / LOLBAS into the
+    // top-level Attack Graph.  Without this branch AUTO INVESTIGATE
+    // falls through to /decode/smart which only single-passes the
+    // outer layer — the C2 IP buried 4 layers deep never surfaces
+    // unless the analyst manually opens CHAIN MODE.
+    const _multiLayerMarker = /(?:\s-e(?:nc(?:od(?:ed(?:command)?)?)?)?\b\s*[A-Za-z0-9+/=]{100,})|FromBase64String\s*\(\s*["'][A-Za-z0-9+/=]{100,}|IO\.Compression\.Gzip|invoke-expression\s*\(\s*.+FromBase64/i;
+    const _isSingleMultiLayer =
+      parts && parts.length === 1 &&
+      typeof input === "string" &&
+      input.length >= 120 &&
+      _multiLayerMarker.test(input) &&
+      !looksLikeProse;
+
+    if (
+      (parts && parts.length > 1 && parts.length <= 20 && !looksLikeProse)
+      || _isSingleMultiLayer
+    ) {
       await runChainAnalysis(parts);
       return;
     }
@@ -2968,23 +2993,7 @@ function WorkspacePageInner() {
                   placeholder="Paste anything — PowerShell, base64/hex, AES/RC4 ciphertext, JWT, PE/ELF headers, gzip/bzip2/LZMA, obfuscated JS, defanged IOCs…"
                   value={input}
                   readOnly={inputLocked}
-                  onChange={(e) => {
-                    // 2026-02-09 · Anti-Freeze SLA.
-                    // For large inputs (>4 KB) wrap the setState in
-                    // `startTransition` so React treats it as a
-                    // non-urgent update.  If the user keeps typing
-                    // or triggers a click, React interrupts the
-                    // downstream render tree rather than blocking
-                    // the main thread for the full reconciliation.
-                    // Below 4 KB, sync update preserves the snappy
-                    // feel of small inputs.
-                    const val = e.target.value;
-                    if (val && val.length > 4096) {
-                      startTransition(() => setInput(val));
-                    } else {
-                      setInput(val);
-                    }
-                  }}
+                  onChange={(e) => setInput(e.target.value)}
                 onPaste={(e) => {
                   // Client-side auto-detect: race 14 JS decoders against the pasted
                   // string INSIDE the browser (zero network). Surface the top
