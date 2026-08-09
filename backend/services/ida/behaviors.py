@@ -32,6 +32,7 @@ STRICT contract:
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass, field, asdict
 from typing      import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -181,9 +182,31 @@ def classify_command(cmd: str, head: str) -> Tuple[str, Optional[str]]:
 
     ``behavior_type`` is None when the command is recognized but
     has no canonical behavior (e.g. generic execution).
+
+    2026-02-09 · Bug fix: pre-peel PowerShell detection.  Real
+    telemetry wraps encoded PowerShell as
+    ``%COMSPEC% /b /c start /b /min powershell -EncodedCommand …``.
+    Substring matches on the whole command line false-positive on
+    the base64 payload (``ahk``, ``psh`` etc. all appear as bytes
+    inside a base64 blob).  Match against a canonical, tokenised
+    view of the command instead.
     """
     c = cmd.lower()
     h = (head or "").lower()
+
+    # ── Pre-peel PowerShell detection ────────────────────────────
+    # If the raw command contains `powershell … -EncodedCommand …`
+    # anywhere, treat it as PowerShell regardless of the wrapper.
+    # This must run BEFORE any substring `h in` heuristics because
+    # the classifier callers frequently pass the entire command
+    # line as `head` when the executable extractor gives up on an
+    # env-var wrapper (see `_split_executable_and_args`).
+    _pre_peel_ps = bool(re.search(
+        r"(?i)\b(?:powershell|pwsh)(?:\.exe)?\b[^\n]{0,200}?"
+        r"-e(?:nc(?:od(?:ed(?:command)?)?)?)?\b", cmd,
+    ))
+    if _pre_peel_ps:
+        return ("PowerShell encoded command", "powershell_encoded_command")
 
     if "vssadmin" in h and ("delete" in c and "shadow" in c):
         return ("Shadow copy deletion", "shadow_copy_deletion")
@@ -292,7 +315,11 @@ def classify_command(cmd: str, head: str) -> Tuple[str, Optional[str]]:
         return ("Software uninstall (defense evasion)",
                 "defense_evasion_disable_tool")
 
-    if "autohotkey" in h or "ahk" in h:
+    # AutoHotkey stager — MUST match at token boundary, not as a
+    # substring, because the head string sometimes contains a full
+    # command line (env-var wrappers) whose base64 payload naturally
+    # contains the letters "ahk".  Token-safe check only.
+    if re.search(r"(?i)\b(?:autohotkey|ahk)(?:\.exe|_l)?\b", h):
         return ("AutoHotkey stager", None)
 
     if h in ("curl", "wget", "curl.exe", "wget.exe"):

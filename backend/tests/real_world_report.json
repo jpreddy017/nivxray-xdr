@@ -1,6 +1,6 @@
 {
   "summary": {
-    "generated_at": "2026-08-08T06:59:55.547616+00:00",
+    "generated_at": "2026-08-09T09:01:15.482111+00:00",
     "total": 120,
     "mitre_hits": 117,
     "mitre_hit_rate": 0.975,
@@ -12,7 +12,7 @@
     "marker_hits": 10,
     "marker_hit_rate": 0.0833,
     "avg_layers": 5.6,
-    "avg_latency_ms": 3372,
+    "avg_latency_ms": 3266,
     "per_family": {
       "Emotet": {
         "total": 2,
@@ -364,7 +364,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 125
+      "ms": 122
     },
     {
       "id": "rws_002_qakbot",
@@ -385,7 +385,7 @@
         "decoder-powershell-encoded-command",
         "decoder-hex-full"
       ],
-      "output_head": "9EUQBFEOERlVVpVOmVFdWhUTwl1ZMJkNKdDeRxEViVlTuhmN1knMah1ShZUa0pHbvtkUnl0MopGUMZ2NuR3M4g0VKBnVTJmYJNXOyBjaFFVWWZ0dBdWQNFkM3JjQYd3LD9Wbkh0LKFUSzRDS",
+      "output_head": "9EUQBFEOERlVVpVOmVFdWhUTwl1ZMJkNKdDeRxEViVlTuhmN1knMah1ShZUa0pHbvtkUnl0MopGUMZ2NuR3M4g0VKBnVTJmYJNXOyBjaFFVWWZ0dBdWQNFkM3JjQYd3LD92RlRDMNFUSzRDS",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -412,7 +412,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5917
+      "ms": 5802
     },
     {
       "id": "rws_003_icedid",
@@ -458,7 +458,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4153
+      "ms": 3143
     },
     {
       "id": "rws_004_cobaltstrike",
@@ -505,7 +505,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 11606
+      "ms": 8254
     },
     {
       "id": "rws_005_empire",
@@ -525,7 +525,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u322f\u5256\u6173\u4436\u414d\u387a\u6470\u434c\u4132\u5247\u4544\u3467\u5555\u5951\u6a4d\u674f\u6b50\u4761\u4c51\u2b37\u5a6e\u5530\u6e57\u7757\u6e51\u324c\u6633\u676d\u4446\u7962\u6875\u556e\u6769\u3772\u4f6f\u365a\u4455\u5372\u4847\u7966\u3236\u5562\u4a74\u306d\u7462\u7659\u4736\u7676\u5742\u7375\u4a34\u4e68\u5850\u4244\u4b4d\u3374\u3438\u336f\u4756\u4f30\u4534\u4c72\u506e\u626d\u5247\u6564\u2b4d\u335a\u4d61\u5362\u3458\u7245\u5330\u6d73\u4966\u6d75\u6446\u4130\u7233\u7737\u6772\u522f\u6337\u5a37\u386d\u4f79\u6e6f\u5058\u436e\u3333\u7467\u684f\u4c43\u7373\u6556\u356e\u486d\u3446\u3543\u7756\u5448\u2b38\u6d6b\u2b57\u7354\u4836\u502b\u4d65\u3839\u6c66\u7965\u376c\u4273\u482b\u686d\u4f4a\u4f5a\u714c\u4f72\u676e\u6364\u4a4a\u4a6d\u426d\u6642\u525a\u7a35\u7874\u7264\u4e76\u5932\u766c\u3732\u3130\u484f\u392b\u2f35\u5931\u3351\u752f\u4958\u5874\u3948\u3735\u795a\u6539\u6b39\u5833\u6e76\u766a\u6a7a\u5237\u7349\u3236\u3967\u6859\u6656\u745a\u346d\u684c\u7050\u6332\u4a78\u4536\u7964\u7a72\u6652\u342f\u6b79\u2b2f\u2b2f\u6257\u2b73\u6341\u6e66\u2f71\u694d\u3358\u5066\u4434\u6855\u7242\u3246\u4367\u4141\u3d41",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u322f\u5256\u6173\u4436\u414d\u387a\u6470\u434c\u4132\u5247\u4544\u3467\u5555\u5951\u6a4d\u674f\u6b50\u4761\u4c51\u2b37\u5a6e\u5530\u6e57\u7757\u6e51\u324c\u6633\u676d\u4446\u7962\u6875\u556e\u6769\u3772\u4f6f\u365a\u4455\u5372\u4847\u7966\u3236\u5562\u4a74\u306d\u7462\u7659\u4736\u7676\u5742\u7375\u4a34\u4e68\u5850\u4244\u4b4d\u3374\u3438\u336f\u4756\u4f30\u4534\u4c72\u506e\u626d\u5247\u6564\u2b4d\u335a\u4d61\u5362\u3458\u7245\u5330\u6d73\u4966\u6d75\u6446\u4130\u7233\u7737\u6772\u522f\u6337\u5a37\u386d\u4f79\u6e6f\u5058\u436e\u3333\u7467\u684f\u4c43\u7373\u6556\u356e\u486d\u3446\u3543\u7756\u5448\u2b38\u6d6b\u2b57\u7354\u4836\u502b\u4d65\u3839\u6c66\u7965\u376c\u4273\u482b\u686d\u4f4a\u4f5a\u714c\u4f72\u676e\u6364\u4a4a\u4a6d\u426d\u6642\u525a\u7a35\u7874\u7264\u4e76\u5932\u766c\u3732\u3130\u484f\u392b\u2f35\u5931\u3351\u752f\u4958\u5874\u3948\u3735\u795a\u6539\u6b39\u5833\u6e76\u766a\u6a7a\u5237\u7349\u3236\u3967\u6859\u6656\u745a\u346d\u684c\u7050\u6332\u4a78\u4536\u7964\u7a72\u6652\u342f\u6b79\u2b2f\u2b2f\u6257\u2b73\u6341\u6e66\u2f71\u694d\u3358\u5066\u4434\u6855\u7242\u3246\u4367\u4141\u3d41",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -550,7 +550,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 9923
+      "ms": 5623
     },
     {
       "id": "rws_006_apt29_-_cozy_bear",
@@ -591,7 +591,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 84
+      "ms": 70
     },
     {
       "id": "rws_007_asyncrat",
@@ -634,7 +634,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3784
+      "ms": 3763
     },
     {
       "id": "rws_008_lumma_stealer",
@@ -679,7 +679,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3171
+      "ms": 3160
     },
     {
       "id": "rws_009_lockbit",
@@ -702,9 +702,12 @@
         "powershell-backtick-normalize",
         "xor-brute",
         "powershell-backtick-normalize",
+        "xor-brute",
+        "xor-brute",
+        "powershell-backtick-normalize",
         "crypto-detect"
       ],
-      "output_head": "x\u0001\u00f20mDA\u00ab#\u00ff\u00fa\u00e0 ^3{\u00e8BI\u00ed\u00a1\u00e5\u00f1j\u0091Eq@ \u0084Sgi7\u00be\u00e0 F3| HR\u00e9\u00af\u00b1\u00a9\u00e1 \t\u00f2 \u00e0\u0099 w\u00ef\u009c\u00bb\u00a6#Bd\nHK!\u00a7<\u00b5\u00a67\u00c06A\u00e4\u008e5\u00aeZ\u008dtOa[\u008c\u00ab\u00a5\u00c2\u00b2!\u00ccK:?\u00e0\u0081\u00a8a\u00f9\u00fb\u00bdfx\t\u00bf\u00b85\u00c2l\u00e6\u00a4\u0089\u00fa)\u00be\u00cap\u0081h\u0005\u00d3 !ty,H\u00c5\u00feIe\u001bd\u00a3\u00ac\u0088v\u00f9\u00b1\u00c2\u00b0?`\u0001\u00db\u00e5/4\u00b1&\u00c0I\u00f4\u00bd\u00f1\u0086\u00dd\u00e3h\u00cd\u00b4>-\u00c4\u00a0b\u00bd\u00da\u00be&\u001fF\u00f9\u00d7\u00b8\u00ccIexe1#%M\u00b9=\u00e9C",
+      "output_head": "x\u00017\u00a6\u00b4\u0093W\u00ab\u00edd\u00e5\u0089fi\u00f4B\u00cfi' \u00fbj\u0091E\u00b4\u00d6\u00f9SEg*%$d\u00e5\u0091fn<H\u00d4m)t\u00a3\u00e1 \t7\u00b69N6w\u00ac\u008e!\"\u00e6\u00951\u0018T\u00cc \u00e6is\u00b97\u00c0\u00b1\u0003\u00b7\u0084\u00e1\u00adZ\u00ce\u00e1R MX\u00eb\u00b7\u00de5 \u008d\u001e\u00fc \u00e0\u0081/#\u00aa\u00f1iexJ*\u00a5t\u00d4\u00b8\u00a6\u00b6\u0095}(\u00ff\u009f\u00b6\u009eh\u0005Tbr~\u00ad/H\u0086kT$\r\u00b0\u00e3\u00be\u0094\u00f1\u00f8\u00f0\u0097v `\u0001\\\u00a7|>e%\u00c0\na\u00a0\u00b0\u0090\t\u00a3z\u00d13?l\u0091f}\u00bd\u00da9dLL-\u00d5\u00f9\u0003\u00c2\u00f8\u00e4v\u00a5c7Q><\u00a8\u0016",
       "matched_mitre": [
         "T1027"
       ],
@@ -725,7 +728,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1284
+      "ms": 1878
     },
     {
       "id": "rws_010_bumblebee",
@@ -745,7 +748,7 @@
         "semantic-ps-variable-propagate",
         "decoder-frombase64string-fold"
       ],
-      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBZalJqTXpBMk9EWmlOakkxTnpNNU5EUTBZek16Tm1NM1lUWXpOVGczTURVMk5qUTJZamN3TXpVMU5qUTFOVFUzT1RSa05EYzNORE14TmpRME5qUmxORGMxTmpabE5qUXpNRFl5TXpJek9UUmlOVE16TURNeE56YzFOVFExTnpj\u2026",
+      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBaVFJrTkRRMU1qWmpOVEl6TWpNNU5EUTBZek16Tm1NM1lUWXpOVGczTURVMk5qUTJZamN3TXpVMU5qUTFOVFUzT1RSa05EYzNORE14TmpRME5qUmxORGMxTmpabE5qUXpNRFl5TXpJek9UUmlOVE16TURNeE56YzFOVFExTnpj\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -770,7 +773,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 95
+      "ms": 94
     },
     {
       "id": "rws_011_sliver_c2",
@@ -812,7 +815,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1566
+      "ms": 1561
     },
     {
       "id": "rws_012_meterpreter",
@@ -832,9 +835,10 @@
         "xor-brute",
         "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
+        "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "x\u0001eh/7-Y%~WRV5QGloeGGY;~F_E8S\u0016W4I/H1Fix*GG|NcE,r\u0012CluD\u0014K;Vok]\u001f-=RSRF8x0VISG\u0012Q8Cnt\u0015$4SLU]\u001cg-UPl`\u0012N01sUT\u0019j\u00165NqG:W<I6sd\u001aZBQK_'O\"]6T|\u000eR!5l5L$=Io6x$NNve6wNH?]rf \u0012P\"nR~q*[\u0002I7c~,H=LP5hNGDRtJ!\u0012T!A57F;q\u000faAsT'q=\u2026",
+      "output_head": "x\u0001eh)?CY%~WTP3VhS*)Y;~FYMVS\u0016W4OVAH1FopDGG|NeMBr\u0012ClsLzK;VomUq-=RSTNVx0VIUO|Q8Ch|{$4SLSUrg-UPjh|N01sS\\wj\u00165NwOTW<I6ultZBQKYVIO\"]6RtR!5l3V\"$=Io0pJNNve0\u007f H?]r`(|P\"nRxyD[\u0002I7evBH=LP3` GDRtL)|T!A51NUq\u000faAu\\Iq=\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -861,7 +865,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2740
+      "ms": 2796
     },
     {
       "id": "rws_013_socgholish",
@@ -907,7 +911,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2803
+      "ms": 2787
     },
     {
       "id": "rws_014_apt41_-_winnti",
@@ -954,7 +958,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 79
+      "ms": 76
     },
     {
       "id": "rws_015_apt28_-_fancy_bear",
@@ -997,7 +1001,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 133
+      "ms": 130
     },
     {
       "id": "rws_016_amos_stealer_(macos)",
@@ -1046,7 +1050,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 2193
+      "ms": 2168
     },
     {
       "id": "rws_017_kinsing_(linux)",
@@ -1068,7 +1072,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u312f\u4d32\u5173\u4336\u424d\u4151\u3676\u746d\u5761\u6752\u4567\u4359\u4357\u7846\u5051\u3273\u7030\u574b\u6a78\u4a35\u4d4d\u6e54\u3431\u7275\u2b36\u7558\u7252\u5377\u5055\u4345\u5456\u674c\u764c\u7a62\u5a63\u7174\u4943\u5141\u476e\u534c\u5970\u3070\u7263\u684f\u4737\u7644\u5137\u694a\u5a69\u4459\u7862\u5452\u636a\u7770\u7053\u6466\u3272\u3869\u574f\u456c\u316c\u6378\u6176\u4830\u6661\u6b44\u337a\u317a\u756d\u382f\u2b72\u7032\u4144\u4861\u3670\u6946\u7a2b\u7445\u7477\u6d75\u2f78\u7137\u6f50\u4744\u7a74\u5037\u7776\u515a\u6945\u5936\u4141\u4141",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u312f\u4d32\u5173\u4336\u424d\u4151\u3676\u746d\u5761\u6752\u4567\u4359\u4357\u7846\u5051\u3273\u7030\u574b\u6a78\u4a35\u4d4d\u6e54\u3431\u7275\u2b36\u7558\u7252\u5377\u5055\u4345\u5456\u674c\u764c\u7a62\u5a63\u7174\u4943\u5141\u476e\u534c\u5970\u3070\u7263\u684f\u4737\u7644\u5137\u694a\u5a69\u4459\u7862\u5452\u636a\u7770\u7053\u6466\u3272\u3869\u574f\u456c\u316c\u6378\u6176\u4830\u6661\u6b44\u337a\u317a\u756d\u382f\u2b72\u7032\u4144\u4861\u3670\u6946\u7a2b\u7445\u7477\u6d75\u2f78\u7137\u6f50\u4744\u7a74\u5037\u7776\u515a\u6945\u5936\u4141\u4141",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -1093,7 +1097,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 140
+      "ms": 137
     },
     {
       "id": "rws_018_xmrig_cryptominer",
@@ -1114,7 +1118,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u352f\u5356\u7775\u4436\u414d\u387a\u5a4a\u6a35\u3068\u6868\u4361\u4457\u476b\u6742\u6c37\u7041\u4471\u4250\u3958\u3438\u344c\u5865\u6f32\u6872\u4852\u327a\u5732\u4463\u747a\u4e67\u7744\u5958\u4149\u5178\u6877\u4973\u574e\u2f43\u6b54\u6f67\u4a73\u554d\u354e\u6938\u4c37\u6c46\u6d66\u3537\u4b43\u5076\u7a57\u7669\u5677\u465a\u7358\u3146\u7837\u5054\u5641\u452b\u6547\u7a41\u5952\u6a6f\u4a53\u6e38\u546f\u7237\u2b4a\u4c70\u7a45\u7850\u7656\u2b6f\u4c75\u3235\u6c75\u6646\u3363\u4239\u7964\u734b\u6541\u6466\u4c6e\u7561\u6472\u4e63\u5855\u3538\u6939\u596e\u3474\u2b32\u5069\u4546\u2f50\u394e\u6a4a\u4d36\u4d50\u472f\u3858\u584e\u686a\u3839\u584e\u5531\u7348\u7676\u642b\u3766\u5443\u4635\u3676\u6537\u2f66\u7865\u4f4d\u2f2b\u4337\u3433\u592f\u7664\u396f\u482f\u5047\u502f\u5463\u332f\u765a\u5435\u7776\u3735\u5755\u7536\u6a54\u2b70\u6e34\u594f\u3363\u6638\u756d\u6176\u5375\u5072\u2f71\u3977\u626d\u5373\u7774\u5039\u6c4e\u7049\u4158\u414d\u4141\u3d3d",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u352f\u5356\u7775\u4436\u414d\u387a\u5a4a\u6a35\u3068\u6868\u4361\u4457\u476b\u6742\u6c37\u7041\u4471\u4250\u3958\u3438\u344c\u5865\u6f32\u6872\u4852\u327a\u5732\u4463\u747a\u4e67\u7744\u5958\u4149\u5178\u6877\u4973\u574e\u2f43\u6b54\u6f67\u4a73\u554d\u354e\u6938\u4c37\u6c46\u6d66\u3537\u4b43\u5076\u7a57\u7669\u5677\u465a\u7358\u3146\u7837\u5054\u5641\u452b\u6547\u7a41\u5952\u6a6f\u4a53\u6e38\u546f\u7237\u2b4a\u4c70\u7a45\u7850\u7656\u2b6f\u4c75\u3235\u6c75\u6646\u3363\u4239\u7964\u734b\u6541\u6466\u4c6e\u7561\u6472\u4e63\u5855\u3538\u6939\u596e\u3474\u2b32\u5069\u4546\u2f50\u394e\u6a4a\u4d36\u4d50\u472f\u3858\u584e\u686a\u3839\u584e\u5531\u7348\u7676\u642b\u3766\u5443\u4635\u3676\u6537\u2f66\u7865\u4f4d\u2f2b\u4337\u3433\u592f\u7664\u396f\u482f\u5047\u502f\u5463\u332f\u765a\u5435\u7776\u3735\u5755\u7536\u6a54\u2b70\u6e34\u594f\u3363\u6638\u756d\u6176\u5375\u5072\u2f71\u3977\u626d\u5373\u7774\u5039\u6c4e\u7049\u4158\u414d\u4141\u3d3d",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -1139,7 +1143,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7316
+      "ms": 6594
     },
     {
       "id": "rws_019_apt29_(wmi)",
@@ -1161,7 +1165,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u4642\u5155\u4e42\u4e33\u6873\u5454\u7835\u5155\u6772\u6248\u6734\u4e6b\u4e45\u4d33\u4e70\u5758\u6777\u5155\u5632\u646d\u4e54\u6454\u396d\u5569\u6c4c\u6546\u6446\u4d46\u4e46\u5430\u4532\u6344\u4636\u5a58\u4636\u4c33\u5a45\u5456\u7074\u6147\u4252\u4d7a\u7471\u5543\u647a\u6355\u4e4e\u4f46\u7842\u5457\u704d\u6458\u4e71\u5444\u6834\u4e6d\u704c\u4d48\u6c31\u5a46\u644f\u4d56\u7456\u6453\u526e\u5754\u5a6f\u5a58\u6875\u4c31\u5236\u4d6a\u4932\u626e\u5275\u5258\u6c51\u5a48\u3968\u646d\u6852\u5347\u4533\u5255\u4231\u536e\u5a73\u6432\u5a6a\u556a\u7031\u5155\u3956\u5447\u7053\u4f56\u4532\u5447\u5673\u656a\u4e4e\u5631\u4972\u547a\u4672\u4d58\u7032\u6246\u744d\u6230\u5a52\u647a\u4e6b\u5154\u5653\u5748\u6c45\u4d31\u526c\u5756\u5a54\u546a\u3531\u6132\u3136\u5455\u6431\u4e55\u4534\u646b\u5a36\u6333\u566a\u4f47\u704f\u5247\u4578\u567a\u646b\u6348\u6831\u646c\u4e30\u4f44\u4e76\u626c\u6c36\u4f54\u5a55\u6330\u646e\u576c\u464c\u546d\u5233\u4f48\u566c\u517a\u5274\u5232\u7459\u6179\u3934\u5132\u566c\u6332\u684c\u646e\u6842\u556e\u4e4a\u5455\u5178\u546c\u4179\u4c7a\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u4642\u5155\u4e42\u4e33\u6873\u5454\u7835\u5155\u6772\u6248\u6734\u4e6b\u4e45\u4d33\u4e70\u5758\u6777\u5155\u5632\u646d\u4e54\u6454\u396d\u5569\u6c4c\u6546\u6446\u4d46\u4e46\u5430\u4532\u6344\u4636\u5a58\u4636\u4c33\u5a45\u5456\u7074\u6147\u4252\u4d7a\u7471\u5543\u647a\u6355\u4e4e\u4f46\u7842\u5457\u704d\u6458\u4e71\u5444\u6834\u4e6d\u704c\u4d48\u6c31\u5a46\u644f\u4d56\u7456\u6453\u526e\u5754\u5a6f\u5a58\u6875\u4c31\u5236\u4d6a\u4932\u626e\u5275\u5258\u6c51\u5a48\u3968\u646d\u6852\u5347\u4533\u5255\u4231\u536e\u5a73\u6432\u5a6a\u556a\u7031\u5155\u3956\u5447\u7053\u4f56\u4532\u5447\u5673\u656a\u4e4e\u5631\u4972\u547a\u4672\u4d58\u7032\u6246\u744d\u6230\u5a52\u647a\u4e6b\u5154\u5653\u5748\u6c45\u4d31\u526c\u5756\u5a54\u546a\u3531\u6132\u3136\u5455\u6431\u4e55\u4534\u646b\u5a36\u6333\u566a\u4f47\u704f\u5247\u4578\u567a\u646b\u6348\u6831\u646c\u4e30\u4f44\u4e76\u626c\u6c36\u4f54\u5a55\u6330\u646e\u576c\u464c\u546d\u5233\u4f48\u566c\u517a\u5274\u5232\u7459\u6179\u3934\u5132\u566c\u6332\u684c\u646e\u6842\u556e\u4e4a\u5455\u5178\u546c\u4179\u4c7a\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -1186,7 +1190,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 9167
+      "ms": 9282
     },
     {
       "id": "rws_020_amadey",
@@ -1205,7 +1209,7 @@
       "chain": [
         "decoder-base64-full"
       ],
-      "output_head": "\u3d3d\u5151\u4642\u5155\u686e\u4b30\u6c4b\u4e54\u526a\u5130\u6776\u4e56\u3835\u5753\u3146\u6130\u684d\u4e6c\u427a\u6356\u5178\u5957\u705a\u6247\u5258\u546b\u4247\u566c\u6879\u5247\u4e71\u4e6d\u4e36\u5a47\u7047\u4d33\u5133\u556d\u6455\u5256\u524b\u6156\u5a46\u5546\u6474\u656e\u5631\u636a\u4256\u6448\u4659\u4f48\u6732\u5745\u5668\u6133\u396c\u4e47\u6468\u5a58\u5a52\u4f56\u4a52\u5430\u6852\u6130\u6372\u546a\u464e\u5346\u7055\u546c\u3971\u516d\u6874\u5632\u316d\u5130\u6851\u4e44\u5178\u5131\u5242\u6244\u5135\u6156\u4e4b\u5557\u424c\u4b33\u704a\u5633\u6445\u5158\u464e\u5230\u6c53\u5433\u5658\u4c7a\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u3d3d\u5151\u4642\u5155\u686e\u4b30\u6c4b\u4e54\u526a\u5130\u6776\u4e56\u3835\u5753\u3146\u6130\u684d\u4e6c\u427a\u6356\u5178\u5957\u705a\u6247\u5258\u546b\u4247\u566c\u6879\u5247\u4e71\u4e6d\u4e36\u5a47\u7047\u4d33\u5133\u556d\u6455\u5256\u524b\u6156\u5a46\u5546\u6474\u656e\u5631\u636a\u4256\u6448\u4659\u4f48\u6732\u5745\u5668\u6133\u396c\u4e47\u6468\u5a58\u5a52\u4f56\u4a52\u5430\u6852\u6130\u6372\u546a\u464e\u5346\u7055\u546c\u3971\u516d\u6874\u5632\u316d\u5130\u6851\u4e44\u5178\u5131\u5242\u6244\u5135\u6156\u4e4b\u5557\u424c\u4b33\u704a\u5633\u6445\u5158\u464e\u5230\u6c53\u5433\u5658\u4c7a\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [
         "T1027"
       ],
@@ -1224,7 +1228,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 64
+      "ms": 63
     },
     {
       "id": "rws_021_nanocore_rat",
@@ -1270,7 +1274,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 1229
+      "ms": 1215
     },
     {
       "id": "rws_022_smokeloader",
@@ -1314,7 +1318,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7213
+      "ms": 7172
     },
     {
       "id": "rws_023_trickbot",
@@ -1360,7 +1364,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3171
+      "ms": 3426
     },
     {
       "id": "rws_024_latrodectus",
@@ -1407,7 +1411,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3000
+      "ms": 2977
     },
     {
       "id": "rws_025_cactus_ransomware",
@@ -1427,7 +1431,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u362f\u5232\u5176\u4436\u414d\u4579\u3658\u696d\u4138\u4941\u794d\u6844\u415a\u4d67\u417a\u6f79\u6d59\u4954\u397a\u5850\u3035\u5142\u334b\u7258\u6e68\u6e50\u3237\u7378\u2f70\u6733\u5771\u4731\u6a36\u3331\u7650\u4c48\u3050\u307a\u586a\u3658\u5448\u726a\u6651\u6752\u394f\u4c53\u5031\u5430\u5974\u4f46\u2f4d\u3652\u494a\u6a34\u6337\u7871\u566d\u5a4d\u2f42\u4138\u7a66\u667a\u5731\u462b\u6161\u5663\u7837\u6558\u3673\u4839\u5437\u484f\u3554\u6b35\u6951\u5650\u7036\u354c\u5533\u6276\u5777\u516c\u6a37\u4c33\u6e6c\u6e51\u3770\u6374\u5950\u3738\u3344\u4d73\u6334\u3539\u5a6b\u3955\u3746\u572f\u4b74\u6675\u2b55\u5436\u7348\u7930\u6a37\u3765\u472f\u3150\u4674\u6665\u3576\u626c\u5575\u2b75\u3241\u755a\u5177\u386e\u5775\u512b\u7a75\u795a\u3830\u3249\u4a74\u7334\u4c7a\u4931\u6c7a\u2f79\u5841\u7048\u336b\u4938\u6741\u4141",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u362f\u5232\u5176\u4436\u414d\u4579\u3658\u696d\u4138\u4941\u794d\u6844\u415a\u4d67\u417a\u6f79\u6d59\u4954\u397a\u5850\u3035\u5142\u334b\u7258\u6e68\u6e50\u3237\u7378\u2f70\u6733\u5771\u4731\u6a36\u3331\u7650\u4c48\u3050\u307a\u586a\u3658\u5448\u726a\u6651\u6752\u394f\u4c53\u5031\u5430\u5974\u4f46\u2f4d\u3652\u494a\u6a34\u6337\u7871\u566d\u5a4d\u2f42\u4138\u7a66\u667a\u5731\u462b\u6161\u5663\u7837\u6558\u3673\u4839\u5437\u484f\u3554\u6b35\u6951\u5650\u7036\u354c\u5533\u6276\u5777\u516c\u6a37\u4c33\u6e6c\u6e51\u3770\u6374\u5950\u3738\u3344\u4d73\u6334\u3539\u5a6b\u3955\u3746\u572f\u4b74\u6675\u2b55\u5436\u7348\u7930\u6a37\u3765\u472f\u3150\u4674\u6665\u3576\u626c\u5575\u2b75\u3241\u755a\u5177\u386e\u5775\u512b\u7a75\u795a\u3830\u3249\u4a74\u7334\u4c7a\u4931\u6c7a\u2f79\u5841\u7048\u336b\u4938\u6741\u4141",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -1452,7 +1456,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4438
+      "ms": 4448
     },
     {
       "id": "rws_026_blackcat_-_alphv",
@@ -1495,7 +1499,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2950
+      "ms": 2955
     },
     {
       "id": "rws_027_ghostrat",
@@ -1515,7 +1519,7 @@
         "content-ps-operator-case-normalize",
         "decoder-powershell-encoded-command"
       ],
-      "output_head": "=0TPBFUQBFkWFRzdwtSQ3RUe4cHboNzTJtkQ4QTU1w0aNJ1Tud2QQlXexl1cBpESntETvhTO0NlZDpHSElje0sWeQFzYJ9kQLlXUM90dvNEd1smTJlEUTBzcnVlRZhWSKtER3QTSOVXWId3U4sUSQpnMVhUO0ZTQktEdhRWT2RzLD9Wbkh0LKFUSzRDS",
+      "output_head": "=0TPBFUQBFkWFRzdwtSQ3RUe4cHboNzTJtkQ4QTU1w0aNJ1Tud2QQlXexl1cBpESntETvhTO0NlZDpHSElje0sWeQFzYJ9kQLlXUM90dvNEd1smTJlEUTBzcnVlRZhWSKtER3QTSOVXWId3U4sUSQpnMVhUO0ZTQktEdhRWT2RzLD92RlRDMNFUSzRDS",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -1538,7 +1542,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3376
+      "ms": 3792
     },
     {
       "id": "rws_028_mimikatz_(lsass)",
@@ -1584,7 +1588,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4108
+      "ms": 4989
     },
     {
       "id": "rws_029_apt10_-_menupass",
@@ -1606,7 +1610,7 @@
         "base64-decode",
         "crypto-detect"
       ],
-      "output_head": "\u00f7D\u00d4BT\u00d1TYP\u0019UT6P\u00cc4YU\u0015YP\u0093\u0095\u0094F\\\u00d4YX\u00d0\u00b1\u0011\u008d\u00be\u0015U5\u0099\u001a\u0097\u0011\u001c\\U\u0093X\u00dc\u00d8\u0018\u0091\u00115\u0099\u0014\u00c0\u00c9^\u00d0\u0094\u00d8\u00c4T\u00d1\u008a\u0091\u00db\u00b9\u001d[8T\u00d4A\u009d\fWU\u000eWQ\u00158\u001c\u00d4\u00a2\u0011\u00ccd\u00d1^\\\u0099M\u00d6\u00cd\u0098\u00c0\u0099Q\u0092\u0091\u00da\u00eb\u0011\u0011\u00e5\u00c9X\u00ae\u0011\u008c2\u00d9\u0011T\u00d9^I\u001d\u0014",
+      "output_head": "\u00f7D\u00d4BT\u00d1TYP\u0019UT6P\u00cc4YU\u0015YP\u0093\u0095\u0094F\\\u00d4YX\u00d0\u00b1\u0011\u008d\u00be\u0015U5\u0099\u001a\u0097\u0011\u001c\\U\u0093X\u00dc\u00d8\u0018\u0091\u00115\u0099\u0014\u00c0\u00c9^\u00d0\u0094\u00d8\u00c4T\u00d1\u008a\u0091\u00db\u00b9\u001d[8T\u00d4A\u009d\fWU\u000eWQ\u00158\u001c\u00d4\u00a2\u0011\u00ccd\u00d1^\\\u0099M\u00d6\u00cd\u0098\u00c0\u0099Q\u0092\u0091\u00da\u00eb\u0011\u0011\u00e4\u0088\u00d4\u00b0\u0091Q7\u0099\u0011T\u00d9^I\u001d\u0014",
       "matched_mitre": [
         "T1027"
       ],
@@ -1625,7 +1629,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4524
+      "ms": 4514
     },
     {
       "id": "rws_030_apt41_(bits)",
@@ -1645,7 +1649,7 @@
         "semantic-ps-variable-propagate",
         "decoder-frombase64string-fold"
       ],
-      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBZalJqTXpBMk9EWmlOakkxTnpNNU5EUTBZek16Tm1JM1lUVXpOVFV6TVRVeU5HVTJZalEyTkdFMU1UVTROalEwTWpZME16QTNNemMyTkdRME5UUTFNelUyTXpVMk5EWTFNRFUwTkRVMk56TXlOVEUxTmpSaE5tRTBaRE13TldF\u2026",
+      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBaVFJrTkRRMU1qWmpOVEl6TWpNNU5EUTBZek16Tm1JM1lUVXpOVFV6TVRVeU5HVTJZalEyTkdFMU1UVTROalEwTWpZME16QTNNemMyTkdRME5UUTFNelUyTXpVMk5EWTFNRFUwTkRVMk56TXlOVEUxTmpSaE5tRTBaRE13TldF\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -1667,7 +1671,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 124
+      "ms": 122
     },
     {
       "id": "rws_031_icedid_(dll_main)",
@@ -1707,7 +1711,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 73
+      "ms": 72
     },
     {
       "id": "rws_032_avoslocker",
@@ -1725,11 +1729,11 @@
       "chain": [
         "js-reconstruct",
         "xor-brute",
+        "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
-        "ps-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "kaxo.3OJEcPSRWB'qhdC%J[*o_@T~EzVTM[Q[MCNvmCWQHSNtOECw/iexD?eMMqThFmWA_mH}h{usYoNDa%}2H~RFB)fApwk{_Z\\&Jgu+wLEJ~TO0K!MYAWaNdnZR@zHzR~MuMMw.@a|TelQXA@VpnZRnyT\\R:FcEnA.~[@1W HJpaR6BrZm}QeS,=s)UgqK@d}W@Dxt\u2026",
+      "output_head": "kaxo.3OJEcPSRRCSKoT&%J[*o_@T~EzVTM[Q[MCNvmCWQHSNtOECw/iexD?eMMqThFmWA_mH}h{usYoNDa%}2H~RFB)fApwk{_Z\\&Jgu+wLEJ~TO0K!MYAWaNdnZR@zHzR~MuMMw.@a|TelQXA@VpnZRnyT\\R:FcEnA.~[@1W HJpaR6BrZm}QeS,=s)UgqK@d}W@Dxt\u2026",
       "matched_mitre": [
         "T1027",
         "T1059"
@@ -1750,7 +1754,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2483
+      "ms": 2565
     },
     {
       "id": "rws_033_apt35_-_charming_kitten",
@@ -1796,7 +1800,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3232
+      "ms": 3218
     },
     {
       "id": "rws_034_apt-c-36_(colombia)",
@@ -1837,7 +1841,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1335
+      "ms": 1320
     },
     {
       "id": "rws_035_play_ransomware",
@@ -1879,7 +1883,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 115
+      "ms": 112
     },
     {
       "id": "rws_036_apt29_(bitsadmin)",
@@ -1926,7 +1930,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 104
+      "ms": 82
     },
     {
       "id": "rws_037_oilrig_-_apt34",
@@ -1948,7 +1952,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u342f\u4d73\u7a6a\u4e4b\u507a\u7955\u5853\u3354\u6654\u4a63\u7954\u4f6d\u504e\u3061\u4444\u6f49\u6638\u3042\u7344\u5078\u6643\u4b66\u546a\u794a\u304b\u4e33\u7938\u777a\u5879\u794d\u7753\u3234\u557a\u4a7a\u3879\u4a6c\u5179\u7373\u5153\u3335\u2f79\u4a58\u6354\u4d6d\u4c4c\u3165\u5142\u7641\u6455\u6c30\u4152\u4141\u4141\u3d3d",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u342f\u4d73\u7a6a\u4e4b\u507a\u7955\u5853\u3354\u6654\u4a63\u7954\u4f6d\u504e\u3061\u4444\u6f49\u6638\u3042\u7344\u5078\u6643\u4b66\u546a\u794a\u304b\u4e33\u7938\u777a\u5879\u794d\u7753\u3234\u557a\u4a7a\u3879\u4a6c\u5179\u7373\u5153\u3335\u2f79\u4a58\u6354\u4d6d\u4c4c\u3165\u5142\u7641\u6455\u6c30\u4152\u4141\u4141\u3d3d",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -1970,7 +1974,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 105
+      "ms": 103
     },
     {
       "id": "rws_038_lockbit_(sam_dump)",
@@ -1991,7 +1995,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u332f\u5456\u5177\u4436\u4149\u397a\u5a4a\u3631\u4c39\u4542\u3144\u5374\u416a\u656b\u4850\u7773\u6577\u3877\u6437\u5063\u6f53\u4347\u6532\u6c6d\u4638\u3737\u6757\u6772\u4b69\u6843\u6767\u3438\u412f\u4f4b\u3431\u7770\u6a41\u5234\u4738\u7333\u594b\u784a\u4c53\u617a\u5338\u4e59\u6644\u744d\u3062\u3839\u664c\u626c\u4b52\u5a55\u3051\u3578\u3744\u6637\u6375\u6136\u4665\u646e\u656c\u464d\u7970\u5848\u5865\u7937\u666c\u6673\u5155\u3330\u7833\u6866\u4859\u526e\u2b2f\u3462\u656e\u6a78\u7243\u686f\u6a36\u7071\u3739\u4671\u5664\u5376\u5a6b\u5a2b\u792b\u3953\u4f6d\u5373\u5966\u386e\u394a\u6a30\u3035\u6f56\u3573\u716a\u4d7a\u3856\u5953\u3364\u7558\u6e6e\u7866\u5632\u4773\u385a\u444d\u4662\u4a6e\u7843\u324b\u714c\u7853\u2f6c\u6e48\u7851\u2f76\u7847\u7230\u6634\u616b\u7538\u4f2f\u395a\u5470\u5530\u622f\u6377\u7074\u5861\u7033\u3358\u2f52\u5854\u6e46\u324f\u6b75\u7150\u5376\u5537\u544d\u5079\u4d7a\u6f63\u2b33\u4d31\u532b\u5068\u665a\u7763\u6c2b\u4658\u7466\u2b7a\u6477\u337a\u3950\u456f\u465a\u5952\u7741\u4141",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u332f\u5456\u5177\u4436\u4149\u397a\u5a4a\u3631\u4c39\u4542\u3144\u5374\u416a\u656b\u4850\u7773\u6577\u3877\u6437\u5063\u6f53\u4347\u6532\u6c6d\u4638\u3737\u6757\u6772\u4b69\u6843\u6767\u3438\u412f\u4f4b\u3431\u7770\u6a41\u5234\u4738\u7333\u594b\u784a\u4c53\u617a\u5338\u4e59\u6644\u744d\u3062\u3839\u664c\u626c\u4b52\u5a55\u3051\u3578\u3744\u6637\u6375\u6136\u4665\u646e\u656c\u464d\u7970\u5848\u5865\u7937\u666c\u6673\u5155\u3330\u7833\u6866\u4859\u526e\u2b2f\u3462\u656e\u6a78\u7243\u686f\u6a36\u7071\u3739\u4671\u5664\u5376\u5a6b\u5a2b\u792b\u3953\u4f6d\u5373\u5966\u386e\u394a\u6a30\u3035\u6f56\u3573\u716a\u4d7a\u3856\u5953\u3364\u7558\u6e6e\u7866\u5632\u4773\u385a\u444d\u4662\u4a6e\u7843\u324b\u714c\u7853\u2f6c\u6e48\u7851\u2f76\u7847\u7230\u6634\u616b\u7538\u4f2f\u395a\u5470\u5530\u622f\u6377\u7074\u5861\u7033\u3358\u2f52\u5854\u6e46\u324f\u6b75\u7150\u5376\u5537\u544d\u5079\u4d7a\u6f63\u2b33\u4d31\u532b\u5068\u665a\u7763\u6c2b\u4658\u7466\u2b7a\u6477\u337a\u3950\u456f\u465a\u5952\u7741\u4141",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2014,7 +2018,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6995
+      "ms": 6911
     },
     {
       "id": "rws_039_apt38_-_lazarus",
@@ -2036,7 +2040,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u303d\u5054\u4642\u5155\u4642\u5a45\u6868\u5555\u6c69\u516b\u4e42\u5155\u5979\u616c\u4657\u6144\u6c46\u5333\u6b30\u616b\u4e7a\u5447\u6c79\u6145\u4572\u546b\u5269\u6556\u424e\u6333\u7735\u5455\u466d\u5333\u6734\u557a\u704c\u5132\u3171\u6555\u5270\u6233\u5a44\u546d\u4a36\u5545\u6854\u6433\u524e\u4d32\u6c71\u4f47\u6c4c\u5657\u464c\u5554\u6c75\u627a\u7330\u5930\u4651\u5533\u684e\u6233\u7872\u5255\u4632\u5355\u5a44\u6158\u394b\u6379\u316a\u6445\u4e4e\u4d55\u6333\u5533\u6436\u597a\u7854\u5245\u6b76\u5432\u746e\u5332\u747a\u5153\u6c55\u6130\u5130\u6356\u466e\u6156\u684d\u6158\u704f\u5930\u526d\u5546\u6856\u5531\u4a4f\u616d\u316a\u6445\u5278\u4d45\u527a\u4c7a\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u303d\u5054\u4642\u5155\u4642\u5a45\u6868\u5555\u6c69\u516b\u4e42\u5155\u5979\u616c\u4657\u6144\u6c46\u5333\u6b30\u616b\u4e7a\u5447\u6c79\u6145\u4572\u546b\u5269\u6556\u424e\u6333\u7735\u5455\u466d\u5333\u6734\u557a\u704c\u5132\u3171\u6555\u5270\u6233\u5a44\u546d\u4a36\u5545\u6854\u6433\u524e\u4d32\u6c71\u4f47\u6c4c\u5657\u464c\u5554\u6c75\u627a\u7330\u5930\u4651\u5533\u684e\u6233\u7872\u5255\u4632\u5355\u5a44\u6158\u394b\u6379\u316a\u6445\u4e4e\u4d55\u6333\u5533\u6436\u597a\u7854\u5245\u6b76\u5432\u746e\u5332\u747a\u5153\u6c55\u6130\u5130\u6356\u466e\u6156\u684d\u6158\u704f\u5930\u526d\u5546\u6856\u5531\u4a4f\u616d\u316a\u6445\u5278\u4d45\u527a\u4c7a\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2061,7 +2065,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5127
+      "ms": 5805
     },
     {
       "id": "rws_040_atomicwallet_stealer_(macos)",
@@ -2080,7 +2084,7 @@
       "chain": [
         "decoder-base64-full"
       ],
-      "output_head": "\u4642\u5155\u6c42\u4e56\u5979\u6456\u647a\u516a\u4578\u5544\u5650\u6247\u6848\u5432\u4e51\u6247\u566f\u4e57\u6c4f\u4e31\u6430\u6445\u7071\u6546\u686b\u6554\u4a70\u627a\u6842\u556c\u4649\u4c33\u7072\u5932\u3134\u526b\u6c58\u5248\u4535\u4e45\u5649\u5954\u5a74\u4f47\u7734\u556b\u6470\u556e\u5135\u6231\u4e78\u5532\u4a75\u527a\u6c4c\u566e\u6845\u5157\u464e\u4d30\u6c33\u5458\u6858\u4c33\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u4642\u5155\u6c42\u4e56\u5979\u6456\u647a\u516a\u4578\u5544\u5650\u6247\u6848\u5432\u4e51\u6247\u566f\u4e57\u6c4f\u4e31\u6430\u6445\u7071\u6546\u686b\u6554\u4a70\u627a\u6842\u556c\u4649\u4c33\u7072\u5932\u3134\u526b\u6c58\u5248\u4535\u4e45\u5649\u5954\u5a74\u4f47\u7734\u556b\u6470\u556e\u5135\u6231\u4e78\u5532\u4a75\u527a\u6c4c\u566e\u6845\u5157\u464e\u4d30\u6c33\u5458\u6858\u4c33\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [],
       "missed_mitre": [
         "T1027",
@@ -2100,7 +2104,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1589
+      "ms": 1547
     },
     {
       "id": "rws_041_apt27_-_emissary_panda",
@@ -2154,7 +2158,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 165
+      "ms": 159
     },
     {
       "id": "rws_042_vice_society",
@@ -2175,7 +2179,7 @@
         "decoder-powershell-encoded-command",
         "decoder-hex-full"
       ],
-      "output_head": "=0TQBFUQzBjaOt0REF0YRZ1cDRWMKFzUT5kbwMGWu9mVvdEbM5EcrlHUWBFMPpXVUlXO5l3dGZUcVhmNM9kZzwkS6V0UP9yZpJTTEpHUqdmV1d3UT9EWIBTVxgje2hTRVdVMFBjUsNmeJVzcLRHOwwUS2l3LD9Wbkh0LKFUSzRDS",
+      "output_head": "=0TQBFUQzBjaOt0REF0YRZ1cDRWMKFzUT5kbwMGWu9mVvdEbM5EcrlHUWBFMPpXVUlXO5l3dGZUcVhmNM9kZzwkS6V0UP9yZpJTTEpHUqdmV1d3UT9EWIBTVxgje2hTRVdVMFBjUsNmeJVzcLRHOwwUS2l3LD92RlRDMNFUSzRDS",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2198,7 +2202,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5441
+      "ms": 5382
     },
     {
       "id": "rws_043_gootloader",
@@ -2244,7 +2248,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5521
+      "ms": 5373
     },
     {
       "id": "rws_044_rhadamanthys",
@@ -2291,7 +2295,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5112
+      "ms": 4712
     },
     {
       "id": "rws_045_guloader",
@@ -2311,7 +2315,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u322f\u5057\u514d\u4337\u414d\u4678\u3172\u6152\u454f\u4643\u314d\u4b53\u3645\u6147\u6267\u446c\u5252\u7a6b\u4d4a\u7033\u552b\u6137\u6d41\u494b\u4c46\u3838\u394f\u7338\u632f\u536d\u5853\u4e79\u6569\u6555\u4557\u7278\u6436\u4257\u6152\u4d2b\u6d5a\u6156\u2f4a\u5566\u7057\u2b33\u4f62\u576e\u7371\u6a4d\u4e32\u7249\u3553\u345a\u6642\u302f\u6c69\u6547\u2f69\u5466\u2f57\u6170\u416e\u657a\u4475\u3256\u665a\u6862\u307a\u4a33\u4142\u7664\u7a47\u7865\u425a\u5067\u3337\u4f73\u675a\u422f\u3779\u7a54\u6836\u3847\u4150\u4852\u2f55\u3644\u3974\u5836\u544b\u5a69\u6334\u6e49\u577a\u3233\u2b76\u7a44\u6d56\u372f\u7a59\u3262\u4e75\u4d51\u7a6a\u664a\u322b\u4772\u2f2f\u6633\u6a4b\u5662\u555a\u4277\u4141\u3d41",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u322f\u5057\u514d\u4337\u414d\u4678\u3172\u6152\u454f\u4643\u314d\u4b53\u3645\u6147\u6267\u446c\u5252\u7a6b\u4d4a\u7033\u552b\u6137\u6d41\u494b\u4c46\u3838\u394f\u7338\u632f\u536d\u5853\u4e79\u6569\u6555\u4557\u7278\u6436\u4257\u6152\u4d2b\u6d5a\u6156\u2f4a\u5566\u7057\u2b33\u4f62\u576e\u7371\u6a4d\u4e32\u7249\u3553\u345a\u6642\u302f\u6c69\u6547\u2f69\u5466\u2f57\u6170\u416e\u657a\u4475\u3256\u665a\u6862\u307a\u4a33\u4142\u7664\u7a47\u7865\u425a\u5067\u3337\u4f73\u675a\u422f\u3779\u7a54\u6836\u3847\u4150\u4852\u2f55\u3644\u3974\u5836\u544b\u5a69\u6334\u6e49\u577a\u3233\u2b76\u7a44\u6d56\u372f\u7a59\u3262\u4e75\u4d51\u7a6a\u664a\u322b\u4772\u2f2f\u6633\u6a4b\u5662\u555a\u4277\u4141\u3d41",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2333,7 +2337,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3954
+      "ms": 3939
     },
     {
       "id": "rws_046_bumblebee_(macos_variant)",
@@ -2413,7 +2417,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7677
+      "ms": 7630
     },
     {
       "id": "rws_048_aws_cognito_abuse",
@@ -2453,7 +2457,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6606
+      "ms": 6587
     },
     {
       "id": "rws_049_gcp_sa_jwt_theft",
@@ -2496,7 +2500,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 12066
+      "ms": 11897
     },
     {
       "id": "rws_050_apt29_(cognito+ps)",
@@ -2516,7 +2520,7 @@
         "semantic-ps-variable-propagate",
         "decoder-frombase64string-fold"
       ],
-      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBZalJqTXpBMk9EWmlOakkxTnpNNU5EUTBZek16TmpNM1lUVTBObVUxTmpNek5HVTJZalJsTkdVMU1UWmpORFkwTWpSa05EVTFPVE0xTmpNME56WmpOREkyTVRNeE5USTFNelUxTm1FME1UYzROVE0yWWpVeU56WTJNelExTnpB\u2026",
+      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBaVFJrTkRRMU1qWmpOVEl6TWpNNU5EUTBZek16TmpNM1lUVTBObVUxTmpNek5HVTJZalJsTkdVMU1UWmpORFkwTWpSa05EVTFPVE0xTmpNME56WmpOREkyTVRNeE5USTFNelUxTm1FME1UYzROVE0yWWpVeU56WTJNelExTnpB\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2536,7 +2540,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 177
+      "ms": 174
     },
     {
       "id": "rws_051_btlo_-_emotet_(base64+utf16le)",
@@ -2579,7 +2583,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 98
+      "ms": 96
     },
     {
       "id": "rws_052_ps_string-concat_iex",
@@ -2597,11 +2601,10 @@
       "chain": [
         "js-reconstruct",
         "xor-brute",
-        "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "gtpk? CFPkTBA[N2yluP)FN\"dmSHrP_lYMAWDSIR]zcWyEN6RK`\"A\"VHD[DlE1GlTSfmICSWCmDOxif}`\"c Dor5E7AZfAb_E_cnyLtTcpf omIDPFB@YrqZTpR}M Lia2MRBiW}V&IEXE@k{Bskv\\I'MTX2%}BkVmUF2oQ i0tQguAxfzIAN!MDP}tB0WBsVGD7rB]4\u2026",
+      "output_head": "uia\u007f/7JYBeSFATYBsR!>TU.seTKwBWvUQFARWXJuaFoR@,RVb A%HEVFUxU&NsF]aiICHHBuS[o{}qw*d#A}z/B/QKc@|URPa\u007fo[zNcmd\"ojWIB[STIexEF~UyM Wv`*ZFU{LqA.NF]WHq|Zczs]W-Z[Z#3jLqVpWD2hO-{-eEwbHgttNEN!V[QecVI\"LNdhQDA%zXZ,\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2624,7 +2627,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 1558
+      "ms": 1497
     },
     {
       "id": "rws_053_ps_reversed-iex",
@@ -2672,7 +2675,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 3031
+      "ms": 3029
     },
     {
       "id": "rws_054_ps_filler-char_obfuscation",
@@ -2714,7 +2717,7 @@
       "ioc_recall": 0.0,
       "undecoded": true,
       "marker_hit": false,
-      "ms": 1828
+      "ms": 1781
     },
     {
       "id": "rws_055_ps_format-operator_iex",
@@ -2753,7 +2756,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 129
+      "ms": 124
     },
     {
       "id": "rws_056_ps_deflatestream+b64",
@@ -2804,7 +2807,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 96
+      "ms": 88
     },
     {
       "id": "rws_057_ps_securestring_payload",
@@ -2826,7 +2829,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u352f\u4d58\u7775\u4336\u424d\u4168\u5634\u7165\u6455\u6367\u4143\u6170\u4551\u684f\u3374\u442b\u7431\u6144\u7943\u4578\u5865\u5473\u7a52\u3366\u7838\u6d33\u5863\u4e33\u557a\u3469\u624d\u4843\u4e56\u456d\u3653\u3334\u5034\u4a68\u7649\u4461\u4a67\u4b63\u7563\u6855\u5238\u5a44\u6d2b\u6f41\u6276\u6274\u4b42\u746f\u6443\u7272\u4b55\u2b41\u436d\u746a\u7776\u592f\u4756\u386d\u6863\u4242\u4e67\u6e46\u5862\u4573\u3946\u4e4a\u794d\u7832\u5147\u3254\u4c67\u7453\u5536\u582b\u355a\u3647\u696f\u3058\u5366\u3749\u4d54\u5854\u4b71\u6d6c\u685a\u7a76\u4762\u3636\u3977\u3072\u7163\u366b\u3174\u7454\u6638\u4267\u462f\u7458\u6546\u4141\u4141\u3d41",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u352f\u4d58\u7775\u4336\u424d\u4168\u5634\u7165\u6455\u6367\u4143\u6170\u4551\u684f\u3374\u442b\u7431\u6144\u7943\u4578\u5865\u5473\u7a52\u3366\u7838\u6d33\u5863\u4e33\u557a\u3469\u624d\u4843\u4e56\u456d\u3653\u3334\u5034\u4a68\u7649\u4461\u4a67\u4b63\u7563\u6855\u5238\u5a44\u6d2b\u6f41\u6276\u6274\u4b42\u746f\u6443\u7272\u4b55\u2b41\u436d\u746a\u7776\u592f\u4756\u386d\u6863\u4242\u4e67\u6e46\u5862\u4573\u3946\u4e4a\u794d\u7832\u5147\u3254\u4c67\u7453\u5536\u582b\u355a\u3647\u696f\u3058\u5366\u3749\u4d54\u5854\u4b71\u6d6c\u685a\u7a76\u4762\u3636\u3977\u3072\u7163\u366b\u3174\u7454\u6638\u4267\u462f\u7458\u6546\u4141\u4141\u3d41",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2844,7 +2847,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 162
+      "ms": 152
     },
     {
       "id": "rws_058_ps_clickfix_chain",
@@ -2865,7 +2868,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u382f\u5431\u514d\u4436\u414d\u387a\u6955\u306c\u4237\u4a41\u6942\u356f\u4343\u4d6b\u417a\u4978\u5a51\u7030\u6e66\u5430\u7434\u6d6f\u4938\u7143\u3167\u6657\u3959\u5a2f\u3242\u4443\u4734\u4443\u384e\u3454\u5741\u3279\u6645\u4965\u586e\u3576\u4b47\u4f45\u782f\u766e\u6247\u4365\u7733\u6668\u6235\u4233\u6d72\u3861\u6e32\u4d46\u3263\u4e77\u6668\u6252\u6e59\u3433\u6674\u4f7a\u7279\u4374\u682b\u4772\u626f\u6937\u585a\u6653\u2b47\u5141\u7934\u7250\u386a\u664c\u4843\u5838\u6f36\u3637\u7672\u346b\u4575\u6476\u4879\u4173\u2f7a\u4f6a\u3731\u6b71\u2b4e\u7367\u6564\u6b78\u7454\u7a41\u7a5a\u5777\u6576\u5339\u7436\u7a6f\u7858\u792f\u6f61\u2f2b\u7476\u785a\u702f\u6e71\u4e36\u3030\u3172\u6e51\u4666\u6453\u7575\u6773\u4775\u6563\u2f6e\u384f\u764e\u484e\u3754\u4171\u7633\u5557\u306e\u7653\u7a30\u3278\u7176\u2b57\u2f74\u5a4a\u666c\u4d6c\u5833\u3857\u7234\u6d39\u672b\u4b71\u6446\u3533\u7654\u4934\u7938\u4b62\u2f47\u4e4b\u4536\u2b67\u7244\u397a\u5863\u702b\u3037\u2b42\u3657\u2f68\u7237\u3566\u3348\u476e\u2b37\u3544\u5842\u474a\u5255\u3866\u7741\u4141",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u382f\u5431\u514d\u4436\u414d\u387a\u6955\u306c\u4237\u4a41\u6942\u356f\u4343\u4d6b\u417a\u4978\u5a51\u7030\u6e66\u5430\u7434\u6d6f\u4938\u7143\u3167\u6657\u3959\u5a2f\u3242\u4443\u4734\u4443\u384e\u3454\u5741\u3279\u6645\u4965\u586e\u3576\u4b47\u4f45\u782f\u766e\u6247\u4365\u7733\u6668\u6235\u4233\u6d72\u3861\u6e32\u4d46\u3263\u4e77\u6668\u6252\u6e59\u3433\u6674\u4f7a\u7279\u4374\u682b\u4772\u626f\u6937\u585a\u6653\u2b47\u5141\u7934\u7250\u386a\u664c\u4843\u5838\u6f36\u3637\u7672\u346b\u4575\u6476\u4879\u4173\u2f7a\u4f6a\u3731\u6b71\u2b4e\u7367\u6564\u6b78\u7454\u7a41\u7a5a\u5777\u6576\u5339\u7436\u7a6f\u7858\u792f\u6f61\u2f2b\u7476\u785a\u702f\u6e71\u4e36\u3030\u3172\u6e51\u4666\u6453\u7575\u6773\u4775\u6563\u2f6e\u384f\u764e\u484e\u3754\u4171\u7633\u5557\u306e\u7653\u7a30\u3278\u7176\u2b57\u2f74\u5a4a\u666c\u4d6c\u5833\u3857\u7234\u6d39\u672b\u4b71\u6446\u3533\u7654\u4934\u7938\u4b62\u2f47\u4e4b\u4536\u2b67\u7244\u397a\u5863\u702b\u3037\u2b42\u3657\u2f68\u7237\u3566\u3348\u476e\u2b37\u3544\u5842\u474a\u5255\u3866\u7741\u4141",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2890,7 +2893,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7127
+      "ms": 7307
     },
     {
       "id": "rws_059_ps_reflection.assembly.load",
@@ -2912,7 +2915,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u4642\u5155\u5642\u5632\u5675\u4d47\u6871\u5544\u7032\u5555\u6733\u616d\u3973\u4b32\u466f\u6333\u5256\u546a\u6b79\u5a58\u7078\u5456\u4a61\u5756\u6776\u4b30\u6c7a\u4b32\u314c\u536b\u5130\u6430\u4e6e\u5458\u7850\u5955\u4671\u4d30\u4d31\u617a\u4657\u5757\u6830\u4e30\u3136\u4d47\u4650\u556a\u566a\u5544\u4e76\u5a6e\u6f7a\u5a57\u784b\u5957\u464c\u4d6e\u6858\u4e54\u6f30\u6155\u646c\u5255\u7476\u5347\u5658\u6144\u6870\u6144\u6c73\u4e44\u4648\u6345\u6448\u6257\u744f\u4d47\u394b\u6145\u3949\u5653\u5a56\u5647\u6330\u516c\u4672\u4b32\u6379\u4e6b\u7877\u5230\u6f35\u6245\u7033\u6456\u4675\u6245\u5132\u6557\u3548\u5130\u4a50\u647a\u3142\u5547\u3879\u4f43\u4a73\u5332\u4679\u566b\u7868\u6330\u5a77\u4d32\u3956\u556b\u4e4b\u4d57\u5a53\u5954\u6432\u6130\u5635\u576d\u7376\u4d45\u4642\u5155\u524a\u6355\u4a33\u5454\u677a\u4c33\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u4642\u5155\u5642\u5632\u5675\u4d47\u6871\u5544\u7032\u5555\u6733\u616d\u3973\u4b32\u466f\u6333\u5256\u546a\u6b79\u5a58\u7078\u5456\u4a61\u5756\u6776\u4b30\u6c7a\u4b32\u314c\u536b\u5130\u6430\u4e6e\u5458\u7850\u5955\u4671\u4d30\u4d31\u617a\u4657\u5757\u6830\u4e30\u3136\u4d47\u4650\u556a\u566a\u5544\u4e76\u5a6e\u6f7a\u5a57\u784b\u5957\u464c\u4d6e\u6858\u4e54\u6f30\u6155\u646c\u5255\u7476\u5347\u5658\u6144\u6870\u6144\u6c73\u4e44\u4648\u6345\u6448\u6257\u744f\u4d47\u394b\u6145\u3949\u5653\u5a56\u5647\u6330\u516c\u4672\u4b32\u6379\u4e6b\u7877\u5230\u6f35\u6245\u7033\u6456\u4675\u6245\u5132\u6557\u3548\u5130\u4a50\u647a\u3142\u5547\u3879\u4f43\u4a73\u5332\u4679\u566b\u7868\u6330\u5a77\u4d32\u3956\u556b\u4e4b\u4d57\u5a53\u5954\u6432\u6130\u5635\u576d\u7376\u4d45\u4642\u5155\u524a\u6355\u4a33\u5454\u677a\u4c33\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2935,7 +2938,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7572
+      "ms": 7616
     },
     {
       "id": "rws_060_ps_empire_stager_(btlo_shape)",
@@ -2987,7 +2990,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 149
+      "ms": 146
     },
     {
       "id": "rws_061_emotet_v2",
@@ -3027,7 +3030,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5618
+      "ms": 5587
     },
     {
       "id": "rws_062_qakbot_v2",
@@ -3048,12 +3051,9 @@
         "nibble-swap",
         "base64-decode",
         "xor-brute",
-        "powershell-backtick-normalize",
-        "powershell-alias-normalize",
-        "xor-brute",
         "crypto-detect"
       ],
-      "output_head": "\u009c\u00a1-=*h\u00f7\u00ea \u00fcr/(fF\u00b9\u00aa,\u00a9\u00a4AndllhS \u00a1\u00d6}-\u00a0\u00a2\u00adb\u00e0\u00e9 u\u008e \u00e9\u0092\u00b9\u00ac\u00f7z\u00e2\u00d0i\u00e3w\u00b8\u00baVd\u00ef\u00be\u00a9\u00ed\u00b8\"\u00a4MbmKm3\u0083,b*\u00bea\u00fa6d\u00a8\u00eb\u00e6e\u00f0le\u00e8\u00a3\u00c0umR\u00e6\u00ef\u00cb\u00ae'\u0089'x\u0097h\"`}nhj5p\u00ae(\u00ef$\u00b4m\u00e4 \u00b7i%s\u00e5h/> V\u00b0\u00bc\u0096h?K9.en \u00e1\"ForEed -Objegs",
+      "output_head": "\u009c\u00b2/= h\u00e0\u00efh\u00f2`bb`lF\u00ae\u00af`\u00a4\u00ecVk,fl{Q \u00ab\u00d6j(\u00e8\u00ac`\u00bd/\u00a8\u00e3 b\u008bl\u00e4\u00da\u00ae\u00a9\u00bfp\u00e2\u00c3k\u00e3}\u00b8\u00adS,\u00e1\u00b9\u00f6\u00e8\u00f0(\u00a4Zc\"\tm$\u0086dh.\u00ae,\u00b2<d\u00bf\u00ee\u00aah\u00b8{`\u00a0\u00a9\u00c0foR\u00ec\u00ef\u00dc\u00abo\u0087 '\u0092 (`jo'(5g\u00ab`\u00e5 \u00a4 \u00ac*\u00b7~ ?\u00e8 8;h]\u00f1#\u008a\u00e8\u00e8Nn+-`'\u00be'm",
       "matched_mitre": [
         "T1027"
       ],
@@ -3074,7 +3074,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6522
+      "ms": 5651
     },
     {
       "id": "rws_063_icedid_v2",
@@ -3094,7 +3094,7 @@
         "semantic-ps-variable-propagate",
         "decoder-frombase64string-fold"
       ],
-      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBZalJqTXpBMk9EWmlOakkxTnpNNU5EUTBZek16Tm1NM1lUWXpOVGczTURVMk5qUTJZamN3TXpVMU5qUTFOVFUzT1RVMk5UZzBaVGN4TlRNMll6VXhOemMyTlRRMU56QTBaRFZoTkRVMll6UTFOVGt6TWpNMU5UTTFPVE15TkdV\u2026",
+      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBaVFJrTkRRMU1qWmpOVEl6TWpNNU5EUTBZek16Tm1NM1lUWXpOVGczTURVMk5qUTJZamN3TXpVMU5qUTFOVFUzT1RVMk5UZzBaVGN4TlRNMll6VXhOemMyTlRRMU56QTBaRFZoTkRVMll6UTFOVGt6TWpNMU5UTTFPVE15TkdV\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -3119,7 +3119,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 92
+      "ms": 91
     },
     {
       "id": "rws_064_cobaltstrike_v2",
@@ -3165,7 +3165,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2387
+      "ms": 2343
     },
     {
       "id": "rws_065_empire_v2",
@@ -3188,7 +3188,7 @@
         "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "frrg9$KGViXDESO4{sT!GH {HW@sV]_IIVBQETYsR6&_\\EZJS}MIYqwVEKYK1N i sMAAcpT!{^\u007fITg\\JrIgGUzWRji AkTAYgGDJoJ!2cQOs5vMGF{VhGjGNaUQwerWIexE\"NsJ5INaUOVhEFIkuZoEFD2Ny]#Y{fP7g~7UVhWZIJbNCtrBnJmPy]YL@I5FMCmBnVxj\u2026",
+      "output_head": "kbg(6VYQqSDCSNOR}W/:OL\"uDWSpCKvMAQDC_MNZzT/6_MWGTTeFI_twYVD_GP9J\"g,scTWub\\9i_qANdULkYgVGgIUrb GnTNJ}SZQgN#<oQ\\p `[UNcDiIb]MhSHgecECWbN\"HvJ:ZTuKTlGHEkfYzSPV:Vk\\-QaeYf.Ngo%HHoOQILgNLghVpQeT{SULSJ P[QeZ|\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -3215,7 +3215,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1917
+      "ms": 1964
     },
     {
       "id": "rws_066_apt29_-_cozy_bear_v2",
@@ -3264,7 +3264,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8023
+      "ms": 7887
     },
     {
       "id": "rws_067_asyncrat_v2",
@@ -3307,7 +3307,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 828
+      "ms": 818
     },
     {
       "id": "rws_068_lumma_stealer_v2",
@@ -3351,7 +3351,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 92
+      "ms": 93
     },
     {
       "id": "rws_069_lockbit_v2",
@@ -3374,10 +3374,9 @@
         "xor-brute",
         "powershell-backtick-normalize",
         "xor-brute",
-        "xor-brute",
         "crypto-detect"
       ],
-      "output_head": "\u00b8\u00bd\u00be\"O0q:\u00b4LvP\u00bcEI\u008a\u00cf\u00bdHNvs=*fUDbe\u00f9J\u0004\u000fandY\u00b7u\u00c5.\u00bc\r=\u0087\u00b04Eb\u00d3\u00e1^I\u00edr\u00cfN\u00f5?RX\u00b8\u00f5\u00a98\u00c8\u0089\u00dbj\u00c15?\u00e0&2$\u0095\u0086\u00a7H?\n\u00d5\u00fdk\u00bdq\u001c\u0089BD>Y.\u00ef5\u00f4\u00cf{\u0083\u00cc\u0096t\u00b6\u0095\u00db\n\u000b\u00dc\u00811\u00ff J+:R\u00c01\u00c3tHE\u00ab\u00e2Te$\u00f5UjM\u00e4\u00f0`;\u0096Q\u00d9\u000b\u0092]\u0017\u00e6n\u0086\u0000\u00d3h%:\u008fA 2\u00d2l\u00b7",
+      "output_head": "\u00bfi\r4Z \u00c2\u00de0\u00f5z{1\u00aaB\u0004\u00d30A v\u00cd\u00a9\bv\u00bfzh~\u00ec\u00f5H\n\u00ea~\u00fen\u00ebi\u00ca\u00bf\u0092\nV4\u00a6\u009eUn7eXEy\u00ff \u00fa{\u009c\u00dfQi\u00f5\u00a8\u00ac\u00ea&1\u00eb\u00cb.\u0095_\u00d57\u00af:\u001c/\u0014#\u00baDll\u00d6}\n\u009cRHe\u00dd\u0097\u00e3\u00a1\u00c6 p\ro\u00a4}\u00d8\u0095\u00da!)\u00cck\u00b0J;_\u0094\u00c9\u00e8K!Y\u00fc\u00abY\u00a4s\u00c5\u00ddOFC\u00c0]\u00e8\u0014\u00e4=\u009a\u00c5T\u00e4&\u00d3\u00b4kgW\u0000\u00d2\u00fc\u0007\u009df<\u009bix\u00d3D",
       "matched_mitre": [
         "T1027"
       ],
@@ -3400,7 +3399,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4127
+      "ms": 3793
     },
     {
       "id": "rws_070_bumblebee_v2",
@@ -3422,7 +3421,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u342f\u4b73\u387a\u4968\u736a\u7867\u6139\u7933\u454c\u4f33\u614c\u306e\u4864\u304d\u3369\u3144\u3479\u4d6e\u3843\u4a70\u6979\u4973\u7353\u4e70\u594b\u7731\u7974\u7a7a\u5879\u7a4d\u5154\u7532\u4963\u7938\u734d\u4a32\u6e71\u7351\u3453\u777a\u6b79\u796b\u7338\u4e70\u7254\u3165\u5142\u6241\u4159\u355a\u4152\u4141\u4141\u3d3d",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u342f\u4b73\u387a\u4968\u736a\u7867\u6139\u7933\u454c\u4f33\u614c\u306e\u4864\u304d\u3369\u3144\u3479\u4d6e\u3843\u4a70\u6979\u4973\u7353\u4e70\u594b\u7731\u7974\u7a7a\u5879\u7a4d\u5154\u7532\u4963\u7938\u734d\u4a32\u6e71\u7351\u3453\u777a\u6b79\u796b\u7338\u4e70\u7254\u3165\u5142\u6241\u4159\u355a\u4152\u4141\u4141\u3d3d",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -3447,7 +3446,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 105
+      "ms": 103
     },
     {
       "id": "rws_071_sliver_c2_v2",
@@ -3468,7 +3467,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u332f\u5256\u514d\u4436\u414d\u387a\u7245\u6c52\u4937\u5543\u4b44\u3031\u4349\u5951\u446d\u5574\u7543\u4d6f\u502b\u3156\u7059\u454f\u4671\u4757\u7a49\u6e37\u4a66\u4278\u2f43\u6a58\u3430\u7345\u6359\u5651\u3348\u636a\u4d51\u2b4d\u386b\u5765\u7565\u354e\u7350\u6a37\u4651\u7133\u3072\u2f4d\u6659\u5966\u6247\u336c\u6c37\u6e7a\u3330\u736a\u5844\u4a2b\u672f\u3670\u2f52\u4d31\u3537\u345a\u3771\u6c78\u5a58\u4c31\u7567\u584b\u3837\u5048\u5078\u6972\u2b54\u4871\u3954\u7a59\u4e71\u2f4c\u457a\u506e\u5878\u376c\u6934\u5066\u2b31\u7271\u7241\u7931\u486c\u6a64\u4d31\u3831\u7054\u5847\u416e\u2f4b\u5446\u576c\u7432\u4165\u7046\u5433\u7661\u6e32\u2b72\u397a\u2f6f\u5244\u6861\u4c37\u372f\u5930\u6e39\u4f58\u362f\u374c\u5a57\u7650\u6349\u4635\u6375\u6938\u2b4c\u3867\u5479\u6f2f\u384e\u6557\u4a32\u392b\u7766\u6747\u4f4c\u3457\u4154\u4149\u4141\u3d3d",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u332f\u5256\u514d\u4436\u414d\u387a\u7245\u6c52\u4937\u5543\u4b44\u3031\u4349\u5951\u446d\u5574\u7543\u4d6f\u502b\u3156\u7059\u454f\u4671\u4757\u7a49\u6e37\u4a66\u4278\u2f43\u6a58\u3430\u7345\u6359\u5651\u3348\u636a\u4d51\u2b4d\u386b\u5765\u7565\u354e\u7350\u6a37\u4651\u7133\u3072\u2f4d\u6659\u5966\u6247\u336c\u6c37\u6e7a\u3330\u736a\u5844\u4a2b\u672f\u3670\u2f52\u4d31\u3537\u345a\u3771\u6c78\u5a58\u4c31\u7567\u584b\u3837\u5048\u5078\u6972\u2b54\u4871\u3954\u7a59\u4e71\u2f4c\u457a\u506e\u5878\u376c\u6934\u5066\u2b31\u7271\u7241\u7931\u486c\u6a64\u4d31\u3831\u7054\u5847\u416e\u2f4b\u5446\u576c\u7432\u4165\u7046\u5433\u7661\u6e32\u2b72\u397a\u2f6f\u5244\u6861\u4c37\u372f\u5930\u6e39\u4f58\u362f\u374c\u5a57\u7650\u6349\u4635\u6375\u6938\u2b4c\u3867\u5479\u6f2f\u384e\u6557\u4a32\u392b\u7766\u6747\u4f4c\u3457\u4154\u4149\u4141\u3d3d",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -3493,7 +3492,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6026
+      "ms": 6052
     },
     {
       "id": "rws_072_meterpreter_v2",
@@ -3540,7 +3539,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 9419
+      "ms": 9656
     },
     {
       "id": "rws_073_socgholish_v2",
@@ -3559,7 +3558,7 @@
       "chain": [
         "decoder-base64-full"
       ],
-      "output_head": "\u303d\u5154\u4642\u5155\u394a\u5755\u5253\u4e58\u4531\u5a30\u646d\u5a6d\u5236\u4c32\u6450\u5a45\u426a\u526a\u557a\u4f44\u497a\u5331\u5a5a\u5956\u7856\u5630\u6b78\u5747\u7434\u4e30\u6f35\u596c\u4a34\u566e\u6c75\u6344\u4d77\u5a31\u524c\u6156\u4e72\u4f44\u4655\u6233\u5247\u5931\u4e49\u5244\u3175\u5757\u4930\u5533\u6831\u6358\u5a56\u6144\u4132\u5444\u6f78\u5457\u3834\u5557\u4a45\u5154\u5277\u4e7a\u5670\u5648\u4179\u5754\u6848\u5654\u6c35\u4f45\u784a\u6332\u4a43\u6433\u4a6d\u4c31\u6c6a\u5154\u6846\u6333\u4279\u567a\u6845\u5557\u564e\u4d45\u4a52\u5454\u4579\u4c7a\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u303d\u5154\u4642\u5155\u394a\u5755\u5253\u4e58\u4531\u5a30\u646d\u5a6d\u5236\u4c32\u6450\u5a45\u426a\u526a\u557a\u4f44\u497a\u5331\u5a5a\u5956\u7856\u5630\u6b78\u5747\u7434\u4e30\u6f35\u596c\u4a34\u566e\u6c75\u6344\u4d77\u5a31\u524c\u6156\u4e72\u4f44\u4655\u6233\u5247\u5931\u4e49\u5244\u3175\u5757\u4930\u5533\u6831\u6358\u5a56\u6144\u4132\u5444\u6f78\u5457\u3834\u5557\u4a45\u5154\u5277\u4e7a\u5670\u5648\u4179\u5754\u6848\u5654\u6c35\u4f45\u784a\u6332\u4a43\u6433\u4a6d\u4c31\u6c6a\u5154\u6846\u6333\u4279\u567a\u6845\u5557\u564e\u4d45\u4a52\u5454\u4579\u4c7a\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [
         "T1027"
       ],
@@ -3580,7 +3579,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 64
+      "ms": 62
     },
     {
       "id": "rws_074_apt41_-_winnti_v2",
@@ -3600,13 +3599,9 @@
         "url-decode",
         "base64-decode",
         "xor-brute",
-        "powershell-backtick-normalize",
-        "xor-brute",
-        "xor-brute",
-        "xor-brute",
         "crypto-detect"
       ],
-      "output_head": "\u00c1a\u00c2\u00ccR\u00afg\u0096\u00c74\u0096\u00b4h4j\t\"\u0091\u00ec\u00e4,XK\u00ee( \u00a0X,/\u00e3F\u008a\u00e4\u00e3oDLl\u00f6\r\u00c3\u0080pn\n&\r\u0099\u00b8\u00b9\u009c\u00cb\u0088\u008e\u00f1\u00aa|\u00ab\u00a9(O;of#Z\n\u00aa\u00a4_P\u0086\u0082\tCb\u00f0\u00ed\u00d0Hg\u00c5\u001cQ\u00e5\u0096\u00e3k\u00c8zj\u00d8|\\Bo4~\u00c0\u00bcA\u008eD\u0090\u00d8\u00f0dbKV\u00ddXKt\u00a2t6\\\u00bd\u00fa6\u0083for&U\\!V\u00cec8\u0092$\u00f1\u00ab\u001a\u0098\u00bcnL-\u00a28v\u009d\u00ee\u00fc\u00f6*\u00c4\u00d2\u009fz(r\u00ac\u00d7i\u00fa5:E\u00af>J+O)t\u008fp\u00a0\u0098\u009d\u009e\u00a6D\u0098\\xOR<\u00a0\u009du\u00ac\u00cb\u008e\u00fc\u0013Ip\r\u0090:\u00b6\u2026",
+      "output_head": "?'~\n\u008c\u009b\u00bf\u00d58;\u00cd-MQ\u00b1p\u0094y\u00b1\u00e4c>\u00aa\u0087\u001b\u00f5d29\u0011)\u00aa\u0084\u00f1/d\tYzE\u00f8\u00de-zj\u00f8oE=\u00a6.\u00df(|^\u00d3\rX,o\u00f6\"\u0081\u0017\u0099,X\u00f1\u00b4\u00c1\u0084pRQTCt\u00f47\u00b9{\u00ebcMD\u00db\u0005m^\u00dd\u00b68\u00f7RJ\u00f1\u00c3K\u00e8\u00ca\u00b8\u00ea\u00a574\u00c6>E\u00ba\u00bf\u0086\u00a6\u009dT\u00f3d\u00f39\u00dd\u00c5\u0005`\u00e3\u00a6q\u0017\u00a4\u0017\u00b3\u00f2\u000b\u0097\u0017\u0007HM\u009bE\u0087\u00c9\u00a9\t\u00bd\u0098\u0097-\u00e3\u00ad\u00fa\u00d2\u00e0\u00c0\n\u0096\tpu\u00bb\u00bc\u00a4\u00cd\u00bd\u0099 \u009d[\u00b7S\u00d5P\u00ae\u00ebjD!\u00e0;\u00aa\u00fd\u0084\u0086`\u00986\u00bd\u00ef\u00a4\u00a6:\u0093\u0011\u00be\u00f4\u00c6\u000e\u00ba?kq\u0017\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -3633,7 +3628,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7521
+      "ms": 2184
     },
     {
       "id": "rws_075_apt28_-_fancy_bear_v2",
@@ -3681,7 +3676,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8065
+      "ms": 8005
     },
     {
       "id": "rws_076_amos_stealer_(macos)_v2",
@@ -3725,7 +3720,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6245
+      "ms": 6224
     },
     {
       "id": "rws_077_kinsing_(linux)_v2",
@@ -3772,7 +3767,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6076
+      "ms": 6034
     },
     {
       "id": "rws_078_xmrig_cryptominer_v2",
@@ -3792,7 +3787,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u322f\u5132\u5154\u4536\u4149\u4679\u2b72\u6651\u7853\u4564\u4a57\u5968\u4a69\u5a46\u4165\u6a4c\u4873\u4251\u7665\u7070\u324b\u4752\u3078\u5455\u7630\u3961\u7839\u7258\u412f\u4f5a\u3431\u5350\u5830\u6851\u6c67\u326f\u504f\u4e72\u4271\u3166\u3079\u4248\u726a\u4150\u7a4d\u5464\u3672\u644a\u4557\u704e\u3175\u5943\u536e\u4376\u2b57\u4d4a\u7169\u5038\u6536\u7855\u4c71\u4d46\u362b\u586a\u4970\u6b2f\u3978\u316f\u4443\u6c75\u4354\u7864\u777a\u4f76\u7079\u4b37\u7a70\u7137\u5a32\u3150\u5842\u796f\u3267\u7448\u4c79\u677a\u752b\u6b4a\u5139\u5731\u5a66\u6639\u7937\u6d47\u6638\u2b5a\u4b5a\u6778\u722b\u4e75\u4275\u5a2f\u466a\u7775\u4b39\u7956\u7364\u2f72\u6334\u3371\u4a7a\u3169\u4931\u5a6d\u764d\u2f4e\u4e52\u6435\u3451\u394f\u7642\u4a39\u4767\u627a\u3144\u4e6f\u5a42\u7757\u5141\u4141",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u322f\u5132\u5154\u4536\u4149\u4679\u2b72\u6651\u7853\u4564\u4a57\u5968\u4a69\u5a46\u4165\u6a4c\u4873\u4251\u7665\u7070\u324b\u4752\u3078\u5455\u7630\u3961\u7839\u7258\u412f\u4f5a\u3431\u5350\u5830\u6851\u6c67\u326f\u504f\u4e72\u4271\u3166\u3079\u4248\u726a\u4150\u7a4d\u5464\u3672\u644a\u4557\u704e\u3175\u5943\u536e\u4376\u2b57\u4d4a\u7169\u5038\u6536\u7855\u4c71\u4d46\u362b\u586a\u4970\u6b2f\u3978\u316f\u4443\u6c75\u4354\u7864\u777a\u4f76\u7079\u4b37\u7a70\u7137\u5a32\u3150\u5842\u796f\u3267\u7448\u4c79\u677a\u752b\u6b4a\u5139\u5731\u5a66\u6639\u7937\u6d47\u6638\u2b5a\u4b5a\u6778\u722b\u4e75\u4275\u5a2f\u466a\u7775\u4b39\u7956\u7364\u2f72\u6334\u3371\u4a7a\u3169\u4931\u5a6d\u764d\u2f4e\u4e52\u6435\u3451\u394f\u7642\u4a39\u4767\u627a\u3144\u4e6f\u5a42\u7757\u5141\u4141",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -3817,7 +3812,7 @@
       "ioc_recall": 0.667,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4270
+      "ms": 4354
     },
     {
       "id": "rws_079_apt29_(wmi)_v2",
@@ -3856,7 +3851,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2802
+      "ms": 2816
     },
     {
       "id": "rws_080_amadey_v2",
@@ -3899,7 +3894,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5158
+      "ms": 5161
     },
     {
       "id": "rws_081_nanocore_rat_v2",
@@ -3941,7 +3936,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5620
+      "ms": 5617
     },
     {
       "id": "rws_082_smokeloader_v2",
@@ -3993,7 +3988,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 154
+      "ms": 150
     },
     {
       "id": "rws_083_trickbot_v2",
@@ -4013,7 +4008,7 @@
         "semantic-ps-variable-propagate",
         "decoder-frombase64string-fold"
       ],
-      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBZalJqTXpBMk9EWmlOakkxTnpNNU5EUTBZemRoTmpnM1lUWTBORGczTURjd05qRTBOVGN3TlRjMU5EVTNOalEzTmpVek16RTBaVGMwTmpRM1lUUXlNekExT1RNek5XRTBZelU1TXpNME1qUmxOalUyWkRjek16TTFNek13Tnpj\u2026",
+      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBaVFJrTkRRMU1qWmpOVEl6TWpNNU5EUTBZemRoTmpnM1lUWTBORGczTURjd05qRTBOVGN3TlRjMU5EVTNOalEzTmpVek16RTBaVGMwTmpRM1lUUXlNekExT1RNek5XRTBZelU1TXpNME1qUmxOalUyWkRjek16TTFNek13Tnpj\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -4081,7 +4076,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 84
+      "ms": 77
     },
     {
       "id": "rws_085_cactus_ransomware_v2",
@@ -4103,7 +4098,7 @@
         "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "hdii+4VZ\u007fPFKYD5kxoE1AO aJ\\MMAC\"FOR\u007fGURoQgF#ZjNDCFi]sA_\"xOV OxYh3ai!lrV\u007fCEk@wiTJRBH#8!iAM\\XUxsU}KUQiEXW 9TQDj kSE'[FJ6gEaaihtjWxBPbUf Q7djT~`RQ[GTCE}@FZ]f}\\#ZAoPZTBGN[a\u007fi6FaF#`5a~GZZSQAnDZlVF8sRRUzl FQ\u2026",
+      "output_head": "hdii+4VZ\u007fPFK\\EAQ\u007f_ 1AO aJ\\MMAC\"FOR\u007fGURoQgF#ZjNDCFi]sA_\"xOV OxYh3ai!lrV\u007fCEk@wiTJRBH#8!iAM\\XUxsU}KUQiEXW 9TQDj kSE'[FJ6gEaaihtjWxBPbUf Q7djT~`RQ[GTCE}@FZ]f}\\#ZAoPZTBGN[a\u007fi6FaF#`5a~GZZSQAnDZlVF8sRRUzl FQ\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -4128,7 +4123,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1652
+      "ms": 1688
     },
     {
       "id": "rws_086_blackcat_-_alphv_v2",
@@ -4146,10 +4141,10 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "xor-brute",
-        "cmd-reconstruct",
-        "crypto-detect"
+        "cmd-runtime-reconstruct",
+        "url-decode"
       ],
-      "output_head": "|syb},{agwoociab&.M.?Jq\u007fyt|z0dnYBQ@Ppazuoptxyr,3;zXXAkQEXkY{M!OXB UE[-EUN!OXV#cEXeo{M!qHB#UEO.]{N#GvA IEX(UUMk[HBxRU[/oENkCHC\"c{XthEO O[B!YUX,UVN GXA\"Ak[wkY#qfB\"Q{X-gkNxLvB UEX.Y{N!SfA!UkX,IkM\"GvB Uk[\u2026",
+      "output_head": "{zc`a {w\u007fjgcrxf}16\\.?Jdx|tm}:[~zHT\\ZH{dlirw}b{n 3-bEPMz@BG|AjM!OME%UT\\'@OZ0YUL;h@Nyr|D;sTN#C]R&Qj_$XaY1IEX=RPMz\\BGbFDM\"u]EnUT%jaZhdEY8RSN0HRG;MGN GMF'Az\\}[qM2gkX:Z~N1zlGbNjN C]E&Uj_&LqY0UkX9NnM3@|G:Az\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -4174,7 +4169,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2765
+      "ms": 2809
     },
     {
       "id": "rws_087_ghostrat_v2",
@@ -4262,7 +4257,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 106
+      "ms": 105
     },
     {
       "id": "rws_089_apt10_-_menupass_v2",
@@ -4308,7 +4303,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 67
+      "ms": 66
     },
     {
       "id": "rws_090_apt41_(bits)_v2",
@@ -4330,7 +4325,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u7a2f\u4a33\u5173\u4336\u424d\u4752\u5634\u7965\u5762\u6b70\u4b59\u6145\u4172\u5345\u6262\u6c54\u2b33\u4b52\u4372\u6354\u4373\u3044\u5737\u7956\u4d4f\u3374\u674f\u4758\u4e71\u6565\u6145\u4a33\u4647\u4835\u4a63\u6750\u7443\u4f57\u3368\u7a57\u5141\u6647\u654c\u4d35\u5649\u3835\u2f45\u3862\u4d59\u3668\u3658\u7356\u6962\u7458\u6961\u5763\u7138\u5a63\u6a38\u554a\u6845\u5a4d\u5a6e\u4b37\u7576\u482f\u5669\u4a79\u4142\u362b\u7679\u746a\u3541\u515a\u6e2f\u2b2f\u3941\u3036\u6748\u3874\u4141\u4141",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u7a2f\u4a33\u5173\u4336\u424d\u4752\u5634\u7965\u5762\u6b70\u4b59\u6145\u4172\u5345\u6262\u6c54\u2b33\u4b52\u4372\u6354\u4373\u3044\u5737\u7956\u4d4f\u3374\u674f\u4758\u4e71\u6565\u6145\u4a33\u4647\u4835\u4a63\u6750\u7443\u4f57\u3368\u7a57\u5141\u6647\u654c\u4d35\u5649\u3835\u2f45\u3862\u4d59\u3668\u3658\u7356\u6962\u7458\u6961\u5763\u7138\u5a63\u6a38\u554a\u6845\u5a4d\u5a6e\u4b37\u7576\u482f\u5669\u4a79\u4142\u362b\u7679\u746a\u3541\u515a\u6e2f\u2b2f\u3941\u3036\u6748\u3874\u4141\u4141",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -4353,7 +4348,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 126
+      "ms": 125
     },
     {
       "id": "rws_091_icedid_(dll_main)_v2",
@@ -4374,7 +4369,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u2f2f\u744f\u7163\u7933\u6644\u3145\u4d38\u3133\u6442\u5645\u6c76\u4a58\u5a6c\u5646\u4249\u6f6f\u7537\u564b\u6142\u3946\u3679\u7948\u6235\u5635\u5636\u3542\u7978\u2f70\u4873\u6f77\u4255\u4b78\u2f67\u426d\u5856\u5a35\u4863\u5630\u4855\u5632\u5051\u7756\u5266\u3144\u4951\u5168\u775a\u5368\u7835\u692f\u3461\u7771\u7878\u6857\u7448\u634e\u4f50\u4234\u6771\u5450\u566b\u2b41\u4c57\u4a30\u6e6d\u6a70\u4471\u4e39\u6645\u3135\u5072\u4c49\u6167\u486f\u6771\u414d\u485a\u7431\u6855\u4267\u4141\u3d41",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u2f2f\u744f\u7163\u7933\u6644\u3145\u4d38\u3133\u6442\u5645\u6c76\u4a58\u5a6c\u5646\u4249\u6f6f\u7537\u564b\u6142\u3946\u3679\u7948\u6235\u5635\u5636\u3542\u7978\u2f70\u4873\u6f77\u4255\u4b78\u2f67\u426d\u5856\u5a35\u4863\u5630\u4855\u5632\u5051\u7756\u5266\u3144\u4951\u5168\u775a\u5368\u7835\u692f\u3461\u7771\u7878\u6857\u7448\u634e\u4f50\u4234\u6771\u5450\u566b\u2b41\u4c57\u4a30\u6e6d\u6a70\u4471\u4e39\u6645\u3135\u5072\u4c49\u6167\u486f\u6771\u414d\u485a\u7431\u6855\u4267\u4141\u3d41",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -4397,7 +4392,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4046
+      "ms": 4031
     },
     {
       "id": "rws_092_avoslocker_v2",
@@ -4419,7 +4414,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u303d\u5054\u4642\u5155\u4642\u6255\u356f\u6357\u6859\u637a\u5a6e\u627a\u6c51\u5931\u4677\u5454\u7330\u616d\u4e45\u616c\u5a47\u6257\u4932\u4f45\u5674\u5754\u6833\u4d31\u4279\u536c\u6472\u4b30\u557a\u5445\u3158\u656b\u7850\u4d57\u4930\u6556\u7372\u6230\u7834\u4e6b\u704c\u5a6d\u4e4c\u566e\u4233\u4d56\u5256\u566a\u6c4f\u5132\u5932\u4b7a\u7056\u4d31\u426a\u6148\u7833\u616b\u6c4d\u646d\u6872\u516e\u3944\u4e57\u5a69\u596c\u4a78\u517a\u5649\u5556\u5231\u4d45\u5244\u4b32\u4646\u5454\u4a6a\u4e6c\u7056\u5432\u357a\u6130\u7056\u626e\u6852\u5955\u784e\u6455\u5a70\u6330\u6372\u4f55\u7469\u6343\u4a33\u5446\u747a\u6455\u5254\u4f57\u5178\u646b\u564a\u5155\u7478\u5653\u6870\u5258\u5533\u5445\u394c\u6147\u4e5a\u5357\u4e55\u5658\u466f\u5547\u6832\u6346\u4576\u4d47\u4a42\u516c\u524e\u6355\u6c52\u5448\u6c59\u4c33\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u303d\u5054\u4642\u5155\u4642\u6255\u356f\u6357\u6859\u637a\u5a6e\u627a\u6c51\u5931\u4677\u5454\u7330\u616d\u4e45\u616c\u5a47\u6257\u4932\u4f45\u5674\u5754\u6833\u4d31\u4279\u536c\u6472\u4b30\u557a\u5445\u3158\u656b\u7850\u4d57\u4930\u6556\u7372\u6230\u7834\u4e6b\u704c\u5a6d\u4e4c\u566e\u4233\u4d56\u5256\u566a\u6c4f\u5132\u5932\u4b7a\u7056\u4d31\u426a\u6148\u7833\u616b\u6c4d\u646d\u6872\u516e\u3944\u4e57\u5a69\u596c\u4a78\u517a\u5649\u5556\u5231\u4d45\u5244\u4b32\u4646\u5454\u4a6a\u4e6c\u7056\u5432\u357a\u6130\u7056\u626e\u6852\u5955\u784e\u6455\u5a70\u6330\u6372\u4f55\u7469\u6343\u4a33\u5446\u747a\u6455\u5254\u4f57\u5178\u646b\u564a\u5155\u7478\u5653\u6870\u5258\u5533\u5445\u394c\u6147\u4e5a\u5357\u4e55\u5658\u466f\u5547\u6832\u6346\u4576\u4d47\u4a42\u516c\u524e\u6355\u6c52\u5448\u6c59\u4c33\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -4440,7 +4435,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5806
+      "ms": 5795
     },
     {
       "id": "rws_093_apt35_-_charming_kitten_v2",
@@ -4459,7 +4454,7 @@
       "chain": [
         "decoder-base64-full"
       ],
-      "output_head": "\u453d\u5155\u4642\u4e45\u4a4d\u646d\u5242\u4e6b\u6c69\u6130\u5976\u6454\u3149\u4e55\u3534\u5a6d\u6871\u557a\u5a61\u646d\u5a51\u4d6a\u526d\u597a\u5676\u4e7a\u4e31\u4e47\u4647\u5558\u4a34\u5633\u517a\u516c\u3143\u5432\u6875\u4e58\u6830\u6554\u5a79\u4c7a\u6b76\u4e6b\u6772\u656b\u5a6d\u6257\u6c6b\u5a32\u5976\u6447\u526e\u5933\u4277\u4e58\u4a4b\u6231\u3572\u5232\u4671\u4e45\u4e6f\u4b30\u5270\u4d31\u4e42\u5557\u7471\u5a53\u5235\u4f45\u7072\u6146\u5649\u5645\u566d\u5655\u424d\u6548\u5230\u5331\u564a\u6258\u5647\u6232\u4a34\u6256\u4236\u5958\u4a4c\u6433\u5178\u516b\u7454\u4f47\u7075\u5958\u5a6d\u5454\u6c51\u4c33\u5233\u5a48\u6858\u596b\u6844\u5958\u5654\u636a\u6845\u5157\u524e\u4e30\u5652\u5431\u4d79\u4c7a\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u453d\u5155\u4642\u4e45\u4a4d\u646d\u5242\u4e6b\u6c69\u6130\u5976\u6454\u3149\u4e55\u3534\u5a6d\u6871\u557a\u5a61\u646d\u5a51\u4d6a\u526d\u597a\u5676\u4e7a\u4e31\u4e47\u4647\u5558\u4a34\u5633\u517a\u516c\u3143\u5432\u6875\u4e58\u6830\u6554\u5a79\u4c7a\u6b76\u4e6b\u6772\u656b\u5a6d\u6257\u6c6b\u5a32\u5976\u6447\u526e\u5933\u4277\u4e58\u4a4b\u6231\u3572\u5232\u4671\u4e45\u4e6f\u4b30\u5270\u4d31\u4e42\u5557\u7471\u5a53\u5235\u4f45\u7072\u6146\u5649\u5645\u566d\u5655\u424d\u6548\u5230\u5331\u564a\u6258\u5647\u6232\u4a34\u6256\u4236\u5958\u4a4c\u6433\u5178\u516b\u7454\u4f47\u7075\u5958\u5a6d\u5454\u6c51\u4c33\u5233\u5a48\u6858\u596b\u6844\u5958\u5654\u636a\u6845\u5157\u524e\u4e30\u5652\u5431\u4d79\u4c7a\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [
         "T1027"
       ],
@@ -4525,7 +4520,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 83
+      "ms": 80
     },
     {
       "id": "rws_095_play_ransomware_v2",
@@ -4546,7 +4541,7 @@
         "decoder-powershell-encoded-command",
         "decoder-hex-full"
       ],
-      "output_head": "=EUQBFkTa1Uep1mQBF0b5F0VulGT2d2Y59UeVl3SzU0SKRzbLRHNVxkSv9Gd35kRzZVMFpHTohTV1RzUUFlZsVFdrVFTvBTe690MFRXcrkneOxWRM9EbrxkTwtWeQlTTVRVMFBjVoVlcMZUOT1kdjNVT0BzLD9Wbkh0LKFUSzRDS",
+      "output_head": "=EUQBFkTa1Uep1mQBF0b5F0VulGT2d2Y59UeVl3SzU0SKRzbLRHNVxkSv9Gd35kRzZVMFpHTohTV1RzUUFlZsVFdrVFTvBTe690MFRXcrkneOxWRM9EbrxkTwtWeQlTTVRVMFBjVoVlcMZUOT1kdjNVT0BzLD92RlRDMNFUSzRDS",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -4571,7 +4566,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5372
+      "ms": 5348
     },
     {
       "id": "rws_096_apt29_(bitsadmin)_v2",
@@ -4615,7 +4610,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5252
+      "ms": 5228
     },
     {
       "id": "rws_097_oilrig_-_apt34_v2",
@@ -4660,7 +4655,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3268
+      "ms": 3195
     },
     {
       "id": "rws_098_lockbit_(sam_dump)_v2",
@@ -4680,7 +4675,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u312f\u5256\u7775\u4437\u4149\u387a\u5470\u6735\u4637\u5641\u6b68\u7867\u4371\u4d6f\u427a\u696d\u694e\u444d\u6253\u2b2b\u2b5a\u454e\u6d36\u5a42\u4d2b\u3335\u304a\u4a50\u306e\u6e62\u3747\u6133\u6f53\u7134\u5966\u4b64\u5a79\u4839\u3174\u7877\u2b58\u444f\u3135\u6d37\u5351\u6a71\u6d43\u7171\u514d\u3130\u6959\u3864\u7273\u4679\u3538\u716c\u4c53\u694e\u6257\u5556\u7a50\u3331\u5737\u3031\u3263\u3950\u4473\u6258\u5750\u675a\u3864\u735a\u3478\u3947\u676d\u4f55\u4b62\u426e\u6346\u6c59\u7861\u7441\u6134\u6a2b\u3349\u4a44\u4939\u6436\u5750\u362b\u3466\u5a2f\u7672\u334f\u334d\u4248\u3762\u6771\u7072\u4a6f\u374f\u5650\u7144\u6939\u384f\u3862\u7067\u4e36\u7338\u7136\u3171\u7935\u2f51\u6847\u7a64\u4550\u5247\u664c\u2f52\u4d79\u725a\u7861\u3834\u3444\u734c\u364e\u4b61\u6953\u5875\u4477\u7835\u5953\u3534\u3635\u2b6a\u504d\u6a62\u7538\u7952\u4a6d\u4172\u4145\u4141\u3d3d",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u312f\u5256\u7775\u4437\u4149\u387a\u5470\u6735\u4637\u5641\u6b68\u7867\u4371\u4d6f\u427a\u696d\u694e\u444d\u6253\u2b2b\u2b5a\u454e\u6d36\u5a42\u4d2b\u3335\u304a\u4a50\u306e\u6e62\u3747\u6133\u6f53\u7134\u5966\u4b64\u5a79\u4839\u3174\u7877\u2b58\u444f\u3135\u6d37\u5351\u6a71\u6d43\u7171\u514d\u3130\u6959\u3864\u7273\u4679\u3538\u716c\u4c53\u694e\u6257\u5556\u7a50\u3331\u5737\u3031\u3263\u3950\u4473\u6258\u5750\u675a\u3864\u735a\u3478\u3947\u676d\u4f55\u4b62\u426e\u6346\u6c59\u7861\u7441\u6134\u6a2b\u3349\u4a44\u4939\u6436\u5750\u362b\u3466\u5a2f\u7672\u334f\u334d\u4248\u3762\u6771\u7072\u4a6f\u374f\u5650\u7144\u6939\u384f\u3862\u7067\u4e36\u7338\u7136\u3171\u7935\u2f51\u6847\u7a64\u4550\u5247\u664c\u2f52\u4d79\u725a\u7861\u3834\u3444\u734c\u364e\u4b61\u6953\u5875\u4477\u7835\u5953\u3534\u3635\u2b6a\u504d\u6a62\u7538\u7952\u4a6d\u4172\u4145\u4141\u3d3d",
       "matched_mitre": [
         "T1003",
         "T1003.002",
@@ -4702,7 +4697,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4719
+      "ms": 4591
     },
     {
       "id": "rws_099_apt38_-_lazarus_v2",
@@ -4747,7 +4742,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 95
+      "ms": 89
     },
     {
       "id": "rws_100_atomicwallet_stealer_(macos)_v2",
@@ -4767,7 +4762,7 @@
         "content-ps-operator-case-normalize",
         "decoder-powershell-encoded-command"
       ],
-      "output_head": "90TQBFUQBZ1dGVUayF0ZBJGW2c0aVJTZ3k2aFdXaEFzM3FWRxFlYyY1M6lXR2N0MvMUaVR1QIhXTrYDRvlUNzcnUztGTmhkRNlWc0UENZpHez00YxUkZ6dnYQNVenFUOQh3U4sUSQJnMVhUO0ZzZj1EdxREMzRzLD9Wbkh0LKFUSzRDS",
+      "output_head": "90TQBFUQBZ1dGVUayF0ZBJGW2c0aVJTZ3k2aFdXaEFzM3FWRxFlYyY1M6lXR2N0MvMUaVR1QIhXTrYDRvlUNzcnUztGTmhkRNlWc0UENZpHez00YxUkZ6dnYQNVenFUOQh3U4sUSQJnMVhUO0ZzZj1EdxREMzRzLD92RlRDMNFUSzRDS",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -4790,7 +4785,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4172
+      "ms": 4086
     },
     {
       "id": "rws_101_apt27_-_emissary_panda_v2",
@@ -4834,7 +4829,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6057
+      "ms": 6453
     },
     {
       "id": "rws_102_vice_society_v2",
@@ -4883,7 +4878,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5911
+      "ms": 5801
     },
     {
       "id": "rws_103_gootloader_v2",
@@ -4903,7 +4898,7 @@
         "semantic-ps-variable-propagate",
         "decoder-frombase64string-fold"
       ],
-      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBZalJqTXpBMk9EWmlOakkxTnpNNU5EUTBZek16TmpNM1lUVXpNekUwTWpVeU5HVTJZalEyTkdFMU1UVTROalEwT0RSa05EVTNORE13TkdZME5UWXpNekUyTkRabE5HVTJPVFl4TXpFMll6VXhOR1UwTlRNNU5HUTJNalUyTlRZ\u2026",
+      "output_head": "$b='TlRNME5EVXlOMkUxTXpVMU5EWTBaVFJrTkRRMU1qWmpOVEl6TWpNNU5EUTBZek16TmpNM1lUVXpNekUwTWpVeU5HVTJZalEyTkdFMU1UVTROalEwT0RSa05EVTNORE13TkdZME5UWXpNekUyTkRabE5HVTJPVFl4TXpFMll6VXhOR1UwTlRNNU5HUTJNalUyTlRZ\u2026",
       "matched_mitre": [
         "T1027",
         "T1053",
@@ -4928,7 +4923,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 128
+      "ms": 123
     },
     {
       "id": "rws_104_rhadamanthys_v2",
@@ -4971,7 +4966,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 89
+      "ms": 84
     },
     {
       "id": "rws_105_guloader_v2",
@@ -4990,11 +4985,10 @@
         "js-reconstruct",
         "url-decode",
         "xor-brute",
-        "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "lfq\u007f88JMBj@EYRE xxrH M\\jQjKL=\"]FduNNiEXESZE dJ/(DuCg_~AGaCGxFLsZ]ADM,\\#DtKE\\ \u007fTJNniDVV/|AA$w gsG\"AdE.KCuHYF}*eRr VXLcZFr\"IthEYkCI@8tHIhFOCyJiFHL\\hGEz]q[ s sZ}ZJ!YcJrq~r~s+TLZRGjU*\\Xw&I/_KAEV-80",
+      "output_head": "gka|']CTPgSEI4]TPqR\"6>\\j@gTE;H]EvwWWA\u0003FXXWSE?\rJ 3PeC{5qHLlSDg#EjHPRD]OE#LnT{]6\\ nYUGh\u0003DUD-eXNt zwN\"^\rE!PWeHE,r#n_b#I=EzHKa\"Y\u0017qEKeSFVKtHXeYFE\u0013JjTJUEw-Fz@uR lIsUfNZ!E\tE{zsb}lN]UH_TjEIEXe(Y I8AEG '9",
       "matched_mitre": [
         "T1218",
         "T1218.004"
@@ -5017,7 +5011,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1293
+      "ms": 1222
     },
     {
       "id": "rws_106_bumblebee_(macos_variant)_v2",
@@ -5037,9 +5031,9 @@
         "xor-brute",
         "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
-        "url-decode"
+        "crypto-detect"
       ],
-      "output_head": "|sybh*{agwziciab3(M.?Jdyyt|z%XdnYBDFPpaziptxyg*3;zXMGkQEX~_{M!OMD UE[8CUN#GcS#E{XbPUM\"WsGzR{L;KkN#CcG IEXa\\kN!ONDyZkO;O#N{DsS#g{X9_EN#ScD}RUX9_EN#ucD!Ik[;_{Z#O]DxZk[;GUN$[sG EEXeP{M O]D!UU[8_VN#C]G#Uk\u2026",
+      "output_head": "jhrh gxvgzc\u007fppr3\"Q7.Zdsemmj%RxwHRDLLipjclmiig /\"kHMMwHTH~UgT0_MN<LTK8IIW2WcY?\\jHbZIT3GsMfKj\\;AwW2ScM<PTHaVwW0_NNeCz_;E?WjTsY?~jH9UYW2CcNaKDH9UYW2ecN=PzK;UgC2_]NdCzK;MIW5KsM<\\THeZgT1_]N=LDK8UJW2S]M?LzK\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -5064,7 +5058,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3696
+      "ms": 5500
     },
     {
       "id": "rws_107_3cx_supply-chain_v2",
@@ -5106,7 +5100,7 @@
       "ioc_recall": 0.0,
       "undecoded": true,
       "marker_hit": false,
-      "ms": 2703
+      "ms": 2660
     },
     {
       "id": "rws_108_aws_cognito_abuse_v2",
@@ -5145,7 +5139,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 154
+      "ms": 147
     },
     {
       "id": "rws_109_gcp_sa_jwt_theft_v2",
@@ -5192,7 +5186,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 103
+      "ms": 95
     },
     {
       "id": "rws_110_apt29_(cognito+ps)_v2",
@@ -5214,7 +5208,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u782f\u4f58\u3332\u434b\u424d\u4141\u4630\u432b\u475a\u314c\u546b\u654a\u4757\u3730\u7549\u7953\u3562\u314a\u4d62\u735a\u6971\u6f4d\u7638\u4f56\u787a\u6363\u2b4a\u6d44\u5457\u5a4e\u4b55\u4464\u6630\u7975\u4c43\u3244\u3543\u7742\u3031\u5049\u3068\u7473\u6739\u746b\u6574\u4d50\u4a4a\u717a\u7255\u3632\u6346\u756c\u7667\u3447\u7256\u6176\u4e78\u314b\u5773\u612f\u6833\u5836\u2f34\u4c62\u6b52\u434d\u4c68\u5864\u5852\u564c\u676e\u5a77\u7831\u4451\u734a\u6778\u7075\u4a2b\u3772\u6148\u4936\u6954\u336d\u432f\u492f\u4d46\u4776\u314d\u7a36\u5067\u717a\u6267\u7642\u3056\u6536\u5239\u626c\u326e\u4d72\u2f62\u3757\u3858\u472f\u346a\u354e\u4247\u4a53\u5077\u444b\u3447\u724a\u6775\u4d7a\u6249\u7a70\u3944\u4d42\u4141\u4141\u3d41",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u782f\u4f58\u3332\u434b\u424d\u4141\u4630\u432b\u475a\u314c\u546b\u654a\u4757\u3730\u7549\u7953\u3562\u314a\u4d62\u735a\u6971\u6f4d\u7638\u4f56\u787a\u6363\u2b4a\u6d44\u5457\u5a4e\u4b55\u4464\u6630\u7975\u4c43\u3244\u3543\u7742\u3031\u5049\u3068\u7473\u6739\u746b\u6574\u4d50\u4a4a\u717a\u7255\u3632\u6346\u756c\u7667\u3447\u7256\u6176\u4e78\u314b\u5773\u612f\u6833\u5836\u2f34\u4c62\u6b52\u434d\u4c68\u5864\u5852\u564c\u676e\u5a77\u7831\u4451\u734a\u6778\u7075\u4a2b\u3772\u6148\u4936\u6954\u336d\u432f\u492f\u4d46\u4776\u314d\u7a36\u5067\u717a\u6267\u7642\u3056\u6536\u5239\u626c\u326e\u4d72\u2f62\u3757\u3858\u472f\u346a\u354e\u4247\u4a53\u5077\u444b\u3447\u724a\u6775\u4d7a\u6249\u7a70\u3944\u4d42\u4141\u4141\u3d41",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -5235,7 +5229,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 168
+      "ms": 160
     },
     {
       "id": "rws_111_btlo_-_emotet_(base64+utf16le)_v2",
@@ -5256,7 +5250,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u322f\u5431\u5177\u4436\u4149\u397a\u544a\u3066\u4975\u4a4d\u7248\u6b61\u4247\u324e\u4c34\u4479\u5769\u6e62\u6261\u2b39\u5342\u4670\u424d\u6134\u4661\u372f\u6933\u4373\u6744\u5767\u7664\u4369\u786a\u6776\u4473\u4d73\u5545\u3766\u6e57\u4577\u6554\u5565\u316e\u654c\u4c53\u6837\u452f\u772f\u5950\u3634\u6435\u5175\u7a78\u486a\u4c61\u4669\u4575\u6e41\u5866\u5075\u7736\u5842\u2b48\u376c\u712b\u3867\u7568\u644b\u3137\u4176\u634f\u3338\u466a\u384e\u2b48\u4362\u6377\u4776\u6d2f\u656b\u7678\u6f4e\u556d\u672f\u7736\u6372\u724b\u746f\u637a\u3531\u3459\u5434\u386e\u697a\u7936\u4f65\u394d\u6457\u5466\u6d76\u566b\u6c34\u4f65\u7246\u6e4c\u7533\u2f71\u5236\u7a33\u4848\u6269\u3238\u3678\u4a30\u3642\u2f58\u6c73\u792f\u532b\u364f\u6564\u4e51\u4f57\u2b67\u5437\u6a76\u6636\u6e6b\u5a48\u7644\u5741\u2b55\u6531\u7275\u6b66\u3437\u5242\u7631\u6a31\u7847\u3162\u6c50\u3558\u5479\u6236\u564a\u2b33\u3974\u4e53\u4f33\u3165\u3143\u3976\u376c\u5a59\u6f2f\u5676\u7a7a\u664c\u5270\u616e\u3970\u504b\u6457\u6f2f\u4e2b\u2b33\u6833\u3945\u5055\u7a6a\u612f\u6976\u3759\u4168\u414d\u4141\u3d3d",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u322f\u5431\u5177\u4436\u4149\u397a\u544a\u3066\u4975\u4a4d\u7248\u6b61\u4247\u324e\u4c34\u4479\u5769\u6e62\u6261\u2b39\u5342\u4670\u424d\u6134\u4661\u372f\u6933\u4373\u6744\u5767\u7664\u4369\u786a\u6776\u4473\u4d73\u5545\u3766\u6e57\u4577\u6554\u5565\u316e\u654c\u4c53\u6837\u452f\u772f\u5950\u3634\u6435\u5175\u7a78\u486a\u4c61\u4669\u4575\u6e41\u5866\u5075\u7736\u5842\u2b48\u376c\u712b\u3867\u7568\u644b\u3137\u4176\u634f\u3338\u466a\u384e\u2b48\u4362\u6377\u4776\u6d2f\u656b\u7678\u6f4e\u556d\u672f\u7736\u6372\u724b\u746f\u637a\u3531\u3459\u5434\u386e\u697a\u7936\u4f65\u394d\u6457\u5466\u6d76\u566b\u6c34\u4f65\u7246\u6e4c\u7533\u2f71\u5236\u7a33\u4848\u6269\u3238\u3678\u4a30\u3642\u2f58\u6c73\u792f\u532b\u364f\u6564\u4e51\u4f57\u2b67\u5437\u6a76\u6636\u6e6b\u5a48\u7644\u5741\u2b55\u6531\u7275\u6b66\u3437\u5242\u7631\u6a31\u7847\u3162\u6c50\u3558\u5479\u6236\u564a\u2b33\u3974\u4e53\u4f33\u3165\u3143\u3976\u376c\u5a59\u6f2f\u5676\u7a7a\u664c\u5270\u616e\u3970\u504b\u6457\u6f2f\u4e2b\u2b33\u6833\u3945\u5055\u7a6a\u612f\u6976\u3759\u4168\u414d\u4141\u3d3d",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -5277,7 +5271,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7279
+      "ms": 7182
     },
     {
       "id": "rws_112_ps_string-concat_iex_v2",
@@ -5299,7 +5293,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3d3d\u5051\u4539\u5155\u4642\u5155\u466c\u5256\u3947\u4e43\u466d\u4f56\u4a78\u4e6b\u417a\u4d48\u4533\u5647\u3433\u5132\u4e7a\u4d58\u3961\u4e55\u526b\u596b\u4a33\u6345\u4635\u516d\u4677\u5a33\u5a6c\u5645\u4232\u4e46\u7036\u6557\u4a75\u516a\u705a\u6248\u4a34\u6331\u4257\u556c\u4a4a\u566b\u4934\u5157\u4677\u4e30\u7436\u6269\u6c45\u516c\u5a47\u4e55\u5131\u556c\u5135\u5a55\u7035\u4e6b\u4a30\u556a\u4261\u6231\u5650\u547a\u6446\u4e33\u5674\u5247\u6333\u5444\u4672\u5a46\u3479\u5a57\u644d\u516d\u356c\u5757\u4176\u6344\u3435\u646d\u686b\u5348\u526a\u5155\u4a34\u617a\u5642\u576e\u5236\u556b\u7451\u516b\u5636\u5a33\u4249\u5156\u5271\u6346\u746d\u4e45\u4642\u5155\u4e4a\u4e6b\u7052\u5458\u637a\u4c33\u3944\u6257\u686b\u4c30\u464b\u5355\u527a\u5344",
+      "output_head": "\u3d3d\u5051\u4539\u5155\u4642\u5155\u466c\u5256\u3947\u4e43\u466d\u4f56\u4a78\u4e6b\u417a\u4d48\u4533\u5647\u3433\u5132\u4e7a\u4d58\u3961\u4e55\u526b\u596b\u4a33\u6345\u4635\u516d\u4677\u5a33\u5a6c\u5645\u4232\u4e46\u7036\u6557\u4a75\u516a\u705a\u6248\u4a34\u6331\u4257\u556c\u4a4a\u566b\u4934\u5157\u4677\u4e30\u7436\u6269\u6c45\u516c\u5a47\u4e55\u5131\u556c\u5135\u5a55\u7035\u4e6b\u4a30\u556a\u4261\u6231\u5650\u547a\u6446\u4e33\u5674\u5247\u6333\u5444\u4672\u5a46\u3479\u5a57\u644d\u516d\u356c\u5757\u4176\u6344\u3435\u646d\u686b\u5348\u526a\u5155\u4a34\u617a\u5642\u576e\u5236\u556b\u7451\u516b\u5636\u5a33\u4249\u5156\u5271\u6346\u746d\u4e45\u4642\u5155\u4e4a\u4e6b\u7052\u5458\u637a\u4c33\u3944\u5232\u526c\u4d44\u464e\u5355\u527a\u5344",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -5320,7 +5314,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5269
+      "ms": 5222
     },
     {
       "id": "rws_113_ps_reversed-iex_v2",
@@ -5371,7 +5365,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 110
+      "ms": 126
     },
     {
       "id": "rws_114_ps_filler-char_obfuscation_v2",
@@ -5418,7 +5412,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 1253
+      "ms": 1173
     },
     {
       "id": "rws_115_ps_format-operator_iex_v2",
@@ -5439,7 +5433,7 @@
         "decoder-powershell-encoded-command",
         "decoder-hex-full"
       ],
-      "output_head": "BFUQBpmSGNmNNNUQFFVOxMVMDNFcjFEMz9GOxF1LTpnU6NFVL9Se5BFZ0BzdtN1SvhTTVhldFp3SulGTKdHMUpkd4ondrhzYVhUOL5keVl3TMhFVQRXUwQ3cFhjU1MFVLBHOUFjZkxETCBFMRRVMxUFZmVFWEZlazIUMV5kQ0VlVoFnT0lXcOF3QGBDVOFzLD9Wbkh0L\u2026",
+      "output_head": "BFUQBpmSGNmNNNUQFFVOxMVMDNFcjFEMz9GOxF1LTpnU6NFVL9Se5BFZ0BzdtN1SvhTTVhldFp3SulGTKdHMUpkd4ondrhzYVhUOL5keVl3TMhFVQRXUwQ3cFhjU1MFVLBHOUFjZkxETCBFMRRVMxUFZmVFWEZlazIUMV5kQ0VlVoFnT0lXcOF3QGBDVOFzLD92RlRDM\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -5462,7 +5456,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7679
+      "ms": 7907
     },
     {
       "id": "rws_116_ps_deflatestream+b64_v2",
@@ -5506,7 +5500,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 11247
+      "ms": 11351
     },
     {
       "id": "rws_117_ps_securestring_payload_v2",
@@ -5546,7 +5540,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8423
+      "ms": 8337
     },
     {
       "id": "rws_118_ps_clickfix_chain_v2",
@@ -5566,7 +5560,7 @@
         "decoder-powershell-encoded-command",
         "decoder-base64-full"
       ],
-      "output_head": "\u3448\u4973\u4a41\u482f\u6d64\u436f\u362f\u5132\u514d\u4436\u414d\u4678\u7772\u4551\u6752\u5562\u455a\u7142\u6945\u6746\u4136\u716b\u4c31\u4447\u6149\u7666\u302f\u4135\u4b48\u4442\u506c\u597a\u7466\u322b\u3958\u787a\u4774\u3337\u2b73\u2b78\u582b\u397a\u754d\u557a\u5534\u3947\u6c55\u5166\u6e6f\u3748\u6d70\u6636\u7131\u6d4e\u7071\u586b\u305a\u2b6c\u3259\u6978\u4e72\u635a\u7431\u6872\u6b59\u7a45\u7770\u7a71\u4364\u2f55\u644b\u532b\u3737\u6972\u2b64\u344f\u7652\u6f2b\u356c\u6145\u4233\u2b57\u386b\u6e6e\u7877\u4a71\u5268\u7a46\u3033\u3961\u3574\u374d\u7553\u5236\u5375\u6676\u364e\u6a59\u3838\u7367\u4b7a\u6341\u642f\u5a4e\u3867\u4b35\u3333\u2f45\u3536\u4c53\u5166\u4c51\u7a72\u6954\u6a78\u5276\u3531\u436e\u664e\u6136\u5469\u5376\u656e\u5a56\u3474\u7673\u6178\u472f\u5461\u7a46\u3367\u5932\u4563\u4c69\u6932\u3735\u4d76\u2b46\u666c\u4137\u616e\u4356\u6e54\u7533\u544c\u2b37\u6b78\u6878\u5036\u6673\u6d56\u554c\u514b\u4341\u4141\u3d41",
+      "output_head": "\u3448\u4973\u4d41\u3430\u4765\u436f\u362f\u5132\u514d\u4436\u414d\u4678\u7772\u4551\u6752\u5562\u455a\u7142\u6945\u6746\u4136\u716b\u4c31\u4447\u6149\u7666\u302f\u4135\u4b48\u4442\u506c\u597a\u7466\u322b\u3958\u787a\u4774\u3337\u2b73\u2b78\u582b\u397a\u754d\u557a\u5534\u3947\u6c55\u5166\u6e6f\u3748\u6d70\u6636\u7131\u6d4e\u7071\u586b\u305a\u2b6c\u3259\u6978\u4e72\u635a\u7431\u6872\u6b59\u7a45\u7770\u7a71\u4364\u2f55\u644b\u532b\u3737\u6972\u2b64\u344f\u7652\u6f2b\u356c\u6145\u4233\u2b57\u386b\u6e6e\u7877\u4a71\u5268\u7a46\u3033\u3961\u3574\u374d\u7553\u5236\u5375\u6676\u364e\u6a59\u3838\u7367\u4b7a\u6341\u642f\u5a4e\u3867\u4b35\u3333\u2f45\u3536\u4c53\u5166\u4c51\u7a72\u6954\u6a78\u5276\u3531\u436e\u664e\u6136\u5469\u5376\u656e\u5a56\u3474\u7673\u6178\u472f\u5461\u7a46\u3367\u5932\u4563\u4c69\u6932\u3735\u4d76\u2b46\u666c\u4137\u616e\u4356\u6e54\u7533\u544c\u2b37\u6b78\u6878\u5036\u6673\u6d56\u554c\u514b\u4341\u4141\u3d41",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -5591,7 +5585,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4803
+      "ms": 4754
     },
     {
       "id": "rws_119_ps_reflection.assembly.load_v2",
@@ -5640,7 +5634,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 10751
+      "ms": 10578
     },
     {
       "id": "rws_120_ps_empire_stager_(btlo_shape)_v2",
@@ -5683,7 +5677,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8460
+      "ms": 8328
     }
   ]
 }

@@ -55,6 +55,18 @@ _LAUNCHER_RULES: Tuple[Dict[str, Any], ...] = (
         "base64":  (),
     },
     {
+        # Windows `start` wrapper — real-world telemetry chains this as
+        # `%COMSPEC% /c start /b /min powershell -EncodedCommand …`.
+        # `start` isn't an executable; it's a cmd builtin, but for
+        # canonicalization purposes it's another wrapper we must peel.
+        # Every token after the last `start`-flag is the inner command.
+        "name":         "start",
+        "heads":        ("start", "start.exe"),
+        "unwrap":       (),
+        "base64":       (),
+        "start_wrapper": True,
+    },
+    {
         "name":    "powershell",
         "heads":   ("powershell", "powershell.exe"),
         "unwrap":  ("-command", "-c"),
@@ -137,7 +149,7 @@ def canonicalize(raw: str) -> CanonicalCommand:
     caller can always trust the shape."""
     if not raw or not isinstance(raw, str):
         return CanonicalCommand(raw=raw or "")
-    current = raw.strip()
+    current = _expand_windows_envvars(raw.strip())
     chain: List[str] = []
     depth = 0
     while depth < _MAX_UNWRAP_DEPTH:
@@ -155,6 +167,31 @@ def canonicalize(raw: str) -> CanonicalCommand:
         effective_head    = head,
         payload           = current,
         unwrap_depth      = depth,
+    )
+
+
+def _expand_windows_envvars(cmd: str) -> str:
+    """Expand the two Windows environment variables real-world EDR
+    telemetry uses to launch cmd.exe.  Deterministic — no OS lookup.
+
+    * ``%COMSPEC%``                        → ``cmd.exe``
+    * ``%SystemRoot%\\system32\\cmd.exe``    → ``cmd.exe``
+    * ``%WINDIR%\\system32\\cmd.exe``        → ``cmd.exe``
+
+    Case-insensitive; only applied when the env-var is the very first
+    token so we never rewrite argument payloads.
+    """
+    import re as _re
+    # Only touch the leading token — never rewrite the middle of a payload.
+    return _re.sub(
+        r"^(?:"
+        r"%COMSPEC%"
+        r"|%SystemRoot%\\[Ss]ystem32\\cmd\.exe"
+        r"|%WINDIR%\\[Ss]ystem32\\cmd\.exe"
+        r")",
+        "cmd.exe",
+        cmd,
+        flags=_re.IGNORECASE,
     )
 
 
@@ -224,23 +261,53 @@ def _peel_one_launcher(cmd: str) -> Tuple[Optional[Dict[str, Any]], str]:
                 if decoded:
                     return (rule, decoded)
 
-    # 2. unwrap flag → next token is the inner command string.
+    # 2. unwrap flag → next token(s) are the inner command string.
     for flag in rule.get("unwrap", ()):
         for i, tok in enumerate(args):
             if tok.lower() == flag and i + 1 < len(args):
                 # Windows quirk: `cmd /S /C "…"` uses /S as a wrapper
                 # flag before /C.  shlex keeps them as sibling tokens
                 # so we don't need to special-case /S — /C or /c is
-                # still the marker.  The inner payload is the very
-                # next token (already de-quoted by shlex).
-                inner = args[i + 1]
-                return (rule, inner.strip())
+                # still the marker.
+                #
+                # Two payload shapes appear in real telemetry:
+                #   (a) fully quoted:   cmd /c "powershell -enc XYZ"
+                #       shlex de-quotes so args[i+1] IS the full inner.
+                #   (b) unquoted:       cmd /c start /b /min powershell …
+                #       every token from i+1 to end is the inner command.
+                # We prefer (a) if the next token itself parses as a
+                # multi-word command; otherwise we join the remainder.
+                remainder = args[i + 1:]
+                next_tok  = remainder[0].strip()
+                if len(remainder) == 1 or " " in next_tok:
+                    inner = next_tok
+                else:
+                    inner = " ".join(remainder).strip()
+                return (rule, inner)
 
     # 3. Inline launchers (mshta / rundll32 / regsvr32 / wscript / cscript)
     # — every token after the head is the payload as a single string.
     if rule.get("inline_after_head") and args:
         inner = " ".join(args).strip()
         return (rule, inner)
+
+    # 4. Windows `start` wrapper — `start /b /min <cmd> <args…>`.
+    # Skip leading /flags (single letter or slash-key options) until we
+    # hit the first non-flag token, which is the wrapped executable.
+    if rule.get("start_wrapper"):
+        i = 0
+        while i < len(args) and args[i].startswith("/"):
+            i += 1
+        # Some `start` invocations use a quoted title as the first
+        # positional arg: `start "" /b powershell …`.  If the first
+        # positional token is a bare pair of quotes (or an empty
+        # string after shlex de-quoting), skip it.
+        if i < len(args) and args[i] in ('""', "''", ""):
+            i += 1
+        if i < len(args):
+            inner = " ".join(args[i:]).strip()
+            if inner:
+                return (rule, inner)
 
     return (None, cmd)
 

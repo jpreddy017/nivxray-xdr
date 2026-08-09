@@ -403,6 +403,23 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
                 "ida-4-detect", "ida-6", "die", "ssot", "report",
             ])
 
+            # 2026-02-09 · Promote IOCs surfaced by the CHAIN decode
+            # ("CyberChef recipe" applied to each extracted command)
+            # into the top-level SSOT.iocs so the analyst's IOC panel
+            # shows the C2 IP that was buried 4 encoding layers deep.
+            # Deduplicate against IOCs already collected.
+            for _inv in (report_extraction.get("command_investigations") or []):
+                _peeled = _inv.get("peeled_iocs") or {}
+                for _kind, _vals in _peeled.items():
+                    for _val in (_vals or []):
+                        _v = (_val or "").strip()
+                        if not _v:
+                            continue
+                        if (_kind, _v) in _seen_iocs:
+                            continue
+                        ioc_by_kind.setdefault(_kind, []).append(_v)
+                        _seen_iocs.add((_kind, _v))
+
     # ── Build the OUTPUT text ─────────────────────────────────────
     lines: List[str] = []
 
@@ -518,7 +535,67 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     lines.append(_h1("Command Analysis"))
     lines.append("")
     stages = pre.stages
-    if not stages:
+    # 2026-02-09 · URL path — when the input is a URL, `pre.stages` is
+    # empty (no direct command to parse), but the acquired article's
+    # extracted commands live in `report_extraction.commands`.  Render
+    # a compact summary of each so the analyst sees them in the main
+    # COMMAND ANALYSIS panel too — not just in the pipeline block.
+    _rext_cmds = (report_extraction or {}).get("commands") or [] if acquired_dict.get("ok") else []
+    if not stages and _rext_cmds:
+        _rext_investigations = (report_extraction or {}).get("command_investigations") or []
+        for _i, _c in enumerate(_rext_cmds, start=1):
+            _ci = _rext_investigations[_i - 1] if _i - 1 < len(_rext_investigations) else {}
+            title = (_c.get("purpose") or _c.get("command","")[:80])
+            lines.append(_h2(f"Command {_i} · {title}"))
+            lines.append("")
+            lines.append(_kv("Command",   _c.get("command","")[:200]))
+            lines.append(_kv("Head",      _c.get("head","")))
+            lines.append(_kv("Purpose",   _c.get("purpose","")))
+            _tech = [t.get("id","") for t in (_ci.get("techniques") or [])]
+            if _tech:
+                lines.append(_kv("MITRE",     ", ".join(_tech)))
+            _lolb = [lb.get("binary","") for lb in (_ci.get("lolbins") or [])]
+            if _lolb:
+                lines.append(_kv("LOLBAS",    ", ".join(_lolb)))
+            if _ci.get("language"):
+                lines.append(_kv("Language",  _ci["language"]))
+            lines.append(_kv("Source",    _c.get("source","")))
+            # ── DECODED PAYLOAD (PowerShell -EncodedCommand base64) ──
+            _rp = _ci.get("recovered_payload")
+            if _rp:
+                lines.append("")
+                lines.append(_kv("Encoded blob",  f'{_ci.get("recovered_blob_len",0):,} chars → base64/{_ci.get("recovered_encoding","?")}'))
+                lines.append("  Decoded PowerShell:")
+                for _ln in _rp.splitlines()[:30]:
+                    lines.append(f"    {_ln[:200]}")
+                if len(_rp.splitlines()) > 30:
+                    lines.append(f"    … ({len(_rp.splitlines()) - 30} more lines)")
+
+            # ── CHAINED MULTI-LAYER DECODE STAGES ("CyberChef recipe") ──
+            _stages = _ci.get("decode_stages") or []
+            if _stages:
+                lines.append("")
+                lines.append("  Chained Decode Stages")
+                for _sidx, _st in enumerate(_stages, start=1):
+                    lines.append(
+                        f"    ▸ Stage {_sidx}  {_st.get('stage',''):<24} "
+                        f"{_st.get('bytes_in',0):>7} → {_st.get('bytes_out',0):>7} bytes "
+                        f"({_st.get('elapsed_ms',0)} ms)"
+                    )
+            _pfinal = _ci.get("peeled_final") or ""
+            if _pfinal:
+                lines.append("")
+                lines.append("  Final Peeled Payload (all layers removed):")
+                for _ln in _pfinal.splitlines()[:30]:
+                    lines.append(f"    {_ln[:200]}")
+                if len(_pfinal.splitlines()) > 30:
+                    lines.append(f"    … ({len(_pfinal.splitlines()) - 30} more lines)")
+            _pips = ((_ci.get("peeled_iocs") or {}).get("ips") or [])
+            if _pips:
+                lines.append("")
+                lines.append(f"  🎯 IOCs surfaced from peeled payload: {', '.join(_pips)}")
+            lines.append("")
+    elif not stages:
         lines.append("  (no commands recognised)")
         lines.append("")
     else:

@@ -159,10 +159,10 @@ ADR, not a scoped parity fix.
 
 ### Case 0017
 - **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys
-- **VERDICT** · FAIL · labels=False ΔC=55 exp_shape=True
+- **VERDICT** · FAIL · labels=False ΔC=40 exp_shape=True
 - **EVIDENCE_TYPES** · FAIL · smart=['decoder.layer', 'mitre.technique'] auto=['decoder.layer']
 - **STAGES** · FAIL · smart=['decode', 'mitre_map', 'reasoning'] auto=['decode']
-- **DECODE** · PASS · len_smart=529 len_auto=0
+- **DECODE** · PASS · len_smart=528 len_auto=0
 
 ### Case 0018
 - **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys

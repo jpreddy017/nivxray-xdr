@@ -368,8 +368,14 @@ def _extract_structured_blocks(html: str) -> List[str]:
       · Duplicates are removed (identical text — vendors often repeat
         the same command in a summary + table).
       · Blocks shorter than 3 chars are dropped (empty cells / dashes).
-      · Very long blocks (>2000 chars) are truncated at 2000 chars so
-        one runaway block cannot dominate downstream extractors.
+      · Very long blocks (>32 KB) are truncated at 32 KB so one
+        runaway block cannot dominate downstream extractors.  The
+        original 2 KB cap was too aggressive — real threat-report
+        base64 blobs (Sophos "Decoding Malicious PowerShell",
+        Cobalt Strike -EncodedCommand payloads, etc.) are commonly
+        7–10 KB and get silently truncated at 2 KB, which prevents
+        the downstream recursive decoder from reaching the shellcode
+        layer where the C2 IOCs live.
     Order-preserving so provenance stays deterministic.
     """
     from bs4 import BeautifulSoup
@@ -384,12 +390,13 @@ def _extract_structured_blocks(html: str) -> List[str]:
 
     seen: set = set()
     blocks: List[str] = []
+    _BLOCK_CAP = 32 * 1024
     for element in soup.find_all(("code", "pre", "td", "li")):
         text = element.get_text(" ", strip=True)
         if not text or len(text) < 3:
             continue
-        if len(text) > 2000:
-            text = text[:2000]
+        if len(text) > _BLOCK_CAP:
+            text = text[:_BLOCK_CAP]
         if text in seen:
             continue
         seen.add(text)

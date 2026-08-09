@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo, startTransition } from "react";
+import { useEffect, useState, useRef, useMemo, useDeferredValue, startTransition } from "react";
 import React from "react";
 import Header from "@/components/Header";
 import PageHeader from "@/components/PageHeader";
@@ -24,6 +24,92 @@ import ArtifactTracePanel from "@/components/investigation/ArtifactTracePanel";
 
 // ── Local ErrorBoundary — protects the workspace from any single
 // downstream projection component crashing on a malformed case.
+// ═════════════════════════════════════════════════════════════════
+// 2026-02-09 · Anti-Freeze / Anti-Black-Screen SLA
+// ─────────────────────────────────────────────────────────────────
+// HARD requirement from the product owner:
+//   "No more black screens.  No more Exit/Wait dialog for any input."
+//
+// Defence-in-depth layers below.  If ANY of these fail, the workspace
+// must still show *something* — never a blank tab.
+// ═════════════════════════════════════════════════════════════════
+
+// Global uncaught error / promise-rejection handler.  Any exception
+// that bubbles out of a React render, a stream callback, or an async
+// task is trapped here — the tab keeps its DOM intact instead of
+// blanking out.  Chrome's "Aw, Snap" and "Page Unresponsive" pages
+// are both triggered when the main thread throws or hangs; we cannot
+// prevent every hang, but we CAN prevent every uncaught throw.
+if (typeof window !== "undefined" && !window.__nvxAntiFreezeInstalled) {
+  window.__nvxAntiFreezeInstalled = true;
+  window.addEventListener("error", (ev) => {
+    // Log but don't propagate — Chrome would otherwise show a fatal
+    // console page for a runtime error in the main thread.
+    // eslint-disable-next-line no-console
+    console.warn("[nvx-anti-freeze] uncaught error:", ev?.error?.message || ev?.message);
+    ev.preventDefault?.();
+  });
+  window.addEventListener("unhandledrejection", (ev) => {
+    // eslint-disable-next-line no-console
+    console.warn("[nvx-anti-freeze] unhandled promise rejection:", ev?.reason?.message || ev?.reason);
+    ev.preventDefault?.();
+  });
+}
+
+// Anti-Freeze / Anti-Black-Screen — workspace-wide error boundary.
+// The previous boundary only wrapped the Trajectory panel; any other
+// component crash could still blank the whole tab.  This one is
+// mounted at the WorkspacePage root and shows a persistent recovery
+// card if any child in the tree throws during render.
+class WorkspaceErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null, info: null }; }
+  static getDerivedStateFromError(e) { return { err: e }; }
+  componentDidCatch(e, info) {
+    // eslint-disable-next-line no-console
+    console.error("[WorkspaceErrorBoundary]", e, info);
+    this.setState({ info });
+  }
+  reset = () => this.setState({ err: null, info: null });
+  render() {
+    if (this.state.err) {
+      return (
+        <div data-testid="workspace-error-boundary"
+             style={{ padding: 24, minHeight: "60vh",
+                      background: "#0b1220", color: "#fecaca",
+                      fontFamily: "JetBrains Mono, monospace",
+                      fontSize: 13, lineHeight: 1.5 }}>
+          <div style={{ maxWidth: 780, margin: "40px auto" }}>
+            <div style={{ fontSize: 15, marginBottom: 12, color: "#fca5a5" }}>
+              ⚠︎ WORKSPACE · RENDER GUARD
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              A child component threw an exception while rendering the
+              workspace.  Your session is preserved — nothing has been
+              lost.  Click "Reset workspace" to restore the UI.
+            </div>
+            <pre style={{ marginTop: 12, padding: 12,
+                          background: "rgba(0,0,0,0.4)",
+                          borderRadius: 6, overflow: "auto",
+                          fontSize: 11 }}>
+              {String(this.state.err?.message || this.state.err).slice(0, 800)}
+            </pre>
+            <button
+              data-testid="workspace-error-reset"
+              onClick={this.reset}
+              style={{ marginTop: 16, padding: "8px 16px",
+                       background: "#ef4444", color: "#fff",
+                       border: "none", borderRadius: 6,
+                       cursor: "pointer", fontWeight: 600 }}>
+              Reset workspace
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Falls back to a small in-place notice rather than a black screen.
 class TrajErrorBoundary extends React.Component {
   constructor(p) { super(p); this.state = { err: null }; }
@@ -165,7 +251,8 @@ function _synthPreprocFromIce(ice) {
 }
 
 
-export default function WorkspacePage() {
+// Inner render — heavy tree, wrapped by WorkspacePage in the error boundary.
+function WorkspacePageInner() {
   // ▲ 2026-02-28 · P0 Persistence — restore the last completed
   // Workspace session (input, output, and all generated panels) so
   // that navigating away and coming back does NOT lose the analyst's
@@ -2881,7 +2968,23 @@ export default function WorkspacePage() {
                   placeholder="Paste anything — PowerShell, base64/hex, AES/RC4 ciphertext, JWT, PE/ELF headers, gzip/bzip2/LZMA, obfuscated JS, defanged IOCs…"
                   value={input}
                   readOnly={inputLocked}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    // 2026-02-09 · Anti-Freeze SLA.
+                    // For large inputs (>4 KB) wrap the setState in
+                    // `startTransition` so React treats it as a
+                    // non-urgent update.  If the user keeps typing
+                    // or triggers a click, React interrupts the
+                    // downstream render tree rather than blocking
+                    // the main thread for the full reconciliation.
+                    // Below 4 KB, sync update preserves the snappy
+                    // feel of small inputs.
+                    const val = e.target.value;
+                    if (val && val.length > 4096) {
+                      startTransition(() => setInput(val));
+                    } else {
+                      setInput(val);
+                    }
+                  }}
                 onPaste={(e) => {
                   // Client-side auto-detect: race 14 JS decoders against the pasted
                   // string INSIDE the browser (zero network). Surface the top
@@ -3794,6 +3897,20 @@ export default function WorkspacePage() {
       />
     </div>
     </InvestigationFilterProvider>
+  );
+}
+
+
+// 2026-02-09 · Anti-black-screen wrapper.
+// Every render exception in the workspace tree — whether from the
+// Trajectory canvas, a decoder response, a stale case restore, or
+// an SSE stream callback — is caught here and shown as a recoverable
+// error card instead of blanking the tab.  Mandatory SLA.
+export default function WorkspacePage(props) {
+  return (
+    <WorkspaceErrorBoundary>
+      <WorkspacePageInner {...props} />
+    </WorkspaceErrorBoundary>
   );
 }
 

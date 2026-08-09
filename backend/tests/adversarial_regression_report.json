@@ -1,7 +1,7 @@
 {
-  "total": 99,
+  "total": 102,
   "passed": 35,
-  "hit_rate": 0.3535,
+  "hit_rate": 0.3431,
   "threshold": 0.6,
   "results": [
     {
@@ -339,14 +339,14 @@
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "whoami && netstat -ano",
+      "output_head": "cmd /c \"whoami && netstat -ano\"",
       "ok": false
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "\ufffd\ufffd",
+      "output_head": "ABC",
       "ok": false
     },
     {
@@ -746,7 +746,7 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
@@ -962,6 +962,27 @@
       "engine": "llm-l3",
       "chain": [],
       "output_head": "TEST_iter63_1786170808 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "4cf84dba3e2dd14163f7b088c349b98ca19a055a",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786193971 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "a61040c01ceac67a440a371f1bac3cfa1018462d",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786247229 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "d616a3955ddfb8b0a4a8c83807a7970fc68c3deb",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786264337 nivxray unique payload",
       "ok": false
     }
   ]

@@ -504,6 +504,14 @@ def _extract_commands(text: str,
     _HEAD_START = re.compile(
         r"(?i)^\s*"
         r"(?:"
+        # Windows shell env-var wrappers.  Real EDR telemetry frequently
+        # renders the command line with `%COMSPEC%` (expands to cmd.exe)
+        # or `%SystemRoot%\system32\cmd.exe` as the head; without these
+        # heads the extractor drops entire commands from vendor articles
+        # (e.g. Sophos "Decoding Malicious PowerShell" 2018).  The
+        # existing canonicalizer already peels these wrappers to expose
+        # the inner interpreter (powershell / rundll32 / etc).
+        r"%COMSPEC%|%SystemRoot%\\[Ss]ystem32\\cmd\.exe|"
         r"powershell|pwsh|cmd|bash|sh|python[3w]?|wscript|cscript|"
         r"mshta|rundll32|regsvr32|certutil|bitsadmin|msiexec|schtasks|wmic|"
         r"curl|wget|reg|net|tar|msedge|chrome|"
@@ -573,7 +581,15 @@ def _extract_commands(text: str,
 
     def _consider(raw: str, source: str, line_no: int) -> None:
         s = (raw or "").strip()
-        if not s or len(s) > 2000 or len(s) < 10:
+        # 2026-02-09 · Raise per-line cap from 2 KB to 32 KB so real
+        # threat-report base64 blobs (Sophos "Decoding Malicious
+        # PowerShell" ships a 7,552-char `-EncodedCommand` blob;
+        # Cobalt Strike stagers routinely hit 10 KB) survive
+        # extraction.  Below the cap the downstream recursive
+        # decoder can peel base64 → utf-16-le → base64 → gzip →
+        # byte-array-XOR → shellcode → C2 IP.  Above 32 KB we
+        # bail — pathological blocks would starve extraction.
+        if not s or len(s) > 32768 or len(s) < 10:
             return
         # Strip table-cell label prefix (`Command Line ...`)
         s = _LABEL_PREFIX.sub("", s)
@@ -1110,8 +1126,19 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     # branch even after the canonicalizer strips the wrapper.
     # ALSO match the POST-peel head so `cmd.exe /c powershell ...`
     # (where original_head=cmd.exe) still routes correctly.
+    #
+    # 2026-02-09 · Env-var wrappers (e.g. `%COMSPEC% /b /c start /b /min
+    # powershell -EncodedCommand …`) canonicalize away to depth-3, so
+    # BOTH `original_head` and `head` lose the "powershell" marker.
+    # Detect the powershell invocation directly in the pre-peel text.
+    _pre_peel_ps = bool(re.search(
+        r"(?i)\b(?:powershell|pwsh)(?:\.exe)?\b"
+        r"[^\n]{0,200}?"                          # any switches/args in between
+        r"-e(?:nc(?:od(?:ed(?:command)?)?)?)?\b", oc,
+    ))
     if (original_head.startswith("powershell") or original_head.startswith("pwsh")
-            or head.startswith("powershell") or head.startswith("pwsh")):
+            or head.startswith("powershell") or head.startswith("pwsh")
+            or _pre_peel_ps):
         # WMI overlays run BEFORE the generic PowerShell branches
         # so we don't classify `Invoke-WmiMethod` as "PowerShell
         # execution".

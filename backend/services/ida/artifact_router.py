@@ -20,9 +20,12 @@ only invokes the existing in-process `services.die.analyze()` engine
 which is itself pure + deterministic.
 """
 from __future__ import annotations
+import base64
+import re
 from typing import Any, Dict, List, Optional
 
 from services.die.api import analyze as _die_analyze
+from services.die.preprocessor.recursive_decoder import peel_recursively as _peel
 
 
 # Maximum artifacts we're willing to recursively investigate in one
@@ -30,6 +33,42 @@ from services.die.api import analyze as _die_analyze
 # cap at 40 as a paranoia budget so a runaway article can never
 # balloon SSOT generation time.
 _MAX_ARTIFACTS = 40
+
+
+_PS_ENC_RE = re.compile(
+    r"(?i)-e(?:nc(?:od(?:ed(?:command)?)?)?)?"
+    r"\s+([A-Za-z0-9+/=]{20,})"
+)
+
+
+def _decode_powershell_encoded(cmd: str) -> Dict[str, Any]:
+    """If ``cmd`` contains a `-EncodedCommand <base64>` blob, decode it
+    and return ``{recovered_payload, encoding, blob_len}``.  UTF-16-LE
+    is PowerShell's mandated encoding.  Returns ``{}`` on any failure —
+    never raises.
+    """
+    m = _PS_ENC_RE.search(cmd or "")
+    if not m:
+        return {}
+    blob = m.group(1)
+    try:
+        raw = base64.b64decode(blob + "=" * ((4 - len(blob) % 4) % 4))
+    except Exception:  # noqa: BLE001
+        return {}
+    # PowerShell -EncodedCommand: UTF-16-LE.  Fall back to UTF-8 for
+    # non-Windows variants that some vendors mis-render.
+    for enc in ("utf-16-le", "utf-8", "latin-1"):
+        try:
+            decoded = raw.decode(enc).strip("\x00")
+        except UnicodeDecodeError:
+            continue
+        if decoded and any(ch.isprintable() for ch in decoded[:32]):
+            return {
+                "recovered_payload": decoded,
+                "encoding":          enc,
+                "blob_len":          len(blob),
+            }
+    return {}
 
 
 def investigate_artifact(command: Dict[str, Any]) -> Dict[str, Any]:
@@ -60,6 +99,36 @@ def investigate_artifact(command: Dict[str, Any]) -> Dict[str, Any]:
 
     # Trim the envelope to the analyst-visible payload — we don't
     # want to pollute the SSOT with the full internal envelope.
+    # 2026-02-09 · Also surface the decoded PowerShell body when the
+    # command carries `-EncodedCommand <base64>`.  Analysts pasting a
+    # URL that leads to an encoded PowerShell need to SEE what the
+    # attacker was actually going to execute, not just the base64.
+    _decoded = _decode_powershell_encoded(cmd_text)
+
+    # 2026-02-09 · CHAIN THE PAYLOAD AS STAGES.
+    # Run the recursive multi-layer decoder over the raw command so
+    # nested encodings (base64 → utf-16le → base64 → gzip →
+    # byte-array XOR → shellcode) all peel automatically.  This is
+    # the "CyberChef chain" the vendor articles describe:
+    #     ps_encodedcommand → from_base64_string → gzip →
+    #     byte_array_xor_loop → shellcode/IPv4.
+    # Returns per-layer telemetry (stage, bytes_in/out, elapsed_ms)
+    # AND the final peeled text so any embedded IOCs (C2 IP, UA,
+    # ASCII strings) surface even when they were buried 4 layers deep.
+    _stages: List[Dict[str, Any]] = []
+    _peeled_final: str = ""
+    _peeled_iocs: List[str] = []
+    try:
+        _peeled_final, _stages = _peel(cmd_text, max_layers=8, max_bytes=2 * 1024 * 1024)
+        if _peeled_final and _peeled_final != cmd_text:
+            # Extract any IPv4 addresses that surfaced in the fully-
+            # peeled output — these are ground-truth C2 IPs that were
+            # invisible in the raw command line.
+            _peeled_iocs = list({ip for ip in re.findall(
+                r"\b(?:\d{1,3}\.){3}\d{1,3}\b", _peeled_final)})
+    except Exception:  # noqa: BLE001 — never crash the pipeline
+        pass
+
     return {
         "command":            cmd_text,
         "head":               command.get("head"),
@@ -74,6 +143,14 @@ def investigate_artifact(command: Dict[str, Any]) -> Dict[str, Any]:
         "attack_intent":      env.get("attack_intent"),
         "obfuscation_score":  env.get("obfuscation_score", 0),
         "verdict":            env.get("verdict"),
+        **({"recovered_payload":     _decoded["recovered_payload"],
+            "recovered_encoding":    _decoded["encoding"],
+            "recovered_blob_len":    _decoded["blob_len"]} if _decoded else {}),
+        # Chained multi-layer decode ("CyberChef recipe" equivalent).
+        # Always present (empty list when nothing peeled).
+        "decode_stages":       _stages,
+        "peeled_final":        _peeled_final if _peeled_final and _peeled_final != cmd_text else "",
+        "peeled_iocs":         {"ips": _peeled_iocs} if _peeled_iocs else {},
     }
 
 
