@@ -1,6 +1,6 @@
 # ADR-004 · NivXRay Canonical Implementation Ledger
 
-- **Status**: **ACCEPTED WITH AMENDMENTS** (owner sign-off 2026-08-09)
+- **Status**: **APPROVED** (owner sign-off 2026-08-09 · governance baseline)
 - **Date**: 2026-08-09
 - **Supersedes**: Original 360° audit `2026-02-09` (rejected — see `CURRENT_STATE_AUDIT_RECONCILIATION.md`)
 - **Author**: E1 (evidence-driven, no code changes in this ADR)
