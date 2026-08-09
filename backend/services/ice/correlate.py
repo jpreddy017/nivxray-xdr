@@ -103,6 +103,11 @@ _TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1087.002": "discovery",              # Domain Account Discovery
     "T1047":     "execution",              # Windows Management Instrumentation
     "T1070.001": "defense_evasion",        # Clear Windows Event Logs
+    "T1518":     "discovery",              # Software Discovery
+    "T1007":     "discovery",              # System Service Discovery
+    "T1562.004": "defense_evasion",        # Disable/Modify System Firewall
+    "T1569.002": "execution",              # System Services · Service Execution
+    "T1197":     "defense_evasion",        # BITS Jobs
 }
 
 
