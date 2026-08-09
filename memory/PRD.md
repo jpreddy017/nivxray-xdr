@@ -1,3 +1,27 @@
+## 🟠 2026-02-09 · Fix · Trajectory Diagram per-lane MITRE technique mislabeling
+
+**User-reported bug (every case):** The Attack Chain panel showed the wrong technique under the wrong tactic (e.g. `T1564.003` displayed in the Execution lane), while the MITRE Summary panel remained correct.  The two views therefore disagreed.
+
+**Root cause (single line — `TrajectoryDiagram.jsx::_layoutBehaviorNodes`):**
+When an ICE behavior cluster spanned multiple ATT&CK tactics (common when the classifier falls back to the generic "Command execution" label — see `report_extractors.py:998`), every tactic-lane node reused `techniques[0]` as the subtitle regardless of which lane it belonged to.  A cluster with both `T1053.005` (Execution) and `T1564.003` (Defense Evasion) would surface `techniques[0]` under **both** lanes — surfacing Defense-Evasion techniques inside the Execution lane and vice versa.
+
+**Fix:** replaced `subtitle: techniques[0]` with a per-lane projection that filters `b.mitre[]` (which carries `{id, name, tactic}` per entry) by the current lane's canonical tactic.  Backwards-compatible fallback to the flat techniques list when the payload lacks per-technique tactic metadata.  Also hardened the flat-technique `.map()` to skip `null`/`undefined` entries (pre-existing latent crash on malformed input).
+
+**Files touched (surgical · UI-only · no data-model changes):**
+* `frontend/src/components/investigation/TrajectoryDiagram.jsx` · per-lane subtitle picker (~20 LOC diff)
+* `frontend/src/components/__tests__/trajectoryPerLane.test.mjs` · NEW · 7 regression tests locking the fix
+
+**Verification:**
+* 7/7 unit tests pass · `node --test src/components/__tests__/trajectoryPerLane.test.mjs`
+* Frontend compiled clean · no lint issues
+* Backend P0.15C invariant suite still 51/51 green (fix is purely frontend)
+
+**Nothing else changed:** No backend/ICE/summary_narrative/incident behaviors touched.  This is a pure UI-projection fix — same underlying data, correctly displayed.
+
+---
+
+
+
 ## 🟢 2026-02-09 · P0.15C · **Acquisition Layer Complete · Slices 2 refinement → 5**
 
 Executed the remaining P0.15C slices sequentially per the frozen Release Contract.  Zero speculative refactoring; every change strictly additive and confined to `services/veee/`, `routers/cases.py` (read-side attachment only), the new UI components, and a new pytest suite.

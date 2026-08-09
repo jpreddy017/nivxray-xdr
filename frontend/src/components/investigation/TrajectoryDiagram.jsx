@@ -572,16 +572,41 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
   ordered.forEach((b, i) => {
     const tactics = _behaviorTactics(b).filter((t) => t in laneY);
     if (!tactics.length) return;
-    const techniques = (b.mitre_techniques && b.mitre_techniques.length
-                          ? b.mitre_techniques
-                          : (b.mitre || []))
-      .map((m) => (typeof m === "string" ? m : m.id))
+    // ── Per-lane technique projection (2026-02-09 · consistency fix) ─
+    // A cluster with techniques spanning multiple tactics (e.g.
+    // T1053.005 Execution + T1564.003 Defense Evasion) previously
+    // rendered `techniques[0]` under EVERY lane node — surfacing
+    // Defense-Evasion techniques in the Execution lane and vice
+    // versa.  We now split the cluster's `mitre[]` array by
+    // per-technique `tactic` so each lane node only shows the
+    // technique(s) that actually belong to that tactic.
+    const perTactic = {};        // canonical tactic → [technique id, …]
+    for (const m of (b.mitre || [])) {
+      if (!m || typeof m !== "object") continue;
+      const canon = _canonTactic(m.tactic);
+      const tid   = m.id;
+      if (!canon || !tid) continue;
+      (perTactic[canon] = perTactic[canon] || []).push(tid);
+    }
+    // Fallback list — used ONLY when the cluster carries strings
+    // in mitre_techniques[] without per-technique tactic info.
+    const flatTechniques = (b.mitre_techniques && b.mitre_techniques.length
+                                ? b.mitre_techniques
+                                : (b.mitre || []))
+      .map((m) => (m == null ? null : (typeof m === "string" ? m : m.id)))
       .filter(Boolean);
     const title = b.title || b.label || `Behavior ${i + 1}`;
     const behaviorKey = b.id || `bhv-${i}`;
     const x = X_START + i * X_STEP;
     tactics.forEach((tactic, tIdx) => {
       if (nodes.length >= MAX_NODES) return;   // hard cap SVG size
+      // Prefer techniques belonging to THIS lane; fall back to the
+      // flat list only when the cluster lacks per-technique tactic
+      // metadata (older payload shape).
+      const laneTechs = (perTactic[tactic] && perTactic[tactic].length)
+                             ? perTactic[tactic]
+                             : flatTechniques;
+      const laneSubtitle = laneTechs[0] || b.category || "";
       nodes.push({
         id:          `${behaviorKey}--${_slug(tactic)}`,
         behaviorKey,               // stable link across sibling nodes
@@ -593,7 +618,7 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
         lane:        tactic,
         tactic,
         title,
-        subtitle:    techniques[0] || b.category || "",
+        subtitle:    laneSubtitle,
         kill_chain:  (b.kill_chain && b.kill_chain[0]) || "",
         severity:    b.severity || "medium",
         confidence:  typeof b.confidence === "number" ? b.confidence
@@ -603,7 +628,7 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
         raw: {
           objective:      b.description,
           normalized_command: (b.commands && b.commands[0] && b.commands[0].command) || "",
-          mitre:          techniques,
+          mitre:          laneTechs,        // lane-scoped provenance
           tactic,
           command_family: b.category,
           evidence:       (b.commands || []).map((c) => c.command).filter(Boolean),
