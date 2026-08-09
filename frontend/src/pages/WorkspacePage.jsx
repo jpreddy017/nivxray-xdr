@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, startTransition } from "react";
 import React from "react";
 import Header from "@/components/Header";
 import PageHeader from "@/components/PageHeader";
@@ -748,8 +748,13 @@ export default function WorkspacePage() {
 
   // Feb-2026: Debounced Smart Input Advisor — hits /api/planner/advise 400ms
   // after last keystroke. Zero cost when input < 20 chars.
+  // 2026-02-09 · Also skip for oversized inputs — the planner sends
+  // the entire input to the backend on every debounce tick, so a
+  // 7 KB base64 blob triggers 7 KB uploads while the user is still
+  // adding characters.  Backend takes >2 s on huge inputs and the
+  // response can be equally large — free unresponsiveness.
   useEffect(() => {
-    if (!input || input.length < 20) {
+    if (!input || input.length < 20 || input.length > 4096) {
       setPlannerHint(null);
       return;
     }
@@ -1518,6 +1523,51 @@ export default function WorkspacePage() {
       // Fast path — SSE streaming
       setStatus("ANALYZING…");
       setAnalysis((prev) => ({ ...(prev || {}), chain, streaming: true }));
+
+      // 2026-02-09 · Page-Unresponsive fix
+      // ──────────────────────────────────────────────
+      // SSE streams can fire 10-20 partial events during a single
+      // AUTO INVESTIGATE. Each `setAnalysis` synchronously re-renders
+      // the full 3.7k-line WorkspacePage tree (Trajectory · Semantic
+      // Panel · Extracted Artifacts · TI-Hits · OSINT · IOC lists).
+      // On a 7 KB input this compound render blows past Chrome's
+      // 15-second unresponsive threshold.
+      //
+      // Two safety nets:
+      //   1. `startTransition` — marks stream updates as non-urgent,
+      //      so React interrupts a slow render when the next partial
+      //      arrives instead of finishing it, blocking, then rendering
+      //      the next one.
+      //   2. Throttle-coalesce — buffers partial events and flushes
+      //      at most once per 200 ms via requestAnimationFrame, so
+      //      even a fast stream can't overwhelm the reconciler.
+      const _pendingRef = { partial: null, ti: null, osint: null,
+                             timer: 0, lastFlush: 0 };
+      const _flushBuffered = () => {
+        _pendingRef.timer = 0;
+        _pendingRef.lastFlush = performance.now();
+        const { partial, ti, osint } = _pendingRef;
+        _pendingRef.partial = _pendingRef.ti = _pendingRef.osint = null;
+        startTransition(() => {
+          if (partial) {
+            setAnalysis((a) => ({
+              ...(a || {}), ...partial,
+              iocs: mergeIocs(a?.iocs, partial?.iocs),
+              chain, streaming: true,
+            }));
+          }
+          if (ti !== null)    setAnalysis((a) => ({ ...(a || {}), ti_hits: ti, streaming: true }));
+          if (osint !== null) setAnalysis((a) => ({ ...(a || {}), osint,    streaming: true }));
+        });
+      };
+      const _schedule = () => {
+        if (_pendingRef.timer) return;
+        // Coalesce updates into ~200 ms windows (5 renders/sec ceiling).
+        const elapsed = performance.now() - _pendingRef.lastFlush;
+        const delay = Math.max(0, 200 - elapsed);
+        _pendingRef.timer = setTimeout(_flushBuffered, delay);
+      };
+
       const stop = streamAnalyze(
         // v1.5.8 · describe:true — AUTO INVESTIGATE must generate the
         // attack-chain description so FLOW / TI-HITS / summary panels
@@ -1532,29 +1582,44 @@ export default function WorkspacePage() {
           // never replace. Any incoming iocs are MERGED (union of prior + new)
           // so the C2 IP / URL / API imports already extracted by the RC2
           // pipeline don't vanish when the stream completes.
-          onPartial:     (p) => setAnalysis((a) => ({
-            ...(a || {}),
-            ...p,
-            iocs: mergeIocs(a?.iocs, p?.iocs),
-            chain, streaming: true,
-          })),
-          onTiHits:      (h) => setAnalysis((a) => ({ ...(a || {}), ti_hits: h, streaming: true })),
-          onOsint:       (o) => setAnalysis((a) => ({ ...(a || {}), osint: o, streaming: true })),
-          onResult:      (r) => setAnalysis((a) => ({
-            ...(a || {}),
-            ...r,
-            // Category-wise merge — deterministic + AI-enriched union.
-            iocs: mergeIocs(a?.iocs, r?.iocs),
-            // Preserve any deterministic-only fields the AI response omits.
-            mitre:    (r?.mitre    && r.mitre.length)    ? r.mitre    : a?.mitre,
-            lolbas:   (r?.lolbas   && r.lolbas.length)   ? r.lolbas   : a?.lolbas,
-            yara:     (r?.yara     && r.yara.length)     ? r.yara     : a?.yara,
-            ti_hits:  (r?.ti_hits  != null)              ? r.ti_hits  : a?.ti_hits,
-            osint:    (r?.osint    != null)              ? r.osint    : a?.osint,
-            chain, streaming: false,
-          })),
+          onPartial:     (p) => {
+            // Merge into the pending buffer (last-write-wins per key,
+            // union for iocs) so a burst of partials collapses into a
+            // single render.
+            const prev = _pendingRef.partial || {};
+            _pendingRef.partial = {
+              ...prev, ...p,
+              iocs: mergeIocs(prev?.iocs, p?.iocs),
+            };
+            _schedule();
+          },
+          onTiHits:      (h) => { _pendingRef.ti    = h; _schedule(); },
+          onOsint:       (o) => { _pendingRef.osint = o; _schedule(); },
+          onResult:      (r) => {
+            // Final result — flush any pending buffer first, then apply
+            // synchronously (this is the terminal state; no more events
+            // will follow, so no risk of re-blocking).
+            if (_pendingRef.timer) { clearTimeout(_pendingRef.timer); _pendingRef.timer = 0; }
+            setAnalysis((a) => ({
+              ...(a || {}),
+              ...(_pendingRef.partial || {}),
+              ...r,
+              // Category-wise merge — deterministic + AI-enriched union.
+              iocs: mergeIocs(mergeIocs(a?.iocs, _pendingRef.partial?.iocs), r?.iocs),
+              // Preserve any deterministic-only fields the AI response omits.
+              mitre:    (r?.mitre    && r.mitre.length)    ? r.mitre    : a?.mitre,
+              lolbas:   (r?.lolbas   && r.lolbas.length)   ? r.lolbas   : a?.lolbas,
+              yara:     (r?.yara     && r.yara.length)     ? r.yara     : a?.yara,
+              ti_hits:  (r?.ti_hits  != null)              ? r.ti_hits  : a?.ti_hits,
+              osint:    (r?.osint    != null)              ? r.osint    : a?.osint,
+              chain, streaming: false,
+            }));
+            _pendingRef.partial = _pendingRef.ti = _pendingRef.osint = null;
+          },
           onError:       (e) => setStatus(`STREAM ERROR (${e.phase}): ${e.error}`),
-          onDone:        ()  => { setAnalyzing(false); streamStopRef.current = null;
+          onDone:        ()  => {
+                                 if (_pendingRef.timer) { clearTimeout(_pendingRef.timer); _pendingRef.timer = 0; }
+                                 setAnalyzing(false); streamStopRef.current = null;
                                  setStatus((s) => s.startsWith("STREAM ERROR") ? s : "ANALYSIS COMPLETE");
                                  // ▲ IUE v2.0 · Auto-enrich (P0 · 2026-03-01)
                                  // After decode + analyze completes, always
@@ -2822,8 +2887,20 @@ export default function WorkspacePage() {
                   // string INSIDE the browser (zero network). Surface the top
                   // candidate as an inline "USE THIS RECIPE" hint above the
                   // Recipe panel. If the analyst ignores it, no harm done.
+                  //
+                  // 2026-02-09 · Anti-hang cap.  magicLite is fast on printable
+                  // strings but recursion at depth 3 on multi-layer nested
+                  // (base64 → gzip → utf-16-le → PE) payloads can allocate
+                  // huge intermediate buffers.  For >4 KB inputs the backend
+                  // already handles decoding deterministically in <2 s —
+                  // there's no analyst value in racing 14 JS decoders on the
+                  // main thread.  This matches the 4096-byte guard the live
+                  // preview useEffect already enforces (line 831).
                   const pasted = e.clipboardData?.getData("text") || "";
-                  if (pasted.length < 12 || pasted.length > 100_000) return;
+                  if (pasted.length < 12 || pasted.length > 4096) {
+                    setPasteHint(null);
+                    return;
+                  }
                   try {
                     const m = magicLite(pasted, { maxDepth: 3, topN: 3 });
                     if (m.best && m.best.score >= 0.35) {
