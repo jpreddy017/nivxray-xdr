@@ -62,6 +62,66 @@ _RE_URL = re.compile(
     re.IGNORECASE,
 )
 
+# ── Defanged IOC atoms (P1-02 fix · 2026-02-XX) ───────────────────
+# Threat reports routinely defang IPs/URLs so they can't be
+# accidentally clicked or auto-fetched. Common forms surfaced in the
+# wild (Talos, Sophos, Mandiant blogs):
+#     149[.]28[.]81[.]19          149(.)28(.)81(.)19
+#     149[.]28.81[.]19            (mixed)
+#     hxxps://foo[.]com/x         hxxp://foo(.)com/x
+#     https://foo[.]com/x         (partially defanged)
+# The extractors below match the DEFANGED form, but record the
+# REFANGED value in `canonical` so downstream IOC enrichment /
+# threat-intel lookups work unmodified. Offsets always point at the
+# original defanged span in the paste so provenance stays honest.
+_RE_DEFANGED_IPV4 = re.compile(
+    r"(?<![\w.])"
+    r"((?:25[0-5]|2[0-4]\d|[01]?\d?\d)"                                # octet 1
+    r"(?:\s*[\[\(]\s*\.\s*[\]\)]\s*|\.)"                               # sep 1
+    r"(?:25[0-5]|2[0-4]\d|[01]?\d?\d)"                                 # octet 2
+    r"(?:\s*[\[\(]\s*\.\s*[\]\)]\s*|\.)"                               # sep 2
+    r"(?:25[0-5]|2[0-4]\d|[01]?\d?\d)"                                 # octet 3
+    r"(?:\s*[\[\(]\s*\.\s*[\]\)]\s*|\.)"                               # sep 3
+    r"(?:25[0-5]|2[0-4]\d|[01]?\d?\d))"                                # octet 4
+    r"(?![\w.])"
+)
+
+# hxxp[s]:// or http[s]:// with at least one [.] or (.) in the host.
+# Body of the URL matches until whitespace / typical terminators.
+_RE_DEFANGED_URL = re.compile(
+    r"\b(?:hxxps?|https?)"
+    r"(?:\s*[\[\(]\s*://\s*[\]\)]\s*|://)"
+    r"(?:[^\s'\"<>{}]*?[\[\(]\s*\.\s*[\]\)][^\s'\"<>{}]*)",
+    re.IGNORECASE,
+)
+
+
+def _refang(v: str) -> str:
+    """Reverse common defang patterns (idempotent · deterministic).
+
+    Handles the forms seen in Talos / Sophos / Mandiant blog posts:
+        [.] (.) → .        [://] (://) → ://
+        hxxp hxxps         → http https
+        [@] (@)  [at]      → @
+    Also collapses any spacing introduced by the analyst around the
+    bracketed separator (e.g. `1 [.] 2 [.] 3 [.] 4`).
+    """
+    if not v:
+        return v
+    out = v
+    out = re.sub(r"\s*\[\s*\.\s*\]\s*", ".", out)
+    out = re.sub(r"\s*\(\s*\.\s*\)\s*", ".", out)
+    out = re.sub(r"\s*\[\s*://\s*\]\s*", "://", out)
+    out = re.sub(r"\s*\(\s*://\s*\)\s*", "://", out)
+    out = re.sub(r"\s*\[\s*@\s*\]\s*", "@", out)
+    out = re.sub(r"\s*\(\s*@\s*\)\s*", "@", out)
+    out = re.sub(r"\s*\[\s*at\s*\]\s*", "@", out, flags=re.I)
+    out = re.sub(r"\s*\(\s*at\s*\)\s*", "@", out, flags=re.I)
+    out = re.sub(r"(?i)\bhxxps\b", "https", out)
+    out = re.sub(r"(?i)\bhxxp\b", "http", out)
+    return out
+
+
 # hash lengths: MD5 = 32, SHA-1 = 40, SHA-256 = 64, SHA-512 = 128
 _RE_HASH = re.compile(r"\b([A-Fa-f0-9]{32}|[A-Fa-f0-9]{40}|[A-Fa-f0-9]{64}|[A-Fa-f0-9]{128})\b")
 
@@ -424,6 +484,48 @@ def split_artifacts(text: str) -> List[Artifact]:
 
     # ── 2. URLs ────────────────────────────────────────────────────
     from .url_intent import classify_url_intent as _url_intent
+
+    # 2a. Defanged URLs first (higher-specificity — P1-02 fix)
+    for m in _RE_DEFANGED_URL.finditer(text):
+        raw = m.group(0)
+        strip_len = len(raw) - len(raw.rstrip(".,;:)]}\"'"))
+        start, end = m.start(), m.end() - strip_len
+        raw_slice = raw[: end - start]
+        refanged = _refang(raw_slice)
+        canonical = _canon_url(refanged)
+        try:
+            intent = _url_intent(canonical)
+        except Exception:
+            intent = {"host": "", "intent": "unknown", "acquirable": False,
+                          "vendor": None, "reasoning": ""}
+        if _is_hosting_infra(intent.get("host") or ""):
+            _claim(start, end)
+            continue
+        artifacts.append(Artifact(
+            id=_next_id("url"),
+            type="url",
+            value=raw_slice,
+            canonical=canonical,
+            source={
+                "offset":    start,
+                "length":    end - start,
+                "line":      _line_of(start),
+                "extractor": "ida.url.defanged",
+            },
+            metadata={
+                "scheme":     canonical.split("://", 1)[0] if "://" in canonical else "",
+                "host":       intent.get("host") or "",
+                "intent":     intent.get("intent"),
+                "acquirable": intent.get("acquirable"),
+                "vendor":     intent.get("vendor"),
+                "reasoning":  intent.get("reasoning"),
+                "defanged":       True,
+                "original_form":  raw_slice,
+            },
+        ))
+        _claim(start, end)
+
+    # 2b. Plain URLs
     for m in _RE_URL.finditer(text):
         raw = m.group(0)
         canonical = _canon_url(raw)
@@ -545,6 +647,43 @@ def split_artifacts(text: str) -> List[Artifact]:
         _claim(start, end)
 
     # ── 7. IPv4 ────────────────────────────────────────────────────
+    # 7a. Defanged IPv4 first (higher-specificity — P1-02 fix)
+    for m in _RE_DEFANGED_IPV4.finditer(text):
+        start, end = m.start(), m.end()
+        if _overlaps(start, end):
+            continue
+        raw = m.group(1)
+        refanged = _refang(raw)
+        # Sanity: refanged form must still be a legal IPv4
+        if not re.fullmatch(
+            r"(?:25[0-5]|2[0-4]\d|[01]?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)){3}",
+            refanged,
+        ):
+            continue
+        # Skip if the "defanged" form is actually plain (no brackets).
+        if "[" not in raw and "(" not in raw:
+            continue
+        artifacts.append(Artifact(
+            id=_next_id("ip"),
+            type="ip",
+            value=raw,
+            canonical=_canon_ip(refanged),
+            source={
+                "offset":    start,
+                "length":    end - start,
+                "line":      _line_of(start),
+                "extractor": "ida.ipv4.defanged",
+            },
+            metadata={
+                "scope":         _classify_ip(refanged),
+                "version":       4,
+                "defanged":      True,
+                "original_form": raw,
+            },
+        ))
+        _claim(start, end)
+
+    # 7b. Plain IPv4
     for m in _RE_IPV4.finditer(text):
         start, end = m.start(), m.end()
         if _overlaps(start, end):
