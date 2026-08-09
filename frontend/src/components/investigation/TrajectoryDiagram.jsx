@@ -211,6 +211,18 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
   const [nodes, setNodes] = useState(initialNodes);
   const investigation = useInvestigationFilter();
   const [zoom,  setZoom]  = useState(1);
+  // ── Popout / expanded view (2026-02-09 · user request) ─────
+  // When true, the entire trajectory panel renders inside a
+  // fixed-position full-screen overlay so analysts can inspect
+  // dense investigations without page chrome.
+  const [popout, setPopout] = useState(false);
+  // ESC closes the popout view — analyst-friendly muscle memory.
+  useEffect(() => {
+    if (!popout) return;
+    const onKey = (e) => { if (e.key === "Escape") setPopout(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [popout]);
   const [pan,   setPan]   = useState({ x: 0, y: 0 });
   const [selectedNode, setSelectedNode] = useState(null);   // Node Inspector target
   const dragRef  = useRef(null);
@@ -325,13 +337,21 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
 
   const reset = () => { setNodes(initialNodes); setPan({x:0,y:0}); setZoom(1); };
 
-  return (
-    <section data-testid="trajectory-diagram" style={{
+  const sectionStyle = popout ? {
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(2,6,23,0.98))",
+      border: "none", borderRadius: 0,
+      padding: "24px 28px",
+      overflow: "auto",
+    } : {
       background: "linear-gradient(180deg, rgba(15,23,42,0.9), rgba(2,6,23,0.9))",
       border: "1px solid #1f2b3f", borderRadius: 12,
       padding: "16px 18px", marginBottom: 14,
-      position: "relative",              // anchor for minimap overlay
-    }}>
+      position: "relative",
+    };
+
+  return (
+    <section data-testid="trajectory-diagram" style={sectionStyle}>
       <div style={{ display: "flex", alignItems: "center",
                     justifyContent: "space-between", marginBottom: 10,
                     flexWrap: "wrap", gap: 8 }}>
@@ -341,7 +361,7 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                         marginTop: 4, letterSpacing: 0.2 }}
                 data-testid="trajectory-header-title">
             {isCanonical
-              ? `MITRE ATT&CK · ${activeLanes.filter((l) => l.active).length} of ${MITRE_LANES.length} tactics observed`
+              ? `MITRE ATT&CK`
               : `Cyber Kill Chain × MITRE ATT&CK · ${LANES.length} swim lanes · drag nodes · pan background · use +/− to zoom`}
           </div>
         </div>
@@ -357,6 +377,16 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                   style={btn}>+</button>
           <button data-testid="trajectory-reset" onClick={reset} style={btn}>
             <RotateCcw size={12} /> RESET
+          </button>
+          {/* Popout / close (2026-02-09 · user request) ────────
+              Expands the trajectory into a full-screen overlay so
+              dense investigations get the entire viewport.  ESC or
+              the × button restores the inline view. */}
+          <button data-testid="trajectory-popout"
+                  onClick={() => setPopout((p) => !p)}
+                  style={btn}
+                  title={popout ? "Restore inline view (Esc)" : "Popout · full-screen"}>
+            {popout ? "× CLOSE" : "⤢ POPOUT"}
           </button>
         </div>
       </div>
@@ -394,7 +424,9 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                     border: "1px solid #1f2b3f",
                     borderRadius: 10, background: "rgba(2,6,23,0.65)",
                     minHeight: 560,
-                    maxHeight: 1000,
+                    // Popout mode uses the full viewport height minus the
+                    // ~180px reserved for toolbar/legend/footer.
+                    maxHeight: popout ? "calc(100vh - 180px)" : 1000,
                     scrollbarColor: "#334467 #0b1220",
                     cursor: dragRef.current ? "grabbing"
                                   : panRef.current ? "grabbing" : "grab" }}>
@@ -613,52 +645,10 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
       )}
       </div>
 
-      {/* ── Mini-map (2026-02-09 · scalable-canvas redesign) ─────
-          Bird's-eye overview of the trajectory canvas.  A 240×140
-          strip anchored to the panel's bottom-right corner shows
-          every node's absolute position within the full ATT&CK
-          matrix.  Useful when zooming or panning across 100+ nodes. */}
-      {isCanonical && nodes.length > 0 && (
-        <div data-testid="trajectory-minimap"
-             style={{
-               position: "absolute", right: 24, bottom: 40,
-               width: 240, height: 140,
-               background: "rgba(2,6,23,0.85)",
-               border: "1px solid #334467",
-               borderRadius: 6,
-               overflow: "hidden",
-               boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
-               pointerEvents: "none",
-             }}>
-          <svg width={240} height={140}
-               viewBox={`0 0 ${contentW} ${contentH}`}
-               preserveAspectRatio="none">
-            {/* lane hints */}
-            {activeLanes.map((lane) => (
-              <rect key={lane.id}
-                    x={0} y={lane.y - 40}
-                    width={contentW}
-                    height={MITRE_LANE_HEIGHT - 6}
-                    fill={lane.active
-                              ? (MITRE_LANE_COLOR[lane.id] || "#94a3b8")
-                              : "rgba(148,163,184,0.05)"}
-                    fillOpacity={lane.active ? 0.15 : 0.5} />
-            ))}
-            {/* dots for every node */}
-            {nodes.map((n) => (
-              <circle key={n.id}
-                      cx={n.x + 10} cy={n.y + 6} r={16}
-                      fill={MITRE_LANE_COLOR[n.tactic] || "#67e8f9"} />
-            ))}
-          </svg>
-          <div style={{
-                 position: "absolute", top: 4, left: 6,
-                 fontSize: 9, letterSpacing: "0.14em",
-                 textTransform: "uppercase", color: "#94a3b8",
-                 pointerEvents: "none",
-               }}>overview · {nodes.length} nodes</div>
-        </div>
-      )}
+      {/* ── Mini-map removed 2026-02-09 · user feedback ──────────
+          Overview strip was interfering with the analyst's view
+          of the trajectory canvas.  Kept the code path clean —
+          re-enable when a proper anchored/hideable variant lands. */}
 
       <div style={{ marginTop: 8, fontSize: 11, color: "#64748b",
                     fontStyle: "italic" }}>
