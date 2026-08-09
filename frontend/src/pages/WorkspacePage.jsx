@@ -1042,7 +1042,17 @@ function WorkspacePageInner() {
       setIeddeDiagnostics(Array.isArray(data.iedde_diagnostics) ? data.iedde_diagnostics : []);
   };
 
-  const runChainAnalysis = async (parts) => {
+  const runChainAnalysis = async (parts, opts = {}) => {
+    // 2026-02-09 · Anti-Freeze SLA.
+    // opts.autoInvoked=true means AUTO INVESTIGATE routed here
+    // automatically for a multi-layer single command.  In that case
+    // we DON'T open the Chain Editor modal — the modal mounts a
+    // per-stage syntax-highlighted editor for a 2KB+ stage input
+    // which blew past Chrome's 15s Page-Unresponsive threshold.
+    // Results still populate the sidebar (MITRE/IOCs/GRAPH via
+    // `analysis`) and the OUTPUT panel; users can open CHAIN MODE
+    // manually if they want the per-stage editor view.
+    const _autoInvoked = !!opts.autoInvoked;
     setLoading(true);
     setStatus(`MULTI-COMMAND CHAIN DETECTED · analysing ${parts.length} stages…`);
     try {
@@ -1081,67 +1091,115 @@ function WorkspacePageInner() {
            }).join("\n\n")
       );
 
-      // Sync top-level state so OUTPUT / RECIPE / MITRE / IOCs panels all
-      // reflect the AGGREGATE and not just the first line.
-      setOutput(aggregatedOutput);
+      // 2026-02-09 · Anti-Freeze SLA · Yielded state application.
+      // Split the ~17 setState calls that follow into 3 batches
+      // separated by animation frames.  This prevents a single
+      // ~200 ms reconciliation from stacking on top of another
+      // (chain-mode editor mount, TrajectoryDiagram rebuild,
+      // sidebar tabs re-render) and blowing past Chrome's 15s
+      // unresponsive threshold on real user machines.
+      //
+      // Each batch is wrapped in `startTransition` so React can
+      // interrupt the render if the user clicks anything.
+      //
+      // ── Batch 1: status + verdict + OUTPUT (fast, small state) ──
+      startTransition(() => {
+        setOutput(aggregatedOutput);
+        setDecodeWinnerEngine(`chain (${stages.length} stages)`);
+        setDecodeConfidence(meanConf);
+        setReachedShellcode(stages.some((s) => s.reached_shellcode));
+        setVerdictCard(null);
+        setCorruptedContainer(null);
+        setStatus(
+          `CHAIN COMPLETE · ${stages.length} stages · ${verdict || "unknown"}` +
+          (family ? ` · ${family}` : "") +
+          (meanConf != null ? ` · avg ${meanConf}%` : "")
+        );
+      });
+
+      // Yield to the browser so it can paint the status update.
+      await new Promise((r) => requestAnimationFrame(() => r()));
+
+      // ── Batch 2: recipe + chain + trace (medium state) ──
       // Recipe: show a synthetic "chain" step-summary so the RECIPE panel
       // is not empty. Each stage becomes one recipe row.
       const recipeSteps = stages.map((s) => ({
         op: `stage-${s.stage_index + 1}`,
         args: {},
       }));
-      setSteps(recipeSteps);
-      setChain(stages.map((s) => ({
-        op: `stage-${s.stage_index + 1}`,
-        reason: `${s.engine || "?"} · conf=${s.confidence ?? "?"}/100 · ${(s.input_preview || "").slice(0, 80)}`,
-        output_preview: (s.output || "").slice(0, 200),
-      })));
-      setDecodeTrace(stages.map((s) => ({
-        op: `stage-${s.stage_index + 1}`,
-        args: {},
-        reason: `Stage ${s.stage_index + 1} · engine=${s.engine} · conf=${s.confidence}/100`,
-        output_preview: (s.output || "").slice(0, 400),
-        output_length: s.output_length,
-      })));
-      setDecodeWinnerEngine(`chain (${stages.length} stages)`);
-      setDecodeConfidence(meanConf);
-      setReachedShellcode(stages.some((s) => s.reached_shellcode));
-      setVerdictCard(null);
-      setCorruptedContainer(null);
-
-      // Feed the ATTACK GRAPH / IOC / MITRE panels via the analysis object.
-      setAnalysis({
-        iocs: agg.iocs || {},
-        mitre: agg.mitre || [],
-        lolbins: agg.lolbas || [],   // fallbackGraph reads `lolbins`
-        lolbas: agg.lolbas || [],
-        yara: agg.yara || [],
-        risk: agg.risk || {},
-        family: agg.family || null,
-        ai_verdict: verdict ? {
-          verdict,
-          confidence: agg.risk?.score,
-          summary: `${family ? family + " · " : ""}${stages.length} stages · chain-amplified`,
-        } : null,
-        chain_result: d,    // preserve full response for downstream panels
-        streaming: false,
+      startTransition(() => {
+        setSteps(recipeSteps);
+        setChain(stages.map((s) => ({
+          op: `stage-${s.stage_index + 1}`,
+          reason: `${s.engine || "?"} · conf=${s.confidence ?? "?"}/100 · ${(s.input_preview || "").slice(0, 80)}`,
+          output_preview: (s.output || "").slice(0, 200),
+        })));
+        setDecodeTrace(stages.map((s) => ({
+          op: `stage-${s.stage_index + 1}`,
+          args: {},
+          reason: `Stage ${s.stage_index + 1} · engine=${s.engine} · conf=${s.confidence}/100`,
+          output_preview: (s.output || "").slice(0, 400),
+          output_length: s.output_length,
+        })));
       });
 
-      // Auto-open Chain Mode so the per-stage drill-down UI is visible.
+      // Yield again before the biggest reconciliation.
+      await new Promise((r) => requestAnimationFrame(() => r()));
+
+      // ── Batch 3: the heavy `analysis` object (feeds MITRE / IOC / GRAPH sidebars) ──
+      // Slim `chain_result` — the full 30KB response was being held
+      // in TWO state slots (analysis.chain_result AND
+      // pendingChainResult); that doubles GC pressure and DOM diff
+      // work on any downstream re-render.  Store only the small
+      // aggregate + stage summaries — the full response stays in
+      // `pendingChainResult` when the user opens Chain Editor.
+      const _slimChainResult = {
+        stage_count: d.stage_count,
+        aggregate:   d.aggregate,
+        labels:      d.labels,
+        timestamp:   d.timestamp,
+        history_id:  d.history_id,
+      };
+      startTransition(() => {
+        setAnalysis({
+          iocs: agg.iocs || {},
+          mitre: agg.mitre || [],
+          lolbins: agg.lolbas || [],   // fallbackGraph reads `lolbins`
+          lolbas: agg.lolbas || [],
+          yara: agg.yara || [],
+          risk: agg.risk || {},
+          family: agg.family || null,
+          ai_verdict: verdict ? {
+            verdict,
+            confidence: agg.risk?.score,
+            summary: `${family ? family + " · " : ""}${stages.length} stages · chain-amplified`,
+          } : null,
+          chain_result: _slimChainResult,  // slim summary only
+          streaming: false,
+        });
+      });
+
+      // Auto-open Chain Mode so the per-stage drill-down UI is visible —
+      // BUT ONLY when the user manually invoked chain analysis.  If we
+      // routed here from AUTO INVESTIGATE the modal mount would trigger
+      // a heavy per-stage editor render that hits the freeze threshold.
       const stageSeeds = stages.map((s) => ({
         input: s.input_preview && !s.input_preview.endsWith("…")
           ? s.input_preview : (parts[s.stage_index] || ""),
       }));
-      setPendingChainStages(stageSeeds);
-      setPendingChainResult(d);        // <-- forward full result to editor
-      setChainEditorKey((k) => k + 1);
-      setChainOpen(true);
-
-      setStatus(
-        `CHAIN COMPLETE · ${stages.length} stages · ${verdict || "unknown"}` +
-        (family ? ` · ${family}` : "") +
-        (meanConf != null ? ` · avg ${meanConf}%` : "")
-      );
+      if (!_autoInvoked) {
+        setPendingChainStages(stageSeeds);
+        setPendingChainResult(d);        // full response only for editor
+        setChainEditorKey((k) => k + 1);
+        setChainOpen(true);
+      } else {
+        // For auto-invoked chains, seed the editor state so if the
+        // user opens CHAIN MODE manually later it's pre-populated —
+        // but keep the modal closed.
+        setPendingChainStages(stageSeeds);
+        setPendingChainResult(d);
+        setChainEditorKey((k) => k + 1);
+      }
       setMultiChainNotice({
         stages: stages.length,
         verdict: verdict || "unknown",
@@ -1859,21 +1917,54 @@ function WorkspacePageInner() {
     }
     const decodeRequired = !!(understandingResp?.data?.understanding?.decode_required);
 
-    // Kick off analyze + narrate in parallel — always needed for
-    // Inline Story, Trajectory, Analyst Narrative panels.
-    api.post("/die/analyze", { input })
-      .then((r) => {
-        const pre = r?.data?.result?.preprocessor
-                 || r?.data?.result?.chain?.preprocessor
-                 || null;
-        if (pre) setInlineStoryPreproc(pre);
-      })
-      .catch(() => { /* silently absent */ });
-    api.post("/die/narrate", { input })
+    // 2026-02-09 · Anti-Freeze SLA — CRITICAL PATH REORDER.
+    // The classic bug: firing /die/analyze + /die/narrate in
+    // parallel BEFORE the chain path is chosen means when the
+    // chain response returns, THREE promise chains resolve within
+    // ~100ms of each other, triggering >20 interleaved setState
+    // calls.  React 18 can't auto-batch across async boundaries
+    // and each setState re-reconciles the 3,787-line workspace
+    // tree.  Total reconciliation work → 15 s+ → Page Unresponsive.
+    //
+    // Fix: DECIDE THE ROUTE FIRST.  If the input is a
+    // single-command multi-layer payload, we're going to chain-
+    // mode which produces ALL of analyze + narrate + iocs +
+    // mitre + lolbas by itself — no need for the parallel calls.
+    const parts = splitCommandLines(input);
+    const looksLikeProse =
+      (input || "").length > 400 &&
+      /(?:^|\n)(?:the\s|talos\s|initial access|discovery|lateral movement|executive summary|engagement\s\d|mandiant|crowdstrike|microsoft defender|securex|falcon overwatch|customer\s|outcome|main research question|defensive)/i
+        .test(input || "");
+    const _multiLayerMarker = /(?:\s-e(?:nc(?:od(?:ed(?:command)?)?)?)?\b\s*[A-Za-z0-9+/=]{100,})|FromBase64String\s*\(\s*["'][A-Za-z0-9+/=]{100,}|IO\.Compression\.Gzip|invoke-expression\s*\(\s*.+FromBase64/i;
+    const _isSingleMultiLayer =
+      parts && parts.length === 1 &&
+      typeof input === "string" &&
+      input.length >= 120 &&
+      _multiLayerMarker.test(input) &&
+      !looksLikeProse;
+    const _willChain =
+      (parts && parts.length > 1 && parts.length <= 20 && !looksLikeProse)
+      || _isSingleMultiLayer;
+
+    // Only fire analyze + narrate when we are NOT going to chain
+    // — chain-mode fully supersedes them.
+    if (!_willChain) {
+      // Kick off analyze + narrate in parallel — always needed for
+      // Inline Story, Trajectory, Analyst Narrative panels.
+      api.post("/die/analyze", { input })
+        .then((r) => {
+          const pre = r?.data?.result?.preprocessor
+                   || r?.data?.result?.chain?.preprocessor
+                   || null;
+          if (pre) setInlineStoryPreproc(pre);
+        })
+        .catch(() => { /* silently absent */ });
+      api.post("/die/narrate", { input })
       .then((r) => {
         setAnalystNarrative(r?.data?.narrative || null);
       })
       .catch(() => { /* silently absent */ });
+    }  // end of `if (!_willChain)` — parallel /die/analyze + /die/narrate
 
     // ── If no decoding is required, hand off to the Investigation
     // Results renderer.  The pane displays deterministic findings —
@@ -1894,44 +1985,12 @@ function WorkspacePageInner() {
     // Multi-command chain? Route to /decode/chain so every stage's IOCs /
     // MITRE / LOLBAS reach the top-level Attack Graph & Kill Chain.
     //
-    // BUT — the chain endpoint caps at 20 parts.  For prose / vendor
-    // reports (Talos, Mandiant, CrowdStrike …) the splitter yields
-    // hundreds of "parts" which are actually paragraphs, not
-    // commands.  In that case skip the chain path entirely — the
-    // preprocessor + IUE flow already handles unstructured pastes
-    // and the Inline Attack Story is rendered from those stages.
-    const parts = splitCommandLines(input);
-    const looksLikeProse =
-      (input || "").length > 400 &&
-      /(?:^|\n)(?:the\s|talos\s|initial access|discovery|lateral movement|executive summary|engagement\s\d|mandiant|crowdstrike|microsoft defender|securex|falcon overwatch|customer\s|outcome|main research question|defensive)/i
-        .test(input || "");
-
-    // 2026-02-09 · Auto-Chain for single-command multi-layer encodings.
-    // A common analyst paste is ONE command line containing nested
-    // encodings — the classic Cobalt Strike loader shape:
-    //     `%COMSPEC% /b /c start /b /min powershell -EncodedCommand JAB…`
-    //     `powershell -enc <long base64>`
-    //     `cmd /c powershell FromBase64String(…) | IEX`
-    // The chain endpoint (`/decode/chain`) recursively peels
-    // base64 → utf-16le → base64 → gzip → byte-array-XOR → shellcode
-    // and merges the resulting IOCs / MITRE / LOLBAS into the
-    // top-level Attack Graph.  Without this branch AUTO INVESTIGATE
-    // falls through to /decode/smart which only single-passes the
-    // outer layer — the C2 IP buried 4 layers deep never surfaces
-    // unless the analyst manually opens CHAIN MODE.
-    const _multiLayerMarker = /(?:\s-e(?:nc(?:od(?:ed(?:command)?)?)?)?\b\s*[A-Za-z0-9+/=]{100,})|FromBase64String\s*\(\s*["'][A-Za-z0-9+/=]{100,}|IO\.Compression\.Gzip|invoke-expression\s*\(\s*.+FromBase64/i;
-    const _isSingleMultiLayer =
-      parts && parts.length === 1 &&
-      typeof input === "string" &&
-      input.length >= 120 &&
-      _multiLayerMarker.test(input) &&
-      !looksLikeProse;
-
-    if (
-      (parts && parts.length > 1 && parts.length <= 20 && !looksLikeProse)
-      || _isSingleMultiLayer
-    ) {
-      await runChainAnalysis(parts);
+    // 2026-02-09 · The chain-detection variables (parts, looksLikeProse,
+    // _willChain, _isSingleMultiLayer) are pre-computed above so we can
+    // suppress the parallel /die/analyze + /die/narrate fire-and-forget
+    // when a chain is about to run.  Reuse the same values here.
+    if (_willChain) {
+      await runChainAnalysis(parts, { autoInvoked: true });
       return;
     }
     streamStopRef.current?.();
