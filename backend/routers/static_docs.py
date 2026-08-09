@@ -68,3 +68,25 @@ def reconciliation_md():
         raise HTTPException(status_code=404, detail="Reconciliation markdown not built.")
     with open(p, "r", encoding="utf-8") as fh:
         return PlainTextResponse(fh.read(), media_type="text/markdown; charset=utf-8")
+
+
+@router.get("/adr-004")
+@router.get("/adr-004.html")
+def adr_004_html():
+    """ADR-004 · Canonical Implementation Ledger — the freeze policy
+    document that declares which of the ≥ 2 competing implementations
+    per capability is authoritative."""
+    p = os.path.join(_DOCS_DIR, "adr_004_canonical_ledger.html")
+    if not os.path.exists(p):
+        raise HTTPException(status_code=404, detail="ADR-004 HTML not built.")
+    return FileResponse(p, media_type="text/html; charset=utf-8")
+
+
+@router.get("/adr-004.md")
+def adr_004_md():
+    """Raw markdown of ADR-004."""
+    p = os.path.join(_DOCS_DIR, "adr_004_canonical_ledger.md")
+    if not os.path.exists(p):
+        raise HTTPException(status_code=404, detail="ADR-004 markdown not built.")
+    with open(p, "r", encoding="utf-8") as fh:
+        return PlainTextResponse(fh.read(), media_type="text/markdown; charset=utf-8")
