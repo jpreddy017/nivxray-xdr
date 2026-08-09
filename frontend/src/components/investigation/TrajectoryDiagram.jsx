@@ -177,44 +177,23 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
     }
   });
 
-  // ── Compute active lanes (empty tactics collapse) ─────────────
+  // ── Full 14-lane ATT&CK matrix (2026-02-09 · scalable canvas) ─
+  // Always render every MITRE tactic lane so analysts see what
+  // WASN'T observed as clearly as what was.  Inactive lanes are
+  // dimmed instead of removed — this makes coverage gaps visible.
   const activeLanes = useMemo(() => {
     if (!isCanonical) return LANES;
     const seen = new Set();
     for (const b of behaviors) {
       for (const t of _behaviorTactics(b)) seen.add(t);
     }
-    return MITRE_LANES
-      .filter((l) => seen.has(l.id))
-      .map((l, i) => ({ ...l, y: 80 + i * MITRE_LANE_HEIGHT }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [behaviorsKey]);
-
-  // ── Canonical view · full ATT&CK canvas (2026-02-09) ─────────
-  // The user asked for the window to accommodate every MITRE
-  // tactic, not just the ones observed on this case.  We
-  // render all 14 lanes greyed out and only PLACE nodes in the
-  // lanes that carry behaviors (via activeLanes).  This keeps
-  // the analyst's mental model of the full attack matrix even
-  // when only a few tactics fired.
-  const displayLanes = useMemo(() => {
-    if (!isCanonical) return LANES;
-    const active = new Set(activeLanes.map((l) => l.id));
     return MITRE_LANES.map((l, i) => ({
       ...l,
-      y:       80 + i * MITRE_LANE_HEIGHT,
-      active:  active.has(l.id),
+      y:      80 + i * MITRE_LANE_HEIGHT,
+      active: seen.has(l.id),
     }));
-  }, [isCanonical, activeLanes]);
-
-  // Recompute node Y positions against the full-lane layout so
-  // node.y lands in the correct display lane (not the collapsed
-  // activeLanes index).
-  const laneYFullMap = useMemo(() => {
-    const m = {};
-    for (const l of displayLanes) m[l.id] = l.y;
-    return m;
-  }, [displayLanes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [behaviorsKey]);
 
   const initialNodes = useMemo(
     () => {
@@ -258,13 +237,19 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
     return null;
   }
 
-  // ── Canvas dimensions — expand with node positions ────────────
-  // 2026-02-09 · Bumped minimums so the trajectory panel gets
-  // more physical real estate (width × height) — the user
-  // requested a bigger box, not more content.
-  const contentW = Math.max(1600, ...(nodes.map((n) => n.x + 260)));
+  // ── Canvas dimensions — dynamic (2026-02-09 · scalable canvas) ─
+  // Width grows linearly with the number of nodes so 5-node cases
+  // fit compactly while 100-node cases get a horizontally-scrolling
+  // strip.  Height is fixed at the full 14-lane matrix so ATT&CK
+  // coverage is always visible.
+  const NODE_STEP = 260;                                    // px between nodes
+  const contentW  = Math.max(
+    1400,                                                       // floor
+    ...(nodes.map((n) => n.x + NODE_STEP)),
+    (isCanonical ? nodes.length : 5) * NODE_STEP + 200,       // dynamic scale
+  );
   const contentH = isCanonical
-    ? Math.max(560, 80 + activeLanes.length * MITRE_LANE_HEIGHT + 40)
+    ? 80 + MITRE_LANES.length * MITRE_LANE_HEIGHT + 40        // full 14 lanes
     : 900;
 
   // ── Handlers ──────────────────────────────────────────────────
@@ -313,6 +298,7 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
       background: "linear-gradient(180deg, rgba(15,23,42,0.9), rgba(2,6,23,0.9))",
       border: "1px solid #1f2b3f", borderRadius: 12,
       padding: "16px 18px", marginBottom: 14,
+      position: "relative",              // anchor for minimap overlay
     }}>
       <div style={{ display: "flex", alignItems: "center",
                     justifyContent: "space-between", marginBottom: 10,
@@ -323,7 +309,7 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                         marginTop: 4, letterSpacing: 0.2 }}
                 data-testid="trajectory-header-title">
             {isCanonical
-              ? `MITRE ATT&CK · ${activeLanes.length} of 14 tactics observed`
+              ? `MITRE ATT&CK · ${activeLanes.filter((l) => l.active).length} of ${MITRE_LANES.length} tactics observed`
               : `Cyber Kill Chain × MITRE ATT&CK · ${LANES.length} swim lanes · drag nodes · pan background · use +/− to zoom`}
           </div>
         </div>
@@ -405,24 +391,34 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
           </defs>
 
           <g transform={`translate(${pan.x} ${pan.y})`}>
-            {/* Lane bands */}
-            {(isCanonical ? activeLanes : LANES).map((lane, i) => (
-              <g key={lane.id}>
-                <rect x={0} y={lane.y - 40}
-                      width={contentW}
-                      height={isCanonical ? MITRE_LANE_HEIGHT - 6 : 90}
-                      fill={i % 2 ? "rgba(148,163,184,0.03)"
-                                  : "rgba(148,163,184,0.06)"} />
-                <text x={16} y={lane.y}
-                      style={{ fontSize: 11,
-                               fill: isCanonical ? (MITRE_LANE_COLOR[lane.id] || "#94a3b8") : "#94a3b8",
-                               letterSpacing: "0.14em",
-                               textTransform: "uppercase",
-                               fontWeight: isCanonical ? 700 : 400 }}>
-                  {lane.label}
-                </text>
-              </g>
-            ))}
+            {/* Lane bands — inactive lanes render dimmed
+                (2026-02-09 · scalable-canvas redesign) */}
+            {(isCanonical ? activeLanes : LANES).map((lane, i) => {
+              const dimmed = isCanonical && lane.active === false;
+              const laneColor = isCanonical
+                ? (MITRE_LANE_COLOR[lane.id] || "#94a3b8")
+                : "#94a3b8";
+              return (
+                <g key={lane.id}
+                    data-testid={`trajectory-lane-${lane.id}`}
+                    style={{ opacity: dimmed ? 0.35 : 1 }}>
+                  <rect x={0} y={lane.y - 40}
+                        width={contentW}
+                        height={isCanonical ? MITRE_LANE_HEIGHT - 6 : 90}
+                        fill={dimmed ? "rgba(148,163,184,0.015)"
+                                     : (i % 2 ? "rgba(148,163,184,0.03)"
+                                             : "rgba(148,163,184,0.06)")} />
+                  <text x={16} y={lane.y}
+                        style={{ fontSize: 11,
+                                 fill: dimmed ? "#475569" : laneColor,
+                                 letterSpacing: "0.14em",
+                                 textTransform: "uppercase",
+                                 fontWeight: isCanonical ? 700 : 400 }}>
+                    {lane.label}{dimmed ? " · —" : ""}
+                  </text>
+                </g>
+              );
+            })}
 
             {/* Edges */}
             {edges.map((e) => (
@@ -457,8 +453,46 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                 : (n.critical    ? "#f87171"
                     : n.persistence ? "#fbbf24"
                     : phaseColor);
+              // ── Semantic zoom levels (2026-02-09) ─────────────
+              //   zoom < 0.5 → dot only  (matrix overview)
+              //   0.5..0.79 → title only (labels)
+              //   >= 0.8    → full node card (all metadata)
+              const zoomLevel = zoom < 0.5 ? "dot"
+                                  : zoom < 0.8 ? "label" : "full";
+              const cnt = n.command_count || 0;
+              const badge = cnt > 1 ? ` × ${cnt}` : "";
+              const displayTitle = (n.title.length > 24
+                                          ? n.title.slice(0, 22) + "…"
+                                          : n.title) + badge;
+
+              // Dot-only mode — matrix / mini-navigation view.
+              if (zoomLevel === "dot") {
+                return (
+                  <g key={n.id} data-testid={`trajectory-node-${n.id}`}
+                     data-zoom-level="dot"
+                     onMouseDown={(e) => onNodeMouseDown(e, n.id)}
+                     style={{
+                       cursor: "grab",
+                       opacity: (investigation.active && !investigation.match(n.raw)) ? 0.28 : 1,
+                     }}>
+                    <circle cx={n.x + 10} cy={n.y + 6} r={9}
+                            fill={dotColor}
+                            stroke={borderColor} strokeWidth={2} />
+                    {cnt > 1 && (
+                      <text x={n.x + 10} y={n.y + 9}
+                            textAnchor="middle"
+                            style={{ fontSize: 9, fontWeight: 800,
+                                     fill: "#0b1220", pointerEvents: "none" }}>
+                        {cnt}
+                      </text>
+                    )}
+                  </g>
+                );
+              }
+
               return (
               <g key={n.id} data-testid={`trajectory-node-${n.id}`}
+                 data-zoom-level={zoomLevel}
                  onMouseDown={(e) => onNodeMouseDown(e, n.id)}
                  style={{
                    cursor: "grab",
@@ -467,7 +501,9 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                  }}>
                 {/* Node card */}
                 <rect x={n.x - 4} y={n.y - 24}
-                      width={210} height={62} rx={6}
+                      width={210}
+                      height={zoomLevel === "label" ? 34 : 62}
+                      rx={6}
                       fill="rgba(15,23,42,0.9)"
                       stroke={borderColor}
                       strokeWidth={1.6} />
@@ -476,17 +512,21 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                         stroke="#0b1220" strokeWidth={2} />
                 <text x={n.x + 22} y={n.y - 8}
                       style={{ fontSize: 12, fontWeight: 700, fill: "#e2e8f0" }}>
-                  {n.title.length > 26 ? n.title.slice(0, 24) + "…" : n.title}
+                  {displayTitle}
                 </text>
-                <text x={n.x + 22} y={n.y + 4}
-                      style={{ fontSize: 9.5, fill: phaseColor,
-                               fontWeight: 700 }}>
-                  {isCanonical ? n.tactic : n.kill_chain}
-                </text>
-                <text x={n.x + 22} y={n.y + 16}
-                      style={{ fontSize: 9.5, fill: "#64748b" }}>
-                  {n.subtitle}{isCanonical ? "" : ` · ${n.time}`}
-                </text>
+                {zoomLevel === "full" && (
+                  <>
+                    <text x={n.x + 22} y={n.y + 4}
+                          style={{ fontSize: 9.5, fill: phaseColor,
+                                   fontWeight: 700 }}>
+                      {isCanonical ? n.tactic : n.kill_chain}
+                    </text>
+                    <text x={n.x + 22} y={n.y + 16}
+                          style={{ fontSize: 9.5, fill: "#64748b" }}>
+                      {n.subtitle}{isCanonical ? "" : ` · ${n.time}`}
+                    </text>
+                  </>
+                )}
               </g>
               );
             })}
@@ -501,10 +541,57 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
       )}
       </div>
 
+      {/* ── Mini-map (2026-02-09 · scalable-canvas redesign) ─────
+          Bird's-eye overview of the trajectory canvas.  A 240×140
+          strip anchored to the panel's bottom-right corner shows
+          every node's absolute position within the full ATT&CK
+          matrix.  Useful when zooming or panning across 100+ nodes. */}
+      {isCanonical && nodes.length > 0 && (
+        <div data-testid="trajectory-minimap"
+             style={{
+               position: "absolute", right: 24, bottom: 40,
+               width: 240, height: 140,
+               background: "rgba(2,6,23,0.85)",
+               border: "1px solid #334467",
+               borderRadius: 6,
+               overflow: "hidden",
+               boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+               pointerEvents: "none",
+             }}>
+          <svg width={240} height={140}
+               viewBox={`0 0 ${contentW} ${contentH}`}
+               preserveAspectRatio="none">
+            {/* lane hints */}
+            {activeLanes.map((lane) => (
+              <rect key={lane.id}
+                    x={0} y={lane.y - 40}
+                    width={contentW}
+                    height={MITRE_LANE_HEIGHT - 6}
+                    fill={lane.active
+                              ? (MITRE_LANE_COLOR[lane.id] || "#94a3b8")
+                              : "rgba(148,163,184,0.05)"}
+                    fillOpacity={lane.active ? 0.15 : 0.5} />
+            ))}
+            {/* dots for every node */}
+            {nodes.map((n) => (
+              <circle key={n.id}
+                      cx={n.x + 10} cy={n.y + 6} r={16}
+                      fill={MITRE_LANE_COLOR[n.tactic] || "#67e8f9"} />
+            ))}
+          </svg>
+          <div style={{
+                 position: "absolute", top: 4, left: 6,
+                 fontSize: 9, letterSpacing: "0.14em",
+                 textTransform: "uppercase", color: "#94a3b8",
+                 pointerEvents: "none",
+               }}>overview · {nodes.length} nodes</div>
+        </div>
+      )}
+
       <div style={{ marginTop: 8, fontSize: 11, color: "#64748b",
                     fontStyle: "italic" }}>
         Deterministic trajectory. Drag nodes · click-drag the background to pan ·
-        use +/− buttons to zoom · RESET restores the auto-layout.
+        use +/− buttons to zoom · zoom out for the ATT&CK-matrix overview · RESET restores the auto-layout.
       </div>
     </section>
   );
@@ -586,8 +673,11 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
   // the analyst's highest-signal view.
   const MAX_BEHAVIORS = 60;
   const MAX_NODES     = 200;
+  // 2026-02-09 · Scalable-canvas redesign · only PLACE nodes in
+  // lanes that carry behaviors.  Inactive lanes still render as
+  // greyed-out swim-lane backdrops for coverage-gap visibility.
   const laneY = {};
-  for (const l of activeLanes) if (l && l.id) laneY[l.id] = l.y;
+  for (const l of activeLanes) if (l && l.id && l.active !== false) laneY[l.id] = l.y;
   const ordered = [...behaviors]
     .filter((b) => b && typeof b === "object")
     .sort((a, b) => ((a.order ?? 0) - (b.order ?? 0)))
@@ -638,6 +728,7 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
                              ? perTactic[tactic]
                              : flatTechniques;
       const laneSubtitle = laneTechs[0] || b.category || "";
+      const cmdCount = (b.commands || b.command_count || 0);
       nodes.push({
         id:          `${behaviorKey}--${_slug(tactic)}`,
         behaviorKey,               // stable link across sibling nodes
@@ -650,6 +741,10 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
         tactic,
         title,
         subtitle:    laneSubtitle,
+        // 2026-02-09 · scalable canvas — count badge on clustered
+        // behaviors so `Registry modification × 4` shows at a glance.
+        command_count: (typeof cmdCount === "number" ? cmdCount
+                            : (Array.isArray(cmdCount) ? cmdCount.length : 0)),
         kill_chain:  (b.kill_chain && b.kill_chain[0]) || "",
         severity:    b.severity || "medium",
         confidence:  typeof b.confidence === "number" ? b.confidence
