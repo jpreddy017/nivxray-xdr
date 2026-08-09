@@ -1,3 +1,35 @@
+## 🟢 2026-02-09 · Micro-batch close · classifier gap regression locks
+
+Per final sprint directive, added regression tests to lock the three classifier gap closures shipped earlier this sprint:
+
+* `net use \\host\c$` → `SMB admin share access` (T1021.002)
+* `cmd /c wmic … call getowner` → `WMI process discovery` (T1057)
+* `cmd /c powershell -EncodedCommand …` → `PowerShell encoded command` (T1059.001)
+
+**`tests/test_classifier_gap_closures.py`** (7 tests) locks:
+* label stability per gap
+* BKB canonical mapping presence per gap
+* "Command execution" fallback still reserved for true unknowns (over-fitting guard)
+
+### Remaining classifier work (handed to next sprint)
+* `cmd /c schtasks /s <host>` peel-order edge case — needs `head_token` extractor rework in `_extract_commands`; currently caught by the `generic_fallback ≤ 4` ceiling in the Quality Dashboard CI gate.
+
+### Aggregate test status (final)
+- **312 / 312 tests pass** — R28.5 milestone locked · repository releasable
+- Preview environment active with `NVX_VEEE_ENABLED=1`, `NVX_BKB_CANONICAL=1`, `NVX_MITRE_DIAGNOSTIC=1`
+- Production defaults untouched
+
+### Sprint frozen · next sprint = validation
+Per user directive, next work is a **validation sprint** (not feature work):
+* Replay Talos / Securelist / Mandiant / MS / Huntress / Elastic articles
+* Measure: command recovery · behavior recovery · MITRE coverage · generic_fallback rate · recommendation coverage · OCR quality
+* Feed real-world results back into BKB expansion + classifier polish
+* R28.6 Capability Contracts pivot begins after validation completes
+
+---
+
+
+
 ## 🟢 2026-02-09 · Sprint close · R28.5 complete · foundations locked
 
 Closed the three partial items and left the repository releasable ahead of the R28.6 Capability-Contracts pivot.
