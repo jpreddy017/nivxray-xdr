@@ -336,6 +336,12 @@ from routers.artifacts import router as artifacts_router
 # Router already carries prefix "/api/artifacts" so include at app root.
 app.include_router(artifacts_router)
 
+# ▲ Static docs router — serves the Current-State Audit HTML/MD via
+# preview URL so the account owner can view / print / download it
+# without needing a separate file server.  Read-only artifacts.
+from routers.static_docs import router as static_docs_router
+api.include_router(static_docs_router)
+
 # Semantic Lab (Stage 3 engineering surface) — Feb 2026.
 from routers.semantic_lab import router as semantic_lab_router
 api.include_router(semantic_lab_router)
