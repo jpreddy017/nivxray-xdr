@@ -12359,3 +12359,24 @@ Enable in production only after the full P0.15C sprint lands
 - Recovered: Commands / PowerShell / Registry / URLs / Hashes / IOCs
 - Quality: Average OCR confidence
 - Processing Time · Cache Hits · Cache Misses
+
+---
+
+## 2026-02-09 · P0.15C-2 · Acquisition Summary Panel — SHIPPED
+
+Full details in `/app/memory/CHANGELOG.md` (2026-02-09 P0.15C-2).
+
+**Contract-mandated §2.2 sections all live**: HTML · Images ·
+Recovered · Quality (with Amendment-5 operational KPIs) ·
+Performance.  Backend attaches `acquisition_summary` on
+case-read; frontend renders it read-only in
+`AcquisitionSummary.jsx`.  Tolerant of missing data — empty
+`veee_records` renders zeros, never surfaces an error.
+
+**Tests:** 6 new · **235 passed / 8 skipped** total (was 228/8).
+
+**Next slice · P0.15C-3 · Jump-to-Source overlay**
+- Click OCR-derived command → open source image → highlight
+  `provenance.bounding_box`
+- Consumes existing provenance; no OCR / classifier / semantic
+  changes

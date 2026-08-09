@@ -4202,3 +4202,58 @@ The verified statement:
 
 Contract remains FINAL.  Amendment count: 5 (all additive
 clarifications · no architectural changes).
+
+## 2026-02-09 · P0.15C-2 · Acquisition Summary Panel · SHIPPED
+
+**Backend** — pure function `compute_summary()` in
+`services/veee/summary.py` (stage-isolated · never raises · empty
+inputs → all-zero counters).  Attached via case-read hook in
+`routers/cases.py` as an additive `acquisition_summary` field.
+Zero new endpoints, zero mutations to existing case payload
+sections.
+
+**Frontend** — new additive React component
+`frontend/src/components/investigation/AcquisitionSummary.jsx`
+(read-only display · consumes only `case.acquisition_summary`
+· tolerates null · renders a "VEEE ON/OFF" badge and five
+display sections exactly per contract §2.2).
+
+**Release-gate invariants — all green:**
+  §3.1 Flag OFF byte-identity     ✓  (existing structured_blocks
+                                         + veee_records untouched)
+  §3.2 Additivity                 ✓  (new field only; nothing removed)
+  §3.3 Complete provenance         ✓  (summary reads provenance
+                                         but never modifies)
+  §3.4 Zero Workspace regressions ✓  (235 passed · 8 skipped ·
+                                         was 228/8 at P0.15C-1 close)
+  §3.5 Deterministic acquisition  ✓  (summary is a pure function
+                                         of stable inputs)
+
+**§2.2 sections shipped (contract-mandated):**
+  · HTML       — paragraphs / tables / code_blocks
+  · Images     — found / ocr_candidates / processed / skipped
+  · Recovered  — commands / powershell / registry / urls /
+                  hashes / iocs
+  · Quality    — average_ocr_confidence · ocr_commands_extracted
+                  · canonicalized_successfully · classification_success_rate
+  · Performance — processing_time_ms · cache_hits · cache_misses
+
+Live smoke test on the saved "Mapping" case confirms the field
+attaches with `veee_enabled: false` (as expected on this pod
+with the flag off) and correct schema shape.
+
+**Files touched (whitelist honored):**
+  · services/veee/summary.py                         (new · 148 lines)
+  · routers/cases.py                                 (additive hook · +21 lines)
+  · frontend/src/components/investigation/AcquisitionSummary.jsx (new)
+  · tests/test_p015c2_acquisition_summary.py         (new · 6 tests)
+  · memory/CHANGELOG.md · memory/PRD.md              (this entry)
+
+**Not touched:** acquisition orchestrator · behavior engine ·
+MITRE projection · recommendation engine · Workspace UI
+integration point · saved-case format · existing routes.
+Contract §5 out-of-scope discipline held.
+
+**Next slice · P0.15C-3** — Jump-to-Source overlay
+(click command → open image → highlight
+`provenance.bounding_box`).  Bbox data already emitted by VEEE.

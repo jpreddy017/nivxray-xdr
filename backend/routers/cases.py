@@ -352,6 +352,29 @@ async def get_case(case_id: str, user=Depends(get_current_user)):
                     enrich_clusters_in_place(ice_blk["behavior_clusters"])
         except Exception:
             pass
+
+        # 2026-02-09 · P0.15C-2 · Acquisition Summary attachment.
+        # Read-only, tolerant of missing data.  Empty veee_records
+        # (flag off / no OCR candidates) yields an all-zero
+        # summary rather than surfacing an error to the UI.
+        try:
+            from services.veee.summary import compute_summary
+            ssot_root = (doc.get("ssot") or {}).get("investigation_object") or (doc.get("ssot") or {})
+            acquired  = ssot_root.get("acquired_document") if isinstance(ssot_root, dict) else None
+            acquired  = acquired or {}
+            structured_blocks = acquired.get("structured_blocks") or []
+            veee_records      = acquired.get("veee_records") or []
+            doc["acquisition_summary"] = compute_summary(
+                structured_blocks    = structured_blocks,
+                veee_records         = veee_records,
+                html_text            = acquired.get("final_text") or acquired.get("text") or "",
+                images_seen_in_html  = len(acquired.get("image_urls") or [])
+                                          if isinstance(acquired.get("image_urls"), list)
+                                          else None,
+            )
+        except Exception:
+            # Never break case-read on a display-only computation.
+            doc["acquisition_summary"] = None
     except Exception:
         # Read-side failure must NEVER 500 — fall back to legacy shape.
         pass
