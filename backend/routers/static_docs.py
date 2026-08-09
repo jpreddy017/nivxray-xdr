@@ -90,3 +90,23 @@ def adr_004_md():
         raise HTTPException(status_code=404, detail="ADR-004 markdown not built.")
     with open(p, "r", encoding="utf-8") as fh:
         return PlainTextResponse(fh.read(), media_type="text/markdown; charset=utf-8")
+
+
+@router.get("/p0-p1-baseline")
+@router.get("/p0-p1-baseline.html")
+def p0p1_html():
+    """P0/P1 Bug Baseline — required Step 0 before ADR-004 migration."""
+    p = os.path.join(_DOCS_DIR, "p0_p1_bug_baseline.html")
+    if not os.path.exists(p):
+        raise HTTPException(status_code=404, detail="Baseline HTML not built.")
+    return FileResponse(p, media_type="text/html; charset=utf-8")
+
+
+@router.get("/p0-p1-baseline.md")
+def p0p1_md():
+    """Raw markdown of the P0/P1 bug baseline."""
+    p = os.path.join(_DOCS_DIR, "p0_p1_bug_baseline.md")
+    if not os.path.exists(p):
+        raise HTTPException(status_code=404, detail="Baseline markdown not built.")
+    with open(p, "r", encoding="utf-8") as fh:
+        return PlainTextResponse(fh.read(), media_type="text/markdown; charset=utf-8")

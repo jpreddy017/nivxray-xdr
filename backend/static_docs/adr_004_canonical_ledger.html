@@ -1,14 +1,12 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<title>ADR-004 · NivXRay Canonical Implementation Ledger</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>ADR-004 · Canonical Implementation Ledger</title>
 <style>
   @page { size: A4; margin: 22mm 18mm; }
   html,body { margin:0; padding:0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    color: #0f172a; background: #ffffff;
-    line-height: 1.55; font-size: 13.5px;
-    max-width: 1000px; margin: 40px auto; padding: 0 32px 80px;
+    color: #0f172a; line-height: 1.55; font-size: 13.5px;
+    max-width: 1000px; margin: 40px auto; padding: 0 32px 80px; background:#fff;
   }
   h1 { font-size: 26px; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-top: 32px; }
   h2 { font-size: 19px; color: #1e293b; margin-top: 28px; border-left: 4px solid #dc2626; padding-left: 12px; }
@@ -30,18 +28,19 @@
 </style></head><body>
 <div class="cover">
   <div class="title">ADR-004 · Canonical Implementation Ledger</div>
-  <div class="sub">Freeze policy · 2026-08-09 · Awaiting owner sign-off</div>
+  <div class="sub">ACCEPTED WITH AMENDMENTS · 2026-08-09</div>
 </div>
 <div class="print-hint">
-  <strong>Save as PDF:</strong> Press <code>⌘ Cmd + P</code> (Mac) or <code>Ctrl + P</code> (Windows) → Destination: <em>Save as PDF</em> → Save.
+  <strong>Save as PDF:</strong> <code>⌘ Cmd + P</code> or <code>Ctrl + P</code> → Save as PDF.
 </div>
 <h1 id="adr-004-nivxray-canonical-implementation-ledger">ADR-004 · NivXRay Canonical Implementation Ledger</h1>
 <ul>
-<li><strong>Status</strong>: PROPOSED — awaiting owner sign-off</li>
+<li><strong>Status</strong>: <strong>ACCEPTED WITH AMENDMENTS</strong> (owner sign-off 2026-08-09)</li>
 <li><strong>Date</strong>: 2026-08-09</li>
 <li><strong>Supersedes</strong>: Original 360° audit <code>2026-02-09</code> (rejected — see <code>CURRENT_STATE_AUDIT_RECONCILIATION.md</code>)</li>
 <li><strong>Author</strong>: E1 (evidence-driven, no code changes in this ADR)</li>
 <li><strong>Applies to</strong>: git HEAD <code>52007cbd</code></li>
+<li><strong>Amendments applied</strong>: A1 (freeze scope) · A2 (Provenance provisional) · A3 (BKB/IKB explicit decision required)</li>
 </ul>
 <hr />
 <h2 id="context">Context</h2>
@@ -65,7 +64,7 @@
 </ol>
 <hr />
 <h2 id="ledger">Ledger</h2>
-<h3 id="1-verdict-engine">1 · Verdict Engine</h3>
+<h3 id="1-verdict-engine-verified-2026-08-09-situation-worse-than-reconciliation">1 · Verdict Engine (verified 2026-08-09 — situation worse than reconciliation)</h3>
 <table>
 <thead>
 <tr>
@@ -75,12 +74,12 @@
 </thead>
 <tbody>
 <tr>
-<td>CANONICAL implementation</td>
+<td>CANONICAL (target)</td>
 <td><code>backend/v2/verdict/</code> (engine.py · signals.py · weights.py · correlation.py · progressions.py · profiles.py)</td>
 </tr>
 <tr>
 <td>CANONICAL API</td>
-<td><code>/api/v2/verdict/*</code> — verify router mount</td>
+<td><strong>NOT WIRED TODAY</strong> — no router in <code>backend/routers/*.py</code> imports <code>v2/verdict/engine</code>. Wiring is a migration prerequisite.</td>
 </tr>
 <tr>
 <td>CANONICAL data model</td>
@@ -92,19 +91,23 @@
 </tr>
 <tr>
 <td>CANONICAL UI consumer</td>
-<td>Workspace verdict card should read from v3 endpoint</td>
+<td>Workspace verdict card — currently reads from legacy path, NOT v3</td>
 </tr>
 <tr>
-<td>LEGACY</td>
-<td><code>services/uaie/orchestrator.py</code> (verdict emission logic) — <strong>FREEZE</strong></td>
+<td>LEGACY #1</td>
+<td><code>services/uaie/orchestrator.py</code> — <strong>FREEZE</strong> (audit finding)</td>
+</tr>
+<tr>
+<td>LEGACY #2</td>
+<td><code>nivxforge.investigation.verdict_engine::refresh_verdict</code> — <strong>FREEZE</strong>. Currently invoked from <code>routers/auto_investigate.py:760,776</code> and <code>routers/ops.py:2387,2412</code>. <strong>A THIRD verdict path missed by the reconciliation.</strong></td>
 </tr>
 <tr>
 <td><strong>Action</strong></td>
-<td>Freeze <code>orchestrator.py</code> verdict code. Route WorkspacePage verdict fetch to v3 API. Prove parity via corpus replay. Then delete legacy verdict emission from orchestrator.</td>
+<td>(1) Confirm v3 handler wiring — add a router mount. (2) Freeze both legacy paths. (3) Route WorkspacePage verdict fetch to v3 API. (4) Parity test on vendor corpus. (5) Delete <code>refresh_verdict</code> calls from <code>auto_investigate.py</code> and <code>ops.py</code>.</td>
 </tr>
 <tr>
 <td>Rationale</td>
-<td>v3 has separated signals/weights/correlation into named modules with tests. The legacy path is coupled inside a 1000+ line orchestrator.</td>
+<td>Three verdict engines is one more than the reconciliation reported. The migration is more urgent than previously stated.</td>
 </tr>
 </tbody>
 </table>
@@ -190,7 +193,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="4-provenance">4 · Provenance</h3>
+<h3 id="4-provenance-amendment-a2-provisional">4 · Provenance (Amendment A2 · PROVISIONAL)</h3>
 <table>
 <thead>
 <tr>
@@ -200,8 +203,8 @@
 </thead>
 <tbody>
 <tr>
-<td>CANONICAL</td>
-<td><code>backend/services/uaie/provenance.py</code> (ledger-oriented; ties to <code>uaie/ledger.py</code>)</td>
+<td>CANONICAL (provisional)</td>
+<td><code>backend/services/uaie/provenance.py</code> (+ <code>uaie/ledger.py</code>)</td>
 </tr>
 <tr>
 <td>CANONICAL API</td>
@@ -213,15 +216,23 @@
 </tr>
 <tr>
 <td>LEGACY</td>
-<td><code>services/confidence_provenance.py</code>, <code>services/canonical_evidence_recovery.py</code> — <strong>FREEZE</strong>, then decide: MIGRATE utilities into <code>uaie/provenance</code> OR keep as adjunct modules with clear "does X, provenance owned elsewhere" comments</td>
+<td><code>services/confidence_provenance.py</code>, <code>services/canonical_evidence_recovery.py</code> — <strong>FREEZE</strong>, boundary review pending</td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td>🟡 <strong>PROVISIONAL</strong> — pending architecture-boundary confirmation</td>
+</tr>
+<tr>
+<td><strong>Owner question</strong></td>
+<td>Why should canonical provenance live under a legacy/frozen <code>services/uaie/</code> namespace instead of migrating behind the canonical investigation/engine architecture (e.g. <code>backend/v2/investigation/provenance.py</code> or <code>backend/engine/provenance.py</code>)? Provenance is fundamental — the long-term chain <code>Input → Artifact → Derived Artifact → Evidence → Behavior → ATT&amp;CK → Verdict → Attack Story</code> must be traceable end-to-end. Do not permanently anchor it in a legacy namespace by inertia.</td>
 </tr>
 <tr>
 <td><strong>Action</strong></td>
-<td>Confidence provenance may remain as a separate concern (confidence ≠ evidence) IF an ADR-004a clarifies the boundary. Otherwise merge.</td>
+<td>Before promoting to permanent canonical: (a) inspect <code>uaie/provenance.py</code> for coupling to other frozen <code>uaie/</code> modules; (b) decide MOVE (to <code>v2/investigation/</code> or <code>engine/</code>) vs KEEP; (c) update this row. Until then, no downstream module may assume the permanent location.</td>
 </tr>
 <tr>
 <td>Rationale</td>
-<td>Provenance is high-risk to split; every claim must trace back through one ledger.</td>
+<td>Provenance is high-risk to split; every claim must trace back through one ledger. The current location may or may not be the right permanent home.</td>
 </tr>
 </tbody>
 </table>
@@ -307,7 +318,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="7-knowledge-base">7 · Knowledge Base</h3>
+<h3 id="7-knowledge-base-amendment-a3-explicit-decision-required">7 · Knowledge Base (Amendment A3 · EXPLICIT DECISION REQUIRED)</h3>
 <table>
 <thead>
 <tr>
@@ -317,7 +328,7 @@
 </thead>
 <tbody>
 <tr>
-<td>CANONICAL</td>
+<td>CANONICAL (provisional)</td>
 <td><code>backend/services/knowledge/behavior_registry.py</code> (BKB · 108 curated entries · 532 LOC)</td>
 </tr>
 <tr>
@@ -334,19 +345,27 @@
 </tr>
 <tr>
 <td>CANONICAL UI consumer</td>
-<td>Trajectory canvas + BKB admin UI (to be built)</td>
+<td>Trajectory canvas + future BKB admin UI</td>
 </tr>
 <tr>
-<td>LEGACY / PARALLEL</td>
-<td><code>backend/v2/ikb/entries.py</code> — <strong>INVESTIGATE first</strong></td>
+<td>PARALLEL</td>
+<td><code>backend/v2/ikb/entries.py</code> — status <strong>TBD before ADR-004 becomes final</strong></td>
 </tr>
 <tr>
-<td><strong>Action</strong></td>
-<td>Owner decision needed: is IKB a superset (candidate replacement) or an unrelated concept (Investigation Knowledge Base vs Behavior Knowledge Base)? If superset → BKB migrates to IKB shape. If different concern → rename IKB to disambiguate and declare its own charter.</td>
+<td><strong>Status</strong></td>
+<td>🟡 <strong>EXPLICIT OWNER DECISION REQUIRED</strong> — no ambiguity permitted</td>
+</tr>
+<tr>
+<td><strong>The three options</strong></td>
+<td>(a) <strong>BKB = authoritative behavior source, IKB = scoped extension</strong> (e.g. IKB covers cases/investigations, BKB covers behaviors). Both live, both have charters, boundary written. (b) <strong>IKB supersedes BKB</strong> — BKB migrates its 108 entries into IKB shape, BKB module deprecated. (c) <strong>Merge into one canonical knowledge authority</strong> with a single name and single data shape.</td>
+</tr>
+<tr>
+<td><strong>Prerequisite action</strong></td>
+<td>Inspect <code>backend/v2/ikb/entries.py</code> to determine what IKB actually contains and how it structurally differs from BKB. Then owner picks (a), (b), or (c). No permanent ambiguity permitted.</td>
 </tr>
 <tr>
 <td>Rationale</td>
-<td>BKB is a strategic asset (owner has stated); it must not be diluted by a competing knowledge base with unclear scope.</td>
+<td>BKB is a strategic asset (owner-stated); it must not be diluted by a competing knowledge base with unclear scope. Six months from now we cannot have "BKB says X · IKB says Y · Planner uses BKB · Verdict uses IKB · Attack Story uses both." That is exactly the pattern this ADR exists to eliminate.</td>
 </tr>
 </tbody>
 </table>
@@ -587,27 +606,79 @@
 - <code>v2/semantic/ps_storyline.py</code> (attack-story path)
 - All 5 <code>engine/golden_corpus*</code> legacy files (except <code>golden_corpus_taxonomy.py</code>)
 - Any new <code>memory/*.md</code> file (89 exist; curate first per audit §22)</p>
-<h2 id="freeze-scope">Freeze scope</h2>
-<p>Freeze means:
-- ❌ No new features
-- ❌ No refactors
-- ❌ No bug fixes (unless a P0 security issue and no canonical alternative exists yet)
-- ✅ Read-only inspection for parity testing is fine
-- ✅ Extracting reusable fixtures into the canonical module is fine (with a git note)</p>
+<h2 id="freeze-scope-amendment-a1-2026-08-09">Freeze scope (Amendment A1 · 2026-08-09)</h2>
+<p><strong>Freeze prohibits architectural expansion. Freeze does NOT prohibit correctness work.</strong></p>
+<p>Explicitly ALLOWED during the freeze:
+- ✅ <strong>P0/P1 bug fixes</strong> on any module (canonical or legacy)
+- ✅ <strong>Security fixes</strong> (SSRF, injection, auth, etc.)
+- ✅ <strong>Crash/freeze/hang fixes</strong> (browser or backend)
+- ✅ <strong>Correctness fixes</strong> for verdicts, classifications, IOC extraction, MITRE mappings
+- ✅ <strong>Provenance-loss fixes</strong> — never let evidence drop invisibly
+- ✅ <strong>Regression tests</strong> and <strong>parity harnesses</strong> (both canonical and legacy)
+- ✅ <strong>Error-handling hardening</strong> on user-facing paths
+- ✅ <strong>Workspace ↔ X-Lab leakage fixes</strong> (state or persistence spillage)
+- ✅ <strong>Extracting reusable fixtures / helpers</strong> into the canonical module (with a git note)
+- ✅ <strong>Read-only inspection</strong> for parity testing</p>
+<p>Explicitly PROHIBITED during the freeze:
+- ❌ New competing implementations of listed capabilities
+- ❌ New product features / capabilities
+- ❌ New decode endpoints, new planners, new correlation engines
+- ❌ New <code>memory/*.md</code> documents until curation is done
+- ❌ Refactors of legacy modules "just to clean them up" (they will be deleted)</p>
+<p><strong>Principle</strong>: FREEZE = freeze architectural expansion, NOT freeze defect correction.</p>
 <hr />
-<h2 id="verification-steps-required-before-this-adr-becomes-accepted">Verification steps required BEFORE this ADR becomes ACCEPTED</h2>
-<p>Each row marked "Verify" above needs a 5-minute grep check by any agent or human. Specifically:</p>
-<ol>
-<li>Which router prefix owns <code>v2/verdict/engine</code>? (Grep <code>include_router</code> in <code>server.py</code>.)</li>
-<li>Does <code>WorkspacePage.jsx::autoInvestigate</code> call <code>v2/investigation/pipeline</code> today, or the legacy chain endpoint?</li>
-<li>Are there tests under <code>tests/</code> that hit <code>v2/investigation/attack_story.py</code> directly?</li>
-<li>Does the Trajectory canvas project from <code>engine/evidence_graph</code> OR from <code>services/ice/correlate</code> (BKB projection)?</li>
-<li>What is the actual <code>POST /api/decode/chain</code> handler chain — how deep does it go into which module tree?</li>
-</ol>
-<p>These 5 questions determine whether the ADR is ACCEPTED as-is or needs revision. Answering them takes ~30 minutes total.</p>
+<h2 id="verification-findings-2026-08-09-5-question-grep-pass">Verification Findings (2026-08-09 · 5-question grep pass)</h2>
+<p>The 30-minute verification greps required by the original "PROPOSED" version have been executed. Findings:</p>
+<table>
+<thead>
+<tr>
+<th>Q</th>
+<th>Question</th>
+<th>Answer</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Which router mounts <code>v2/verdict/engine</code>?</td>
+<td><strong>NONE</strong> — no router imports it. But <code>nivxforge/investigation/verdict_engine.py::refresh_verdict</code> is called from <code>auto_investigate.py</code> and <code>ops.py</code>.</td>
+<td>ADR-004 §1 updated: <strong>3 verdict engines coexist</strong>, not 2.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Does <code>WorkspacePage.autoInvestigate()</code> call <code>v2/investigation/pipeline</code>?</td>
+<td><strong>NO</strong> — WorkspacePage calls <code>/api/decode/*</code> endpoints (chain, smart) and <code>/api/v2/analyze/report</code> for report export only. The canonical v2 pipeline is not on the workspace path.</td>
+<td>Migration step 3 becomes higher-risk; explicit wiring PR needed.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Are there tests for <code>v2/investigation/attack_story</code>?</td>
+<td><strong>YES</strong> — <code>tests/investigation/test_narrative_contract.py</code> + parity golden corpus.</td>
+<td>Canonical pick §2 is safe.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Does the Trajectory canvas use <code>engine/evidence_graph</code> or <code>ice/correlate</code>?</td>
+<td><strong><code>services/ice/correlate::enrich_clusters_in_place</code></strong> (invoked from <code>routers/cases.py:343</code>). This is the BKB projection path, not the canonical evidence graph.</td>
+<td>Migration step 4 (evidence graph canonicalization) requires re-plumbing Trajectory data source. Higher effort than estimated.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>What handles <code>POST /api/decode/chain</code>?</td>
+<td><code>backend/routers/chain.py</code> — its own router with 4 endpoints (<code>/decode/chain</code>, <code>/decode/chain/narrative</code>, <code>/decode/chain/export</code>, <code>/decode/chain/split</code>). Independent of <code>v2/investigation/pipeline</code>.</td>
+<td>Confirms <code>chain.py</code> is legacy; migration step 3 must add the v2 pipeline endpoint the workspace can call.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Consolidated implication</strong>: The situation is materially worse than the reconciliation indicated. The workspace UI does NOT consume any of the v2/canonical modules today — it consumes services/decode/chain + legacy orchestrator/nivxforge verdict paths. Migration is therefore not "swap in-place"; it is <strong>wire up + prove parity + swap</strong>. This does not change the direction, but it does change the effort estimate (add ~1-2 weeks).</p>
 <hr />
-<h2 id="migration-order-once-accepted">Migration Order (once ACCEPTED)</h2>
+<h2 id="migration-order-once-verification-greps-complete">Migration Order (once verification greps complete)</h2>
 <p>Follow strictly, no reordering:</p>
+<p><strong>0. P0/P1 Bug Hunt + Baseline</strong> <em>(NEW · owner amendment · 2026-08-09)</em> — a short controlled pass BEFORE any migration begins. Produce:
+   - Current-HEAD P0/P1 defect inventory (crashes, correctness bugs, security issues, provenance losses)
+   - Regression tests locking known-good behavior on the vendor corpus
+   - <strong>Rationale</strong>: if we migrate Verdict while unknown correctness bugs exist, we can't tell whether the migration fixed / preserved / introduced them. Establish a known-good behavioral baseline first. See <code>P0_P1_BUG_BASELINE.md</code>.</p>
 <ol>
 <li><strong>Verdict Engine v2 becomes canonical</strong> — route WorkspacePage verdict fetch to v3 API. Parity test on vendor corpus. Delete legacy verdict emission.</li>
 <li><strong>Correlation Reasoning Engine (CRE) becomes canonical</strong> — freeze the other 4. Migrate callers.</li>
@@ -617,10 +688,10 @@
 <li><strong>Report Export UI wiring</strong> — expose PDF/STIX/explain via <code>/api/v2/report</code>.</li>
 <li><strong>Golden Corpus consolidation</strong> — one runner, fixtures unified.</li>
 <li><strong>Explainability UI panel</strong> — wire existing module to workspace.</li>
-<li><strong>BKB vs IKB decision</strong> — one KB or two with clear separation.</li>
+<li><strong>BKB vs IKB decision</strong> — resolve Amendment A3.</li>
 <li><strong>THEN and only then</strong> — WorkspacePage.jsx split into 8-10 files (this is the biggest change and must ride on a stable API surface, not a moving one).</li>
 </ol>
-<p>Estimated: 6-10 weeks of focused consolidation work. No new features during this window.</p>
+<p>Estimated: 6-10 weeks of focused consolidation work, plus ~3-5 days for Step 0. No new features during this window; bug fixes ALLOWED per Amendment A1.</p>
 <hr />
 <h2 id="what-we-will-not-do-until-migration-is-complete">What we will NOT do until migration is complete</h2>
 <ul>
