@@ -294,6 +294,18 @@ def classify(text: str) -> Tuple[str, str, float, List[str]]:
         reasoning.append("Nested shell invocation detected (host + `-c`/`/c` + quoted payload).")
         return "nested_shell_chain", "Nested Shell Chain (LOLBAS host + inline payload)", 0.9, reasoning
 
+    # ── URL only ──────────────────────────────────────────────────
+    # BUG-FIX 2026-02-09: this check MUST run before the PowerShell-naked
+    # regex.  A bare URL whose path happens to contain the substring
+    # "powershell" (e.g. a Sophos blog post URL ending in
+    # "…/decoding-malicious-powershell") was being misclassified as
+    # `powershell_naked` and routed to the PowerShell AST engine instead
+    # of the URL acquisition pipeline.  URLs are unambiguous; short-circuit
+    # every text-content heuristic when the entire input is a single URL.
+    if re.fullmatch(r"\s*https?://\S+\s*", src):
+        reasoning.append("Input is a bare URL.")
+        return "url_only", "URL", 0.98, reasoning
+
     # ── PowerShell (naked) ────────────────────────────────────────
     if re.search(r"(?i)\bpowershell(?:\.exe)?\b|\bpwsh(?:\.exe)?\b", src):
         reasoning.append("PowerShell interpreter reference detected.")
@@ -312,11 +324,6 @@ def classify(text: str) -> Tuple[str, str, float, List[str]]:
             f"Multiple command steps detected ({hard_sep} explicit separators, {len(lines)} lines)."
         )
         return "command_chain", "Multi-command Investigation", 0.85, reasoning
-
-    # ── URL only ──────────────────────────────────────────────────
-    if re.fullmatch(r"\s*https?://\S+\s*", src):
-        reasoning.append("Input is a bare URL.")
-        return "url_only", "URL", 0.98, reasoning
 
     # ── Base64 blob (bare) ────────────────────────────────────────
     if _looks_like_base64(src.strip(), min_len=40):

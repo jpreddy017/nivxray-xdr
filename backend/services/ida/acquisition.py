@@ -513,15 +513,38 @@ def _playwright_render(url: str, timeout_ms: int = 20_000) -> str:
                 args=["--no-sandbox", "--disable-dev-shm-usage"],
             )
             try:
+                # 2026-02-09 · Present as a real browser to CDN-fronted
+                # sites (Imperva/Incapsula/Cloudflare) that reject
+                # obvious bot User-Agent strings.  Using the NivXRay
+                # bot UA here caused every Sophos-community-style
+                # article to fail acquisition.
                 ctx = browser.new_context(
-                    user_agent=_USER_AGENT,
+                    user_agent=(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
                     viewport={"width": 1440, "height": 900},
                     java_script_enabled=True,
                     ignore_https_errors=True,
+                    locale="en-US",
                 )
                 page = ctx.new_page()
                 page.set_default_timeout(timeout_ms)
-                page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+                # `domcontentloaded` returns as soon as the HTML parser
+                # has finished — `networkidle` can hang indefinitely on
+                # pages that keep analytics beacons open.
+                page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+                # Give the page a moment to hydrate before we snapshot
+                # the DOM (article content typically arrives within 2s).
+                try:
+                    page.wait_for_selector(
+                        "article, main, .cs-topic, .cs-blog-content, "
+                        ".article, .post, .entry-content, .blog-content",
+                        timeout=8000,
+                    )
+                except Exception:
+                    pass
                 html = page.content()
                 _playwright_probe["ok"] = True
                 return html or ""
@@ -532,6 +555,63 @@ def _playwright_render(url: str, timeout_ms: int = 20_000) -> str:
         _playwright_probe["ok"] = False
         _playwright_probe["reason"] = f"{type(e).__name__}: {e!s}"
         return ""
+
+
+def _looks_like_antibot_wall(html: str) -> bool:
+    """Detect the tiny HTML challenge pages served by Imperva/Incapsula,
+    Cloudflare, Akamai, PerimeterX etc. — the acquisition cascade
+    should treat these as "no article" and fall through to Wayback."""
+    if not html:
+        return True
+    if len(html) >= 8000:
+        return False
+    low = html.lower()
+    markers = (
+        "noindex, nofollow",       # Imperva
+        "_incapsula_resource",     # Incapsula
+        "cf-browser-verification", # Cloudflare
+        "checking your browser",   # Cloudflare / Akamai
+        "please enable cookies",   # PerimeterX
+        "attention required",      # Cloudflare
+        "distil_",                 # Distil
+        "iframe id=\"main-iframe\"",
+    )
+    return any(m in low for m in markers)
+
+
+def _wayback_fetch(original_url: str, timeout_s: float = 20.0) -> str:
+    """Fetch the closest Wayback-Machine snapshot of `original_url`.
+
+    The Wayback CDX API is skipped (it's rate-limited); we hit the
+    `web.archive.org/web/<year>/<url>` shortcut which resolves to the
+    nearest snapshot and works reliably in production.  Wayback strips
+    the injected toolbar automatically when we set the `id_` flag.
+    """
+    if not original_url or not original_url.lower().startswith(("http://", "https://")):
+        return ""
+    # The `if_` (identity) flag returns the raw archived HTML without
+    # the Wayback rewrite header/toolbar injection — cleaner input for
+    # trafilatura / readability.
+    for year in ("2024", "2023", "2025"):
+        snap = f"https://web.archive.org/web/{year}0101000000if_/{original_url}"
+        try:
+            r = httpx.get(
+                snap,
+                timeout=timeout_s,
+                follow_redirects=True,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) "
+                        "Gecko/20100101 Firefox/120.0"
+                    ),
+                    "Accept": "text/html,application/xhtml+xml",
+                },
+            )
+        except httpx.HTTPError:
+            continue
+        if r.status_code == 200 and r.content and len(r.content) > 4000:
+            return _decode_bytes(r.content)
+    return ""
 
 
 def _extract_with_cascade(html: str, url: str):
@@ -591,6 +671,31 @@ def _extract_with_cascade(html: str, url: str):
             engine = "playwright+bs4" if best in (art4, art5, art6) else "bs4"
             return best, engine, chain
 
+    # No Playwright (or Playwright also blocked) — try the Wayback
+    # Machine as a last resort.  CDN-fronted articles (Sophos community
+    # via Imperva, Cloudflare-guarded Talos posts, etc.) are almost
+    # always archived and Wayback serves the raw HTML without an
+    # anti-bot wall.  Deterministic given a fixed snapshot year.
+    if _looks_like_antibot_wall(html) or max(len(art), len(art2), len(art3)) < 200:
+        archived = _try("wayback", lambda: _wayback_fetch(url))
+        if archived:
+            _last_rendered_html[url] = archived
+            aw1 = _try("wayback+trafilatura", lambda: _trafilatura_extract(archived))
+            if len(aw1) >= 200:
+                return aw1, "wayback+trafilatura", chain
+            aw2 = _try("wayback+readability", lambda: _readability_extract(archived))
+            if len(aw2) >= 200:
+                return aw2, "wayback+readability", chain
+            aw3 = _try("wayback+bs4", lambda: _bs4_heuristic_extract(archived))
+            if len(aw3) >= 200:
+                return aw3, "wayback+bs4", chain
+            best_wb = max([aw1, aw2, aw3], key=len)
+            if best_wb:
+                engine = ("wayback+trafilatura" if best_wb is aw1
+                          else "wayback+readability" if best_wb is aw2
+                          else "wayback+bs4")
+                return best_wb, engine, chain
+
     # No Playwright — return the best static attempt (may be empty).
     best = max([art, art2, art3], key=len)
     return best, ("trafilatura" if best is art
@@ -601,6 +706,7 @@ def _extract_with_cascade(html: str, url: str):
 def _friendly_source(engine: str) -> str:
     """Analyst-facing translation of the raw engine name."""
     if not engine:                       return "Unknown"
+    if engine.startswith("wayback"):     return "Wayback Machine archive"
     if engine.startswith("playwright"):  return "JavaScript-rendered page"
     if engine == "readability":          return "Score-based main-content extraction"
     if engine == "bs4":                  return "Heuristic body extraction"
