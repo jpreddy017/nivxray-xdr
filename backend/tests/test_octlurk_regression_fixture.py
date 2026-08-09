@@ -69,7 +69,7 @@ _OCTLURK_COMMANDS = [
      "Domain-controllers enumeration"),
     ("cmd.exe",
      'cmd.exe /S /C "C:\\Users\\Public\\Pictures\\AnyDesk.exe"',
-     "Remote-access software execution"),
+     "AnyDesk RMM execution"),
     ("cmd.exe",
      'cmd.exe /S /C "schtasks /create /tn AnyDesk /tr AnyDesk.exe /sc onlogon '
      '/ru NT_AUTHORITY_INTERACTIVE"',

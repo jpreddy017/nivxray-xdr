@@ -395,6 +395,19 @@ async def get_case(case_id: str, user=Depends(get_current_user)):
                     continue
                 ocr_records.append(rec)
             doc["acquisition_ocr_records"] = ocr_records
+
+            # ── P4 · MITRE Consistency Diagnostic (developer-only) ─
+            # When NVX_MITRE_DIAGNOSTIC=1 is set on the environment
+            # (never on for analysts), attach a read-only diagnostic
+            # report showing whether the three ATT&CK panels agree.
+            # Zero UI surface — the field is consumed by developer
+            # tooling / CI only.
+            if os.environ.get("NVX_MITRE_DIAGNOSTIC") == "1":
+                try:
+                    from services.diagnostics.mitre_consistency import check as _mitre_check
+                    doc["mitre_consistency"] = _mitre_check(doc)
+                except Exception:
+                    doc["mitre_consistency"] = None
         except Exception:
             # Never break case-read on a display-only computation.
             doc["acquisition_summary"] = None

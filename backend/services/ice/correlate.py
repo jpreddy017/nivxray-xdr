@@ -65,10 +65,14 @@ _TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1016":     "discovery",              # System Network Config
     "T1087":     "discovery",              # Account Discovery
     "T1003":     "credential_access",      # OS Credential Dumping
+    "T1003.001": "credential_access",      # LSASS Memory
+    "T1003.002": "credential_access",      # SAM
+    "T1003.003": "credential_access",      # NTDS
     "T1555":     "credential_access",
     "T1021":     "lateral_movement",
     "T1021.001": "lateral_movement",       # RDP
     "T1021.002": "lateral_movement",       # SMB
+    "T1021.006": "lateral_movement",       # WinRM
     "T1005":     "collection",             # Data from Local System
     "T1114":     "collection",             # Email Collection
     "T1041":     "exfiltration",           # Exfil over C2
@@ -83,13 +87,22 @@ _TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1572":     "command_and_control",    # Protocol Tunneling  (e.g. reverse SSH `-R`)
     "T1112":     "defense_evasion",        # Modify Registry
     "T1190":     "initial_access",         # Exploit Public-Facing Application
+    "T1218.004": "defense_evasion",        # InstallUtil
     "T1218.007": "defense_evasion",        # Msiexec
+    "T1127":     "defense_evasion",        # Trusted Developer Utilities
+    "T1127.001": "defense_evasion",        # MSBuild
     "T1543.003": "persistence",            # Windows Service
+    "T1546":     "persistence",            # Event Triggered Execution
+    "T1546.003": "persistence",            # WMI Event Subscription
+    "T1546.015": "persistence",            # COM Hijacking
     "T1018":     "discovery",              # Remote System Discovery
+    "T1135":     "discovery",              # Network Share Discovery
     "T1489":     "impact",                 # Service Stop
     "T1003.006": "credential_access",      # DCSync
     "T1482":     "discovery",              # Domain Trust Discovery
     "T1087.002": "discovery",              # Domain Account Discovery
+    "T1047":     "execution",              # Windows Management Instrumentation
+    "T1070.001": "defense_evasion",        # Clear Windows Event Logs
 }
 
 
@@ -231,6 +244,185 @@ _PURPOSE_TO_MITRE: Dict[str, List[Dict[str, str]]] = {
         {"id": "T1018",     "name": "Remote System Discovery"},
     ],
     "Remote-access software execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+
+    # ── 2026-02-09 · Command classifier expansion (Priority 1) ────
+    # Every new label added to `_classify_command_purpose` above
+    # must have a deterministic MITRE mapping here or the label
+    # will silently vanish from the trajectory / summary panels.
+
+    # LOLBin proxy execution
+    "Mshta proxy execution": [
+        {"id": "T1218.005", "name": "System Binary Proxy Execution · Mshta"},
+    ],
+    "Rundll32 proxy execution": [
+        {"id": "T1218.011", "name": "System Binary Proxy Execution · Rundll32"},
+    ],
+    "Regsvr32 proxy execution": [
+        {"id": "T1218.010", "name": "System Binary Proxy Execution · Regsvr32"},
+    ],
+    "Installutil proxy execution": [
+        {"id": "T1218.004", "name": "System Binary Proxy Execution · InstallUtil"},
+    ],
+    "MSBuild proxy execution": [
+        {"id": "T1127.001", "name": "Trusted Developer Utilities · MSBuild"},
+    ],
+    "WScript execution": [
+        {"id": "T1059.005", "name": "Command and Scripting Interpreter · Visual Basic"},
+    ],
+    "CScript execution": [
+        {"id": "T1059.005", "name": "Command and Scripting Interpreter · Visual Basic"},
+    ],
+
+    # Credential Access
+    "LSASS memory dump (procdump)": [
+        {"id": "T1003.001", "name": "OS Credential Dumping · LSASS Memory"},
+    ],
+    "Process memory dump (procdump)": [
+        {"id": "T1003", "name": "OS Credential Dumping"},
+    ],
+    "LSASS memory dump (comsvcs)": [
+        {"id": "T1003.001", "name": "OS Credential Dumping · LSASS Memory"},
+    ],
+    "Credential dumping (mimikatz)": [
+        {"id": "T1003.001", "name": "OS Credential Dumping · LSASS Memory"},
+    ],
+    "NTDS.dit extraction (ntdsutil)": [
+        {"id": "T1003.003", "name": "OS Credential Dumping · NTDS"},
+    ],
+    "SAM/SECURITY hive dump (reg save)": [
+        {"id": "T1003.002", "name": "OS Credential Dumping · Security Account Manager"},
+    ],
+
+    # Defense Evasion · Defender tampering
+    "Windows Defender exclusion add": [
+        {"id": "T1562.001", "name": "Impair Defenses · Disable or Modify Tools"},
+    ],
+    "Windows Defender configure (disable)": [
+        {"id": "T1562.001", "name": "Impair Defenses · Disable or Modify Tools"},
+    ],
+    "Windows Defender service tamper": [
+        {"id": "T1562.001", "name": "Impair Defenses · Disable or Modify Tools"},
+    ],
+
+    # Defense Evasion · Log clearing
+    "Event log clear (wevtutil)": [
+        {"id": "T1070.001", "name": "Indicator Removal · Clear Windows Event Logs"},
+    ],
+    "Event log clear (PowerShell)": [
+        {"id": "T1070.001", "name": "Indicator Removal · Clear Windows Event Logs"},
+    ],
+
+    # Impact · Recovery inhibit
+    "Recovery inhibit (bcdedit)": [
+        {"id": "T1490", "name": "Inhibit System Recovery"},
+    ],
+    "Backup catalog deletion (wbadmin)": [
+        {"id": "T1490", "name": "Inhibit System Recovery"},
+    ],
+
+    # Execution / Lateral Movement · WMI
+    "Remote WMI process create": [
+        {"id": "T1047",     "name": "Windows Management Instrumentation"},
+        {"id": "T1021.006", "name": "Remote Services · Windows Remote Management"},
+    ],
+    "WMI process create": [
+        {"id": "T1047", "name": "Windows Management Instrumentation"},
+    ],
+    "WMI process discovery": [
+        {"id": "T1057", "name": "Process Discovery"},
+    ],
+    "Remote WMI invoke-method": [
+        {"id": "T1047", "name": "Windows Management Instrumentation"},
+    ],
+    "WMI invoke-method": [
+        {"id": "T1047", "name": "Windows Management Instrumentation"},
+    ],
+
+    # Lateral movement · WinRM
+    "WinRM / PowerShell remote session": [
+        {"id": "T1021.006", "name": "Remote Services · Windows Remote Management"},
+    ],
+    "WinRS remote command": [
+        {"id": "T1021.006", "name": "Remote Services · Windows Remote Management"},
+    ],
+
+    # Discovery · commonly missed
+    "Net view (remote share/system discovery)": [
+        {"id": "T1018", "name": "Remote System Discovery"},
+        {"id": "T1135", "name": "Network Share Discovery"},
+    ],
+    "ARP table discovery": [
+        {"id": "T1016", "name": "System Network Configuration Discovery"},
+    ],
+    "Route table discovery": [
+        {"id": "T1016", "name": "System Network Configuration Discovery"},
+    ],
+    "System information discovery": [
+        {"id": "T1082", "name": "System Information Discovery"},
+    ],
+    "User session discovery (quser)": [
+        {"id": "T1033", "name": "System Owner / User Discovery"},
+    ],
+    "Active Directory query (dsquery)": [
+        {"id": "T1087.002", "name": "Account Discovery · Domain Account"},
+    ],
+
+    # Persistence · startup / WMI / COM
+    "Startup folder persistence": [
+        {"id": "T1547.001", "name": "Registry Run Keys / Startup Folder"},
+    ],
+    "WMI event subscription persistence": [
+        {"id": "T1546.003", "name": "Event Triggered Execution · WMI Subscription"},
+    ],
+    "COM hijack (regsvr32)": [
+        {"id": "T1546.015", "name": "Event Triggered Execution · Component Object Model Hijacking"},
+    ],
+
+    # PowerShell overlays
+    "PowerShell hidden window IEX": [
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+        {"id": "T1564.003", "name": "Hide Artifacts · Hidden Window"},
+    ],
+    "PowerShell hidden window": [
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+        {"id": "T1564.003", "name": "Hide Artifacts · Hidden Window"},
+    ],
+    "PowerShell execution-policy bypass": [
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+        {"id": "T1562.001", "name": "Impair Defenses · Disable or Modify Tools"},
+    ],
+    "PowerShell execution": [
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+    ],
+
+    # RMM / Remote-access software (T1219 · Command & Control)
+    "AnyDesk RMM execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+    "TeamViewer RMM execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+    "ScreenConnect RMM execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+    "Atera RMM execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+    "Splashtop RMM execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+    "LogMeIn RMM execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+    "Syncro RMM execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+    "NinjaRMM execution": [
+        {"id": "T1219", "name": "Remote Access Software"},
+    ],
+    "Kaseya RMM execution": [
         {"id": "T1219", "name": "Remote Access Software"},
     ],
 }

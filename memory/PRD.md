@@ -1,3 +1,74 @@
+## 🟢 2026-02-09 · Capability sprint · P1→P4 shipped
+
+Following user re-prioritization ("capability over UI polish"), executed all four remaining tracks sequentially.
+
+### P1 · Command Classifier Expansion ⭐⭐⭐⭐⭐
+Extended `_classify_command_purpose` + `_PURPOSE_TO_MITRE` in lockstep.  Added **44 new purpose labels** covering the biggest fallback-to-generic gaps:
+* **LOLBins** (T1218.x / T1127.001): mshta, rundll32, regsvr32, installutil, msbuild, wscript, cscript
+* **Credential dumping** (T1003.x): procdump (LSASS), comsvcs (`MiniDump #24`), mimikatz, ntdsutil (NTDS.dit), reg save (SAM/SECURITY hives)
+* **Defender tampering** (T1562.001): Add-MpPreference, Set-MpPreference, `sc stop WinDefend`
+* **Log clearing** (T1070.001): wevtutil, PowerShell Clear-EventLog
+* **Recovery inhibit** (T1490): bcdedit, wbadmin
+* **WMI** (T1047): wmic local + `/node:` remote, Invoke-WmiMethod, Invoke-CimMethod
+* **WinRM/PSRemoting** (T1021.006): Enter-PSSession, Invoke-Command -ComputerName, winrs
+* **Discovery** (T1016/T1018/T1082/T1087/T1033/T1135): net view, arp -a, route print, systeminfo, quser, dsquery
+* **Persistence** (T1547.001/T1546.003/T1546.015): startup folder, WMI event subscription, COM hijack
+* **PowerShell overlays** (T1564.003/T1562.001): hidden window IEX, execution-policy bypass
+* **RMM RATs** (T1219): AnyDesk, TeamViewer, ScreenConnect, Atera, Splashtop, LogMeIn, Syncro, NinjaRMM, Kaseya
+
+Added **15 new MITRE technique→tactic mappings** (T1003.001, T1003.002, T1003.003, T1021.006, T1047, T1070.001, T1127, T1127.001, T1135, T1218.004, T1218.005, T1218.010, T1218.011, T1546, T1546.003, T1546.015).  Preserved pre-peel `original_head`/`original_cmd` so LOLBin/RMM detection survives the canonicalizer's aggressive wrapper stripping.
+
+**Tests:** `test_classifier_expansion_p1.py` · **98 parametrized cases** (46 label pins + 46 MITRE-mapping pins + 6 regression sanity checks).  Octlurk fixture updated to the new specific label.
+
+### P2 · Enable VEEE in Preview ⭐⭐⭐⭐⭐
+Flipped `NVX_VEEE_ENABLED=0 → 1` in `backend/.env`.  Backend restarts cleanly, VEEE `is_enabled()` returns `True` at runtime, live pipeline confirmed producing correctly-provenanced records (bbox, image_sha256, ocr_engine, ocr_confidence) on synthetic Talos-shaped inputs.  `/api/health` = 200, no VEEE-related errors in supervisor logs.
+
+### P3 · Wire Acquisition Panels ⭐⭐⭐⭐☆
+Additive wiring in `WorkspacePage.jsx` — read-only, no logic changes:
+* Imported `AcquisitionSummary` + `AcquisitionEvidenceList`
+* Added two `useState` hooks: `acquisitionSummary`, `acquisitionOcrRecords`
+* Hydrated on the case-restore path from `caseDoc.acquisition_summary` and `caseDoc.acquisition_ocr_records`
+* Rendered conditionally right after `AcquisitionPlanPanel` (only when data is present — legacy cases render byte-identically)
+
+Frontend compiled clean with `data-testid` on each panel wrap for future e2e coverage.
+
+### P4 · MITRE Consistency Diagnostic (developer-only) ⭐⭐⭐⭐☆
+Created `services/diagnostics/mitre_consistency.py` — a pure, read-only inspector that runs **6 checks** on any case payload:
+* **B2M** · every `behavior_summary` bullet has ≥1 MITRE bridge
+* **M2C** · every `mitre_summary` technique appears in ≥1 cluster
+* **C2M** · every cluster technique appears in `mitre_summary`
+* **ORPH** · symmetric-difference indicator (technique in only one panel)
+* **DUP** · duplicate technique-in-tactic entries
+* **LANE** · declared cluster tactics must be implied by ≥1 technique
+
+Case-read attachment gated by `NVX_MITRE_DIAGNOSTIC=1` (default OFF · analyst UI untouched).  When flag is on, `GET /cases/{id}` returns an additive `mitre_consistency` field for developer inspection / CI regression. **13 pytests** locking the diagnostic shape.
+
+### Aggregate test status
+- Full P0.15C + P1 + P4 + adjacent invariants: **297 / 297 pass**
+- No regressions on Octlurk, Track B, S4 architecture-freeze, workspace projector, IDA projections, evidence-driven engine
+- Frontend compiles clean, backend serves `/api/health` = 200 with VEEE flag on
+
+### Constraints honored
+- No LLM / semantic layer changes
+- No Behavior/Projection/Recommendation Engine changes
+- No Workspace investigation flow changes (only additive read of new caseDoc fields)
+- Every capability is deterministic, feature-flag-gated where applicable, and reversible
+
+### Files
+* MODIFIED  `services/ida/report_extractors.py` · +44 classifier labels, +original-head preservation
+* MODIFIED  `services/ice/correlate.py` · +44 `_PURPOSE_TO_MITRE` entries, +15 technique→tactic mappings
+* MODIFIED  `backend/.env` · `NVX_VEEE_ENABLED=1`
+* NEW      `services/diagnostics/mitre_consistency.py` + `__init__.py`
+* MODIFIED  `routers/cases.py` · optional `mitre_consistency` attachment (env-flagged)
+* MODIFIED  `frontend/src/pages/WorkspacePage.jsx` · imports + state + hydration + render for the two panels
+* NEW      `backend/tests/test_classifier_expansion_p1.py` · 98 tests
+* NEW      `backend/tests/test_p4_mitre_consistency.py` · 13 tests
+* MODIFIED  `backend/tests/test_octlurk_regression_fixture.py` · AnyDesk label refresh
+
+---
+
+
+
 ## 🟠 2026-02-09 · Fix · Trajectory Diagram per-lane MITRE technique mislabeling
 
 **User-reported bug (every case):** The Attack Chain panel showed the wrong technique under the wrong tactic (e.g. `T1564.003` displayed in the Execution lane), while the MITRE Summary panel remained correct.  The two views therefore disagreed.

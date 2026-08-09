@@ -809,6 +809,16 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     # ── Canonicalise (ADR-002 §3.2) ──────────────────────────────
     # If the caller's head already matches the effective head the
     # canonicalizer would return, the peel is a no-op — no harm.
+    #
+    # 2026-02-09 · P1 Classifier Expansion — we ALSO retain the
+    # pre-peel `original_head` / `original_cmd` so LOLBin & RMM
+    # branches (mshta / rundll32 / regsvr32 / AnyDesk / …) still
+    # match after the canonicalizer aggressively strips their
+    # invocation.  The peeled head remains the primary signal for
+    # everything the canonicalizer correctly unwraps (cmd /c,
+    # powershell -c ${block}, etc.).
+    original_head = head.lower()
+    original_cmd  = cmd
     try:
         from services.canonicalizer import canonicalize
         cc = canonicalize(cmd)
@@ -824,6 +834,7 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
         # gracefully fall back to the original arguments.
         pass
     c = cmd.lower()
+    oc = original_cmd.lower()
 
     # ── Impact / shadow copy deletion (T1490) ──────────────────────
     if "vssadmin" in head and ("delete" in c and "shadow" in c):
@@ -861,6 +872,134 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
         return "Lateral movement via PsExec"
     if "impacket" in c or "wmiexec" in c or "smbexec" in c:
         return "Lateral movement via Impacket"
+
+    # ── LOLBin proxy execution ─────────────────────────────────────
+    # Order-sensitive: check specific proxy binaries BEFORE the
+    # generic head-based branches so `rundll32.exe c:\x.dll,#1`
+    # doesn't fall through to the generic "Command execution".
+    #
+    # Use the pre-peel `original_head` — the canonicalizer strips
+    # LOLBin invocations aggressively (`mshta.exe URL` → head=URL),
+    # which would otherwise defeat this branch entirely.
+    if original_head in ("mshta", "mshta.exe"):
+        return "Mshta proxy execution"
+    if original_head in ("rundll32", "rundll32.exe"):
+        # COM hijack check MUST fire before the generic rundll32
+        # branch — otherwise the inprocserver32 signal is lost.
+        if "comsvcs" in oc and ("minidump" in oc or "#24" in oc):
+            return "LSASS memory dump (comsvcs)"
+        if "inprocserver32" in oc:
+            return "COM hijack (regsvr32)"   # same TTP family; keep unified label
+        return "Rundll32 proxy execution"
+    if original_head in ("regsvr32", "regsvr32.exe"):
+        if "inprocserver32" in oc:
+            return "COM hijack (regsvr32)"
+        return "Regsvr32 proxy execution"
+    if original_head in ("installutil", "installutil.exe"):
+        return "Installutil proxy execution"
+    if original_head in ("msbuild", "msbuild.exe"):
+        return "MSBuild proxy execution"
+    if original_head in ("wscript", "wscript.exe"):
+        return "WScript execution"
+    if original_head in ("cscript", "cscript.exe"):
+        return "CScript execution"
+
+    # ── Credential Access · LSASS + NTDS ───────────────────────────
+    if "procdump" in head or "procdump" in c:
+        if "lsass" in c:
+            return "LSASS memory dump (procdump)"
+        return "Process memory dump (procdump)"
+    if "comsvcs" in c and ("minidump" in c or "#24" in c):
+        return "LSASS memory dump (comsvcs)"
+    if "mimikatz" in c:
+        return "Credential dumping (mimikatz)"
+    if head in ("ntdsutil", "ntdsutil.exe") or "ntdsutil" in c and "ntds" in c:
+        return "NTDS.dit extraction (ntdsutil)"
+    if head in ("reg", "reg.exe") and " save " in c and ("hklm\\sam" in c or "hklm\\security" in c or "hklm\\system" in c):
+        return "SAM/SECURITY hive dump (reg save)"
+
+    # ── Defense Evasion · Windows Defender tampering (T1562.001) ───
+    if "add-mppreference" in c and "exclusion" in c:
+        return "Windows Defender exclusion add"
+    if "set-mppreference" in c and ("disable" in c or "-disable" in c):
+        return "Windows Defender configure (disable)"
+    if head in ("sc", "sc.exe") and "windefend" in c and (" stop " in c or " delete " in c or " config " in c):
+        return "Windows Defender service tamper"
+
+    # ── Defense Evasion · Event log clearing (T1070.001) ──────────
+    if head in ("wevtutil", "wevtutil.exe") and ("cl " in c or "clear-log" in c):
+        return "Event log clear (wevtutil)"
+    if head.startswith("powershell") and "clear-eventlog" in c:
+        return "Event log clear (PowerShell)"
+
+    # ── Impact · Recovery inhibit (T1490) ─────────────────────────
+    if head in ("bcdedit", "bcdedit.exe") and ("recoveryenabled" in c or "ignoreallfailures" in c or "bootstatuspolicy" in c):
+        return "Recovery inhibit (bcdedit)"
+    if head in ("wbadmin", "wbadmin.exe") and "delete" in c and ("catalog" in c or "backup" in c):
+        return "Backup catalog deletion (wbadmin)"
+
+    # ── WMI command execution (T1047 / T1021) ──────────────────────
+    if head in ("wmic", "wmic.exe"):
+        # Remote WMI process create → T1047 + T1021
+        if "/node:" in c and ("process call create" in c or "call create" in c):
+            return "Remote WMI process create"
+        if "process call create" in c or "call create" in c:
+            return "WMI process create"
+        if "process" in c and "list" in c:
+            return "WMI process discovery"
+    if head.startswith("powershell") and ("invoke-wmimethod" in c or "invoke-cimmethod" in c):
+        if "-computername" in c or "-computer" in c:
+            return "Remote WMI invoke-method"
+        return "WMI invoke-method"
+
+    # ── Lateral movement · WinRM / PSRemoting (T1021.006) ─────────
+    if head.startswith("powershell") and ("enter-pssession" in c or "invoke-command" in c and "-computername" in c):
+        return "WinRM / PowerShell remote session"
+    if head in ("winrs", "winrs.exe"):
+        return "WinRS remote command"
+
+    # ── Discovery · commonly missed enumerations ───────────────────
+    if head in ("net", "net.exe") and " view " in " " + c + " ":
+        return "Net view (remote share/system discovery)"
+    if head in ("arp", "arp.exe") and " -a" in c:
+        return "ARP table discovery"
+    if head in ("route", "route.exe") and "print" in c:
+        return "Route table discovery"
+    if head in ("systeminfo", "systeminfo.exe"):
+        return "System information discovery"
+    if head in ("quser", "quser.exe") or (head in ("query", "query.exe") and "user" in c):
+        return "User session discovery (quser)"
+    if head in ("dsquery", "dsquery.exe"):
+        return "Active Directory query (dsquery)"
+
+    # ── Persistence · startup folder / WMI subscription / COM hijack ─
+    if "startup" in c and (" copy " in c or "\\programs\\startup" in c or "start menu\\programs\\startup" in c):
+        return "Startup folder persistence"
+    if head.startswith("powershell") and "__eventfilter" in c and "commandlineeventconsumer" in c:
+        return "WMI event subscription persistence"
+    if head in ("regsvr32", "regsvr32.exe") and "inprocserver32" in c:
+        return "COM hijack (regsvr32)"
+
+    # ── RMM / Remote-access software · T1219 ──────────────────────
+    # Match ONLY on the (canonicalized) head, so an AnyDesk file
+    # name appearing as an ARGUMENT to another command (e.g.
+    # `schtasks /create /tn AnyDesk /tr AnyDesk.exe`) doesn't
+    # short-circuit the containing command's classification.
+    for rmm_key, rmm_label in (
+        ("anydesk",       "AnyDesk RMM execution"),
+        ("teamviewer",    "TeamViewer RMM execution"),
+        ("screenconnect", "ScreenConnect RMM execution"),
+        ("connectwise",   "ScreenConnect RMM execution"),
+        ("atera",         "Atera RMM execution"),
+        ("splashtop",     "Splashtop RMM execution"),
+        ("srservice",     "Splashtop RMM execution"),
+        ("logmein",       "LogMeIn RMM execution"),
+        ("syncro",        "Syncro RMM execution"),
+        ("ninjarmm",      "NinjaRMM execution"),
+        ("kaseya",        "Kaseya RMM execution"),
+    ):
+        if rmm_key in head or rmm_key in original_head:
+            return rmm_label
 
     # ── Scheduled Task (T1053.005) · Octlurk-family remote SCHTASKS ──
     if head in ("schtasks", "schtasks.exe"):
@@ -936,9 +1075,9 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     if "python" in c and ("--version" in c or " -V" in cmd):
         return "Python interpreter discovery"
 
-    # Remote-access software direct execution — AnyDesk on disk
-    if "anydesk" in c and ".exe" in c:
-        return "Remote-access software execution"
+    # Remote-access software direct execution — handled by the
+    # RMM/T1219 head-based dispatch earlier in the classifier
+    # (returns "AnyDesk RMM execution" et al.).
 
     # Microsoft Edge launch with extension load — Edgecution TTP
     if "msedge" in head or "msedge.exe" in c:
@@ -952,16 +1091,47 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     if " del " in c and ("timeout" in c or "start /min" in c or "exit /b" in c):
         return "Self-deletion of stager"
 
-    # PowerShell process enumeration
-    if head.startswith("powershell") or head.startswith("pwsh"):
-        if "get-ciminstance" in c and "win32_process" in c:
+    # PowerShell process enumeration — use the pre-peel head so
+    # `powershell -c <inner>` still routes into the PowerShell
+    # branch even after the canonicalizer strips the wrapper.
+    if original_head.startswith("powershell") or original_head.startswith("pwsh"):
+        # WMI overlays run BEFORE the generic PowerShell branches
+        # so we don't classify `Invoke-WmiMethod` as "PowerShell
+        # execution".
+        if "invoke-wmimethod" in oc or "invoke-cimmethod" in oc:
+            if "-computername" in oc or "-computer " in oc:
+                return "Remote WMI invoke-method"
+            return "WMI invoke-method"
+        # Windows Defender tampering (Add/Set-MpPreference) — check
+        # early so it wins over the generic PS labels.
+        if "add-mppreference" in oc and "exclusion" in oc:
+            return "Windows Defender exclusion add"
+        if "set-mppreference" in oc and ("disable" in oc or "-disable" in oc):
+            return "Windows Defender configure (disable)"
+        if "clear-eventlog" in oc:
+            return "Event log clear (PowerShell)"
+        # WinRM / PowerShell Remoting
+        if "enter-pssession" in oc:
+            return "WinRM / PowerShell remote session"
+        if "invoke-command" in oc and "-computername" in oc:
+            return "WinRM / PowerShell remote session"
+        # WMI event subscription persistence
+        if "__eventfilter" in oc and "commandlineeventconsumer" in oc:
+            return "WMI event subscription persistence"
+        if "get-ciminstance" in oc and "win32_process" in oc:
             return "PowerShell process enumeration"
-        if "invoke-expression" in c or "iex " in c:
+        if "invoke-expression" in oc or "iex " in oc or "iex(" in oc:
+            if " -w hidden" in oc or "-windowstyle hidden" in oc or "-w h " in oc:
+                return "PowerShell hidden window IEX"
             return "PowerShell in-memory execution"
-        if "downloadstring" in c or "invoke-webrequest" in c or "webclient" in c:
+        if "downloadstring" in oc or "invoke-webrequest" in oc or "webclient" in oc or "invoke-restmethod" in oc:
             return "PowerShell download-and-execute"
-        if "encodedcommand" in c or " -e " in c or " -enc" in c:
+        if "encodedcommand" in oc or " -e " in oc or " -enc" in oc:
             return "PowerShell encoded command"
+        if "executionpolicy bypass" in oc or ("-executionpolicy" in oc and "bypass" in oc):
+            return "PowerShell execution-policy bypass"
+        if " -w hidden" in oc or "-windowstyle hidden" in oc or "-w h " in oc:
+            return "PowerShell hidden window"
         return "PowerShell execution"
 
     # cmd /c chained interpreter (usually piping into PowerShell)

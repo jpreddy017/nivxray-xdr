@@ -14,6 +14,8 @@ import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDeco
 import InputUnderstandingPanel from "@/components/investigation/InputUnderstandingPanel";
 import AcquisitionPlanPanel from "@/components/investigation/AcquisitionPlanPanel";
 import ExtractedArtifactsPanel from "@/components/investigation/ExtractedArtifactsPanel"; // eslint-disable-line no-unused-vars
+import AcquisitionSummary from "@/components/investigation/AcquisitionSummary";
+import AcquisitionEvidenceList from "@/components/investigation/AcquisitionEvidenceList";
 import InvestigationSessionGateway from "@/components/investigation/InvestigationSessionGateway";
 import CollapsibleSection from "@/components/investigation/CollapsibleSection";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
@@ -339,6 +341,12 @@ export default function WorkspacePage() {
   // /app/memory/IUE_ARCHITECTURE_V2.md for the frozen contract.
   const [investigationMode, setInvestigationMode] = useState(() => !!_persisted.investigationMode);
   const [investigationObject, setInvestigationObject] = useState(() => _persisted.investigationObject || null);
+  // ▲ P0.15C · VEEE Acquisition Summary + Jump-to-Source (2026-02-09)
+  //   Both fields are attached by the backend on GET /cases/{id} as an
+  //   ADDITIVE read-only projection.  Live investigation flows leave
+  //   them null → the panels render nothing (byte-identical to legacy).
+  const [acquisitionSummary,     setAcquisitionSummary]     = useState(null);
+  const [acquisitionOcrRecords,  setAcquisitionOcrRecords]  = useState([]);
   const [multiChainNotice, setMultiChainNotice] = useState(null);   // { stages, verdict, family }
   // Feb-2026 · once a case has been named+saved, subsequent SAVE clicks
   // silently upsert under the same name (no prompt). Reset when the input
@@ -3053,6 +3061,26 @@ export default function WorkspacePage() {
             <AcquisitionPlanPanel investigation={investigationObject} />
           )}
 
+          {/* ▲ P0.15C · VEEE Acquisition Summary + Jump-to-Source (2026-02-09)
+              Additive display panels · consumes ONLY the read-only
+              `acquisition_summary` and `acquisition_ocr_records`
+              attached by the backend on GET /cases/{id}.  No
+              acquisition logic, no semantic logic — pure projection
+              of existing data.  Renders nothing when the case
+              predates VEEE (byte-identical legacy behaviour). */}
+          {acquisitionSummary && (
+            <div style={{ margin: "0 12px 8px" }}
+                    data-testid="workspace-acquisition-summary-wrap">
+              <AcquisitionSummary summary={acquisitionSummary} />
+            </div>
+          )}
+          {acquisitionOcrRecords && acquisitionOcrRecords.length > 0 && (
+            <div style={{ margin: "0 12px 8px" }}
+                    data-testid="workspace-acquisition-evidence-wrap">
+              <AcquisitionEvidenceList records={acquisitionOcrRecords} />
+            </div>
+          )}
+
           {/* R28.C · Artifact Trace projection (SSOT-only, no recompute)
               Renders Artifact → Recognizer → Capability → Evidence →
               Child-Artifact rows lifted from ``ssot.decode_trace`` via
@@ -3562,6 +3590,14 @@ export default function WorkspacePage() {
           setDecodeConfidence(caseDoc.confidence ?? null);
           setSavedCaseName(caseDoc.name);
           setCurrentCaseId(String(caseDoc.id || ""));
+          // ── P0.15C · VEEE additive projection (2026-02-09) ─────────
+          // Hydrate the acquisition summary + OCR records that the
+          // backend attaches on GET /cases/{id}.  Both are safely
+          // null/empty for legacy cases predating VEEE.
+          setAcquisitionSummary(caseDoc.acquisition_summary || null);
+          setAcquisitionOcrRecords(Array.isArray(caseDoc.acquisition_ocr_records)
+                                          ? caseDoc.acquisition_ocr_records
+                                          : []);
 
           // ── Feb 2026 P0 · Full SSOT hydration ─────────────────────────
           // If the case was saved with the SSOT bundle we rehydrate the
