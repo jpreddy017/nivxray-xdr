@@ -4175,3 +4175,30 @@ Contract §5 out-of-scope discipline held.
 
 **Next slice · P0.15C-2** — Acquisition Summary Panel (display-
 only UI reading `veee_records` + counts).
+
+## 2026-02-09 · P0.15C Contract · Amendment 5 · Operational KPIs
+
+Added three operational KPIs to §2.2 (Acquisition Summary Panel)
+without touching contract scope:
+
+  · OCR Commands Extracted
+  · Canonicalized Successfully
+  · Classification Success Rate  (= canonicalized / extracted)
+
+These decompose any future regression into OCR-layer /
+Canonicalizer-layer / Classifier-layer so the operational team
+can triage in one glance.  Pure additive display fields — no
+semantic changes, no new endpoints.
+
+**Also corrected an inconsistency in the P0.15C-1 summary**:
+the "4 → 7 tactic" improvement occurs when
+`NVX_VEEE_ENABLED=1` in the preview environment, not with the
+flag OFF.  Production remains byte-identical with the flag OFF.
+The verified statement:
+
+> "With `NVX_VEEE_ENABLED=1` in the preview environment, the
+>  Octlurk benchmark improves from 4 → 7 ATT&CK tactics while
+>  production remains byte-identical with the flag OFF."
+
+Contract remains FINAL.  Amendment count: 5 (all additive
+clarifications · no architectural changes).
