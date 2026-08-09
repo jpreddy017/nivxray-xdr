@@ -43,6 +43,12 @@ class OCRLine:
     words:      List[OCRWord]  = field(default_factory=list)
     bbox:       Optional[OCRBBox] = None
     confidence: float          = 0.0
+    # ── P0.15C-4 · Line Joining ──────────────────────────────────
+    # Non-empty when this line is the result of merging two or more
+    # original OCR lines (see services/veee/line_joiner.py).  Each
+    # entry is the original index of a merged line within the
+    # pre-join OCRResult.lines list.  Default: [] (no joining ran).
+    joined_from_lines: List[int] = field(default_factory=list)
 
 
 @dataclass

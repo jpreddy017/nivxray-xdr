@@ -359,6 +359,7 @@ async def get_case(case_id: str, user=Depends(get_current_user)):
         # summary rather than surfacing an error to the UI.
         try:
             from services.veee.summary import compute_summary
+            from services.veee import is_enabled as _veee_is_enabled
             ssot_root = (doc.get("ssot") or {}).get("investigation_object") or (doc.get("ssot") or {})
             acquired  = ssot_root.get("acquired_document") if isinstance(ssot_root, dict) else None
             acquired  = acquired or {}
@@ -371,10 +372,33 @@ async def get_case(case_id: str, user=Depends(get_current_user)):
                 images_seen_in_html  = len(acquired.get("image_urls") or [])
                                           if isinstance(acquired.get("image_urls"), list)
                                           else None,
+                veee_enabled         = _veee_is_enabled(),
             )
+
+            # ── P0.15C-3 · Jump-to-Source attachment (2026-02-09) ─
+            # Additive, read-only projection of veee_records into a
+            # UI-friendly list.  A record is exposed to the analyst
+            # ONLY when it carries the mandatory provenance the
+            # Jump-to-Source overlay needs: image_url + bounding_box.
+            # No new data is created; we simply filter existing
+            # records and preserve every provenance field.
+            ocr_records = []
+            for rec in veee_records:
+                if not isinstance(rec, dict):
+                    continue
+                if rec.get("type") == "skipped":
+                    continue
+                prov = rec.get("provenance") or {}
+                bbox = prov.get("bounding_box") or {}
+                if not (prov.get("image_url") and isinstance(bbox, dict)
+                            and all(k in bbox for k in ("x", "y", "w", "h"))):
+                    continue
+                ocr_records.append(rec)
+            doc["acquisition_ocr_records"] = ocr_records
         except Exception:
             # Never break case-read on a display-only computation.
             doc["acquisition_summary"] = None
+            doc["acquisition_ocr_records"] = []
     except Exception:
         # Read-side failure must NEVER 500 — fall back to legacy shape.
         pass

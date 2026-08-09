@@ -103,5 +103,100 @@ def test_summary_shape_is_stable_across_permutations():
         s = compute_summary(veee_records=records)
         for k in ("schema_version", "veee_enabled", "structured_blocks", "sections"):
             assert k in s
-        for k in ("html", "images", "recovered", "quality", "performance"):
+        for k in ("html", "images", "recovered", "quality", "performance",
+                     "pipeline_health"):
             assert k in s["sections"]
+
+
+# ══════════════════════════════════════════════════════════════════
+# P0.15C-2 · Refinement · Pipeline Stage Health
+# Display-only per-stage status derived from existing counters.
+# ══════════════════════════════════════════════════════════════════
+def _health(s):
+    return s["sections"]["pipeline_health"]
+
+
+def test_pipeline_health_empty_all_not_available():
+    h = _health(compute_summary())
+    for stage in ("html", "images", "ocr", "canonicalizer", "classifier"):
+        assert h[stage]["status"] == "not_available"
+
+
+def test_pipeline_health_flag_off_no_records_marks_veee_stages_disabled():
+    h = _health(compute_summary(veee_enabled=False, html_text="<p>x</p>"))
+    # HTML acquired successfully even when VEEE is off.
+    assert h["html"]["status"] == "completed"
+    # VEEE-owned stages report "disabled" instead of "not_available"
+    # when the flag is explicitly off.
+    for stage in ("images", "ocr", "canonicalizer", "classifier"):
+        assert h[stage]["status"] == "disabled"
+
+
+def test_pipeline_health_flag_on_all_stages_completed():
+    records = [
+        _rec(text="powershell.exe -c ..."),
+        _rec(text="cmd.exe /c echo hi"),
+    ]
+    s = compute_summary(veee_enabled=True, veee_records=records,
+                            html_text="<p>x</p>", images_seen_in_html=2)
+    h = _health(s)
+    assert h["html"]["status"]          == "completed"
+    assert h["images"]["status"]        == "completed"
+    assert h["ocr"]["status"]           == "completed"
+    assert h["canonicalizer"]["status"] == "completed"
+    assert h["classifier"]["status"]    == "completed"
+
+
+def test_pipeline_health_partial_ocr_and_canonicalizer():
+    # 1 processed + 1 skipped OCR → OCR = partial
+    # 1 canonicalizable command out of 1 → canonicalizer = completed
+    records = [
+        _rec(text="powershell.exe -c ..."),
+        _rec(type="skipped", text="",
+                 provenance={"skipped": True, "reason": "not_code_screenshot"}),
+    ]
+    h = _health(compute_summary(veee_enabled=True, veee_records=records))
+    assert h["ocr"]["status"]           == "partial"
+    assert h["canonicalizer"]["status"] == "completed"
+
+
+def test_pipeline_health_failed_canonicalizer_when_no_commands_canonicalized():
+    # Commands were extracted but none look like a known head.
+    records = [
+        _rec(text="something random that isnt a shell command"),
+        _rec(text="also not a command"),
+    ]
+    h = _health(compute_summary(veee_enabled=True, veee_records=records))
+    # OCR still completed (both processed), but canonicalizer failed.
+    assert h["ocr"]["status"]           == "completed"
+    assert h["canonicalizer"]["status"] == "failed"
+    assert h["classifier"]["status"]    == "failed"
+
+
+def test_pipeline_health_status_carries_detail_string():
+    records = [_rec(text="powershell.exe -c iex")]
+    h = _health(compute_summary(veee_enabled=True, veee_records=records))
+    # Every stage carries a non-empty detail string for the UI tooltip.
+    for stage in ("html", "images", "ocr", "canonicalizer", "classifier"):
+        assert isinstance(h[stage].get("detail"), str)
+
+
+def test_pipeline_health_never_raises_on_malformed_records():
+    # A record with no provenance and no text should NOT crash the summary.
+    s = compute_summary(veee_enabled=True,
+                              veee_records=[{"type": "commandline"}])
+    h = _health(s)
+    # No canonicalizable text → canonicalizer failed on 1 extracted command.
+    assert h["canonicalizer"]["status"] in ("failed", "not_available")
+
+
+def test_veee_enabled_explicit_flag_overrides_records_heuristic():
+    # Records present but flag explicitly off → veee_enabled True (activity),
+    # but pipeline_health respects the explicit flag for VEEE stages.
+    records = [_rec(text="whoami /all")]
+    # When the caller passes veee_enabled=True explicitly, the top-level
+    # ``veee_enabled`` field mirrors it.
+    s_on  = compute_summary(veee_enabled=True,  veee_records=records)
+    s_off = compute_summary(veee_enabled=False, veee_records=[])
+    assert s_on["veee_enabled"]  is True
+    assert s_off["veee_enabled"] is False

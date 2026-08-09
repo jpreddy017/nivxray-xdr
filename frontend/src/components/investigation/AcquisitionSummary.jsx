@@ -15,6 +15,15 @@
  */
 import React from "react";
 
+// Status → badge styling map (P0.15C-2 refinement)
+const STATUS_STYLES = {
+    completed:     { icon: "✓", className: "bg-emerald-50 text-emerald-700" },
+    partial:       { icon: "⚠", className: "bg-amber-50 text-amber-700" },
+    failed:        { icon: "✗", className: "bg-rose-50 text-rose-700" },
+    disabled:      { icon: "–", className: "bg-neutral-100 text-neutral-500" },
+    not_available: { icon: "–", className: "bg-neutral-100 text-neutral-500" },
+};
+
 export default function AcquisitionSummary({ summary }) {
     // Tolerance rule (§0.2) — a missing summary renders zeros,
     // never an error.
@@ -29,9 +38,24 @@ export default function AcquisitionSummary({ summary }) {
             quality:     { average_ocr_confidence: 0, ocr_commands_extracted: 0,
                               canonicalized_successfully: 0, classification_success_rate: 0 },
             performance: { processing_time_ms: 0, cache_hits: 0, cache_misses: 0 },
+            pipeline_health: {
+                html:          { status: "not_available", detail: "no HTML acquired" },
+                images:        { status: "not_available", detail: "no images discovered" },
+                ocr:           { status: "not_available", detail: "no OCR candidates" },
+                canonicalizer: { status: "not_available", detail: "no commands extracted" },
+                classifier:    { status: "not_available", detail: "no commands to classify" },
+            },
         },
     };
     const sec = s.sections;
+    // Defensive default in case an older payload lacks pipeline_health
+    const health = sec.pipeline_health || {
+        html:          { status: "not_available", detail: "" },
+        images:        { status: "not_available", detail: "" },
+        ocr:           { status: "not_available", detail: "" },
+        canonicalizer: { status: "not_available", detail: "" },
+        classifier:    { status: "not_available", detail: "" },
+    };
 
     const row = (label, value) => (
         <div className="flex items-center justify-between text-sm py-0.5"
@@ -101,6 +125,35 @@ export default function AcquisitionSummary({ summary }) {
                 {row("Processing ms",  sec.performance.processing_time_ms)}
                 {row("Cache hits",     sec.performance.cache_hits)}
                 {row("Cache misses",   sec.performance.cache_misses)}
+            </Section>
+
+            <Section title="Pipeline Stage Health">
+                {[
+                    ["HTML",          "html"],
+                    ["Images",        "images"],
+                    ["OCR",           "ocr"],
+                    ["Canonicalizer", "canonicalizer"],
+                    ["Classifier",    "classifier"],
+                ].map(([label, key]) => {
+                    const h = health[key] || { status: "not_available", detail: "" };
+                    const badge = STATUS_STYLES[h.status] || STATUS_STYLES.not_available;
+                    return (
+                        <div key={key}
+                                className="flex items-center justify-between text-sm py-0.5"
+                                data-testid={`acq-health-${key}`}>
+                            <span className="text-neutral-500">{label}</span>
+                            <span className="flex items-center gap-2">
+                                <span
+                                    data-testid={`acq-health-${key}-status`}
+                                    className={"px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide "
+                                                    + badge.className}
+                                    title={h.detail}>
+                                    {badge.icon} {h.status.replace(/_/g, " ")}
+                                </span>
+                            </span>
+                        </div>
+                    );
+                })}
             </Section>
         </div>
     );

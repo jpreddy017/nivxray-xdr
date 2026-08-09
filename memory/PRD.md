@@ -1,3 +1,70 @@
+## 🟢 2026-02-09 · P0.15C · **Acquisition Layer Complete · Slices 2 refinement → 5**
+
+Executed the remaining P0.15C slices sequentially per the frozen Release Contract.  Zero speculative refactoring; every change strictly additive and confined to `services/veee/`, `routers/cases.py` (read-side attachment only), the new UI components, and a new pytest suite.
+
+### P0.15C-2 · Pipeline Stage Health refinement
+`services/veee/summary.py` now emits `sections.pipeline_health` — a display-only per-stage status object derived from existing counters.  Five stages exposed: HTML · Images · OCR · Canonicalizer · Classifier.  Status vocabulary: `completed / partial / failed / disabled / not_available` (with a `detail` string for UI tooltips).  Explicit `veee_enabled` flag now threads through `routers/cases.py` → `compute_summary()` so the panel can distinguish "flag OFF" from "no data".  `AcquisitionSummary.jsx` renders the new section with color-coded badges (green ✓ / amber ⚠ / rose ✗ / grey –).
+
+### P0.15C-3 · Jump-to-Source
+* `routers/cases.py` now attaches `acquisition_ocr_records[]` on case-read — a read-only, additive projection of `veee_records` filtered to only those carrying complete provenance (`image_url` + `bounding_box.x/y/w/h`).
+* `JumpToSource.jsx` — bounding-box overlay component (inline or modal) that highlights the OCR region on the source screenshot; scales the bbox with the rendered image dimensions; degrades gracefully when provenance is incomplete.
+* `AcquisitionEvidenceList.jsx` — list view binding `acquisition_ocr_records` to per-row Jump-to-Source triggers.
+
+### P0.15C-4 · OCR Line Joining
+* `services/veee/line_joiner.py` — pure function `join_lines(OCRResult) → OCRResult`.  Deterministic; merges lines only on **explicit shell continuation markers** (`\`, `` ` ``, `^`, `|`) — no heuristic guessing.  Merged bbox = union, confidence = min.  Records the merged origin as `joined_from_lines = [i, …]` on the resulting `OCRLine`.
+* `services/veee/ocr_engine.py::OCRLine` gains `joined_from_lines: List[int] = []` (additive default).
+* `services/veee/__init__.py::extract_from_image` pipeline now runs `join_lines()` between OCR and evidence normalization.
+* `services/veee/evidence_extractor.py::_provenance` propagates `joined_from_lines` onto the emitted record's provenance (ADR-002 §5) — field is omitted when no join happened (byte-identical for non-joined records).
+
+### P0.15C-5 · Vendor Corpus v1 · Regression Lock
+Permanent benchmark: **14 pinned vendor-shaped fixtures** covering Talos ×3, Securelist ×3, Mandiant ×2, Microsoft ×2, Elastic ×2, Huntress ×2.  Fixtures are synthetic (deterministic HTML + PIL-rendered code screenshots) so CI never touches the network.  Suite enforces every P0.15C release-gate invariant per fixture:
+* Flag OFF → `extract_from_html` returns `[]`.
+* Flag ON → each recovered command carries every mandatory provenance field.
+* Determinism → per-fixture and full-corpus double-run byte-identical NormalizedEvidence[].
+* Additivity → Flag ON ≥ Flag OFF for every fixture.
+* Vendor distribution and total count pinned (14 · 3/3/2/2/2/2).
+* Manifest emitted idempotently to `corpus/vendor/v1/manifest.json` with per-fixture `html_sha256`.
+
+### Files
+* MODIFIED  `services/veee/summary.py` · +pipeline_health, +veee_enabled param
+* MODIFIED  `services/veee/__init__.py` · line-joiner wired
+* MODIFIED  `services/veee/ocr_engine.py` · OCRLine.joined_from_lines field
+* MODIFIED  `services/veee/evidence_extractor.py` · joined_from_lines provenance
+* NEW      `services/veee/line_joiner.py`
+* MODIFIED  `routers/cases.py` · +acquisition_ocr_records attachment, +veee_enabled flag
+* MODIFIED  `frontend/src/components/investigation/AcquisitionSummary.jsx` · +Pipeline Stage Health section
+* NEW      `frontend/src/components/investigation/JumpToSource.jsx`
+* NEW      `frontend/src/components/investigation/AcquisitionEvidenceList.jsx`
+* MODIFIED  `backend/tests/test_p015c2_acquisition_summary.py` · +8 pipeline_health tests (22 total)
+* NEW      `backend/tests/test_p015c3_jump_to_source.py` · 5 tests
+* NEW      `backend/tests/test_p015c4_line_joiner.py` · 15 tests
+* NEW      `backend/tests/test_p015c5_vendor_corpus_v1.py` · 47 tests (3 per fixture + suite-level)
+* NEW      `backend/corpus/vendor/v1/manifest.json` · pinned corpus manifest
+
+### Release-gate results
+| Invariant | Result |
+|---|---|
+| §3.1 Flag-OFF byte-identity | ✅ (14/14 fixtures) |
+| §3.2 Additivity (Flag ON ≥ Flag OFF) | ✅ (14/14 fixtures) |
+| §3.3 Complete provenance on every OCR record | ✅ |
+| §3.4 Zero Workspace regressions | ✅ (P0.6/P0.7/P0.8/Track-B/S4-freeze all green) |
+| §3.5 Deterministic Acquisition (double-run) | ✅ (14/14 fixtures + full-corpus check) |
+| §0.1 Stage Isolation | ✅ (line_joiner is a single-purpose module) |
+| §0.2 Never-Modify-Evidence | ✅ (join_lines is pure; extract_evidence appends only) |
+
+### Aggregate test status
+- P0.15C stack (C-1 → C-5) + adjacent frozen invariants: **186 / 186 pass** (0 skips)
+- Vendor Corpus v1 harness alone: **47 / 47 pass** in ~10 s
+
+### Constraints honored
+- Deterministic-only · no LLM · no semantic layer changes · Workspace and Behavior/Projection/Recommendation layers untouched
+- `NVX_VEEE_ENABLED` remains `0` in `backend/.env`; VEEE is fully additive and feature-flagged
+- No file outside the acquisition perimeter modified
+
+---
+
+
+
 ## 🟢 2026-02-05 · P0.11 · **Behavior Registry + BROKEN_AT_* traceability taxonomy**
 
 Executed the user's revised priority order — Behavior Registry as the single source of truth for the semantic vocabulary, plus the traceability taxonomy refinement that gives dashboards / CI / reports a shared BROKEN_AT_* vocabulary.

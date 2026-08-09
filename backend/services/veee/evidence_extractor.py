@@ -118,6 +118,13 @@ def _provenance(image_url:    str,
                                     "w": bbox.w, "h": bbox.h}
     if page is not None:
         prov["page"] = page
+    # ── P0.15C-4 · propagate line-joining provenance ─────────────
+    # Emit ``joined_from_lines`` ONLY when line joining actually
+    # ran (per ADR-002 §5).  Non-joined lines omit the field so
+    # existing consumers see byte-identical provenance shapes.
+    joined = getattr(line, "joined_from_lines", None)
+    if joined:
+        prov["joined_from_lines"] = list(joined)
     return prov
 
 

@@ -56,6 +56,7 @@ def compute_summary(structured_blocks: Optional[List[str]]        = None,
                         processing_time_ms: Optional[float]        = None,
                         cache_hits:         Optional[int]          = None,
                         cache_misses:       Optional[int]          = None,
+                        veee_enabled:      Optional[bool]          = None,
                         ) -> Dict[str, Any]:
     """Return the P0.15C-2 Acquisition Summary payload.  Never
     raises · missing inputs collapse to zero counters."""
@@ -149,16 +150,118 @@ def compute_summary(structured_blocks: Optional[List[str]]        = None,
         "cache_misses":       int(cache_misses or 0),
     }
 
+    # ── Pipeline Stage Health (P0.15C-2 refinement · 2026-02-09) ─
+    # Display-only summary of per-stage acquisition health.  Every
+    # status is DERIVED from counters already computed above — no
+    # new backend behaviour, no semantic logic, no downstream data
+    # dependency (Stage Isolation Rule §0.1).
+    #
+    # Status vocabulary (5 values):
+    #   completed      · stage produced output as expected
+    #   partial        · stage produced output with some skips/gaps
+    #   failed         · stage received input but produced nothing
+    #   disabled       · NVX_VEEE_ENABLED=0 (explicit flag off)
+    #   not_available  · nothing to run against
+    flag_off       = (veee_enabled is False)
+    has_any_record = bool(records)
+    has_html       = bool(html) or any(html_section.values())
+
+    def _health(status: str, detail: str) -> Dict[str, str]:
+        return {"status": status, "detail": detail}
+
+    # HTML stage — succeeds if any HTML text or structural counters.
+    if has_html:
+        html_status = _health("completed",
+                                  f"paragraphs={html_section['paragraphs']} · "
+                                  f"tables={html_section['tables']} · "
+                                  f"code_blocks={html_section['code_blocks']}")
+    else:
+        html_status = _health("not_available", "no HTML acquired")
+
+    # Images stage — reflects discovery (images_seen_in_html) OR the
+    # candidate list VEEE actually saw.
+    n_found = images_section["found"]
+    if n_found > 0:
+        images_status = _health("completed", f"found={n_found}")
+    elif flag_off:
+        images_status = _health("disabled", "NVX_VEEE_ENABLED=0")
+    else:
+        images_status = _health("not_available", "no images discovered")
+
+    # OCR stage — VEEE processed vs skipped counts.
+    if flag_off and not has_any_record:
+        ocr_status = _health("disabled", "NVX_VEEE_ENABLED=0")
+    elif not has_any_record:
+        ocr_status = _health("not_available", "no OCR candidates")
+    elif processed > 0 and skipped == 0:
+        ocr_status = _health("completed", f"processed={processed}")
+    elif processed > 0 and skipped > 0:
+        ocr_status = _health("partial",
+                                 f"processed={processed} · skipped={skipped}")
+    else:
+        ocr_status = _health("failed",
+                                 f"processed=0 · skipped={skipped}")
+
+    # Canonicalizer stage — OCR-derived commands → canonical head.
+    if ocr_commands_extracted == 0:
+        if flag_off:
+            canon_status = _health("disabled", "NVX_VEEE_ENABLED=0")
+        else:
+            canon_status = _health("not_available", "no commands extracted")
+    elif canonicalized_successfully == ocr_commands_extracted:
+        canon_status = _health(
+            "completed",
+            f"canonicalized={canonicalized_successfully}/{ocr_commands_extracted}")
+    elif canonicalized_successfully > 0:
+        canon_status = _health(
+            "partial",
+            f"canonicalized={canonicalized_successfully}/{ocr_commands_extracted}")
+    else:
+        canon_status = _health(
+            "failed",
+            f"canonicalized=0/{ocr_commands_extracted}")
+
+    # Classifier stage — success rate mirrors canonicalized/extracted
+    # today; the field name reserves room for a future classifier
+    # metric without changing the schema.
+    rate = classification_success_rate
+    if ocr_commands_extracted == 0:
+        if flag_off:
+            classifier_status = _health("disabled", "NVX_VEEE_ENABLED=0")
+        else:
+            classifier_status = _health("not_available", "no commands to classify")
+    elif rate >= 100.0:
+        classifier_status = _health("completed", f"rate={rate}%")
+    elif rate > 0.0:
+        classifier_status = _health("partial", f"rate={rate}%")
+    else:
+        classifier_status = _health("failed", f"rate={rate}%")
+
+    pipeline_health_section = {
+        "html":          html_status,
+        "images":        images_status,
+        "ocr":           ocr_status,
+        "canonicalizer": canon_status,
+        "classifier":    classifier_status,
+    }
+
+    # ``veee_enabled`` remains a boolean for backward compatibility;
+    # when the caller passes it explicitly we honour that value,
+    # otherwise fall back to the "activity proxy" (records present).
+    resolved_veee_enabled = (bool(veee_enabled) if veee_enabled is not None
+                                                 else bool(records))
+
     return {
         "schema_version":       "1.0",
-        "veee_enabled":         bool(records),   # activity proxy
+        "veee_enabled":         resolved_veee_enabled,
         "structured_blocks":    len(blocks),
         "sections": {
-            "html":        html_section,
-            "images":      images_section,
-            "recovered":   recovered_section,
-            "quality":     quality_section,
-            "performance": performance_section,
+            "html":            html_section,
+            "images":          images_section,
+            "recovered":       recovered_section,
+            "quality":         quality_section,
+            "performance":     performance_section,
+            "pipeline_health": pipeline_health_section,
         },
     }
 

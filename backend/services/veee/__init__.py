@@ -29,6 +29,7 @@ from typing  import Any, Dict, List, Optional
 
 from services.veee.image_classifier import classify_image
 from services.veee.ocr_engine       import ocr_image, OCRResult
+from services.veee.line_joiner      import join_lines
 from services.veee.evidence_extractor import extract_evidence
 from services.veee.image_discovery  import discover_images
 
@@ -73,8 +74,13 @@ def extract_from_image(image_bytes: bytes,
                                      page=page,
                                      extra={"mean_conf": ocr.mean_confidence})]
 
+    # 2b. OCR Line Joining (P0.15C-4) — merge explicit multi-line
+    # continuations BEFORE the canonicalizer sees the evidence.
+    ocr = join_lines(ocr)
+
     # 3. Evidence extractor — group tokens into lines / IOCs.
-    return extract_evidence(ocr, image_url=image_url, page=page)
+    return extract_evidence(ocr, image_url=image_url, page=page,
+                                 image_bytes=image_bytes)
 
 
 def extract_from_url(image_url: str,
