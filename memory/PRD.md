@@ -12971,3 +12971,56 @@ Exactly per owner directive — divergence NOT declared false-negative.
 - Consumer switch NOT authorised.
 - Engine A remains the primary workspace verdict.
 - Awaiting real-world investigation traffic → then decide Wave 2.
+
+---
+
+## 2026-08-10 · ADR-004 Step 1 · Phase 4 Wave 1 Observation Infrastructure · ✅ COMPLETE
+
+**Owner directive** (2026-08-10):
+- Wave 1 observation approved; time-elapsed ≠ success. Coverage-gated instead.
+- Report by completeness class (minimal/sparse/moderate/rich).
+- Diagnose upstream ingestion gaps, not just verdict-engine behaviour.
+- Do NOT tune scoring. Do NOT switch consumers.
+
+### What shipped (observation infra only — zero scoring / consumer changes)
+- **`backend/v2/verdict/observation_store.py`** (NEW) — fire-and-forget MongoDB persistence to `verdict_shadow_observations`. Never blocks. Never raises. Sync-safe & async-safe.
+- **`backend/v2/verdict/shadow.py`** — instrumented with `perf_counter` latency; every shadow payload now includes `shadow_latency_ms`.
+- **`backend/routers/auto_investigate.py`** — attaches shadow + persists observation. Fire-and-forget; primary verdict path unchanged.
+- **`backend/routers/observation.py`** (NEW) — `GET /api/observation/wave1-report` aggregator. Returns the exact owner-mandated table.
+- **`backend/tests/test_phase4_wave1_observation_infra.py`** (NEW · 18 tests) — locks record shape, latency capture, fire-and-forget contract, aggregator helpers, upstream-hint logic, no-legacy-imports.
+
+### Owner-mandated report contents (all present)
+1. Total observations
+2. Counts by minimal / sparse / moderate / rich
+3. Verdict agreement rate by completeness class
+4. Divergence counts by classification
+5. All POTENTIAL-FALSE-POSITIVE at moderate/rich (bounded 200 rows)
+6. All POTENTIAL-FALSE-NEGATIVE at moderate/rich (bounded 200 rows)
+7. Re-observation status of the 11 original Phase-3 INPUT-CONTRACT-UNRESOLVED cases
+8. Missing-bucket frequencies (per-bucket missing-count + missing-pct)
+9. **Upstream-ingestion-suspects list** (buckets missing >70% → flagged as ingestion problem, NOT scoring problem)
+10. Shadow latency stats (n / mean / p50 / p95 / p99 / max)
+11. Shadow error stats (n_errors + error_pct + top messages)
+12. Wave 2 gate readiness (`coverage_ready` = ≥20 per class)
+
+### Live end-to-end verified (2026-08-10)
+- `POST /api/v2/auto-investigate` → attached `verdict_shadow` + persisted observation.
+- Shadow latency: **2.791 ms** — negligible overhead.
+- `GET /api/observation/wave1-report` → HTTP 200, correct report shape.
+- After first sample: 8 buckets already flagged as chronically-missing (upstream ingestion gap surfaced).
+
+### Wave 2 gate (owner-mandated)
+- `coverage_ready` = True requires ≥20 observations per completeness class.
+- `wave2_authorised` = False (hard-coded — only owner can flip).
+
+### Regression envelope
+- Step 0/0.1 + Phase 2/3 + Wave 1 shadow/infra tests: **180/180 GREEN**.
+- Hot-path regression: unchanged from Step 0.1 baseline. Zero new failures.
+- Live e2e smoke: HTTP 200 on both endpoints.
+
+### 🔴 STOP — observation window is now OPEN and collecting data
+
+- Consumer switch NOT authorised.
+- Engine A remains primary.
+- Scoring untouched.
+- Awaiting real-world traffic → then owner reviews the `/api/observation/wave1-report` output.

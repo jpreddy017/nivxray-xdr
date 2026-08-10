@@ -796,9 +796,15 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
         # window that will decide Phase 4 Wave 2 authorisation.
         try:
             from v2.verdict.shadow import compute_shadow as _compute_shadow
+            from v2.verdict.observation_store import record_observation as _record_obs
             _shadow = _compute_shadow(_cio)
             if _shadow:
                 result["verdict_shadow"] = _shadow
+                _record_obs(
+                    run_id=str(result.get("run_id") or getattr(_cio, "run_id", "") or ""),
+                    shadow=_shadow,
+                    latency_ms=float(_shadow.get("shadow_latency_ms") or 0.0),
+                )
         except Exception:  # noqa: BLE001
             import logging
             logging.getLogger(__name__).exception(

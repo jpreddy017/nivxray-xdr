@@ -247,6 +247,8 @@ def compute_shadow(cio) -> dict[str, Any] | None:
     """Compute the canonical shadow verdict + input completeness +
     divergence classification. Returns None on any failure so the
     caller never has to handle exceptions."""
+    import time as _time
+    _t0 = _time.perf_counter()
     try:
         # 1. Existing verdict already on CIO
         existing = getattr(cio, "verdict", None) or {}
@@ -287,6 +289,7 @@ def compute_shadow(cio) -> dict[str, Any] | None:
             existing_label, v.label, completeness["completeness_pct"])
 
         # 7. Rich comparison record
+        _latency_ms = (_time.perf_counter() - _t0) * 1000.0
         return {
             "shadow_engine":       "canonical-v2-verdict-1.0",
             "existing_verdict": {
@@ -299,10 +302,13 @@ def compute_shadow(cio) -> dict[str, Any] | None:
             "input_completeness":  completeness,
             "divergence":          divergence,
             "shadow_mode":         "read-only · Wave-1 · no consumer switch",
+            "shadow_latency_ms":   round(_latency_ms, 3),
         }
     except Exception as e:
         # Zero exceptions escape. Log-level only.
-        return {"shadow_error": f"{type(e).__name__}: {str(e)[:200]}"}
+        _latency_ms = (_time.perf_counter() - _t0) * 1000.0
+        return {"shadow_error": f"{type(e).__name__}: {str(e)[:200]}",
+                    "shadow_latency_ms": round(_latency_ms, 3)}
 
 
 __all__ = ["compute_shadow"]

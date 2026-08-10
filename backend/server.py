@@ -76,6 +76,7 @@ from routers.regression import router as regression_router
 from routers.investigations import router as investigations_router
 from routers.enrichment import router as enrichment_router
 from routers.docs import router as docs_router
+from routers.observation import router as observation_router
 from routers.timeline import router as timeline_router
 from routers.threat_intel_enrich import router as ti_enrich_router
 from routers.finetune import router as finetune_router
@@ -194,6 +195,7 @@ api.include_router(chain_router)
 api.include_router(training_confusion_router)
 api.include_router(taxii_router)
 api.include_router(regression_router)
+api.include_router(observation_router)
 
 # ADR-0014 · Public CIO Schema (v1 + latest alias). Unauthenticated
 # read-only. See routers/schemas.py.
