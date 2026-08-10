@@ -666,6 +666,62 @@ async def run_investigation_with_progress(
     except Exception as e:  # noqa: BLE001
         log.warning("investigation_report compose failed: %s", e)
         result["investigation_report"] = None
+
+    # ── ADR-004 Wave 1 · canonical verdict shadow attach ─────────────
+    #
+    # Owner-authorised L1 fix (2026-08-10): DOCX / MDR investigations
+    # must enter the Wave 1 observation store. We call the canonical
+    # engine DIRECTLY on the InvestigationModel object we just built
+    # (bypassing the CIO projection) so DOCX cases produce a
+    # `verdict_shadow` payload identical in shape to what
+    # auto_investigate.py attaches. Read-only. Never blocks. Never
+    # raises. Fire-and-forget observation persistence.
+    try:
+        if 'model' in locals() and model is not None:
+            from v2.verdict.canonical_input import from_investigation_model
+            from v2.verdict.canonical import score as _canonical_score
+            from v2.verdict.observation_store import record_observation as _record_obs
+            import time as _time
+            _t0 = _time.perf_counter()
+            _inp = from_investigation_model(model)
+            _cv  = _canonical_score(_inp)
+            _lat = (_time.perf_counter() - _t0) * 1000.0
+            # Existing verdict for divergence classification comes from
+            # the pipeline's final_incident_summary (engine A projection).
+            _fis = result.get("final_incident_summary") or {}
+            _existing_label = str(_fis.get("verdict") or _fis.get("label") or "")
+            _existing_conf  = int(_fis.get("confidence_pct") or 0)
+            # Completeness rollup from the same InvestigationModel:
+            from v2.verdict.shadow import (
+                _compute_input_completeness, _classify_divergence,
+            )
+            _ic = _compute_input_completeness(model)
+            _cd = _classify_divergence(_existing_label, _cv.label,
+                                                    _ic["completeness_pct"])
+            _canon_dict = _cv.to_dict()
+            _canon_dict["contributors"] = _canon_dict.get("contributors", [])[:3]
+            _shadow = {
+                "shadow_engine":       "canonical-v2-verdict-1.0",
+                "existing_verdict": {
+                    "label":          _existing_label,
+                    "confidence_pct": _existing_conf,
+                    "reason":         str(_fis.get("reason") or "")[:200],
+                },
+                "verdict_canonical":   _canon_dict,
+                "input_completeness":  _ic,
+                "divergence":          _cd,
+                "shadow_mode":         "read-only · Wave-1 · MDR pipeline · no consumer switch",
+                "shadow_latency_ms":   round(_lat, 3),
+            }
+            result["verdict_shadow"] = _shadow
+            _record_obs(
+                run_id=str(result.get("run_id") or job_id or ""),
+                shadow=_shadow, latency_ms=_lat,
+            )
+    except Exception as e:  # noqa: BLE001
+        log.warning("verdict_shadow attach failed on MDR pipeline: %s", e)
+        # Never propagate — shadow is observational only.
+
     await _emit(on_progress, {"type": "progress", "stage": "done",
                               "percent": 100,
                               "message": "Investigation complete."})

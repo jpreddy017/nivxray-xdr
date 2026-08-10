@@ -493,15 +493,30 @@ async def reinvestigate_document(
 
     text = text[:max_chars]
 
-    # Import and call decode/smart under-the-hood (re-use handler, skip HTTP)
+    # ── ADR-004 L1 fix (owner-authorised 2026-08-10) ──────────────
+    #
+    # This endpoint previously called `routers.ops.decode_smart` (the
+    # deep-payload decoder) with a symbol `DecodeIn` that was renamed
+    # on 2026-07-20 → HTTP 500 for ~3 weeks. Worse, `decode_smart` is
+    # the wrong pipeline for a DOCX incident report — it produces
+    # neither Investigation Model nor Attack Story / Recommendations
+    # / Executive Summary / Analyst Summary.
+    #
+    # L1 routes DOCX-style incident text through the EXISTING MDR
+    # investigation pipeline (`v2.jobs.pipeline.run_investigation_with_progress`)
+    # which already generates all of the above. NO new implementations.
+    # Engine A remains authoritative. `verdict_shadow` fires so DOCX
+    # cases enter the Wave 1 observation store.
     try:
-        from routers.ops import decode_smart, DecodeIn
-        result = await decode_smart(DecodeIn(input=text), user=user)
+        from v2.jobs.pipeline import run_investigation_with_progress
+        mdr = await run_investigation_with_progress(raw=text, focus=None)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"decode/smart failed: {e}")
+        raise HTTPException(status_code=500,
+                                    detail=f"MDR investigation pipeline failed: {e}")
 
-    # Try to grab the recorded history id (record_investigation runs
-    # fire-and-forget inside decode_smart; look it up by sha256 of the input).
+    # History persistence — the MDR pipeline runs record_investigation
+    # itself if the caller sets it up; otherwise we compute the hash
+    # and try to find the row it recorded via the shared path.
     import hashlib
     ihash = hashlib.sha256((text or "").encode("utf-8", errors="replace")).hexdigest()
     hist = await db.investigations.find_one(
@@ -516,33 +531,32 @@ async def reinvestigate_document(
             "metadata.reinvestigated": True,
             "metadata.reinvestigate_history_id": history_id,
             "metadata.reinvestigate_ts": datetime.now(timezone.utc).isoformat(),
+            "metadata.reinvestigate_pipeline": "v2.jobs.pipeline.run_investigation_with_progress",
         }},
     )
 
-    verdict_card = None
-    if isinstance(result, dict):
-        verdict_card = result.get("verdict_card")
-    elif hasattr(result, "verdict_card"):
-        verdict_card = getattr(result, "verdict_card", None)
-
-    # Result may be a DecodeResult pydantic object OR a dict — normalise.
-    def _g(k, default=None):
-        if isinstance(result, dict):
-            return result.get(k, default)
-        return getattr(result, k, default)
-
+    # ── Surface the ALREADY-GENERATED MDR outputs verbatim ────────
+    # No re-computation. No new fields. Just projection of what the
+    # pipeline already emits.
     return {
-        "ok": True,
-        "history_id": history_id,
-        "engine": _g("engine"),
-        "confidence": _g("confidence"),
-        "chain": [s.get("op") if isinstance(s, dict) else s for s in (_g("steps") or [])] or [t.get("op") for t in (_g("layer_trace") or [])],
-        "output_preview": (_g("output") or "")[:2000],
-        "verdict_card": verdict_card,
-        "iocs": _g("iocs") or {},
-        "mitre": _g("mitre") or [],
-        "lolbas": _g("lolbas") or [],
-        "reached_shellcode": bool(_g("reached_shellcode")),
+        "ok":                       True,
+        "history_id":               history_id,
+        "pipeline":                 "mdr",
+        # Existing top-level outputs of run_investigation_with_progress:
+        "engine":                   (mdr.get("engine") if isinstance(mdr, dict) else None),
+        "final_incident_summary":   (mdr.get("final_incident_summary") if isinstance(mdr, dict) else None),
+        "executive_card":           (mdr.get("executive_card") if isinstance(mdr, dict) else None),
+        "investigation_model":      (mdr.get("investigation_model") if isinstance(mdr, dict) else None),
+        "investigation_narrative":  (mdr.get("investigation_narrative") if isinstance(mdr, dict) else None),
+        "investigation_report":     (mdr.get("investigation_report") if isinstance(mdr, dict) else None),
+        # IOC / decode / OSINT pass-throughs (already computed by the pipeline):
+        "iocs":                     (mdr.get("iocs") if isinstance(mdr, dict) else {}) or {},
+        "mitre":                    (mdr.get("mitre") if isinstance(mdr, dict) else []) or [],
+        "lolbas":                   (mdr.get("lolbas") if isinstance(mdr, dict) else []) or [],
+        "decode_pipeline":          (mdr.get("decode_pipeline") if isinstance(mdr, dict) else None),
+        # Phase 4 Wave 1 shadow — attaches when the pipeline produced
+        # a CIO; DOCX cases now enter the observation store.
+        "verdict_shadow":           (mdr.get("verdict_shadow") if isinstance(mdr, dict) else None),
     }
 
 

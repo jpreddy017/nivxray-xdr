@@ -13059,3 +13059,58 @@ On n=1:
 - Consumer switch NOT authorised.
 - Engine A remains primary.
 - Aggregator now correctly refuses conclusions below sample threshold.
+
+---
+
+## 2026-08-10 · L1 · DOCX Workspace Investigation Path Restored · ✅ COMPLETE
+
+**Owner directive** (2026-08-10):
+- Fix broken `DecodeIn` import → HTTP 500 (was silent for 3 weeks since commit `dff0ce56`).
+- Route `documents.py::reinvestigate_document` through the existing MDR pipeline (`v2.jobs.pipeline.run_investigation_with_progress`), NOT `decode_smart`.
+- Surface all existing MDR outputs.
+- Attach `verdict_shadow` so DOCX cases enter Wave 1 observation store.
+- NO L2 (do not swap the naive python-docx paragraph loop for `DOCXAdapter`).
+- NO scoring / floor / Runtime Dependent / Engine A / ADR-004 changes.
+- NO new implementations of Attack Story / ATT&CK / Recommendations / Summaries.
+
+### Files changed
+- **`routers/documents.py`** — `reinvestigate_document` handler now calls `run_investigation_with_progress(raw=text)` and surfaces: `engine`, `final_incident_summary`, `executive_card`, `investigation_model`, `investigation_narrative`, `investigation_report`, `iocs`, `mitre`, `lolbas`, `decode_pipeline`, `verdict_shadow`. Broken `DecodeIn` import removed.
+- **`v2/jobs/pipeline.py`** — added a **read-only** shadow attach at the tail of `run_investigation_with_progress`. Calls `canonical_input.from_investigation_model(model)` + `canonical.score(inp)` + `observation_store.record_observation(...)`. Never blocks. Never raises.
+
+### Live end-to-end verification on Sample.docx
+Same DOCX that previously produced HTTP 500 now returns HTTP 200 · 93 KB:
+
+| Section | Before L1 | After L1 |
+|---|---|---|
+| HTTP status | 500 (import failure) | 200 |
+| `investigation_model` | ❌ absent | ✅ 12 buckets · files 2 · network 31 · assets 5 · history 1 |
+| `executive_card` | ❌ absent | ✅ 11 keys |
+| `investigation_narrative` | ❌ absent | ✅ deterministic composed |
+| `investigation_report.attack_story` | ❌ absent | ✅ 2 beats |
+| `investigation_report.executive_summary` | ❌ absent | ✅ populated |
+| `investigation_report.investigation_summary` | ❌ absent | ✅ 4 entries |
+| `investigation_report.timeline` | ❌ absent | ✅ 23 entries |
+| `investigation_report.technical_summary` | ❌ absent | ✅ 7 keys |
+| `investigation_report.recommendations` | ❌ absent | ✅ immediate/short_term/long_term |
+| `investigation_report.observed_evidence` | ❌ absent | ✅ 5 categories |
+| `investigation_report.observed_iocs` | ❌ absent | ✅ 3 buckets |
+| `verdict_shadow` | ❌ absent | ✅ present · completeness=44% (moderate) · latency=1.058 ms |
+
+### Wave 1 observation store now covers DOCX
+Before L1: `{minimal: 1, sparse: 0, moderate: 0, rich: 0}`
+After L1:  `{minimal: 1, sparse: 0, **moderate: 1**, rich: 0}`
+
+DOCX case entered Wave 1 at **moderate** completeness (44%) — much richer than the earlier paste case (11%). Divergence for this case was `INPUT-CONTRACT-UNRESOLVED`.
+
+### Regression envelope
+- Step 0/0.1 + Phase 2/3 + Wave 1 shadow/infra + L1: **185/185 GREEN**.
+- Live end-to-end DOCX smoke: HTTP 200, all expected sections populated.
+- Shadow overhead: p95 = 1.058 ms.
+
+### Constraints honoured
+- ❌ NO scoring / weights / floor / Runtime Dependent changes.
+- ❌ NO consumer switch (Engine A remains authoritative).
+- ❌ NO new Attack Story / ATT&CK / Mitigation / Summary implementations (existing MDR pipeline used verbatim).
+- ❌ NO L2 (paragraph-loop extraction still in place; DOCXAdapter still orphaned).
+- ❌ NO ADR-004 Step 2.
+- ✅ Only the ingestion routing + one shadow-attach in MDR pipeline.
