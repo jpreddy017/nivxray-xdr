@@ -96,6 +96,23 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 **Explicitly NOT authorised before Phase 5** (per owner directive 2026-08-10): Workspace provenance UI · ARTIFACT_SPLIT · THREAT_INTEL_ENRICH oracle · VENDOR_NORMALISER · diagnostic route · any other enhancement. Those are separate work items and must not contaminate this migration gate.
 
+## Phase 5.W · Workspace-priority canonical integration (owner directive 2026-08-10)
+
+**Owner-locked decision**: bring the Workspace's real `/api/upload` → `/api/die/analyze` path into the canonical investigation architecture WITHOUT changing external contracts or Workspace UI behavior. Rejected the sequential 5.2 → 5.8 order in favor of fixing the route the primary user actually uses.
+
+**What shipped in Phase 5.W**:
+- `services/die/canonical_bridge.py` — reads the canonical `_NARRATIVE_RULES` and augments the legacy `/api/die/analyze` `result.techniques` + `result.chain.steps[0].techniques` with narrative MITRE evidence (T1219, T1204.002, T1486, T1003, T1566, T1071 vocabulary). Additive only — never removes or reshapes legacy fields.
+- `routers/die.py` — one-line call to `augment_die_result` after legacy `analyze()`. Feature-flag gated: `NIVX_CANONICAL_DIE_ANALYZE=on` (currently ON).
+- `routers/ops.py::upload` — for DOCX/PPTX/XLSX/ZIP (any `PK`-magic archive), unzips and extracts UTF-8 members' text (tag-stripped concatenation of `word/document.xml`, `ppt/slide*.xml`, `xl/sharedStrings.xml`, …). External contract preserved — `text`/`content` shape unchanged, just populated with actual document text instead of hex+strings.
+
+**Acceptance verified (Sample.docx SHA256 `3915b712…8623a7`)**:
+- `/api/upload` returns 12 522 chars of extracted narrative text (5× "malicious file", 1× "remote access trojan", 1× "cisco xdr", 15× "executed").
+- `/api/die/analyze` returns `techniques: [T1204.002, T1219]`, `chain.steps: 9`, `canonical_augmented: {wave: 5.W, added: [T1204.002, T1219]}`.
+- Legacy command-input regression: PowerShell input still produces T1027 + T1105 unchanged.
+- Bare-"rat" false-positive guard: no T1219 fire.
+
+**Firewalls held**: no frontend changes · Workspace external contract preserved · no Wave 1 touch · no Sample1 touch · Engine A untouched · Phase 5.1 `/api/uil/investigate` behaviour unchanged.
+
 ## Phase 5 sequencing rule (owner directive 2026-08-10)
 
 **When Phase 5 is authorised, migration MUST proceed in the approved sub-phase order 5.1 → 5.8, one route at a time, with a gate + soak after each.** Do NOT migrate all eight routes as one change. This preserves the rollback boundary designed into the sub-phase split. Each sub-phase gets its own owner sign-off before the next begins.

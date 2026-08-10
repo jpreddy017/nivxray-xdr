@@ -41,8 +41,17 @@ class AnalyzeBody(BaseModel):
 
 @router.post("/analyze")
 def die_analyze(body: AnalyzeBody):
-    """Single-entry semantic analysis over any command-line input."""
-    return {"result": analyze(body.input, language=body.language)}
+    """Single-entry semantic analysis over any command-line input.
+
+    Phase 5.W (2026-08-10): when NIVX_CANONICAL_DIE_ANALYZE=on, the
+    canonical narrative MITRE evidence is ADDED (never replaces) to
+    the legacy result so the Workspace attack-chain graph populates
+    for DOCX / narrative vendor-report inputs.
+    """
+    result = analyze(body.input, language=body.language)
+    from services.die.canonical_bridge import augment_die_result
+    result = augment_die_result(result, body.input)
+    return {"result": result}
 
 
 class UnderstandBody(BaseModel):

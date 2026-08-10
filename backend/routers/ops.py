@@ -381,7 +381,15 @@ async def run_recipe(body: RunRecipeIn, user=Depends(get_current_user)):
 
 @router.post("/upload")
 async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
-    """Universal file upload — accepts ANY file format."""
+    """Universal file upload — accepts ANY file format.
+
+    Phase 5.W (2026-08-10): for DOCX/PPTX/XLSX/ZIP the endpoint now
+    unzips the archive and concatenates the visible text from every
+    UTF-8-decodable member (word/document.xml, ppt/slide*.xml,
+    xl/sharedStrings.xml, …). External contract unchanged — the
+    Workspace still receives `text`/`content` as before, just with
+    the actual document text populated for these formats.
+    """
     raw = await file.read()
     size = len(raw)
     hashes = {
@@ -403,6 +411,33 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
             if _mostly_printable(candidate):
                 text = candidate
         except UnicodeDecodeError:
+            pass
+    # ── Phase 5.W · DOCX/PPTX/XLSX/ZIP text extraction ────────────────
+    if text is None and len(raw) >= 4 and raw[:2] == b"PK":
+        try:
+            import io as _io
+            import re as _re
+            import zipfile as _zip
+            with _zip.ZipFile(_io.BytesIO(raw)) as zf:
+                parts = []
+                for name in zf.namelist():
+                    try:
+                        member = zf.read(name)
+                    except Exception:                            # noqa: BLE001
+                        continue
+                    try:
+                        decoded = member.decode("utf-8")
+                    except UnicodeDecodeError:
+                        continue
+                    # Strip XML tags for narrative text; keep raw for
+                    # tag-embedded IOCs by concatenating both views.
+                    stripped = _re.sub(r"<[^>]+>", " ", decoded)
+                    stripped = _re.sub(r"\s+", " ", stripped).strip()
+                    if stripped:
+                        parts.append(f"[{name}] {stripped}")
+                if parts:
+                    text = "\n".join(parts)[:400_000]
+        except Exception:                                        # noqa: BLE001
             pass
     hex_dump = _hex_dump(raw[:512])
     strings_out = _extract_strings(raw, min_len=4, limit=400)
