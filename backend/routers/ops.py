@@ -441,8 +441,23 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
             pass
     hex_dump = _hex_dump(raw[:512])
     strings_out = _extract_strings(raw, min_len=4, limit=400)
+    # ── Phase 5.W · Cap the analyst-facing content to prevent frontend
+    # blackscreen on large uploads (>≈100KB text crashes the workspace
+    # <pre>/textarea). Backend still holds the full extracted text; the
+    # UI just receives a truncated preview + a truncation marker.
+    _CONTENT_CAP = 64_000
+    def _truncate(t: str) -> str:
+        if t is None or len(t) <= _CONTENT_CAP:
+            return t
+        head = t[: _CONTENT_CAP - 200]
+        tail_marker = (
+            f"\n\n… [TRUNCATED · {len(t)} chars total · showing first "
+            f"{_CONTENT_CAP - 200} chars] …"
+        )
+        return head + tail_marker
+    text_display = _truncate(text)
     if text is not None:
-        content = text[:400_000]
+        content = _truncate(text)
     else:
         content = (
             f"[BINARY FILE — {file.filename}]\n"
@@ -458,7 +473,7 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
     return {
         "filename": file.filename, "size": size,
         "hashes": hashes, "file_type": file_type,
-        "text": text[:400_000] if text else None,
+        "text": text_display,
         "hex_dump": hex_dump, "strings": strings_out, "content": content,
     }
 
