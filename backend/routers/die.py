@@ -143,8 +143,15 @@ def die_narrate(body: NarrateBody):
                         })
                         seen_ids.add(tid)
                 # Also feed the tactic-grouped progression + mitre_matrix
-                # so the enricher sees the same evidence surface.
-                if not narrative.get("attack_progression"):
+                # so the enricher sees the same evidence surface. Overwrite
+                # the legacy per-file "Stage N — <filename>" progression
+                # (whose mitre[] is empty) since the CSV/EDR analyzer's
+                # tactic-grouped view carries real technique evidence.
+                _legacy_prog = narrative.get("attack_progression") or []
+                _prog_has_evidence = any(
+                    (s.get("mitre") or []) for s in _legacy_prog if isinstance(s, dict)
+                )
+                if not _prog_has_evidence:
                     narrative["attack_progression"] = csv_r.get("attack_progression") or []
                 if not narrative.get("mitre_matrix"):
                     narrative["mitre_matrix"] = csv_r.get("mitre") or []

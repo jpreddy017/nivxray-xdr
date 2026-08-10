@@ -189,6 +189,30 @@ Locked implications:
 
 The following data-catalog additions in projection-tier files are **formally approved exceptions** to the "no projection changes" freeze:
 
+## Phase 5.W.3 · /narrate parity + CLEAR full-wipe + upload anti-hang (2026-08-10, session-4)
+
+**Symptoms the analyst hit today:**
+1. 40 KB SEP.csv upload → Chrome "Page Unresponsive" dialog in both prev and prod (recurring pain).
+2. Saved SEP.csv case rendered with the legacy canned `"The paste yielded N analyst-observable stages"` executive summary + `"Stage 1 — chromesetup"` progression instead of the tactic-grouped MITRE view.
+3. CLEAR only reset a subset of state; the previous investigation's `investigationObject / analystNarrative` stayed in `localStorage` and blocked subsequent uploads.
+
+**Fixes shipped:**
+- **`onUpload`**: 2 MB client cap, 25 s AbortController budget, `startTransition` around post-response setState, pre-emptive wipe of `investigationObject / analystNarrative / understanding / inlineStoryPreproc / chain / analysis / detected` BEFORE upload so `useIdlePersist` doesn't JSON-stringify a stale investigation graph on the main thread.
+- **`useIdlePersist`**: bulk-size guard now includes an object-size estimate (was counting only string lengths); huge nested `investigationObject` used to bypass the guard entirely and block the tab for tens of seconds.
+- **CLEAR** (`clearAll`): now performs a **full workspace wipe** — every state field + every workspace-scoped localStorage / sessionStorage key (auth tokens preserved) + aborts any in-flight workspace HTTP request via `workspaceAbortRef`. Status becomes "WORKSPACE CLEARED — memory + persisted state wiped".
+- **`/api/die/narrate`**: now runs `csv_edr_analyzer.analyse_csv_edr()` when the input is tabular EDR telemetry — feeds detected MITRE ids into `enrich_narrative` and OVERWRITES the legacy per-file `"Stage N — <filename>"` progression with the CSV/EDR analyzer's tactic-grouped view (Execution → Persistence → Defense Evasion). Live-verified against SEP.csv: exec_summary populated, 3 progression stages with MITRE badges, 4 recommended actions, `overall_assessment {risk: High, primary_objective: "Maintain access across reboots", progress: 45%, confidence: High}`.
+
+**Acceptance verified:**
+- `POST /api/die/narrate` on SEP.csv → 4.4 KB response, 3 progression stages with MITRE ids, populated exec_summary, High-risk assessment.
+- `POST /api/die/investigation-results` on SEP.csv → 86 KB response (down from 505 KB pre-Phase 5.W).
+- Saved workspace case `SEP.csv (Live verify)` (id `60240f4e-462a-4c41-b574-c11a1af6de1b`) — 5 MITRE, 3 LOLBAS, 3 chain nodes, populated narrative.
+- CLEAR unit test via Playwright: `nvx.workspace.persist / nvx_last_input / nivx.investigation.text` all wiped, `nvx_token / nvx_email` preserved.
+- 3 governance guard tests pass.
+
+**Open architectural debt (owner reviewed, not yet started):**
+The "Page Unresponsive" root cause is architectural, not any single field. The permanent fix requires seven principles (payload-shape contract test / 250 KB server cap / SSE streaming / Web Worker for heavy client work / panel-level ErrorBoundaries / session-scoped state / input-path budget guards). Recommended immediate next block: **P0.a (payload-shape regression) + P0.b (panel ErrorBoundaries) + P0.c (drop investigationObject from useIdlePersist)** — ~190 lines total, kills the freeze class for good. See `/app/memory/adr/0005-capability-reality-audit.md` for the full audit.
+
+
 - `projections/attck.py :: _TECHNIQUE_META` — 6 rows added (T1219, T1204.002, T1071, T1486, T1003, T1566 → tactic + kill-chain). Original 5 rows byte-identical.
 - `projections/recommendations.py :: _RECS_BY_TECHNIQUE` — 6 keys added with evidence-derived recommendations for the same 6 techniques. Original 5 keys byte-identical.
 
