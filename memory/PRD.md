@@ -100,6 +100,16 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 **When Phase 5 is authorised, migration MUST proceed in the approved sub-phase order 5.1 → 5.8, one route at a time, with a gate + soak after each.** Do NOT migrate all eight routes as one change. This preserves the rollback boundary designed into the sub-phase split. Each sub-phase gets its own owner sign-off before the next begins.
 
+## Phase 5 governance — Workspace routing rule (owner directive 2026-08-10)
+
+**The Workspace UI remains on legacy routes until their individually authorised EntryAdapter migration.** No frontend rerouting to another canonical entry point.
+
+Locked implications:
+- Workspace upload (`POST /api/upload`) is NOT redirected to `/api/uil/investigate`.
+- No "5.1b" or any ad-hoc migration outside the approved 5.1 → 5.8 topology.
+- Workspace will naturally begin consuming the canonical lifecycle only when the route it calls is migrated in the approved sequence.
+- Any request to shortcut this MUST be rejected — the whole point of Phase 5.1 is to prove one isolated entry point converges cleanly; redirecting Workspace during 5.1 would mix frontend/upload/session/canonical/legacy concerns and destroy the rollback boundary.
+
 ## Owner-approved projection-freeze exception (Phase 3.y · 2026-08-10)
 
 The following data-catalog additions in projection-tier files are **formally approved exceptions** to the "no projection changes" freeze:
