@@ -10,17 +10,30 @@ Analyst-facing Universal Input endpoint.
 `/investigate` is the new smart front door: it classifies, normalises,
 optionally splits mixed input, and delegates to the existing Session
 pipeline — NO changes to IDA / DIE / ICE / IOC.
+
+ADR-005 · Phase 5.1 (2026-08-10)
+────────────────────────────────
+When env `NIVX_CANONICAL_UIL_INVESTIGATE=on`, `/investigate` is served
+by the direct canonical lifecycle (`services.uil.canonical_entry`).
+The legacy code path below is preserved BYTE-IDENTICAL when the flag
+is off (default). Rollback = flip the env variable to `off` + restart.
 """
 from __future__ import annotations
-from typing import Any, Dict, Optional
+
+import uuid
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from services.uil import classify, normalize, split_mixed, KIND_LABEL, InputKind
-from services.session import build_session
-from services.die.investigation_results import render as _render_ssot
 from routers.sessions import _persist_session
+from services.die.investigation_results import render as _render_ssot
+from services.session import build_session
+from services.uil import KIND_LABEL, InputKind, classify, normalize, split_mixed
+from services.uil.canonical_entry import (
+    canonical_flag_enabled,
+    investigate_canonical,
+)
 
 router = APIRouter(prefix="/uil", tags=["uil"])
 
@@ -30,8 +43,8 @@ class TextBody(BaseModel):
 
 
 @router.post("/classify")
-async def uil_classify(text:  Optional[str] = Form(default=None),
-                         file:  Optional[UploadFile] = File(default=None)) -> Dict[str, Any]:
+async def uil_classify(text:  str | None = Form(default=None),
+                         file:  UploadFile | None = File(default=None)) -> dict[str, Any]:
     payload, filename = await _read_input(text, file)
     if payload is None:
         raise HTTPException(400, "Provide `text` or `file`.")
@@ -48,7 +61,7 @@ async def uil_classify(text:  Optional[str] = Form(default=None),
 
 
 @router.post("/split")
-async def uil_split(body: TextBody) -> Dict[str, Any]:
+async def uil_split(body: TextBody) -> dict[str, Any]:
     fragments = split_mixed(body.text or "")
     return {
         "count":     len(fragments),
@@ -58,14 +71,35 @@ async def uil_split(body: TextBody) -> Dict[str, Any]:
 
 @router.post("/investigate")
 async def uil_investigate(
-    text:  Optional[str]        = Form(default=None),
-    file:  Optional[UploadFile] = File(default=None),
-) -> Dict[str, Any]:
-    """Smart front door: classify → normalize → hand off to Session."""
+    text:  str | None        = Form(default=None),
+    file:  UploadFile | None = File(default=None),
+) -> dict[str, Any]:
+    """Smart front door: classify → normalize → hand off to Session.
+
+    Phase 5.1 (2026-08-10): when `NIVX_CANONICAL_UIL_INVESTIGATE=on`,
+    the canonical lifecycle path is used (services.uil.canonical_entry).
+    Otherwise, the legacy path below runs unchanged.
+    """
     payload, filename = await _read_input(text, file)
     if payload is None:
         raise HTTPException(400, "Provide `text` or `file`.")
 
+    # ── Phase 5.1 · Canonical branch (opt-in via env flag) ────────────
+    if canonical_flag_enabled():
+        correlation_id = f"uil-{uuid.uuid4().hex[:12]}"
+        result = investigate_canonical(
+            payload=payload if isinstance(payload, (bytes, bytearray))
+                    else str(payload).encode("utf-8", "replace"),
+            filename=filename,
+            text_input=text,
+            correlation_id=correlation_id,
+        )
+        session = result.get("session")
+        if session is not None:
+            await _persist_session(session)
+        return result
+
+    # ── Legacy path (byte-identical to Phase 3.y exit) ────────────────
     kind = classify(payload, filename=filename)
     norm = normalize(payload, kind, filename=filename)
 
@@ -91,7 +125,6 @@ async def uil_investigate(
 
     rendered = _render_ssot(norm.text)
     ssot     = rendered.get("object") or {}
-    import uuid
     sid      = f"ses_{uuid.uuid4().hex[:12]}"
     session  = build_session(norm.text, ssot, session_id=sid)
 
@@ -109,7 +142,7 @@ async def uil_investigate(
 
 
 # ── helpers ───────────────────────────────────────────────────────
-async def _read_input(text: Optional[str], file: Optional[UploadFile]):
+async def _read_input(text: str | None, file: UploadFile | None):
     if file is not None:
         data = await file.read()
         return data, (file.filename or None)

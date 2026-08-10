@@ -176,16 +176,26 @@ def test_t3_7_no_router_imports_canonical_executor():
 
 
 def test_t3_7_no_service_imports_canonical_executor():
+    """Phase 5.1 (2026-08-10): authorised exemption for the UIL
+    canonical entry adapter — the first route to consume the canonical
+    lifecycle end-to-end. All other services remain firewalled."""
+    PHASE_5_1_ALLOWED = {
+        "/app/backend/services/uil/canonical_entry.py",
+        "/app/backend/services/uil/canonical_session.py",
+    }
     for base in ("/app/backend/services", "/app/backend/nivxforge",
                  "/app/backend/v2", "/app/backend/l2_investigation"):
         for root, _dirs, files in os.walk(base):
             for name in files:
                 if not name.endswith(".py"):
                     continue
-                with open(os.path.join(root, name), encoding="utf-8") as f:
+                path = os.path.join(root, name)
+                if path in PHASE_5_1_ALLOWED:
+                    continue
+                with open(path, encoding="utf-8") as f:
                     text = f.read()
                 assert "canonical.executor" not in text, \
-                    f"service imports canonical.executor: {os.path.join(root, name)}"
+                    f"service imports canonical.executor: {path}"
 
 
 # =====================================================================
