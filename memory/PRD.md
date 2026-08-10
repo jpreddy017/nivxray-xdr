@@ -12800,3 +12800,54 @@ case-read; frontend renders it read-only in
 - **STOP and report at Step 1 completion** — do NOT auto-continue to Step 2 (Attack Story).
 
 **Not yet started** — awaiting explicit "start Step 1" from owner.
+
+---
+
+## 2026-08-10 · ADR-004 Step 1 · Phases 1 & 2 · ✅ COMPLETE — STOP FOR OWNER REVIEW
+
+**Directive from owner**: "First report I want back is the 3-way difference report. Do NOT switch consumers before I approve it."
+
+### Phase 1 — Inventory (CORRECTS ADR-004 §Q1)
+ADR-004 said **3 verdict engines**. Actual codebase has **4 concrete verdict computers** + UAIE signal-emitter. Details recorded in `memory/STEP1_DIFF_REPORT.md`.
+
+| ID | Path | Role | Consumers |
+|---|---|---|---|
+| A | `nivxforge/investigation/verdict_engine.py::compute_verdict` | **ACTIVE workspace engine** | 4 |
+| B | `engine/detectors/verdict_v2.py::compute_verdict` | RC5 golden-corpus / diag | 4 |
+| C | `v2/verdict/engine.py::score` | ADR-004 canonical target (not wired to workspace) | 1 |
+| D | `v2/semantic/ps_verdict.py::compute_verdict` | PowerShell-semantic breakdown | 1 |
+| E | `services/uaie/orchestrator.py` | Signal-emitter (Evidence-tagged) — NOT a verdict computer | — |
+
+### Phase 2 — 4-way Behavioural Difference Report
+
+- **Snapshot**: `backend/corpus/vendor/v1/reports/step1_diff_report.json` (14 fixtures × 4 engines = 56 cells)
+- **Human-readable**: `memory/STEP1_DIFF_REPORT.md`
+- **Aggregate**: PRESERVED=7 · CORRECTED=30 · INTENTIONAL=19 · **UNEXPLAINED=0** ✅
+- **CI gate**: `backend/tests/test_step1_diff_report_gate.py` enforces zero UNEXPLAINED before Phase 4 consumer switch.
+
+### Critical finding surfaced (raised in report)
+The 4 engines have **radically different input contracts** — not just different scoring algorithms. Most of the 30 CORRECTED cells come from adapter-input insufficiency, not scoring gaps. Owner questions raised in the report:
+1. Should Phase 3 canonicalize the **input contract** as well as the algorithm?
+2. Should the canonical engine inherit A's "Suspicious-as-floor" or escalate to Malicious?
+3. Should D's `Runtime Dependent` (analyst-caution) surface be preserved or elevated?
+
+### Recommended Phase 3 approach (subject to owner approval)
+1. Do NOT touch scoring weights.
+2. Add a canonical input-adapter (`backend/v2/verdict/adapter.py`) that translates engine A's `EvidenceGraph+metadata` into engine C's `event` shape.
+3. Add a canonical wrapper (`backend/v2/verdict/canonical.py`) with byte-compatible `VerdictNode` shape.
+4. Re-run this diff report against the canonical wrapper; iterate until parity with engine A.
+5. Only after byte-parity → Phase 4 consumer switch.
+
+### 🔴 STOP — awaiting owner review of `memory/STEP1_DIFF_REPORT.md`
+
+No Phase 3 / Phase 4 work has begun. No consumer switched. No legacy engine deleted. Engine A remains the active workspace engine.
+
+### Files added / changed in Step 1 Phase 2
+- `backend/tests/step1_diff_report.py` (NEW · 646 lines · 4-way adapter harness + classifier)
+- `backend/tests/test_step1_diff_report_gate.py` (NEW · 3 tests · zero-UNEXPLAINED gate)
+- `backend/corpus/vendor/v1/reports/step1_diff_report.json` (NEW · pre-migration snapshot)
+- `memory/STEP1_DIFF_REPORT.md` (NEW · owner-facing report)
+
+### Regression envelope unchanged
+- **Step 0/0.1 targeted suite**: 130/130 GREEN.
+- **Hot-path regression**: 299 passed / 4 failed / 35 errors — identical to Step 0.1 baseline. Zero new failures.
