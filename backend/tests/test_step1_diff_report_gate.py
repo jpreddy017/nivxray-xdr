@@ -46,6 +46,7 @@ def test_diff_report_present_and_shaped():
             assert eng_id in e["classification"]["per_engine"]
             assert e["classification"]["per_engine"][eng_id]["class"] in {
                 "PRESERVED", "CORRECTED", "INTENTIONAL", "UNEXPLAINED",
+                "INPUT-CONTRACT-UNRESOLVED",
             }
 
 

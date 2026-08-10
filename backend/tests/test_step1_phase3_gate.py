@@ -48,6 +48,12 @@ def test_phase3_report_present_and_shaped():
     assert set(d["engines_probed"]) == {"A_nivxforge", "B_verdict_v2",
                                                  "C_v2_score", "D_ps_verdict",
                                                  "CANONICAL"}
+    # Every cell must have a known class
+    valid_classes = {"PRESERVED", "CORRECTED", "INTENTIONAL",
+                          "UNEXPLAINED", "INPUT-CONTRACT-UNRESOLVED"}
+    for e in d["entries"]:
+        for eng_id in e["engines"]:
+            assert e["classification"]["per_engine"][eng_id]["class"] in valid_classes
 
 
 def test_phase3_zero_unexplained():

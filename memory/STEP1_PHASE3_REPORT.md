@@ -39,38 +39,39 @@ Per the 2026-08-10 owner directive, the canonical verdict-input contract is deri
 | Class | Count |
 |---|---|
 | **PRESERVED** | 7 |
-| **CORRECTED** | 41 |
+| **CORRECTED** | 30 |
 | **INTENTIONAL** | 22 |
+| **INPUT-CONTRACT-UNRESOLVED** | 11 |
 | **UNEXPLAINED** | 0 |
 
 ## Per-engine class breakdown
 
-| Engine | PRESERVED | CORRECTED | INTENTIONAL | UNEXPLAINED |
-|---|---|---|---|---|
-| `A_nivxforge` | 4 | 0 | 10 | 0 |
-| `B_verdict_v2` | 0 | 14 | 0 | 0 |
-| `C_v2_score` | 0 | 11 | 3 | 0 |
-| `D_ps_verdict` | 3 | 5 | 6 | 0 |
-| `CANONICAL` | 0 | 11 | 3 | 0 |
+| Engine | PRESERVED | CORRECTED | INTENTIONAL | INPUT-UNRESOLVED | UNEXPLAINED |
+|---|---|---|---|---|---|
+| `A_nivxforge` | 4 | 0 | 10 | 0 | 0 |
+| `B_verdict_v2` | 0 | 14 | 0 | 0 | 0 |
+| `C_v2_score` | 0 | 11 | 3 | 0 | 0 |
+| `D_ps_verdict` | 3 | 5 | 6 | 0 | 0 |
+| `CANONICAL` | 0 | 0 | 3 | 11 | 0 |
 
 ## Per-fixture 5-column comparison
 
 | Fixture | GT | A · nivxforge | B · verdict_v2 | C · v2 score | D · ps_verdict | **CANONICAL** |
 |---|---|---|---|---|---|---|
 | `talos.001` | **Malicious** | Suspicious/75 · INTENTIONAL | Benign/0 · CORRECTED | Runtime Dependent/55 · INTENTIONAL | Malicious/75 · PRESERVED | **Runtime Dependent/55 · INTENTIONAL** |
-| `talos.002` | **Malicious** | Suspicious/75 · INTENTIONAL | Benign/0 · CORRECTED | Informational/24 · CORRECTED | Runtime Dependent/31 · INTENTIONAL | **Informational/30 · CORRECTED** |
+| `talos.002` | **Malicious** | Suspicious/75 · INTENTIONAL | Benign/0 · CORRECTED | Informational/24 · CORRECTED | Runtime Dependent/31 · INTENTIONAL | **Informational/30 · INPUT-CONTRACT-UNRESOLVED** |
 | `talos.003` | **Malicious** | Suspicious/75 · INTENTIONAL | Benign/0 · CORRECTED | Runtime Dependent/50 · INTENTIONAL | Malicious/75 · PRESERVED | **Runtime Dependent/60 · INTENTIONAL** |
-| `securelist.001` | **Malicious** | Suspicious/75 · INTENTIONAL | Benign/0 · CORRECTED | Informational/24 · CORRECTED | Informational/11 · CORRECTED | **Informational/16 · CORRECTED** |
-| `securelist.002` | **Malicious** | Malicious/73 · PRESERVED | Benign/0 · CORRECTED | Undetermined/12 · CORRECTED | Suspicious/55 · INTENTIONAL | **Undetermined/23 · CORRECTED** |
-| `securelist.003` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Informational/24 · CORRECTED | Informational/10 · CORRECTED | **Informational/24 · CORRECTED** |
-| `mandiant.001` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Undetermined/0 · CORRECTED | Informational/5 · CORRECTED | **Undetermined/0 · CORRECTED** |
+| `securelist.001` | **Malicious** | Suspicious/75 · INTENTIONAL | Benign/0 · CORRECTED | Informational/24 · CORRECTED | Informational/11 · CORRECTED | **Informational/16 · INPUT-CONTRACT-UNRESOLVED** |
+| `securelist.002` | **Malicious** | Malicious/73 · PRESERVED | Benign/0 · CORRECTED | Undetermined/12 · CORRECTED | Suspicious/55 · INTENTIONAL | **Undetermined/23 · INPUT-CONTRACT-UNRESOLVED** |
+| `securelist.003` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Informational/24 · CORRECTED | Informational/10 · CORRECTED | **Informational/24 · INPUT-CONTRACT-UNRESOLVED** |
+| `mandiant.001` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Undetermined/0 · CORRECTED | Informational/5 · CORRECTED | **Undetermined/0 · INPUT-CONTRACT-UNRESOLVED** |
 | `mandiant.002` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Runtime Dependent/50 · INTENTIONAL | Malicious/75 · PRESERVED | **Runtime Dependent/60 · INTENTIONAL** |
-| `microsoft.001` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Undetermined/14 · CORRECTED | Informational/2 · CORRECTED | **Informational/30 · CORRECTED** |
-| `microsoft.002` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Undetermined/0 · CORRECTED | Informational/2 · CORRECTED | **Undetermined/0 · CORRECTED** |
-| `elastic.001` | **Malicious** | Malicious/73 · PRESERVED | Benign/0 · CORRECTED | Undetermined/4 · CORRECTED | Runtime Dependent/24 · INTENTIONAL | **Undetermined/8 · CORRECTED** |
-| `elastic.002` | **Malicious** | Malicious/73 · PRESERVED | Benign/0 · CORRECTED | Undetermined/12 · CORRECTED | Runtime Dependent/16 · INTENTIONAL | **Undetermined/12 · CORRECTED** |
-| `huntress.001` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Informational/30 · CORRECTED | Runtime Dependent/22 · INTENTIONAL | **Informational/30 · CORRECTED** |
-| `huntress.002` | **Malicious** | Malicious/73 · PRESERVED | Benign/0 · CORRECTED | Undetermined/0 · CORRECTED | Runtime Dependent/19 · INTENTIONAL | **Undetermined/12 · CORRECTED** |
+| `microsoft.001` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Undetermined/14 · CORRECTED | Informational/2 · CORRECTED | **Informational/30 · INPUT-CONTRACT-UNRESOLVED** |
+| `microsoft.002` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Undetermined/0 · CORRECTED | Informational/2 · CORRECTED | **Undetermined/0 · INPUT-CONTRACT-UNRESOLVED** |
+| `elastic.001` | **Malicious** | Malicious/73 · PRESERVED | Benign/0 · CORRECTED | Undetermined/4 · CORRECTED | Runtime Dependent/24 · INTENTIONAL | **Undetermined/8 · INPUT-CONTRACT-UNRESOLVED** |
+| `elastic.002` | **Malicious** | Malicious/73 · PRESERVED | Benign/0 · CORRECTED | Undetermined/12 · CORRECTED | Runtime Dependent/16 · INTENTIONAL | **Undetermined/12 · INPUT-CONTRACT-UNRESOLVED** |
+| `huntress.001` | **Malicious** | Suspicious/73 · INTENTIONAL | Benign/0 · CORRECTED | Informational/30 · CORRECTED | Runtime Dependent/22 · INTENTIONAL | **Informational/30 · INPUT-CONTRACT-UNRESOLVED** |
+| `huntress.002` | **Malicious** | Malicious/73 · PRESERVED | Benign/0 · CORRECTED | Undetermined/0 · CORRECTED | Runtime Dependent/19 · INTENTIONAL | **Undetermined/12 · INPUT-CONTRACT-UNRESOLVED** |
 
 ## Canonical engine divergences (only column that matters going forward)
 
@@ -78,99 +79,84 @@ Per the 2026-08-10 owner directive, the canonical verdict-input contract is deri
 - Floor applied: `—`
 - Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed — an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule.
 
-### `talos.002` · GT=Malicious · CANONICAL=Informational/30 · CORRECTED
+### `talos.002` · GT=Malicious · CANONICAL=Informational/30 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
 ### `talos.003` · GT=Malicious · CANONICAL=Runtime Dependent/60 · INTENTIONAL
 - Floor applied: `—`
 - Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed — an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule.
 
-### `securelist.001` · GT=Malicious · CANONICAL=Informational/16 · CORRECTED
+### `securelist.001` · GT=Malicious · CANONICAL=Informational/16 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-### `securelist.002` · GT=Malicious · CANONICAL=Undetermined/23 · CORRECTED
+### `securelist.002` · GT=Malicious · CANONICAL=Undetermined/23 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-### `securelist.003` · GT=Malicious · CANONICAL=Informational/24 · CORRECTED
+### `securelist.003` · GT=Malicious · CANONICAL=Informational/24 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-### `mandiant.001` · GT=Malicious · CANONICAL=Undetermined/0 · CORRECTED
+### `mandiant.001` · GT=Malicious · CANONICAL=Undetermined/0 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
 ### `mandiant.002` · GT=Malicious · CANONICAL=Runtime Dependent/60 · INTENTIONAL
 - Floor applied: `—`
 - Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed — an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule.
 
-### `microsoft.001` · GT=Malicious · CANONICAL=Informational/30 · CORRECTED
+### `microsoft.001` · GT=Malicious · CANONICAL=Informational/30 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-### `microsoft.002` · GT=Malicious · CANONICAL=Undetermined/0 · CORRECTED
+### `microsoft.002` · GT=Malicious · CANONICAL=Undetermined/0 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-### `elastic.001` · GT=Malicious · CANONICAL=Undetermined/8 · CORRECTED
+### `elastic.001` · GT=Malicious · CANONICAL=Undetermined/8 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-### `elastic.002` · GT=Malicious · CANONICAL=Undetermined/12 · CORRECTED
+### `elastic.002` · GT=Malicious · CANONICAL=Undetermined/12 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-### `huntress.001` · GT=Malicious · CANONICAL=Informational/30 · CORRECTED
+### `huntress.001` · GT=Malicious · CANONICAL=Informational/30 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-### `huntress.002` · GT=Malicious · CANONICAL=Undetermined/12 · CORRECTED
+### `huntress.002` · GT=Malicious · CANONICAL=Undetermined/12 · INPUT-CONTRACT-UNRESOLVED
 - Floor applied: `—`
-- Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm — by ensuring detector coverage for the fixture's signals.
+- Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative — the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved.
 
-## Honest interpretation of CANONICAL PRESERVED=0
+## Phase 4 Wave 1 · Read-only side-by-side (AUTHORISED by owner 2026-08-10)
 
-The canonical engine scored 0/14 PRESERVED. **This is not a bug — it is a truthful measurement of the input-contract asymmetry the owner already surfaced in Phase 2.**
+Wave 1 has been AUTHORISED. Read-only shadow attach is now wired:
 
-Why zero:
-- The 14 fixtures are raw command lists. The canonical builder used the `from_commands` parity shim — NOT the full `from_investigation_model` path.
-- The shim populates only `lane="process"` events with head-token / keyword MITRE inference. No file / network / registry / auth / TI enrichment.
-- The v2 detector fabric requires the richer `InvestigationModel` output to reach `Malicious` — process events alone rarely fire CRITICAL-band signals without corroborating file / persistence / network context.
-- Because Suspicious-as-floor and Runtime Dependent are **preserved**, the canonical engine correctly labels 3/14 as `Runtime Dependent` (INTENTIONAL scope) rather than false-elevating.
+- `backend/v2/verdict/shadow.py::compute_shadow(cio)` — projects CIO metadata → `InvestigationModel`, builds `CanonicalVerdictInput`, scores canonical, computes Input-Completeness, classifies divergence.
+- `backend/routers/auto_investigate.py` — attaches `result["verdict_shadow"]` immediately after the existing `verdict` is refreshed. Never blocks; never replaces the primary verdict.
 
-**The right way to interpret this report**:
-- On the 14 fixtures (bare command lists), engine A reaches Malicious 4/14, D reaches Malicious 3/14, and the canonical engine reaches 0/14.
-- Engine A's advantage comes from consuming a pre-populated `EvidenceGraph` in its production callers — which is exactly the enrichment the shim skips.
-- **Phase 4 Wave 1** (read-only side-by-side attach in `auto_investigate.py`) will reveal the canonical engine's TRUE production performance because it will consume a real `InvestigationModel` built by the workspace pipeline — not the bare-commands shim.
-- A drop in `PRESERVED` counts on the shim is EXPECTED given the input asymmetry. The gate for Phase 4 is not shim-parity — it is `verdict_canonical` vs `verdict_A` divergence classification once real InvestigationModels flow.
-
-**Owner decision required before Phase 4 Wave 1**:
-- Accept that shim-parity is uninformative and proceed to Wave 1 side-by-side attach, OR
-- Require a `from_evidence_graph` adapter to reach byte-parity with engine A on the shim as an additional pre-Wave-1 gate.
-
-## Proposed Phase 4 · Consumer-switch plan
-
-Only after owner explicitly authorises Phase 4, switch consumers in this order:
-
-**Wave 1 — Read-only side-by-side (no behavioural change)**
-1. `routers/auto_investigate.py` — after `refresh_verdict(cio)` in the existing engine A path, ALSO compute a `CanonicalVerdict` and attach it to the response as `verdict_canonical` (does not replace `verdict`). Consumers can compare live but nothing changes.
-2. Run a 7-day production tail comparing `verdict_canonical` vs the active `verdict`. Alert on divergence class counts.
-
-**Wave 2 — Switch primary consumer (still keep legacy attached)**
-3. Once the 7-day tail shows zero UNEXPLAINED and INTENTIONAL counts match Phase 3 baseline, swap the primary field. `verdict` becomes canonical; `verdict_legacy_A` is attached alongside for one release.
-4. Golden-corpus consumer (`engine.golden_corpus.py`) is switched next — but its input is RC5 Behaviors, so the switch requires a `from_rc5_behaviors` adapter that we will add ONLY at Phase 4 time (not now).
-
-**Wave 3 — Deprecation (owner sign-off required)**
-5. Only after 2+ weeks of Wave 2 stable operation, mark engine A / B / D deprecated. Do NOT delete their code — mark with `@deprecated` and log warnings on every invocation.
-6. Physical deletion of legacy engines is Phase 5, blocked until every deprecated invocation counter reaches zero.
-
-## Gate — Phase 4 authorisation checklist
+### Wave 1 gate checklist (owner-mandated, 2026-08-10)
 
 - **UNEXPLAINED count** on this report: 0 (must be 0).
-- **Canonical engine's PRESERVED count** on this report: 0 of 14 (higher is better).
-- **Canonical engine's CORRECTED count**: 11 — each MUST be reviewed by owner before Wave 1 begins.
-- **Canonical engine's INTENTIONAL count**: 3 — documented and acceptable when they reflect Suspicious-as-floor or Runtime Dependent policy.
+- **CANONICAL PRESERVED**: 0 / 14 on the bare-command shim.
+- **CANONICAL INPUT-CONTRACT-UNRESOLVED**: 11 / 14 — tracked, NOT declared false-negatives, awaiting real-world observation.
+- **CANONICAL INTENTIONAL**: 3 / 14 — preserved Suspicious-as-floor / Runtime Dependent scope.
 
-_STOP — Phase 4 not authorised. Awaiting owner review of this report._
+### Observation-window telemetry captured per real investigation
+
+- `verdict_shadow.existing_verdict`  → the label + confidence + reason of the current engine A verdict
+- `verdict_shadow.verdict_canonical` → the label + confidence + top contributors of the canonical engine
+- `verdict_shadow.input_completeness` → which of the 9 InvestigationModel buckets were populated + completeness %
+- `verdict_shadow.divergence`         → AGREE / INPUT-CONTRACT-UNRESOLVED / INTENTIONAL-SCOPE / POTENTIAL-FALSE-NEGATIVE / POTENTIAL-FALSE-POSITIVE / OTHER-DIVERGENCE
+
+### Wave 1 STOP conditions (must all hold before Wave 2 authorisation)
+
+1. Sufficient sample coverage across `rich`/`moderate`/`sparse`/`minimal` completeness classes.
+2. Zero POTENTIAL-FALSE-POSITIVE cells at `rich` completeness.
+3. Every POTENTIAL-FALSE-NEGATIVE at `rich` completeness has an owner-approved explanation.
+4. The 11 previously INPUT-CONTRACT-UNRESOLVED cells (or their real-world equivalents) have been re-observed with `rich` or `moderate` completeness.
+
+_STOP · Wave 1 attached, observation window opens on next production traffic. Wave 2 (consumer switch) NOT authorised._

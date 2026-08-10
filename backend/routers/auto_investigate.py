@@ -786,6 +786,25 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
                 "P1-01 · OSINT enrichment failed (safe — CIO returned without OSINT block)"
             )
         result["cio"] = _cio.model_dump(mode="json")
+
+        # ── ADR-004 Step 1 · Phase 4 Wave 1 · READ-ONLY canonical shadow ─
+        #
+        # Owner directive (2026-08-10): attach `verdict_canonical` +
+        # `input_completeness` + `divergence` telemetry ALONGSIDE the
+        # existing `verdict`. NEVER replace. NEVER block. Zero
+        # user-visible behaviour change; enables the observation
+        # window that will decide Phase 4 Wave 2 authorisation.
+        try:
+            from v2.verdict.shadow import compute_shadow as _compute_shadow
+            _shadow = _compute_shadow(_cio)
+            if _shadow:
+                result["verdict_shadow"] = _shadow
+        except Exception:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).exception(
+                "Phase 4 Wave 1 · canonical shadow attach failed "
+                "(safe — existing verdict unaffected)"
+            )
     except Exception:  # noqa: BLE001
         import logging
         logging.getLogger(__name__).exception(

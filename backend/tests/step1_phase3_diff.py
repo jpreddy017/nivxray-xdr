@@ -84,7 +84,8 @@ def build_report() -> Dict[str, Any]:
         })
 
     counts = {"PRESERVED": 0, "CORRECTED": 0,
-                  "INTENTIONAL": 0, "UNEXPLAINED": 0}
+                  "INTENTIONAL": 0, "UNEXPLAINED": 0,
+                  "INPUT-CONTRACT-UNRESOLVED": 0}
     for e in entries:
         for eng, r in e["classification"]["per_engine"].items():
             counts[r["class"]] += 1
@@ -94,7 +95,8 @@ def build_report() -> Dict[str, Any]:
     for eng_id in ["A_nivxforge", "B_verdict_v2", "C_v2_score",
                         "D_ps_verdict", "CANONICAL"]:
         c = {"PRESERVED": 0, "CORRECTED": 0,
-                 "INTENTIONAL": 0, "UNEXPLAINED": 0}
+                 "INTENTIONAL": 0, "UNEXPLAINED": 0,
+                 "INPUT-CONTRACT-UNRESOLVED": 0}
         for e in entries:
             c[e["classification"]["per_engine"][eng_id]["class"]] += 1
         per_engine_counts[eng_id] = c
@@ -172,20 +174,22 @@ def write_report():
         "| Class | Count |",
         "|---|---|",
     ]
-    for k in ("PRESERVED", "CORRECTED", "INTENTIONAL", "UNEXPLAINED"):
+    for k in ("PRESERVED", "CORRECTED", "INTENTIONAL",
+                  "INPUT-CONTRACT-UNRESOLVED", "UNEXPLAINED"):
         lines.append(f"| **{k}** | {r['class_counts'][k]} |")
 
     lines += [
         "",
         "## Per-engine class breakdown",
         "",
-        "| Engine | PRESERVED | CORRECTED | INTENTIONAL | UNEXPLAINED |",
-        "|---|---|---|---|---|",
+        "| Engine | PRESERVED | CORRECTED | INTENTIONAL | INPUT-UNRESOLVED | UNEXPLAINED |",
+        "|---|---|---|---|---|---|",
     ]
     for eng_id, c in r["per_engine_counts"].items():
         lines.append(
             f"| `{eng_id}` | {c['PRESERVED']} | {c['CORRECTED']} | "
-            f"{c['INTENTIONAL']} | {c['UNEXPLAINED']} |"
+            f"{c['INTENTIONAL']} | {c['INPUT-CONTRACT-UNRESOLVED']} | "
+            f"{c['UNEXPLAINED']} |"
         )
 
     lines += [
@@ -238,37 +242,37 @@ def write_report():
         lines.append(f"- {cell['explanation']}")
         lines.append("")
 
-    # Phase 4 plan
+    # Phase 4 Wave 1 gate
     lines += [
-        "## Proposed Phase 4 · Consumer-switch plan",
+        "## Phase 4 Wave 1 · Read-only side-by-side (AUTHORISED by owner 2026-08-10)",
         "",
-        "Only after owner explicitly authorises Phase 4, switch consumers in this order:",
+        "Wave 1 has been AUTHORISED. Read-only shadow attach is now wired:",
         "",
-        "**Wave 1 — Read-only side-by-side (no behavioural change)**",
-        "1. `routers/auto_investigate.py` — after `refresh_verdict(cio)` in the existing engine A path, ALSO compute a `CanonicalVerdict` and attach it to the response as `verdict_canonical` (does not replace `verdict`). Consumers can compare live but nothing changes.",
-        "2. Run a 7-day production tail comparing `verdict_canonical` vs the active `verdict`. Alert on divergence class counts.",
+        "- `backend/v2/verdict/shadow.py::compute_shadow(cio)` — projects CIO metadata → `InvestigationModel`, builds `CanonicalVerdictInput`, scores canonical, computes Input-Completeness, classifies divergence.",
+        "- `backend/routers/auto_investigate.py` — attaches `result[\"verdict_shadow\"]` immediately after the existing `verdict` is refreshed. Never blocks; never replaces the primary verdict.",
         "",
-        "**Wave 2 — Switch primary consumer (still keep legacy attached)**",
-        "3. Once the 7-day tail shows zero UNEXPLAINED and INTENTIONAL counts match Phase 3 baseline, swap the primary field. `verdict` becomes canonical; `verdict_legacy_A` is attached alongside for one release.",
-        "4. Golden-corpus consumer (`engine.golden_corpus.py`) is switched next — but its input is RC5 Behaviors, so the switch requires a `from_rc5_behaviors` adapter that we will add ONLY at Phase 4 time (not now).",
-        "",
-        "**Wave 3 — Deprecation (owner sign-off required)**",
-        "5. Only after 2+ weeks of Wave 2 stable operation, mark engine A / B / D deprecated. Do NOT delete their code — mark with `@deprecated` and log warnings on every invocation.",
-        "6. Physical deletion of legacy engines is Phase 5, blocked until every deprecated invocation counter reaches zero.",
-        "",
-        "## Gate — Phase 4 authorisation checklist",
+        "### Wave 1 gate checklist (owner-mandated, 2026-08-10)",
         "",
         f"- **UNEXPLAINED count** on this report: {r['class_counts']['UNEXPLAINED']} (must be 0).",
-        "- **Canonical engine's PRESERVED count** on this report: "
-        f"{r['per_engine_counts']['CANONICAL']['PRESERVED']} of 14 (higher is better).",
-        "- **Canonical engine's CORRECTED count**: "
-        f"{r['per_engine_counts']['CANONICAL']['CORRECTED']} — each MUST be reviewed by owner "
-        "before Wave 1 begins.",
-        "- **Canonical engine's INTENTIONAL count**: "
-        f"{r['per_engine_counts']['CANONICAL']['INTENTIONAL']} — documented and "
-        "acceptable when they reflect Suspicious-as-floor or Runtime Dependent policy.",
+        f"- **CANONICAL PRESERVED**: {r['per_engine_counts']['CANONICAL']['PRESERVED']} / 14 on the bare-command shim.",
+        f"- **CANONICAL INPUT-CONTRACT-UNRESOLVED**: {r['per_engine_counts']['CANONICAL']['INPUT-CONTRACT-UNRESOLVED']} / 14 — tracked, NOT declared false-negatives, awaiting real-world observation.",
+        f"- **CANONICAL INTENTIONAL**: {r['per_engine_counts']['CANONICAL']['INTENTIONAL']} / 14 — preserved Suspicious-as-floor / Runtime Dependent scope.",
         "",
-        "_STOP — Phase 4 not authorised. Awaiting owner review of this report._",
+        "### Observation-window telemetry captured per real investigation",
+        "",
+        "- `verdict_shadow.existing_verdict`  → the label + confidence + reason of the current engine A verdict",
+        "- `verdict_shadow.verdict_canonical` → the label + confidence + top contributors of the canonical engine",
+        "- `verdict_shadow.input_completeness` → which of the 9 InvestigationModel buckets were populated + completeness %",
+        "- `verdict_shadow.divergence`         → AGREE / INPUT-CONTRACT-UNRESOLVED / INTENTIONAL-SCOPE / POTENTIAL-FALSE-NEGATIVE / POTENTIAL-FALSE-POSITIVE / OTHER-DIVERGENCE",
+        "",
+        "### Wave 1 STOP conditions (must all hold before Wave 2 authorisation)",
+        "",
+        "1. Sufficient sample coverage across `rich`/`moderate`/`sparse`/`minimal` completeness classes.",
+        "2. Zero POTENTIAL-FALSE-POSITIVE cells at `rich` completeness.",
+        "3. Every POTENTIAL-FALSE-NEGATIVE at `rich` completeness has an owner-approved explanation.",
+        "4. The 11 previously INPUT-CONTRACT-UNRESOLVED cells (or their real-world equivalents) have been re-observed with `rich` or `moderate` completeness.",
+        "",
+        "_STOP · Wave 1 attached, observation window opens on next production traffic. Wave 2 (consumer switch) NOT authorised._",
     ]
 
     md_path = _MEMORY_DIR / "STEP1_PHASE3_REPORT.md"

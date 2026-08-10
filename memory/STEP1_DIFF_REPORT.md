@@ -138,39 +138,3 @@ Before proceeding to Phase 3 (Canonicalization) and Phase 4 (Consumer Switch):
 4. Explicitly authorize Phase 3.
 
 _STOP — awaiting owner review._
-
----
-
-## CRITICAL FINDING — Adapter contract asymmetry (raise with owner before Phase 3)
-
-Phase 2 surfaces something ADR-004 §Q1 undersold. The 4 engines don't just have different **scoring algorithms** — they have radically different **input contracts**:
-
-| Engine | Native input | What it needs to fire fully |
-|---|---|---|
-| A (nivxforge) | `EvidenceGraph + metadata` | A populated graph with IOC / lolbin / persistence / decoded_fragment nodes |
-| B (verdict_v2) | `List[Behavior] + List[MitreMapping] + List[LolbinRow]` | RC5 semantic engine's rich Behavior objects with tactic/sub_kind + LolbinRow provenance |
-| C (v2 score)   | `event: dict` (per-event) | IRG-enriched events with `mitre` field, `rule_id`, and structured `parent/entity` |
-| D (ps_verdict) | `behaviors + ioc_stats + decode_trace_steps + encoded_present` | PowerShell semantic behaviors + IOC counts + decoder trace |
-
-The diff-report adapter feeds each engine a **fair-but-minimal synthetic input** derived from `fixture.commands`. Under the ADR-004 freeze I cannot enrich the adapters to full contract compliance without touching upstream pipeline code, which is out of Step 1's scope.
-
-**Practical implication**: The 30 CORRECTED cells are dominated by engines whose native contract requires richer pipeline output (Behaviors + MitreMappings + LolbinRows) that the raw fixture commands can't supply. In production, engine B receives these from the `engine/exec_graph.py` builder and does NOT return `Benign/0` for these fixtures.
-
-**Owner questions raised**:
-1. Should Phase 3 canonicalize the **input contract** as well as the algorithm? Otherwise consumer switch means every consumer must run the full RC5-style enrichment pipeline before scoring.
-2. Is engine A's `Suspicious`-as-floor default (10/14 fixtures) the analyst-preferred behaviour we want to inherit into the canonical v2 engine? Or should the canonical engine escalate to `Malicious` when Volt-Typhoon-style tradecraft is present?
-3. For fixtures where engine D says `Runtime Dependent`, does the workspace want to display `Runtime Dependent` (D's honest scope) or elevate to `Malicious` (analyst preferred)?
-
-## Recommended Phase 3 approach (subject to owner confirmation)
-
-Given the honest divergence above, Phase 3 should proceed in this order:
-
-1. **Do NOT** touch scoring weights in `backend/v2/verdict/weights.py`.
-2. **DO** define a canonical input-adapter contract in `backend/v2/verdict/adapter.py` (new file) that consumes the workspace's existing `EvidenceGraph + metadata` (engine A's contract, which the majority of consumers already produce) and emits the `event: dict` shape engine C wants. This is a **translation layer**, not a scoring change.
-3. Add a canonical-engine wrapper (`backend/v2/verdict/canonical.py`) that internally invokes C via the adapter and returns a shape byte-compatible with engine A's `VerdictNode`.
-4. Re-run this diff report against the canonical wrapper to prove every CORRECTED cell is either resolved OR promoted to INTENTIONAL with owner sign-off.
-5. **Only after** the canonical wrapper matches engine A byte-for-byte on all 14 fixtures do we consider Phase 4 (consumer switch).
-
-This ensures the migration preserves engine A's actual production behaviour verbatim, then progressively deprecates B / D as their specific consumers are migrated.
-
-_END OF PHASE 2 REPORT · AWAITING OWNER REVIEW._

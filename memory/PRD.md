@@ -12918,3 +12918,56 @@ Also: Do the 11 CANONICAL CORRECTED cells (all `Undetermined` or `Informational`
 ### Regression envelope
 - Step 0/0.1 + Phase 2 + Phase 3 tests: **141/141 GREEN**.
 - Hot-path regression: unchanged from Step 0.1 baseline. Zero new failures.
+
+---
+
+## 2026-08-10 · ADR-004 Step 1 · Phase 4 Wave 1 · ✅ COMPLETE — STOP for observation window
+
+**Owner directive** (2026-08-10):
+- NO `from_evidence_graph` adapter (engine A's shape is NOT the canonical target).
+- 11 CANONICAL cells reclassified as `INPUT-CONTRACT-UNRESOLVED` (not false-negatives).
+- Read-only side-by-side attach in `auto_investigate.py` with rich telemetry.
+- NEW: Canonical Input Completeness report per investigation.
+- Preserve scoring, floor, Runtime Dependent policy.
+- Do NOT deprecate Engine A. Do NOT proceed to Step 2.
+
+### What shipped in Wave 1
+- **`backend/v2/verdict/shadow.py`** (NEW) — projects CIO metadata → `InvestigationModel` → `CanonicalVerdictInput` → canonical score → `input_completeness` → divergence classification. Never raises; never blocks. AST-verified: no legacy-engine imports.
+- **`backend/routers/auto_investigate.py`** — attaches `result["verdict_shadow"]` after the primary `verdict` is refreshed. Zero user-visible change to the `verdict` field.
+- **`backend/tests/test_phase4_wave1_shadow.py`** (NEW · 21 tests) — locks:
+  - Completeness bucket classification (`minimal`/`sparse`/`moderate`/`rich`)
+  - Divergence classifier honours `INPUT-CONTRACT-UNRESOLVED` when completeness < 45%
+  - Shadow never raises on garbage input
+  - Rich payload contract (6 sub-fields)
+  - Deterministic
+  - Router imports + invokes `compute_shadow`
+  - Router attaches to `verdict_shadow` key, NEVER overwrites `verdict`
+  - No legacy-engine imports
+- **Phase 3 report reclassified** — CANONICAL cells previously CORRECTED now surface as `INPUT-CONTRACT-UNRESOLVED` (11 cells).
+
+### Live end-to-end verified (2026-08-10)
+`POST /api/v2/auto-investigate` with a plain PowerShell paste returned:
+```
+existing:    Malicious       (engine A, primary — unchanged)
+canonical:   Undetermined    (canonical, conf=4%)
+completeness:11% (minimal)   (only 1/9 InvestigationModel bucket populated)
+divergence:  INPUT-CONTRACT-UNRESOLVED
+```
+Exactly per owner directive — divergence NOT declared false-negative.
+
+### Wave 1 STOP conditions before Wave 2
+1. Sufficient sample coverage across `rich`/`moderate`/`sparse`/`minimal` classes.
+2. Zero POTENTIAL-FALSE-POSITIVE cells at `rich` completeness.
+3. Every POTENTIAL-FALSE-NEGATIVE at `rich` completeness has owner-approved explanation.
+4. The 11 previously INPUT-CONTRACT-UNRESOLVED cells re-observed at `rich` or `moderate` completeness.
+
+### Regression envelope
+- Step 0/0.1 + Phase 2 + Phase 3 + Phase 4 Wave 1 tests: **162/162 GREEN**.
+- Hot-path regression: unchanged from Step 0.1 baseline. Zero new failures.
+- Live e2e smoke: HTTP 200, `verdict_shadow` present, `verdict` unchanged.
+
+### 🔴 STOP — Wave 1 observation window open
+
+- Consumer switch NOT authorised.
+- Engine A remains the primary workspace verdict.
+- Awaiting real-world investigation traffic → then decide Wave 2.

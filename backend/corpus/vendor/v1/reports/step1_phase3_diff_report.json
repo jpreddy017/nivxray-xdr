@@ -7,7 +7,8 @@
     "wrapper": "backend/v2/verdict/canonical.py::score(inp: CanonicalVerdictInput)"
   },
   "class_counts": {
-    "CORRECTED": 41,
+    "CORRECTED": 30,
+    "INPUT-CONTRACT-UNRESOLVED": 11,
     "INTENTIONAL": 22,
     "PRESERVED": 7,
     "UNEXPLAINED": 0
@@ -153,8 +154,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -371,8 +372,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -480,8 +481,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -584,8 +585,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -688,8 +689,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -896,8 +897,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -1000,8 +1001,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -1104,8 +1105,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -1208,8 +1209,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -1312,8 +1313,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -1416,8 +1417,8 @@
             "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
           },
           "CANONICAL": {
-            "class": "CORRECTED",
-            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
           },
           "C_v2_score": {
             "class": "CORRECTED",
@@ -1502,30 +1503,35 @@
   "per_engine_counts": {
     "A_nivxforge": {
       "CORRECTED": 0,
+      "INPUT-CONTRACT-UNRESOLVED": 0,
       "INTENTIONAL": 10,
       "PRESERVED": 4,
       "UNEXPLAINED": 0
     },
     "B_verdict_v2": {
       "CORRECTED": 14,
+      "INPUT-CONTRACT-UNRESOLVED": 0,
       "INTENTIONAL": 0,
       "PRESERVED": 0,
       "UNEXPLAINED": 0
     },
     "CANONICAL": {
-      "CORRECTED": 11,
+      "CORRECTED": 0,
+      "INPUT-CONTRACT-UNRESOLVED": 11,
       "INTENTIONAL": 3,
       "PRESERVED": 0,
       "UNEXPLAINED": 0
     },
     "C_v2_score": {
       "CORRECTED": 11,
+      "INPUT-CONTRACT-UNRESOLVED": 0,
       "INTENTIONAL": 3,
       "PRESERVED": 0,
       "UNEXPLAINED": 0
     },
     "D_ps_verdict": {
       "CORRECTED": 5,
+      "INPUT-CONTRACT-UNRESOLVED": 0,
       "INTENTIONAL": 6,
       "PRESERVED": 3,
       "UNEXPLAINED": 0

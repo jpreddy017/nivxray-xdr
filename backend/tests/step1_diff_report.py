@@ -450,17 +450,42 @@ def _classify_divergence(
                     f"escalation rules — NOT the underlying scoring."),
             }
         elif _label_rank(lbl) <= _label_rank("Informational"):
-            per_engine[eng_id] = {
-                "class":       "CORRECTED",
-                "explanation": (
-                    f"Engine returned `{lbl}` (below analyst threshold) "
-                    f"while ground truth is `{gt_label}`. This is a "
-                    f"false-negative surface. Phase 3 canonicalization "
-                    f"must lift the canonical v2 engine to the ground-"
-                    f"truth label without touching the scoring algorithm "
-                    f"— by ensuring detector coverage for the fixture's "
-                    f"signals."),
-            }
+            # Owner directive (Phase 4 Wave 1, 2026-08-10):
+            # For the CANONICAL engine specifically, do NOT prematurely
+            # call low-band results "CORRECTED false-negatives" when
+            # the shim provides minimal input. Mark them as
+            # INPUT-CONTRACT-UNRESOLVED so they remain visible and
+            # tracked until real InvestigationModel telemetry from
+            # Phase 4 Wave 1 disambiguates them.
+            if eng_id == "CANONICAL":
+                per_engine[eng_id] = {
+                    "class":       "INPUT-CONTRACT-UNRESOLVED",
+                    "explanation": (
+                        f"Canonical engine returned `{lbl}` on the "
+                        f"`from_commands` parity shim (bare command list) "
+                        f"while ground truth is `{gt_label}`. This is "
+                        f"NOT a confirmed false-negative — the shim "
+                        f"provides only `lane=process` events and no "
+                        f"file / network / registry / auth / TI "
+                        f"enrichment. Phase 4 Wave 1 side-by-side "
+                        f"observation with real InvestigationModel "
+                        f"input is required to decide whether this is "
+                        f"(a) genuine detector gap, (b) correct "
+                        f"conservative scope, or (c) engine-A over-fire. "
+                        f"Tracked, not resolved."),
+                }
+            else:
+                per_engine[eng_id] = {
+                    "class":       "CORRECTED",
+                    "explanation": (
+                        f"Engine returned `{lbl}` (below analyst threshold) "
+                        f"while ground truth is `{gt_label}`. This is a "
+                        f"false-negative surface. Phase 3 canonicalization "
+                        f"must lift the canonical v2 engine to the ground-"
+                        f"truth label without touching the scoring algorithm "
+                        f"— by ensuring detector coverage for the fixture's "
+                        f"signals."),
+                }
         else:
             per_engine[eng_id] = {
                 "class":       "UNEXPLAINED",
