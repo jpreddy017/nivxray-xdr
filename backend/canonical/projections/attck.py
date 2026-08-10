@@ -41,6 +41,16 @@ _TECHNIQUE_META: Dict[str, Dict[str, str]] = {
                   "kill_chain": "actions_on_objectives"},
     "T1566":     {"tactic": "initial_access",
                   "kill_chain": "delivery"},
+    # ── Extended catalog (2026-08-10) so common legacy IDA techniques
+    # get canonical tactic/kill-chain assignments in Workspace views.
+    "T1027":     {"tactic": "defense_evasion",
+                  "kill_chain": "actions_on_objectives"},
+    "T1564.003": {"tactic": "defense_evasion",
+                  "kill_chain": "actions_on_objectives"},
+    "T1548.002": {"tactic": "privilege_escalation",
+                  "kill_chain": "actions_on_objectives"},
+    "T1562.001": {"tactic": "defense_evasion",
+                  "kill_chain": "actions_on_objectives"},
 }
 
 

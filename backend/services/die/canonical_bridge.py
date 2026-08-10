@@ -146,22 +146,27 @@ def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dic
         return result
     if not isinstance(result, dict):
         return result
-    canonical_techs = _canonical_techniques_from_text(raw_input or "")
-    if not canonical_techs:
-        return result
 
-    # Map technique_id → tactic + kill_chain (single source of truth
-    # is the canonical technique catalog in canonical.projections.attck).
+    # Map technique_id → tactic + kill_chain (single source of truth).
     from canonical.projections.attck import _TECHNIQUE_META
     def _meta(tid): return _TECHNIQUE_META.get(tid, {"tactic": "unknown",
                                                      "kill_chain": "unknown"})
+
+    # Normalise any tactic string to canonical snake_case form so
+    # legacy IDA's Title Case (e.g. "Defense Evasion") and the
+    # canonical catalog's snake_case (e.g. "defense_evasion") agree.
+    def _norm_tactic(s):
+        if not s: return ""
+        return s.strip().lower().replace(" ", "_").replace("-", "_")
+
+    canonical_techs = _canonical_techniques_from_text(raw_input or "")
 
     obj = result.get("object")
     if not isinstance(obj, dict):
         obj = {}
         result["object"] = obj
 
-    # ── object.mitre ──────────────────────────────────────────────────
+    # ── object.mitre · merge canonical narrative techniques ───────────
     existing_mitre = obj.get("mitre") or []
     if not isinstance(existing_mitre, list):
         existing_mitre = []
@@ -179,88 +184,90 @@ def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dic
             "rule_family": "canonical.narrative_vendor_report",
         })
         existing_ids.add(t["id"])
+
+    # ── Backfill empty tactic/kill_chain on legacy techniques ─────────
+    # Legacy IDA emits techniques with `tactic: ""` or Title Case. Fill
+    # blanks from the canonical catalog and NORMALISE all tactic strings
+    # so canonical (snake_case) and legacy (Title Case) agree.
+    for t in existing_mitre:
+        if not isinstance(t, dict): continue
+        tid = t.get("id") or ""
+        meta = _meta(tid)
+        current = _norm_tactic(t.get("tactic"))
+        if not current and meta["tactic"] != "unknown":
+            current = meta["tactic"]
+        t["tactic"] = current
+        current_kc = _norm_tactic(t.get("kill_chain"))
+        if not current_kc and meta["kill_chain"] != "unknown":
+            current_kc = meta["kill_chain"]
+        t["kill_chain"] = current_kc
     obj["mitre"] = existing_mitre
 
-    # ── object.narrative.* population ─────────────────────────────────
+    # If no techniques ANYWHERE, bail out — nothing to project.
+    if not existing_mitre:
+        return result
+
+    # ── ALWAYS mirror object.mitre → narrative.* so the Workspace
+    # attack-chain graph renders whether techniques came from legacy
+    # IDA (command-line inputs) or canonical narrative rules (DOCX).
     narrative = obj.get("narrative")
     if not isinstance(narrative, dict):
         narrative = {}
         obj["narrative"] = narrative
 
-    # mitre_matrix
-    mm = narrative.get("mitre_matrix") or []
-    if not isinstance(mm, list): mm = []
-    mm_ids = {t.get("id") for t in mm if isinstance(t, dict)}
-    for t in canonical_techs:
-        if t["id"] in mm_ids: continue
-        meta = _meta(t["id"])
-        mm.append({"id": t["id"], "name": t["name"],
-                   "tactic": meta["tactic"]})
+    # mitre_matrix — always populated from object.mitre
+    mm = []
+    for t in existing_mitre:
+        if not isinstance(t, dict): continue
+        tid = t.get("id"); nm = t.get("name")
+        if not tid: continue
+        tac = t.get("tactic") or _meta(tid)["tactic"]
+        mm.append({"id": tid, "name": nm, "tactic": tac})
     narrative["mitre_matrix"] = mm
 
-    # kill_chain_coverage
-    tactics_seen = {_meta(t["id"])["tactic"] for t in canonical_techs} - {"unknown"}
-    kcc = narrative.get("kill_chain_coverage") or []
-    if not isinstance(kcc, list): kcc = []
-    for tac in sorted(tactics_seen):
-        if tac not in kcc: kcc.append(tac)
-    narrative["kill_chain_coverage"] = kcc
+    # kill_chain_coverage — always list
+    tactics_seen = sorted({t.get("tactic") for t in existing_mitre
+                           if isinstance(t, dict) and t.get("tactic")
+                           and t.get("tactic") != "unknown"})
+    narrative["kill_chain_coverage"] = tactics_seen
 
-    # attack_progression: augment stages, or create a stage
-    ap = narrative.get("attack_progression") or []
-    if not isinstance(ap, list): ap = []
-    # Group techniques by tactic for stages.
+    # attack_progression — always list of tactic-grouped stages
     by_tactic: Dict[str, List[Dict[str, Any]]] = {}
-    for t in canonical_techs:
-        meta = _meta(t["id"])
-        by_tactic.setdefault(meta["tactic"], []).append({
-            "id": t["id"], "name": t["name"], "evidence": t.get("evidence", ""),
+    for t in existing_mitre:
+        if not isinstance(t, dict): continue
+        tid = t.get("id"); nm = t.get("name")
+        if not tid: continue
+        tac = t.get("tactic") or _meta(tid)["tactic"]
+        if tac == "unknown": continue
+        by_tactic.setdefault(tac, []).append({
+            "id": tid, "name": nm, "evidence": t.get("evidence", ""),
         })
-    # If AP is empty, create one stage per tactic (deterministic order).
-    if not ap:
-        from canonical.projections.attack_chain import _STAGE_INDEX
-        for tac in sorted(by_tactic.keys(),
-                          key=lambda x: _STAGE_INDEX.get(x, len(_STAGE_INDEX))):
-            meta_kc = next(iter(by_tactic[tac]), None)
-            kc = _TECHNIQUE_META.get((meta_kc or {}).get("id", ""), {}) \
-                    .get("kill_chain", "unknown")
-            ap.append({
-                "stage": tac,
-                "tactic": tac,
-                "kill_chain": kc.replace("_", " ").title(),
-                "title": tac.replace("_", " ").title(),
-                "mitre": by_tactic[tac],
-                "narrative": f"Observed {len(by_tactic[tac])} technique(s) in "
-                             f"{tac.replace('_',' ')}: "
-                             f"{', '.join(x['id'] for x in by_tactic[tac])}",
-            })
-    else:
-        # Fill in `mitre` and `tactic` on existing empty stages.
-        for stage in ap:
-            if not isinstance(stage, dict): continue
-            if not stage.get("mitre") and not stage.get("tactic"):
-                # Match by kill_chain string when possible.
-                stage_kc = (stage.get("kill_chain") or "").lower().replace(" ", "_")
-                for t in canonical_techs:
-                    if _meta(t["id"])["kill_chain"] == stage_kc:
-                        stage.setdefault("mitre", []).append({
-                            "id": t["id"], "name": t["name"],
-                        })
-                        stage["tactic"] = _meta(t["id"])["tactic"]
+    from canonical.projections.attack_chain import _STAGE_INDEX
+    ap: List[Dict[str, Any]] = []
+    for tac in sorted(by_tactic.keys(),
+                      key=lambda x: _STAGE_INDEX.get(x, len(_STAGE_INDEX))):
+        first_tid = by_tactic[tac][0]["id"]
+        kc = _meta(first_tid)["kill_chain"]
+        ap.append({
+            "stage": tac,
+            "tactic": tac,
+            "kill_chain": kc.replace("_", " ").title(),
+            "title": tac.replace("_", " ").title(),
+            "mitre": by_tactic[tac],
+            "narrative": (f"Observed {len(by_tactic[tac])} technique(s) in "
+                          f"{tac.replace('_',' ')}: "
+                          f"{', '.join(x['id'] for x in by_tactic[tac])}"),
+        })
     narrative["attack_progression"] = ap
 
-    # ── object.ice.incident.summary population ────────────────────────
+    # ── ice.incident.summary population ───────────────────────────────
     ice = obj.get("ice") or {}
     inc = ice.get("incident") if isinstance(ice, dict) else None
     if isinstance(inc, dict):
         sm = inc.get("summary") or {}
         if isinstance(sm, dict):
-            observed = sm.get("tactics_observed") or []
-            if not isinstance(observed, list): observed = []
-            for tac in sorted(tactics_seen):
-                if tac not in observed: observed.append(tac)
-            sm["tactics_observed"] = observed
-            sm["mitre_count"] = len(obj["mitre"])
+            sm["tactics_observed"] = tactics_seen
+            sm["mitre_count"] = len(existing_mitre)
             inc["summary"] = sm
         ice["incident"] = inc
     obj["ice"] = ice
@@ -269,7 +276,9 @@ def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dic
     result["canonical_augmented"] = {
         "wave": "5.W",
         "lifecycle": "canonical_bridge.investigation_results",
-        "added_techniques": [t["id"] for t in canonical_techs],
+        "canonical_added": [t["id"] for t in canonical_techs],
+        "total_mitre": len(existing_mitre),
+        "tactics_observed": tactics_seen,
     }
     return result
 
