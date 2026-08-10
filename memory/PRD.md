@@ -40,8 +40,9 @@ ANY INPUT
 | 1 · Canonical IUE Composer | ✅ CLOSED | `adr/0005-phase1-report.md` + `-signoff.md` |
 | 2 · Canonical SSOT authoritative tier | ✅ CLOSED | `adr/0005-phase2-report.md` + `-signoff.md` |
 | 3 · Canonical Executor | ✅ CLOSED (A3.1 verified against real Sample.docx) | `adr/0005-phase3-report.md` + `-signoff.md` + `-a3.1-verification.md` |
+| 3.x · TEXT_EXTRACT_FROM_ARCHIVE | ✅ CLOSED 2026-08-10 (D6-r child SSOTs; IOC/MITRE run inside children; word/document.xml → 52 URLs / 13 IPs / 6 SHA256 / 2 MD5 in child SSOT) | `adr/0005-phase3x-text-extract-from-archive-report.md` |
 | 4 · Projection tier | ✅ CLOSED (owner sign-off 2026-08-10; 15 projections; strict comparison; pytest + backend smoke) | `adr/0005-phase4-spec.md` + `-report.md` + `-projection-acceptance.md` + `-allowed-diffs.md` |
-| 5 · Entry-point convergence | ⛔ NOT authorised |  |
+| 5 · Entry-point convergence | ⛔ NOT authorised · Sample1 golden refresh DEFERRED on Sample1-hosting pod first |  |
 | 6 · Wave 1 relabelling | ⛔ NOT authorised |  |
 | 7 · Sample1 acceptance regression | ⛔ NOT authorised |  |
 | 8 · Workspace UI + template removal | ⛔ NOT authorised |  |
@@ -51,11 +52,13 @@ ANY INPUT
 ## Tests
 
 - 116/116 combined P1 + P2 + P3 tests green (locked at Phase 3 exit).
-- **71/71 Phase 4 tests green** (2026-08-10) · 3 environment-conditional skips for Sample1-on-pod checks.
-- Combined P1+P2+P3+P4 in a Sample1-hosting pod: **187 tests green** (this fresh CI pod runs 183 + skips 4 Sample1-required Phase 1/2/3 tests, unchanged since Phase 3 exit).
-- Sample1 fingerprint `5b4337d5a9fc05923bd3090f1270268ae8eef7af2ccf06f4e8d8492bf908261d` unchanged (projections take SSOT by value; no writes possible).
+- **71/71 Phase 4 tests green** (2026-08-10).
+- **9/9 Phase 3.x TEXT_EXTRACT_FROM_ARCHIVE tests green** (2026-08-10).
+- Combined P1+P2+P3+P3.x+P4 on Sample1-hosting pod: **196 tests green** (this fresh CI pod: 192 pass + 4 Sample1-required tests skip — same skip-set as at Phase 3 exit).
+- Sample1 fingerprint `5b4337d5a9fc05923bd3090f1270268ae8eef7af2ccf06f4e8d8492bf908261d` unchanged; A4.2 golden refresh **DEFERRED** to Sample1-hosting pod before Phase 5 authorization.
 - Verified Sample.docx fixture: `/app/memory/fixtures/Sample.docx` (40 786 bytes, SHA256 `3915b712…8623a7`).
-- Backend smoke: `/api/`, `/api/health`, `/api/auth/login` (200 each); `/api/cases` (403 auth-required) — no regression from Phase 4 additive package.
+- Phase 3.x acceptance: word/document.xml materialises as child SSOT `cssot:sha256:5970886e…2526ae` with 75 evidence nodes (52 URLs, 13 IPs, 6 SHA256, 2 MD5, 1 command) — 5/5 determinism.
+- Backend smoke: `/api/`, `/api/health`, `/api/auth/login` = 200; `/api/cases` = 403 (auth-required, expected).
 
 ## Golden case
 
@@ -80,7 +83,19 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 ## Next action
 
-Owner review + sign-off on `adr/0005-phase4-report.md`. On approval, **Phase 5** (Entry-point Route Migration) is authorised to begin — same Design→Implement→Tests→Sample.docx-NEW-case→Determinism→Sample1-fingerprint→STOP pattern used for Phases 1–4.
+**Pre-Phase-5 owner directive completed**. Before Phase 5 can begin:
+1. Owner review of `adr/0005-phase3x-text-extract-from-archive-report.md`.
+2. Execution of `test_px_9_sample1_fingerprint_unchanged` on the Sample1-hosting pod (deferred here).
+
+On both sign-offs, **Phase 5** (Entry-point Route Migration) is authorised.
+
+## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
+
+- Owner decisions applied verbatim: Q1=1a (child-SSOT recursion) · Q2=2a (existing budget) · Q3=3c (generic UTF-8 filter) · Q4=4a (raw XML — no tag-strip).
+- Executor plumbing completed: `store` is now supplied via `ctx["store"]` (single-line change that completes the existing D6-r contract already required by `_cap_recursive_discovery`).
+- `_cap_recursive_discovery` now skips archive members already materialised by TEXT_EXTRACT (via `parent_evidence_id` inspection).
+- Real Sample.docx pipeline: parent SSOT `58627409…20633d` + 19 archive-member artifacts + 16 populated child SSOTs; `word/document.xml` child yields 73 IOC nodes (52 URLs, 13 IPs, 6 SHA256, 2 MD5).
+- P4-FW3 no-fallback re-verified on both parent and child projections.
 
 ## Phase 4 shipped (2026-08-10)
 

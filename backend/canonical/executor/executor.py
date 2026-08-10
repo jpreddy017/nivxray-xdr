@@ -87,7 +87,9 @@ class Executor:
         for step in iue.plan:
             cap = step.capability
             entry = CAPABILITY_REGISTRY.get(cap)
-            step_ctx: Dict[str, Any] = {"depth": depth, "budget": self.budget}
+            step_ctx: Dict[str, Any] = {"depth": depth,
+                                        "budget": self.budget,
+                                        "store": self.store}
             trace = ExecutionStep(
                 step_id=f"exec.{cap.value.lower()}",
                 capability=cap.value,

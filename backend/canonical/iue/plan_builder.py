@@ -87,6 +87,12 @@ def build_plan_and_dispatch(
                            "extract archive members",
                            f"{pt} is an archive/container that must be unpacked before analysis",
                            expected="artifact_list"))
+        steps.append(_step(Capability.TEXT_EXTRACT_FROM_ARCHIVE,
+                           "materialise UTF-8 text archive members as child SSOTs",
+                           f"{pt} archive members that decode as UTF-8 text are "
+                           "recursively investigated via child ssot_ref (D6-r)",
+                           required=False,
+                           expected="child_ssot_refs"))
 
     if pt in _DOCUMENT_TYPES:
         steps.append(_step(Capability.ARTIFACT_SPLIT,

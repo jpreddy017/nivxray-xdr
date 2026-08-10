@@ -1,7 +1,7 @@
 """Auto-register built-in capability plug-ins."""
 from ...iue.models import Capability
 from ...ssot import (
-    Artifact, GraphNode, GraphEdge, Provenance, ReasoningStep,
+    Artifact, ExecutionStep, GraphNode, GraphEdge, Provenance, ReasoningStep,
     make_ssot_ref,
 )
 from ..registry import register_capability, CapabilityRole
@@ -119,6 +119,115 @@ register_capability(Capability.ARCHIVE_EXTRACT, CapabilityRole.ANALYZER,
                     _cap_archive_extract)
 
 
+# ── TEXT_EXTRACT_FROM_ARCHIVE · Analyzer role (D6-r child materialisation) ──
+def _cap_text_extract_from_archive(ssot, raw, ctx):
+    """For every archive_member artefact whose bytes decode as UTF-8
+    text, create a POPULATED child SSOT (input_raw = extracted_bytes)
+    and run the full canonical IUE + Executor lifecycle on it. The
+    resulting child ssot_ref is appended to the parent's artifacts.
+
+    Phase 3.x scope (per owner directive 2026-08-10):
+      - No new IOC/MITRE logic. Child runs the existing pipeline.
+      - Raw XML bytes are preserved (no tag-strip) so hrefs / URLs /
+        domains inside XML attributes remain visible to IOC regex.
+      - Depth + max_children enforced via ExecutorBudget.
+      - Preserves parent → child provenance via `parent_evidence_id`
+        + `investigation_ref` (ssot_ref) on the parent artifact.
+    """
+    depth = ctx.get("depth", 0) if isinstance(ctx, dict) else 0
+    budget = ctx.get("budget") if isinstance(ctx, dict) else None
+    store = ctx.get("store") if isinstance(ctx, dict) else None
+    if store is None:
+        # Store must be supplied by executor (D6-r contract). Silent
+        # no-op preserves determinism when the executor is invoked
+        # without a shared store.
+        return
+    max_depth = getattr(budget, "max_depth", 3)
+    max_children = getattr(budget, "max_children", 20)
+    if depth >= max_depth:
+        return
+
+    # Late import to avoid circular deps at module import time.
+    import zipfile
+    import io as _io
+    from ...iue import classify as _classify, RawInput as _RawInput
+    from ..executor import Executor as _Executor
+
+    parent_payload = raw.as_bytes() if raw is not None else b""
+    if len(parent_payload) < 4 or parent_payload[:2] != b"PK":
+        return
+    try:
+        zf = zipfile.ZipFile(_io.BytesIO(parent_payload))
+    except zipfile.BadZipFile:
+        return
+
+    processed = 0
+    for art in list(ssot.artifacts):
+        if art.kind != "archive_member":
+            continue
+        if processed >= max_children:
+            ssot.append("execution_trace", ExecutionStep(
+                step_id="exec.text_extract.budget",
+                capability=Capability.TEXT_EXTRACT_FROM_ARCHIVE.value,
+                engine="canonical.executor.text_extract_from_archive",
+                status="budget_exhausted",
+                notes=f"max_children={max_children} exhausted",
+            ), PROV_BUILTIN)
+            break
+
+        member_name = art.label
+        try:
+            member_bytes = zf.read(member_name)
+        except Exception:                                            # noqa: BLE001
+            continue
+
+        # Deterministic UTF-8 text filter (Q3 = 3c).
+        try:
+            member_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+
+        # Materialise the child SSOT via full IUE + Executor lifecycle
+        # at depth+1. Reuses the parent's store (content-addressed).
+        child_raw = _RawInput(payload=member_bytes,
+                              filename=member_name,
+                              source_channel="text_extract_from_archive")
+        child_iue = _classify(child_raw)
+        child_result = _Executor(store=store, budget=budget).run(
+            child_iue, child_raw,
+            source=ssot.source, depth=depth + 1,
+        )
+        child_ref = child_result.ssot_ref
+
+        # Record the parent → child linkage.
+        ssot.append("artifacts", Artifact(
+            id=f"{art.id}.child_ref",
+            kind="child_ssot_ref",
+            label=child_ref,
+            parent_evidence_id=art.id,
+            investigation_ref=child_ref,
+            attrs={"member_name": member_name,
+                   "member_size_bytes": len(member_bytes)},
+        ), PROV_BUILTIN)
+
+        # Provenance-complete reasoning step.
+        ssot.append("reasoning_steps", ReasoningStep(
+            id=f"rs.text_extract.{art.id}",
+            rule="text_extract_from_archive.d6r_recursion",
+            rationale=(f"Archive member {member_name!r} decoded as UTF-8; "
+                       f"child SSOT created with ref={child_ref}"),
+            input_evidence_ids=[art.id],
+            output_evidence_ids=[f"{art.id}.child_ref"],
+        ), PROV_BUILTIN)
+
+        processed += 1
+
+
+register_capability(Capability.TEXT_EXTRACT_FROM_ARCHIVE,
+                    CapabilityRole.ANALYZER,
+                    _cap_text_extract_from_archive)
+
+
 # ── MITRE_MAP · Analyzer role ───────────────────────────────────────────
 _MITRE_PATTERNS = {
     "T1059.001": ("PowerShell", ["powershell", "-encodedcommand", "-e "]),
@@ -192,8 +301,17 @@ def _cap_recursive_discovery(ssot, raw, ctx):
     # the recursion contract.
     from ...ssot import AuthoritativeSSOT as _SSOT
     queue = []
+    # Detect archive_member artifacts already materialised into child
+    # SSOTs by TEXT_EXTRACT_FROM_ARCHIVE (parent_evidence_id → true).
+    handled_parents = {
+        a.parent_evidence_id for a in ssot.artifacts
+        if a.kind == "child_ssot_ref" and a.parent_evidence_id
+    }
     for i, art in enumerate(ssot.artifacts):
         if art.kind != "archive_member":
+            continue
+        if art.id in handled_parents:
+            # Already promoted to a real child by TEXT_EXTRACT_FROM_ARCHIVE.
             continue
         child = _SSOT(
             id=f"child.{art.id}",
