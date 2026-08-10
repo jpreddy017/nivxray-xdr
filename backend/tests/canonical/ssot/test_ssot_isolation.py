@@ -55,12 +55,18 @@ def test_no_route_file_modified_by_phase2():
     remain untouched.
     """
     # Phase 5.1 authorised paths (owner sign-off 2026-08-10).
+    # Phase 5.W authorised paths (owner sign-off 2026-08-10) — Workspace-priority
+    # canonical integration into the existing DIE / upload path.
     PHASE_5_1_PATHS = {
         "backend/routers/uil.py",
         "backend/services/uil/canonical_entry.py",
         "backend/services/uil/canonical_session.py",
         "backend/tests/canonical/test_phase5_1_uil_investigate.py",
         "backend/tools/sample1_sanity_check.py",
+        # Phase 5.W
+        "backend/routers/die.py",
+        "backend/routers/ops.py",
+        "backend/services/die/canonical_bridge.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

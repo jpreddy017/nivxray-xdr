@@ -134,7 +134,148 @@ def augment_die_result(result: Dict[str, Any], raw_input: str) -> Dict[str, Any]
     return result
 
 
+def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dict[str, Any]:
+    """Augment /api/die/investigation-results with canonical narrative
+    MITRE evidence so the Workspace attack-chain graph populates on
+    DOCX / vendor-narrative inputs.
+
+    Feature-flag gated (NIVX_CANONICAL_DIE_ANALYZE). Additive only.
+    Existing populated fields are preserved; only empty ones are filled.
+    """
+    if not canonical_die_flag_enabled():
+        return result
+    if not isinstance(result, dict):
+        return result
+    canonical_techs = _canonical_techniques_from_text(raw_input or "")
+    if not canonical_techs:
+        return result
+
+    # Map technique_id → tactic + kill_chain (single source of truth
+    # is the canonical technique catalog in canonical.projections.attck).
+    from canonical.projections.attck import _TECHNIQUE_META
+    def _meta(tid): return _TECHNIQUE_META.get(tid, {"tactic": "unknown",
+                                                     "kill_chain": "unknown"})
+
+    obj = result.get("object")
+    if not isinstance(obj, dict):
+        obj = {}
+        result["object"] = obj
+
+    # ── object.mitre ──────────────────────────────────────────────────
+    existing_mitre = obj.get("mitre") or []
+    if not isinstance(existing_mitre, list):
+        existing_mitre = []
+    existing_ids = {t.get("id") for t in existing_mitre if isinstance(t, dict)}
+    for t in canonical_techs:
+        if t["id"] in existing_ids: continue
+        meta = _meta(t["id"])
+        existing_mitre.append({
+            "id":         t["id"],
+            "name":       t["name"],
+            "tactic":     meta["tactic"],
+            "kill_chain": meta["kill_chain"],
+            "evidence":   t.get("evidence", ""),
+            "matched":    t.get("matched", []),
+            "rule_family": "canonical.narrative_vendor_report",
+        })
+        existing_ids.add(t["id"])
+    obj["mitre"] = existing_mitre
+
+    # ── object.narrative.* population ─────────────────────────────────
+    narrative = obj.get("narrative")
+    if not isinstance(narrative, dict):
+        narrative = {}
+        obj["narrative"] = narrative
+
+    # mitre_matrix
+    mm = narrative.get("mitre_matrix") or []
+    if not isinstance(mm, list): mm = []
+    mm_ids = {t.get("id") for t in mm if isinstance(t, dict)}
+    for t in canonical_techs:
+        if t["id"] in mm_ids: continue
+        meta = _meta(t["id"])
+        mm.append({"id": t["id"], "name": t["name"],
+                   "tactic": meta["tactic"]})
+    narrative["mitre_matrix"] = mm
+
+    # kill_chain_coverage
+    tactics_seen = {_meta(t["id"])["tactic"] for t in canonical_techs} - {"unknown"}
+    kcc = narrative.get("kill_chain_coverage") or []
+    if not isinstance(kcc, list): kcc = []
+    for tac in sorted(tactics_seen):
+        if tac not in kcc: kcc.append(tac)
+    narrative["kill_chain_coverage"] = kcc
+
+    # attack_progression: augment stages, or create a stage
+    ap = narrative.get("attack_progression") or []
+    if not isinstance(ap, list): ap = []
+    # Group techniques by tactic for stages.
+    by_tactic: Dict[str, List[Dict[str, Any]]] = {}
+    for t in canonical_techs:
+        meta = _meta(t["id"])
+        by_tactic.setdefault(meta["tactic"], []).append({
+            "id": t["id"], "name": t["name"], "evidence": t.get("evidence", ""),
+        })
+    # If AP is empty, create one stage per tactic (deterministic order).
+    if not ap:
+        from canonical.projections.attack_chain import _STAGE_INDEX
+        for tac in sorted(by_tactic.keys(),
+                          key=lambda x: _STAGE_INDEX.get(x, len(_STAGE_INDEX))):
+            meta_kc = next(iter(by_tactic[tac]), None)
+            kc = _TECHNIQUE_META.get((meta_kc or {}).get("id", ""), {}) \
+                    .get("kill_chain", "unknown")
+            ap.append({
+                "stage": tac,
+                "tactic": tac,
+                "kill_chain": kc.replace("_", " ").title(),
+                "title": tac.replace("_", " ").title(),
+                "mitre": by_tactic[tac],
+                "narrative": f"Observed {len(by_tactic[tac])} technique(s) in "
+                             f"{tac.replace('_',' ')}: "
+                             f"{', '.join(x['id'] for x in by_tactic[tac])}",
+            })
+    else:
+        # Fill in `mitre` and `tactic` on existing empty stages.
+        for stage in ap:
+            if not isinstance(stage, dict): continue
+            if not stage.get("mitre") and not stage.get("tactic"):
+                # Match by kill_chain string when possible.
+                stage_kc = (stage.get("kill_chain") or "").lower().replace(" ", "_")
+                for t in canonical_techs:
+                    if _meta(t["id"])["kill_chain"] == stage_kc:
+                        stage.setdefault("mitre", []).append({
+                            "id": t["id"], "name": t["name"],
+                        })
+                        stage["tactic"] = _meta(t["id"])["tactic"]
+    narrative["attack_progression"] = ap
+
+    # ── object.ice.incident.summary population ────────────────────────
+    ice = obj.get("ice") or {}
+    inc = ice.get("incident") if isinstance(ice, dict) else None
+    if isinstance(inc, dict):
+        sm = inc.get("summary") or {}
+        if isinstance(sm, dict):
+            observed = sm.get("tactics_observed") or []
+            if not isinstance(observed, list): observed = []
+            for tac in sorted(tactics_seen):
+                if tac not in observed: observed.append(tac)
+            sm["tactics_observed"] = observed
+            sm["mitre_count"] = len(obj["mitre"])
+            inc["summary"] = sm
+        ice["incident"] = inc
+    obj["ice"] = ice
+
+    # Provenance marker.
+    result["canonical_augmented"] = {
+        "wave": "5.W",
+        "lifecycle": "canonical_bridge.investigation_results",
+        "added_techniques": [t["id"] for t in canonical_techs],
+    }
+    return result
+
+
 __all__ = [
     "canonical_die_flag_enabled",
     "augment_die_result",
+    "augment_investigation_results",
 ]

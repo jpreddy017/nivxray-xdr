@@ -182,6 +182,8 @@ def test_t3_7_no_service_imports_canonical_executor():
     PHASE_5_1_ALLOWED = {
         "/app/backend/services/uil/canonical_entry.py",
         "/app/backend/services/uil/canonical_session.py",
+        # Phase 5.W · Workspace-priority canonical bridge (owner sign-off 2026-08-10)
+        "/app/backend/services/die/canonical_bridge.py",
     }
     for base in ("/app/backend/services", "/app/backend/nivxforge",
                  "/app/backend/v2", "/app/backend/l2_investigation"):

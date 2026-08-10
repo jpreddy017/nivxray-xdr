@@ -99,9 +99,19 @@ def die_investigation_results(body: InvestigationResultsBody):
     response instead of echoing the input.  The ``object`` field is
     the Canonical Investigation Object (SSOT) downstream engines
     consume in IUE v2.1.
+
+    Phase 5.W (2026-08-10): when NIVX_CANONICAL_DIE_ANALYZE=on, the
+    canonical narrative MITRE rules populate `object.mitre`,
+    `object.narrative.mitre_matrix`, `object.narrative.kill_chain_coverage`,
+    `object.narrative.attack_progression`, and
+    `object.ice.incident.summary.tactics_observed` so the Workspace
+    attack-chain graph renders on DOCX / vendor-narrative inputs.
     """
     from services.die.investigation_results import render as _render
-    return _render(body.input or "")
+    from services.die.canonical_bridge import augment_investigation_results
+    result = _render(body.input or "")
+    result = augment_investigation_results(result, body.input or "")
+    return result
 
 
 class HealthBody(BaseModel):
