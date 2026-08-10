@@ -143,9 +143,19 @@ _RE_DOMAIN = re.compile(
 #   · Full: `HKEY_LOCAL_MACHINE\SOFTWARE\...`
 #   · Short: `HKLM\SOFTWARE\...`
 #   · EDR-style: `\MACHINE\SOFTWARE\...` (Talos / Mandiant transcripts)
+#
+# P1-11 fix (2026-08-10): The EDR-style alternative must NOT fire when
+# the `\HIVE` token sits inside a drive-anchored path such as
+# `C:\Users\Public\payload.exe`. Two guards:
+#   (a) negative lookbehind — the preceding char cannot be a word char,
+#       colon, or dot (i.e. cannot be `C:`, `foo`, or `.`);
+#   (b) trailing `\b` — separates USER from USERS so `\User\Public`
+#       (a file path) never matches the `USER` alternative while
+#       `\USERS\Software\...` still binds to the `USERS` alternative.
+# `USERS` is listed BEFORE `USER` so the longer match wins first.
 _RE_REGISTRY = re.compile(
     r"(?:\b(HK(?:LM|CU|CR|U|CC)|HKEY_(?:LOCAL_MACHINE|CURRENT_USER|CLASSES_ROOT|USERS|CURRENT_CONFIG))"
-    r"|\\(MACHINE|USER|CLASSES|USERS|CONFIG))"
+    r"|(?<![\w:.])\\(MACHINE|USERS|USER|CLASSES|CONFIG)\b(?=[\\/]))"
     r"[\\/][\w\\/. \-\(\)]+",
     re.I,
 )

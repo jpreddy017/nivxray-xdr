@@ -12761,3 +12761,42 @@ case-read; frontend renders it read-only in
 - **NO new feature development**.
 
 **Next step (owner-gated)**: Review Step 0 report → authorize (or reject) ADR-004 Step 1.
+
+---
+
+## 2026-08-10 · ADR-004 Step 0.1 — P1-11 Registry Over-Match · ✅ COMPLETE
+
+**Owner directive**: Fix now under the bug-fix clause of the freeze. STOP after 0.1.
+
+### Fix
+- `services/ida/artifact_splitter.py::_RE_REGISTRY` — added `(?<![\w:.])` negative lookbehind + trailing `\b` on the EDR-style hive alternative, reordered `USERS|USER` (longer-first). Windows file paths like `C:\Users\Public\payload.exe` no longer misclassified as `HKEY_USERS\Public\payload.exe`. All legit registry forms still extract.
+
+### Regression coverage
+- **NEW** `backend/tests/test_registry_vs_filepath_disambiguation.py` — 20 tests, all GREEN. Covers: 6 legit registry forms, 7 Windows file paths, 2 mixed-prose cases, 5 EDR-style hive variants, determinism.
+- `test_ida_artifact_splitter.py` — was 18/19, now 19/19.
+
+### Hot-path regression envelope
+- **299 passed / 4 failed / 35 errors** (was 190/5/35 pre-Step-0). Zero new failures. One pre-existing failure (`test_split_file_path_windows`) resolved.
+- All 4 remaining failures + 35 errors are pre-existing, unrelated to Step 0/0.1 (auth tests requiring live server + kb_auto_cluster env deps).
+
+### Baseline snapshots — regenerated
+- `baseline_iocs.json` — 2 items reclassified from `registry_key` → `file_path` (fixtures `securelist.001`, `mandiant.002`). This IS the P1-11 correction propagating into the immutable pre-Step-1 reference.
+- All 4 other snapshots unchanged.
+
+### ADR-004 Owner Decisions logged (2026-08-10)
+1. **Q3 · BKB vs IKB**: BKB (`services/knowledge/behavior_registry.py`) is CANONICAL. IKB frozen / non-canonical. Do NOT delete IKB code. No new independent behavior knowledge added to IKB.
+2. **Q7 · Provenance**: Canonical path is `backend/v2/investigation/provenance.py`. Migration must preserve behavior — no semantic redesign.
+3. **Corpus size**: 14 fixtures are authoritative (documentation error corrected). No artificial expansion.
+4. **P1-11**: FIXED this session (above).
+
+### ADR-004 Step 1 · AUTHORIZED (owner-gated Step 0.1 pass ✅)
+**Scope**: Consolidate 3 verdict engines into `backend/v2/verdict/` as canonical. Deprecate `nivxforge/investigation/verdict_engine.py` and the UAIE verdict path.
+
+**Hard constraints** (owner-mandated):
+- **NO redesign** of scoring algorithm. Migration only, not "improvement".
+- **3-way behavioral difference report** required before consumer switch. Every corpus divergence classified as `PRESERVED / CORRECTED / INTENTIONAL CHANGE / UNEXPLAINED`. **Zero UNEXPLAINED** permitted.
+- Existing baseline snapshots are **immutable pre-migration references**.
+- Deprecate old paths ONLY after parity AND consumer verification pass.
+- **STOP and report at Step 1 completion** — do NOT auto-continue to Step 2 (Attack Story).
+
+**Not yet started** — awaiting explicit "start Step 1" from owner.

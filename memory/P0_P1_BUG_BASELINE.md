@@ -182,3 +182,34 @@ Recommended follow-up before Step 1 begins:
 3. Owner decides the Provenance canonical path (ADR-004 §Q7).
 
 _End of P0/P1 Bug Baseline._
+
+---
+
+## Step 0.1 Completion Log (2026-08-10 · P1-11 fix)
+
+**STATUS: ✅ PASS** — P1-11 registry-key over-match resolved.
+
+### Fix summary
+- **Where**: `services/ida/artifact_splitter.py::_RE_REGISTRY`
+- **Change**: Added negative lookbehind `(?<![\w:.])` + trailing `\b` on the EDR-style hive alternative; reordered `USERS|USER` (longer-first) so short-circuit alternation prefers the specific match.
+- **Effect**: The extractor no longer misclassifies `C:\Users\...`, `C:\ProgramData\...` etc. as registry keys. All existing registry-key forms (full · short · EDR-style `\MACHINE\...`) continue to extract correctly.
+
+### Regression coverage
+- **New**: `backend/tests/test_registry_vs_filepath_disambiguation.py` (20 tests) — locks: 6 legitimate registry forms, 7 file-path forms, 2 mixed-prose cases, and determinism. All GREEN.
+- **Pre-existing splitter suite**: `backend/tests/test_ida_artifact_splitter.py` now **19/19 GREEN** (was 18 passed / 1 failed on `test_split_file_path_windows`).
+
+### Regression envelope (hot-path)
+| Metric | Pre-Step-0 baseline | Post-Step-0 | Post-Step-0.1 |
+|---|---|---|---|
+| passed | 190 | 190 | **299** (+109 new P1-02/06/09/10/11 tests) |
+| failed | 5 | 5 | **4** (P1-11 removed) |
+| errors | 35 | 35 | 35 (all pre-existing, unrelated) |
+
+Zero new failures. One pre-existing failure resolved by design (P1-11).
+
+### Baseline snapshots — regenerated
+`baseline_iocs.json` diff: 2 items reclassified from `registry_key` → `file_path` (fixtures `securelist.001` and `mandiant.002`). This is the P1-11 correction propagating into the baseline. All other 4 snapshots unchanged.
+
+The regenerated baselines are the **Step 0.1 immutable pre-migration reference** for ADR-004 Step 1.
+
+_End of Step 0.1._

