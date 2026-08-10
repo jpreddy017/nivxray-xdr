@@ -12851,3 +12851,70 @@ No Phase 3 / Phase 4 work has begun. No consumer switched. No legacy engine dele
 ### Regression envelope unchanged
 - **Step 0/0.1 targeted suite**: 130/130 GREEN.
 - **Hot-path regression**: 299 passed / 4 failed / 35 errors — identical to Step 0.1 baseline. Zero new failures.
+
+---
+
+## 2026-08-10 · ADR-004 Step 1 · Phase 3 · ✅ COMPLETE — STOP for owner review
+
+**Owner directive** (2026-08-10):
+- Canonicalize input contract as part of Step 1 — derived from InvestigationModel, NOT from engine A's shape.
+- Preserve Suspicious-as-floor.
+- Preserve Runtime Dependent (no elevation).
+- No scoring redesign.
+- Do NOT switch consumers. STOP after Phase 3.
+
+### Canonical input contract (new architecture)
+```
+                        ANY INPUT
+                            ↓
+          v2.investigation.model.InvestigationModel  ← existing 9-bucket model
+                            ↓
+  from_investigation_model(m)  →  CanonicalVerdictInput  ← NEW
+                            ↓
+  canonical.score(inp)      →  CanonicalVerdict         ← NEW wrapper
+```
+
+### Files added in Phase 3
+- `backend/v2/verdict/canonical_input.py` — `CanonicalEvent` + `CanonicalVerdictInput` + `from_investigation_model` (canonical) + `from_commands` (parity shim). AST-verified NO legacy-engine imports.
+- `backend/v2/verdict/canonical.py` — wrapper that consumes `CanonicalVerdictInput`, invokes `v2/verdict/engine.py::score` per event, aggregates deterministically. Preserves Suspicious-as-floor and Runtime Dependent. AST-verified NO legacy-engine imports.
+- `backend/tests/step1_phase3_diff.py` — 5-way diff harness.
+- `backend/tests/test_step1_phase3_gate.py` — 11 CI tests: zero-UNEXPLAINED, canonical shape, preserved policies, deterministic, no legacy imports.
+- `backend/corpus/vendor/v1/reports/step1_phase3_diff_report.json` — 14 × 5 = 70-cell snapshot.
+- `memory/STEP1_PHASE3_REPORT.md` — owner-facing report.
+
+### What was NOT changed
+- `backend/v2/verdict/weights.py` — untouched.
+- `backend/v2/verdict/signals.py` — untouched.
+- `backend/v2/verdict/engine.py` — untouched.
+- All 4 legacy engines (A/B/C/D) — untouched.
+- No router / workspace / consumer wire changed.
+
+### 5-way divergence counts (70 cells)
+| Class | Count |
+|---|---|
+| PRESERVED | 7 |
+| CORRECTED | 41 |
+| INTENTIONAL | 22 |
+| **UNEXPLAINED** | **0** ✅ |
+
+### Per-engine breakdown
+| Engine | PRESERVED | CORRECTED | INTENTIONAL |
+|---|---|---|---|
+| A_nivxforge | 4 | 0 | 10 |
+| B_verdict_v2 | 0 | 14 | 0 |
+| C_v2_score | 0 | 11 | 3 |
+| D_ps_verdict | 3 | 5 | 6 |
+| **CANONICAL** | **0** | **11** | **3** |
+
+### Honest framing (in the owner-facing report)
+CANONICAL PRESERVED=0 on bare-command fixtures is **not a bug** — it's a truthful measurement of the input-contract asymmetry the owner already flagged. The `from_commands` parity shim provides only `lane="process"` events; the v2 detector fabric needs the full `InvestigationModel` (file / network / registry / auth / TI events) to reach `Malicious`. Phase 4 Wave 1 (side-by-side attach with real InvestigationModel) is where the canonical engine's true production performance will surface.
+
+### 🔴 STOP — owner decisions required before Phase 4
+1. Accept shim-parity result and proceed to Wave 1 side-by-side attach (with real InvestigationModel), OR
+2. Require a `from_evidence_graph` adapter for byte-parity with engine A on the shim as a pre-Wave-1 gate.
+
+Also: Do the 11 CANONICAL CORRECTED cells (all `Undetermined` or `Informational` on bare-command shim input) represent acceptable false-negatives given the shim's known limitations?
+
+### Regression envelope
+- Step 0/0.1 + Phase 2 + Phase 3 tests: **141/141 GREEN**.
+- Hot-path regression: unchanged from Step 0.1 baseline. Zero new failures.
