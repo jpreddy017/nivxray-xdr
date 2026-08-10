@@ -77,11 +77,54 @@ class NarrateBody(BaseModel):
 def die_narrate(body: NarrateBody):
     """Deterministic Analyst Narrative — Executive Summary, Analyst
     Summary, Recommended Actions, Sigma / YARA ideas and Threat-actor
-    context.  Zero LLM."""
+    context.  Zero LLM.
+
+    Phase 5.W (2026-08-10): when the legacy stage-based generator
+    produces empty summary/actions (URL/DOCX/vendor-narrative input
+    that has no command-line stages), the canonical narrative rules
+    fill the empty fields deterministically from detected MITRE
+    techniques + IOCs.
+    """
     from services.die.preprocessor import preprocess as _pp
     from services.die.analyst_narrative import generate as _gen
+    from services.die.canonical_bridge import (
+        canonical_die_flag_enabled, _canonical_techniques_from_text,
+    )
+    from services.die.canonical_narrative_enrichment import enrich_narrative
+    from canonical.projections.attck import _TECHNIQUE_META
+
     pre = _pp(body.input or "")
-    return {"narrative": _gen(pre.to_dict())}
+    narrative = _gen(pre.to_dict()) or {}
+
+    # ── Phase 5.W enrichment · additive only ──────────────────────
+    if canonical_die_flag_enabled():
+        canonical_techs = _canonical_techniques_from_text(body.input or "")
+        # Also lift MITRE ids already in `narrative.mitre_matrix` so
+        # the enricher has the full set to reason over.
+        mitre_full: list = []
+        seen_ids: set = set()
+        for m in canonical_techs:
+            if m.get("id") and m["id"] not in seen_ids:
+                meta = _TECHNIQUE_META.get(m["id"], {})
+                mitre_full.append({
+                    "id": m["id"], "name": m.get("name", ""),
+                    "tactic": meta.get("tactic", "unknown"),
+                    "kill_chain": meta.get("kill_chain", "unknown"),
+                })
+                seen_ids.add(m["id"])
+        for row in (narrative.get("mitre_matrix") or []):
+            if isinstance(row, dict) and row.get("id") and row["id"] not in seen_ids:
+                meta = _TECHNIQUE_META.get(row["id"], {})
+                mitre_full.append({
+                    "id": row["id"], "name": row.get("name", ""),
+                    "tactic": row.get("tactic") or meta.get("tactic", "unknown"),
+                    "kill_chain": meta.get("kill_chain", "unknown"),
+                })
+                seen_ids.add(row["id"])
+        if mitre_full:
+            narrative = enrich_narrative(narrative, mitre_full)
+
+    return {"narrative": narrative}
 
 
 class InvestigationResultsBody(BaseModel):

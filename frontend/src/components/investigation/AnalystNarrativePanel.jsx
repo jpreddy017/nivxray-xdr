@@ -13,14 +13,41 @@ export default function AnalystNarrativePanel({ narrative }) {
   const {
     executive_summary, analyst_summary, recommended_actions,
     sigma_hunts, yara_ideas, threat_actor_context, mitre_matrix,
+    attack_progression, kill_chain_coverage, overall_assessment,
+    behavior_summary,
   } = narrative;
 
   const hasContent =
     executive_summary || analyst_summary
     || (recommended_actions && recommended_actions.length)
     || (sigma_hunts && sigma_hunts.length)
-    || (yara_ideas && yara_ideas.length);
+    || (yara_ideas && yara_ideas.length)
+    || (attack_progression && attack_progression.length)
+    || (mitre_matrix && mitre_matrix.length)
+    || (kill_chain_coverage && kill_chain_coverage.length)
+    || overall_assessment
+    || (behavior_summary && behavior_summary.length);
   if (!hasContent) return null;
+
+  // ── Normalise mitre_matrix into tactic-grouped shape ──────────
+  // Backend variants:
+  //   A. [{tactic, techniques: [ids]}]  ← legacy stage-based generator
+  //   B. [{id, name, tactic}]           ← canonical bridge (flat)
+  // The panel renders shape A; if we detect shape B we regroup.
+  const normalisedMitreMatrix = (() => {
+    const raw = mitre_matrix || [];
+    if (!raw.length) return raw;
+    const looksFlat = raw.every(r => r && (r.id || r.name) && !r.techniques);
+    if (!looksFlat) return raw;
+    const byTactic = new Map();
+    for (const r of raw) {
+      const tac = r.tactic || "unknown";
+      if (!byTactic.has(tac)) byTactic.set(tac, []);
+      const ids = byTactic.get(tac);
+      if (r.id && !ids.includes(r.id)) ids.push(r.id);
+    }
+    return Array.from(byTactic, ([tactic, techniques]) => ({ tactic, techniques }));
+  })();
 
   return (
     <section data-testid="analyst-narrative" style={panel}>
@@ -122,8 +149,9 @@ export default function AnalystNarrativePanel({ narrative }) {
         <Block title="Attack Progression" icon={ShieldAlert}
                testid="narrative-progression">
           <div style={{ display: "grid", gap: 8 }}>
-            {narrative.attack_progression.map((p) => (
-              <div key={p.index} data-testid={`narrative-progression-${p.index}`}
+            {narrative.attack_progression.map((p, pi) => (
+              <div key={p.index ?? p.tactic ?? pi}
+                   data-testid={`narrative-progression-${p.index ?? pi}`}
                    style={{ background: "rgba(2,6,23,0.55)",
                             border: "1px solid #1f2b3f", borderRadius: 8,
                             padding: "8px 12px" }}>
@@ -134,9 +162,12 @@ export default function AnalystNarrativePanel({ narrative }) {
                   </div>
                   {p.tactic && <span style={phaseBadge}>{p.tactic}</span>}
                   {p.kill_chain && <span style={killChainBadge}>{p.kill_chain}</span>}
-                  {(p.mitre || []).map((m) => (
-                    <span key={m} style={techBadge}>{m}</span>
-                  ))}
+                  {(p.mitre || []).map((m, mi) => {
+                    const id = (m && typeof m === "object") ? (m.id || m.name || "") : m;
+                    return id ? (
+                      <span key={`${id}-${mi}`} style={techBadge}>{id}</span>
+                    ) : null;
+                  })}
                 </div>
                 <p style={{ ...paragraph, fontSize: 12.5 }}>{p.narrative}</p>
               </div>
@@ -210,13 +241,13 @@ export default function AnalystNarrativePanel({ narrative }) {
       </div>
 
       {/* ── MITRE Matrix ─────────────────────────────────────── */}
-      {mitre_matrix && mitre_matrix.length > 0 && (
+      {normalisedMitreMatrix && normalisedMitreMatrix.length > 0 && (
         <Block title="MITRE ATT&CK Coverage" icon={Layers}
                testid="narrative-mitre">
           <div style={{ display: "grid",
                         gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                         gap: 8 }}>
-            {mitre_matrix.map((row) => (
+            {normalisedMitreMatrix.map((row) => (
               <div key={row.tactic} data-testid={`narrative-mitre-${row.tactic}`}
                    style={{
                      background: "rgba(2,6,23,0.55)",

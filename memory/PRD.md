@@ -113,6 +113,35 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 **Firewalls held**: no frontend changes · Workspace external contract preserved · no Wave 1 touch · no Sample1 touch · Engine A untouched · Phase 5.1 `/api/uil/investigate` behaviour unchanged.
 
+## Phase 5.W · Narrative enrichment + AttackChainView fallback (2026-08-10)
+
+**User pain (repeated ≥ 20 times)**: Workspace investigations on URL / DOCX / vendor-narrative inputs rendered no attack-chain graph, no recommendations, no MITRE / LOLBAS detail, even though the canonical pipeline had detected 5 MITRE techniques + 3 tactic groupings + IOCs. Root cause: multiple defects across backend & frontend:
+
+1. **`canonical_bridge.augment_investigation_results`** populated `narrative.attack_progression` / `mitre_matrix` / `kill_chain_coverage` but left `executive_summary` / `analyst_summary` / `recommended_actions` / `behavior_summary` / `overall_assessment` / `likely_objective` / `sigma_hunts` / `yara_ideas` empty.
+2. **`AnalystNarrativePanel.jsx`** `hasContent` gate ignored `attack_progression` + `mitre_matrix` — panel returned `null` for URL cases even though rich data was present.
+3. **`AnalystNarrativePanel.jsx`** rendered `p.mitre` items as `{m}` but bridge produced `{id, name, evidence}` objects → React "Objects are not valid as a React child" crash.
+4. **`AnalystNarrativePanel.jsx`** expected `mitre_matrix = [{tactic, techniques[]}]` (legacy shape); bridge produced `[{id, name, tactic}]` (flat) → every card fell to "(no explicit technique)".
+5. **`object.chain`** was `None` for URL / narrative inputs → legacy linear AttackChainView had nothing to render.
+6. **LOLBAS entries** had empty `legit` / `abuse` / `detection` fields.
+
+**What shipped**:
+- New module `backend/services/die/canonical_narrative_enrichment.py` — deterministic MITRE-driven narrative filler (`enrich_narrative`) + `synth_chain_steps_from_progression`. Additive only, never overwrites populated fields. Covers 14 techniques with per-tactic + per-technique detection recommendations, Sigma / YARA one-liners.
+- `canonical_bridge.augment_investigation_results` now calls `enrich_narrative`, synthesises `object.chain.steps[]` from `attack_progression`, and enriches LOLBAS entries from the registry.
+- `POST /api/die/narrate` also runs the canonical enrichment when narrative rules detect techniques.
+- `AnalystNarrativePanel.jsx` — `hasContent` now considers `attack_progression` / `mitre_matrix` / `kill_chain_coverage` / `overall_assessment` / `behavior_summary`; renders `m.id || m` (safe for both object + string shapes); regroups flat `mitre_matrix` by tactic in-component.
+- `AttackChainView.jsx` — fallback to `narrative.attack_progression` when `chain.steps` empty (from previous checkpoint).
+- One-off backfill `backend/scripts/backfill_narrative_enrichment.py` — enriched 7 workspace_cases + synced 56 immutable-store SSOT rows. Sample1 rows excluded by name / SHA256 markers. Idempotent.
+
+**Acceptance verified (2026-08-10)**:
+- End-to-end pytest 3/3 pass on `POST /api/die/investigation-results` (`https://cyberdefenders.org/blog/encoded-powershell-detection-soc-playbook/`) → 5 techniques, 3 progression stages, 10 recommended actions, 3 behavior_summary rows, `overall_assessment {risk:'High', primary_objective:'Evade EDR / AV detection', attack_progress_pct:45, confidence:'High'}`, `chain.steps=3`, LOLBAS `legit/abuse/detection` populated.
+- `GET /api/cases/abe701b3-a3b5-4092-8dc8-ef98ec95af40` (saved case "Same") returns the same enriched shape from the immutable SSOT store (`ssot_source='immutable_store'`).
+- Frontend testing agent: 100% of AnalystNarrativePanel testids present (`narrative-exec`, `narrative-assessment`, `narrative-analyst`, `narrative-behavior`, `narrative-progression-*`, `narrative-objective`, `narrative-actions`, `narrative-sigma`, `narrative-yara`, `narrative-mitre`). No React errors.
+- Sample1 golden case UNTOUCHED — regression fixture unchanged, invariants pass.
+- 218 / 222 canonical pytest tests pass (4 pre-existing failures depend on `nivxray_ci_local` DB seeding — unrelated).
+
+**Firewalls held**: no ADR-005 route migrations · no Wave 1 mutation · Sample1 immutable · projections un-modified.
+
+
 ## Phase 5 sequencing rule (owner directive 2026-08-10)
 
 **When Phase 5 is authorised, migration MUST proceed in the approved sub-phase order 5.1 → 5.8, one route at a time, with a gate + soak after each.** Do NOT migrate all eight routes as one change. This preserves the rollback boundary designed into the sub-phase split. Each sub-phase gets its own owner sign-off before the next begins.

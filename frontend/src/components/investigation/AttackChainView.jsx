@@ -30,7 +30,27 @@ const VERDICT_COLOR = {
 };
 
 export default function AttackChainView({ chain, onUnlink, onOpenEvidence }) {
-  if (!chain || !chain.steps || chain.steps.length === 0) {
+  // Fallback: when chain.steps is empty, synthesise steps from a
+  // narrative.attack_progression shape (Phase 5.W · backend now always
+  // populates this from object.mitre grouped by tactic, so the graph
+  // renders even for single-example blogs / SOC playbooks / narrative
+  // reports that don't have a reconstructible multi-tool chain).
+  let steps = chain?.steps;
+  const progression = chain?.attack_progression;
+  if ((!steps || steps.length === 0) && progression && progression.length > 0) {
+    steps = progression.map((stage, i) => ({
+      node_id: `progression-${i}`,
+      depth: 0,
+      kind: "tactic",
+      source: i === 0 ? "root" : "progression",
+      artifact_type: stage.tactic || stage.stage || "tactic",
+      verdict: "Malicious",
+      label: stage.title || stage.tactic,
+      techniques: (stage.mitre || []).map(m => m.id || m),
+      narrative: stage.narrative,
+    }));
+  }
+  if (!steps || steps.length === 0) {
     return (
       <div data-testid="chain-empty"
            style={{ padding: 40, textAlign: "center", color: "#64748b",
@@ -44,12 +64,12 @@ export default function AttackChainView({ chain, onUnlink, onOpenEvidence }) {
   return (
     <div data-testid="attack-chain"
          style={{ display: "grid", gap: 8, minWidth: 0, overflow: "hidden" }}>
-      {chain.steps.map((step, idx) => (
+      {steps.map((step, idx) => (
         <div key={step.node_id}
              style={{ paddingLeft: (step.depth || 0) * 22, minWidth: 0 }}>
           <ChainNode step={step} idx={idx} onUnlink={onUnlink}
                      onOpenEvidence={onOpenEvidence} />
-          {idx < chain.steps.length - 1 && (
+          {idx < steps.length - 1 && (
             <div style={{ paddingLeft: 16, opacity: 0.5, margin: "2px 0",
                           color: "#475569" }}>
               <ArrowDown size={12} />

@@ -260,6 +260,79 @@ def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dic
         })
     narrative["attack_progression"] = ap
 
+    # ── Phase 5.W · Deterministic narrative enrichment (2026-08-10) ───
+    # Fill executive_summary / analyst_summary / recommended_actions /
+    # behavior_summary / overall_assessment / likely_objective /
+    # sigma_hunts / yara_ideas when the legacy stage-based generator
+    # produced empty content (URL, DOCX, vendor-narrative inputs).
+    from .canonical_narrative_enrichment import (
+        enrich_narrative, synth_chain_steps_from_progression,
+    )
+    _iocs   = obj.get("iocs") if isinstance(obj.get("iocs"), dict) else {}
+    _lolbas = obj.get("lolbas") if isinstance(obj.get("lolbas"), list) else []
+    _src_url = None
+    _ad = obj.get("acquired_document")
+    if isinstance(_ad, dict):
+        _src_url = _ad.get("url") or _ad.get("source_url")
+    narrative = enrich_narrative(narrative, existing_mitre,
+                                 iocs=_iocs, lolbas=_lolbas,
+                                 source_url=_src_url)
+    obj["narrative"] = narrative
+
+    # ── Synthesise object.chain.steps[] from attack_progression so
+    # the linear AttackChainView + ReportTab render on URL / DOCX
+    # / narrative inputs where legacy analyze_chain() produced []. ─
+    chain_obj = obj.get("chain")
+    if not isinstance(chain_obj, dict):
+        chain_obj = {}
+    if not chain_obj.get("steps"):
+        synth_steps = synth_chain_steps_from_progression(ap)
+        if synth_steps:
+            chain_obj["steps"] = synth_steps
+            chain_obj["root"]  = synth_steps[0]["node_id"]
+            chain_obj["total"] = len(synth_steps)
+            chain_obj["source"] = "canonical.narrative_progression"
+    obj["chain"] = chain_obj
+
+    # ── LOLBAS enrichment · fill legit/abuse/detection from registry ─
+    if isinstance(_lolbas, list) and _lolbas:
+        try:
+            from .lolbas import lolbas_lookup as _lolbas_lookup
+            for lb in _lolbas:
+                if not isinstance(lb, dict):
+                    continue
+                binary = lb.get("binary") or ""
+                reg = _lolbas_lookup(binary) if binary else None
+                if not reg:
+                    continue
+                if not (lb.get("legit") or "").strip() and reg.get("notes"):
+                    lb["legit"] = reg["notes"]
+                if not (lb.get("abuse") or "").strip():
+                    cat = reg.get("category") or ""
+                    mitre_ids = ", ".join(reg.get("mitre") or [])
+                    lb["abuse"] = (
+                        f"Category `{cat}` — abused for {mitre_ids} tradecraft."
+                        if cat or mitre_ids else "Living-off-the-land abuse."
+                    )
+                if not (lb.get("detection") or []):
+                    hints: List[str] = []
+                    for tid in (reg.get("mitre") or []):
+                        catalog = None
+                        try:
+                            from .canonical_narrative_enrichment import (
+                                _TECHNIQUE_CATALOG as _CAT,
+                            )
+                            catalog = _CAT.get(tid)
+                        except Exception:
+                            catalog = None
+                        if catalog and catalog.get("sigma"):
+                            hints.append(catalog["sigma"])
+                    if hints:
+                        lb["detection"] = hints
+        except Exception:
+            # Never break the bridge on enrichment errors.
+            pass
+
     # ── ice.incident.summary population ───────────────────────────────
     ice = obj.get("ice") or {}
     inc = ice.get("incident") if isinstance(ice, dict) else None

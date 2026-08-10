@@ -67,6 +67,16 @@ def test_no_route_file_modified_by_phase2():
         "backend/routers/die.py",
         "backend/routers/ops.py",
         "backend/services/die/canonical_bridge.py",
+        # Phase 5.W · narrative enrichment (2026-08-10 owner sign-off)
+        # Fills empty analyst_narrative fields (executive_summary,
+        # recommended_actions, behavior_summary, overall_assessment,
+        # likely_objective, sigma_hunts, yara_ideas) + synthesises
+        # object.chain.steps[] from attack_progression + enriches
+        # LOLBAS entries from the registry when they arrive empty.
+        "backend/services/die/canonical_narrative_enrichment.py",
+        "backend/scripts/backfill_narrative_enrichment.py",
+        "frontend/src/components/investigation/AnalystNarrativePanel.jsx",
+        "frontend/src/components/investigation/AttackChainView.jsx",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"
@@ -76,6 +86,7 @@ def test_no_route_file_modified_by_phase2():
         ln for ln in lines
         if not ln.startswith("backend/canonical/")
         and not ln.startswith("backend/tests/canonical/")
+        and not ln.startswith("backend/tests/fixtures/")
         and not ln.startswith("memory/")
         and ln not in PHASE_5_1_PATHS
     ]
