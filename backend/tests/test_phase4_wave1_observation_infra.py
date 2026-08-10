@@ -213,17 +213,102 @@ def test_missing_bucket_frequency_computes_correctly():
     assert r["buckets"]["file_activity"]["missing_pct"] == 100.0
     assert r["buckets"]["threat_intel"]["missing_count"] == 2
     assert "file_activity" in r["top_missing"]
+    # Owner-mandated small-sample confidence guard
+    assert r["_confidence"] == "insufficient-sample"
+    assert "min_samples_for_stable" in r
+
+
+def test_missing_bucket_frequency_marks_stable_when_enough_samples():
+    from routers.observation import _missing_bucket_frequency, _MIN_SAMPLES_FOR_STABLE
+    obs = [{"missing_buckets": ["file_activity"]}
+              for _ in range(_MIN_SAMPLES_FOR_STABLE + 5)]
+    r = _missing_bucket_frequency(obs)
+    assert r["_confidence"] == "stable"
+
+
+def test_missing_bucket_frequency_by_class_shape():
+    from routers.observation import _missing_bucket_frequency_by_class
+    obs = [
+        {"coverage_class": "rich",     "missing_buckets": []},
+        {"coverage_class": "rich",     "missing_buckets": ["threat_intel"]},
+        {"coverage_class": "moderate", "missing_buckets": ["file_activity"]},
+        {"coverage_class": "sparse",   "missing_buckets": ["file_activity", "network_activity"]},
+    ]
+    r = _missing_bucket_frequency_by_class(obs)
+    assert set(r.keys()) == {"minimal", "sparse", "moderate", "rich"}
+    assert r["rich"]["n"] == 2
+    assert r["rich"]["buckets"]["threat_intel"]["missing_pct"] == 50.0
+    assert r["rich"]["buckets"]["threat_intel"]["missing_count"] == 1
+    assert r["rich"]["_confidence"] == "insufficient-sample"
+    assert r["minimal"]["n"] == 0
+    assert r["minimal"]["_confidence"] == "insufficient-sample"
+
+
+def test_divergence_by_completeness_computes_monotonic_verdict():
+    from routers.observation import _divergence_by_completeness, _MIN_SAMPLES_FOR_STABLE
+    # Build stable-sized data where agreement rises with completeness
+    obs = []
+    def _rows(cls, agree_n, div_n):
+        for _ in range(agree_n):
+            obs.append({"coverage_class": cls, "divergence_class": "AGREE"})
+        for _ in range(div_n):
+            obs.append({"coverage_class": cls,
+                              "divergence_class": "POTENTIAL-FALSE-NEGATIVE"})
+    _rows("minimal",  10, 20)
+    _rows("sparse",   15, 15)
+    _rows("moderate", 20, 10)
+    _rows("rich",     28,  2)
+    r = _divergence_by_completeness(obs)
+    # Not all classes stable → verdict deferred
+    verdict = r["monotonic_verdict"]
+    assert verdict in ("insufficient-sample-per-class",
+                            "improves-with-completeness · divergence is input-driven")
+
+
+def test_divergence_by_completeness_flags_scoring_driven_when_worsens():
+    from routers.observation import _divergence_by_completeness, _MIN_SAMPLES_FOR_STABLE
+    # Build data of at least MIN_SAMPLES per class where agreement
+    # falls as completeness rises → scoring-driven divergence.
+    obs = []
+    def _rows(cls, agree, div):
+        for _ in range(agree):
+            obs.append({"coverage_class": cls, "divergence_class": "AGREE"})
+        for _ in range(div):
+            obs.append({"coverage_class": cls,
+                              "divergence_class": "POTENTIAL-FALSE-POSITIVE"})
+    _rows("minimal",  28,  2)  # 93% agree
+    _rows("sparse",   24,  6)  # 80%
+    _rows("moderate", 18, 12)  # 60%
+    _rows("rich",     12, 18)  # 40%
+    r = _divergence_by_completeness(obs)
+    assert r["monotonic_verdict"] == "worsens-with-completeness · scoring-driven divergence"
+
+
+def test_upstream_hint_refuses_to_flag_below_min_samples():
+    """Owner-mandated (2026-08-10): below the min-sample threshold,
+    upstream hint MUST refuse to flag any bucket as chronic."""
+    from routers.observation import _upstream_ingestion_hint
+    freq = {"n_observations": 5, "buckets": {
+        "file_activity":    {"missing_pct": 100.0},
+        "network_activity": {"missing_pct": 100.0},
+    }}
+    r = _upstream_ingestion_hint(freq)
+    assert r["_confidence"] == "insufficient-sample"
+    assert r["upstream_ingestion_suspects"] == []
+    assert "note" in r
 
 
 def test_upstream_hint_flags_chronically_missing_buckets():
-    from routers.observation import _upstream_ingestion_hint
-    freq = {"buckets": {
+    from routers.observation import _upstream_ingestion_hint, _MIN_SAMPLES_FOR_UPSTREAM_SUSPECT
+    freq = {"n_observations": _MIN_SAMPLES_FOR_UPSTREAM_SUSPECT + 10,
+                "buckets": {
         "process_activity": {"missing_pct": 5.0},
         "file_activity":    {"missing_pct": 92.0},
         "threat_intel":     {"missing_pct": 71.0},
         "authentication":   {"missing_pct": 40.0},
     }}
     r = _upstream_ingestion_hint(freq)
+    assert r["_confidence"] == "stable"
     names = {s["bucket"] for s in r["upstream_ingestion_suspects"]}
     assert "file_activity" in names
     assert "threat_intel"  in names

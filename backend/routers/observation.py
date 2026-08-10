@@ -39,6 +39,14 @@ router = APIRouter(prefix="/observation", tags=["observation"])
 
 _COLLECTION = "verdict_shadow_observations"
 
+# Owner directive (2026-08-10): "Do not label missing buckets as
+# 'chronic' until sufficient observations exist." This threshold is
+# the point below which the aggregator explicitly refuses to assert
+# statistical claims. Tuned as a starting-point; raise if the sample
+# distribution looks noisier than expected.
+_MIN_SAMPLES_FOR_STABLE = 30
+_MIN_SAMPLES_FOR_UPSTREAM_SUSPECT = 30
+
 
 # Baseline for the original Phase 3 corpus INPUT-CONTRACT-UNRESOLVED cases.
 # Owner-mandated: report re-observation status.
@@ -117,15 +125,23 @@ def _extract_potential_cases(obs: list[dict], kind: str) -> list[dict]:
 
 def _missing_bucket_frequency(obs: list[dict]) -> dict[str, Any]:
     """Per-bucket "missing rate" across all observations — surfaces
-    which InvestigationModel buckets are chronically under-populated."""
+    which InvestigationModel buckets are chronically under-populated.
+
+    Owner-mandated (2026-08-10): DO NOT call any bucket 'chronic'
+    until we have enough samples. Below `MIN_SAMPLES_FOR_STABLE`
+    the report emits `_confidence: 'insufficient-sample'` and
+    every bucket carries a `note` reminding readers of that fact.
+    """
     n = len(obs)
-    if n == 0:
-        return {"n_observations": 0, "buckets": {}}
     bucket_names = [
         "incident_metadata", "asset_context", "process_activity",
         "file_activity", "network_activity", "registry_activity",
         "authentication", "threat_intel", "historical",
     ]
+    if n == 0:
+        return {"n_observations": 0, "buckets": {},
+                    "_confidence": "insufficient-sample",
+                    "min_samples_for_stable": _MIN_SAMPLES_FOR_STABLE}
     missing = Counter()
     for o in obs:
         for b in (o.get("missing_buckets") or []):
@@ -137,11 +153,111 @@ def _missing_bucket_frequency(obs: list[dict]) -> dict[str, Any]:
             "missing_count": m,
             "missing_pct":   round(m / n * 100.0, 2),
         }
-    return {
+    stable = n >= _MIN_SAMPLES_FOR_STABLE
+    out = {
         "n_observations": n,
         "buckets":        per_bucket,
-        "top_missing":    [b for b, _ in
-                                missing.most_common(3)],
+        "top_missing":    [b for b, _ in missing.most_common(3)],
+        "_confidence":    "stable" if stable else "insufficient-sample",
+        "min_samples_for_stable": _MIN_SAMPLES_FOR_STABLE,
+    }
+    if not stable:
+        out["note"] = (
+            f"Fewer than {_MIN_SAMPLES_FOR_STABLE} observations. Bucket "
+            f"missing-rates may swing widely; do NOT call any bucket "
+            f"'chronically missing' at this sample size.")
+    return out
+
+
+def _missing_bucket_frequency_by_class(obs: list[dict]) -> dict[str, Any]:
+    """Per-completeness-class × per-bucket missing rate. Answers the
+    owner's Wave-2 question:
+        `What buckets are missing at moderate/rich completeness?`
+    High missing-rate at rich completeness is far more meaningful
+    than the same rate at minimal completeness."""
+    bucket_names = [
+        "incident_metadata", "asset_context", "process_activity",
+        "file_activity", "network_activity", "registry_activity",
+        "authentication", "threat_intel", "historical",
+    ]
+    by_class: dict[str, dict[str, Any]] = {}
+    for cls in ("minimal", "sparse", "moderate", "rich"):
+        rows = [o for o in obs if o.get("coverage_class") == cls]
+        n = len(rows)
+        if n == 0:
+            by_class[cls] = {"n": 0, "buckets": {},
+                                  "_confidence": "insufficient-sample"}
+            continue
+        missing = Counter()
+        for o in rows:
+            for b in (o.get("missing_buckets") or []):
+                missing[b] += 1
+        by_class[cls] = {
+            "n": n,
+            "buckets": {b: {
+                    "missing_count": missing.get(b, 0),
+                    "missing_pct":   round(missing.get(b, 0) / n * 100.0, 2),
+                } for b in bucket_names},
+            "_confidence": ("stable" if n >= _MIN_SAMPLES_FOR_STABLE
+                                 else "insufficient-sample"),
+        }
+    return by_class
+
+
+def _divergence_by_completeness(obs: list[dict]) -> dict[str, Any]:
+    """Answers the owner's key correlation question:
+        `Does divergence correlate with incomplete upstream
+         InvestigationModel construction?`
+
+    Concretely:
+      * For each completeness class, compute agreement rate.
+      * If agreement rate rises monotonically from minimal → rich,
+        the divergence IS explained by input completeness.
+      * If agreement stays flat (or falls) as completeness rises,
+        the divergence is intrinsic to scoring / policy.
+    """
+    class_agree: dict[str, dict[str, Any]] = {}
+    for cls in ("minimal", "sparse", "moderate", "rich"):
+        rows = [o for o in obs if o.get("coverage_class") == cls]
+        n = len(rows)
+        if n == 0:
+            class_agree[cls] = {"n": 0, "agree_pct": None,
+                                       "_confidence": "insufficient-sample"}
+            continue
+        agree = sum(1 for r in rows if r.get("divergence_class") == "AGREE")
+        class_agree[cls] = {
+            "n":          n,
+            "agree":      agree,
+            "agree_pct":  round(agree / n * 100.0, 2),
+            "_confidence": ("stable" if n >= _MIN_SAMPLES_FOR_STABLE
+                                 else "insufficient-sample"),
+        }
+
+    # Monotonic-improvement check across classes (only meaningful
+    # when all four classes have stable sample counts).
+    ordered_pcts = [class_agree[c]["agree_pct"]
+                          for c in ("minimal", "sparse", "moderate", "rich")]
+    monotonic_verdict: str
+    if any(p is None for p in ordered_pcts):
+        monotonic_verdict = "insufficient-sample"
+    elif all(class_agree[c]["_confidence"] == "stable"
+                 for c in ("minimal", "sparse", "moderate", "rich")):
+        # Monotonic non-decreasing?
+        if all(ordered_pcts[i] <= ordered_pcts[i+1]
+                    for i in range(len(ordered_pcts)-1)):
+            monotonic_verdict = "improves-with-completeness · divergence is input-driven"
+        elif all(ordered_pcts[i] >= ordered_pcts[i+1]
+                      for i in range(len(ordered_pcts)-1)):
+            monotonic_verdict = "worsens-with-completeness · scoring-driven divergence"
+        else:
+            monotonic_verdict = "non-monotonic · needs closer inspection"
+    else:
+        monotonic_verdict = "insufficient-sample-per-class"
+
+    return {
+        "agreement_by_class":  class_agree,
+        "monotonic_verdict":   monotonic_verdict,
+        "min_samples_for_stable": _MIN_SAMPLES_FOR_STABLE,
     }
 
 
@@ -210,11 +326,28 @@ def _upstream_ingestion_hint(missing_freq: dict[str, Any]) -> dict[str, Any]:
     """Owner directive: 'Whether the missing buckets originate upstream
     from input ingestion/normalization.'
 
-    We answer this deterministically: when a bucket is missing in >70%
-    of observations across coverage classes, it's almost certainly an
-    upstream ingestion gap — the verdict engine can't be responsible
-    for a bucket that never arrives.
+    Answered deterministically: when a bucket is missing in >70% of
+    observations AND the observation count is above
+    `_MIN_SAMPLES_FOR_UPSTREAM_SUSPECT`, flag as an ingestion suspect.
+
+    Below the sample threshold, refuse to flag ANY bucket as chronic —
+    return an explicit `insufficient-sample` verdict per owner directive.
     """
+    n = int(missing_freq.get("n_observations") or 0)
+    if n < _MIN_SAMPLES_FOR_UPSTREAM_SUSPECT:
+        return {
+            "_confidence":                 "insufficient-sample",
+            "min_samples_for_suspects":    _MIN_SAMPLES_FOR_UPSTREAM_SUSPECT,
+            "n_observations":              n,
+            "upstream_ingestion_suspects": [],
+            "note": (
+                f"Fewer than {_MIN_SAMPLES_FOR_UPSTREAM_SUSPECT} "
+                f"observations — refusing to flag any bucket as "
+                f"chronically missing. Currently-missing buckets on "
+                f"the observed sample are visible in "
+                f"`missing_bucket_frequency.buckets`, but that is a "
+                f"snapshot, not a chronic-absence claim."),
+        }
     upstream_suspects: list[dict] = []
     for bucket, stats in (missing_freq.get("buckets") or {}).items():
         if stats.get("missing_pct", 0) >= 70.0:
@@ -222,11 +355,14 @@ def _upstream_ingestion_hint(missing_freq: dict[str, Any]) -> dict[str, Any]:
                 "bucket":       bucket,
                 "missing_pct":  stats["missing_pct"],
                 "diagnosis":    (
-                    "Chronically missing (>70% of observations). "
-                    "Upstream ingestion/normalization does not populate "
-                    "this bucket for typical Workspace inputs."),
+                    f"Missing in >70% of {n} observations. "
+                    f"Upstream ingestion/normalization does not populate "
+                    f"this bucket for typical Workspace inputs."),
             })
     return {
+        "_confidence":                 "stable",
+        "min_samples_for_suspects":    _MIN_SAMPLES_FOR_UPSTREAM_SUSPECT,
+        "n_observations":              n,
         "upstream_ingestion_suspects": sorted(upstream_suspects,
                                                           key=lambda x: -x["missing_pct"]),
         "note": ("These buckets are not the Verdict Engine's responsibility. "
@@ -252,6 +388,8 @@ async def wave1_report(
     fp_cases            = _extract_potential_cases(obs, "POTENTIAL-FALSE-POSITIVE")
     fn_cases            = _extract_potential_cases(obs, "POTENTIAL-FALSE-NEGATIVE")
     missing_freq        = _missing_bucket_frequency(obs)
+    missing_by_class    = _missing_bucket_frequency_by_class(obs)
+    divergence_corr     = _divergence_by_completeness(obs)
     upstream_hint       = _upstream_ingestion_hint(missing_freq)
     phase3_reobs        = _phase3_reobservation(obs)
     latency             = _latency_stats(obs)
@@ -276,6 +414,8 @@ async def wave1_report(
         "potential_false_positives_mod_rich": fp_cases,
         "potential_false_negatives_mod_rich": fn_cases,
         "missing_bucket_frequency": missing_freq,
+        "missing_bucket_frequency_by_class": missing_by_class,
+        "divergence_vs_completeness":        divergence_corr,
         "upstream_ingestion_hint":  upstream_hint,
         "phase3_reobservation_status": phase3_reobs,
         "shadow_latency_stats": latency,

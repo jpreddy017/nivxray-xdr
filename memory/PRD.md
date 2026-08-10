@@ -13024,3 +13024,38 @@ Exactly per owner directive — divergence NOT declared false-negative.
 - Engine A remains primary.
 - Scoring untouched.
 - Awaiting real-world traffic → then owner reviews the `/api/observation/wave1-report` output.
+
+---
+
+## 2026-08-10 · ADR-004 Step 1 · Wave 1 Observation Report — sample-size discipline + new dimensions
+
+**Owner directive**: Do NOT call missing buckets "chronic" until sufficient observations exist. Add missing-bucket frequency by completeness class and divergence-vs-completeness correlation.
+
+### Changes (observation infra only)
+- `_MIN_SAMPLES_FOR_STABLE = 30` — threshold below which the aggregator refuses statistical claims.
+- `_upstream_ingestion_hint` — now returns `_confidence: 'insufficient-sample'` with an explanatory note when total observations < 30. Correction: previously flagged 8 buckets as chronic on n=1 (fixed).
+- **NEW** `missing_bucket_frequency_by_class` — per-completeness-class × per-bucket missing rate. Answers "which buckets are missing at moderate/rich completeness?"
+- **NEW** `divergence_vs_completeness` — computes agreement rate per completeness class + a `monotonic_verdict`:
+  - `improves-with-completeness · divergence is input-driven`
+  - `worsens-with-completeness · scoring-driven divergence`
+  - `non-monotonic · needs closer inspection`
+  - `insufficient-sample` / `insufficient-sample-per-class`
+- All new dimensions require ≥30 samples per class before emitting stable claims.
+
+### Live-verified (2026-08-10)
+On n=1:
+- `missing_bucket_frequency._confidence = "insufficient-sample"` with note
+- `upstream_ingestion_hint._confidence = "insufficient-sample"`, `suspects = []` (down from the incorrect 8)
+- `divergence_vs_completeness.monotonic_verdict = "insufficient-sample"`
+- `missing_bucket_frequency_by_class` present with all 4 classes, each `_confidence: insufficient-sample`
+
+### Regression envelope
+- Step 0/0.1 + Phase 2/3 + Wave 1 shadow/infra: **185/185 GREEN** (was 180 + 5 new tests).
+- Hot-path regression: unchanged from Step 0.1 baseline.
+- Live e2e smoke: HTTP 200, correct claim-refusal behaviour below threshold.
+
+### 🔴 STOP — window still OPEN, waiting for real traffic
+
+- Consumer switch NOT authorised.
+- Engine A remains primary.
+- Aggregator now correctly refuses conclusions below sample threshold.
