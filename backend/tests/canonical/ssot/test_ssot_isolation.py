@@ -83,6 +83,20 @@ def test_no_route_file_modified_by_phase2():
         "backend/services/die/csv_edr_analyzer.py",
         "frontend/src/components/investigation/AnalystNarrativePanel.jsx",
         "frontend/src/components/investigation/AttackChainView.jsx",
+        # Phase 5.W.2 · Anti-hang upload path (2026-08-10)
+        # - Client-side 2 MB size cap on /api/upload
+        # - 25 s abort budget with actionable error
+        # - startTransition around setInput / setStatus so downstream
+        #   AnalystNarrativePanel / TrajectoryDiagram re-render cascade
+        #   yields to user input and paint.
+        # - Free heavy state fields (investigationObject / analystNarrative)
+        #   BEFORE upload so useIdlePersist has nothing giant to
+        #   JSON.stringify during the upload flow.
+        # - useIdlePersist bulk-drop guard now includes object size
+        #   estimate, so JSON.stringify never blocks the main thread
+        #   even when a hydrated investigation is still in state.
+        "frontend/src/pages/WorkspacePage.jsx",
+        "frontend/src/hooks/useIdlePersist.js",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

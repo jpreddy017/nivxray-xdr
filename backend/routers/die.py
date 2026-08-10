@@ -121,6 +121,37 @@ def die_narrate(body: NarrateBody):
                     "kill_chain": meta.get("kill_chain", "unknown"),
                 })
                 seen_ids.add(row["id"])
+        # Phase 5.W.3 · CSV/EDR analyzer feed (2026-08-10)
+        # For tabular endpoint-security exports the prose narrative
+        # rules match nothing → mitre_full stays empty → enrichment
+        # doesn't fire → analyst gets the legacy canned exec_summary.
+        # Run the same csv_edr_analyzer used by /investigation-results
+        # so `/narrate` produces the same enriched shape.
+        try:
+            from services.die.csv_edr_analyzer import analyse_csv_edr
+            csv_r = analyse_csv_edr(body.input or "")
+            if csv_r:
+                for t in (csv_r.get("mitre") or []):
+                    tid = t.get("id")
+                    if tid and tid not in seen_ids:
+                        meta = _TECHNIQUE_META.get(tid, {})
+                        mitre_full.append({
+                            "id":         tid,
+                            "name":       t.get("name") or meta.get("tactic"),
+                            "tactic":     t.get("tactic") or meta.get("tactic") or "unknown",
+                            "kill_chain": meta.get("kill_chain") or "unknown",
+                        })
+                        seen_ids.add(tid)
+                # Also feed the tactic-grouped progression + mitre_matrix
+                # so the enricher sees the same evidence surface.
+                if not narrative.get("attack_progression"):
+                    narrative["attack_progression"] = csv_r.get("attack_progression") or []
+                if not narrative.get("mitre_matrix"):
+                    narrative["mitre_matrix"] = csv_r.get("mitre") or []
+                if not narrative.get("kill_chain_coverage"):
+                    narrative["kill_chain_coverage"] = csv_r.get("kill_chain_coverage") or []
+        except Exception:
+            pass
         if mitre_full:
             narrative = enrich_narrative(narrative, mitre_full)
 

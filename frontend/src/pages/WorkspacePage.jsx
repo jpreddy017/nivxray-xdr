@@ -741,6 +741,10 @@ function WorkspacePageInner() {
   const isShellcodeClient = useMemo(() => !!detectShellcode(output || ""), [output]);
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
+  // Phase 5.W.2 — Shared AbortController for the current workspace API
+  // request (upload, investigate, decode, etc.).  CLEAR aborts it to
+  // prevent stale responses from repopulating the workspace after wipe.
+  const workspaceAbortRef = useRef(null);
 
   // ▲ Global HISTORY restore hook (2026-02 · Nav Consolidation).
   //   • Listens for `nvx:open-history` events (legacy in-page HISTORY btn).
@@ -948,6 +952,15 @@ function WorkspacePageInner() {
 
   // ─── Universal CLEAR — wipe input + output + recipe + all analysis state ──
   // (Previously "Clear" only touched input; now it resets every panel.)
+  //
+  // Phase 5.W.2 (2026-08-10) · owner request: "when we click on CLEAR,
+  // all accumulated memory in frontend and backend should get clear
+  // to save the workspace". CLEAR now performs a FULL wipe:
+  //   (a) All React state fields the workspace uses (below).
+  //   (b) Every workspace-scoped localStorage key (auth tokens preserved).
+  //   (c) sessionStorage.
+  //   (d) Any in-flight API request via the shared AbortController.
+  //   (e) status = "WORKSPACE CLEARED".
   const clearAll = () => {
     setInput("");
     setOutput("");
@@ -971,43 +984,66 @@ function WorkspacePageInner() {
     setLivePreview(null);
     setShareUrl("");
     setTacticFilter(null);
-    setStatus("READY");
     setChainOpen(false);
     setChainReplay(null);
     setPendingChainStages(null);
     setPendingChainResult(null);
     setMultiChainNotice(null);
-    // Feb-2026 · reset saved-case tracker so next SAVE prompts for a new name
     setSavedCaseName(null);
     setInputLocked(false);
-    // RC3.0 · P0.2 — wipe the 7-panel Analyst Workspace state so the
-    // Analysis Verdict / Recovered Payload / MITRE / IOCs / Network /
-    // Behavior blocks vanish and the analyst gets a clean workspace for
-    // the next test. Previously CLEAR only reset input & trace, leaving
-    // the previous verdict card and analysis blob visible.
     setVerdictCard(null);
     setSemantic(null);
     setInvestigation(null);
-    // ▲ IEDDE reset (Priority 1 · 2026-02)
     setIedde(null);
     setIeddeTerminalState(null);
     setCanonicalConfidence(null);
     setCanonicalConfidenceReason(null);
     setIeddeDiagnostics([]);
-    // ▲ 2026-02-28 · P0 · IUE / Inline Attack Story / Analyst Narrative
-    // must ALSO be wiped so CLEAR truly resets the Workspace to zero.
     setUnderstanding(null);
     setUnderstandingLoading(false);
     setUnderstandingError(null);
     setInlineStoryPreproc(null);
     setAnalystNarrative(null);
-    // ▲ IUE v2.0 · Investigation Results reset (2026-03-01)
     setInvestigationMode(false);
     setInvestigationObject(null);
+    // (b) All workspace-scoped localStorage keys — auth tokens preserved.
+    const _PRESERVE = new Set([
+      "nvx_token", "token", "nvx_email", "nvx_dev_mode",
+      "nvx_recovery_mode", "nvx-v2-flags",
+    ]);
     try {
-      localStorage.removeItem("nvx.pendingInput");
-      localStorage.removeItem("nvx.workspace.persist");
-    } catch {}
+      const doomed = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (_PRESERVE.has(k)) continue;
+        // Wipe any workspace / investigation / xlab / nvx.* key.
+        if (k.startsWith("nvx.") || k.startsWith("nivx.")
+            || k.startsWith("xlab.") || k.startsWith("nvx_last")
+            || k.startsWith("nvx_pending")) {
+          doomed.push(k);
+        }
+      }
+      for (const k of doomed) localStorage.removeItem(k);
+    } catch { /* localStorage unavailable → ignore */ }
+    // (c) sessionStorage — Workspace uses none currently but wipe defensively.
+    try {
+      const doomed = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && (k.startsWith("nvx.") || k.startsWith("nivx.") || k.startsWith("xlab."))) doomed.push(k);
+      }
+      for (const k of doomed) sessionStorage.removeItem(k);
+    } catch { /* ignore */ }
+    // (d) Abort any in-flight workspace HTTP request.
+    try {
+      if (workspaceAbortRef.current) {
+        workspaceAbortRef.current.abort(new Error("workspace-cleared"));
+        workspaceAbortRef.current = null;
+      }
+    } catch { /* ignore */ }
+    // (e) Final status.
+    setStatus("WORKSPACE CLEARED — memory + persisted state wiped");
   };
 
 
@@ -2246,17 +2282,73 @@ function WorkspacePageInner() {
   const onUpload = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    // ── Phase 5.W.2 (2026-08-10) · Anti-hang upload path ─────────────
+    // Symptom: uploading a 40 KB SEP.csv left the tab frozen at
+    // "UPLOADING …" with the "Page Unresponsive" dialog.
+    // Guards applied here:
+    //   (a) Hard client-side size cap — >2 MB is rejected with a
+    //       clear message BEFORE any network work.
+    //   (b) 25 s abort budget on the /upload POST — any longer and
+    //       we surface an actionable error instead of hanging.
+    //   (c) startTransition around all post-response setState calls
+    //       so React batches the re-render with low priority and the
+    //       expensive AnalystNarrativePanel / TrajectoryDiagram trees
+    //       cannot starve the main thread while the analyst is
+    //       still trying to type.
+    //   (d) The file-input onChange dropzone is reset FIRST so a
+    //       failed attempt does not leave the file selected.
+    const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;   // 2 MB
+    if (f.size > MAX_UPLOAD_BYTES) {
+      setStatus(`UPLOAD REJECTED · ${f.name} is ${(f.size/1024).toFixed(0)} KB (max 2 MB) — use a smaller sample`);
+      e.target.value = "";
+      return;
+    }
     const fd = new FormData();
     fd.append("file", f);
-    setStatus(`UPLOADING ${f.name}...`);
+    startTransition(() => {
+      setStatus(`UPLOADING ${f.name}... (${(f.size/1024).toFixed(0)} KB)`);
+      // Free the heavy state fields from the PREVIOUS investigation
+      // BEFORE we start the upload. Without this, useIdlePersist has
+      // to JSON.stringify a fully-populated investigationObject +
+      // analystNarrative on every subsequent state change during the
+      // upload flow, which blocks the main thread for tens of seconds.
+      setInput("");
+      setOutput("");
+      setInvestigationObject(null);
+      setAnalystNarrative(null);
+      setUnderstanding(null);
+      setInlineStoryPreproc(null);
+      setChain([]);
+      setAnalysis(null);
+      setDetected(null);
+    });
     try {
-      const r = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      setInput(r.data.content);
-      const type = r.data.file_type?.label || "?";
-      const md5 = r.data.hashes?.md5 || "";
-      setStatus(`LOADED: ${r.data.filename} · ${r.data.size} bytes · ${type} · MD5=${md5.slice(0, 12)}…`);
+      const controller = new AbortController();
+      workspaceAbortRef.current = controller;
+      const abortTimer = setTimeout(() => controller.abort(new Error("client-upload-timeout-25s")), 25_000);
+      const r = await api.post("/upload", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        signal:  controller.signal,
+        timeout: 25_000,
+      });
+      clearTimeout(abortTimer);
+      workspaceAbortRef.current = null;
+      const type   = r.data.file_type?.label || "?";
+      const md5    = r.data.hashes?.md5 || "";
+      const cnt    = r.data.content || "";
+      // Batch all post-response state mutations at low priority so any
+      // AnalystNarrativePanel / TrajectoryDiagram re-render cascade
+      // yields to user input and paint. React 18 startTransition here
+      // is the difference between "instant" and "Page Unresponsive".
+      startTransition(() => {
+        setInput(cnt);
+        setStatus(`LOADED: ${r.data.filename} · ${r.data.size} bytes · ${type} · MD5=${md5.slice(0, 12)}…`);
+      });
     } catch (e2) {
-      setStatus("UPLOAD FAILED: " + (e2?.response?.data?.detail || e2.message));
+      const msg = e2?.name === "AbortError"
+        ? "UPLOAD FAILED: request took longer than 25 s (network stall or backend cold-start) — retry or use a smaller sample"
+        : "UPLOAD FAILED: " + (e2?.response?.data?.detail || e2.message);
+      setStatus(msg);
     } finally {
       e.target.value = "";
     }

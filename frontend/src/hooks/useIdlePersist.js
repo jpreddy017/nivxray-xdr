@@ -55,11 +55,33 @@ export function useIdlePersist(key, snapshot, opts = {}) {
     debounceRef.current = setTimeout(() => {
       idleRef.current = rIC(() => {
         try {
-          // Cheap size estimate first — sum of raw string lengths.
+          // ── Cheap size estimate — string length + best-effort
+          //    approximation for objects. Without object accounting
+          //    the guard never fires and JSON.stringify below can
+          //    block the main thread for 10-300 s on a hydrated
+          //    investigationObject / analystNarrative (owner-verified
+          //    2026-08-10 SEP.csv upload freeze).
           let bulkLen = 0;
           for (const k of Object.keys(snapshot || {})) {
             const v = snapshot[k];
-            if (typeof v === "string") bulkLen += v.length;
+            if (v == null) continue;
+            if (typeof v === "string") { bulkLen += v.length; continue; }
+            if (typeof v === "object") {
+              // Very cheap sizeof: count keys × 32 bytes + recurse one
+              // level. Full stringify would defeat the whole guard.
+              try {
+                let est = 0;
+                for (const key of Object.keys(v)) {
+                  est += 32;
+                  const inner = v[key];
+                  if (typeof inner === "string") est += inner.length;
+                  else if (Array.isArray(inner)) est += inner.length * 64;
+                  else if (inner && typeof inner === "object")
+                    est += Object.keys(inner).length * 64;
+                }
+                bulkLen += est;
+              } catch { /* noop */ }
+            }
           }
           // Drop the bulk fields when the raw payload is already huge.
           const effective = { ...snapshot };
