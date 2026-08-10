@@ -1,8 +1,43 @@
 # ADR-005 · Owner Decision Matrix (READ-ONLY)
 
-- **Status**: Awaiting owner decision on D1–D10
-- **Date**: 2026-08-10
+- **Status**: **DECISIONS RECORDED 2026-08-10** — D1, D2, D3, D4, D6, D7, D10 settled. D5, D8, D9 deferred (defaults applied). **No implementation authorised**; migration map is the next artefact.
+- **Date recorded**: 2026-08-10
 - **Source of truth**: `/app/memory/adr/0005-canonical-investigation-architecture.md` (ADR-005)
+
+---
+
+## RECORDED OWNER DECISIONS (2026-08-10)
+
+| D | Statement | **Recorded decision** | Rationale (verbatim from owner) |
+|---|---|---|---|
+| **D1** | IUE canonisation | **D1-D · Composer over IUE-2 / IUE-3 / IUE-4 / IUE-5 sub-classifiers** | Preserves the strongest donor for each capability (IUE-2 plan+executor, IUE-3 multi-artefact, IUE-4 bytes-native, IUE-5 decomposition); minimises rewrite; composer's responsibility is composition, not classification |
+| **D2** | SSOT canonisation | **D2-d · Two-tier — authoritative graph + canonical projection tier** | INV-1 enforced structurally: projections cannot become alternative SSOTs because they are defined as pure functions of the authoritative tier; existing consumers keep working as labelled projections; reversible per tier |
+| **D3** | Provenance mechanism | **D3-z · Both — ReasoningStep + Provenance envelope** | ADR-005 P3 + P7 seven use-cases require both decision-level (why) and entry-level (who/when) provenance; consistency is expressible |
+| **D4** | Execution model | **D4-3 · plan[] + dispatch[] + dispatch_policy** | Non-lossy; preserves IUE-2 plan semantics AND IUE-3 dispatch semantics; policy field selects behaviour per case; matches ADR-005 §3.2 verbatim |
+| **D5** | Entry-point phasing | *Deferred* — default `D5-β · phased with shim on `cases.py::save_case`` unless owner overrides during migration | Depends on D1/D2/D4/D6 landing; will be decided during migration-map review |
+| **D6** | Recursive store | **D6-r · By reference into the immutable SSOT store** | Matches ADR-005 §4.4/§8 verbatim; leverages the existing `investigation_ssot` store; enables sharing / dedup; children ARE SSOTs, not projections |
+| **D7** | Wave 1 | **W1-A · Segment-and-continue with locked pre-segment** | Preserves n=2 as directional signal within its own segment; blocks accidental cross-segment aggregation; existing observations frozen into `pre_ssot_reconciliation` |
+| **D8** | Enricher isolation | *Deferred* — default **D8-s · Separate role** | Honours INV-2 (determinism); INV-6 (single-role classification); will be finalised during executor design |
+| **D9** | Schema versioning | *Deferred* — default **D9-both · default back-projectable; breaking majors require an ADR** | INV-4 (additive migration is the default; breaking is by exception) |
+| **D10** | ADR-004 relationship | **ADR-005 is a prerequisite to ADR-004 Step 2** — with active data collection (shadow attach continues under W1-A so labelled Wave 1 data accumulates as soon as D2 lands) | No premature verdict consolidation; observation infrastructure preserved |
+
+## EXPLICIT REJECTIONS (2026-08-10)
+
+- **Rejected · Tactical L1b routing fix on `routers/cases.py`**. Routing `POST /api/cases/save` and `POST /api/cases/{id}/reinvestigate` through `v2.jobs.pipeline.run_investigation_with_progress` (the MDR pipeline) would exchange one bypass for another (skip MDR → skip IUE), create a fourth `verdict_shadow` attach site while Wave 1 is still architecturally contaminated, silently change the persisted SSOT shape from die-Canonical to MDR-InvestigationModel, and create yet another orchestration path to reconcile later. **This is exactly the class of patch that created the current fragmentation.** The canonical architecture (D1-D + D2-d + D3-z + D4-3 + D6-r) takes precedence; no interim patch is authorised.
+
+- **Rejected · Any code change against Sample1** (case ID `3db79c4a-088b-4df7-b65a-f68b367b7677`). See `/app/memory/GOLDEN_CASE_SAMPLE1.md` rules R-G1..R-G6.
+
+- **Rejected · Any Wave 1 modification** beyond the future `source_ssot_shape` labelling extension when the canonical SSOT lands.
+
+- **Rejected · Any ADR-004 Step 2 (consumer switch) work** until D2 is implemented and labelled Wave 1 observations accumulate to authorised sample size.
+
+## AUTHORISED NEXT ARTEFACT
+
+- **`/app/memory/adr/0005-migration-map.md`** — design-only Canonical Architecture Migration Map (produced 2026-08-10, see companion document). No code changes. No implementation authorised until the map is reviewed.
+
+---
+
+
 - **Scope**: For each of the ten decisions surfaced by ADR-005 §11, present:
   1. Decision statement
   2. Alternatives (explicitly named in ADR-005 only)
