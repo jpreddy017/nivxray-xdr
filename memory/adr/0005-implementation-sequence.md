@@ -117,8 +117,15 @@ Build the new Canonical IUE Composer (D1-D) as a new module. It aggregates exist
 - **T1.2** Determinism test: 20-input golden corpus, `composer.classify(input).determinism_hash` byte-stable across 100 replays.
 - **T1.3** Contract tests: `IUEDecision` schema is complete against ADR-005 §3.2 field table.
 - **T1.4** Provenance test: every `IUEEvidence` entry carries `(engine, version, at, upstream_evidence_ids)` (D3-z envelope).
-- **T1.5** Tie-breaking test: when two sub-classifiers emit conflicting primary types, the composer's deterministic tie-breaker rule (specified in the Phase 1 spec, TBD) applies identically across replays.
+- **T1.5** Tie-breaking test: when two sub-classifiers emit conflicting primary types, the composer's deterministic tie-breaker rule (specified in the Phase 1 spec) applies identically across replays.
 - **T1.6** No-network test: composer runs with all outbound sockets blocked (INV-2 determinism).
+- **T1.7 (AMENDMENT 1 · 2026-08-10)** Input-class coverage test: the composer MUST demonstrably handle **all five input classes** end-to-end with real sub-classifier participation:
+  - **raw text** — a PowerShell EncodedCommand paste. Must trigger `IUE-2` classification + `IUE-3` language detection.
+  - **raw bytes (non-document binary)** — a small PE header sample. Must trigger `IUE-4` bytes-magic (this is the ONLY sub-classifier that natively handles bytes; test proves IUE-4 actually participates in the composer).
+  - **DOCX** — `Sample.docx` bytes (NEW ingestion, NOT the Sample1 case). Must trigger `IUE-4` (binary magic) + `IUE-5` artefact decomposition (this proves IUE-5 actually participates through the composer, not just as a downstream Analyzer).
+  - **multi-artefact input** — a paste containing wmic → cmd → PowerShell → base64. Must trigger `IUE-3` multi-artefact detection with a non-empty `embedded[]`.
+  - **malformed / ambiguous input** — high control-char ratio + truncated encoding. `input_health` MUST report the anomaly; classification MUST fall back to `UNKNOWN` with evidence explaining why; the composer MUST NOT raise.
+  For each class, `IUEDecision.provenance` must show which sub-classifier(s) contributed, and `determinism_hash` must be stable across replays.
 
 ### Sample1-equivalent acceptance
 - **A1.1** Re-ingest `Sample.docx` bytes through the composer (in isolation — NOT through any route). The composer must emit:
@@ -325,7 +332,13 @@ Author every projection function as a **pure function of the authoritative tier*
 
 ### Tests / gates
 - **T4.1** Per-projection determinism test: `project_X(SSOT)` byte-identical across 100 replays.
-- **T4.2** Per-projection golden-corpus test: for a fixed corpus of N inputs, `project_X(SSOT(input)) == legacy_X(input)` byte-for-byte, OR an owner-approved allowed diff documented in `/app/memory/adr/0005-phase4-allowed-diffs.md`. **Allowed diffs must be enumerated per input per projection; no blanket allowance.**
+- **T4.2** Per-projection golden-corpus test (AMENDMENT 2 · 2026-08-10 — **semantic vs. byte identity**):
+  - **Byte-identity comparison** applies to projections whose legacy output is *fully deterministic* and *semantically frozen* — e.g. `project_iocs`, `project_lolbas`, `project_attck`, `project_timeline`, `project_activity` (SSOT-A structure), `project_canonical` (SSOT-B structure), `project_evidence_bundle` (SSOT-E structure), `project_reports` (STIX/Sigma/YARA/Navigator).
+  - **Canonical-normalised comparison** applies to projections whose legacy output is prose or narrative — e.g. `project_attack_story`, `project_executive_summary`, `project_analyst_summary`, `project_recommendations`. For these, the required invariant is:
+    - **Same authoritative SSOT ⇒ same projection output** (determinism preserved across replays), AND
+    - **Required evidence set preserved** — every evidence node the legacy composer referenced MUST appear in the canonical projection's evidence pointers (or be documented as an owner-approved omission), AND
+    - **Required provenance preserved** — every technique / IOC / recommendation carries provenance pointing back to authoritative evidence.
+  - **Allowed diffs must be enumerated per input per projection with the comparison mode explicitly labelled** (`byte_identity` | `canonical_normalised`) in `/app/memory/adr/0005-phase4-allowed-diffs.md`. **No blanket allowance.** Adding a diff under `canonical_normalised` is a lower bar than under `byte_identity` and requires an owner note explaining why byte identity is not appropriate for that projection.
 - **T4.3** INV-1 test: no projection reads from any source other than the authoritative tier. Static analysis test on the projection modules.
 - **T4.4** No-fallback test: `project_recommendations` with an SSOT that has no MITRE returns an EMPTY list plus a `reasoning_step` recording "no MITRE evidence available". It does NOT emit the generic template.
 - **T4.5** Rebuild-idempotence test: `project_X(SSOT) == project_X(project_reverse_if_possible(project_X(SSOT)))` — for projections that have an inverse; for lossy projections, documented as lossy.
@@ -671,9 +684,15 @@ Delete components whose consumer count has reached zero. Only after every replac
 ### Projection acceptance
 - No new projections; projections continue to work.
 
-### Rollback boundary
-- Per-component deletion commit; git revert restores.
-- **This is the first phase where irreversibility begins (post grace window).**
+### Rollback boundary (AMENDMENT 3 · 2026-08-10)
+- Per-component deletion commit; git revert restores **the code**.
+- **This is the first controlled-deprecation phase. Rollback requires BOTH code and persistence compatibility.**
+  - Git revert restores the code that produced/consumed the deprecated component.
+  - It does NOT automatically restore the pre-Phase-10 shape of persisted data (SSOTs already written in the canonical shape, Wave-N records tagged `canonical_v1`, `workspace_cases.ssot_ref` pointing into the immutable store, etc.).
+  - Restoring a live production state after a Phase 10 deletion therefore requires:
+    (a) code revert, PLUS
+    (b) a persistence-compatibility path (either a projection-back to the deprecated shape, retained until end of grace window, OR a documented one-time re-projection from the immutable store).
+- The Phase 10 owner sign-off document MUST record which persistence-compatibility paths are retained, and their retention window.
 
 ### What remains frozen during Phase 10
 - Sample1 record (permanent invariant).
