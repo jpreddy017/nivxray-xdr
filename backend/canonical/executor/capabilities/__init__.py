@@ -238,8 +238,88 @@ _MITRE_PATTERNS = {
 }
 
 
+# ── Phase 3.y · Narrative MITRE analyzer extension (2026-08-10) ─────────
+# Additive to _MITRE_PATTERNS above. Every rule requires SPECIFIC
+# multi-word context to prevent false positives on ambiguous words
+# (e.g. bare "RAT"). Fired only through _match_narrative_rule().
+#
+# Structure per rule:
+#   "<technique_id>": {
+#       "name": <MITRE technique name>,
+#       "any_of": [ <phrase>, ... ],           # any one of these fires
+#       "require_all_of": [ [ <phrases> ], ... ],  # optional AND-groups;
+#           # every group must have at least one member present
+#   }
+_NARRATIVE_RULES = {
+    "T1219": {
+        "name": "Remote Access Software",
+        "any_of": ["remote access trojan", "remote access software"],
+    },
+    "T1204.002": {
+        "name": "User Execution: Malicious File",
+        # Require BOTH a "malicious file" phrase AND an execution verb —
+        # eliminates false positives on policy documents that merely
+        # mention "malicious file" without evidence of execution.
+        "any_of": [],
+        "require_all_of": [
+            ["malicious file", "known malicious file"],
+            ["executed", "was executed", "execution of", "detected the execution",
+             " ran ", " runs ", "was launched", "was invoked"],
+        ],
+    },
+    "T1071": {
+        "name": "Application Layer Protocol (C2)",
+        "any_of": ["command and control", "c2 beacon", "c2 callback",
+                   "c2 server", "beacon activity"],
+    },
+    "T1486": {
+        "name": "Data Encrypted for Impact",
+        "any_of": ["ransomware attack", "ransomware infection",
+                   "data encrypted for impact", "files encrypted by ransomware",
+                   "ransom note"],
+    },
+    "T1003": {
+        "name": "OS Credential Dumping",
+        "any_of": ["credential dumping", "credential dump", "mimikatz",
+                   "procdump lsass", "comsvcs.dll"],
+    },
+    "T1566": {
+        "name": "Phishing",
+        "any_of": ["phishing email", "spear phishing",
+                   "spearphishing attachment", "spearphishing link"],
+    },
+}
+
+
+def _match_narrative_rule(text_lower: str, rule: dict) -> list:
+    """Return matched phrases if the rule fires; empty list otherwise.
+
+    Deterministic:
+      - `any_of`         → any one member present ⇒ collected.
+      - `require_all_of` → every AND-group must contribute ≥1 hit;
+                           the returned list preserves group order.
+    """
+    matched: list = []
+    for phrase in rule.get("any_of", []):
+        if phrase in text_lower:
+            matched.append(phrase)
+    # AND-groups: if any group has zero hits, the rule doesn't fire.
+    groups = rule.get("require_all_of", [])
+    if groups:
+        group_matches: list = []
+        for group in groups:
+            hits = [p for p in group if p in text_lower]
+            if not hits:
+                return []              # rule doesn't fire
+            group_matches.extend(hits)
+        matched.extend(group_matches)
+    return sorted(set(matched)) if matched else []
+
+
 def _cap_mitre_map(ssot, raw, ctx):
     text = raw.as_text().lower()
+
+    # 1) Existing command/shell needle-match — UNCHANGED (P3.y constraint I).
     for tid, (name, needles) in _MITRE_PATTERNS.items():
         matched = [n for n in needles if n in text]
         if matched:
@@ -248,13 +328,51 @@ def _cap_mitre_map(ssot, raw, ctx):
                                   kind="mitre_technique",
                                   label=f"{tid}: {name}",
                                   attrs={"technique_id": tid,
-                                         "matched": matched}),
+                                         "matched": matched,
+                                         "rule_family": "command_needle"}),
                         PROV_BUILTIN)
             ssot.append("reasoning_steps",
                         ReasoningStep(id=f"rs.mitre.{tid}",
                                       rule="mitre.deterministic_needle_match",
                                       rationale=f"{tid} matched: {matched}"),
                         PROV_BUILTIN)
+
+    # 2) Phase 3.y · Narrative-vocabulary MITRE rules (additive).
+    #    Every rule enforces multi-word / contextual matching (see
+    #    _NARRATIVE_RULES + _match_narrative_rule).
+    for tid, rule in _NARRATIVE_RULES.items():
+        # Skip if this tid was already emitted by the command-needle
+        # pass above (avoids duplicate evidence nodes).
+        if any(n.id == f"ev.mitre.{tid}"
+               for n in ssot.evidence_graph.nodes):
+            continue
+        matched = _match_narrative_rule(text, rule)
+        if not matched:
+            continue
+
+        # Deterministic source-text snippet extraction (up to 240 chars
+        # centred on the FIRST matched phrase) — bounded, deterministic.
+        first_phrase = matched[0]
+        idx = text.find(first_phrase)
+        start = max(0, idx - 80)
+        end = min(len(text), idx + 160)
+        snippet = text[start:end]
+
+        ssot.append("evidence_graph.nodes",
+                    GraphNode(id=f"ev.mitre.{tid}",
+                              kind="mitre_technique",
+                              label=f"{tid}: {rule['name']}",
+                              attrs={"technique_id": tid,
+                                     "matched": matched,
+                                     "rule_family": "narrative_vendor_report",
+                                     "source_snippet": snippet}),
+                    PROV_BUILTIN)
+        ssot.append("reasoning_steps",
+                    ReasoningStep(id=f"rs.mitre.{tid}",
+                                  rule="mitre.narrative_rule_match",
+                                  rationale=(f"{tid} narrative rule matched: "
+                                             f"{matched} · snippet={snippet!r}")),
+                    PROV_BUILTIN)
 
 
 register_capability(Capability.MITRE_MAP, CapabilityRole.ANALYZER,

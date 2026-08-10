@@ -41,8 +41,9 @@ ANY INPUT
 | 2 · Canonical SSOT authoritative tier | ✅ CLOSED | `adr/0005-phase2-report.md` + `-signoff.md` |
 | 3 · Canonical Executor | ✅ CLOSED (A3.1 verified against real Sample.docx) | `adr/0005-phase3-report.md` + `-signoff.md` + `-a3.1-verification.md` |
 | 3.x · TEXT_EXTRACT_FROM_ARCHIVE | ✅ CLOSED 2026-08-10 (D6-r child SSOTs; IOC/MITRE run inside children; word/document.xml → 52 URLs / 13 IPs / 6 SHA256 / 2 MD5 in child SSOT) | `adr/0005-phase3x-text-extract-from-archive-report.md` |
+| 3.y · Narrative MITRE analyzer extension | ✅ CLOSED 2026-08-10 (Sample.docx child now produces T1204.002 + T1219 → Attack Chain 2 stages, Attack Story 2 chapters, 4 evidence-derived recommendations; verdict `MALICIOUS conf 100 severity critical`) | `adr/0005-phase3y-narrative-mitre-report.md` |
 | 4 · Projection tier | ✅ CLOSED (owner sign-off 2026-08-10; 15 projections; strict comparison; pytest + backend smoke) | `adr/0005-phase4-spec.md` + `-report.md` + `-projection-acceptance.md` + `-allowed-diffs.md` |
-| 5 · Entry-point convergence | ⛔ NOT authorised · Sample1 golden refresh DEFERRED on Sample1-hosting pod first |  |
+| 5 · Entry-point convergence | ⛔ NOT authorised · pending owner sign-off on Phase 3.y report + Sample1 golden refresh on Sample1-hosting pod |  |
 | 6 · Wave 1 relabelling | ⛔ NOT authorised |  |
 | 7 · Sample1 acceptance regression | ⛔ NOT authorised |  |
 | 8 · Workspace UI + template removal | ⛔ NOT authorised |  |
@@ -83,19 +84,19 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 ## Next action
 
-**Pre-Phase-5 functional acceptance HALTED** — see `adr/0005-pre-phase5-acceptance-report.md`.
+**Owner sign-off gates before Phase 5**:
+1. Review of `adr/0005-phase3y-narrative-mitre-report.md` (approve or reject the two data-catalog extensions in `_TECHNIQUE_META` + `_RECS_BY_TECHNIQUE` — the only projection-tier files touched).
+2. Execution of `test_px_9` + A4.2 on the Sample1-hosting pod (still deferred here).
 
-Root-cause finding on real Sample.docx (SHA256 `3915b712…8623a7`):
-- ✅ Recursive lifecycle works: word/document.xml materialises as child SSOT `cssot:sha256:5970886e…2526ae` with 73 IOC nodes.
-- ❌ **MITRE evidence = 0 on the child SSOT**. The canonical MITRE_MAP needle-set matches shell/command signatures (`powershell`, `cmd /c`, `regsvr32`, `rundll32`, `certutil -urlcache`, `curl `, `wget `); Sample.docx carries a **vendor-narrative incident report** (Cisco XDR / RAT / azg51-checkin-1) with **zero** matches to those needles.
-- Consequence: shipping Phase 5 today would give a canonical pipeline that leaves the exact Workspace defect (empty MITRE / Attack Chain / Attack Story / evidence-derived Recommendations) unresolved.
+On both sign-offs, **Phase 5** (Entry-point Route Migration) is authorised.
 
-**Options for owner (none started, all require explicit authorisation):**
-- **Phase 3.y** · Extend MITRE_MAP with narrative-report vocabulary (additive analyzer rules only).
-- **Phase 3.z** · Author the `VENDOR_NORMALISER` plug-in (existing plan_builder slot; larger scope).
-- Ship Phase 5 with documented capability gap (not recommended).
+## Phase 3.y shipped (2026-08-10) — narrative MITRE analyzer extension
 
-Sample1 golden refresh: still deferred to Sample1-hosting pod.
+- Added 6 narrative rules (T1219, T1204.002, T1071, T1486, T1003, T1566), all multi-word contextual — no bare "RAT" trigger.
+- Real Sample.docx child now produces MITRE + Attack Chain + Attack Story + evidence-derived Recommendations end-to-end (verdict MALICIOUS conf 100).
+- False-positive protection verified: 3 negative fixtures + 3 command-line regression fixtures.
+- 14/14 Phase 3.y tests · 206 total suite green (unchanged Sample1-required skip-set).
+- Empirical answer to VENDOR_NORMALISER question: not needed for the current Sample.docx or 5 representative fixtures.
 
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 

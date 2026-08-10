@@ -13,6 +13,10 @@ from ._helpers import mitre_nodes, reasoning_by_rule_prefix
 
 # Canonical technique → tactic + kill-chain phase mapping.
 # ADR-005: this map is the ONLY place technique metadata lives (D4-3).
+#
+# Phase 3.y (2026-08-10) additive entries — narrative MITRE analyzer
+# extension. Data-catalog completion ONLY; no projection LOGIC change.
+# Existing entries above the divider are byte-identical to Phase 4 exit.
 _TECHNIQUE_META: Dict[str, Dict[str, str]] = {
     "T1059.001": {"tactic": "execution",
                   "kill_chain": "actions_on_objectives"},
@@ -24,6 +28,19 @@ _TECHNIQUE_META: Dict[str, Dict[str, str]] = {
                   "kill_chain": "actions_on_objectives"},
     "T1105":     {"tactic": "command_and_control",
                   "kill_chain": "command_and_control"},
+    # ── Phase 3.y additive entries (narrative vendor-report vocabulary) ──
+    "T1219":     {"tactic": "command_and_control",
+                  "kill_chain": "command_and_control"},
+    "T1204.002": {"tactic": "execution",
+                  "kill_chain": "actions_on_objectives"},
+    "T1071":     {"tactic": "command_and_control",
+                  "kill_chain": "command_and_control"},
+    "T1486":     {"tactic": "impact",
+                  "kill_chain": "actions_on_objectives"},
+    "T1003":     {"tactic": "credential_access",
+                  "kill_chain": "actions_on_objectives"},
+    "T1566":     {"tactic": "initial_access",
+                  "kill_chain": "delivery"},
 }
 
 
