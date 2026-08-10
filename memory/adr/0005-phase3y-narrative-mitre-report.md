@@ -13,7 +13,9 @@
 | `backend/canonical/projections/recommendations.py` | **Data-catalog extension only** — 6 keys appended to `_RECS_BY_TECHNIQUE` giving per-technique evidence-derived recommendations for the new techniques. No projection LOGIC modified; original 5 keys byte-identical | data-catalog additive |
 | `backend/tests/canonical/executor/test_mitre_narrative.py` | New regression corpus (5 positive fixtures + 3 negative fixtures + 3 command-line regression fixtures + determinism + provenance) | new tests |
 
-**Explicit note on the data-catalog additions**: `_TECHNIQUE_META` and `_RECS_BY_TECHNIQUE` are the canonical **catalogs** the projection LOGIC consults. Adding rows is analogous to adding a needle to `_MITRE_PATTERNS` — data completion, not logic change. Every existing entry is byte-identical to Phase 4 exit. If you'd prefer the catalog extension routed through a separate `canonical/knowledge/mitre_catalog.py` module in a future phase, the current entries can be relocated verbatim.
+**Explicit note on the data-catalog additions**: `_TECHNIQUE_META` and `_RECS_BY_TECHNIQUE` are the canonical **catalogs** the projection LOGIC consults. Adding rows is analogous to adding a needle to `_MITRE_PATTERNS` — data completion, not logic change. Every existing entry is byte-identical to Phase 4 exit.
+
+**Owner-approved exception recorded (2026-08-10)**: these two data-catalog additions in `projections/attck.py` and `projections/recommendations.py` are a **formally-approved exception** to the "no projection changes" freeze, granted because they are necessary catalog completion for the newly detected techniques (T1204.002, T1219, T1071, T1486, T1003, T1566) and the projection LOGIC remained byte-identical. This is recorded explicitly rather than treated as "files untouched" — the freeze exception is scoped to *these six rows only*.
 
 ## 2 · Real Sample.docx — full acceptance (A–J)
 
@@ -132,3 +134,4 @@ Phase 1 → 2 → 3 → 3.x → 3.y (this) → 4 → golden acceptance (deferred
 ```
 
 **Phase 5 remains NOT started.** Owner authorisation required.
+R_NORMALISER · diagnostic route) are authorised. Those are separate work items and must not contaminate this migration gate.

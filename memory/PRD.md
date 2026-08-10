@@ -43,7 +43,7 @@ ANY INPUT
 | 3.x · TEXT_EXTRACT_FROM_ARCHIVE | ✅ CLOSED 2026-08-10 (D6-r child SSOTs; IOC/MITRE run inside children; word/document.xml → 52 URLs / 13 IPs / 6 SHA256 / 2 MD5 in child SSOT) | `adr/0005-phase3x-text-extract-from-archive-report.md` |
 | 3.y · Narrative MITRE analyzer extension | ✅ CLOSED 2026-08-10 (Sample.docx child now produces T1204.002 + T1219 → Attack Chain 2 stages, Attack Story 2 chapters, 4 evidence-derived recommendations; verdict `MALICIOUS conf 100 severity critical`) | `adr/0005-phase3y-narrative-mitre-report.md` |
 | 4 · Projection tier | ✅ CLOSED (owner sign-off 2026-08-10; 15 projections; strict comparison; pytest + backend smoke) | `adr/0005-phase4-spec.md` + `-report.md` + `-projection-acceptance.md` + `-allowed-diffs.md` |
-| 5 · Entry-point convergence | ⛔ NOT authorised · pending owner sign-off on Phase 3.y report + Sample1 golden refresh on Sample1-hosting pod |  |
+| 5 · Entry-point convergence | ⛔ BLOCKED solely on Sample1-hosting-pod golden refresh (`test_px_9` + A4.2) + owner confirmation of A4.2 result there |  |
 | 6 · Wave 1 relabelling | ⛔ NOT authorised |  |
 | 7 · Sample1 acceptance regression | ⛔ NOT authorised |  |
 | 8 · Workspace UI + template removal | ⛔ NOT authorised |  |
@@ -84,11 +84,22 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 ## Next action
 
-**Owner sign-off gates before Phase 5**:
-1. Review of `adr/0005-phase3y-narrative-mitre-report.md` (approve or reject the two data-catalog extensions in `_TECHNIQUE_META` + `_RECS_BY_TECHNIQUE` — the only projection-tier files touched).
-2. Execution of `test_px_9` + A4.2 on the Sample1-hosting pod (still deferred here).
+**Phase 3.y CLOSED (owner sign-off 2026-08-10). Data-catalog exception formally recorded.**
 
-On both sign-offs, **Phase 5** (Entry-point Route Migration) is authorised.
+**Phase 5 remains BLOCKED** solely on:
+1. Sample1-hosting-pod golden refresh — run `test_px_9` + A4.2 against the pod containing `workspace_cases.id = 3db79c4a-088b-4df7-b65a-f68b367b7677`; confirm fingerprint `5b4337d5…08261d` unchanged.
+2. Owner confirmation of A4.2 result there.
+
+**Explicitly NOT authorised before Phase 5** (per owner directive 2026-08-10): Workspace provenance UI · ARTIFACT_SPLIT · THREAT_INTEL_ENRICH oracle · VENDOR_NORMALISER · diagnostic route · any other enhancement. Those are separate work items and must not contaminate this migration gate.
+
+## Owner-approved projection-freeze exception (Phase 3.y · 2026-08-10)
+
+The following data-catalog additions in projection-tier files are **formally approved exceptions** to the "no projection changes" freeze:
+
+- `projections/attck.py :: _TECHNIQUE_META` — 6 rows added (T1219, T1204.002, T1071, T1486, T1003, T1566 → tactic + kill-chain). Original 5 rows byte-identical.
+- `projections/recommendations.py :: _RECS_BY_TECHNIQUE` — 6 keys added with evidence-derived recommendations for the same 6 techniques. Original 5 keys byte-identical.
+
+The projection LOGIC is unchanged. The exception is scoped to *these six rows only* and does not authorise any broader projection modification.
 
 ## Phase 3.y shipped (2026-08-10) — narrative MITRE analyzer extension
 
