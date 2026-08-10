@@ -92,6 +92,10 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 **Explicitly NOT authorised before Phase 5** (per owner directive 2026-08-10): Workspace provenance UI · ARTIFACT_SPLIT · THREAT_INTEL_ENRICH oracle · VENDOR_NORMALISER · diagnostic route · any other enhancement. Those are separate work items and must not contaminate this migration gate.
 
+## Phase 5 sequencing rule (owner directive 2026-08-10)
+
+**When Phase 5 is authorised, migration MUST proceed in the approved sub-phase order 5.1 → 5.8, one route at a time, with a gate + soak after each.** Do NOT migrate all eight routes as one change. This preserves the rollback boundary designed into the sub-phase split. Each sub-phase gets its own owner sign-off before the next begins.
+
 ## Owner-approved projection-freeze exception (Phase 3.y · 2026-08-10)
 
 The following data-catalog additions in projection-tier files are **formally approved exceptions** to the "no projection changes" freeze:
