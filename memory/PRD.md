@@ -83,11 +83,19 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 ## Next action
 
-**Pre-Phase-5 owner directive completed**. Before Phase 5 can begin:
-1. Owner review of `adr/0005-phase3x-text-extract-from-archive-report.md`.
-2. Execution of `test_px_9_sample1_fingerprint_unchanged` on the Sample1-hosting pod (deferred here).
+**Pre-Phase-5 functional acceptance HALTED** — see `adr/0005-pre-phase5-acceptance-report.md`.
 
-On both sign-offs, **Phase 5** (Entry-point Route Migration) is authorised.
+Root-cause finding on real Sample.docx (SHA256 `3915b712…8623a7`):
+- ✅ Recursive lifecycle works: word/document.xml materialises as child SSOT `cssot:sha256:5970886e…2526ae` with 73 IOC nodes.
+- ❌ **MITRE evidence = 0 on the child SSOT**. The canonical MITRE_MAP needle-set matches shell/command signatures (`powershell`, `cmd /c`, `regsvr32`, `rundll32`, `certutil -urlcache`, `curl `, `wget `); Sample.docx carries a **vendor-narrative incident report** (Cisco XDR / RAT / azg51-checkin-1) with **zero** matches to those needles.
+- Consequence: shipping Phase 5 today would give a canonical pipeline that leaves the exact Workspace defect (empty MITRE / Attack Chain / Attack Story / evidence-derived Recommendations) unresolved.
+
+**Options for owner (none started, all require explicit authorisation):**
+- **Phase 3.y** · Extend MITRE_MAP with narrative-report vocabulary (additive analyzer rules only).
+- **Phase 3.z** · Author the `VENDOR_NORMALISER` plug-in (existing plan_builder slot; larger scope).
+- Ship Phase 5 with documented capability gap (not recommended).
+
+Sample1 golden refresh: still deferred to Sample1-hosting pod.
 
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 
