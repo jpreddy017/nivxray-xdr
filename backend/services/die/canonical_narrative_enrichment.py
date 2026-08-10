@@ -177,8 +177,38 @@ def enrich_narrative(narrative: Dict[str, Any],
     tactics_sorted = [t for t in _TACTIC_ORDER if t in tactics_seen]
     total_tech = len({t.get("id") for t in mitre_techniques if isinstance(t, dict) and t.get("id")})
 
-    # ── Executive Summary (only if empty) ─────────────────────────
-    if not (narrative.get("executive_summary") or "").strip():
+    # ── Treat legacy-canned "empty" summaries as replaceable ──────
+    # The stage-based generator emits boilerplate like
+    #   "The paste yielded N analyst-observable stages. …"
+    # when the input has no command-lines. That string looks non-empty
+    # but conveys no MITRE signal, so we should override with the
+    # enriched summary derived from actually-detected techniques.
+    _LEGACY_CANNED_MARKERS = (
+        "analyst-observable stages",
+        "no analyst-observable",
+        "no obvious command",
+        "insufficient signal in the paste",
+        "Objective unclear",
+        "Reconnaissance / Post-exploitation",
+    )
+
+    def _is_canned(v) -> bool:
+        if not v:
+            return True
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return True
+            return any(m in s for m in _LEGACY_CANNED_MARKERS)
+        if isinstance(v, list):
+            return len(v) == 1 and _is_canned(v[0])
+        if isinstance(v, dict):
+            # overall_assessment: canned when primary_objective is unclear.
+            return _is_canned(v.get("primary_objective"))
+        return False
+
+    # ── Executive Summary (only if empty / canned) ────────────────
+    if _is_canned(narrative.get("executive_summary")):
         tac_phrases = [
             f"**{_tactic_title(tac)}** ({len(tech_by_tactic[tac])} tech.)"
             for tac in tactics_sorted
@@ -194,8 +224,8 @@ def enrich_narrative(narrative: Dict[str, Any],
             f"prioritise containment against the highest-risk tactic first."
         )
 
-    # ── Analyst Summary (only if empty) ───────────────────────────
-    if not (narrative.get("analyst_summary") or "").strip():
+    # ── Analyst Summary (only if empty / canned) ──────────────────
+    if _is_canned(narrative.get("analyst_summary")):
         lines: List[str] = []
         for tac in tactics_sorted:
             ids = [t.get("id") for t in tech_by_tactic[tac]]
@@ -209,8 +239,12 @@ def enrich_narrative(narrative: Dict[str, Any],
             )
         narrative["analyst_summary"] = " ".join(lines)
 
-    # ── Recommended Actions (only if empty list / missing) ────────
+    # ── Recommended Actions (only if empty / canned list) ─────────
     existing_actions = narrative.get("recommended_actions") or []
+    # A single canned "no actions" string should be treated as empty.
+    if (len(existing_actions) <= 1
+            and (not existing_actions or _is_canned(existing_actions[0]))):
+        existing_actions = []
     if not existing_actions:
         actions: List[str] = []
         # Per-tactic bucket action (deduped).
@@ -239,8 +273,8 @@ def enrich_narrative(narrative: Dict[str, Any],
                 actions.append(f"[IOC] Block the {len(ip_list)} observed IP indicator(s) at the perimeter firewall and hunt for other hosts communicating with them.")
         narrative["recommended_actions"] = actions
 
-    # ── Behavior Summary table (only if empty / missing) ──────────
-    if not narrative.get("behavior_summary"):
+    # ── Behavior Summary table (only if empty / canned) ───────────
+    if _is_canned(narrative.get("behavior_summary")):
         rows: List[Dict[str, str]] = []
         for tac in tactics_sorted:
             meta = _TACTIC_META.get(tac) or {}
@@ -254,8 +288,8 @@ def enrich_narrative(narrative: Dict[str, Any],
             })
         narrative["behavior_summary"] = rows
 
-    # ── Overall Assessment (only if empty / missing) ──────────────
-    if not narrative.get("overall_assessment"):
+    # ── Overall Assessment (only if empty / canned) ───────────────
+    if _is_canned(narrative.get("overall_assessment")):
         risks = [_TACTIC_META.get(t, {}).get("risk", "Low") for t in tactics_sorted]
         top_risk = max(risks, key=_risk_rank) if risks else "Low"
         # Determine primary objective from the highest-risk tactic present.
@@ -278,8 +312,8 @@ def enrich_narrative(narrative: Dict[str, Any],
             "confidence":           conf,
         }
 
-    # ── Likely Objective (only if empty / missing) ────────────────
-    if not narrative.get("likely_objective"):
+    # ── Likely Objective (only if empty / canned) ─────────────────
+    if _is_canned(narrative.get("likely_objective")):
         objs: List[str] = []
         for tac in tactics_sorted:
             o = _TACTIC_META.get(tac, {}).get("objective")

@@ -185,6 +185,73 @@ def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dic
         })
         existing_ids.add(t["id"])
 
+    # ── CSV / tabular EDR analyzer (Phase 5.W · 2026-08-10) ──────────
+    # When the input is a vendor endpoint-security log (SEP, CrowdStrike,
+    # Defender, …), the prose narrative rules match nothing. The CSV/EDR
+    # analyzer walks the table deterministically and contributes MITRE
+    # + LOLBAS + IOC evidence.  Additive: only fills gaps, never
+    # overwrites existing findings.
+    _csv_source_text = raw_input or ""
+    csv_report = None
+    try:
+        from .csv_edr_analyzer import analyse_csv_edr
+        csv_report = analyse_csv_edr(_csv_source_text)
+    except Exception:
+        csv_report = None
+    if csv_report:
+        # Merge MITRE techniques.
+        for t in (csv_report.get("mitre") or []):
+            tid = t.get("id")
+            if not tid or tid in existing_ids:
+                continue
+            meta = _meta(tid)
+            existing_mitre.append({
+                "id":         tid,
+                "name":       t.get("name") or meta.get("tactic"),
+                "tactic":     t.get("tactic") or meta.get("tactic") or "unknown",
+                "kill_chain": meta.get("kill_chain") or "unknown",
+                "evidence":   t.get("evidence", ""),
+                "rule_family": "canonical.csv_edr_analyzer",
+            })
+            existing_ids.add(tid)
+
+        # Merge IOCs.
+        existing_iocs = obj.get("iocs") if isinstance(obj.get("iocs"), dict) else {}
+        for kind, values in (csv_report.get("iocs") or {}).items():
+            bucket = existing_iocs.get(kind) or []
+            if isinstance(bucket, list):
+                seen_bucket = {b if isinstance(b, str) else b.get("value") for b in bucket}
+                for v in values:
+                    if v not in seen_bucket:
+                        bucket.append(v)
+                        seen_bucket.add(v)
+                existing_iocs[kind] = bucket
+        obj["iocs"] = existing_iocs
+
+        # Merge LOLBAS (add binaries not already present).
+        existing_lolbas = obj.get("lolbas") if isinstance(obj.get("lolbas"), list) else []
+        existing_lolbas_names = {(l.get("binary") or "").lower() for l in existing_lolbas
+                                  if isinstance(l, dict)}
+        for lb in (csv_report.get("lolbas") or []):
+            if (lb.get("binary") or "").lower() in existing_lolbas_names:
+                continue
+            existing_lolbas.append(lb)
+            existing_lolbas_names.add((lb.get("binary") or "").lower())
+        obj["lolbas"] = existing_lolbas
+
+        # Attach the CSV report to a namespaced field so the UI (or
+        # future capabilities) can surface the raw table view / event
+        # count. Bounded to <200 KB by the analyzer's row cap + event
+        # cap already applied.
+        obj["csv_edr"] = {
+            "source":                csv_report.get("source"),
+            "total_rows":            csv_report.get("total_rows"),
+            "action_distribution":   csv_report.get("action_distribution"),
+            "category_distribution": csv_report.get("category_distribution"),
+            "highconf_event_count":  len(csv_report.get("highconf_events") or []),
+            "highconf_events":       (csv_report.get("highconf_events") or [])[:50],
+        }
+
     # ── Backfill empty tactic/kill_chain on legacy techniques ─────────
     # Legacy IDA emits techniques with `tactic: ""` or Title Case. Fill
     # blanks from the canonical catalog and NORMALISE all tactic strings
@@ -353,7 +420,89 @@ def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dic
         "total_mitre": len(existing_mitre),
         "tactics_observed": tactics_seen,
     }
+
+    # ── Wire-response slimming (Phase 5.W · 2026-08-10) ──────────
+    # /api/die/investigation-results was returning 400-500 KB of
+    # internal analysis intermediates (preprocessor.stages,
+    # preprocessor.artifacts, preprocessor.process_edges,
+    # explanations, commands, acquired_document text, …) that the
+    # Workspace UI never renders. Setting all that into React state
+    # + persisting to localStorage blocks the main thread for 15 s+
+    # and Chrome shows "Wait / Exit". The full SSOT remains in the
+    # immutable store; we only slim the WIRE response.
+    _slim_investigation_response(result)
     return result
+
+
+# ── Fields the Workspace UI does not render — strip from wire ─────
+_SLIM_STRIP_KEYS = (
+    "preprocessor",           # 400 KB+ of internal state
+    "commands",               # keep only summary via `command_lines`
+    "artifacts",               # rebuild lightweight list from `mitre`
+    "explanations",            # legacy debug
+    "explanation_coverage",
+    "acquired_document",       # raw fetched HTML / DOCX text
+    "document_profile",
+    "report_extraction",
+    "artifact_summary",
+    "profiling",
+    "engines_selected",
+    "engines_skipped",
+    "understanding",           # covered by narrative + mitre
+    "plan",
+    "acquisition_plan",
+    "dkp",
+    "intent",
+    "behaviour",               # 45 KB, superseded by narrative.behavior_summary
+    "ice",                     # 100 KB, only tactics needed
+    "incident",                # 90 KB, only summary needed
+)
+
+def _slim_investigation_response(result: Dict[str, Any]) -> None:
+    """Mutate `result` in place, stripping fields the Workspace UI
+    does not render. Preserves: narrative, mitre, iocs, lolbas,
+    chain, csv_edr, confidence, metadata, input (truncated).
+    """
+    if not isinstance(result, dict):
+        return
+    obj = result.get("object")
+    if not isinstance(obj, dict):
+        return
+
+    # Cap the input echo — some callers post multi-MB payloads.
+    if isinstance(obj.get("input"), str) and len(obj["input"]) > 64 * 1024:
+        obj["input"] = obj["input"][:64 * 1024] + f"\n... [{len(obj['input']) - 64*1024:,} more bytes truncated]"
+
+    # Retain a compact summary of incident tactics if present (single
+    # tiny list rather than the 90 KB `incident` block).
+    inc = obj.get("incident")
+    if isinstance(inc, dict):
+        tactics = []
+        for b in (inc.get("behaviors") or []):
+            if isinstance(b, dict) and b.get("tactic") and b["tactic"] not in tactics:
+                tactics.append(b["tactic"])
+        obj["incident_tactics"] = tactics[:20]
+
+    # Filter internal / non-routable domain IOCs — they pollute
+    # dashboards for enterprise EDR logs (AD-joined hostnames).
+    iocs = obj.get("iocs")
+    if isinstance(iocs, dict):
+        _INTERNAL_TLDS = (".local", ".corp", ".lan", ".internal",
+                           ".arpa", ".home", ".localdomain")
+        for kind in ("domain",):
+            bucket = iocs.get(kind)
+            if isinstance(bucket, list):
+                filtered = [v for v in bucket
+                            if isinstance(v, str)
+                            and not any(v.lower().endswith(tld) for tld in _INTERNAL_TLDS)]
+                if len(filtered) != len(bucket):
+                    iocs[kind] = filtered
+
+    for key in _SLIM_STRIP_KEYS:
+        obj.pop(key, None)
+
+    # Trailing `command_lines` (short list) is fine to keep — it's typically
+    # a handful of extracted strings.
 
 
 __all__ = [

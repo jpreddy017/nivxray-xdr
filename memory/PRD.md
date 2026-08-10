@@ -154,6 +154,35 @@ Locked implications:
 - Workspace upload (`POST /api/upload`) is NOT redirected to `/api/uil/investigate`.
 - No "5.1b" or any ad-hoc migration outside the approved 5.1 → 5.8 topology.
 - Workspace will naturally begin consuming the canonical lifecycle only when the route it calls is migrated in the approved sequence.
+
+## Phase 5.W · CSV/EDR analyzer + response slimming (2026-08-10, session-3)
+
+**User pain**: uploaded a real 40 KB Symantec Endpoint Protection log (SEP.csv, 421 rows). Symptoms: (a) Chrome "Wait / Exit page" unresponsive dialog on Investigate; (b) empty MITRE / recommendations / attack chain even though the CSV contained 6× Exploit Prevention detections, 1× System Process Protection block, 9× Suspicious Endpoint Findings.
+
+**Root cause**: two independent defects hit at once:
+1. Canonical narrative rules match prose, not tabular events → 0 MITRE for EDR CSVs.
+2. `/api/die/investigation-results` returned **505 KB** for a 40 KB input (40× amplification): `preprocessor.stages` (214 KB), `preprocessor.artifacts` (167 KB), `commands` (189 KB), `ice` (108 KB), `incident` (94 KB), etc. — all internal state the Workspace UI never renders. Setting that into React state + persisting to localStorage blocked the main thread past Chrome's 15 s unresponsive threshold.
+
+**What shipped**:
+- New `backend/services/die/csv_edr_analyzer.py` — deterministic CSV/EDR log parser. Sniffs CSV, maps vendor category+action columns to MITRE technique ids (SEP: Exploit Prevention → T1203+T1055, System Process Protection → T1055.012+T1543.003, Suspicious Endpoint → T1204.002, File Fetch → T1105, Tamper Protection → T1562.001, etc.). Harvests hashes (MD5/SHA1/SHA256), IPs, hostnames, filenames, paths, users. Detects LOLBins by binary name (powershell/cmd/rundll32/regsvr32/mshta/wscript/certutil/bitsadmin/schtasks/winlogon/browserhost/svchost/lsass). Filters internal-only TLDs (`.local`, `.corp`, `.lan`, `.internal`, `.arpa`).
+- Wired into `canonical_bridge.augment_investigation_results` — additive merge into `object.mitre`, `object.iocs`, `object.lolbas`, plus a compact `object.csv_edr` summary (total_rows, action_distribution, category_distribution, highconf events cap 50).
+- **`_slim_investigation_response(result)`** at the end of `augment_investigation_results` — strips `preprocessor / commands / artifacts / explanations / acquired_document / document_profile / report_extraction / artifact_summary / profiling / engines_selected / engines_skipped / understanding / plan / acquisition_plan / dkp / intent / behaviour / ice / incident` from the wire. Retains a compact `incident_tactics` list. Also applies internal-TLD filter to `iocs.domain`. **Full SSOT still lives in the immutable store — only the wire response is slimmed.**
+- `_is_canned` detector in `canonical_narrative_enrichment` — legacy stage-generator boilerplate (`"analyst-observable stages"`, `"insufficient signal in the paste"`, `"Objective unclear"`) is now treated as EMPTY so canonical enrichment overrides it with real MITRE-driven content.
+
+**Acceptance verified end-to-end**:
+
+| Flow | Response size | MITRE | LOLBAS | Chain steps | Recs | Risk |
+|---|---:|---:|---:|---:|---:|---|
+| SEP.csv (40 KB EDR log) | **86 KB** ↓ from 505 KB | 5 | 3 | 3 | 4 | High |
+| cyberdefenders URL | **28 KB** ↓ from 118 KB | 5 | 1 | 3 | 10 | High |
+| saved 'Same' case | 105 KB | 5 | 1 | 3 | 10 | High |
+
+- Chrome "Wait / Exit" freeze **eliminated** — response is 6× smaller and no longer blocks the main thread past 15 s.
+- Domain IOC spam eliminated — 409 `.local` hostnames filtered.
+- Sample1 golden case untouched. All 3 governance guard tests pass. Canonical pytest 218/222 (4 pre-existing `nivxray_ci_local` failures unrelated).
+
+**Firewalls held**: no ADR-005 route migrations · no Wave 1 mutation · Sample1 immutable · projections un-modified · immutable SSOT store contents untouched (only wire response mutated).
+
 - Any request to shortcut this MUST be rejected — the whole point of Phase 5.1 is to prove one isolated entry point converges cleanly; redirecting Workspace during 5.1 would mix frontend/upload/session/canonical/legacy concerns and destroy the rollback boundary.
 
 ## Owner-approved projection-freeze exception (Phase 3.y · 2026-08-10)

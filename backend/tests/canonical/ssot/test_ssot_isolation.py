@@ -75,6 +75,12 @@ def test_no_route_file_modified_by_phase2():
         # LOLBAS entries from the registry when they arrive empty.
         "backend/services/die/canonical_narrative_enrichment.py",
         "backend/scripts/backfill_narrative_enrichment.py",
+        # Phase 5.W · CSV/EDR tabular log analyzer (2026-08-10)
+        # Detects vendor endpoint-security telemetry (SEP, CrowdStrike,
+        # Defender, Sentinel) and maps category/action columns → MITRE
+        # ATT&CK ids + IOCs + LOLBAS. Fills the tabular-input gap where
+        # canonical narrative prose rules matched nothing.
+        "backend/services/die/csv_edr_analyzer.py",
         "frontend/src/components/investigation/AnalystNarrativePanel.jsx",
         "frontend/src/components/investigation/AttackChainView.jsx",
     }
