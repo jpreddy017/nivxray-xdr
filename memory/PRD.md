@@ -43,7 +43,7 @@ ANY INPUT
 | 3.x · TEXT_EXTRACT_FROM_ARCHIVE | ✅ CLOSED 2026-08-10 (D6-r child SSOTs; IOC/MITRE run inside children; word/document.xml → 52 URLs / 13 IPs / 6 SHA256 / 2 MD5 in child SSOT) | `adr/0005-phase3x-text-extract-from-archive-report.md` |
 | 3.y · Narrative MITRE analyzer extension | ✅ CLOSED 2026-08-10 (Sample.docx child now produces T1204.002 + T1219 → Attack Chain 2 stages, Attack Story 2 chapters, 4 evidence-derived recommendations; verdict `MALICIOUS conf 100 severity critical`) | `adr/0005-phase3y-narrative-mitre-report.md` |
 | 4 · Projection tier | ✅ CLOSED (owner sign-off 2026-08-10; 15 projections; strict comparison; pytest + backend smoke) | `adr/0005-phase4-spec.md` + `-report.md` + `-projection-acceptance.md` + `-allowed-diffs.md` |
-| 5 · Entry-point convergence | ⛔ BLOCKED solely on Sample1-hosting-pod golden refresh (`test_px_9` + A4.2) + owner confirmation of A4.2 result there |  |
+| 5 · Entry-point convergence | 🟢 Sub-phase 5.1 UNBLOCKED pending owner authorisation (A4.2 gate PASSED 2026-08-10; 214/214 canonical tests green on Sample1-hosting DB) |  |
 | 6 · Wave 1 relabelling | ⛔ NOT authorised |  |
 | 7 · Sample1 acceptance regression | ⛔ NOT authorised |  |
 | 8 · Workspace UI + template removal | ⛔ NOT authorised |  |
@@ -84,11 +84,15 @@ Recorded in `adr/0005-capability-gaps.md` — TEXT_EXTRACT_FROM_ARCHIVE + 8 othe
 
 ## Next action
 
-**Phase 3.y CLOSED (owner sign-off 2026-08-10). Data-catalog exception formally recorded.**
+**A4.2 Sample1 golden refresh: PASSED (2026-08-10)** — see `adr/0005-a4.2-sample1-refresh-report.md`.
 
-**Phase 5 remains BLOCKED** solely on:
-1. Sample1-hosting-pod golden refresh — run `test_px_9` + A4.2 against the pod containing `workspace_cases.id = 3db79c4a-088b-4df7-b65a-f68b367b7677`; confirm fingerprint `5b4337d5…08261d` unchanged.
-2. Owner confirmation of A4.2 result there.
+- Sanity script output: GREEN on all three invariants (Sample1 row present · fingerprint `5b4337d5…08261d` matches · Wave 1 count == 2).
+- Full canonical pytest suite against real `test_database`: **214 passed · 0 failed · 0 skipped**.
+- No writes performed. Sample1 unchanged.
+
+**Phase 5.1 is technically unblocked pending owner authorisation**. Migration MUST proceed 5.1 → 5.8 one route at a time with a gate + soak after each — never as a single bulk change.
+
+## A4.2 Sample1 golden refresh (2026-08-10) — PASSED
 
 **Explicitly NOT authorised before Phase 5** (per owner directive 2026-08-10): Workspace provenance UI · ARTIFACT_SPLIT · THREAT_INTEL_ENRICH oracle · VENDOR_NORMALISER · diagnostic route · any other enhancement. Those are separate work items and must not contaminate this migration gate.
 
