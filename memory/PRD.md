@@ -7,6 +7,56 @@
 > **Session-9 · Product & Architecture Blueprint** — Owner correctly halted implementation planning ("we haven't actually consumed the detailed audit yet"). Delivered `/app/memory/adr/0010-nivxray-product-blueprint.md` (1,815 lines · 45 sections · 8 diagrams). Read-only synthesis of ADR-0007/0008/0009 into a plain-language product truth. Every subsystem labelled LIVE/SHADOW/DISCONNECTED/PARTIAL/EXPERIMENTAL/DEAD/PLANNED. Ends with a "NivXRay in Plain English" 10-15 minute owner-facing narrative. Zero code changes.
 >
 > **Owner conclusion (end of Session-9, locked)** — the discovery phase is complete. The real NivXRay today is a **browser-based, evidence-provenanced security investigation Workspace** that is strongest at command/prose analysis, artifact analysis, IOC reputation, and small structured telemetry inputs — while the broader telemetry / IKG / Verdict-v3 investigation architecture exists in the codebase but is not yet the live production path. **60 engines ≠ 60 live capabilities.** The next architectural objective is not "add more" but **connect what we already have into one coherent product** along six pillars: 1) Input Understanding · 2) Analysis · 3) Evidence · 4) Investigation · 5) Judgment · 6) Analyst Experience. The promotion sequence is evidence-driven, not flag-driven: `RC5 LIVE → real input replay → canonical evidence → v2 shadow processing → compare outputs → prove equivalence/improvement → promote one component → regression test → next component`. Never "flip 5 flags from shadow → live." The next Emergent session must be implementation-focused (no more broad audit questions); the four ADRs (0007/0008/0009/0010) are the baseline the next session opens on.
+>
+> ---
+>
+> ## NEXT-SESSION DIRECTIVE — locked by owner, do not re-negotiate
+>
+> **Start P0 Security Hardening Gate from ADR-0008 §5.**
+>
+> **Do not re-audit NivXRay.** Treat ADR-0007, ADR-0008, ADR-0009, ADR-0010, and this PRD as authoritative current-state context.
+>
+> **Implementation scope (this gate only — nothing else):**
+> 1. Login / API authentication rate limiting
+> 2. Explicit CORS origins — remove `["*"]` + credentials behaviour
+> 3. Zip / decompression-bomb protection
+> 4. Archive recursion / depth limits
+> 5. Expanded-size / file-count limits during archive extraction
+> 6. Safe failure handling for malicious / malformed archives
+> 7. Regression + security tests locking each guard
+>
+> **Constraints (all hard):**
+> - Do NOT modify IKG.
+> - Do NOT promote Verdict v3.
+> - Do NOT modify Case Engine.
+> - Do NOT implement Server-Side File Mode.
+> - Do NOT delete routes.
+> - Do NOT add new `NIVX_FLAG_*`.
+> - Do NOT change Workspace behaviour.
+> - Preserve RC5/DIE behaviour.
+> - Keep the change isolated and test-locked.
+>
+> **Security objective** — treat all uploaded artifacts, archives, documents, scripts, and telemetry as untrusted input. The security boundary must protect:
+> `Upload → Extraction → Parser/Analyzer → Evidence` against decompression bombs, recursive archives, excessive file counts, excessive expanded size, excessive nesting, resource exhaustion, and malformed archive / parser crashes.
+>
+> **Required completion evidence (ADR-0010b · Security Gate Evidence Report):**
+> - exact limits introduced and why
+> - affected files/modules
+> - tests added
+> - malicious-input test cases
+> - regression results
+> - canonical suite results
+> - Workspace regression results
+> - before/after security behaviour
+> - remaining known security risks
+> - explicit PASS / FAIL security-gate verdict
+>
+> **Do not proceed to P1 Server-Side File Mode until this gate passes.**
+>
+> **Progression after the gate closes:**
+> `P0 Security Hardening (this) → P1 Server-Side File Mode → P2 Real Sysmon/EVTX Adapter → Canonical Evidence Replay → IKG + Correlation promotion → Verdict v3 promotion → ATT&CK / Attack Story / Mitigation wire-up → One coherent Workspace.`
+>
+> Discovery / planning loop is CLOSED. Next session ships code.
 
 
 
