@@ -1,5 +1,8 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
+> **2026-08-11 · Session-8** — 360° Master Snapshot delivered at `/app/memory/adr/0007-current-state-master-snapshot.md` (§1-§31 + preserved Session-7 §100). Read-only audit. No code changed. All 466 backend routes catalogued, IKG / Verdict / Attack-Story / Reports / Security / Privacy / Deployment / Integrations / Threat-Hunting / Data-Model / Tests / Perf / Observability / Docs-drift / Tech-debt / Workspace-isolation sections completed with cited evidence. Verdict: v2 pipeline is IMPL+DISCONNECTED (all 5 `NIVX_FLAG_*=shadow`); RC5 canonical DIE ships. Do-not-build-yet list published.
+
+
 **Purpose**: Original problem statement, architecture direction, phase status, and next-action pointers.
 Long-form artefacts live under `/app/memory/adr/`.
 
