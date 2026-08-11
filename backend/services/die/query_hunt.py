@@ -61,17 +61,53 @@ def _iequals(a: Optional[str], b: str) -> bool:
     return (a or "").strip().lower() == b.strip().lower()
 
 
+# Analysts frequently type the past-tense / continuous form of an
+# action verb ("Blocked", "Detected", "Quarantined", "Allowed").
+# The canonical action in the SEP/EDR row is the imperative stem
+# ("block", "detect", "quarantine", "allow").  Normalise both sides
+# so natural analyst input still matches the underlying data.
+_ACTION_STEM_MAP = {
+    "blocked":     "block",
+    "blocking":    "block",
+    "detected":    "detect",
+    "detecting":   "detect",
+    "quarantined": "quarantine",
+    "quarantining":"quarantine",
+    "allowed":     "allow",
+    "allowing":    "allow",
+    "cleaned":     "clean",
+    "cleaning":    "clean",
+    "removed":     "remove",
+    "removing":    "remove",
+    "succeeded":   "success",
+    "successful":  "success",
+    "failed":      "fail",
+    "failing":     "fail",
+}
+
+
+def _normalise_action(raw: str) -> str:
+    s = (raw or "").strip().lower()
+    if not s:
+        return ""
+    return _ACTION_STEM_MAP.get(s, s)
+
+
 def _matches(event: Dict[str, Any], f: Dict[str, Any]) -> bool:
     if not _icontains(event.get("host"),           f.get("host") or f.get("src_host") or ""):
         return False
     if not _icontains(event.get("user"),           f.get("user") or ""):
         return False
-    # Action lives at the end of event_type ("<category>.<action>")
-    action_want = (f.get("action") or "").strip().lower()
+    # Action lives at the end of event_type ("<category>.<action>").
+    # Analysts type natural tense — "Blocked", "Detected", etc.  We
+    # normalise both sides and match by substring so a partial /
+    # differently-conjugated input still finds the right events.
+    action_want = _normalise_action(f.get("action") or "")
     if action_want:
         et = (event.get("event_type") or "").lower()
-        suffix = et.rsplit(".", 1)[-1]
-        if action_want != suffix and action_want not in et:
+        # Substring in either direction so both "block" ↔ "blocked"
+        # variants find the SEP row where event_type ends with .block
+        if action_want not in et:
             return False
     if not _icontains(event.get("event_type"),     f.get("category") or ""):
         return False
@@ -83,8 +119,11 @@ def _matches(event: Dict[str, Any], f: Dict[str, Any]) -> bool:
     fp = (event.get("file_context") or {}).get("path") or ""
     if not _icontains(fp,                          f.get("file_path") or ""):
         return False
+    # File hash — substring match (case-insensitive). Analysts often
+    # paste truncated SHA-256s (first 12 / 24 chars) or the hash from
+    # a different case.  A prefix substring is unambiguous enough.
     fh = (event.get("file_context") or {}).get("sha256") or ""
-    if f.get("file_hash") and not _iequals(fh, f["file_hash"]):
+    if f.get("file_hash") and not _icontains(fh, f["file_hash"]):
         return False
     # MITRE filter — event must cite the exact technique id.
     mitre_want = (f.get("mitre") or "").strip().upper()

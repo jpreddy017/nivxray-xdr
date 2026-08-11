@@ -276,6 +276,65 @@ class TestWireQueryHunt:
         size = len(json.dumps(q).encode())
         assert size < 250 * 1024, f"query size {size} B > 250 KB"
 
+    # ─── Analyst-friendly input · natural language & partial hash ────
+    @pytest.mark.parametrize("action_input,expected", [
+        ("block",     2),
+        ("Blocked",   2),
+        ("BLOCKING",  2),
+        ("blocked",   2),
+        ("detect",    3),
+        ("Detected",  3),
+        ("Detecting", 3),
+        # Actions genuinely absent in this fixture — must still be 0
+        # (no fabrication), not the analyst's fault:
+        ("quarantined", 0),
+        ("Allowed",     0),
+    ])
+    def test_action_filter_accepts_natural_tense(self, client, action_input, expected):
+        q = _post_query(client, _fixture_sep_csv(), {"action": action_input})
+        assert q["event_count"] == expected, (
+            f"analyst tense '{action_input}' expected {expected} events, got "
+            f"{q['event_count']}. The action filter must accept the "
+            f"analyst's natural tense (Blocked / Detected / Quarantined / "
+            f"Allowed) and map it to the canonical stem (block / detect / …)."
+        )
+
+    @pytest.mark.parametrize("hash_input,expected_ge", [
+        ("12f07d1352844bc7f12d3ad598dd73c19d86c5bdbe230e9c0acdebf4e182e2ad", 1),
+        ("12f07d135284",   1),   # partial 12-char prefix
+        ("12F07D13",       1),   # upper-case 8-char prefix
+        ("noSuchPrefix",   0),
+    ])
+    def test_file_hash_accepts_partial_and_case_insensitive(self, client, hash_input, expected_ge):
+        q = _post_query(client, _fixture_sep_csv(), {"file_hash": hash_input})
+        if expected_ge == 0:
+            assert q["event_count"] == 0
+        else:
+            assert q["event_count"] >= expected_ge, (
+                f"partial hash '{hash_input}' returned {q['event_count']} "
+                f"events; analysts often paste truncated hashes so a "
+                f"substring match must succeed."
+            )
+
+    def test_single_field_query_returns_results(self, client):
+        """Regression for the 'query returns nothing when only one field
+        is set' UX bug: a single well-formed filter must match events."""
+        singles = [
+            {"host": "DMZ01"},         # partial host name
+            {"user": "jsmith"},        # user only
+            {"action": "Blocked"},     # analyst tense
+            {"process": "winlogon"},   # process substring
+            {"mitre": "T1055"},        # exact technique
+            {"file_hash": "12f07d13"}, # 8-char hash prefix
+        ]
+        for f in singles:
+            q = _post_query(client, _fixture_sep_csv(), f)
+            assert q["event_count"] > 0, (
+                f"single-field query {f} returned 0 events — this is the "
+                f"UX bug the analyst reported.  Every one of these filters "
+                f"names data that exists in the fixture."
+            )
+
 
 # ─────────────────────────────────────────────────────────────────
 #  Cross-endpoint invariance — the "Sample1 equivalent" for Query.

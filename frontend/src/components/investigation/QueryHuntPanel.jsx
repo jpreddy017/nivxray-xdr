@@ -73,18 +73,18 @@ const S = {
 };
 
 const FIELDS = [
-  { key: "host",       label: "Host / Src Host" },
-  { key: "user",       label: "User" },
-  { key: "action",     label: "Action (detect / block …)" },
-  { key: "category",   label: "Category" },
-  { key: "process",    label: "Process / File name" },
-  { key: "parent",     label: "Parent process" },
-  { key: "file_path",  label: "File path" },
-  { key: "file_hash",  label: "SHA-256 hash" },
-  { key: "mitre",      label: "MITRE ID (T####)" },
-  { key: "confidence", label: "Confidence (high / medium / low)" },
-  { key: "date_from",  label: "Date from (ISO)" },
-  { key: "date_to",    label: "Date to (ISO)" },
+  { key: "host",       label: "Host / Src Host",                  hint: "partial match, e.g. DMZ01" },
+  { key: "user",       label: "User",                              hint: "partial match" },
+  { key: "action",     label: "Action",                            hint: "block / blocked / detect / detected / quarantine / allow" },
+  { key: "category",   label: "Category",                          hint: "partial match" },
+  { key: "process",    label: "Process / File name",               hint: "partial match, e.g. winlogon" },
+  { key: "parent",     label: "Parent process",                    hint: "partial match" },
+  { key: "file_path",  label: "File path",                         hint: "partial path" },
+  { key: "file_hash",  label: "SHA-256 hash",                      hint: "partial hash OK (first 12+ chars)" },
+  { key: "mitre",      label: "MITRE technique",                   hint: "exact id, e.g. T1055 or T1055.012" },
+  { key: "confidence", label: "Confidence",                        hint: "high / medium / low" },
+  { key: "date_from",  label: "Date from",                          hint: "ISO-8601 e.g. 2026-08-03" },
+  { key: "date_to",    label: "Date to",                            hint: "ISO-8601 e.g. 2026-08-04" },
 ];
 
 
@@ -209,7 +209,8 @@ export default function QueryHuntPanel({ rawInput }) {
               type="text"
               value={filters[f.key] || ""}
               onChange={update(f.key)}
-              placeholder=""
+              placeholder={f.hint || ""}
+              title={f.hint || ""}
               data-testid={`qh-filter-${f.key}`}
             />
           </label>
@@ -241,6 +242,13 @@ export default function QueryHuntPanel({ rawInput }) {
       {status === "ready" && (
         <>
           <div style={S.summary} data-testid="qh-summary">{summary}</div>
+          {payload.event_count === 0 && payload.total_available > 0 && (
+            <div style={{ ...S.empty, marginBottom: 8, opacity: 0.85 }} data-testid="qh-zero-hint">
+              No events match every filter you set. {Object.keys(payload.filters_applied || {}).length > 1
+                ? "Try removing one filter at a time to see which is over-narrow."
+                : "Try a shorter substring, a different action verb (block / detect / quarantine / allow), or check the timestamp range."}
+            </div>
+          )}
           {view === "timeline"
             ? <ScopedTimelineView rows={payload.results} />
             : <TableView          rows={payload.results} />}
