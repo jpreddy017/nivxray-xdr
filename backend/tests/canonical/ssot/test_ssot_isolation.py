@@ -91,6 +91,15 @@ def test_no_route_file_modified_by_phase2():
         # commands / artifacts / … back onto the wire.
         "backend/tests/canonical/api/__init__.py",
         "backend/tests/canonical/api/test_investigation_results_payload_shape.py",
+        # Phase 5.W permanent fix · P0.3 legs 2 & 3 (2026-08-11)
+        # Sample1 immutability guard — Workspace API calls MUST NOT
+        # mutate the frozen Sample1 case row; static-import invariant
+        # forbids DIE modules from hard-coding the Sample1 case id.
+        # Workspace ↔ X-Lab isolation guard — X-Lab traffic MUST NOT
+        # perturb Workspace output, and no Workspace module may
+        # import from X-Lab modules.
+        "backend/tests/canonical/api/test_sample1_immutability_guard.py",
+        "backend/tests/canonical/api/test_workspace_isolation_guard.py",
         # Panel-level ErrorBoundary — one panel crashing never takes
         # the whole Workspace tab down.
         "frontend/src/components/PanelErrorBoundary.jsx",

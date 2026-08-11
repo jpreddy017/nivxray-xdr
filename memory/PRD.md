@@ -272,6 +272,71 @@ The projection LOGIC is unchanged. The exception is scoped to *these six rows on
 - 14/14 Phase 3.y tests · 206 total suite green (unchanged Sample1-required skip-set).
 - Empirical answer to VENDOR_NORMALISER question: not needed for the current Sample.docx or 5 representative fixtures.
 
+
+## Phase 5.W permanent fix · P0.3 CI firewall (2026-08-11, session-6)
+
+Owner directive: "Proceed with P0.3 only. Add the Sample1 immutability guard and Workspace-isolation guard alongside the existing P0.a payload-shape contract. Make all three CI-blocking. Do not modify Sample1, Workspace behavior, ADR-005 architecture, or begin any B-state/vendor integration. After P0.3 passes, stop and report the exact guards and test results."
+
+**Three CI-blocking guard files added — no other code touched.**
+
+### Leg 1 — Payload-shape contract (P0.a, previous session; retained)
+`backend/tests/canonical/api/test_investigation_results_payload_shape.py`
+- 9 asserts on `POST /api/die/investigation-results`.
+- Enforces: response ≤ 250 KB · `object.*` keys ⊆ explicit allow-list · forbidden heavy fields absent (`preprocessor / commands / artifacts / explanations / acquired_document / behaviour / ice / incident / plan / dkp / …`) · CSV/EDR produces ≥ 3 MITRE · executive_summary populated AND not legacy canned.
+- **Prevents the observed oversized-payload regression from returning silently. Does NOT eliminate every possible cause of a browser freeze — only the payload-shape class of causes.**
+
+### Leg 2 — Sample1 immutability guard (NEW)
+`backend/tests/canonical/api/test_sample1_immutability_guard.py`
+- **Runtime invariant**: fetch Sample1 case row (`id=3db79c4a-088b-4df7-b65a-f68b367b7677`), record deterministic sha256 fingerprint, run a representative Workspace API call (`POST /api/die/investigation-results`), re-fetch and assert fingerprint IDENTICAL. Fingerprint must also match the frozen constant `5b4337d5a9fc05923bd3090f1270268ae8eef7af2ccf06f4e8d8492bf908261d`.
+- **Static invariant**: no module under `services/die/*` may contain the Sample1 case id as a literal (would create the exact special-casing coupling the guard exists to prevent).
+- Correctly SKIPs when Sample1 not present in current pod's DB (CI env). Never false-positives.
+
+### Leg 3 — Workspace ↔ X-Lab isolation guard (NEW)
+`backend/tests/canonical/api/test_workspace_isolation_guard.py`
+- **Runtime invariant**: capture a Workspace investigation output signature (sha256 over `mitre_ids / lolbas / chain_len / exec_summary / actions_count / progression / overall_assessment`), fire a burst of X-Lab traffic (`/api/v2/timeline/preview`, `/api/v2/attack-chain/preview`, `/api/v2/correlation/preview`, `/api/v2/pipeline/preview`, `/api/v2/semantic/registry`, `/api/v2/semantic/preview`), rerun the same Workspace call and assert signature IDENTICAL. Proves X-Lab is genuinely observational and cannot leak state into the Workspace investigate lane.
+- **Static invariant**: no module in `routers/{die,ops,cases,decode,planner,analyze}.py` or `services/die/*` may import from `routers/timeline_lab`, `routers/semantic_lab`, or any `services/*_lab` module. One-way dependency direction enforced.
+- Sanity check: X-Lab routes remain registered (so the runtime guard actually exercises them).
+
+### Test results (2026-08-11)
+
+| File | Passed | Skipped | Failed |
+|---|---:|---:|---:|
+| `test_investigation_results_payload_shape.py` | 9 | 0 | 0 |
+| `test_sample1_immutability_guard.py` | 1 | 2* | 0 |
+| `test_workspace_isolation_guard.py` | 3 | 0 | 0 |
+| `test_ssot_isolation.py` (governance) | 3 | 0 | 0 |
+| **P0.3 total** | **16** | **2** | **0** |
+
+`*` Sample1 runtime checks correctly SKIP because this pod is not the Sample1-hosting DB — the static-import guard still ran and passed. On the Sample1-hosting pod both runtime checks will run.
+
+### What the P0.3 firewall guarantees (precise)
+
+- **Payload-shape contract**: no future contributor can leak any of the previously-heavy internal fields onto the wire, and no response can exceed 250 KB, without a red CI build.
+- **Sample1 immutability**: any code path that writes to the Sample1 case row via a Workspace API call trips the guard.
+- **Workspace isolation**: X-Lab observation traffic cannot mutate Workspace investigation output; import-direction stays one-way.
+
+### What the P0.3 firewall does NOT guarantee (honest)
+
+- Does not eliminate every possible cause of a browser hang. Client-side render pathologies unrelated to payload shape (e.g., a new heavy `useMemo` computed on the main thread) are out of scope.
+- Does not audit correctness of MITRE technique mappings — only shape, non-emptiness, and non-cannedness.
+- Does not enforce evidence citations behind MITRE ids — that is P0.2's job.
+
+### Zero touched during P0.3
+
+- Sample1 case row · unchanged.
+- Workspace behaviour · unchanged (no code paths modified, only tests added).
+- ADR-005 route migrations · unchanged (still gated on owner sign-off for 5.2–5.8).
+- No B-state / vendor integration started.
+- No behavioural change to any API endpoint.
+
+### Firewalls held
+
+- No new services, dependencies, or environment variables.
+- No changes to `.env`, requirements.txt, package.json.
+- Governance guard allow-list updated to permit only the three new test files.
+
+**Awaiting owner review before proceeding to P0.2 (evidence chain).**
+
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 
 - Owner decisions applied verbatim: Q1=1a (child-SSOT recursion) · Q2=2a (existing budget) · Q3=3c (generic UTF-8 filter) · Q4=4a (raw XML — no tag-strip).
