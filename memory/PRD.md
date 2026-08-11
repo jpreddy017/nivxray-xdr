@@ -558,7 +558,56 @@ RAW LOGS / ALERTS / EDR TELEMETRY
 
 When future adapters (Sysmon / CrowdStrike / Defender / SIEM) feed the same canonical event bag, the Timeline projection picks them up automatically — no changes required to the projection module or the Workspace panel.
 
-**Timeline MVP closed. Awaiting owner direction for next feature (OSINT reputation · Sysmon adapter · Attack Story · P1 hygiene).**
+**Query/Hunt MVP closed with UX-fix follow-up. Awaiting owner direction for next feature.**
+
+## TrajectoryDiagram lane-assignment display fix (2026-08-11, session-7 · CLOSED)
+
+Owner directive: "Change lane assignment so that, where MITRE technique/tactic evidence exists, the node is placed according to the existing backend MITRE tactic mapping. Do NOT create a new MITRE/tactic mapping algorithm. Reuse the existing canonical mapping."
+
+### Root cause
+
+The Attack Chain panel was falling back to the LEGACY 6-lane view (Execution / Transformation / Network / File System / Registry / Persistence) because both `object.incident.behaviors` and `object.ice.behavior_clusters` are empty for the CSV/prose paths. The LEGACY view routes nodes by `stage.command_family` / entity-type — every executable landed in the Execution lane regardless of its MITRE tactic. The CANONICAL 14-lane MITRE ATT&CK view already existed in `TrajectoryDiagram.jsx` and correctly routes by tactic — it just wasn't being fed.
+
+### Fix (display-only · frontend only)
+
+`frontend/src/pages/WorkspacePage.jsx` — new helper `_synthBehaviorsFromMitre(mitreList)` and one line at the trajectory-panel gate:
+
+- When `incident.behaviors` and `ice.behavior_clusters` are empty AND `object.mitre[]` carries per-technique `tactic`, synthesise a `behaviors[]` array where each behavior is a projection of one MITRE technique with `mitre_tactics: [title-cased tactic]` — the exact shape TrajectoryDiagram's canonical 14-lane view already understands.
+- Title-casing is the only transformation (`"defense_evasion"` → `"Defense Evasion"`) — no new mapping algorithm, no remapping, no inference. If a technique has no `tactic`, it is dropped (no fabrication).
+- Legacy behaviour is preserved when `object.mitre[]` is empty — no regression for callers that never had MITRE tactic evidence in the first place.
+
+### What was NOT touched (per directive)
+
+- Backend investigation payload contract — unchanged.
+- `object.mitre[]` shape or the P0.2 evidence chain — unchanged.
+- Shared `nivxforge/investigation/pipeline` — unchanged.
+- `TrajectoryDiagram.jsx` canonical 14-lane logic — unchanged (it was already correct).
+- Legacy 6-lane fallback — unchanged (still active when no MITRE data available).
+- `launcher.exe` parent-reference behaviour — unchanged; the "observed vs referenced entity" question stays open as a separate future modelling task.
+
+### Verified visual behaviour (post-fix)
+
+Feeding the 3-row SEP.csv fixture:
+
+| Lane | Techniques placed | Correct? |
+|---|---|---|
+| Execution | T1203 · Exploitation for Client Execution; T1204.002 · User Execution: Malicious File | ✅ |
+| Persistence | T1543.003 · Windows Service | ✅ |
+| Defense Evasion | T1055 · Process Injection; T1055.012 · Process Hollowing | ✅ |
+| Other 11 tactics | (empty — greyed-out lanes preserved for "coverage-gap" visibility) | ✅ |
+
+Screenshot: `/tmp/attack_chain_fixed.png`.
+
+### Regression suite (2026-08-11)
+
+| Suite | Before fix | After fix |
+|---|---:|---:|
+| `tests/canonical/api/` (P0.2 + P0.3 + Timeline + Query/Hunt + X-Lab isolation) | 100 passed / 4 skipped | **100 passed / 4 skipped / 0 fail / 0 error** |
+| `node --test src/components/__tests__/trajectoryLaneAssignment.test.mjs` (new) | n/a | **7 pass / 0 fail** |
+| Frontend build | webpack compiled successfully | **webpack compiled successfully** |
+| Existing `.mjs` tests (mitreLaneOrder, classifyStageBreak, trajectoryPerLane) | unchanged | **unchanged** |
+
+**TrajectoryDiagram lane fix closed. Awaiting owner direction on next feature: Query/Hunt → Automatic Investigation View, Sysmon adapter, Attack Story, OSINT, or P1 hygiene.**
 
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 

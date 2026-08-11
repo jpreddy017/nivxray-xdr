@@ -257,6 +257,49 @@ function _synthPreprocFromIce(ice) {
 }
 
 
+// ══════════════════════════════════════════════════════════════════
+// 2026-08-11 · TrajectoryDiagram lane-assignment fix
+// ──────────────────────────────────────────────────────────────────
+// Owner directive: "Change lane assignment so that, where MITRE
+// technique/tactic evidence exists, the node is placed according to
+// the existing backend MITRE tactic mapping."  This is a display-
+// only projection — it re-shapes `object.mitre[]` (which already
+// carries the correct per-technique tactic assigned by the backend)
+// into the `behaviors[]` shape TrajectoryDiagram's canonical 14-lane
+// MITRE ATT&CK view already understands.  No new mapping algorithm,
+// no new backend logic, no change to the investigation payload
+// contract.  Guarded: only kicks in when the CSV/prose path leaves
+// `incident.behaviors` and `ice.behavior_clusters` empty.
+// ══════════════════════════════════════════════════════════════════
+function _synthBehaviorsFromMitre(mitreList) {
+  if (!Array.isArray(mitreList) || !mitreList.length) return [];
+  const behaviors = [];
+  mitreList.forEach((t, i) => {
+    if (!t || typeof t !== "object") return;
+    const tid   = t.id;
+    const name  = t.name || "";
+    const tactic = t.tactic || (Array.isArray(t.tactics) && t.tactics[0]) || null;
+    if (!tid || !tactic) return;
+    // Title-case the tactic so the canonical MITRE_LANES switch in
+    // TrajectoryDiagram matches without further remapping.
+    const label = String(tactic)
+      .replace(/[_-]+/g, " ")
+      .replace(/\b\w/g, ch => ch.toUpperCase());
+    behaviors.push({
+      id:              `mitre-behavior-${tid}-${i}`,
+      title:           `${tid}${name ? " · " + name : ""}`,
+      mitre_tactics:   [label],
+      mitre:           [{ id: tid, tactic: label }],
+      primary_tactic:  label,
+      confidence:      "medium",
+      order:           i,
+      kind:            "mitre_technique_projection",
+    });
+  });
+  return behaviors;
+}
+
+
 // Inner render — heavy tree, wrapped by WorkspacePage in the error boundary.
 function WorkspacePageInner() {
   // ▲ 2026-02-28 · P0 Persistence — restore the last completed
@@ -3504,7 +3547,17 @@ function WorkspacePageInner() {
               uniformly across every input class. */}
           {(() => {
             const iceClusters = investigationObject?.ice?.behavior_clusters;
-            const incidentBehaviors = investigationObject?.incident?.behaviors || iceClusters || [];
+            let incidentBehaviors = investigationObject?.incident?.behaviors || iceClusters || [];
+            // 2026-08-11 · Lane-assignment fallback — when the CSV /
+            // prose path leaves both `incident.behaviors` and
+            // `ice.behavior_clusters` empty but `object.mitre[]`
+            // carries per-technique tactic info, synthesise the
+            // behaviors from the MITRE list so the canonical 14-lane
+            // ATT&CK view renders correctly (instead of piling every
+            // executable into the legacy Execution lane).
+            if (!incidentBehaviors.length) {
+              incidentBehaviors = _synthBehaviorsFromMitre(investigationObject?.mitre || []);
+            }
             const preprocForTraj = inlineStoryPreproc
               || (iceClusters?.length
                     ? _synthPreprocFromIce(investigationObject.ice)
