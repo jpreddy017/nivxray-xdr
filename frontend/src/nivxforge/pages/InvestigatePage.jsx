@@ -19,9 +19,6 @@ import NivxForgeLayout from "../components/NivxForgeLayout";
 import InputToolbar from "../../components/InputToolbar";
 import InvestigationPipeline from "../../components/InvestigationPipeline";
 import { InvestigationReport } from "../../pages/AutoInvestigatePage";
-import { isLab2Enabled } from "../lab2/FeatureFlagResolver";
-import Lab2InvestigateRenderer from "../lab2/Lab2InvestigateRenderer";
-import Lab2ToggleButton from "../lab2/Lab2ToggleButton";
 import "../design/tokens.css";
 import api from "../../lib/api";
 const S = {
@@ -76,23 +73,12 @@ const S = {
 };
 
 /**
- * ADR-0022 §4 · InvestigationLoader + FeatureFlagResolver.
- *
- * The route (/nivxforge/investigate) owns the experience. This
- * top-level component chooses the renderer:
- *
- *   ?lab2=1  →  Lab2InvestigateRenderer  (Lab2Shell workspace)
- *   default  →  LegacyInvestigateRenderer (unchanged production UI)
- *
- * Renderers do NOT coexist. The legacy renderer receives NO Lab 2.0
- * imports; the Lab 2.0 renderer never mounts the legacy pipeline UI.
- * At cutover (ADR-0022 §12) this file collapses to just the Lab2
- * renderer.
+ * NivXForge Investigate entry point (ADR-0022 §12 · Lab2 cutover removed
+ * 2026-08-11 as part of the X-Lab observational-surface removal — the
+ * `?lab2=1` toggle and its Lab2Shell renderer are gone; this file now
+ * exclusively mounts the legacy production renderer).
  */
 export default function InvestigatePage() {
-  if (isLab2Enabled()) {
-    return <Lab2InvestigateRenderer />;
-  }
   return <LegacyInvestigateRenderer />;
 }
 
@@ -188,7 +174,6 @@ function LegacyInvestigateRenderer() {
                 the Workspace analyses your artifact — expect equivalent decoded output, verdict, IOCs, and MITRE mapping.
               </p>
             </div>
-            <Lab2ToggleButton />
           </div>
         </div>
 
@@ -257,9 +242,6 @@ function LegacyInvestigateRenderer() {
              /decode/smart path). The frontend never composes prose. ─── */}
         {result ? (
           <div style={S.section} data-testid={`investigate-result-${mode}`}>
-            {/* ADR-0022 §15.2 · The Lab2Shell renderer is NEVER embedded inside
-                the legacy renderer. If lab2 flag is on, the route resolver
-                mounts Lab2InvestigateRenderer instead of this component. */}
             {/* ADR-0014 §1.1.14 · Normalisation transparency banner.
                 Analysts see what the engine understood BEFORE it started
                 investigating. Only rendered when the ingress gate fired. */}

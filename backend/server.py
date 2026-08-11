@@ -344,14 +344,10 @@ app.include_router(artifacts_router)
 from routers.static_docs import router as static_docs_router
 api.include_router(static_docs_router)
 
-# Semantic Lab (Stage 3 engineering surface) — Feb 2026.
-from routers.semantic_lab import router as semantic_lab_router
-api.include_router(semantic_lab_router)
-
-# Timeline Lab (Stage 9 engineering surface) — Feb 2026.
-# Read-only projection of the Investigation Graph. X-Lab / observational.
-from routers.timeline_lab import router as timeline_lab_router
-api.include_router(timeline_lab_router)
+# X-Lab observational surface removed 2026-08-11 (owner directive after
+# ADR-005 X-Lab Removal Impact Audit): semantic_lab + timeline_lab
+# routers (Timeline / Attack-Chain / Correlation / Full-Pipeline /
+# Semantic-Mapping-Preview) deleted.
 
 # ─────────────────────────────────────────────────────────────────────
 # ADR-0005 · NivXForge router mount (READ-ONLY Preview endpoints only).

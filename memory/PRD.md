@@ -404,6 +404,84 @@ Testing agent independently POSTed the CSV / prose / empty / duplicate fixtures 
 
 **P0.2 closed. Ready for owner sign-off on P1.1 (Sysmon adapter via canonical interface).**
 
+## X-Lab Observational-Surface REMOVED (2026-08-11, session-7 · CLOSED)
+
+Owner directive following ADR-005 X-Lab Removal Impact Audit:
+"GO — remove X-Lab observational surface A." Full removal (R3 Option A).
+
+### What was removed
+
+Backend:
+- `backend/routers/timeline_lab.py` — deleted (306 LOC · 4 routes gone)
+- `backend/routers/semantic_lab.py` — deleted (116 LOC · 2 routes gone)
+- `backend/server.py` — removed the 2 import blocks that mounted them
+
+Frontend:
+- `frontend/src/nivxforge/lab2/` — entire folder deleted (14 files · 384 KB)
+- `frontend/src/nivxforge/pages/XLabGraphPopoutPage.jsx` — deleted
+- `frontend/src/pages/SemanticMappingInspectorPage.jsx` — deleted
+- `frontend/src/App.js` — removed 3 lazy imports, 3 routes (`/nivxforge/x-lab`, `/nivxforge/x-lab/graph`, `/lab/semantic-mapping-inspector`), and the `NivxForgeXLabRedirect` stub
+- `frontend/src/nivxforge/pages/InvestigatePage.jsx` — removed Lab2 imports, `?lab2=1` renderer toggle, `<Lab2ToggleButton/>` in header; page now exclusively mounts the legacy production renderer
+
+Deleted API surface (all now return 404):
+- `POST /api/v2/timeline/preview`
+- `POST /api/v2/attack-chain/preview`
+- `POST /api/v2/correlation/preview`
+- `POST /api/v2/pipeline/preview`
+- `GET  /api/v2/semantic/registry`
+- `POST /api/v2/semantic/preview`
+
+### What was explicitly RETAINED (verified untouched)
+
+- `backend/routers/lab.py` (Analyst Practice Lab / gamified training) — 8 routes still live; `/api/lab/challenge` verified functional post-removal
+- `backend/nivxforge/**` (CIM, learning, ingress-gate, verdict engine) — untouched
+- `backend/nivxforge/investigation/pipeline/**` (12 modules · 8586 LOC · 956 KB) — untouched; still used by `summary_composer`, `incident_narrative_override`, `v2/investigation/report`
+- Workspace investigation / narrative / evidence services — bit-untouched
+- Sample1 case row — untouched
+- P0.2 Evidence Chain — untouched
+- P0.3 CI Firewall — untouched (only the isolation guard's contract updated to the post-removal invariant)
+
+### Test hygiene
+
+- `tests/canonical/api/test_workspace_isolation_guard.py` — rewritten to the post-removal contract:
+  1. `test_xlab_router_files_removed` — X-Lab router files must stay deleted.
+  2. `test_no_workspace_module_imports_from_xlab` — Workspace modules must never import from X-Lab (static-import guard, unchanged).
+  3. `test_xlab_routes_return_404` — the 6 previously-observational endpoints must all 404.
+  4. `test_workspace_signature_stable` — Workspace `/api/die/investigation-results` remains signature-stable across identical calls.
+
+### Regression suite results (2026-08-11)
+
+| Suite | Before removal | After removal |
+|---|---:|---:|
+| `tests/canonical/api/` (P0.2 + P0.3) | 46 passed / 4 skipped | **47 passed / 4 skipped / 0 fail / 0 error** |
+| Workspace SEP.csv end-to-end (external URL) | mitre=4, all-5-keys=True, 21 KB | **mitre=4, all-5-keys=True, 25 KB** (within 250 KB budget) |
+| Workspace prose end-to-end (external URL) | mitre=1, all-evidence=True | **mitre=1, all-evidence=True** |
+| Practice Lab `/api/lab/challenge` | 200 OK | **200 OK (verified with admin token)** |
+| Backend + frontend supervisor | RUNNING | **RUNNING** (webpack compiled successfully) |
+
+### Reduction (measured)
+
+| Dimension | Delta |
+|---|---:|
+| Backend source | −20 KB (2 router files) |
+| Frontend source | ~−400 KB (nivxforge/lab2/, XLabGraphPopoutPage, SemanticMappingInspectorPage) |
+| API routes eliminated | 6 |
+| Frontend routes eliminated | 3 |
+| DB collections dropped | 0 (X-Lab used none) |
+
+**Post-removal architecture:**
+
+```
+NivXRay
+├── Workspace              ← protected, untouched
+├── UAIE / Evidence chain  ← P0.2 enforced
+├── Investigation pipeline ← shared, untouched
+├── Analyst Practice Lab   ← retained
+└── X-Lab observational    ← DELETED
+```
+
+**Awaiting owner direction for the next feature (Timeline · OSINT · Sysmon).**
+
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 
 - Owner decisions applied verbatim: Q1=1a (child-SSOT recursion) · Q2=2a (existing budget) · Q3=3c (generic UTF-8 filter) · Q4=4a (raw XML — no tag-strip).

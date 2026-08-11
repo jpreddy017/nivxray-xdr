@@ -53,7 +53,6 @@ const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
 // Every extracted artifact is a first-class Investigation Input.
 const InvestigationSessionPage      = lazy(() => import("@/pages/InvestigationSessionPage"));
 const InvestigationInputDetailPage  = lazy(() => import("@/pages/InvestigationInputDetailPage"));
-const SemanticMappingInspectorPage = lazy(() => import("@/pages/SemanticMappingInspectorPage"));
 
 const V2CaseWorkspaceShell  = lazy(() => import("@/v2/pages/CaseWorkspaceShell"));
 // L4 Analyst Workspace shell (PR-3 · Blueprint v1.1 §7-§9). Additive
@@ -79,7 +78,6 @@ const V2ValidationPage         = lazy(() => import("@/v2/pages/ValidationPage"))
 // /api/nivxforge/preview/* GET endpoints only.
 const NivxForgePreviewPage     = lazy(() => import("@/nivxforge/pages/PreviewPage"));
 const NivxForgeInvestigatePage = lazy(() => import("@/nivxforge/pages/InvestigatePage"));
-const NivxForgeGraphPopoutPage = lazy(() => import("@/nivxforge/pages/XLabGraphPopoutPage"));
 const NivxForgeDashboardPage   = lazy(() => import("@/nivxforge/pages/DashboardPage"));
 const NivxForgeThreatIntelPage    = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ThreatIntelPage })));
 const NivxForgeThreatHuntingPage  = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ThreatHuntingPage })));
@@ -87,12 +85,10 @@ const NivxForgeKnowledgeBasePage  = lazy(() => import("@/nivxforge/pages/Placeho
 const NivxForgeReportsPage        = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ReportsPage })));
 const NivxForgeHistoryPage        = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.HistoryPage })));
 
-// X-Lab · redirect stub that forces the ?lab2=1 feature flag on. When
-// legacy Lab is deleted this route will point directly at the X-Lab
-// renderer without the flag dance.
-function NivxForgeXLabRedirect() {
-  return <Navigate to="/nivxforge/investigate?lab2=1" replace />;
-}
+// X-Lab observational surface removed 2026-08-11 (owner directive after
+// ADR-005 X-Lab Removal Impact Audit). The `/nivxforge/x-lab*` routes
+// and the ?lab2=1 renderer toggle are gone; `/nivxforge/investigate`
+// now exclusively mounts the legacy production renderer.
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -180,8 +176,6 @@ function App() {
                   still resolves so existing bookmarks keep working. */}
               <Route path="/evidence-explorer"
                      element={<Protected><InvestigationSessionPage /></Protected>} />
-              {/* Semantic Mapping Inspector — Stage 3 engineering surface (Feb 2026). */}
-              <Route path="/lab/semantic-mapping-inspector" element={<Protected><SemanticMappingInspectorPage /></Protected>} />
               {/* v2 · Case Workspace shell — flag-gated inside the
                   component. Reachable only via direct URL, never
                   linked from primary navigation. */}
@@ -207,12 +201,6 @@ function App() {
               <Route path="/v2/validation" element={<Protected><V2ValidationPage /></Protected>} />
               {/* NivXForge (ADR-0006 · Phase 1 + platform shell) · analyst-parity surface + governance */}
               <Route path="/nivxforge"              element={<Protected><NivxForgeDashboardPage /></Protected>} />
-              {/* X-Lab · Unified next-generation investigation workspace.
-                  Forces the lab2 flag on so the shell always mounts the
-                  X-Lab renderer. Legacy /nivxforge/investigate remains
-                  available during the parity-migration window. */}
-              <Route path="/nivxforge/x-lab" element={<Protected><NivxForgeXLabRedirect /></Protected>} />
-              <Route path="/nivxforge/x-lab/graph" element={<Protected><NivxForgeGraphPopoutPage /></Protected>} />
               <Route path="/nivxforge/dashboard"    element={<Protected><NivxForgeDashboardPage /></Protected>} />
               <Route path="/nivxforge/investigate"  element={<Protected><NivxForgeInvestigatePage /></Protected>} />
               <Route path="/nivxforge/threat-intel" element={<Protected><NivxForgeThreatIntelPage /></Protected>} />

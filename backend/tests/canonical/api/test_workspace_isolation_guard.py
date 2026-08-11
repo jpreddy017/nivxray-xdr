@@ -1,34 +1,36 @@
 """Phase 5.W permanent fix · P0.3 leg 3 — Workspace ↔ X-Lab isolation
-guard (2026-08-11).
+guard (updated 2026-08-11 after X-Lab observational-surface removal).
 
-Owner directive: "X-Lab / new capability changes must not alter
-Workspace behavior/state."
+Owner directive history:
+    · 2026-08-11 (session-6): "X-Lab / new capability changes must not
+      alter Workspace behavior/state." — enforced as a static-import
+      guard + a runtime signature-diff guard.
+    · 2026-08-11 (session-7): "GO — remove X-Lab observational surface"
+      per ADR-005 X-Lab Removal Impact Audit. The observational surface
+      (routers/timeline_lab.py + routers/semantic_lab.py + their 6
+      /api/v2/... routes + the Lab2/XLabGraph frontend UI) has been
+      deleted.
 
-X-Lab in this codebase:
-    routers/timeline_lab.py     · /api/v2/timeline/preview,
-                                  /api/v2/attack-chain/preview,
-                                  /api/v2/correlation/preview,
-                                  /api/v2/pipeline/preview
-    routers/semantic_lab.py     · /api/v2/semantic/registry,
-                                  /api/v2/semantic/preview
+Post-removal contract this file now locks:
 
-Workspace in this codebase:
-    routers/die.py, routers/ops.py (upload), routers/decode.py,
-    routers/planner.py, routers/analyze.py, routers/v2.py, routers/cases.py
+    Static invariant:
+        No production Workspace module (routers/die.py, routers/ops.py,
+        routers/cases.py, routers/decode.py, routers/planner.py,
+        routers/analyze.py, services/die/*) may import from any X-Lab
+        module (routers/timeline_lab, routers/semantic_lab, services/*_lab).
 
-The guard checks both a RUNTIME invariant and a STATIC-IMPORT invariant:
+    Deletion invariant:
+        The removed router files must stay removed. If a future
+        contributor re-introduces them, this test fails loudly.
 
-Runtime:
-    Any number of X-Lab calls interleaved with Workspace calls MUST
-    leave the Workspace response for the SAME input BIT-IDENTICAL.
-    (i.e. X-Lab is genuinely observational and cannot leak state
-    into the Workspace investigate path.)
+    Route invariant:
+        The 6 previously-observational endpoints must return 404.
+        Bringing any of them back requires re-opening the audit.
 
-Static:
-    No production Workspace module (routers/die.py, routers/ops.py,
-    routers/cases.py, services/die/*) may import from an X-Lab
-    module (routers/timeline_lab.py, routers/semantic_lab.py,
-    services/*_lab.py). Enforces one-way dependency direction.
+    Workspace-signature invariant:
+        The Workspace /api/die/investigation-results response for a
+        fixed prose input must be signature-stable across two calls
+        (baseline safety even with no X-Lab traffic to interleave).
 """
 from __future__ import annotations
 import hashlib
@@ -54,16 +56,32 @@ WORKSPACE_MODULES = [
 ]
 WORKSPACE_SERVICE_DIRS = ["services/die"]
 
-XLAB_MODULES = [
+# X-Lab modules that MUST STAY DELETED.
+XLAB_REMOVED_MODULES = [
     "routers/timeline_lab.py",
     "routers/semantic_lab.py",
 ]
+
+# Import patterns that would signal re-introduction of X-Lab
+# dependencies inside Workspace code. Failing this test does NOT
+# necessarily mean X-Lab came back — it means Workspace picked up an
+# import it shouldn't have.
 XLAB_IMPORT_PATTERNS = [
     r"\bfrom\s+routers\.timeline_lab\b",
     r"\bfrom\s+routers\.semantic_lab\b",
     r"\bimport\s+routers\.timeline_lab\b",
     r"\bimport\s+routers\.semantic_lab\b",
     r"\bfrom\s+services\.(\w+_lab)\b",
+]
+
+# X-Lab observational HTTP surface — must all be 404 post-removal.
+XLAB_REMOVED_ROUTES = [
+    ("POST", "/api/v2/timeline/preview"),
+    ("POST", "/api/v2/attack-chain/preview"),
+    ("POST", "/api/v2/correlation/preview"),
+    ("POST", "/api/v2/pipeline/preview"),
+    ("GET",  "/api/v2/semantic/registry"),
+    ("POST", "/api/v2/semantic/preview"),
 ]
 
 
@@ -75,9 +93,7 @@ FIXED_INVESTIGATION_INPUT = (
 
 
 def _response_signature(resp_json: dict) -> str:
-    """Deterministic sha256 over the analyst-relevant slice of the response.
-    Deliberately excludes fields that legitimately vary run-to-run
-    (metadata timestamps, request ids, etc.)."""
+    """Deterministic sha256 over the analyst-relevant slice of the response."""
     obj = resp_json.get("object") or {}
     n   = obj.get("narrative") or {}
     slim = {
@@ -96,55 +112,24 @@ def _response_signature(resp_json: dict) -> str:
 @pytest.fixture(scope="module")
 def client():
     from server import app
-    with TestClient(app) as c:
-        yield c
+    # See test_p02_evidence_chain.py — no `with TestClient(app) as c`
+    # to avoid closing the event loop for other modules on the same
+    # xdist worker.
+    yield TestClient(app)
 
 
 # ─────────────────────────────────────────────────────────────────
-# P0.3-Iso-1 — Runtime: X-Lab traffic MUST NOT change Workspace output.
+# P0.3-Iso-1 — X-Lab router files must remain deleted.
 # ─────────────────────────────────────────────────────────────────
-def test_xlab_traffic_does_not_perturb_workspace(client):
-    # Baseline
-    r0 = client.post("/api/die/investigation-results",
-                     json={"input": FIXED_INVESTIGATION_INPUT})
-    assert r0.status_code == 200
-    sig_before = _response_signature(r0.json())
-
-    # Interleave X-Lab traffic (best effort — some may return 4xx and
-    # that's fine; the guard only cares that a 200 or a benign error
-    # doesn't leak state into Workspace).
-    xlab_probes = [
-        ("POST", "/api/v2/timeline/preview",     {"input": FIXED_INVESTIGATION_INPUT}),
-        ("POST", "/api/v2/attack-chain/preview", {"input": FIXED_INVESTIGATION_INPUT}),
-        ("POST", "/api/v2/correlation/preview",  {"input": FIXED_INVESTIGATION_INPUT}),
-        ("POST", "/api/v2/pipeline/preview",     {"input": FIXED_INVESTIGATION_INPUT}),
-        ("GET",  "/api/v2/semantic/registry",    None),
-        ("POST", "/api/v2/semantic/preview",     {"input": FIXED_INVESTIGATION_INPUT}),
-    ]
-    for method, path, body in xlab_probes:
-        try:
-            if method == "GET":
-                client.get(path)
-            else:
-                client.post(path, json=body)
-        except Exception:
-            # X-Lab route may 4xx/5xx; that alone is not a workspace
-            # isolation failure. What matters is the AFTER signature.
-            pass
-
-    # Post-X-Lab Workspace call with the SAME input.
-    r1 = client.post("/api/die/investigation-results",
-                     json={"input": FIXED_INVESTIGATION_INPUT})
-    assert r1.status_code == 200
-    sig_after = _response_signature(r1.json())
-
-    assert sig_before == sig_after, (
-        f"Workspace investigation output CHANGED after X-Lab traffic:\n"
-        f"  before = {sig_before}\n  after  = {sig_after}\n"
-        f"X-Lab is intended to be READ-ONLY / observational. Some code "
-        f"path is leaking state (shared cache, singleton mutation, DB "
-        f"upsert, etc.) from X-Lab into the Workspace investigate lane. "
-        f"Locate the writer and remove or isolate it."
+def test_xlab_router_files_removed():
+    backend_root = Path(__file__).resolve().parents[3]  # /app/backend
+    resurrected = [rel for rel in XLAB_REMOVED_MODULES
+                   if (backend_root / rel).exists()]
+    assert not resurrected, (
+        f"X-Lab router files re-introduced: {resurrected}. The owner "
+        f"authorised their removal on 2026-08-11 (see ADR-005 X-Lab "
+        f"Removal Impact Audit). If X-Lab is genuinely being revived, "
+        f"re-open the audit and update this guard consciously."
     )
 
 
@@ -176,28 +161,47 @@ def test_no_workspace_module_imports_from_xlab():
             _scan(py)
 
     assert not offenders, (
-        "Workspace modules must NOT import from X-Lab modules. Dependency "
-        "direction is one-way: X-Lab may observe Workspace, never the "
-        "reverse. Offenders:\n" + "\n".join(
-            f"  {p} · {m} · …{ctx}…" for p, m, ctx in offenders
-        )
+        "Workspace modules must NOT import from X-Lab modules. Even "
+        "post-removal, any re-introduction of these imports would signal "
+        "a resurrection of the deleted subsystem. Offenders:\n" +
+        "\n".join(f"  {p} · {m} · …{ctx}…" for p, m, ctx in offenders)
     )
 
 
 # ─────────────────────────────────────────────────────────────────
-# P0.3-Iso-3 — X-Lab endpoints must be registered but never invoked
-# by the Workspace investigate path. (Sanity check: ensures the
-# routes exist so test 1's traffic actually hits them; if a future
-# refactor removes them, this test flags it.)
+# P0.3-Iso-3 — X-Lab HTTP routes must return 404.
 # ─────────────────────────────────────────────────────────────────
-def test_xlab_routes_are_registered(client):
-    # Any 2xx OR 4xx-with-body counts as "registered". A 404 with
-    # no body means the route is gone entirely.
-    for path in ("/api/v2/semantic/registry",
-                 "/api/v2/timeline/preview"):
-        r = client.get(path) if path.endswith("registry") else client.post(path, json={"input": "x"})
-        assert r.status_code != 404, (
-            f"X-Lab route {path} is not registered anymore. The isolation "
-            f"guard depends on X-Lab existing to prove Workspace is not "
-            f"perturbed by it. Either restore the route OR remove the guard."
-        )
+def test_xlab_routes_return_404(client):
+    still_alive: list[tuple[str, str, int]] = []
+    for method, path in XLAB_REMOVED_ROUTES:
+        if method == "GET":
+            r = client.get(path)
+        else:
+            r = client.post(path, json={"input": "x"})
+        if r.status_code != 404:
+            still_alive.append((method, path, r.status_code))
+    assert not still_alive, (
+        f"X-Lab routes still reachable after removal: {still_alive}. "
+        f"They must return 404 — the audit deleted the router files."
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# P0.3-Iso-4 — Workspace signature stable across identical calls.
+# ─────────────────────────────────────────────────────────────────
+def test_workspace_signature_stable(client):
+    r0 = client.post("/api/die/investigation-results",
+                     json={"input": FIXED_INVESTIGATION_INPUT})
+    assert r0.status_code == 200
+    r1 = client.post("/api/die/investigation-results",
+                     json={"input": FIXED_INVESTIGATION_INPUT})
+    assert r1.status_code == 200
+
+    sig0 = _response_signature(r0.json())
+    sig1 = _response_signature(r1.json())
+    assert sig0 == sig1, (
+        f"Workspace investigation output is non-deterministic across two "
+        f"identical calls: {sig0} vs {sig1}. Some shared state (cache, "
+        f"singleton, DB upsert, clock, random) is leaking into the "
+        f"investigate lane."
+    )
