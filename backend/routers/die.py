@@ -195,6 +195,55 @@ def die_investigation_results(body: InvestigationResultsBody):
     return result
 
 
+class TimelineBody(BaseModel):
+    input: str = Field(..., description="Raw analyst paste to project into a timeline.")
+
+
+@router.post("/timeline")
+def die_timeline(body: TimelineBody):
+    """Workspace Timeline Graph · read-only projection (2026-08-11).
+
+    Returns a chronologically ordered event list assembled from the
+    existing canonical investigation evidence.  ONLY events that
+    carry a real timestamp are emitted.  Narrative-only MITRE
+    mentions (no timestamp) intentionally do NOT appear.
+
+    Contract guarantees:
+      · Does NOT mutate `/api/die/investigation-results` payload
+        or shape — this endpoint is a pure projection built OVER
+        the same pipeline.
+      · Every emitted event carries the same `evidence_ref` from
+        the P0.2 evidence-chain gate that the Workspace MITRE
+        panels already display.
+      · No fabricated events / relationships / evidence.
+
+    Response envelope:
+
+        {
+          "events":       [ {timestamp, source, event_type, host, user,
+                             process, parent_process, command_line,
+                             file_context, network_context,
+                             registry_context, event_or_rule,
+                             evidence_ref, mitre[], confidence}, … ],
+          "event_count":  int,
+          "span_start":   ISO ts | null,
+          "span_end":     ISO ts | null,
+          "hosts":        [ … ],
+          "users":        [ … ],
+          "sources":      [ … ],
+          "meta":         { projection, note }
+        }
+    """
+    from services.die.investigation_results import render as _render
+    from services.die.canonical_bridge import augment_investigation_results
+    from services.die.timeline_projection import project_timeline
+    text = body.input or ""
+    result = _render(text)
+    result = augment_investigation_results(result, text)
+    obj = result.get("object") if isinstance(result, dict) else None
+    return project_timeline(text, obj or {})
+
+
 class HealthBody(BaseModel):
     input: str = Field(..., description="Raw analyst paste to health-check.")
 

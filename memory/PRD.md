@@ -482,6 +482,84 @@ NivXRay
 
 **Awaiting owner direction for the next feature (Timeline · OSINT · Sysmon).**
 
+## Workspace Timeline Graph · MVP (2026-08-11, session-7 · CLOSED)
+
+Owner directive: "Build the Timeline as a read-only Workspace projection, not a new detection/correlation engine. Long-term architectural direction: raw logs → canonical events → evidence chain → correlation/IKG → Workspace Timeline Graph."
+
+### What was built
+
+Backend:
+- `backend/services/die/timeline_projection.py` (new · pure projection module):
+  - `project_timeline(raw_text, investigation_object) → {events, event_count, span_start, span_end, hosts, users, sources, meta}`
+  - Accepts 3 evidence shapes without inventing anything:
+    1. `object.csv_edr.highconf_events` (list of timestamped EDR rows)
+    2. CSV re-parse for enrichment (user, parent_process, file_path — read-only, no shared-service mutation)
+    3. P0.2 evidence chain from `object.mitre[*].evidence[*]` → `evidence_ref` per event
+  - Events without a real timestamp are DROPPED (no fabrication).
+  - Confidence heuristic derived only from `action` + evidence record; never a lookup that could invent value.
+- `backend/routers/die.py` extended with `POST /api/die/timeline`:
+  - Same `{input}` body shape as `/api/die/investigation-results` — client can wire either.
+  - Internally runs the SAME `_render` + `augment_investigation_results` pipeline (respects P0.2 gate).
+  - Returns ONLY the projection envelope — does not mutate the investigation-results payload.
+
+Frontend:
+- `frontend/src/components/investigation/TimelinePanel.jsx` (new):
+  - Consumes `POST /api/die/timeline` via existing shared `api` axios wrapper.
+  - Chronological event list with confidence badges (high · medium · low).
+  - Row click expands into full evidence-chain detail (all 5 P0.2 keys shown).
+  - Reload / error / empty / idle states all covered.
+  - Every interactive element carries a `data-testid` (`timeline-panel`, `timeline-list`, `timeline-event-row-{i}`, `timeline-event-detail`, `timeline-span`, `timeline-summary`, `timeline-reload`, `timeline-loading`, `timeline-error`, `timeline-empty`, `timeline-idle`).
+- `frontend/src/pages/WorkspacePage.jsx`:
+  - Import + one JSX block that mounts `<TimelinePanel rawInput={input}/>` inside `<CollapsibleSection>` + `<PanelErrorBoundary>`.
+  - Positioned right after the Attack Chain section.
+  - No existing Workspace state / hook / logic touched.
+
+### Contract guarantees (from tests · 16 new + 47 regression = 63 total)
+
+- Every emitted timeline event carries a real ISO timestamp (`timestamp` key non-empty).
+- Every emitted event carries the exact same `evidence_ref` value that `/api/die/investigation-results` emits for the same MITRE technique (cross-endpoint parity test).
+- Prose / narrative-only inputs → `event_count == 0` (no fabrication).
+- Empty input → `event_count == 0` (no fabrication).
+- Events are chronologically sorted.
+- Timeline wire response < 250 KB (SEP.csv fixture: 3.5 KB).
+- `/api/die/investigation-results` payload keys unchanged — no `timeline` field leak.
+
+### Regression suite (2026-08-11)
+
+| Suite | Before Timeline | After Timeline |
+|---|---:|---:|
+| `tests/canonical/api/` (P0.2 + P0.3 + X-Lab isolation) | 47 passed / 4 skipped / 0 fail | **63 passed / 4 skipped / 0 fail / 0 error** (+16 timeline tests) |
+| External URL SEP.csv end-to-end investigation | mitre=4, all-evidence, 21 KB | **mitre=5, all-evidence, unchanged** |
+| External URL prose end-to-end investigation | mitre=1, all-evidence, 11 KB | **mitre=1, all-evidence, 15 KB** (unchanged shape) |
+| Workspace UI mount (screenshot) | n/a | **Timeline section renders 5 events with expand-to-evidence** |
+| Backend + frontend supervisor | RUNNING | **RUNNING** (webpack compiled successfully) |
+
+### What Timeline MVP does NOT do (owner-preserved constraints)
+
+- Does not modify `/api/die/investigation-results` payload contract.
+- Does not modify P0.2 evidence chain, P0.3 firewall, Sample1, or the shared `nivxforge/investigation/pipeline`.
+- Does not introduce a new detection or correlation engine.
+- Does not implement Sysmon / EVTX / CrowdStrike / Defender / SentinelOne / OSINT adapters.
+- Does not touch existing Workspace panels.
+
+### Long-term architectural direction (documented, NOT yet implemented)
+
+```
+RAW LOGS / ALERTS / EDR TELEMETRY
+              ↓
+      Canonical Events
+              ↓
+      Evidence Objects  ────►  Workspace Timeline Graph (this MVP)
+              ↓
+     Correlation / IKG
+              ↓
+       Attack Story / MITRE / Verdict / Report
+```
+
+When future adapters (Sysmon / CrowdStrike / Defender / SIEM) feed the same canonical event bag, the Timeline projection picks them up automatically — no changes required to the projection module or the Workspace panel.
+
+**Timeline MVP closed. Awaiting owner direction for next feature (OSINT reputation · Sysmon adapter · Attack Story · P1 hygiene).**
+
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 
 - Owner decisions applied verbatim: Q1=1a (child-SSOT recursion) · Q2=2a (existing budget) · Q3=3c (generic UTF-8 filter) · Q4=4a (raw XML — no tag-strip).

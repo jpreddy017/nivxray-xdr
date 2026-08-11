@@ -144,6 +144,7 @@ import CollapsibleCard from "@/components/investigation/CollapsibleCard";
 // to the panel that owns them so a bad shape in one panel does not
 // take the whole Workspace tab down.
 import PanelErrorBoundary from "@/components/PanelErrorBoundary";
+import TimelinePanel from "@/components/investigation/TimelinePanel";
 import { InvestigationFilterProvider, InvestigationFilterBar } from "@/components/investigation/InvestigationFilter";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
@@ -3524,6 +3525,23 @@ function WorkspacePageInner() {
               </CollapsibleSection>
             );
           })()}
+
+          {/* ▲ Workspace Timeline · MVP (2026-08-11)
+              Read-only chronological projection over the existing
+              canonical investigation evidence (highconf_events +
+              P0.2 evidence chain).  Only events with real timestamps
+              appear here; narrative-only MITRE mentions remain in the
+              MITRE panels.  Pure projection — no new detection logic. */}
+          {investigationMode && input && input.trim() && (
+            <CollapsibleSection title="Timeline · Evidence-backed chronology"
+                                 subtitle="Chronological projection of canonical events · click to expand evidence chain"
+                                 testid="timeline-section"
+                                 style={{ margin: "0 12px 8px" }}>
+              <PanelErrorBoundary panel="Workspace Timeline">
+                <TimelinePanel rawInput={input} />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+          )}
 
           {/* ▲ Analyst Narrative (2026-02-28)
               Deterministic Executive Summary + Analyst Summary +
