@@ -63,6 +63,45 @@
 > ## SIDE EVALUATION — TweetFeed (2026-08-11)
 >
 > Owner shared `https://tweetfeed.live/`. Read-only evaluation delivered at `/app/memory/adr/0011-tweetfeed-evaluation.md`. **Decision: BACKLOG (multi-use, high priority) — do NOT integrate now.** TweetFeed is genuinely complementary to the existing 8 providers on three axes (researcher-attribution · AI-clustered campaigns · delta-sync with 15-min freshness) and its watchlist semantics fit NivXRay's evidence-provenanced philosophy. Prioritised uses: **B) Threat-Hunting corpus (highest value) → C) Campaign-context enrichment (most differentiated) → A) 9th IOC provider → D) Practice Lab corpus (opt-in).** Integration blocked behind P0 Security Gate + P1 Server-Side File Mode; must ship with `NIVX_FLAG_TI_TWEETFEED` (per ADR-0008 §4.6 governance), watchlist-only semantics (never drives verdicts alone), delta-sync via `/v1/since` + `If-None-Match`, and full provenance (reporter Twitter handle + source tweet URL). Zero code changes.
+>
+> ---
+>
+> ## LOCKED ROADMAP (2026-08-11, end of Session-9)
+>
+> ```
+> 🔴 NOW      P0 · Security Hardening Gate
+>              ▼
+> 🟠 NEXT     P1 · Server-Side File Mode
+>              ▼
+> 🟡 THEN     P2 · Sysmon / EVTX Adapter
+>              ▼
+> 🔵 THEN     Shadow-pipeline replay & evidence-driven promotion
+>              (IKG · Verdict v3 · Case Engine · Adapters · Artifact Store)
+>              ▼
+> 🟢 THEN     TweetFeed A + B + C integration (in one focused session)
+> ```
+>
+> **TI Evidence Layer principle (locked):**
+> ```
+> Existing TI Providers ──────┐
+> TweetFeed ──────────────────┤
+>                             ▼
+>                      TI Evidence Layer
+>                             ▼
+>                   Provenance + Confidence
+>                             ▼
+>                       Corroboration
+>                             ▼
+>                       Evidence Graph
+>                             ▼
+>                          Verdict
+> ```
+> **Never**: `TweetFeed → Malicious → Verdict`. Every TI provider contributes to `contributors[]` with source + confidence + provenance; only the evidence-graph aggregation reaches the verdict.
+>
+> **Flag lifecycle for every future TI or telemetry provider:**
+> `disabled → shadow → replay/validation → enabled` (per ADR-0008 §4.6).
+>
+> **Discovery closed. No more audit work before P0.** Baseline is: ADR-0007 (truth) · ADR-0008 (strategy) · ADR-0009 (API reality) · ADR-0010 (product blueprint) · ADR-0011 (TweetFeed backlog decision) · determinism CI at `backend/tests/canonical/api/test_report_determinism.py`.
 
 
 
