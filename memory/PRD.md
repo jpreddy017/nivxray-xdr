@@ -218,6 +218,52 @@ The "Page Unresponsive" root cause is architectural, not any single field. The p
 
 The projection LOGIC is unchanged. The exception is scoped to *these six rows only* and does not authorise any broader projection modification.
 
+
+## Phase 5.W permanent-fix block · P0.a + P0.b + P0.c (2026-08-11, session-5)
+
+**Purpose**: end the "Page Unresponsive" class of bug structurally, not by one-off patches. Owner approved after reviewing `/app/memory/adr/0005-capability-reality-audit.md` and the 7-principle framework.
+
+### What shipped
+
+**P0.a — Payload-shape contract regression** (`backend/tests/canonical/api/test_investigation_results_payload_shape.py`)
+- 9 asserts on `POST /api/die/investigation-results`:
+  1. Response ≤ 250 KB on both CSV/EDR and prose inputs.
+  2. `object.*` keys ⊆ explicit `ALLOWED_OBJECT_KEYS` allow-list (`narrative / mitre / iocs / lolbas / chain / csv_edr / input / metadata / confidence / incident_tactics / health / ida / …`).
+  3. Forbidden heavy fields (`preprocessor / commands / artifacts / explanations / acquired_document / behaviour / ice / incident / plan / dkp / …`) MUST NOT appear.
+  4. CSV input produces ≥ 3 MITRE techniques (regression guard for `csv_edr_analyzer` wire-up).
+  5. `narrative.executive_summary` populated AND not the legacy canned string (regression guard for `_is_canned`).
+- Any future contributor who leaks a heavy field back onto the wire triggers a red CI build. Institutional invariant, not a comment.
+
+**P0.b — Panel-level ErrorBoundary** (`frontend/src/components/PanelErrorBoundary.jsx`)
+- Class-based ErrorBoundary component with `data-testid="panel-error-<slug>"` fallback UI + "Retry render" button + console.error preservation of the full stack.
+- Applied to: `InlineAttackStory`, `TrajectoryDiagram` (already had its own boundary, now double-wrapped), `AnalystNarrativePanel`, `ThreatAnalysis`.
+- One panel crashing on unexpected data shape can no longer take the whole Workspace tab down. Other panels stay usable.
+
+**P0.c — Drop heavy fields from idle-persist snapshot** (`frontend/src/pages/WorkspacePage.jsx` line 885)
+- Removed `understanding`, `inlineStoryPreproc`, `analystNarrative`, `investigationObject` from the `useIdlePersist` snapshot argument. These were the biggest JSON.stringify offenders on the main thread — a hydrated `investigationObject` after a URL investigation could reach 1–5 MB, and stringifying it on every state change was the root cause of the multi-second freezes.
+- If the user reloads the page, previous investigation is re-fetched from `/api/cases/{id}` on demand (fast, authoritative, versioned) — same path Case Library restore already uses.
+
+### Acceptance verified
+
+- 9/9 payload-shape tests pass.
+- 3/3 governance guard tests pass.
+- Full canonical pytest: 231 pass / 4 pre-existing Sample1-CI-DB failures unchanged.
+- Frontend webpack compiled cleanly (1 pre-existing eslint warning unrelated).
+
+### Firewalls held
+
+- No ADR-005 route migration (still gated on owner sign-off for 5.2 – 5.8).
+- Sample1 golden case untouched.
+- No behavioural change to any Workspace endpoint — only response shape locked down and render surface hardened.
+- No new services, no new dependencies.
+
+### What is still open (owner-approved priority order)
+
+1. **P0.3** — remaining regression contract: Sample1 immutability guard + Workspace-vs-XLab isolation guard (P0.a delivered payload-shape only).
+2. **P0.2** — Evidence chain refactor: every emitted MITRE id must carry `evidence_records[]` with `source / event_row / analytic_rule / rule_version / confidence`. Reuse `services/uaie/evidence.py`, `services/confidence_provenance.py`, `canonical/projections/evidence_bundle.py`. **Blocks all vendor-adapter work.**
+3. **P1.1 – P1.3** — canonical event schema + Sysmon + wire the 13 B-state capabilities to Workspace (audit §3).
+4. **P2 / P3** — CrowdStrike / Defender / SentinelOne adapters + Timeline view.
+
 ## Phase 3.y shipped (2026-08-10) — narrative MITRE analyzer extension
 
 - Added 6 narrative rules (T1219, T1204.002, T1071, T1486, T1003, T1566), all multi-word contextual — no bare "RAT" trigger.

@@ -140,6 +140,10 @@ class TrajErrorBoundary extends React.Component {
 }
 import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
 import CollapsibleCard from "@/components/investigation/CollapsibleCard";
+// Phase 5.W permanent fix · P0.b (2026-08-11) — isolate render crashes
+// to the panel that owns them so a bad shape in one panel does not
+// take the whole Workspace tab down.
+import PanelErrorBoundary from "@/components/PanelErrorBoundary";
 import { InvestigationFilterProvider, InvestigationFilterBar } from "@/components/investigation/InvestigationFilter";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
@@ -889,13 +893,19 @@ function WorkspacePageInner() {
   useIdlePersist("nvx.workspace.persist", {
     input,
     output,
-    understanding,
-    inlineStoryPreproc,
-    analystNarrative,
     investigationMode,
-    investigationObject,
-  }, { bulkFields: ["understanding", "inlineStoryPreproc",
-                      "analystNarrative", "investigationObject"] });
+    // ── Phase 5.W permanent fix P0.c (2026-08-11) ─────────────────
+    // `understanding`, `inlineStoryPreproc`, `analystNarrative` and
+    // `investigationObject` were removed from the idle-persist
+    // snapshot: they can be arbitrarily large (100 KB – multiple MB
+    // once VEEE / attack_progression / behaviour clusters are
+    // hydrated), and stringifying them on every state change was
+    // the root cause of the "Page Unresponsive" freeze on any
+    // non-trivial upload / paste. If the user needs the previous
+    // investigation on reload, they re-open the saved case from
+    // `/api/cases/{id}` (fast, authoritative, versioned) — which is
+    // the same path the Case Library restore button already uses.
+  }, { bulkFields: [] });
 
 
   useEffect(() => {
@@ -3472,7 +3482,9 @@ function WorkspacePageInner() {
               never needs to switch tabs to see the timeline. */}
           {inlineStoryPreproc && (
             <div style={{ margin: "0 12px 8px" }}>
-              <InlineAttackStory preprocessor={inlineStoryPreproc} />
+              <PanelErrorBoundary panel="Inline Attack Story">
+                <InlineAttackStory preprocessor={inlineStoryPreproc} />
+              </PanelErrorBoundary>
             </div>
           )}
 
@@ -3502,10 +3514,12 @@ function WorkspacePageInner() {
                                    testid="attack-trajectory-section"
                                    style={{ margin: "0 12px 8px" }}>
                 <TrajErrorBoundary>
-                  <TrajectoryDiagram
-                    preprocessor={preprocForTraj}
-                    behaviors={incidentBehaviors}
-                  />
+                  <PanelErrorBoundary panel="Attack Trajectory">
+                    <TrajectoryDiagram
+                      preprocessor={preprocForTraj}
+                      behaviors={incidentBehaviors}
+                    />
+                  </PanelErrorBoundary>
                 </TrajErrorBoundary>
               </CollapsibleSection>
             );
@@ -3517,7 +3531,9 @@ function WorkspacePageInner() {
               Threat-actor context.  Zero LLM. */}
           {analystNarrative && (
             <div style={{ margin: "0 12px 8px" }}>
-              <AnalystNarrativePanel narrative={analystNarrative} />
+              <PanelErrorBoundary panel="Analyst Narrative">
+                <AnalystNarrativePanel narrative={analystNarrative} />
+              </PanelErrorBoundary>
             </div>
           )}
 
@@ -3867,26 +3883,28 @@ function WorkspacePageInner() {
           )}
         </section>
 
-        <ThreatAnalysis
-          analysis={analysis}
-          loading={analyzing}
-          selectedTactic={tacticFilter}
-          onClearTactic={() => setTacticFilter(null)}
-          rawInput={input}
-          decodedOutput={output}
-          decodeTrace={decodeTrace}
-          decodeEngine={decodeWinnerEngine}
-          decodeConfidence={decodeConfidence}
-          reachedShellcode={reachedShellcode}
-          onRerunFromNode={(layerIdx) => {
-            const layer = decodeTrace[layerIdx];
-            if (layer && !layer.error) {
-              setOutput(layer.output_preview || "");
-              setSteps(decodeTrace.slice(0, layerIdx + 1).map((t) => ({ op: t.op, args: t.args || {} })));
-              setStatus(`▸ RE-RUNNING FROM LAYER ${layerIdx + 1} (${layer.op})`);
-            }
-          }}
-        />
+        <PanelErrorBoundary panel="Threat Analysis">
+          <ThreatAnalysis
+            analysis={analysis}
+            loading={analyzing}
+            selectedTactic={tacticFilter}
+            onClearTactic={() => setTacticFilter(null)}
+            rawInput={input}
+            decodedOutput={output}
+            decodeTrace={decodeTrace}
+            decodeEngine={decodeWinnerEngine}
+            decodeConfidence={decodeConfidence}
+            reachedShellcode={reachedShellcode}
+            onRerunFromNode={(layerIdx) => {
+              const layer = decodeTrace[layerIdx];
+              if (layer && !layer.error) {
+                setOutput(layer.output_preview || "");
+                setSteps(decodeTrace.slice(0, layerIdx + 1).map((t) => ({ op: t.op, args: t.args || {} })));
+                setStatus(`▸ RE-RUNNING FROM LAYER ${layerIdx + 1} (${layer.op})`);
+              }
+            }}
+          />
+        </PanelErrorBoundary>
       </div>
 
       {showMagic && magicResults && (
