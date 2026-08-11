@@ -270,8 +270,29 @@ def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dic
         t["kill_chain"] = current_kc
     obj["mitre"] = existing_mitre
 
+    # ── Phase 5.W permanent fix · P0.2 evidence-chain gate ─────────
+    # Owner directive: every emitted MITRE technique MUST carry
+    # structured evidence {source, event_or_rule, field,
+    # observed_value, evidence_ref}. No valid evidence → suppress
+    # the emission and record it in `mitre_suppressed` for
+    # observability.  Does NOT invent evidence.
+    from .mitre_evidence_chain import enforce_evidence_chain
+    _kept, _dropped = enforce_evidence_chain(existing_mitre)
+    obj["mitre"] = _kept
+    if _dropped:
+        obj["mitre_suppressed_count"] = len(_dropped)
+        obj["mitre_suppressed"] = [
+            {"id": d.get("id"), "reason": d.get("suppression_reason")}
+            for d in _dropped
+        ]
+    existing_mitre = _kept
+    existing_ids = {t.get("id") for t in existing_mitre if isinstance(t, dict)}
+
     # If no techniques ANYWHERE, bail out — nothing to project.
+    # Still slim the wire response so the empty-input branch does not
+    # leak forbidden heavy fields (P0.3 GUARD 1 tightening 2026-08-11).
     if not existing_mitre:
+        _slim_investigation_response(result)
         return result
 
     # ── ALWAYS mirror object.mitre → narrative.* so the Workspace

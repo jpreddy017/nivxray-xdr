@@ -337,6 +337,73 @@ Owner directive: "Proceed with P0.3 only. Add the Sample1 immutability guard and
 
 **Awaiting owner review before proceeding to P0.2 (evidence chain).**
 
+## Phase 5.W permanent fix · P0.2 Evidence-Chain (2026-08-11, session-7 · CLOSED)
+
+Owner directive: "Every emitted MITRE technique must carry structured evidence `{source, event_or_rule, field, observed_value, evidence_ref}`. No valid evidence → do not emit. Do not manufacture evidence. Suppress instead."
+
+### Implementation
+
+- `services/die/mitre_evidence_chain.py` — pure normaliser + gate:
+  - `enforce_evidence_chain(list) → (kept, suppressed)`
+  - `_normalise_evidence(technique)` — accepts 3 shapes without inventing:
+    1. Pre-structured `evidence: [{source, event_or_rule, field, observed_value, evidence_ref}, …]`
+    2. `matched: list[str]` (narrative rules from `canonical_bridge`)
+    3. `matched: list[dict]` (family/rule/match/offset shape)
+    4. Free-text SEP CSV pattern `"SEP category 'X' (action=Y)"`
+  - Any other free-text → suppressed (no invention).
+  - `evidence_ref = "ev-" + sha256(seed)[:12]` — deterministic.
+- Wired into `services/die/canonical_bridge.py::augment_investigation_results` at the merge point (lines 273-289):
+  - `obj["mitre"]` = kept techniques only
+  - `obj["mitre_suppressed"]` + `mitre_suppressed_count` = observability for drops
+- Empty-input branch fix (2026-08-11): the early-return path when no techniques survive now also runs `_slim_investigation_response()` so forbidden heavy fields do not leak on empty input.
+
+### Test suite
+
+- `tests/canonical/api/test_p02_evidence_chain.py` — 32 tests:
+  - Unit (11): structured/preserved, no-evidence-suppressed, freetext-no-pattern-suppressed, SEP-pattern-normalised, canonical-matched-list, partial-evidence-rejected × 5 (per required key), narrative-matched-string-list normalised, evidence_ref-deterministic, no-id-dropped, empty-value boundary × 5.
+  - Wire (21): every-mitre-has-evidence × 2, all-5-required-keys × 2, no-partial-on-wire × 2, evidence_ref-prefixed × 2, empty-input-no-fabrication, wire-response-deterministic, suppression-shape × 2 (skip when absent), csv-path-still-produces-gated-techniques.
+- `tests/canonical/api/test_investigation_results_payload_shape.py` extended: parametrize now includes `("empty", "")` on size / allow-list / forbidden-keys tests so the empty-input branch stays contract-locked.
+
+### Test results (2026-08-11)
+
+| File | Passed | Skipped | Failed | Errors |
+|---|---:|---:|---:|---:|
+| `test_p02_evidence_chain.py` | 30 | 2* | 0 | 0 |
+| `test_investigation_results_payload_shape.py` | 13 | 0 | 0 | 0 |
+| `test_sample1_immutability_guard.py` | 1 | 2** | 0 | 0 |
+| `test_workspace_isolation_guard.py` | 3 | 0 | 0 | 0 |
+| **canonical/api total** | **46** | **4** | **0** | **0** |
+
+`*` Suppression-shape tests skip when the fixture inputs produce zero drops (kept + skipped = full parametrize coverage).
+`**` Sample1 runtime checks skip on non-Sample1 pods (verified live on Sample1-hosting pod earlier).
+
+### Wire-probe verification (external REACT_APP_BACKEND_URL)
+
+Testing agent independently POSTed the CSV / prose / empty / duplicate fixtures against the live pod. Verified matrix:
+
+| Input | Status | Size | MITRE count | Evidence completeness | Forbidden keys |
+|---|---|---|---|---|---|
+| SEP CSV | 200 | 20.6 KB | 4 | 4/4 all 5 keys populated | none |
+| Prose | 200 | 11.4 KB | 1 | 1/1 all 5 keys populated | none |
+| Empty (before fix) | 200 | 23 KB | 0 | n/a | 8 leaked |
+| Empty (after fix)  | 200 | ≤ 250 KB | 0 | n/a | none |
+| Determinism (×2)  | equal `evidence_ref` sha256 across duplicate calls | | | | |
+
+### What P0.2 guarantees
+
+- **Zero fabrication**: no MITRE technique is emitted without a citable evidence record.
+- **Provenance**: every emission carries `{source, event_or_rule, field, observed_value, evidence_ref}` non-empty on the wire.
+- **Determinism**: `evidence_ref` is a deterministic sha256[:12] — no clock, no random.
+- **Observability**: drops surface via `object.mitre_suppressed[]` with reasons.
+
+### What P0.2 does NOT do
+
+- Does not open the door to any vendor adapter (Sysmon/CrowdStrike/Defender/SentinelOne) or OSINT wiring. Still owner-gated.
+- Does not modify Sample1, Workspace behaviour, or X-Lab boundary.
+- Does not touch ADR-005 route migrations (5.2–5.8) — still gated.
+
+**P0.2 closed. Ready for owner sign-off on P1.1 (Sysmon adapter via canonical interface).**
+
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 
 - Owner decisions applied verbatim: Q1=1a (child-SSOT recursion) · Q2=2a (existing budget) · Q3=3c (generic UTF-8 filter) · Q4=4a (raw XML — no tag-strip).

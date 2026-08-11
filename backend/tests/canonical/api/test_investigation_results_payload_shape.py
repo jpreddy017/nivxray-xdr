@@ -148,6 +148,7 @@ def _post(client, text: str) -> dict:
 @pytest.mark.parametrize("label,text", [
     ("csv_edr", _fixture_csv()),
     ("prose",   _fixture_prose()),
+    ("empty",   ""),
 ])
 def test_response_size_under_budget(client, label, text):
     resp = _post(client, text)
@@ -165,6 +166,7 @@ def test_response_size_under_budget(client, label, text):
 @pytest.mark.parametrize("label,text", [
     ("csv_edr", _fixture_csv()),
     ("prose",   _fixture_prose()),
+    ("empty",   ""),
 ])
 def test_object_keys_are_allow_listed(client, label, text):
     resp = _post(client, text)
@@ -185,6 +187,7 @@ def test_object_keys_are_allow_listed(client, label, text):
 @pytest.mark.parametrize("label,text", [
     ("csv_edr", _fixture_csv()),
     ("prose",   _fixture_prose()),
+    ("empty",   ""),
 ])
 def test_forbidden_heavy_fields_absent(client, label, text):
     resp = _post(client, text)
