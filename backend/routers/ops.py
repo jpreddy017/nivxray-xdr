@@ -413,32 +413,42 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
         except UnicodeDecodeError:
             pass
     # ── Phase 5.W · DOCX/PPTX/XLSX/ZIP text extraction ────────────────
+    # P0 Security Hardening Gate: extraction is now guarded by
+    # `safe_iter_zip_members` — enforces depth / entry-count / total
+    # expanded size / per-entry size / compression ratio / path safety
+    # BEFORE any member bytes are read. Fail-loud on any breach.
+    archive_error: dict | None = None
     if text is None and len(raw) >= 4 and raw[:2] == b"PK":
         try:
-            import io as _io
             import re as _re
-            import zipfile as _zip
-            with _zip.ZipFile(_io.BytesIO(raw)) as zf:
-                parts = []
-                for name in zf.namelist():
-                    try:
-                        member = zf.read(name)
-                    except Exception:                            # noqa: BLE001
-                        continue
-                    try:
-                        decoded = member.decode("utf-8")
-                    except UnicodeDecodeError:
-                        continue
-                    # Strip XML tags for narrative text; keep raw for
-                    # tag-embedded IOCs by concatenating both views.
-                    stripped = _re.sub(r"<[^>]+>", " ", decoded)
-                    stripped = _re.sub(r"\s+", " ", stripped).strip()
-                    if stripped:
-                        parts.append(f"[{name}] {stripped}")
-                if parts:
-                    text = "\n".join(parts)[:400_000]
-        except Exception:                                        # noqa: BLE001
-            pass
+            from security.archive_guard import (
+                safe_iter_zip_members, ArchiveGuardError,
+            )
+            parts: list[str] = []
+            for name, member in safe_iter_zip_members(raw):
+                try:
+                    decoded = member.decode("utf-8")
+                except UnicodeDecodeError:
+                    continue
+                # Strip XML tags for narrative text; keep raw for
+                # tag-embedded IOCs by concatenating both views.
+                stripped = _re.sub(r"<[^>]+>", " ", decoded)
+                stripped = _re.sub(r"\s+", " ", stripped).strip()
+                if stripped:
+                    parts.append(f"[{name}] {stripped}")
+            if parts:
+                text = "\n".join(parts)[:400_000]
+        except ArchiveGuardError as e:
+            # Fail-LOUD: record the structured refusal on the response
+            # instead of silently swallowing. The endpoint still returns
+            # 200 for the analyst-facing path (upload succeeded, archive
+            # refused) but carries a `archive_refused` block so the
+            # analyst sees exactly why.
+            archive_error = e.to_dict()
+        except Exception as e:                                    # noqa: BLE001
+            archive_error = {"error": "archive_guard",
+                             "reason": "archive_unexpected_error",
+                             "parser": type(e).__name__}
     hex_dump = _hex_dump(raw[:512])
     strings_out = _extract_strings(raw, min_len=4, limit=400)
     # ── Phase 5.W · Cap the analyst-facing content to prevent frontend
@@ -475,6 +485,10 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
         "hashes": hashes, "file_type": file_type,
         "text": text_display,
         "hex_dump": hex_dump, "strings": strings_out, "content": content,
+        # P0 Security Hardening Gate: fail-loud archive refusal surface.
+        # ``None`` on normal uploads; structured dict on any archive
+        # limit breach or malformed archive.
+        "archive_refused": archive_error,
     }
 
 

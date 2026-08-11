@@ -56,6 +56,8 @@
 > **Progression after the gate closes:**
 > `P0 Security Hardening (this) → P1 Server-Side File Mode → P2 Real Sysmon/EVTX Adapter → Canonical Evidence Replay → IKG + Correlation promotion → Verdict v3 promotion → ATT&CK / Attack Story / Mitigation wire-up → One coherent Workspace.`
 >
+> **Session-10 · P0 SECURITY HARDENING GATE — 🟢 PASS (2026-08-11)** — All 7 controls implemented, 22 new tests locking them, full canonical API suite green (136 pass · 5 skip · 0 fail · was 114/5 before), zero regression. Evidence report at `/app/memory/adr/0010b-security-hardening-gate.md`. Runtime attack cases proven: login rate-limit trips at 5 fails → HTTP 429 with 15 min lockout; zip-bombs refused with structured `archive_refused` payload (ratio 1025:1, 700-entry count, path-traversal all blocked); backend stays healthy under attack. Protected surfaces (RC5/DIE · Workspace · IKG · Verdict v3 · Case Engine · routes · schemas · flags) all UNCHANGED. Next session opens on **P1 Server-Side File Mode**.
+>
 > Discovery / planning loop is CLOSED. Next session ships code.
 >
 > **📌 Full backlog ledger**: [`/app/memory/REMINDERS.md`](./REMINDERS.md) — every partially executed, pending, and skipped item with rationale. Read this at the start of any session that isn't strictly executing the P0 directive.

@@ -10,16 +10,18 @@ Read this whenever a session opens if you want the full backlog, not just the P0
 
 ## 🔴 IMMEDIATE NEXT (unblocked, waiting for a session to open on it)
 
-- [ ] **P0 · Security Hardening Gate** — locked as the next implementation move.
-  - Login/API auth rate-limit on `/api/auth/login`
-  - Explicit CORS allow-list (remove `["*"]` + credentials)
-  - Zip / decompression-bomb guard on `/api/upload`
-  - Archive recursion / depth / file-count / expanded-size limits
-  - Ratio-cap (compressed:uncompressed) protection
-  - Safe fail-loud for malformed archives
-  - Regression + security tests for each guard
-  - **Deliverable**: ADR-0010b · Security Gate Evidence Report (before/after · limits · tests · attack cases · PASS/FAIL verdict)
-  - **Constraints (all hard)**: do NOT modify IKG · do NOT promote Verdict v3 · do NOT modify Case Engine · do NOT implement Server-Side File Mode · do NOT delete routes · do NOT add new NIVX_FLAG_* · do NOT change Workspace behaviour · preserve RC5/DIE behaviour · keep isolated and test-locked
+- [x] **P0 · Security Hardening Gate** — 🟢 CLOSED 2026-08-11 · Session-10 · ADR-0010b PASS.
+  - [x] Login/API auth rate-limit on `/api/auth/login` (sliding window · 5 fails / 5 min · 15 min lockout)
+  - [x] Explicit CORS allow-list (wildcard mode forces credentials off)
+  - [x] Zip / decompression-bomb guard on `/api/upload` (ratio ≤ 200:1)
+  - [x] Archive recursion / depth / file-count / expanded-size limits (depth 3 · 512 entries · 50 MB total · 16 MB per-entry)
+  - [x] Path-traversal blocked (`../`, absolute, backslash)
+  - [x] Safe fail-loud for malformed archives (structured `archive_refused` response block)
+  - [x] Regression + security tests locking each guard (22 new tests · full canonical suite: 136 pass / 5 skip / 0 fail)
+  - [x] ADR-0010b evidence report at `/app/memory/adr/0010b-security-hardening-gate.md`
+  - **Verdict**: 🟢 PASS · P1 readiness confirmed YES.
+
+- [ ] **P1 · Server-Side File Mode** — NOW UNBLOCKED. Next session opens here.
 
 ---
 

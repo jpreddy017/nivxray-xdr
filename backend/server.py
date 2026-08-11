@@ -414,10 +414,17 @@ app.add_middleware(RequestHardeningMiddleware)
 # the parse issue without touching the payload semantics.
 app.add_middleware(GZipMiddleware, minimum_size=4096, compresslevel=6)
 
+# ── CORS · P0 Security Hardening Gate (ADR-0010b §CORS) ───────────────
+# Wildcard ``*`` + credentials is spec-invalid; when the env is unset or
+# ``*``, credentials are FORCED OFF. Explicit allow-lists get credentials.
+from security.cors import resolve_cors_policy  # noqa: E402
+_cors_origins, _cors_credentials, _cors_wildcard = resolve_cors_policy()
+log.info("CORS policy: origins=%d wildcard=%s credentials=%s",
+         len(_cors_origins), _cors_wildcard, _cors_credentials)
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_credentials=_cors_credentials,
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

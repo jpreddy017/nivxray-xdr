@@ -1,5 +1,5 @@
 """Auth router — /api/auth/login, /api/auth/me, /api/auth/change-password"""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from schemas import LoginIn, TokenOut
@@ -7,6 +7,7 @@ from deps import (
     db, get_current_user, get_current_user_raw,
     verify_password, hash_password, create_token,
 )
+from security.rate_limit import LOGIN_LIMITER
 
 router = APIRouter()
 
@@ -22,11 +23,49 @@ async def root():
     return {"service": "NivXRay", "status": "ok"}
 
 
+def _client_ip(request: Request) -> str:
+    # Trust the outer proxy header only when present; else socket.
+    xf = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    return xf or (request.client.host if request.client else "unknown")
+
+
 @router.post("/auth/login", response_model=TokenOut)
-async def login(body: LoginIn):
+async def login(body: LoginIn, request: Request):
+    """P0 Security Hardening Gate: sliding-window rate limit.
+
+    Keyed by ``(email, client_ip)`` — a single attacker hitting many
+    accounts and a single account being probed from many IPs are BOTH
+    throttled. On lockout we return HTTP 429 with a structured payload
+    and a ``Retry-After`` header. Successful login clears counters for
+    that key.
+    """
+    key = f"login|{body.email.lower().strip()}|{_client_ip(request)}"
+    pre = LOGIN_LIMITER.check(key)
+    if not pre.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "rate_limited",
+                "reason": pre.reason,
+                "retry_after_seconds": pre.retry_after,
+            },
+            headers={"Retry-After": str(pre.retry_after)},
+        )
     u = await db.users.find_one({"email": body.email})
     if not u or not verify_password(body.password, u["password"]):
+        post = LOGIN_LIMITER.record_failure(key)
+        if not post.allowed:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limited",
+                    "reason": post.reason,
+                    "retry_after_seconds": post.retry_after,
+                },
+                headers={"Retry-After": str(post.retry_after)},
+            )
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    LOGIN_LIMITER.record_success(key)
     return TokenOut(access_token=create_token(body.email), email=body.email)
 
 
