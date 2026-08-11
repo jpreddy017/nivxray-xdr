@@ -374,6 +374,12 @@ function WorkspacePageInner() {
     // Fall back to the persisted Workspace session.
     return _persisted.input || "";
   });
+  // Deferred copy of `input` (2026-08-11) — Timeline / Query panels
+  // consume this instead of the raw state so a large-paste doesn't
+  // cascade into synchronous re-fetches while the browser is still
+  // committing the textarea update.  React yields between the
+  // urgent (textarea) and non-urgent (panel) work.
+  const deferredInput = useDeferredValue(input);
   const [output, setOutput] = useState(() => _pageWasReloaded ? "" : (_persisted.output || ""));
   const [steps, setSteps] = useState([]);
   const [detected, setDetected] = useState(null);
@@ -3580,38 +3586,55 @@ function WorkspacePageInner() {
             );
           })()}
 
-          {/* ▲ Workspace Timeline · MVP (2026-08-11)
+          {/* ▲ Workspace Timeline · MVP (2026-08-11) ·
+              Guarded 2026-08-11 against very-large-paste UI freezes:
+                · `useDeferredValue` on `input` so a paste settles
+                  before Timeline/Query re-fetch.
+                · Panels only mount when input.length ≤ 64 KB — larger
+                  inputs go straight to the Investigate lane which
+                  runs on the backend; auto-visualization is skipped
+                  to keep the browser thread responsive.  A hint tells
+                  the analyst what happened.
               Read-only chronological projection over the existing
               canonical investigation evidence (highconf_events +
               P0.2 evidence chain).  Only events with real timestamps
               appear here; narrative-only MITRE mentions remain in the
               MITRE panels.  Pure projection — no new detection logic. */}
-          {investigationMode && input && input.trim() && (
+          {investigationMode && input && input.trim() && input.length > 32 * 1024 && (
+            <div data-testid="timeline-too-large-hint"
+                 style={{ margin: "0 12px 8px", padding: 12, borderRadius: 6,
+                          background: "rgba(234, 179, 8, 0.08)",
+                          border: "1px dashed rgba(234, 179, 8, 0.4)",
+                          color: "#fde68a", fontSize: 12, lineHeight: 1.55 }}>
+              Timeline &amp; Query/Hunt auto-visualization skipped — the
+              current input is <b>{Math.round(input.length / 1024)} KB</b>,
+              above the 32 KB safety ceiling. The main investigation
+              (Summary · MITRE · Evidence · Attack Chain · Verdict)
+              still runs against the full input on the backend.
+            </div>
+          )}
+          {investigationMode && input && input.trim() && input.length <= 32 * 1024 && (
             <CollapsibleSection title="Timeline · Evidence-backed chronology"
                                  subtitle="Chronological projection of canonical events · click to expand evidence chain"
                                  testid="timeline-section"
                                  style={{ margin: "0 12px 8px" }}>
               <PanelErrorBoundary panel="Workspace Timeline">
-                <TimelinePanel rawInput={input} />
+                <TimelinePanel rawInput={deferredInput} />
               </PanelErrorBoundary>
             </CollapsibleSection>
           )}
 
           {/* ▲ Workspace Query / Hunt · MVP (2026-08-11)
-              Optional scoped sub-view over the same canonical
-              investigation evidence.  Additive UI — does NOT modify
-              the default Workspace investigation or the Timeline
-              MVP behavior.  Every result row shares the Timeline
-              event shape so future Process-Tree / Graph views can
-              consume the same records. */}
-          {investigationMode && input && input.trim() && (
+              Same 64 KB safety guard as Timeline above; deferred
+              `input` so a large paste settles before Query re-fetch. */}
+          {investigationMode && input && input.trim() && input.length <= 64 * 1024 && (
             <CollapsibleSection title="Query / Hunt · Scoped sub-view"
                                  subtitle="Optional analyst filter · Table / Timeline projections of the current investigation"
                                  testid="query-hunt-section"
                                  defaultOpen={false}
                                  style={{ margin: "0 12px 8px" }}>
               <PanelErrorBoundary panel="Query/Hunt">
-                <QueryHuntPanel rawInput={input} />
+                <QueryHuntPanel rawInput={deferredInput} />
               </PanelErrorBoundary>
             </CollapsibleSection>
           )}
