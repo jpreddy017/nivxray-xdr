@@ -337,6 +337,97 @@ class TestWireQueryHunt:
 
 
 # ─────────────────────────────────────────────────────────────────
+#  Auto-Visualization capability contract (2026-08-11).
+# ─────────────────────────────────────────────────────────────────
+class TestAutoVisualization:
+    """Query response MUST expose `capabilities` and `default_view`
+    that let the Workspace UI pick the right visualization without
+    inventing evidence."""
+
+    def test_zero_results_disables_every_visualization(self, client):
+        """The dangerous case the owner flagged: 0 results MUST NOT
+        fall back to the unfiltered investigation.  Every capability
+        is False, default_view is None, and the frontend renders an
+        explicit no-visualization state."""
+        q = _post_query(client, _fixture_sep_csv(), {"host": "NONEXISTENT"})
+        assert q["event_count"] == 0
+        assert q["default_view"] is None, (
+            "default_view MUST be None for 0-result queries so the UI "
+            "cannot silently substitute the full investigation."
+        )
+        caps = q["capabilities"]
+        assert caps == {"timeline": False, "process_tree": False,
+                        "graph": False, "table": False}, (
+            f"0-result query must disable every visualization; got {caps}"
+        )
+
+    def test_capabilities_present_for_all_wire_responses(self, client):
+        q = _post_query(client, _fixture_sep_csv(), {})
+        assert "capabilities" in q
+        assert "default_view" in q
+        assert set(q["capabilities"]) == {"timeline", "process_tree", "graph", "table"}
+        for k, v in q["capabilities"].items():
+            assert isinstance(v, bool), f"capabilities.{k} must be bool, got {type(v)}"
+
+    def test_sep_csv_supports_all_four_visualizations(self, client):
+        """The SEP fixture has 2 hosts + 2 users + a parent→child edge
+        (launcher.exe → winlogon.exe).  Every visualization is
+        evidence-supported."""
+        q = _post_query(client, _fixture_sep_csv(), {})
+        assert q["capabilities"] == {"timeline": True, "process_tree": True,
+                                     "graph": True, "table": True}
+        assert q["parent_child_edges"] >= 1
+        assert len(q["matched_hosts"]) >= 2
+        assert len(q["matched_users"]) >= 2
+
+    def test_default_view_is_process_tree_when_parent_child_evidence_exists(self, client):
+        """process_tree is a stronger signal than timeline when
+        parent→child evidence exists — the UI defaults to it."""
+        q = _post_query(client, _fixture_sep_csv(), {})
+        assert q["default_view"] == "process_tree"
+
+    def test_default_view_is_timeline_when_no_parent_child_evidence(self, client):
+        """Filter down to events without parent_process → default_view
+        should degrade to timeline (still evidence-backed)."""
+        # rjones' foo.exe event has no parent_process in the fixture.
+        q = _post_query(client, _fixture_sep_csv(), {"user": "rjones"})
+        assert q["event_count"] > 0
+        assert q["parent_child_edges"] == 0
+        assert q["capabilities"]["process_tree"] is False
+        assert q["default_view"] == "timeline"
+
+    def test_graph_only_when_two_or_more_hosts_or_edges(self, client):
+        # Restrict to a single host → graph capability may still be
+        # true if a parent→child edge is present, but hosts alone are
+        # insufficient.  Verify the derivation is truthful.
+        q = _post_query(client, _fixture_sep_csv(), {"host": "DMZ02"})
+        # DMZ02 = rjones' single event, no parent_process
+        assert len(q["matched_hosts"]) == 1
+        assert len(q["matched_users"]) == 1
+        assert q["parent_child_edges"] == 0
+        assert q["capabilities"]["graph"] is False
+
+    def test_matched_processes_present_when_events_exist(self, client):
+        q = _post_query(client, _fixture_sep_csv(), {})
+        assert isinstance(q.get("matched_processes"), list)
+        assert "winlogon.exe" in q["matched_processes"]
+
+    def test_zero_result_does_not_report_underlying_events_as_matched(self, client):
+        """Guardrail: 0 results must NOT accidentally expose the
+        underlying investigation's hosts/users/processes."""
+        q = _post_query(client, _fixture_sep_csv(), {"host": "NONEXISTENT"})
+        assert q["event_count"] == 0
+        assert q["matched_hosts"] == []
+        assert q["matched_users"] == []
+        assert q["matched_processes"] == []
+        assert q["parent_child_edges"] == 0
+        # But `total_available` still shows what the analyst filtered from —
+        # so they know the investigation itself has 5 events and their
+        # filter was the reason for the empty result.
+        assert q["total_available"] >= 1
+
+
+# ─────────────────────────────────────────────────────────────────
 #  Cross-endpoint invariance — the "Sample1 equivalent" for Query.
 # ─────────────────────────────────────────────────────────────────
 class TestQueryDoesNotPerturb:

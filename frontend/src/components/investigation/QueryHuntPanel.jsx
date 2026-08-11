@@ -118,6 +118,138 @@ function ScopedTimelineView({ rows }) {
   );
 }
 
+
+function ProcessTreeView({ rows }) {
+  // Group rows into parent-child chains.  Each observed edge is
+  // (parent_process → process) from a single event.  We NEVER
+  // manufacture edges — the tree only shows relationships the
+  // underlying evidence explicitly recorded.
+  const edges = rows.filter(r => (r.parent_process || "").trim() && (r.process || "").trim());
+  if (!edges.length) {
+    return (
+      <div style={S.empty} data-testid="qh-process-tree-empty">
+        No parent-process evidence in the result set. Process Tree cannot be
+        constructed from this query.
+      </div>
+    );
+  }
+  // Group by (host + parent).
+  const groups = {};
+  edges.forEach(r => {
+    const key = `${r.host || "(unknown host)"} ▸ ${r.parent_process}`;
+    (groups[key] = groups[key] || []).push(r);
+  });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}
+         data-testid="qh-process-tree">
+      {Object.entries(groups).map(([groupKey, kids], gi) => (
+        <div key={groupKey} data-testid={`qh-process-tree-group-${gi}`}
+             style={{ padding: 10, borderRadius: 6,
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid var(--border-subtle, #1f2937)" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+            {groupKey}
+          </div>
+          <div style={{ paddingLeft: 14, borderLeft: "2px dashed rgba(255,255,255,0.15)",
+                        display: "flex", flexDirection: "column", gap: 4 }}>
+            {kids.map((k, i) => (
+              <div key={`${k.timestamp}-${i}`}
+                   data-testid={`qh-process-tree-child-${gi}-${i}`}
+                   style={{ display: "flex", gap: 10, fontSize: 11.5, alignItems: "center" }}>
+                <span style={{ opacity: 0.55, fontFamily: "ui-monospace, SFMono-Regular, monospace" }}>
+                  ↳ {k.timestamp}
+                </span>
+                <span style={{ fontWeight: 500 }}>{k.process}</span>
+                <ConfidenceBadge level={k.confidence} />
+                {k.mitre?.length ? (
+                  <span style={{ opacity: 0.75 }}>{k.mitre.map(m => m.id).join(", ")}</span>
+                ) : null}
+                {k.evidence_ref && (
+                  <span style={{ opacity: 0.6,
+                                 fontFamily: "ui-monospace, SFMono-Regular, monospace" }}>
+                    ev {k.evidence_ref}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+function RelationshipGraphView({ payload }) {
+  const rows  = payload?.results || [];
+  if (!rows.length) return <div style={S.empty}>No events.</div>;
+  const hosts = payload.matched_hosts     || [];
+  const users = payload.matched_users     || [];
+  const procs = payload.matched_processes || [];
+  // Only build edges the evidence explicitly recorded.
+  const edges = [];
+  rows.forEach(r => {
+    if (r.host && r.user)                        edges.push(["host:"+r.host,       "user:"+r.user,       "on"]);
+    if (r.user && r.process)                     edges.push(["user:"+r.user,       "process:"+r.process, "ran"]);
+    if (r.parent_process && r.process)           edges.push(["process:"+r.parent_process, "process:"+r.process, "spawned"]);
+  });
+  // Dedupe edges (rare — same event contributes once).
+  const uniq = Array.from(new Set(edges.map(e => e.join("|")))).map(s => s.split("|"));
+
+  return (
+    <div style={{ display: "grid", gap: 10 }} data-testid="qh-graph">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        {[
+          { label: "Hosts",     items: hosts, testid: "qh-graph-hosts" },
+          { label: "Users",     items: users, testid: "qh-graph-users" },
+          { label: "Processes", items: procs, testid: "qh-graph-processes" },
+        ].map(col => (
+          <div key={col.label} data-testid={col.testid}
+               style={{ padding: 10, borderRadius: 6,
+                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid var(--border-subtle, #1f2937)" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.65,
+                          marginBottom: 6, letterSpacing: 0.5 }}>
+              {col.label.toUpperCase()} · {col.items.length}
+            </div>
+            {col.items.length === 0
+              ? <div style={{ fontSize: 11, opacity: 0.5 }}>none</div>
+              : col.items.map(it => (
+                  <div key={it} style={{ fontSize: 11.5,
+                                         fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                                         padding: "2px 0" }}>
+                    {it}
+                  </div>))}
+          </div>
+        ))}
+      </div>
+      <div data-testid="qh-graph-edges"
+           style={{ padding: 10, borderRadius: 6,
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid var(--border-subtle, #1f2937)" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.65,
+                      marginBottom: 6, letterSpacing: 0.5 }}>
+          EVIDENCE-BACKED EDGES · {uniq.length}
+        </div>
+        {uniq.length === 0
+          ? <div style={{ fontSize: 11, opacity: 0.5 }}>
+              No relationships supported by the current result set.
+            </div>
+          : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4,
+                          fontSize: 11.5,
+                          fontFamily: "ui-monospace, SFMono-Regular, monospace" }}>
+              {uniq.map((e, i) => (
+                <div key={i} data-testid={`qh-graph-edge-${i}`}>
+                  {e[0]}  ─{e[2]}→  {e[1]}
+                </div>
+              ))}
+            </div>)}
+      </div>
+    </div>
+  );
+}
+
 function TableView({ rows }) {
   if (!rows?.length) return <div style={S.empty} data-testid="qh-table-empty">No events in result set.</div>;
   return (
@@ -155,7 +287,9 @@ export default function QueryHuntPanel({ rawInput }) {
   const [status, setStatus]   = useState("idle");   // idle · loading · ready · error
   const [error, setError]     = useState(null);
   const [payload, setPayload] = useState(null);
-  const [view, setView]       = useState("timeline"); // timeline | table
+  const [view, setView]       = useState(null);     // null → follows payload.default_view
+
+  const activeView = view || payload?.default_view || "timeline";
 
   const summary = useMemo(() => {
     if (!payload) return null;
@@ -163,6 +297,7 @@ export default function QueryHuntPanel({ rawInput }) {
     parts.push(`${payload.event_count} of ${payload.total_available} events`);
     if (payload.matched_hosts?.length) parts.push(`${payload.matched_hosts.length} hosts`);
     if (payload.matched_users?.length) parts.push(`${payload.matched_users.length} users`);
+    if (payload.parent_child_edges)    parts.push(`${payload.parent_child_edges} parent→child edges`);
     return parts.join(" · ");
   }, [payload]);
 
@@ -172,7 +307,7 @@ export default function QueryHuntPanel({ rawInput }) {
       setStatus("error");
       return;
     }
-    setStatus("loading"); setError(null);
+    setStatus("loading"); setError(null); setView(null); // reset view → auto
     api.post("/die/query", { input: rawInput, filters })
       .then(r => { setPayload(r.data); setStatus("ready"); })
       .catch(err => {
@@ -182,7 +317,7 @@ export default function QueryHuntPanel({ rawInput }) {
   };
 
   const clearQuery = () => {
-    setFilters({}); setPayload(null); setStatus("idle"); setError(null);
+    setFilters({}); setPayload(null); setStatus("idle"); setError(null); setView(null);
   };
 
   const update = (k) => (e) => setFilters(prev => ({ ...prev, [k]: e.target.value }));
@@ -224,14 +359,31 @@ export default function QueryHuntPanel({ rawInput }) {
           {status === "loading" ? "Running…" : "Run query"}
         </button>
         <button style={S.btnAlt} onClick={clearQuery} data-testid="qh-clear">Clear</button>
-        {payload && (
+        {payload && payload.event_count > 0 && (
           <div style={S.view}>
-            <button style={S.viewBtn(view === "timeline")}
-                    onClick={() => setView("timeline")}
-                    data-testid="qh-view-timeline">Timeline</button>
-            <button style={S.viewBtn(view === "table")}
-                    onClick={() => setView("table")}
-                    data-testid="qh-view-table">Table</button>
+            {[
+              { key: "table",        label: "Table" },
+              { key: "timeline",     label: "Timeline" },
+              { key: "process_tree", label: "Process Tree" },
+              { key: "graph",        label: "Graph" },
+            ].map(v => {
+              const supported = !!(payload.capabilities || {})[v.key];
+              const active = activeView === v.key && supported;
+              return (
+                <button key={v.key}
+                        style={{
+                          ...S.viewBtn(active),
+                          opacity: supported ? 1 : 0.35,
+                          cursor: supported ? "pointer" : "not-allowed",
+                        }}
+                        disabled={!supported}
+                        title={supported ? "" : "No evidence in this result set supports this view"}
+                        onClick={() => supported && setView(v.key)}
+                        data-testid={`qh-view-${v.key}`}>
+                  {v.label}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -242,16 +394,31 @@ export default function QueryHuntPanel({ rawInput }) {
       {status === "ready" && (
         <>
           <div style={S.summary} data-testid="qh-summary">{summary}</div>
-          {payload.event_count === 0 && payload.total_available > 0 && (
-            <div style={{ ...S.empty, marginBottom: 8, opacity: 0.85 }} data-testid="qh-zero-hint">
-              No events match every filter you set. {Object.keys(payload.filters_applied || {}).length > 1
-                ? "Try removing one filter at a time to see which is over-narrow."
-                : "Try a shorter substring, a different action verb (block / detect / quarantine / allow), or check the timestamp range."}
+          {payload.event_count === 0 && (
+            <div style={{ ...S.empty, marginBottom: 8, opacity: 0.85,
+                          padding: 12, borderRadius: 6,
+                          border: "1px dashed var(--border-subtle, #1f2937)",
+                          background: "rgba(0,0,0,0.15)" }}
+                 data-testid="qh-zero-viz">
+              No events match the filters you set — no evidence-backed
+              visualization can be constructed for this query.
+              {Object.keys(payload.filters_applied || {}).length > 1
+                ? " Try removing one filter at a time to see which is over-narrow."
+                : " Try a shorter substring, a different action verb (block / detect / quarantine / allow), or check the timestamp range."}
+              <div style={{ marginTop: 6, opacity: 0.6, fontSize: 11 }}>
+                The underlying investigation ({payload.total_available} events)
+                is unchanged — this Query result is scoped, not destructive.
+              </div>
             </div>
           )}
-          {view === "timeline"
-            ? <ScopedTimelineView rows={payload.results} />
-            : <TableView          rows={payload.results} />}
+          {payload.event_count > 0 && (
+            <>
+              {activeView === "table"        && <TableView          rows={payload.results} />}
+              {activeView === "timeline"     && <ScopedTimelineView rows={payload.results} />}
+              {activeView === "process_tree" && <ProcessTreeView    rows={payload.results} />}
+              {activeView === "graph"        && <RelationshipGraphView payload={payload} />}
+            </>
+          )}
         </>
       )}
     </div>

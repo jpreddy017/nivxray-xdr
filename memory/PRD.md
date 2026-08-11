@@ -609,6 +609,55 @@ Screenshot: `/tmp/attack_chain_fixed.png`.
 
 **TrajectoryDiagram lane fix closed. Awaiting owner direction on next feature: Query/Hunt → Automatic Investigation View, Sysmon adapter, Attack Story, OSINT, or P1 hygiene.**
 
+## Query → Auto Visualization (2026-08-11, session-7 · CLOSED)
+
+Owner directive: "Query result → automatically generate the appropriate investigation visualization. Default: Timeline. Process Tree: when parent/child evidence exists. Graph: when supported. For a query returning 0 results, generate no Timeline/Process Tree/Graph and clearly show that no evidence-backed visualization can be constructed. Do not fall back to the full unfiltered investigation."
+
+### Backend
+
+`services/die/query_hunt.py::run_query` response envelope now includes:
+
+- `capabilities: {timeline, process_tree, graph, table}` — each a bool derived from the actual result set (no inference)
+- `default_view` — the strongest evidence-backed choice: `process_tree` when parent→child edges exist, else `timeline`, else `None` (0-result case)
+- `matched_processes: [...]`, `parent_child_edges: int` — supporting fields for the visualizations
+
+Derivation rules:
+- `timeline`     = result set is non-empty
+- `process_tree` = at least one row has `parent_process` AND `process`
+- `graph`        = ≥ 2 distinct hosts OR ≥ 2 distinct users OR ≥ 1 parent→child edge
+- `table`        = result set is non-empty
+- `default_view = None` when 0 results — **the safety switch that prevents fallback to unfiltered investigation**
+
+### Frontend
+
+`components/investigation/QueryHuntPanel.jsx`:
+- Two new visualizations: `ProcessTreeView` (parent→child chains grouped by `host ▸ parent`, per-child evidence_ref + confidence + MITRE) and `RelationshipGraphView` (host / user / process columns + evidence-backed edge list)
+- 4-button view selector — buttons for unsupported views are visually disabled with a tooltip explaining why
+- Auto-selection follows `payload.default_view`; user click overrides
+- **Zero-result state** renders an explicit banner: *"No events match … no evidence-backed visualization can be constructed. The underlying investigation (N events) is unchanged — this Query result is scoped, not destructive."*  No visualization surfaces render. No view buttons show.
+
+### Test contract (locked as regression)
+
+| Suite | Passed | New tests |
+|---|---:|---|
+| `test_die_query_hunt.py` | **45** (was 37) | +8 Auto-Viz contract tests: zero-results-disables-all, capabilities-shape, SEP-supports-all-four, process_tree-default-when-parent-child-evidence, timeline-default-otherwise, graph-only-with-2-hosts-or-edges, matched_processes-present, zero-result-doesn't-expose-underlying-hosts |
+| Full `tests/canonical/api/` | **108 passed / 4 skipped / 0 fail** | — |
+
+### End-to-end verification (screenshots)
+
+- **`/tmp/av_process_tree.png`** — SEP.csv empty-filter query → 5/5 events, 2 hosts, 2 users, 2 parent→child edges. All 4 view buttons enabled. Process Tree auto-selected, showing `DMZ01.axium.local ▸ launcher.exe → winlogon.exe` with per-child T-id + evidence_ref + confidence.
+- **`/tmp/av_zero.png`** — Filter `host=NONEXISTENT AND user=ghost` → 0 events. **View buttons hidden. Explicit no-visualization banner shown. Underlying Workspace Timeline (5 events) above unchanged.**
+
+### What was NOT touched (guardrails held)
+
+- `/api/die/investigation-results` payload contract — unchanged.
+- Existing Timeline MVP behaviour — unchanged (Timeline panel above Query/Hunt still shows all 5 events regardless of query).
+- P0.2 evidence chain, P0.3 firewall, Sample1, shared `nivxforge/investigation/pipeline` — untouched.
+- Attack Chain lane fix — untouched (still uses the display-only projection shipped earlier).
+- `launcher.exe` parent-reference behaviour — still a parent reference, not promoted to an independent detection anywhere.
+
+**Query → Auto Visualization closed. Ready for the Sysmon/EVTX adapter as the next capability.**
+
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 
 - Owner decisions applied verbatim: Q1=1a (child-SSOT recursion) · Q2=2a (existing budget) · Q3=3c (generic UTF-8 filter) · Q4=4a (raw XML — no tag-strip).

@@ -198,6 +198,34 @@ def run_query(raw_text: str,
 
     hosts = sorted({e["host"] for e in matched if e.get("host")})
     users = sorted({e["user"] for e in matched if e.get("user")})
+    processes = sorted({e["process"] for e in matched if e.get("process")})
+    # Parent → child edges observed in this result set.  A row with a
+    # `parent_process` and a `process` counts as one directed edge.
+    parent_child_edges = sum(
+        1 for e in matched
+        if (e.get("parent_process") or "").strip()
+        and (e.get("process") or "").strip()
+    )
+
+    # Visualization capabilities are derived directly from the
+    # evidence present in the result set — no detection engine, no
+    # inference beyond "does the data support this view".
+    capabilities = {
+        "timeline":     bool(matched),
+        "process_tree": parent_child_edges > 0,
+        "graph":        (len(hosts) >= 2) or (len(users) >= 2)
+                        or (parent_child_edges >= 1),
+        "table":        bool(matched),
+    }
+    # Suggested default view — the strongest evidence-backed choice.
+    # 0 results → no default; the frontend renders a "no evidence"
+    # state and does NOT fall back to the unfiltered investigation.
+    if not matched:
+        default_view = None
+    elif capabilities["process_tree"]:
+        default_view = "process_tree"
+    else:
+        default_view = "timeline"
 
     return {
         "results":         matched,
@@ -207,6 +235,10 @@ def run_query(raw_text: str,
         "span_end":        matched[-1]["timestamp"] if matched else None,
         "matched_hosts":   hosts,
         "matched_users":   users,
+        "matched_processes": processes,
+        "parent_child_edges": parent_child_edges,
+        "capabilities":    capabilities,
+        "default_view":    default_view,
         "filters_applied": clean,
         "meta": {
             "projection": "workspace_query_hunt_mvp",
