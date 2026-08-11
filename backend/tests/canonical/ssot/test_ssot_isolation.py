@@ -105,6 +105,16 @@ def test_no_route_file_modified_by_phase2():
         "frontend/src/components/PanelErrorBoundary.jsx",
         "frontend/src/pages/WorkspacePage.jsx",
         "frontend/src/hooks/useIdlePersist.js",
+        # P1.1 · Close-the-bridge (owner sign-off 2026-08-11)
+        # /api/upload streams through FileStore first (GridFS + race-safe
+        # dedup + 200 MB server-side cap) BEFORE any RAM buffering.
+        # Response contract preserved; additive `file_id`/`route`/`dedup`
+        # fields only. `init_database()` hardened against post-teardown
+        # closed-client reuse. `server.py` wires the retention sweeper
+        # start/stop into the FastAPI lifespan.
+        "backend/deps.py",
+        "backend/server.py",
+        "backend/services/files/retention_sweeper.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

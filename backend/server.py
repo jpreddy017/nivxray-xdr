@@ -555,8 +555,21 @@ async def _startup():
         log.info("[startup] decoded artifact store indexes ensured")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] decoded artifact indexes failed: {e}")
+    # P1.1 · FileStore retention sweeper (application-controlled TTL)
+    try:
+        from services.files.retention_sweeper import start_retention_sweeper
+        _real_db = object.__getattribute__(db, "_real")
+        start_retention_sweeper(_real_db)
+        log.info("[startup] FileStore retention sweeper armed")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] FileStore retention sweeper failed: {e}")
 
 
 @app.on_event("shutdown")
 async def _shutdown():
+    try:
+        from services.files.retention_sweeper import stop_retention_sweeper
+        await stop_retention_sweeper()
+    except Exception:  # noqa: BLE001
+        pass
     client.close()

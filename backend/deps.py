@@ -156,13 +156,34 @@ security = HTTPBearer()
 def init_database() -> None:
     """Construct the real Motor client & bind the `client` / `db` proxies.
 
-    Idempotent — safe to call multiple times (subsequent calls are no-ops
-    once the proxies are bound). Called from `server.py`'s FastAPI
-    startup handler AFTER `validate_config()` succeeds.
+    Idempotent — safe to call multiple times. If the previously bound
+    client has been closed (e.g. by a FastAPI TestClient teardown in
+    a prior pytest module), we transparently rebind a fresh Motor
+    client so subsequent DB access does not raise
+    ``InvalidOperation: Cannot use MongoClient after close``.
+
+    Called from `server.py`'s FastAPI startup handler AFTER
+    `validate_config()` succeeds.
     """
     # Refuse to bind without validated config — belt-and-suspenders.
     validate_config()
-    if object.__getattribute__(client, "_real") is None:
+    real = object.__getattribute__(client, "_real")
+    # Detect a stale/closed client (Motor wraps pymongo; a closed
+    # pymongo client exposes ``.topology_description.readable_servers``
+    # emptiness — but the cleanest signal is the underlying `_topology`
+    # `_opened_events` count, which we access via the guarded shim
+    # below).
+    stale = False
+    if real is not None:
+        try:
+            inner = real.delegate  # pymongo.MongoClient
+            # Motor exposes `.delegate`; if not, treat as healthy.
+            topo = getattr(inner, "_topology", None)
+            if topo is not None and getattr(topo, "_closed", False):
+                stale = True
+        except Exception:  # noqa: BLE001
+            pass
+    if real is None or stale:
         real_client = AsyncIOMotorClient(os.environ["MONGO_URL"])
         real_db = real_client[os.environ["DB_NAME"]]
         client._bind(real_client)

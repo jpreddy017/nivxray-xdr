@@ -383,21 +383,82 @@ async def run_recipe(body: RunRecipeIn, user=Depends(get_current_user)):
 async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
     """Universal file upload — accepts ANY file format.
 
-    Phase 5.W (2026-08-10): for DOCX/PPTX/XLSX/ZIP the endpoint now
+    P1.1 · Server-Side File Mode bridge (2026-08-11): every upload is
+    now streamed through :pymod:`services.files.store.FileStore` FIRST —
+    getting authoritative SHA-256 + race-safe dedup + server-side size
+    cap (``NIVX_FILES_MAX_UPLOAD_BYTES``, default 200 MB) BEFORE any
+    analysis buffers the bytes in memory. The file bytes are then
+    read back from GridFS for the existing analysis pipeline so the
+    external response contract stays byte-identical for the Workspace.
+
+    Additive-only response fields (safe for legacy consumers that
+    ignore unknown keys):
+
+        * ``file_id``  — opaque server-side identifier (``nvxf_*``)
+        * ``route``    — content-magic-based route from Input Router
+        * ``dedup``    — ``True`` when this content already existed
+                         under the same tenant SHA-256
+
+    Original external contract preserved: ``filename``, ``size``,
+    ``hashes`` (md5/sha1/sha256), ``file_type``, ``text``, ``hex_dump``,
+    ``strings``, ``content``, ``archive_refused``.
+
+    Phase 5.W (2026-08-10): for DOCX/PPTX/XLSX/ZIP the endpoint still
     unzips the archive and concatenates the visible text from every
     UTF-8-decodable member (word/document.xml, ppt/slide*.xml,
-    xl/sharedStrings.xml, …). External contract unchanged — the
-    Workspace still receives `text`/`content` as before, just with
-    the actual document text populated for these formats.
+    xl/sharedStrings.xml, …). External contract unchanged.
     """
-    raw = await file.read()
-    size = len(raw)
+    # ── P1.1 · Stream to FileStore FIRST (no pre-buffer) ────────────
+    from services.files.store import FileStore, FileStoreError
+    from services.files.input_router import route_for
+    from deps import db as _db_proxy
+    _real_db = object.__getattribute__(_db_proxy, "_real")
+    if _real_db is None:
+        from deps import init_database
+        init_database()
+        _real_db = object.__getattribute__(_db_proxy, "_real")
+    _store = FileStore(_real_db)
+    await _store.ensure_indexes()
+
+    # Detect dedup by pre-checking after put(): we compare uploaded_by
+    # / uploaded_at on the returned record to a fresh timestamp window.
+    # Simpler: capture the count of index rows before/after.
+    _pre_count = await _store.index.count_documents(
+        {"tenant_id": "default"}
+    )
+    try:
+        rec = await _store.put(file, uploaded_by=user.get("email", ""))
+    except FileStoreError as e:
+        code = 413 if e.reason == "upload_too_large" else 422
+        raise HTTPException(status_code=code, detail=e.to_dict())
+    _post_count = await _store.index.count_documents(
+        {"tenant_id": "default"}
+    )
+    dedup = _post_count == _pre_count  # no new row → dedup hit
+
+    # ── Read the file bytes back from GridFS for existing analysis ──
+    # Bounded by the server-side 200 MB storage cap; the 64 KB
+    # response `content` cap is enforced later by `_truncate`.
+    stream = await _store.open_read(rec.file_id)
+    chunks: list[bytes] = []
+    while True:
+        chunk = await stream.readchunk()
+        if not chunk:
+            break
+        chunks.append(chunk)
+    raw = b"".join(chunks)
+    size = rec.size
+
+    # Legacy hash surface — sha256 is authoritative from FileStore.
     hashes = {
-        "md5": hashlib.md5(raw).hexdigest(),
-        "sha1": hashlib.sha1(raw).hexdigest(),
-        "sha256": hashlib.sha256(raw).hexdigest(),
+        "md5":    hashlib.md5(raw).hexdigest(),
+        "sha1":   hashlib.sha1(raw).hexdigest(),
+        "sha256": rec.sha256,
     }
     file_type = _detect_file_type(raw, file.filename or "")
+    # Input-Router classification — content-magic first (never trusts
+    # filename alone).
+    _route = route_for(raw[:16], rec.mime, rec.filename)
     text = None
     try:
         candidate = raw.decode("utf-8")
@@ -489,6 +550,10 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
         # ``None`` on normal uploads; structured dict on any archive
         # limit breach or malformed archive.
         "archive_refused": archive_error,
+        # P1.1 Server-Side File Mode bridge — additive fields.
+        "file_id": rec.file_id,
+        "route":   _route,
+        "dedup":   dedup,
     }
 
 
