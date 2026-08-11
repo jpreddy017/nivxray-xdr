@@ -1,6 +1,9 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
 > **2026-08-11 · Session-8** — 360° Master Snapshot delivered at `/app/memory/adr/0007-current-state-master-snapshot.md` (§1-§31 + preserved Session-7 §100). Read-only audit. No code changed. All 466 backend routes catalogued, IKG / Verdict / Attack-Story / Reports / Security / Privacy / Deployment / Integrations / Threat-Hunting / Data-Model / Tests / Perf / Observability / Docs-drift / Tech-debt / Workspace-isolation sections completed with cited evidence. Verdict: v2 pipeline is IMPL+DISCONNECTED (all 5 `NIVX_FLAG_*=shadow`); RC5 canonical DIE ships. Do-not-build-yet list published.
+>
+> **Follow-up (same session)** — Owner accepted the audit and directed a strict (a) → (e) → (d) sequence: **ADR-0008** (`0008-execution-plan-from-audit.md`) captures the execution constitution — shadow ≠ dead, five shadow subsystems preserved with promotion criteria, security is a P0 gate, server-side file mode is the foundation, route deletion requires classification first, determinism must be test-proven. **Determinism CI Gate** shipped at `backend/tests/canonical/api/test_report_determinism.py` — 6 passed / 1 intentional-skip (PDF, deferred); Markdown + STIX bundle + envelope signature are now byte-locked. **ADR-0009** (`0009-route-classification.md`) classifies all 466 routes with a strict FE-matcher: ACTIVE-UI 84 · ACTIVE-API 141 · INTERNAL 95 · EXPERIMENTAL 49 · DEPRECATED 6 · DUPLICATE 4 · UNKNOWN 87 — no route deleted; second-pass audit owed next session. Canonical API suite still green (114 passed, 5 skipped).
+
 
 
 **Purpose**: Original problem statement, architecture direction, phase status, and next-action pointers.
