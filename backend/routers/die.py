@@ -7,7 +7,7 @@ mutates state.  Every endpoint returns the standard analyze envelope
 so consumers can switch languages without changing shape.
 """
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, Dict, Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -242,6 +242,45 @@ def die_timeline(body: TimelineBody):
     result = augment_investigation_results(result, text)
     obj = result.get("object") if isinstance(result, dict) else None
     return project_timeline(text, obj or {})
+
+
+class QueryHuntBody(BaseModel):
+    input:   str            = Field(..., description="Raw analyst paste (same shape as investigation-results).")
+    filters: Dict[str, Any] = Field(default_factory=dict,
+                                    description="Optional filter dictionary (host, user, action, category, "
+                                                "process, parent, file_path, file_hash, mitre, event_type, "
+                                                "date_from, date_to, confidence). Values are strings.")
+
+
+@router.post("/query")
+def die_query(body: QueryHuntBody):
+    """Workspace Query/Hunt · read-only scoped sub-view (2026-08-11).
+
+    Returns the subset of the canonical investigation events that
+    satisfy the supplied filter dictionary.  Result row shape is
+    identical to a Timeline event so Timeline / Table / (future)
+    Process Tree / Graph views can consume the same records.
+
+    Contract guarantees:
+      · Does NOT mutate `/api/die/investigation-results` or
+        `/api/die/timeline` payloads — this is a strict projection.
+      · Every returned row carries the same `evidence_ref` from
+        the P0.2 evidence-chain gate.
+      · Empty / prose / narrative-only inputs → empty results (no
+        fabrication).
+      · Empty filter dict → returns every event the Timeline would
+        show (Query is a filter over Timeline, not a re-analysis).
+
+    Response envelope: see services/die/query_hunt.run_query.
+    """
+    from services.die.investigation_results import render as _render
+    from services.die.canonical_bridge import augment_investigation_results
+    from services.die.query_hunt import run_query
+    text = body.input or ""
+    result = _render(text)
+    result = augment_investigation_results(result, text)
+    obj = result.get("object") if isinstance(result, dict) else None
+    return run_query(text, obj or {}, body.filters or {})
 
 
 class HealthBody(BaseModel):

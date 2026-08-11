@@ -145,6 +145,7 @@ import CollapsibleCard from "@/components/investigation/CollapsibleCard";
 // take the whole Workspace tab down.
 import PanelErrorBoundary from "@/components/PanelErrorBoundary";
 import TimelinePanel from "@/components/investigation/TimelinePanel";
+import QueryHuntPanel from "@/components/investigation/QueryHuntPanel";
 import { InvestigationFilterProvider, InvestigationFilterBar } from "@/components/investigation/InvestigationFilter";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
@@ -3539,6 +3540,25 @@ function WorkspacePageInner() {
                                  style={{ margin: "0 12px 8px" }}>
               <PanelErrorBoundary panel="Workspace Timeline">
                 <TimelinePanel rawInput={input} />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+          )}
+
+          {/* ▲ Workspace Query / Hunt · MVP (2026-08-11)
+              Optional scoped sub-view over the same canonical
+              investigation evidence.  Additive UI — does NOT modify
+              the default Workspace investigation or the Timeline
+              MVP behavior.  Every result row shares the Timeline
+              event shape so future Process-Tree / Graph views can
+              consume the same records. */}
+          {investigationMode && input && input.trim() && (
+            <CollapsibleSection title="Query / Hunt · Scoped sub-view"
+                                 subtitle="Optional analyst filter · Table / Timeline projections of the current investigation"
+                                 testid="query-hunt-section"
+                                 defaultOpen={false}
+                                 style={{ margin: "0 12px 8px" }}>
+              <PanelErrorBoundary panel="Query/Hunt">
+                <QueryHuntPanel rawInput={input} />
               </PanelErrorBoundary>
             </CollapsibleSection>
           )}
