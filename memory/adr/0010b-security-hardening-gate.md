@@ -154,16 +154,19 @@ Suites explicitly verified:
 
 Executed against the live pod at `https://greeting-app-5782.preview.emergentagent.com`.
 
-### 9.1 · Login brute-force
+### 9.1 · Login brute-force (owner-clarified semantic 2026-08-11)
 ```
 attempt 1 → HTTP 401 (invalid credentials)
 attempt 2 → HTTP 401
 attempt 3 → HTTP 401
 attempt 4 → HTTP 401
-attempt 5 → HTTP 429  { "error": "rate_limited", "reason": "throttled", "retry_after_seconds": 900 }
-attempt 6 → HTTP 429  { "error": "rate_limited", "reason": "locked", ... }
+attempt 5 → HTTP 401           ← exactly max_fails=5 · 401s permitted
+attempt 6 → HTTP 429 { "error": "rate_limited", "reason": "locked", "retry_after_seconds": 900 }
 attempt 7 → HTTP 429
+attempt 8 → HTTP 429
 ```
+Semantic: `record_failure` never retro-blocks the current attempt. It records the failure and, once the count hits `max_fails`, arms the lockout so the NEXT `check()` returns `locked`. Result: N HTTP-401 responses per window, then HTTP-429 from N+1 onward. CI-locked by `test_max_fails_401_before_429`.
+
 ✅ Backend healthy after burst (`/api/health → 200`).
 
 ### 9.2 · Archive attacks

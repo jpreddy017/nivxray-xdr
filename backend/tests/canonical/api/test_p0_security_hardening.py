@@ -75,17 +75,30 @@ class TestSlidingWindowLimiter:
         assert r.allowed and r.reason == "ok"
 
     def test_repeated_failures_trigger_lockout(self):
+        """Exactly ``max_fails`` failures are allowed BEFORE lockout.
+
+        With max_fails=3:
+        - Failures 1, 2, 3 all record OK (the caller will render 401).
+        - After failure 3, the NEXT check() returns ``locked``.
+        """
         lim = self._mk(max_fails=3)
-        for i in range(3):
+        for _ in range(3):
             r = lim.record_failure("k2")
-            if i < 2:
-                assert r.allowed
-            else:
-                assert not r.allowed and r.reason == "throttled"
-        # Next check must still be denied.
+            assert r.allowed, "record_failure never retro-blocks the current attempt"
+        # The next check must be denied.
         r = lim.check("k2")
         assert not r.allowed and r.reason == "locked"
         assert r.retry_after > 0
+
+    def test_max_fails_401_before_429(self):
+        """Owner-clarified semantic: N 401s, then 429 from N+1 onward."""
+        lim = self._mk(max_fails=5)
+        # 5 failures: every check() before them is allowed (renders 401).
+        for i in range(5):
+            assert lim.check("k5").allowed, f"attempt {i+1} pre-check must be allowed"
+            lim.record_failure("k5")
+        # Attempt 6: locked.
+        assert not lim.check("k5").allowed
 
     def test_success_clears_counters(self):
         lim = self._mk()
@@ -97,7 +110,8 @@ class TestSlidingWindowLimiter:
 
     def test_lockout_expires(self):
         lim = self._mk(max_fails=1, lockout_sec=1)
-        lim.record_failure("k4")   # trips lockout at fail#1
+        lim.record_failure("k4")   # trips lockout after 1st failure
+        # After the recorded failure, the NEXT check is locked.
         r = lim.check("k4")
         assert not r.allowed
         time.sleep(1.2)
@@ -109,6 +123,7 @@ class TestSlidingWindowLimiter:
         lim.record_failure("keyA")
         # keyB must not be affected by keyA's failure
         assert lim.check("keyB").allowed
+        # keyA's lockout is now armed; the next check on keyA is locked.
         assert not lim.check("keyA").allowed
 
 

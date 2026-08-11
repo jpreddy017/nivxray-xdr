@@ -53,8 +53,11 @@ _LARGE_BODY_PATHS  = (
     # narrative + verdict + IEDDE etc.). Legitimately several MB for
     # heavy investigations. Backend enforces its own 8 MB drop-order.
     "/api/cases/save",
+    # Aug 2026 · P1 Server-Side File Mode — streaming ingest with its
+    # own 200 MB server-side cap enforced inside FileStore.put().
+    "/api/files",
 )
-_MAX_LARGE_BODY_BYTES = 50 * 1024 * 1024   # 50 MB
+_MAX_LARGE_BODY_BYTES = 209_715_200   # 200 MB (matches NIVX_FILES_MAX_UPLOAD_BYTES)
 
 
 def _timeout_for(path: str) -> float:

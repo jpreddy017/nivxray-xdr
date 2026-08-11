@@ -11,17 +11,29 @@ Read this whenever a session opens if you want the full backlog, not just the P0
 ## 🔴 IMMEDIATE NEXT (unblocked, waiting for a session to open on it)
 
 - [x] **P0 · Security Hardening Gate** — 🟢 CLOSED 2026-08-11 · Session-10 · ADR-0010b PASS.
-  - [x] Login/API auth rate-limit on `/api/auth/login` (sliding window · 5 fails / 5 min · 15 min lockout)
+  - [x] Login/API auth rate-limit (5 fails / 5 min · 15 min lockout · N×401 then 429 semantic locked)
   - [x] Explicit CORS allow-list (wildcard mode forces credentials off)
-  - [x] Zip / decompression-bomb guard on `/api/upload` (ratio ≤ 200:1)
+  - [x] Zip / decompression-bomb guard (ratio ≤ 200:1)
   - [x] Archive recursion / depth / file-count / expanded-size limits (depth 3 · 512 entries · 50 MB total · 16 MB per-entry)
   - [x] Path-traversal blocked (`../`, absolute, backslash)
-  - [x] Safe fail-loud for malformed archives (structured `archive_refused` response block)
-  - [x] Regression + security tests locking each guard (22 new tests · full canonical suite: 136 pass / 5 skip / 0 fail)
-  - [x] ADR-0010b evidence report at `/app/memory/adr/0010b-security-hardening-gate.md`
+  - [x] Safe fail-loud for malformed archives (structured `archive_refused`)
+  - [x] Regression + security tests (22 new · full canonical suite green)
+  - [x] ADR-0010b evidence report
   - **Verdict**: 🟢 PASS · P1 readiness confirmed YES.
 
-- [ ] **P1 · Server-Side File Mode** — NOW UNBLOCKED. Next session opens here.
+- [x] **P1 · Server-Side File Mode** — 🟢 CLOSED 2026-08-11 · Session-11 · ADR-0010c PASS.
+  - [x] Streaming SHA-256 ingest (1 MB chunks · RSS delta -52 KB on 50 MB upload)
+  - [x] Race-safe dedup (unique index on `(tenant_id, sha256)` · concurrent-uploads test passes)
+  - [x] Controlled retention (application-driven sweep · pin protects · 30-day TTL default)
+  - [x] Tenant-ready identity (`tenant_id` in every row; dedup scoped per tenant)
+  - [x] Server-side upload cap (200 MB · `NIVX_FILES_MAX_UPLOAD_BYTES`)
+  - [x] Input Router (content-magic-first routing to LIVE analyzers only · unsupported → deterministic)
+  - [x] 7 new endpoints under `/api/files/*` (all auth-gated, no path leaks)
+  - [x] 19 new tests · full canonical suite: 156 pass / 5 skip / 0 fail
+  - [x] ADR-0010c evidence report
+  - **Verdict**: 🟢 PASS · P2 readiness confirmed YES.
+
+- [ ] **P2 · Sysmon / EVTX Adapter** — NOW UNBLOCKED. Next session opens here.
 
 ---
 

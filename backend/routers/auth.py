@@ -53,17 +53,9 @@ async def login(body: LoginIn, request: Request):
         )
     u = await db.users.find_one({"email": body.email})
     if not u or not verify_password(body.password, u["password"]):
-        post = LOGIN_LIMITER.record_failure(key)
-        if not post.allowed:
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "error": "rate_limited",
-                    "reason": post.reason,
-                    "retry_after_seconds": post.retry_after,
-                },
-                headers={"Retry-After": str(post.retry_after)},
-            )
+        # Record the failure — trips the lockout for the NEXT attempt
+        # after ``max_fails`` failures. Current attempt still returns 401.
+        LOGIN_LIMITER.record_failure(key)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     LOGIN_LIMITER.record_success(key)
     return TokenOut(access_token=create_token(body.email), email=body.email)

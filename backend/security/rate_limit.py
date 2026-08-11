@@ -109,14 +109,30 @@ class SlidingWindowLimiter:
             return RateLimitResult(True, remaining, 0, "ok")
 
     def record_failure(self, key: str) -> RateLimitResult:
+        """Record a failed attempt.
+
+        Semantics (owner-clarified 2026-08-11):
+        - The current attempt receiving this failure is NOT retro-blocked.
+          The caller has already decided the credentials were invalid and
+          will return HTTP 401 for this attempt.
+        - Once the recorded failure count reaches ``max_fails``, the
+          lockout is set. The NEXT ``check(key)`` call will return
+          ``allowed=False, reason="locked"`` and the analyst / attacker
+          receives HTTP 429 from that point onward.
+        - This means: exactly ``max_fails`` HTTP-401 responses are
+          possible per window before HTTP-429 begins.
+        """
         with self._mu:
             now = _now()
             q = self._prune(key, now)
             q.append(now)
             remaining = max(0, self.max_fails - len(q))
-            if remaining <= 0:
+            if len(q) >= self.max_fails:
+                # Trip lockout for FUTURE requests. The current failing
+                # request still returns 401; the next request sees 429.
                 self._lock_until[key] = now + self.lockout_sec
-                return RateLimitResult(False, 0, self.lockout_sec, "throttled")
+            # Always allowed=True for the CURRENT attempt — the caller
+            # will render 401 (invalid creds). check() catches the next.
             return RateLimitResult(True, remaining, 0, "ok")
 
     def record_success(self, key: str) -> None:

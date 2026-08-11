@@ -338,6 +338,11 @@ from routers.artifacts import router as artifacts_router
 # Router already carries prefix "/api/artifacts" so include at app root.
 app.include_router(artifacts_router)
 
+# ▲ P1 · Server-Side File Mode (ADR-0008 §5.2 · owner-locked 2026-08-11)
+# Streaming SHA-256 · race-safe dedup · controlled retention · Input Router.
+from routers.files import router as files_router
+api.include_router(files_router)
+
 # ▲ Static docs router — serves the Current-State Audit HTML/MD via
 # preview URL so the account owner can view / print / download it
 # without needing a separate file server.  Read-only artifacts.
