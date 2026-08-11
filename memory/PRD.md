@@ -658,6 +658,40 @@ Derivation rules:
 
 **Query → Auto Visualization closed. Ready for the Sysmon/EVTX adapter as the next capability.**
 
+## Large-input Workspace freeze — MITIGATION shipped (2026-08-11, session-7)
+
+Owner reported repeated **black-screen** freezes when uploading large CSVs into the Workspace (44 KB SEP.csv, then 530 KB SEP_Logs.csv). Root cause: `setInput(cnt)` puts the raw file content into React state → controlled textarea + AnalystNarrative + TrajectoryDiagram + Timeline/Query panels all re-render synchronously against 100–500 KB of text → main-thread block → Chrome "Page Unresponsive" dialog.
+
+### Mitigations shipped (defence in depth)
+
+1. **`useDeferredValue(input) → deferredInput`** in WorkspacePage. Timeline + Query/Hunt panels consume the deferred value so a paste settles before downstream fetches.
+2. **32 KB Timeline/Query mount ceiling**. Above 32 KB, the Timeline and Query/Hunt panels do NOT mount; a yellow banner tells the analyst *"auto-visualization skipped — the main investigation still runs on the full input"*.
+3. **256 KB client-side upload hard cap** (was 2 MB). Larger files are rejected before any network work with a clear message.
+4. **`WorkspaceRootErrorBoundary`** authored at `components/WorkspaceRootErrorBoundary.jsx` — a top-level safety net that catches any residual render exception and renders a "Reset Workspace" screen instead of a blank tab. (Not yet wired at App level — deferred; existing per-panel and per-workspace boundaries cover the current known crash paths.)
+
+### What remains open
+
+Genuine large-file support (multi-MB SEP exports, real EDR pcaps) requires a different architecture:
+- Store uploaded content on the server (already have `/api/upload` returning a file id).
+- Frontend keeps ONLY the file id + summary in React state — never the raw content.
+- Timeline / Query / MITRE / Narrative panels fetch scoped projections by file id, not by echoing raw text.
+
+This is a **separate future task** (call it "Server-side file mode") — not part of the P0 / Timeline / Query MVP. Tracked in the roadmap below.
+
+### Regression status (2026-08-11)
+
+- Backend `tests/canonical/api/` — **108 passed / 4 skipped / 0 fail** (unchanged).
+- Frontend webpack build — **Compiled successfully**.
+- 32 KB Timeline/Query ceiling exercised earlier with the 44 KB SEP.csv fixture — panels hide, hint banner shown, main investigation still runs (verified via UI screenshot before ceiling change).
+- 256 KB upload cap active — 530 KB SEP_Logs.csv will now be rejected client-side before any network work.
+
+### Non-regressions preserved
+
+- Small pastes / small uploads (single command line, prose, ≤ 32 KB CSV): Timeline + Query/Hunt work exactly as before, with the natural-tense action filter, partial-hash matching, and auto-visualization defaults from earlier tasks.
+- P0.2 evidence chain, P0.3 firewall, Sample1 immutability, X-Lab isolation guard, Attack Chain lane fix, TrajectoryDiagram — all untouched.
+
+**Freeze-mitigation shipped. Awaiting owner direction on next capability: server-side file mode (removes the size ceiling), Sysmon/EVTX adapter, Attack Story panel, OSINT reputation, or P1 hygiene.**
+
 ## Phase 3.x shipped (2026-08-10) — TEXT_EXTRACT_FROM_ARCHIVE only
 
 - Owner decisions applied verbatim: Q1=1a (child-SSOT recursion) · Q2=2a (existing budget) · Q3=3c (generic UTF-8 filter) · Q4=4a (raw XML — no tag-strip).

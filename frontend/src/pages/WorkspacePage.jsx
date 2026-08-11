@@ -2358,9 +2358,21 @@ function WorkspacePageInner() {
     //       still trying to type.
     //   (d) The file-input onChange dropzone is reset FIRST so a
     //       failed attempt does not leave the file selected.
-    const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;   // 2 MB
+    // 2026-08-11 · Client-side upload cap lowered from 2 MB → 256 KB
+    // after black-screen reports on 44 KB and 530 KB uploads.  The
+    // freeze is caused downstream (setInput → controlled textarea
+    // re-render → AnalystNarrative + TrajectoryDiagram cascade with
+    // 500+ KB of raw text in React state).  A proper large-file
+    // flow (server-side content persistence, no React-state echo)
+    // is required to lift this — tracked as a future enhancement.
+    const MAX_UPLOAD_BYTES = 256 * 1024;   // 256 KB
     if (f.size > MAX_UPLOAD_BYTES) {
-      setStatus(`UPLOAD REJECTED · ${f.name} is ${(f.size/1024).toFixed(0)} KB (max 2 MB) — use a smaller sample`);
+      setStatus(
+        `UPLOAD REJECTED · ${f.name} is ${(f.size/1024).toFixed(0)} KB ` +
+        `(current safe max 256 KB) — please sample a smaller subset. ` +
+        `Large-file support without React-state echo is planned as a ` +
+        `separate enhancement.`
+      );
       e.target.value = "";
       return;
     }
