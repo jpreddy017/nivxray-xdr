@@ -58,6 +58,8 @@
 >
 > Discovery / planning loop is CLOSED. Next session ships code.
 >
+> **📌 Full backlog ledger**: [`/app/memory/REMINDERS.md`](./REMINDERS.md) — every partially executed, pending, and skipped item with rationale. Read this at the start of any session that isn't strictly executing the P0 directive.
+>
 > ---
 >
 > ## SIDE EVALUATION — TweetFeed (2026-08-11)
