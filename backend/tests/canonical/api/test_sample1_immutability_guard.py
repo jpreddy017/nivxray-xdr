@@ -46,6 +46,21 @@ def _fingerprint(doc: dict) -> str:
 
 def _find_sample1() -> dict | None:
     """Return the Sample1 case row from Mongo, or None if absent."""
+    # ── Load MONGO_URL / DB_NAME from backend/.env if not already in env
+    # (pytest sub-processes don't inherit the supervisor env vars).
+    if not os.environ.get("MONGO_URL") or not os.environ.get("DB_NAME"):
+        try:
+            env_path = Path(__file__).resolve().parents[3] / ".env"
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip(); v = v.strip().strip('"').strip("'")
+                if k in ("MONGO_URL", "DB_NAME") and not os.environ.get(k):
+                    os.environ[k] = v
+        except Exception:
+            pass
     mongo = os.environ.get("MONGO_URL")
     db_name = os.environ.get("DB_NAME")
     if not mongo or not db_name:
