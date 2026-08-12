@@ -18,6 +18,32 @@ _PARTIAL_PDF = "/app/backend/exports/NivXRay-Partial-Pending-Skipped-Dead.pdf"
 _PARTIAL_MD  = "/app/memory/adr/0012a-partial-pending-skipped-dead.md"
 
 
+_IUE_PDF = "/app/backend/exports/NivXRay-IUE-Architecture-Audit.pdf"
+_IUE_MD  = "/app/memory/adr/0013-iue-workspace-input-architecture-audit.md"
+
+
+@router.get("/iue-architecture.pdf")
+async def download_iue_pdf():
+    if not os.path.exists(_IUE_PDF):
+        raise HTTPException(404, detail={"error": "iue_pdf_missing"})
+    return FileResponse(
+        _IUE_PDF,
+        media_type="application/pdf",
+        filename="NivXRay-IUE-Architecture-Audit.pdf",
+    )
+
+
+@router.get("/iue-architecture.md")
+async def download_iue_md():
+    if not os.path.exists(_IUE_MD):
+        raise HTTPException(404, detail={"error": "iue_md_missing"})
+    return FileResponse(
+        _IUE_MD,
+        media_type="text/markdown",
+        filename="NivXRay-IUE-Architecture-Audit.md",
+    )
+
+
 @router.get("/workspace-360.pdf")
 async def download_workspace_360_pdf():
     if not os.path.exists(_AUDIT_PDF):
