@@ -16,6 +16,33 @@ node_modules/
 !.yarn/releases
 !.yarn/versions
 
+# ▲ Repo-bloat guards (2026-02-09) — keep GitHub storage lean.
+# Never re-commit generated / duplicated / heavy artefacts.
+docs/exports/**
+!docs/exports/.gitkeep
+backend/docs/exports/**
+!backend/docs/exports/nivxray-user-guide.docx
+deck_assets/**
+!deck_assets/build_deck.py
+backend/downloads/**
+!backend/downloads/.gitkeep
+frontend/public/downloads/*.pdf
+frontend/public/downloads/*.docx
+frontend/public/downloads/*.html
+!frontend/public/downloads/README.md
+# Python bytecode + venv (defense in depth)
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+# Screenshots + build assets
+/tmp_screens/
+*.tmp
+# OS junk
+.DS_Store
+Thumbs.db
+
 # Testing
 /coverage
 
