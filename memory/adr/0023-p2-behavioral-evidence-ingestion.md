@@ -226,6 +226,61 @@ Attack Story, and Report all consume identically.
 preserved: Item 4 → Item 5 → 12-case regression → THEN UI-DEF-02
 convergence. Do not attempt UI-DEF-02 out of order.
 
+## 3d · Evidence-Producer Constraint (locked 2026-08-12)
+
+> **P2 telemetry must produce evidence, not interpret it.**
+>
+> Sysmon / EVTX / Windows Security event streams — and every future
+> telemetry source — feed the *same* Evidence Normalisation → Correlation
+> → Authoritative MITRE Mapper → Verdict → Explain → Report chain. They
+> do **not** compute their own verdict. They do **not** carry their own
+> MITRE technique catalogue. They do **not** run in parallel to DIE.
+
+The correct topology when P2 eventually opens:
+
+```
+             INPUTS
+                │
+       ┌────────┴────────┐
+       │                 │
+   Artifact          Behavioural
+   evidence          evidence
+   (DIE today)       (P2 · future)
+       │                 │
+       └────────┬────────┘
+                ▼
+        Evidence Normalisation
+                ▼
+             Correlation
+                ▼
+        Authoritative ATT&CK
+        (UI-DEF-02 convergence)
+                ▼
+              Verdict
+                ▼
+             Explain
+                ▼
+             Report
+```
+
+Explicit rejections this rule enforces:
+
+* No *"Sysmon verdict"* — a Sysmon Event 1 alone must never emit a
+  malicious label.
+* No *"Process-tree interpretation engine"* — process ancestry is
+  evidence entering the graph, not a parallel analytical pipeline.
+* No *"parallel MITRE technique catalogue for telemetry"* — the
+  authoritative MITRE surface (UI-DEF-02) is the single mapper for
+  every evidence source.
+* No *"per-adapter narrative engine"* — narrative is generated once,
+  by the deterministic-narrative bridge (Item 2), from the merged
+  evidence set.
+
+The design invariant: **NivXRay is one investigation engine with
+multiple evidence producers, not a collection of analyzers.** Any
+proposed P2 sub-feature that violates this is rejected by this ADR
+without further debate.
+
 ## 4 · Preconditions before P2 opens (owner-locked)
 
 P2 does **not** open until *all five* of the following pass a regression run against the frozen 12-case corpus in `/app/memory/experiments/rip/`:
