@@ -959,6 +959,21 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     canonical["ice"]      = ice_block
     canonical["incident"] = ice_block.get("incident")
 
+    # ── P0c-A (ADR-0014h) · Lift P0a body_artifacts into incident.iocs
+    # Restores the canonical evidence contract at the producer boundary.
+    # Only touches `incident.iocs` when:
+    #   (a) the P0a paste-projection actually ran (source flag set), AND
+    #   (b) `incident.iocs` is currently None/empty (never overwrites
+    #       an existing ICE-populated value — URL-acquired path stays
+    #       byte-identical because it never enters this branch).
+    # No producer/consumer contract change beyond this one field.
+    if (report_extraction.get("source") == "paste_projection"
+            and canonical.get("incident") is not None
+            and not (canonical["incident"].get("iocs") or [])):
+        _paste_body_artifacts = report_extraction.get("body_artifacts") or []
+        if _paste_body_artifacts:
+            canonical["incident"]["iocs"] = list(_paste_body_artifacts)
+
     # ── Rule R22 · Paste-Only Synthesis ────────────────────────────
     def _do_paste_synth():
         try:
