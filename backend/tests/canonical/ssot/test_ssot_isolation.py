@@ -224,6 +224,14 @@ def test_no_route_file_modified_by_phase2():
         "backend/server.py",
         "backend/tests/canonical/api/test_p2_sysmon_adapter.py",
         "backend/tests/canonical/api/test_p2_slice1_no_corpus_impact.py",
+        # P2 Slice-2 · Sysmon Event 3 network-connect ingestion
+        # (owner sign-off 2026-08-12, ADR-0023 · ADR-0010r). Extends
+        # the Slice-1 adapter with Event 3 field map + destination
+        # classification + ProcessGuid → Event 1 correlation. Still
+        # evidence-producer only; the authoritative MITRE surface is
+        # driven exclusively by Event 1 command lines.
+        "backend/tests/canonical/api/test_p2_slice2_sysmon_event3.py",
+        "backend/tests/canonical/api/test_p2_slice2_extended_contract.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

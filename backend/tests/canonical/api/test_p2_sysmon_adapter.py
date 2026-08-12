@@ -93,7 +93,7 @@ def test_happy_path_certutil_process_create(client):
     r = _post(client, xml)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["adapter"] == "sysmon.eid1.slice1@1.0"
+    assert body["adapter"] == "sysmon.slice2@1.0"
     assert body["event_count"] == 1
     # Authoritative MITRE surface fired (certutil → T1105, T1140, T1218)
     ids = set(body["mitre_technique_ids"])
@@ -121,12 +121,14 @@ def test_empty_body_rejected(client):
 
 
 # ---------------------------------------------------------------------------
-# 3 · Non-Event-1 rejected → 422 unsupported_event_id
+# 3 · Non-supported EventID rejected → 422 unsupported_event_id
+#     (Under Slice-2 the supported set is {1, 3}. Event 5 remains
+#     rejected until a future slice.)
 # ---------------------------------------------------------------------------
-def test_event_id_3_rejected(client):
+def test_unsupported_event_id_rejected(client):
     xml = """<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'>
-      <System><EventID>3</EventID></System>
-      <EventData><Data Name='DestinationIp'>198.51.100.42</Data></EventData>
+      <System><EventID>5</EventID></System>
+      <EventData><Data Name='ProcessId'>1234</Data></EventData>
     </Event>"""
     r = _post(client, xml)
     assert r.status_code == 422

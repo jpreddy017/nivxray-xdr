@@ -71,7 +71,12 @@ async def sysmon_ingest(body: SysmonIn, user=Depends(get_current_user)):
         events, meta = normalize_sysmon_xml(body.xml, max_bytes=max_bytes)
     except SysmonAdapterError as exc:
         code = exc.code
-        status = 422 if code == "unsupported_event_id" else 400
+        if code == "unsupported_event_id":
+            status = 422
+        elif code == "eid3_cap_exceeded":
+            status = 413
+        else:
+            status = 400
         raise HTTPException(status_code=status,
                              detail={"error": code, "message": str(exc)})
 
@@ -92,10 +97,15 @@ async def sysmon_ingest(body: SysmonIn, user=Depends(get_current_user)):
         "adapter":       ADAPTER_ID,
         "xml_parser":    meta["xml_parser"],
         "event_count":   meta["event_count"],
+        "event_counts_by_id": meta["event_counts_by_id"],
         "evidence":      events,
         "parent_child_evidence": {
             "pairs":                meta["parent_child_pairs"],
             "uncorroborated_count": meta["parent_child_uncorroborated_count"],
+        },
+        "network_evidence": {
+            "connections":                 meta["network_connections"],
+            "correlations_by_process_guid": meta["correlations_by_process_guid"],
         },
         "per_event_mitre":  per_event_mitre,
         "mitre_technique_ids": sorted(all_technique_ids),
