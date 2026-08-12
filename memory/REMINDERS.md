@@ -3,8 +3,53 @@
 **Purpose**: durable ledger of everything partially executed / pending / skipped as of end of Session-9.
 Read this whenever a session opens if you want the full backlog, not just the P0 directive.
 
-**Last updated**: 2026-08-11 · Session-9 close
-**Companion documents**: ADR-0007 (truth) · ADR-0008 (strategy) · ADR-0009 (routes) · ADR-0010 (blueprint) · ADR-0011 (TweetFeed) · PRD.md (directive at head)
+**Last updated**: 2026-08-12 · Session-18 close (standing-down)
+**Companion documents**: ADR-0007 (truth) · ADR-0008 (strategy) · ADR-0009 (routes) · ADR-0010 (blueprint) · ADR-0011 (TweetFeed) · ADR-0023 (P2 direction + four principles) · PRD.md (directive at head)
+
+---
+
+## 🛑 STANDING EXECUTION INSTRUCTION (owner-locked 2026-08-12)
+
+**We are currently standing down. Do NOT make any code, UI, architecture, workflow, or memory changes unless an explicit "Start Item N" instruction is provided.**
+
+### Current verified state
+```
+Item 1  Risk calibration        ✅ PASS
+Item 2  Deterministic narrative ✅ PASS
+Item 3  Recursive decode        ✅ PASS
+UI-DEF-01                       ✅ PASS
+
+Item 4  T1562.004 DIE signature ⏸
+Item 5  TI latency bound        ⏸
+12-case regression              ⏸
+UI-DEF-02  MITRE convergence    ⏸
+P2 Behavioral Evidence          🔒
+```
+
+### Locked execution order (do not break this sequence)
+```
+Item 4  →  Item 5  →  12-case regression  →  UI-DEF-02  →  P2 Behavioral Evidence Ingestion
+```
+
+### Four architectural principles — non-negotiable (ADR-0023 §3a-§3e)
+1. **Cruise-Missile Guidance** — pursue the evidence chain, never stop at the first indicator
+2. **UI-Truth** — a UI must never display a stronger claim than the evidence supports
+3. **MITRE Convergence** — one authoritative MITRE technique surface (do not maintain competing interpretations)
+4. **Evidence-Producer Constraint** — P2 telemetry produces evidence, never interprets it
+5. **No Opportunistic Improvement** — every change must fall under an explicit owner-authorised work item
+
+### Preview vs Prod note
+The recent diagnostic (ADR-0010j) established that the underlying DIE output is identical between environments: `techniques → T1562.001 + T1564.003`, `preprocessor.stages → 1`. The visible top-panel divergence is projection/build layer, not analytical. **Do NOT modify UI-DEF-02 early just to make Preview visually match Prod.** Prod redeployment is a separate deployment decision — if authorised, deploy the already-validated Preview build only, no new behaviour, no procedure change.
+
+### What the next agent MUST do
+**Nothing.** Wait for the owner's explicit "Start Item 4" instruction. When it arrives:
+- Work only on Item 4
+- Preserve the frozen 12-case corpus
+- Run the appropriate regression
+- Document exactly what changed
+- Stop again for authorisation before Item 5
+
+**Do NOT** start Item 4 · touch Item 5 · touch UI-DEF-02 · open P2 · modify the working investigation procedure · introduce new features because they appear useful · "improve" anything opportunistically.
 
 ---
 

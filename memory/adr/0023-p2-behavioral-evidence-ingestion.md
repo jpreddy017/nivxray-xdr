@@ -281,6 +281,35 @@ multiple evidence producers, not a collection of analyzers.** Any
 proposed P2 sub-feature that violates this is rejected by this ADR
 without further debate.
 
+## 3e · No Opportunistic Improvement (locked 2026-08-12)
+
+> **Do not "improve" anything opportunistically.**
+
+NivXRay is entering the stage where architectural drift is more dangerous
+than missing features. The engine's direction is:
+
+    One investigation engine · multiple evidence producers ·
+    deterministic evidence chain · no premature conclusions.
+
+Any change — no matter how small, obvious, or helpful it appears —
+must fall under an explicit owner-authorised work item. Rejected
+patterns:
+
+* "While I was in this file, I also cleaned up …"
+* "This tiny refactor makes the code more idiomatic …"
+* "I noticed X could be faster / prettier / better named …"
+* "Adding this helper would be nice for the next agent …"
+* Silent additions to the frozen 12-case corpus.
+* Silent changes to the SSOT projections, `_TECHNIQUE_META`,
+  `_MITRE_MAP`, or the risk-score weights.
+* Any UI colour, label, layout, or copy change beyond what an
+  owner-authorised item explicitly names.
+
+Enforcement: on every new change, run `git status --short`. If the
+diff touches anything outside the authorised item's scope, revert
+those touches before continuing. Fork agents and testing agents
+must honour this rule identically.
+
 ## 4 · Preconditions before P2 opens (owner-locked)
 
 P2 does **not** open until *all five* of the following pass a regression run against the frozen 12-case corpus in `/app/memory/experiments/rip/`:
