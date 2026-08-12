@@ -2045,6 +2045,55 @@ function WorkspacePageInner() {
           if (obj.understanding) setUnderstanding(obj.understanding);
           if (obj.preprocessor)  setInlineStoryPreproc(obj.preprocessor);
           if (obj.narrative)     setAnalystNarrative(obj.narrative);
+          // ▲ P0e-Lift (2026-02-09) · Project the already-present
+          // structured evidence from the SSOT into the `analysis`
+          // state so the Workspace Threat Analysis sidebar tabs
+          // (MITRE · LOLBAS · IOCS · RULES · AI · GRAPH) populate
+          // for URL-acquired investigations too — the classic SSE
+          // /analyze pipeline is skipped for !decodeRequired inputs
+          // by design (Rule R10) so this projection is the ONLY
+          // deterministic path for those fields to reach the UI.
+          //
+          // Source priority (proven by read-only trace):
+          //   MITRE →  report_extraction.mitre_techniques  (URL-acquired · authoritative)
+          //         ↳ obj.mitre                            (paste-path fallback)
+          //   YARA  →  report_extraction.yara_rules        (structured)
+          //         ↳ obj.narrative.yara_ideas             (deterministic narrative)
+          //
+          // No new inference, no new API calls, no state duplication.
+          const rext = obj.report_extraction || {};
+          const _mitre =
+            (Array.isArray(rext.mitre_techniques) && rext.mitre_techniques.length)
+              ? rext.mitre_techniques
+              : (Array.isArray(obj.mitre) ? obj.mitre : []);
+          const _yara =
+            (Array.isArray(rext.yara_rules) && rext.yara_rules.length)
+              ? rext.yara_rules.map((rule) =>
+                  typeof rule === "string"
+                    ? { name: rule, source: "report_extraction" }
+                    : rule)
+              : (obj.narrative?.yara_ideas || []);
+          const _exec = obj.narrative?.executive_summary || null;
+          const _aiVerdict = _exec
+            ? {
+                verdict:    _exec.risk || _exec.verdict || "Unknown",
+                confidence: typeof _exec.confidence === "number" ? _exec.confidence : null,
+                summary:    _exec.paragraph || _exec.summary || "",
+              }
+            : null;
+          setAnalysis((prev) => ({
+            ...(prev || {}),
+            iocs:       obj.iocs   || {},
+            lolbas:     Array.isArray(obj.lolbas) ? obj.lolbas : [],
+            lolbins:    Array.isArray(obj.lolbas) ? obj.lolbas : [], // fallbackGraph reads .lolbins
+            mitre:      _mitre,
+            yara:       _yara,
+            ai_verdict: _aiVerdict || (prev && prev.ai_verdict) || null,
+            // TI-HITS and OSINT intentionally NOT lifted — those
+            // require the SSE analyze pipeline and would be
+            // manufactured / stale if projected from the SSOT.
+            streaming:  false,
+          }));
         }
         return true;
       }

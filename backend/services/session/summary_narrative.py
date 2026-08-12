@@ -138,6 +138,18 @@ def build_narrative(session: Dict[str, Any]) -> Dict[str, Any]:
     behaviours   = _observed_behaviours(inc, inputs)
     tactics      = _tactics_observed(inc)
     mitre        = inc.get("mitre") or [] if inc else []
+    # ▲ P0e-Unslim fallback (2026-02-09) — when the incident block is
+    # slim-stripped from the wire response (Phase 5.W), the L4
+    # narrative previously reported "0 MITRE" even though the
+    # underlying investigation extracted them into
+    # `report_extraction.mitre_techniques` (11 on the Talos sample).
+    # Fall back to that authoritative structured source.  Zero new
+    # inference — pure projection of already-produced evidence.
+    if not mitre:
+        _rext = (session.get("raw_investigation") or {}).get("report_extraction") or {}
+        _rext_mitre = _rext.get("mitre_techniques") or []
+        if _rext_mitre:
+            mitre = _rext_mitre
     iocs         = _extract_iocs(inputs)
     counts       = _counts(session, inputs)
     verdict      = _verdict_signals(isum, counts, behaviours)
@@ -521,6 +533,13 @@ def _counts(session: Dict[str, Any],
     counts["investigated"] = sum(1 for i in inputs
                                     if i.get("status") == "investigated")
     counts["mitre"] = len(inc.get("mitre") or [])
+    # ▲ P0e-Unslim fallback (2026-02-09) — mirror the fallback in
+    # `build_narrative` for the count so Evidence Confidence's MITRE
+    # cell reflects the authoritative report_extraction source when
+    # incident is slim-stripped.
+    if not counts["mitre"]:
+        _rext = (session.get("raw_investigation") or {}).get("report_extraction") or {}
+        counts["mitre"] = len(_rext.get("mitre_techniques") or [])
     # P0b (ADR-0014g) · surface IOC evidence already present in the
     # incident SSOT so paste-derived investigations show a non-zero
     # count when IOCs actually exist.  Reads from incident.iocs which

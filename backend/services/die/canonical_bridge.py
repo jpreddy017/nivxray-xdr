@@ -506,7 +506,12 @@ _SLIM_STRIP_KEYS = (
     "explanation_coverage",
     "acquired_document",       # raw fetched HTML / DOCX text
     "document_profile",
-    "report_extraction",
+    # NOTE (P0e-Unslim · 2026-02-09): `report_extraction` was
+    # previously stripped whole — that erased the URL-acquired
+    # authoritative sources for MITRE (11 techniques on the Talos
+    # sample), extracted commands, and body_artifacts.  It is now
+    # kept but nested-slimmed via `_slim_report_extraction()` below
+    # (heavy sub-fields dropped, small structured sub-fields kept).
     "artifact_summary",
     "profiling",
     "engines_selected",
@@ -521,10 +526,71 @@ _SLIM_STRIP_KEYS = (
     "incident",                # 90 KB, only summary needed
 )
 
+
+# ── P0e-Unslim (2026-02-09) · Structured evidence retained ─────────
+# Sub-fields of `report_extraction` that DO reach the Workspace UI
+# ( InvestigationSummaryPanel, sidebar tabs, Evidence Confidence).
+# Every kept field is small + structured; nothing pulls in raw
+# document text.
+_REPORT_EXTRACTION_KEEP = (
+    "commands",              # list[{command, purpose, ...}] — 6 on Talos
+    "mitre_techniques",      # list[{id, name, tactic, evidence, ...}] — the 11 techniques
+    "body_artifacts",        # list[{type, value, canonical, source}]
+    "yara_rules",            # list[str] — small
+    "sigma_rules",           # list[str] — small
+    "threat_actors",         # list[str] — small
+    "malware_families",      # list[str] — small
+    "cves",                  # list[str] — small
+    "timeline",              # list[{ts, event}] — small
+    "hash_context",          # dict — small
+    "totals",                # counters — tiny
+    "source",                # provenance flag (paste_projection / …)
+    "investigation_summary", # aggregated counts — tiny
+)
+
+# Hard cap on `command_investigations` (each entry can carry per-
+# stage decoded output).  Slimmer keeps a bounded summary only.
+_CI_MAX_ENTRIES  = 32
+_CI_MAX_STR      = 400          # per-string cap inside a CI entry
+
+def _slim_report_extraction(rext: Dict[str, Any]) -> None:
+    """Mutate `rext` in place: drop everything not in _REPORT_EXTRACTION_KEEP,
+    and bound-cap `command_investigations` to a small summary shape.
+
+    Preserves the authoritative sources for MITRE / commands /
+    body_artifacts / yara_rules / etc. — the structured evidence the
+    Workspace analyst UI has always needed but which the previous
+    whole-key strip erased.
+    """
+    if not isinstance(rext, dict):
+        return
+    _keep = set(_REPORT_EXTRACTION_KEEP)
+    doomed = [k for k in rext.keys() if k not in _keep and k != "command_investigations"]
+    for k in doomed:
+        rext.pop(k, None)
+    cis = rext.get("command_investigations")
+    if isinstance(cis, list):
+        slim = []
+        for ci in cis[:_CI_MAX_ENTRIES]:
+            if not isinstance(ci, dict):
+                continue
+            slim.append({
+                "language":   ci.get("language"),
+                "purpose":    (ci.get("purpose")   or "")[:_CI_MAX_STR],
+                "lolbins":    (ci.get("lolbins")   or [])[:16],
+                "techniques": (ci.get("techniques") or [])[:24],
+                "peeled_iocs": ci.get("peeled_iocs") or {},
+                "error":      ci.get("error"),
+            })
+        rext["command_investigations"] = slim
+
+
 def _slim_investigation_response(result: Dict[str, Any]) -> None:
     """Mutate `result` in place, stripping fields the Workspace UI
     does not render. Preserves: narrative, mitre, iocs, lolbas,
-    chain, csv_edr, confidence, metadata, input (truncated).
+    chain, csv_edr, confidence, metadata, input (truncated), and
+    (as of P0e-Unslim · 2026-02-09) a nested-slimmed
+    `report_extraction` carrying the structured evidence sub-fields.
     """
     if not isinstance(result, dict):
         return
@@ -560,6 +626,45 @@ def _slim_investigation_response(result: Dict[str, Any]) -> None:
                             and not any(v.lower().endswith(tld) for tld in _INTERNAL_TLDS)]
                 if len(filtered) != len(bucket):
                     iocs[kind] = filtered
+
+        # ▲ Hash-Policy (2026-02-09) · SHA-256 ONLY.
+        # Extraction stays untouched — filter at the projection
+        # boundary. MD5 (32 hex) and SHA-1 (40 hex) are dropped from
+        # the wire response so every downstream consumer (sidebar
+        # IOCs tab, IOC-intel cards, evidence-confidence counts, IOC
+        # enrichment fan-out) works exclusively against SHA-256.
+        import re as _re_hash
+        _SHA256_RE = _re_hash.compile(r"^[A-Fa-f0-9]{64}$")
+        hbucket = iocs.get("hash")
+        if isinstance(hbucket, list):
+            _filtered_hash = [v for v in hbucket
+                               if isinstance(v, str) and _SHA256_RE.match(v)]
+            if len(_filtered_hash) != len(hbucket):
+                iocs["hash"] = _filtered_hash
+
+    # P0e-Unslim (2026-02-09): nested-slim `report_extraction` in
+    # place so the structured evidence sub-fields survive to the
+    # Workspace UI while the heavy nested fields still get dropped.
+    rext = obj.get("report_extraction")
+    if isinstance(rext, dict):
+        _slim_report_extraction(rext)
+
+        # ▲ Hash-Policy (2026-02-09) · SHA-256 ONLY — mirror the
+        # top-level `iocs.hash` filter for structured artifacts.
+        # Drops MD5 / SHA-1 hash rows from body_artifacts + updates
+        # totals.artifacts to reflect the filtered count so
+        # Evidence-Confidence and the readiness ribbon stay honest.
+        ba = rext.get("body_artifacts")
+        if isinstance(ba, list):
+            _filtered_ba = [a for a in ba
+                            if not (isinstance(a, dict)
+                                    and (a.get("type") or "").lower() == "hash"
+                                    and not _SHA256_RE.match((a.get("value") or "").strip()))]
+            if len(_filtered_ba) != len(ba):
+                rext["body_artifacts"] = _filtered_ba
+                tot = rext.get("totals")
+                if isinstance(tot, dict) and isinstance(tot.get("artifacts"), int):
+                    tot["artifacts"] = len(_filtered_ba)
 
     for key in _SLIM_STRIP_KEYS:
         obj.pop(key, None)
