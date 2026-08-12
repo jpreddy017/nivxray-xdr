@@ -26,6 +26,7 @@ if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
 from tests.canonical.iue.harness.equivalence_harness import (   # noqa: E402
+    EXTENDED_CORPUS,
     M0A_CORPUS,
     run_equivalence_harness,
     run_legacy,
@@ -35,6 +36,7 @@ from services.registry.iue_projection import plan_to_execution_steps  # noqa: E4
 
 
 _REPORT_PATH = Path("/app/memory/equivalence_report_m0a.json")
+_EXTENDED_REPORT_PATH = Path("/app/memory/equivalence_report_extended.json")
 
 
 def test_harness_runs_and_writes_report():
@@ -47,6 +49,38 @@ def test_harness_runs_and_writes_report():
                                         sort_keys=True) + "\n")
     assert _REPORT_PATH.exists()
     assert _REPORT_PATH.stat().st_size > 0
+
+
+def test_harness_runs_extended_corpus():
+    """Owner note (2026-02-15): 'You can take different payloads and test
+    not only sample1.'  Extended-corpus run does NOT re-lock hashes —
+    it is exploratory equivalence evidence written to a separate file
+    for owner review."""
+    result = run_equivalence_harness(EXTENDED_CORPUS)
+    assert len(result["records"]) == len(EXTENDED_CORPUS)
+    assert result["overall_verdict"] in ("GO", "NO-GO", "GAPS-REQUIRE-MIGRATION")
+    _EXTENDED_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _EXTENDED_REPORT_PATH.write_text(
+        json.dumps(result, indent=2, default=str, sort_keys=True) + "\n")
+    # Additional per-input sanity: for every record, if BOTH legacy and
+    # router produced a die.command.v1 envelope, they MUST be byte-identical.
+    # This is the core equivalence claim, and it should hold for every
+    # sync payload — not just the M0a fixtures.
+    for r in result["records"]:
+        legacy_hash = r["legacy"]["envelope_hash"]
+        # Find the router's die.command.v1 result hash if present.
+        router_die_hash = None
+        for o in r["router"]["outcomes"]:
+            if o["entry_id"] == "die.command.v1" and o["status"] == "success":
+                router_die_hash = o["result_hash"]
+                break
+        if router_die_hash is not None:
+            assert legacy_hash == router_die_hash, (
+                f"[{r['input']['name']}] router-dispatched die.command.v1 "
+                f"envelope DIFFERS from inline invocation.\n"
+                f"  legacy: {legacy_hash}\n"
+                f"  router: {router_die_hash}\n"
+                "This would be a novel equivalence failure — investigate.")
 
 
 def test_m0a_iue_envelope_hashes_unchanged_by_harness():
@@ -90,11 +124,17 @@ def test_legacy_path_is_deterministic():
 
 
 def test_harness_never_modifies_production_files():
-    """Grep-lock: the harness module has no `open(..., 'w')` calls
-    against any production path.  Only /app/memory/ report writes."""
+    """Grep-lock: the harness module has no disk-write calls against any
+    production path.  Only /app/memory/ report writes are done from
+    THIS test file, never from the harness module itself."""
     src = (Path(__file__).parent / "harness" / "equivalence_harness.py").read_text()
-    # Only allowed disk write is the report file itself, and that is
-    # done from THIS test file, not from the harness.
+    # The check targets Python-level disk writes.  We deliberately do NOT
+    # search for the substring `.write(` because the extended-corpus
+    # payload strings contain literal `document.write()` fragments.
     assert ".write_text(" not in src
-    assert ".write(" not in src
-    assert "open(" not in src or "open(text[" in src  # false-positive guard
+    assert "Path(" not in src
+    # Python `open()` calls with mode `w` / `a` / `x` are the only real
+    # write vectors — guard those explicitly.
+    import re as _re
+    write_open = _re.search(r"open\s*\([^)]*['\"][wax]", src)
+    assert write_open is None, f"harness contains a write-mode open: {write_open.group()!r}"

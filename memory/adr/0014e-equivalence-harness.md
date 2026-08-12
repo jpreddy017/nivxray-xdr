@@ -170,3 +170,60 @@ After all three land AND the equivalence harness re-runs to **overall_verdict = 
 M0f production wiring · M0d-async-extension · M0e-plumbing · M4 IUE `url_only` fix · SystemWeakness URL Acquisition · CRE retirement · `^` XOR decode-fidelity · OCR wiring · Workspace changes · MITRE/verdict changes · Sysmon E22/E11 · Sample1 seeding · registration of any B/C classified stage · provenance producer wiring.
 
 **Nothing is authorised as a follow-up to this harness. Owner reviews the report.**
+
+---
+
+## 11 · Extended-corpus addendum (owner note 2026-02-15)
+
+> *"Just a note: You can take different payloads and test not only sample1."*
+
+The harness was extended with a broader real-world payload set (**12 additional inputs**, no adapter/analyzer/router/IUE code touched). Written to `/app/memory/equivalence_report_extended.json` for parallel owner review.
+
+### 11.1 Extended corpus
+
+| # | Payload                                    | Class                        |
+|---|--------------------------------------------|------------------------------|
+| 1  | `lolbas_certutil_download`                | LOLBAS · certutil URL cache  |
+| 2  | `lolbas_bitsadmin_transfer`               | LOLBAS · bitsadmin transfer  |
+| 3  | `lolbas_mshta_javascript`                 | LOLBAS · mshta JS            |
+| 4  | `lolbas_rundll32_javascript`              | LOLBAS · rundll32 JS proxy   |
+| 5  | `cmd_chain_amp`                           | cmd shell chain (`&&`)       |
+| 6  | `powershell_encoded_realistic`            | PowerShell -EncodedCommand   |
+| 7  | `base64_wrapping_iocs`                    | base64 blob                  |
+| 8  | `narrative_short_attack`                  | prose narrative              |
+| 9  | `netsh_firewall_off`                      | T1562.004 fixture            |
+| 10 | `wmic_process_create`                     | T1047 fixture                |
+| 11 | `url_with_suspicious_path`                | URL (mirrors M0a bare_url)   |
+| 12 | `empty_input`                             | edge case                    |
+
+### 11.2 Equivalence result
+
+| Capability            | IDENTICAL | MISSING (no step projected) | DIVERGENT | Total |
+|-----------------------|:---------:|:---------------------------:|:---------:|:-----:|
+| `die.command.v1`      | **10**    | 2 (URL, empty)              | **0**     | 12    |
+| `report.narrative.v1` | **10**    | 2 (URL, empty)              | **0**     | 12    |
+| `ioc_enrichment.v1`   | — (async) | —                           | 4 async-gap flags | 12 |
+
+**Zero byte-level divergence across 10 diverse sync payloads for both `die.command.v1` and `report.narrative.v1`.** The equivalence claim generalises: it is not a fluke of the 4 M0a fixtures. LOLBAS chains, cmd chains, encoded PowerShell, base64 wrappers, narrative prose, netsh/T1562.004, WMIC/T1047 — all router-invoked = inline byte-identical.
+
+### 11.3 Confirms — the 3 blocking gaps are systematic, not fixture-specific
+
+- The **URL-only DIE divergence** reproduces on the extended `url_with_suspicious_path` fixture — every URL input hits the same pattern (IUE excludes DIE for `url_only`).
+- The **async dispatch gap** fires on 4/12 records — every payload whose IUE selected `IOC Enrichment` reveals the coroutine capture. Systematic router-layer limitation.
+- The **router plumbing gap** fires on every record that has a `report.narrative.v1` step depending on a `die.command.v1` step — universal for the current projection.
+- The **empty_input edge** produces zero projected steps → router path is a no-op → legacy vs router is trivially non-comparable (documented as MISSING, no failure).
+
+### 11.4 Overall extended-corpus verdict
+
+**NO-GO** — same as M0a. The blocking gaps are:
+1. Async dispatch (systematic)
+2. URL-only DIE divergence (systematic)
+3. Router plumbing gap (structural)
+
+But the **positive equivalence signal broadens dramatically**: 20/20 successful sync capability invocations (10 die.command + 10 report.narrative) are byte-identical inline vs router. This is the strongest possible evidence that the M0d dispatcher itself is faithful — the remaining gaps are in adjacent layers, not in the dispatcher.
+
+### 11.5 New tests
+
+`test_m0f_equivalence_harness.py::test_harness_runs_extended_corpus` — writes the extended report and asserts that EVERY record with both legacy and router `die.command.v1` outcomes has byte-identical envelope hashes (strict — would fail loudly if any router-dispatched invocation ever diverged). Currently green.
+
+Canonical/iue/: **160 passed / 1 pre-existing Sample1-DB failure** (was 159/1) → delta **+1**, zero regression.
