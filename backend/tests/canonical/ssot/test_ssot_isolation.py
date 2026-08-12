@@ -232,6 +232,16 @@ def test_no_route_file_modified_by_phase2():
         # driven exclusively by Event 1 command lines.
         "backend/tests/canonical/api/test_p2_slice2_sysmon_event3.py",
         "backend/tests/canonical/api/test_p2_slice2_extended_contract.py",
+        # P2 Slice-3 · EVTX binary transport (owner sign-off
+        # 2026-08-12, ADR-0023 · ADR-0010s). Transport-only wire-
+        # format adapter over the SAME Slice-2 normalizer. No new
+        # semantics, no new MITRE mapper. python-evtx parser walks
+        # records → concatenates per-record `<Event>` XML into an
+        # `<Events>` wrapper → hands to `normalize_sysmon_xml`.
+        "backend/services/behavioral/evtx_reader.py",
+        "backend/routers/behavioral.py",
+        "backend/tests/canonical/api/test_p2_slice3_evtx_transport.py",
+        "backend/requirements.txt",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

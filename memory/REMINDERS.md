@@ -24,12 +24,12 @@ Item 5  TI latency bound        ✅ PASS
 UI-DEF-02  MITRE convergence    ✅ GREEN (Option B · ADR-0010p)
 P2 · Slice-1 · Sysmon Event 1   ✅ GREEN (ADR-0010q, 2026-08-12)
 P2 · Slice-2 · Sysmon Event 3   ✅ GREEN (ADR-0010r, 2026-08-12)
-                                   Owner-extended spec: IP canonicalization,
-                                   advisory hostname, tri-state correlation,
-                                   deterministic dedup, fail-loud EID3 cap.
-                                   94/94 tests pass. Corpus: 0 deltas.
+P2 · Slice-3 · EVTX transport   ✅ GREEN (ADR-0010s, 2026-08-12)
+                                   python-evtx transport over the
+                                   SAME Slice-2 normalizer.
+                                   104/104 tests · Corpus: 0 deltas.
 
-P2 · Slice-3 · EVTX binary transport  ⏸  await authorisation
+P2 · Slice-4 · Event 22 DNS     ⏸  await authorisation
 ```
 
 ### Locked execution order (do not break this sequence)
