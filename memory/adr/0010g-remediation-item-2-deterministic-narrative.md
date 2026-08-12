@@ -35,7 +35,7 @@ Companion change in `backend/canonical/projections/attck.py`: `_TECHNIQUE_META` 
 | 11 | bitsadmin | Malicious (80) | ✅ | 4 |
 | 12 | rundll32-poweliks | Malicious (80) | ✅ | 6 |
 
-**Narrative populated: 8 / 12** (up from 0 / 12 in Phase A). Every case with DIE-observable evidence now narrates; the 4 empty are exactly the 4 that legitimately have no DIE evidence (2 benign · 1 ambiguous-blocked-by-Item-4 · 1 too-short · 1 empty). **Zero manufactured narratives.**
+**Narrative populated: 8 / 12** (up from 0 / 12 in Phase A). Every case with DIE-observable evidence now narrates; the 4 empty are exactly `rip-06 benign-recon-ps` · `rip-07 netsh-fw-off` · `rip-09 too-short` · `rip-10 empty-input`. Of those four: 3 have no DIE-observable evidence at all (correct silence — no manufactured narrative on benign / too-short / empty input); 1 (`rip-07`) has T1562.004 evidence in `/api/analyze`'s mapper but not yet in the DIE catalogue → deferred to Item 4. **Zero manufactured narratives.**
 
 **Determinism gate: 12 / 12 stable** (narrate response byte-identical across two runs). Verdict / risk / MITRE snapshots unchanged from Item 1.
 

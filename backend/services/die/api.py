@@ -133,7 +133,52 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
 
     env = _analyze_single(src, language=language)
     _attach_preprocessor(env, src)
+    _apply_recursive_decode(env, src)
     return env
+
+
+def _apply_recursive_decode(env: Dict[str, Any], src: str) -> None:
+    """ADR-0010e §10 item 3 · Recursive-Decode bridge (2026-08-12).
+
+    Peel any nested base64 layers embedded via `-EncodedCommand` /
+    `FromBase64String(...)` / `base64 -d`, run the same analyzer on
+    each decoded layer, and merge the resulting techniques + LOLBINs +
+    IOCs into ``env``.  Additive-only, deterministic, bounded
+    (``MAX_DEPTH=3``, ``MAX_LAYERS=12``, visited-SHA-256 cycle guard).
+
+    Attaches ``env['decoded_layers']`` as an evidence-provenance
+    surface — each entry names the layer depth, encoding, source
+    offset, and SHA-256s so an analyst can reconstruct the pursued
+    chain months later.
+    """
+    try:
+        from .recursive_decode import extract_decoded_layers, merge_evidence
+    except Exception:  # noqa: BLE001
+        return
+    layers = extract_decoded_layers(src or "")
+    if not layers:
+        return
+    # Analyse each decoded layer via the same single-input analyzer.
+    inner_envelopes: list = []
+    layer_records: list = []
+    for lyr in layers:
+        try:
+            inner = _analyze_single(lyr.decoded_text)
+        except Exception:  # noqa: BLE001
+            inner = None
+        if inner:
+            inner_envelopes.append(inner)
+        layer_records.append({
+            "depth": lyr.depth,
+            "pattern_index": lyr.pattern_index,
+            "source_offset": lyr.source_offset,
+            "encoding": lyr.encoding_used,
+            "b64_sha256": lyr.b64_sha256,
+            "decoded_sha256": lyr.decoded_sha256,
+            "decoded_preview": lyr.decoded_text[:512],
+        })
+    env["decoded_layers"] = layer_records
+    merge_evidence(env, inner_envelopes)
 
 
 def _attach_preprocessor(env: Dict[str, Any], src: str) -> None:

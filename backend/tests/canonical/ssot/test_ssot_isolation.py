@@ -134,6 +134,18 @@ def test_no_route_file_modified_by_phase2():
         # projection-logic change.
         "backend/routers/die.py",
         "backend/canonical/projections/attck.py",
+        # Item 3 · Recursive decode (owner sign-off 2026-08-12,
+        # ADR-0010e §10 · ADR-0023 §4). New module
+        # services/die/recursive_decode.py peels nested base64 layers
+        # (`-EncodedCommand`, `FromBase64String`, `base64 -d`) with
+        # deterministic bounds (MAX_DEPTH=3, MAX_LAYERS=12, SHA-256
+        # visit set). services/die/api.py::analyze() calls it after
+        # the base envelope is built and merges new evidence via
+        # merge_evidence(). Additive-only; cycle-guarded; Cruise-
+        # Missile principle honoured (pursues layers but never
+        # manufactures verdicts).
+        "backend/services/die/recursive_decode.py",
+        "backend/services/die/api.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"
