@@ -211,6 +211,19 @@ def test_no_route_file_modified_by_phase2():
         # (T1218.005/010/011, T1047, T1059.003, T1197, …). Evidence
         # anchored to the actual LOLBIN detection — never fabricated.
         "backend/services/die/api.py",
+        # P2 Slice-1 · Behavioral evidence ingestion (owner sign-off
+        # 2026-08-12, ADR-0023 · ADR-0010q). New telemetry adapter for
+        # Sysmon Event 1 (Process Create) → canonical behavioral
+        # evidence. Adapter is an EVIDENCE PRODUCER only — no parallel
+        # MITRE mapper, no verdict logic, no process-tree engine. The
+        # thin router hands the extracted `command_line` to the
+        # UI-DEF-02 authoritative surface (services.die.api.analyze).
+        "backend/services/behavioral/__init__.py",
+        "backend/services/behavioral/sysmon_adapter.py",
+        "backend/routers/behavioral.py",
+        "backend/server.py",
+        "backend/tests/canonical/api/test_p2_sysmon_adapter.py",
+        "backend/tests/canonical/api/test_p2_slice1_no_corpus_impact.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"
