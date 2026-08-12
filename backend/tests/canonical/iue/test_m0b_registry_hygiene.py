@@ -42,6 +42,8 @@ EXPECTED_ANALYZER_IDS = {
     "die.command.v1", "die.recursive.v1", "report_extractor.v1", "image.ocr.v1",
     "csv.edr.symantec.v1", "ioc_enrichment.v1", "pe.header.v1",
     "narrative.canonical.v1", "mitre.regex_diag.v1", "verdict.risk_score.v1",
+    # M0b-extension (ADR-0014d) — 2 class-A capabilities
+    "report.narrative.v1", "artifact.intel.v1",
 }
 
 
@@ -49,7 +51,7 @@ def test_all_expected_ids_registered():
     assert set(ADAPTER_REGISTRY.ids())  == EXPECTED_ADAPTER_IDS
     assert set(ANALYZER_REGISTRY.ids()) == EXPECTED_ANALYZER_IDS
     assert len(ADAPTER_REGISTRY)  == 9
-    assert len(ANALYZER_REGISTRY) == 10
+    assert len(ANALYZER_REGISTRY) == 12
 
 
 # ── 2 · Every implementation resolves cleanly ──────────────────────────────

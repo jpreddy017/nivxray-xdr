@@ -251,6 +251,32 @@ _ANALYZERS = [
         role="Verdict scorer (recalibrated Item-1, per ADR-0010f).",
         live_today=True,
     ),
+    # ─── M0b-extension (ADR-0014d · 2026-02-15) ───────────────────────────
+    # Two capabilities identified as class-A independent by the pre-M0f
+    # architecture reassessment.  Registered PASSIVELY — nothing in
+    # production consumes them via the registry yet.
+    RegistryEntry(
+        entry_id="report.narrative.v1",
+        kind="analyzer", version="1",
+        implementation_path="services.die.narrative:generate_report",
+        accepts_formats=frozenset({"die_envelope"}),
+        role="Deterministic 12-section report generator over the DIE envelope.",
+        live_today=True,
+        notes="Independent capability — consumes an already-analyzed env; "
+              "not called from inside services.die.api:analyze. "
+              "See ADR-0014d for the duplicate-execution proof.",
+    ),
+    RegistryEntry(
+        entry_id="artifact.intel.v1",
+        kind="analyzer", version="1",
+        implementation_path="services.artifact_intelligence:dispatch",
+        accepts_formats=frozenset({"bytes"}),
+        role="Pluggable artifact analyzers (PE, DOCX, PDF, shellcode, …) "
+              "dispatched by content magic.",
+        live_today=True,
+        notes="Independent top-level package with its own analyzers/ "
+              "subdirectory and routes/artifacts.py entry-point.",
+    ),
 ]
 
 for _e in _ANALYZERS:

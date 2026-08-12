@@ -38,10 +38,13 @@ from .router import ExecutionStep, FailurePolicy
 # EXIST.  Unmapped friendly names are legitimate — they correspond to
 # legacy pipeline stages that don't have a standalone M0b capability yet.
 _LEGACY_ENGINE_TO_ENTRY_ID: Dict[str, str] = {
-    "DIE (Semantic AST)": "die.command.v1",
-    "Decoder":            "die.recursive.v1",
-    "IOC Enrichment":     "ioc_enrichment.v1",
-    "URL Acquisition":    "url.acquire.v1",
+    "DIE (Semantic AST)":    "die.command.v1",
+    "Decoder":               "die.recursive.v1",
+    "IOC Enrichment":        "ioc_enrichment.v1",
+    "URL Acquisition":       "url.acquire.v1",
+    # ── M0b-extension (ADR-0014d) — 2 additional class-A capabilities ──
+    "Report Generator":      "report.narrative.v1",
+    "Artifact Intelligence": "artifact.intel.v1",
 }
 
 

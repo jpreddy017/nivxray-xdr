@@ -217,16 +217,27 @@ def test_projection_accepts_both_dataclass_and_dict():
 #  Axis 12 · SystemWeakness locked
 # ────────────────────────────────────────────────────────────────────────
 def test_systemweakness_projection_locked():
-    """SystemWeakness URL → single ExecutionStep (ioc_enrichment.v1).
-    URL Acquisition MUST NOT appear as a step — it lives in
+    """SystemWeakness URL → 2 ExecutionSteps under M0b-extension:
+    `ioc_enrichment.v1` + `report.narrative.v1`.
+    `url.acquire.v1` MUST NOT appear — that is IUE-side URL migration
+    (M0h/M1/M4), still LOCKED.  `URL Acquisition` remains in
     engines_skipped per the M0a lock."""
     u = understand("https://systemweakness.com/some-report", execute=False)
     proj = plan_to_execution_steps(u)
-    assert [s.entry_id for s in proj.steps] == ["ioc_enrichment.v1"], (
-        f"SystemWeakness scope-creep — expected only ioc_enrichment.v1, "
+    assert [s.entry_id for s in proj.steps] == [
+        "ioc_enrichment.v1",
+        "report.narrative.v1",
+    ], (
+        f"SystemWeakness projection drifted — expected "
+        f"[ioc_enrichment.v1, report.narrative.v1], "
         f"got {[s.entry_id for s in proj.steps]}")
-    assert "url.acquire.v1" not in [s.entry_id for s in proj.steps]
-    assert proj.unmapped_engines == ["Report Generator"]
+    # The critical governance witness: URL Acquisition is NOT added.
+    assert "url.acquire.v1" not in [s.entry_id for s in proj.steps], (
+        "SystemWeakness scope-creep — url.acquire.v1 must NOT appear "
+        "in the projection (that is M0h/M1/M4 territory, LOCKED).")
+    # With Report Generator now mapped, unmapped_engines is empty for
+    # this input.
+    assert proj.unmapped_engines == []
     # Envelope hash on the underlying IUE also unchanged.
     envelope_hash = hashlib.sha256(
         json.dumps(asdict(u), default=str, sort_keys=True).encode()).hexdigest()
