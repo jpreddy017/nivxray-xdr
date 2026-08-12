@@ -76,6 +76,87 @@ The six-question analyst rhythm that NivXRay is optimising for:
 
 The goal is not more telemetry for its own sake. The goal is a cruise-missile investigation engine that follows the evidence chain toward root cause rather than stopping at the first indicator.
 
+## 3a · Cruise-Missile Guidance Principle (locked)
+
+The single design principle every subsequent NivXRay improvement — remediation
+items, telemetry adapters, IKG projections, verdict logic — must honour:
+
+> **NivXRay does not stop when it finds an indicator. It pursues the evidence
+> until it can explain the incident.**
+
+Cruise-missile behaviour, made explicit:
+
+* **Acquire** the target — accept any supported input (command, script, file,
+  document, and eventually telemetry).
+* **Navigate** — decode, deobfuscate, unwrap recursively until the raw
+  behavioural surface is exposed.
+* **Discover new evidence** — extract every observable (IOCs, LOLBINs, parent
+  chain, hashes, DLLs, files, network, registry, session).
+* **Course-correct** — every newly-discovered observable can re-open the
+  investigation, feed new decode/enrich queries, and pull additional evidence
+  into the graph.
+* **Pursue recursively** — a URL yields a payload; a payload yields commands;
+  commands yield new IOCs; new IOCs yield new correlations — the loop closes
+  only when the investigation can be *explained*, not when the first
+  suspicious token is detected.
+* **Correlate** — parent-child, temporal, session, and identity edges combine
+  observables into an attack chain.
+* **Judge** — verdict is a function of the *correlated evidence set*, never of
+  a single indicator.
+* **Preserve the flight record** — the complete chain (input → decoded layers
+  → observables → correlations → ATT&CK → verdict → impact) is written to a
+  deterministic, reproducible report that survives the original analyst.
+
+### Concrete illustration (locked into this ADR so future agents cannot re-invent it)
+
+**Weak "indicator-detector" reasoning (what NivXRay must NOT collapse into):**
+```
+rundll32.exe   →   suspicious
+```
+
+**Cruise-missile reasoning (what NivXRay must progressively achieve):**
+```
+WINWORD.EXE
+   ↓ (Sysmon Event 1 — parent-child edge; Office → LOLBIN combination
+      from LOLBA training §3.2)
+RUNDLL32.EXE
+   ↓ (command line + image path + signer + hash correlated;
+      T1218.011 candidate)
+C:\Users\Public\update.dll          (Sysmon 7 image-loaded; unusual path;
+                                      Sysmon 11 file-create if just dropped)
+   ↓
+External Network Connection         (Sysmon 3 + Sysmon 22 DNS; IOC extracted)
+```
+
+The verdict is **not** "rundll32.exe = suspicious". The verdict is the
+*explanation of the correlated chain*: an Office document spawned a signed
+system binary that loaded a non-system DLL from a public writeable path and
+initiated an external connection — a defensible malicious-execution
+narrative that another analyst can reconstruct from the persisted evidence
+alone.
+
+### How each in-flight workstream serves the missile
+
+* **The five §4 preconditions** repair the *guidance system* (verdict
+  calibration + narrative + recursive decode + missing signature + latency
+  bound). Nothing to do with new sensors — the existing sensors must aim
+  correctly first.
+* **P2 Behavioral Evidence Ingestion** adds *sensors* (Sysmon / EVTX /
+  Windows Security event streams). More observables into the same graph.
+* **IKG + Correlation + Attack Story** (shadow today) provide *navigation
+  and relationship awareness* — how observables combine into a chain.
+* **Recursive decode + observable-driven re-enrichment** is what lets the
+  missile *continue pursuing the target* rather than exploding on the first
+  encoded blob.
+* **The deterministic report** is the *complete flight record* — every
+  observable, every decoded layer, every correlation, every verdict input,
+  reproducibly reconstructable.
+
+**No workstream may violate this principle.** If a proposed feature would
+make NivXRay stop earlier, present a fabricated verdict, hide a decode
+layer, or emit a conclusion without a reconstructable evidence chain — it
+is rejected by this ADR without further debate.
+
 ## 4 · Preconditions before P2 opens (owner-locked)
 
 P2 does **not** open until *all five* of the following pass a regression run against the frozen 12-case corpus in `/app/memory/experiments/rip/`:
