@@ -14,6 +14,8 @@ router = APIRouter(prefix="/audit")
 
 _AUDIT_PDF = "/app/backend/exports/NivXRay-Workspace-360-Audit.pdf"
 _AUDIT_MD  = "/app/memory/adr/0012-workspace-360-audit.md"
+_PARTIAL_PDF = "/app/backend/exports/NivXRay-Partial-Pending-Skipped-Dead.pdf"
+_PARTIAL_MD  = "/app/memory/adr/0012a-partial-pending-skipped-dead.md"
 
 
 @router.get("/workspace-360.pdf")
@@ -35,4 +37,26 @@ async def download_workspace_360_md():
         _AUDIT_MD,
         media_type="text/markdown",
         filename="NivXRay-Workspace-360-Audit.md",
+    )
+
+
+@router.get("/partial-pending-skipped-dead.pdf")
+async def download_partial_pdf():
+    if not os.path.exists(_PARTIAL_PDF):
+        raise HTTPException(404, detail={"error": "partial_pdf_missing"})
+    return FileResponse(
+        _PARTIAL_PDF,
+        media_type="application/pdf",
+        filename="NivXRay-Partial-Pending-Skipped-Dead.pdf",
+    )
+
+
+@router.get("/partial-pending-skipped-dead.md")
+async def download_partial_md():
+    if not os.path.exists(_PARTIAL_MD):
+        raise HTTPException(404, detail={"error": "partial_md_missing"})
+    return FileResponse(
+        _PARTIAL_MD,
+        media_type="text/markdown",
+        filename="NivXRay-Partial-Pending-Skipped-Dead.md",
     )
