@@ -2804,7 +2804,20 @@ MITRE_HEURISTICS = [
     (r"net\s+user\s+[^\r\n]{0,40}?/delete|Remove-LocalUser|Set-ADAccountControl\s+.*-Enabled\s+\$false|Disable-ADAccount", ("T1531", "Account access removal (net user /delete · Remove-LocalUser · Disable-ADAccount)", "Impact")),
 
     # ── Initial Access ──────────────────────────────────────────────────
-    (r"(?:\.(?:iso|img|vhd|vhdx|hta|lnk|scr|ps1|vbs|js|wsf|jar))\s*(?:\"|'|$|\s|\?)", ("T1566.001", "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)", "Initial Access")),
+    # T1566.001 · Spearphishing Attachment
+    # 2026-08-12 · Tightened per ADR-0010e §7 Q1 finding: prior regex
+    # `\.(iso|img|hta|lnk|scr|ps1|vbs|js|wsf|jar)` fired on any file
+    # reference, producing a false Initial-Access verdict on legitimate
+    # enterprise deployment inputs like Deploy-Application.ps1. A file
+    # extension in isolation is not phishing evidence. Now require
+    # co-occurring phishing / delivery context (mail attachment,
+    # download from external host, quarantine/temp folder, IE download
+    # cache) OR a high-signal double-extension pattern (invoice.pdf.js).
+    (r"(?:\.(?:iso|img|vhd|vhdx|hta|lnk|scr|vbs|wsf|jar))\s*(?:\"|'|$|\s|\?)"
+     r"|(?:invoice|receipt|order|shipment|payment|remittance|scan|fax|voicemail|resume|cv|contract)[_\-\.\s]{0,4}"
+     r"(?:pdf|doc|docx|xls|xlsx)\s*\.(?:exe|scr|js|vbs|hta|lnk|iso|img|zip|rar|7z)"
+     r"|attachment\s*[:=]\s*['\"]?[^'\"]+\.(?:iso|img|hta|lnk|scr|vbs|wsf|jar|ps1|js)",
+     ("T1566.001", "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/SCR/VBS/WSF/JAR or double-extension lure)", "Initial Access")),
     (r"contact\s+support|verify\s+your\s+account|password\s+expires|urgent\s+action\s+required|click\s+here\s+to\s+(?:verify|reset|confirm)", ("T1566.002", "Phishing lure text patterns", "Initial Access")),
     (r"(?:CVE-\d{4}-\d{4,7})", ("T1190", "CVE identifier referenced — possible exploit-based initial access", "Initial Access")),
     (r"(?:paloaltonetworks|fortinet|citrix|solarwinds|vmware|ivanti|manageengine|movEit|log4j|jndi:)", ("T1190", "Public-facing appliance exploit target (Palo Alto/Fortinet/Citrix/Ivanti/…)", "Initial Access")),

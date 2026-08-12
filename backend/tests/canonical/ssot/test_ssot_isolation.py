@@ -146,6 +146,20 @@ def test_no_route_file_modified_by_phase2():
         # manufactures verdicts).
         "backend/services/die/recursive_decode.py",
         "backend/services/die/api.py",
+        # UI-DEF-01 · Attack Chain panel fix (owner explicit
+        # authorisation 2026-08-12, superseding the "no Workspace
+        # changes" gate for this specific defect). Three fixes:
+        #   1. Tightened T1566.001 spearphishing regex in
+        #      operations.py::_MITRE_MAP — a legitimate .ps1 file
+        #      reference no longer triggers a false Initial-Access
+        #      verdict (the source of the pb-01 divergence).
+        #   2. TrajectoryDiagram.jsx: title/legend corrected for the
+        #      legacy 6-lane view (it renders artifact categories,
+        #      NOT kill-chain phases), + neutral colour for
+        #      unclassified phase (was miscoloured cyan =
+        #      Reconnaissance), + Rules-of-Hooks fix (useMemo now
+        #      runs before the early empty-state return).
+        "frontend/src/components/investigation/TrajectoryDiagram.jsx",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"
