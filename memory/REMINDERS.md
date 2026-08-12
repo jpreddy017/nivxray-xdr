@@ -72,6 +72,16 @@ Read this whenever a session opens if you want the full backlog, not just the P0
   - PPID spoofing (T1134.004) inherited as explicit first-class constraint — kernel-callback ETW + session/integrity checks required to reason on ancestry.
   - Do **NOT** create a parallel Process Tree engine or separate product.
   - **Precondition gate** (all five must pass regression against the frozen 12-case corpus): risk-score recalibration · deterministic narrative · recursive decode · T1562.004 signature · bounded TI latency.
+- [ ] **UI-DEF-02 · MITRE Mapper Convergence** (owner sequence-locked 2026-08-12 · ADR-0023 §3c)
+  - Root cause: `/api/analyze::mitre_map` (regex) and `services.die.api.analyze::techniques` (analyzer-catalogue) emit different technique sets for the same input (verified on pb-01 · rip-08). Two competing MITRE truths per input.
+  - Target end-state: one authoritative technique surface consumed identically by Verdict, Narrative, Attack Story, Report.
+  - **DO NOT start UI-DEF-02 out of order.** Sequence: Item 4 → Item 5 → 12-case regression → THEN UI-DEF-02.
+  - Provenance chips (which mapper produced which technique) may be added as a diagnostic *during* convergence, but must NOT be treated as the permanent solution.
+- [ ] **UI-Truth Principle enforcement** (ADR-0023 §3b, locked 2026-08-12)
+  - Standing rule: a UI must never display a stronger claim than the underlying evidence supports.
+  - Applies to: verdict pills · confidence bars · attack-chain colouring · lane / tactic labeling · narrative wording.
+  - When evidence is missing / insufficient / ambiguous, the UI MUST admit uncertainty visibly (neutral colour, "Unclassified" label, "additional evidence required" language).
+  - Enforceable at design-review + regression against the frozen 12-case corpus + Phase-B pb-01.
 - [ ] **P2b · Splunk `_raw` CSV recognizer** — extend `csv_edr_analyzer.py`.
 - [ ] **P3 · Shadow-pipeline replay & promotion** (ADR-0008 §4)
   - IKG (Case Engine flag) — persistence writer live end-to-end; provenance parity; Timeline/AttackChain/AttackStory re-projectable to byte-identity.

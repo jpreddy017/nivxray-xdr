@@ -157,6 +157,75 @@ make NivXRay stop earlier, present a fabricated verdict, hide a decode
 layer, or emit a conclusion without a reconstructable evidence chain — it
 is rejected by this ADR without further debate.
 
+## 3b · UI-Truth Principle (locked 2026-08-12)
+
+Emerging directly from UI-DEF-01 (see ADR-0010i):
+
+> **A UI must never display a stronger claim than the underlying evidence
+> supports.**
+
+Operationally:
+
+* A visualisation that colour-codes an unclassified node as *Reconnaissance*
+  (because cyan happens to be the fallback) is a rejected pattern.
+* A panel title that promises "Cyber Kill Chain × MITRE ATT&CK" while
+  actually rendering DIE artifact-category lanes is a rejected pattern.
+* A verdict pill that says *Malicious* when only weak evidence exists is a
+  rejected pattern.
+* When evidence is missing, insufficient, or ambiguous, the UI must
+  **admit uncertainty visibly** — neutral colour + "Unclassified / no
+  phase" label + honest verdict language such as *"Suspicious behaviour
+  observed; additional evidence required to establish intent"*.
+
+This rule is enforceable at design-review time and at regression time (the
+frozen 12-case corpus + Phase-B pb-01 both include cases where the correct
+NivXRay answer is *not-malicious-with-caveats*, and any UI that fakes
+confidence on those cases fails the gate).
+
+## 3c · Convergence Architecture (target, not code yet · UI-DEF-02)
+
+UI-DEF-01 exposed a deeper architectural issue: `/api/analyze::mitre_map`
+(regex-driven) and `services.die.api.analyze::techniques` (analyzer-
+catalogue-driven) can emit *different technique sets for the same input*.
+NivXRay currently carries **two competing MITRE truths**. Provenance chips
+are useful diagnostically but must not become the permanent excuse.
+
+The target end-state (target, not code):
+
+```
+                    INPUT
+                      │
+                      ▼
+              ┌───────────────┐
+              │  DIE / Analyse │
+              └───────┬───────┘
+                      │
+              Evidence Normalisation
+                      │
+                      ▼
+              ┌───────────────┐
+              │  MITRE Mapper │  ← ONE authoritative surface
+              └───────┬───────┘
+                      │
+                techniques[]
+                      │
+          ┌───────────┼───────────┐
+          ▼           ▼           ▼
+       Verdict    Narrative   Attack Story
+          │           │           │
+          └───────────┼───────────┘
+                      ▼
+                    Report
+```
+
+Individual detectors may remain different internally; the *output contract*
+must converge to a single technique-set stream that Verdict, Narrative,
+Attack Story, and Report all consume identically.
+
+**UI-DEF-02 is NOT part of the current remediation queue.** Sequence
+preserved: Item 4 → Item 5 → 12-case regression → THEN UI-DEF-02
+convergence. Do not attempt UI-DEF-02 out of order.
+
 ## 4 · Preconditions before P2 opens (owner-locked)
 
 P2 does **not** open until *all five* of the following pass a regression run against the frozen 12-case corpus in `/app/memory/experiments/rip/`:
