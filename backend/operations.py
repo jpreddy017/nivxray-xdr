@@ -3305,7 +3305,44 @@ def yara_lite_scan(text: str) -> List[Dict[str, str]]:
     return hits
 
 
-def risk_score(mitre: List[Dict], yara: List[Dict], iocs: Dict[str, List[str]]) -> Dict[str, Any]:
+def risk_score(
+    mitre: List[Dict],
+    yara: List[Dict],
+    iocs: Dict[str, List[str]],
+    lolbas: Optional[List[Dict]] = None,
+) -> Dict[str, Any]:
+    """Deterministic risk score.
+
+    Signals (2026-08-12 recalibration per ADR-0010e §10 item 1 +
+    ADR-0023 preconditions):
+      * YARA-Lite severity weights (unchanged)
+      * MITRE technique count baseline (unchanged: +5 per technique)
+      * IOC family presence (unchanged: +6 urls / +4 ips / +15 btc)
+      * **NEW** LOLBIN presence — +8 per detected LOLBAS binary, capped
+        at 24. Ignored when caller does not pass ``lolbas`` (back-compat).
+      * **NEW** LOLBIN + external IOC boost — +30 when ANY LOLBIN is
+        detected AND the input contains external URLs or IPs. Signed-
+        binary-proxy-execution with an external destination is the
+        under-weighted TTP class the Real Investigation Proof identified
+        (ADR-0010e §7 Q5.1: certutil / squiblydoo / bitsadmin cases
+        mis-labelled Low-Risk despite correct MITRE mapping).
+      * **NEW** Known-bad-TTP boost — +8 per matched MITRE technique in
+        ``_HIGH_SIGNAL_TTPS`` (signed-binary-proxy-execution, ingress
+        tool transfer, deobfuscate, BITS jobs, command-interpreter
+        subtechniques, WMI). Capped at 24.
+      * **NEW** Signed-binary-proxy-execution class bonus — +10 when
+        any ``T1218.*`` technique is present (defence-evasion signature
+        abuse is a distinct calibration lever).
+
+    Cruise-Missile Guidance Principle (ADR-0023 §3a) is honoured — the
+    score is a *function of the correlated evidence set*, never of a
+    single indicator. Benign inputs (no MITRE, no LOLBAS, no IOCs)
+    remain at score 0 by construction.
+
+    Backward-compatible: callers that omit ``lolbas`` see the pre-
+    recalibration behaviour for the LOLBIN signals (they still get the
+    known-bad-TTP boost from MITRE alone).
+    """
     score = 0
     weights = {"high": 25, "medium": 12, "low": 4}
     for y in yara:
@@ -3314,6 +3351,29 @@ def risk_score(mitre: List[Dict], yara: List[Dict], iocs: Dict[str, List[str]]) 
     if iocs.get("urls"): score += 6
     if iocs.get("ips"): score += 4
     if iocs.get("bitcoin_addresses"): score += 15
+
+    # ── Recalibration signals ────────────────────────────────────
+    has_external_ioc = bool(iocs.get("urls") or iocs.get("ips"))
+    lolbas_hits = lolbas or []
+    if lolbas_hits:
+        score += min(len(lolbas_hits) * 8, 24)
+        if has_external_ioc:
+            score += 30  # signed-binary + external destination
+    # Known-bad-TTP boost — order-insensitive prefix match.
+    ttp_boost = 0
+    seen_t1218 = False
+    mitre_ids = {str(m.get("id", "")).upper() for m in mitre if isinstance(m, dict)}
+    for mid in mitre_ids:
+        for prefix in _HIGH_SIGNAL_TTPS:
+            if mid == prefix or mid.startswith(prefix + "."):
+                ttp_boost += 8
+                if prefix == "T1218" or mid.startswith("T1218."):
+                    seen_t1218 = True
+                break
+    score += min(ttp_boost, 24)
+    if seen_t1218:
+        score += 10
+
     score = min(score, 100)
     if score >= 70:
         verdict, level = "Malicious", "high"
@@ -3324,3 +3384,20 @@ def risk_score(mitre: List[Dict], yara: List[Dict], iocs: Dict[str, List[str]]) 
     else:
         verdict, level = "Benign", "safe"
     return {"score": score, "verdict": verdict, "level": level}
+
+
+# High-signal MITRE technique prefixes for the calibrated `risk_score`
+# boost. Chosen from the Real-Investigation-Proof analysis of malicious
+# cases the pre-recalibration scoring under-classified. Each prefix
+# matches the technique itself and any sub-technique (e.g. "T1218" also
+# matches "T1218.010"). Keep this list conservative — expanding it
+# without re-running the frozen 12-case regression will drift benign
+# cases.
+_HIGH_SIGNAL_TTPS = (
+    "T1218",     # signed binary proxy execution (mshta / regsvr32 / rundll32 / …)
+    "T1105",     # ingress tool transfer
+    "T1140",     # deobfuscate / decode files or information
+    "T1197",     # BITS jobs
+    "T1059",     # command and scripting interpreter (all sub-techniques)
+    "T1047",     # WMI
+)

@@ -38,7 +38,7 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
     mitre = mitre_map(text)
     yara = yara_lite_scan(text)
     lolbas = scan_lolbas(text)
-    risk = risk_score(mitre, yara, iocs)
+    risk = risk_score(mitre, yara, iocs, lolbas=lolbas)
     ti_hits = await lookup_ti_hits(iocs)
     # Corrupt-payload detector — catches fabricated / truncated blobs so
     # analysts don't waste time comparing NivXRay's blank output to another
@@ -159,7 +159,7 @@ async def analyze_stream(body: AnalyzeIn, user=Depends(get_current_user)):
             mitre = mitre_map(text)
             yara = yara_lite_scan(text)
             lolbas = scan_lolbas(text)
-            risk = risk_score(mitre, yara, iocs)
+            risk = risk_score(mitre, yara, iocs, lolbas=lolbas)
             partial = {"iocs": iocs, "mitre": mitre, "yara": yara, "lolbas": lolbas, "risk": risk}
             yield _sse("partial", partial)
         except Exception as e:
@@ -375,7 +375,7 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[st
             lolbas = lolbas + custom_hits
         except Exception as e:
             log.warning("custom detection rules failed: %s", e)
-        risk = risk_score(mitre, yara, iocs)
+        risk = risk_score(mitre, yara, iocs, lolbas=lolbas)
         await _job_set(job_id, {
             "iocs": iocs, "mitre": mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
             "phase": "ti_hits", "progress": 15,

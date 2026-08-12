@@ -115,6 +115,13 @@ def test_no_route_file_modified_by_phase2():
         "backend/deps.py",
         "backend/server.py",
         "backend/services/files/retention_sweeper.py",
+        # Item 1 · Risk-score recalibration (owner sign-off 2026-08-12,
+        # ADR-0010e §10 · ADR-0023 §4). LOLBIN + external-IOC boost +
+        # known-bad-TTP boost + T1218.* signed-binary-proxy bonus.
+        # Backward-compatible: `risk_score(mitre, yara, iocs)` legacy
+        # call sites remain valid via `lolbas=None` default.
+        "backend/operations.py",
+        "backend/routers/analyze.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"
