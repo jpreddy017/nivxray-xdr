@@ -281,6 +281,39 @@ function _synthPreprocFromIce(ice) {
 // contract.  Guarded: only kicks in when the CSV/prose path leaves
 // `incident.behaviors` and `ice.behavior_clusters` empty.
 // ══════════════════════════════════════════════════════════════════
+// ▲ UX-FIX (2026-02-09) · LolbasTab crash guard — the sidebar
+// LolbasTab does `l.purposes.map(...)` and `l.mitre.map(...)` with
+// no guard.  SSOT lolbas entries use {binary, legit, abuse, mitre,
+// detection} shape while the sidebar expects {binary, purposes,
+// mitre, description, snippet, url}.  Normalize once at the lift
+// boundary so every consumer sees the same defensive shape.
+function _normalizeLolbas(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map((raw) => {
+    const l = (raw && typeof raw === "object") ? raw : {};
+    const purposes = Array.isArray(l.purposes) ? l.purposes
+                    : (l.abuse ? [l.abuse] : (l.legit ? [l.legit] : []));
+    return {
+      binary:      l.binary || "",
+      purposes:    purposes,
+      mitre:       Array.isArray(l.mitre) ? l.mitre : [],
+      description: l.description || l.legit || l.abuse || "",
+      snippet:     l.snippet || "",
+      url:         l.url || "",
+      custom:      !!l.custom,
+      model_id:    l.model_id || null,
+      model_name:  l.model_name || null,
+      // Preserve original SSOT fields so downstream projections still
+      // have access if they need them.
+      legit:       l.legit || "",
+      abuse:       l.abuse || "",
+      detection:   Array.isArray(l.detection) ? l.detection : [],
+    };
+  });
+}
+
+
+
 function _synthBehaviorsFromMitre(mitreList) {
   if (!Array.isArray(mitreList) || !mitreList.length) return [];
   const behaviors = [];
@@ -2084,8 +2117,14 @@ function WorkspacePageInner() {
           setAnalysis((prev) => ({
             ...(prev || {}),
             iocs:       obj.iocs   || {},
-            lolbas:     Array.isArray(obj.lolbas) ? obj.lolbas : [],
-            lolbins:    Array.isArray(obj.lolbas) ? obj.lolbas : [], // fallbackGraph reads .lolbins
+            // ▲ UX-FIX (2026-02-09) · Normalize lolbas entries to the
+            // shape ThreatAnalysis / LolbasTab expects — the SSOT
+            // schema uses {binary, legit, abuse, mitre, detection}
+            // while the sidebar UI reads {binary, purposes, mitre,
+            // description, snippet, url}.  Missing arrays default to
+            // [] so `.map()` never crashes the panel.
+            lolbas:     _normalizeLolbas(obj.lolbas),
+            lolbins:    _normalizeLolbas(obj.lolbas), // fallbackGraph reads .lolbins
             mitre:      _mitre,
             yara:       _yara,
             ai_verdict: _aiVerdict || (prev && prev.ai_verdict) || null,
