@@ -10,8 +10,9 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from operations import extract_iocs, mitre_map, yara_lite_scan, risk_score
@@ -1098,6 +1099,85 @@ async def lookup_ti_hits(iocs: Dict[str, List[str]],
             _e["layer"] = _attribution[_v]["layer"]
             _e["revealed_by_op"] = _attribution[_v]["revealed_by_op"]
     return hits
+
+
+# ============================================================================
+# Remediation Item 5 · Bounded TI-lookup latency (ADR-0010l · 2026-08-12)
+#
+# The unbounded `lookup_ti_hits()` above can stall arbitrarily long if a
+# provider (Mongo, VT, AbuseIPDB, …) becomes unresponsive. Real-Investigation
+# Proof §10 required a strict wall-clock budget so the deterministic
+# investigation pipeline is never held hostage by a slow feed.
+#
+# Semantics (locked):
+#   • Success within budget → identical return shape (list of TI hit dicts).
+#   • Timeout → return `[]` (never fabricate, never invent, never raise).
+#   • Provider exception → return `[]` (best-effort, no verdict impact).
+#   • Callers may inspect `.ti_lookup_meta` on the returned list-like via the
+#     tuple-return variant `lookup_ti_hits_bounded_meta()`.
+#
+# The budget is deterministic, env-controlled, and default 500 ms per
+# ADR-0010e §10 Item 5.
+# ============================================================================
+def _ti_deadline_seconds() -> float:
+    raw = os.environ.get("NIVX_TI_LOOKUP_DEADLINE_MS", "500")
+    try:
+        ms = float(raw)
+    except (TypeError, ValueError):
+        ms = 500.0
+    if ms < 1.0:
+        ms = 500.0
+    return ms / 1000.0
+
+
+async def lookup_ti_hits_bounded(
+    iocs: Dict[str, List[str]],
+    layer_iocs: Optional[List[Dict[str, Any]]] = None,
+    deadline_s: Optional[float] = None,
+) -> List[Dict[str, Any]]:
+    """Bounded wrapper around `lookup_ti_hits()`. See module note above."""
+    hits, _meta = await lookup_ti_hits_bounded_meta(
+        iocs, layer_iocs=layer_iocs, deadline_s=deadline_s
+    )
+    return hits
+
+
+async def lookup_ti_hits_bounded_meta(
+    iocs: Dict[str, List[str]],
+    layer_iocs: Optional[List[Dict[str, Any]]] = None,
+    deadline_s: Optional[float] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Same as `lookup_ti_hits_bounded` but also returns a diagnostic meta
+    dict `{status: 'ok'|'timeout'|'error', elapsed_ms, deadline_ms}`. The
+    meta dict is used by regression tests and structured logs; it does NOT
+    influence verdict, risk score, MITRE mapping, or evidence.
+    """
+    budget = deadline_s if (deadline_s is not None) else _ti_deadline_seconds()
+    t0 = time.perf_counter()
+    meta: Dict[str, Any] = {
+        "status": "ok",
+        "elapsed_ms": 0.0,
+        "deadline_ms": round(budget * 1000.0, 3),
+    }
+    try:
+        hits = await asyncio.wait_for(
+            lookup_ti_hits(iocs, layer_iocs=layer_iocs), timeout=budget
+        )
+    except asyncio.TimeoutError:
+        meta["status"] = "timeout"
+        meta["elapsed_ms"] = round((time.perf_counter() - t0) * 1000.0, 3)
+        return [], meta
+    except Exception:  # noqa: BLE001
+        # Provider or DB exception — treat as no hits, never raise into the
+        # analyze pipeline (parity with the pre-existing catch-and-continue
+        # pattern inside `lookup_ti_hits` for the OSINT branch).
+        meta["status"] = "error"
+        meta["elapsed_ms"] = round((time.perf_counter() - t0) * 1000.0, 3)
+        return [], meta
+    meta["elapsed_ms"] = round((time.perf_counter() - t0) * 1000.0, 3)
+    return hits, meta
+
+
 # ============================================================================
 async def ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe,
                                    lolbas=None,

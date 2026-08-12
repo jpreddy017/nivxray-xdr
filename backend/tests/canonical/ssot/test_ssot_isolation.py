@@ -160,6 +160,26 @@ def test_no_route_file_modified_by_phase2():
         #      Reconnaissance), + Rules-of-Hooks fix (useMemo now
         #      runs before the early empty-state return).
         "frontend/src/components/investigation/TrajectoryDiagram.jsx",
+        # Item 4 · T1562.004 DIE catalogue signature (owner sign-off
+        # 2026-08-12, ADR-0010e §10 · ADR-0023 §4). cmd_ast.py adds
+        # a deterministic `netsh advfirewall … state off` (and legacy
+        # `netsh firewall set opmode disable`) detection, emitting
+        # T1562.004 (Impair Defenses: Disable or Modify System
+        # Firewall). Fills the DIE-catalogue gap ADR-0010e §7 Q3
+        # identified. Additive-only; no other technique behaviour
+        # changed.
+        "backend/services/die/cmd_ast.py",
+        # Item 5 · Bounded TI-lookup latency (owner sign-off
+        # 2026-08-12, ADR-0010e §10 · ADR-0023 §4 · ADR-0010l).
+        # `analysis_core.lookup_ti_hits_bounded[_meta]` wraps the
+        # existing `lookup_ti_hits` with a strict wall-clock budget
+        # (`NIVX_TI_LOOKUP_DEADLINE_MS`, default 500 ms). Timeout /
+        # provider exception → `[]` (never fabricate). Wired into
+        # the three `/api/analyze` call sites. Preserves verdict /
+        # MITRE / risk-score outputs — TI is evidence context, not
+        # a verdict driver.
+        "backend/analysis_core.py",
+        "backend/tests/canonical/api/test_item5_ti_lookup_bounded.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

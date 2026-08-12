@@ -21,7 +21,7 @@ from operations import extract_iocs, mitre_map, yara_lite_scan, risk_score
 from osint import enrich_iocs
 from lolbas import scan_lolbas
 from corrupt_payload_detector import detect_corrupt_payload
-from analysis_core import ai_describe_and_verdict, lookup_ti_hits
+from analysis_core import ai_describe_and_verdict, lookup_ti_hits_bounded_meta
 import models_studio as ms
 
 router = APIRouter()
@@ -39,7 +39,11 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
     yara = yara_lite_scan(text)
     lolbas = scan_lolbas(text)
     risk = risk_score(mitre, yara, iocs, lolbas=lolbas)
-    ti_hits = await lookup_ti_hits(iocs)
+    # Item-5 (ADR-0010l): bounded TI-cache lookup — never stalls the
+    # deterministic pipeline beyond the wall-clock budget. Timeout → [].
+    ti_hits, ti_lookup_meta = await lookup_ti_hits_bounded_meta(iocs)
+    if ti_lookup_meta.get("status") != "ok":
+        log.warning("TI lookup non-ok: %s", ti_lookup_meta)
     # Corrupt-payload detector — catches fabricated / truncated blobs so
     # analysts don't waste time comparing NivXRay's blank output to another
     # tool's hallucinated "decoded" text.
@@ -134,7 +138,7 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
 
     return {
         "iocs": iocs, "mitre": merged_mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
-        "osint": osint_data, "ti_hits": ti_hits,
+        "osint": osint_data, "ti_hits": ti_hits, "ti_lookup_meta": ti_lookup_meta,
         "ai_verdict": ai_verdict, "description": description,
         "corrupt_payload": corrupt,
     }
@@ -168,7 +172,12 @@ async def analyze_stream(body: AnalyzeIn, user=Depends(get_current_user)):
 
         try:
             yield _sse("status", {"phase": "ti_hits", "message": "Cross-referencing local Threat-Intel DB…"})
-            ti_hits = await lookup_ti_hits(iocs)
+            # Item-5 (ADR-0010l): bounded TI-cache lookup with 500 ms default budget.
+            ti_hits, ti_lookup_meta = await lookup_ti_hits_bounded_meta(iocs)
+            if ti_lookup_meta.get("status") != "ok":
+                yield _sse("status", {"phase": "ti_hits",
+                                       "message": f"TI lookup {ti_lookup_meta.get('status')} "
+                                                  f"({ti_lookup_meta.get('elapsed_ms')} ms) — no local hits"})
             yield _sse("ti_hits", ti_hits)
         except Exception as e:
             ti_hits = []
@@ -381,9 +390,11 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[st
             "phase": "ti_hits", "progress": 15,
         })
 
-        ti_hits = await lookup_ti_hits(iocs)
+        # Item-5 (ADR-0010l): bounded TI-cache lookup — 500 ms budget default.
+        ti_hits, ti_lookup_meta = await lookup_ti_hits_bounded_meta(iocs)
         await _job_set(job_id, {
-            "ti_hits": ti_hits, "phase": "enrich_and_ai", "progress": 25,
+            "ti_hits": ti_hits, "ti_lookup_meta": ti_lookup_meta,
+            "phase": "enrich_and_ai", "progress": 25,
         })
 
         persona = await ms.get_persona(db, body.persona_id) if body.persona_id else None

@@ -31,6 +31,20 @@ _DOWNLOAD_HINTS = ("curl", "wget", "certutil", "bitsadmin", "powershell", "iwr",
                    "invoke-webrequest", "start-bitstransfer")
 _PERSISTENCE    = ("schtasks", "reg add", "wmic startup", "startup")
 _SHADOW_DELETE  = ("vssadmin delete", "wbadmin delete", "bcdedit /set")
+# ADR-0010e §10 item 4 · T1562.004 signature (owner sign-off 2026-08-12)
+# `netsh advfirewall … state off` (any profile / all profiles) is the
+# canonical MITRE-attested Disable-or-Modify-System-Firewall pattern.
+# Matches the technique in `netsh advfirewall set (allprofiles|
+# currentprofile|domainprofile|privateprofile|publicprofile) state off`
+# and the equivalent `netsh firewall set opmode disable` legacy syntax.
+_NETSH_FW_DISABLE_RE = re.compile(
+    r"netsh\s+"
+    r"(?:advfirewall\s+set\s+"
+    r"(?:allprofiles|currentprofile|domainprofile|privateprofile|publicprofile)"
+    r"\s+state\s+off"
+    r"|firewall\s+set\s+opmode\s+disable)",
+    re.I,
+)
 _LOLBIN_RE      = re.compile(r"[A-Za-z][\w\-]*\.exe", re.I)
 
 
@@ -75,6 +89,7 @@ def parse_cmd(src: str) -> Dict[str, Any]:
         "caret_obfuscation": src.count("^") >= 5,
         "wmic_exec":         "wmic" in lower and ("process call create" in lower
                                                    or "call create" in lower),
+        "netsh_fw_disable":  bool(_NETSH_FW_DISABLE_RE.search(src)),
     }
 
     techniques = _techniques(flags)
@@ -126,6 +141,10 @@ def _techniques(flags: Dict[str, bool]) -> List[Dict[str, Any]]:
     if flags["caret_obfuscation"]:
         out.append({"id": "T1027", "name": "Obfuscated Files or Information",
                     "evidence": "CMD caret escaping / obfuscation."})
+    if flags["netsh_fw_disable"]:
+        out.append({"id": "T1562.004",
+                    "name": "Impair Defenses: Disable or Modify System Firewall",
+                    "evidence": "netsh advfirewall … state off — Windows Firewall disabled."})
     return out
 
 

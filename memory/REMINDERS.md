@@ -3,8 +3,8 @@
 **Purpose**: durable ledger of everything partially executed / pending / skipped as of end of Session-9.
 Read this whenever a session opens if you want the full backlog, not just the P0 directive.
 
-**Last updated**: 2026-08-12 · Session-18 close (standing-down)
-**Companion documents**: ADR-0007 (truth) · ADR-0008 (strategy) · ADR-0009 (routes) · ADR-0010 (blueprint) · ADR-0011 (TweetFeed) · ADR-0023 (P2 direction + four principles) · PRD.md (directive at head)
+**Last updated**: 2026-08-12 · Session-19 close (standing-down after Item 5)
+**Companion documents**: ADR-0007 (truth) · ADR-0008 (strategy) · ADR-0009 (routes) · ADR-0010 (blueprint) · ADR-0011 (TweetFeed) · ADR-0023 (P2 direction + four principles) · ADR-0010l (Item 5) · ADR-0010m (UI-DEF-02 design directive) · PRD.md (directive at head)
 
 ---
 
@@ -18,17 +18,17 @@ Item 1  Risk calibration        ✅ PASS
 Item 2  Deterministic narrative ✅ PASS
 Item 3  Recursive decode        ✅ PASS
 UI-DEF-01                       ✅ PASS
+Item 4  T1562.004 DIE signature ✅ PASS
+Item 5  TI latency bound        ✅ PASS  (ADR-0010l, 2026-08-12)
 
-Item 4  T1562.004 DIE signature ⏸
-Item 5  TI latency bound        ⏸
-12-case regression              ⏸
-UI-DEF-02  MITRE convergence    ⏸
+12-case regression              ⏸  (final gate — awaiting explicit "Start regression")
+UI-DEF-02  MITRE convergence    ⏸  (design directive locked at ADR-0010m)
 P2 Behavioral Evidence          🔒
 ```
 
 ### Locked execution order (do not break this sequence)
 ```
-Item 4  →  Item 5  →  12-case regression  →  UI-DEF-02  →  P2 Behavioral Evidence Ingestion
+[Item 4 ✅]  →  [Item 5 ✅]  →  12-case regression  →  UI-DEF-02  →  P2 Behavioral Evidence Ingestion
 ```
 
 ### Four architectural principles — non-negotiable (ADR-0023 §3a-§3e)
@@ -42,14 +42,15 @@ Item 4  →  Item 5  →  12-case regression  →  UI-DEF-02  →  P2 Behavioral
 The recent diagnostic (ADR-0010j) established that the underlying DIE output is identical between environments: `techniques → T1562.001 + T1564.003`, `preprocessor.stages → 1`. The visible top-panel divergence is projection/build layer, not analytical. **Do NOT modify UI-DEF-02 early just to make Preview visually match Prod.** Prod redeployment is a separate deployment decision — if authorised, deploy the already-validated Preview build only, no new behaviour, no procedure change.
 
 ### What the next agent MUST do
-**Nothing.** Wait for the owner's explicit "Start Item 4" instruction. When it arrives:
-- Work only on Item 4
-- Preserve the frozen 12-case corpus
-- Run the appropriate regression
-- Document exactly what changed
-- Stop again for authorisation before Item 5
+**Nothing.** Wait for the owner's explicit "Start 12-case regression" instruction. When it arrives:
+- Replay the frozen 12-case corpus one more time against the Item-5 build.
+- Diff against `results.json` (Item-5 baseline) — expect 0 delta.
+- Document exactly what was compared.
+- Stop again for authorisation before UI-DEF-02.
 
-**Do NOT** start Item 4 · touch Item 5 · touch UI-DEF-02 · open P2 · modify the working investigation procedure · introduce new features because they appear useful · "improve" anything opportunistically.
+**Do NOT** start UI-DEF-02 · open P2 · modify the working investigation procedure · introduce new features because they appear useful · "improve" anything opportunistically.
+
+**UI-DEF-02 note**: the owner has locked a specific design directive (14 tactic lanes always structurally present, populated lanes only rendered with real evidence-backed matches, NO "No Evidence" placeholder clutter, separate from the 6-lane Evidence Trajectory). Full detail at `/app/memory/adr/0010m-ui-def-02-attack-chain-design-note.md`. Do NOT implement yet — recorded for the future authorised session only.
 
 ---
 
