@@ -363,12 +363,35 @@ def _impact_assessment(tactics: List[str]) -> Dict[str, Any]:
 
 
 def _mitre_summary(mitre: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # ▲ P0f (2026-02-09) — projection-layer name + tactic resolution.
+    # The IDA-4 extractor emits `mitre_techniques[]` with only `id`
+    # populated for URL-acquired inputs.  Rather than change the
+    # extractor, we resolve display fields from the shared MITRE
+    # tables (`services.ice.correlate`).  Every downstream MITRE
+    # surface — brief-panel MITRE Summary, sidebar MITRE tab,
+    # narrative kill-chain — sees the enriched shape.
+    try:
+        from services.ice.correlate import (
+            tactic_for as _tactic_for,
+            name_for   as _name_for,
+        )
+    except Exception:  # pragma: no cover — fall back to raw fields
+        _tactic_for = lambda _tid: None
+        _name_for   = lambda _tid: None
+
     by_tactic: Dict[str, List[Dict[str, Any]]] = {}
     for m in mitre:
-        tac = (m.get("tactic") or "execution").lower().replace(" ", "_")
+        tid  = (m.get("id") or "").upper()
+        # Prefer the tactic already on the technique dict; otherwise
+        # resolve from the technique-id via the shared ICE table.
+        raw_tac = m.get("tactic") or _tactic_for(tid) or "execution"
+        tac     = str(raw_tac).lower().replace(" ", "_")
+        # Prefer the name already on the technique dict; otherwise
+        # resolve from the shared MITRE catalog.
+        name = m.get("name") or _name_for(tid) or ""
         by_tactic.setdefault(tac, []).append({
             "id":   m.get("id"),
-            "name": m.get("name") or "",
+            "name": name,
         })
     out = []
     order = ["initial_access", "execution", "persistence",

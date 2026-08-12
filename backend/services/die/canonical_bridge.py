@@ -666,6 +666,54 @@ def _slim_investigation_response(result: Dict[str, Any]) -> None:
                 if isinstance(tot, dict) and isinstance(tot.get("artifacts"), int):
                     tot["artifacts"] = len(_filtered_ba)
 
+    # ▲ MITRE enrichment (2026-02-09) · Projection-layer name+tactic
+    # resolution so the Workspace Attack-Chain swim-lane, sidebar
+    # MITRE tab, and brief MITRE Summary all render for URL-acquired
+    # inputs.  Reads from the shared MITRE tables in
+    # `services.ice.correlate` (same data the narrative already uses)
+    # — no new inference, no extractor change.
+    #
+    # Behaviour:
+    #   · Adds `name` + `tactic` to each `mitre_techniques[]` entry
+    #     whose fields are still None (URL-acquired path).
+    #   · When top-level `obj.mitre` is empty but the extractor
+    #     produced techniques inside `report_extraction`, PROJECT
+    #     them into `obj.mitre` so `_synthBehaviorsFromMitre` in
+    #     the Workspace can place each technique into its correct
+    #     ATT&CK swim-lane.
+    try:
+        from services.ice.correlate import tactic_for as _tactic_for, name_for as _name_for
+    except Exception:
+        _tactic_for = _name_for = lambda _t: None
+
+    def _enrich_mitre_list(items):
+        for m in items or []:
+            if not isinstance(m, dict):
+                continue
+            tid = (m.get("id") or "").upper()
+            if not tid:
+                continue
+            if not m.get("name"):
+                _n = _name_for(tid)
+                if _n:
+                    m["name"] = _n
+            if not m.get("tactic"):
+                _t = _tactic_for(tid)
+                if _t:
+                    m["tactic"] = _t
+
+    _rext_mitre = (rext.get("mitre_techniques") if isinstance(rext, dict) else None) or []
+    _enrich_mitre_list(_rext_mitre)
+
+    obj_mitre = obj.get("mitre")
+    if isinstance(obj_mitre, list):
+        _enrich_mitre_list(obj_mitre)
+        if not obj_mitre and _rext_mitre:
+            # Project the report-extraction techniques up to the
+            # canonical top-level `obj.mitre` so the swim-lane and
+            # sidebar have a single authoritative feed.
+            obj["mitre"] = list(_rext_mitre)
+
     for key in _SLIM_STRIP_KEYS:
         obj.pop(key, None)
 
