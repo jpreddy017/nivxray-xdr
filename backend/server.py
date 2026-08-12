@@ -369,6 +369,10 @@ api.include_router(rc5_entities_router)
 from routers.documents import router as documents_router
 api.include_router(documents_router)
 
+# ADR-0012 · 360° Workspace audit deliverable (read-only download).
+from routers.audit_downloads import router as audit_downloads_router
+api.include_router(audit_downloads_router)
+
 # v2 · Additive next-generation namespace (Phase 3+).
 # Isolated inside a try/except so if `/app/backend/v2/` is deleted
 # outright the RC5 API keeps running — this is the deletion-safety
