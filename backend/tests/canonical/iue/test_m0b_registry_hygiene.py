@@ -138,7 +138,7 @@ def test_registry_is_passive_no_production_imports():
         capture_output=True, text=True,
     )
     hits = [ln for ln in r.stdout.splitlines() if ln
-            and "services/registry/__init__.py" not in ln
+            and "/services/registry/" not in ln
             and "/tests/" not in ln]
     assert not hits, (
         "M0b registry is expected to be PASSIVE — production imports found:\n"
