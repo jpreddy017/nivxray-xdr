@@ -150,33 +150,110 @@ for i, (a, b, c) in enumerate(rows):
     text_box(s, Inches(9.2), y, Inches(3.9), Inches(0.6), c, size=12, color=TEXT_MUTE, font="Segoe UI")
 footer(s, 4)
 
-# ============================ SLIDE 5 — ARCHITECTURE ============================
+# ============================ SLIDE 5 — ARCHITECTURE (visual) ============================
 s = blank(); fill_bg(s)
-eyebrow(s, "ARCHITECTURE"); title(s, "Six-pillar deterministic core · IUE → IDA → DIE → ICE → IEDDE → L4")
-arch = (
-    "┌──────────────────────────────────────────────────────────────────────────────┐\n"
-    "│  1 · IUE — Input Understanding Engine                                        │\n"
-    "│      classifies every paste (url / powershell / cmd / prose / csv / xml)     │\n"
-    "│      routes to the correct capability set — NEVER runs a decoder blindly     │\n"
-    "├──────────────────────────────────────────────────────────────────────────────┤\n"
-    "│  2 · IDA — Intelligent Document Acquisition   (Talos · Mandiant · MS · …)    │\n"
-    "│      fetches the URL, extracts commands + IOCs + MITRE + timeline + hashes   │\n"
-    "├──────────────────────────────────────────────────────────────────────────────┤\n"
-    "│  3 · DIE — Deterministic Investigation Engine                                │\n"
-    "│      PS-AST · CMD-AST · Bash-AST · Python-AST · JavaScript-AST · Semantic    │\n"
-    "├──────────────────────────────────────────────────────────────────────────────┤\n"
-    "│  4 · ICE — Incident Correlation Engine                                       │\n"
-    "│      merges per-stage evidence into a single incident with tactics observed  │\n"
-    "├──────────────────────────────────────────────────────────────────────────────┤\n"
-    "│  5 · IEDDE — Intelligent Evidence-Driven Decoding Engine                     │\n"
-    "│      surfaces WHY each decoding branch fired · with per-layer confidence     │\n"
-    "├──────────────────────────────────────────────────────────────────────────────┤\n"
-    "│  6 · L4 · Analyst Brief · MITRE Attack-Chain · Evidence Confidence           │\n"
-    "└──────────────────────────────────────────────────────────────────────────────┘"
+eyebrow(s, "ARCHITECTURE"); title(s, "Six-pillar deterministic core · zero-drift by construction")
+
+# Draw 6 pillar boxes in a horizontal flow with arrows
+pillars = [
+    ("IUE",   "Input\nUnderstanding",   "url · ps · cmd\ncsv · xml · prose"),
+    ("IDA",   "Document\nAcquisition",   "Talos · MS\nMandiant · Cisco"),
+    ("DIE",   "Deterministic\nInvestigation", "PS-AST · CMD-AST\nBash · Python · JS"),
+    ("ICE",   "Incident\nCorrelation",    "merge stages\ntactics · behaviors"),
+    ("IEDDE", "Evidence-Driven\nDecoding",  "per-layer why\nper-layer confidence"),
+    ("L4",    "Analyst\nBrief",           "9-card brief\n+ MITRE swim-lane"),
+]
+box_w = Inches(1.9); box_h = Inches(2.0); gap = Inches(0.10)
+start_x = Inches(0.4); y0 = Inches(2.0)
+for i, (code, name, detail) in enumerate(pillars):
+    x = start_x + (box_w + gap) * i
+    # Outer box
+    b = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y0, box_w, box_h)
+    b.fill.solid(); b.fill.fore_color.rgb = BG_PANEL
+    b.line.color.rgb = ACCENT_GREEN; b.line.width = Pt(1.5)
+    # Code (large)
+    text_box(s, x, y0 + Inches(0.15), box_w, Inches(0.5),
+              code, size=22, color=ACCENT_GREEN, bold=True, align=PP_ALIGN.CENTER)
+    # Name
+    text_box(s, x, y0 + Inches(0.75), box_w, Inches(0.75),
+              name, size=11, color=TEXT_LIGHT, bold=True, align=PP_ALIGN.CENTER, font="Segoe UI")
+    # Detail (mono)
+    text_box(s, x, y0 + Inches(1.42), box_w, Inches(0.6),
+              detail, size=8, color=TEXT_MUTE, align=PP_ALIGN.CENTER)
+    # Arrow to next
+    if i < len(pillars) - 1:
+        ax = x + box_w
+        arr = s.shapes.add_shape(MSO_SHAPE.RIGHT_ARROW,
+                                   ax, y0 + Inches(0.85),
+                                   gap, Inches(0.3))
+        arr.fill.solid(); arr.fill.fore_color.rgb = ACCENT_GREEN
+        arr.line.fill.background()
+
+# Below: data types flowing between pillars
+text_box(s, Inches(0.6), Inches(4.35), Inches(12.3), Inches(0.35),
+         "DATA FLOWING BETWEEN PILLARS  ·  every arrow is a typed contract",
+         size=10, color=ACCENT_GREEN, bold=True)
+flow_lines = (
+    "  raw_bytes        →   iue_verdict        →   canonical_document   →   dki_ast + stages\n"
+    "  IUE                    (IDA fetch)            (DIE analyze)           (ICE correlate)\n\n"
+    "                    →   incident + tactics  →   provenance_record   →   summary_narrative\n"
+    "                        (ICE emit)             (IEDDE stamp)           (L4 render)\n\n"
+    "Passive Registry (M0d thin router)  ·  Zero-Drift Equivalence Harness (145 tests)\n"
+    "Optional LLM overlay sits ABOVE L4 — never inside the deterministic core"
 )
-text_box(s, Inches(0.6), Inches(1.7), Inches(12.3), Inches(5.5),
-         arch, size=11, color=ACCENT_GREEN, font="Consolas")
+text_box(s, Inches(0.6), Inches(4.75), Inches(12.3), Inches(2.4),
+         flow_lines, size=11, color=TEXT_LIGHT)
 footer(s, 5)
+
+# ============================ SLIDE 5b — DATA FLOW DETAIL ============================
+s = blank(); fill_bg(s)
+eyebrow(s, "ARCHITECTURE · DATA FLOW"); title(s, "One paste · one deterministic path · every field provenanced")
+flow = (
+    "                            ┌─────────────────────────────────┐\n"
+    "  ANALYST PASTE  ─────▶     │  IUE                             │\n"
+    "  (any input)                │  · classify: url / ps / csv…    │\n"
+    "                            │  · confidence + rationale        │\n"
+    "                            └─────────────────────────────────┘\n"
+    "                                          │\n"
+    "                     ┌────────────────────┼────────────────────┐\n"
+    "                     ▼                    ▼                    ▼\n"
+    "        ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐\n"
+    "        │  IDA             │  │  DIE             │  │  Adapter Set     │\n"
+    "        │  (URL path)      │  │  (payload path)  │  │  (Sysmon/EVTX/   │\n"
+    "        │  · fetch body    │  │  · PS-AST        │  │   CSV/PDF/DOCX)  │\n"
+    "        │  · extract cmds  │  │  · CMD/Bash-AST  │  │  · normalize     │\n"
+    "        │  · IOCs · MITRE  │  │  · Python/JS-AST │  │  · index         │\n"
+    "        │  · timeline      │  │  · semantic AST  │  │  · route         │\n"
+    "        └──────────────────┘  └──────────────────┘  └──────────────────┘\n"
+    "                     │                    │                    │\n"
+    "                     └────────────────────┼────────────────────┘\n"
+    "                                          ▼\n"
+    "                            ┌─────────────────────────────────┐\n"
+    "                            │  ICE  (Incident Correlation)     │\n"
+    "                            │  · merge per-stage evidence      │\n"
+    "                            │  · dedupe · tactics observed     │\n"
+    "                            │  · behaviors[] · IOCs correlated │\n"
+    "                            └─────────────────────────────────┘\n"
+    "                                          │\n"
+    "                                          ▼\n"
+    "                            ┌─────────────────────────────────┐\n"
+    "                            │  IEDDE  (Provenance Engine)      │\n"
+    "                            │  · why each decode fired         │\n"
+    "                            │  · evidence confidence per field │\n"
+    "                            │  · reproducible bit-for-bit      │\n"
+    "                            └─────────────────────────────────┘\n"
+    "                                          │\n"
+    "                                          ▼\n"
+    "                            ┌─────────────────────────────────┐\n"
+    "                            │  L4 · Analyst Brief              │\n"
+    "                            │  · Executive · Analyst Summary   │\n"
+    "                            │  · MITRE · IOCs · Recs · Verdict │\n"
+    "                            │  · Optional LLM narrative ON TOP │\n"
+    "                            └─────────────────────────────────┘"
+)
+text_box(s, Inches(0.4), Inches(1.65), Inches(12.6), Inches(5.5),
+         flow, size=9, color=ACCENT_GREEN, font="Consolas")
+footer(s, 6)
 
 # ============================ SLIDE 6 — COMPONENTS ============================
 s = blank(); fill_bg(s)
