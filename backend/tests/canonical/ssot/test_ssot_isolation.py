@@ -202,6 +202,15 @@ def test_no_route_file_modified_by_phase2():
         "frontend/src/pages/WorkspacePage.jsx",
         "backend/tests/canonical/api/test_ui_def_02_convergence.py",
         "backend/services/die/canonical_bridge.py",
+        # UI-DEF-02 Option B · LOLBAS → technique merge in DIE catalogue
+        # (owner sign-off 2026-08-12, ADR-0010p). The `_merge_lolbin_
+        # techniques()` helper folds the LOLBAS-registry MITRE ids into
+        # every language branch of `_analyze_single` and into
+        # `_chain_to_envelope` so the DIE catalogue publishes the
+        # LOLBIN-canonical techniques the regex mapper used to cover
+        # (T1218.005/010/011, T1047, T1059.003, T1197, …). Evidence
+        # anchored to the actual LOLBIN detection — never fabricated.
+        "backend/services/die/api.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

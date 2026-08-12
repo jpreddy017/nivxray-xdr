@@ -222,6 +222,7 @@ def _analyze_single(src: str, language: Optional[str] = None) -> Dict[str, Any]:
             "obfuscation_score": ast["complexity"]["obfuscation_score"],
             "_raw_source": src,
         }
+        _merge_lolbin_techniques(env)  # UI-DEF-02 Option B
         env["dkp_matches"] = [m.to_dict() for m in dkp_match(env)]
         from .intent import classify_intent_from_analyze
         env["attack_intent"] = classify_intent_from_analyze(env)
@@ -246,12 +247,13 @@ def _analyze_single(src: str, language: Optional[str] = None) -> Dict[str, Any]:
             "ast":            None,
             "cmdlets":        [],
             "lolbins":        _scan_lolbins(src),
-            "techniques":     _lolbin_techniques(_scan_lolbins(src)),
+            "techniques":     [],
             "iocs":           extract_iocs(src),
             "iocs_summary":   summarize_iocs(extract_iocs(src)),
             "obfuscation_score": 0,
             "_raw_source":    src,
         }
+        _merge_lolbin_techniques(env)  # UI-DEF-02 Option B
         env["dkp_matches"] = [m.to_dict() for m in dkp_match(env)]
         env.pop("_raw_source", None)
         return env
@@ -267,6 +269,10 @@ def _analyze_single(src: str, language: Optional[str] = None) -> Dict[str, Any]:
         "obfuscation_score": ast.get("complexity", {}).get("obfuscation_score", 0),
         "_raw_source":      src,
     }
+    # UI-DEF-02 Option B: fold LOLBAS-registry techniques into the AST
+    # parser output so the DIE catalogue is the single authoritative
+    # MITRE surface. Additive; evidence anchored to detected LOLBINs.
+    _merge_lolbin_techniques(env)
     env["dkp_matches"] = [m.to_dict() for m in dkp_match(env)]
     from .intent import classify_intent_from_analyze
     env["attack_intent"] = classify_intent_from_analyze(env)
@@ -309,6 +315,58 @@ def _lolbin_techniques(lolbins):
     return sorted(seen.values(), key=lambda x: x["id"])
 
 
+def _merge_lolbin_techniques(env: Dict[str, Any]) -> None:
+    """UI-DEF-02 · Option B (ADR-0010o + ADR-0010p · 2026-08-12).
+
+    Historically the AST-parser branch of `_analyze_single` emitted
+    `techniques[]` only from the parser's own MITRE catalog, ignoring
+    the LOLBAS registry entirely. The convergence work in UI-DEF-02
+    demoted the regex mapper to a diagnostic chip, so LOLBIN-derived
+    techniques (T1218.005 mshta, T1218.010 regsvr32, T1218.011
+    rundll32, T1047 wmic, T1059.003 cmd, T1197 bitsadmin, T1105
+    curl/certutil, T1218 certutil, T1218.007 msiexec, T1218.004
+    installutil, T1053.005 schtasks, T1112 reg, T1547.001 reg,
+    T1562.004 netsh, T1547.007 netsh, T1490 vssadmin/wbadmin/bcdedit,
+    T1003.003 ntdsutil, T1059.005/T1059.007 wscript/cscript) stopped
+    surfacing entirely on cases like rip-04 / rip-11 / rip-12.
+
+    This helper merges the LOLBAS-registry techniques into the AST
+    parser output using the LOLBIN detection as the citable evidence
+    anchor. It is NOT a fallback regex path — a LOLBIN must actually
+    have been detected via `_scan_lolbins()` (structural
+    `[A-Za-z][\\w\\-]*\\.exe` match against the LOLBAS registry).
+
+    Evidence discipline:
+      · `observed_value` = the exact LOLBIN string that was matched.
+      · `event_or_rule`  = `die.lolbas.<binary>` — deterministic.
+      · Technique id     = whatever the LOLBAS registry publishes for
+                            that binary — a versioned, hand-reviewed
+                            catalogue (services/die/lolbas.py).
+
+    Additive-only: existing AST-emitted techniques with the same id
+    keep their original evidence; only NEW ids arrive via this merge.
+    """
+    techniques = env.get("techniques") or []
+    lolbins    = env.get("lolbins") or []
+    if not lolbins:
+        return
+    seen_ids = {t.get("id") for t in techniques if isinstance(t, dict) and t.get("id")}
+    for lb in lolbins:
+        binary = (lb.get("binary") or "").strip()
+        if not binary:
+            continue
+        for tid in (lb.get("mitre") or []):
+            if not tid or tid in seen_ids:
+                continue
+            techniques.append({
+                "id":       tid,
+                "name":     "",
+                "evidence": f"LOLBAS: {binary}",
+            })
+            seen_ids.add(tid)
+    env["techniques"] = sorted(techniques, key=lambda x: x.get("id", ""))
+
+
 def _chain_to_envelope(chain_env: Dict[str, Any]) -> Dict[str, Any]:
     """Adapt a ``analyze_chain`` result into the top-level ``analyze``
     envelope shape so existing consumers (router · CEM emitter) keep
@@ -316,7 +374,7 @@ def _chain_to_envelope(chain_env: Dict[str, Any]) -> Dict[str, Any]:
     ``chain`` key; the flat fields are the *aggregate union* across
     every step."""
     agg = chain_env["aggregate"]
-    return {
+    env = {
         "language":          chain_env["primary_language"],
         "chain":             chain_env,
         "ast":               None,      # per-step ASTs live inside `chain.steps`
@@ -329,6 +387,9 @@ def _chain_to_envelope(chain_env: Dict[str, Any]) -> Dict[str, Any]:
         "obfuscation_score": max((s.get("obfuscation_score", 0)
                                   for s in chain_env["steps"]), default=0),
     }
+    # UI-DEF-02 Option B: aggregate-level LOLBIN → technique merge.
+    _merge_lolbin_techniques(env)
+    return env
 
 
 def _summarize_agg(iocs):
