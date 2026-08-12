@@ -2107,6 +2107,16 @@ function WorkspacePageInner() {
     // Wire AUTO INVESTIGATE to the same understanding pipeline as
     // ANALYZE so the analyst sees the plan + timeline no matter
     // which button was clicked.
+    //
+    // ▲ UX-FIX (2026-02-09) — raise `analyzing` immediately so the
+    // AUTO INVESTIGATE button glows the instant it's clicked
+    // (previously the flag was only set inside the decode branch,
+    // so URL / chain / atomic-IOC inputs gave no visual feedback
+    // even though the pipeline was running).  Every terminal path
+    // below clears the flag so the button returns to idle when the
+    // work is complete or aborted.
+    setAnalyzing(true);
+    setStatus("AUTO-INVESTIGATE ▸ CLASSIFYING…");
     setUnderstanding(null);
     setUnderstandingError(null);
     setUnderstandingLoading(true);
@@ -2143,7 +2153,13 @@ function WorkspacePageInner() {
       // /die/analyze + /die/narrate calls.
       setUnderstandingLoading(false);
       setStatus("AUTO-INVESTIGATE ▸ CHAIN DECODING…");
-      await runChainAnalysis(_fastPartsCheck, { autoInvoked: true });
+      try {
+        await runChainAnalysis(_fastPartsCheck, { autoInvoked: true });
+      } finally {
+        // UX-FIX (2026-02-09) — drop the button-glow flag now that
+        // the chain path has completed (or thrown).
+        setAnalyzing(false);
+      }
       return;
     }
 
@@ -2205,11 +2221,17 @@ function WorkspacePageInner() {
     // never an echo of the input.
     if (!decodeRequired) {
       setStatus("INVESTIGATION READY · NO DECODE REQUIRED · RENDERING FINDINGS…");
-      const ok = await runInvestigationResults(input);
-      if (ok) {
-        setStatus("INVESTIGATION READY · DETERMINISTIC RESULTS RENDERED");
-      } else {
-        setStatus("INVESTIGATION READY · (fallback view)");
+      try {
+        const ok = await runInvestigationResults(input);
+        if (ok) {
+          setStatus("INVESTIGATION READY · DETERMINISTIC RESULTS RENDERED");
+        } else {
+          setStatus("INVESTIGATION READY · (fallback view)");
+        }
+      } finally {
+        // UX-FIX (2026-02-09) — drop the button-glow flag now that
+        // the URL / atomic-IOC / prose path has completed.
+        setAnalyzing(false);
       }
       return;
     }
@@ -2224,7 +2246,11 @@ function WorkspacePageInner() {
     // suppress the parallel /die/analyze + /die/narrate fire-and-forget
     // when a chain is about to run.  Reuse the same values here.
     if (_willChain) {
-      await runChainAnalysis(parts, { autoInvoked: true });
+      try {
+        await runChainAnalysis(parts, { autoInvoked: true });
+      } finally {
+        setAnalyzing(false);
+      }
       return;
     }
     streamStopRef.current?.();
