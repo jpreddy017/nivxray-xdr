@@ -144,7 +144,7 @@ function EvidenceInspector({ item, kind, evidenceRecords }) {
 }
 
 
-export default function BehavioralTimeline() {
+export default function BehavioralTimeline({ caseId } = {}) {
   const [xml, setXml]           = useState("");
   const [response, setResponse] = useState(null);
   const [loading, setLoading]   = useState(false);
@@ -152,7 +152,52 @@ export default function BehavioralTimeline() {
   const [selectedKey, setSelectedKey] = useState(null);
   // UI-Slice-2 (ADR-0010u): incoming MITRE→Evidence highlight state.
   const [highlightedTechnique, setHighlightedTechnique] = useState(null);
+  // UI-Slice-3 (ADR-0010v): persistence status surfaced to the analyst.
+  const [persistMeta, setPersistMeta] = useState(null);
   const timelineTopRef = React.useRef(null);
+
+  // ─────────────────────────────────────────────────────────────────
+  // Persistence hydration — when the Workspace supplies a caseId,
+  // reload any envelope attached to that case. This makes the
+  // Behavioral Evidence Timeline survive page refresh and case reopen
+  // WITHOUT re-ingesting the Sysmon/EVTX bytes.
+  // The persisted payload IS the canonical evidence envelope produced
+  // by the backend adapter (evidence_ref, correlation_state, raw_refs,
+  // per_event_mitre) — no rendered UI state, no client inference.
+  // ─────────────────────────────────────────────────────────────────
+  React.useEffect(() => {
+    if (!caseId) {
+      // Case cleared → drop any hydrated state so the panel starts fresh.
+      setResponse(null); setPersistMeta(null); setSelectedKey(null);
+      setError(null); setHighlightedTechnique(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await axios.get(
+          `${BACKEND}/api/behavioral/case/${encodeURIComponent(caseId)}`,
+          { headers: authHeaders() });
+        if (cancelled) return;
+        if (r.data?.envelope) {
+          setResponse(r.data.envelope);
+          setPersistMeta({
+            attached_at: r.data.attached_at,
+            updated_at:  r.data.updated_at,
+            adapter_history: r.data.adapter_history || [],
+          });
+        }
+      } catch (e) {
+        // 404 is the normal "nothing attached yet" case — silent.
+        if (e?.response?.status !== 404) {
+          // Any other error surfaces once so it doesn't loop.
+          if (!cancelled) setError(
+            e?.response?.data?.detail?.message || e?.message || "hydrate failed");
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [caseId]);
 
   // Backend response gives per_event_mitre[i] = { event_index, command_line,
   // techniques: [{id,...}] } for each Event-1. Build a lookup:
@@ -222,13 +267,21 @@ export default function BehavioralTimeline() {
     if (!xml.trim()) return;
     setLoading(true); setError(null); setResponse(null); setSelectedKey(null);
     try {
-      const r = await axios.post(`${BACKEND}/api/behavioral/sysmon`, { xml },
+      const payload = caseId ? { xml, case_id: caseId } : { xml };
+      const r = await axios.post(`${BACKEND}/api/behavioral/sysmon`, payload,
                                    { headers: authHeaders() });
       setResponse(r.data);
+      if (caseId) {
+        setPersistMeta({
+          attached_at: new Date().toISOString(),
+          updated_at:  new Date().toISOString(),
+          adapter_history: [],  // refreshed on next hydrate
+        });
+      }
     } catch (e) {
       setError(e?.response?.data?.detail?.message || e?.message || "request failed");
     } finally { setLoading(false); }
-  }, [xml]);
+  }, [xml, caseId]);
 
   const submitEvtx = useCallback(async (file) => {
     if (!file) return;
@@ -239,14 +292,36 @@ export default function BehavioralTimeline() {
       let binary  = "";
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       const b64   = btoa(binary);
+      const payload = caseId
+        ? { evtx_base64: b64, case_id: caseId }
+        : { evtx_base64: b64 };
       const r = await axios.post(`${BACKEND}/api/behavioral/sysmon/evtx`,
-                                   { evtx_base64: b64 },
+                                   payload,
                                    { headers: authHeaders() });
       setResponse(r.data);
+      if (caseId) {
+        setPersistMeta({
+          attached_at: new Date().toISOString(),
+          updated_at:  new Date().toISOString(),
+          adapter_history: [],
+        });
+      }
     } catch (e) {
       setError(e?.response?.data?.detail?.message || e?.message || "request failed");
     } finally { setLoading(false); }
-  }, []);
+  }, [caseId]);
+
+  const detachEvidence = useCallback(async () => {
+    if (!caseId) return;
+    try {
+      await axios.delete(`${BACKEND}/api/behavioral/case/${encodeURIComponent(caseId)}`,
+                          { headers: authHeaders() });
+      setResponse(null); setPersistMeta(null); setSelectedKey(null);
+      setHighlightedTechnique(null);
+    } catch (e) {
+      setError(e?.response?.data?.detail?.message || e?.message || "detach failed");
+    }
+  }, [caseId]);
 
   const processCreates = response?.parent_child_evidence?.pairs || [];
   const networkConns   = response?.network_evidence?.connections || [];
@@ -268,6 +343,29 @@ export default function BehavioralTimeline() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {caseId && (
+            <span data-testid="behavioral-case-scope"
+                  title={`Attached to case ${caseId}`}
+                  style={{ fontSize: 10, padding: "2px 8px",
+                            border: "1px solid rgba(56,189,248,0.35)",
+                            borderRadius: 3, color: "#38bdf8",
+                            fontFamily: "JetBrains Mono, monospace",
+                            letterSpacing: "0.08em" }}>
+              case · {caseId.slice(0, 8)}
+            </span>
+          )}
+          {caseId && persistMeta && (
+            <button data-testid="behavioral-detach-btn"
+                    onClick={detachEvidence}
+                    style={{ fontSize: 10, padding: "3px 8px",
+                              background: "transparent",
+                              border: "1px solid rgba(148,163,184,0.2)",
+                              borderRadius: 3, color: "#94a3b8",
+                              cursor: "pointer",
+                              fontFamily: "JetBrains Mono, monospace" }}>
+              detach
+            </button>
+          )}
           <label data-testid="evtx-drop"
                  style={{ fontSize: 11, padding: "4px 10px", border: "1px solid rgba(148,163,184,0.2)",
                           borderRadius: 4, cursor: "pointer", color: "#94a3b8" }}>
@@ -315,6 +413,13 @@ export default function BehavioralTimeline() {
             <span data-testid="summary-mitre-count">MITRE · {techniques.length}</span>
             {response.transport && (
               <span data-testid="summary-transport">transport · {response.transport.transport} · {response.transport.record_count} rec</span>
+            )}
+            {caseId && persistMeta && (
+              <span data-testid="summary-persist"
+                    title={`updated ${persistMeta.updated_at}`}
+                    style={{ color: "#22c55e" }}>
+                persisted · case {caseId.slice(0, 8)}
+              </span>
             )}
           </div>
 

@@ -2,23 +2,35 @@
 
 - POST /api/behavioral/sysmon       — Sysmon Event XML (Slice-1/2)
 - POST /api/behavioral/sysmon/evtx  — EVTX binary transport → same normalizer (Slice-3)
+- POST /api/behavioral/attach       — persist ingested envelope against a workspace case
+- GET  /api/behavioral/case/{id}    — reload persisted envelope
+- DELETE /api/behavioral/case/{id}  — detach persisted envelope
 
 Slice-3 is TRANSPORT ONLY. It decodes EVTX bytes into Sysmon Event XML
 via `services.behavioral.evtx_reader.decode_evtx_to_sysmon_xml` and
 hands the result to the same Slice-2 normalizer. No new semantics, no
 new MITRE mapper, no new verdict logic.
+
+Persistence (P2 UI Slice-3 · ADR-0010v):
+Behavioral evidence is stored per-case in the `behavioral_evidence`
+collection. The stored document IS the exact response envelope
+produced by `_build_response()` — canonical evidence + provenance
+(evidence_ref, correlation_state, raw_refs, per_event_mitre). It is
+NOT rendered UI state and does NOT contain any client-side inference.
+Reloading a case reconstructs the identical timeline deterministically.
 """
 from __future__ import annotations
 
 import base64
 import binascii
 import os
-from typing import Any, Dict, List
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from deps import get_current_user
+from deps import get_current_user, sync_collection
 from services.behavioral.sysmon_adapter import (
     ADAPTER_ID,
     SysmonAdapterError,
@@ -35,9 +47,26 @@ from services.die.api import analyze as die_analyze
 
 router = APIRouter(prefix="/behavioral")
 
+# Case-scoped canonical evidence store. Keyed on (user_email, case_id).
+# Contains the exact ingest envelope — no rendered UI state, no
+# inferred relationships. Workspace-isolated by user_email.
+_behav_col = sync_collection("behavioral_evidence")
+
+
+def _user_email(user: Any) -> str:
+    return (getattr(user, "email", None)
+            or (user.get("email") if isinstance(user, dict) else None)
+            or "")
+
 
 class SysmonIn(BaseModel):
     xml: str = Field(..., description="Sysmon Event 1 XML payload.")
+    case_id: Optional[str] = Field(
+        default=None,
+        description="Workspace case id. When present, the ingested "
+                    "envelope is auto-attached to the case so the "
+                    "Behavioral Evidence Timeline survives page reload.",
+    )
 
 
 def _authoritative_techniques(command_line: str) -> List[Dict[str, Any]]:
@@ -84,11 +113,20 @@ async def sysmon_ingest(body: SysmonIn, user=Depends(get_current_user)):
         raise HTTPException(status_code=status,
                              detail={"error": code, "message": str(exc)})
 
-    return _build_response(meta, events, transport=None)
+    envelope = _build_response(meta, events, transport=None)
+    if body.case_id:
+        _attach_envelope(_user_email(user), body.case_id, envelope,
+                          adapter_source="sysmon.xml")
+    return envelope
 
 
 class EvtxIn(BaseModel):
     evtx_base64: str = Field(..., description="Base64-encoded raw .evtx bytes.")
+    case_id: Optional[str] = Field(
+        default=None,
+        description="Workspace case id. When present, the ingested "
+                    "envelope is auto-attached to the case.",
+    )
 
 
 @router.post("/sysmon/evtx")
@@ -149,7 +187,102 @@ async def sysmon_evtx_ingest(body: EvtxIn, user=Depends(get_current_user)):
                                       "transport": EVTX_ADAPTER_ID,
                                       "records_decoded": evtx_meta["record_count"]})
 
-    return _build_response(meta, events, transport=evtx_meta)
+    envelope = _build_response(meta, events, transport=evtx_meta)
+    if body.case_id:
+        _attach_envelope(_user_email(user), body.case_id, envelope,
+                          adapter_source="sysmon.evtx")
+    return envelope
+
+
+def _attach_envelope(user_email: str,
+                     case_id: str,
+                     envelope: Dict[str, Any],
+                     *,
+                     adapter_source: str) -> Dict[str, Any]:
+    """Upsert the ingested envelope for (user_email, case_id).
+
+    Stores the canonical evidence + provenance verbatim so a page
+    refresh reconstructs an identical Behavioral Evidence Timeline.
+    """
+    if not user_email or not case_id:
+        raise HTTPException(400, detail={"error": "attach_missing_scope",
+                                          "message": "user_email and case_id required"})
+    now = datetime.now(timezone.utc).isoformat()
+    history_entry = {
+        "adapter_source": adapter_source,
+        "adapter":        envelope.get("adapter"),
+        "transport":      (envelope.get("transport") or {}).get("transport"),
+        "event_count":    envelope.get("event_count"),
+        "record_count":   (envelope.get("transport") or {}).get("record_count"),
+        "at":             now,
+    }
+    existing = _behav_col.find_one({"user_email": user_email, "case_id": case_id})
+    doc = {
+        "user_email":  user_email,
+        "case_id":     case_id,
+        "envelope":    envelope,
+        "updated_at":  now,
+    }
+    if existing:
+        history = list(existing.get("adapter_history") or [])
+        history.append(history_entry)
+        # Bound history to prevent unbounded growth (last 20 ingests).
+        doc["adapter_history"] = history[-20:]
+        doc["attached_at"] = existing.get("attached_at", now)
+        _behav_col.update_one(
+            {"_id": existing["_id"]},
+            {"$set": doc},
+        )
+    else:
+        doc["adapter_history"] = [history_entry]
+        doc["attached_at"] = now
+        _behav_col.insert_one(dict(doc))
+    return {"case_id": case_id,
+            "attached_at": doc["attached_at"],
+            "updated_at":  doc["updated_at"],
+            "adapter_history": doc["adapter_history"]}
+
+
+class AttachIn(BaseModel):
+    case_id:  str = Field(..., description="Workspace case id.")
+    envelope: Dict[str, Any] = Field(...,
+        description="The exact response envelope produced by "
+                    "/api/behavioral/sysmon or /api/behavioral/sysmon/evtx.")
+
+
+@router.post("/attach")
+async def attach_envelope(body: AttachIn, user=Depends(get_current_user)):
+    """Persist a behavioral-ingest envelope against a workspace case.
+
+    The stored payload is the exact response envelope — no rendered UI
+    state, no client-side inference. Reloading the case reconstructs an
+    identical Behavioral Evidence Timeline.
+    """
+    return _attach_envelope(_user_email(user), body.case_id, body.envelope,
+                              adapter_source="attach.explicit")
+
+
+@router.get("/case/{case_id}")
+async def get_case_evidence(case_id: str, user=Depends(get_current_user)):
+    """Return the persisted behavioral evidence envelope for a case.
+
+    404 when no envelope has been attached to the case for this user.
+    """
+    email = _user_email(user)
+    doc = _behav_col.find_one({"user_email": email, "case_id": case_id},
+                                {"_id": 0})
+    if not doc:
+        raise HTTPException(404, detail={"error": "no_behavioral_evidence",
+                                          "case_id": case_id})
+    return doc
+
+
+@router.delete("/case/{case_id}")
+async def detach_case_evidence(case_id: str, user=Depends(get_current_user)):
+    """Detach the persisted behavioral evidence from a case."""
+    r = _behav_col.delete_one({"user_email": _user_email(user),
+                                 "case_id": case_id})
+    return {"deleted": r.deleted_count, "case_id": case_id}
 
 
 def _build_response(meta: Dict[str, Any],

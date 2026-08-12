@@ -3605,7 +3605,7 @@ function WorkspacePageInner() {
              makes explicit the flow:
                 Evidence → Correlation → authoritative MITRE → Attack Chain.
              Does NOT infer techniques, does NOT compute verdicts. */}
-          <BehavioralTimeline />
+          <BehavioralTimeline caseId={currentCaseId} />
 
           {/* ▲ Workspace Timeline · MVP (2026-08-11) ·
               Guarded 2026-08-11 against very-large-paste UI freezes:
