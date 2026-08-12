@@ -25,12 +25,13 @@ UI-DEF-02  MITRE convergence    ✅ GREEN (Option B · ADR-0010p)
 P2 · Slice-1 · Sysmon Event 1   ✅ GREEN (ADR-0010q)
 P2 · Slice-2 · Sysmon Event 3   ✅ GREEN (ADR-0010r)
 P2 · Slice-3 · EVTX transport   ✅ GREEN (ADR-0010s)
-P2 · UI Slice · Timeline        ✅ GREEN (ADR-0010t, 2026-08-12)
-                                   Read-only Workspace projection panel.
-                                   Live screenshot confirmed all 9 required
-                                   elements (E1/E3 rows, correlation-state
-                                   chips, dedup ×N, inspector, advisory
-                                   fields, MITRE handoff).
+P2 · UI Slice · Timeline        ✅ GREEN (ADR-0010t)
+P2 · UI-Slice-2 · Bidirectional ✅ GREEN (ADR-0010u, 2026-08-12)
+                                   Attack Chain ↔ Behavioral Evidence
+                                   click-through. window.CustomEvent bus
+                                   (nivx:mitre-selected / nivx:evidence-
+                                   selected). Forward + reverse verified
+                                   live. Zero backend touch.
 
 P2 · Slice-4 · Event 22 DNS     ⏸  await authorisation
 ```

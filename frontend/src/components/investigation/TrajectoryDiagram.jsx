@@ -225,6 +225,21 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
   }, [popout]);
   const [pan,   setPan]   = useState({ x: 0, y: 0 });
   const [selectedNode, setSelectedNode] = useState(null);   // Node Inspector target
+  // UI-Slice-2 (ADR-0010u): incoming Evidence → MITRE highlight set.
+  // Populated by `nivx:evidence-selected` from BehavioralTimeline row clicks.
+  const [linkedTechniqueIds, setLinkedTechniqueIds] = useState(new Set());
+  useEffect(() => {
+    const onEvidence = (ev) => {
+      const ids = ev.detail?.technique_ids;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        setLinkedTechniqueIds(new Set());
+        return;
+      }
+      setLinkedTechniqueIds(new Set(ids));
+    };
+    window.addEventListener("nivx:evidence-selected", onEvidence);
+    return () => window.removeEventListener("nivx:evidence-selected", onEvidence);
+  }, []);
   const dragRef  = useRef(null);
   const panRef   = useRef(null);
   const svgRef   = useRef(null);
@@ -328,7 +343,18 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
     // If the pointer never moved, treat the interaction as a click.
     if (dragRef.current && !dragMovedRef.current) {
       const node = nodes.find((n) => n.id === dragRef.current.id);
-      if (node) setSelectedNode(node);
+      if (node) {
+        setSelectedNode(node);
+        // UI-Slice-2 (ADR-0010u): forward-direction bidirectional link.
+        // Broadcast the MITRE technique id on the node so the
+        // Behavioral Timeline can highlight the supporting evidence.
+        const tid = node.techId || node.id;
+        if (tid && /^T\d{4}(\.\d{3})?$/.test(String(tid))) {
+          window.dispatchEvent(new CustomEvent("nivx:mitre-selected", {
+            detail: { technique_id: tid },
+          }));
+        }
+      }
     }
     dragRef.current = null;
     panRef.current  = null;
@@ -626,12 +652,22 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
               return (
               <g key={n.id} data-testid={`trajectory-node-${n.id}`}
                  data-zoom-level={zoomLevel}
+                 data-linked={linkedTechniqueIds.has(n.techId || n.id) ? "true" : undefined}
                  onMouseDown={(e) => onNodeMouseDown(e, n.id)}
                  style={{
                    cursor: "grab",
                    opacity: (investigation.active && !investigation.match(n.raw)) ? 0.28 : 1,
                    transition: "opacity 0.2s ease",
                  }}>
+                {/* UI-Slice-2 · Evidence→MITRE linked ring */}
+                {linkedTechniqueIds.has(n.techId || n.id) && (
+                  <rect x={n.x - 8} y={n.y - 28}
+                        width={218} height={(zoomLevel === "label" ? 34 : 62) + 8}
+                        rx={8} fill="none"
+                        stroke="#fbbf24" strokeWidth={2.4}
+                        strokeDasharray="4 3"
+                        opacity={0.9} />
+                )}
                 {/* Node card */}
                 <rect x={n.x - 4} y={n.y - 24}
                       width={210}
@@ -827,6 +863,10 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
       const cmdCount = (b.commands || b.command_count || 0);
       nodes.push({
         id:          `${behaviorKey}--${_slug(tactic)}`,
+        // UI-Slice-2 (ADR-0010u): the canonical MITRE technique id
+        // this node represents (first lane-scoped technique) — used
+        // for bidirectional linking to the Behavioral Timeline.
+        techId:      laneTechs[0] || null,
         behaviorKey,               // stable link across sibling nodes
         order:       i,             // chronological rank
         primary:     tIdx === 0,    // first tactic listed = chain anchor

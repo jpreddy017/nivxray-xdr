@@ -150,6 +150,73 @@ export default function BehavioralTimeline() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
   const [selectedKey, setSelectedKey] = useState(null);
+  // UI-Slice-2 (ADR-0010u): incoming MITRE→Evidence highlight state.
+  const [highlightedTechnique, setHighlightedTechnique] = useState(null);
+  const timelineTopRef = React.useRef(null);
+
+  // Backend response gives per_event_mitre[i] = { event_index, command_line,
+  // techniques: [{id,...}] } for each Event-1. Build a lookup:
+  //   e1_evidence_ref → set of technique ids
+  //   e3_correlated_e1_ref → same techniques (RESOLVED path only)
+  const {e1RefToTechs, e3RefToTechs, techToE1Refs, techToE3Refs} = useMemo(() => {
+    const e1RefToTechs = new Map();
+    const e3RefToTechs = new Map();
+    const techToE1Refs = new Map();
+    const techToE3Refs = new Map();
+    if (!response) return {e1RefToTechs, e3RefToTechs, techToE1Refs, techToE3Refs};
+    const pairs = response.parent_child_evidence?.pairs || [];
+    const perEvent = response.per_event_mitre || [];
+    pairs.forEach((pc, i) => {
+      const techs = new Set((perEvent[i]?.techniques || []).map(t => t.id));
+      e1RefToTechs.set(pc.evidence_ref, techs);
+      techs.forEach(tid => {
+        if (!techToE1Refs.has(tid)) techToE1Refs.set(tid, new Set());
+        techToE1Refs.get(tid).add(pc.evidence_ref);
+      });
+    });
+    (response.network_evidence?.connections || []).forEach(c => {
+      // Only RESOLVED connections inherit their E1's techniques.
+      if (c.correlation_state === "RESOLVED" && c.correlated_with_process_create) {
+        const techs = e1RefToTechs.get(c.correlated_with_process_create) || new Set();
+        e3RefToTechs.set(c.evidence_ref, techs);
+        techs.forEach(tid => {
+          if (!techToE3Refs.has(tid)) techToE3Refs.set(tid, new Set());
+          techToE3Refs.get(tid).add(c.evidence_ref);
+        });
+      } else {
+        e3RefToTechs.set(c.evidence_ref, new Set());
+      }
+    });
+    return {e1RefToTechs, e3RefToTechs, techToE1Refs, techToE3Refs};
+  }, [response]);
+
+  // Inbound: listen for MITRE→Evidence selection from the Attack Chain.
+  React.useEffect(() => {
+    const onMitreSelected = (ev) => {
+      const tid = ev.detail?.technique_id;
+      if (!tid) return;
+      setHighlightedTechnique(tid);
+      const refs = new Set([
+        ...(techToE1Refs.get(tid) || []),
+        ...(techToE3Refs.get(tid) || []),
+      ]);
+      // Scroll the first supporting row into view.
+      setTimeout(() => {
+        const first = document.querySelector('[data-mitre-support="' + tid + '"]');
+        if (first) first.scrollIntoView({behavior: "smooth", block: "center"});
+        else if (timelineTopRef.current) timelineTopRef.current.scrollIntoView({behavior: "smooth", block: "start"});
+      }, 50);
+    };
+    window.addEventListener("nivx:mitre-selected", onMitreSelected);
+    return () => window.removeEventListener("nivx:mitre-selected", onMitreSelected);
+  }, [techToE1Refs, techToE3Refs]);
+
+  const emitEvidenceSelected = useCallback((techs) => {
+    const ids = Array.from(techs || []);
+    window.dispatchEvent(new CustomEvent("nivx:evidence-selected", {
+      detail: { technique_ids: ids },
+    }));
+  }, []);
 
   const submitXml = useCallback(async () => {
     if (!xml.trim()) return;
@@ -251,22 +318,40 @@ export default function BehavioralTimeline() {
             )}
           </div>
 
+          <div ref={timelineTopRef} />
           {/* Event 1 rows */}
           {processCreates.map((pc, i) => {
             const key = `e1-${pc.evidence_ref || i}`;
             const open = selectedKey === key;
+            const supportsHighlight = highlightedTechnique
+              && e1RefToTechs.get(pc.evidence_ref)?.has(highlightedTechnique);
+            const techList = Array.from(e1RefToTechs.get(pc.evidence_ref) || []);
             return (
               <div key={key}>
                 <div data-testid={`e1-row-${i}`}
-                     onClick={() => setSelectedKey(open ? null : key)}
+                     data-mitre-support={supportsHighlight ? highlightedTechnique : undefined}
+                     onClick={() => {
+                       const nowOpen = !open;
+                       setSelectedKey(nowOpen ? key : null);
+                       if (nowOpen) emitEvidenceSelected(e1RefToTechs.get(pc.evidence_ref));
+                     }}
                      style={{ display: "flex", alignItems: "center", padding: "8px 6px",
-                              borderLeft: "3px solid #38bdf8", background: "rgba(56,189,248,0.04)",
+                              borderLeft: "3px solid #38bdf8",
+                              background: supportsHighlight
+                                ? "rgba(251,191,36,0.14)" : "rgba(56,189,248,0.04)",
+                              boxShadow: supportsHighlight ? "inset 0 0 0 1px rgba(251,191,36,0.55)" : "none",
                               cursor: "pointer", marginBottom: 4, borderRadius: 3 }}>
                   <span style={{ fontSize: 10, color: "#38bdf8", fontFamily: "JetBrains Mono, monospace",
                                  padding: "1px 6px", background: "rgba(56,189,248,0.12)", borderRadius: 2 }}>E1</span>
                   <span style={{ marginLeft: 10, fontSize: 12, color: "#e2e8f0", fontFamily: "JetBrains Mono, monospace" }}>
                     Process Create · {pc.child_image}
                   </span>
+                  {techList.length > 0 && (
+                    <span style={{ marginLeft: 8, fontSize: 10, color: "#94a3b8",
+                                   fontFamily: "JetBrains Mono, monospace" }}>
+                      supports · {techList.join(", ")}
+                    </span>
+                  )}
                   <span style={{ marginLeft: "auto", fontSize: 10, color: "#94a3b8",
                                  fontFamily: "JetBrains Mono, monospace" }}>
                     PID {pc.child_pid} · {pc.evidence_ref}
@@ -281,13 +366,24 @@ export default function BehavioralTimeline() {
           {networkConns.map((c, i) => {
             const key = `e3-${c.evidence_ref || i}`;
             const open = selectedKey === key;
+            const supportsHighlight = highlightedTechnique
+              && e3RefToTechs.get(c.evidence_ref)?.has(highlightedTechnique);
+            const techList = Array.from(e3RefToTechs.get(c.evidence_ref) || []);
             return (
               <div key={key}>
                 <div data-testid={`e3-row-${i}`}
-                     onClick={() => setSelectedKey(open ? null : key)}
+                     data-mitre-support={supportsHighlight ? highlightedTechnique : undefined}
+                     onClick={() => {
+                       const nowOpen = !open;
+                       setSelectedKey(nowOpen ? key : null);
+                       if (nowOpen) emitEvidenceSelected(e3RefToTechs.get(c.evidence_ref));
+                     }}
                      style={{ display: "flex", alignItems: "center", padding: "8px 6px",
                               borderLeft: `3px solid ${c.correlation_state === "RESOLVED" ? "#22c55e" : "#fbbf24"}`,
-                              background: "rgba(34,197,94,0.03)", cursor: "pointer",
+                              background: supportsHighlight
+                                ? "rgba(251,191,36,0.14)" : "rgba(34,197,94,0.03)",
+                              boxShadow: supportsHighlight ? "inset 0 0 0 1px rgba(251,191,36,0.55)" : "none",
+                              cursor: "pointer",
                               marginBottom: 4, borderRadius: 3 }}>
                   <span style={{ fontSize: 10, color: "#22c55e", fontFamily: "JetBrains Mono, monospace",
                                  padding: "1px 6px", background: "rgba(34,197,94,0.12)", borderRadius: 2 }}>E3</span>
@@ -301,6 +397,12 @@ export default function BehavioralTimeline() {
                                    fontFamily: "JetBrains Mono, monospace",
                                    padding: "1px 6px", background: "rgba(251,191,36,0.12)", borderRadius: 2 }}>
                       ×{c.count} · dedup
+                    </span>
+                  )}
+                  {techList.length > 0 && (
+                    <span style={{ marginLeft: 8, fontSize: 10, color: "#94a3b8",
+                                   fontFamily: "JetBrains Mono, monospace" }}>
+                      via E1 · {techList.join(", ")}
                     </span>
                   )}
                   <span style={{ marginLeft: "auto", fontSize: 10, color: "#94a3b8",
@@ -328,11 +430,35 @@ export default function BehavioralTimeline() {
                           fontSize: 11, color: "#94a3b8",
                           fontFamily: "JetBrains Mono, monospace" }}>
               ↳ Authoritative MITRE surface (from Event 1 command lines):
-              <span style={{ color: "#38bdf8", marginLeft: 6 }}>
-                {techniques.join(" · ")}
-              </span>
+              {techniques.map((tid, ti) => (
+                <span key={tid}
+                      data-testid={`mitre-chip-${tid}`}
+                      onClick={() => {
+                        setHighlightedTechnique(tid);
+                        window.dispatchEvent(new CustomEvent("nivx:mitre-selected", {
+                          detail: { technique_id: tid },
+                        }));
+                      }}
+                      style={{ color: highlightedTechnique === tid ? "#fbbf24" : "#38bdf8",
+                               marginLeft: 6, cursor: "pointer",
+                               padding: "1px 5px", borderRadius: 2,
+                               background: highlightedTechnique === tid
+                                 ? "rgba(251,191,36,0.14)" : "transparent",
+                               boxShadow: highlightedTechnique === tid
+                                 ? "inset 0 0 0 1px rgba(251,191,36,0.55)" : "none" }}>
+                  {tid}
+                </span>
+              ))}
+              {highlightedTechnique && (
+                <span data-testid="mitre-clear"
+                      onClick={() => setHighlightedTechnique(null)}
+                      style={{ marginLeft: 10, cursor: "pointer",
+                               color: "#64748b", textDecoration: "underline" }}>
+                  clear
+                </span>
+              )}
               <div style={{ marginTop: 4, fontSize: 10, color: "#64748b" }}>
-                These techniques appear in the 14-tactic Attack Chain above. This timeline does NOT infer techniques on its own.
+                Click a technique above → supporting E1/E3 rows highlight. Click an evidence row → its technique(s) broadcast to the Attack Chain.
               </div>
             </div>
           )}
