@@ -474,27 +474,51 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
                                   ? Math.round(barMax * stats.commands
                                                   / laneStats.__max_commands)
                                   : 0;
+              // UI-DEF-02 (ADR-0010m): empty tactic lanes stay VISUALLY
+              // SILENT. Structural label + thin divider only. No dimmed
+              // fill, no "— · No Evidence" suffix, no stats row, no
+              // density bar. This preserves the 14-tactic scaffold while
+              // preventing the visual noise the owner flagged.
+              if (dimmed) {
+                return (
+                  <g key={lane.id}
+                      data-testid={`trajectory-lane-${lane.id}`}
+                      data-lane-empty="true">
+                    <text x={16} y={lane.y - 22}
+                          style={{ fontSize: 11,
+                                   fill: "#475569",
+                                   letterSpacing: "0.14em",
+                                   textTransform: "uppercase",
+                                   fontWeight: 500 }}>
+                      {lane.label}
+                    </text>
+                    <line x1={16} x2={contentW - 16}
+                          y1={lane.y - 8} y2={lane.y - 8}
+                          stroke="rgba(148,163,184,0.10)"
+                          strokeWidth={1} />
+                  </g>
+                );
+              }
               return (
                 <g key={lane.id}
                     data-testid={`trajectory-lane-${lane.id}`}
-                    style={{ opacity: dimmed ? 0.35 : 1 }}>
+                    data-lane-empty="false">
                   <rect x={0} y={lane.y - 40}
                         width={contentW}
                         height={isCanonical ? MITRE_LANE_HEIGHT - 6 : 90}
-                        fill={dimmed ? "rgba(148,163,184,0.015)"
-                                     : (i % 2 ? "rgba(148,163,184,0.03)"
-                                             : "rgba(148,163,184,0.06)")} />
+                        fill={i % 2 ? "rgba(148,163,184,0.03)"
+                                    : "rgba(148,163,184,0.06)"} />
                   {/* Lane title */}
                   <text x={16} y={lane.y - 22}
                         style={{ fontSize: 11,
-                                 fill: dimmed ? "#475569" : laneColor,
+                                 fill: laneColor,
                                  letterSpacing: "0.14em",
                                  textTransform: "uppercase",
                                  fontWeight: isCanonical ? 700 : 400 }}>
-                    {lane.label}{dimmed ? " · —" : ""}
+                    {lane.label}
                   </text>
                   {/* Lane stats (technique / command counts) */}
-                  {isCanonical && stats && !dimmed && (
+                  {isCanonical && stats && (
                     <>
                       <text x={16} y={lane.y - 6}
                             style={{ fontSize: 10, fill: "#94a3b8",

@@ -25,6 +25,201 @@ from deps import db, load_osint_keys, llm_json
 
 
 # ============================================================================
+# UI-DEF-02 · One authoritative MITRE surface (ADR-0010m · 2026-08-12)
+#
+# `/api/analyze` historically produced its MITRE list from the regex-based
+# `operations.mitre_map(text)` — a projection that diverged from the DIE
+# analyzer's evidence-backed catalogue (rip-08 lost T1140 from recursive
+# decode; rip-07 could miss T1562.004 depending on which mapper ran).
+#
+# ADR-0023 §3c "MITRE Convergence" locks: NivXRay must maintain ONE
+# authoritative MITRE technique surface. This helper produces that surface:
+#
+#   services.die.api.analyze(text)          → base analyzer techniques
+#     · AST detections
+#     · LOLBIN → technique mapping
+#     · Chain-analyzer aggregation
+#     · Recursive-decode synthesis (Item-3, T1140)
+#     · T1562.004 signature (Item-4)
+#   canonical_bridge narrative rules        → prose / vendor-narrative rules
+#   csv_edr_analyzer                        → tabular EDR log rules
+#   mitre_evidence_chain.enforce_evidence…  → drops any technique without
+#                                             structured provenance (P0.2)
+#
+# The regex `operations.mitre_map()` remains available for legacy callers
+# (chain_analyzer, layer_360) but is treated as a diagnostic-only signal
+# — surfaced under the additive `mitre_regex_extra` provenance chip so
+# analysts can see what the regex path saw that the authoritative surface
+# did not. This is the "provenance chip during transition" allowance
+# ADR-0010m explicitly permits.
+# ============================================================================
+def _authoritative_mitre_normalized(techs: List[Dict[str, Any]]
+                                     ) -> List[Dict[str, Any]]:
+    """Flatten each authoritative technique into the shape `/api/analyze`
+    historically returned (`{id, technique, tactic, evidence, source}`) so
+    downstream consumers (risk_score, response envelope, UI panels) see no
+    contract change."""
+    from canonical.projections.attck import _TECHNIQUE_META
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for t in techs or []:
+        if not isinstance(t, dict):
+            continue
+        tid = t.get("id")
+        if not tid or tid in seen:
+            continue
+        seen.add(tid)
+        meta = _TECHNIQUE_META.get(tid) or {}
+        tactic = t.get("tactic") or meta.get("tactic") or ""
+        # Preserve any provenance chain already on the technique.
+        rule_family = t.get("rule_family") or "die.analyzer_catalogue"
+        entry = {
+            "id":          tid,
+            "technique":   t.get("name") or t.get("technique") or "",
+            "tactic":      _title_case_tactic(tactic),
+            "evidence":    t.get("evidence") or "",
+            "source":      "authoritative",
+            "rule_family": rule_family,
+        }
+        # Preserve structured evidence records (P0.2 gate output) when present.
+        if isinstance(t.get("evidence"), list):
+            entry["evidence_records"] = t["evidence"]
+            entry["evidence"] = _first_evidence_snippet(t["evidence"])
+        out.append(entry)
+    return out
+
+
+def _title_case_tactic(s: str) -> str:
+    if not s:
+        return ""
+    s = str(s).replace("_", " ").replace("-", " ").strip()
+    return " ".join(w.capitalize() if w.lower() != "and" else "and"
+                    for w in s.split())
+
+
+def _first_evidence_snippet(records: List[Any]) -> str:
+    for r in records or []:
+        if isinstance(r, dict):
+            v = r.get("observed_value") or r.get("field") or r.get("event_or_rule")
+            if v:
+                return str(v)
+        elif isinstance(r, str):
+            return r
+    return ""
+
+
+def get_authoritative_mitre(text: str
+                             ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Return `(mitre_list, provenance_meta)` for `/api/analyze`.
+
+    `mitre_list` — flattened, evidence-backed authoritative techniques.
+    `provenance_meta` — diagnostic-only surface exposing:
+      · `source: "die.investigation_results"`
+      · `regex_extra: [ids the regex path found but authoritative did not]`
+      · `suppressed_count: int`  (evidence-chain drops)
+    """
+    provenance: Dict[str, Any] = {
+        "source":            "die.investigation_results",
+        "regex_extra":       [],
+        "suppressed_count":  0,
+    }
+
+    if not text:
+        return [], provenance
+
+    # ── Authoritative surface ────────────────────────────────────────
+    # The DIE analyzer catalogue is the single source of truth. Its
+    # `techniques[]` output already fuses AST detections, LOLBIN mapping,
+    # chain aggregation, recursive-decode synthesis (Item-3), and the
+    # T1562.004 signature (Item-4). Each carries a free-text `evidence`
+    # snippet emitted by the catalogue. We wrap it into a structured
+    # provenance record (source / event_or_rule / field / observed_value
+    # / evidence_ref) BEFORE passing through the P0.2 gate, so DIE-
+    # catalogue findings are never spuriously dropped.
+    #
+    # Narrative + CSV/EDR emitters (canonical_bridge) then contribute
+    # additional evidence via the same augment path.
+    from services.die.api import analyze as _die_analyze
+    from services.die.canonical_bridge import augment_investigation_results
+    from services.die.mitre_evidence_chain import (enforce_evidence_chain,
+                                                    _short_ref)
+
+    authoritative: List[Dict[str, Any]] = []
+    try:
+        env = _die_analyze(text)
+    except Exception as exc:  # noqa: BLE001
+        provenance["source"] = "authoritative_unavailable"
+        provenance["error"] = str(exc)[:200]
+        env = None
+
+    if isinstance(env, dict):
+        for t in (env.get("techniques") or []):
+            if not isinstance(t, dict) or not t.get("id"):
+                continue
+            tid = t["id"]
+            snippet = (t.get("evidence") or "").strip()
+            # Structured provenance — deterministic, non-fabricated
+            # (`observed_value` is the exact analyzer-emitted snippet).
+            record = {
+                "source":         "die.analyzer_catalogue",
+                "event_or_rule":  f"die.analyzer.{tid}",
+                "field":          "analyzer_evidence",
+                "observed_value": snippet or t.get("name") or tid,
+                "evidence_ref":   _short_ref(f"die|{tid}|{snippet}"),
+                "confidence":     "medium",
+            }
+            authoritative.append({
+                "id":          tid,
+                "name":        t.get("name") or "",
+                "tactic":      t.get("tactic") or "",
+                "rule_family": "die.analyzer_catalogue",
+                "evidence":    [record],   # already structured for the gate
+            })
+
+    # ── Narrative + CSV/EDR merge via canonical_bridge ────────────────
+    # Feed the DIE-analyzer techniques we already normalised into a
+    # synthetic `result.object.mitre` and let `augment_investigation_
+    # results` add narrative-rule + csv_edr techniques on top. The
+    # evidence-chain gate then runs uniformly across all sources.
+    try:
+        base = {
+            "object": {
+                "mitre": [
+                    # Bridge expects `evidence` field but doesn't require
+                    # structure at this point — the gate at the end enforces
+                    # structure. We pass through with structured records.
+                    dict(t) for t in authoritative
+                ],
+            },
+        }
+        merged = augment_investigation_results(base, text)
+        merged_obj = (merged or {}).get("object") or {}
+        gated = merged_obj.get("mitre") or []
+        provenance["suppressed_count"] = int(
+            merged_obj.get("mitre_suppressed_count") or 0
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Bridge unavailable → fall back to just the DIE-analyzer set,
+        # still gated locally to guarantee structured provenance.
+        provenance["source"] = "die.analyzer_only"
+        provenance["error"] = str(exc)[:200]
+        gated, _dropped = enforce_evidence_chain(authoritative)
+        provenance["suppressed_count"] = len(_dropped)
+
+    kept = _authoritative_mitre_normalized(gated)
+
+    # ── Diagnostic-only regex chip ────────────────────────────────────
+    try:
+        regex_ids = {t.get("id") for t in mitre_map(text) if isinstance(t, dict)}
+        auth_ids = {t["id"] for t in kept}
+        provenance["regex_extra"] = sorted(regex_ids - auth_ids)
+    except Exception:  # noqa: BLE001
+        pass
+
+    return kept, provenance
+
+
+# ============================================================================
 # Deterministic winner picker (smart vs magic) — Auto Investigate parity fix
 # ============================================================================
 def _r23_deep_peel_and_merge(result: Dict[str, Any]) -> Dict[str, Any]:

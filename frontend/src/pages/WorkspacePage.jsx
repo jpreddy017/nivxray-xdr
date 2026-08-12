@@ -3583,7 +3583,7 @@ function WorkspacePageInner() {
             if (!preprocForTraj && !incidentBehaviors.length) return null;
             return (
               <CollapsibleSection title="Attack Chain · MITRE ATT&CK Projection"
-                                   subtitle="14 lanes · one per ATT&CK tactic · empty tactics collapse · drag / pan / zoom"
+                                   subtitle="14 lanes · one authoritative evidence-backed MITRE surface · empty tactics stay visually silent · drag / pan / zoom"
                                    testid="attack-trajectory-section"
                                    style={{ margin: "0 12px 8px" }}>
                 <TrajErrorBoundary>

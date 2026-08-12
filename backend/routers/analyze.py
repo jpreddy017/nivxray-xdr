@@ -17,11 +17,11 @@ from fastapi.responses import StreamingResponse, JSONResponse
 
 from schemas import AnalyzeIn, PlaybookFeedbackIn
 from deps import db, get_current_user, require_admin, load_osint_keys
-from operations import extract_iocs, mitre_map, yara_lite_scan, risk_score
+from operations import extract_iocs, yara_lite_scan, risk_score
 from osint import enrich_iocs
 from lolbas import scan_lolbas
 from corrupt_payload_detector import detect_corrupt_payload
-from analysis_core import ai_describe_and_verdict, lookup_ti_hits_bounded_meta
+from analysis_core import ai_describe_and_verdict, lookup_ti_hits_bounded_meta, get_authoritative_mitre
 import models_studio as ms
 
 router = APIRouter()
@@ -35,7 +35,11 @@ log = logging.getLogger("nivxray")
 async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
     text = (body.output or "") + "\n" + body.input
     iocs = extract_iocs(text)
-    mitre = mitre_map(text)
+    # UI-DEF-02 (ADR-0010m · ADR-0023 §3c): consume the ONE authoritative
+    # MITRE surface — the DIE-analyzer-catalogue output after the P0.2
+    # evidence-chain gate. The legacy regex `operations.mitre_map()` remains
+    # a diagnostic-only signal surfaced under `mitre_provenance.regex_extra`.
+    mitre, mitre_provenance = get_authoritative_mitre(text)
     yara = yara_lite_scan(text)
     lolbas = scan_lolbas(text)
     risk = risk_score(mitre, yara, iocs, lolbas=lolbas)
@@ -139,6 +143,7 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
     return {
         "iocs": iocs, "mitre": merged_mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
         "osint": osint_data, "ti_hits": ti_hits, "ti_lookup_meta": ti_lookup_meta,
+        "mitre_provenance": mitre_provenance,
         "ai_verdict": ai_verdict, "description": description,
         "corrupt_payload": corrupt,
     }
@@ -160,11 +165,14 @@ async def analyze_stream(body: AnalyzeIn, user=Depends(get_current_user)):
             yield _sse("status", {"phase": "extract", "message": "Extracting IOCs, MITRE, YARA, LOLBAS…"})
             text = (body.output or "") + "\n" + body.input
             iocs = extract_iocs(text)
-            mitre = mitre_map(text)
+            # UI-DEF-02: authoritative MITRE surface (ADR-0010m).
+            mitre, mitre_provenance = get_authoritative_mitre(text)
             yara = yara_lite_scan(text)
             lolbas = scan_lolbas(text)
             risk = risk_score(mitre, yara, iocs, lolbas=lolbas)
-            partial = {"iocs": iocs, "mitre": mitre, "yara": yara, "lolbas": lolbas, "risk": risk}
+            partial = {"iocs": iocs, "mitre": mitre, "yara": yara,
+                       "lolbas": lolbas, "risk": risk,
+                       "mitre_provenance": mitre_provenance}
             yield _sse("partial", partial)
         except Exception as e:
             yield _sse("error", {"phase": "extract", "error": str(e)})
@@ -274,6 +282,7 @@ async def analyze_stream(body: AnalyzeIn, user=Depends(get_current_user)):
         final = {
             "iocs": iocs, "mitre": merged_mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
             "osint": osint_data, "ti_hits": ti_hits,
+            "mitre_provenance": mitre_provenance,
             "ai_verdict": ai_verdict, "description": description,
         }
         yield _sse("result", final)
@@ -372,7 +381,8 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[st
         })
 
         iocs = extract_iocs(text)
-        mitre = mitre_map(text)
+        # UI-DEF-02: authoritative MITRE surface (ADR-0010m).
+        mitre, mitre_provenance = get_authoritative_mitre(text)
         yara = yara_lite_scan(text)
         lolbas = scan_lolbas(text)
         try:
@@ -387,6 +397,7 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[st
         risk = risk_score(mitre, yara, iocs, lolbas=lolbas)
         await _job_set(job_id, {
             "iocs": iocs, "mitre": mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
+            "mitre_provenance": mitre_provenance,
             "phase": "ti_hits", "progress": 15,
         })
 

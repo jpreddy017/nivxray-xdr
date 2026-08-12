@@ -21,14 +21,19 @@ UI-DEF-01                       ✅ PASS
 Item 4  T1562.004 DIE signature ✅ PASS
 Item 5  TI latency bound        ✅ PASS  (ADR-0010l, 2026-08-12)
 12-case FINAL regression        ✅ GREEN (ADR-0010n, 2026-08-12)
+UI-DEF-02  MITRE convergence    🛑 STOP-AND-REPORT (ADR-0010o, 2026-08-12)
+                                    Convergence works but the DIE catalogue
+                                    is missing 7 LOLBIN → technique
+                                    mappings; 3/12 corpus cases dropped
+                                    Malicious → Suspicious. Owner must
+                                    choose Option A / B / C before proceeding.
 
-UI-DEF-02  MITRE convergence    ⏸  (design directive locked at ADR-0010m)
 P2 Behavioral Evidence          🔒
 ```
 
 ### Locked execution order (do not break this sequence)
 ```
-[Item 4 ✅]  →  [Item 5 ✅]  →  [12-case regression ✅ GREEN]  →  UI-DEF-02  →  P2 Behavioral Evidence Ingestion
+[Item 4 ✅] → [Item 5 ✅] → [12-case regression ✅] → [UI-DEF-02 🛑 STOP] → P2
 ```
 
 ### Four architectural principles — non-negotiable (ADR-0023 §3a-§3e)

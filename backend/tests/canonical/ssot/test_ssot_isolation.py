@@ -180,6 +180,28 @@ def test_no_route_file_modified_by_phase2():
         # a verdict driver.
         "backend/analysis_core.py",
         "backend/tests/canonical/api/test_item5_ti_lookup_bounded.py",
+        # UI-DEF-02 · MITRE Convergence (owner sign-off 2026-08-12,
+        # ADR-0010m · ADR-0023 §3c). `/api/analyze` no longer emits
+        # its own regex-based mitre projection — the response `mitre`
+        # field is derived from the SAME authoritative surface the
+        # Workspace already consumes (services.die.investigation_results
+        # → augment_investigation_results → mitre_evidence_chain gate).
+        # `mitre_map()` remains available for legacy callers (chain
+        # analyzer, layer_360) but is surfaced only as a diagnostic
+        # `mitre_provenance.regex_extra` chip on the response.
+        # canonical_bridge.py: DIE-catalogue free-text evidence is now
+        # wrapped into structured provenance records BEFORE the P0.2
+        # gate so the gate no longer silently drops the analyzer's
+        # own findings on pure command inputs. Not fabrication —
+        # `observed_value` is the exact analyzer-emitted snippet.
+        # Frontend TrajectoryDiagram: empty tactic lanes render as
+        # structural label + thin divider only (no "· —" suffix, no
+        # dimmed fill, no stats/density on empty lanes) per the
+        # locked design directive.
+        "frontend/src/components/investigation/TrajectoryDiagram.jsx",
+        "frontend/src/pages/WorkspacePage.jsx",
+        "backend/tests/canonical/api/test_ui_def_02_convergence.py",
+        "backend/services/die/canonical_bridge.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

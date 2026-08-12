@@ -270,6 +270,48 @@ def augment_investigation_results(result: Dict[str, Any], raw_input: str) -> Dic
         t["kill_chain"] = current_kc
     obj["mitre"] = existing_mitre
 
+    # ── UI-DEF-02 (ADR-0010m · 2026-08-12) — DIE-catalogue evidence ──
+    # The DIE analyzer catalogue emits techniques with a free-text
+    # `evidence` string (e.g. `"netsh advfirewall … state off — Windows
+    # Firewall disabled."`). The P0.2 evidence-chain gate below only
+    # accepts structured records or specific patterns, and previously
+    # dropped every DIE-catalogue technique — causing the Workspace
+    # Attack Chain to render empty for pure command inputs like rip-07.
+    #
+    # Wrap each unstructured `evidence` string into a structured record
+    # BEFORE the gate runs so DIE-catalogue findings survive. This is
+    # NOT fabrication: `observed_value` is the exact analyzer-emitted
+    # snippet; `event_or_rule` is derived from the technique id itself.
+    # Techniques with no evidence hint stay unwrapped and are dropped
+    # by the gate as before.
+    from .mitre_evidence_chain import _short_ref as _die_short_ref
+    for t in existing_mitre:
+        if not isinstance(t, dict):
+            continue
+        raw_ev = t.get("evidence")
+        if isinstance(raw_ev, list) and raw_ev:
+            continue  # already structured
+        if not isinstance(raw_ev, str) or not raw_ev.strip():
+            continue
+        # Skip strings that already match the SEP-CSV pattern — the
+        # gate normalises those itself and we don't want to double-wrap.
+        if raw_ev.strip().startswith("SEP category '"):
+            continue
+        tid = t.get("id") or ""
+        snippet = raw_ev.strip()
+        rule_family = t.get("rule_family") or "die.analyzer_catalogue"
+        t["evidence"] = [{
+            "source":         "die.analyzer_catalogue"
+                                if rule_family == "die.analyzer_catalogue"
+                                else rule_family,
+            "event_or_rule":  f"die.analyzer.{tid}" if tid else "die.analyzer",
+            "field":          "analyzer_evidence",
+            "observed_value": snippet[:400],
+            "evidence_ref":   _die_short_ref(f"die|{tid}|{snippet}"),
+            "confidence":     "medium",
+        }]
+    obj["mitre"] = existing_mitre
+
     # ── Phase 5.W permanent fix · P0.2 evidence-chain gate ─────────
     # Owner directive: every emitted MITRE technique MUST carry
     # structured evidence {source, event_or_rule, field,
