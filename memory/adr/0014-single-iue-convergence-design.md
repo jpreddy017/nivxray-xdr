@@ -774,3 +774,102 @@ To avoid drift, this design deliberately does NOT:
 - ✅ M0a–M8 are LOCKED. Only D0 (this design document) is authorised.
 
 *End of design. STOP. Awaiting explicit owner authorisation before any migration step.*
+
+---
+
+## §18 · Design corrections (post-review · 2026-02-15)
+
+Owner review of D0 flagged 8 corrections. Applied inline below. No prior section is deleted — every correction is additive so the review trail remains readable.
+
+### 18.1 · URL acquisition intent — corrected two-stage rule
+
+**Problem**: §6.1 said `intent.acquire = (content.has_text OR content.has_images)`, but at Stage 1 (URL not yet acquired) those fields are unknown.
+
+**Correction**:
+
+- **Stage 1 IUE — pre-acquisition**: for `input.type=url`, `intent.acquire = true` UNLESS the URL matches the atomic-IOC pattern (bare URL with no path or path clearly points at a file resource that is an IOC). No content-derived reasoning here.
+- **Stage 2 IUE — post-acquisition** (i.e. re-run against the acquired resource): the acquired resource's `content.has_*` fields are now knowable and drive `intent.decompose`, `intent.decode`, `intent.ocr`, etc.
+
+**Rule of thumb**: `intent.acquire` is set in the state where acquisition has NOT yet happened. `intent.decompose/decode/ocr` are set in the state where acquisition HAS happened. IUE never asks a question of a state it cannot see.
+
+### 18.2 · Migration ordering — hard rule
+
+**Problem**: M1–M3 (vendor catalogue / UA / Playwright) appeared to be reachable before M0d (Router) was complete, contradicting the "no acquisition change until foundation done" rule.
+
+**Correction — hard ordering**:
+
+```
+D0 → M0a → M0b → M0c → M0d → M0e → M0f → M0g → M0h → THEN M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8
+```
+
+- No M1/M2/M3 change is authorised until M0h has landed and the Workspace primary submit is on `/api/investigate`.
+- M0h is the last step of the "canonical routing foundation". Every subsequent migration is a *content* migration on top of it.
+
+The migration graph in §11 and the "Depends on" column of §12 are amended to reflect this. Where the earlier table showed `M1 depends on M0e`, the corrected rule is `M1 depends on M0h`.
+
+### 18.3 · M8 dependencies — corrected
+
+**Problem**: §12 said "M8 (OCR) LAST" but the dependency cell said "M0c + M0d", which would allow M8 to be authorised as soon as M0d landed.
+
+**Correction**: `M8 depends on: M0h + M4 + M5 + M6 + provenance-dual-witness + image-acquire adapter registration`. Explicit prerequisites — OCR cannot be reached until the canonical routing foundation, the atomic-IOC retirement, and the regex-mitre demotion are all in.
+
+### 18.4 · Unknown input ≠ atomic IOC
+
+**Problem**: §2.9 rule 5 (totality) said unknown → `intent.inspect_only=true, plan=[die.default]`. That equates "we don't know what this is" with "atomic IOC, just enrich".
+
+**Correction**:
+
+- Add first-class field `intent.unknown_handling ∈ {decompose_safely | inspect_only | quarantine}`.
+- Default for unknown input: `intent.unknown_handling = decompose_safely, intent.inspect_only = false, intent.decompose = true, intent.decode = true, intent.analyze = true`.
+- Only bare URL/IP/hash/filename → `intent.inspect_only = true`. Unknown binary / document / encoded blob / telemetry / archive → decompose_safely path.
+- The safe fallback plan for `decompose_safely` runs decoder + DIE + LOLBAS + IOC extract with `failure_policy = log_and_continue` on every step, so the analyst gets whatever partial evidence is available.
+
+### 18.5 · Origin vs. Derivation — split into two axes
+
+**Problem**: `source.origin=recursion` was collapsing "acquired from a URL", "extracted from an archive", "decoded from base64", "OCR'd from an image", and "referenced by name" into one label.
+
+**Correction**: split `source.origin` (WHERE the top-level artifact came from) from a new field `source.derivation` (HOW this specific artifact was produced from the parent).
+
+```
+source
+├── origin           : enum(uploaded | pasted | urlref | telemetry_stream)
+│                      // set once at the root; propagates to descendants
+├── derivation       : enum(root | acquired | extracted | decoded |
+│                            decompressed | referenced | ocr | recursive)
+│                      // set per artifact
+├── vendor           : ...
+├── vendor_source    : ...
+├── locator          : ...
+├── parent_ref       : Optional[str]      // parent evidence_ref (any derivation)
+├── depth            : int                // 0 at root; +1 per derivation step
+└── confidence       : float
+```
+
+The IKG will be able to lay out the artifact tree using `parent_ref` + `derivation` without any further heuristic.
+
+### 18.6 · "IUE runs per artifact state" — general abstraction
+
+**Problem**: "IUE runs twice for URL" leaks a URL-specific detail into the general model.
+
+**Correction**: The general rule is **one IUE invocation per newly-established artifact state**. The URL case happens to produce two states (raw URL, acquired resource) and therefore two IUE invocations. Archive extraction may produce N states (one per member) and therefore N + 1 invocations. Recursive decoding produces one additional state per peeled layer.
+
+Every IUE invocation carries an `envelope.state_id` that identifies which artifact state it classified. `provenance.decisions[]` on downstream evidence records back-refers to `envelope.state_id`.
+
+### 18.7 · Seven top-level sub-nodes, not six
+
+Corrected. The InputUnderstanding shape at §2.1 has **seven** top-level sub-nodes: `envelope, input, source, content, intent, plan, provenance`. The headline in §2.1 is amended accordingly.
+
+### 18.8 · Registry immutability — clarified
+
+**Correction**: Explicit three-line rule replaces the ambiguous "immutable" wording.
+
+1. **Registry IDs are immutable.** Once `sysmon.xml.v1` is minted, its id never rebinds to different code.
+2. **Registry membership is version-controlled.** New capability is added by minting a new id (`sysmon.xml.v2`), never by editing an existing one in place.
+3. **Bindings evolve only through explicit versioned registration.** Callers dispatch to `sysmon.xml.v1` until the plan is updated to specify `v2`. Both versions can coexist.
+
+This preserves upgrade flexibility while keeping IDs semantically stable for auditors.
+
+---
+
+*End of §18 corrections. D0 remains the authoritative design baseline. Only M0a is now authorised.*
+
