@@ -233,9 +233,13 @@ def _execute_one(step: ExecutionStep,
             implementation=entry.implementation_path,
             error=str(ex), error_type=type(ex).__name__)
 
-    # 5. invoke — capture Exception (not BaseException — never swallow SIGINT)
+    # 5. invoke — capture Exception (not BaseException — never swallow SIGINT).
+    #    M0d-async-extension: if the callable returns an awaitable,
+    #    resolve it before wrapping the SUCCESS outcome.  Coroutine
+    #    objects MUST NEVER be captured as `result`.
     try:
         result = fn(**dict(step.inputs)) if step.inputs else fn()
+        result = _resolve_awaitable(result)
     except Exception as ex:                                     # noqa: BLE001
         return StepOutcome(
             step_id=step.step_id, entry_id=step.entry_id,
@@ -248,6 +252,41 @@ def _execute_one(step: ExecutionStep,
         status=StepStatus.SUCCESS,
         result=result,
         implementation=entry.implementation_path)
+
+
+# ─── M0d-async-extension helper (ADR-0014f) ────────────────────────────────
+def _resolve_awaitable(result: Any) -> Any:
+    """If `result` is awaitable, await it in an event-loop-safe way.
+
+    Two contexts:
+      • No running event loop → `asyncio.run(result)`.
+      • Running event loop    → run the awaitable in a fresh loop inside
+        a worker thread.  This avoids the "asyncio.run() cannot be called
+        from a running event loop" error without patching global state
+        (no `nest_asyncio`, no monkey-patch).
+
+    The router itself remains synchronous.  Callers already inside an
+    async context observe correct behaviour because the awaitable is
+    fully consumed before this function returns.  Callables themselves
+    are NOT modified.
+    """
+    import asyncio
+    import concurrent.futures
+    import inspect
+
+    if not inspect.isawaitable(result):
+        return result
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop — direct execution is safe.
+        return asyncio.run(result)
+
+    # A loop is already running in this thread.  Execute the coroutine
+    # in a fresh thread with its own fresh loop, and block-wait for it.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, result).result()
 
 
 # ─── Public entry-point ────────────────────────────────────────────────────

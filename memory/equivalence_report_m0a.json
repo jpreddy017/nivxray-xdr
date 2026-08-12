@@ -1,5 +1,5 @@
 {
-  "overall_verdict": "NO-GO",
+  "overall_verdict": "GAPS-REQUIRE-MIGRATION",
   "records": [
     {
       "differences": {
@@ -11,6 +11,13 @@
             "legacy": "analyze() \u2192 generate_report()",
             "note": "router path decomposes the pipeline; legacy is 2 inline calls",
             "router": "1 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "async dispatch (M0d-async-extension)",
+            "entry_id": "ioc_enrichment.v1",
+            "impl": "analysis_core:enrich_iocs",
+            "note": "callable is async; router awaited it via M0d-async-extension. Result captured is the real value, not a coroutine object.",
+            "step_id": "s00_ioc_enrichment_v1"
           }
         ],
         "failure_semantics": [
@@ -60,15 +67,7 @@
             ]
           }
         ],
-        "unexpected": [
-          {
-            "axis": "async dispatch",
-            "entry_id": "ioc_enrichment.v1",
-            "impl": "analysis_core:enrich_iocs",
-            "note": "callable is async (`async def`) but M0d router invokes it synchronously and captures the coroutine object as `result`. Router lacks async support today. This is a M0d/M0f-blocking gap.",
-            "step_id": "s00_ioc_enrichment_v1"
-          }
-        ]
+        "unexpected": []
       },
       "input": {
         "iue_engines_selected": [
@@ -114,7 +113,7 @@
             "error": null,
             "error_type": null,
             "implementation": "analysis_core:enrich_iocs",
-            "result_hash": "1b5468aaf7550e5cf2546e78d6c405484574585bc5e41b5e2d989beefeda085c",
+            "result_hash": "9319e13fed79d01378d23dba0a6cb5e7ef6a600826e6e6d10ddc90df9e429632",
             "status": "success",
             "step_id": "s00_ioc_enrichment_v1"
           },
@@ -152,7 +151,7 @@
         ],
         "unmapped_engines": []
       },
-      "verdict": "NO-GO"
+      "verdict": "GAPS-REQUIRE-MIGRATION"
     },
     {
       "differences": {
@@ -173,6 +172,13 @@
               "Attack Intent",
               "Attack Story"
             ]
+          },
+          {
+            "axis": "async dispatch (M0d-async-extension)",
+            "entry_id": "ioc_enrichment.v1",
+            "impl": "analysis_core:enrich_iocs",
+            "note": "callable is async; router awaited it via M0d-async-extension. Result captured is the real value, not a coroutine object.",
+            "step_id": "s05_ioc_enrichment_v1"
           }
         ],
         "failure_semantics": [],
@@ -218,15 +224,7 @@
             ]
           }
         ],
-        "unexpected": [
-          {
-            "axis": "async dispatch",
-            "entry_id": "ioc_enrichment.v1",
-            "impl": "analysis_core:enrich_iocs",
-            "note": "callable is async (`async def`) but M0d router invokes it synchronously and captures the coroutine object as `result`. Router lacks async support today. This is a M0d/M0f-blocking gap.",
-            "step_id": "s05_ioc_enrichment_v1"
-          }
-        ]
+        "unexpected": []
       },
       "input": {
         "iue_engines_selected": [
@@ -296,7 +294,7 @@
             "error": null,
             "error_type": null,
             "implementation": "analysis_core:enrich_iocs",
-            "result_hash": "c8a275acb702e36f17f17871cf4c732481dc506e3d9fc150a6dfb8ad0ace42a6",
+            "result_hash": "9319e13fed79d01378d23dba0a6cb5e7ef6a600826e6e6d10ddc90df9e429632",
             "status": "success",
             "step_id": "s05_ioc_enrichment_v1"
           }
@@ -338,7 +336,7 @@
           "Attack Story"
         ]
       },
-      "verdict": "NO-GO"
+      "verdict": "GAPS-REQUIRE-MIGRATION"
     },
     {
       "differences": {

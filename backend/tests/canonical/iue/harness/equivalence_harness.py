@@ -353,17 +353,30 @@ def _classify_differences(name: str, legacy: Dict, router: Dict) -> Dict[str, li
                 m = _il.import_module(mod_name)
                 fn = getattr(m, attr, None)
                 if fn and _insp.iscoroutinefunction(fn):
-                    diffs["unexpected"].append({
-                        "axis":        "async dispatch",
-                        "step_id":     o["step_id"],
-                        "entry_id":    o["entry_id"],
-                        "impl":        impl,
-                        "note":        ("callable is async (`async def`) but "
-                                          "M0d router invokes it synchronously "
-                                          "and captures the coroutine object as "
-                                          "`result`. Router lacks async support today. "
-                                          "This is a M0d/M0f-blocking gap."),
-                    })
+                    # Post-M0d-async: the router awaits async callables.
+                    # If status is SUCCESS, the awaited result is captured
+                    # correctly — this is an EXPECTED STRUCTURAL note, not
+                    # an unexpected bug.  If status is EXECUTION_FAILED,
+                    # the async exception surfaced correctly.
+                    if o["status"] == StepStatus.SUCCESS.value:
+                        diffs["expected_structural"].append({
+                            "axis":        "async dispatch (M0d-async-extension)",
+                            "step_id":     o["step_id"],
+                            "entry_id":    o["entry_id"],
+                            "impl":        impl,
+                            "note":        ("callable is async; router awaited "
+                                              "it via M0d-async-extension. Result "
+                                              "captured is the real value, not a "
+                                              "coroutine object."),
+                        })
+                    else:
+                        diffs["failure_semantics"].append({
+                            "axis":        "async dispatch failure",
+                            "step_id":     o["step_id"],
+                            "entry_id":    o["entry_id"],
+                            "status":      o["status"],
+                            "error":       o["error"],
+                        })
             except Exception:
                 pass
 
