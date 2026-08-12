@@ -22,6 +22,32 @@ _IUE_PDF = "/app/backend/exports/NivXRay-IUE-Architecture-Audit.pdf"
 _IUE_MD  = "/app/memory/adr/0013-iue-workspace-input-architecture-audit.md"
 
 
+_DESIGN_PDF = "/app/backend/exports/NivXRay-Single-IUE-Convergence-Design.pdf"
+_DESIGN_MD  = "/app/memory/adr/0014-single-iue-convergence-design.md"
+
+
+@router.get("/iue-convergence-design.pdf")
+async def download_design_pdf():
+    if not os.path.exists(_DESIGN_PDF):
+        raise HTTPException(404, detail={"error": "design_pdf_missing"})
+    return FileResponse(
+        _DESIGN_PDF,
+        media_type="application/pdf",
+        filename="NivXRay-Single-IUE-Convergence-Design.pdf",
+    )
+
+
+@router.get("/iue-convergence-design.md")
+async def download_design_md():
+    if not os.path.exists(_DESIGN_MD):
+        raise HTTPException(404, detail={"error": "design_md_missing"})
+    return FileResponse(
+        _DESIGN_MD,
+        media_type="text/markdown",
+        filename="NivXRay-Single-IUE-Convergence-Design.md",
+    )
+
+
 @router.get("/iue-architecture.pdf")
 async def download_iue_pdf():
     if not os.path.exists(_IUE_PDF):

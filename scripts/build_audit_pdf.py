@@ -8,10 +8,10 @@ import os, sys
 import markdown  # noqa
 from xhtml2pdf import pisa
 
-SRC = "/app/memory/adr/0013-iue-workspace-input-architecture-audit.md"
+SRC = "/app/memory/adr/0014-single-iue-convergence-design.md"
 OUT_DIR = "/app/backend/exports"
 os.makedirs(OUT_DIR, exist_ok=True)
-OUT = os.path.join(OUT_DIR, "NivXRay-IUE-Architecture-Audit.pdf")
+OUT = os.path.join(OUT_DIR, "NivXRay-Single-IUE-Convergence-Design.pdf")
 
 with open(SRC, "r", encoding="utf-8") as fh:
     md_text = fh.read()
