@@ -521,6 +521,18 @@ def _counts(session: Dict[str, Any],
     counts["investigated"] = sum(1 for i in inputs
                                     if i.get("status") == "investigated")
     counts["mitre"] = len(inc.get("mitre") or [])
+    # P0b (ADR-0014g) · surface IOC evidence already present in the
+    # incident SSOT so paste-derived investigations show a non-zero
+    # count when IOCs actually exist.  Reads from incident.iocs which
+    # is the same top-level field already consumed by
+    # ioc_intelligence / evidence_confidence.  No new evidence, no
+    # extraction, no producer change.
+    _incident_iocs = inc.get("iocs") or []
+    if isinstance(_incident_iocs, dict):
+        # Some SSOT shapes carry iocs as {kind: [...]}. Sum across kinds.
+        _incident_iocs = sum((v for v in _incident_iocs.values()
+                                if isinstance(v, list)), [])
+    counts["iocs"] = len(_incident_iocs)
     return counts
 
 

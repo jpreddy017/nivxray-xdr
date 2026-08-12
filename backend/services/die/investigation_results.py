@@ -420,6 +420,60 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
                         ioc_by_kind.setdefault(_kind, []).append(_v)
                         _seen_iocs.add((_kind, _v))
 
+    # ── P0a (ADR-0014g) · Analyst-Paste evidence projection ───────
+    # When the IDA classification is non-acquirable (e.g. atomic_ioc_url,
+    # ioc_list, command_chain, mixed_artifacts, single_command, none),
+    # the URL-acquired branch above did NOT run — leaving
+    # report_extraction = {}.  However, IDA and the preprocessor
+    # ALREADY extracted evidence into local variables (`stages`,
+    # `techniques`, `ioc_by_kind`, `ida_verdict.artifacts`).  We
+    # project this evidence into the same shape `_ida_extract`
+    # produces, so downstream consumers (report renderers,
+    # summary_narrative, evidence_confidence) see identical field
+    # names regardless of paste vs URL origin.  No re-extraction,
+    # no new inference, no IDA/DIE/router/registry/IUE change.
+    if not report_extraction:
+        _paste_artifacts = list(ida_verdict.get("artifacts") or [])
+        _paste_commands  = [_command_to_ssot(_s) for _s in pre.stages]
+        # Flatten ioc_by_kind {kind: [value,...]} into artifact-shaped
+        # dicts so `body_artifacts` reflects the total IOC surface.
+        _seen_art_keys = {(a.get("type"), a.get("canonical") or a.get("value"))
+                           for a in _paste_artifacts}
+        for _kind, _vals in (ioc_by_kind or {}).items():
+            for _v in _vals:
+                if (_kind, _v) in _seen_art_keys:
+                    continue
+                _paste_artifacts.append({"type": _kind, "value": _v,
+                                          "canonical": _v,
+                                          "source": "preprocessor.ioc"})
+                _seen_art_keys.add((_kind, _v))
+        report_extraction = {
+            "body_artifacts":     _paste_artifacts,
+            "mitre_techniques":   list(techniques),
+            "cves":               [],
+            "threat_actors":      [],
+            "malware_families":   [],
+            "commands":           _paste_commands,
+            "timeline":           [],
+            "yara_rules":         [],
+            "sigma_rules":        [],
+            "hash_context":       {},
+            "behaviors":          [],
+            "totals": {
+                "artifacts": len(_paste_artifacts),
+                "mitre":     len(techniques),
+                "cves":      0,
+                "actors":    0,
+                "malware":   0,
+                "commands":  len(_paste_commands),
+                "timeline":  0,
+                "yara":      0,
+                "sigma":     0,
+                "behaviors": 0,
+            },
+            "source":             "paste_projection",   # provenance flag
+        }
+
     # ── Build the OUTPUT text ─────────────────────────────────────
     lines: List[str] = []
 
