@@ -84,6 +84,18 @@ def die_narrate(body: NarrateBody):
     that has no command-line stages), the canonical narrative rules
     fill the empty fields deterministically from detected MITRE
     techniques + IOCs.
+
+    ADR-0010e §10 item 2 · Deterministic-Narrative bridge (2026-08-12):
+    the DIE analyzer's own ``techniques[]`` / ``lolbins[]`` / ``iocs[]``
+    are now also fed into the enricher. Pre-existing behaviour: the
+    narrator only saw *narrative prose rules* (empty for direct
+    command-line inputs like `powershell.exe -Enc …`), so command-line
+    pastes returned an empty narrative even though the DIE analyzer
+    had already extracted concrete evidence. This is a **pure
+    projection** — zero new inference, zero new data source — the same
+    call ``services.die.api.analyze`` that powers ``/api/die/analyze``.
+    Evidence provenance is preserved: every technique row carries the
+    ``evidence`` snippet directly from the DIE catalogue.
     """
     from services.die.preprocessor import preprocess as _pp
     from services.die.analyst_narrative import generate as _gen
@@ -99,10 +111,33 @@ def die_narrate(body: NarrateBody):
     # ── Phase 5.W enrichment · additive only ──────────────────────
     if canonical_die_flag_enabled():
         canonical_techs = _canonical_techniques_from_text(body.input or "")
+        # ADR-0010e item 2 · additionally lift the DIE analyzer's own
+        # techniques + LOLBIN-linked MITRE ids so command-line pastes
+        # (which produce no narrative-rule matches) still narrate.
+        die_techs: list = []
+        die_lolbins: list = []
+        die_iocs_grouped: dict = {}
+        die_result_dict: dict = {}
+        try:
+            from services.die.api import analyze as _die_analyze
+            die_result_dict = _die_analyze(body.input or "") or {}
+            die_techs = list(die_result_dict.get("techniques") or [])
+            die_lolbins = list(die_result_dict.get("lolbins") or [])
+            # DIE IOCs are a flat list of {kind, value, ...}; group by
+            # kind so the enricher sees the same shape /analyze uses.
+            for _i in (die_result_dict.get("iocs") or []):
+                if isinstance(_i, dict) and _i.get("kind") and _i.get("value"):
+                    die_iocs_grouped.setdefault(_i["kind"], []).append(_i["value"])
+        except Exception:  # noqa: BLE001
+            pass
+
         # Also lift MITRE ids already in `narrative.mitre_matrix` so
         # the enricher has the full set to reason over.
         mitre_full: list = []
         seen_ids: set = set()
+        # Priority order: canonical narrative rules → DIE analyzer →
+        # LOLBIN-linked → existing narrative matrix. Each block only
+        # adds ids not yet seen so no source over-writes another.
         for m in canonical_techs:
             if m.get("id") and m["id"] not in seen_ids:
                 meta = _TECHNIQUE_META.get(m["id"], {})
@@ -110,8 +145,33 @@ def die_narrate(body: NarrateBody):
                     "id": m["id"], "name": m.get("name", ""),
                     "tactic": meta.get("tactic", "unknown"),
                     "kill_chain": meta.get("kill_chain", "unknown"),
+                    "evidence": m.get("evidence", ""),
                 })
                 seen_ids.add(m["id"])
+        for t in die_techs:
+            if isinstance(t, dict) and t.get("id") and t["id"] not in seen_ids:
+                meta = _TECHNIQUE_META.get(t["id"], {})
+                mitre_full.append({
+                    "id": t["id"], "name": t.get("name", ""),
+                    "tactic": meta.get("tactic", "unknown"),
+                    "kill_chain": meta.get("kill_chain", "unknown"),
+                    "evidence": t.get("evidence", ""),
+                })
+                seen_ids.add(t["id"])
+        for lb in die_lolbins:
+            if not isinstance(lb, dict):
+                continue
+            for tid in (lb.get("mitre") or []):
+                if tid and tid not in seen_ids:
+                    meta = _TECHNIQUE_META.get(tid, {})
+                    mitre_full.append({
+                        "id": tid,
+                        "name": meta.get("technique") or "",
+                        "tactic": meta.get("tactic", "unknown"),
+                        "kill_chain": meta.get("kill_chain", "unknown"),
+                        "evidence": f"LOLBIN abuse: {lb.get('binary','?')}",
+                    })
+                    seen_ids.add(tid)
         for row in (narrative.get("mitre_matrix") or []):
             if isinstance(row, dict) and row.get("id") and row["id"] not in seen_ids:
                 meta = _TECHNIQUE_META.get(row["id"], {})
@@ -160,7 +220,11 @@ def die_narrate(body: NarrateBody):
         except Exception:
             pass
         if mitre_full:
-            narrative = enrich_narrative(narrative, mitre_full)
+            narrative = enrich_narrative(
+                narrative, mitre_full,
+                iocs=die_iocs_grouped or None,
+                lolbas=die_lolbins or None,
+            )
 
     return {"narrative": narrative}
 

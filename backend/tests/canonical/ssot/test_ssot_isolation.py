@@ -122,6 +122,18 @@ def test_no_route_file_modified_by_phase2():
         # call sites remain valid via `lolbas=None` default.
         "backend/operations.py",
         "backend/routers/analyze.py",
+        # Item 2 · Deterministic narrative bridge (owner sign-off
+        # 2026-08-12, ADR-0010e §10 · ADR-0023 §4). `/api/die/narrate`
+        # now feeds the DIE analyzer's real techniques + LOLBIN-linked
+        # MITRE ids into `enrich_narrative`; pure projection, zero
+        # inference, zero new data source. `_TECHNIQUE_META` extended
+        # with previously-missing tactic/kill_chain rows so the
+        # enricher stops silently dropping T1218.005/T1562.004/T1197/
+        # T1140/T1047/T1059.005/T1059.007 evidence — this file's
+        # header explicitly permits data-catalog completion without
+        # projection-logic change.
+        "backend/routers/die.py",
+        "backend/canonical/projections/attck.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

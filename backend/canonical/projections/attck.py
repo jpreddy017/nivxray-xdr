@@ -51,6 +51,48 @@ _TECHNIQUE_META: Dict[str, Dict[str, str]] = {
                   "kill_chain": "actions_on_objectives"},
     "T1562.001": {"tactic": "defense_evasion",
                   "kill_chain": "actions_on_objectives"},
+    # ── Item-2 additive entries (2026-08-12, ADR-0010e §10 item 2)
+    # Previously-missing metadata rows that caused the narrative
+    # enricher to silently drop these techniques from the analyst
+    # summary and mitre_matrix. Owner sign-off in the file header:
+    # "Data-catalog completion ONLY; no projection LOGIC change".
+    # Every row here has an official MITRE tactic mapping.
+    "T1218.005": {"tactic": "defense_evasion",         # mshta
+                  "kill_chain": "actions_on_objectives"},
+    "T1218.004": {"tactic": "defense_evasion",         # InstallUtil
+                  "kill_chain": "actions_on_objectives"},
+    "T1218.007": {"tactic": "defense_evasion",         # msiexec
+                  "kill_chain": "actions_on_objectives"},
+    "T1218.008": {"tactic": "defense_evasion",         # odbcconf
+                  "kill_chain": "actions_on_objectives"},
+    "T1218.009": {"tactic": "defense_evasion",         # regasm / regsvcs
+                  "kill_chain": "actions_on_objectives"},
+    "T1562.004": {"tactic": "defense_evasion",         # netsh firewall disable
+                  "kill_chain": "actions_on_objectives"},
+    "T1197":     {"tactic": "defense_evasion",         # BITS jobs
+                  "kill_chain": "actions_on_objectives"},
+    "T1140":     {"tactic": "defense_evasion",         # deobfuscate / decode
+                  "kill_chain": "actions_on_objectives"},
+    "T1047":     {"tactic": "execution",               # WMI
+                  "kill_chain": "actions_on_objectives"},
+    "T1059.005": {"tactic": "execution",               # VBScript
+                  "kill_chain": "actions_on_objectives"},
+    "T1059.007": {"tactic": "execution",               # JavaScript
+                  "kill_chain": "actions_on_objectives"},
+    "T1112":     {"tactic": "defense_evasion",         # Modify Registry
+                  "kill_chain": "actions_on_objectives"},
+    "T1053.005": {"tactic": "persistence",             # Scheduled Task
+                  "kill_chain": "actions_on_objectives"},
+    "T1543.003": {"tactic": "persistence",             # Windows Service
+                  "kill_chain": "actions_on_objectives"},
+    "T1134.004": {"tactic": "defense_evasion",         # PPID Spoofing
+                  "kill_chain": "actions_on_objectives"},
+    "T1036.005": {"tactic": "defense_evasion",         # Masquerading
+                  "kill_chain": "actions_on_objectives"},
+    "T1490":     {"tactic": "impact",                  # Inhibit System Recovery
+                  "kill_chain": "actions_on_objectives"},
+    "T1070.001": {"tactic": "defense_evasion",         # Clear Event Logs
+                  "kill_chain": "actions_on_objectives"},
 }
 
 
