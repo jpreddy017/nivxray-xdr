@@ -140,6 +140,15 @@ class TrajErrorBoundary extends React.Component {
   }
 }
 import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
+// ▲ P0d-A (2026-02-09) — Mount the 9-card Deterministic Analyst Brief
+// (Executive Summary, Analyst Summary, Observed Behaviour, Attack
+// Intent, Impact, MITRE, IOC Intelligence, Recommendations, Evidence
+// Confidence) directly in Prev-Mode WorkspacePage.  Previously the
+// panel was only reachable via InvestigationSessionGateway, which
+// gates on `acquired_document.ok`; that meant Analyst-Paste URL
+// investigations never surfaced the brief even though the backend
+// (P0a + P0b + P0c-A) populates `summary_narrative`.
+import InvestigationSummaryPanel from "@/components/investigation/InvestigationSummaryPanel";
 import CollapsibleCard from "@/components/investigation/CollapsibleCard";
 // Phase 5.W permanent fix · P0.b (2026-08-11) — isolate render crashes
 // to the panel that owns them so a bad shape in one panel does not
@@ -484,6 +493,14 @@ function WorkspacePageInner() {
   // /app/memory/IUE_ARCHITECTURE_V2.md for the frozen contract.
   const [investigationMode, setInvestigationMode] = useState(() => !!_persisted.investigationMode);
   const [investigationObject, setInvestigationObject] = useState(() => _persisted.investigationObject || null);
+  // ▲ P0d-A (2026-02-09) — Session snapshot for the Deterministic
+  // Analyst Brief.  Populated by /api/session/from-investigation
+  // whenever `investigationObject` acquires meaningful evidence
+  // (IOCs, commands, artifacts, or an acquired document).  Feeds
+  // `summary_narrative` directly to InvestigationSummaryPanel so
+  // Prev-Mode paste surfaces the 9-card brief without requiring
+  // navigation to /workspace/session/:id.
+  const [sessionSnapshot, setSessionSnapshot] = useState(null);
   // ▲ P0.15C · VEEE Acquisition Summary + Jump-to-Source (2026-02-09)
   //   Both fields are attached by the backend on GET /cases/{id} as an
   //   ADDITIVE read-only projection.  Live investigation flows leave
@@ -829,6 +846,55 @@ function WorkspacePageInner() {
     return () => window.removeEventListener("nvx:open-history", onOpen);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ▲ P0d-A (2026-02-09) — Auto-mint the Investigation Session
+  // whenever `investigationObject` acquires meaningful evidence.
+  // The response carries `summary_narrative` (backend, deterministic,
+  // zero LLM) which drives the 9-card InvestigationSummaryPanel
+  // (Executive Summary, IOC Intelligence, Evidence Confidence, …).
+  //
+  // Scope: additive, Prev-Mode surface only.  When Analyst-Paste has
+  // no evidence at all we intentionally skip the call so the panel
+  // simply doesn't render (identical to legacy behaviour).  This
+  // does NOT change InvestigationSessionGateway's own mint logic —
+  // gateway keeps rendering as-is when `acquired_document.ok`.
+  useEffect(() => {
+    const inv = investigationObject;
+    if (!inv) {
+      setSessionSnapshot(null);
+      return;
+    }
+    const hasEvidence =
+         !!inv?.acquired_document?.ok
+      || (Array.isArray(inv?.commands) && inv.commands.length > 0)
+      || (Array.isArray(inv?.artifacts) && inv.artifacts.length > 0)
+      || (inv?.incident?.iocs && Array.isArray(inv.incident.iocs) && inv.incident.iocs.length > 0)
+      || (inv?.report_extraction?.body_artifacts
+          && Array.isArray(inv.report_extraction.body_artifacts)
+          && inv.report_extraction.body_artifacts.length > 0)
+      // Atomic-IOC / prose paths (e.g. Analyst-Paste URL routed to IOC lane)
+      // land the extracted IOCs at the TOP level of the canonical object.
+      // Any populated bucket (url / domain / ip / hash / …) counts as evidence.
+      || (inv?.iocs && typeof inv.iocs === "object"
+          && Object.values(inv.iocs).some(v => Array.isArray(v) && v.length > 0));
+    if (!hasEvidence) {
+      setSessionSnapshot(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.post("/session/from-investigation", {
+          input, investigation: inv,
+        });
+        if (alive) setSessionSnapshot(data?.session || null);
+      } catch {
+        if (alive) setSessionSnapshot(null);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [investigationObject]);
 
   useEffect(() => {
     api.get("/operations").then((r) => setOps(r.data)).catch(() => {});
@@ -3668,6 +3734,32 @@ function WorkspacePageInner() {
             <div style={{ margin: "0 12px 8px" }}>
               <PanelErrorBoundary panel="Analyst Narrative">
                 <AnalystNarrativePanel narrative={analystNarrative} />
+              </PanelErrorBoundary>
+            </div>
+          )}
+
+          {/* ▲ P0d-A (2026-02-09) · Deterministic Analyst Brief
+              (9-card InvestigationSummaryPanel).  Sourced from the
+              auto-minted session's `summary_narrative`.  Prev-Mode
+              paste ingested URLs / prose now surfaces Executive
+              Summary, Analyst Summary, Observed Behaviour, Attack
+              Intent, Potential Impact, MITRE Summary, IOC
+              Intelligence, Recommendations and Evidence Confidence
+              without the analyst having to navigate away.  Backend
+              contract: fed by /api/session/from-investigation
+              (deterministic, zero LLM). */}
+          {sessionSnapshot?.summary_narrative && (
+            <div style={{ margin: "0 12px 8px" }}
+                    data-testid="workspace-investigation-summary-wrap">
+              <PanelErrorBoundary panel="Investigation Summary">
+                <InvestigationSummaryPanel
+                  narrative={sessionSnapshot.summary_narrative}
+                  onOpenSession={() => {
+                    const sid = sessionSnapshot?.session_id;
+                    if (sid) window.open(`/workspace/session/${sid}`,
+                                            "_blank", "noopener,noreferrer");
+                  }}
+                />
               </PanelErrorBoundary>
             </div>
           )}
