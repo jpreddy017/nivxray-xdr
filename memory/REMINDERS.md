@@ -22,12 +22,15 @@ Item 4  T1562.004 DIE signature ✅ PASS
 Item 5  TI latency bound        ✅ PASS
 12-case FINAL regression        ✅ GREEN
 UI-DEF-02  MITRE convergence    ✅ GREEN (Option B · ADR-0010p)
-P2 · Slice-1 · Sysmon Event 1   ✅ GREEN (ADR-0010q, 2026-08-12)
-P2 · Slice-2 · Sysmon Event 3   ✅ GREEN (ADR-0010r, 2026-08-12)
-P2 · Slice-3 · EVTX transport   ✅ GREEN (ADR-0010s, 2026-08-12)
-                                   python-evtx transport over the
-                                   SAME Slice-2 normalizer.
-                                   104/104 tests · Corpus: 0 deltas.
+P2 · Slice-1 · Sysmon Event 1   ✅ GREEN (ADR-0010q)
+P2 · Slice-2 · Sysmon Event 3   ✅ GREEN (ADR-0010r)
+P2 · Slice-3 · EVTX transport   ✅ GREEN (ADR-0010s)
+P2 · UI Slice · Timeline        ✅ GREEN (ADR-0010t, 2026-08-12)
+                                   Read-only Workspace projection panel.
+                                   Live screenshot confirmed all 9 required
+                                   elements (E1/E3 rows, correlation-state
+                                   chips, dedup ×N, inspector, advisory
+                                   fields, MITRE handoff).
 
 P2 · Slice-4 · Event 22 DNS     ⏸  await authorisation
 ```

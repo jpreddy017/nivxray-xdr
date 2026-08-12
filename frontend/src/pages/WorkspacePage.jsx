@@ -20,6 +20,7 @@ import InvestigationSessionGateway from "@/components/investigation/Investigatio
 import CollapsibleSection from "@/components/investigation/CollapsibleSection";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
+import BehavioralTimeline from "@/components/investigation/BehavioralTimeline";
 import ArtifactTracePanel from "@/components/investigation/ArtifactTracePanel";
 
 // ── Local ErrorBoundary — protects the workspace from any single
@@ -3597,6 +3598,14 @@ function WorkspacePageInner() {
               </CollapsibleSection>
             );
           })()}
+
+          {/* ── P2 UI Slice · Behavioral Evidence Timeline (ADR-0010t) ──
+             Read-only projection of Sysmon Event 1 / Event 3 / EVTX
+             evidence. Renders BELOW the 14-tactic Attack Chain and
+             makes explicit the flow:
+                Evidence → Correlation → authoritative MITRE → Attack Chain.
+             Does NOT infer techniques, does NOT compute verdicts. */}
+          <BehavioralTimeline />
 
           {/* ▲ Workspace Timeline · MVP (2026-08-11) ·
               Guarded 2026-08-11 against very-large-paste UI freezes:

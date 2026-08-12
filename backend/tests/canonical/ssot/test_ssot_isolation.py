@@ -242,6 +242,14 @@ def test_no_route_file_modified_by_phase2():
         "backend/routers/behavioral.py",
         "backend/tests/canonical/api/test_p2_slice3_evtx_transport.py",
         "backend/requirements.txt",
+        # P2 UI Slice · Behavioral Evidence Timeline (owner sign-off
+        # 2026-08-12, ADR-0010t). Read-only projection component that
+        # renders Sysmon Event 1 / Event 3 evidence beneath the
+        # existing 14-tactic Attack Chain, with correlation-state
+        # chips, dedup badges, and a click-through evidence
+        # inspector. NO new MITRE inference · NO new verdict logic
+        # · NO IKG persistence · projection only.
+        "frontend/src/components/investigation/BehavioralTimeline.jsx",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"
