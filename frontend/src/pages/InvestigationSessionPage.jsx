@@ -246,6 +246,18 @@ export default function InvestigationSessionPage() {
             {raw?.acquired_document?.ok && (
               <ExtractedArtifactsPanel investigation={raw} />
             )}
+            {/* P0h-A · Evidence Explorer projection (2026-02-09)
+                Renders the session's `investigation_inputs[]` grouped
+                by section (Attack Chain / IOCs / MITRE ATT&CK / …).
+                Pure projection — no new inference.  Every row cites
+                its `id` + `source` for provenance.  Falls back
+                gracefully to the existing panels when `raw` still
+                carries an un-slimmed acquired document (Prod path). */}
+            {Array.isArray(session?.investigation_inputs)
+             && session.investigation_inputs.length > 0
+             && !raw?.acquired_document?.ok && (
+              <EvidenceExplorerProjection inputs={session.investigation_inputs} />
+            )}
           </div>
         )}
         {active === "nist"     && <NistTab     incident={inc} raw={raw} session={session} />}
@@ -1041,6 +1053,81 @@ function EmptyShell({ msg }) {
 function EmptyCard({ msg }) {
   return <div style={sx.card}><p style={sx.dim}>{msg}</p></div>;
 }
+
+
+// ▲ P0h-A · Evidence Explorer projection (2026-02-09) ────────────
+// Renders `session.investigation_inputs[]` when the wire-slim path
+// stripped the un-slimmed `acquired_document`.  Pure projection.
+// Each row cites its `source` (extractor + offset + line) so the
+// analyst can reproduce every finding from the original document.
+// Grouped by `section` (Attack Chain / IOCs / MITRE ATT&CK).
+function EvidenceExplorerProjection({ inputs }) {
+  if (!Array.isArray(inputs) || inputs.length === 0) return null;
+  // Group by section (falls back to type_label)
+  const groups = {};
+  for (const it of inputs) {
+    const g = it.section || it.type_label || "Other";
+    (groups[g] = groups[g] || []).push(it);
+  }
+  const order = ["Attack Chain", "IOCs", "MITRE ATT&CK"];
+  const allKeys = [
+    ...order.filter((k) => groups[k]),
+    ...Object.keys(groups).filter((k) => !order.includes(k)),
+  ];
+  return (
+    <div data-testid="evidence-explorer-projection" style={{ marginTop: 12 }}>
+      {allKeys.map((g) => (
+        <div key={g} style={{
+          border: "1px solid #1e4d33", borderRadius: 6,
+          padding: "12px 14px", marginBottom: 12, background: "#0a1f14"
+        }}>
+          <div style={{
+            color: "#7ee6a8", fontWeight: 700, fontSize: 12,
+            letterSpacing: 1, marginBottom: 10,
+          }}>
+            {g.toUpperCase()} · {groups[g].length} evidence item{groups[g].length === 1 ? "" : "s"}
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ color: "#96c9aa", textAlign: "left" }}>
+                <th style={{ padding: "6px 8px", borderBottom: "1px solid #1e4d33", width: 90 }}>TYPE</th>
+                <th style={{ padding: "6px 8px", borderBottom: "1px solid #1e4d33" }}>VALUE</th>
+                <th style={{ padding: "6px 8px", borderBottom: "1px solid #1e4d33", width: 180 }}>PURPOSE / MITRE</th>
+                <th style={{ padding: "6px 8px", borderBottom: "1px solid #1e4d33", width: 110 }}>STATUS</th>
+                <th style={{ padding: "6px 8px", borderBottom: "1px solid #1e4d33", width: 130 }}>SOURCE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups[g].map((it) => {
+                const inv = it.investigation || {};
+                const techs = Array.isArray(inv.techniques) ? inv.techniques : [];
+                const purposeOrTech = it.purpose
+                  || (techs.length ? techs.map(t => t.id).join(", ") : (it.detail?.name || ""));
+                const src = typeof it.source === "string"
+                  ? it.source
+                  : (it.source ? `${it.source.extractor || ""}${it.source.line ? ` · L${it.source.line}` : ""}` : "");
+                return (
+                  <tr key={it.id} style={{ verticalAlign: "top" }}>
+                    <td style={{ padding: "6px 8px", borderBottom: "1px solid #12331f", color: "#c5f5d6" }}>{it.type_label || it.type}</td>
+                    <td style={{ padding: "6px 8px", borderBottom: "1px solid #12331f",
+                                  fontFamily: "ui-monospace, monospace", color: "#e6ffe9",
+                                  wordBreak: "break-all" }}>
+                      {(it.preview || it.value || "").slice(0, 220)}
+                    </td>
+                    <td style={{ padding: "6px 8px", borderBottom: "1px solid #12331f", color: "#7ee6a8" }}>{purposeOrTech}</td>
+                    <td style={{ padding: "6px 8px", borderBottom: "1px solid #12331f", color: "#96c9aa" }}>{it.status || "-"}</td>
+                    <td style={{ padding: "6px 8px", borderBottom: "1px solid #12331f", color: "#4a8b63", fontSize: 11 }}>{src}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function LoadingShell() {
   return (
