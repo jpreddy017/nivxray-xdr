@@ -33,7 +33,10 @@ Read this whenever a session opens if you want the full backlog, not just the P0
   - [x] ADR-0010c evidence report
   - **Verdict**: 🟢 PASS · P2 readiness confirmed YES.
 
-- [ ] **P2 · Sysmon / EVTX Adapter** — NOW UNBLOCKED. Next session opens here.
+- [ ] **P2 · Behavioral Evidence Ingestion** — 📌 REFRAMED per ADR-0023 (2026-08-12).
+  **NOT** "add a Sysmon parser". P2 = telemetry adapter producing canonical behavioral evidence (process creation + parent-child relationships) that feeds the *existing* Evidence/IKG → Correlation → ATT&CK/Verdict → Attack Story → Report pipeline. Parent-child is **evidence, not truth**; PPID spoofing is a first-class limitation.
+  **BLOCKED** until all five ADR-0010e §10 remediations pass regression against the frozen 12-case corpus (`/app/memory/experiments/rip/`).
+  Full locked decision: `/app/memory/adr/0023-p2-behavioral-evidence-ingestion.md`.
 
 ---
 
@@ -62,10 +65,13 @@ Read this whenever a session opens if you want the full backlog, not just the P0
   - New `routers/files.py` (`POST/GET/DELETE /api/files`).
   - Frontend flow returns `file_id`; panels resolve on demand.
   - Removes 32 KB / 256 KB / 512 KB ceilings — file bytes never touch React state.
-- [ ] **P2 · Sysmon / EVTX Adapter** (ADR-0008 §5.3)
-  - Add `python-evtx` dep.
-  - Adapter feeds canonical event bag.
-  - Existing Timeline + Query panels consume without code changes.
+- [ ] **P2 · Behavioral Evidence Ingestion** (ADR-0023 · reframed 2026-08-12; supersedes ADR-0008 §5.3 scope)
+  - **First telemetry adapter**: Sysmon / EVTX / Windows Security event streams (`python-evtx` for EVTX parsing).
+  - Emits **canonical behavioral evidence records** into the graph (not standalone verdicts).
+  - Event schema deferred to source-of-truth references: `Windows_LOLBAs_360_Training-1(2).pdf` (Sysmon Event 1/3/7/8/10/11/12-13/15/17-18/19-21/22/25) + `Windows Security Log Encyclopedia_new.pdf` (4624/4625/4648/4672/4688/4697/4720/4732/4756/4768/4769/4776/5140/5145/1102).
+  - PPID spoofing (T1134.004) inherited as explicit first-class constraint — kernel-callback ETW + session/integrity checks required to reason on ancestry.
+  - Do **NOT** create a parallel Process Tree engine or separate product.
+  - **Precondition gate** (all five must pass regression against the frozen 12-case corpus): risk-score recalibration · deterministic narrative · recursive decode · T1562.004 signature · bounded TI latency.
 - [ ] **P2b · Splunk `_raw` CSV recognizer** — extend `csv_edr_analyzer.py`.
 - [ ] **P3 · Shadow-pipeline replay & promotion** (ADR-0008 §4)
   - IKG (Case Engine flag) — persistence writer live end-to-end; provenance parity; Timeline/AttackChain/AttackStory re-projectable to byte-identity.
