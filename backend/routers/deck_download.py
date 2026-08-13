@@ -28,6 +28,22 @@ async def download_deck():
     )
 
 
+# ── Fixed user-supplied deck (screenshots patched in 2026-02-09) ─────
+_DECK_FIXED = Path("/app/backend/downloads/NivXRay-AIDE-Deck-fixed.pptx")
+
+
+@router.get("/nivxray-aide-fixed.pptx")
+async def download_fixed_deck():
+    if not _DECK_FIXED.exists():
+        raise HTTPException(status_code=404,
+                             detail="Fixed deck not built yet")
+    return FileResponse(
+        path=str(_DECK_FIXED),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename="NivXRay-AIDE-Deck-fixed.pptx",
+    )
+
+
 @router.get("/prompt", response_class=PlainTextResponse)
 async def regen_prompt():
     return _REGEN_PROMPT
