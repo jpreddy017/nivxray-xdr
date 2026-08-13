@@ -244,6 +244,12 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
   const panRef   = useRef(null);
   const svgRef   = useRef(null);
   const dragMovedRef = useRef(false);   // true if the pointer moved between mousedown and mouseup — used to distinguish click vs drag
+  // ▲ PERMANENT-FIX (2026-02-13) · rAF throttling refs — declared
+  // at component-body top so React's Rules-of-Hooks order stays
+  // stable across renders (rafRef holds the pending animation
+  // frame handle; pendingRef caches the freshest pointer coords).
+  const rafRef       = useRef(null);
+  const pendingRef   = useRef(null);
 
   useEffect(() => {
     setNodes(isCanonical
@@ -325,21 +331,41 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
     dragMovedRef.current = false;
   };
 
+  // ▲ PERMANENT-FIX (2026-02-13) · rAF-throttled drag/pan handler.
+  // Previous version called setNodes / setPan on every mousemove
+  // event (~60/s × O(N²) edge-route recompute × full SVG reflow) →
+  // main-thread lockup → Chrome "Page Unresponsive" dialog when the
+  // user clicked/dragged the Attack Chain graph.  Refs declared at
+  // component top (see above) to keep hook order stable.
   const onMouseMove = (e) => {
-    if (dragRef.current) {
-      const pt = _svgPoint(svgRef.current, e.clientX, e.clientY, zoom, pan);
-      const { id, offX, offY } = dragRef.current;
-      dragMovedRef.current = true;
-      setNodes((ns) => ns.map((n) => n.id === id
-        ? { ...n, x: pt.x - offX, y: pt.y - offY } : n));
-    } else if (panRef.current) {
-      const dx = e.clientX - panRef.current.startX;
-      const dy = e.clientY - panRef.current.startY;
-      setPan({ x: panRef.current.origX + dx, y: panRef.current.origY + dy });
-    }
+    if (!dragRef.current && !panRef.current) return;
+    pendingRef.current = { clientX: e.clientX, clientY: e.clientY };
+    if (rafRef.current !== null) return;  // frame already scheduled
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const p = pendingRef.current; pendingRef.current = null;
+      if (!p) return;
+      if (dragRef.current) {
+        const pt = _svgPoint(svgRef.current, p.clientX, p.clientY, zoom, pan);
+        const { id, offX, offY } = dragRef.current;
+        dragMovedRef.current = true;
+        setNodes((ns) => ns.map((n) => n.id === id
+          ? { ...n, x: pt.x - offX, y: pt.y - offY } : n));
+      } else if (panRef.current) {
+        const dx = p.clientX - panRef.current.startX;
+        const dy = p.clientY - panRef.current.startY;
+        setPan({ x: panRef.current.origX + dx, y: panRef.current.origY + dy });
+      }
+    });
   };
 
   const onMouseUp = () => {
+    // Flush any pending rAF frame so the final position lands.
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      pendingRef.current = null;
+    }
     // If the pointer never moved, treat the interaction as a click.
     if (dragRef.current && !dragMovedRef.current) {
       const node = nodes.find((n) => n.id === dragRef.current.id);
