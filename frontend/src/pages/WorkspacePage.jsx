@@ -316,8 +316,25 @@ function _normalizeLolbas(list) {
 
 function _synthBehaviorsFromMitre(mitreList) {
   if (!Array.isArray(mitreList) || !mitreList.length) return [];
+  // ▲ UX-FIX (2026-02-09) — Trajectory-diagram main-thread freeze on
+  // XDR/vendor-report pastes (Chrome "Page Unresponsive · Wait/Exit"
+  // dialog).  When yesterday's projection enrichment populates
+  // `obj.mitre` with 60-100+ techniques for a single vendor report,
+  // `TrajectoryDiagram`'s SVG layout algorithm (O(N²) edge routing +
+  // per-node reflow) blocks the JS thread for 15+ seconds.
+  //
+  // Fix: cap at TRAJECTORY_MAX (60 = 12 ATT&CK tactics × 5 techniques
+  // per lane average — well above any real single-incident chain,
+  // well below the render-storm threshold).  Deterministic sort:
+  // preserve the extractor's original emission order so the first-N
+  // are the earliest-observed techniques.  Truncated list is still
+  // fully deterministic and reproducible.
+  const TRAJECTORY_MAX = 60;
+  const source = mitreList.length > TRAJECTORY_MAX
+    ? mitreList.slice(0, TRAJECTORY_MAX)
+    : mitreList;
   const behaviors = [];
-  mitreList.forEach((t, i) => {
+  source.forEach((t, i) => {
     if (!t || typeof t !== "object") return;
     const tid   = t.id;
     const name  = t.name || "";
