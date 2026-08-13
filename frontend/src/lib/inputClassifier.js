@@ -73,18 +73,41 @@ export function classifyInput(raw) {
   const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const signals = [];
 
+  // ▲ PERMANENT-FIX (2026-02-13) · Anti-Freeze semantic guards.
+  // Vendor JSON / XDR / XML pastes were mis-classified as N-stage
+  // chains (blank-line regex matched their internal formatting),
+  // producing 196-stage render storms → Chrome "Page Unresponsive".
+  // These guards must run BEFORE isMultiChain is decided.
+  const first = trimmed.slice(0, 4);
+  const looksLikeJson =
+    (first[0] === "{" || first[0] === "[") &&
+    (trimmed.endsWith("}") || trimmed.endsWith("]")
+      || /["}]\s*[\r\n]/.test(trimmed.slice(-40)));
+  const looksLikeXml =
+    first[0] === "<" && /<\/?[A-Za-z][\w:.-]*[\s>]/.test(trimmed.slice(0, 200));
+  // A "structured payload" (JSON / XML) is NEVER a multi-line command chain.
+  const isStructuredPayload = looksLikeJson || looksLikeXml;
+
   // ── Multi-line chain detection ────────────────────────────────
   const cmdLines = lines.filter(_looksLikeCommand);
+  // Anti-Freeze hard-cap: even a legitimate chain should never
+  // spawn more than 24 auto-decode stage panels in the UI.
+  const MAX_CHAIN_STAGES = 24;
   const isMultiChain = (
+    !isStructuredPayload &&
     lines.length >= 2 &&
+    lines.length <= 60 &&                       // sanity cap
+    cmdLines.length >= 2 &&                     // require ≥2 actual command lines
+    cmdLines.length / lines.length >= 0.5 &&    // majority must be commands
     (
-      // blank-line delimited
       /\n\s*\n/.test(trimmed) ||
-      // OR ≥ 2 lines each starting with a known shell/LOLBAS keyword
-      (cmdLines.length >= 2 && cmdLines.length / lines.length >= 0.5)
+      cmdLines.length >= 2
     )
   );
-  if (isMultiChain) signals.push(`${cmdLines.length || lines.length} command-line stages`);
+  if (isMultiChain) {
+    const staged = Math.min(cmdLines.length || lines.length, MAX_CHAIN_STAGES);
+    signals.push(`${staged} command-line stages`);
+  }
 
   // ── Encoded detection ─────────────────────────────────────────
   const hasB64      = B64_RE.test(trimmed);
@@ -116,6 +139,7 @@ export function classifyInput(raw) {
 
   // ── Decide the recommendation ─────────────────────────────────
   if (isMultiChain) {
+    const stagedCount = Math.min(cmdLines.length || lines.length, MAX_CHAIN_STAGES);
     return {
       kind: "multi_line_chain",
       confidence: 0.9,
@@ -123,7 +147,7 @@ export function classifyInput(raw) {
       recommended: ["btn-chain-add-stage", "btn-chain-run", "btn-auto-investigate"],
       guidance_steps: [
         { label: "+ ADD CHAIN",
-          why:   `Detected ${cmdLines.length || lines.length} separate command lines — each should be its own stage.` },
+          why:   `Detected ${stagedCount} separate command lines — each should be its own stage.` },
         { label: "RUN CHAIN",
           why:   "Decodes each stage deterministically, then aggregates IOCs / MITRE / LOLBAS / verdict into one SOC report." },
         { label: "AUTO INVESTIGATE (single-stage)",
