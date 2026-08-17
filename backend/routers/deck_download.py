@@ -28,6 +28,40 @@ async def download_deck():
     )
 
 
+# ── v1.2 / v1.3 · Investor Deck generated from locked Master Positioning ──
+_DECK_V13 = Path("/app/deck_assets/NivXRay_Investor_Deck_v1_2.pptx")
+
+
+@router.get("/investor-v1-3.pptx")
+async def download_investor_deck_v1_3():
+    """Polished investor deck generated from locked v1.3 Master Positioning
+    (Deterministic-first · AI-optional). 12 slides · 16:9 · dark theme.
+    Every slide footer cites the Master Positioning section for DD traceability."""
+    if not _DECK_V13.exists():
+        raise HTTPException(status_code=404,
+                             detail="Investor deck not built yet; run /app/scripts/generate_investor_deck_v1_2.py")
+    return FileResponse(
+        path=str(_DECK_V13),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename="NivXRay_Investor_Deck_v1_3.pptx",
+    )
+
+
+_MASTER_POSITIONING = Path("/app/memory/NivXRay_Strategic_Master_Positioning.md")
+
+
+@router.get("/master-positioning.md", response_class=PlainTextResponse)
+async def download_master_positioning():
+    """Locked v1.3 Strategic Master Positioning Document — the single source
+    of truth from which the investor deck and all comms generate."""
+    if not _MASTER_POSITIONING.exists():
+        raise HTTPException(status_code=404,
+                             detail="Master positioning not seeded yet")
+    return _MASTER_POSITIONING.read_text(encoding="utf-8")
+
+
+
+
 # ── Fixed user-supplied deck (screenshots patched in 2026-02-09) ─────
 _DECK_FIXED = Path("/app/backend/downloads/NivXRay-AIDE-Deck-fixed.pptx")
 _DUE_DILIGENCE = Path("/app/memory/NivXRay_Investor_Due_Diligence.md")

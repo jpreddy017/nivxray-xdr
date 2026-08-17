@@ -1,7 +1,85 @@
 # NivXRay · Strategic Master Positioning Document
 
-**Status:** v1.2 · **LOCKED** as the NivXRay posture for investor-pitch work
-**Date:** 2026-02-13 (v1.0 initial · v1.1 platform-vision layer · v1.2 moat refinement + frozen strategic hierarchy)
+**Status:** v1.3 · **LOCKED** · permanent NivXRay positioning
+**Date:** 2026-02-13 (v1.0 initial · v1.1 platform-vision · v1.2 moat refinement · **v1.3 deterministic-first, AI-optional lock**)
+
+## 🔒 Permanent Positioning Rule (v1.3 · LOCKED · owner-authored)
+
+**Core positioning statement (never rewritten · never abbreviated · never AI-branded):**
+
+> **NivXRay — Evidence-Driven Security Investigation Platform.**
+> **Deterministic-first. AI-optional.**
+
+**Battle-cry (unchanged):**
+> **"Verdict, cited. Every time."**
+
+### Naming rule (permanent · no exceptions)
+
+NivXRay is **NEVER** called any of the following in any comms artefact — investor deck, landing page, sales collateral, blog, PR, analyst briefing, job posting, GitHub description:
+
+- ❌ AI Investigation
+- ❌ AI SOC
+- ❌ AI SOC Investigation
+- ❌ AI NivXRay
+- ❌ NivXRay AI
+- ❌ LLM-powered anything
+- ❌ Any phrase where "AI" or "LLM" appears in the primary product identity
+
+### The AI-optional principle
+
+- **AI/LLMs are optional augmentation.**
+- **AI/LLMs are never the foundation of NivXRay's identity.**
+- **AI/LLMs are never in the critical security decision path.**
+- If the LLM overlay hallucinates, changes behaviour, becomes unavailable, becomes expensive, or produces an inconsistent answer — the fundamental NivXRay investigation still works, identically.
+- LLM overlay is a **capability**, not a **category**.
+
+### Deterministic-Core-vs-Optional-AI architecture (canonical diagram · v1.3)
+
+```
+                     NivXRay
+                        │
+           ┌────────────┴────────────┐
+           │                         │
+   DETERMINISTIC CORE           OPTIONAL AI
+    (evidence-driven)           (augmentation)
+           │                         │
+       Detection                Summarisation
+      Correlation           Analyst assistance
+     Investigation          Hunting assistance
+        ATT&CK               Report drafting
+        Verdict         Natural-language queries
+      Provenance      Investigation suggestions
+```
+
+**Reading rule:** the left column is what makes NivXRay's identity and category. The right column is added value, rate-capped and budget-capped (see `NIVX_AI_RATE_HOURLY=10`, `NIVX_AI_BUDGET_CAP_CREDITS=500`). If the entire right column is removed, the product still ships its 9-card brief, 8-tab session, and NIST IR report — all deterministically.
+
+### Canonical evidence-flow diagram (v1.3 · use across all comms)
+
+```
+             SECURITY EVIDENCE
+                    ↓
+          Parse / Normalise
+                    ↓
+          Canonical Evidence
+                    ↓
+        Deterministic Analysis
+                    ↓
+              Correlation
+                    ↓
+          Investigation Graph
+                    ↓
+        Attack Reconstruction
+                    ↓
+        Evidence-backed Verdict
+                    ↓
+                Incident
+                    ↓
+                Response
+```
+
+Every stage in this pipeline is deterministic. AI does not appear in the diagram — that is intentional.
+
+
 **Basis:** 360° audit trio — every strategic claim cites the corresponding audit line
 - `NivXRay_360_Product_Market_Posture.md` (40 sections + Executive Scorecard) — abbreviated **[POSTURE]**
 - `NivXRay_360_Evidence_Matrix.md` (12 flat evidence tables) — abbreviated **[EVIDENCE]**
@@ -41,12 +119,13 @@
 
 **Master positioning statement (current wedge — use verbatim across all channels TODAY):**
 
-> **NivXRay is an Evidence-Driven AI SOC Investigation platform.**
+> **NivXRay is an Evidence-Driven Security Investigation Platform.**
+> **Deterministic-first. AI-optional.**
 > It sits on top of any organisation's existing security stack — SIEM, XDR, EDR, cloud, identity, network — and turns fragmented evidence into a fully-cited, deterministic, ATT&CK-mapped attack reconstruction with an evidence-backed verdict.
 
 **Two-line elaboration:**
 
-> Where LLM-first AI SOC copilots hallucinate summaries over alerts, NivXRay treats security investigation as an evidence pipeline: every input becomes canonical evidence, every conclusion cites its evidence source, and every verdict is defensible in front of a customer, an auditor, or a court.
+> Core security analysis, correlation, investigation and verdicts remain reproducible and evidence-backed **without requiring an LLM in the critical path**. If the LLM hallucinates, changes behaviour, becomes unavailable, or produces an inconsistent answer — NivXRay still works, identically. AI is an optional augmentation for analyst productivity — never the foundation of the product's identity or security decisions.
 >
 > We do not replace Splunk. We do not replace CrowdStrike. We plug into what you already own and give your analysts something they have never had — a deterministic, evidence-cited investigation layer that reconstructs what actually happened.
 
@@ -54,26 +133,29 @@
 
 **Long-term platform statement (target category · use with a "vision" or "roadmap" label):**
 
-> **NivXRay is evolving into an Evidence-Driven Security Operations Platform.**
-> The initial Investigation wedge expands into a unified Prevent · Detect · Correlate · Investigate · Decide · Respond · Learn platform, absorbing the workloads of SIEM, EDR, XDR and SOAR under a single canonical evidence + investigation-graph spine — while preserving deterministic-first architecture and evidence provenance as invariants.
+> **NivXRay is evolving into a full Evidence-Driven Security Operations Platform.**
+> **Deterministic-first and AI-optional at every stage.**
+> The initial Investigation wedge expands into a unified Prevent · Detect · Correlate · Investigate · Decide · Respond · Learn platform, absorbing the workloads of SIEM, EDR, XDR and SOAR under a single canonical evidence + investigation-graph spine — while preserving deterministic-first architecture, evidence provenance, and the AI-optional principle as invariants.
 
 **Reading rules (non-negotiable):**
 - 🟢 § 1.1 (TODAY) — cite freely, backed by the 360° audit trio
 - 🔵 § 1.2 (TOMORROW) — label as vision/roadmap in every use; never mix into a "today" sentence
 - 🔴 Do NOT write a sentence that reads *"NivXRay does A, B and C"* where A is verified and C is § 1.2 platform territory
+- 🔴 Do NOT use "AI SOC" or "AI Investigation" as NivXRay's identity — permanent naming rule (see top-of-doc)
 
 
 ---
 
 ## 2 · Product Definition · Category · Positioning
 
-### 2.0 · The Frozen Strategic Hierarchy (v1.2 · LOCKED · owner-authored)
+### 2.0 · The Frozen Strategic Hierarchy (v1.3 · LOCKED · owner-authored)
 
-**This hierarchy is the load-bearing spine of every NivXRay investor / product / GTM narrative. Do not rewrite. Do not paraphrase away from it.**
+**This hierarchy is the load-bearing spine of every NivXRay investor / product / GTM narrative. Do not rewrite. Do not paraphrase away from it. Do not re-introduce "AI SOC" naming.**
 
 ```
                     NivXRay TODAY
-          Evidence-Driven AI SOC Investigation
+        Evidence-Driven Security Investigation
+              (Deterministic-first · AI-optional)
                           ↓
                        WEDGE
      Investigate evidence from the customer's
@@ -102,6 +184,7 @@
 - TODAY + WEDGE + DIFFERENTIATION are 🟢 investable facts (verified in 360° audit trio)
 - EXPANSION + PLATFORM + VISION are 🔵 roadmap · **always label as roadmap / vision / target** when quoted
 - No comms artefact skips a step. The investor / customer / partner must see the whole arc — not just today, not just vision — because credibility lives in the connection between them.
+- NivXRay's identity never contains "AI" — deterministic-first, AI-optional (see top-of-doc naming rule).
 
 ### 2.1 Category — dual layer
 
@@ -109,10 +192,10 @@ NivXRay operates a **two-tier category strategy**:
 
 | Tier | Category label | Timing | Status |
 |---|---|---|---|
-| **Wedge (TODAY)** | Evidence-Driven **AI SOC Investigation** | current + 12 months | 🟢 verified via 360° audit |
-| **Platform (TOMORROW)** | Evidence-Driven **Security Operations Platform** | 12-36 months | 🔵 vision · explicitly labelled roadmap |
+| **Wedge (TODAY)** | Evidence-Driven **Security Investigation** Platform · Deterministic-first · AI-optional | current + 12 months | 🟢 verified via 360° audit |
+| **Platform (TOMORROW)** | Evidence-Driven **Security Operations** Platform · Deterministic-first · AI-optional | 12-36 months | 🔵 vision · explicitly labelled roadmap |
 
-> **Category strategic principle:** we enter the market under the *AI SOC Investigation* label (immediate buyer awareness · easy to explain · zero over-claim), and we own that category by executing the *Security Operations Platform* vision behind it. Both labels live under the same brand promise — **"Verdict, cited. Every time."**
+> **Category strategic principle:** we enter the market as the **evidence-driven, deterministic-first, AI-optional** alternative — explicitly distinct from LLM-powered AI SOC copilots. We own the wedge by executing the *Security Operations Platform* vision behind it. Both labels live under the same brand promise — **"Verdict, cited. Every time."**
 
 ### 2.2 What NivXRay is NOT (existing categories — relationships)
 
@@ -808,8 +891,10 @@ Cross-reference: **[POSTURE § 38]**. This is the exhaustive list. Use it in eve
 
 ### 11.1 🟢 Green — say freely (audit-verified · use unconditionally)
 
-- "Evidence-Driven AI SOC Investigation" (wedge category · today)
+- **"Evidence-Driven Security Investigation Platform"** (wedge category · today)
+- **"Deterministic-first. AI-optional."** (positioning tagline · always paired)
 - "Deterministic-first architecture"
+- "AI-optional · never in the critical decision path"
 - "Every finding cites its evidence"
 - "9-card Analyst Brief with evidence provenance"
 - "8-tab L4 Investigation Session workspace"
@@ -822,7 +907,7 @@ Cross-reference: **[POSTURE § 38]**. This is the exhaustive list. Use it in eve
 - "Wire-boundary SHA-256-only IOC policy"
 - "56-file equivalence harness enforcing zero-drift"
 - "1448 commits · 88 ADRs · 78 backend routers"
-- "The alternative to hallucinating copilots"
+- "The evidence-driven alternative to LLM-powered SOC copilots"
 - "Sits on top of your existing security stack"
 - "Verdict, cited. Every time."
 
@@ -853,6 +938,17 @@ Whenever any of these phrases appear in comms, they MUST be preceded or followed
 
 ### 11.3 🔴 Red — do NOT say
 
+**Permanent naming red-lines (v1.3 · never rewritten):**
+- ❌ "AI Investigation"
+- ❌ "AI SOC" (as NivXRay's own identity or category — you may reference competitor AI SOC category by name in comparison slides)
+- ❌ "AI SOC Investigation"
+- ❌ "AI SOC copilot" (competitor category label only — never for NivXRay)
+- ❌ "AI NivXRay" / "NivXRay AI"
+- ❌ "LLM-powered NivXRay / detection / investigation / anything"
+- ❌ Any phrase that puts "AI" or "LLM" in NivXRay's primary product identity
+- ❌ Any sentence that implies AI is required, foundational, or in the critical decision path
+
+**Standard red-lines:**
 - "Enterprise-ready" (no SOC-2 · no RBAC beyond admin · no encryption at rest)
 - "Universal ingestion" (only 8 adapters + paste)
 - "Distributed / horizontally scalable" (single FastAPI process)
@@ -864,10 +960,10 @@ Whenever any of these phrases appear in comms, they MUST be preceded or followed
 - "Replaces Splunk / CrowdStrike / etc." (never · we complement · absorb workloads over time via SecOps Platform vision)
 - "N events per second at p95 latency" (no fresh benchmarks)
 - Any specific external-customer name (none verified)
-- **Absolute red-lines added in v1.1 (platform vision guard-rail):**
+- **Platform-vision guard-rails:**
   - "NivXRay is a SIEM / EDR / XDR / SOAR" (present tense — never)
   - "NivXRay has native SIEM ingest / EDR agent / XDR telemetry" (present tense — never)
-  - "NivXRay detects malware / lateral movement / phishing / cloud abuse" (present tense · in live telemetry — never · we *analyse* artefacts, we do not *detect* in live telemetry)
+  - "NivXRay detects malware / lateral movement / phishing / cloud abuse" (present tense in live telemetry — never · we *analyse* artefacts, we do not *detect* in live telemetry)
   - "NivXRay covers identity / network / cloud / web / database / email domains" (present tense — never; today = endpoint + malware + email deep · other domains 🔵 target)
   - "NivXRay responds automatically to incidents" (present tense — never · SOAR-lite is Phase 4)
   - Any sentence that reads *"NivXRay is a full-fledged SIEM+EDR+XDR+SOAR platform"* in the present tense — **hard red line** · always qualify with vision/target/Phase 5
@@ -939,7 +1035,32 @@ Whenever any of these phrases appear in comms, they MUST be preceded or followed
 
 ## Changelog
 
+- **2026-02-13 · v1.3 · LOCKED · deterministic-first, AI-optional (permanent positioning rule)** — per owner directive, permanent naming rule locked at top of document:
+  1. **Core positioning:** "NivXRay — Evidence-Driven Security Investigation Platform · Deterministic-first. AI-optional." (v1.2 label "Evidence-Driven AI SOC Investigation" retired)
+  2. **Permanent forbidden names:** AI Investigation · AI SOC · AI NivXRay · NivXRay AI · LLM-powered anything — NivXRay's product identity contains **no AI branding**
+  3. **AI-optional principle:** AI/LLMs are augmentation, never foundation, never in the critical security decision path. Removing all AI functionality must leave the deterministic core intact.
+  4. Added **top-of-doc permanent positioning rule** section (before ToC)
+  5. Added **canonical evidence-flow diagram** (Security Evidence → Parse → Canonical Evidence → Deterministic Analysis → Correlation → Investigation Graph → Attack Reconstruction → Verdict → Incident → Response)
+  6. Added **Deterministic-Core-vs-Optional-AI split diagram** showing what lives in each column
+  7. Updated § 1.1 / § 1.2 / § 2.0 / § 2.1 to remove "AI SOC" branding; category becomes "Evidence-Driven Security Investigation Platform" (wedge) / "Evidence-Driven Security Operations Platform" (target)
+  8. Updated § 11.1 green list (AI-optional tagline added · AI SOC removed) and § 11.3 red-lines (permanent naming forbidden phrases added at top)
+  9. Battle-cry unchanged: **"Verdict, cited. Every time."**
+
 - **2026-02-13 · v1.2 · LOCKED · moat refinement + frozen strategic hierarchy** — per owner directive:
+  1. Added **§ 2.0 · Frozen Strategic Hierarchy** (TODAY → WEDGE → DIFFERENTIATION → EXPANSION → PLATFORM → VISION) as the load-bearing spine of every NivXRay narrative — do not rewrite / paraphrase away from it
+  2. Added **§ 2.6 · Canonical architecture example** — Windows/Sysmon near-term path + multi-domain long-term path — proving the platform vision inherits the same evidence spine (not vaporware)
+  3. Refined **§ 7 Moat** from "structural moat / cannot copy" absolutes to **defensibility hypotheses** — the moat is the **combination**, not any single pillar
+     - Pillar 1 (Deterministic-first): reframed from "impossible for competitors to retrofit" to "prohibitively expensive to retrofit at scale · foundational design choice, not a feature bolt-on"
+     - Added an explicit *"NOT a moat"* row: "Deterministic-first is impossible for competitors to copy" (over-claim) → say *prohibitively expensive to retrofit* instead
+     - Every pillar now describes (a) what it gives us + (b) the defensibility hypothesis
+  4. Status upgraded to **LOCKED** as the NivXRay posture for investor-pitch work
+
+- **2026-02-13 · v1.1 · platform-vision layer added** — per owner directive, added explicit distinction between:
+  - **Wedge (TODAY · 🟢):** Evidence-Driven AI SOC Investigation
+  - **Platform (TOMORROW · 🔵):** Evidence-Driven Security Operations Platform
+  Added § 1.2 (tomorrow one-liner) · § 2.1 dual-category table · § 2.3 strategic hierarchy diagram (PREVENT · DETECT · RESPOND on top of INVESTIGATE / CORRELATE) · § 2.4 Product Loop (Collect → Detect → Correlate → Investigate → Decide → Respond → Learn with per-stage status) · § 2.5 security-domain coverage matrix (Endpoint · Malware · Identity · Network · Cloud/IAM · Web/API/OWASP · Database · Email) with today / 12-mo / 36-mo columns. Rewrote § 6.5 Phase 5 as the full SecOps Platform target. Rewrote § 9 vision as dual-lens (Year 1-2 wedge / Year 3+ platform). Added § 9.3 credibility table showing every platform capability inherits an existing architectural invariant. Added § 11.1b (roadmap-qualified green) and 6 new absolute red-lines to § 11.3 (no present-tense claims of SIEM/EDR/XDR/SOAR capability). Slide 8 and Slide 10 of the investor narrative updated to the wedge-then-platform expansion.
+
+- **2026-02-13 · v1.0 · initial** — reconciled from 360° audit trio + user's Strategic Refinements message. Category: Evidence-Driven AI SOC Investigation. Wedge codified. Roadmap re-prioritised (multi-tenant + RBAC + L4 projections + XDR classification in Phase 1; native connectors deferred to Phase 2 pending customer signal). Moat re-framed as four pillars. Language discipline codified in § 11.
   1. Added **§ 2.0 · Frozen Strategic Hierarchy** (TODAY → WEDGE → DIFFERENTIATION → EXPANSION → PLATFORM → VISION) as the load-bearing spine of every NivXRay narrative — do not rewrite / paraphrase away from it
   2. Added **§ 2.6 · Canonical architecture example** — Windows/Sysmon near-term path + multi-domain long-term path — proving the platform vision inherits the same evidence spine (not vaporware)
   3. Refined **§ 7 Moat** from "structural moat / cannot copy" absolutes to **defensibility hypotheses** — the moat is the **combination**, not any single pillar

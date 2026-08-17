@@ -24,6 +24,34 @@
 >
 > **PRD content principle re-enforced:** PRD = intended · DD (this trio) = actual · Pitch deck = credible investor narrative. No collapse of layers.
 
+> **2026-02-13 · Session-3 addendum #4 · 🟢 SHIPPED — v1.3 Positioning + Investor Deck live**
+>
+> **Permanent positioning rule locked (v1.3):**
+> **NivXRay — Evidence-Driven Security Investigation Platform · Deterministic-first · AI-optional.**
+>
+> NivXRay is **NEVER** called "AI Investigation" / "AI SOC" / "AI SOC Investigation" / "AI NivXRay" / "LLM-powered anything". AI/LLMs are augmentation, never foundation, never in the critical security decision path. If the LLM overlay is removed, the deterministic core still ships identical 9-card brief · 8-tab session · NIST IR report.
+>
+> **v1.3 Master Positioning updated:**
+> - Top-of-doc permanent positioning rule + naming red-lines
+> - Canonical evidence-flow diagram (Security Evidence → Parse → Canonical Evidence → Deterministic Analysis → Correlation → Investigation Graph → Attack Reconstruction → Verdict → Incident → Response)
+> - Deterministic-Core-vs-Optional-AI split diagram (left column = identity, right column = augmentation)
+> - § 1 / § 2.0 / § 2.1 / § 11.1 / § 11.3 all cleansed of "AI SOC" naming; category = **Evidence-Driven Security Investigation Platform** (wedge) / **Evidence-Driven Security Operations Platform** (target)
+>
+> **Investor deck shipped (12 slides · 55 KB PPTX):**
+> - Live at `/api/deck/investor-v1-3.pptx` (verified HTTP 200 · valid PPTX · 12 slides)
+> - Slide 4 ("NivXRay Today") + Slide 6 ("Why Different") lead with **"Deterministic-first. AI-optional."**
+> - Slide 6 shows Deterministic Core (identity · green) vs Optional AI (augmentation · muted) split
+> - Every slide footer cites the Master Positioning section for DD traceability
+> - Slides 4-7 badged **TODAY · VERIFIED** (green) · Slides 8, 10 badged **ROADMAP · VISION** (blue)
+> - Battle-cry **"Verdict, cited. Every time."** on every slide footer + title + close
+> - No 5.6/10 score anywhere (belongs in DD, not deck)
+> - No present-tense SIEM/EDR/XDR/SOAR claims
+>
+> Additional endpoints:
+> - `/api/deck/master-positioning.md` — locked v1.3 source of truth (67 KB · verified)
+>
+> **The investor pitch deck is now a projection of the locked Master Positioning — not a re-write of it. Any deck update starts by updating the positioning doc first.**
+
 > **2026-02-13 · Session-3 addendum #3 · 🟢 SHIPPED — Master Positioning v1.2 · LOCKED**
 > Per owner directive, updated `/app/memory/NivXRay_Strategic_Master_Positioning.md` to v1.2 and **locked** it as the NivXRay posture for investor-pitch work. Three targeted refinements:
 > 1. **New § 2.0 · Frozen Strategic Hierarchy** — TODAY (Evidence-Driven AI SOC Investigation) → WEDGE (investigate evidence from existing stack) → DIFFERENTIATION (deterministic + evidence-cited + correlated + explainable) → EXPANSION (native telemetry → detection → hunting → response) → PLATFORM (SIEM + EDR + XDR + SOAR + Investigation) → VISION (unified Evidence-Driven Security Operations Platform). Battle-cry preserved: *"Verdict, cited. Every time."*
