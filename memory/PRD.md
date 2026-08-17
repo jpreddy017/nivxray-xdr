@@ -1,5 +1,25 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
+> **2026-02-13 · Session-2 close · 🟢 SHIPPED** — Three surgical frontend fixes + one seed document. All preview-verified. PRD content unchanged beyond this entry per user directive (three-tier discipline: PRD = intended, DD = actual, Pitch = credible).
+> 1. **Trajectory rAF-throttle** — `TrajectoryDiagram.jsx` now schedules at most one `setNodes/setPan` per animation frame (was firing on every mousemove → O(N²) edge routing per event → Chrome "Page Unresponsive" on graph click/drag). Verified: 20 rapid drag events completed in 1256 ms with page fully responsive.
+> 2. **Classifier semantic-guard** — `inputClassifier.js` now short-circuits `isMultiChain=false` when the paste is JSON (`{` / `[`) or XML (`<`) shape, plus strict command-ratio bar (≥50% command-shaped lines) + hard cap `MAX_CHAIN_STAGES=24`. Kills the XDR-JSON "196 command-line stages" render storm at the classifier, not downstream.
+> 3. **Patched pitch deck v2** — user's `NivXRay-AIDE-Deck (5).pptx` had 7 missing screenshot slots (UC 02-06 + Sidebar tabs 1-5, 6-10). Injected real live captures: `uc2_ps_result.png`, `uc3_ioc_result.png`, `uc4_sysmon_result.png`, `05_attack_chain.png`, `03_workspace_populated.png` + composite tab strips. Served at `/api/deck/nivxray-aide-fixed.pptx` (2.9 MB · 25 slides · 35 images).
+> 4. **Investor Due-Diligence seed** — `/app/memory/NivXRay_Investor_Due_Diligence.md` (225 lines · 16.5 KB). §1-4 + §16 partial verified with file refs; §5-30 scaffolded with `[NEEDS_VERIFICATION]` tags; §31 Investor Truth Layer spec embedded as mandatory deliverable for fresh E2 session. Includes three-tier framing (PRD/DD/Pitch) + zero-hallucination rules + verbatim fork prompt. Served at `/api/deck/due-diligence.md`.
+>
+> **Files touched this session (git status):**
+>   • `frontend/src/components/investigation/TrajectoryDiagram.jsx` (rAF throttle)
+>   • `frontend/src/lib/inputClassifier.js` (JSON/XML semantic guard + hard cap)
+>   • `backend/routers/deck_download.py` (added `/api/deck/nivxray-aide-fixed.pptx` + `/api/deck/due-diligence.md` endpoints)
+>   • `backend/downloads/NivXRay-AIDE-Deck-fixed.pptx` (patched deck artefact)
+>   • `/app/memory/NivXRay_Investor_Due_Diligence.md` (new · seed for fresh audit)
+>
+> **DD audit handoff — sequence codified:**
+>   PRD (intended) → DD v1.0 (actual, fresh E2 completes §5-31) → Investor Truth Layer → six-layer positioning (TODAY · DIFFERENTIATION · ROADMAP · MOAT · BUSINESS · INVESTMENT CASE) → final investor deck. Do NOT collapse layers. Do NOT "fix" truth to strengthen pitch — incomplete becomes roadmap or limitation.
+>
+> **PRODUCTION status:** unchanged from yesterday's session close — `nivxray.nivxforge.com` still needs redeploy to receive any of the two sessions' fixes (P0d-A, P0e-Unslim, P0e-Lift, MITRE enrichment, SHA-256 policy, AUTO INVESTIGATE glow, LolbasTab crash guard, P0h-A Evidence Explorer, trajectory rAF throttle, classifier semantic guard). All fixes live on preview.
+>
+
+
 > **2026-02-09 · Session Day-Close · 🟢 SHIPPED** — Nine surgical, evidence-scoped changes landed today, all owner-authorised, all verified live. Zero backend regressions (188 canonical/iue tests unchanged; only pre-existing Sample1-DB failures remain, LOCKED per handoff). Full session cargo:
 > 1. **P0d-A · Frontend wiring** — `InvestigationSummaryPanel` mounted below `AnalystNarrativePanel` in `pages/WorkspacePage.jsx`; new `sessionSnapshot` state + `useEffect` that auto-mints `/api/session/from-investigation` whenever `investigationObject` acquires evidence (including atomic-IOC URL top-level `iocs` bucket). 9-card brief renders in Prev-Mode. Test-id sweep FOUND on every card.
 > 2. **P0e-Unslim · Backend selective un-slim** — `services/die/canonical_bridge.py::_slim_investigation_response` no longer strips `report_extraction` whole; instead `_slim_report_extraction()` keeps `commands / mitre_techniques / body_artifacts / yara_rules / sigma_rules / threat_actors / malware_families / cves / timeline / hash_context / totals / source / investigation_summary` and bound-caps `command_investigations` (max 32 entries, 400 chars per string). Wire size on Talos article: 61.6 KB (was 7 KB slim, was 400-500 KB pre-slim — well bounded). `acquired_document / preprocessor / ice / incident / behaviour / plan / understanding` still stripped.
