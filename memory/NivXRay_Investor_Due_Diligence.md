@@ -1,7 +1,20 @@
 # NivXRay · Investor Technical Due-Diligence
-**Document status:** v0.1 · **partial** · seeded 2026-02-13
-**Scope of this seed:** honest inventory of what the current codebase contains, with file references. Sections marked `[NEEDS_VERIFICATION]` require a fresh, full-context session (E2 recommended) to complete via systematic inspection.
-**Zero-hallucination rule:** every capability claim MUST cite a file path. Anything without a path stays flagged.
+**Document status:** v0.1 seed · **SUPERSEDED by 360° audit trio (2026-02-13)**
+**Zero-hallucination rule:** every capability claim MUST cite a file path.
+
+> **Superseded — read this first:** The full 40-section evidence-backed audit landed on 2026-02-13.
+> - **Primary:** [`/app/memory/NivXRay_360_Product_Market_Posture.md`](./NivXRay_360_Product_Market_Posture.md) — 40 sections + Executive Scorecard
+> - **Evidence:** [`/app/memory/NivXRay_360_Evidence_Matrix.md`](./NivXRay_360_Evidence_Matrix.md) — flat citation table (12 tables · 200+ rows)
+> - **Architecture:** [`/app/memory/NivXRay_360_Architecture.md`](./NivXRay_360_Architecture.md) — current + target diagrams
+> - **Spec followed:** [`/app/memory/NivXRay_360_Audit_Spec.md`](./NivXRay_360_Audit_Spec.md)
+>
+> **Corrections vs this seed (see Evidence Matrix Table L):**
+> - Adapters = **8** (not 6): base + text + url + docx + pdf + eml + image + zip
+> - Canonical suite = **56 files · 608 pass / 10 fail / 11 skip · 237 s** (not 442 collected / 12 errors)
+> - Attack Story / Timeline / Incident Graph tabs are **NOT unimplemented** — they render `session.incident.{behaviors, phases, timeline, graph}` populated by ICE `correlate()`. What's absent is the top-level `session.attack_story` / `session.timeline` / `session.incident_graph` convenience projections (P0h-B/C/D)
+> - IOC providers = **7 real** (VT+AbuseIPDB combo, URLhaus, urlscan, ThreatFox, MalwareBazaar, HybridAnalysis) + OTX configured but not adapter-wired
+>
+> The v0.1 seed below is preserved for provenance.
 
 ---
 

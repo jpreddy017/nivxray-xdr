@@ -1,5 +1,30 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
+
+> **2026-02-13 · Session-3 close · 🟢 SHIPPED** — Executed the full 40-section 360° Investor Due-Diligence audit per `/app/memory/NivXRay_360_Audit_Spec.md`. Three artefacts landed under `/app/memory/`:
+> 1. **`NivXRay_360_Product_Market_Posture.md`** (1171 lines · 63 KB) — Primary 40-section audit + Executive Scorecard /10 across 19 dimensions. Aggregate ≈ 5.6/10 (credible seed-round posture).
+> 2. **`NivXRay_360_Evidence_Matrix.md`** (348 lines · 26 KB) — 12 flat evidence tables (repo counts · capability index · adapters · pages · env flags · API surface · live probes · pytest results · IOC providers · ADR ledger · files of record · correction ledger).
+> 3. **`NivXRay_360_Architecture.md`** (284 lines · 20 KB) — Current + target architecture diagrams · data-flow trace · storage inventory · security surface · deployment gaps.
+>
+> **Method:** read-only inspection with grep/find/wc + live curl on preview backend + live `pytest backend/tests/canonical/ --tb=no -q` (608 pass / 10 fail / 11 skip / 237 s).
+>
+> **Evidence-based corrections to seed v0.1 (documented in `Evidence_Matrix.md § Table L`):**
+> - Adapters = **8** (not 6): base + text + url + docx + pdf + eml + image + zip
+> - Canonical suite = **56 files · 608 pass / 10 fail / 11 skip · 237 s** (not 442 collected / 12 errors)
+> - Attack Story / Timeline / Incident Graph tabs render `session.incident.{behaviors, phases, timeline, graph}` populated by ICE `correlate()` — NOT unimplemented; what's absent is the top-level convenience projections
+> - IOC providers = 7 real (VT+AbuseIPDB, URLhaus, urlscan, ThreatFox, MalwareBazaar, HybridAnalysis) + OTX configured-but-not-adapter-wired
+>
+> **Verified honesty findings (preserved from seed):** single FastAPI process (no distributed workers) · single-tenant only · Playwright + Tesseract shadow-locked · 0 native EDR/XDR/SIEM connectors · XOR fidelity defect LOCKED · Sysmon EVTX/DNS/File-Create adapters absent.
+>
+> **Green-to-red pitch discipline (Section 38 of Posture doc):**
+> - 🟢 Say freely: deterministic-first AI SOC · 9-card brief · 12-layer decode · 6 AST engines · 154 MITRE mappings · 608 tests passing · Rule R21 single-pass correlation · NIST IR export
+> - 🔴 Do NOT say: enterprise-ready · universal ingestion · distributed · real-time detection in live telemetry · integrates with any SIEM/XDR · SOC-2 compliant
+>
+> **`NivXRay_Investor_Due_Diligence.md` v0.1 seed:** updated with a superseded banner pointing to the 3 new artefacts. Preserved verbatim below the banner for provenance.
+>
+> **PRD content principle re-enforced:** PRD = intended · DD (this trio) = actual · Pitch deck = credible investor narrative. No collapse of layers.
+
+
 > **2026-02-13 · Session-2 close · 🟢 SHIPPED** — Three surgical frontend fixes + one seed document. All preview-verified. PRD content unchanged beyond this entry per user directive (three-tier discipline: PRD = intended, DD = actual, Pitch = credible).
 > 1. **Trajectory rAF-throttle** — `TrajectoryDiagram.jsx` now schedules at most one `setNodes/setPan` per animation frame (was firing on every mousemove → O(N²) edge routing per event → Chrome "Page Unresponsive" on graph click/drag). Verified: 20 rapid drag events completed in 1256 ms with page fully responsive.
 > 2. **Classifier semantic-guard** — `inputClassifier.js` now short-circuits `isMultiChain=false` when the paste is JSON (`{` / `[`) or XML (`<`) shape, plus strict command-ratio bar (≥50% command-shaped lines) + hard cap `MAX_CHAIN_STAGES=24`. Kills the XDR-JSON "196 command-line stages" render storm at the classifier, not downstream.
