@@ -24,6 +24,21 @@
 >
 > **PRD content principle re-enforced:** PRD = intended · DD (this trio) = actual · Pitch deck = credible investor narrative. No collapse of layers.
 
+> **2026-02-13 · Session-3 addendum · 🟢 SHIPPED — Strategic Master Positioning Document**
+> Following user's strategic refinements on the audit outcome, produced `/app/memory/NivXRay_Strategic_Master_Positioning.md` (682 lines · 35 KB) as the **single source of truth from which the pitch deck, landing page, customer collateral, and all comms generate — not the reverse.**
+>
+> **Category codified:** Evidence-Driven AI SOC Investigation (not "AI SOC copilot" — refined per user directive).
+>
+> **Wedge codified:** *"Give NivXRay the evidence from your existing security stack — SIEM, XDR, EDR, cloud, identity, network — and let it reconstruct and investigate what actually happened."*
+>
+> **Roadmap re-prioritised per user directive:** Phase 1 (0-3 mo) = fix 6 payload-shape tests + L4 P0h-B/C/D projections + multi-tenant + 3-role RBAC + XDR JSON classification. Phase 2 (3-6 mo) = first two native XDR connectors + Sysmon EVTX + YARA/Sigma execution + case management + SSO. Explicit non-goal for Phase 1: do NOT chase a large connector build-out until customer signal proves the wedge; do NOT build the landing page until this positioning stabilises.
+>
+> **Moat re-framed as four pillars:** Deterministic-first architecture (structural) · Evidence-provenance end-to-end (governance) · Canonical Investigation Knowledge Graph (compounding) · Multi-language AST + decode + MITRE corpus (technical).
+>
+> **10-slide investor narrative + green/yellow/red language discipline codified in § 10 and § 11 of the positioning doc.** Every downstream comms artefact must generate FROM this doc, cite the 360° audit trio for facts, and adhere to § 11 language rules.
+
+
+
 
 > **2026-02-13 · Session-2 close · 🟢 SHIPPED** — Three surgical frontend fixes + one seed document. All preview-verified. PRD content unchanged beyond this entry per user directive (three-tier discipline: PRD = intended, DD = actual, Pitch = credible).
 > 1. **Trajectory rAF-throttle** — `TrajectoryDiagram.jsx` now schedules at most one `setNodes/setPan` per animation frame (was firing on every mousemove → O(N²) edge routing per event → Chrome "Page Unresponsive" on graph click/drag). Verified: 20 rapid drag events completed in 1256 ms with page fully responsive.
