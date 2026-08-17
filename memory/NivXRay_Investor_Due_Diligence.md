@@ -5,6 +5,24 @@
 
 ---
 
+## Three-tier credibility framing (positioning anchor · do NOT collapse)
+This document exists because we must never conflate the three layers:
+
+| Layer | What it captures | Source of truth |
+|---|---|---|
+| **PRD** | What NivXRay is DESIGNED TO BECOME | `/app/memory/PRD.md` + ADRs |
+| **DD (this file)** | What NivXRay ACTUALLY IS TODAY | verified code + API responses |
+| **Pitch deck** | What we can CREDIBLY tell investors | derived from DD ∩ PRD |
+
+The credible investor story is a progression, not a claim:
+> **Current implementation** — working evidence analysis + semantic engine + investigation capabilities
+> **Next architectural evolution** — distributed processing + centralized correlation/investigation
+> **Long-term platform** — universal security investigation and evidence-correlation system
+
+The fresh session must preserve this progression. It replaces any "the final architecture already exists" language with the truthful "here is today, here is the roadmap".
+
+---
+
 ## Verified repo facts (2026-02-13)
 | Metric | Actual count | Source |
 |---|---|---|
@@ -129,6 +147,9 @@ The following sections require systematic file inspection I cannot complete in r
    implemented. Also verify the five critical honesty items already
    identified in the seed and update them only if fresh evidence
    contradicts them.
+
+   Do not optimize the result for marketing; optimize it for investor
+   due diligence accuracy.
 
    After completing Sections 5–30, produce a final section called
    "§ 31 · Investor Truth Layer" containing:
