@@ -20,6 +20,8 @@ from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.chart.data import CategoryChartData
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION
 
 
 # ─── Palette (dark deterministic look — evidence · trust · precision) ───────────
@@ -576,9 +578,266 @@ def slide_07_wedge(prs, total):
     slide_footer(s, 8, total, "§ 2.3 hierarchy · § 4 wedge · Slide 07 arch correction")
 
 
+def slide_07a_gaps(prs, total):
+    """Explicit market gaps · what NivXRay fills · how."""
+    s = new_slide(prs); paint_background(s)
+    slide_header(s, "08 · MARKET GAPS  ·  HOW NIVXRAY FILLS THEM",
+                 "Six real gaps in today's SOC. Each has a concrete NivXRay answer.")
+
+    add_text(s, MARGIN_L, Inches(2.0), Inches(11.9), Inches(0.4),
+             "Enterprise SOCs spend on tools, still cannot reconstruct incidents. NivXRay closes each gap deterministically — no LLM required.",
+             size=11, color=MUTED, italic=True)
+
+    # 6-gap table · 3 columns × 2 rows
+    gaps = [
+        ("Analyst-skill gap",
+         "L1/L2 turnover · inconsistent writeups · 6-12 mo ramp per analyst",
+         "9-card brief + 11-field narrative + NIST IR export land junior-analyst work at senior-analyst quality automatically.",
+         "40-60 % analyst time saved per incident"),
+        ("Investigation lacking",
+         "Detection is solved. Reconstruction, correlation and attribution are still manual across 5+ tools.",
+         "ICE Rule R21 single-pass correlation + Investigation Knowledge Graph reconstruct attacks deterministically.",
+         "Full investigation in seconds, not hours"),
+        ("Evidence-not-cited",
+         "AI copilot summaries are plausible but cite nothing. Not defensible in DD, audit or court.",
+         "Every field in the brief traces to its source (Evidence Explorer + SHA-256 IOC + wire allow-list).",
+         "100 % of findings evidence-cited"),
+        ("Verdict inconsistency",
+         "Same incident · two analysts · three verdicts. Same LLM copilot · two runs · two answers.",
+         "Deterministic verdict (Rule R22) · zero LLM in critical path · fixture-locked equivalence harness.",
+         "Reproducible verdicts · zero-drift"),
+        ("Time consumption",
+         "Analyst spends 30-90 min per incident on paste-decode-pivot-write-up.",
+         "12-layer recursive decode + 6 AST engines + auto-map to 154 MITRE techniques run in under 5 seconds.",
+         "5-30× faster paste-to-brief"),
+        ("Licence & data cost",
+         "SIEM/EDR spend keeps rising · LLM budgets are unpredictable · retention costs explode.",
+         "Deterministic core needs zero LLM budget. Wire-slim reduces payload by ~80 %. No retention lock-in.",
+         "No LLM budget required to run"),
+    ]
+    top = Inches(2.55); cols = 3
+    cw = Inches(3.9); ch = Inches(2.15); gx = Inches(0.1); gy = Inches(0.15)
+    ox = MARGIN_L
+    for i, (title, gap_text, fill_text, kpi) in enumerate(gaps):
+        r, c = divmod(i, cols)
+        x = ox + c * (cw + gx)
+        y = top + r * (ch + gy)
+        add_rect(s, x, y, cw, ch, fill=DIVIDER)
+        # gold strip left
+        add_rect(s, x, y, Inches(0.12), ch, fill=GOLD)
+        # title
+        add_text(s, x + Inches(0.28), y + Inches(0.15),
+                 cw - Inches(0.4), Inches(0.32),
+                 title, size=12, bold=True, color=GOLD)
+        # gap description
+        add_text(s, x + Inches(0.28), y + Inches(0.5),
+                 cw - Inches(0.4), Inches(0.6),
+                 gap_text, size=9, color=MUTED, italic=True)
+        # NivXRay fills
+        add_text(s, x + Inches(0.28), y + Inches(1.12),
+                 cw - Inches(0.4), Inches(0.75),
+                 fill_text, size=9, color=INK)
+        # KPI bottom
+        add_text(s, x + Inches(0.28), y + Inches(1.85),
+                 cw - Inches(0.4), Inches(0.28),
+                 kpi, size=9, bold=True, color=TODAY_GREEN, font=FONT_MONO)
+
+    slide_footer(s, 9, total, "§ 25-27 market · § 30 AI strategy · § 15 outputs")
+
+
+def slide_07b_market(prs, total):
+    """Market size + scope + gap + % coverage + use cases (with charts)."""
+    s = new_slide(prs); paint_background(s)
+    slide_header(s, "09 · MARKET · SCOPE · COVERAGE",
+                 "The gap is real. Our coverage is honest.")
+
+    # ── LEFT: Market allocation donut chart ──────────────────────────────
+    add_text(s, MARGIN_L, Inches(2.05), Inches(6), Inches(0.35),
+             "Global cybersecurity market allocation (2027 est.)",
+             size=12, bold=True, color=INK)
+    add_text(s, MARGIN_L, Inches(2.4), Inches(6), Inches(0.3),
+             "Adjacent categories that share NivXRay's investigation buyer",
+             size=10, color=MUTED, italic=True)
+
+    chart_data = CategoryChartData()
+    chart_data.categories = [
+        "MSSP services (~$40B)",
+        "XDR / EDR (~$12B)",
+        "IR consulting (~$8B)",
+        "SIEM (~$8B)",
+        "SOAR (~$2B)",
+        "AI SOC copilots (~$1B)",
+    ]
+    chart_data.add_series("Market $B", (40, 12, 8, 8, 2, 1))
+
+    chart_shp = s.shapes.add_chart(
+        XL_CHART_TYPE.DOUGHNUT,
+        MARGIN_L, Inches(2.75), Inches(6.0), Inches(3.6),
+        chart_data,
+    )
+    chart = chart_shp.chart
+    chart.has_title = False
+    chart.has_legend = True
+    chart.legend.position = XL_LEGEND_POSITION.RIGHT
+    chart.legend.include_in_layout = False
+    chart.legend.font.size = Pt(9)
+    chart.legend.font.color.rgb = INK
+    # per-slice colors
+    plot = chart.plots[0]
+    plot.has_data_labels = True
+    plot.data_labels.font.size = Pt(9)
+    plot.data_labels.font.bold = True
+    plot.data_labels.font.color.rgb = INK
+    slice_colors = [GOLD, ROADMAP_BLUE, RGBColor(0xF4, 0x8F, 0xB2),
+                    RGBColor(0x9C, 0x92, 0xEE), RGBColor(0x5E, 0xEA, 0xD4), TODAY_GREEN]
+    for i, pt in enumerate(plot.series[0].points):
+        pt.format.fill.solid()
+        pt.format.fill.fore_color.rgb = slice_colors[i]
+        pt.format.line.color.rgb = BG
+
+    # SAM / SOM callouts to right of chart
+    cx = MARGIN_L + Inches(6.15); cy = Inches(2.75)
+    add_rect(s, cx, cy, Inches(6.4), Inches(0.85), fill=DIVIDER, line=GOLD)
+    add_text(s, cx + Inches(0.25), cy + Inches(0.1),
+             Inches(6.0), Inches(0.3),
+             "SAM  ·  $2 – 5 B by 2028",
+             size=13, bold=True, color=GOLD)
+    add_text(s, cx + Inches(0.25), cy + Inches(0.42),
+             Inches(6.0), Inches(0.42),
+             "AI-assisted SOC investigation + MSSP analyst leverage + IR write-up automation",
+             size=9, color=INK)
+
+    add_rect(s, cx, cy + Inches(0.98), Inches(6.4), Inches(0.85), fill=DIVIDER, line=TODAY_GREEN)
+    add_text(s, cx + Inches(0.25), cy + Inches(1.08),
+             Inches(6.0), Inches(0.3),
+             "SOM  ·  $80 – 150 M by 2029",
+             size=13, bold=True, color=TODAY_GREEN)
+    add_text(s, cx + Inches(0.25), cy + Inches(1.4),
+             Inches(6.0), Inches(0.42),
+             "3-yr serviceable share · 30 MSSPs + 50 enterprises · deterministic wedge",
+             size=9, color=INK)
+
+    # ── RIGHT: Domain coverage bar chart ─────────────────────────────────
+    add_text(s, cx, Inches(4.75),
+             Inches(6.4), Inches(0.3),
+             "Domain Coverage  ·  Today (green) vs Phase 3 target (blue)",
+             size=11, bold=True, color=INK)
+
+    bar_data = CategoryChartData()
+    bar_data.categories = ["Endpoint\n/Malware", "Email\n/Docs", "Identity\n/Cloud", "Network\n/DNS/WAF", "Web/API\n/DB"]
+    bar_data.add_series("Today",   (40, 50, 10, 10,  5))
+    bar_data.add_series("Phase 3", (90, 80, 70, 60, 60))
+
+    bar_shp = s.shapes.add_chart(
+        XL_CHART_TYPE.COLUMN_CLUSTERED,
+        cx, Inches(5.05), Inches(6.4), Inches(1.9),
+        bar_data,
+    )
+    bar = bar_shp.chart
+    bar.has_title = False
+    bar.has_legend = True
+    bar.legend.position = XL_LEGEND_POSITION.BOTTOM
+    bar.legend.include_in_layout = False
+    bar.legend.font.size = Pt(8)
+    bar.legend.font.color.rgb = INK
+    ser = bar.plots[0].series
+    ser[0].format.fill.solid(); ser[0].format.fill.fore_color.rgb = TODAY_GREEN
+    ser[1].format.fill.solid(); ser[1].format.fill.fore_color.rgb = ROADMAP_BLUE
+    for cat_axis in [bar.category_axis, bar.value_axis]:
+        cat_axis.tick_labels.font.size = Pt(8)
+        cat_axis.tick_labels.font.color.rgb = MUTED
+
+    slide_footer(s, 10, total, "§ 25-27 market · § 15 outputs")
+
+
+def slide_07c_competition(prs, total):
+    """Competitor matrix + adoption/flexibility (seller & buyer lens)."""
+    s = new_slide(prs); paint_background(s)
+    slide_header(s, "10 · COMPETITIVE POSITION",
+                 "Deterministic, evidence-cited, integration-flexible.")
+
+    # header sub-line
+    add_text(s, MARGIN_L, Inches(2.0), Inches(11.9), Inches(0.4),
+             "Where NivXRay wins today · where we intentionally do not compete · why buyers adopt without risk.",
+             size=12, color=MUTED, italic=True)
+
+    # Competitor comparison table
+    top = Inches(2.5); h = Inches(2.3); w = Inches(11.9)
+    add_rect(s, MARGIN_L, top, w, h, fill=DIVIDER)
+    add_text(s, MARGIN_L + Inches(0.25), top + Inches(0.1),
+             w - Inches(0.5), Inches(0.3),
+             "Comparison  ·  what makes NivXRay different from adjacent tools",
+             size=12, bold=True, color=INK)
+    # column headers
+    cols = ["Category", "Example", "What they do", "NivXRay difference"]
+    col_x = [Inches(1.7), Inches(4.4), Inches(6.4), Inches(9.7)]
+    hy = top + Inches(0.45)
+    for i, c in enumerate(cols):
+        add_text(s, MARGIN_L + col_x[i], hy, Inches(3.0), Inches(0.28),
+                 c, size=10, bold=True, color=GOLD, font=FONT_MONO)
+    # rows
+    rows = [
+        ("LLM copilot",       "Dropzone · Prophet · Radiant", "LLM summaries · plausible",    "Deterministic · cited · reproducible"),
+        ("SIEM / XDR",        "Splunk · Sentinel · Falcon",   "Alerts · telemetry",           "Investigation reasoning on top"),
+        ("Sandbox",           "Any.Run · Joe · VMRay",        "Detonate · verdict",           "Paste-time reasoning · no detonation"),
+        ("Case management",   "IBM Resilient · D3",           "Ticket workflow",              "Evidence-cited reconstruction"),
+        ("SOAR",              "XSOAR · Torq · Tines",         "Playbook automation",          "Verdict feeds SOAR · not a replacement"),
+    ]
+    ry = hy + Inches(0.3)
+    for i, r in enumerate(rows):
+        y = ry + i * Inches(0.28)
+        for j, val in enumerate(r):
+            color = INK if j < 3 else TODAY_GREEN
+            weight = False if j < 3 else True
+            add_text(s, MARGIN_L + col_x[j], y, Inches(3.4), Inches(0.26),
+                     val, size=9, color=color, bold=weight)
+
+    # Bottom row: Adoption + Flexibility (seller lens + buyer lens)
+    top2 = Inches(4.95); h2 = Inches(1.9); cw = Inches(5.9); gap = Inches(0.15)
+
+    # Seller lens
+    add_rect(s, MARGIN_L, top2, cw, h2, fill=DIVIDER, line=GOLD)
+    add_text(s, MARGIN_L + Inches(0.25), top2 + Inches(0.12),
+             cw - Inches(0.5), Inches(0.32),
+             "Seller lens  ·  why NivXRay lands",
+             size=11, bold=True, color=GOLD, font=FONT_MONO)
+    seller = [
+        "Zero-integration paste-first onboarding",
+        "No LLM budget required to start (AI-optional)",
+        "Deterministic guarantees defensible in DD",
+        "MSSP + IR wholesale motion (Phase 3)",
+    ]
+    for i, item in enumerate(seller):
+        add_text(s, MARGIN_L + Inches(0.35),
+                 top2 + Inches(0.5) + i * Inches(0.32),
+                 cw - Inches(0.7), Inches(0.3),
+                 f"—  {item}", size=10, color=INK)
+
+    # Buyer lens
+    bx = MARGIN_L + cw + gap
+    add_rect(s, bx, top2, cw, h2, fill=DIVIDER, line=TODAY_GREEN)
+    add_text(s, bx + Inches(0.25), top2 + Inches(0.12),
+             cw - Inches(0.5), Inches(0.32),
+             "Buyer lens  ·  why NivXRay is low-risk",
+             size=11, bold=True, color=TODAY_GREEN, font=FONT_MONO)
+    buyer = [
+        "No rip-and-replace · keeps existing SIEM/XDR/EDR",
+        "Exports = NIST standard MD/PDF · no vendor lock-in",
+        "Single-tenant self-host today (privacy-friendly)",
+        "REST API surface · integrates with any downstream (SIEM · SNOW · SOAR)",
+    ]
+    for i, item in enumerate(buyer):
+        add_text(s, bx + Inches(0.35),
+                 top2 + Inches(0.5) + i * Inches(0.32),
+                 cw - Inches(0.7), Inches(0.3),
+                 f"—  {item}", size=10, color=INK)
+
+    slide_footer(s, 11, total, "§ 25 competitive · § 4.4 deployment modes")
+
+
 def slide_08_expansion(prs, total):
     s = new_slide(prs); paint_background(s)
-    slide_header(s, "08 · EXPANSION",
+    slide_header(s, "11 · EXPANSION",
                  "From wedge to platform.")
 
     status_badge(s, Inches(11.15), Inches(0.85), "ROADMAP")
@@ -626,12 +885,12 @@ def slide_08_expansion(prs, total):
              "Every future stage inherits the deterministic-first + evidence-provenance invariants.",
              size=11, color=ROADMAP_BLUE, italic=True, align=PP_ALIGN.CENTER)
 
-    slide_footer(s, 9, total, "§ 6 roadmap · § 2.4 Product Loop")
+    slide_footer(s, 12, total, "§ 6 roadmap · § 2.4 Product Loop")
 
 
 def slide_09_moat(prs, total):
     s = new_slide(prs); paint_background(s)
-    slide_header(s, "09 · MOAT",
+    slide_header(s, "12 · MOAT",
                  "The combination is the moat.")
 
     add_text(s, MARGIN_L, Inches(2.05), Inches(11.9), Inches(0.5),
@@ -667,12 +926,12 @@ def slide_09_moat(prs, total):
              "Defensibility hypothesis: retrofitting all five into an LLM-first codebase requires re-architecture, not a feature bolt-on.",
              size=11, color=GOLD, italic=True, align=PP_ALIGN.CENTER)
 
-    slide_footer(s, 10, total, "§ 7 moat refinement")
+    slide_footer(s, 13, total, "§ 7 moat refinement")
 
 
 def slide_10_vision(prs, total):
     s = new_slide(prs); paint_background(s)
-    slide_header(s, "10 · VISION + INVESTMENT",
+    slide_header(s, "13 · VISION + INVESTMENT",
                  "Build the Evidence-Driven\nSecurity Operations Platform.")
 
     status_badge(s, Inches(11.15), Inches(0.85), "ROADMAP")
@@ -695,25 +954,29 @@ def slide_10_vision(prs, total):
 
     # target scoreboard 4 cols — Phase 0 TODAY + Phase 1-3 funding-accelerated
     cols = [
-        ("Phase 0 · TODAY",      ["Verified 2026-02-13",
-                                   "0 paying customers",
+        ("Phase 0 · TODAY",      ["Verified · Feb 2026",
+                                   "608 tests · 154 MITRE",
+                                   "6 AST · 12-layer decode",
                                    "8 adapters · 7 OSINT",
-                                   "608 tests passing",
-                                   "Preview deployed"]),
+                                   "9-card + 8-tab L4",
+                                   "1,448 commits · 88 ADRs"]),
         ("Phase 1 · 0–6 mo",     ["Wedge · P0 execution",
                                    "3–5 design partners",
                                    "First 2 native connectors",
                                    "$200k–$500k ARR",
+                                   "Multi-tenant + RBAC live",
                                    "SOC-2 T1 kickoff"]),
         ("Phase 2 · 6–12 mo",    ["Expansion · scale",
                                    "15–25 customers",
-                                   "6+ connectors",
+                                   "6+ connectors · YARA/Sigma exec",
                                    "$1M–$2.5M ARR",
+                                   "20–30 team · MSSP wholesale",
                                    "SOC-2 T1 complete"]),
         ("Phase 3 · 12–18 mo",   ["Platform trajectory",
                                    "30–50 customers",
                                    "Distributed · x-session graph",
                                    "$3M–$7M ARR",
+                                   "SOAR-lite · negative explain",
                                    "SOC-2 T2 in progress"]),
     ]
     top = Inches(3.85); n = 4; gap = Inches(0.15)
@@ -742,7 +1005,7 @@ def slide_10_vision(prs, total):
              "Raising seed round to fund Phase 1 + Phase 2 execution.",
              size=13, color=GOLD, align=PP_ALIGN.CENTER)
 
-    slide_footer(s, 11, total, "§ 9 phase-funding scoreboard")
+    slide_footer(s, 14, total, "§ 9 phase-funding scoreboard")
 
 
 def slide_11_close(prs, total):
@@ -766,7 +1029,7 @@ def slide_11_close(prs, total):
              "Deterministic-first · Evidence-cited · Investigation-ready.",
              size=14, color=MUTED)
 
-    slide_footer(s, 12, total, "§ 1 battle-cry")
+    slide_footer(s, 15, total, "§ 1 battle-cry")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -776,7 +1039,7 @@ def build() -> Path:
     prs = Presentation()
     prs.slide_width = SLIDE_W
     prs.slide_height = SLIDE_H
-    total = 12
+    total = 15
     slide_00_title(prs, total)
     slide_01_problem(prs, total)
     slide_02_existing_stack(prs, total)
@@ -785,6 +1048,9 @@ def build() -> Path:
     slide_05_how_it_works(prs, total)
     slide_06_why_different(prs, total)
     slide_07_wedge(prs, total)
+    slide_07a_gaps(prs, total)
+    slide_07b_market(prs, total)
+    slide_07c_competition(prs, total)
     slide_08_expansion(prs, total)
     slide_09_moat(prs, total)
     slide_10_vision(prs, total)
