@@ -24,11 +24,14 @@
 >
 > **PRD content principle re-enforced:** PRD = intended · DD (this trio) = actual · Pitch deck = credible investor narrative. No collapse of layers.
 
-> **2026-02-13 · Session-3 addendum #2 · 🟢 SHIPPED — Master Positioning v1.1 (platform-vision layer)**
-> Per owner directive, updated `/app/memory/NivXRay_Strategic_Master_Positioning.md` to v1.1 with explicit **wedge vs platform** distinction:
-> - **Wedge (TODAY · 🟢):** Evidence-Driven AI SOC Investigation
-> - **Platform (TOMORROW · 🔵):** Evidence-Driven Security Operations Platform (SIEM + EDR + XDR + SOAR workloads under one canonical evidence + investigation-graph spine)
-> Added: § 1.2 tomorrow one-liner · § 2.3 strategic hierarchy (PREVENT · DETECT · RESPOND on top of INVESTIGATE/CORRELATE) · § 2.4 Product Loop (Collect → Detect → Correlate → Investigate → Decide → Respond → Learn) · § 2.5 security-domain matrix (Endpoint · Malware · Identity · Network · Cloud/IAM · Web/API/OWASP · Database · Email) with today/12-mo/36-mo columns. Rewrote § 6.5 Phase 5 as full SecOps Platform target. Rewrote § 9 vision as dual-lens (Year 1-2 wedge / Year 3+ platform). Added § 9.3 credibility inheritance table. Language discipline (§ 11) hardened with § 11.1b roadmap-qualified green + 6 new absolute red-lines forbidding present-tense SIEM/EDR/XDR/SOAR claims.
+> **2026-02-13 · Session-3 addendum #3 · 🟢 SHIPPED — Master Positioning v1.2 · LOCKED**
+> Per owner directive, updated `/app/memory/NivXRay_Strategic_Master_Positioning.md` to v1.2 and **locked** it as the NivXRay posture for investor-pitch work. Three targeted refinements:
+> 1. **New § 2.0 · Frozen Strategic Hierarchy** — TODAY (Evidence-Driven AI SOC Investigation) → WEDGE (investigate evidence from existing stack) → DIFFERENTIATION (deterministic + evidence-cited + correlated + explainable) → EXPANSION (native telemetry → detection → hunting → response) → PLATFORM (SIEM + EDR + XDR + SOAR + Investigation) → VISION (unified Evidence-Driven Security Operations Platform). Battle-cry preserved: *"Verdict, cited. Every time."*
+> 2. **New § 2.6 · Canonical architecture example** — Windows/Sysmon near-term path + multi-domain long-term path. Proves the platform vision is credible because the **same Canonical Evidence → Correlation → Investigation → Verdict spine** already exists — every future adapter feeds into it without rearchitecting below.
+> 3. **§ 7 Moat refinement** — the moat is the **combination** (deterministic architecture + provenance + investigation graph + curated AST/decode/ATT&CK corpus + accumulated knowledge), **not any single pillar in isolation**. Reframed "impossible for competitors to copy" as *"prohibitively expensive to retrofit at scale · foundational design choice, not a feature bolt-on"* — defensibility hypothesis, not absolute fact. Added explicit "NOT a moat" row banning over-claim language.
+>
+> Status upgraded to **LOCKED**. The pitch deck now generates from this document, not the reverse.
+
 
 > Following user's strategic refinements on the audit outcome, produced `/app/memory/NivXRay_Strategic_Master_Positioning.md` (682 lines · 35 KB) as the **single source of truth from which the pitch deck, landing page, customer collateral, and all comms generate — not the reverse.**
 >

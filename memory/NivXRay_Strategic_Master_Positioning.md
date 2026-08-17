@@ -1,7 +1,7 @@
 # NivXRay · Strategic Master Positioning Document
 
-**Status:** v1.1 · single source of truth for all future investor / product / GTM narrative
-**Date:** 2026-02-13 (v1.0 initial · v1.1 platform-vision layer added same day per owner directive)
+**Status:** v1.2 · **LOCKED** as the NivXRay posture for investor-pitch work
+**Date:** 2026-02-13 (v1.0 initial · v1.1 platform-vision layer · v1.2 moat refinement + frozen strategic hierarchy)
 **Basis:** 360° audit trio — every strategic claim cites the corresponding audit line
 - `NivXRay_360_Product_Market_Posture.md` (40 sections + Executive Scorecard) — abbreviated **[POSTURE]**
 - `NivXRay_360_Evidence_Matrix.md` (12 flat evidence tables) — abbreviated **[EVIDENCE]**
@@ -66,6 +66,42 @@
 ---
 
 ## 2 · Product Definition · Category · Positioning
+
+### 2.0 · The Frozen Strategic Hierarchy (v1.2 · LOCKED · owner-authored)
+
+**This hierarchy is the load-bearing spine of every NivXRay investor / product / GTM narrative. Do not rewrite. Do not paraphrase away from it.**
+
+```
+                    NivXRay TODAY
+          Evidence-Driven AI SOC Investigation
+                          ↓
+                       WEDGE
+     Investigate evidence from the customer's
+              existing security stack.
+                          ↓
+                  DIFFERENTIATION
+   Deterministic + evidence-cited + correlated
+          + explainable investigation.
+                          ↓
+                     EXPANSION
+        Native telemetry → broader detection
+          → threat hunting → response.
+                          ↓
+                     PLATFORM
+   SIEM + EDR + XDR + SOAR / XSOAR + Investigation
+                          ↓
+                      VISION
+     A unified evidence-driven Security
+              Operations Platform.
+```
+
+**Battle-cry (never changes):**
+> **"Verdict, cited. Every time."**
+
+**Reading discipline:**
+- TODAY + WEDGE + DIFFERENTIATION are 🟢 investable facts (verified in 360° audit trio)
+- EXPANSION + PLATFORM + VISION are 🔵 roadmap · **always label as roadmap / vision / target** when quoted
+- No comms artefact skips a step. The investor / customer / partner must see the whole arc — not just today, not just vision — because credibility lives in the connection between them.
 
 ### 2.1 Category — dual layer
 
@@ -164,14 +200,64 @@ Cross-reference: **[POSTURE § 5, 17]** for the today-column · this table exten
 
 **Reading rule:** the "TODAY" column is investable evidence. The "12-mo / 36-mo target" columns are the platform roadmap. Never conflate.
 
-### 2.6 Ideal-customer-profile lens
+### 2.6 Canonical architecture example — the evidence-spine principle (owner-authored)
+
+**The same evidence + investigation spine that serves the wedge today serves the platform tomorrow.** This is the technical credibility argument that makes the platform vision believable — not vaporware.
+
+#### 2.6a · Near-term Windows / Sysmon / EDR path (target · 3-6 months)
+
+```
+   Windows / Sysmon / EDR
+             ↓
+     Canonical Evidence
+             ↓
+       Event Semantics
+             ↓
+  4625 / 4624 / 4688 / 4104 · …
+             ↓
+User + Device + Session + Process
+             ↓
+    Behavior Correlation
+             ↓
+    Attack Progression
+             ↓
+    Investigation Graph
+             ↓
+ Evidence-backed Verdict
+             ↓
+          Incident
+```
+
+#### 2.6b · Long-term multi-domain platform path (vision · 18-36 months)
+
+```
+   Windows · Identity · Network · Cloud/IAM
+Web/API/OWASP · Database · Email · Endpoint · Malware
+                        ↓
+                Canonical Evidence
+                        ↓
+                   Correlation
+                        ↓
+                  Investigation
+                        ↓
+                     Verdict
+                        ↓
+                    Response
+```
+
+**Reading rule:** the same **Canonical Evidence → Correlation → Investigation → Verdict** spine runs top-to-bottom in both diagrams. Only the *inputs* on top expand as adapters land. That is why the platform vision is credible — the spine already exists (verified in `services/ice/correlate.py:701` + `services/session/summary_narrative.py`), and every future adapter feeds into it without rearchitecting anything below.
+
+**Investable framing:** "We have built the investigation foundation. Our wedge is Evidence-Driven AI SOC Investigation. Our roadmap expands that same evidence and investigation spine into a broader Security Operations Platform."
+
+### 2.7 Ideal-customer-profile lens
+
 See **[POSTURE § 27]** for the full four-segment expansion. Priority order:
 1. **MSSP L1/L2 analyst leverage** — highest immediate demand, easiest proof
 2. **IR / consulting boutiques** — NIST IR export is a natural wedge
 3. **Mid-market SOC (200-2000 endpoints)** — analyst-productivity fit
 4. **Analyst-side layer on enterprise XDR** — Series-A expansion segment
 
-### 2.7 Category battle-cry (candidate — use across all comms)
+### 2.8 Category battle-cry (candidate — use across all comms)
 > **"Verdict, cited. Every time."**
 
 Sub-taglines by audience:
@@ -471,39 +557,53 @@ Cross-reference: **[POSTURE § 31, 32]**. This section refines the audit's timin
 
 Cross-reference: **[POSTURE § 29, 35.3, 35.7]**
 
-### 7.1 The moat statement (user-authored — codify it)
+### 7.1 The moat statement (v1.2 · refined — the combination IS the moat, not any single pillar)
 
 > **Raw event → Canonical evidence → Entity → Relationship → Behaviour → ATT&CK semantics → Attack progression → Investigation → Verdict.**
 >
 > **Every conclusion remains traceable to evidence.**
 >
-> That is why deterministic-first is not just a design choice — it is the moat.
+> **The moat is the combination — not any single pillar.**
+>
+> Deterministic-first architecture + evidence-provenance discipline + Investigation Knowledge Graph + curated AST / decode / ATT&CK corpus + accumulated investigation knowledge — reproduced together and preserved as invariants from wedge to platform.
 
-### 7.2 Four moat pillars (ranked by defensibility)
+**Refinement discipline (owner-authored · v1.2):**
+- The strongest defensibility claim is the *combination*, not any single pillar in isolation
+- A competitor *could* eventually build deterministic components — that is a hypothesis, not an impossibility
+- The realistic moat argument is: reproducing deterministic architecture **AND** provenance-discipline **AND** the investigation-graph spine **AND** the accumulated AST/decode/ATT&CK corpus **AND** the governance harness — all at once, retroactively, against a codebase originally designed LLM-first — is prohibitively expensive
+- Never say "impossible to reproduce" — say "prohibitively expensive to retrofit at scale · foundational design choice, not a feature bolt-on"
 
-#### Pillar 1 · Deterministic-First Architecture (structural moat) ★★★★★
+### 7.2 What the four pillars actually give us (verified · use in this order)
+
+Each pillar is a **defensibility hypothesis**, not an absolute. The combination is what compounds.
+
+#### Pillar 1 · Deterministic-First Architecture (foundational design choice)
 - ICE Rule R21 (single correlation pass · zero LLM) — `services/ice/correlate.py:701`
 - Rule R22 (deterministic narrative · zero LLM header in `summary_narrative.py`)
 - 56-file equivalence harness enforces zero-drift on every change
-- **Why it's a moat:** competitors who chose LLM-first architecture cannot retrofit this without a full rewrite
+- **What it gives us:** reproducibility · evidence traceability · explainability — every conclusion is defensible in front of a customer, an auditor, or a court
+- **Defensibility hypothesis:** retrofitting this into an LLM-first codebase is prohibitively expensive because the deterministic guarantees affect data flow, testing philosophy, and the wire boundary — not just a feature toggle
 
-#### Pillar 2 · Evidence-Provenance End-to-End (governance moat) ★★★★★
+#### Pillar 2 · Evidence-Provenance End-to-End (governance discipline)
 - Every field in the 9-card brief traces back through `evidence_confidence` provenance
 - `_REPORT_EXTRACTION_KEEP` allow-list at wire boundary
 - SHA-256-only IOC policy at wire
 - Per-input `investigation_inputs[].source` citations in Evidence Explorer
-- **Why it's a moat:** codified discipline. Cannot be added as a feature — has to be the design axiom.
+- **What it gives us:** every claim shipped to the customer or auditor cites its evidence — no hallucination liability
+- **Defensibility hypothesis:** provenance is a *codified discipline*, not a feature. Adding it after the fact means auditing every projection, every wire path, every field — enterprise-scale rework
 
-#### Pillar 3 · Canonical Investigation Knowledge Graph (compounding moat — future) ★★★★☆
+#### Pillar 3 · Canonical Investigation Knowledge Graph (compounding — future)
 - Today: in-request graph via `_build_incident_graph()` at `correlate.py:1075`
 - Target: cross-session · cross-tenant (opt-in) · learned attack-pattern registry
-- **Why it's a moat:** every investigation strengthens future ones — real network effect within MSSP consolidation
+- **What it gives us (once cross-session lands):** every investigation strengthens future ones — network effect within MSSP consolidation
+- **Defensibility hypothesis:** the graph value compounds with each investigation; the earlier we start persisting it, the harder it is for a late entrant to catch up on breadth of learned attack patterns
 
-#### Pillar 4 · Multi-Language AST + Recursive Decode + MITRE Corpus (technical moat) ★★★☆☆
+#### Pillar 4 · Curated AST / Decode / ATT&CK Corpus (accumulated investigation knowledge)
 - 6 AST engines · 12-layer recursive decode · 12-codec try-list
 - 154 technique→tactic mappings · 79 display names · code-frozen
 - Fixture corpus (`memory/rc*_*.json`) accumulates over time
-- **Why it's a moat:** takes years of fixture curation and analyst feedback to reproduce
+- **What it gives us:** the coverage & accuracy of paste-time analysis grows with every analyst correction and every new fixture
+- **Defensibility hypothesis:** takes years of fixture curation and analyst feedback to reproduce breadth; the moat is time × labour, not code
 
 ### 7.3 What is NOT a moat (do not pitch as one)
 
@@ -511,6 +611,7 @@ Cross-reference: **[POSTURE § 29, 35.3, 35.7]**
 - ❌ "We have a UI" (weak · everyone does)
 - ❌ "We produce MITRE mappings" (weak · industry-standard)
 - ❌ "We integrate with X" (weak · connector-race)
+- ❌ "Deterministic-first is impossible for competitors to copy" (over-claim · say *prohibitively expensive to retrofit* instead)
 
 ### 7.4 Compounding moat trajectory
 
@@ -521,6 +622,9 @@ Phase 3  →  Cross-session graph starts compounding · negative explainability 
 Phase 4  →  Cross-tenant graph (opt-in) creates true network effect
 Phase 5  →  Category ownership · investor / customer defaults to "this is how you do AI SOC"
 ```
+
+**Every stage inherits the invariants of the previous stage. That is the compounding argument — not any single-pillar claim.**
+
 
 ---
 
@@ -834,6 +938,15 @@ Whenever any of these phrases appear in comms, they MUST be preceded or followed
 ---
 
 ## Changelog
+
+- **2026-02-13 · v1.2 · LOCKED · moat refinement + frozen strategic hierarchy** — per owner directive:
+  1. Added **§ 2.0 · Frozen Strategic Hierarchy** (TODAY → WEDGE → DIFFERENTIATION → EXPANSION → PLATFORM → VISION) as the load-bearing spine of every NivXRay narrative — do not rewrite / paraphrase away from it
+  2. Added **§ 2.6 · Canonical architecture example** — Windows/Sysmon near-term path + multi-domain long-term path — proving the platform vision inherits the same evidence spine (not vaporware)
+  3. Refined **§ 7 Moat** from "structural moat / cannot copy" absolutes to **defensibility hypotheses** — the moat is the **combination**, not any single pillar
+     - Pillar 1 (Deterministic-first): reframed from "impossible for competitors to retrofit" to "prohibitively expensive to retrofit at scale · foundational design choice, not a feature bolt-on"
+     - Added an explicit *"NOT a moat"* row: "Deterministic-first is impossible for competitors to copy" (over-claim) → say *prohibitively expensive to retrofit* instead
+     - Every pillar now describes (a) what it gives us + (b) the defensibility hypothesis
+  4. Status upgraded to **LOCKED** as the NivXRay posture for investor-pitch work
 
 - **2026-02-13 · v1.1 · platform-vision layer added** — per owner directive, added explicit distinction between:
   - **Wedge (TODAY · 🟢):** Evidence-Driven AI SOC Investigation
