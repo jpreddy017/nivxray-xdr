@@ -48,6 +48,9 @@ async def download_investor_deck_v1_3():
 
 
 _MASTER_POSITIONING = Path("/app/memory/NivXRay_Strategic_Master_Positioning.md")
+_360_POSTURE       = Path("/app/memory/NivXRay_360_Product_Market_Posture.md")
+_360_EVIDENCE      = Path("/app/memory/NivXRay_360_Evidence_Matrix.md")
+_360_ARCHITECTURE  = Path("/app/memory/NivXRay_360_Architecture.md")
 
 
 @router.get("/master-positioning.md", response_class=PlainTextResponse)
@@ -58,6 +61,30 @@ async def download_master_positioning():
         raise HTTPException(status_code=404,
                              detail="Master positioning not seeded yet")
     return _MASTER_POSITIONING.read_text(encoding="utf-8")
+
+
+@router.get("/360-posture.md", response_class=PlainTextResponse)
+async def download_360_posture():
+    """40-section Product · Market · Investor Posture audit + Executive Scorecard."""
+    if not _360_POSTURE.exists():
+        raise HTTPException(status_code=404, detail="360 posture not seeded yet")
+    return _360_POSTURE.read_text(encoding="utf-8")
+
+
+@router.get("/360-evidence.md", response_class=PlainTextResponse)
+async def download_360_evidence():
+    """12 flat evidence-lookup tables backing every audit claim."""
+    if not _360_EVIDENCE.exists():
+        raise HTTPException(status_code=404, detail="360 evidence not seeded yet")
+    return _360_EVIDENCE.read_text(encoding="utf-8")
+
+
+@router.get("/360-architecture.md", response_class=PlainTextResponse)
+async def download_360_architecture():
+    """Current + target NivXRay architecture with data-flow trace + storage inventory."""
+    if not _360_ARCHITECTURE.exists():
+        raise HTTPException(status_code=404, detail="360 architecture not seeded yet")
+    return _360_ARCHITECTURE.read_text(encoding="utf-8")
 
 
 
