@@ -1,7 +1,7 @@
 # NivXRay · Strategic Master Positioning Document
 
-**Status:** v1.0 · single source of truth for all future investor / product / GTM narrative
-**Date:** 2026-02-13
+**Status:** v1.1 · single source of truth for all future investor / product / GTM narrative
+**Date:** 2026-02-13 (v1.0 initial · v1.1 platform-vision layer added same day per owner directive)
 **Basis:** 360° audit trio — every strategic claim cites the corresponding audit line
 - `NivXRay_360_Product_Market_Posture.md` (40 sections + Executive Scorecard) — abbreviated **[POSTURE]**
 - `NivXRay_360_Evidence_Matrix.md` (12 flat evidence tables) — abbreviated **[EVIDENCE]**
@@ -37,7 +37,9 @@
 
 ## 1 · Executive One-Liner
 
-**Master positioning statement (use verbatim across all channels):**
+### 1.1 TODAY · what NivXRay actually is (verified · say freely)
+
+**Master positioning statement (current wedge — use verbatim across all channels TODAY):**
 
 > **NivXRay is an Evidence-Driven AI SOC Investigation platform.**
 > It sits on top of any organisation's existing security stack — SIEM, XDR, EDR, cloud, identity, network — and turns fragmented evidence into a fully-cited, deterministic, ATT&CK-mapped attack reconstruction with an evidence-backed verdict.
@@ -48,39 +50,133 @@
 >
 > We do not replace Splunk. We do not replace CrowdStrike. We plug into what you already own and give your analysts something they have never had — a deterministic, evidence-cited investigation layer that reconstructs what actually happened.
 
+### 1.2 TOMORROW · what NivXRay evolves into (target · clearly labelled 🔵 PLANNED · do NOT claim as today)
+
+**Long-term platform statement (target category · use with a "vision" or "roadmap" label):**
+
+> **NivXRay is evolving into an Evidence-Driven Security Operations Platform.**
+> The initial Investigation wedge expands into a unified Prevent · Detect · Correlate · Investigate · Decide · Respond · Learn platform, absorbing the workloads of SIEM, EDR, XDR and SOAR under a single canonical evidence + investigation-graph spine — while preserving deterministic-first architecture and evidence provenance as invariants.
+
+**Reading rules (non-negotiable):**
+- 🟢 § 1.1 (TODAY) — cite freely, backed by the 360° audit trio
+- 🔵 § 1.2 (TOMORROW) — label as vision/roadmap in every use; never mix into a "today" sentence
+- 🔴 Do NOT write a sentence that reads *"NivXRay does A, B and C"* where A is verified and C is § 1.2 platform territory
+
+
 ---
 
 ## 2 · Product Definition · Category · Positioning
 
-### 2.1 Category (new-slot claim — refined per user directive)
+### 2.1 Category — dual layer
 
-**NivXRay defines a new SOC sub-category: Evidence-Driven AI SOC Investigation.**
+NivXRay operates a **two-tier category strategy**:
+
+| Tier | Category label | Timing | Status |
+|---|---|---|---|
+| **Wedge (TODAY)** | Evidence-Driven **AI SOC Investigation** | current + 12 months | 🟢 verified via 360° audit |
+| **Platform (TOMORROW)** | Evidence-Driven **Security Operations Platform** | 12-36 months | 🔵 vision · explicitly labelled roadmap |
+
+> **Category strategic principle:** we enter the market under the *AI SOC Investigation* label (immediate buyer awareness · easy to explain · zero over-claim), and we own that category by executing the *Security Operations Platform* vision behind it. Both labels live under the same brand promise — **"Verdict, cited. Every time."**
+
+### 2.2 What NivXRay is NOT (existing categories — relationships)
 
 This is distinct from — and complementary to — existing categories:
 
-| Existing category | NivXRay is NOT | Relationship |
-|---|---|---|
-| SIEM (Splunk / Sentinel / QRadar / Elastic) | not a log platform | ingests from it |
-| XDR (Palo Alto XSIAM / CrowdStrike Falcon / Sentinel XDR) | not a telemetry platform | ingests alerts + artefacts from it |
-| EDR (CrowdStrike / SentinelOne / Defender) | not an endpoint agent | consumes its detections |
-| SOAR (XSOAR / Torq / Tines) | not an orchestration platform | can feed verdicts into it |
-| AI SOC copilot (Dropzone AI / Prophet / Radiant) | not an LLM chatbot | competes as *deterministic-first alternative* |
-| Sandbox (Any.Run / Joe / VMRay) | not a detonation platform | complements as *paste-time deterministic reasoning* |
-| Investigation platforms (IBM Resilient / D3) | not case-mgmt SaaS | complements with evidence-driven reasoning |
+| Existing category | NivXRay is NOT (TODAY) | Relationship TODAY | Relationship TOMORROW (🔵 target) |
+|---|---|---|---|
+| SIEM (Splunk · Sentinel · QRadar · Elastic) | not a log platform | ingests from it | 🔵 absorbs Correlation + Investigation workloads |
+| XDR (Palo Alto XSIAM · CrowdStrike Falcon · Sentinel XDR) | not a telemetry platform | ingests alerts + artefacts | 🔵 absorbs cross-domain correlation |
+| EDR (CrowdStrike · SentinelOne · Defender) | not an endpoint agent | consumes its detections | 🔵 consumes + reasons over endpoint telemetry natively |
+| SOAR (XSOAR · Torq · Tines) | not orchestration | can feed verdicts into it | 🔵 SOAR-lite response gated on verdict-confidence |
+| AI SOC copilot (Dropzone AI · Prophet · Radiant) | not an LLM chatbot | competes as *deterministic-first alternative* | 🔵 expands into full Investigation Platform |
+| Sandbox (Any.Run · Joe · VMRay) | not a detonation platform | complements as *paste-time deterministic reasoning* | 🔵 hosts artefact analysis pipeline natively |
+| Investigation platforms (IBM Resilient · D3) | not case-mgmt SaaS | complements with evidence-driven reasoning | 🔵 absorbs case-management |
 
-### 2.2 Ideal-customer-profile lens
+### 2.3 Strategic hierarchy — canonical diagram (owner-authored · reuse across all comms)
+
+```
+                              NivXRay
+                                 │
+                        Evidence-Driven
+                       Security Operations
+                            Platform
+                                 │
+          ┌──────────────────────┼──────────────────────┐
+          │                      │                      │
+        PREVENT               DETECT                RESPOND
+       (🔵 roadmap)          (🔵 roadmap)           (🔵 SOAR-lite roadmap)
+          │                      │                      │
+          │                    SIEM                  SOAR / XSOAR
+          │                    EDR                   Automation
+          │                    XDR                   Actions
+          │                      │                      │
+          └──────────────────────┼──────────────────────┘
+                                 ↓
+                    INVESTIGATE / CORRELATE
+                          (🟢 TODAY · wedge)
+                                 │
+                       Evidence Intelligence
+                                 │
+                       Investigation Graph
+                                 │
+                       Attack Reconstruction
+                                 │
+                          Verdict / Risk
+                                 │
+                           Analyst / AI
+
+Security domains that flow into the platform (🔵 target — none universally covered as native adapters today):
+  Identity · Network · Cloud / IAM · Web / API / OWASP · Database · Email · Endpoint · Malware
+```
+
+### 2.4 The Product Loop (canonical · reuse across all comms)
+
+```
+   Collect  →  Detect  →  Correlate  →  Investigate  →  Decide  →  Respond  →  Learn
+   🔵 target   🔵 target    🟡 partial     🟢 TODAY       🟢 TODAY   🔵 roadmap   🔵 roadmap
+```
+
+- **Collect (🔵 target)** — native ingest from SIEM · EDR · XDR · cloud audit · identity · network · email · web · malware · database
+- **Detect (🔵 target)** — native YARA/Sigma execution · rule-authoring · in-stream detection
+- **Correlate (🟡 partial)** — ICE Rule R21 already correlates per-request; cross-session Investigation Knowledge Graph is Phase 3
+- **Investigate (🟢 TODAY)** — 9-card brief · 8-tab L4 · Evidence Explorer · NIST IR export — verified in 360° audit
+- **Decide (🟢 TODAY)** — evidence-backed Verdict + Confidence Provenance (Rule R22) — verified
+- **Respond (🔵 roadmap)** — SOAR-lite webhook actions gated on verdict-confidence threshold (Phase 4)
+- **Learn (🔵 roadmap)** — cross-session Investigation Knowledge Graph · behaviour registry · opt-in cross-tenant intel (Phase 3-4)
+
+> **Every product decision must slot into a specific loop stage. Every investor slide must state which stage(s) the pitched capability lives in.**
+
+### 2.5 Security domain coverage — honest matrix
+
+Cross-reference: **[POSTURE § 5, 17]** for the today-column · this table extends with target columns for the platform vision.
+
+| Security domain | TODAY (verified) | 12-mo target | 36-mo target |
+|---|---|---|---|
+| **Endpoint** (PS · CMD · Bash · Python · JS · VBS AST · LOLBAS) | 🟢 deep on paste | + Sysmon EVTX · Event 11 · Event 22 adapters | + native EDR agent stream |
+| **Malware artefact** (PE · ELF · Office macro · PDF · recursive decode) | 🟢 4 analyzers + 12-layer decode | + YARA/Sigma execution engine | + full detonation-alternative reasoning |
+| **Identity** (Okta · Entra · AD · valid-account abuse) | 🟡 MITRE mapping only · no IAM adapter | + Okta + Entra adapter | + identity-graph correlation |
+| **Network** (DNS · proxy · NetFlow · IDS/IPS · NDR) | 🟡 IOC-level only | + DNS Event 22 adapter | + native NetFlow / Zeek log ingest |
+| **Cloud / IAM** (CloudTrail · Azure Activity · GCP Audit) | ❌ no adapter | + CloudTrail adapter | + full cross-cloud audit |
+| **Web / API / OWASP** (WAF · access logs · API abuse) | ❌ | 🔵 Phase 3 | + full web-attack replay |
+| **Database** (DB audit · anomalous query) | ❌ | 🔵 Phase 3 | + DB-audit correlation |
+| **Email** (`.eml` adapter) | 🟢 headers + body + links | + phishing-URL enrichment | + inline mailbox integration |
+| **Security-product ingest** (XDR JSON · EDR alert JSON · CSV EDR) | 🟡 CSV ✅ · XDR JSON semantic hardening pending (Issue #1) | + native XDR connector #1 + #2 | + 6-10 native connectors |
+
+**Reading rule:** the "TODAY" column is investable evidence. The "12-mo / 36-mo target" columns are the platform roadmap. Never conflate.
+
+### 2.6 Ideal-customer-profile lens
 See **[POSTURE § 27]** for the full four-segment expansion. Priority order:
 1. **MSSP L1/L2 analyst leverage** — highest immediate demand, easiest proof
 2. **IR / consulting boutiques** — NIST IR export is a natural wedge
 3. **Mid-market SOC (200-2000 endpoints)** — analyst-productivity fit
 4. **Analyst-side layer on enterprise XDR** — Series-A expansion segment
 
-### 2.3 Category battle-cry (candidate — use across all comms)
+### 2.7 Category battle-cry (candidate — use across all comms)
 > **"Verdict, cited. Every time."**
 
 Sub-taglines by audience:
-- Investor: *"Deterministic AI SOC — the alternative to hallucinating copilots."*
-- CISO / SOC Director: *"Every finding your analysts write is now defensible in evidence."*
+- Investor: *"Deterministic AI SOC today. Evidence-Driven Security Operations Platform tomorrow."*
+- CISO / SOC Director: *"Every finding your analysts write is now defensible in evidence — and every domain you own will one day flow into the same investigation graph."*
 - MSSP: *"Junior analyst throughput, senior analyst quality — without the LLM liability."*
 - IR consultant: *"Reconstruct any incident from evidence. Export a NIST-standard report."*
 
@@ -341,12 +437,26 @@ Cross-reference: **[POSTURE § 31, 32]**. This section refines the audit's timin
 - GraphQL API for analyst-tooling integrations
 - SOC-2 Type-2 · ISO-27001 path
 
-### 6.5 Phase 5 · Broader Security Investigation Platform · 18-36 months
+### 6.5 Phase 5 · Evidence-Driven Security Operations Platform · 18-36 months
 
-- Full platform: investigation + hunting + rule authoring + reporting + response-lite
-- Category leadership in Evidence-Driven AI SOC
-- 50+ enterprise · 30+ MSSPs · $10M-$25M ARR
-- Series-B set-up
+**Vision-level goal:** NivXRay category-owns Evidence-Driven Security Operations. The initial Investigation wedge has expanded upward into Prevent · Detect · Correlate · Respond · Learn, each still governed by the same deterministic-first + evidence-provenance axioms.
+
+- **Native ingest across the full Collect stage** — SIEM saved-searches · XDR/EDR native · cloud audit (CloudTrail · Azure Activity · GCP Audit) · identity (Okta · Entra · AD-DS) · network (Zeek · NetFlow · DNS) · email · web / API · database audit · malware artefact stream
+- **Native Detect stage** — YARA / Sigma / custom-rule execution against ingested telemetry, evidence emitted into the same canonical model
+- **SOAR-Lite Response** — verdict-gated automated actions (contain endpoint · disable account · block IOC) via webhook + IdP integrations
+- **Learn stage · full cross-tenant threat-intel network effect** — opt-in tenant-anonymised behaviour registry; each investigation strengthens the platform
+- **Detection rule authoring UI** — turn observed behaviour into reusable YARA/Sigma rules
+- **On-prem / air-gapped SKU** — federal + regulated
+- **GraphQL analyst API** — programmatic access for downstream tooling
+- **SOC-2 Type-2 · ISO-27001 · HIPAA-ready control set**
+- **Category perception target:** analysts search for "evidence-driven security operations" and NivXRay is the default
+
+**Non-goals even at Phase 5:**
+- ❌ Never abandon deterministic-first architecture (LLM stays overlay-only)
+- ❌ Never emit a claim without evidence citation (governance discipline preserved from Phase 1)
+- ❌ Never become an LLM-first copilot even at platform scale
+
+**Exit target:** 50+ enterprise · 30+ MSSPs · $10M-$25M ARR · Series-B set-up.
 
 ### 6.6 Roadmap principles (governance)
 
@@ -455,36 +565,63 @@ Cross-reference: **[POSTURE § 28]**
 
 ## 9 · 3-YEAR VISION — What NivXRay Becomes
 
-**Vision statement:**
+**Vision statement (dual-layer · both must appear together in comms):**
 
-> By 2029, NivXRay is the deterministic-first AI SOC investigation platform.
-> The analyst-side reasoning layer on top of any XDR / SIEM / EDR.
-> 20+ native connectors · cross-session investigation knowledge graph · negative-explainability verdicts · multi-tenant MSSP-ready · SOC-2 Type-2 compliant.
-> Deployed across 50+ enterprises and 30+ MSSPs.
-> Winning the Evidence-Driven AI SOC category on the promise:
+> **Today (🟢 verified):** NivXRay is the deterministic-first AI SOC Investigation platform — an analyst-side reasoning layer that sits on top of the customer's existing security stack.
+>
+> **Tomorrow (🔵 vision · label as roadmap):** NivXRay evolves into the Evidence-Driven Security Operations Platform — a unified Prevent · Detect · Correlate · Investigate · Decide · Respond · Learn platform that absorbs the workloads of SIEM · EDR · XDR · SOAR under a single canonical evidence + investigation-graph spine, while preserving deterministic-first architecture and evidence provenance as invariants across every stage.
+>
+> Deployed across 50+ enterprises and 30+ MSSPs by 2029, winning both the AI SOC Investigation wedge (Year 1-2) and the Evidence-Driven Security Operations Platform category (Year 3+), on the promise:
 >
 > **"Verdict, cited. Every time."**
 
-### 9.1 3-year scoreboard
+### 9.1 3-year scoreboard (dual-lens)
 
-| Metric | Year 1 (2027) | Year 2 (2028) | Year 3 (2029) |
+| Metric | Year 1 (2027) — Wedge | Year 2 (2028) — Expansion | Year 3 (2029) — Platform |
 |---|---|---|---|
 | Paying customers | 10 | 30 | 80 |
 | MSSP partners | 3 | 10 | 30 |
 | Enterprise references | 1 | 5 | 15 |
-| Native connectors | 2 | 6 | 15 |
+| Native connectors (Collect stage) | 2 | 6 | 15 |
 | Adapters (structured input) | 5 | 12 | 25 |
+| Product loop stages fully live | Investigate · Decide | + Correlate (cross-session) | + Detect (native) · Respond (SOAR-lite) · Learn |
+| Security domains natively covered | Endpoint · Malware · Email | + Identity · Network + Cloud | + Web/API · Database + full stack |
 | ARR | $500k-$1M | $2M-$5M | $10M-$25M |
 | Team | 8-12 | 20-30 | 50-80 |
-| Compliance | SOC-2 Type-1 | SOC-2 Type-2 | ISO-27001 |
-| Category perception | "interesting" | "credible" | "default choice for evidence-driven investigation" |
+| Compliance | SOC-2 Type-1 | SOC-2 Type-2 | ISO-27001 · HIPAA-ready |
+| Category perception | "interesting AI SOC wedge" | "credible investigation platform" | "default choice for evidence-driven security operations" |
 
-### 9.2 Category ownership definition of done
+### 9.2 Category ownership · definition of done (both categories)
 
-- Analysts search for "deterministic AI SOC" and find NivXRay first
+**Wedge category (Year 1-2 · Evidence-Driven AI SOC Investigation):**
+- Analysts search "deterministic AI SOC" and find NivXRay first
 - Investors classify us in a new sub-category — not lumped with LLM copilots
 - MSSPs cite NivXRay as their reference investigation platform
-- IR reports produced by NivXRay are quoted by name in customer-facing incident post-mortems
+- IR reports produced by NivXRay are quoted by name in customer post-mortems
+
+**Platform category (Year 3+ · Evidence-Driven Security Operations Platform):**
+- Gartner / Forrester / IDC coverage lists NivXRay under a new SecOps sub-category
+- RFPs from mid-market and enterprise buyers cite NivXRay under "SOC platform" alongside XDR/SIEM incumbents
+- MSSPs deploy NivXRay as their primary SecOps platform (not just investigation layer)
+- Analysts write and detect rules native to NivXRay, not translated in from Splunk/Sentinel
+- The Product Loop (Collect → Detect → Correlate → Investigate → Decide → Respond → Learn) fully runs inside NivXRay for at least one flagship customer
+
+### 9.3 Why the platform vision is credible (not vaporware)
+
+Every element of the platform vision is built on architectural invariants that already exist:
+
+| Platform capability | Invariant it inherits from today | Evidence |
+|---|---|---|
+| Native ingest (Collect) | 8 adapters + IUE 761 loc + universal-on-paste | **[EVIDENCE Table C]** |
+| Deterministic detection (Detect) | YARA/Sigma **extraction** works today; execution engine is additive not architectural | `report_extraction.yara_rules / sigma_rules` verified live |
+| Correlation (Correlate) | ICE Rule R21 correlate() 1385 loc — single deterministic pass with 10 output blocks | `services/ice/correlate.py:701` |
+| Investigate | 9-card + 8-tab L4 + Evidence Explorer + NIST IR — all shipped | **[EVIDENCE B24-B33]** |
+| Decide | Rule R22 verdict + confidence provenance | `services/session/summary_narrative.py` |
+| Respond (SOAR-lite) | Webhook + verdict-gating = additive over existing verdict pipeline | Phase 4 · additive |
+| Learn (cross-session graph) | `_build_incident_graph()` already produces per-request graph; sidecar persistence is next step | `correlate.py:1075` + `NIVX_EVIDENCE_GRAPH=sidecar` |
+
+**Investable narrative:** every future platform stage is an *addition* to the deterministic-first architecture — not a rebuild. Deterministic-first + evidence-provenance are the invariants that scale from today's wedge to tomorrow's platform.
+
 
 ---
 
@@ -535,11 +672,11 @@ Every slide has:
 - Say: "3 design-partner MSSPs by end of Phase 1"
 - Do NOT say: "$1B TAM tomorrow"
 
-**Slide 8 · Expansion**
-> Investigation → threat hunting → cross-domain correlation → enterprise security investigation platform.
-- Anchor: § 6.1-6.5 roadmap
-- Say: 5-phase roadmap · concrete Phase 1 timeline
-- Do NOT say: "we become the next Splunk" (over-claim)
+**Slide 8 · Expansion — from Wedge to Platform**
+> Investigation → threat hunting → cross-domain correlation → **Evidence-Driven Security Operations Platform** (SIEM + EDR + XDR + SOAR workloads under one canonical evidence + investigation-graph spine).
+- Anchor: § 2.3 hierarchy diagram · § 2.4 Product Loop · § 6.1-6.5 roadmap · § 9 dual-lens scoreboard
+- Say: "Investigation is our wedge in Year 1-2. Security Operations Platform is our category by Year 3 — every stage inheriting the deterministic-first invariant."
+- Do NOT say: "we become the next Splunk" (over-claim; frame as *category expansion*, not vendor displacement)
 
 **Slide 9 · Moat**
 > Canonical evidence · investigation knowledge graph · semantic knowledge · deterministic correlation · governance discipline (equivalence harness).
@@ -548,9 +685,11 @@ Every slide has:
 - Do NOT say: "we have IP" (no patents visible)
 
 **Slide 10 · Vision + Ask**
-> By 2029, the default choice for evidence-driven investigation across 50+ enterprises and 30+ MSSPs. Raising [seed amount] to fund Phase 1 + Phase 2 execution.
-- Anchor: § 9 vision · § 6.1-6.2 roadmap
-- Say: verified milestones from § 3.2 metrics
+> Year 1-2: category-own Evidence-Driven AI SOC Investigation.
+> Year 3+: expand into the Evidence-Driven Security Operations Platform — unified Prevent · Detect · Correlate · Investigate · Decide · Respond · Learn.
+> By 2029, deployed across 50+ enterprises and 30+ MSSPs. Raising [seed amount] to fund Phase 1 + Phase 2 execution.
+- Anchor: § 9 dual-lens vision · § 6.1-6.2 near-term roadmap
+- Say: verified milestones from § 3.2 metrics + the Product Loop diagram from § 2.4
 - Do NOT say: exit multiple or valuation-driven pitch
 
 ### 10.1 Deck governance
@@ -563,9 +702,9 @@ Every slide has:
 
 Cross-reference: **[POSTURE § 38]**. This is the exhaustive list. Use it in every comms draft.
 
-### 11.1 🟢 Green — say freely (audit-verified)
+### 11.1 🟢 Green — say freely (audit-verified · use unconditionally)
 
-- "Evidence-Driven AI SOC Investigation"
+- "Evidence-Driven AI SOC Investigation" (wedge category · today)
 - "Deterministic-first architecture"
 - "Every finding cites its evidence"
 - "9-card Analyst Brief with evidence provenance"
@@ -583,6 +722,20 @@ Cross-reference: **[POSTURE § 38]**. This is the exhaustive list. Use it in eve
 - "Sits on top of your existing security stack"
 - "Verdict, cited. Every time."
 
+### 11.1b 🟢🔵 Green with roadmap-label (platform vision · say only with an explicit "vision" or "roadmap" or "target" modifier)
+
+Whenever any of these phrases appear in comms, they MUST be preceded or followed by one of: *vision · roadmap · target · Phase 3+ · by 2029 · we are evolving into*.
+
+- "Evidence-Driven Security Operations Platform" (target category · Phase 5)
+- "Unified Prevent · Detect · Correlate · Investigate · Decide · Respond · Learn platform" (target)
+- "Absorbs SIEM · EDR · XDR · SOAR workloads under one canonical spine" (target)
+- "Product Loop: Collect → Detect → Correlate → Investigate → Decide → Respond → Learn" (mixed — cite stage-by-stage · see § 2.4)
+- "Cross-session Investigation Knowledge Graph" (target · Phase 3)
+- "Native XDR connectors" (target · Phase 2)
+- "Full security-domain coverage: identity · network · cloud · web · database · email · endpoint · malware" (target · Phase 2-5)
+- "SOAR-lite verdict-gated response" (target · Phase 4)
+- "Cross-tenant threat-intel network effect" (target · Phase 4)
+
 ### 11.2 🟡 Yellow — qualify carefully
 
 - "MSSP-ready" → say "MSSP wholesale motion planned for Phase 3; multi-tenant scaffolding shipping in Phase 1"
@@ -590,6 +743,9 @@ Cross-reference: **[POSTURE § 38]**. This is the exhaustive list. Use it in eve
 - "Deployed in production" → say "preview-deployed and technically ready; first paying pilots targeted for Phase 1"
 - "Universal input" → say "universal on paste + URL; structured-log adapter roadmap in Phases 2-3"
 - "Sits on top of any security stack" → say "sits on top of your existing stack via analyst paste today; native connectors on roadmap"
+- "Full Security Operations Platform" → **ALWAYS** qualify as *"target platform / Phase 5 vision"* — never bare
+- "Replaces SIEM / EDR / XDR" → say "absorbs Investigation and Correlation workloads from SIEM/XDR under the Evidence-Driven SecOps Platform by 2029 — customers keep existing telemetry pipelines; we own the investigation graph"
+- "SIEM / EDR / XDR / SOAR capabilities" → **NEVER** bare · always say *"target platform capabilities · Phase 5 vision"*
 
 ### 11.3 🔴 Red — do NOT say
 
@@ -601,9 +757,18 @@ Cross-reference: **[POSTURE § 38]**. This is the exhaustive list. Use it in eve
 - "Cross-tenant threat-intelligence network effect" (not built)
 - "SOC-2 compliant" (not started)
 - "Multi-tenant SaaS" (single-tenant only)
-- "Replaces Splunk / CrowdStrike / etc." (never · we complement)
+- "Replaces Splunk / CrowdStrike / etc." (never · we complement · absorb workloads over time via SecOps Platform vision)
 - "N events per second at p95 latency" (no fresh benchmarks)
 - Any specific external-customer name (none verified)
+- **Absolute red-lines added in v1.1 (platform vision guard-rail):**
+  - "NivXRay is a SIEM / EDR / XDR / SOAR" (present tense — never)
+  - "NivXRay has native SIEM ingest / EDR agent / XDR telemetry" (present tense — never)
+  - "NivXRay detects malware / lateral movement / phishing / cloud abuse" (present tense · in live telemetry — never · we *analyse* artefacts, we do not *detect* in live telemetry)
+  - "NivXRay covers identity / network / cloud / web / database / email domains" (present tense — never; today = endpoint + malware + email deep · other domains 🔵 target)
+  - "NivXRay responds automatically to incidents" (present tense — never · SOAR-lite is Phase 4)
+  - Any sentence that reads *"NivXRay is a full-fledged SIEM+EDR+XDR+SOAR platform"* in the present tense — **hard red line** · always qualify with vision/target/Phase 5
+
+
 
 ---
 
@@ -669,6 +834,11 @@ Cross-reference: **[POSTURE § 38]**. This is the exhaustive list. Use it in eve
 ---
 
 ## Changelog
+
+- **2026-02-13 · v1.1 · platform-vision layer added** — per owner directive, added explicit distinction between:
+  - **Wedge (TODAY · 🟢):** Evidence-Driven AI SOC Investigation
+  - **Platform (TOMORROW · 🔵):** Evidence-Driven Security Operations Platform
+  Added § 1.2 (tomorrow one-liner) · § 2.1 dual-category table · § 2.3 strategic hierarchy diagram (PREVENT · DETECT · RESPOND on top of INVESTIGATE / CORRELATE) · § 2.4 Product Loop (Collect → Detect → Correlate → Investigate → Decide → Respond → Learn with per-stage status) · § 2.5 security-domain coverage matrix (Endpoint · Malware · Identity · Network · Cloud/IAM · Web/API/OWASP · Database · Email) with today / 12-mo / 36-mo columns. Rewrote § 6.5 Phase 5 as the full SecOps Platform target. Rewrote § 9 vision as dual-lens (Year 1-2 wedge / Year 3+ platform). Added § 9.3 credibility table showing every platform capability inherits an existing architectural invariant. Added § 11.1b (roadmap-qualified green) and 6 new absolute red-lines to § 11.3 (no present-tense claims of SIEM/EDR/XDR/SOAR capability). Slide 8 and Slide 10 of the investor narrative updated to the wedge-then-platform expansion.
 
 - **2026-02-13 · v1.0 · initial** — reconciled from 360° audit trio + user's Strategic Refinements message. Category: Evidence-Driven AI SOC Investigation. Wedge codified. Roadmap re-prioritised (multi-tenant + RBAC + L4 projections + XDR classification in Phase 1; native connectors deferred to Phase 2 pending customer signal). Moat re-framed as four pillars. Language discipline codified in § 11.
 

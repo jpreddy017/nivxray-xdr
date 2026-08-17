@@ -24,7 +24,12 @@
 >
 > **PRD content principle re-enforced:** PRD = intended · DD (this trio) = actual · Pitch deck = credible investor narrative. No collapse of layers.
 
-> **2026-02-13 · Session-3 addendum · 🟢 SHIPPED — Strategic Master Positioning Document**
+> **2026-02-13 · Session-3 addendum #2 · 🟢 SHIPPED — Master Positioning v1.1 (platform-vision layer)**
+> Per owner directive, updated `/app/memory/NivXRay_Strategic_Master_Positioning.md` to v1.1 with explicit **wedge vs platform** distinction:
+> - **Wedge (TODAY · 🟢):** Evidence-Driven AI SOC Investigation
+> - **Platform (TOMORROW · 🔵):** Evidence-Driven Security Operations Platform (SIEM + EDR + XDR + SOAR workloads under one canonical evidence + investigation-graph spine)
+> Added: § 1.2 tomorrow one-liner · § 2.3 strategic hierarchy (PREVENT · DETECT · RESPOND on top of INVESTIGATE/CORRELATE) · § 2.4 Product Loop (Collect → Detect → Correlate → Investigate → Decide → Respond → Learn) · § 2.5 security-domain matrix (Endpoint · Malware · Identity · Network · Cloud/IAM · Web/API/OWASP · Database · Email) with today/12-mo/36-mo columns. Rewrote § 6.5 Phase 5 as full SecOps Platform target. Rewrote § 9 vision as dual-lens (Year 1-2 wedge / Year 3+ platform). Added § 9.3 credibility inheritance table. Language discipline (§ 11) hardened with § 11.1b roadmap-qualified green + 6 new absolute red-lines forbidding present-tense SIEM/EDR/XDR/SOAR claims.
+
 > Following user's strategic refinements on the audit outcome, produced `/app/memory/NivXRay_Strategic_Master_Positioning.md` (682 lines · 35 KB) as the **single source of truth from which the pitch deck, landing page, customer collateral, and all comms generate — not the reverse.**
 >
 > **Category codified:** Evidence-Driven AI SOC Investigation (not "AI SOC copilot" — refined per user directive).
