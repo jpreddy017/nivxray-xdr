@@ -807,21 +807,46 @@ Cross-reference: **[POSTURE § 28]**
 >
 > **"Verdict, cited. Every time."**
 
-### 9.1 3-year scoreboard (dual-lens)
+### 9.1 Phase-based scoreboard · funding-accelerated (v1.3.3 · owner-directed compression + explicit TODAY anchor)
 
-| Metric | Year 1 (2027) — Wedge | Year 2 (2028) — Expansion | Year 3 (2029) — Platform |
-|---|---|---|---|
-| Paying customers | 10 | 30 | 80 |
-| MSSP partners | 3 | 10 | 30 |
-| Enterprise references | 1 | 5 | 15 |
-| Native connectors (Collect stage) | 2 | 6 | 15 |
-| Adapters (structured input) | 5 | 12 | 25 |
-| Product loop stages fully live | Investigate · Decide | + Correlate (cross-session) | + Detect (native) · Respond (SOAR-lite) · Learn |
-| Security domains natively covered | Endpoint · Malware · Email | + Identity · Network + Cloud | + Web/API · Database + full stack |
-| ARR | $500k-$1M | $2M-$5M | $10M-$25M |
-| Team | 8-12 | 20-30 | 50-80 |
-| Compliance | SOC-2 Type-1 | SOC-2 Type-2 | ISO-27001 · HIPAA-ready |
-| Category perception | "interesting AI SOC wedge" | "credible investigation platform" | "default choice for evidence-driven security operations" |
+**Reading rule:** these are **phase milestones**, not calendar years. Column 1 is the verified TODAY state (2026-02-13). Columns 2-4 are funding-accelerated targets. Timing is a function of funding + team velocity. Strong seed round compresses Phase 1 to 6 months. Certain items (SOC-2 audit observation windows, enterprise sales cycles, reference-customer maturity) have irreducible time floors that money cannot fully compress.
+
+| Metric | 🟢 **PHASE 0 · TODAY** (verified 2026-02-13) | Phase 1 · 0–6 mo (Wedge) | Phase 2 · 6–12 mo (Expansion) | Phase 3 · 12–18 mo (Platform trajectory) |
+|---|---|---|---|---|
+| Paying customers | **0** (preview only) | 3–5 design partners | 15–25 | 30–50 |
+| MSSP partners | **0** (no LOIs verified) | 1–2 | 3–5 | 8–12 |
+| Enterprise references | **0** | 0–1 (pilot) | 2–3 | 5–8 |
+| Native XDR/EDR/SIEM connectors | **0** | 2 (first XDR) | 6+ | 12+ |
+| Adapters (structured input) | **8** (paste · URL · docx · pdf · eml · image · zip + base) | Sysmon EVTX + first 3 | 8+ | 15+ |
+| OSINT providers | **7** wired (VT · AbuseIPDB · URLhaus · urlscan · ThreatFox · MalwareBazaar · HybridAnalysis) | +OTX + 2 | same + coverage growth | same |
+| Product loop stages live | Investigate 🟢 · Decide 🟢 · Correlate 🟡 (per-request) | + Correlate (cross-session MVP) | + Detect (native) · Learn (in-tenant) | + Respond (SOAR-lite) |
+| Security domains covered (deep) | **Endpoint · Malware · Email** (adapter + AST) | + Identity | + Network · Cloud | + Web/API · Database |
+| ARR | **$0** | $200k–$500k | $1M–$2.5M | $3M–$7M |
+| Team | **founder-scale** (exact size confidential) | 8–15 | 20–30 | 35–50 |
+| Compliance | **none started** · SOC-2 gap analysis pending | SOC-2 T1 kickoff | SOC-2 T1 complete | SOC-2 T2 in progress |
+| Deployment | Preview at REACT_APP_BACKEND_URL · nivxray.nivxforge.com prod idle | Multi-tenant + RBAC live | Marketplace listings | HA · DR · multi-region |
+| Codebase | **1448 commits · 78 routers · 33 pages · 88 ADRs · 56 canonical tests · 608 passing** | + P0h-B/C/D + tenant model + first connectors | + distributed workers | + SOAR-lite · detection authoring |
+| Category perception | **new entrant · pre-revenue** | "credible wedge" | "credible investigation platform" | "emerging Security Operations Platform" |
+
+### 9.1a Compression floors — what capital **cannot** fully compress (honest disclosure)
+
+Capital accelerates engineering, hiring, sales velocity and pilot volume. But four floors resist compression:
+
+| Floor | Why it can't be bought | Realistic minimum |
+|---|---|---|
+| **SOC-2 Type-1 audit observation window** | Auditors require operating-controls-observation period | ~3–6 months from kickoff |
+| **SOC-2 Type-2** | Continuous evidence collection over time | 6–12 months minimum after T1 |
+| **Enterprise sales cycles** | Buyer procurement · security review · budget cycles | 3–9 months first-touch-to-close |
+| **Reference-customer maturity** | Customer must actually run the product before being a public reference | 3–6 months post-deployment |
+
+**Investor framing (honest):** *"Today, NivXRay is a pre-revenue technical product with a verified deterministic investigation core, 8 adapters, 7 OSINT providers, 608 passing tests, and a preview deployment. With a strong seed round, Phase 1's engineering deliverables land in 6 months. Compliance and reference-customer maturity extend into Phases 2–3. The engineering-to-outcome compression multiplier is roughly 3× with well-funded execution — but not proportional to capital beyond irreducible business floors."*
+
+### 9.1b Alternative long-term glide-path (if pace holds after Phase 3)
+
+- Phase 4 (18–24 mo): 60–100 customers · 15+ MSSPs · $8M–$15M ARR · SOC-2 T2 complete · ISO-27001 in progress · Marketplace listings live
+- Phase 5 (24–36 mo): 100+ customers · 30+ MSSPs · $15M–$30M ARR · Category-owning position in Evidence-Driven SecOps Platform
+
+**These out-year numbers remain aspirational and depend on the compounding of moat pillars (see § 7).** Not for the investor deck; for the internal roadmap only.
 
 ### 9.2 Category ownership · definition of done (both categories)
 

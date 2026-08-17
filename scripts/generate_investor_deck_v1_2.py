@@ -678,42 +678,71 @@ def slide_10_vision(prs, total):
     status_badge(s, Inches(11.15), Inches(0.85), "ROADMAP")
 
     # dual-line vision
-    add_text(s, MARGIN_L, Inches(2.5), Inches(11.9), Inches(0.5),
-             "Year 1–2  ·  own the Evidence-Driven Security Investigation wedge.",
-             size=14, color=TODAY_GREEN)
-    add_text(s, MARGIN_L, Inches(2.9), Inches(11.9), Inches(0.5),
-             "Year 3+   ·  expand the same evidence spine into a unified Security Operations Platform.",
-             size=14, color=ROADMAP_BLUE)
+    add_text(s, MARGIN_L, Inches(2.45), Inches(11.9), Inches(0.4),
+             "Today  ·  pre-revenue technical product · verified deterministic investigation core",
+             size=13, color=TODAY_GREEN, bold=True)
+    add_text(s, MARGIN_L, Inches(2.8), Inches(11.9), Inches(0.4),
+             "Year 1–2  ·  own the Evidence-Driven Security Investigation wedge",
+             size=13, color=GOLD)
+    add_text(s, MARGIN_L, Inches(3.15), Inches(11.9), Inches(0.4),
+             "Year 3+   ·  expand the same evidence spine into a unified Security Operations Platform",
+             size=13, color=ROADMAP_BLUE)
 
-    # target scoreboard 3 cols
+    # small "You Are Here" pointer
+    add_text(s, MARGIN_L, Inches(3.5), Inches(11.9), Inches(0.3),
+             "▼  You are here",
+             size=9, color=TODAY_GREEN, font=FONT_MONO, italic=True)
+
+    # target scoreboard 4 cols — Phase 0 TODAY + Phase 1-3 funding-accelerated
     cols = [
-        ("2027 · Wedge",   ["10 paying customers", "3 MSSP partners", "2 native connectors", "$500k–$1M ARR", "SOC-2 T1 started"]),
-        ("2028 · Expansion",["30 customers", "10 MSSP partners", "6 native connectors", "$2M–$5M ARR", "SOC-2 T2"]),
-        ("2029 · Platform",["80 customers", "30 MSSP partners", "15 native connectors", "$10M–$25M ARR", "ISO-27001 · HIPAA-ready"]),
+        ("Phase 0 · TODAY",      ["Verified 2026-02-13",
+                                   "0 paying customers",
+                                   "8 adapters · 7 OSINT",
+                                   "608 tests passing",
+                                   "Preview deployed"]),
+        ("Phase 1 · 0–6 mo",     ["Wedge · P0 execution",
+                                   "3–5 design partners",
+                                   "First 2 native connectors",
+                                   "$200k–$500k ARR",
+                                   "SOC-2 T1 kickoff"]),
+        ("Phase 2 · 6–12 mo",    ["Expansion · scale",
+                                   "15–25 customers",
+                                   "6+ connectors",
+                                   "$1M–$2.5M ARR",
+                                   "SOC-2 T1 complete"]),
+        ("Phase 3 · 12–18 mo",   ["Platform trajectory",
+                                   "30–50 customers",
+                                   "Distributed · x-session graph",
+                                   "$3M–$7M ARR",
+                                   "SOC-2 T2 in progress"]),
     ]
-    top = Inches(3.6); n = 3; gap = Inches(0.2)
+    top = Inches(3.85); n = 4; gap = Inches(0.15)
     cw = Emu((Inches(11.9).emu - gap.emu * (n - 1)) // n)
     ox = MARGIN_L
+    # 4-color strip: Phase 0 today-green, Phase 1 today-green, Phase 2 gold, Phase 3 roadmap-blue
+    strip_colors = [TODAY_GREEN, TODAY_GREEN, GOLD, ROADMAP_BLUE]
     for i, (title, items) in enumerate(cols):
         x = ox + i * (cw.emu + gap.emu)
         add_rect(s, Emu(int(x)), top, cw, Inches(2.7), fill=DIVIDER)
-        add_rect(s, Emu(int(x)), top, cw, Inches(0.4),
-                 fill=(TODAY_GREEN if i == 0 else (GOLD if i == 1 else ROADMAP_BLUE)))
+        add_rect(s, Emu(int(x)), top, cw, Inches(0.4), fill=strip_colors[i])
         add_text(s, Emu(int(x)), top + Inches(0.06), cw, Inches(0.35),
-                 title, size=12, bold=True, color=BG, font=FONT_MONO,
+                 title, size=11, bold=True, color=BG, font=FONT_MONO,
                  align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
         for j, item in enumerate(items):
-            add_text(s, Emu(int(x) + Inches(0.35).emu),
+            add_text(s, Emu(int(x) + Inches(0.25).emu),
                      top + Inches(0.6 + j * 0.4),
-                     Emu(cw.emu - Inches(0.7).emu), Inches(0.35),
-                     f"—  {item}", size=11, color=INK)
+                     Emu(cw.emu - Inches(0.5).emu), Inches(0.35),
+                     f"—  {item}", size=10, color=INK)
 
     # ask + closing
-    add_text(s, MARGIN_L, Inches(6.5), Inches(11.9), Inches(0.4),
+    add_text(s, MARGIN_L, Inches(6.4), Inches(11.9), Inches(0.35),
+             "Strong seed → 6-month execution. Certain floors (SOC-2 audit windows, enterprise sales cycles) are irreducible with capital.",
+             size=10, color=MUTED, font=FONT_MONO, italic=True, align=PP_ALIGN.CENTER)
+    add_text(s, MARGIN_L, Inches(6.7), Inches(11.9), Inches(0.35),
              "Raising seed round to fund Phase 1 + Phase 2 execution.",
              size=13, color=GOLD, align=PP_ALIGN.CENTER)
 
-    slide_footer(s, 11, total, "§ 9 dual-lens vision")
+    slide_footer(s, 11, total, "§ 9 phase-funding scoreboard")
 
 
 def slide_11_close(prs, total):
