@@ -30,6 +30,15 @@ async def download_deck():
 
 # ── Fixed user-supplied deck (screenshots patched in 2026-02-09) ─────
 _DECK_FIXED = Path("/app/backend/downloads/NivXRay-AIDE-Deck-fixed.pptx")
+_DUE_DILIGENCE = Path("/app/memory/NivXRay_Investor_Due_Diligence.md")
+
+
+@router.get("/due-diligence.md", response_class=PlainTextResponse)
+async def download_due_diligence():
+    if not _DUE_DILIGENCE.exists():
+        raise HTTPException(status_code=404,
+                             detail="Due-diligence document not seeded yet")
+    return _DUE_DILIGENCE.read_text(encoding="utf-8")
 
 
 @router.get("/nivxray-aide-fixed.pptx")
