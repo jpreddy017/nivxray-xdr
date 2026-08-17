@@ -117,13 +117,76 @@ The following sections require systematic file inspection I cannot complete in r
 ```
 1. Fork this chat OR start new chat with E2 agent
 2. Say "Hi"
-3. First message: "Read /app/memory/NivXRay_Investor_Due_Diligence.md.
-   Complete sections 5-30 with the same zero-hallucination rule.
-   Every claim must cite a file path or a pytest command output.
-   Anything unverifiable stays labelled ❌ or [UNKNOWN]."
-4. Budget: 4-6 hours systematic inspection
-5. Deliverable: this file, expanded to full 30 sections, ready for investor deck seed
+3. First message (paste verbatim):
+
+   Read /app/memory/NivXRay_Investor_Due_Diligence.md. Complete sections
+   5–30. Zero hallucination. Every claim must cite an actual file path,
+   API response, code reference, or pytest/benchmark command. Do not
+   infer implementation from PRDs, comments, UI labels, roadmap
+   documents, or intended architecture. Anything that cannot be
+   verified must remain [UNKNOWN], ❌, or [PLANNED]. Explicitly
+   distinguish implemented, partially implemented, planned, and not
+   implemented. Also verify the five critical honesty items already
+   identified in the seed and update them only if fresh evidence
+   contradicts them.
+
+   After completing Sections 5–30, produce a final section called
+   "§ 31 · Investor Truth Layer" containing:
+
+   1.  Top 10 capabilities that are GENUINELY IMPRESSIVE today
+       (each with file path proof)
+   2.  Top 10 capabilities that are CURRENTLY INCOMPLETE
+       (each with the specific gap — code path, missing feature, or
+       missing telemetry)
+   3.  Top 5 TECHNICALLY DEFENSIBLE NivXRay differentiators
+       (each with why a competitor cannot easily reproduce it)
+   4.  Top 5 CLAIMS WE MUST NOT MAKE to investors
+       (the "do not say this" list — critical for pitch discipline)
+   5.  Top 10 VERIFIED METRICS suitable for an investor deck
+       (only numbers pulled from live repo / pytest / API responses)
+   6.  Top 5 PRODUCT GAPS that should be on the roadmap
+       (each with rough engineering effort estimate)
+   7.  Three capabilities that could become NivXRay's STRONGEST
+       TECHNICAL MOAT (with the "why moat" explanation)
+   8.  ONE completely honest ONE-SENTENCE description of NivXRay TODAY
+       (no marketing adjectives)
+   9.  ONE honest 3-YEAR PRODUCT VISION
+       (aspirational but grounded in the current codebase's direction)
+   10. A recommended INVESTOR-DEMO WORKFLOW using ONLY functionality
+       that actually works today
+       (step-by-step: paste this input → click this button → see this
+       screen — every step must be reproducible on the current preview)
+
+   Budget: 4-6 hours systematic inspection.
+   Deliverable: the same file, fully populated, ready to seed an
+   honest investor pitch deck.
+
+4. When the fresh agent finishes, they'll produce a v1.0 document
+   ready for the following six-layer positioning split:
+     · NivXRay TODAY — what investors can see + verify
+     · NivXRay DIFFERENTIATION — technically special
+     · NivXRay ROADMAP — where we're going
+     · NivXRay MOAT — hard for competitors to reproduce
+     · NivXRay BUSINESS — why customers pay
+     · NivXRay INVESTMENT CASE — why an investor funds it
 ```
+
+---
+
+## Ground rules the fresh session MUST follow
+
+1. **No claim without a file path or reproducible command.** If a section reads "NivXRay does X" without `services/foo/bar.py:123` or `curl … | jq` proof, it is invalid.
+2. **PRDs, ADRs, and code comments describe intent — not implementation.** Only executable code and actual API responses count as verification.
+3. **UI labels are not evidence.** A tab labelled "Attack Story" does not prove the field is populated — that's already a verified counter-example (§ 2).
+4. **Preserve the target-architecture principles.** They stay in `PRD.md` as the roadmap direction. This document tells us which are realized TODAY.
+5. **If findings contradict this seed, the fresh session's evidence wins.** Update the row + note the contradiction in a "Changelog vs seed" note at the top.
+
+---
+
+## Where the target NivXRay architecture principles live (do NOT delete)
+- `/app/memory/PRD.md` — full principle statements + intended architecture
+- `/app/memory/adr/0014a…0014h.md` — ADRs for M0a-M0h migrations (target passive registry + thin router + provenance + equivalence)
+- **This DD file** tells us which of those principles are already realized in code vs still on the intent side.
 
 ---
 
