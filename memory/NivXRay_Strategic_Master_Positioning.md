@@ -417,13 +417,88 @@ Adapters shipping today (**[EVIDENCE Table C]**):
 
 Cross-reference: **[POSTURE § 25-27, 33]**
 
-### 4.1 The wedge statement (user-authored — codify it)
+### 4.1 The wedge statement (v1.3 · owner-authored — architecture-correct)
 
-> **Give NivXRay the evidence from your existing security stack — SIEM, XDR, EDR, cloud, identity, network — and let it reconstruct and investigate what actually happened.**
+> **NivXRay is an independent security analysis and investigation platform.**
 >
-> Deterministic. ATT&CK-mapped. Evidence-cited. NIST-report-ready.
+> **Collect directly. Investigate independently. Integrate everywhere.**
+>
+> NivXRay ingests telemetry, logs, artefacts and security events **directly** from the customer's environment — endpoint · network · identity · cloud · web/API · database · email · applications · artefacts — and can also consume evidence from existing SIEM · XDR · EDR platforms.
+>
+> It performs its own detection, correlation, investigation and evidence-backed verdict — deterministic and AI-optional — then integrates back with the organisation's SIEM · ITSM · SOAR to drive analyst visibility and response.
+>
+> **Existing SIEM/XDR/EDR are possible sources, not mandatory dependencies.**
 
-### 4.2 Why this wedge works
+### 4.2 What this replaces in the v1.2 wedge language
+
+The v1.2 phrase *"Give NivXRay the evidence from your existing security stack"* implied that NivXRay was a passive layer on top of SIEM/XDR/EDR. **That is wrong.** The corrected framing (v1.3) treats existing security platforms as one class of input, not the only class — and adds downstream integration back to those systems as a first-class product concern.
+
+**Today's verified reality vs the target ingestion / integration architecture:**
+
+| Component | TODAY (🟢 verified in 360° audit) | TARGET (🔵 roadmap) |
+|---|---|---|
+| Direct-from-source ingestion | 8 adapters: paste · URL · docx · pdf · eml · image · zip + prose recognition | Native adapters: Sysmon EVTX · Windows Event · EDR streams · Cloud audit · Identity (Okta/Entra) · Network (Zeek/NetFlow) · DNS · WAF · DB audit · Email API |
+| Consume-from-security-platform | Prose recognition of XDR alert JSON · CSV EDR export | Native connectors: SentinelOne · CrowdStrike · Defender · Sentinel XDR · Splunk saved-search · QRadar offense · Falcon LogScale |
+| Detection · Correlation · Investigation · Verdict (independent processing) | ICE Rule R21 · deterministic single-pass · 154 MITRE mappings · 11-field narrative · 9-card brief · 8-tab L4 session · NIST IR export | Cross-session Investigation Knowledge Graph · negative explainability · learned attack-pattern registry |
+| Downstream integration (out-bound) | NIST IR PDF/MD export · REST API surface (78 routers) | Native connectors out: SIEM (Splunk · Sentinel · QRadar · Elastic) · ServiceNow / ITSM · SOAR (XSOAR · Torq · Tines) · Slack / Teams / PagerDuty |
+
+**Investor-slide discipline:** the diagram may show the target ingestion + integration architecture, but every slide showing it must include a footer strip listing what is TODAY verified vs ROADMAP. See Slide 07 in the investor deck for the reference implementation.
+
+### 4.3 Wedge diagram — v1.3 corrected (canonical · reuse everywhere)
+
+```
+                           SECURITY SOURCES  (🔵 roadmap adapters)
+                                    │
+   ┌─────────────┬─────────────┬────┼────┬─────────────┬────────────┐
+   ▼             ▼             ▼    ▼    ▼             ▼            ▼
+Endpoint     Network       Identity Cloud Web/API   Email/Artefact  Apps
+Windows      DNS/Proxy     AD/Entra AWS/  WAF/API   PDF/PE/Office   DB/
+Sysmon/EDR   NDR/IDS       IAM/MFA  Azure Gateway   Scripts/URLs    HTTP/App
+                                    GCP/            App logs
+                                    CloudTrail
+   │             │             │    │    │             │            │
+   └─────────────┴─────────────┴────┼────┴─────────────┴────────────┘
+                                    ↓
+              ┌─────────────────────────────────────────┐
+              │       NivXRay  (🟢 core · TODAY)       │
+              │ Universal Ingestion · Input Router      │
+              │ Parse · Normalise · Decode · Classify   │
+              │ Canonical Evidence                       │
+              │ Deterministic Analysis · Detection       │
+              │ ATT&CK · Semantic Analysis · Threat Int  │
+              │ ICE Rule R21 · Correlation (single-pass) │
+              │ Investigation Knowledge Graph            │
+              │ Attack Reconstruction                    │
+              │ Evidence-backed Verdict                  │
+              │ Incident Queue · Analyst Workspace       │
+              └────────────────────┬────────────────────┘
+                                   │
+              ┌────────────────────┼────────────────────┐
+              ▼                    ▼                    ▼
+             SIEM               ServiceNow            SOAR
+        Splunk · Sentinel      ITSM · Ticketing   XSOAR · Torq · Tines
+        QRadar · Elastic         (🔵 roadmap)         (🔵 roadmap)
+             (🔵 roadmap)
+                                   │
+                                   ▼
+                            ANALYST VIEW
+```
+
+**Reading rule:** the middle NivXRay box (🟢) is verified today. The top sources row and bottom downstream row are **native adapter/connector roadmap items** — Phase 2-4. **Do not claim they are today.**
+
+### 4.4 Deployment model (customer conversation)
+
+NivXRay can be deployed alongside existing security infrastructure in any of these three modes:
+
+1. **Direct ingestion mode (target · Phase 2+)** — telemetry flows into NivXRay in parallel with existing SIEM/XDR/EDR. Both systems remain independent.
+2. **Evidence-consumer mode (today · verified)** — SIEM/XDR/EDR forward alert JSON / saved-search output / vendor blog URLs / CSV exports into NivXRay for deep investigation.
+3. **Hybrid (Phase 3+)** — NivXRay ingests some sources directly + some via existing platforms + emits enriched incidents back to SIEM/SNOW/SOAR.
+
+**Investor talking point:** "Existing SIEM/XDR/EDR become possible input sources for NivXRay, not mandatory prerequisites. And NivXRay's incident output flows back into whatever ITSM/SIEM/SOAR the customer already runs — we do not replace their SOC ecosystem, we augment it with an independent investigation engine."
+
+
+
+### 4.5 Why this wedge works
 
 1. **Zero rip-and-replace.** Customer keeps every existing tool. Reduces buyer friction to near-zero.
 2. **Immediate analyst leverage.** L1/L2 throughput improves on the first paste, no new telemetry pipeline required.
@@ -431,37 +506,7 @@ Cross-reference: **[POSTURE § 25-27, 33]**
 4. **Believable at seed stage.** Every capability in the wedge is code-verified TODAY — no vaporware claim.
 5. **Defensible against LLM copilots.** Their weakness (hallucination) is our design axiom (Rule R21/R22).
 
-### 4.3 Wedge diagram (canonical — reuse everywhere)
-
-```
-        Your existing security stack
-     ┌────────────────────────────────────┐
-     │  SIEM · XDR · EDR · Cloud · IAM ·  │
-     │  Network · Endpoint · TI feeds     │
-     └──────────────────┬─────────────────┘
-                        │
-              alerts · artefacts · reports · URLs · pastes
-                        │
-                        ▼
-              ┌─────────────────┐
-              │    NivXRay      │
-              │  Investigation  │
-              │      Layer      │
-              └────────┬────────┘
-                       │
-        ┌──────────────┼──────────────┬──────────────┐
-        ▼              ▼              ▼              ▼
-   Canonical      Semantic       Correlated     Evidence-cited
-   Evidence      ATT&CK        Investigation      Verdict
-                  Mapping           Graph
-                       │
-                       ▼
-              9-card Analyst Brief
-              8-tab L4 Session
-              NIST IR Report (MD + PDF)
-```
-
-### 4.4 First customers (three concrete personas)
+### 4.6 First customers (three concrete personas)
 
 **A · MSSP L1/L2 analyst leverage** (highest priority)
 - 500+ MSSPs globally struggling with L1 quality/consistency
@@ -481,7 +526,7 @@ Cross-reference: **[POSTURE § 25-27, 33]**
 - Proof: XDR-alert-in / brief-out on their own alert
 - Pricing hypothesis: per-analyst seat SaaS
 
-### 4.5 Explicit non-wedges (do NOT chase these first)
+### 4.7 Explicit non-wedges (do NOT chase these first)
 - Enterprise SIEM replacement
 - Full-stack XDR
 - Endpoint agent
@@ -1034,6 +1079,14 @@ Whenever any of these phrases appear in comms, they MUST be preceded or followed
 ---
 
 ## Changelog
+
+- **2026-02-13 · v1.3.1 · Slide 07 architecture correction + § 4 wedge rewrite (INDEPENDENT PLATFORM)** — per owner directive: NivXRay is an **independent** security analysis and investigation platform, not a passive SIEM plugin.
+  1. **§ 4.1 wedge statement rewritten** — "Collect directly. Investigate independently. Integrate everywhere." NivXRay ingests telemetry, logs, artefacts and events **directly** from the environment (endpoint · network · identity · cloud · web/API · database · email · applications · artefacts) and can also consume evidence from existing SIEM/XDR/EDR. Existing security platforms are **possible sources, not mandatory dependencies**.
+  2. **§ 4.2 explicit today-vs-target matrix** — direct-from-source ingestion · consume-from-security-platform · independent processing · downstream integration — each row with TODAY (🟢 verified) vs TARGET (🔵 roadmap) columns.
+  3. **§ 4.3 corrected wedge diagram** — sources (roadmap) → NivXRay independent core (today) → downstream SIEM/SNOW/SOAR (roadmap). Every row labelled with today/roadmap discipline.
+  4. **§ 4.4 deployment model** — three modes: Direct ingestion (Phase 2+ target) · Evidence-consumer (today · verified) · Hybrid (Phase 3+).
+  5. **Slide 07 of investor deck rewritten** — headline "Collect directly. Investigate independently. Integrate everywhere." · sources row (Endpoint · Network · Identity · Cloud/IAM · Web/API · Email/Artefacts · Applications) · NivXRay independent-processing box with the deterministic sub-pipeline · downstream integration row (SIEM · ServiceNow · SOAR). Dual badge — "CORE · TODAY" (green) + "INGEST + I/O · ROADMAP" (blue). Footer caveat listing today's 8 verified adapters + noting native telemetry ingestion + downstream connectors as Phase 2-4 roadmap.
+  6. Deck regenerated · live at `/api/deck/investor-v1-3.pptx` (55 KB · 12 slides).
 
 - **2026-02-13 · v1.3 · LOCKED · deterministic-first, AI-optional (permanent positioning rule)** — per owner directive, permanent naming rule locked at top of document:
   1. **Core positioning:** "NivXRay — Evidence-Driven Security Investigation Platform · Deterministic-first. AI-optional." (v1.2 label "Evidence-Driven AI SOC Investigation" retired)

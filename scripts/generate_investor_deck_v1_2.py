@@ -482,68 +482,98 @@ def slide_06_why_different(prs, total):
 def slide_07_wedge(prs, total):
     s = new_slide(prs); paint_background(s)
     slide_header(s, "07 · THE WEDGE",
-                 "Sit above the stack. No rip-and-replace.")
+                 "Collect directly. Investigate independently.\nIntegrate everywhere.")
 
-    status_badge(s, Inches(11.15), Inches(0.85), "TODAY")
+    # dual badge — today core + roadmap ingestion / downstream integration
+    # (green + blue side-by-side)
+    add_rect(s, Inches(9.1), Inches(0.85), Inches(1.9), Inches(0.32), fill=TODAY_GREEN)
+    add_text(s, Inches(9.1), Inches(0.88), Inches(1.9), Inches(0.28),
+             "CORE · TODAY", size=9, bold=True, color=BG, font=FONT_MONO,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    add_rect(s, Inches(11.05), Inches(0.85), Inches(1.9), Inches(0.32), fill=ROADMAP_BLUE)
+    add_text(s, Inches(11.05), Inches(0.88), Inches(1.9), Inches(0.28),
+             "INGEST + I/O · ROADMAP", size=9, bold=True, color=BG, font=FONT_MONO,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
-    add_text(s, MARGIN_L, Inches(2.0), Inches(11.9), Inches(0.55),
-             "Give NivXRay the evidence from your existing tools.",
-             size=18, color=INK)
-    add_text(s, MARGIN_L, Inches(2.5), Inches(11.9), Inches(0.55),
-             "It reconstructs and investigates what actually happened. Deterministic. ATT&CK-mapped. NIST-report-ready.",
-             size=15, color=MUTED)
+    add_text(s, MARGIN_L, Inches(2.05), Inches(11.9), Inches(0.4),
+             "NivXRay ingests telemetry, logs, artefacts and events directly from the environment —",
+             size=13, color=INK)
+    add_text(s, MARGIN_L, Inches(2.4), Inches(11.9), Inches(0.4),
+             "and can also consume evidence from existing SIEM · XDR · EDR platforms.",
+             size=13, color=INK)
+    add_text(s, MARGIN_L, Inches(2.75), Inches(11.9), Inches(0.4),
+             "Detects · correlates · investigates independently, then integrates back with SIEM · ServiceNow · SOAR.",
+             size=13, color=GOLD, italic=True)
 
-    # centre wedge diagram — top row: stack; middle: NivXRay; bottom: outputs
-    # Top stack row (5 chips)
-    stack = ["SIEM", "XDR", "EDR", "Cloud · IAM", "Network · Identity"]
-    top = Inches(3.55)
-    n = len(stack); cw = Inches(2.2); gap = Inches(0.1)
+    # ── Sources row (7 domains) — roadmap-blue chips ──
+    sources = ["Endpoint", "Network", "Identity", "Cloud · IAM", "Web / API", "Email · Artefacts", "Applications"]
+    top = Inches(3.35)
+    n = len(sources); cw = Inches(1.65); gap = Inches(0.09)
     total_w = n * cw.emu + (n - 1) * gap.emu
     ox = Emu((SLIDE_W.emu - total_w) // 2)
-    for i, name in enumerate(stack):
+    for i, name in enumerate(sources):
         x = ox + i * (cw.emu + gap.emu)
-        add_rect(s, Emu(int(x)), top, cw, Inches(0.5), fill=DIVIDER)
-        add_text(s, Emu(int(x)), top + Inches(0.1), cw, Inches(0.35),
-                 name, size=11, bold=True, color=INK,
+        add_rect(s, Emu(int(x)), top, cw, Inches(0.5), fill=DIVIDER, line=ROADMAP_BLUE)
+        add_text(s, Emu(int(x)), top + Inches(0.09), cw, Inches(0.35),
+                 name, size=10, bold=True, color=ROADMAP_BLUE,
                  align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
     # arrow down
     arr = s.shapes.add_shape(MSO_SHAPE.DOWN_ARROW,
-                             Inches(6.5), Inches(4.15), Inches(0.3), Inches(0.35))
+                             Inches(6.5), Inches(3.98), Inches(0.3), Inches(0.32))
     arr.line.fill.background()
     arr.fill.solid()
     arr.fill.fore_color.rgb = GOLD
 
-    # NivXRay box
-    nvx_w = Inches(4.5); nvx_h = Inches(0.75)
+    # NivXRay independent processing box — TODAY green
+    nvx_w = Inches(9.5); nvx_h = Inches(1.15)
     nvx_x = Emu((SLIDE_W.emu - nvx_w.emu) // 2)
-    nvx_y = Inches(4.6)
-    add_rect(s, Emu(int(nvx_x)), nvx_y, nvx_w, nvx_h, fill=GOLD)
-    add_text(s, Emu(int(nvx_x)), nvx_y + Inches(0.14), nvx_w, Inches(0.5),
-             "NivXRay · Investigation Layer", size=14, bold=True, color=BG,
+    nvx_y = Inches(4.42)
+    add_rect(s, Emu(int(nvx_x)), nvx_y, nvx_w, nvx_h, fill=DIVIDER, line=TODAY_GREEN)
+    add_rect(s, Emu(int(nvx_x)), nvx_y, nvx_w, Inches(0.32), fill=TODAY_GREEN)
+    add_text(s, Emu(int(nvx_x)), nvx_y + Inches(0.03), nvx_w, Inches(0.28),
+             "NivXRay · Independent Detection · Correlation · Investigation · Verdict",
+             size=11, bold=True, color=BG, font=FONT_MONO,
              align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    # sub-pipeline
+    sub = ["Parse", "Canonical Evidence", "Deterministic Analysis", "Correlation", "Investigation Graph", "Verdict"]
+    sy = nvx_y + Inches(0.5)
+    sw = Emu((nvx_w.emu - Inches(0.4).emu) // len(sub))
+    sx = Emu(int(nvx_x) + Inches(0.2).emu)
+    for i, stage in enumerate(sub):
+        x = sx + i * sw.emu
+        add_text(s, Emu(int(x)), sy, sw, Inches(0.55),
+                 stage, size=9, color=INK,
+                 align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, font=FONT_MONO)
 
     # arrow down 2
     arr2 = s.shapes.add_shape(MSO_SHAPE.DOWN_ARROW,
-                              Inches(6.5), Inches(5.45), Inches(0.3), Inches(0.35))
+                              Inches(6.5), Inches(5.65), Inches(0.3), Inches(0.32))
     arr2.line.fill.background()
     arr2.fill.solid()
     arr2.fill.fore_color.rgb = GOLD
 
-    # Outputs row
-    outs = ["9-card Analyst Brief", "8-tab L4 Session", "NIST IR Report"]
-    top2 = Inches(5.95)
-    n = len(outs); cw = Inches(3.2); gap = Inches(0.2)
+    # Downstream integration row — 3 chips (SIEM · ServiceNow · SOAR) — roadmap blue
+    outs = ["SIEM  (Splunk · Sentinel · QRadar · Elastic)",
+            "ServiceNow / ITSM",
+            "SOAR / XSOAR / Automation"]
+    top2 = Inches(6.1)
+    n = len(outs); cw = Inches(3.85); gap = Inches(0.12)
     total_w = n * cw.emu + (n - 1) * gap.emu
     ox = Emu((SLIDE_W.emu - total_w) // 2)
     for i, name in enumerate(outs):
         x = ox + i * (cw.emu + gap.emu)
-        add_rect(s, Emu(int(x)), top2, cw, Inches(0.5), fill=DIVIDER)
-        add_text(s, Emu(int(x)), top2 + Inches(0.1), cw, Inches(0.35),
-                 name, size=11, bold=True, color=TODAY_GREEN,
+        add_rect(s, Emu(int(x)), top2, cw, Inches(0.5), fill=DIVIDER, line=ROADMAP_BLUE)
+        add_text(s, Emu(int(x)), top2 + Inches(0.09), cw, Inches(0.35),
+                 name, size=10, bold=True, color=ROADMAP_BLUE,
                  align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
-    slide_footer(s, 8, total, "§ 4 wedge · § 4.3 diagram")
+    # caveat strip
+    add_text(s, MARGIN_L, Inches(6.75), Inches(11.9), Inches(0.28),
+             "Today (verified): 8 adapters — paste · URL · docx · pdf · eml · image · zip + prose recognition.  Native telemetry ingestion + downstream SIEM/SNOW/SOAR connectors are Phase 2-4 roadmap.",
+             size=9, color=MUTED, font=FONT_MONO, italic=True, align=PP_ALIGN.CENTER)
+
+    slide_footer(s, 8, total, "§ 2.3 hierarchy · § 4 wedge · Slide 07 arch correction")
 
 
 def slide_08_expansion(prs, total):
