@@ -1,5 +1,5 @@
 """
-NivXRay Investor Pitch Deck — Generator (v1.2 · sourced from locked Master Positioning)
+NivXRay Investor Pitch Deck — Generator (v1.3.1 · sourced from locked Master Positioning)
 
 Produces: /app/deck_assets/NivXRay_Investor_Deck_v1_2.pptx
 
@@ -11,7 +11,7 @@ Design rules (owner-locked):
 - Every slide footer cites the master positioning doc section
 - No emoji characters in body text — color-coded dots/squares used instead
 
-Source of truth: /app/memory/NivXRay_Strategic_Master_Positioning.md v1.2 (LOCKED)
+Source of truth: /app/memory/NivXRay_Strategic_Master_Positioning.md v1.3.1 (LOCKED)
 Evidence base: /app/memory/NivXRay_360_Product_Market_Posture.md
 """
 from pathlib import Path
@@ -119,7 +119,7 @@ def slide_footer(slide, page_no, total, cite):
              size=9, color=GOLD, italic=True, align=PP_ALIGN.CENTER)
     # right: master-doc citation
     add_text(slide, Inches(9.0), Inches(7.12), Inches(3.633), Inches(0.3),
-             f"Source: Strategic Master Positioning v1.2 · {cite}",
+             f"Source: Strategic Master Positioning v1.3.1 · {cite}",
              size=8, color=MUTED, font=FONT_MONO, align=PP_ALIGN.RIGHT)
 
 
@@ -679,7 +679,7 @@ def slide_10_vision(prs, total):
 
     # dual-line vision
     add_text(s, MARGIN_L, Inches(2.5), Inches(11.9), Inches(0.5),
-             "Year 1–2  ·  own the Evidence-Driven AI SOC Investigation wedge.",
+             "Year 1–2  ·  own the Evidence-Driven Security Investigation wedge.",
              size=14, color=TODAY_GREEN)
     add_text(s, MARGIN_L, Inches(2.9), Inches(11.9), Inches(0.5),
              "Year 3+   ·  expand the same evidence spine into a unified Security Operations Platform.",
