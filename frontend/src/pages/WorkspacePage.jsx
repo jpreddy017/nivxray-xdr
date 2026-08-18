@@ -1546,6 +1546,11 @@ function WorkspacePageInner() {
     // For plain PowerShell / CMD / Bash / vendor report / IOC
     // list, we skip the decoder entirely and render deterministic
     // Investigation Results instead of echoing the input.
+    // ── Phase A · state-machine sync (2026-02-13) ────────────────
+    // Idempotently clear any stale AUTO-INVESTIGATE / prior-run
+    // flags at entry so the fast-path never inherits them.
+    setAnalyzing(false);
+    setLoading(false);
     setInvestigationMode(false);
     setInvestigationObject(null);
     try {
@@ -1554,24 +1559,34 @@ function WorkspacePageInner() {
       if (u) setUnderstanding(u);
       if (u && u.decode_required === false) {
         setStatus("INVESTIGATION READY · NO DECODE REQUIRED · RENDERING FINDINGS…");
-        // Populate Inline Story + Narrative in parallel so the
-        // Trajectory + Attack Story panels remain in sync with the
-        // Investigation Results text.
-        api.post("/die/analyze", { input })
-          .then((r) => {
-            const pre = r?.data?.result?.preprocessor
-                     || r?.data?.result?.chain?.preprocessor
-                     || null;
-            if (pre) setInlineStoryPreproc(pre);
-          })
-          .catch(() => { /* silently absent */ });
-        api.post("/die/narrate", { input })
-          .then((r) => setAnalystNarrative(r?.data?.narrative || null))
-          .catch(() => { /* silently absent */ });
-        const ok = await runInvestigationResults(input);
-        setStatus(ok
-          ? "INVESTIGATION READY · DETERMINISTIC RESULTS RENDERED"
-          : "INVESTIGATION READY · (fallback view)");
+        // ── Phase A · guarantee chips clear on the fast-path ─────
+        // Raise `analyzing` while the SSOT is being fetched, then
+        // clear it in a try/finally so success AND error both
+        // return the UI to a consistent state.
+        setAnalyzing(true);
+        try {
+          // Populate Inline Story + Narrative in parallel so the
+          // Trajectory + Attack Story panels remain in sync with the
+          // Investigation Results text.
+          api.post("/die/analyze", { input })
+            .then((r) => {
+              const pre = r?.data?.result?.preprocessor
+                       || r?.data?.result?.chain?.preprocessor
+                       || null;
+              if (pre) setInlineStoryPreproc(pre);
+            })
+            .catch(() => { /* silently absent */ });
+          api.post("/die/narrate", { input })
+            .then((r) => setAnalystNarrative(r?.data?.narrative || null))
+            .catch(() => { /* silently absent */ });
+          const ok = await runInvestigationResults(input);
+          setStatus(ok
+            ? "INVESTIGATION READY · DETERMINISTIC RESULTS RENDERED"
+            : "INVESTIGATION READY · (fallback view)");
+        } finally {
+          setAnalyzing(false);
+          setLoading(false);
+        }
         return;
       }
     } catch { /* fall through — classic decode path handles errors */ }
@@ -2087,69 +2102,102 @@ function WorkspacePageInner() {
         setOutput(text);
         setInvestigationMode(true);
         setInvestigationObject(obj);
-        // ▲ Rule R12 · one fetch, many projections — derive every
-        // sibling panel's state from the SSOT we just retrieved so
-        // no component needs to hit /die/understand, /die/analyze,
-        // or /die/narrate independently.
-        if (obj) {
-          if (obj.understanding) setUnderstanding(obj.understanding);
-          if (obj.preprocessor)  setInlineStoryPreproc(obj.preprocessor);
-          if (obj.narrative)     setAnalystNarrative(obj.narrative);
-          // ▲ P0e-Lift (2026-02-09) · Project the already-present
-          // structured evidence from the SSOT into the `analysis`
-          // state so the Workspace Threat Analysis sidebar tabs
-          // (MITRE · LOLBAS · IOCS · RULES · AI · GRAPH) populate
-          // for URL-acquired investigations too — the classic SSE
-          // /analyze pipeline is skipped for !decodeRequired inputs
-          // by design (Rule R10) so this projection is the ONLY
-          // deterministic path for those fields to reach the UI.
-          //
-          // Source priority (proven by read-only trace):
-          //   MITRE →  report_extraction.mitre_techniques  (URL-acquired · authoritative)
-          //         ↳ obj.mitre                            (paste-path fallback)
-          //   YARA  →  report_extraction.yara_rules        (structured)
-          //         ↳ obj.narrative.yara_ideas             (deterministic narrative)
-          //
-          // No new inference, no new API calls, no state duplication.
-          const rext = obj.report_extraction || {};
-          const _mitre =
-            (Array.isArray(rext.mitre_techniques) && rext.mitre_techniques.length)
-              ? rext.mitre_techniques
-              : (Array.isArray(obj.mitre) ? obj.mitre : []);
-          const _yara =
-            (Array.isArray(rext.yara_rules) && rext.yara_rules.length)
-              ? rext.yara_rules.map((rule) =>
-                  typeof rule === "string"
-                    ? { name: rule, source: "report_extraction" }
-                    : rule)
-              : (obj.narrative?.yara_ideas || []);
-          const _exec = obj.narrative?.executive_summary || null;
-          const _aiVerdict = _exec
-            ? {
-                verdict:    _exec.risk || _exec.verdict || "Unknown",
-                confidence: typeof _exec.confidence === "number" ? _exec.confidence : null,
-                summary:    _exec.paragraph || _exec.summary || "",
+        // ── Phase C · projection safety (2026-02-13) ──────────────
+        // The SSOT commit (setOutput/setInvestigationMode/setInvestigationObject)
+        // is done. From here on, any projection failure must NOT
+        // roll back the successful commit, must NOT crash React,
+        // and must NOT prevent status from advancing. Wrap the
+        // entire projection block in a try/catch that logs but
+        // continues.
+        try {
+          // ▲ Rule R12 · one fetch, many projections — derive every
+          // sibling panel's state from the SSOT we just retrieved so
+          // no component needs to hit /die/understand, /die/analyze,
+          // or /die/narrate independently.
+          if (obj) {
+            if (obj.understanding) setUnderstanding(obj.understanding);
+            if (obj.preprocessor)  setInlineStoryPreproc(obj.preprocessor);
+            if (obj.narrative)     setAnalystNarrative(obj.narrative);
+            // ▲ P0e-Lift (2026-02-09) · Project the already-present
+            // structured evidence from the SSOT into the `analysis`
+            // state so the Workspace Threat Analysis sidebar tabs
+            // (MITRE · LOLBAS · IOCS · RULES · AI · GRAPH) populate
+            // for URL-acquired investigations too — the classic SSE
+            // /analyze pipeline is skipped for !decodeRequired inputs
+            // by design (Rule R10) so this projection is the ONLY
+            // deterministic path for those fields to reach the UI.
+            //
+            // Source priority (proven by read-only trace):
+            //   MITRE →  report_extraction.mitre_techniques  (URL-acquired · authoritative)
+            //         ↳ obj.mitre                            (paste-path fallback)
+            //   YARA  →  report_extraction.yara_rules        (structured)
+            //         ↳ obj.narrative.yara_ideas             (deterministic narrative)
+            //
+            // No new inference, no new API calls, no state duplication.
+            const rext = (obj && typeof obj.report_extraction === "object" && obj.report_extraction) || {};
+            const _mitre =
+              (Array.isArray(rext.mitre_techniques) && rext.mitre_techniques.length)
+                ? rext.mitre_techniques
+                : (Array.isArray(obj.mitre) ? obj.mitre : []);
+            // Phase C · defensive yara-rule normalization — rule may be
+            // string · object · null · undefined · array. Filter to the
+            // shapes ThreatAnalysis actually understands.
+            let _yara = [];
+            try {
+              if (Array.isArray(rext.yara_rules) && rext.yara_rules.length) {
+                _yara = rext.yara_rules
+                  .filter((rule) => rule != null)
+                  .map((rule) => {
+                    if (typeof rule === "string") return { name: rule, source: "report_extraction" };
+                    if (typeof rule === "object") return rule;
+                    return { name: String(rule), source: "report_extraction" };
+                  });
+              } else if (Array.isArray(obj.narrative?.yara_ideas)) {
+                _yara = obj.narrative.yara_ideas;
               }
-            : null;
-          setAnalysis((prev) => ({
-            ...(prev || {}),
-            iocs:       obj.iocs   || {},
-            // ▲ UX-FIX (2026-02-09) · Normalize lolbas entries to the
-            // shape ThreatAnalysis / LolbasTab expects — the SSOT
-            // schema uses {binary, legit, abuse, mitre, detection}
-            // while the sidebar UI reads {binary, purposes, mitre,
-            // description, snippet, url}.  Missing arrays default to
-            // [] so `.map()` never crashes the panel.
-            lolbas:     _normalizeLolbas(obj.lolbas),
-            lolbins:    _normalizeLolbas(obj.lolbas), // fallbackGraph reads .lolbins
-            mitre:      _mitre,
-            yara:       _yara,
-            ai_verdict: _aiVerdict || (prev && prev.ai_verdict) || null,
-            // TI-HITS and OSINT intentionally NOT lifted — those
-            // require the SSE analyze pipeline and would be
-            // manufactured / stale if projected from the SSOT.
-            streaming:  false,
-          }));
+            } catch (yaraErr) {
+              // eslint-disable-next-line no-console
+              console.warn("[NIVXRAY · yara-projection soft-fail]", yaraErr);
+              _yara = [];
+            }
+            const _exec = obj.narrative?.executive_summary || null;
+            const _aiVerdict = _exec
+              ? {
+                  verdict:    _exec.risk || _exec.verdict || "Unknown",
+                  confidence: typeof _exec.confidence === "number" ? _exec.confidence : null,
+                  summary:    _exec.paragraph || _exec.summary || "",
+                }
+              : null;
+            setAnalysis((prev) => ({
+              ...(prev || {}),
+              iocs:       (obj && typeof obj.iocs === "object" && obj.iocs) || {},
+              // ▲ UX-FIX (2026-02-09) · Normalize lolbas entries to the
+              // shape ThreatAnalysis / LolbasTab expects — the SSOT
+              // schema uses {binary, legit, abuse, mitre, detection}
+              // while the sidebar UI reads {binary, purposes, mitre,
+              // description, snippet, url}.  Missing arrays default to
+              // [] so `.map()` never crashes the panel.
+              lolbas:     _normalizeLolbas(obj.lolbas),
+              lolbins:    _normalizeLolbas(obj.lolbas), // fallbackGraph reads .lolbins
+              mitre:      _mitre,
+              yara:       _yara,
+              ai_verdict: _aiVerdict || (prev && prev.ai_verdict) || null,
+              // TI-HITS and OSINT intentionally NOT lifted — those
+              // require the SSE analyze pipeline and would be
+              // manufactured / stale if projected from the SSOT.
+              streaming:  false,
+            }));
+          }
+        } catch (projErr) {
+          // eslint-disable-next-line no-console
+          console.warn("[NIVXRAY · projection soft-fail — SSOT still committed]", {
+            error: projErr && projErr.message,
+            stack: projErr && projErr.stack,
+          });
+          // Do not rethrow — the SSOT commit above already succeeded
+          // and the analyst can still see the investigation text +
+          // narrative panels. Sidebar tabs will render empty rather
+          // than crash the workspace.
         }
         return true;
       }

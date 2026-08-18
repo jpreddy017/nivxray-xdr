@@ -259,7 +259,7 @@ export default function ThreatAnalysis({
           <EmptyState label="No analysis yet — run a recipe or press AUTO-INVESTIGATE." />
         )}
 
-        {tab === "GRAPH" && (
+        {tab === "GRAPH" && !loading && (
           (decodeTrace.length > 0 || (analysis && (analysis.iocs || analysis.mitre))) ? (
             <InvestigationGraph
               input={rawInput}

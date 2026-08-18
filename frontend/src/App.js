@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import LoginPage from "@/pages/LoginPage";
 import FloatingAddNoteButton from "@/components/FloatingAddNoteButton";
 import QuickOpenPalette from "@/components/QuickOpenPalette";
+import PageErrorBoundary from "@/components/PageErrorBoundary";
 import { Toaster } from "@/components/ui/sonner";
 
 // Route-based code splitting (Perf Sprint · Feb 2026). Each page below
@@ -136,7 +137,7 @@ function App() {
           <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/" element={<Protected><WorkspacePage /></Protected>} />
+              <Route path="/" element={<Protected><PageErrorBoundary><WorkspacePage /></PageErrorBoundary></Protected>} />
               <Route path="/analyze" element={<Protected><CommandAnalyzerPage /></Protected>} />
               <Route path="/threat-intel" element={<Protected><ThreatIntelPage /></Protected>} />
               <Route path="/threat-model" element={<Protected><ThreatModelPage /></Protected>} />
