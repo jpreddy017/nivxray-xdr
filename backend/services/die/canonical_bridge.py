@@ -545,6 +545,7 @@ _REPORT_EXTRACTION_KEEP = (
     "hash_context",          # dict — small
     "totals",                # counters — tiny
     "source",                # provenance flag (paste_projection / …)
+    "acquisition_failure",   # explicit acquisition-failed diagnostic envelope (P0 · 2026-02-13)
     "investigation_summary", # aggregated counts — tiny
 )
 

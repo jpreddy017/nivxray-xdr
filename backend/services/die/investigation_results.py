@@ -420,6 +420,55 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
                         ioc_by_kind.setdefault(_kind, []).append(_v)
                         _seen_iocs.add((_kind, _v))
 
+        else:
+            # ── Silent-degradation guard (2026-02-13 · P0 · owner-approved) ──
+            # The acquisition gate passed (ida_class ∈ _ACQUIRABLE_CLASSES
+            # AND url_intent.acquirable) but _ida_acquire() reported
+            # `.ok == False`. Never fall through to `paste_projection`
+            # here: an analyst reading the response must see an
+            # explicit acquisition_failed state with diagnostic
+            # context, not a plausible-looking prose analysis of
+            # the URL string.
+            #
+            # This block runs INSTEAD of the paste_projection block
+            # below (which only fires when report_extraction is empty).
+            # By populating report_extraction here with a truthful
+            # failure envelope, we prevent `if not report_extraction:`
+            # at line ~435 from synthesising a fake investigation.
+            _ad = acquired_dict or {}
+            report_extraction = {
+                "body_artifacts":     [],
+                "mitre_techniques":   [],
+                "cves":               [],
+                "threat_actors":      [],
+                "malware_families":   [],
+                "commands":           [],
+                "timeline":           [],
+                "yara_rules":         [],
+                "sigma_rules":        [],
+                "hash_context":       {},
+                "behaviors":          [],
+                "totals": {
+                    "artifacts": 0, "mitre": 0, "cves": 0, "actors": 0,
+                    "malware":   0, "commands": 0, "timeline": 0,
+                    "yara":      0, "sigma": 0, "behaviors": 0,
+                },
+                "source":              "acquisition_failed",   # provenance flag
+                "acquisition_failure": {
+                    "url":              target,
+                    "host":             (_ad.get("host") or _ad.get("sitename") or ""),
+                    "engine":           _ad.get("engine") or _ad.get("extractor") or "",
+                    "ok":               False,
+                    "status_code":      _ad.get("status_code"),
+                    "reason":           _ad.get("error_detail") or _ad.get("error") or "acquisition returned ok=False",
+                    "error_code":       _ad.get("error_code"),
+                    "anti_bot":         bool(_ad.get("anti_bot")) or bool(_ad.get("looks_like_antibot_wall")),
+                    "fallback_tried":   _ad.get("fallback_tried") or _ad.get("wayback_tried") or False,
+                    "fetched_bytes":    _ad.get("fetched_bytes"),
+                    "article_chars":    _ad.get("article_chars"),
+                },
+            }
+
     # ── P0a (ADR-0014g) · Analyst-Paste evidence projection ───────
     # When the IDA classification is non-acquirable (e.g. atomic_ioc_url,
     # ioc_list, command_chain, mixed_artifacts, single_command, none),
