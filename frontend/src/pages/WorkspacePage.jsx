@@ -313,6 +313,65 @@ function _normalizeLolbas(list) {
 }
 
 
+// ── IOC schema normalizer (2026-02-14 · P1b bug) ──────────────────
+// Prev-Mode's ``/api/die/investigation-results`` returns
+// ``object.iocs`` keyed by SINGULAR nouns coming straight from the
+// deterministic extractor: ``{ url, ip, domain, hash, cve, registry,
+// path, email }``.  The ThreatAnalysis sidebar tab ``IocTab`` was
+// authored against the paste-path shape which uses PLURAL keys:
+// ``{ urls, ips, domains, emails, md5, sha1, sha256,
+// bitcoin_addresses }``.  Result: for URL-acquired investigations
+// the IOC tab renders EMPTY even though 53 IOCs are in the response.
+//
+// Fix at the projection boundary: publish BOTH shapes on
+// ``analysis.iocs`` so every legacy consumer (IocTab plural,
+// InvestigationGraph iterator, TiHitsTab lookup) sees the data
+// without touching any downstream reader.  Hash lists are heuristic-
+// bucketed by hex length so md5/sha1/sha256 tabs populate too.
+function _normalizeIocs(iocs) {
+  if (!iocs || typeof iocs !== "object") return {};
+  const out = { ...iocs };
+  const aliasMap = {
+    url:              "urls",
+    ip:               "ips",
+    domain:           "domains",
+    email:            "emails",
+    bitcoin_address:  "bitcoin_addresses",
+    btc:              "bitcoin_addresses",
+  };
+  for (const [singular, plural] of Object.entries(aliasMap)) {
+    const src = Array.isArray(iocs[singular]) ? iocs[singular] : null;
+    if (src && !out[plural]) out[plural] = src;
+    // reverse mirror so legacy singular readers also work if the
+    // response ever swaps to plural.
+    const rev = Array.isArray(iocs[plural]) ? iocs[plural] : null;
+    if (rev && !out[singular]) out[singular] = rev;
+  }
+  // Hash bucketing — bin by hex length so IocTab's md5/sha1/sha256
+  // labels light up.  Any non-string / non-hex entry falls through
+  // to the generic ``hashes`` bucket.
+  const rawHashes = Array.isArray(iocs.hash) ? iocs.hash
+                  : Array.isArray(iocs.hashes) ? iocs.hashes : null;
+  if (rawHashes && rawHashes.length) {
+    const buckets = { md5: [], sha1: [], sha256: [], hashes: [] };
+    for (const h of rawHashes) {
+      const s = (typeof h === "string" ? h : (h && (h.value || h.hash || ""))) || "";
+      const t = s.trim();
+      if (/^[a-f0-9]{32}$/i.test(t))       buckets.md5.push(t);
+      else if (/^[a-f0-9]{40}$/i.test(t))  buckets.sha1.push(t);
+      else if (/^[a-f0-9]{64}$/i.test(t))  buckets.sha256.push(t);
+      else if (t)                          buckets.hashes.push(t);
+    }
+    for (const k of ["md5","sha1","sha256","hashes"]) {
+      if (buckets[k].length && !(Array.isArray(out[k]) && out[k].length)) {
+        out[k] = buckets[k];
+      }
+    }
+  }
+  return out;
+}
+
+
 
 function _synthBehaviorsFromMitre(mitreList) {
   if (!Array.isArray(mitreList) || !mitreList.length) return [];
@@ -2170,7 +2229,7 @@ function WorkspacePageInner() {
               : null;
             setAnalysis((prev) => ({
               ...(prev || {}),
-              iocs:       (obj && typeof obj.iocs === "object" && obj.iocs) || {},
+              iocs:       _normalizeIocs(obj && typeof obj.iocs === "object" ? obj.iocs : {}),
               // ▲ UX-FIX (2026-02-09) · Normalize lolbas entries to the
               // shape ThreatAnalysis / LolbasTab expects — the SSOT
               // schema uses {binary, legit, abuse, mitre, detection}
@@ -2781,10 +2840,20 @@ function WorkspacePageInner() {
           </div>
         )}
 
-        {/* Real-time input classifier — glows the right buttons + shows a stepper */}
-        <GuidanceBanner input={input} className="nvx-guidance-banner"
-                         data-testid="input-guidance-banner-wrapper" />
-
+        {/* Real-time input classifier — glows the right buttons + shows a stepper.
+            2026-02-14 · P1b UX-fix: the banner is a PRE-analysis guide
+            (deterministic classification of the raw input string).  Once
+            the workspace has committed a full investigation result
+            (SSOT rendered · IOCs/MITRE/LOLBAS populated), the banner
+            becomes a stale contradiction — e.g. for a CISA advisory URL
+            it keeps saying "CLEAN TEXT · No LOLBAS · No malicious
+            indicators" while the sidebar simultaneously shows the
+            ransomware findings.  Hide it post-analysis so the analyst
+            reads the actual evidence panels below. */}
+        {!investigationMode && (
+          <GuidanceBanner input={input} className="nvx-guidance-banner"
+                           data-testid="input-guidance-banner-wrapper" />
+        )}
         {/* PRIMARY — full SOC pipeline (decode + MITRE + IOCs + LOLBAS + verdict) */}
         <button className={`nvx-btn primary${(loading || analyzing) ? " busy" : ""}`} onClick={autoInvestigate} disabled={loading || analyzing}
                 data-testid="btn-auto-investigate"
