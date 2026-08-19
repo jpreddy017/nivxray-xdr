@@ -1003,3 +1003,66 @@ This is a **separate future task** (call it "Server-side file mode") — not par
 - P4-FW3 enforced: `project_recommendations` returns `[]` + mandatory reasoning note when SSOT has no MITRE evidence. Banned tokens (`IMMEDIATE`/`THREAT HUNTING`/`CONTAINMENT`/`Isolate the host`) verified absent across every fixture.
 - Strict `token-set + length-band` comparator for `canonical_normalised` prose (per owner decision 3-a).
 - Sign-off artefacts: `-projection-acceptance.md` (P4.G1), `-allowed-diffs.md` (P4.G2), `-report.md`.
+
+## 2026-02-14 — Phase D · Step 1 + Prev-mode P1a shipped
+
+### Phase D · Step 1 (frontend) — Progressive rendering baseline
+Owner-authorized rendering perf work landed strictly within the scope agreed at the "17,732-char ChainReplayView PASS" gate.
+
+- **File touched:** `frontend/src/components/ThreatAnalysis.jsx` (74 lines net, +56/-18)
+- **Changes:**
+  1. `import InvestigationGraph` → `React.lazy(() => import(...))` — InvestigationGraph (~509 LOC) is now a separate 17.5 KB code-split chunk, removed from the critical render path of the ThreatAnalysis shell
+  2. Added `GraphSkeleton` fallback (`data-testid="graph-skeleton"`) with fixed min-height 320 to prevent layout shift
+  3. Wrapped GRAPH-tab render in `<Suspense fallback={<GraphSkeleton/>}>`
+  4. `useDeferredValue(analysis)` scoped strictly to the GRAPH branch — all other tabs consume the eager `analysis` reference
+- **Bundle evidence:** main bundle (`main.acf8b573.js` 405 KB) contains **0** `inv-graph*` tokens; `InvestigationGraph` isolated in `9333.a04ab172.chunk.js` (17,882 B); ThreatAnalysis chunk (`4598.8182bd6e.chunk.js` 489 KB) contains skeleton but 0 graph tokens.
+- **Runtime evidence (preview):** graph-skeleton fired at t=8,500 ms during cold-cache paint, InvestigationGraph mounted at t=9,000 ms (~500 ms Suspense window); on second run the chunk was cached; PageErrorBoundary clean, 0 console errors, all tab switches (MITRE/IOCs/CHAIN/GRAPH) clean.
+- **Explicitly NOT proven:** ThreatAnalysis-specific A+B+C on the 17,732-char production record (that path uses ChainReplayView on rehydrate; kept as a separate uncovered path).
+- **Constraints observed:** no size-gated eager/lazy branch, no backend changes, no state-machine changes, no error-boundary changes, no ChainReplayView changes, no Web Worker / virtualization, no P0 backlog, no Fix 2, no production testing.
+
+### Prev-mode P1a (backend) — Evidence-source normalization
+Owner-authorized targeted fix for the Prev-Mode/Prod-Mode discrepancy where a successful CISA URL acquisition still produced "Confidence: 30% Low · Parser MISSING · Evidence MISSING · Threat Objective: Uncategorised · 0% progress" — because the confidence engine read the empty raw-input `pre.stages` instead of the acquired `report_extraction`.
+
+- **Files touched:**
+  - `backend/services/die/investigation_results.py` (157 LOC net)
+  - `backend/services/die/canonical.py` (17 LOC net)
+  - `backend/tests/canonical/iue/test_prev_mode_p1a_evidence_source.py` (NEW, 293 LOC, 9 tests)
+- **Five surgical changes:**
+  1. Re-run `classify_intent_from_analyze` AFTER acquisition-augmented `techniques[]` is built (was frozen at the pre-acquisition envelope with empty techniques)
+  2. Promote `report_extraction.mitre_techniques` (44 items in CISA case) into top-level `techniques[]` with `source: ida.report.mitre` — previously orphaned
+  3. Synthesize a preprocessor envelope with virtual stages from `report_extraction.commands` when acquisition succeeded; flips Parser + Evidence signals MISSING → PASSED using authoritative acquired evidence
+  4. SUMMARY block surfaces `Threat Actors`, `Malware Families`, `Behaviors` from `report_extraction` when acquisition succeeded; `Commands Extracted` reads the union count; fix pre-existing `intent.progress_pct` vs `intent.progress` mismatch
+  5. In `build_confidence_breakdown`: when intent classifier returns `rule == "none"`, fall through to signals-weighted average instead of intent's default 0.3
+- **CISA simulation evidence (Prev-mode output before → after):**
+  - Confidence: 30% Low → **75% High** (derived from signals, not hardcoded)
+  - Attack Progress: 0% → **58%** (7 of 12 tactics observed)
+  - Commands Extracted: 0 → **66**
+  - MITRE Techniques: 0/7 → **44**
+  - Threat Actors: (absent) → **Medusa, Spearwing, …**
+  - Malware Families: (absent) → **Mimikatz, RClone, Medusa, AnyDesk, ScreenConnect, SimpleHelp**
+  - Behaviors: 0 → **14**
+  - Parser signal: MISSING → **PASSED**
+  - Evidence signal: MISSING → **PASSED**
+- **Threat Objective still shows Uncategorised** — the deterministic intent classifier's rule set does not have a "broad-coverage advisory" pattern. Adding such a rule (intent.py scope) is deliberately deferred per owner decision; NOT hardcoded.
+- **Test outcomes:** new P1a suite 9/9 PASS; IUE canonical suite 197/198 (only LOCKED Sample1 fingerprint fails, pre-existing environmental).
+- **Guard rails preserved:** failed acquisition (`source == "acquisition_failed"`) still shows Parser/Evidence MISSING; failed acquisition does NOT surface actor/malware/behaviors lines; Fix 2 (CISA 403 root cause) still deferred; Prod Mode untouched; SSOT/IKG untouched; Phase D Step 1 untouched.
+
+### Recorded concern for production verification
+The 75% · High confidence is not automatically "correct" just because it improved from 30%.
+Production deploy verification must establish that:
+- Confidence is appropriately derived from the evidence
+- It does NOT inflate because we converted acquired commands into virtual parser stages
+- Duplicate/double-counting is not occurring (`_existing_cmd_texts` dedupe should prevent this)
+- Prev is now investigating the acquired advisory rather than treating the URL as bare text input
+
+### Locked backlog after this session
+- 🔒 A+B+C production gate — PASS on 17,732-char ChainReplayView projection path (owner-locked)
+- 🔒 Phase D Step 1 — landed, awaiting deploy
+- 🔒 Prev-mode P1a — landed, awaiting deploy + production verification
+- 🔒 CISA Fix 2 — deferred (owner)
+- 🔒 Positioning v1.3.3 / Investor Deck v1.4 — locked
+- 📋 ThreatAnalysis-specific A+B+C on 17,732-char record — uncovered path, requires controlled prod re-run (owner authorization required)
+- 📋 Threat Objective classifier expansion (intent.py rule for broad-coverage advisories) — deliberately deferred; NOT part of P1a
+- 📋 P0 backlog: 6 payload-shape canonical failures (Issue #1) · Sample1 fingerprint (environmental, LOCKED as ignored)
+- 📋 XDR/JSON MITRE swim-lane routing (P1 Issue 2) — related to P1a but separate scope
+- 📋 L4 Analyst Workspace remaining tabs · Multi-tenant + 3-role RBAC scaffolding · Red `acquisition_failed` UX banner
