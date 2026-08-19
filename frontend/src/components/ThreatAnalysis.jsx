@@ -1,7 +1,37 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue, lazy, Suspense } from "react";
 import { Copy, X } from "lucide-react";
 import FlowGraph from "@/components/FlowGraph";
 import PlaybookFeedback from "@/components/PlaybookFeedback";
+
+// Phase D · Step 1 — 2026-02-14
+// InvestigationGraph (~509 LOC + downstream heavy layout work) is removed
+// from the initial critical render/module path of ThreatAnalysis.  React
+// still evaluates the chunk on the main thread once fetched, but Suspense
+// lets the shell (verdict card, tab bar, summary chips, non-GRAPH tabs)
+// paint before the graph reconciles.  Size-gating deliberately deferred
+// to a later step to keep a single, measurable rendering path.
+const InvestigationGraph = lazy(() => import("./InvestigationGraph"));
+
+function GraphSkeleton() {
+  return (
+    <div
+      data-testid="graph-skeleton"
+      className="mono"
+      style={{
+        height: "100%",
+        minHeight: 320,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--text-mute)",
+        fontSize: 11,
+        letterSpacing: "0.18em",
+      }}
+    >
+      ▸ PREPARING INVESTIGATION GRAPH<span className="blink">_</span>
+    </div>
+  );
+}
 
 function severityBadgeClass(sev) {
   return { high: "high", medium: "medium", low: "low", safe: "safe", critical: "high" }[sev] || "neutral";
@@ -18,8 +48,6 @@ function EmptyState({ label }) {
   );
 }
 
-import InvestigationGraph from "./InvestigationGraph";
-
 export default function ThreatAnalysis({
   analysis, loading,
   selectedTactic = null, onClearTactic = null,
@@ -30,6 +58,14 @@ export default function ThreatAnalysis({
 }) {
   const tabs = ["GRAPH", "MITRE", "LOLBAS", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "FLOW", "CHAIN"];
   const [tab, setTab] = useState("GRAPH");
+
+  // Phase D · Step 1 — 2026-02-14
+  // `useDeferredValue` is scoped strictly to the GRAPH branch below.
+  // It lets React paint the shell (verdict card, tab bar, non-GRAPH tabs)
+  // using the fresh `analysis` and, in a lower-priority render, feed the
+  // graph the deferred snapshot.  All other tabs continue to consume the
+  // eager `analysis` reference verbatim.
+  const deferredAnalysis = useDeferredValue(analysis);
 
   // Build a technique-id → tactic map from the merged MITRE list.
   // Used to filter LOLBAS entries (whose only tactic linkage is via technique IDs).
@@ -260,21 +296,23 @@ export default function ThreatAnalysis({
         )}
 
         {tab === "GRAPH" && !loading && (
-          (decodeTrace.length > 0 || (analysis && (analysis.iocs || analysis.mitre))) ? (
-            <InvestigationGraph
-              input={rawInput}
-              output={decodedOutput}
-              trace={decodeTrace}
-              iocs={analysis?.iocs || {}}
-              mitre={analysis?.mitre || []}
-              lolbas={analysis?.lolbas || []}
-              ti_hits={analysis?.ti_hits || []}
-              verdict={analysis?.ai_verdict}
-              engine={decodeEngine}
-              confidence={decodeConfidence}
-              reachedShellcode={reachedShellcode}
-              onRerunFromNode={onRerunFromNode}
-            />
+          (decodeTrace.length > 0 || (deferredAnalysis && (deferredAnalysis.iocs || deferredAnalysis.mitre))) ? (
+            <Suspense fallback={<GraphSkeleton />}>
+              <InvestigationGraph
+                input={rawInput}
+                output={decodedOutput}
+                trace={decodeTrace}
+                iocs={deferredAnalysis?.iocs || {}}
+                mitre={deferredAnalysis?.mitre || []}
+                lolbas={deferredAnalysis?.lolbas || []}
+                ti_hits={deferredAnalysis?.ti_hits || []}
+                verdict={deferredAnalysis?.ai_verdict}
+                engine={decodeEngine}
+                confidence={decodeConfidence}
+                reachedShellcode={reachedShellcode}
+                onRerunFromNode={onRerunFromNode}
+              />
+            </Suspense>
           ) : (
             <div style={{ padding: 14 }}>
               <EmptyState label="No investigation yet — run a decode + AUTO-INVESTIGATE to see the graph." />
