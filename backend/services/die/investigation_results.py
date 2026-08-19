@@ -372,6 +372,31 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
                         "source":   "ida.command_investigation",
                     })
                     seen_t.add(tid)
+
+            # ── Prev-mode P1a (2026-02-14) · lift the advisory's
+            # declared MITRE techniques into the top-level SSOT ─────
+            # ``report_extraction.mitre_techniques`` is the direct
+            # MITRE list the advisory published — usually a superset
+            # of what the recursive command investigation
+            # re-discovers.  Before P1a it was only reachable via
+            # ``report_extraction.mitre_techniques`` and never fed
+            # into ``techniques`` / MITRE-count / intent-classifier
+            # inputs.  Promote here, deduplicated by upper-cased id,
+            # so the SUMMARY / Confidence / Intent all see the full
+            # coverage the advisory declared.  Source tag preserves
+            # provenance (Rule R14).
+            for t in (report_extraction.get("mitre_techniques") or []):
+                tid = (t.get("id") or "").upper()
+                if not tid or tid in seen_t:
+                    continue
+                techniques.append({
+                    "id":       tid,
+                    "name":     t.get("name") or "",
+                    "tactic":   t.get("tactic") or "",
+                    "evidence": "",
+                    "source":   "ida.report.mitre",
+                })
+                seen_t.add(tid)
             # Rule R14 · IDA-4 body_artifacts are IOCs the article
             # published — promote them into the top-level SSOT.iocs so
             # SummaryLens, TIShield, and the IOC Intelligence engine
@@ -419,6 +444,30 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
                             continue
                         ioc_by_kind.setdefault(_kind, []).append(_v)
                         _seen_iocs.add((_kind, _v))
+
+            # ── Prev-mode P1a (2026-02-14 · owner-authorized) ─────
+            # Re-run intent classification now that ``techniques``
+            # has been augmented with the report_extraction MITRE
+            # items and IOCs from the acquired advisory.  Before
+            # this second call, ``intent`` was computed at ~L297
+            # against a pre-acquisition envelope where techniques[]
+            # was empty for URL-only input, producing a stale
+            # "Uncategorised · 0% progress · 0.0 confidence" verdict
+            # even though the acquired report carries the full
+            # deterministic evidence surface.
+            #
+            # Precedence rule: when a successful acquisition
+            # contributed evidence, we re-derive objective +
+            # progress + confidence from the augmented technique
+            # set.  The intent classifier itself deduplicates via
+            # its unique-tactic set — no double counting.  No AI,
+            # no heuristics, no copy of Prod's verdict number:
+            # we only feed the authoritative acquired evidence
+            # into the SAME deterministic classifier that Prev
+            # already runs on paste inputs.
+            env_augmented["techniques"] = techniques
+            env_augmented["dkp_matches"] = dkp_matches or (env.get("dkp_matches") or [])
+            intent = classify_intent_from_analyze(env_augmented) or intent
 
         else:
             # ── Silent-degradation guard (2026-02-13 · P0 · owner-approved) ──
@@ -856,15 +905,80 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     lines.append(_h1("Summary"))
     lines.append("")
     lines.append(_kv("Threat Objective",   intent.get("primary_objective") or intent.get("objective") or "Undetermined"))
-    lines.append(_kv("Attack Progress",    f"{intent.get('progress_pct', 0)}%"))
+    # Prev-mode P1a: intent classifier emits ``progress`` as a 0..1
+    # float, not ``progress_pct``.  Convert here so the SUMMARY line
+    # shows a real percentage instead of a hardcoded 0%.  We check
+    # both keys so any callers already emitting ``progress_pct``
+    # keep working unchanged.
+    _prog = intent.get("progress_pct")
+    if _prog is None:
+        _p_raw = intent.get("progress")
+        _prog = int(round(_p_raw * 100)) if isinstance(_p_raw, (int, float)) else 0
+    lines.append(_kv("Attack Progress",    f"{int(_prog)}%"))
 
     # Build the Canonical confidence breakdown here so every consumer
     # (pane text + SSOT) reads the same values.
     ioc_kinds_dict = ioc_by_kind
+
+    # ── Prev-mode P1a (2026-02-14 · owner-authorized) ─────────────
+    # Evidence-source normalization for the confidence signals.
+    # When URL acquisition succeeded, the raw-input ``pre.stages``
+    # is empty (a bare URL contains no commands to parse), but
+    # ``report_extraction.commands`` carries the deterministic
+    # command evidence the advisory published.  We synthesize a
+    # preprocessor envelope that adds those extracted commands as
+    # virtual stages (each with its own evidence excerpt) so the
+    # "Parser" and "Evidence" confidence signals reflect the
+    # authoritative acquired-report evidence instead of falsely
+    # reporting MISSING.
+    #
+    # Precedence rule: successful acquired evidence takes
+    # precedence, but the union with pre.stages is deduplicated
+    # by command text so behaviors captured by BOTH paths are
+    # counted once.  Failed acquisitions (source ==
+    # "acquisition_failed") deliberately do NOT contribute
+    # virtual stages — the signals correctly remain MISSING.
+    preprocessor_for_confidence = pre.to_dict()
+    if isinstance(report_extraction, dict) and report_extraction.get("source") != "acquisition_failed":
+        _extracted_cmds = report_extraction.get("commands") or []
+        _existing_stages = list(preprocessor_for_confidence.get("stages") or [])
+        _existing_cmd_texts = {
+            ((s.get("normalized_command") or s.get("raw_excerpt") or "").strip().lower())
+            for s in _existing_stages
+        }
+        _virtual_stages: List[Dict[str, Any]] = []
+        for _c in _extracted_cmds:
+            _cmd_text = (
+                _c.get("normalized_command")
+                or _c.get("command")
+                or _c.get("text")
+                or ""
+            ).strip()
+            _key = _cmd_text.lower()
+            if not _cmd_text or _key in _existing_cmd_texts:
+                continue
+            _virtual_stages.append({
+                "normalized_command": _cmd_text,
+                "mitre":     list(_c.get("mitre") or []),
+                "tactic":    _c.get("tactic") or "",
+                "title":     _c.get("purpose") or _c.get("title") or "",
+                # Each acquired command carries at least itself as
+                # an evidence excerpt so the "Evidence" signal
+                # flips from MISSING → PASSED without any AI or
+                # heuristic step.
+                "evidence":  list(_c.get("evidence") or []) or [
+                    {"excerpt": _cmd_text[:200], "source": "report_extraction.command"}
+                ],
+                "source":    "report_extraction.command",
+            })
+            _existing_cmd_texts.add(_key)
+        if _virtual_stages:
+            preprocessor_for_confidence["stages"] = _existing_stages + _virtual_stages
+
     conf_break = build_confidence_breakdown(
         health=health.to_dict(),
         understanding=u_dict,
-        preprocessor=pre.to_dict(),
+        preprocessor=preprocessor_for_confidence,
         lolbas=lolbins,
         mitre=techniques,
         dkp=dkp_matches,
@@ -873,10 +987,47 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     )
 
     lines.append(_kv("Confidence",         f"{conf_break.overall}% · {conf_break.label}"))
-    lines.append(_kv("Commands Extracted", contents.get("commands", 0)))
+    # Prev-mode P1a: reflect the union of pre.stages + acquired
+    # commands so "Commands Extracted" is consistent with the
+    # Parser/Evidence confidence signals derived from the same
+    # synthesized preprocessor envelope above.
+    _effective_command_count = len(preprocessor_for_confidence.get("stages") or []) or int(contents.get("commands", 0) or 0)
+    lines.append(_kv("Commands Extracted", _effective_command_count))
     lines.append(_kv("LOLBAS",             len({(lb.get('binary') or '').lower() for lb in lolbins if lb.get('binary')})))
     lines.append(_kv("MITRE Techniques",   len(techniques)))
     lines.append(_kv("IOCs",               sum(len(v) for v in ioc_by_kind.values())))
+
+    # ── Prev-mode P1a · evidence surfacing (owner rule: use the
+    # actual acquired evidence, do NOT copy Prod's verdict) ─────
+    # When acquisition succeeded, surface the malware families and
+    # threat actors the advisory named so the analyst sees a
+    # coherent evidence-driven brief instead of a bare confidence
+    # score.  Both come straight from ``report_extraction`` — no
+    # correlation, no inference.  We deduplicate case-insensitively
+    # and cap the list length to keep the SUMMARY block tight.
+    if isinstance(report_extraction, dict) and report_extraction.get("source") != "acquisition_failed":
+        def _dedup_names(items):
+            seen, out = set(), []
+            for it in items or []:
+                nm = (it.get("name") if isinstance(it, dict) else it) or ""
+                nm = str(nm).strip()
+                key = nm.lower()
+                if not nm or key in seen:
+                    continue
+                seen.add(key); out.append(nm)
+            return out
+        _actors = _dedup_names(report_extraction.get("threat_actors") or [])
+        _malware = _dedup_names(report_extraction.get("malware_families") or [])
+        if _actors:
+            lines.append(_kv("Threat Actors",   ", ".join(_actors[:8])))
+        if _malware:
+            lines.append(_kv("Malware Families", ", ".join(_malware[:8])))
+        # Behaviors count — sourced from acquired evidence.  This
+        # replaces the pre-fix implicit "0" from the empty
+        # pre.stages branch.
+        _behaviors = report_extraction.get("behaviors") or []
+        if _behaviors:
+            lines.append(_kv("Behaviors",      len(_behaviors)))
     lines.append("")
 
     # ── CONFIDENCE EXPLANATION (Rule R10 · analyst-visible) ──

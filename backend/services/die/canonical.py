@@ -206,13 +206,22 @@ def build_confidence_breakdown(
     ))
 
     # Overall confidence — take the intent classifier's number when
-    # present, else fall back to a signals-weighted average.
+    # a rule actually matched, else fall back to the signals-weighted
+    # average.  Prev-mode P1a (2026-02-14): the pre-fix behaviour
+    # was "trust intent.confidence unconditionally", which collapsed
+    # to 30% Low whenever the classifier returned its default
+    # ``rule == "none"`` verdict — even for rich acquired evidence
+    # with 7 tactics observed.  When no rule clusters the tactics,
+    # the signals aggregate is a truer reflection of the evidence
+    # surface (Parser/Evidence/MITRE/LOLBAS/IOC all PASSED).
     raw_conf = intent.get("confidence")
-    if isinstance(raw_conf, (int, float)):
+    _passed = sum(1 for s in signals if s.status == "passed")
+    _signals_pct = int(round(_passed / max(1, len(signals) - 1) * 100))
+    _rule = intent.get("rule")
+    if _rule not in (None, "none", "") and isinstance(raw_conf, (int, float)):
         overall = int(round(raw_conf * 100)) if raw_conf <= 1.0 else int(raw_conf)
     else:
-        passed = sum(1 for s in signals if s.status == "passed")
-        overall = int(round(passed / max(1, len(signals) - 1) * 100))   # exclude "ai" from denom
+        overall = _signals_pct
     label = "Low" if overall < 40 else ("Medium" if overall < 75 else "High")
     return ConfidenceBreakdown(
         overall=overall,
