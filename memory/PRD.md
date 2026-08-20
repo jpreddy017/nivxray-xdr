@@ -1204,3 +1204,15 @@ Production deploy verification must establish that:
 
 🛑 **STOP condition honoured.** Awaiting owner directive before Lane B, Lane C, Stage 2, Verdict / IOC disposition, or Evidence Reconciliation.
 
+
+## 2026-02-14 · Stage 1 · Phase 6c.1 · Lane A Implementation Review COMPLETE
+
+- Review artefact: `/app/memory/NivXRay_Stage1_STEP6_LaneA_Review.md`
+- Answers all 11 owner-defined questions (files · LOC · reuse · new logic · duplication · size explanation · data-flow · provenance · tenant · aggregation · failure).
+- **Actual LOC:** 1 316 total / 988 code — of which 105 is the frozen alias table (data) and ~120 is defensive parser branches. Strip both → ~763 LOC of pure logic, below the ~880 estimate.
+- **Deviations surfaced:** (1) Inline provenance fields chosen over composed `canonical.ssot.models.Provenance`; (2) understanding.py is a placeholder pending owner's directive to keep MITRE mapping in existing owners.
+- **Duplication audit:** no forbidden parallel engine created. `intake.py` = router facade; `recurse.py` = ledger facade; `aggregator.py` ≠ ICE (tested three ways).
+- **Owner questions posed:** provenance policy · understanding.py future · LOC reduction hooks · authorization for preview flag-on smoke.
+
+🛑 Awaiting owner architectural verdict. No Lane B/C, no UI, no Stage 2, no payload-shape fixes in this round.
+
