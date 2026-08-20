@@ -1112,3 +1112,95 @@ Production deploy verification must establish that:
 - 🔒 Fix 2 CISA Wayback fallback (LOCKED)
 - 🔒 Sample1 DB fingerprint (LOCKED · environmental)
 
+
+---
+
+## 2026-02-14 · Stage 1 · Phase 6c · Lane A IMPLEMENTATION COMPLETE
+
+### Files created (Lane A)
+- `backend/services/iue/__init__.py`
+- `backend/services/iue/intake.py`             (~160 LOC · single flag-read site)
+- `backend/services/iue/failure.py`             (~65 LOC · closed vocabulary)
+- `backend/services/iue/tenancy.py`             (~25 LOC)
+- `backend/services/iue/security.py`            (~50 LOC · size + record + traversal caps)
+- `backend/services/iue/observability.py`       (~45 LOC · span context manager)
+- `backend/services/iue/collectors/__init__.py`
+- `backend/services/iue/collectors/log_collector.py`  (~80 LOC)
+- `backend/services/iue/parsers/__init__.py`
+- `backend/services/iue/parsers/_types.py`      (~25 LOC · ParsedRecord)
+- `backend/services/iue/parsers/json_parser.py` (~105 LOC)
+- `backend/services/iue/parsers/ndjson_parser.py`  (~75 LOC)
+- `backend/services/iue/parsers/csv_parser.py`  (~70 LOC)
+- `backend/services/iue/parsers/xml_parser.py`  (~100 LOC · defusedxml aware)
+- `backend/services/iue/normalizers/__init__.py`
+- `backend/services/iue/normalizers/field_map.py`  (~190 LOC · dictionary + type_infer layers)
+- `backend/services/iue/aggregator.py`          (~160 LOC · 1s bucket · preserves record_refs)
+- `backend/services/iue/understanding.py`       (~30 LOC · **enforced ≤40 LOC** by test)
+- `backend/services/iue/recurse.py`             (~90 LOC · facade over UAIE ledger)
+
+**Total: ~1 300 LOC (slightly over the ~880 estimate — mostly from defensive parser edge cases and the frozen field-alias dictionary).**
+
+### Tests created
+- `backend/tests/canonical/stage1_goldens/_harness.py`     (Golden capture/assert harness)
+- `backend/tests/canonical/stage1_goldens/test_t1_a_fix1_envelope.py`
+- `backend/tests/canonical/stage1_goldens/test_t1_b_prev_cisa_advisory.py`
+- `backend/tests/canonical/stage1_goldens/test_t1_c_prod_session.py`
+- `backend/tests/canonical/stage1_goldens/test_t1_d_ssot_write.py`
+- `backend/tests/canonical/stage1_goldens/test_t1_e_ice_incident.py`
+- 6 immutable JSON goldens under `stage1_goldens/goldens/`
+- `backend/tests/canonical/iue/lane_a/test_iue_record_boundaries.py`
+- `backend/tests/canonical/iue/lane_a/test_iue_aggregator_semantics.py`
+- `backend/tests/canonical/iue/lane_a/test_iue_field_map_aliases.py`
+- `backend/tests/canonical/iue/lane_a/test_iue_contracts.py`
+- `backend/tests/canonical/iue/lane_a/test_iue_lane_a_e2e.py`
+
+### Test results
+- **Lane A + T1 goldens: 35/35 pass** (27 Lane A + 8 T1 goldens)
+- **T1 flag-OFF byte-identical proof: PASS** — all 6 goldens read from disk match live output verbatim
+- **canonical/iue full suite: 286/287 pass** (1 LOCKED environmental Sample1 fingerprint)
+- **Wider canonical suite: 431/440 pass** — 9 pre-existing failures, all documented in handoff:
+  - 6 × `test_investigation_results_payload_shape.py` (P0 Issue #1 · deliberately deferred)
+  - 2 × `test_executor_all.py` sample1 fingerprint (LOCKED environmental)
+  - 1 × `test_ssot_sample_acceptance.py` sample1 fingerprint (LOCKED environmental)
+- **Backend service: RUNNING · `/api/health` returns 200**
+
+### Contract proofs delivered
+- **10 000-equivalent-events → 1 LogicalEvent** with count=10 000, first_seen, last_seen, full record_refs ✅
+- **Records sharing only an IOC are NOT aggregated** — 3 separate LogicalEvents ✅
+- **Aggregator never correlates across source files** — separate event_ids per file ✅
+- **1-second aggregation bucket pins deterministically** ✅
+- **Field-map records alias_source per canonical field** (dictionary + type_infer) ✅
+- **Unmapped fields preserved in `unmapped_fields` list**, never dropped ✅
+- **understanding.py stays under the 40-LOC thin-consolidator ceiling** (enforced by test) ✅
+- **Feature flag single-read invariant** — `IUE_STRUCTURED_LANE=off` demotes structured → raw_text ✅
+- **Prod-mode without tenant → terminal `tenant_context_missing`** IUEFailure ✅
+- **Prev-mode falls back to `__prev_public__`** sentinel (documented dispensation) ✅
+- **Recursion cycle detection via shared UAIE ledger** ✅
+- **Recursion depth cap matches `UAIE_MAX_DEPTH=12`** ✅
+- **Security cap size-exceeded returns terminal IUEFailure, not exception** ✅
+- **Archive path-traversal rejected** by `is_safe_archive_member` ✅
+
+### Architectural deviations from STEP 3–5
+- **None.** All non-negotiable constraints honoured:
+  - `IUE_STRUCTURED_LANE=off` remains production default
+  - Lane B / C / Fix 1 / acquisition / Prod Mode / Phase D / SSOT / IKG / Verdict — untouched
+  - Reuses `services/uaie/ledger.Ledger` + `format_skip_reason` (no new recursion engine)
+  - Reuses `services/ida/input_classifier` + `services/die/input_understanding.classify` (no new classifier)
+  - `understanding.py` is a thin consolidator (30 lines, enforced ≤ 40)
+  - Aggregation ≠ Correlation invariant tested three ways
+  - No double-counting: aggregation groups only by full canonical key match
+  - Original record boundary preserved via `record_refs`
+  - Tenant + provenance survive every stage
+  - Failure envelopes never silently become success
+
+### Remaining gaps
+- Lane B (URL) and Lane C (file) wrapping — **NOT implemented** (locked per user directive)
+- Structured lane semantic → MITRE dispatch inside `understanding.py` is a placeholder;
+  full mapping is Stage-2 scope
+- The 6 payload-shape canonical failures (P0 Issue #1) remain — separate scope
+- Threat-Objective intent-rule expansion (P1) — separate scope
+- MITRE-tactic-ID misclassification in `report_extraction.threat_actors` (P2) — separate scope
+- Fix 2 CISA Wayback fallback — LOCKED
+
+🛑 **STOP condition honoured.** Awaiting owner directive before Lane B, Lane C, Stage 2, Verdict / IOC disposition, or Evidence Reconciliation.
+
