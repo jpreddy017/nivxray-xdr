@@ -13,7 +13,7 @@
  * state — the panel stays quiet and the Workspace is
  * byte-identical to pre-P0.15C.
  */
-import React from "react";
+import React, { useState } from "react";
 
 // Status → badge styling map (P0.15C-2 refinement)
 const STATUS_STYLES = {
@@ -24,7 +24,34 @@ const STATUS_STYLES = {
     not_available: { icon: "–", className: "bg-neutral-100 text-neutral-500" },
 };
 
+// Small drill-down chevron.  Rotates 90° when the section is open.
+function Chevron({ open }) {
+    return (
+        <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            className={
+                "w-3 h-3 text-neutral-500 transition-transform duration-150 " +
+                (open ? "rotate-90" : "rotate-0")
+            }>
+            <path
+                fill="currentColor"
+                d="M7 5l6 5-6 5V5z"
+            />
+        </svg>
+    );
+}
+
 export default function AcquisitionSummary({ summary }) {
+    // Drill-down state.  Panel starts open; sub-sections start open.
+    const [panelOpen, setPanelOpen] = useState(true);
+    const [openSections, setOpenSections] = useState({
+        HTML: true, Images: true, Recovered: true,
+        Quality: true, Performance: true, "Pipeline Stage Health": true,
+    });
+    const toggleSection = (title) =>
+        setOpenSections((prev) => ({ ...prev, [title]: !prev[title] }));
+
     // Tolerance rule (§0.2) — a missing summary renders zeros,
     // never an error.
     const s = summary || {
@@ -65,21 +92,41 @@ export default function AcquisitionSummary({ summary }) {
         </div>
     );
 
-    const Section = ({ title, children }) => (
-        <div className="mb-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-neutral-600 mb-1">
-                {title}
+    const Section = ({ title, children }) => {
+        const open = openSections[title] !== false;
+        const testId = `acq-section-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+        return (
+            <div className="mb-3" data-testid={testId}>
+                <button
+                    type="button"
+                    onClick={() => toggleSection(title)}
+                    data-testid={`${testId}-toggle`}
+                    aria-expanded={open}
+                    className="w-full flex items-center gap-1.5 mb-1 text-left cursor-pointer hover:text-neutral-900">
+                    <Chevron open={open} />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                        {title}
+                    </span>
+                </button>
+                {open && <div data-testid={`${testId}-body`}>{children}</div>}
             </div>
-            {children}
-        </div>
-    );
+        );
+    };
 
     return (
         <div
             data-testid="acquisition-summary-panel"
             className="rounded-lg border border-neutral-200 bg-white p-4 max-w-md">
             <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-neutral-800">Acquisition Summary</h3>
+                <button
+                    type="button"
+                    onClick={() => setPanelOpen(!panelOpen)}
+                    data-testid="acq-panel-toggle"
+                    aria-expanded={panelOpen}
+                    className="flex items-center gap-2 text-left cursor-pointer hover:text-neutral-900">
+                    <Chevron open={panelOpen} />
+                    <h3 className="text-sm font-semibold text-neutral-800">Acquisition Summary</h3>
+                </button>
                 <span
                     data-testid="acq-flag-status"
                     className={
@@ -91,6 +138,8 @@ export default function AcquisitionSummary({ summary }) {
                     {s.veee_enabled ? "VEEE ON" : "VEEE OFF"}
                 </span>
             </div>
+
+            {panelOpen && (<div data-testid="acq-panel-body">
 
             <Section title="HTML">
                 {row("Paragraphs",   sec.html.paragraphs)}
@@ -155,6 +204,7 @@ export default function AcquisitionSummary({ summary }) {
                     );
                 })}
             </Section>
+            </div>)}
         </div>
     );
 }
