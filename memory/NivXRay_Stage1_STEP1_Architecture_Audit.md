@@ -195,3 +195,62 @@ backend/tests/canonical/iue/
 - ✅ Zero code changed
 
 STOP. Awaiting owner authorization to proceed to STEP 2 (module-by-module reuse matrix based on this corrected architecture).
+
+---
+
+## J. v3 spec addendum — delta from v2 audit (canonical prompt received 2026-02-14)
+
+The v3 Emergent prompt is now the source of truth. The v2 pipeline drawing above (§A) stays valid. v3 adds/emphasises the following, all of which are ADDITIVE — nothing in v2 §A–§I is invalidated:
+
+| v3 § | Addition to audit | Existing component to reuse | Gap |
+|---|---|---|---|
+| §10 Alert / XDR / EDR / SIEM | File must yield **multiple record-level events**, not one blob; each event carries record-level provenance | `services/uaie/orchestrator.py` ledger; new `services/iue/parsers/*_parser.py` | New parsers only |
+| §12 Workers as specialized processing | Workers must emit canonical evidence, never invent investigations | `services/ice/correlate.py` is the reunifier | No new code Stage 1; contract only |
+| §13 Correlation reunites by tenant/device/process/user/session/artifact/timestamp/entity | Already implemented in `services/ice/correlate.py::_build_incident` (reads report_extraction + graph) | ICE | Reuse — no changes |
+| §14 SSOT is single source | `canonical/ssot/authoritative.py::AuthoritativeSSOT` + `services/ssot_store.py` | Existing SSOT | Reuse — no changes |
+| §15 Native IOC disposition ≠ OSINT dependence | Already deterministic-first per Positioning v1.3.3 | `services/mitigation/evidence_driven/*` | Stage-2+ scope |
+| §16 Evidence reconciliation | **New architectural boundary** — reconcile native vs OSINT vs VT vs AbuseIPDB | Stub in `services/threat_intel/`; deferred | Stage-2 scope; audited only |
+| §17 Deterministic verdict as its own layer | `services/die/canonical_bridge.py::render_verdict` exists | Existing verdict engine | Stage-2+; not Stage 1 |
+| §18 Explicit failure states | Fix 1 pattern + UAIE ledger skip codes | Reuse | Extend `IUEFailure(status, stage, error_code, recoverable)` to every new module |
+| §19 Provenance lineage | `canonical/ssot/models.py::Provenance` + Source | Reuse; every new IUE module must attach `Provenance` | No new schema; wire-through only |
+| §20 Deduplication | `services/uaie/ledger.py` fingerprint dedupe + `canonical/ssot/authoritative.py::sha256_hex` | Reuse across new IUE modules | Wire-through |
+| §21 Multi-tenancy | **New Stage-1 requirement** — every new record/event/evidence object must carry `tenant_id` from the earliest stage | `services/session/adapter.py` already carries session/tenant | Add `tenant_id` propagation to every new IUE module's payload envelope |
+| §22 Observability | `input_id / tenant_id / source / route / stage / parent_input_id / depth / content_fingerprint / record_count / processing_status / error_code / processing_time` at every stage | UAIE ledger has most of these | Add per-module structured emission |
+| §23 Security controls | SSRF / decompression-bomb / path-traversal / recursion cap / timeouts / tenant isolation | `services/ida/acquisition.py` has SSRF/private-host guard; UAIE has `max_depth=12` | New parsers must inherit size/timeout caps; explicit test file `test_iue_security_controls.py` |
+| §25 Stage-1 scope reaffirmed | Only Collection → Parse → Normalize → Aggregate → IUE → Semantic → Native Evidence, then hand off to existing workers/ICE/SSOT | v2 §A drawing is correct | — |
+| §28 Execution order | 13 steps; stop after STEP 12 | v2 §I already stopped after audit | — |
+| §29 Definition of done | Recursive discovery + Native Evidence remains authoritative + existing downstream unchanged | v2 §F compatibility contract covers this | — |
+
+### Impact on v2 file layout (§E)
+
+**Additional files needed to satisfy v3 §21/§22/§23:**
+
+```
+backend/services/iue/
+├── tenancy.py                                    ← §21 · propagate tenant_id
+├── security.py                                   ← §23 · size / timeout / SSRF / decompression caps
+└── (existing v2 modules unchanged: intake, collectors, parsers,
+    normalizers, aggregator, understanding, recurse, failure,
+    observability)
+
+backend/tests/canonical/iue/
+├── test_iue_security_controls.py                 ← §23
+└── test_iue_tenant_isolation.py                  ← §21
+```
+
+**Revised LOC estimate:** ~880 code + ~600 tests (was ~760 + ~500).
+
+### v3 non-touchables (superset of v2 §D)
+
+All v2 non-touchables ✚ Deterministic Verdict Engine (§17), Native IOC Disposition (§15), Evidence Reconciliation architecture wiring (§16 — stub only, no live behaviour), external OSINT integrations (§15).
+
+## K. Definition of "STEP 1 (v3) complete"
+
+- ✅ v3 canonical prompt logged; v2 audit still valid; v3 delta captured
+- ✅ Additional Stage-1 requirements from v3 §10/§16/§21/§22/§23 mapped
+- ✅ Additional files identified (`tenancy.py`, `security.py`, + 2 test files)
+- ✅ Revised LOC estimate
+- ✅ v3 non-touchables enumerated
+- ✅ Zero code changed in this step
+
+STOP. Awaiting authorization to proceed to STEP 2 (v3 §28 · module-by-module reuse matrix against the v3 pipeline).
