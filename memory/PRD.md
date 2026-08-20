@@ -1066,3 +1066,49 @@ Production deploy verification must establish that:
 - 📋 P0 backlog: 6 payload-shape canonical failures (Issue #1) · Sample1 fingerprint (environmental, LOCKED as ignored)
 - 📋 XDR/JSON MITRE swim-lane routing (P1 Issue 2) — related to P1a but separate scope
 - 📋 L4 Analyst Workspace remaining tabs · Multi-tenant + 3-role RBAC scaffolding · Red `acquisition_failed` UX banner
+
+---
+
+## 2026-02-14 · Stage 1 Architecture · STEPS 3, 4, 5 (Design-only) COMPLETE
+
+### What was delivered (documentation only · zero code)
+- **STEP 3 · Compatibility-Layer Design** → `/app/memory/NivXRay_Stage1_STEP3_Compatibility.md`
+  - Interfaces / dataclasses defined: `IntakeDecision`, `RawPayload`, `ParsedRecord`, `NormalizedRecord`, `LogicalEvent`, `ContentEnvelope`, `IUEFailure`
+  - Frozen canonical field namespace (~28 fields) · alias-source vocabulary · error-code vocabulary
+  - Feature-flag `IUE_STRUCTURED_LANE=off` located to single call-site (`services/iue/intake.py`)
+  - Failure-state matrix for all 7 stages (intake/collect/parse/normalize/aggregate/understand/recurse)
+  - **10 architectural contradictions surfaced** with mitigations
+- **STEP 4 · Integration / Data-Flow Design** → `/app/memory/NivXRay_Stage1_STEP4_DataFlows.md`
+  - Four concrete lane sequences: A (structured), B (URL), C (file), D (raw text)
+  - Illustrative micro-flow for 3 near-duplicate EDR records → 2 LogicalEvents
+  - Existing call-site inventory (grep-verified) with "today vs. after" per site
+  - 8 cross-lane invariants; 7 contradictions surfaced
+- **STEP 5 · Compatibility + Regression Design** → `/app/memory/NivXRay_Stage1_STEP5_Regression.md`
+  - Compatibility tiers T1 (byte-identical) / T2 (contract-compatible) / T3 (behaviourally equivalent)
+  - Aggregation ≠ Correlation stated three ways (definitional · operational · testable)
+  - Regression matrix (12 existing behaviours) mapped to named STEP 6 tests
+  - **22 proof obligations** enumerated (P1–P22): T1 goldens · T2 superset · T3 parity · security (v3 §23) · flag proofs
+  - 8 residual risks; **6 flagged for explicit owner acknowledgement** before STEP 6
+
+### Owner pre-conditions for STEP 6 authorisation (from STEP 5 §6)
+1. STEP 6 opens with fixture-capture, not code
+2. Prev-mode `__prev_public__` tenant fallback is intentional
+3. Second existing IUE (`nivxforge/investigation/input_understanding.py`) is Stage-2 reconciliation
+4. `understanding.py` capped at 40 LOC before mandatory split
+5. UAIE ledger parity (P8/P9/P10) is a merge gate
+6. Artifact-router consolidation review before Lane C wiring
+
+### Hard gate honoured
+🔒 **STEP 6 (implementation · ~880 LOC) remains LOCKED** until owner reviews the three design artefacts and acknowledges the 6 pre-conditions above.
+
+### Backlog carried forward (unchanged from prior session)
+- P0: Stage 1 STEP 6 (LOCKED)
+- P0: 6 payload-shape canonical failures
+- P1: Threat Objective intent-rule expansion
+- P1: ThreatAnalysis A+B+C stability on production
+- P2: MITRE tactic-ID misclassification in `report_extraction.threat_actors`
+- P2: L4 Analyst Workspace remaining tabs · Multi-tenant + RBAC scaffolding
+- P3: Stage 2+ — Verdict Engine, Native IOC disposition, Evidence Reconciliation
+- 🔒 Fix 2 CISA Wayback fallback (LOCKED)
+- 🔒 Sample1 DB fingerprint (LOCKED · environmental)
+
