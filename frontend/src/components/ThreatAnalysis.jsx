@@ -11,6 +11,9 @@ import PlaybookFeedback from "@/components/PlaybookFeedback";
 // paint before the graph reconciles.  Size-gating deliberately deferred
 // to a later step to keep a single, measurable rendering path.
 const InvestigationGraph = lazy(() => import("./InvestigationGraph"));
+// Lane-A projection.  Feature-flag-gated at the backend (503 when off),
+// so lazily loading it here has no cost when the flag is off.
+const StructuredEvidenceTab = lazy(() => import("./StructuredEvidenceTab"));
 
 function GraphSkeleton() {
   return (
@@ -56,7 +59,7 @@ export default function ThreatAnalysis({
   decodeTrace = [], decodeEngine = null, decodeConfidence = null,
   reachedShellcode = false, onRerunFromNode = null,
 }) {
-  const tabs = ["GRAPH", "MITRE", "LOLBAS", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "FLOW", "CHAIN"];
+  const tabs = ["GRAPH", "MITRE", "LOLBAS", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "FLOW", "CHAIN", "EVIDENCE"];
   const [tab, setTab] = useState("GRAPH");
 
   // Phase D · Step 1 — 2026-02-14
@@ -329,6 +332,16 @@ export default function ThreatAnalysis({
         {analysis && tab === "AI" && <AiTab desc={analysis.description} verdict={analysis.ai_verdict} />}
         {analysis && tab === "FLOW" && <FlowTab description={analysis.description} deterministicChain={analysis.chain || []} />}
         {analysis && tab === "CHAIN" && <ChainTab chain={analysis.chain || []} />}
+        {tab === "EVIDENCE" && (
+          <Suspense fallback={
+            <div data-testid="evidence-loading" className="mono"
+                 style={{ padding: 14, color: "var(--text-mute)", fontSize: 11, letterSpacing: "0.18em" }}>
+              LOADING STRUCTURED EVIDENCE…
+            </div>
+          }>
+            <StructuredEvidenceTab />
+          </Suspense>
+        )}
       </div>
     </aside>
   );

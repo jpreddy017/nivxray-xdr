@@ -1296,3 +1296,43 @@ Production deploy verification must establish that:
 
 🛑 **STOP condition honoured.** Awaiting owner sign-off on the vertical slice before authorising Lane B/C or additional Workspace tabs.
 
+
+## 2026-02-14 · Stage 1 · Phase 6c.4 · Structured Evidence Tab in Workspace COMPLETE
+
+### Files created / modified
+- **NEW** `frontend/src/components/StructuredEvidenceTab.jsx` (~320 LOC) — reusable pure-projection component. Renders Process · Network · File · Identity · IOC panels + Provenance panel. Every renderer uses `display()` helper that stringifies non-primitives → **guarantees no `[object Object]` in DOM**.
+- **REWRITTEN** `frontend/src/pages/LaneAWorkspacePage.jsx` (12 LOC · was ~230) — thin wrapper delegating to `<StructuredEvidenceTab />`. `/lane-a` route preserved as proving-ground entry point.
+- **MODIFIED** `frontend/src/components/ThreatAnalysis.jsx` — added `"EVIDENCE"` tab to the tab array; lazy-loaded `StructuredEvidenceTab` with Suspense fallback. Zero touch to existing tabs (GRAPH, MITRE, LOLBAS, RULES, IOCs, TI-HITS, OSINT, AI, FLOW, CHAIN).
+- **NEW** `backend/tests/canonical/api/test_iue_lane_a_ui_contract.py` — deterministic Playwright UI contract test (T1-T7) that skips gracefully when browser is absent.
+
+### Deterministic UI contract verified LIVE on preview (all 7 green)
+- **T1** LogicalEvents render correctly · 2 events from 3 NDJSON records ✅
+- **T2** Aggregation shown via `×N` badge · first badge = `×2` ✅
+- **T3** Process / Network / IOC panels present ✅
+- **T4** IOC projection from canonical fields · 4 IPs surfaced ✅
+- **T5** Provenance panel with 9-step lineage chain + 2 record_refs ✅
+- **T6** No `[object Object]` anywhere in rendered DOM ✅
+- **T7** Empty state renders without crash ✅
+
+### Constraints honoured
+- **Frontend is a pure projection layer** — no verdict / MITRE inference / IOC disposition / correlation / scoring / reasoning. Every field comes verbatim from `canonical.*` keys.
+- No verdict/ICE/SSOT/IKG/acquisition/Fix 1/Fix 2/Phase D changes.
+- Lane B/C untouched.
+- `IUE_STRUCTURED_LANE=off` remains production default.
+
+### Test results
+- **46 passed · 1 skipped** (playwright browser absent in CI · asserted LIVE via preview)
+- **T1 goldens + T2 wire contract byte-identical** with flag OFF ✅
+- **Backend Lane A + router: 46/46**
+- Zero regressions.
+
+### What is explicitly NOT done (locked)
+- 🔒 Lane B (URL) and Lane C (file) wrapping
+- 🔒 Verdict calculation in frontend
+- 🔒 Additional Workspace tabs (Timeline / Attack Story / Investigation Graph / ATT&CK / Evidence / Relationships / Reports)
+- 🔒 Stage 2 (Verdict Engine · Native IOC disposition · Evidence Reconciliation)
+- 🔒 Fix 2 CISA Wayback fallback
+- 📋 6 payload-shape canonical failures (P0 Issue #1) — separate scope
+
+🛑 **STOP condition honoured.** Awaiting owner sign-off before Lane B/C.
+
