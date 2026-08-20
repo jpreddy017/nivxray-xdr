@@ -38,6 +38,12 @@ _GOLDENS_DIR = Path(__file__).resolve().parent / "goldens"
 _ISO_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$"
 )
+# Provenance lineage entries are ``<engine>:<iso_timestamp>`` — strip the
+# timestamp so lineage shape can be compared across runs.
+_ENGINE_TS_RE = re.compile(
+    r"^([a-zA-Z0-9_.\-]+):\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
+    r"(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$"
+)
 _HEX_ID_RE = re.compile(r"^[0-9a-f]{8,64}$")
 _SES_ID_RE = re.compile(r"^ses[-_][0-9a-f]{6,}$")
 _UUID_RE = re.compile(
@@ -55,6 +61,9 @@ def _scrub_value(v: Any) -> Any:
     if isinstance(v, str):
         if _ISO_RE.match(v):
             return "<ISO_TIMESTAMP>"
+        m = _ENGINE_TS_RE.match(v)
+        if m:
+            return f"{m.group(1)}:<ISO_TIMESTAMP>"
         if _UUID_RE.match(v):
             return "<UUID>"
         if _SES_ID_RE.match(v):

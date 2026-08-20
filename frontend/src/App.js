@@ -48,6 +48,7 @@ const BenchmarkPage         = lazy(() => import("@/pages/BenchmarkPage"));
 const MultiLayerBatteryPage = lazy(() => import("@/pages/MultiLayerBatteryPage"));
 const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"));
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
+const LaneAWorkspacePage    = lazy(() => import("@/pages/LaneAWorkspacePage"));
 const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
 // L4 · Investigation Session (Rule R22 · 2026-03-02) — dedicated
 // deep-dive surface for a completed threat-report investigation.
@@ -138,6 +139,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/" element={<Protected><PageErrorBoundary><WorkspacePage /></PageErrorBoundary></Protected>} />
+              <Route path="/lane-a" element={<Protected><PageErrorBoundary><LaneAWorkspacePage /></PageErrorBoundary></Protected>} />
               <Route path="/analyze" element={<Protected><CommandAnalyzerPage /></Protected>} />
               <Route path="/threat-intel" element={<Protected><ThreatIntelPage /></Protected>} />
               <Route path="/threat-model" element={<Protected><ThreatModelPage /></Protected>} />

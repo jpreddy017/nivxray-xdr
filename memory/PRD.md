@@ -1258,3 +1258,41 @@ Production deploy verification must establish that:
 
 🛑 **Awaiting owner review of preview wire output before Lane B/C or UI decision.**
 
+
+## 2026-02-14 · Stage 1 · Phase 6c.3 · Wire Contract Freeze + Analyst Workspace Vertical Slice COMPLETE
+
+### Wire Contract Freeze (T2)
+- `tests/canonical/stage1_goldens/test_t2_lane_a_wire_contract.py` — locks the full JSON shape produced by the Lane-A pipeline for the CrowdStrike-shape NDJSON fixture.
+- Golden: `stage1_goldens/goldens/t2_lane_a_wire_contract.json`.
+- Second test `test_t2_wire_contract_key_surface_stable` explicitly pins the key surface for **IntakeDecision · LogicalEvent · Provenance · report_extraction_fragment**.
+- Harness scrubber upgraded to strip `engine:timestamp` lineage entries so goldens survive across runs.
+
+### Backend endpoint
+- **NEW router**: `backend/routers/iue_lane_a.py` — feature-flagged, no changes to any existing endpoint.
+  - `GET  /api/iue/lane-a/status` — flag state + security caps
+  - `POST /api/iue/lane-a/analyze` — accepts multipart file + parser hint; returns the T2 wire shape
+- Wired into `server.py` (import + `api.include_router`).
+- Preview env var flipped: `IUE_STRUCTURED_LANE=on` in `/etc/supervisor/conf.d/supervisord.conf` (Preview only). Production default remains `off`.
+
+### Frontend vertical slice
+- **NEW page**: `frontend/src/pages/LaneAWorkspacePage.jsx` (~230 LOC)
+- **NEW route**: `/lane-a` in `App.js`
+- Panels: **Process · Network · File · Identity · IOCs · Provenance**
+- Rendering reads canonical fields DIRECTLY — no verdict, no MITRE inference, no correlation, no IOC disposition in React.
+- Full data-testid coverage: `lane-a-workspace`, `lane-a-file-input`, `lane-a-parser-select`, `lane-a-analyze-btn`, `lane-a-summary-{events,records,malformed,tenant}`, `lane-a-panel-{process,network,file,identity,ioc}`, `lane-a-event-<id>`, `lane-a-provenance-panel`, `lane-a-provenance-chain`, `lane-a-ioc-{ips,hashes,domains,urls}`.
+
+### Tests
+- **NEW backend test**: `tests/canonical/api/test_iue_lane_a_router.py` — 5 tests covering flag off/on, wire shape, unsupported parser, missing file.
+- Full Lane A + goldens + router: **46/46 PASS**.
+- End-to-end preview screenshot verified: NDJSON upload → aggregated LogicalEvents (`exec × 2`, `network_connect × 1`) → 4 IOCs extracted → 9-step provenance chain visible.
+
+### What is explicitly NOT done (locked)
+- 🔒 Lane B (URL) and Lane C (file) — not started
+- 🔒 Additional Workspace tabs (Timeline · Attack Story · Investigation Graph · ATT&CK · Evidence · Relationships · Reports) — first vertical slice is enough to prove the pattern
+- 🔒 Verdict calculation in frontend — must never happen
+- 🔒 SSOT / IKG / ICE / acquisition / Fix 1 / Fix 2 / Phase D — untouched
+- 🔒 Stage 2 (Verdict Engine / Native IOC disposition / Evidence Reconciliation) — untouched
+- 📋 6 payload-shape canonical failures (P0 Issue #1) — separate scope
+
+🛑 **STOP condition honoured.** Awaiting owner sign-off on the vertical slice before authorising Lane B/C or additional Workspace tabs.
+
