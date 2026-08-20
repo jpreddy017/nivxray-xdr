@@ -39,7 +39,10 @@ def test_failure_ok_shape_serialisable():
     d = f.to_dict()
     assert d["status"] == "recoverable"
     assert d["error_code"] == "parse_malformed_record"
-    assert d["at"]  # timestamp present
+    # Provenance replaces the inline 'at' field (STEP 6c.2 refactor).
+    assert d["provenance"]["engine"] == "iue.failure.parse"
+    assert d["provenance"]["at"]
+    assert d["provenance"]["version"] == "1.0"
 
 
 # ── Tenant fallback (STEP 3 §4) ───────────────────────────────────

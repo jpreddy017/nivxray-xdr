@@ -1216,3 +1216,45 @@ Production deploy verification must establish that:
 
 🛑 Awaiting owner architectural verdict. No Lane B/C, no UI, no Stage 2, no payload-shape fixes in this round.
 
+
+## 2026-02-14 · Stage 1 · Phase 6c.2 · Provenance refactor + parser consolidation COMPLETE
+
+### Actions executed
+- **Provenance refactor**: All 6 payload dataclasses (`IntakeDecision`, `RawPayload`, `ParsedRecord`, `NormalizedRecord`, `LogicalEvent`, `IUEFailure`) now compose `canonical.ssot.models.Provenance` via `services/iue/_prov.py` factories. Inline `at` field removed from RawPayload and IUEFailure. **No parallel provenance representation remains** — enforced by AST-walk test `test_no_parallel_provenance_dataclass_exists_in_iue`.
+- **Lineage chain**: aggregator threads upstream_evidence_ids Intake→Collect→Parse→Normalize→Aggregate. Verified live in preview wire output.
+- **Parser-error consolidation**: New `parsers/_errors.py` with `malformed_record()` + `ok_record()` factories. All 4 parsers rewritten. Per-file LOC drops: json 103→54, ndjson 72→38, csv 69→39, xml 95→70 → **-138 LOC across parsers**, offset by +140 in `_prov.py` + `_errors.py`. Net LOC ~flat (1316 → 1352) but **architecturally correct**.
+- **Preview NDJSON wire test**: `test_iue_preview_ndjson_wire_shape.py` exercises the full chain with `IUE_STRUCTURED_LANE=on` on a 8-record CrowdStrike-shape NDJSON fixture. Wire output persisted at `tests/canonical/iue/lane_a/preview_wire_output.json` (19.5 KB) for owner inspection.
+
+### Wire-shape validation results (fixture: 8 NDJSON lines · 1 malformed)
+- 8 ParsedRecords (7 ok · 1 malformed) — record boundary preserved
+- 7 NormalizedRecords with canonical fields + alias_source provenance
+- **5 LogicalEvents** produced:
+  - 1 exec cluster (count=3, first_seen `12:00:00.010Z`, last_seen `12:00:00.870Z`)
+  - 1 file_write (count=1)
+  - 2 network_connect (count=1 each — different 1s buckets)
+  - 1 login_success (count=1)
+- Provenance chain walkable end-to-end (verified in wire output)
+- Additive `report_extraction` fragment: `{logical_event_count:5, logical_record_total:7, logical_events:[…]}`
+
+### Test results
+- **Lane A + T1 goldens: 39/39 PASS** (was 35 — added 3 provenance-composition tests + 1 wire-shape test)
+- **T1 goldens byte-identical** with flag OFF (regenerated in assertion mode ✓)
+- **canonical/iue full suite: 236/237 PASS** (1 LOCKED environmental Sample1)
+- **Zero regressions from the refactor**
+
+### Owner-approved architectural decisions locked
+- Provenance composed from `canonical.ssot.models.Provenance` everywhere
+- `understanding.py` stays thin (36 lines, enforced ≤ 40); structured-event → MITRE mapping **not** added to IUE
+- Parser-error consolidation shipped (`parsers/_errors.py`)
+- `IUE_STRUCTURED_LANE=off` remains production default
+
+### Still gated / locked
+- 🔒 Lane B (URL) and Lane C (file) — NOT to be started until wire contract is frozen
+- 🔒 UI / Analyst Workspace projection — NOT to be started until wire contract is frozen
+- 🔒 Structured MITRE dispatch — must live in existing owners (die.canonical / mitigation.evidence_driven), NOT in `understanding.py`
+- 🔒 Stage 2 (Verdict / Native IOC disposition / Evidence Reconciliation) — untouched
+- 🔒 Fix 2 CISA Wayback fallback — LOCKED
+- 📋 6 payload-shape canonical failures (P0 Issue #1) — separate scope, deferred
+
+🛑 **Awaiting owner review of preview wire output before Lane B/C or UI decision.**
+

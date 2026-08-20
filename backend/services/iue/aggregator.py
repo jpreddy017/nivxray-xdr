@@ -13,6 +13,9 @@ import hashlib
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, Iterable, List, Mapping
 
+from canonical.ssot.models import Provenance
+from ._prov import aggregate_prov
+
 
 # Grouping key (STEP 3 §3.4).  Aggregation happens ONLY when every
 # listed field either matches exactly or is absent in every record
@@ -44,6 +47,7 @@ class LogicalEvent:
     last_seen: str
     canonical_fields: Mapping[str, Any]    # shared grouping fields
     variability: Mapping[str, List[Any]]   # canonical_key → distinct values
+    provenance: Provenance = field(default_factory=aggregate_prov)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -122,6 +126,7 @@ def aggregate(records: Iterable) -> List[LogicalEvent]:
                 "tenant_id": rec.tenant_id,
                 "source_file_id": rec.source_file_id,
                 "input_id": rec.input_id,
+                "upstream_prov": rec.provenance,   # first record's lineage
             }
         g = groups[sig]
         g["record_refs"].append(rec.record_id)
@@ -153,8 +158,9 @@ def aggregate(records: Iterable) -> List[LogicalEvent]:
     events: List[LogicalEvent] = []
     for sig in order:
         g = groups[sig]
+        ev_id = _event_id(sig, g["tenant_id"], g["source_file_id"])
         events.append(LogicalEvent(
-            event_id=_event_id(sig, g["tenant_id"], g["source_file_id"]),
+            event_id=ev_id,
             tenant_id=g["tenant_id"],
             input_id=g["input_id"],
             source_file_id=g["source_file_id"],
@@ -164,5 +170,7 @@ def aggregate(records: Iterable) -> List[LogicalEvent]:
             last_seen=g["last_seen"] or "",
             canonical_fields=g["canonical_fields"],
             variability=g["variability"],
+            provenance=aggregate_prov(upstream=g["upstream_prov"],
+                                        own_id=ev_id),
         ))
     return events

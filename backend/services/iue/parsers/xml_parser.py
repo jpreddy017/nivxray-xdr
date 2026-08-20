@@ -1,11 +1,11 @@
 """XML parser — one ParsedRecord per direct child element of the root.
 
-Uses stdlib ``xml.etree.ElementTree`` with entity-expansion disabled to
-avoid XXE / billion-laughs attacks (uses ``defusedxml`` if available).
+Uses ``defusedxml`` when available to avoid XXE / billion-laughs attacks;
+falls back to stdlib ``xml.etree`` with a warning captured in
+``parse_errors=["defusedxml_missing"]``.
 """
 from __future__ import annotations
 
-import hashlib
 from typing import Iterator
 
 try:
@@ -15,12 +15,9 @@ except Exception:  # defusedxml not installed → fall back with warnings
     import xml.etree.ElementTree as ET  # type: ignore
     _SAFE_XML = False
 
+from ._errors import malformed_record, ok_record
 from ._types import ParsedRecord
 from ..security import enforce_record_count, SecurityCapExceeded
-
-
-def _record_id(source_file_id: str, offset: int) -> str:
-    return hashlib.sha256(f"{source_file_id}:{offset}".encode()).hexdigest()[:24]
 
 
 def _elem_to_dict(elem) -> dict:
@@ -44,52 +41,30 @@ def _elem_to_dict(elem) -> dict:
 
 
 def iter_records(raw) -> Iterator[ParsedRecord]:
+    warn = [] if _SAFE_XML else ["defusedxml_missing"]
+
     try:
         root = ET.fromstring(raw.bytes_)  # nosec: safe via defusedxml when available
     except Exception as e:
-        yield ParsedRecord(
-            record_id=_record_id(raw.source_file_id, 0),
-            source_file_id=raw.source_file_id,
-            input_id=raw.input_id, tenant_id=raw.tenant_id,
-            offset=0, raw_fields={},
-            parser_name="xml",
-            parse_status="malformed",
-            parse_errors=[f"xml: {e}"],
-        )
+        yield malformed_record(raw=raw, parser_name="xml",
+                                 offset=0, error=f"xml: {e}")
         return
 
     children = list(root)
-    if not children:  # root itself is the single record
-        yield ParsedRecord(
-            record_id=_record_id(raw.source_file_id, 0),
-            source_file_id=raw.source_file_id,
-            input_id=raw.input_id, tenant_id=raw.tenant_id,
-            offset=0, raw_fields=_elem_to_dict(root),
-            parser_name="xml",
-            parse_errors=[] if _SAFE_XML else ["defusedxml_missing"],
-        )
+    if not children:
+        yield ok_record(raw=raw, parser_name="xml", offset=0,
+                         raw_fields=_elem_to_dict(root),
+                         parse_errors=warn)
         return
 
     try:
         enforce_record_count(len(children))
     except SecurityCapExceeded as e:
-        yield ParsedRecord(
-            record_id=_record_id(raw.source_file_id, 0),
-            source_file_id=raw.source_file_id,
-            input_id=raw.input_id, tenant_id=raw.tenant_id,
-            offset=0, raw_fields={},
-            parser_name="xml",
-            parse_status="malformed",
-            parse_errors=[str(e)],
-        )
+        yield malformed_record(raw=raw, parser_name="xml",
+                                 offset=0, error=str(e))
         return
 
     for i, child in enumerate(children):
-        yield ParsedRecord(
-            record_id=_record_id(raw.source_file_id, i),
-            source_file_id=raw.source_file_id,
-            input_id=raw.input_id, tenant_id=raw.tenant_id,
-            offset=i, raw_fields=_elem_to_dict(child),
-            parser_name="xml",
-            parse_errors=[] if _SAFE_XML else ["defusedxml_missing"],
-        )
+        yield ok_record(raw=raw, parser_name="xml", offset=i,
+                         raw_fields=_elem_to_dict(child),
+                         parse_errors=warn)

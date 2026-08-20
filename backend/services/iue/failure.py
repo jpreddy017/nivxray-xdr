@@ -9,8 +9,10 @@ that lets Lane B keep byte-identical output.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
 from typing import Optional
+
+from canonical.ssot.models import Provenance
+from ._prov import failure_prov
 
 
 # Closed vocabulary — see STEP 3 §3.6.  Adding a code is a design amendment.
@@ -36,6 +38,9 @@ STAGES = frozenset({"intake", "collect", "parse", "normalize",
 
 
 def _utc_iso() -> str:
+    # Kept for backwards compat with a couple of callers; provenance
+    # now carries the authoritative timestamp via Provenance.at.
+    from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -49,7 +54,7 @@ class IUEFailure:
     hint: str = ""
     input_id: str = ""
     tenant_id: str = ""
-    at: str = field(default_factory=_utc_iso)
+    provenance: Provenance = field(default_factory=lambda: failure_prov("unknown"))
 
     def __post_init__(self):
         # Vocabulary enforcement — silent drift causes silent regressions.
@@ -61,6 +66,12 @@ class IUEFailure:
             raise ValueError(
                 f"IUEFailure.error_code={self.error_code!r} not in ERROR_CODES"
             )
+        # Re-tag the default provenance with the actual stage if the caller
+        # didn't specify one.  We can't reassign a frozen field, so we
+        # object.__setattr__ here — bounded to the failure envelope only.
+        if self.provenance.engine == "iue.failure.unknown":
+            from ._prov import failure_prov as _fp
+            object.__setattr__(self, "provenance", _fp(self.stage))
 
     def to_dict(self) -> dict:
         return asdict(self)

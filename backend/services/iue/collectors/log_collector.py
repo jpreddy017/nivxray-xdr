@@ -7,19 +7,16 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
 from typing import Optional
 
+from canonical.ssot.models import Provenance
+from .._prov import collect_prov
 from ..failure import IUEFailure
 from ..security import enforce_raw_size, SecurityCapExceeded
 
 
 def _sha256_hex(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
-
-
-def _utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass(frozen=True)
@@ -32,7 +29,7 @@ class RawPayload:
     tenant_id: str
     parent_input_id: Optional[str] = None
     discovery_depth: int = 0
-    at: str = field(default_factory=_utc_iso)
+    provenance: Provenance = field(default_factory=collect_prov)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -46,6 +43,7 @@ def collect(payload_bytes: bytes,
              *, mime: str,
              input_id: str,
              tenant_id: str,
+             upstream: Optional[Provenance] = None,
              parent_input_id: Optional[str] = None,
              discovery_depth: int = 0,
              encoding: str = "utf-8"):
@@ -61,13 +59,15 @@ def collect(payload_bytes: bytes,
             input_id=input_id, tenant_id=tenant_id,
         )
 
+    source_file_id = _sha256_hex(payload_bytes)[:32]
     return RawPayload(
         bytes_=payload_bytes,
         mime=mime,
         encoding=encoding,
-        source_file_id=_sha256_hex(payload_bytes)[:32],
+        source_file_id=source_file_id,
         input_id=input_id,
         tenant_id=tenant_id,
         parent_input_id=parent_input_id,
         discovery_depth=discovery_depth,
+        provenance=collect_prov(upstream=upstream, own_id=source_file_id),
     )

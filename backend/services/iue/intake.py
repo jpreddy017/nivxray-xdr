@@ -17,6 +17,8 @@ import os
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
+from canonical.ssot.models import Provenance
+from ._prov import intake_prov
 from .failure import IUEFailure
 from .tenancy import resolve_tenant, PREV_PUBLIC_TENANT
 
@@ -49,6 +51,7 @@ class IntakeDecision:
     parent_input_id: Optional[str] = None
     discovery_depth: int = 0
     flag_state: str = "off"         # 'off' | 'on'
+    provenance: Provenance = field(default_factory=intake_prov)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -167,4 +170,5 @@ def intake(payload,
         parent_input_id=parent_input_id,
         discovery_depth=discovery_depth,
         flag_state=flag,
+        provenance=intake_prov(own_id=input_id),
     )

@@ -14,6 +14,9 @@ import re
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Mapping, Tuple
 
+from canonical.ssot.models import Provenance
+from .._prov import normalize_prov
+
 
 # ── Alias dictionary (STEP 3 §3.3) ─────────────────────────────────
 # canonical_key → list of (alias, source_tag)
@@ -144,6 +147,7 @@ class NormalizedRecord:
     alias_map: Mapping[str, Tuple[str, str]]  # canonical → (raw_key, source)
     normalize_status: str = "ok"       # ok | partial | unmappable
     unmapped_fields: List[str] = field(default_factory=list)
+    provenance: Provenance = field(default_factory=normalize_prov)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -206,4 +210,6 @@ def normalize(record) -> NormalizedRecord:
         alias_map=alias_map,
         normalize_status=status,
         unmapped_fields=unmapped,
+        provenance=normalize_prov(upstream=record.provenance,
+                                    own_id=record.record_id),
     )
