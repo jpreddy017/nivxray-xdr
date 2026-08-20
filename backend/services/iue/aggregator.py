@@ -27,6 +27,7 @@ GROUPING_KEYS = (
     "canonical.source.ip",
     "canonical.destination.ip",
     "canonical.destination.port",
+    "canonical.destination.url",
     "canonical.process.name",
     "canonical.process.command_line",
     "canonical.file.hash.sha256",

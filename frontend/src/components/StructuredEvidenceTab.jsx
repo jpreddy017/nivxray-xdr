@@ -217,8 +217,10 @@ function IOCList({ label, items, testId, mono = false }) {
 //   - OR nothing → this component renders an in-tab uploader that calls
 //     POST /api/iue/lane-a/analyze itself.
 export default function StructuredEvidenceTab({ wire: externalWire = null }) {
+    const [mode, setMode] = useState("file");            // "file" | "url"
     const [file, setFile] = useState(null);
     const [parser, setParser] = useState("ndjson");
+    const [url, setUrl] = useState("");
     const [internalWire, setInternalWire] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -239,16 +241,28 @@ export default function StructuredEvidenceTab({ wire: externalWire = null }) {
     }, [events]);
 
     async function onAnalyze() {
-        if (!file) return;
         setLoading(true);
         setError(null);
         setInternalWire(null);
         setSelectedEv(null);
         try {
-            const fd = new FormData();
-            fd.append("file", file);
-            fd.append("parser", parser);
-            const res = await fetch(`${API}/api/iue/lane-a/analyze`, { method: "POST", body: fd });
+            let res;
+            if (mode === "url") {
+                if (!url.trim()) { setError("missing_url"); return; }
+                res = await fetch(`${API}/api/iue/lane-b/analyze`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: url.trim() }),
+                });
+            } else {
+                if (!file) { setError("missing_file"); return; }
+                const fd = new FormData();
+                fd.append("file", file);
+                fd.append("parser", parser);
+                res = await fetch(`${API}/api/iue/lane-a/analyze`, {
+                    method: "POST", body: fd,
+                });
+            }
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 setError(body?.detail?.error || `http_${res.status}`);
@@ -270,28 +284,63 @@ export default function StructuredEvidenceTab({ wire: externalWire = null }) {
             style={{ padding: 14 }}>
             {!externalWire && (
                 <section className="flex flex-wrap gap-2 items-center">
-                    <input
-                        data-testid="evidence-file-input"
-                        type="file"
-                        onChange={(e) => setFile(e.target.files?.[0] || null)}
-                        className="text-xs text-slate-300 file:mr-2 file:py-1 file:px-2
-                             file:rounded file:border file:border-slate-700
-                             file:bg-slate-800 file:text-slate-200"
-                    />
-                    <select
-                        data-testid="evidence-parser-select"
-                        value={parser}
-                        onChange={(e) => setParser(e.target.value)}
-                        className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1">
-                        <option value="ndjson">NDJSON</option>
-                        <option value="json">JSON</option>
-                        <option value="csv">CSV</option>
-                        <option value="xml">XML</option>
-                    </select>
+                    <div
+                        data-testid="evidence-mode-switch"
+                        className="inline-flex rounded border border-slate-700 overflow-hidden">
+                        <button
+                            data-testid="evidence-mode-file"
+                            onClick={() => setMode("file")}
+                            className={
+                                "text-xs px-3 py-1 " +
+                                (mode === "file"
+                                    ? "bg-slate-700 text-slate-100"
+                                    : "bg-slate-900 text-slate-400 hover:text-slate-200")
+                            }>File</button>
+                        <button
+                            data-testid="evidence-mode-url"
+                            onClick={() => setMode("url")}
+                            className={
+                                "text-xs px-3 py-1 border-l border-slate-700 " +
+                                (mode === "url"
+                                    ? "bg-slate-700 text-slate-100"
+                                    : "bg-slate-900 text-slate-400 hover:text-slate-200")
+                            }>URL</button>
+                    </div>
+                    {mode === "file" ? (
+                        <>
+                            <input
+                                data-testid="evidence-file-input"
+                                type="file"
+                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                className="text-xs text-slate-300 file:mr-2 file:py-1 file:px-2
+                                     file:rounded file:border file:border-slate-700
+                                     file:bg-slate-800 file:text-slate-200"
+                            />
+                            <select
+                                data-testid="evidence-parser-select"
+                                value={parser}
+                                onChange={(e) => setParser(e.target.value)}
+                                className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1">
+                                <option value="ndjson">NDJSON</option>
+                                <option value="json">JSON</option>
+                                <option value="csv">CSV</option>
+                                <option value="xml">XML</option>
+                            </select>
+                        </>
+                    ) : (
+                        <input
+                            data-testid="evidence-url-input"
+                            type="url"
+                            value={url}
+                            onChange={(e) => setUrl(e.target.value)}
+                            placeholder="https://example.gov/advisory/…"
+                            className="flex-1 min-w-[280px] text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200"
+                        />
+                    )}
                     <button
                         data-testid="evidence-analyze-btn"
                         onClick={onAnalyze}
-                        disabled={!file || loading}
+                        disabled={loading || (mode === "file" ? !file : !url.trim())}
                         className="text-xs px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500
                              disabled:bg-slate-800 disabled:text-slate-500 text-white">
                         {loading ? "Analyzing…" : "Analyze"}
@@ -308,8 +357,24 @@ export default function StructuredEvidenceTab({ wire: externalWire = null }) {
                 <div
                     data-testid="evidence-empty-state"
                     className="text-xs text-slate-500 italic py-6 text-center">
-                    Upload NDJSON / JSON / CSV / XML security telemetry to project
-                    LogicalEvents into this tab.
+                    Upload NDJSON / JSON / CSV / XML security telemetry, or submit a
+                    URL, to project LogicalEvents into this tab.
+                </div>
+            )}
+
+            {wire?.report_extraction_fragment?.source === "acquisition_failed" && (
+                <div
+                    data-testid="evidence-acquisition-failed"
+                    className="border border-red-800 bg-red-950/30 rounded p-3 text-xs">
+                    <div className="text-red-300 font-semibold uppercase tracking-wide mb-1">
+                        Acquisition Failed · Fix-1 Envelope
+                    </div>
+                    <div className="text-red-200 font-mono">
+                        {display(wire.report_extraction_fragment.error)}
+                    </div>
+                    <div className="text-red-400 font-mono mt-1">
+                        {display(wire.report_extraction_fragment.evidence_source)}
+                    </div>
                 </div>
             )}
 

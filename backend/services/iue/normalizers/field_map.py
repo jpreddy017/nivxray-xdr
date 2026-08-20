@@ -82,6 +82,7 @@ _DICT: Dict[str, List[Tuple[str, str]]] = {
     "canonical.destination.domain": [
         ("domain", "dictionary"),
         ("destination_domain", "dictionary"),
+        ("sitename", "dictionary"),
     ],
     "canonical.destination.url": [
         ("url", "dictionary"),

@@ -10,7 +10,7 @@
     "lane": "structured",
     "parent_input_id": null,
     "provenance": {
-      "at": "2026-08-20T04:45:25.556478+00:00",
+      "at": "2026-08-20T04:55:55.187725+00:00",
       "engine": "iue.intake",
       "upstream_evidence_ids": [
         "bb0343677eaeaf7c"
@@ -33,23 +33,23 @@
         "canonical.source.ip": "10.0.0.1"
       },
       "count": 3,
-      "event_id": "b168b0034c794e42ace38afa",
+      "event_id": "43bd4cc52edac09e1f9bc5d6",
       "first_seen": "2026-02-14T12:00:00.010Z",
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:00.870Z",
       "provenance": {
-        "at": "2026-08-20T04:45:25.556710+00:00",
+        "at": "2026-08-20T04:55:55.187954+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-08-20T04:45:25.556478+00:00",
+          "iue.intake:2026-08-20T04:55:55.187725+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+          "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
           "1e8b6d2da302c37b767de27f",
-          "iue.parsers.ndjson:2026-08-20T04:45:25.556512+00:00",
+          "iue.parsers.ndjson:2026-08-20T04:55:55.187756+00:00",
           "1e8b6d2da302c37b767de27f",
-          "iue.normalizers.field_map:2026-08-20T04:45:25.556598+00:00",
-          "b168b0034c794e42ace38afa"
+          "iue.normalizers.field_map:2026-08-20T04:55:55.187848+00:00",
+          "43bd4cc52edac09e1f9bc5d6"
         ],
         "version": "1.0"
       },
@@ -87,23 +87,23 @@
         "canonical.source.ip": "10.0.0.1"
       },
       "count": 1,
-      "event_id": "1b80f441f738dc9611d940e6",
+      "event_id": "19addb5e4e90c40f48d5ae05",
       "first_seen": "2026-02-14T12:00:05.100Z",
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:05.100Z",
       "provenance": {
-        "at": "2026-08-20T04:45:25.556716+00:00",
+        "at": "2026-08-20T04:55:55.187960+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-08-20T04:45:25.556478+00:00",
+          "iue.intake:2026-08-20T04:55:55.187725+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+          "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
           "1c3b5b246228a085b09c892d",
-          "iue.parsers.ndjson:2026-08-20T04:45:25.556541+00:00",
+          "iue.parsers.ndjson:2026-08-20T04:55:55.187781+00:00",
           "1c3b5b246228a085b09c892d",
-          "iue.normalizers.field_map:2026-08-20T04:45:25.556626+00:00",
-          "1b80f441f738dc9611d940e6"
+          "iue.normalizers.field_map:2026-08-20T04:55:55.187877+00:00",
+          "19addb5e4e90c40f48d5ae05"
         ],
         "version": "1.0"
       },
@@ -139,23 +139,23 @@
         "canonical.source.ip": "10.0.0.2"
       },
       "count": 1,
-      "event_id": "145b02bb06d79f98c5517ea9",
+      "event_id": "9fd52fbb2990d601d8cec847",
       "first_seen": "2026-02-14T12:00:07.500Z",
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:07.500Z",
       "provenance": {
-        "at": "2026-08-20T04:45:25.556722+00:00",
+        "at": "2026-08-20T04:55:55.187966+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-08-20T04:45:25.556478+00:00",
+          "iue.intake:2026-08-20T04:55:55.187725+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+          "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
           "acc9d98fa723bdce06562465",
-          "iue.parsers.ndjson:2026-08-20T04:45:25.556547+00:00",
+          "iue.parsers.ndjson:2026-08-20T04:55:55.187788+00:00",
           "acc9d98fa723bdce06562465",
-          "iue.normalizers.field_map:2026-08-20T04:45:25.556635+00:00",
-          "145b02bb06d79f98c5517ea9"
+          "iue.normalizers.field_map:2026-08-20T04:55:55.187886+00:00",
+          "9fd52fbb2990d601d8cec847"
         ],
         "version": "1.0"
       },
@@ -188,23 +188,23 @@
         "canonical.source.ip": "10.0.0.2"
       },
       "count": 1,
-      "event_id": "0df296b426b0ae6f44fa7a40",
+      "event_id": "15c3daa887dc8f391b5529ae",
       "first_seen": "2026-02-14T12:00:08.220Z",
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:08.220Z",
       "provenance": {
-        "at": "2026-08-20T04:45:25.556727+00:00",
+        "at": "2026-08-20T04:55:55.187971+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-08-20T04:45:25.556478+00:00",
+          "iue.intake:2026-08-20T04:55:55.187725+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+          "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
           "c9a5954fe060783abf637a39",
-          "iue.parsers.ndjson:2026-08-20T04:45:25.556555+00:00",
+          "iue.parsers.ndjson:2026-08-20T04:55:55.187795+00:00",
           "c9a5954fe060783abf637a39",
-          "iue.normalizers.field_map:2026-08-20T04:45:25.556644+00:00",
-          "0df296b426b0ae6f44fa7a40"
+          "iue.normalizers.field_map:2026-08-20T04:55:55.187894+00:00",
+          "15c3daa887dc8f391b5529ae"
         ],
         "version": "1.0"
       },
@@ -235,23 +235,23 @@
         "canonical.source.ip": "203.0.113.99"
       },
       "count": 1,
-      "event_id": "d4d9524a97fcc6bef7bac498",
+      "event_id": "b37852608974a7b44b596aff",
       "first_seen": "2026-02-14T12:00:15.000Z",
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:15.000Z",
       "provenance": {
-        "at": "2026-08-20T04:45:25.556732+00:00",
+        "at": "2026-08-20T04:55:55.187976+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-08-20T04:45:25.556478+00:00",
+          "iue.intake:2026-08-20T04:55:55.187725+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+          "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
           "5a01289a35e6366cd4395a31",
-          "iue.parsers.ndjson:2026-08-20T04:45:25.556581+00:00",
+          "iue.parsers.ndjson:2026-08-20T04:55:55.187829+00:00",
           "5a01289a35e6366cd4395a31",
-          "iue.normalizers.field_map:2026-08-20T04:45:25.556655+00:00",
-          "d4d9524a97fcc6bef7bac498"
+          "iue.normalizers.field_map:2026-08-20T04:55:55.187903+00:00",
+          "b37852608974a7b44b596aff"
         ],
         "version": "1.0"
       },
@@ -286,13 +286,13 @@
       "parse_status": "malformed",
       "parser_name": "ndjson",
       "provenance": {
-        "at": "2026-08-20T04:45:25.556571+00:00",
+        "at": "2026-08-20T04:55:55.187808+00:00",
         "engine": "iue.parsers.ndjson",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-08-20T04:45:25.556478+00:00",
+          "iue.intake:2026-08-20T04:55:55.187725+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+          "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
           "4888e810e20544b3ffa3c1ec"
         ],
         "version": "1.0"
@@ -311,11 +311,11 @@
     "mime": "application/x-ndjson",
     "parent_input_id": null,
     "provenance": {
-      "at": "2026-08-20T04:45:25.556493+00:00",
+      "at": "2026-08-20T04:55:55.187739+00:00",
       "engine": "iue.collectors.log",
       "upstream_evidence_ids": [
         "bb0343677eaeaf7c",
-        "iue.intake:2026-08-20T04:45:25.556478+00:00",
+        "iue.intake:2026-08-20T04:55:55.187725+00:00",
         "bb0343677eaeaf7c5fd904286b9794fa"
       ],
       "version": "1.0"
@@ -336,23 +336,23 @@
           "canonical.source.ip": "10.0.0.1"
         },
         "count": 3,
-        "event_id": "b168b0034c794e42ace38afa",
+        "event_id": "43bd4cc52edac09e1f9bc5d6",
         "first_seen": "2026-02-14T12:00:00.010Z",
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:00.870Z",
         "provenance": {
-          "at": "2026-08-20T04:45:25.556710+00:00",
+          "at": "2026-08-20T04:55:55.187954+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-08-20T04:45:25.556478+00:00",
+            "iue.intake:2026-08-20T04:55:55.187725+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+            "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
             "1e8b6d2da302c37b767de27f",
-            "iue.parsers.ndjson:2026-08-20T04:45:25.556512+00:00",
+            "iue.parsers.ndjson:2026-08-20T04:55:55.187756+00:00",
             "1e8b6d2da302c37b767de27f",
-            "iue.normalizers.field_map:2026-08-20T04:45:25.556598+00:00",
-            "b168b0034c794e42ace38afa"
+            "iue.normalizers.field_map:2026-08-20T04:55:55.187848+00:00",
+            "43bd4cc52edac09e1f9bc5d6"
           ],
           "version": "1.0"
         },
@@ -390,23 +390,23 @@
           "canonical.source.ip": "10.0.0.1"
         },
         "count": 1,
-        "event_id": "1b80f441f738dc9611d940e6",
+        "event_id": "19addb5e4e90c40f48d5ae05",
         "first_seen": "2026-02-14T12:00:05.100Z",
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:05.100Z",
         "provenance": {
-          "at": "2026-08-20T04:45:25.556716+00:00",
+          "at": "2026-08-20T04:55:55.187960+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-08-20T04:45:25.556478+00:00",
+            "iue.intake:2026-08-20T04:55:55.187725+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+            "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
             "1c3b5b246228a085b09c892d",
-            "iue.parsers.ndjson:2026-08-20T04:45:25.556541+00:00",
+            "iue.parsers.ndjson:2026-08-20T04:55:55.187781+00:00",
             "1c3b5b246228a085b09c892d",
-            "iue.normalizers.field_map:2026-08-20T04:45:25.556626+00:00",
-            "1b80f441f738dc9611d940e6"
+            "iue.normalizers.field_map:2026-08-20T04:55:55.187877+00:00",
+            "19addb5e4e90c40f48d5ae05"
           ],
           "version": "1.0"
         },
@@ -442,23 +442,23 @@
           "canonical.source.ip": "10.0.0.2"
         },
         "count": 1,
-        "event_id": "145b02bb06d79f98c5517ea9",
+        "event_id": "9fd52fbb2990d601d8cec847",
         "first_seen": "2026-02-14T12:00:07.500Z",
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:07.500Z",
         "provenance": {
-          "at": "2026-08-20T04:45:25.556722+00:00",
+          "at": "2026-08-20T04:55:55.187966+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-08-20T04:45:25.556478+00:00",
+            "iue.intake:2026-08-20T04:55:55.187725+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+            "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
             "acc9d98fa723bdce06562465",
-            "iue.parsers.ndjson:2026-08-20T04:45:25.556547+00:00",
+            "iue.parsers.ndjson:2026-08-20T04:55:55.187788+00:00",
             "acc9d98fa723bdce06562465",
-            "iue.normalizers.field_map:2026-08-20T04:45:25.556635+00:00",
-            "145b02bb06d79f98c5517ea9"
+            "iue.normalizers.field_map:2026-08-20T04:55:55.187886+00:00",
+            "9fd52fbb2990d601d8cec847"
           ],
           "version": "1.0"
         },
@@ -491,23 +491,23 @@
           "canonical.source.ip": "10.0.0.2"
         },
         "count": 1,
-        "event_id": "0df296b426b0ae6f44fa7a40",
+        "event_id": "15c3daa887dc8f391b5529ae",
         "first_seen": "2026-02-14T12:00:08.220Z",
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:08.220Z",
         "provenance": {
-          "at": "2026-08-20T04:45:25.556727+00:00",
+          "at": "2026-08-20T04:55:55.187971+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-08-20T04:45:25.556478+00:00",
+            "iue.intake:2026-08-20T04:55:55.187725+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+            "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
             "c9a5954fe060783abf637a39",
-            "iue.parsers.ndjson:2026-08-20T04:45:25.556555+00:00",
+            "iue.parsers.ndjson:2026-08-20T04:55:55.187795+00:00",
             "c9a5954fe060783abf637a39",
-            "iue.normalizers.field_map:2026-08-20T04:45:25.556644+00:00",
-            "0df296b426b0ae6f44fa7a40"
+            "iue.normalizers.field_map:2026-08-20T04:55:55.187894+00:00",
+            "15c3daa887dc8f391b5529ae"
           ],
           "version": "1.0"
         },
@@ -538,23 +538,23 @@
           "canonical.source.ip": "203.0.113.99"
         },
         "count": 1,
-        "event_id": "d4d9524a97fcc6bef7bac498",
+        "event_id": "b37852608974a7b44b596aff",
         "first_seen": "2026-02-14T12:00:15.000Z",
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:15.000Z",
         "provenance": {
-          "at": "2026-08-20T04:45:25.556732+00:00",
+          "at": "2026-08-20T04:55:55.187976+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-08-20T04:45:25.556478+00:00",
+            "iue.intake:2026-08-20T04:55:55.187725+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-08-20T04:45:25.556493+00:00",
+            "iue.collectors.log:2026-08-20T04:55:55.187739+00:00",
             "5a01289a35e6366cd4395a31",
-            "iue.parsers.ndjson:2026-08-20T04:45:25.556581+00:00",
+            "iue.parsers.ndjson:2026-08-20T04:55:55.187829+00:00",
             "5a01289a35e6366cd4395a31",
-            "iue.normalizers.field_map:2026-08-20T04:45:25.556655+00:00",
-            "d4d9524a97fcc6bef7bac498"
+            "iue.normalizers.field_map:2026-08-20T04:55:55.187903+00:00",
+            "b37852608974a7b44b596aff"
           ],
           "version": "1.0"
         },

@@ -1336,3 +1336,52 @@ Production deploy verification must establish that:
 
 🛑 **STOP condition honoured.** Awaiting owner sign-off before Lane B/C.
 
+
+## 2026-02-14 · Stage 1 · Gate 2 + Gate 3 COMPLETE — Lane B (URL) landed
+
+### Gate 2 · `/lane-a` deprecated
+- Removed `Route path="/lane-a"` from `frontend/src/App.js`
+- Removed `LaneAWorkspacePage` lazy import
+- Deleted `frontend/src/pages/LaneAWorkspacePage.jsx`
+- **`StructuredEvidenceTab` component preserved** as the single source of truth, mounted inside the Workspace `EVIDENCE` tab (Phase 6c.4).
+- Verified live: navigating to `/lane-a` no longer renders the proving-ground page.
+
+### Gate 3 · Lane B (URL / domain) — wrapping, not rewriting
+New files (all reusing existing owners):
+- `backend/services/iue/collectors/url_collector.py` (~120 LOC) — thin wrapper over `services.ida.acquisition.acquire_url`. Emits `URLRawPayload` on success or `IUEFailure` on failure. **Fix 1 preservation guaranteed** — the failure path returns `(IUEFailure, acquired.to_dict())` so the orchestrator can rebuild the exact `acquisition_failed` on-wire envelope.
+- `backend/services/iue/parsers/acquired_url_parser.py` (~90 LOC) — yields 1 primary ParsedRecord for the acquired URL + N deduped ParsedRecords for discovered outbound links. Does **NOT** run existing IDA extraction; that stays with `services/ida/report_extraction`.
+- `backend/services/iue/lanes/url_lane.py` (~130 LOC) — full orchestrator: intake → collect → parse → normalize → aggregate → understand. Reproduces the Fix 1 `report_extraction` envelope byte-for-byte on failure.
+- `backend/routers/iue_lane_b.py` (~55 LOC) — `POST /api/iue/lane-b/analyze` accepting `{"url": "..."}`, returning the same T2 wire shape.
+
+Modified:
+- `backend/services/iue/aggregator.py` — added `canonical.destination.url` to the grouping key set so URL records with different URLs stay separate LogicalEvents.
+- `backend/services/iue/normalizers/field_map.py` — added `sitename` alias to `canonical.destination.domain`.
+- `backend/server.py` — wired `iue_lane_b_router`.
+- `frontend/src/components/StructuredEvidenceTab.jsx` — added File / URL mode switch, URL input, Fix-1 `Acquisition Failed` banner. Frontend remains **pure projection** — no MITRE, no verdict, no correlation, no reasoning.
+
+### Non-negotiable constraints honoured
+- ✅ Existing `services/ida/acquisition.py` NOT rewritten (called via `acquire_url()` verbatim)
+- ✅ Fix 1 `acquisition_failed` envelope preserved byte-for-byte (proven by `test_lane_b_failure_reproduces_fix1_envelope`)
+- ✅ Same T2 wire contract as Lane A (proven by `test_lane_b_wire_shape_identical_key_surface_to_lane_a`)
+- ✅ Provenance chain walks `intake → collect → parse → normalize → aggregate` (proven by `test_lane_b_wire_provenance_chain_walkable`)
+- ✅ Discovered artefacts route through Intake, not directly into IUE (parser emits ParsedRecords; recursion via `services/iue/recurse.py` remains available)
+- ✅ Lane C · Verdict · Evidence Reconciliation · Fix 2 · Phase D — untouched
+- ✅ `IUE_STRUCTURED_LANE=off` remains production default
+
+### Test results
+- **NEW** `tests/canonical/iue/lane_b/test_lane_b_contract.py` — 9 tests
+- All previous Lane A + goldens + router + UI contract: **55/55 PASS**
+- **T1 goldens byte-identical** with flag OFF (10/10)
+- **Live smoke:** `POST /api/iue/lane-b/analyze` with `https://example.com/` → 2 events (`url_acquire` + `url_discovered iana.org/domains/example`)
+- Zero regressions
+
+### Still LOCKED
+- 🔒 Lane C (file / artifact) — not started
+- 🔒 Cross-lane Timeline / correlation — awaiting Lane C
+- 🔒 Verdict Engine · Native IOC disposition · Evidence Reconciliation (Stage 2)
+- 🔒 Fix 2 CISA Wayback fallback
+- 🔒 Phase D graph expansion beyond Step 1
+- 📋 6 payload-shape canonical failures (P0 Issue #1) — separate scope
+
+🛑 **STOP after Gate 3 honoured.** Awaiting owner sign-off before Lane C or cross-lane Timeline.
+
