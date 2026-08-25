@@ -36,7 +36,12 @@ NDJSON = (
 def client():
     from fastapi.testclient import TestClient
     from server import app
-    return TestClient(app)
+    from deps import get_current_user
+    app.dependency_overrides[get_current_user] = lambda: {
+        "tenant_id": "test-tenant", "email": "test@example.com", "sub": "u-1"
+    }
+    yield TestClient(app)
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_status_endpoint_returns_flag_state(client):

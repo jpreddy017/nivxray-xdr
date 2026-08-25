@@ -1385,3 +1385,31 @@ Modified:
 
 🛑 **STOP after Gate 3 honoured.** Awaiting owner sign-off before Lane C or cross-lane Timeline.
 
+
+## 2026-02-14 · Security Audit remediation — 3 findings CLOSED
+
+### Fixes (Gate A · code security)
+| # | File | Change |
+|---|---|---|
+| **SEC-001 HIGH** | `routers/iue_lane_a.py` · `routers/iue_lane_b.py` | Added `Depends(get_current_user)` to both `/analyze` endpoints. Live probe: anonymous POST → HTTP 403 |
+| **SEC-002 MED** | `services/iue/lanes/url_lane.py` · both routers | `analyze_url` default `allow_prev_fallback=False`; routers thread authenticated user's tenant into `session_ctx` |
+| **SEC-003 LOW** | `services/iue/lanes/url_lane.py::_fix1_report_extraction` | `acquisition_failure` sub-dict strictly whitelisted (url · host · engine · ok · status_code · reason · error_code · anti_bot · fallback_tried · fetched_bytes · article_chars). No final_url · fallback_chain · internal_traceback · auth_header · cookies · file paths |
+
+### New regression file — **must stay green forever**
+`tests/canonical/api/test_iue_security_regression.py` — 5 tests:
+- unauth Lane A → 401/403
+- unauth Lane B → 401/403
+- `analyze_url` default `allow_prev_fallback` is `False`
+- Auth'd Lane B stamps real tenant, not `__prev_public__`
+- Fix-1 envelope excludes leaky fields
+
+### Test results (post-fix)
+- **60/60 PASS** on iue tests + security regression + T1/T2 goldens
+- Wider canonical suite: only pre-existing failures remain (6 payload-shape P0 · 3 Sample1 environmental). **Zero new regressions.**
+- No new dependencies.
+
+### Deployment status (Gate B · unchanged)
+- 🔴 Deployment `greeting-app-5782` still in `deleted` + `negative_credit`-suspended state — awaiting `support@emergent.sh` restoration.
+- Custom domain `nivxray.nivxforge.com` still returns `ERR_SSL_VERSION_OR_CIPHER_MISMATCH` (Cloudflare rejects SNI; no binding at Emergent).
+- Code is ready to ship the moment support restores the deployment record.
+

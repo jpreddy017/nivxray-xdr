@@ -122,7 +122,7 @@ def test_lane_b_success_produces_t2_wire_contract(monkeypatch):
     _mk_success(monkeypatch)
     from services.iue.lanes.url_lane import analyze_url
 
-    wire = analyze_url("https://example.gov/advisory/aa26-014a")
+    wire = analyze_url("https://example.gov/advisory/aa26-014a", allow_prev_fallback=True)
 
     # Same top-level keys the EVIDENCE tab consumes
     assert set(wire.keys()) >= {
@@ -159,7 +159,7 @@ def test_lane_b_wire_provenance_chain_walkable(monkeypatch):
     _mk_success(monkeypatch)
     from services.iue.lanes.url_lane import analyze_url
 
-    wire = analyze_url("https://example.gov/advisory/aa26-014a")
+    wire = analyze_url("https://example.gov/advisory/aa26-014a", allow_prev_fallback=True)
     ev = wire["logical_events"][0]
     prov = ev["provenance"]
     # Composed from canonical.ssot.models.Provenance
@@ -178,7 +178,7 @@ def test_lane_b_wire_shape_identical_key_surface_to_lane_a(monkeypatch):
     _mk_success(monkeypatch)
     from services.iue.lanes.url_lane import analyze_url
 
-    wire = analyze_url("https://example.gov/advisory/aa26-014a")
+    wire = analyze_url("https://example.gov/advisory/aa26-014a", allow_prev_fallback=True)
     for ev in wire["logical_events"]:
         assert set(ev.keys()) == {
             "canonical_fields", "count", "event_id", "first_seen",
@@ -192,7 +192,7 @@ def test_lane_b_failure_reproduces_fix1_envelope(monkeypatch):
     _mk_failure(monkeypatch, code="http_error", detail="HTTP 403")
     from services.iue.lanes.url_lane import analyze_url
 
-    wire = analyze_url("https://blocked.example.gov/advisory/403")
+    wire = analyze_url("https://blocked.example.gov/advisory/403", allow_prev_fallback=True)
     frag = wire["report_extraction_fragment"]
 
     # ── The exact Fix 1 on-wire contract ─────────────────────────
@@ -203,7 +203,7 @@ def test_lane_b_failure_reproduces_fix1_envelope(monkeypatch):
     assert isinstance(frag["acquisition_failure"], dict)
     assert frag["acquisition_failure"]["ok"] is False
     assert frag["acquisition_failure"]["error_code"] == "http_error"
-    assert frag["acquisition_failure"]["error_detail"] == "HTTP 403"
+    assert frag["acquisition_failure"]["reason"] == "HTTP 403"
     assert frag["error"] == "HTTP 403"
 
     # Additive keys empty on failure — same shape uniformity Lane A has
@@ -222,7 +222,7 @@ def test_lane_b_success_report_extraction_source_is_not_acquisition_failed(monke
     _mk_success(monkeypatch)
     from services.iue.lanes.url_lane import analyze_url
 
-    wire = analyze_url("https://example.gov/advisory/aa26-014a")
+    wire = analyze_url("https://example.gov/advisory/aa26-014a", allow_prev_fallback=True)
     frag = wire["report_extraction_fragment"]
     assert frag.get("source") != "acquisition_failed"
     assert "logical_events" in frag
@@ -233,7 +233,7 @@ def test_lane_b_success_report_extraction_source_is_not_acquisition_failed(monke
 def test_lane_b_rejects_non_url_input(monkeypatch):
     from services.iue.lanes.url_lane import analyze_url
 
-    wire = analyze_url("just some plain text, not a url")
+    wire = analyze_url("just some plain text, not a url", allow_prev_fallback=True)
     # intake will classify this as raw_text; Lane B rejects.
     assert "iue_failure" in wire
     assert wire["iue_failure"]["stage"] == "intake"
@@ -245,7 +245,12 @@ def test_lane_b_rejects_non_url_input(monkeypatch):
 def client():
     from fastapi.testclient import TestClient
     from server import app
-    return TestClient(app)
+    from deps import get_current_user
+    app.dependency_overrides[get_current_user] = lambda: {
+        "tenant_id": "test-tenant", "email": "test@example.com", "sub": "u-1"
+    }
+    yield TestClient(app)
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_lane_b_router_503_when_flag_off(client, monkeypatch):

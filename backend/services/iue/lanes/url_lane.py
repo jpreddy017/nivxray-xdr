@@ -35,24 +35,39 @@ def _fix1_report_extraction(acquired: Dict[str, Any]) -> Dict[str, Any]:
     """Reproduce Prev-mode's Fix 1 ``report_extraction`` envelope
     byte-for-byte from an AcquiredResource dict.
 
-    Contract (grep-verified against services/die/investigation_results.py
-    lines 478–505):
-        - source                = "acquisition_failed"
-        - status                = "acquisition_failed"
-        - evidence_source_url   = acquired.url
-        - acquisition_failure   = { … full acquired dict … }
-        - error                 = acquired.error_detail or fallback msg
+    SEC-003 (2026-02-14): the ``acquisition_failure`` sub-dict is
+    strictly WHITELISTED to the fields the original Fix 1 emits at
+    ``services/die/investigation_results.py`` L506–518.  Do NOT embed
+    the full acquired dict — that would leak final_url, fallback_chain,
+    raw exception strings, and other internal detail.
     """
+    ad = acquired or {}
     return {
         "source":                "acquisition_failed",
         "status":                "acquisition_failed",
-        "evidence_source_url":   acquired.get("url"),
-        "evidence_source":       f"acquisition_failed:{acquired.get('error_code') or 'unknown'}",
-        "acquisition_failure":   acquired,
-        "error": acquired.get("error_detail")
-                  or f"URL acquisition failed: {acquired.get('error_code') or 'unknown'}",
-        # Empty additive keys so downstream consumers that iterate
-        # get uniform shape regardless of success/failure.
+        "evidence_source_url":   ad.get("url"),
+        "evidence_source":       f"acquisition_failed:{ad.get('error_code') or 'unknown'}",
+        "acquisition_failure":   {
+            "url":            ad.get("url"),
+            "host":           (ad.get("host") or ad.get("sitename") or ""),
+            "engine":         ad.get("engine") or ad.get("extractor") or "",
+            "ok":             False,
+            "status_code":    ad.get("status_code"),
+            "reason":         ad.get("error_detail") or ad.get("error")
+                                or "acquisition returned ok=False",
+            "error_code":     ad.get("error_code"),
+            "anti_bot":       bool(ad.get("anti_bot"))
+                                or bool(ad.get("looks_like_antibot_wall")),
+            "fallback_tried": ad.get("fallback_tried")
+                                or ad.get("wayback_tried") or False,
+            "fetched_bytes":  ad.get("fetched_bytes"),
+            "article_chars": ad.get("article_chars"),
+        },
+        # The frontend Fix-1 banner still reads `error` at top level.
+        # Preserve the same short reason string; do NOT leak type/traceback.
+        "error": (ad.get("error_detail") or ad.get("error")
+                    or f"URL acquisition failed: {ad.get('error_code') or 'unknown'}"),
+        # Empty additive keys so downstream consumers get uniform shape.
         "commands":            [],
         "command_investigations": [],
         "investigation_summary": {},
@@ -68,7 +83,7 @@ def _fix1_report_extraction(acquired: Dict[str, Any]) -> Dict[str, Any]:
 def analyze_url(url: str,
                  *, session_ctx=None,
                  tenant_id=None,
-                 allow_prev_fallback: bool = True) -> Dict[str, Any]:
+                 allow_prev_fallback: bool = False) -> Dict[str, Any]:
     """Full Lane-B pipeline.  Returns the T2 wire contract, extended
     with the AcquiredResource dict so downstream consumers keep parity
     with Fix 1 semantics."""

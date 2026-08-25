@@ -16,8 +16,10 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Form
+from fastapi import APIRouter, HTTPException, Form, Depends
 from pydantic import BaseModel
+
+from deps import get_current_user
 
 
 router = APIRouter(prefix="/iue/lane-b", tags=["iue-lane-b"])
@@ -32,7 +34,8 @@ class URLAnalyzeBody(BaseModel):
 
 
 @router.post("/analyze")
-async def analyze(body: URLAnalyzeBody):
+async def analyze(body: URLAnalyzeBody,
+                    user=Depends(get_current_user)):
     """Analyse a URL / domain.  Returns the T2 wire shape."""
     if not _flag_on():
         raise HTTPException(
@@ -48,4 +51,9 @@ async def analyze(body: URLAnalyzeBody):
         )
 
     from services.iue.lanes.url_lane import analyze_url
-    return analyze_url(body.url.strip())
+    session_ctx = {"tenant_id": (user or {}).get("tenant_id")
+                                    or (user or {}).get("email")
+                                    or (user or {}).get("sub")}
+    return analyze_url(body.url.strip(),
+                         session_ctx=session_ctx,
+                         allow_prev_fallback=False)

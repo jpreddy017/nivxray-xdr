@@ -18,7 +18,9 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
+
+from deps import get_current_user
 
 
 router = APIRouter(prefix="/iue/lane-a", tags=["iue-lane-a"])
@@ -48,6 +50,7 @@ async def analyze(
     file: Optional[UploadFile] = File(default=None),
     mime: Optional[str] = Form(default=None),
     parser: str = Form(default="ndjson"),
+    user=Depends(get_current_user),
 ):
     """Analyse an uploaded structured-log artefact.
 
@@ -99,8 +102,14 @@ async def analyze(
     else:
         from services.iue.parsers.xml_parser import iter_records
 
-    # 1. Intake
-    decision = intake(payload, allow_prev_fallback=True)
+    # 1. Intake — auth is present (Depends above), so we thread the
+    # user's tenant into session_ctx and DISALLOW the __prev_public__
+    # fallback in production paths (SEC-002).
+    session_ctx = {"tenant_id": (user or {}).get("tenant_id")
+                                    or (user or {}).get("email")
+                                    or (user or {}).get("sub")}
+    decision = intake(payload, session_ctx=session_ctx,
+                        allow_prev_fallback=False)
     if isinstance(decision, IUEFailure):
         return {
             "intake_decision": None,
