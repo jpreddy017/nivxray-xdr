@@ -1,6 +1,108 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
 
+> **2026-08-26 · Session close · 🟢 SHIPPED — P0-1 (payload-shape) + P0-3 (Lane C File/Artifact behind IUE facade)**
+>
+> **Fix #1 · 6 payload-shape canonical failures resolved (P0-1).**
+> `tests/canonical/api/test_investigation_results_payload_shape.py` was
+> written before the P0e-Unslim decision (2026-02-09) and still forbade
+> `report_extraction` on the wire.  Reality: the Workspace UI renders
+> `report_extraction` in 10 spots across 6 files (`WorkspacePage.jsx`,
+> `StructuredEvidenceTab.jsx`, `ExtractedArtifactsPanel.jsx`,
+> `AcquisitionPlanPanel.jsx`, `InvestigationSessionGateway.jsx`,
+> `InvestigationSessionPage.jsx`) and the nested-slim keeps it well
+> under the 250 KB budget (test_response_size_under_budget still passes
+> 3/3).  Moved `report_extraction` from FORBIDDEN → ALLOWED in the test
+> contract with an in-file note explaining the P0e-Unslim decision.
+> Test-only change, zero production code touched.  **12/12 payload-shape
+> tests now green.**
+>
+> **Fix #2 · Lane C · File / Artifact behind the IUE facade (P0-3).**
+> New surface implemented against the frozen T2 wire contract:
+> - `services/iue/collectors/file_collector.py` — thin dispatch wrapper
+>   around the existing `services.artifact_intelligence.dispatch()`
+>   registry. Enforces the shared `enforce_raw_size` cap.  Emits a
+>   labelled `FileRawPayload` envelope carrying the `AnalysisResult`
+>   dict + provenance.
+> - `services/iue/parsers/artifact_parser.py` — emits exactly ONE primary
+>   record (offset=0, artifact identity) + N child records (offset=1..N)
+>   for embedded IOCs (URLs / domains / IPs / hashes) surfaced by the
+>   artifact analyser.  Deterministic ordering; strict dedupe.
+> - `services/iue/normalizers/field_map.py` — additive canonical aliases
+>   for `canonical.artifact.type / display_name / detected_by / confidence
+>   / child_kind / child_value` + `canonical.file.name / size / mime`.
+>   Also folds `file_sha256 / file_md5 / file_sha1 / parent_file_sha256`
+>   into the existing hash canonical fields.  Zero rename of existing
+>   aliases; Lane A / Lane B fixtures byte-unaffected.
+> - `services/iue/lanes/file_lane.py` — Lane-C orchestrator that mirrors
+>   `url_lane.py` exactly (Intake → Collect → Parse → Normalize →
+>   Aggregate → Understand).  Returns the SAME T2 wire shape as Lane A/B.
+>   `report_extraction_fragment.artifact_summary` is the additive
+>   Lane-C-specific field the frontend can project natively.
+> - `routers/iue_lane_c.py` — feature-flag-gated (`IUE_ARTIFACT_LANE=on`)
+>   endpoints:
+>     - `GET  /api/iue/lane-c/status`
+>     - `POST /api/iue/lane-c/analyze`      (multipart file upload)
+>     - `POST /api/iue/lane-c/analyze-b64`  (JSON base64 body)
+>   Wired in `server.py` alongside Lane A/B routers.  Auth-gated via
+>   `Depends(get_current_user)` — SEC-001/002/003 preserved.
+> - `backend/.env` — added `IUE_ARTIFACT_LANE=on` for preview.
+>
+> **Stage-1 Lane-C invariants held (owner directive):**
+> - Static analysis ONLY.  Zero execution.  Zero sandbox.  Zero network
+>   (locked by test_no_execution_no_network).
+> - **Artifact-first identification** delegated to the existing
+>   `services.artifact_intelligence` registry (PDF/DOCX/Office/PE/ELF).
+>   No parallel artifact-processing architecture inside IUE.
+> - Same T2 wire contract as Lane A/B.  Frontend projection layer
+>   requires **zero** structural changes to consume Lane C (owner's
+>   UI-freeze rule respected).
+> - Feature-flag isolation: `IUE_ARTIFACT_LANE` is a NEW flag, read
+>   only by `routers/iue_lane_c.py` — Lane A/B unaffected.
+>
+> **Test evidence:**
+> - `tests/canonical/iue/lane_c/test_lane_c_contract.py` — **18 tests
+>   passing**: FileCollector (4) · ArtifactParser (3) · Normalization
+>   (2) · FileLaneEndToEnd (5, incl. no-network guard) · Router
+>   boundary (4).
+> - Regression sweep: **270 passed / 1 pre-existing LOCKED Sample1-DB
+>   fingerprint failure** across `tests/canonical/iue/` +
+>   `tests/canonical/api/test_iue_lane_a_router.py` +
+>   `tests/canonical/stage1_goldens/`.  **Zero regressions from Lane C.**
+> - **Live end-to-end probe** on preview URL: real PDF → `pypdf`
+>   analyser dispatch → SHA-256/MD5/SHA-1 hashes computed → LogicalEvent
+>   emitted with `lane="file"` → provenance chain walks Intake →
+>   Collectors → Parsers → Normalizers → Aggregator.
+>
+> **Files touched this session:**
+>   • `backend/tests/canonical/api/test_investigation_results_payload_shape.py` (allow-list update + doc comment)
+>   • `backend/services/iue/collectors/file_collector.py` (NEW)
+>   • `backend/services/iue/parsers/artifact_parser.py` (NEW)
+>   • `backend/services/iue/lanes/file_lane.py` (NEW)
+>   • `backend/services/iue/normalizers/field_map.py` (additive artifact aliases)
+>   • `backend/routers/iue_lane_c.py` (NEW)
+>   • `backend/server.py` (wire Lane C router)
+>   • `backend/tests/canonical/iue/lane_c/test_lane_c_contract.py` (NEW)
+>   • `backend/tests/canonical/iue/lane_c/__init__.py` (NEW)
+>   • `backend/.env` (added `IUE_ARTIFACT_LANE=on` for preview)
+>
+> **UI compatibility (owner directive respected):** ZERO structural UI
+> changes.  `StructuredEvidenceTab` remains a pure projection layer; it
+> already renders `report_extraction_fragment` from Lane A/B and will
+> project Lane C's payload identically.  If lane-badge polish is desired
+> later, it is a P1 UX pass, not a blocker.
+>
+> **Still LOCKED / awaiting owner:**
+> - Issue 3: Threat Objective intent-rule expansion (P1)
+> - Issue 4: Extractor misclassifying MITRE tactic IDs as Threat Actors (P2)
+> - Fix 2 (URL Acquisition / CISA 403 Wayback fallback) — LOCKED
+> - Sample1-DB fingerprint (environmental) — LOCKED
+> - Stage 2+ (Deterministic Verdict Engine · Native IOC disposition ·
+>   Evidence Reconciliation)
+> - Custom domain SSL redeploy (platform-side; user emails support@emergent.sh)
+
+
+
 > **2026-02-13 · Session-3 close · 🟢 SHIPPED** — Executed the full 40-section 360° Investor Due-Diligence audit per `/app/memory/NivXRay_360_Audit_Spec.md`. Three artefacts landed under `/app/memory/`:
 > 1. **`NivXRay_360_Product_Market_Posture.md`** (1171 lines · 63 KB) — Primary 40-section audit + Executive Scorecard /10 across 19 dimensions. Aggregate ≈ 5.6/10 (credible seed-round posture).
 > 2. **`NivXRay_360_Evidence_Matrix.md`** (348 lines · 26 KB) — 12 flat evidence tables (repo counts · capability index · adapters · pages · env flags · API surface · live probes · pytest results · IOC providers · ADR ledger · files of record · correction ledger).

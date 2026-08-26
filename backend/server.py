@@ -56,6 +56,7 @@ from deps import client, db, seed_admin, validate_config, init_database
 from routers.auth import router as auth_router
 from routers.iue_lane_a import router as iue_lane_a_router
 from routers.iue_lane_b import router as iue_lane_b_router
+from routers.iue_lane_c import router as iue_lane_c_router
 from routers.ops import router as ops_router
 from routers.analyze import router as analyze_router
 from routers.behavioral import router as behavioral_router
@@ -180,6 +181,7 @@ async def health_deep():
 api.include_router(auth_router)
 api.include_router(iue_lane_a_router)
 api.include_router(iue_lane_b_router)
+api.include_router(iue_lane_c_router)
 api.include_router(ops_router)
 api.include_router(analyze_router)
 api.include_router(behavioral_router)

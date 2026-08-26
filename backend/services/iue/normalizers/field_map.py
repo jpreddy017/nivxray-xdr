@@ -111,19 +111,61 @@ _DICT: Dict[str, List[Tuple[str, str]]] = {
     "canonical.file.hash.md5": [
         ("md5", "dictionary"),
         ("MD5", "dictionary"),
+        ("file_md5", "dictionary"),
+        ("parent_file_md5", "dictionary"),
     ],
     "canonical.file.hash.sha1": [
         ("sha1", "dictionary"),
         ("SHA1", "dictionary"),
+        ("file_sha1", "dictionary"),
+        ("parent_file_sha1", "dictionary"),
     ],
     "canonical.file.hash.sha256": [
         ("sha256", "dictionary"),
         ("SHA-256", "dictionary"),
         ("fileHash", "dictionary"),
+        ("file_sha256", "dictionary"),
+        ("parent_file_sha256", "dictionary"),
     ],
     "canonical.tenant.id": [
         ("tenant_id", "dictionary"),
         ("tenantId", "dictionary"),
+    ],
+    # Lane-C · Artifact canonical fields (STAGE 1).
+    # Additive only — the artifact parser (services.iue.parsers.
+    # artifact_parser) emits raw_fields keyed with the aliases below,
+    # and the field-map dictionary layer projects them into the
+    # canonical.artifact.* / canonical.file.* namespace.  Existing
+    # Lane A / Lane B tests are byte-unaffected because none of these
+    # raw keys appear in their fixtures.
+    "canonical.artifact.type": [
+        ("artifact_type", "dictionary"),
+        ("parent_artifact_type", "dictionary"),
+    ],
+    "canonical.artifact.display_name": [
+        ("artifact_display_name", "dictionary"),
+    ],
+    "canonical.artifact.child_kind": [
+        ("artifact_child_kind", "dictionary"),
+    ],
+    "canonical.artifact.child_value": [
+        ("artifact_child_value", "dictionary"),
+    ],
+    "canonical.artifact.detected_by": [
+        ("detected_by", "dictionary"),
+    ],
+    "canonical.artifact.confidence": [
+        ("confidence", "dictionary"),
+    ],
+    "canonical.file.name": [
+        ("file_name", "dictionary"),
+        ("filename", "dictionary"),
+    ],
+    "canonical.file.size": [
+        ("file_size", "dictionary"),
+    ],
+    "canonical.file.mime": [
+        ("file_mime", "dictionary"),
     ],
 }
 
