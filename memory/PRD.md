@@ -1,6 +1,98 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
 
+> **2026-08-26 · Session close #3 · 🟢 SHIPPED — Attack Story Timeline (pure projection over Lane A/B/C)**
+>
+> Owner-approved continuation of the same-day session, executing the
+> next queued item: **Attack Story Timeline**.  Ransomware Family
+> Detection, Stage-2 Verdict Engine and Lane C UI polish remain
+> queued and locked pending owner authorisation.
+>
+> **Fix #5 · Attack Story Timeline (P0 next per owner's roadmap).**
+> New module + endpoint that projects Lane A / Lane B / Lane C
+> canonical ``LogicalEvent[]`` into ONE deterministic reconstructed
+> timeline.  Architectural contract locked per owner directive:
+>
+>     Evidence first → canonical evidence → correlation/SSOT →
+>     **investigation story (this module)** → intent/objectives →
+>     verdict
+>
+> Hard rules honoured:
+>   - **PURE projection**.  Zero correlation, zero synthesis, zero
+>     invented events (locked by `test_no_cross_lane_correlation`).
+>   - **Deterministic**.  Same input → byte-identical output
+>     (locked by `test_deterministic_across_replays`).
+>   - **Tenant firewall** at the router.  Refuses to fuse lane
+>     wires whose ``intake_decision.tenant_id`` differs from the
+>     caller's identity (locked by `test_cross_tenant_fuse_rejected`).
+>   - **Provenance preserved verbatim** — every timeline event
+>     carries the aggregator's `upstream_evidence_ids` chain
+>     (Intake → Collectors → Parsers → Normalizers) so downstream
+>     consumers walk the same lineage the rest of the system uses.
+>
+> **Wire contract emitted by `POST /api/iue/timeline/fuse`:**
+> ```
+> {
+>   events:         [TimelineEvent],   # timestamped, chronologically sorted
+>   untimed_events: [TimelineEvent],   # no ts available (e.g. artifact upload)
+>   event_count:    int,
+>   untimed_count:  int,
+>   span_start:     ISO | None,
+>   span_end:       ISO | None,
+>   lanes:          [str],  # distinct lanes represented
+>   hosts:          [str],  # deduplicated across lanes
+>   users:          [str],
+>   meta: { projection: "attack_story_timeline", note: "…" }
+> }
+> ```
+> Each TimelineEvent carries:
+> `event_id · lane · input_id · tenant_id · timestamp (+ source flag) ·
+>  first_seen · last_seen · count · action · category · host · user ·
+>  actor_ip · destination · process · parent_process · command_line ·
+>  file_ref · artifact_ref · provenance_chain · canonical_fields`.
+>
+> **Files touched this continuation session:**
+>   • `backend/services/iue/timeline.py` (NEW · pure-projection library)
+>   • `backend/routers/iue_timeline.py` (NEW · endpoint + tenant firewall)
+>   • `backend/server.py` (wired `iue_timeline_router`)
+>   • `backend/tests/canonical/iue/timeline/test_attack_story_timeline.py` (NEW · 16 tests)
+>   • `backend/tests/canonical/iue/timeline/__init__.py` (NEW · package init)
+>   • `backend/tests/canonical/ssot/test_ssot_isolation.py` (Phase 5.1 whitelist appended)
+>
+> **Test evidence:**
+> - `tests/canonical/iue/timeline/`: **16/16 tests passing** —
+>   ProjectLane (5) · Fuse (6, incl. determinism + cross-lane-no-
+>   correlation guard) · Provenance (2) · Tenant Firewall router
+>   boundary (4).
+> - Live end-to-end probe against preview URL: Lane C wire
+>   (PDF → `pypdf` dispatch) → `/api/iue/timeline/fuse` → returned
+>   `untimed_events=[1]` with `lanes=["file"]` and full artifact_ref
+>   preserved.  Correct behaviour: artifact uploads carry no
+>   inherent event timestamp, so the timeline honestly surfaces
+>   them in the untimed bucket rather than fabricating a time.
+>
+> **What this unlocks:**
+>   - Lane A + Lane B + Lane C now feed the SAME canonical timeline
+>     — proves the IUE facade architecture end-to-end.
+>   - Downstream stages (Stage-2 Verdict Engine · Ransomware Family
+>     Detection) can consume this reconstructed sequence rather
+>     than mining raw lane outputs.
+>   - Frontend `AttackChain` / `BehavioralTimeline` panels can call
+>     this endpoint with the analyst's collected lane wires and get
+>     one coherent view — no client-side correlation.
+>
+> **Owner-directed queue (locked, awaiting authorisation):**
+>   - Ransomware Family Detection (P1) — DKP-layer family
+>     attribution (LockBit / BlackCat / Rhysida / etc.), evidence-
+>     backed, no generic-ransomware inference.
+>   - Stage-2 Verdict Engine (P1/P0-next) — deterministic verdict
+>     consuming the reconstructed timeline + intent + objectives.
+>   - Lane C UI Polish (P2) — artifact-summary chip inside
+>     StructuredEvidenceTab.
+>   - Fix 2 · URL Acquisition / CISA 403 Wayback fallback — LOCKED.
+>   - Custom domain SSL redeploy — platform-side.
+
+
 > **2026-08-26 · Session close #2 · 🟢 SHIPPED — Threat-Actor De-conflation + Threat-Objective Expansion**
 >
 > Continuation of the same-day session, executing owner-authorised

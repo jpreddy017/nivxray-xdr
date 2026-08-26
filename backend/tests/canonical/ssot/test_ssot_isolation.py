@@ -294,6 +294,16 @@ def test_no_route_file_modified_by_phase2():
         "backend/server.py",
         "backend/.env",
         "memory/PRD.md",
+        # Attack Story Timeline (2026-08-26): pure projection over
+        # canonical LogicalEvents from Lane A / Lane B / Lane C.
+        # DOES NOT correlate, DOES NOT invent events, DOES NOT
+        # cross-lane fuse identical evidence.  Endpoint
+        # `POST /api/iue/timeline/fuse` accepts a batch of lane wires
+        # and returns one deterministic reconstructed timeline.
+        # Tenant firewall enforced at the router — refuses to fuse
+        # wires from a different tenant than the caller.
+        "backend/services/iue/timeline.py",
+        "backend/routers/iue_timeline.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"
