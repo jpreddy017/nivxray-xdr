@@ -55,6 +55,30 @@ _KNOWN_ACTORS: Tuple[str, ...] = (
 )
 _RE_GENERIC_ACTOR = re.compile(r"\b(?:UNC|APT|TA|FIN|Storm)-?\d{2,4}\b")
 
+# ── MITRE ATT&CK Tactic IDs — NEVER threat actors ──────────────────
+# Published MITRE ATT&CK tactic identifiers (Enterprise + Mobile + ICS).
+# The generic actor regex above matches `TA\d{2,4}`, which false-positives
+# on these tactic ids (e.g. `TA0002` = "Execution" tactic, not an actor).
+# This deny-list is the authoritative filter used by `_extract_actors`.
+# Distinguishing rule: MITRE tactic IDs are `TA` + 4-digit zero-padded
+# number (TA0001..TA0043).  Real Proofpoint TA-numbered actors are
+# `TA` + 3-digit number without a leading zero (TA505, TA544, TA577…).
+_MITRE_TACTIC_IDS: frozenset = frozenset({
+    # Enterprise ATT&CK
+    "TA0001", "TA0002", "TA0003", "TA0004", "TA0005", "TA0006",
+    "TA0007", "TA0008", "TA0009", "TA0010", "TA0011",
+    "TA0040", "TA0042", "TA0043",
+    # Mobile ATT&CK (subset, TA0027..TA0038)
+    "TA0027", "TA0028", "TA0029", "TA0030", "TA0031", "TA0032",
+    "TA0033", "TA0034", "TA0035", "TA0036", "TA0037", "TA0038",
+    # ICS ATT&CK (TA0100..TA0111 range)
+    "TA0100", "TA0101", "TA0102", "TA0103", "TA0104", "TA0105",
+    "TA0106", "TA0107", "TA0108", "TA0109", "TA0110", "TA0111",
+})
+# Structural rule: any TAxxxx that starts with `TA0` and has exactly 4
+# digits is a MITRE tactic id shape — filter even ids we haven't listed.
+_RE_MITRE_TACTIC_SHAPE = re.compile(r"^TA0\d{3}$")
+
 _KNOWN_MALWARE: Tuple[str, ...] = (
     "Emotet", "Qakbot", "IcedID", "TrickBot", "Bumblebee", "Danabot",
     "GootLoader", "SocGholish", "Pikabot", "Latrodectus",
@@ -349,6 +373,17 @@ def _extract_actors(text: str) -> List[Dict[str, Any]]:
                           "source": "ida.report.actor"})
     for m in _RE_GENERIC_ACTOR.finditer(text):
         raw = m.group(0)
+        # De-conflate MITRE ATT&CK tactic IDs (TA0001..TA0043 + ICS/Mobile
+        # ranges) from real threat actors.  A tactic id like `TA0002` is
+        # NEVER a threat actor and would contaminate investigator-facing
+        # intelligence if surfaced here.  Two-layer filter:
+        #   1. Exact match against the authoritative deny-list.
+        #   2. Shape guard: `TA0\d{3}` — any TA + 4 digits starting with 0.
+        norm = raw.replace("-", "")
+        if norm in _MITRE_TACTIC_IDS:
+            continue
+        if _RE_MITRE_TACTIC_SHAPE.match(norm):
+            continue
         if raw not in seen:
             seen.add(raw)
             hits.append({"name": raw, "kind": "generic",

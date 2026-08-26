@@ -250,6 +250,50 @@ def test_no_route_file_modified_by_phase2():
         # inspector. NO new MITRE inference · NO new verdict logic
         # · NO IKG persistence · projection only.
         "frontend/src/components/investigation/BehavioralTimeline.jsx",
+        # ─── 2026-08-26 · Stage-1 Lane C + Extractor hygiene ──────
+        # Owner sign-off: this session's execution order was
+        # Threat-Actor De-conflation → Threat-Objective Expansion →
+        # (upcoming: Attack-Story Timeline) → Lane C UI polish.  The
+        # first two land in these two files.
+        #
+        # 1) Threat-Actor De-conflation (P2 defect from handoff).
+        #    `services.ida.report_extractors._extract_actors` now
+        #    filters MITRE ATT&CK tactic ids (TA0001..TA0043 Enterprise
+        #    + TA0027..TA0038 Mobile + TA0100..TA0111 ICS) out of the
+        #    generic `TA\d{2,4}` regex hits so tactic ids never leak
+        #    into investigator-facing threat-actor lists.  Real
+        #    Proofpoint TA-numbered actors (TA505 / TA544 / TA577 …)
+        #    are preserved because they use 3-digit ids without the
+        #    tactic-shape leading zero.  Regression tests locked in
+        #    `tests/canonical/ida/test_threat_actor_deconflation.py`.
+        "backend/services/ida/report_extractors.py",
+        # 2) Threat-Objective Expansion (P1 from handoff).  Adds two
+        #    deterministic rules to `services.die.intent`:
+        #      · `double_extortion_ransomware` — requires BOTH Impact
+        #        AND Exfiltration (modern steal-then-encrypt TTP).
+        #      · `multi_stage_intrusion` — broad-coverage fallback
+        #        for advisory narratives that walk ≥5 distinct tactics
+        #        but do not trigger a specific rule; sits BEFORE the
+        #        reconnaissance-only fallback so ransomware-style
+        #        reports surface a meaningful objective.  Priority
+        #        preserved — every specific rule still wins first.
+        #    Regression tests locked in
+        #    `tests/canonical/die/test_intent_objective_expansion.py`.
+        "backend/services/die/intent.py",
+        # Stage-1 Lane C (2026-08-26): additive canonical extraction
+        # of file/artifact evidence behind the IUE facade.  Feature-
+        # flagged via `IUE_ARTIFACT_LANE`.  Same T2 wire contract as
+        # Lane A/B; zero UI structural changes required.  Static
+        # analysis only — no execution, no network, no sandbox
+        # (locked by test_no_execution_no_network).
+        "backend/services/iue/collectors/file_collector.py",
+        "backend/services/iue/parsers/artifact_parser.py",
+        "backend/services/iue/lanes/file_lane.py",
+        "backend/services/iue/normalizers/field_map.py",
+        "backend/routers/iue_lane_c.py",
+        "backend/server.py",
+        "backend/.env",
+        "memory/PRD.md",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

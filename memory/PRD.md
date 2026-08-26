@@ -1,6 +1,93 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
 
+> **2026-08-26 · Session close #2 · 🟢 SHIPPED — Threat-Actor De-conflation + Threat-Objective Expansion**
+>
+> Continuation of the same-day session, executing owner-authorised
+> sequence: **Threat-Actor De-conflation → Threat-Objective Expansion**
+> (Attack-Story Timeline + Lane C UI polish remain queued and locked
+> pending owner authorisation).
+>
+> **Fix #3 · Threat-Actor De-conflation (P2 handoff defect).**
+> `services/ida/report_extractors.py::_extract_actors` was leaking
+> MITRE ATT&CK tactic identifiers (`TA0001`..`TA0043` Enterprise +
+> `TA0027`..`TA0038` Mobile + `TA0100`..`TA0111` ICS) into the
+> investigator-facing threat-actor list because the generic actor
+> regex ``TA-?\\d{2,4}`` false-matched them.  Fix layers:
+>   1. Authoritative `_MITRE_TACTIC_IDS` deny-list — every published
+>      MITRE tactic id, hard-coded.
+>   2. Structural shape guard `^TA0\\d{3}$` — catches any 4-digit
+>      zero-padded id (future-proof against new MITRE additions).
+>   3. Both filters applied after `finditer` (curated `_KNOWN_ACTORS`
+>      pass first, unchanged).
+> Real Proofpoint TA-numbered actors (TA505 / TA544 / TA551 / TA577)
+> use `TA` + 3 digits without a leading zero → preserved by the shape
+> guard.  New regression file
+> `tests/canonical/ida/test_threat_actor_deconflation.py` locks the
+> fix with **10 tests** (Enterprise + Mobile + ICS + unlisted-TA0
+> shape + APT + Proofpoint + Storm + UNC + mixed narrative +
+> hyphenated shape).
+>
+> **Fix #4 · Threat-Objective Expansion (P1 handoff task).**
+> `services/die/intent.py::_RULES` extended with two new deterministic
+> rules — no LLM, no new data source, priority-ordered:
+>   - **`double_extortion_ransomware`** (base 0.70) — requires BOTH
+>     Impact AND Exfiltration.  Declared BEFORE `ransomware_deployment`
+>     so the classic steal-then-encrypt TTP (LockBit / BlackCat / Play /
+>     Akira / Rhysida) surfaces correctly instead of being flattened
+>     into "plain" ransomware.  DKP boosts for `dkp.rclone_exfil` +
+>     `dkp.mega_upload` + `dkp.shadow_copy_removal`.
+>   - **`multi_stage_intrusion`** (base 0.55) — broad-coverage advisory
+>     rule that fires when ≥5 distinct ATT&CK tactics are observed but
+>     no specific rule matched (implemented via a new
+>     `min_tactics_breadth` attribute + a breadth gate inside
+>     `classify_intent`).  Declared BEFORE the `reconnaissance`
+>     fallback so ransomware-style narratives no longer get flattened
+>     into "Reconnaissance / Discovery".
+> Priority preserved: every existing specific rule (`credential_theft`,
+> `lateral_movement`, `data_exfiltration`, `c2_beaconing`,
+> `persistence_establishment`, `deployment_and_execution`) still fires
+> first on its canonical inputs.  New regression file
+> `tests/canonical/die/test_intent_objective_expansion.py` locks the
+> new rules with **14 tests** (double-extortion happy path + Impact-
+> only fallback + Exfil-only fallback + multi-stage 5-tactic advisory
+> + broad advisory + priority order guard + recon-only + narrow-rule-
+> preservation × 5 + empty envelope).
+>
+> **Stage-1 isolation guard extended (per Phase 5.1 pattern).**
+> `tests/canonical/ssot/test_ssot_isolation.py::PHASE_5_1_PATHS`
+> whitelist appended with the two production files touched this
+> session + the Lane C + payload-shape files from the earlier close,
+> following the established sign-off comment pattern.  Test-only edit;
+> no runtime behaviour change.
+>
+> **Files touched this continuation session:**
+>   • `backend/services/ida/report_extractors.py` (MITRE-tactic filter in `_extract_actors`)
+>   • `backend/services/die/intent.py` (double-extortion + multi-stage rules + breadth gate)
+>   • `backend/tests/canonical/ida/test_threat_actor_deconflation.py` (NEW · 10 tests)
+>   • `backend/tests/canonical/die/test_intent_objective_expansion.py` (NEW · 14 tests)
+>   • `backend/tests/canonical/ssot/test_ssot_isolation.py` (Phase 5.1 whitelist)
+>
+> **Final regression sweep · `tests/canonical/` full run:**
+> **724 passed / 5 failed / 12 skipped** — the 5 failures are the
+> **same pre-existing LOCKED environmental Sample1-DB + SSOT-isolation
+> baseline** carried across the last several sessions.  **Zero new
+> regressions from any of this session's four fixes** (payload-shape
+> allow-list + Lane C + threat-actor de-conflation + intent expansion).
+>
+> **Owner-directed queue (locked, awaiting explicit authorisation):**
+>   - Attack-Story Timeline (P0-3 in the owner's execution plan) —
+>     wire Lane A/B/C canonical evidence into the L4 Analyst Workspace
+>     Timeline tab so logs + URLs + files reconstruct one deterministic
+>     investigation timeline.
+>   - Lane C UI polish (artifact-summary chip in StructuredEvidenceTab).
+>   - Stage-2 · Deterministic Verdict Engine · Native IOC disposition ·
+>     Evidence Reconciliation.
+>   - Fix 2 (URL Acquisition / CISA 403 Wayback fallback) — LOCKED.
+>   - Custom domain SSL redeploy — platform-side (user emails
+>     support@emergent.sh).
+
+
 > **2026-08-26 · Session close · 🟢 SHIPPED — P0-1 (payload-shape) + P0-3 (Lane C File/Artifact behind IUE facade)**
 >
 > **Fix #1 · 6 payload-shape canonical failures resolved (P0-1).**

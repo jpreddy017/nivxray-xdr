@@ -45,6 +45,31 @@ TACTICS: List[str] = [
 # `weight` blends the rule's own confidence; `dkp_boosts` add on top
 # when the specified DKP id appears in the chain match set.
 _RULES = [
+    # ── Double-Extortion Ransomware (2026-08-26) ──────────────────
+    # Modern ransomware TTP: steal data first, then encrypt.  Fires
+    # when BOTH Impact AND Exfiltration tactics are observed — this
+    # is the "leak-site + encryption" pattern (LockBit, BlackCat,
+    # Play, Akira, Rhysida etc.).  Declared BEFORE the plain
+    # ransomware_deployment rule so double-extortion always wins
+    # when the evidence supports it.
+    {
+        "id":   "double_extortion_ransomware",
+        "name": "Double-Extortion Ransomware",
+        "categories": ["Impact", "Exfiltration", "Collection",
+                        "Command and Control"],
+        "requires": ["Impact", "Exfiltration"],
+        "supports": ["Collection", "Command and Control", "Discovery",
+                     "Credential Access", "Lateral Movement",
+                     "Defense Evasion", "Impair Defenses"],
+        "dkp_boosts": {
+            "dkp.shadow_copy_removal":     0.20,
+            "dkp.rclone_exfil":            0.15,
+            "dkp.mega_upload":             0.10,
+            "dkp.schtasks_persistence":    0.03,
+            "dkp.reflective_loader":       0.03,
+        },
+        "base": 0.70,
+    },
     {
         "id":   "ransomware_deployment",
         "name": "Ransomware Deployment",
@@ -138,6 +163,33 @@ _RULES = [
         },
         "base": 0.60,
     },
+    # ── Multi-Stage Intrusion (2026-08-26) ────────────────────────
+    # Broad-coverage advisory fallback for reports that walk through
+    # ≥5 distinct ATT&CK tactics (typical ransomware / APT advisory
+    # narratives) but do NOT yet trigger the impact/exfil-gated rules
+    # above.  Fires BEFORE the pure-reconnaissance fallback so
+    # investigator-facing summaries show a meaningful objective
+    # rather than "Reconnaissance / Discovery".  Requires no single
+    # tactic — the ``requires`` gate is empty; a separate breadth
+    # gate inside classify_intent() enforces the ≥5 threshold.
+    {
+        "id":   "multi_stage_intrusion",
+        "name": "Multi-Stage Intrusion",
+        "categories": ["Multi-tactic"],
+        "requires": [],                   # breadth gate handled below
+        "supports": ["Initial Access", "Execution", "Persistence",
+                     "Privilege Escalation", "Defense Evasion",
+                     "Credential Access", "Discovery",
+                     "Lateral Movement", "Collection",
+                     "Command and Control", "Exfiltration",
+                     "Impact", "Impair Defenses"],
+        "dkp_boosts": {},
+        "base": 0.55,
+        # Minimum distinct-tactics count required for the rule to
+        # apply.  Kept as an attribute (not a gate list) so existing
+        # rule-evaluation code stays untouched.
+        "min_tactics_breadth": 5,
+    },
     {
         "id":   "reconnaissance",
         "name": "Reconnaissance / Discovery",
@@ -185,6 +237,12 @@ def classify_intent(chain_env: Dict[str, Any]) -> Dict[str, Any]:
     # tactics are all present wins.  Confidence = base + DKP boosts.
     for rule in _RULES:
         if not all(gate in tactics_seen for gate in rule["requires"]):
+            continue
+        # Breadth gate — rules with no `requires` list (e.g. the
+        # broad-coverage "multi_stage_intrusion") declare a minimum
+        # distinct-tactics count instead.  Skip when unmet.
+        min_breadth = rule.get("min_tactics_breadth", 0)
+        if min_breadth and len(tactics_seen) < min_breadth:
             continue
         confidence = rule["base"]
         support_hits = sum(1 for s in rule["supports"] if s in tactics_seen)
