@@ -47,6 +47,19 @@ ALLOWED_OBJECT_KEYS = {
     "lolbas",                # [{binary, legit, abuse, detection, mitre}]
     "chain",                 # {steps, root, source, total}
     "csv_edr",               # compact CSV/EDR summary (added Phase 5.W)
+    # P0e-Unslim (2026-02-09) · nested-slimmed structured-evidence
+    # container carrying commands / mitre_techniques / body_artifacts /
+    # yara_rules / sigma_rules / threat_actors / malware_families /
+    # cves / timeline / hash_context / totals / source /
+    # investigation_summary / acquisition_failure. Heavy sub-fields
+    # (raw doc text, per-stage decoded output, etc.) are dropped by
+    # `_slim_report_extraction()` in services/die/canonical_bridge.py.
+    # Rendered by the Workspace UI in WorkspacePage.jsx,
+    # StructuredEvidenceTab.jsx, ExtractedArtifactsPanel.jsx,
+    # AcquisitionPlanPanel.jsx, InvestigationSessionGateway.jsx,
+    # InvestigationSessionPage.jsx. Wire size stays within the
+    # 250 KB budget (verified by test_response_size_under_budget).
+    "report_extraction",
     # Metadata / bookkeeping
     "input",                 # truncated echo of the analysed input (≤ 64 KB)
     "input_kind",
@@ -75,6 +88,11 @@ ALLOWED_OBJECT_KEYS = {
 }
 
 # ── Forbidden keys — must NEVER appear on wire (they killed the tab) ──
+# NOTE (P0e-Unslim · 2026-02-09): `report_extraction` was previously
+# on this list. It is now on the ALLOWED list (nested-slimmed) because
+# the Workspace UI renders its structured sub-fields. See the comment
+# in ALLOWED_OBJECT_KEYS and `_slim_report_extraction()` in
+# services/die/canonical_bridge.py for the size-bounded contract.
 FORBIDDEN_OBJECT_KEYS = {
     "preprocessor",
     "commands",
@@ -83,7 +101,6 @@ FORBIDDEN_OBJECT_KEYS = {
     "explanation_coverage",
     "acquired_document",
     "document_profile",
-    "report_extraction",
     "artifact_summary",
     "profiling",
     "engines_selected",
