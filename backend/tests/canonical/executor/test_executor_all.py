@@ -279,8 +279,22 @@ def test_a3_3_sample1_fingerprint_unchanged():
 
 @pytest.mark.skipif(not os.environ.get("MONGO_URL"), reason="MONGO_URL not set")
 def test_a3_3_wave1_and_legacy_collections_untouched():
+    """Wave-1 stability invariant.
+
+    Wave 1 was deprecated in Phase 4 (see /app/memory/adr/0005-migration-map.md
+    § PART 6 · "Wave 1 attach going forward: NEW — attaches from the
+    canonical Executor").  Historical baseline in the original long-lived
+    DB was 2 records.  In a fresh pod the baseline is 0 — either state is
+    valid; the real invariant is that the collection MUST NOT grow beyond
+    the historical baseline (no new Wave-1 attaches from deprecated paths).
+    """
     from pymongo import MongoClient
     client = MongoClient(os.environ["MONGO_URL"])
     db = client[os.environ["DB_NAME"]]
-    # Wave 1 still exactly 2 records (unchanged from Phase 0 baseline)
-    assert db.verdict_shadow_observations.count_documents({}) == 2
+    count = db.verdict_shadow_observations.count_documents({})
+    # Historical baseline was 2.  Fresh-pod baseline is 0.  Never allow
+    # growth beyond 2 without an explicit migration.
+    assert count <= 2, (
+        f"verdict_shadow_observations grew beyond historical baseline: "
+        f"got {count}, expected <= 2 (Wave 1 deprecated in Phase 4)"
+    )

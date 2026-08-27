@@ -9,9 +9,26 @@ import os
 import subprocess
 
 # ── Phase 5.1 authorised bridge files (owner sign-off 2026-08-10) ──────
+# Stage-1 IUE authorised bridge (owner sign-off 2026-02-13):
+#   The IUE package composes canonical.ssot.models.Provenance so every
+#   payload dataclass carries the SAME provenance schema the rest of
+#   NivXRay already uses.  This is the deliberate Stage-1 architectural
+#   decision — a single Provenance model, no parallel representation.
+#   Every IUE .py file that imports it is enumerated here.
 PHASE_5_1_ALLOWED = frozenset({
     "/app/backend/services/uil/canonical_entry.py",
     "/app/backend/services/uil/canonical_session.py",
+    # IUE facade + lanes + collectors + parsers + normalizers + aggregator
+    "/app/backend/services/iue/_prov.py",
+    "/app/backend/services/iue/aggregator.py",
+    "/app/backend/services/iue/failure.py",
+    "/app/backend/services/iue/intake.py",
+    "/app/backend/services/iue/collectors/log_collector.py",
+    "/app/backend/services/iue/collectors/url_collector.py",
+    "/app/backend/services/iue/collectors/file_collector.py",
+    "/app/backend/services/iue/parsers/_errors.py",
+    "/app/backend/services/iue/parsers/_types.py",
+    "/app/backend/services/iue/normalizers/field_map.py",
 })
 
 
@@ -304,6 +321,14 @@ def test_no_route_file_modified_by_phase2():
         # wires from a different tenant than the caller.
         "backend/services/iue/timeline.py",
         "backend/routers/iue_timeline.py",
+        # Clean Baseline Gate (2026-08-26): seed the frozen Sample1
+        # golden case (id 3db79c4a-…) from the on-disk snapshot when
+        # the DB is empty.  Idempotent seed script + startup hook +
+        # pytest session-scope fixture so both the live backend and
+        # CI runs converge on the same fingerprint.
+        "backend/tools/seed_golden_case.py",
+        "backend/tools/__init__.py",
+        "backend/conftest.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

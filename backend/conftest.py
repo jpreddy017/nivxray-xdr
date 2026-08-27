@@ -59,3 +59,31 @@ os.environ.setdefault("DB_NAME",   "nivxray_ci_local")
 # ─── Admin credentials for endpoint tests ────────────────────────────
 os.environ.setdefault("ADMIN_EMAIL",    "admin@nivxray.com")
 os.environ.setdefault("ADMIN_PASSWORD", "ci-only-not-a-real-secret")
+
+
+# ─── Sample1 golden diagnostic case · session-scope seed ─────────────
+# The frozen Sample1 case (id 3db79c4a-088b-4df7-b65a-f68b367b7677) is
+# the architectural canary for the canonical investigation lifecycle.
+# Three tests lock its byte-identical fingerprint against
+# GOLDEN_CASE_SAMPLE1.md.  In fresh CI pods / dev environments the
+# `nivxray_ci_local` DB starts empty, so seed the golden case from the
+# on-disk snapshot before any acceptance test runs.  Idempotent — only
+# inserts when workspace_cases lacks the case, and only after the
+# snapshot's own fingerprint matches the locked golden value.
+def _seed_sample1_if_missing() -> None:
+    try:
+        import sys
+        # Ensure `tools.seed_golden_case` is importable regardless of
+        # how pytest was invoked (e.g. from repo root).
+        sys.path.insert(0, os.path.dirname(__file__))
+        from tools.seed_golden_case import seed_sample1_if_missing
+        from pymongo import MongoClient
+        client = MongoClient(os.environ["MONGO_URL"],
+                                serverSelectionTimeoutMS=2000)
+        db = client[os.environ["DB_NAME"]]
+        _ = seed_sample1_if_missing(db)
+    except Exception:  # noqa: BLE001 — never break test collection
+        pass
+
+
+_seed_sample1_if_missing()

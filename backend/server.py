@@ -515,6 +515,15 @@ async def _startup():
     validate_config()
     init_database()
     await seed_admin(log)
+    # Seed the Sample1 golden diagnostic case if absent.  Idempotent —
+    # only inserts when workspace_cases lacks the frozen case id and the
+    # on-disk snapshot fingerprint matches the locked golden value.
+    try:
+        from tools.seed_golden_case import seed_sample1_if_missing
+        status = seed_sample1_if_missing(db)
+        log.info("Sample1 golden-case seed status: %s", status)
+    except Exception as e:  # noqa: BLE001 — never break startup
+        log.warning("Sample1 golden-case seed skipped: %s", e)
     await _ensure_iocs_indexes()
     # LOLBAS: load persisted cache, then trigger a background refresh if stale (>7d)
     await lolbas_load(db)
