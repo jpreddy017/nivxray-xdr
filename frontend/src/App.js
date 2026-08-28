@@ -48,6 +48,7 @@ const BenchmarkPage         = lazy(() => import("@/pages/BenchmarkPage"));
 const MultiLayerBatteryPage = lazy(() => import("@/pages/MultiLayerBatteryPage"));
 const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"));
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
+const DeviceTrajectoryPage  = lazy(() => import("@/pages/DeviceTrajectoryPage"));
 const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
 // L4 · Investigation Session (Rule R22 · 2026-03-02) — dedicated
 // deep-dive surface for a completed threat-report investigation.
@@ -167,6 +168,8 @@ function App() {
               <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />
               <Route path="/analyst"   element={<Protected><AnalystWorkspacePage /></Protected>} />
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
+              {/* NivXRay Forge · EDR Device Trajectory (owner spec 2026-08-26) */}
+              <Route path="/edr/trajectory" element={<Protected><DeviceTrajectoryPage /></Protected>} />
               <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
               {/* L4 · Investigation Session · Rule R22 (2026-03-02) */}
               <Route path="/workspace/session/:sessionId"

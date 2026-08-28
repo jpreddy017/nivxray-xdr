@@ -1,6 +1,107 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
 
+> **2026-08-26 · Session close #5 · 🟢 SHIPPED — Stage-2 Verdict Engine + Canonical Activity Model + EDR Device Trajectory (tri-directional sync)**
+>
+> **Executed the owner's locked 20-decision spec:**
+>
+> ### Phase A — Stage-2 Deterministic Verdict Engine (rules 1-6)
+>   Pure rule engine, additive `case.verdict_stage2` field, byte-
+>   identical output for identical canonical inputs, `generated_at`
+>   excluded from `fingerprint`.  No LLM, no probabilistic model.
+>   9 rules (PROC-SUSPICIOUS-PARENT, CMD-OBFUSCATION, FILE-DROP-
+>   EXECUTABLE, NETWORK-SUSPICIOUS, MITRE-IMPACT, MITRE-EXFILTRATION,
+>   OBJECTIVE-DOUBLE-EXTORTION, V3X-VERDICT-CARRY, SIGNED-BENIGN-
+>   COUNTERWEIGHT), each capped at MAX_ABS_WEIGHT=30 so no single
+>   signal dominates.  v3.x contract untouched (never mutated).
+>   Routes: `POST /api/verdict/stage2/compute` +
+>   `POST /api/verdict/stage2/auto-compute` (idempotent · additive
+>   persistence · fingerprint-diff skips DB write when unchanged).
+>   **23 acceptance tests green** (`tests/canonical/verdict_stage2/`).
+>
+> ### Phase B — Canonical Activity/Evidence Model (rule 19)
+>   One canonical `ActivityInventory` object drives every panel.
+>   Deterministic entity ids · Six kinds (`system`, `process`, `file`,
+>   `network`, `registry`, `identity`) · Process ancestry surfaces
+>   `parent_entity_id` + `child_entity_ids` · Fields present only
+>   when supported by evidence (rule #13 · no fabrication).
+>   Endpoint: `POST /api/activity/inventory`.
+>   **11 tests green** (`tests/canonical/activity/`).
+>
+> ### Phase C — EDR Device Trajectory UI (rules 7-18)
+>   Original NivXRay visual language.  Three-column console:
+>   - **Left · Activity Inventory**: real entities as primary content
+>     (grouped by System / Files & Processes / Network), NOT a
+>     category list.  Empty groups hidden.
+>   - **Center · Temporal Trajectory**: entity-per-row coordinate
+>     system.  Each observed entity gets its own horizontal row;
+>     X-axis is time (`span_start → span_end`).  Cluster-aware
+>     positioning + 60 s buckets prevent text overlap (rule #11).
+>     Compromise window is an OVERLAY (dashed red band), NOT a
+>     filter (rule #9).  Process ancestry connectors (dashed blue)
+>     link parent→child rows at causality anchor points.
+>   - **Right · Activity Details + Verdict Explainability**: pre-
+>     populated summary + recent activity list before selection
+>     (rule #12).  On entity/event click: attribute inspector with
+>     evidence-backed fields ONLY (PID, user, integrity, path,
+>     command line, SHA-256/SHA-1/MD5, signer, signature status,
+>     destination, port, registry key/value, MIME, size).  Below:
+>     Verdict Explainability Card with label + confidence bucket +
+>     risk score + citable evidence rows (rule id, canonical field,
+>     weight, event ids, provenance).
+>
+>   **Tri-directional selection synchronised** (rule 19):
+>       Activity Inventory ↔ Trajectory row/marker ↔ Activity Details
+>   All three paths resolve to the same underlying activity object.
+>   Route: `/edr/trajectory`.
+>
+> ### PrivacyBrowse verification screenshot (rule 17)
+>   15 entities · 15 trajectory rows · 12 markers · compromise
+>   overlay · Stage-2 verdict = MALICIOUS · HIGH CONFIDENCE · risk 95.
+>   Real entities observed: `explorer.exe` · `sihost.exe` · `svchost.exe`
+>   · `userinit.exe` · `winword.exe` · `powershell.exe` · `payload.exe` ·
+>   `payload.dll` · `privacybrowse.exe` · `PrivacyBrowse.exe` (file) ·
+>   `bad-domain.com` · `203.0.113.10` · `win10-user01.local` ·
+>   `skrasowski@WHS_ADMIN`.  Evidence rows cited: CMD-OBFUSCATION +25
+>   (evt-102) · FILE-DROP-EXECUTABLE +15 ×2 (evt-103, evt-105) ·
+>   PROC-SUSPICIOUS-PARENT +15 ×2 (evt-102, evt-103) ·
+>   V3X-VERDICT-CARRY +10.
+>
+> ### Regression sweep · Full canonical suite
+> ```
+> tests/canonical/ · 788 passed · 0 failed · 4 skipped · 920 s
+> ```
+> Delta from prior baseline (754): **+34 net** (Stage-2 · Activity ·
+> Timeline).  **Zero regressions.**  Clean Baseline Gate holds.
+>
+> ### Files touched this session
+>   Backend:
+>   • `services/verdict_stage2/*` (NEW · model, rules, engine, inputs, fingerprint)
+>   • `services/activity/*` (NEW · model, projector)
+>   • `routers/verdict_stage2.py` (NEW · compute + auto-compute)
+>   • `routers/activity.py` (NEW · inventory)
+>   • `server.py` (wire new routers)
+>   Frontend:
+>   • `pages/DeviceTrajectoryPage.jsx` (NEW · 3-column shell + PrivacyBrowse fixture)
+>   • `components/edr/EntityInventory.jsx` (NEW · inventory-first left rail)
+>   • `components/edr/TrajectoryCanvas.jsx` (NEW · entity-per-row temporal canvas)
+>   • `components/edr/ActivityDetails.jsx` (NEW · attribute inspector + activity browser)
+>   • `components/edr/VerdictExplainabilityCard.jsx` (NEW · citable rows)
+>   • `App.js` (route `/edr/trajectory` + lazy import)
+>   Tests:
+>   • `tests/canonical/verdict_stage2/test_stage2_engine_contract.py` (NEW · 23 tests)
+>   • `tests/canonical/activity/test_activity_projector_contract.py` (NEW · 11 tests)
+>   • `tests/canonical/ssot/test_ssot_isolation.py` (Phase 5.1 whitelist expanded)
+>
+> ### Owner-directed queue (locked · awaiting authorisation)
+>   - Ransomware Family Detection (P1) — evidence-backed family
+>     attribution (LockBit/BlackCat/Rhysida) into the DKP layer.
+>   - Lane C UI polish (P2) — artifact-summary chip in
+>     StructuredEvidenceTab.
+>   - Fix 2 · URL Acquisition / CISA 403 Wayback fallback — LOCKED.
+>   - Custom domain SSL redeploy — platform-side.
+
+
 > **2026-08-26 · Session close #4 · 🟢 🔒 CLEAN BASELINE GATE ACHIEVED — 754 passed / 0 failed**
 >
 > Owner-mandated milestone: **investigate and fix every failure, not

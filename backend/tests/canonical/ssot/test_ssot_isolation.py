@@ -329,6 +329,38 @@ def test_no_route_file_modified_by_phase2():
         "backend/tools/seed_golden_case.py",
         "backend/tools/__init__.py",
         "backend/conftest.py",
+        # Stage-2 Deterministic Verdict Engine (2026-08-26).  Owner-
+        # locked decisions #1-#6 · pure rule engine, additive to case
+        # (verdict_stage2 sibling), fingerprint excludes generated_at,
+        # v3.x contract untouched.  Same canonical inputs → byte-
+        # identical output.
+        "backend/services/verdict_stage2/__init__.py",
+        "backend/services/verdict_stage2/model.py",
+        "backend/services/verdict_stage2/rules.py",
+        "backend/services/verdict_stage2/fingerprint.py",
+        "backend/services/verdict_stage2/inputs.py",
+        "backend/services/verdict_stage2/engine.py",
+        "backend/routers/verdict_stage2.py",
+        # EDR canonical Activity/Evidence model (2026-08-26).  Owner
+        # rule #19 · one canonical object drives Left inventory →
+        # Trajectory canvas → Right details → Verdict Explainability.
+        # Deterministic projection over the Timeline; six entity kinds
+        # (System/Processes/Files/Network/Registry/Identity).
+        "backend/services/activity/__init__.py",
+        "backend/services/activity/model.py",
+        "backend/services/activity/projector.py",
+        "backend/routers/activity.py",
+        # EDR Device Trajectory frontend (2026-08-26).  Owner-locked
+        # entity-per-row temporal coordinate system + tri-directional
+        # selection sync (inventory ↔ trajectory ↔ details).  Pure
+        # projection over `/api/activity/inventory` +
+        # `/api/verdict/stage2/compute`.
+        "frontend/src/App.js",
+        "frontend/src/pages/DeviceTrajectoryPage.jsx",
+        "frontend/src/components/edr/EntityInventory.jsx",
+        "frontend/src/components/edr/TrajectoryCanvas.jsx",
+        "frontend/src/components/edr/ActivityDetails.jsx",
+        "frontend/src/components/edr/VerdictExplainabilityCard.jsx",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"
