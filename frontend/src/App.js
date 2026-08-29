@@ -10,14 +10,6 @@ import QuickOpenPalette from "@/components/QuickOpenPalette";
 import PageErrorBoundary from "@/components/PageErrorBoundary";
 import { Toaster } from "@/components/ui/sonner";
 
-// NivXForge EDR reserved sub-pages (tiny stubs — no need to code-split).
-import {
-  EdrFilesPage, EdrNetworkPage,
-  EdrHuntingPage, EdrForensicsPage, EdrLiveQueryPage, EdrResponsePage,
-} from "@/nivxforge/pages/EdrReservedPages";
-import EdrDetectionsPage from "@/nivxforge/pages/EdrDetectionsPage";
-import EdrProcessTreePage from "@/nivxforge/pages/EdrProcessTreePage";
-
 // Route-based code splitting (Perf Sprint · Feb 2026). Each page below
 // ships as its own webpack chunk and downloads on-demand when the route
 // is first hit. Cuts the initial JS payload from ~1.4 MB to a small
@@ -58,22 +50,12 @@ const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"))
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 const DeviceTrajectoryPage  = lazy(() => import("@/pages/DeviceTrajectoryPage"));
 const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
-// Slice 1 · Canonical Incident shell (2026-08-27) — dense operational
-// queue + Incident detail (Overview / Investigation / Activity /
-// Response).  Reads workspace_cases through /api/incidents; does NOT
-// create a parallel model, does NOT touch /analyst.
-const IncidentsListPage     = lazy(() => import("@/pages/incidents/IncidentsListPage"));
-const IncidentShellPage     = lazy(() => import("@/pages/incidents/IncidentShellPage"));
-// Slice 1 · NivXRay XDR platform shell (owner spec 2026-08-29) — a
-// navigation layer over existing NivXRay capabilities.  /analyst and
-// every underlying implementation stay untouched.
-const XdrDashboardPage      = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
-const XdrIncidentsPage      = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
-const XdrIncidentDetailPage = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
-// NivXForge EDR Console (owner spec 2026-08-29) — Incident always
-// enters through /edr (Console Overview) and pivots into the
-// existing /edr/trajectory implementation from the sidebar.
-const EdrOverviewPage       = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
+// Slice 1 · Canonical Incident shell + NivXRay XDR platform shell
+// have been EXTRACTED into a separate standalone application at
+// `/app/apps/nivxray-xdr/`.  The base NivXRay SPA no longer routes
+// `/xdr/*`, `/incidents/*`, or `/edr/*` (except `/edr/trajectory`,
+// which is the untouched Device Trajectory canvas below).  See
+// `/app/memory/XDR_SEPARATION_HANDOFF.md`.
 // L4 · Investigation Session (Rule R22 · 2026-03-02) — dedicated
 // deep-dive surface for a completed threat-report investigation.
 // Every extracted artifact is a first-class Investigation Input.
@@ -192,30 +174,15 @@ function App() {
               <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />
               <Route path="/analyst"   element={<Protected><AnalystWorkspacePage /></Protected>} />
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
-              {/* NivXRay Forge · EDR Device Trajectory (owner spec 2026-08-26) */}
+              {/* NivXRay Forge · EDR Device Trajectory (owner spec 2026-08-26)
+                  — the canonical Device Trajectory canvas.  Stays here.
+                  The XDR-owned Incident shell (`/xdr/*`, `/incidents/*`)
+                  and NivXForge EDR Console (`/edr`, `/edr/detections`,
+                  `/edr/process-tree`, `/edr/files`, `/edr/network`,
+                  `/edr/hunting`, `/edr/forensics`, `/edr/live-query`,
+                  `/edr/response`) are hosted by the standalone
+                  `/app/apps/nivxray-xdr` application. */}
               <Route path="/edr/trajectory" element={<Protected><DeviceTrajectoryPage /></Protected>} />
-              {/* Slice 1 · Canonical Incident shell (owner spec 2026-08-27) */}
-              <Route path="/incidents"      element={<Protected><IncidentsListPage /></Protected>} />
-              <Route path="/incidents/:id"  element={<Protected><IncidentShellPage /></Protected>} />
-              {/* NivXRay XDR platform shell (owner spec 2026-08-29) */}
-              <Route path="/xdr"                 element={<Protected><XdrDashboardPage /></Protected>} />
-              <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
-              <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
-
-              {/* NivXForge EDR Console (owner spec 2026-08-29) — endpoint
-                  security console inside NivXRay XDR.  /edr/trajectory
-                  is UNCHANGED and remains the Device Trajectory surface;
-                  we simply wrap it in the Console shell via sidebar
-                  navigation. */}
-              <Route path="/edr"               element={<Protected><EdrOverviewPage /></Protected>} />
-              <Route path="/edr/detections"    element={<Protected><EdrDetectionsPage /></Protected>} />
-              <Route path="/edr/process-tree"  element={<Protected><EdrProcessTreePage /></Protected>} />
-              <Route path="/edr/files"         element={<Protected><EdrFilesPage /></Protected>} />
-              <Route path="/edr/network"       element={<Protected><EdrNetworkPage /></Protected>} />
-              <Route path="/edr/hunting"       element={<Protected><EdrHuntingPage /></Protected>} />
-              <Route path="/edr/forensics"     element={<Protected><EdrForensicsPage /></Protected>} />
-              <Route path="/edr/live-query"    element={<Protected><EdrLiveQueryPage /></Protected>} />
-              <Route path="/edr/response"      element={<Protected><EdrResponsePage /></Protected>} />
               <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
               {/* L4 · Investigation Session · Rule R22 (2026-03-02) */}
               <Route path="/workspace/session/:sessionId"
