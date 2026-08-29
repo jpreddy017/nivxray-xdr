@@ -1,23 +1,23 @@
 /**
- * ActivityTab · reads canonical Activity Inventory for the incident.
+ * ActivityTab · XDR skin.
  *
- * This tab is intentionally read-only in Slice 1 — the operational
- * canvas already ships in `/edr/trajectory`.  We show the analyst
- * the counts + a deep link into the full canvas.
+ * Reads canonical Activity Inventory (rule #19) and shows the counts.
+ * The full temporal canvas lives at /edr/trajectory — this tab surfaces
+ * a deep link to open it in a new browser tab (owner telemetry rule).
  */
-import React, { useEffect, useState } from "react";
-import { ExternalLink, Activity, Loader2 } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ExternalLink, Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
 import { INCIDENT_TESTIDS as T } from "@/constants/incidentTestIds";
 
 const KINDS = [
-  { key: "process",  label: "Processes" },
-  { key: "file",     label: "Files" },
-  { key: "network",  label: "Network" },
-  { key: "registry", label: "Registry" },
-  { key: "identity", label: "Identities" },
-  { key: "system",   label: "Systems" },
+  { key: "process",  label: "Processes",  accent: "var(--xpurple)" },
+  { key: "file",     label: "Files",      accent: "var(--xcyan)"   },
+  { key: "network",  label: "Network",    accent: "var(--xcyan)"   },
+  { key: "registry", label: "Registry",   accent: "var(--xamber)"  },
+  { key: "identity", label: "Identities", accent: "var(--xmint)"   },
+  { key: "system",   label: "Systems",    accent: "var(--xtext)"   },
 ];
 
 export default function ActivityTab({ incident }) {
@@ -30,11 +30,12 @@ export default function ActivityTab({ incident }) {
     (async () => {
       setLoading(true); setError(null);
       try {
-        // Slice 1 · pass just the case id.  The projector tolerates an
-        // absent timeline and returns an empty inventory (deterministic,
-        // rule #13).  Later slices will fuse in real timelines.
-        const { data } = await api.post("/activity/inventory",
-                                            { case_id: incident?.id || null });
+        // The projector expects a timeline; pass an empty one so the
+        // response is a valid (empty) inventory rather than a 422.
+        const { data } = await api.post("/activity/inventory", {
+          case_id:  incident?.id || null,
+          timeline: { events: [] },
+        });
         if (!cancelled) setInv(data);
       } catch (e) {
         if (!cancelled) setError(e?.response?.data?.detail || e?.message || "Failed to load activity.");
@@ -45,80 +46,54 @@ export default function ActivityTab({ incident }) {
     return () => { cancelled = true; };
   }, [incident?.id]);
 
-  const countByKind = React.useMemo(() => {
-    const counts = Object.fromEntries(KINDS.map((k) => [k.key, 0]));
-    const entities = inv?.entities || [];
-    entities.forEach((e) => {
-      if (counts[e.kind] != null) counts[e.kind] += 1;
-    });
-    return counts;
+  // The projector returns `entities` as a dict keyed by kind
+  // ({process:[…], file:[…], …}).  We count per-kind directly.
+  const counts = useMemo(() => {
+    const c = Object.fromEntries(KINDS.map((k) => [k.key, 0]));
+    const entitiesByKind = inv?.entities;
+    if (entitiesByKind && typeof entitiesByKind === "object") {
+      KINDS.forEach((k) => {
+        const arr = entitiesByKind[k.key];
+        c[k.key] = Array.isArray(arr) ? arr.length : 0;
+      });
+    }
+    return c;
   }, [inv]);
-
-  const total = (inv?.entities || []).length;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
   return (
-    <section
-      data-testid={T.activityPane}
-      style={{ display: "flex", flexDirection: "column", gap: 14 }}
-    >
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        gap: 12, flexWrap: "wrap",
-      }}>
-        <div>
-          <div style={{
-            fontFamily: "JetBrains Mono, monospace",
-            fontSize: 11, letterSpacing: "0.18em",
-            color: "rgba(148,163,184,0.85)", textTransform: "uppercase",
-          }}>
-            Canonical Activity Inventory
-          </div>
-          <div style={{ marginTop: 4, fontSize: 12,
-                          color: "rgba(148,163,184,0.65)" }}>
-            One canonical object drives every panel (owner rule&nbsp;#19).
-            Full temporal canvas lives at <code style={{ color: "#c4b5fd" }}>/edr/trajectory</code>.
+    <div data-testid={T.activityPane}>
+      <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
+        <div className="grow">
+          <div className="section-title">Canonical Activity Inventory</div>
+          <div className="x-subtle" style={{ marginTop: 4 }}>
+            One canonical object drives every panel (owner rule #19).
+            Full temporal canvas lives at <span className="mono" style={{ color: "var(--xcyan)" }}>/edr/trajectory</span>.
           </div>
         </div>
         <button
           type="button"
+          className="btn primary"
           onClick={() => window.open("/edr/trajectory", "_blank", "noopener,noreferrer")}
-          className="nvx-btn sm"
-          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
         >
-          Open Device Trajectory <ExternalLink size={12} />
+          Open Device Trajectory <ExternalLink size={11} />
         </button>
       </div>
 
-      <div
-        data-testid={T.activityInventoryStatus}
-        style={{
-          padding: 14,
-          border: "1px solid rgba(148,163,184,0.14)",
-          borderRadius: 10,
-          background: "linear-gradient(160deg, rgba(15,23,42,0.72), rgba(2,6,23,0.62))",
-        }}
-      >
+      <div className="panel2" style={{ padding: 14 }} data-testid={T.activityInventoryStatus}>
         {loading && (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8,
-                          color: "rgba(148,163,184,0.85)",
-                          fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--xtext-dim)" }}>
             <Loader2 size={13} className="spin" /> Loading inventory …
           </div>
         )}
         {!loading && error && (
-          <div style={{ color: "#fca5a5", fontSize: 12,
-                          fontFamily: "JetBrains Mono, monospace" }}>
+          <div style={{ color: "#ff9494", fontFamily: "var(--xmono)", fontSize: 11.5 }}>
             {String(error)}
           </div>
         )}
         {!loading && !error && (
           <>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              fontSize: 12, color: "rgba(203,213,225,0.85)",
-              fontFamily: "JetBrains Mono, monospace",
-            }}>
-              <Activity size={14} style={{ color: "#67e8f9" }} />
+            <div style={{ color: "var(--xtext-dim)", fontSize: 12 }}>
               {total === 0
                 ? "No canonical entities projected for this incident yet."
                 : `${total} canonical entit${total === 1 ? "y" : "ies"} · fused across ${KINDS.length} kinds`}
@@ -130,31 +105,27 @@ export default function ActivityTab({ incident }) {
               gap: 8,
             }}>
               {KINDS.map((k) => (
-                <div key={k.key} style={{
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(148,163,184,0.14)",
-                  background: "rgba(2,6,23,0.5)",
-                }}>
-                  <div style={{ fontSize: 10, letterSpacing: "0.14em",
-                                  color: "rgba(148,163,184,0.7)",
-                                  fontFamily: "JetBrains Mono, monospace",
-                                  textTransform: "uppercase" }}>
-                    {k.label}
-                  </div>
-                  <div style={{ marginTop: 4, fontSize: 22, fontWeight: 800,
-                                  color: countByKind[k.key] > 0 ? "#e2e8f0" : "rgba(148,163,184,0.55)",
-                                  fontFamily: "JetBrains Mono, monospace" }}>
-                    {countByKind[k.key]}
-                  </div>
+                <div
+                  key={k.key}
+                  className="panel2"
+                  style={{ padding: "10px 12px", background: "var(--xpanel)" }}
+                >
+                  <div style={{
+                    fontSize: 9.5, letterSpacing: ".3px",
+                    textTransform: "uppercase", color: "var(--xmuted)",
+                    fontWeight: 700,
+                  }}>{k.label}</div>
+                  <div style={{
+                    marginTop: 4,
+                    fontFamily: "var(--xmono)", fontSize: 20, fontWeight: 800,
+                    color: counts[k.key] > 0 ? k.accent : "var(--xfaint)",
+                  }}>{counts[k.key]}</div>
                 </div>
               ))}
             </div>
           </>
         )}
       </div>
-      <style>{`@keyframes ac-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
-                .spin { animation: ac-spin 1s linear infinite; }`}</style>
-    </section>
+    </div>
   );
 }

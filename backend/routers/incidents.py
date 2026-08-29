@@ -160,7 +160,167 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
         "mitre":       doc.get("mitre") or [],
         "iocs":        doc.get("iocs") or {},
         "evidence_pointers": evidence_pointers,
+        # ── Owner reference §incident-header + §overview additions ────
+        # Every derived block below is evidence-backed only.  If the
+        # underlying data is absent, the block is empty and the UI
+        # simply omits the section — no fake placeholders (owner rule).
+        "status_chips":       _derive_status_chips(doc, stage2, vcard),
+        "header_meta":        _derive_header_meta(doc, stage2),
+        "verdict_summary":    _derive_verdict_summary(stage2, vcard),
+        "attack_progression": _derive_attack_progression(doc),
     }
+
+
+# ── Overview derivations (evidence-backed only) ──────────────────────
+def _derive_status_chips(doc: Dict[str, Any],
+                            stage2: Dict[str, Any],
+                            vcard: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Top-of-shell status ribbon.  Chips are surfaced ONLY when the
+    underlying evidence field exists on the case — never fabricated."""
+    chips: List[Dict[str, str]] = []
+    label = (stage2.get("label") or "").lower() if stage2 else ""
+    if label == "malicious":
+        chips.append({"label": "Verdict",     "value": "MALICIOUS", "tone": "red"})
+    elif label == "suspicious":
+        chips.append({"label": "Verdict",     "value": "SUSPICIOUS", "tone": "amber"})
+    elif label == "benign":
+        chips.append({"label": "Verdict",     "value": "BENIGN",     "tone": "mint"})
+
+    conf = (stage2 or {}).get("confidence_bucket")
+    if conf:
+        chips.append({"label": "Confidence", "value": str(conf).upper(), "tone": "cyan"})
+
+    risk = (stage2 or {}).get("risk_score")
+    if isinstance(risk, (int, float)):
+        chips.append({"label": "Risk", "value": f"{int(risk)}/100",
+                        "tone": "red" if risk >= 80 else "amber" if risk >= 50 else "mint"})
+
+    if doc.get("reached_shellcode"):
+        chips.append({"label": "Shellcode", "value": "REACHED", "tone": "red"})
+
+    iocs = doc.get("iocs") or {}
+    if isinstance(iocs, dict):
+        if iocs.get("url"):    chips.append({"label": "URLs",   "value": "PRESENT", "tone": "cyan"})
+        if iocs.get("ip"):     chips.append({"label": "IPs",    "value": "PRESENT", "tone": "cyan"})
+        if iocs.get("file"):   chips.append({"label": "Files",  "value": "PRESENT", "tone": "cyan"})
+        if iocs.get("hash"):   chips.append({"label": "Hashes", "value": "PRESENT", "tone": "cyan"})
+    return chips
+
+
+def _derive_header_meta(doc: Dict[str, Any],
+                           stage2: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Header meta strip (§inc-meta).  Only include a slot when we have
+    real data for it — the UI renders whatever list we return."""
+    out: List[Dict[str, str]] = []
+    ssot = doc.get("ssot") or {}
+    inv_obj = (ssot.get("investigation_object") or {}) if isinstance(ssot, dict) else {}
+
+    # ENDPOINT — populated from SSOT when available.
+    host = None
+    if isinstance(inv_obj, dict):
+        host = (inv_obj.get("host") or (inv_obj.get("device") or {}).get("hostname"))
+    if host:
+        out.append({"k": "Endpoint", "v": str(host)})
+
+    # USER — from user_email (the analyst that saved the case).
+    if doc.get("user_email"):
+        out.append({"k": "User", "v": str(doc["user_email"])})
+
+    out.append({"k": "Assigned To",
+                  "v": str(doc.get("incident_assignee") or doc.get("user_email") or "Unassigned")})
+
+    out.append({"k": "Customer",
+                  "v": str(doc.get("tenant_id") or doc.get("user_email") or "default")})
+
+    risk = (stage2 or {}).get("risk_score")
+    if isinstance(risk, (int, float)):
+        out.append({"k": "Score", "v": f"{int(risk)}/100"})
+
+    engine = doc.get("engine")
+    if engine and engine != "-":
+        out.append({"k": "Engine", "v": str(engine)})
+    return out
+
+
+def _derive_verdict_summary(stage2: Dict[str, Any],
+                                vcard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """4-column Verdict card row (§stat-grid).  Returns None when no
+    verdict has been computed (Slice-1 rule: no fake placeholders)."""
+    if not stage2:
+        return None
+    label = (stage2.get("label") or "unknown").upper()
+    risk  = stage2.get("risk_score")
+    conf  = stage2.get("confidence_bucket")
+    reason = None
+    if isinstance(vcard, dict):
+        reason = vcard.get("summary") or vcard.get("reason") or vcard.get("explanation")
+    if not reason and stage2.get("evidence"):
+        # Fall back to top-weighted evidence rule as a deterministic reason.
+        ev = stage2["evidence"]
+        if isinstance(ev, list) and ev:
+            top = max(ev, key=lambda e: e.get("weight", 0)) if all(isinstance(e, dict) for e in ev) else None
+            if top:
+                reason = f"Top signal: {top.get('rule_id') or top.get('rule') or 'rule'} " \
+                            f"(+{top.get('weight', 0)})."
+    return {
+        "verdict":    label,
+        "score":      int(risk) if isinstance(risk, (int, float)) else None,
+        "confidence": str(conf).upper() if conf else None,
+        "reason":     reason or "Stage-2 explainability available in the EDR Verdict Card.",
+    }
+
+
+# MITRE tactic → attack-progression stage.  Deterministic mapping used
+# only to light up the stepper; we NEVER invent tactics.
+_TACTIC_STAGES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    ("Initial Access",     ("TA0001", "initial-access", "initial_access")),
+    ("Execution",          ("TA0002", "execution")),
+    ("Persistence",        ("TA0003", "persistence")),
+    ("Privilege Escalation", ("TA0004", "privilege-escalation", "privilege_escalation")),
+    ("Defense Evasion",    ("TA0005", "defense-evasion", "defense_evasion")),
+    ("Credential Access",  ("TA0006", "credential-access", "credential_access")),
+    ("Discovery",          ("TA0007", "discovery")),
+    ("Lateral Movement",   ("TA0008", "lateral-movement", "lateral_movement")),
+    ("Collection",         ("TA0009", "collection")),
+    ("Command & Control",  ("TA0011", "command-and-control", "command_and_control")),
+    ("Exfiltration",       ("TA0010", "exfiltration")),
+    ("Impact",             ("TA0040", "impact")),
+)
+
+
+def _derive_attack_progression(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return the attack-progression stepper stages.  Empty when there
+    is no MITRE data to back it — the UI hides the block in that case.
+    """
+    mitre = doc.get("mitre") or []
+    if not mitre:
+        return []
+    observed: set = set()
+    for m in mitre:
+        if isinstance(m, dict):
+            for k in ("tactic_id", "tactic", "tacticId", "id"):
+                v = m.get(k)
+                if v:
+                    observed.add(str(v).lower())
+        else:
+            observed.add(str(m).lower())
+    out: List[Dict[str, Any]] = []
+    for i, (label, keys) in enumerate(_TACTIC_STAGES, start=1):
+        hit = any(k.lower() in observed for k in keys)
+        # Only include stages that were hit OR are the immediate next
+        # step (progression preview).  If nothing was hit at all, we
+        # already returned early above.
+        if hit:
+            out.append({"index": i, "label": label, "hit": True})
+    # Include one "up-next" hint stage after the last hit, if any exists.
+    hit_indices = [k for i, (l, keys) in enumerate(_TACTIC_STAGES, start=1)
+                    if any(k2.lower() in observed for k2 in keys) for k in [i]]
+    if hit_indices:
+        last = max(hit_indices)
+        if last < len(_TACTIC_STAGES):
+            nxt_label, _ = _TACTIC_STAGES[last]
+            out.append({"index": last + 1, "label": nxt_label, "hit": False})
+    return out
 
 
 def _build_evidence_pointers(doc: Dict[str, Any]) -> List[Dict[str, Any]]:

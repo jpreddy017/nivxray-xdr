@@ -1,0 +1,425 @@
+/* NivXRay ONE XDR Console — scoped visual system.
+ *
+ * Tokens + component classes lifted from the owner-supplied reference
+ * prototype (nivxray-one-xdr-console-8.html).  Scoped under `.xdr-scope`
+ * so every existing page (including /analyst) is untouched.
+ */
+
+.xdr-scope {
+  /* ── Colors ─────────────────────────────────────────────────────── */
+  --xbg:         #0A0C11;
+  --xbg2:        #0D1016;
+  --xpanel:      #11141C;
+  --xpanel2:    #0D1016;
+  --xborder:     #212736;
+  --xborder-soft:#191E2A;
+  --xtext:       #E7E9EF;
+  --xtext-dim:   #B4B9C6;
+  --xmuted:      #78808F;
+  --xfaint:      #4A5162;
+  --xpurple:     #9B7BF0;
+  --xpurple-dim: #2A2145;
+  --xmint:       #3CE8B8;
+  --xcyan:       #3FC1E8;
+  --xamber:      #F5A623;
+  --xyellow:     #E8C547;
+  --xred:        #EF5B5B;
+  --xred-dim:    #331A1D;
+
+  --xsans: 'Inter','Segoe UI',system-ui,sans-serif;
+  --xmono: 'IBM Plex Mono','SFMono-Regular',Consolas,monospace;
+  --xradius: 6px;
+
+  background: var(--xbg);
+  color: var(--xtext);
+  font-family: var(--xsans);
+  font-size: 12.5px;
+  min-height: 100vh;
+}
+
+.xdr-scope .x-container { max-width: 1500px; margin: 0 auto; padding: 18px 22px 48px; }
+
+/* ── Section titles ────────────────────────────────────────────── */
+.xdr-scope .section-title {
+  font-size: 10.3px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--xfaint);
+  font-weight: 800;
+}
+.xdr-scope h1.x-h1 {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.005em;
+  color: var(--xtext);
+}
+.xdr-scope .x-subtle {
+  color: var(--xmuted);
+  font-size: 11.5px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* ── Panels ────────────────────────────────────────────────────── */
+.xdr-scope .panel {
+  background: var(--xpanel);
+  border: 1px solid var(--xborder);
+  border-radius: var(--xradius);
+}
+.xdr-scope .panel2 {
+  background: var(--xpanel2);
+  border: 1px solid var(--xborder);
+  border-radius: var(--xradius);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.xdr-scope .btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px; border-radius: 5px;
+  background: var(--xpanel2);
+  border: 1px solid var(--xborder);
+  color: var(--xtext-dim);
+  font-family: var(--xsans);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .2px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.xdr-scope .btn:hover { background: #141a24; color: var(--xtext); }
+.xdr-scope .btn:disabled { opacity: .5; cursor: not-allowed; }
+.xdr-scope .btn.primary {
+  background: var(--xpurple-dim);
+  border-color: var(--xpurple);
+  color: var(--xpurple);
+}
+.xdr-scope .btn.ghost { background: transparent; }
+
+/* ── Severity chips (badge) ────────────────────────────────────── */
+.xdr-scope .badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 3px;
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: .35px;
+  text-transform: uppercase;
+  font-family: var(--xsans);
+  white-space: nowrap;
+}
+.xdr-scope .badge.sev-critical { background: var(--xred-dim);  color: #ff9494; }
+.xdr-scope .badge.sev-high     { background: #3A2A0E;          color: var(--xamber); }
+.xdr-scope .badge.sev-medium   { background: #3A330E;          color: var(--xyellow); }
+.xdr-scope .badge.sev-low      { background: #123527;          color: var(--xmint); }
+.xdr-scope .badge.sev-info     { background: #1a2028;          color: var(--xtext-dim); }
+
+/* ── Priority chip (mono) ──────────────────────────────────────── */
+.xdr-scope .prio {
+  font-family: var(--xmono);
+  font-size: 11px; font-weight: 800;
+  padding: 2px 7px; border-radius: 3px;
+  border: 1px solid var(--xborder);
+  color: var(--xtext-dim);
+  background: #1a2028;
+}
+.xdr-scope .prio.p1 { border-color: rgba(239,91,91,.55); color: #ff9494; }
+.xdr-scope .prio.p2 { border-color: rgba(245,166,35,.55); color: var(--xamber); }
+.xdr-scope .prio.p3 { border-color: rgba(232,197,71,.55); color: var(--xyellow); }
+.xdr-scope .prio.p4 { border-color: rgba(60,232,184,.55); color: var(--xmint); }
+.xdr-scope .prio.p5 { border-color: var(--xborder);       color: var(--xmuted); }
+
+/* ── State pill ────────────────────────────────────────────────── */
+.xdr-scope .status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .35px; text-transform: uppercase;
+  background: #1a2028;
+  border: 1px solid var(--xborder);
+  color: var(--xtext-dim);
+  white-space: nowrap;
+}
+.xdr-scope .status-pill::before {
+  content: ""; display: inline-block;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
+}
+.xdr-scope .status-pill.state-new         { color: var(--xcyan);  border-color: rgba(63,193,232,.55); }
+.xdr-scope .status-pill.state-in_progress { color: var(--xamber); border-color: rgba(245,166,35,.55); }
+.xdr-scope .status-pill.state-on_hold     { color: var(--xmuted); }
+.xdr-scope .status-pill.state-resolved    { color: var(--xmint);  border-color: rgba(60,232,184,.55); }
+.xdr-scope .status-pill.state-closed      { color: var(--xfaint); }
+
+/* ── Domain badge ──────────────────────────────────────────────── */
+.xdr-scope .dom-badge {
+  display: inline-block;
+  padding: 1px 6px; border-radius: 3px;
+  font-size: 9px; font-weight: 800;
+  letter-spacing: .3px; text-transform: uppercase;
+  background: #171e2b; color: var(--xcyan);
+  border: 1px solid #232e40;
+  margin-right: 4px;
+}
+
+/* ── Table ─────────────────────────────────────────────────────── */
+.xdr-scope table.x-table { width: 100%; border-collapse: collapse; }
+.xdr-scope .x-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 9.8px; font-weight: 700;
+  letter-spacing: .4px; text-transform: uppercase;
+  color: var(--xfaint);
+  border-bottom: 1px solid var(--xborder);
+  background: var(--xpanel2);
+}
+.xdr-scope .x-table tbody td {
+  padding: 8px 12px;
+  font-size: 11.8px;
+  color: var(--xtext-dim);
+  border-bottom: 1px solid var(--xborder-soft);
+  white-space: nowrap;
+}
+.xdr-scope .x-table tbody tr.rowlink { cursor: pointer; }
+.xdr-scope .x-table tbody tr.rowlink:hover td { background: #141a24; color: var(--xtext); }
+.xdr-scope .mono { font-family: var(--xmono); font-size: 11px; color: var(--xtext-dim); }
+.xdr-scope .inc-id { font-family: var(--xmono); font-size: 11px; color: var(--xcyan); }
+
+/* ── Toolbar (queue filters) ───────────────────────────────────── */
+.xdr-scope .queue-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--xborder);
+  background: var(--xpanel2);
+}
+.xdr-scope .queue-toolbar input {
+  background: var(--xpanel); border: 1px solid var(--xborder);
+  color: var(--xtext); border-radius: 5px;
+  padding: 6px 10px; font-family: var(--xsans); font-size: 11.5px;
+  outline: none; min-width: 260px;
+}
+.xdr-scope .queue-toolbar input::placeholder { color: var(--xmuted); }
+.xdr-scope .queue-toolbar .qf { font-size: 10.5px; padding: 5px 10px; }
+
+/* ── Stat cards ────────────────────────────────────────────────── */
+.xdr-scope .stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.xdr-scope .stat-card {
+  padding: 12px 14px;
+  border: 1px solid var(--xborder);
+  border-radius: var(--xradius);
+  background: var(--xpanel);
+}
+.xdr-scope .stat-card .lbl {
+  font-size: 9.5px; color: var(--xmuted);
+  text-transform: uppercase; letter-spacing: .3px;
+  font-weight: 700;
+}
+.xdr-scope .stat-card .val {
+  margin-top: 4px;
+  font-family: var(--xmono);
+  font-size: 20px; font-weight: 800; color: var(--xtext);
+}
+.xdr-scope .stat-card .sub {
+  margin-top: 3px; font-size: 10.5px; color: var(--xfaint);
+}
+
+/* ── Incident header ───────────────────────────────────────────── */
+.xdr-scope .inc-header {
+  padding: 14px 16px;
+  border: 1px solid var(--xborder);
+  border-radius: var(--xradius);
+  background: var(--xpanel);
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 20px; flex-wrap: wrap;
+}
+.xdr-scope .inc-title { font-size: 16px; font-weight: 700; color: var(--xtext); margin: 6px 0 8px; }
+.xdr-scope .inc-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.xdr-scope .inc-meta { display: grid; grid-template-columns: auto auto; gap: 4px 14px; }
+.xdr-scope .inc-meta .k {
+  font-size: 9.5px; color: var(--xfaint);
+  text-transform: uppercase; letter-spacing: .3px; font-weight: 700;
+}
+.xdr-scope .inc-meta .v { font-family: var(--xmono); font-size: 11px; color: var(--xtext-dim); }
+.xdr-scope .hdr-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── Lifecycle stepper ─────────────────────────────────────────── */
+.xdr-scope .progression {
+  display: flex; align-items: center; overflow-x: auto;
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  border: 1px solid var(--xborder);
+  border-radius: var(--xradius);
+  background: var(--xpanel);
+}
+.xdr-scope .stage {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 100px;
+  padding: 3px;
+  cursor: default;
+  border: none; background: transparent;
+}
+.xdr-scope .stage.actionable { cursor: pointer; }
+.xdr-scope .stage .dot {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #171e2b;
+  border: 2px solid var(--xborder);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--xmuted);
+  transition: all 140ms ease;
+}
+.xdr-scope .stage .lbl {
+  font-size: 10px; color: var(--xtext-dim);
+  text-align: center; letter-spacing: .3px;
+  text-transform: uppercase; font-weight: 700;
+}
+.xdr-scope .stage.done .dot   { border-color: var(--xmint);   background: #0e2a22; color: var(--xmint); }
+.xdr-scope .stage.done .lbl   { color: var(--xmint); }
+.xdr-scope .stage.active .dot { border-color: var(--xpurple); background: var(--xpurple-dim); color: var(--xpurple); box-shadow: 0 0 12px rgba(155,123,240,.35); }
+.xdr-scope .stage.active .lbl { color: var(--xpurple); }
+.xdr-scope .stage.actionable:hover .dot { border-color: var(--xcyan); color: var(--xcyan); }
+.xdr-scope .stage.actionable:hover .lbl { color: var(--xcyan); }
+.xdr-scope .stage-arrow {
+  flex: 1; height: 2px; min-width: 20px;
+  background: var(--xborder); margin: 0 4px;
+  position: relative; top: -14px;
+}
+
+/* ── Top tabs ──────────────────────────────────────────────────── */
+.xdr-scope .tabbar {
+  display: flex; gap: 1px; overflow-x: auto;
+  background: var(--xpanel2);
+  border: 1px solid var(--xborder);
+  border-radius: var(--xradius) var(--xradius) 0 0;
+  padding: 0 4px;
+  margin-top: 16px;
+}
+.xdr-scope .tabbtn {
+  padding: 10px 14px;
+  font-size: 11.3px; font-weight: 700;
+  color: var(--xmuted); white-space: nowrap;
+  border: none; background: transparent;
+  border-bottom: 2px solid transparent;
+  letter-spacing: .3px; cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.xdr-scope .tabbtn:hover { color: var(--xtext-dim); }
+.xdr-scope .tabbtn.active { color: var(--xpurple); border-bottom-color: var(--xpurple); }
+
+.xdr-scope .tabpanel {
+  background: var(--xpanel);
+  border: 1px solid var(--xborder);
+  border-top: none;
+  border-radius: 0 0 var(--xradius) var(--xradius);
+  padding: 16px;
+  min-height: 380px;
+}
+
+/* ── Sub-tabs (Investigation) ──────────────────────────────────── */
+.xdr-scope .subnav {
+  display: flex; gap: 1px; overflow-x: auto;
+  background: #0d1119;
+  border: 1px solid var(--xborder);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-bottom: 12px;
+}
+.xdr-scope .subtabbtn {
+  padding: 8px 12px;
+  font-size: 10.5px; font-weight: 700;
+  color: var(--xfaint); white-space: nowrap;
+  border: none; background: transparent;
+  border-bottom: 2px solid transparent;
+  letter-spacing: .3px; cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.xdr-scope .subtabbtn:hover { color: var(--xtext-dim); }
+.xdr-scope .subtabbtn.active { color: var(--xmint); border-bottom-color: var(--xmint); }
+
+/* ── Evidence-Across-Domains cards ─────────────────────────────── */
+.xdr-scope .edom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+.xdr-scope .edom-card {
+  background: var(--xpanel2);
+  border: 1px solid var(--xborder);
+  border-left: 3px solid var(--xborder);
+  border-radius: var(--xradius);
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 148px;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.xdr-scope .edom-card.related      { border-left-color: var(--xcyan); }
+.xdr-scope .edom-card.searched     { border-left-color: var(--xfaint); opacity: .88; }
+.xdr-scope .edom-card.notconnected { border-left-color: var(--xfaint); border-left-style: dashed; opacity: .70; }
+.xdr-scope .edom-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.xdr-scope .edom-name {
+  font-weight: 800; font-size: 10.5px; color: var(--xcyan);
+  letter-spacing: .3px; text-transform: uppercase;
+}
+.xdr-scope .edom-card.notconnected .edom-name,
+.xdr-scope .edom-card.searched     .edom-name { color: var(--xfaint); }
+.xdr-scope .edom-count {
+  font-family: var(--xmono); font-size: 18px; font-weight: 800; color: var(--xtext);
+}
+.xdr-scope .edom-card.searched .edom-count,
+.xdr-scope .edom-card.notconnected .edom-count { color: var(--xfaint); }
+.xdr-scope .edom-why { font-size: 10.5px; color: var(--xtext-dim); line-height: 1.5; }
+.xdr-scope .edom-why b { color: var(--xcyan); font-weight: 700; }
+.xdr-scope .edom-card.searched .edom-why,
+.xdr-scope .edom-card.notconnected .edom-why { color: var(--xmuted); }
+.xdr-scope .edom-open {
+  align-self: flex-start;
+  background: transparent; border: none; padding: 0;
+  font-family: var(--xsans);
+  font-size: 10.3px; color: var(--xpurple);
+  font-weight: 800; text-transform: uppercase; letter-spacing: .3px;
+  text-decoration: underline; cursor: pointer;
+}
+.xdr-scope .edom-open:disabled { color: var(--xfaint); cursor: not-allowed; text-decoration: none; }
+.xdr-scope .edom-meta {
+  font-size: 10.3px; color: var(--xmuted); line-height: 1.55;
+}
+
+/* ── Verdict pill (header) ─────────────────────────────────────── */
+.xdr-scope .verdict-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 10px; border-radius: 4px;
+  background: #0f1620; border: 1px solid var(--xborder);
+  font-family: var(--xmono); font-size: 10.5px;
+  color: var(--xtext-dim);
+}
+.xdr-scope .verdict-pill .lbl { color: var(--xfaint); font-weight: 700; letter-spacing: .3px; }
+.xdr-scope .verdict-pill .v   { color: var(--xtext); font-weight: 800; }
+
+/* ── Empty / info states ───────────────────────────────────────── */
+.xdr-scope .x-empty {
+  padding: 40px 18px; text-align: center;
+  color: var(--xmuted); font-size: 12px;
+  border: 1px dashed var(--xborder);
+  border-radius: var(--xradius);
+  background: var(--xpanel2);
+}
+.xdr-scope .x-reserved {
+  padding: 18px;
+  border: 1px dashed var(--xborder);
+  border-radius: var(--xradius);
+  background: var(--xpanel2);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.xdr-scope .x-reserved .lock {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--xfaint); font-size: 9.5px;
+  text-transform: uppercase; letter-spacing: .45px; font-weight: 800;
+}
+.xdr-scope .x-reserved .title { font-size: 13.5px; font-weight: 700; color: var(--xtext); }
+.xdr-scope .x-reserved .body  { font-size: 11.5px; color: var(--xtext-dim); line-height: 1.55; }
+
+/* ── Utility ───────────────────────────────────────────────────── */
+.xdr-scope .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.xdr-scope .grow { flex: 1; min-width: 0; }
+.xdr-scope .spin { animation: xdr-spin 1s linear infinite; }
+@keyframes xdr-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }

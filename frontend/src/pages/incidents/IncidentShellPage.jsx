@@ -1,14 +1,16 @@
 /**
- * IncidentShellPage · `/incidents/:id`
+ * IncidentShellPage · `/incidents/:id` — NivXRay ONE XDR skin.
  *
- * Canonical Incident shell — Slice 1.
- *   • Header (number · name · priority · severity · verdict · assignee)
- *   • Lifecycle stepper (5 states)
- *   • 4 top-level tabs: Overview · Investigation · Activity · Response
+ * Reference: nivxray-one-xdr-console-8.html.
+ *   • inc-header  (§inc-header)
+ *   • progression (§progression) — 5-state lifecycle
+ *   • tabbar/tabpanel with purple underline for the active tab
+ *   • Investigation sub-tabbar with mint underline (rendered inside
+ *     the Investigation tab itself)
  *
- * Reuses existing capabilities via deep links.  Does NOT duplicate
+ * Reuses existing implementations via deep links — never duplicates
  * Device Trajectory, MITRE, Process Tree, Command Intelligence, or
- * Verdict.  Does NOT touch `/analyst`.
+ * Verdict.  Does NOT touch /analyst.
  */
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
@@ -24,6 +26,7 @@ import ResponseTab      from "@/components/incidents/tabs/ResponseTab";
 
 import { getIncident, transitionIncidentState } from "@/lib/incidentsApi";
 import { INCIDENT_TESTIDS as T } from "@/constants/incidentTestIds";
+import "./xdr.css";
 
 const TOP_TABS = [
   { key: "overview",      label: "Overview" },
@@ -37,14 +40,13 @@ export default function IncidentShellPage() {
   const [incident, setIncident] = useState(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [tab, setTab]           = useState("overview");
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true); setError(null);
     try {
-      const data = await getIncident(id);
-      setIncident(data);
+      setIncident(await getIncident(id));
     } catch (e) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load incident.");
     } finally {
@@ -54,60 +56,38 @@ export default function IncidentShellPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleTransition = async (targetState) => {
-    const updated = await transitionIncidentState(id, targetState);
+  const handleTransition = async (target) => {
+    const updated = await transitionIncidentState(id, target);
     setIncident(updated);
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg, #020617)", color: "#e2e8f0" }}>
+    <div className="xdr-scope">
       <Header />
-      <main
-        data-testid={T.shellPage}
-        style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 22px 48px" }}
-      >
-        <div style={{ marginBottom: 12 }}>
+      <main data-testid={T.shellPage} className="x-container">
+        <div style={{ marginBottom: 10 }}>
           <Link
             to="/incidents"
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
-              fontFamily: "JetBrains Mono, monospace",
-              fontSize: 11, letterSpacing: "0.14em",
-              color: "rgba(148,163,184,0.85)",
-              textDecoration: "none",
-              textTransform: "uppercase",
+              color: "var(--xmuted)", textDecoration: "none",
+              fontSize: 10.5, letterSpacing: ".4px",
+              textTransform: "uppercase", fontWeight: 700,
             }}
           >
-            <ChevronLeft size={13} /> Back to queue
+            <ChevronLeft size={12} /> Back to queue
           </Link>
         </div>
 
         {loading && (
-          <div data-testid={T.shellLoading}
-               style={{
-                 padding: "60px 0", textAlign: "center",
-                 color: "rgba(148,163,184,0.75)",
-                 fontFamily: "JetBrains Mono, monospace",
-                 fontSize: 12, letterSpacing: "0.14em",
-               }}>
-            LOADING INCIDENT …
+          <div data-testid={T.shellLoading} className="x-empty">
+            LOADING INCIDENT…
           </div>
         )}
-
         {!loading && error && (
-          <div data-testid={T.shellError}
-               style={{
-                 padding: 18,
-                 border: "1px solid rgba(239,68,68,0.4)",
-                 borderRadius: 10,
-                 background: "rgba(239,68,68,0.06)",
-                 color: "#fca5a5",
-                 display: "flex", gap: 10, alignItems: "flex-start",
-                 fontFamily: "JetBrains Mono, monospace",
-                 fontSize: 12,
-               }}>
-            <AlertOctagon size={16} style={{ marginTop: 2 }} />
-            <span>{String(error)}</span>
+          <div data-testid={T.shellError} className="x-empty" style={{ color: "#ff9494" }}>
+            <AlertOctagon size={14} style={{ verticalAlign: "middle", marginRight: 6 }} />
+            {String(error)}
           </div>
         )}
 
@@ -119,58 +99,33 @@ export default function IncidentShellPage() {
               onTransition={handleTransition}
             />
 
-            {/* Top-level tabs strip */}
             <nav
+              className="tabbar"
               role="tablist"
-              data-testid={T.topTabs}
               aria-label="Incident top-level tabs"
-              style={{
-                marginTop: 18,
-                display: "flex", gap: 4,
-                padding: 4,
-                borderRadius: 10,
-                background: "linear-gradient(160deg, rgba(15,23,42,0.72), rgba(2,6,23,0.62))",
-                border: "1px solid rgba(148,163,184,0.14)",
-              }}
+              data-testid={T.topTabs}
             >
-              {TOP_TABS.map((tab) => {
-                const isActive = tab.key === activeTab;
-                return (
-                  <button
-                    key={tab.key}
-                    role="tab"
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    data-testid={T.topTab(tab.key)}
-                    data-active={isActive || undefined}
-                    aria-selected={isActive}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 6,
-                      fontFamily: "JetBrains Mono, monospace",
-                      fontSize: 11, letterSpacing: "0.14em",
-                      textTransform: "uppercase",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      color: isActive ? "#86efac" : "rgba(203,213,225,0.75)",
-                      background: isActive
-                        ? "linear-gradient(160deg, rgba(34,197,94,0.16), rgba(34,197,94,0.03))"
-                        : "transparent",
-                      border: `1px solid ${isActive ? "rgba(34,197,94,0.55)" : "transparent"}`,
-                      transition: "color 160ms ease, background 200ms ease, border-color 200ms ease",
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
+              {TOP_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  className={`tabbtn ${tab === t.key ? "active" : ""}`}
+                  data-testid={T.topTab(t.key)}
+                  data-active={tab === t.key || undefined}
+                  aria-selected={tab === t.key}
+                  onClick={() => setTab(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
             </nav>
 
-            <div style={{ marginTop: 16 }}>
-              {activeTab === "overview"      && <OverviewTab      incident={incident} />}
-              {activeTab === "investigation" && <InvestigationTab incident={incident} />}
-              {activeTab === "activity"      && <ActivityTab      incident={incident} />}
-              {activeTab === "response"      && <ResponseTab />}
+            <div className="tabpanel">
+              {tab === "overview"      && <OverviewTab      incident={incident} />}
+              {tab === "investigation" && <InvestigationTab incident={incident} />}
+              {tab === "activity"      && <ActivityTab      incident={incident} />}
+              {tab === "response"      && <ResponseTab />}
             </div>
           </>
         )}
