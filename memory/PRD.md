@@ -1,6 +1,25 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
 
+> **2026-08-29 · Session close #7 · ⛔ ARCHITECTURE CORRECTION — STOP + HANDOFF**
+>
+> Owner reclassified current `/xdr/*` and `/edr/*` implementation as
+> a **temporary Slice 1/2 implementation inside the existing SPA,
+> pending extraction into the standalone NivXRay XDR tool**.
+>
+> **Stopped:** no further functional changes this session.  Slice 2
+> P0 (Detections + Process Tree) and P1 (Summary) are in-place but
+> flagged for extraction.
+>
+> **Next session = APPLICATION SEPARATION ONLY.**  Full handoff at
+> `/app/memory/XDR_SEPARATION_HANDOFF.md`.
+>
+> **Regression baseline held:** 808 passed / 0 failed / 4 skipped.
+> `/analyst` UNCHANGED.  `/edr/trajectory` canvas UNCHANGED (only
+> additive top-of-page context ribbon).
+>
+
+
 > **2026-08-29 · Session close #6-b · 🟢 SHIPPED — Slice 1-B: NivXForge EDR Console (endpoint console inside NivXRay XDR)**
 >
 > Executed the owner-locked "final master implementation prompt":
