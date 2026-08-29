@@ -1,0 +1,30 @@
+{
+  "name": "nivxray-xdr",
+  "private": true,
+  "version": "0.0.1",
+  "description": "NivXRay XDR — standalone tool consuming the existing NivXRay platform.",
+  "type": "module",
+  "scripts": {
+    "dev":     "vite",
+    "build":   "vite build",
+    "preview": "vite preview --port 3100",
+    "lint":    "eslint . --ext js,jsx"
+  },
+  "dependencies": {
+    "react":               "^18.3.1",
+    "react-dom":           "^18.3.1",
+    "react-router-dom":    "^6.26.2",
+    "axios":               "^1.7.7",
+    "lucide-react":        "^0.446.0"
+  },
+  "devDependencies": {
+    "vite":                "^5.4.8",
+    "@vitejs/plugin-react": "^4.3.2",
+    "eslint":              "^9.11.1"
+  },
+  "notes": {
+    "boundary":  "This package MUST NOT import from /app/frontend/src. See README.md.",
+    "api_base":  "Configured via REACT_APP_NIVXRAY_API_URL at build time.",
+    "auth":      "Reuses the existing NivXRay /api/auth/login endpoint."
+  }
+}

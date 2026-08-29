@@ -400,6 +400,13 @@ def test_no_route_file_modified_by_phase2():
         # reuses the canonical ActivityInventory SSOT.
         "backend/routers/edr.py",
         "backend/routers/incident_summary.py",
+        # Slice 3 · Application-separation scaffold (2026-08-29).
+        # New standalone NivXRay XDR tool root — independently
+        # buildable.  Populated in a dedicated fresh-context session
+        # per /app/memory/XDR_SEPARATION_HANDOFF.md.
+        "apps/nivxray-xdr/README.md",
+        "apps/nivxray-xdr/package.json",
+        "apps/nivxray-xdr/SEPARATION_TODO.md",
         "frontend/src/nivxforge/edrApi.js",
         "frontend/src/nivxforge/pages/EdrDetectionsPage.jsx",
         "frontend/src/nivxforge/pages/EdrProcessTreePage.jsx",
