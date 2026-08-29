@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
+import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import "./xdr-console.css";
 
 // ── Sidebar tree · owner-locked ────────────────────────────────────
@@ -148,7 +149,7 @@ export default function XdrShell({ children }) {
       {/* ── Top bar (utility only) ────────────────────────── */}
       <div className="topbar">
         <Link to="/xdr" className="brand" data-testid="xdr-brand">
-          <span className="mark">N</span>
+          <NivxrayMark size={26} boxed={false} />
           NIVXRAY <span className="accent">XDR</span>
         </Link>
 

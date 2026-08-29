@@ -7,7 +7,7 @@
  * into both on the same origin without any handshake between the
  * bundles.  We never re-implement login server-side.
  */
-import { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "@/lib/api";
 
 const AuthCtx = createContext(null);
@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("nvx_token");
     localStorage.removeItem("nvx_email");
     setUser(null);
-    window.location.href = "/xdr/login";
+    window.location.href = "/login";
   };
 
   return (

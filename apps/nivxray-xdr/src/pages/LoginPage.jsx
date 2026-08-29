@@ -8,6 +8,7 @@
 import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
+import { NivxrayLockup } from "@/components/brand/NivxrayBrand";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -44,18 +45,8 @@ export default function LoginPage() {
         }}
         data-testid="xdr-login-form"
       >
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          fontWeight: 800, fontSize: 14, letterSpacing: ".5px",
-          color: "#E7E9EF", marginBottom: 18,
-        }}>
-          <span style={{
-            width: 22, height: 22, borderRadius: 5,
-            background: "linear-gradient(135deg,#9B7BF0,#3FC1E8)",
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 900, color: "#0A0C11", fontSize: 12,
-          }}>N</span>
-          NIVXRAY <span style={{ color: "#9B7BF0" }}>XDR</span>
+        <div style={{ marginBottom: 18 }}>
+          <NivxrayLockup size={40} />
         </div>
 
         <label style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".4px", color: "#78808F", fontWeight: 700 }}>

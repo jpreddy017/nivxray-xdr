@@ -39,7 +39,7 @@ function Protected({ children }) {
   if (!user) {
     // Preserve the requested URL so login can bounce back.
     const returnTo = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/xdr/login?returnTo=${returnTo}`} replace />;
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
   }
   return children;
 }
@@ -65,7 +65,7 @@ export default function App() {
     <Suspense fallback={<RouteFallback />}>
       <Routes>
         {/* Standalone login — reuses POST /api/auth/login. */}
-        <Route path="/xdr/login" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
 
         {/* Root of the standalone app. */}
         <Route path="/xdr"                 element={<Protected><XdrDashboardPage /></Protected>} />

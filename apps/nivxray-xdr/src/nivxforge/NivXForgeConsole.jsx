@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
+import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import "./nivxforge.css";
 
 const TABS = [
@@ -104,7 +105,7 @@ export default function NivXForgeConsole({ activeTab, children }) {
     <div className="nvf-console" data-testid="nivxforge-console">
       <div className="topbar">
         <Link to="/xdr" className="brand" data-testid="nvf-brand">
-          <span className="mark">F</span>
+          <NivxrayMark size={24} boxed={false} />
           NIVXFORGE <span className="accent">EDR</span>
         </Link>
         <div className="top-actions">

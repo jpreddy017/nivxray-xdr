@@ -41,7 +41,7 @@ api.interceptors.response.use(
       localStorage.removeItem("nvx_token");
       localStorage.removeItem("nvx_email");
       if (!window.location.pathname.endsWith("/login")) {
-        window.location.href = "/xdr/login";
+        window.location.href = "/login";
       }
     }
     return Promise.reject(err);
