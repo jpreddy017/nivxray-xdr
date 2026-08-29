@@ -88,7 +88,29 @@ Separate application  ≠  Separate security truth.
 
 ## Current execution point
 
-**P0 — Incident Investigation Console** at `/xdr/incidents/:id`.
+**Build the entire `nivxray-one-xdr-console_New.html` mockup slice-by-slice** — verbatim visual + behavioral fidelity — while enforcing every architecture guardrail below.  Device Trajectory is **UNLOCKED** as of 2026-08-29 (owner directive) and is now part of the standalone-XDR native surface.
+
+### Slice queue (owner-locked build order)
+
+| # | Slice | Notes |
+| :- | :---- | :---- |
+| 1 | **Pivot menus** — hover-triggered contextual overlay on every entity (process, user, ip, hash, domain, mitre). Unlocks all downstream slices. | Small, high-leverage |
+| 2 | **Native Investigation sub-tab bodies** — replace "Open on existing NivXRay ↗" with inline rendering: Evidence (datalake) · Timeline · Attack Story · Evidence Graph · MITRE ATT&CK · Verdict Summary · Report. Reuses `/api/incidents/:id/summary`, `/api/activity/inventory`, IKG APIs. | 6 sub-tabs |
+| 3 | **Detection Sourcing** — first-class `detected_by` column across Suspicious Elements + Detections tables, with pivot back to the source engine. | Small polish |
+| 4 | **Deterministic Severity Mapper** — XDR-side projection over `verdict_stage2` + evidence rollup; preserves source severity, adds provenance. Never inflate. | Small |
+| 5 | **Forge EDR landing** — richer device inventory (OS · IP · user · risk score · agent version · linked incident) matching mockup columns. | Extends current Endpoints page |
+| 6 | **Device Trajectory 3-pane canvas** — left inventory · center timeline canvas (density strip + time window + incident-centering) · right activity details. Consumes existing `/edr/*` telemetry projections; XDR renders natively. **Do NOT modify `/edr/trajectory` on the base app.** | Largest slice — likely multi-session |
+| 7 | **Command Intelligence native page** — XDR-native decode viewer with `/api/analyze` under the hood.  Handoff receives incident context. | Medium |
+| 8 | **Response Approval Loop + Response Global** — REQUESTED → PENDING → APPROVED/REJECTED → QUEUED → EXECUTING → SUCCEEDED/FAILED → VERIFIED, immutable audit, no fake success. | Medium |
+| 9 | **Admin sub-pages** (13 items: Integrations · Data Sources · Collectors · Agents · Telemetry Studio · Telemetry Health · Parsers · Normalization · Detection Rules · Response Policies · Users & Roles · API/Webhooks · Platform Health). | Large — dashboard-style pages |
+| 10 | Evidence drawer overlay · Attachments · Analyst Notes | Polish |
+
+### Master rule (unchanged)
+
+Every slice is implemented **only** in `/app/apps/nivxray-xdr/` (mirror) + `jpreddy017/nivxray-xdr` (canonical).
+Consume existing NivXRay APIs; never duplicate engines, SSOT, or database.
+Base NivXRay (`/app/frontend`, `/analyst`, `/edr/trajectory`) stays untouched.
+For Trajectory: XDR builds its own native canvas — it does not embed, iframe, or modify the base `/edr/trajectory` implementation.  Data comes from existing telemetry APIs.
 
 Structure:
 ```
@@ -144,10 +166,16 @@ Response
 
 ## Session-start prompt for the next agent
 
-> Work only in `/app/apps/nivxray-xdr/`.  Build the standalone NivXRay XDR.
-> Do not touch the existing NivXRay application.  Continue with P0 —
-> `/xdr/incidents/:id` Incident Investigation Console per PRD.md.  Start
-> implementation immediately without asking for scope confirmation.
+> Continue mockup slice-by-slice build per PRD.md.  Standalone NivXRay
+> XDR only.  Do not touch the base NivXRay application.  Start with
+> **Slice 1 · Pivot menus** — implement hover-triggered contextual
+> overlays on every entity (process/user/ip/hash/domain/mitre) across
+> Dashboard + Incident Detail + Endpoints screens.  Owner reference:
+> `nivxray-one-xdr-console_New.html` (fetch via crawl if needed).
+> Device Trajectory is now UNLOCKED — Slice 6 will render a native
+> 3-pane canvas inside standalone XDR without modifying
+> `/edr/trajectory` on the base host.  Start implementation
+> immediately without asking for scope confirmation.
 
 ## Test credentials
 
