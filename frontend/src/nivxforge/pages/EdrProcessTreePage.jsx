@@ -98,8 +98,8 @@ export default function EdrProcessTreePage() {
           </div>
           <div className="panel" style={{ padding: "12px 8px" }}
                data-testid="edr-processtree-panel">
-            {(tree.roots || []).map((rid) => (
-              <TreeNode key={rid} node={byId.get(rid)} byId={byId} depth={0} ctx={ctx} />
+            {flattenTree(tree.roots, byId).map((row) => (
+              <TreeRow key={row.node.entity_id} row={row} ctx={ctx} />
             ))}
           </div>
         </>
@@ -108,11 +108,30 @@ export default function EdrProcessTreePage() {
   );
 }
 
-function TreeNode({ node, byId, depth, ctx }) {
-  if (!node) return null;
-  const [open, setOpen] = useState(true);
-  const kids = (node.child_ids || []).map((id) => byId.get(id)).filter(Boolean);
-  const hasKids = kids.length > 0;
+/** Iterative depth-first walk → flat list of {node, depth}.  Avoids
+ *  recursive JSX which trips the emergent visual-edits Babel plugin. */
+function flattenTree(roots, byId) {
+  const out = [];
+  const stack = [];
+  (roots || []).slice().reverse().forEach((id) => stack.push({ id, depth: 0 }));
+  const seen = new Set();
+  while (stack.length) {
+    const { id, depth } = stack.pop();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const node = byId.get(id);
+    if (!node) continue;
+    out.push({ node, depth });
+    (node.child_ids || []).slice().reverse().forEach((cid) =>
+      stack.push({ id: cid, depth: depth + 1 })
+    );
+  }
+  return out;
+}
+
+function TreeRow({ row, ctx }) {
+  const { node, depth } = row;
+  const hasKids = (node.child_ids || []).length > 0;
 
   const trajLink = (() => {
     const p = new URLSearchParams();
@@ -122,7 +141,6 @@ function TreeNode({ node, byId, depth, ctx }) {
     p.set("entity_id", node.entity_id);
     return `/edr/trajectory?${p.toString()}`;
   })();
-
   const cmdLink = node.command_line
     ? `/analyze?incident_id=${encodeURIComponent(ctx.incident_id || "")}`
       + `&entity_id=${encodeURIComponent(node.entity_id)}`
@@ -135,20 +153,10 @@ function TreeNode({ node, byId, depth, ctx }) {
         display: "flex", alignItems: "center", gap: 8,
         padding: "6px 10px", borderRadius: 4,
       }}>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          disabled={!hasKids}
-          className="btn ghost"
-          style={{ padding: "0 4px", border: "none",
-                     opacity: hasKids ? 1 : 0.2, background: "transparent" }}
-          data-testid={`edr-processtree-toggle-${node.entity_id}`}
-        >
-          <ChevronRight size={12} style={{
-            transform: open ? "rotate(90deg)" : "rotate(0deg)",
-            transition: "transform 140ms ease",
-          }} />
-        </button>
+        <ChevronRight size={12} style={{
+          opacity: hasKids ? 1 : 0.2,
+          color: hasKids ? "var(--mint)" : "var(--faint)",
+        }} />
         <GitBranch size={12} style={{ color: hasKids ? "var(--mint)" : "var(--faint)" }} />
         <span style={{ fontWeight: 700, color: "var(--text)" }}>{node.process}</span>
         {node.user && <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>· {node.user}</span>}
@@ -159,9 +167,7 @@ function TreeNode({ node, byId, depth, ctx }) {
             color: "var(--text-dim)", fontSize: 11,
             maxWidth: 380, overflow: "hidden",
             textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }} title={node.command_line}>
-            {node.command_line}
-          </span>
+          }} title={node.command_line}>{node.command_line}</span>
         )}
         <Link
           to={trajLink}
@@ -186,9 +192,6 @@ function TreeNode({ node, byId, depth, ctx }) {
           </a>
         )}
       </div>
-      {open && kids.map((k) => (
-        <TreeNode key={k.entity_id} node={k} byId={byId} depth={depth + 1} ctx={ctx} />
-      ))}
     </div>
   );
 }
