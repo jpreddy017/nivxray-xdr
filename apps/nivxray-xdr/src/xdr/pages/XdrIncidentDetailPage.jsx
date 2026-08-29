@@ -271,9 +271,31 @@ function DomainCard({ pointer }) {
   }[pointer.status] || "notconnected";
   const isAvail = pointer.status === "available" && !!pointer.deep_link;
 
+  // The `deep_link` returned by the base backend is a RELATIVE path
+  // (e.g. `/edr?incident_id=…`).  Because this app is served from a
+  // different origin (nivxray-xdr.vercel.app), we must rewrite it to
+  // land on the EXISTING NivXRay host and, for the EDR domain, deep
+  // link directly into the Device Trajectory telemetry canvas rather
+  // than the intermediate NivXForge Console overview.
+  const resolveLaunchUrl = () => {
+    if (!pointer.deep_link) return null;
+    const BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
+    let path = pointer.deep_link;
+    if (pointer.domain === "edr" && path.startsWith("/edr")) {
+      // /edr?…  →  /edr/trajectory?…   (existing NivXRay canvas)
+      path = path.replace(/^\/edr(?=$|[/?])/, "/edr/trajectory");
+    }
+    // If the backend ever returns an absolute URL, honor it as-is.
+    if (/^https?:\/\//i.test(path)) return path;
+    // Otherwise anchor the relative path onto the base NivXRay origin
+    // so the tab always leaves the standalone XDR app.
+    return BASE ? `${BASE}${path}` : path;
+  };
+
   const openTab = () => {
     if (!isAvail) return;
-    window.open(pointer.deep_link, "_blank", "noopener,noreferrer");
+    const url = resolveLaunchUrl();
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const countLabel = pointer.bullets?.length
