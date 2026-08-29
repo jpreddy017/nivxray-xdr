@@ -1,6 +1,34 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
 
+> **2026-08-29 · Session close #6-b · 🟢 SHIPPED — Slice 1-B: NivXForge EDR Console (endpoint console inside NivXRay XDR)**
+>
+> Executed the owner-locked "final master implementation prompt":
+>   - Locked hierarchy: **NIVXRAY XDR → INCIDENT → TELEMETRY CONSOLE → NivXForge EDR → Device Trajectory**.
+>   - **NivXForge EDR Console** at `/edr` with 10-tab left sub-nav
+>     (Overview / Endpoints / Detections / Device Trajectory /
+>     Process Tree / Files / Network / Threat Hunting / Forensics /
+>     Live Query / Response).  Device Trajectory tab links to the
+>     **existing** `/edr/trajectory` implementation — no duplicate.
+>   - `IncidentContextBanner` renders on every EDR-Console page when
+>     opened from an Incident (`?incident_id=…&device=…&tenant=…`),
+>     with a **Return to Incident** link.  Same banner added
+>     additively at the top of the existing DeviceTrajectoryPage
+>     (canvas itself is unchanged).
+>   - **Incident → EDR launcher** now targets `/edr` (Console
+>     Overview) so the analyst lands with endpoint context first,
+>     then pivots into Trajectory via the console sidebar — matches
+>     the Cisco Event → Device Trajectory → Activity Details flow.
+>   - Backend `_build_evidence_pointers` updated: EDR deep-link now
+>     `/edr?incident_id=…`.  Contract test asserts the new shape.
+>
+> Locked regression baseline: **808 passed / 0 failed / 4 skipped**
+> (was 788/0/4).  20 net-additive contract tests.  SSOT-isolation
+> allow-list extended additively for the new files.  `/analyst` and
+> `/edr/trajectory` remain UNTOUCHED (browser-verified).
+>
+
+
 > **2026-08-29 · Session close #6 · 🟢 SHIPPED — Slice 1: Canonical Incident + NivXRay XDR platform shell**
 >
 > **Executed the owner-locked "Approved with architectural corrections" spec:**

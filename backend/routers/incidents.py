@@ -339,16 +339,19 @@ def _build_evidence_pointers(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     pointers: List[Dict[str, Any]] = []
 
-    # ── EDR — real capability, uses existing /edr/trajectory ─────────
+    # ── EDR — real capability, opens the NivXForge EDR Console.
+    #   Enters at /edr (Console Overview) so the analyst lands with
+    #   endpoint context first; pivoting into /edr/trajectory is done
+    #   from the Console sidebar.
     pointers.append({
         "domain":   "edr",
         "label":    "NivXForge EDR",
         "status":   "available" if has_edr_evidence else "no_matching_evidence",
         "reason":   None if has_edr_evidence
                      else "No EDR evidence correlates to this incident yet.",
-        "deep_link": _link_with_context("/edr/trajectory", case_id, doc)
+        "deep_link": _link_with_context("/edr", case_id, doc)
                         if has_edr_evidence else None,
-        "hint":     "Endpoint telemetry · Device Trajectory · Process Tree.",
+        "hint":     "Endpoint security console · Device Trajectory · Process Tree.",
         "bullets":  _bullets_for_edr(doc) if has_edr_evidence else [],
         "why":      _why_edr(doc) if has_edr_evidence else None,
     })

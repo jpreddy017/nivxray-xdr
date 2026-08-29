@@ -142,11 +142,12 @@ def test_detail_projection_includes_evidence_pointers():
     domains = {p["domain"] for p in detail["evidence_pointers"]}
     assert domains == {"edr", "ndr", "identity", "cloud", "email",
                           "app_api", "data_security", "ctem", "ioc"}
-    # NivXForge EDR pointer resolves to the real trajectory page and
-    # passes the incident context as URL params (navigation hints only).
+    # NivXForge EDR pointer resolves to the CONSOLE overview and
+    # passes the incident context as URL params (navigation hints
+    # only — the backend does not trust them for authorization).
     edr = next(p for p in detail["evidence_pointers"] if p["domain"] == "edr")
     assert edr["status"] == "available"
-    assert edr["deep_link"].startswith("/edr/trajectory?")
+    assert edr["deep_link"].startswith("/edr?")
     assert "incident_id=" in edr["deep_link"]
     # NDR / Identity / Cloud / Email / Application-API / Data Security
     # / CTEM are honestly reported as not_connected.

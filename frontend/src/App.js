@@ -10,6 +10,12 @@ import QuickOpenPalette from "@/components/QuickOpenPalette";
 import PageErrorBoundary from "@/components/PageErrorBoundary";
 import { Toaster } from "@/components/ui/sonner";
 
+// NivXForge EDR reserved sub-pages (tiny stubs — no need to code-split).
+import {
+  EdrDetectionsPage, EdrProcessTreePage, EdrFilesPage, EdrNetworkPage,
+  EdrHuntingPage, EdrForensicsPage, EdrLiveQueryPage, EdrResponsePage,
+} from "@/nivxforge/pages/EdrReservedPages";
+
 // Route-based code splitting (Perf Sprint · Feb 2026). Each page below
 // ships as its own webpack chunk and downloads on-demand when the route
 // is first hit. Cuts the initial JS payload from ~1.4 MB to a small
@@ -62,6 +68,10 @@ const IncidentShellPage     = lazy(() => import("@/pages/incidents/IncidentShell
 const XdrDashboardPage      = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
 const XdrIncidentsPage      = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
+// NivXForge EDR Console (owner spec 2026-08-29) — Incident always
+// enters through /edr (Console Overview) and pivots into the
+// existing /edr/trajectory implementation from the sidebar.
+const EdrOverviewPage       = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 // L4 · Investigation Session (Rule R22 · 2026-03-02) — dedicated
 // deep-dive surface for a completed threat-report investigation.
 // Every extracted artifact is a first-class Investigation Input.
@@ -189,6 +199,21 @@ function App() {
               <Route path="/xdr"                 element={<Protected><XdrDashboardPage /></Protected>} />
               <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
               <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
+
+              {/* NivXForge EDR Console (owner spec 2026-08-29) — endpoint
+                  security console inside NivXRay XDR.  /edr/trajectory
+                  is UNCHANGED and remains the Device Trajectory surface;
+                  we simply wrap it in the Console shell via sidebar
+                  navigation. */}
+              <Route path="/edr"               element={<Protected><EdrOverviewPage /></Protected>} />
+              <Route path="/edr/detections"    element={<Protected><EdrDetectionsPage /></Protected>} />
+              <Route path="/edr/process-tree"  element={<Protected><EdrProcessTreePage /></Protected>} />
+              <Route path="/edr/files"         element={<Protected><EdrFilesPage /></Protected>} />
+              <Route path="/edr/network"       element={<Protected><EdrNetworkPage /></Protected>} />
+              <Route path="/edr/hunting"       element={<Protected><EdrHuntingPage /></Protected>} />
+              <Route path="/edr/forensics"     element={<Protected><EdrForensicsPage /></Protected>} />
+              <Route path="/edr/live-query"    element={<Protected><EdrLiveQueryPage /></Protected>} />
+              <Route path="/edr/response"      element={<Protected><EdrResponsePage /></Protected>} />
               <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
               {/* L4 · Investigation Session · Rule R22 (2026-03-02) */}
               <Route path="/workspace/session/:sessionId"

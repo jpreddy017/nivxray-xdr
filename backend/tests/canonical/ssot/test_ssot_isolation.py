@@ -385,6 +385,18 @@ def test_no_route_file_modified_by_phase2():
         "frontend/src/xdr/pages/XdrDashboardPage.jsx",
         "frontend/src/xdr/pages/XdrIncidentsPage.jsx",
         "frontend/src/xdr/pages/XdrIncidentDetailPage.jsx",
+        # NivXForge EDR Console (owner spec 2026-08-29) — endpoint
+        # security console INSIDE NivXRay XDR.  Reuses the existing
+        # `/edr/trajectory` implementation; every other tab is an
+        # honest reserved page.
+        "frontend/src/nivxforge/nivxforge.css",
+        "frontend/src/nivxforge/NivXForgeConsole.jsx",
+        "frontend/src/nivxforge/pages/EdrOverviewPage.jsx",
+        "frontend/src/nivxforge/pages/EdrReservedPages.jsx",
+        # Additive edit: incident-context ribbon at the top of the
+        # existing Device Trajectory page (owner rule #19 — new-tab
+        # context preserved).  Trajectory canvas itself is UNCHANGED.
+        "frontend/src/pages/DeviceTrajectoryPage.jsx",
         "backend/server.py",
     }
     out = subprocess.check_output(

@@ -4,6 +4,8 @@
 // analysts see a populated trajectory even before running real acquisitions.
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 import EntityInventory       from "../components/edr/EntityInventory";
 import TrajectoryCanvas      from "../components/edr/TrajectoryCanvas";
@@ -183,6 +185,55 @@ const SAMPLE_INTENT = {
   ],
 };
 
+/** IncidentContextRibbon — shown at the top of the Device Trajectory
+ *  when the analyst arrived from an Incident.  Displays the pinned
+ *  context and a "Return to Incident" link back to the operational
+ *  parent (owner rule #19 · new-tab context preserved). */
+const IncidentContextRibbon = () => {
+  const [params] = useSearchParams();
+  const incident_id = params.get("incident_id");
+  if (!incident_id) return null;
+  const device = params.get("device");
+  const tenant = params.get("tenant");
+  const user   = params.get("user");
+  const styles = {
+    ribbon: {
+      padding: "10px 14px",
+      border: "1px solid rgba(155,123,240,.5)",
+      background: "linear-gradient(90deg, rgba(155,123,240,.12), rgba(63,193,232,.06))",
+      borderRadius: 6,
+      display: "flex", flexWrap: "wrap", alignItems: "center",
+      gap: "10px 18px", margin: "8px 12px 0", fontSize: 11,
+      color: "#B4B9C6",
+    },
+    k: { color: "#78808F", fontWeight: 700, letterSpacing: ".3px",
+         textTransform: "uppercase", fontSize: 9.5, marginRight: 4 },
+    v: { color: "#B4B9C6", fontFamily: "'IBM Plex Mono',monospace" },
+    ret: { marginLeft: "auto", padding: "5px 10px", borderRadius: 5,
+           background: "#2A2145", border: "1px solid #9B7BF0",
+           color: "#9B7BF0", fontWeight: 800, fontSize: 10.5,
+           textTransform: "uppercase", letterSpacing: ".3px",
+           textDecoration: "none",
+           display: "inline-flex", alignItems: "center", gap: 5 },
+  };
+  return (
+    <div style={styles.ribbon} data-testid="trajectory-incident-context">
+      <span><span style={styles.k}>Opened from Incident</span>
+        <span style={styles.v}>{incident_id}</span></span>
+      {device && <span><span style={styles.k}>Device</span> <span style={styles.v}>{device}</span></span>}
+      {tenant && <span><span style={styles.k}>Customer</span> <span style={styles.v}>{tenant}</span></span>}
+      {user   && <span><span style={styles.k}>User</span> <span style={styles.v}>{user}</span></span>}
+      <Link
+        to={`/xdr/incidents/${encodeURIComponent(incident_id)}`}
+        style={styles.ret}
+        data-testid="trajectory-return-to-incident"
+      >
+        <ArrowLeft size={11} /> Return to Incident
+      </Link>
+    </div>
+  );
+};
+
 export const DeviceTrajectoryPage = () => {
   const [inventory, setInventory]         = useState(null);
   const [verdict, setVerdict]             = useState(null);
@@ -251,6 +302,7 @@ export const DeviceTrajectoryPage = () => {
 
   return (
     <div data-testid="device-trajectory-page" style={styles.page}>
+      <IncidentContextRibbon />
       <div style={styles.topbar}>
         <div style={styles.brand}>NivXRay Forge · Device Trajectory</div>
         <div style={styles.actions}>
