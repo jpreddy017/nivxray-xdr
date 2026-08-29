@@ -393,6 +393,16 @@ def test_no_route_file_modified_by_phase2():
         "frontend/src/nivxforge/NivXForgeConsole.jsx",
         "frontend/src/nivxforge/pages/EdrOverviewPage.jsx",
         "frontend/src/nivxforge/pages/EdrReservedPages.jsx",
+        # Slice 2 · P0 · Real Detections + Process Tree (2026-08-29).
+        # Read-only projections — no duplicate detection/process
+        # engines.  Detections derive from
+        # workspace_cases.verdict_stage2.evidence[]; Process Tree
+        # reuses the canonical ActivityInventory SSOT.
+        "backend/routers/edr.py",
+        "backend/routers/incident_summary.py",
+        "frontend/src/nivxforge/edrApi.js",
+        "frontend/src/nivxforge/pages/EdrDetectionsPage.jsx",
+        "frontend/src/nivxforge/pages/EdrProcessTreePage.jsx",
         # Additive edit: incident-context ribbon at the top of the
         # existing Device Trajectory page (owner rule #19 — new-tab
         # context preserved).  Trajectory canvas itself is UNCHANGED.

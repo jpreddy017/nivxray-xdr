@@ -22,20 +22,6 @@ function ReservedPage({ tabKey, heading, body }) {
   );
 }
 
-export const EdrDetectionsPage = () => (
-  <ReservedPage
-    tabKey="detections"
-    heading="Detections"
-    body="This page will surface every detection triggered on this endpoint — with disposition, source, and pivot links into supporting evidence and the parent incident.  Arrives in a later slice."
-  />
-);
-export const EdrProcessTreePage = () => (
-  <ReservedPage
-    tabKey="process-tree"
-    heading="Process Tree"
-    body="Parent → child process relationships within the incident window.  Reuses the existing NivXRay Process Tree engine — never a duplicate.  Arrives in a later slice."
-  />
-);
 export const EdrFilesPage = () => (
   <ReservedPage
     tabKey="files"

@@ -13,7 +13,7 @@ import XdrShell from "@/xdr/XdrShell";
 import LifecycleBar from "@/components/incidents/LifecycleBar";
 import ActivityTab  from "@/components/incidents/tabs/ActivityTab";
 
-import { getIncident, transitionIncidentState } from "@/lib/incidentsApi";
+import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
 import api from "@/lib/api";
 
 const SEV_CLASS = {
@@ -35,6 +35,7 @@ const TOP_TABS = [
 ];
 
 const SUBTABS = [
+  { key: "summary",        label: "Summary" },
   { key: "evidence",       label: "Evidence" },
   { key: "timeline",       label: "Timeline" },
   { key: "attack_story",   label: "Attack Story" },
@@ -343,7 +344,163 @@ function InvestigationTab({ incident }) {
           </button>
         ))}
       </div>
-      <SubtabBody sub={sub} cap={cap} />
+      {sub === "summary"
+        ? <SummarySubtabBody incident={incident} />
+        : <SubtabBody sub={sub} cap={cap} />}
+    </div>
+  );
+}
+
+/** Summary sub-tab — deterministic, evidence-backed, four states.
+ *  Sourced from GET /api/incidents/:id/summary. */
+function SummarySubtabBody({ incident }) {
+  const [state, setState] = useState({ loading: true, err: null, data: null });
+  useEffect(() => {
+    if (!incident?.id) return;
+    let cancelled = false;
+    (async () => {
+      setState({ loading: true, err: null, data: null });
+      try {
+        const data = await getIncidentSummary(incident.id);
+        if (!cancelled) setState({ loading: false, err: null, data });
+      } catch (e) {
+        if (!cancelled) setState({
+          loading: false,
+          err: e?.response?.data?.detail || e?.message || "Failed to load summary.",
+          data: null,
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [incident?.id]);
+
+  if (state.loading) return (
+    <div className="x-empty" data-testid="xdr-incident-summary-loading">
+      <Loader2 size={13} className="spin" style={{ verticalAlign: "middle", marginRight: 6 }} />
+      Loading summary …
+    </div>
+  );
+  if (state.err) return (
+    <div className="x-empty" style={{ color: "#ff9494" }}
+         data-testid="xdr-incident-summary-error">
+      {String(state.err)}
+    </div>
+  );
+  const s = state.data;
+  const stateBadge = (st) => {
+    const map = {
+      ok:                   { label: "OK",                    color: "var(--mint)"  },
+      no_matching_evidence: { label: "NO MATCHING EVIDENCE",   color: "var(--yellow)" },
+      not_connected:        { label: "NOT CONNECTED",          color: "var(--faint)" },
+      not_available:        { label: "NOT AVAILABLE",          color: "var(--muted)" },
+      error:                { label: "ERROR",                  color: "#ff9494"      },
+    };
+    const m = map[st] || map.not_available;
+    return (
+      <span style={{
+        display: "inline-block", padding: "2px 7px", borderRadius: 3,
+        border: `1px solid ${m.color}`, color: m.color,
+        fontFamily: "var(--xmono)", fontSize: 9.5, letterSpacing: ".4px",
+        fontWeight: 800, textTransform: "uppercase",
+      }}>{m.label}</span>
+    );
+  };
+
+  return (
+    <div data-testid="xdr-incident-summary-body">
+      <Block title="Deterministic Verdict"
+             testid="xdr-summary-verdict">
+        {s.deterministic_verdict ? (
+          <div className="mono" style={{ fontSize: 12, color: "var(--text-dim)" }}>
+            <b style={{ color: "var(--text)" }}>{(s.deterministic_verdict.label || "").toUpperCase()}</b>
+            {" · "}risk {s.deterministic_verdict.risk_score ?? "—"}
+            {" · "}confidence {s.deterministic_verdict.confidence ?? "—"}
+            {" · "}{s.deterministic_verdict.contributing_signals} contributing signal(s)
+            <div style={{ marginTop: 4, fontSize: 10.5, color: "var(--faint)" }}>
+              Engine: {s.deterministic_verdict.engine}
+            </div>
+          </div>
+        ) : stateBadge("not_available")}
+      </Block>
+
+      <Block title="Observed Facts" testid="xdr-summary-observed">
+        {(s.observed_facts || []).length === 0
+          ? stateBadge("no_matching_evidence")
+          : <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
+              {s.observed_facts.map((f, i) => (
+                <li key={i} style={{ color: "var(--text-dim)" }}>
+                  {f.fact}
+                  <span className="mono" style={{ marginLeft: 6, color: "var(--faint)", fontSize: 10 }}>
+                    · {f.provenance}
+                  </span>
+                </li>
+              ))}
+            </ul>}
+      </Block>
+
+      <Block title="Suspicious Elements" testid="xdr-summary-suspicious">
+        {(s.suspicious_elements || []).length === 0
+          ? stateBadge("no_matching_evidence")
+          : <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
+              {s.suspicious_elements.map((r, i) => (
+                <li key={i} style={{ color: "var(--text-dim)" }}>
+                  <span className="mono" style={{ color: "var(--amber)" }}>{r.rule_id}</span>
+                  {r.weight != null && <span className="mono" style={{ color: "var(--faint)" }}> · +{r.weight}</span>}
+                  <span className="mono" style={{ marginLeft: 6, color: "var(--mint)", fontSize: 10 }}>
+                    · detected_by: {r.detected_by}
+                  </span>
+                </li>
+              ))}
+            </ul>}
+      </Block>
+
+      <Block title="Evidence Gaps · Negative Explainability"
+             testid="xdr-summary-gaps">
+        <table className="x-table" style={{ width: "100%" }}>
+          <thead><tr>
+            <th>Claim</th><th>State</th><th>Searched</th><th>Reason</th>
+          </tr></thead>
+          <tbody>
+            {(s.evidence_gaps || []).map((g, i) => (
+              <tr key={i} data-testid={`xdr-summary-gap-${g.state}-${i}`}>
+                <td style={{ color: "var(--text)", fontWeight: 600 }}>{g.claim}</td>
+                <td>{stateBadge(g.state)}</td>
+                <td className="mono" style={{ color: "var(--muted)" }}>
+                  {(g.searched || []).join(", ") || "—"}
+                </td>
+                <td className="mono" style={{ color: "var(--text-dim)" }}>{g.reason}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Block>
+
+      <Block title="Recommended Next Evidence"
+             testid="xdr-summary-recommended">
+        {(s.recommended_next || []).length === 0
+          ? stateBadge("no_matching_evidence")
+          : <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.7 }}>
+              {s.recommended_next.map((r, i) => (
+                <li key={i}>
+                  <a href={r.target} target="_blank" rel="noopener noreferrer"
+                     style={{ color: "var(--purple)", fontWeight: 700, textDecoration: "underline" }}>
+                    {r.action} <ExternalLink size={10} style={{ verticalAlign: "middle" }} />
+                  </a>
+                </li>
+              ))}
+            </ul>}
+      </Block>
+    </div>
+  );
+}
+
+function Block({ title, testid, children }) {
+  return (
+    <div className="panel2" style={{
+      padding: "12px 14px", marginBottom: 10,
+    }} data-testid={testid}>
+      <div className="section-title" style={{ marginBottom: 8 }}>{title}</div>
+      {children}
     </div>
   );
 }

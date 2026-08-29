@@ -12,9 +12,11 @@ import { Toaster } from "@/components/ui/sonner";
 
 // NivXForge EDR reserved sub-pages (tiny stubs — no need to code-split).
 import {
-  EdrDetectionsPage, EdrProcessTreePage, EdrFilesPage, EdrNetworkPage,
+  EdrFilesPage, EdrNetworkPage,
   EdrHuntingPage, EdrForensicsPage, EdrLiveQueryPage, EdrResponsePage,
 } from "@/nivxforge/pages/EdrReservedPages";
+import EdrDetectionsPage from "@/nivxforge/pages/EdrDetectionsPage";
+import EdrProcessTreePage from "@/nivxforge/pages/EdrProcessTreePage";
 
 // Route-based code splitting (Perf Sprint · Feb 2026). Each page below
 // ships as its own webpack chunk and downloads on-demand when the route
