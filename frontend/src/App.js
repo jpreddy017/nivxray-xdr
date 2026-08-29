@@ -50,6 +50,12 @@ const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"))
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 const DeviceTrajectoryPage  = lazy(() => import("@/pages/DeviceTrajectoryPage"));
 const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
+// Slice 1 · Canonical Incident shell (2026-08-27) — dense operational
+// queue + Incident detail (Overview / Investigation / Activity /
+// Response).  Reads workspace_cases through /api/incidents; does NOT
+// create a parallel model, does NOT touch /analyst.
+const IncidentsListPage     = lazy(() => import("@/pages/incidents/IncidentsListPage"));
+const IncidentShellPage     = lazy(() => import("@/pages/incidents/IncidentShellPage"));
 // L4 · Investigation Session (Rule R22 · 2026-03-02) — dedicated
 // deep-dive surface for a completed threat-report investigation.
 // Every extracted artifact is a first-class Investigation Input.
@@ -170,6 +176,9 @@ function App() {
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
               {/* NivXRay Forge · EDR Device Trajectory (owner spec 2026-08-26) */}
               <Route path="/edr/trajectory" element={<Protected><DeviceTrajectoryPage /></Protected>} />
+              {/* Slice 1 · Canonical Incident shell (owner spec 2026-08-27) */}
+              <Route path="/incidents"      element={<Protected><IncidentsListPage /></Protected>} />
+              <Route path="/incidents/:id"  element={<Protected><IncidentShellPage /></Protected>} />
               <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
               {/* L4 · Investigation Session · Rule R22 (2026-03-02) */}
               <Route path="/workspace/session/:sessionId"
