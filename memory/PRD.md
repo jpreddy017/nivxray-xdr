@@ -1,130 +1,154 @@
-# NivXRay — Product Requirements + Progress
+# NivXRay — Master Reminders + Product Requirements
 
-## 2026-08-29 · Session close · 🟢 STANDALONE XDR LIVE
-
-Standalone tool deployed independently at
-**https://nivxray-xdr.vercel.app/xdr**, consuming the existing NivXRay
-platform (`https://greeting-app-5782.preview.emergentagent.com/api/*`)
-through authenticated HTTPS calls.  Base tool untouched apart from a
-one-file cleanup (`frontend/src/App.js` — XDR routes removed only).
-
-### Architecture (locked)
-
-```
-NEW NIVXRAY XDR                     EXISTING NIVXRAY TOOL
-─────────────────                   ─────────────────────
-https://nivxray-xdr.vercel.app     https://greeting-app-5782.preview.emergentagent.com
-Vite · React · own repo             CRA · React · this Emergent pod
-Repo: jpreddy017/nivxray-xdr        /analyst · /edr/trajectory · /api/*
-Src on this pod: /app/apps/nivxray-xdr (reference only)
-        │                                    ▲
-        └─── authenticated HTTPS ────────────┘
-                    /api/*
-```
-
-### What shipped this session
-
-**Application separation**
-- Standalone Vite + React app at `/app/apps/nivxray-xdr/` (own build, own runtime, own repo, own deployment).
-- Base app `App.js` cleaned of XDR-owned imports and routes; `/analyst` + `/edr/trajectory` verbatim untouched.
-- Cross-origin auth wired via shared `nvx_token` in localStorage; base backend CORS is already permissive.
-
-**Dashboard**
-- Mockup-fidelity Security Operations console: 46px top-bar with circuit-tree mark + wordmark, 198px left sidebar (6 sections · 20 items), 8-KPI grid, incident-queue panel with search + 6 filter chips + 10-column table.
-- Live data from `GET /api/incidents?limit=500`.
-- Every KPI card is clickable (Critical / High → severity filter; Unassigned → owner filter; My Queue → tenant scope; Response / SLA → honest reserved-modal; Evidence → deep-link to base `/analyst`).
-- Every sidebar item and top-nav item either routes inside XDR, deep-links to an existing NivXRay capability in a new tab (with a `↗` chevron), or opens a "Reserved · later slice" modal.  No dead click.
-
-**Brand**
-- Inline-SVG circuit-tree mark (owner-approved 2026-08-29) + wordmark
-  `NiVXRAY XDR` (orange `i` accent) + tagline
-  `EXTENDED DETECTION / RESPONSE` on the login lockup.
-
-**Incident detail (unchanged from prior slice)**
-- `/xdr/incidents/:id` renders the 4-tab shell (Overview · Investigation · Activity · Response).
-- "OPEN NIVXFORGE EDR →" now opens the **base** NivXRay `/edr/trajectory?incident_id=…` in a new tab (skips the intermediate Console overview).
-
-**Deploy artifacts**
-- `Dockerfile` (Node 20 build → nginx-alpine runtime with SPA fallback) — for portability.
-- `vercel.json` (SPA history fallback) — used by the live deployment.
-- `README.md` (complete deploy recipe + no-duplication rules).
-
-**Verification (this session)**
-- Standalone build: ✅ (Vite, 1642 modules).
-- Base build: ✅ (CRA/craco, unchanged).
-- Live login → dashboard → incident → all 4 tabs → EDR launch to base `/edr/trajectory` → all deep-links to `/analyst`, `/heatmap`, `/threat-intel`, `/analyze` → new-tab semantics: ✅.
-- Backend regression: **821 / 0 / 4** — zero regressions.
+**Authoritative execution baseline (locked 2026-08-29).**
+This file supersedes all prior architecture instructions.  Every future
+NivXRay XDR session must obey these rules verbatim.
 
 ---
 
-### Next-session roadmap (owner-directed 2026-08-29)
+## 🔴 The one rule that supersedes everything else
 
-**P0 — Incident Investigation Console** (`/xdr/incidents/:id`)
-Make this the strongest part of the standalone XDR.
+> If the change is required to make **NivXRay XDR** work, implement it in
+> `/app/apps/nivxray-xdr/` (repo `jpreddy017/nivxray-xdr`, live at
+> https://nivxray-xdr.vercel.app) **or through an existing API
+> contract**.  If the change would modify the existing NivXRay product
+> itself, **do not do it**.
+
+When there is ambiguity between "modify NivXRay" and "build NivXRay
+XDR", the default interpretation is always **BUILD THE STANDALONE
+NIVXRAY XDR**.
+
+---
+
+## Architecture (one picture)
 
 ```
-Incident
- ├── Summary       (existing /api/incidents/{id}/summary)
- ├── Investigation
- │    ├── Attack Story   → existing IUE projection
- │    ├── Evidence       → existing evidence pointers
- │    ├── Entities       → existing IKG projection
- │    ├── MITRE ATT&CK   → existing heatmap deep-link
- │    └── Timeline       → existing Activity Inventory
- ├── Activity      (existing /api/activity/inventory)
- └── Response      (approval workflow — deferred, see below)
+        ┌─────────────────────────────┐
+        │      EXISTING NIVXRAY       │
+        │      (protected · read-only) │
+        │                             │
+        │ Workspace · Evidence · IKG  │
+        │ Activity Inventory · Verdict│
+        │ Process Tree · Trajectory   │
+        │ Command Intel · MITRE       │
+        │ Threat Intel · Reports      │
+        └──────────────┬──────────────┘
+                       │
+              Authenticated APIs
+                       │
+                       ▼
+        ┌─────────────────────────────┐
+        │       NIVXRAY XDR           │
+        │     STANDALONE TOOL          │
+        │                             │
+        │ Dashboard · Incidents        │
+        │ Investigation Console        │
+        │ Endpoints · NivXForge EDR    │
+        │ Activity · Response          │
+        │ Intelligence · Operations    │
+        └─────────────────────────────┘
+
+One security truth. Two application boundaries.
+Separate application  ≠  Separate security truth.
 ```
 
-Every entity in the incident must offer contextual pivots (always
-new tab, always to an existing NivXRay capability):
+---
 
-| Entity                | Pivot destination                                 |
-| :-------------------- | :------------------------------------------------ |
-| Process               | base `/edr/trajectory` (Process Tree scope)       |
-| Command line          | base `/analyze` (Command Intelligence)            |
-| Endpoint / host       | base `/edr/trajectory?device=…`                   |
-| Detection             | base `/edr/trajectory?event=…`                    |
-| IOC (hash/ip/domain)  | base `/threat-intel?ioc=…`                        |
-| MITRE technique       | base `/heatmap?technique=…`                       |
-| Evidence node         | base `/analyst?case=…&evidence=…`                 |
+## 🔴 Non-negotiable guardrails (every session)
 
-**P1 — Native Endpoints view** (`/xdr/endpoints`)
-Reuse `/api/edr/*`.  No new endpoint data engine.
-
-**P2 — Deterministic Severity Mapper**
-Only if the existing evidence supports the classification.  Evidence
-→ deterministic rules → `critical / high / medium / low`.  Do **not**
-inflate labels to populate KPI counts.
+- **Never modify** `/app/frontend`, `/analyst`, `/edr/trajectory`, or any existing NivXRay engine.
+- **Never duplicate** Workspace · Evidence SSOT · Incident SSOT · Verdict Engine · Process Tree · Device Trajectory · Command Intelligence · MITRE · IKG · Activity Inventory · TI · Reports.
+- **Never fake telemetry.**  Preserve semantically distinct states: `NOT CONNECTED · NOT AVAILABLE · NO MATCHING EVIDENCE · ERROR`.  Never collapse them into "Benign".
+- **Never inflate severity** to populate KPI cards.  Severity is evidence-driven.
+- **Never make destructive actions instant one-click.**  Response goes through the Approval Loop.
+- **Never claim a capability that isn't wired.**  Negative Explainability is a first-class product feature.
+- **Never co-host** XDR under the base frontend.  Separate build, runtime, deployment.
+- **Never repeat scope-confirmation questions** once a direction is locked.  Start implementing.
+- **Never work on Cisco Device Trajectory fidelity** during the current P0.  That is a separate future slice.
+- **Address the implementation agent as Emergent**, not Claude or Claude Code.
 
 ---
 
-### Guardrails (locked · do not violate in future sessions)
+## Product identity
 
-- ❌ No changes to `/app/frontend`
-- ❌ No changes to `/analyst`
-- ❌ No changes to existing `/edr/trajectory`
-- ❌ No duplicate Process Tree, Verdict Engine, Evidence, IKG, or SSOT
-- ❌ No fake telemetry — always use `NOT CONNECTED / NOT AVAILABLE / NO MATCHING EVIDENCE / ERROR`
-- ❌ No Cisco Device Trajectory fidelity work yet
-- ❌ No co-hosting of XDR inside the base frontend
-- ❌ No Response Wiring in feature work yet
-- ✅ XDR source lives at `/app/apps/nivxray-xdr` (mirror) + GitHub `jpreddy017/nivxray-xdr` (canonical)
-- ✅ XDR deployed independently at https://nivxray-xdr.vercel.app
-- ✅ All security data consumed through authenticated APIs from the existing NivXRay backend
+- NivXRay is an **evidence-first, investigation-centric security intelligence platform** — not merely EDR/XDR/SIEM/SOAR/TIP/NDR/UEBA/etc.
+- Core loop: **Evidence → Context → Correlation → Reasoning → Verdict → Decision → Response → New Evidence** (recursive via IUE).
+- Deterministic-first; AI is optional assistance, never the decision authority.
+- Every conclusion traces back to evidence with full provenance.  Reproducible.
 
----
+## NivXRay XDR identity
 
-### Deferred backlog (post-P0/P1/P2)
-
-- Response Wiring (Requested → Pending → Approved → Executing → Verified · immutable audit)
-- Device Trajectory ~95% operational fidelity — separate slice
-- Additional telemetry domains: NDR / ITDR / Email / Cloud / Application·API / Data Security / CTEM
-- Administration control plane (Integrations · Data Sources · Collectors · Parsers · Normalization · Telemetry Health · Policies)
+- **Standalone tool.**  New frontend, build, runtime, deployment, repo, auth UI.
+- Consumes existing NivXRay APIs.  Never re-implements engines.
+- Live: https://nivxray-xdr.vercel.app · Repo: `jpreddy017/nivxray-xdr` · Vercel auto-deploy on push to `main`.
+- Brand: circuit-tree mark + `NiVXRAY XDR` wordmark (orange `i` accent) + `EXTENDED DETECTION / RESPONSE` tagline.  Enterprise, not sci-fi.
+- Visual identity is NivXRay-original.  ~95% operational equivalence to Cisco Secure Endpoint is a *behavioral* benchmark for the future Trajectory slice, not a visual clone.
 
 ---
 
-### Test credentials (see `/app/memory/test_credentials.md`)
+## Current execution point
 
-- **Email:** `admin@nivxray.com`
-- **Password:** rotated — see credentials file (last rotation preserved in that file).
-- Same credentials on both hosts (base + XDR); shared `nvx_token` in localStorage.
+**P0 — Incident Investigation Console** at `/xdr/incidents/:id`.
+
+Structure:
+```
+Summary
+Investigation
+  ├── Attack Story
+  ├── Evidence
+  ├── Entities
+  ├── MITRE ATT&CK
+  └── Timeline
+Activity
+Response
+```
+
+**Contextual pivots** (each opens the base NivXRay capability in a new tab; XDR never re-implements):
+
+| Entity          | Pivot destination                    |
+| :-------------- | :----------------------------------- |
+| Process         | base `/edr/trajectory` (Process Tree scope) |
+| Command line    | base `/analyze` (Command Intelligence)      |
+| Endpoint        | base `/edr/trajectory?device=…`             |
+| Detection       | base `/edr/trajectory?event=…`              |
+| IOC             | base `/threat-intel?ioc=…`                  |
+| MITRE technique | base `/heatmap?technique=…`                 |
+| Evidence node   | base `/analyst?case=…&evidence=…`           |
+
+**Data sources** — all consumed via authenticated API from the base NivXRay backend:
+- `GET /api/incidents/{id}` (Incident SSOT)
+- `GET /api/incidents/{id}/summary` (deterministic summary + gaps)
+- `POST /api/activity/inventory` (Activity + Timeline)
+- Existing Attack Story / IKG / Verdict / MITRE projections
+
+**Summary tab must include:** verdict · severity · confidence · attack progression · evidence summary · affected entities · important detections · evidence gaps (Negative Explainability) · recommended next evidence · available response actions.
+
+---
+
+## Roadmap after P0
+
+- **P1** — Native Endpoints view at `/xdr/endpoints` reusing `/api/edr/*`.  No new endpoint engine.
+- **P2** — Deterministic severity mapper.  Evidence-driven only.
+- **Later — Response Approval Loop** — `REQUESTED → PENDING → APPROVED/REJECTED → QUEUED → EXECUTING → SUCCEEDED/FAILED → VERIFIED`, immutable audit (actor · timestamp · action · target · prev state · new state · verification).
+- **Later — Device Trajectory operational fidelity** (~95% Cisco Secure Endpoint behavioral equivalence) — separate slice, standalone XDR only.
+- **Later — Additional telemetry domains** — NDR / ITDR / Email / Cloud / Application-API / Data Security / CTEM.  Each shows honest state until wired.
+
+---
+
+## Live baseline (verified this session)
+
+- Standalone XDR shipped: Dashboard operational, KPIs filter queue, sidebar/top-nav all clickable (no dead UI), Incident detail 4 tabs, NivXForge EDR launcher opens base `/edr/trajectory` in new tab.
+- Cross-origin auth confirmed: shared `nvx_token` in localStorage, tenant scoping enforced server-side.
+- Backend regression: **821 passed / 0 failed / 4 skipped**.
+- Base NivXRay: untouched.
+
+## Session-start prompt for the next agent
+
+> Work only in `/app/apps/nivxray-xdr/`.  Build the standalone NivXRay XDR.
+> Do not touch the existing NivXRay application.  Continue with P0 —
+> `/xdr/incidents/:id` Incident Investigation Console per PRD.md.  Start
+> implementation immediately without asking for scope confirmation.
+
+## Test credentials
+
+See `/app/memory/test_credentials.md` — `admin@nivxray.com` (same token on both hosts).
