@@ -1,127 +1,130 @@
 # NivXRay — Product Requirements + Progress
 
-_See earlier historical entries in `/app/memory/PRD.archive.md` (grows over time).
-This file is the current, authoritative product record._
+## 2026-08-29 · Session close · 🟢 STANDALONE XDR LIVE
 
-## 2026-08-29 · Session close · 🟢 SHIPPED — Application Separation Complete
-
-**Original problem statement.** Extract NivXRay XDR into a genuinely
-separate, independently buildable/deployable frontend application that
-consumes the existing NivXRay platform through authenticated APIs.  The
-existing `/app/frontend` (specifically `/analyst` and existing
-`/edr/trajectory`) MUST remain completely untouched and independently
-buildable.
+Standalone tool deployed independently at
+**https://nivxray-xdr.vercel.app/xdr**, consuming the existing NivXRay
+platform (`https://greeting-app-5782.preview.emergentagent.com/api/*`)
+through authenticated HTTPS calls.  Base tool untouched apart from a
+one-file cleanup (`frontend/src/App.js` — XDR routes removed only).
 
 ### Architecture (locked)
+
 ```
-EXISTING NIVXRAY TOOL                 NEW NIVXRAY XDR TOOL
-─────────────────────                 ─────────────────────
-/app/frontend  (CRA · Craco)          /app/apps/nivxray-xdr/  (Vite)
-/app/backend   (FastAPI)              own build · own runtime · own deploy
-Authoritative data, engines,          consumes existing NivXRay APIs only
-SSOT, /analyst, /edr/trajectory  ←── authenticated HTTP calls ─
+NEW NIVXRAY XDR                     EXISTING NIVXRAY TOOL
+─────────────────                   ─────────────────────
+https://nivxray-xdr.vercel.app     https://greeting-app-5782.preview.emergentagent.com
+Vite · React · own repo             CRA · React · this Emergent pod
+Repo: jpreddy017/nivxray-xdr        /analyst · /edr/trajectory · /api/*
+Src on this pod: /app/apps/nivxray-xdr (reference only)
+        │                                    ▲
+        └─── authenticated HTTPS ────────────┘
+                    /api/*
 ```
 
 ### What shipped this session
 
-1. **Application Separation — /app/apps/nivxray-xdr/**
-   - Vite + React 18 standalone app · own `package.json`, `vite.config.js`,
-     `index.html`, `main.jsx`, `App.jsx`, `.env`.
-   - Own axios/api client, AuthContext (reuses `POST /api/auth/login`),
-     LoginPage.
-   - Moved (via `git mv`, history preserved) into standalone:
-     - `xdr/**` (shell + Dashboard/Incidents/IncidentDetail pages)
-     - `nivxforge/{NivXForgeConsole, edrApi, nivxforge.css,
-       pages/{EdrOverview,EdrDetections,EdrProcessTree,EdrReserved}}`
-     - `components/incidents/**` (Header · LifecycleBar · 4 tab bodies)
-     - `constants/incidentTestIds.js`, `lib/incidentsApi.js`
-   - Deleted from base app (obsolete duplicates):
-     `pages/incidents/{IncidentsListPage,IncidentShellPage,xdr.css}`.
+**Application separation**
+- Standalone Vite + React app at `/app/apps/nivxray-xdr/` (own build, own runtime, own repo, own deployment).
+- Base app `App.js` cleaned of XDR-owned imports and routes; `/analyst` + `/edr/trajectory` verbatim untouched.
+- Cross-origin auth wired via shared `nvx_token` in localStorage; base backend CORS is already permissive.
 
-2. **Base app cleanup — `frontend/src/App.js` only**
-   - Removed XDR-owned imports (`XdrDashboardPage`, `XdrIncidentsPage`,
-     `XdrIncidentDetailPage`, `EdrOverviewPage`, `EdrDetectionsPage`,
-     `EdrProcessTreePage`, `EdrFilesPage`…`EdrResponsePage`,
-     `IncidentsListPage`, `IncidentShellPage`) and their routes.
-   - **KEPT untouched:** `/analyst` and `/edr/trajectory` route lines
-     verbatim.  Every other route in the base app is unchanged.
+**Dashboard**
+- Mockup-fidelity Security Operations console: 46px top-bar with circuit-tree mark + wordmark, 198px left sidebar (6 sections · 20 items), 8-KPI grid, incident-queue panel with search + 6 filter chips + 10-column table.
+- Live data from `GET /api/incidents?limit=500`.
+- Every KPI card is clickable (Critical / High → severity filter; Unassigned → owner filter; My Queue → tenant scope; Response / SLA → honest reserved-modal; Evidence → deep-link to base `/analyst`).
+- Every sidebar item and top-nav item either routes inside XDR, deep-links to an existing NivXRay capability in a new tab (with a `↗` chevron), or opens a "Reserved · later slice" modal.  No dead click.
 
-3. **NivXRay XDR visual identity**
-   - Inline SVG `NivxrayBrand` — mint-green angular N glyph + orange dot
-     accent (matches the parent NIVXRAY logo language) · wordmark
-     `NIVXRAY XDR` with mint-accented XDR suffix · tagline
-     `EXTENDED DETECTION / RESPONSE`.
-   - Placed at Login (large lockup), XDR shell top bar (compact),
-     NivXForge Console top bar (compact).
+**Brand**
+- Inline-SVG circuit-tree mark (owner-approved 2026-08-29) + wordmark
+  `NiVXRAY XDR` (orange `i` accent) + tagline
+  `EXTENDED DETECTION / RESPONSE` on the login lockup.
 
-4. **Deployment packaging**
-   - `Dockerfile` — Node 20 build stage → `nginx:alpine` runtime with
-     SPA history-fallback + immutable cache for `/assets/*`.  Builds
-     ONLY this package.
-   - `README.md` — purpose, structure, install/build/preview/serve,
-     env vars, API dependencies, auth expectations, tenant/security,
-     Emergent deployment recipe, no-duplication architecture.
+**Incident detail (unchanged from prior slice)**
+- `/xdr/incidents/:id` renders the 4-tab shell (Overview · Investigation · Activity · Response).
+- "OPEN NIVXFORGE EDR →" now opens the **base** NivXRay `/edr/trajectory?incident_id=…` in a new tab (skips the intermediate Console overview).
 
-### Verification
+**Deploy artifacts**
+- `Dockerfile` (Node 20 build → nginx-alpine runtime with SPA fallback) — for portability.
+- `vercel.json` (SPA history fallback) — used by the live deployment.
+- `README.md` (complete deploy recipe + no-duplication rules).
 
-| Check | Result |
-| :--- | :--- |
-| Standalone build (`cd /app/apps/nivxray-xdr && yarn build`) | ✅ 1642 modules · `dist/index.html` + hashed assets |
-| Base app build (`cd /app/frontend && yarn build`) | ✅ succeeds independently |
-| Base app `/analyst` route | ✅ present, untouched |
-| Base app `/edr/trajectory` route | ✅ present, untouched |
-| Base app XDR/EDR-Console routes | ✅ removed (0 hits) |
-| Local runtime (`yarn preview → :3100`) | ✅ all routes HTTP 200 |
-| Login (browser QA) | ✅ NivXRay lockup renders |
-| Login → Dashboard | ✅ 105 real incidents, tenant `admin@nivxray.com` |
-| Incident detail (browser QA) | ✅ `INC-61B8AD · Phase1` rendered end-to-end |
-| Investigation → Summary | ✅ 4-state Evidence-Gaps grid live |
-| Response tab | ✅ approval-workflow stepper renders |
-| Activity tab | ✅ canonical Activity Inventory loads |
-| NivXForge EDR Console `/edr?incident_id=…` | ✅ full 10-tab shell renders with incident context banner |
-| API connectivity (Login → /auth/me → /incidents) | ✅ real backend responses, JWT flow |
-| Tenant scoping | ✅ enforced server-side by base NivXRay backend |
-| No duplicate SSOT / engines | ✅ grep-confirmed (no `services/` / `workspace_cases` in XDR) |
-| Backend regression | 🟢 **821 passed / 0 failed / 4 skipped** (+13 net additive vs 808 baseline · zero regressions) |
-| Docker build | Verified statically; runtime `docker build` requires host with docker daemon (not present in this pod) |
+**Verification (this session)**
+- Standalone build: ✅ (Vite, 1642 modules).
+- Base build: ✅ (CRA/craco, unchanged).
+- Live login → dashboard → incident → all 4 tabs → EDR launch to base `/edr/trajectory` → all deep-links to `/analyst`, `/heatmap`, `/threat-intel`, `/analyze` → new-tab semantics: ✅.
+- Backend regression: **821 / 0 / 4** — zero regressions.
 
-### Deployment steps (for the operator)
+---
 
-1. **Save-to-GitHub** the base pod, then move `apps/nivxray-xdr/` into
-   its own GitHub repository.
-2. Emergent dashboard → **New app → From GitHub → this repo**.
-3. Build command: `yarn install --frozen-lockfile && yarn build`
-4. Static-serve directory: `dist/` (enable SPA history-fallback).
-5. Build-time env: `REACT_APP_NIVXRAY_API_URL=https://<base-nivxray-host>`.
-6. Deploy · gets its own `https://xdr-<slug>.preview.emergentagent.com/`.
+### Next-session roadmap (owner-directed 2026-08-29)
 
-### Guardrails held
+**P0 — Incident Investigation Console** (`/xdr/incidents/:id`)
+Make this the strongest part of the standalone XDR.
 
-- **`/analyst` untouched** (last touched pre-separation).
-- **`/edr/trajectory` canvas untouched** (Device Trajectory
-  implementation stays authoritative on the base host).
-- **No parallel SSOT / no duplicate engines.**
-- **No co-hosting inside `/app/frontend/public/xdr/`** (rejected by
-  owner directive — hosting-only shim would blur boundaries).
-- **Base preview URL unchanged.**
-- **Regression baseline preserved.**
+```
+Incident
+ ├── Summary       (existing /api/incidents/{id}/summary)
+ ├── Investigation
+ │    ├── Attack Story   → existing IUE projection
+ │    ├── Evidence       → existing evidence pointers
+ │    ├── Entities       → existing IKG projection
+ │    ├── MITRE ATT&CK   → existing heatmap deep-link
+ │    └── Timeline       → existing Activity Inventory
+ ├── Activity      (existing /api/activity/inventory)
+ └── Response      (approval workflow — deferred, see below)
+```
 
-### Backlog (owner-directed queue)
+Every entity in the incident must offer contextual pivots (always
+new tab, always to an existing NivXRay capability):
 
-- **Phase 2** — NivXForge EDR: full Detections table, Process Tree,
-  Files, Network (currently reserved · later slice).
-- **Phase 3** — Investigation cross-domain: Evidence, Timeline,
-  Attack Story, Evidence Graph, ATT&CK, Verdict, Negative
-  Explainability first-class.
-- **Phase 4** — Intelligence pivots: Command Intelligence, IOC
-  Intelligence, Malware Intelligence, Threat Intelligence.
-- **Phase 5** — Response workflow wiring (Requested → Pending →
-  Approved → Executing → Verified · immutable audit).
-- **Phase 6** — Additional telemetry domains: NDR, ITDR, Email, Cloud,
-  Application/API, Data Security, CTEM.
-- **Phase 7** — Administration control plane: Integrations, Data
-  Sources, Collectors, Parsers, Normalization, Telemetry Health,
-  Policies.
+| Entity                | Pivot destination                                 |
+| :-------------------- | :------------------------------------------------ |
+| Process               | base `/edr/trajectory` (Process Tree scope)       |
+| Command line          | base `/analyze` (Command Intelligence)            |
+| Endpoint / host       | base `/edr/trajectory?device=…`                   |
+| Detection             | base `/edr/trajectory?event=…`                    |
+| IOC (hash/ip/domain)  | base `/threat-intel?ioc=…`                        |
+| MITRE technique       | base `/heatmap?technique=…`                       |
+| Evidence node         | base `/analyst?case=…&evidence=…`                 |
 
-None of these are started this session — separation is the only
-delivered item, per owner directive.
+**P1 — Native Endpoints view** (`/xdr/endpoints`)
+Reuse `/api/edr/*`.  No new endpoint data engine.
+
+**P2 — Deterministic Severity Mapper**
+Only if the existing evidence supports the classification.  Evidence
+→ deterministic rules → `critical / high / medium / low`.  Do **not**
+inflate labels to populate KPI counts.
+
+---
+
+### Guardrails (locked · do not violate in future sessions)
+
+- ❌ No changes to `/app/frontend`
+- ❌ No changes to `/analyst`
+- ❌ No changes to existing `/edr/trajectory`
+- ❌ No duplicate Process Tree, Verdict Engine, Evidence, IKG, or SSOT
+- ❌ No fake telemetry — always use `NOT CONNECTED / NOT AVAILABLE / NO MATCHING EVIDENCE / ERROR`
+- ❌ No Cisco Device Trajectory fidelity work yet
+- ❌ No co-hosting of XDR inside the base frontend
+- ❌ No Response Wiring in feature work yet
+- ✅ XDR source lives at `/app/apps/nivxray-xdr` (mirror) + GitHub `jpreddy017/nivxray-xdr` (canonical)
+- ✅ XDR deployed independently at https://nivxray-xdr.vercel.app
+- ✅ All security data consumed through authenticated APIs from the existing NivXRay backend
+
+---
+
+### Deferred backlog (post-P0/P1/P2)
+
+- Response Wiring (Requested → Pending → Approved → Executing → Verified · immutable audit)
+- Device Trajectory ~95% operational fidelity — separate slice
+- Additional telemetry domains: NDR / ITDR / Email / Cloud / Application·API / Data Security / CTEM
+- Administration control plane (Integrations · Data Sources · Collectors · Parsers · Normalization · Telemetry Health · Policies)
+
+---
+
+### Test credentials (see `/app/memory/test_credentials.md`)
+
+- **Email:** `admin@nivxray.com`
+- **Password:** rotated — see credentials file (last rotation preserved in that file).
+- Same credentials on both hosts (base + XDR); shared `nvx_token` in localStorage.
