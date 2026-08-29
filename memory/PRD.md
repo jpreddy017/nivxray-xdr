@@ -1,6 +1,83 @@
 # NivXRay · ADR-005 Progress (Handoff-friendly summary)
 
 
+> **2026-08-29 · Session close #6 · 🟢 SHIPPED — Slice 1: Canonical Incident + NivXRay XDR platform shell**
+>
+> **Executed the owner-locked "Approved with architectural corrections" spec:**
+>
+> ### Backend — new incidents projector (`/api/incidents`)
+>   - `GET  /api/incidents`         — dense operational list projected
+>     from `workspace_cases` (no parallel model)
+>   - `GET  /api/incidents/{id}`    — detail projection: header meta,
+>     lifecycle state, status ribbon chips, verdict summary card,
+>     attack progression (MITRE-derived), 9-domain evidence pointers
+>     (EDR · NDR · Identity · Cloud · Email · App/API · Data Security ·
+>     CTEM · IOC Intelligence).  Every derived field is evidence-
+>     backed — never fabricated.
+>   - `PATCH /api/incidents/{id}/state`     — 5-state lifecycle
+>     machine (New → In Progress → On Hold → Resolved → Closed) with
+>     immutable per-transition audit history.
+>   - `PATCH /api/incidents/{id}/assignee`
+>   - **20 acceptance tests green** (`tests/canonical/incidents/`).
+>
+> ### Frontend — NivXRay XDR platform shell (`/xdr/*`)
+>   - `/xdr`                     — Security Operations dashboard
+>     (KPI stat grid + Incident Queue).
+>   - `/xdr/incidents`           — dense operational queue (search +
+>     lifecycle filters).  Supports `?mine=1` and `?q=` deep-links.
+>   - `/xdr/incidents/:id`       — canonical incident detail: status
+>     ribbon · header with meta strip · lifecycle stepper · 4 top
+>     tabs (Overview · Investigation · Activity · Response) · 7
+>     Investigation sub-tabs.
+>   - Overview renders the 4-column Verdict card row, an evidence-
+>     backed Attack Progression stepper (deterministic MITRE→tactic
+>     map), and 9 Evidence-Across-Domains cards.  EDR and IOC
+>     Intelligence cards are `available`; the other 7 are honestly
+>     surfaced as `not_connected`.
+>   - Response tab shows the approval workflow (Pending Approval →
+>     Approved → Queued → Executing → Succeeded/Failed → Verified)
+>     and the four IOC block actions (Hash / IP / Domain / URL) as
+>     disabled buttons — no destructive action executes on one click
+>     (owner rule).  Slice 3 will wire the real workflow.
+>   - Top bar is utility only (brand · global search · tenant chip ·
+>     notifications · help · user).  **No duplicate product nav in
+>     the top bar** — the sidebar owns product navigation.
+>   - Sidebar tree matches owner spec exactly (Workspace / Operations
+>     / Investigations / Intelligence / Exposure / Data /
+>     Administration).  Every sidebar entry either navigates within
+>     `/xdr/*` OR opens the existing NivXRay capability in a new tab.
+>   - Owner telemetry rule enforced everywhere: every telemetry card
+>     opens the COMPLETE existing surface in a NEW BROWSER TAB.  No
+>     modal, no drawer, no iframe, no miniature.  Context passed as
+>     URL params (navigation hints only — backend does not trust them
+>     for authorization).
+>
+> ### Guardrails honoured
+>   - **`/analyst` untouched** (verified in browser QA).
+>   - **`/edr/trajectory` untouched** (still the single Device
+>     Trajectory implementation; XDR merely deep-links to it).
+>   - No duplicate implementations of Command Intelligence, MITRE,
+>     Verdict engine, Process Tree, Evidence Graph.
+>   - `workspace_cases` remains the sole Incident record.
+>   - SSOT-isolation test extended additively — allow-list now
+>     includes the 22 new files under `frontend/src/xdr/**` +
+>     `frontend/src/pages/incidents/**` +
+>     `frontend/src/components/incidents/**` +
+>     `backend/routers/incidents.py`.
+>
+> ### Locked baseline updated
+>   - **808 passed / 0 failed / 4 skipped** (was 788/0/4).
+>   - All 20 new tests are net-additive contract tests for the
+>     Incident projector + lifecycle state machine.
+>
+> ### What's next (P1 · Slice 2)
+>   - Summary tab: Negative Explainability + Evidence Gaps
+>   - Contextual Command Intelligence launcher on the incident detail
+>   - Deterministic Incident report generator (populates the Report
+>     sub-tab currently marked `Reserved · later slice`)
+>
+
+
 > **2026-08-26 · Session close #5 · 🟢 SHIPPED — Stage-2 Verdict Engine + Canonical Activity Model + EDR Device Trajectory (tri-directional sync)**
 >
 > **Executed the owner's locked 20-decision spec:**

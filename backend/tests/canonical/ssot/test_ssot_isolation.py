@@ -361,6 +361,31 @@ def test_no_route_file_modified_by_phase2():
         "frontend/src/components/edr/TrajectoryCanvas.jsx",
         "frontend/src/components/edr/ActivityDetails.jsx",
         "frontend/src/components/edr/VerdictExplainabilityCard.jsx",
+        # Slice 1 · Canonical Incident shell + NivXRay XDR platform
+        # shell (owner spec 2026-08-27 / 2026-08-29).  A navigation
+        # layer over existing NivXRay capabilities — never a second
+        # implementation of any existing engine.  All entries below
+        # are additive and never touch /analyst.
+        "backend/routers/incidents.py",
+        "frontend/src/components/Header.jsx",
+        "frontend/src/lib/incidentsApi.js",
+        "frontend/src/constants/incidentTestIds.js",
+        "frontend/src/pages/incidents/IncidentsListPage.jsx",
+        "frontend/src/pages/incidents/IncidentShellPage.jsx",
+        "frontend/src/pages/incidents/xdr.css",
+        "frontend/src/components/incidents/IncidentHeader.jsx",
+        "frontend/src/components/incidents/LifecycleBar.jsx",
+        "frontend/src/components/incidents/tabs/OverviewTab.jsx",
+        "frontend/src/components/incidents/tabs/InvestigationTab.jsx",
+        "frontend/src/components/incidents/tabs/ActivityTab.jsx",
+        "frontend/src/components/incidents/tabs/ResponseTab.jsx",
+        "frontend/src/xdr/xdr-console.css",
+        "frontend/src/xdr/XdrShell.jsx",
+        "frontend/src/xdr/components/IncidentQueue.jsx",
+        "frontend/src/xdr/pages/XdrDashboardPage.jsx",
+        "frontend/src/xdr/pages/XdrIncidentsPage.jsx",
+        "frontend/src/xdr/pages/XdrIncidentDetailPage.jsx",
+        "backend/server.py",
     }
     out = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd="/app"

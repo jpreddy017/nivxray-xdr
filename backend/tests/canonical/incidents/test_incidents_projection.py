@@ -136,15 +136,24 @@ def test_detail_projection_includes_evidence_pointers():
     ))
     assert detail["number"].startswith("INC-")
     assert isinstance(detail["evidence_pointers"], list)
-    assert len(detail["evidence_pointers"]) >= 6  # edr + ndr + identity + cloud + email + web
-    # NivXForge EDR pointer resolves to the real trajectory page.
+    # 9 canonical domains: edr · ndr · identity · cloud · email ·
+    # app_api · data_security · ctem · ioc
+    assert len(detail["evidence_pointers"]) == 9
+    domains = {p["domain"] for p in detail["evidence_pointers"]}
+    assert domains == {"edr", "ndr", "identity", "cloud", "email",
+                          "app_api", "data_security", "ctem", "ioc"}
+    # NivXForge EDR pointer resolves to the real trajectory page and
+    # passes the incident context as URL params (navigation hints only).
     edr = next(p for p in detail["evidence_pointers"] if p["domain"] == "edr")
     assert edr["status"] == "available"
-    assert edr["deep_link"] == "/edr/trajectory"
-    # NDR / Identity / Cloud / Email / Web are honestly reported as unavailable.
-    for dom in ("ndr", "identity", "cloud", "email", "web"):
+    assert edr["deep_link"].startswith("/edr/trajectory?")
+    assert "incident_id=" in edr["deep_link"]
+    # NDR / Identity / Cloud / Email / Application-API / Data Security
+    # / CTEM are honestly reported as not_connected.
+    for dom in ("ndr", "identity", "cloud", "email", "app_api",
+                  "data_security", "ctem"):
         p = next(pt for pt in detail["evidence_pointers"] if pt["domain"] == dom)
-        assert p["status"] == "unavailable"
+        assert p["status"] == "not_connected"
         assert p["deep_link"] is None
         assert p["reason"]  # must have a human-readable reason
 

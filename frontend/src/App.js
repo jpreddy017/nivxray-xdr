@@ -56,6 +56,12 @@ const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
 // create a parallel model, does NOT touch /analyst.
 const IncidentsListPage     = lazy(() => import("@/pages/incidents/IncidentsListPage"));
 const IncidentShellPage     = lazy(() => import("@/pages/incidents/IncidentShellPage"));
+// Slice 1 · NivXRay XDR platform shell (owner spec 2026-08-29) — a
+// navigation layer over existing NivXRay capabilities.  /analyst and
+// every underlying implementation stay untouched.
+const XdrDashboardPage      = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
+const XdrIncidentsPage      = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
+const XdrIncidentDetailPage = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 // L4 · Investigation Session (Rule R22 · 2026-03-02) — dedicated
 // deep-dive surface for a completed threat-report investigation.
 // Every extracted artifact is a first-class Investigation Input.
@@ -179,6 +185,10 @@ function App() {
               {/* Slice 1 · Canonical Incident shell (owner spec 2026-08-27) */}
               <Route path="/incidents"      element={<Protected><IncidentsListPage /></Protected>} />
               <Route path="/incidents/:id"  element={<Protected><IncidentShellPage /></Protected>} />
+              {/* NivXRay XDR platform shell (owner spec 2026-08-29) */}
+              <Route path="/xdr"                 element={<Protected><XdrDashboardPage /></Protected>} />
+              <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
+              <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
               <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
               {/* L4 · Investigation Session · Rule R22 (2026-03-02) */}
               <Route path="/workspace/session/:sessionId"

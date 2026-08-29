@@ -38,7 +38,7 @@ export default function Header() {
 
   const primary = [
     { key: "workspace",   href: "/",              label: "WORKSPACE",   icon: LayoutGrid, testId: "nav-workspace" },
-    { key: "incidents",   href: "/incidents",     label: "INCIDENTS",   icon: AlertOctagon, testId: "nav-incidents", title: "Operations · canonical Incident queue" },
+    { key: "xdr",         href: "/xdr",           label: "XDR",         icon: AlertOctagon, testId: "nav-xdr", title: "NivXRay XDR platform shell · operational incident workflow" },
     { key: "history",     href: "/history",       label: "HISTORY",     icon: HistoryIcon, testId: "nav-history", title: "Investigation history · restore any past case with full state" },
     { key: "investigations", href: "/investigations", label: "INVESTIGATIONS", icon: Radar, testId: "nav-investigations", title: "Cross-artifact investigations · linked cases, unified attack chain, evidence graph, timeline" },
     // Trajectory retired from top-level nav (Phase A.5 · item 3.7 · 2026-02-16).

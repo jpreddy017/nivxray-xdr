@@ -325,60 +325,165 @@ def _derive_attack_progression(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def _build_evidence_pointers(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Real availability of downstream telemetry surfaces for the
-    incident.  Each pointer is either 'available' with a deep link
-    to the existing implementation, or 'unavailable' with an
-    explicit reason — never a fake placeholder.
+    incident.  Each pointer is one of THREE states (owner rule):
+      - ``available``           — capability + evidence both present
+      - ``no_matching_evidence`` — connector present, no evidence for this incident
+      - ``not_connected``       — integration not present for this tenant
+      - ``not_available``       — capability itself does not exist in NivXRay yet
+    Never fabricated.
     """
     ssot = doc.get("ssot") or {}
+    iocs = doc.get("iocs") or {}
     has_edr_evidence = bool(doc.get("input") or ssot)
     case_id = doc.get("id") or ""
 
     pointers: List[Dict[str, Any]] = []
 
-    # EDR — Device Trajectory (real implementation, /edr/trajectory)
+    # ── EDR — real capability, uses existing /edr/trajectory ─────────
     pointers.append({
         "domain":   "edr",
-        "label":    "NivXForge · EDR Device Trajectory",
-        "status":   "available" if has_edr_evidence else "unavailable",
+        "label":    "NivXForge EDR",
+        "status":   "available" if has_edr_evidence else "no_matching_evidence",
         "reason":   None if has_edr_evidence
-                     else "No evidence attached to this incident.",
-        "deep_link": "/edr/trajectory" if has_edr_evidence else None,
-        "hint":     "Opens the full temporal canvas in a new browser tab.",
+                     else "No EDR evidence correlates to this incident yet.",
+        "deep_link": _link_with_context("/edr/trajectory", case_id, doc)
+                        if has_edr_evidence else None,
+        "hint":     "Endpoint telemetry · Device Trajectory · Process Tree.",
+        "bullets":  _bullets_for_edr(doc) if has_edr_evidence else [],
+        "why":      _why_edr(doc) if has_edr_evidence else None,
     })
 
-    # NDR / Identity / Cloud / Email / Web — not implemented yet.
-    # We surface them as explicit 'unavailable' cards so the analyst
-    # can see the intended coverage map without being tricked by a
-    # placeholder that looks functional.
-    for domain, label in (
-        ("ndr",      "Network Detection & Response (NDR)"),
-        ("identity", "Identity Threat Detection"),
-        ("cloud",    "Cloud Workload Telemetry"),
-        ("email",    "Email Security"),
-        ("web",      "Web Gateway Telemetry"),
-    ):
-        pointers.append({
-            "domain":    domain,
-            "label":     label,
-            "status":    "unavailable",
-            "reason":    "Not connected to this NivXRay tenant.",
-            "deep_link": None,
-            "hint":      None,
-        })
+    # ── Network / NDR — capability not implemented ─────────────────
+    pointers.append(_not_available_pointer(
+        "ndr", "Network / NDR",
+        "NDR telemetry integration is not connected to this NivXRay tenant.",
+    ))
 
-    # Analyst Workspace — the existing analyst UI still owns
-    # investigation.  Surface a deep link so the analyst can jump
-    # from the Incident shell into the full Workspace at any time.
-    if case_id:
-        pointers.append({
-            "domain":    "workspace",
-            "label":     "Analyst Workspace (existing)",
-            "status":    "available",
-            "reason":    None,
-            "deep_link": f"/history?case={case_id}",
-            "hint":      "Reopens the case in the NivXRay Analyst Workspace.",
-        })
+    # ── Identity / ITDR ────────────────────────────────────────────
+    pointers.append(_not_available_pointer(
+        "identity", "Identity / ITDR",
+        "Identity threat detection is not connected to this NivXRay tenant.",
+    ))
+
+    # ── Cloud ──────────────────────────────────────────────────────
+    pointers.append(_not_available_pointer(
+        "cloud", "Cloud",
+        "Cloud workload telemetry is not connected to this NivXRay tenant.",
+    ))
+
+    # ── Email ──────────────────────────────────────────────────────
+    pointers.append(_not_available_pointer(
+        "email", "Email",
+        "Email security telemetry is not connected to this NivXRay tenant.",
+    ))
+
+    # ── Application / API ──────────────────────────────────────────
+    pointers.append(_not_available_pointer(
+        "app_api", "Application / API",
+        "Application / API telemetry is not connected to this NivXRay tenant.",
+    ))
+
+    # ── Data Security ──────────────────────────────────────────────
+    pointers.append(_not_available_pointer(
+        "data_security", "Data Security",
+        "Data-security connectors are not present in this tenant.",
+    ))
+
+    # ── Exposure / CTEM ────────────────────────────────────────────
+    pointers.append(_not_available_pointer(
+        "ctem", "Exposure / CTEM",
+        "Continuous Threat Exposure Management is not enabled.",
+    ))
+
+    # ── IOC Intelligence — real capability, existing route ─────────
+    ioc_count = _ioc_count(iocs)
+    pointers.append({
+        "domain":   "ioc",
+        "label":    "IOC Intelligence",
+        "status":   "available" if ioc_count > 0 else "no_matching_evidence",
+        "reason":   None if ioc_count > 0
+                     else "No IOCs extracted from this incident yet.",
+        "deep_link": _link_with_context("/threat-intel", case_id, doc)
+                        if ioc_count > 0 else None,
+        "hint":     "Threat-intel enrichment for extracted IOCs.",
+        "bullets":  _bullets_for_iocs(iocs) if ioc_count > 0 else [],
+        "why":      f"{ioc_count} IOC{'s' if ioc_count != 1 else ''} extracted from the case."
+                     if ioc_count > 0 else None,
+    })
     return pointers
+
+
+def _link_with_context(base: str, case_id: str, doc: Dict[str, Any]) -> str:
+    """Append incident context to a deep link as URL params.  The
+    receiving page treats these as navigation hints ONLY — never as
+    authorization (owner guardrail #25)."""
+    from urllib.parse import urlencode
+    params = {
+        "incident_id": case_id,
+        "tenant":      doc.get("tenant_id") or doc.get("user_email") or "",
+    }
+    ssot = doc.get("ssot") or {}
+    inv_obj = (ssot.get("investigation_object") or {}) if isinstance(ssot, dict) else {}
+    host = None
+    if isinstance(inv_obj, dict):
+        host = inv_obj.get("host") or (inv_obj.get("device") or {}).get("hostname")
+    if host:
+        params["device"] = str(host)
+    query = urlencode({k: v for k, v in params.items() if v})
+    return f"{base}?{query}" if query else base
+
+
+def _not_available_pointer(domain: str, label: str, reason: str) -> Dict[str, Any]:
+    return {
+        "domain":    domain,
+        "label":     label,
+        "status":    "not_connected",
+        "reason":    reason,
+        "deep_link": None,
+        "hint":      None,
+        "bullets":   [],
+        "why":       None,
+    }
+
+
+def _ioc_count(iocs: Any) -> int:
+    if not isinstance(iocs, dict):
+        return 0
+    n = 0
+    for v in iocs.values():
+        if isinstance(v, list):
+            n += len(v)
+    return n
+
+
+def _bullets_for_edr(doc: Dict[str, Any]) -> List[str]:
+    bullets: List[str] = []
+    engine = doc.get("engine")
+    if engine and engine != "-":
+        bullets.append(f"Decoded with engine: {engine}")
+    chain = doc.get("chain_ids") or []
+    if chain:
+        bullets.append(f"Decoder chain: {len(chain)} step{'s' if len(chain) != 1 else ''}")
+    if doc.get("reached_shellcode"):
+        bullets.append("Shellcode reached")
+    return bullets
+
+
+def _why_edr(doc: Dict[str, Any]) -> Optional[str]:
+    stage2 = doc.get("verdict_stage2") or {}
+    if stage2.get("label"):
+        return f"Stage-2 verdict: {stage2['label']} · risk {stage2.get('risk_score', '—')}."
+    return "Endpoint context available for this incident."
+
+
+def _bullets_for_iocs(iocs: Dict[str, Any]) -> List[str]:
+    order = ("url", "domain", "ip", "hash", "file", "email")
+    bullets: List[str] = []
+    for k in order:
+        v = iocs.get(k)
+        if isinstance(v, list) and v:
+            bullets.append(f"{k.upper()}: {len(v)}")
+    return bullets
 
 
 # ── LIST ─────────────────────────────────────────────────────────────
