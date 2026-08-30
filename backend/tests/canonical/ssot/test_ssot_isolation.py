@@ -440,6 +440,7 @@ def test_no_route_file_modified_by_phase2():
         # Fourteen native admin surfaces reading authoritative
         # NivXRay backend APIs (never a deep-link to base /admin).
         "apps/nivxray-xdr/src/xdr/admin/adminMeta.js",
+        "apps/nivxray-xdr/src/xdr/admin/IntegrationsBody.jsx",
         "apps/nivxray-xdr/src/xdr/pages/XdrAdminPage.jsx",
         "frontend/src/nivxforge/edrApi.js",
         "frontend/src/nivxforge/pages/EdrDetectionsPage.jsx",

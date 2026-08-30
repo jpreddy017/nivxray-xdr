@@ -1,129 +1,261 @@
 {
-  "project_name": "NivXRay - Device Trajectory Redesign",
-  "theme_mode": "dark",
+  "design_system_name": "NivX Machines SOC Enterprise Design System",
+  "version": "1.0.0",
+  "brand_identity": {
+    "name": "NivX Machines",
+    "product": "NivXRay XDR",
+    "theme_posture": "Dark Enterprise SOC Console",
+    "brand_colors": {
+      "mint_gradient_start": "#5cc0a5",
+      "mint_gradient_end": "#3b8b75",
+      "orange_spark_accent": "#e27e5d"
+    },
+    "mark_svg_spec": "<svg viewBox='0 0 24 24' fill='none'><path d='M4 4h4.5l7 11.5V4H20v16h-4.5l-7-11.5V20H4V4z' fill='url(#nivx-grad)'/><path d='M16.5 4.5l3.5 3.5' stroke='#e27e5d' strokeWidth='2' strokeLinecap='round'/><defs><linearGradient id='nivx-grad' x1='4' y1='4' x2='20' y2='20'><stop offset='0%' stopColor='#5cc0a5'/><stop offset='100%' stopColor='#3b8b75'/></linearGradient></defs></svg>"
+  },
   "typography": {
-    "strategy": "The 'Old Money Tech' variant - highly legible sans paired with dense monospace for forensics.",
-    "font_family_primary": "IBM Plex Sans, sans-serif",
-    "font_family_mono": "IBM Plex Mono, monospace",
-    "hierarchy": {
-      "h1": "text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-100",
-      "h2": "text-xl sm:text-2xl font-medium tracking-tight text-zinc-200",
-      "h3": "text-lg font-medium text-zinc-300",
-      "body": "text-sm text-zinc-400 leading-relaxed",
-      "data_mono": "text-xs font-mono tracking-tight text-zinc-300",
-      "micro_label": "text-[10px] uppercase tracking-[0.2em] font-sans text-zinc-500 font-semibold"
+    "font_family_pairings": {
+      "ui_display_and_body": "Geist, 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      "code_data_and_mono": "'JetBrains Mono', 'IBM Plex Mono', 'Berkeley Mono', monospace"
+    },
+    "scale": {
+      "text-xs": "11px / 16px (0.6875rem)",
+      "text-sm": "12px / 18px (0.75rem)",
+      "text-base": "13px / 20px (0.8125rem)",
+      "text-md": "14px / 22px (0.875rem)",
+      "text-lg": "16px / 24px (1rem)",
+      "text-xl": "18px / 28px (1.125rem)",
+      "text-2xl": "22px / 32px (1.375rem)",
+      "text-3xl": "28px / 38px (1.75rem)"
+    },
+    "font_weights": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "letter_spacing": {
+      "tight": "-0.015em",
+      "normal": "0em",
+      "mono_data": "-0.02em",
+      "uppercase_label": "0.08em"
     }
   },
-  "colors": {
-    "archetype": "Amber-on-Graphite (Tactical Surveillance)",
-    "background": {
-      "base": "#09090B",
-      "panel": "#18181B",
-      "swimlane_alt": "#121214",
-      "drawer": "#09090B"
+  "design_tokens": {
+    "colors": {
+      "background_canvas": "#07090e",
+      "background_panel_primary": "#0d1117",
+      "background_panel_secondary": "#131822",
+      "background_panel_hover": "#1a2130",
+      "background_panel_active": "#222c3d",
+      "border_faint": "rgba(255, 255, 255, 0.06)",
+      "border_subtle": "#1e2638",
+      "border_medium": "#2d384e",
+      "border_strong": "#3f4d68",
+      "text_primary": "#e6edf3",
+      "text_secondary": "#9198a1",
+      "text_muted": "#656d76",
+      "text_faint": "#484f58",
+      "accent_mint": "#5cc0a5",
+      "accent_mint_dim": "#3b8b75",
+      "accent_orange": "#e27e5d",
+      "accent_cyan": "#38bdf8",
+      "accent_purple": "#a855f7"
     },
-    "border": {
-      "subtle": "#27272A",
-      "strong": "#3F3F46",
-      "focus": "#F59E0B"
+    "severity_tokens": {
+      "CRITICAL": {
+        "text": "#ff6b6b",
+        "bg": "rgba(239, 68, 68, 0.15)",
+        "border": "rgba(239, 68, 68, 0.35)",
+        "glyph": "OctagonAlert"
+      },
+      "HIGH": {
+        "text": "#f97316",
+        "bg": "rgba(249, 115, 22, 0.15)",
+        "border": "rgba(249, 115, 22, 0.35)",
+        "glyph": "TriangleAlert"
+      },
+      "MEDIUM": {
+        "text": "#facc15",
+        "bg": "rgba(250, 204, 21, 0.12)",
+        "border": "rgba(250, 204, 21, 0.3)",
+        "glyph": "AlertCircle"
+      },
+      "LOW": {
+        "text": "#38bdf8",
+        "bg": "rgba(56, 189, 248, 0.12)",
+        "border": "rgba(56, 189, 248, 0.28)",
+        "glyph": "Info"
+      },
+      "INFORMATIONAL": {
+        "text": "#9198a1",
+        "bg": "rgba(145, 152, 161, 0.12)",
+        "border": "rgba(145, 152, 161, 0.25)",
+        "glyph": "HelpCircle"
+      }
     },
-    "text": {
-      "primary": "#FAFAFA",
-      "secondary": "#A1A1AA",
-      "muted": "#71717A",
-      "inverse": "#09090B"
+    "verdict_tokens": {
+      "MALICIOUS": {
+        "color": "#ef4444",
+        "bg": "rgba(239, 68, 68, 0.18)",
+        "border": "#dc2626"
+      },
+      "SUSPICIOUS": {
+        "color": "#f97316",
+        "bg": "rgba(249, 115, 22, 0.18)",
+        "border": "#ea580c"
+      },
+      "BENIGN": {
+        "color": "#10b981",
+        "bg": "rgba(16, 185, 129, 0.15)",
+        "border": "#059669"
+      },
+      "UNKNOWN": {
+        "color": "#94a3b8",
+        "bg": "rgba(148, 163, 184, 0.15)",
+        "border": "#64748b"
+      }
     },
-    "swimlane_accents": {
-      "SYSTEM": "#8B5CF6",
-      "PROCESS": "#E11D48",
-      "FILES": "#F59E0B",
-      "NETWORK": "#4F46E5",
-      "REGISTRY": "#EA580C"
+    "honest_state_grammar": {
+      "NOT_OBSERVED": {
+        "badge_bg": "rgba(100, 116, 139, 0.1)",
+        "border": "#334155",
+        "text": "#94a3b8",
+        "icon": "EyeOff",
+        "hatch_pattern": "repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(148, 163, 184, 0.05) 6px, rgba(148, 163, 184, 0.05) 12px)",
+        "description": "Telemetry source actively scanned; zero telemetry matching filter recorded in requested window."
+      },
+      "NOT_ESTABLISHED": {
+        "badge_bg": "rgba(234, 179, 8, 0.1)",
+        "border": "rgba(234, 179, 8, 0.3)",
+        "text": "#eab308",
+        "icon": "Clock",
+        "hatch_pattern": "dotted-border",
+        "description": "Telemetry pipeline initializing or pending sync handshake from tenant edge sensor."
+      },
+      "NOT_AVAILABLE": {
+        "badge_bg": "rgba(168, 85, 247, 0.1)",
+        "border": "rgba(168, 85, 247, 0.3)",
+        "text": "#a855f7",
+        "icon": "ShieldAlert",
+        "hatch_pattern": "none",
+        "description": "Capability requires elevated tenant license tier or explicitly disabled by security policy."
+      },
+      "NOT_CONNECTED": {
+        "badge_bg": "rgba(239, 68, 68, 0.1)",
+        "border": "rgba(239, 68, 68, 0.3)",
+        "text": "#f87171",
+        "icon": "Unplug",
+        "hatch_pattern": "dashed-border",
+        "description": "Telemetry integration unconfigured or API credentials expired."
+      },
+      "NO_MATCHING_EVIDENCE": {
+        "badge_bg": "rgba(56, 189, 248, 0.08)",
+        "border": "rgba(56, 189, 248, 0.25)",
+        "text": "#38bdf8",
+        "icon": "SearchX",
+        "hatch_pattern": "none",
+        "description": "Investigation executed deterministically across all connected telemetry nodes with zero positive IOC matches."
+      },
+      "ERROR": {
+        "badge_bg": "rgba(239, 68, 68, 0.2)",
+        "border": "#ef4444",
+        "text": "#ef4444",
+        "icon": "AlertTriangle",
+        "hatch_pattern": "solid-alert",
+        "description": "Backend execution fault or authoritative API transport timeout."
+      }
     },
-    "verdict_halos": {
-      "benign": "shadow-[0_0_12px_rgba(34,197,94,0.15)] border-green-500/30",
-      "suspicious": "shadow-[0_0_12px_rgba(245,158,11,0.25)] border-amber-500/50",
-      "malicious": "shadow-[0_0_15px_rgba(225,29,72,0.4)] border-rose-600"
+    "elevation_and_shadows": {
+      "flat": "none",
+      "card": "0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
+      "popover": "0 8px 24px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
+      "modal": "0 20px 48px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08)"
+    },
+    "spacing_scale": {
+      "xs": "4px",
+      "sm": "8px",
+      "md": "12px",
+      "lg": "16px",
+      "xl": "20px",
+      "2xl": "24px",
+      "3xl": "32px"
+    },
+    "border_radii": {
+      "sharp": "0px",
+      "subtle": "2px",
+      "standard": "4px",
+      "rounded": "6px",
+      "pill": "9999px"
+    },
+    "z_index_scale": {
+      "base": 0,
+      "panel": 10,
+      "sticky_header": 20,
+      "popover_dropdown": 30,
+      "drawer_slideover": 40,
+      "modal_overlay": 50,
+      "toast_notification": 60,
+      "tooltip": 70
     }
   },
-  "grids": {
-    "global_layout": "grid-cols-1 lg:grid-cols-[1fr_380px]",
-    "timeline_lanes": "grid-rows-[auto_1fr] h-full"
-  },
-  "layouts": {
-    "page": "flex flex-col h-screen overflow-hidden bg-zinc-950 text-zinc-50 font-sans",
-    "header": "flex h-14 items-center justify-between border-b border-zinc-800 px-4 shrink-0 bg-zinc-950 z-20",
-    "main_workspace": "flex flex-1 overflow-hidden",
-    "timeline_container": "flex-1 flex flex-col overflow-hidden relative",
-    "swimlane": "flex-1 min-h-[100px] border-b border-zinc-800 relative group flex",
-    "swimlane_header": "w-32 shrink-0 border-r border-zinc-800 bg-zinc-900/50 p-2 flex flex-col justify-center items-end text-right z-10",
-    "swimlane_track": "flex-1 relative overflow-x-auto overflow-y-hidden bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTM5IDM5VjFoLTM4djM4aDM4eiIgZmlsbD0iIzI3MjcyYSIgZmlsbC1vcGFjaXR5PSIwLjA1IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiLz48L3N2Zz4=')]",
-    "drawer": "w-[380px] shrink-0 border-l border-zinc-800 bg-zinc-950 flex flex-col transform transition-transform duration-300 ease-in-out z-30 overflow-y-auto"
-  },
-  "visual_enhancers": {
-    "surface_strategy": "The 'Technical Grid' - expose the skeleton, sharp 1px borders, minimal radii (max 4px). NO glassmorphism. Solid tactical panels.",
-    "textures": "Subtle SVG grid background pattern in the timeline track to simulate a forensic cutting mat/graph paper.",
-    "nodes": "Dense, highly legible pills. 28px height. Border-left accented with lane color. Solid zinc-900 bg.",
-    "mitre_chip": "Absolute positioned, top -8px, right -4px. text-[9px] bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-sm px-1 font-mono z-10 shadow-sm",
-    "spawn_arcs": "SVG overlays connecting nodes. Use stroke-zinc-600 stroke-dasharray-4. Highlight to amber-500 on node hover."
-  },
-  "components_spec": {
-    "HeaderMetaBar": {
-      "description": "Top bar containing case ID, event count, and V2 badge.",
-      "classes": "h-14 flex items-center gap-4",
-      "v2_badge": "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.1)]",
-      "search": "relative max-w-sm w-full ml-auto. Shadcn Input tailored with mono font, bg-zinc-900 border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+  "icon_system": {
+    "library": "lucide-react",
+    "stroke_width": 1.5,
+    "size_scale": {
+      "micro": "12px",
+      "sm": "14px",
+      "md": "16px",
+      "lg": "20px",
+      "xl": "24px"
     },
-    "TimelineAxis": {
-      "description": "Sticky bottom ruler. Real UTC markings.",
-      "classes": "h-10 border-t border-zinc-800 bg-zinc-950 flex items-center px-4 text-xs font-mono text-zinc-500 relative shrink-0",
-      "tick_marks": "Absolute positioned vertical 1px lines mapping to time units."
-    },
-    "EventNode": {
-      "description": "DENSE nodes representing individual events in a swimlane.",
-      "classes": "absolute top-1/2 -translate-y-1/2 h-7 min-w-[140px] max-w-[280px] bg-zinc-900 border border-zinc-700 rounded-sm flex items-center pl-2 pr-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg hover:border-zinc-500 hover:z-20",
-      "icon_wrapper": "shrink-0 mr-2 opacity-80",
-      "text": "truncate text-xs font-mono text-zinc-300 leading-none"
-    },
-    "RightDrawer": {
-      "description": "Case overview (empty state) or Event Evidence panel (populated state).",
-      "classes": "p-5 flex flex-col gap-6",
-      "empty_state_sections": "MITRE Tactics Hit, Top Entities, Event Breakdown, Narrative. Use dense tabular layouts.",
-      "evidence_panel": "Rule ID, source, confidence, artifact refs, ATT&CK mapping, exact command / process ancestry."
-    },
-    "TrainingNoteCTA": {
-      "description": "Floating action button for analyst annotations.",
-      "classes": "fixed bottom-14 right-[400px] bg-amber-500 text-amber-950 px-3 py-1.5 rounded-sm font-semibold text-xs shadow-lg flex items-center gap-2 hover:bg-amber-400 z-40 transition-colors cursor-pointer border border-amber-300/50"
+    "sidebar_section_icons": {
+      "Workspace": "LayoutGrid",
+      "Operations": "Activity",
+      "Investigations": "ShieldAlert",
+      "Intelligence": "Globe",
+      "Exposure": "Radar",
+      "Data": "Database",
+      "Administration": "Settings"
     }
   },
-  "motion": {
-    "drawer": "transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-    "node_hover": "transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, border-color 0.15s ease",
-    "spawn_arcs": "SVG stroke-dashoffset animation on focus"
+  "component_primitives": {
+    "Button": {
+      "variants": ["primary", "secondary", "ghost", "destructive", "outline"],
+      "sizes": ["xs (24px)", "sm (28px)", "md (32px)", "lg (40px)"],
+      "states": ["default", "hover", "active", "focus-visible", "disabled", "loading"],
+      "rule": "Every button must have a subtle focus-visible ring (`ring-1 ring-[#5cc0a5]`) and active scale transition (`active:scale-[0.98]`). Mandatory data-testid."
+    },
+    "Table": {
+      "style": "Dense Enterprise Data Grid",
+      "header_height": "32px",
+      "row_height": "32px",
+      "font_family": "Monospace for hashes/IPs/timestamps, Geist for labels",
+      "features": ["sticky header", "column resize handles", "checkbox bulk select", "sort indicators", "row action menu"]
+    },
+    "DeviceTrajectoryCanvas": {
+      "panes": ["Left inventory (240px)", "Center Canvas + SVG timeline", "Right Activity Details (320px)"],
+      "render_mode": "Canvas for grid + SVG for interactive process nodes and curved edges"
+    }
   },
-  "accessibility": {
-    "focus_visible": "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
-    "keyboard": "Implement ← / → keydown listeners for node step-through. `/` key to focus search input. `Esc` to close drawer."
+  "layout_system": {
+    "sidebar_width_expanded": "240px",
+    "sidebar_width_collapsed": "56px",
+    "topbar_height": "48px",
+    "gutter": "16px",
+    "content_max_width": "none (full viewport width utilization)"
   },
-  "media": {},
-  "image_urls": {},
   "instructions_to_main_agent": [
-    "DO NOT use generic UI layouts. This must look like a high-density forensic terminal.",
-    "USE 'IBM Plex Sans' for normal text and 'IBM Plex Mono' for ALL data points, timestamps, commands, and IDs. Add @import to load these from Google Fonts.",
-    "Enforce strict 1px borders using zinc-800 for the grid structure. NO rounded soft cards. Use 'rounded-sm' (max 4px radius).",
-    "Ensure nodes represent actual items. Use fixed height/width absolute positioning relative to their time axis in the swimlanes to mimic a proper Gantt/Timeline chart.",
-    "Draw SVG lines (spawn arcs) between parent and child nodes using standard path definitions (e.g. `<svg><path ... /></svg>`) bridging between coordinates. Mock the visual representation clearly.",
-    "For icons: Use lucide-react. Map specific icons to rows: SYSTEM (Cpu), PROCESS (Activity), FILES (FileCode), NETWORK (Globe), REGISTRY (Database).",
-    "The drawer state MUST switch entirely between Case Overview and Evidence Panel depending on selection state.",
-    "Implement data-testid on every clickable or interactive node.",
-    "Ensure dark colors are strictly derived from the zinc palette for backgrounds, avoiding all cyans or teals completely."
+    "Step 1: Create `src/styles/tokens.css` with exact root CSS variables matching design_tokens.",
+    "Step 2: Create reusable component primitives in `src/components/ui/` (Button, Tag, Badge, Table, Modal, Tooltip, Input, Select, honest state containers).",
+    "Step 3: Refactor `XdrShell.jsx` topbar and left navigation using new design system tokens and icons.",
+    "Step 4: Upgrade `XdrIncidentsPage.jsx` and `XdrIncidentDetailPage.jsx` to enterprise data density tables and multi-tab layouts.",
+    "Step 5: Apply honest-state visual grammar (Not Connected / No Matching Evidence / Not Observed) across all 6 domain pages and integrations.",
+    "Step 6: Upgrade Device Trajectory 3-pane canvas and Admin pages."
   ],
   "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "Never use completely transparent backgrounds over content.",
-    "Create depth through layered design elements with z-index hierarchy.",
-    "Add Transitions for specific interactive elements like button, input excluding transforms.",
-    "Always use specific properties for transitions (NOT transition: all).",
-    "Ensure all interactive and key informational elements include a data-testid attribute.",
-    "Use Sonner for toasts."
+    "Dark SOC Console Aesthetic ONLY. Do not introduce light mode or colorful consumer gradients.",
+    "All interactive and key informational elements MUST include `data-testid` attribute (e.g. `data-testid='incidents-table-row-0'`).",
+    "Never show generic empty states. Always render an authoritative honest state from the grammar.",
+    "Monospace fonts ('JetBrains Mono' / 'IBM Plex Mono') MUST be used for IP addresses, hashes, command lines, timestamps, and process IDs."
   ]
 }

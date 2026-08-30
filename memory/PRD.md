@@ -200,6 +200,16 @@ Response
      - sub-second incident open
      - immutable audit on every state transition + response action
      - server-side tenant firewall (never client-side filtering)
+5. **Enterprise design bar (locked)** — every tab, page, button,
+   icon, table, badge, modal, empty-state, chart, and micro-
+   interaction must be first-class enterprise-grade.  No inline
+   ad-hoc styling; every surface consumes the shared design tokens
+   + component primitives.  Before designing or building a new
+   surface, invoke `design_agent_full_stack` for the visual
+   blueprint, then implement against it.  Reference bar:
+   Splunk MC · Elastic Security · Sentinel · Palo Alto XSIAM ·
+   CrowdStrike Falcon Next-Gen · Vercel dashboard.  Ordinary
+   framework-default look is a bug.
 
 ---
 

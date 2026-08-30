@@ -21,6 +21,7 @@ import { Loader2, RefreshCcw, ArrowRightLeft } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
+import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
 import api from "@/lib/api";
 
 // ── Small state helpers ─────────────────────────────────────────
@@ -125,7 +126,10 @@ function AdminBody({ section }) {
       const rows = extractRows(data);
       const kv = data && typeof data === "object" && !Array.isArray(data)
                     ? Object.keys(data).length : 0;
-      setState((rows.length + kv) === 0 ? "empty" : "populated");
+      // Integrations always renders POPULATED — even with zero rows the
+      // catalog + honest "no matching evidence" still show up.
+      if (section.kind === "integrations") setState("populated");
+      else setState((rows.length + kv) === 0 ? "empty" : "populated");
     } catch (e) {
       setError(e?.response?.data?.detail || e?.message || "Request failed.");
       setState("error");
@@ -191,7 +195,9 @@ function AdminBody({ section }) {
         )}
         {state === "populated" && (
           <div data-testid={`xdr-admin-populated-${section.key}`}>
-            {section.kind === "table"
+            {section.kind === "integrations"
+              ? <IntegrationsBody rows={extractRows(payload)} />
+              : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}
             <div style={{ marginTop: 10, color: "var(--faint)", fontSize: 10.5,

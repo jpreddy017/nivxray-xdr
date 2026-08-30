@@ -23,16 +23,9 @@ export const ADMIN_SECTIONS = [
   },
   {
     key: "integrations", label: "Integrations", icon: Plug,
-    subtitle: "OSINT enrichment services and TAXII feeds.",
-    api: "/admin/osint/services", kind: "table",
-    columns: [
-      { k: "name",       label: "Service" },
-      { k: "type",       label: "Type" },
-      { k: "enabled",    label: "Enabled", render: (v) => v ? "YES" : "NO" },
-      { k: "endpoint",   label: "Endpoint", mono: true },
-      { k: "last_check", label: "Last Check", mono: true },
-    ],
-    empty: "No OSINT integrations wired for this tenant.",
+    subtitle: "Connect telemetry sources — every source flows through the same ingestion pipeline into canonical evidence.",
+    api: "/admin/osint/services", kind: "integrations",
+    empty: "No telemetry sources connected for this tenant.",
   },
   {
     key: "data-sources", label: "Data Sources", icon: HardDrive,
