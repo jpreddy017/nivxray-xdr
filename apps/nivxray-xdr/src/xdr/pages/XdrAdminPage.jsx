@@ -22,6 +22,7 @@ import { Loader2, RefreshCcw, ArrowRightLeft } from "lucide-react";
 import XdrShell from "@/xdr/XdrShell";
 import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
 import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
+import * as collectorApi from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
 
 // ── Small state helpers ─────────────────────────────────────────
@@ -99,13 +100,39 @@ function TableBlock({ rows, columns }) {
 }
 
 // Best-effort extraction of a list from a JSON payload.
-function extractRows(payload) {
+function extractRows(payload, key) {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
-  for (const k of ["items","results","rows","data","users","services","models","records"]) {
+  if (key && Array.isArray(payload[key])) return payload[key];
+  for (const k of ["items","results","rows","data","users","services","models","records","data_sources","collectors"]) {
     if (Array.isArray(payload[k])) return payload[k];
   }
   return [];
+}
+
+// Route an API path — `collector:/…` targets the standalone XDR
+// collector service; everything else targets the authoritative
+// NivXRay backend.
+async function fetchSection(section) {
+  const path = section.api;
+  if (!path) return { kind: "not_connected" };
+  if (path.startsWith("collector:")) {
+    if (!collectorApi.COLLECTOR_CONFIGURED) {
+      const err = new Error("COLLECTOR_RUNTIME_NOT_DEPLOYED");
+      err.code = "COLLECTOR_RUNTIME_NOT_DEPLOYED";
+      throw err;
+    }
+    const fn = {
+      "collector:/data-sources":      collectorApi.listDataSources,
+      "collector:/collectors":        collectorApi.listCollectors,
+      "collector:/telemetry-health":  collectorApi.getTelemetryHealth,
+      "collector:/connectors":        collectorApi.listCollectorConnectors,
+    }[path];
+    if (!fn) throw new Error(`unknown_collector_route:${path}`);
+    return { kind: "populated", data: await fn() };
+  }
+  const { data } = await api.get(path);
+  return { kind: "populated", data };
 }
 
 // ── The admin body ──────────────────────────────────────────────
@@ -121,18 +148,21 @@ function AdminBody({ section }) {
     }
     setState("loading"); setError(null);
     try {
-      const { data } = await api.get(section.api);
+      const res = await fetchSection(section);
+      const data = res.data;
       setPayload(data);
-      const rows = extractRows(data);
+      const rows = extractRows(data, section.payloadKey);
       const kv = data && typeof data === "object" && !Array.isArray(data)
                     ? Object.keys(data).length : 0;
-      // Integrations always renders POPULATED — even with zero rows the
-      // catalog + honest "no matching evidence" still show up.
       if (section.kind === "integrations") setState("populated");
       else setState((rows.length + kv) === 0 ? "empty" : "populated");
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Request failed.");
-      setState("error");
+      if (e && e.code === "COLLECTOR_RUNTIME_NOT_DEPLOYED") {
+        setState("collector_not_deployed");
+      } else {
+        setError(e?.response?.data?.detail || e?.message || "Request failed.");
+        setState("error");
+      }
     }
   }, [section]);
 
@@ -179,6 +209,27 @@ function AdminBody({ section }) {
         )}
         {state === "not_available" && (
           <NotAvailable section={section} />
+        )}
+        {state === "collector_not_deployed" && (
+          <div style={{ padding: 14 }}>
+            <HonestBadge label="COLLECTOR RUNTIME NOT DEPLOYED"
+                            color="var(--amber)"
+                            testid={`xdr-admin-collector-missing-${section.key}`} />
+            <div style={{ marginTop: 8, color: "var(--text-dim)", fontSize: 11.5,
+                             lineHeight: 1.6 }}>
+              This surface reads live state from the NivXRay XDR Collector
+              service, a separately deployable runtime.  It is not yet
+              configured for this XDR frontend.
+            </div>
+            <div style={{ marginTop: 6, color: "var(--faint)", fontSize: 10.5,
+                             fontFamily: "var(--xmono)" }}>
+              To wire it: set <span style={{ color: "var(--cyan)" }}>
+              VITE_XDR_COLLECTOR_URL</span> in the Vercel project settings
+              to point at the deployed collector service, then redeploy.
+              Reference implementation: <span style={{ color: "var(--cyan)" }}>
+              /app/apps/nivxray-xdr-collector</span>.
+            </div>
+          </div>
         )}
         {state === "empty" && (
           <div style={{ padding: 14 }}>

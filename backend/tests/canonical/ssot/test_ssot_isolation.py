@@ -441,7 +441,25 @@ def test_no_route_file_modified_by_phase2():
         # NivXRay backend APIs (never a deep-link to base /admin).
         "apps/nivxray-xdr/src/xdr/admin/adminMeta.js",
         "apps/nivxray-xdr/src/xdr/admin/IntegrationsBody.jsx",
+        "apps/nivxray-xdr/src/xdr/admin/collectorApi.js",
         "apps/nivxray-xdr/src/xdr/pages/XdrAdminPage.jsx",
+        # Phase A · NivXRay XDR Collector service (new independently
+        # deployable runtime — collection & transport plane only).
+        # Not on Vercel; deployable as a Docker image alongside the
+        # authoritative NivXRay backend.
+        "apps/nivxray-xdr-collector/main.py",
+        "apps/nivxray-xdr-collector/framework/__init__.py",
+        "apps/nivxray-xdr-collector/framework/base.py",
+        "apps/nivxray-xdr-collector/framework/registry.py",
+        "apps/nivxray-xdr-collector/routes/__init__.py",
+        "apps/nivxray-xdr-collector/routes/connectors.py",
+        "apps/nivxray-xdr-collector/routes/collectors.py",
+        "apps/nivxray-xdr-collector/routes/telemetry_health.py",
+        "apps/nivxray-xdr-collector/routes/data_sources.py",
+        "apps/nivxray-xdr-collector/routes/webhooks.py",
+        "apps/nivxray-xdr-collector/requirements.txt",
+        "apps/nivxray-xdr-collector/Dockerfile",
+        "apps/nivxray-xdr-collector/README.md",
         "frontend/src/nivxforge/edrApi.js",
         "frontend/src/nivxforge/pages/EdrDetectionsPage.jsx",
         "frontend/src/nivxforge/pages/EdrProcessTreePage.jsx",
