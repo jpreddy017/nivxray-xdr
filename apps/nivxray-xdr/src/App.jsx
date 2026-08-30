@@ -19,6 +19,7 @@ const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajecto
 const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomainPage"));
 const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
 const XdrAdminPage            = lazy(() => import("@/xdr/pages/XdrAdminPage"));
+const XdrMitreHeatmap         = lazy(() => import("@/xdr/pages/XdrMitreHeatmap"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -95,7 +96,7 @@ export default function App() {
         <Route path="/xdr/intelligence/iocs"    element={<Protected><XdrReservedPage capability="iocs" /></Protected>} />
         <Route path="/xdr/intelligence/command" element={<Protected><XdrReservedPage capability="command" /></Protected>} />
         <Route path="/xdr/intelligence/malware" element={<Protected><XdrReservedPage capability="malware" /></Protected>} />
-        <Route path="/xdr/intelligence/mitre"   element={<Protected><XdrReservedPage capability="mitre" /></Protected>} />
+        <Route path="/xdr/intelligence/mitre"   element={<Protected><XdrMitreHeatmap /></Protected>} />
         <Route path="/xdr/intelligence/kb"      element={<Protected><XdrReservedPage capability="kb" /></Protected>} />
 
         {/* Slice 10 · Native XDR Admin Console.  All 14 admin

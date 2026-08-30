@@ -1,37 +1,41 @@
+"""
+Telemetry health projection · Phase B.
+
+Emits per-configured-source health rows.  When no instances exist for
+a source-type the row is honestly `NEVER CONNECTED`.  With instances,
+the row reflects the running connector's health + metrics.
+"""
+from __future__ import annotations
+
 from fastapi import APIRouter, Request
 
 router = APIRouter(tags=["telemetry-health"])
 
 
+KNOWN_SOURCE_TYPES = ["rest", "webhook", "syslog"]
+
+
 @router.get("/telemetry-health")
 def telemetry_health(request: Request):
-    """Health projection per configured source.
+    instances = getattr(request.app.state, "instances", {})
+    by_type: dict[str, list[dict]] = {}
+    for inst in instances.values():
+        by_type.setdefault(inst.source_type, []).append(inst.describe())
 
-    Phase A: emits an honest per-source-type NEVER CONNECTED row for
-    every source-type the framework KNOWS ABOUT.  Once vendor adapters
-    are registered (Phase C+) and a tenant configures an instance,
-    the row flips to the real health reported by the connector.
-    """
-    reg = request.app.state.registry
-    rows_by_source = {}
-    for c in reg.all():
-        rows_by_source.setdefault(c.source_type, []).append(c.describe())
-
-    known_source_types = [
-        "edr", "siem", "firewall", "network", "dns", "email",
-        "identity", "cloud", "saas", "app", "api", "custom",
-    ]
-    out = []
-    for st in known_source_types:
-        instances = rows_by_source.get(st, [])
-        if not instances:
-            out.append({"source_type": st, "health": "never_connected",
-                          "instances": 0,
-                          "note": "no connector instance configured for this tenant"})
+    rows = []
+    for st in KNOWN_SOURCE_TYPES:
+        insts = by_type.get(st, [])
+        if not insts:
+            rows.append({"source_type": st,
+                          "health":      "never_connected",
+                          "instances":   0,
+                          "note":        "no connector instance configured"})
         else:
-            for inst in instances:
-                out.append({"source_type": st,
+            for inst in insts:
+                rows.append({"source_type": st,
                               "identity":    inst["identity"],
                               "health":      inst["health"],
                               "metrics":     inst["metrics"]})
-    return {"rows": out, "phase": "A"}
+    return {"rows": rows, "phase": "B",
+              "ingest": request.app.state.runtime.ingest.status()
+                          if hasattr(request.app.state, "runtime") else None}

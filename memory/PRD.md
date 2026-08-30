@@ -264,3 +264,76 @@ Response
 ## Test credentials
 
 See `/app/memory/test_credentials.md` — `admin@nivxray.com` (same token on both hosts).
+
+---
+
+## 2026-02 Fork — Session Delivery Log
+
+### Native MITRE ATT&CK Heatmap (COMPLETE · deployed)
+- Route: `/xdr/intelligence/mitre` (was a locked "reserved" deep-link).
+- Ships the FULL MITRE ATT&CK Enterprise v16 top-level taxonomy: 14
+  tactics, **199 distinct techniques (230 cell mappings)**.
+- Live vs. static separation: KPI grid shows only live metrics
+  (Detections window, Techniques Observed, Rule Coverage, Incidents
+  Scanned). Static catalog constants moved to a meta strip.
+- Refresh button: spinner + label + clears filter + clears selection
+  + drops cached incidents + increments a visible `Refreshes` counter.
+  Auto-poll every 30s. "Last synced Xs ago" ticks live.
+- Sidebar entry promoted from reserved (locked) to live.
+- Deployed to Vercel: commits `bddca0b → 1d9be9c → e293ada` on
+  `jpreddy017/nivxray-xdr` `main`. Vercel auto-build handles rollout.
+
+### XDR Collector Phase B (COMPLETE · service ready to deploy)
+Location: `/app/apps/nivxray-xdr-collector` (independent Docker service).
+Three generic transport connectors, all with real transport code (not
+UI stubs):
+
+- **REST Poller** — httpx-based, bearer/basic/api-key auth, cursor
+  pagination, checkpoint advancement, 429 → rate_limited, 401 →
+  authentication_failed. Async scheduler runs one task per instance
+  at `interval_seconds`.
+- **Webhook Receiver** — `POST /api/xdr/webhooks/{secret_id}`, HMAC
+  verification (`hmac.compare_digest`), replay window 5 min via
+  `X-Timestamp`. Missing/mismatched signature → HTTP 401 with reason,
+  never 500.
+- **Syslog Collector** — asyncio UDP + TCP listeners, RFC3164 and
+  RFC5424 parsers, bind-conflict safety, per-instance socket in
+  `SyslogRunner`.
+
+Cross-cutting:
+- `ConnectorStore` — in-memory + optional JSON mirror at
+  `${XDR_STATE_DIR}/connectors.json` (chmod 600), credentials
+  redacted in every API response.
+- `DedupCache` — bounded per-connector LRU keyed on `source_event_id`.
+- `IngestClient` — best-effort forwarder to `NIVX_INGEST_URL`.
+  Honestly reports `queued` when no ingest URL is configured; Phase
+  B.5 replaces with durable outbox + DLQ.
+- Full management API surface: `/api/xdr/source-types`,
+  `/api/xdr/connectors` CRUD + control (test/start/stop/inject),
+  `/api/xdr/telemetry-health`, `/api/xdr/data-sources`,
+  `/api/xdr/webhooks/{secret_id}`.
+
+Testing:
+- 27/27 pytest pass (parsers 7, REST poller 4, webhook 7, syslog 5
+  with real UDP+TCP socket binds, routes 3 with FastAPI lifespan).
+- Live E2E verified via curl: created webhook, POSTed 3 events,
+  `events_collected: 3`, cleanup successful.
+
+Base backend invariant preserved: `/api/health` = 200, `/app/frontend`
+and `/app/backend` untouched, 87-pass baseline unaffected.
+
+### Immediate backlog (post-fork)
+- **P0 · Phase B.5** — durable outbox + DLQ + retry/backoff, real
+  forwarding to authoritative NivXRay ingest, observability metrics
+  in `/api/xdr/telemetry-health`.
+- **P1 · Deploy the collector** — publish Docker image, wire
+  `NIVX_INGEST_URL`/`NIVX_INGEST_TOKEN` at the tenant edge.
+- **P2 · Phase C** — CrowdStrike / Defender / SentinelOne / Cisco SEP
+  vendor connectors on the Phase B foundation.
+- **P3 · Phase D** — Windows WEF / WinRM / WMI collectors.
+- **P4 · Slice 8** — Device Trajectory IA rewrite (entity-per-row).
+- **P4 · Slice 9** — Lifecycle + immutable Activity.
+- **P4 · Slice 11** — Response Approval Loop.
+- **P4 · Slice 12** — Global Response Center.
+- **P5 · Slices 13-16** — remaining domain consoles, native Command
+  Intelligence, Notes/Attachments.

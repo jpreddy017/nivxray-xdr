@@ -1,22 +1,18 @@
 """
-NivXRay XDR Collector Service · Phase A skeleton
-================================================
+NivXRay XDR Collector Service · Phase B
+=======================================
 
-Independently deployable FastAPI service that owns the *collection
-and transport* plane for NivXRay XDR.  This service NEVER makes
-security decisions — its job ends at "canonical envelope delivered
-to the authoritative NivXRay ingestion API".
+Independently deployable FastAPI service that owns the **collection
+and transport plane** for NivXRay XDR.  This service NEVER makes
+security decisions — its responsibility ends at "canonical envelope
+delivered to the authoritative NivXRay ingestion API".
 
 Architectural boundary (owner-locked):
   ┌──────────────────────────────────────────────────────────────┐
   │ NivXRay XDR Collector Service (this repo/app)                │
-  │   • ConnectorRegistry / Connector interface                  │
-  │   • Collector runtime (scheduling / retry / backpressure)    │
-  │   • Health / checkpoint / provenance / dedup                 │
-  │   • Inbound receivers: syslog, webhook                       │
-  │   • Outbound pollers: REST / API                             │
-  │   • Windows collection adapters (WEF / WinRM / WMI)          │
-  │   • Vendor adapters (CrowdStrike / Defender / SentinelOne …) │
+  │   • Connector framework · Registry · Runtime                 │
+  │   • Phase B transports: REST poller · Webhook · Syslog       │
+  │   • Health · checkpoint · provenance · dedup                 │
   └──────────────────────────────────────────────────────────────┘
                         │  canonical envelope  │
                         ▼                      ▼
@@ -26,47 +22,94 @@ Architectural boundary (owner-locked):
   │   • Process Tree · Trajectory · Command · MITRE              │
   └──────────────────────────────────────────────────────────────┘
 
-Deployment: not Vercel.  Ship as a Docker image + persistent process
-runtime (fly.io / Cloud Run / Railway / bare Docker etc).
+Deployment: not Vercel.  Ship as a Docker image + persistent process.
 """
 from __future__ import annotations
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import os
+from contextlib import asynccontextmanager
 
-from routes.connectors      import router as connectors_router
-from routes.collectors      import router as collectors_router
-from routes.telemetry_health import router as telemetry_health_router
-from routes.data_sources    import router as data_sources_router
-from routes.webhooks        import router as webhooks_router
+from fastapi                    import FastAPI
+from fastapi.middleware.cors    import CORSMiddleware
+
 from framework.registry     import ConnectorRegistry
+from framework.runtime      import CollectorRuntime
+from framework.store        import ConnectorStore
+from framework.rest_poller  import RestPollerConnector
+from framework.webhook      import WebhookConnector
+from framework.syslog       import SyslogConnector
+
+from routes.connectors       import router as connectors_router
+from routes.collectors       import router as collectors_router
+from routes.telemetry_health import router as telemetry_health_router
+from routes.data_sources     import router as data_sources_router
+from routes.webhooks         import router as webhooks_router
+
+
+_CLASS_BY_TYPE = {
+    "rest":    RestPollerConnector,
+    "webhook": WebhookConnector,
+    "syslog":  SyslogConnector,
+}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── Boot registry + store + runtime ────────────────────
+    app.state.registry  = ConnectorRegistry()
+    app.state.store     = ConnectorStore()
+    app.state.runtime   = CollectorRuntime()
+    app.state.instances = {}
+
+    # Rehydrate persisted connectors and auto-start the enabled ones.
+    for rec in app.state.store.list():
+        cls = _CLASS_BY_TYPE.get(rec.source_type)
+        if not cls:
+            continue
+        try:
+            inst = cls(tenant_id=rec.tenant_id, config=rec.config,
+                        identity=rec.id)
+            app.state.instances[rec.id] = inst
+            app.state.registry.register_instance(inst)
+            if rec.enabled and os.environ.get("XDR_AUTO_START_CONNECTORS", "1") == "1":
+                await app.state.runtime.start(inst)
+        except Exception:                                       # noqa: BLE001
+            # Refuse to crash boot on a single bad record; the API
+            # will surface it as `not_started` for operator repair.
+            continue
+
+    yield
+
+    # ── Graceful shutdown ─────────────────────────────────
+    for inst in list(app.state.instances.values()):
+        try:
+            await app.state.runtime.stop(inst)
+        except Exception:                                       # noqa: BLE001
+            pass
+
 
 app = FastAPI(
     title="NivXRay XDR Collector",
-    version="0.1.0-phaseA",
-    description="Native collection / transport plane for NivXRay XDR.  "
-                    "This service does NOT compute verdicts, correlations, "
-                    "or investigation intelligence — those remain "
-                    "authoritative in the existing NivXRay backend.",
+    version="0.2.0-phaseB",
+    description="Collection & transport plane for NivXRay XDR.  "
+                    "Owns connectors (REST poller · Webhook · Syslog), "
+                    "checkpointing, dedup, and forwarding to the "
+                    "authoritative NivXRay ingestion API.  Never decides "
+                    "verdicts, correlations, or investigation intelligence.",
     docs_url="/docs",
     redoc_url=None,
+    lifespan=lifespan,
 )
 
 # CORS — the XDR Vercel frontend is the only intended browser client.
-# In production, restrict via an explicit allow-list env var; wide-open
-# CORS is a deployment-time misconfiguration, not a Phase-A default.
+# In production, tighten via an explicit allow-list env var.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # tighten per-deployment via env
-    allow_methods=["GET","POST"],
+    allow_origins=(os.environ.get("XDR_CORS_ORIGINS") or "*").split(","),
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
-
-# Boot the singleton connector registry.  Vendor connectors are NOT
-# registered in Phase A — the registry is empty by design so the UI
-# renders honest NOT CONNECTED / NEVER CONNECTED states.  Vendor
-# adapters land in Phases B/C/D.
-app.state.registry = ConnectorRegistry()
 
 app.include_router(connectors_router,       prefix="/api/xdr")
 app.include_router(collectors_router,       prefix="/api/xdr")
@@ -78,15 +121,25 @@ app.include_router(webhooks_router,         prefix="/api/xdr")
 @app.get("/health")
 def liveness():
     """Liveness probe.  Never touches downstream systems."""
-    return {"status": "ok", "service": "nivxray-xdr-collector",
-              "phase":  "A",  "connectors_registered": len(app.state.registry.list_ids())}
+    running_rest    = len(app.state.runtime.scheduler.running()) if hasattr(app.state, "runtime") else 0
+    running_syslog  = len(app.state.runtime.syslog.running())    if hasattr(app.state, "runtime") else 0
+    return {
+        "status":        "ok",
+        "service":       "nivxray-xdr-collector",
+        "phase":         "B",
+        "version":       "0.2.0-phaseB",
+        "connectors":    len(getattr(app.state, "instances", {})),
+        "rest_running":  running_rest,
+        "syslog_running": running_syslog,
+        "ingest":        app.state.runtime.ingest.status() if hasattr(app.state, "runtime") else None,
+    }
 
 
 @app.get("/")
 def root():
     return {
-        "service": "nivxray-xdr-collector",
-        "docs":    "/docs",
-        "phase":   "A · framework only (no vendor adapters yet)",
+        "service":  "nivxray-xdr-collector",
+        "docs":     "/docs",
+        "phase":    "B · REST · Webhook · Syslog",
         "boundary": "collection & transport only · never a security decision",
     }
