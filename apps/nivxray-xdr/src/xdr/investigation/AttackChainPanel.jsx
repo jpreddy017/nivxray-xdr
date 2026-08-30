@@ -122,6 +122,15 @@ export default function AttackChainPanel({ incident }) {
   const selectedTech = selection?.kind === "technique"
                                             ? selection?.ref?.technique_id : null;
 
+  // Canvas width — always generous so the horizontal scrollbar
+  // engages and users can drag/scroll left-to-right just like the
+  // NivXRay Tool trajectory.  The floor of 2200 gives room for
+  // ~12 columns of technique nodes; grows further as more nodes
+  // are plotted.
+  const contentWidth = Math.max(
+    2200,
+    LANE_X + 60 + (nodes.length || 1) * NODE_GAP_X);
+
   // Deterministic auto-layout with hand-drag overrides on top.
   const laidOut = useMemo(() => {
     const out = {};
@@ -144,30 +153,43 @@ export default function AttackChainPanel({ incident }) {
     const xIndex = new Map();
     allSorted.forEach((n, i) => xIndex.set(n.technique_id, i));
 
+    // Distribute the technique nodes across the FULL canvas width
+    // rather than clustering them on the left.  When the chain has
+    // many techniques we fall back to the fixed NODE_GAP_X so the
+    // trajectory grows horizontally (native scroll takes over).
+    const usableW = Math.max(contentWidth - LANE_X - 80 - NODE_W, NODE_W);
+    const step = allSorted.length > 1
+      ? Math.max(NODE_GAP_X, usableW / (allSorted.length - 1))
+      : 0;
+
     for (const n of nodes) {
       const rowIdx = KILL_CHAIN.findIndex((k) => k.key === n.tactic);
       const y = 20 + rowIdx * ROW_H + (ROW_H - NODE_H) / 2;
       const xCol = xIndex.get(n.technique_id) || 0;
-      const x = LANE_X + 40 + xCol * NODE_GAP_X;
+      const x = LANE_X + 40 + xCol * step;
       const override = overrides[n.technique_id];
       out[n.technique_id] = override || { x, y };
     }
     return out;
-  }, [nodes, overrides]);
+  }, [nodes, overrides, contentWidth]);
 
   const reset = () => { setOverrides({}); setPan({ x: 0, y: 0 }); setZoom(100); };
 
-  // Canvas width — always generous so the horizontal scrollbar
-  // engages and users can drag/scroll left-to-right just like the
-  // NivXRay Tool trajectory.  The floor of 2200 gives room for
-  // ~12 columns of technique nodes; grows further as more nodes
-  // are plotted.
-  const contentWidth = Math.max(
-    2200,
-    LANE_X + 60 + (nodes.length || 1) * NODE_GAP_X);
+  const dragScrollRef = useRef(null);
 
   const onMouseDown = (e) => {
     if (nodeDrag) return;
+    // The scroll container = the div the mousedown fired on.  This
+    // matches the base NivXRay Tool trajectory: click-drag adjusts
+    // the container's scrollLeft/scrollTop so wide chains navigate
+    // via native scroll.  Works transparently for main + popout.
+    dragScrollRef.current = {
+      el: e.currentTarget,
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: e.currentTarget.scrollLeft,
+      scrollTop:  e.currentTarget.scrollTop,
+    };
     setDrag({ startX: e.clientX, startY: e.clientY,
                      panX: pan.x, panY: pan.y });
   };
@@ -181,11 +203,17 @@ export default function AttackChainPanel({ incident }) {
       }));
       return;
     }
-    if (!drag) return;
-    setPan({ x: drag.panX + (e.clientX - drag.startX),
-                y: drag.panY + (e.clientY - drag.startY) });
+    if (!drag || !dragScrollRef.current) return;
+    const { el, startX, startY, scrollLeft, scrollTop } = dragScrollRef.current;
+    if (!el) return;
+    el.scrollLeft = scrollLeft - (e.clientX - startX);
+    el.scrollTop  = scrollTop  - (e.clientY - startY);
   };
-  const endDrag = () => { setDrag(null); setNodeDrag(null); };
+  const endDrag = () => {
+    setDrag(null);
+    setNodeDrag(null);
+    dragScrollRef.current = null;
+  };
 
   if (!hasEvidence && nodes.length === 0) {
     return (
@@ -320,7 +348,8 @@ export default function AttackChainPanel({ incident }) {
       {!collapsed && (
         <>
           <TacticLegend />
-          <div style={canvasFrame}
+          <div ref={canvasRef}
+                     style={canvasFrame}
                      onMouseDown={onMouseDown}
                      onMouseMove={onMouseMove}
                      onMouseUp={endDrag}
@@ -709,6 +738,8 @@ function truncate(s, n) {
 
 // ── styles ────────────────────────────────────────────────────────
 const canvasFrame = {
+  width: "100%",                           // constrain to parent
+  boxSizing: "border-box",
   border: "1px solid #1f2b3f", borderRadius: 10,
   background: "rgba(2,6,23,0.65)",
   overflowX: "scroll",                     // ALWAYS-visible horizontal (NivXRay Tool parity)
