@@ -42,11 +42,10 @@ export default function DomainCardsGrid({ incident, evidenceCounts }) {
   if (!incident) return null;
 
   const openDomain = (key, state) => {
-    if (state === "not_connected") {
-      // Honest destination — reserved integrations surface.
-      navigate("/xdr/intelligence/malware"); // placeholder route
-      return;
-    }
+    // Every card — regardless of state — opens the domain-detail
+    // page for this incident.  The domain page renders the honest
+    // NOT CONNECTED / SEARCHED / RELATED body itself.  From there,
+    // the analyst can jump to Admin → Integrations if needed.
     navigate(`/xdr/incidents/${encodeURIComponent(incident.id)}/domain/${key}`);
   };
 

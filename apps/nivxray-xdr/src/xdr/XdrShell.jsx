@@ -22,7 +22,7 @@ import {
   Boxes, ShieldOff, Route, KeyRound, Layers,
   Database, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, Users, Webhook, HeartPulse,
-  ExternalLink, Bell, HelpCircle,
+  ExternalLink, Bell, HelpCircle, Lock,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -78,7 +78,7 @@ const SIDEBAR = [
       { key: "ioc",      label: "IOC Intelligence",     icon: Bug,
         reserved: "/xdr/intelligence/iocs",
         title: "Native XDR IOC Intelligence — arrives in a later slice" },
-      { key: "cmd",      label: "Command Intelligence", icon: Terminal,
+      { key: "command",  label: "Command Intelligence", icon: Terminal,
         reserved: "/xdr/intelligence/command",
         title: "Native XDR Command Intelligence — arrives in Slice 14" },
       { key: "malware",  label: "Malware Intelligence", icon: Bug,
@@ -138,14 +138,20 @@ function useActiveKey() {
       return search.includes("mine=1") ? "my-queue" : "incidents";
     }
     if (pathname.startsWith("/xdr/admin")) {
+      // /xdr/admin (Overview) → highlight nothing in the OUTER sidebar
+      //   (the inner admin nav handles the Overview highlight).
+      // /xdr/admin/:section → highlight the matching Administration
+      //   sidebar item; the sidebar's Admin section uses the exact
+      //   :section string as its `key`.
       const key = pathname.split("/")[3];
-      return key || "integrations";
+      return key || null;
     }
     if (pathname.startsWith("/xdr/intelligence/")) {
       const key = pathname.split("/")[3];
-      if (["threat","iocs","command","malware","mitre","kb"].includes(key)) {
-        return key === "iocs" ? "ioc" : key === "threat" ? "ti" : key;
-      }
+      // Sidebar keys are authoritative — URL keys map back to them.
+      const map = { threat: "ti", iocs: "ioc", command: "command",
+                     malware: "malware", mitre: "mitre", kb: "kb" };
+      return map[key] || null;
     }
     return null;
   }, [pathname, search]);
@@ -258,12 +264,18 @@ export default function XdrShell({ children }) {
                   <button
                     key={item.key}
                     className={`nav-item ${isActive ? "active" : ""}`}
-                    onClick={() => navigate(item.to)}
+                    onClick={() => navigate(item.to || item.reserved)}
                     data-active={isActive || undefined}
                     data-testid={testId}
+                    title={item.title || undefined}
                   >
                     <span className="ic"><Icon size={13} /></span>
                     {item.label}
+                    {item.reserved && (
+                      <span className="ext" title="Reserved · native XDR placeholder">
+                        <Lock size={9} />
+                      </span>
+                    )}
                   </button>
                 );
               })}

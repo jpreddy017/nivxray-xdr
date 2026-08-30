@@ -153,6 +153,13 @@ function DomainBody({ incident, meta, onOpenTrajectory }) {
               <li>Return to this Incident and re-open the <b>{meta.label}</b> domain.</li>
             </ol>
           </div>
+          <div style={{ marginTop: 12 }}>
+            <a href="/xdr/admin/integrations" className="btn primary"
+                  style={{ padding: "5px 10px", textDecoration: "none" }}
+                  data-testid={`xdr-incident-domain-${meta.key}-configure`}>
+              Open Administration → Integrations
+            </a>
+          </div>
         </div>
       </section>
     );
