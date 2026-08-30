@@ -13,6 +13,7 @@ import XdrShell from "@/xdr/XdrShell";
 import LifecycleBar from "@/components/incidents/LifecycleBar";
 import ActivityTab  from "@/components/incidents/tabs/ActivityTab";
 import Pivot       from "@/xdr/components/Pivot";
+import DomainCardsGrid from "@/xdr/components/DomainCardsGrid";
 
 import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
 import api from "@/lib/api";
@@ -36,7 +37,6 @@ const TOP_TABS = [
 ];
 
 const SUBTABS = [
-  { key: "summary",        label: "Summary" },
   { key: "evidence",       label: "Evidence" },
   { key: "timeline",       label: "Timeline" },
   { key: "attack_story",   label: "Attack Story" },
@@ -203,6 +203,25 @@ function TopTabs({ tab, onChange }) {
 function OverviewTab({ incident }) {
   const v = incident.verdict_summary;
   const prog = incident.attack_progression || [];
+
+  // Derive per-domain evidence counts from the incident's SSOT
+  // pointers when available.  Never fabricate — a missing pointer
+  // maps to zero and the domain card renders SEARCHED honestly.
+  const evidenceCounts = React.useMemo(() => {
+    const out = {};
+    for (const p of (incident.evidence_pointers || [])) {
+      const map = { edr: "endpoints", endpoint: "endpoints",
+                     identity: "identity", itdr: "identity",
+                     file: "files", files: "files",
+                     network: "network", ndr: "network",
+                     email: "email", cloud: "cloud" };
+      const k = map[p.domain] || p.domain;
+      const n = Array.isArray(p.bullets) ? p.bullets.length : 0;
+      out[k] = (out[k] || 0) + n;
+    }
+    return out;
+  }, [incident]);
+
   return (
     <div>
       {v ? (
@@ -238,17 +257,19 @@ function OverviewTab({ incident }) {
         </>
       )}
 
-      <div className="section-title" style={{ marginBottom: 6 }}>
-        Incident Evidence Across Domains
-      </div>
-      <div style={{ color: "var(--muted)", fontSize: 11, marginBottom: 10 }}>
-        Each card opens the complete telemetry surface in a new browser tab.
-        Unconnected domains are surfaced honestly — no fake placeholders.
-      </div>
-      <div className="edom-grid" data-testid="xdr-incident-edom-grid">
-        {(incident.evidence_pointers || []).map((p) => (
-          <DomainCard key={p.domain} pointer={p} />
-        ))}
+      {/* Slice 7 · Incident Evidence Across Domains grid — every
+          domain card carries an honest state and navigates to the
+          native XDR domain-detail route (never the base UI). */}
+      <DomainCardsGrid incident={incident}
+                          evidenceCounts={evidenceCounts} />
+
+      {/* Deterministic Summary body — Verdict / Observed Facts /
+          Suspicious Elements (Slice 3 table) / Evidence Gaps /
+          Recommended Next Evidence.  Lives natively under Overview
+          (Slice 7 IA fix — used to be a duplicate "Summary" sub-tab
+          on the Investigation lens; that sub-tab is now removed). */}
+      <div style={{ marginTop: 14 }}>
+        <SummarySubtabBody incident={incident} />
       </div>
     </div>
   );
@@ -259,88 +280,6 @@ function VerdictCard({ tone, lbl, val }) {
     <div className={`verdict-card ${tone}`}>
       <div className="lbl">{lbl}</div>
       <div className="val">{val ?? "—"}</div>
-    </div>
-  );
-}
-
-function DomainCard({ pointer }) {
-  const stateCls = {
-    available:            "related",
-    no_matching_evidence: "searched",
-    not_connected:        "notconnected",
-    not_available:        "notconnected",
-  }[pointer.status] || "notconnected";
-  const isAvail = pointer.status === "available" && !!pointer.deep_link;
-
-  // The `deep_link` returned by the base backend is a RELATIVE path
-  // (e.g. `/edr?incident_id=…`).  Because this app is served from a
-  // different origin (nivxray-xdr.vercel.app), we must rewrite it to
-  // land on the EXISTING NivXRay host and, for the EDR domain, deep
-  // link directly into the Device Trajectory telemetry canvas rather
-  // than the intermediate NivXForge Console overview.
-  const resolveLaunchUrl = () => {
-    if (!pointer.deep_link) return null;
-    const BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
-    let path = pointer.deep_link;
-    if (pointer.domain === "edr" && path.startsWith("/edr")) {
-      // /edr?…  →  /edr/trajectory?…   (existing NivXRay canvas)
-      path = path.replace(/^\/edr(?=$|[/?])/, "/edr/trajectory");
-    }
-    // If the backend ever returns an absolute URL, honor it as-is.
-    if (/^https?:\/\//i.test(path)) return path;
-    // Otherwise anchor the relative path onto the base NivXRay origin
-    // so the tab always leaves the standalone XDR app.
-    return BASE ? `${BASE}${path}` : path;
-  };
-
-  const openTab = () => {
-    if (!isAvail) return;
-    const url = resolveLaunchUrl();
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
-  };
-
-  const countLabel = pointer.bullets?.length
-    ? pointer.bullets.length
-    : (isAvail ? "→" : (pointer.status === "no_matching_evidence" ? "0" : "—"));
-
-  const buttonLabel = ({
-    available:            `Open ${pointer.label} →`,
-    no_matching_evidence: "No matching evidence",
-    not_connected:        "Not connected",
-    not_available:        "Not available",
-  })[pointer.status] || "Not available";
-
-  return (
-    <div
-      className={`edom-card ${stateCls}`}
-      data-testid={`xdr-incident-edom-card-${pointer.domain}`}
-    >
-      <div className="edom-top">
-        <span className="edom-name">{pointer.label}</span>
-        <span className="edom-count">{countLabel}</span>
-      </div>
-      {pointer.bullets?.length > 0 && (
-        <ul className="edom-bullets">
-          {pointer.bullets.map((b, i) => <li key={i}>{b}</li>)}
-        </ul>
-      )}
-      {pointer.why && (
-        <div className={`edom-why ${isAvail ? "" : "muted"}`}>
-          <b>Why it matters:</b> {pointer.why}
-        </div>
-      )}
-      {!pointer.why && pointer.reason && (
-        <div className="edom-why muted">{pointer.reason}</div>
-      )}
-      <button
-        type="button"
-        className="edom-open"
-        disabled={!isAvail}
-        onClick={openTab}
-        data-testid={`xdr-incident-edom-launch-${pointer.domain}`}
-      >
-        {buttonLabel}
-      </button>
     </div>
   );
 }
@@ -367,8 +306,8 @@ function InvestigationTab({ incident }) {
           </button>
         ))}
       </div>
-      {sub === "summary"
-        ? <SummarySubtabBody incident={incident} />
+      {sub === "evidence"
+        ? <SubtabBody sub={sub} cap={cap} />
         : <SubtabBody sub={sub} cap={cap} />}
     </div>
   );

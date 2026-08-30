@@ -12,11 +12,12 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import LoginPage from "@/pages/LoginPage";
 
-const XdrDashboardPage       = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
-const XdrIncidentsPage       = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
-const XdrIncidentDetailPage  = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
-const XdrEndpointsPage        = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));
+const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
+const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
+const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
+const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomainPage"));
+const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -69,12 +70,32 @@ export default function App() {
         {/* Standalone login — reuses POST /api/auth/login. */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Root of the standalone app. */}
-        <Route path="/xdr"                 element={<Protected><XdrDashboardPage /></Protected>} />
+        {/* Root of the standalone app.  `/xdr` collapses onto
+            Incidents — Dashboard is no longer a separate destination
+            (Slice 7 · owner-locked information architecture). */}
+        <Route path="/xdr"                 element={<Navigate to="/xdr/incidents" replace />} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
-        <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
-        <Route path="/xdr/endpoints/:device/trajectory" element={<Protected><XdrDeviceTrajectoryPage /></Protected>} />
+        <Route path="/xdr/incidents/:id/domain/:domainKey"
+                                            element={<Protected><XdrIncidentDomainPage /></Protected>} />
+
+        {/* Slice 6 canvas remains reachable at the incident-scoped
+            path.  The old global `/xdr/endpoints` route is retired
+            per §5 of the implementation prompt — Endpoints is a
+            domain reached from Incident Overview, not a global peer. */}
+        <Route path="/xdr/endpoints"       element={<Navigate to="/xdr/incidents" replace />} />
+        <Route path="/xdr/endpoints/:device/trajectory"
+                                            element={<Protected><XdrDeviceTrajectoryPage /></Protected>} />
+
+        {/* Reserved native XDR capabilities — transitional placeholders
+            for surfaces that WILL be built native in later slices.
+            Never a deep-link back into the base NivXRay UI. */}
+        <Route path="/xdr/intelligence/threat"  element={<Protected><XdrReservedPage capability="threat" /></Protected>} />
+        <Route path="/xdr/intelligence/iocs"    element={<Protected><XdrReservedPage capability="iocs" /></Protected>} />
+        <Route path="/xdr/intelligence/command" element={<Protected><XdrReservedPage capability="command" /></Protected>} />
+        <Route path="/xdr/intelligence/malware" element={<Protected><XdrReservedPage capability="malware" /></Protected>} />
+        <Route path="/xdr/intelligence/mitre"   element={<Protected><XdrReservedPage capability="mitre" /></Protected>} />
+        <Route path="/xdr/intelligence/kb"      element={<Protected><XdrReservedPage capability="kb" /></Protected>} />
 
         {/* NivXForge EDR Console — pivots to /edr/trajectory in the
             ORIGINAL NivXRay app via a new browser tab (never

@@ -427,6 +427,15 @@ def test_no_route_file_modified_by_phase2():
         # NivX Machines bracket-N glyph from the base product's
         # /brand/nivxray-mark.svg.  Inline SVG only, no asset copy.
         "apps/nivxray-xdr/src/components/brand/NivxrayBrand.jsx",
+        # Slice 7 · Sidebar + Overview + Domain routes (2026-02-XX).
+        # New native XDR domain shell + six per-domain routes.
+        # No engine duplication — every domain consumes existing
+        # NivXRay APIs (Activity Inventory, Verdict Engine, IUE, IKG).
+        "apps/nivxray-xdr/src/xdr/domains/domainMeta.js",
+        "apps/nivxray-xdr/src/xdr/components/IncidentContextStrip.jsx",
+        "apps/nivxray-xdr/src/xdr/components/DomainCardsGrid.jsx",
+        "apps/nivxray-xdr/src/xdr/pages/XdrIncidentDomainPage.jsx",
+        "apps/nivxray-xdr/src/xdr/pages/XdrReservedPage.jsx",
         "frontend/src/nivxforge/edrApi.js",
         "frontend/src/nivxforge/pages/EdrDetectionsPage.jsx",
         "frontend/src/nivxforge/pages/EdrProcessTreePage.jsx",

@@ -34,8 +34,12 @@ import "./xdr-console.css";
 // label    – exact label rendered
 // icon     – lucide icon
 // to       – route target
-// external – true → opens in a new browser tab (no duplication)
+// external – true → opens in a new browser tab (reserved / not yet native)
 // disabled – true → row rendered but not clickable ("Not available")
+// reserved – true → routes to native XDR reserved placeholder
+//              (transitional: capability will be built native in a
+//              later slice; currently surfaces an honest state,
+//              never a deep-link back into the base NivXRay UI).
 const SIDEBAR = [
   {
     section: "Workspace",
@@ -48,21 +52,19 @@ const SIDEBAR = [
   {
     section: "Operations",
     items: [
-      { key: "dashboard",  label: "Dashboard",  icon: LayoutGrid,     to: "/xdr" },
       { key: "incidents",  label: "Incidents",  icon: AlertOctagon,   to: "/xdr/incidents" },
       { key: "my-queue",   label: "My Queue",   icon: UserIcon,       to: "/xdr/incidents?mine=1" },
-      { key: "endpoints",  label: "Endpoints",  icon: HardDrive,      to: "/xdr/endpoints" },
       { key: "response",   label: "Response",   icon: ArrowRightLeft, disabled: true,
-        title: "Response console — arrives in a later slice" },
+        title: "Cross-incident Response Center — arrives in Slice 12" },
     ],
   },
   {
     section: "Investigations",
     items: [
       { key: "investigations", label: "Investigations", icon: FolderSearch,
-        to: "/investigations", external: true },
+        disabled: true, title: "Native XDR investigations index — later slice" },
       { key: "evidence-explorer", label: "Evidence Explorer", icon: Search,
-        to: "/evidence-explorer", external: true },
+        disabled: true, title: "Cross-case Evidence Explorer — later slice" },
       { key: "entity-search", label: "Entity Search", icon: Fingerprint,
         disabled: true, title: "Cross-case entity search — later slice" },
     ],
@@ -70,12 +72,24 @@ const SIDEBAR = [
   {
     section: "Intelligence",
     items: [
-      { key: "ti",       label: "Threat Intelligence",  icon: Globe,   to: "/threat-intel", external: true },
-      { key: "ioc",      label: "IOC Intelligence",     icon: Bug,     to: "/threat-intel?tab=iocs", external: true },
-      { key: "cmd",      label: "Command Intelligence", icon: Terminal, to: "/analyze", external: true },
-      { key: "malware",  label: "Malware Intelligence", icon: Bug,     to: "/documents", external: true },
-      { key: "mitre",    label: "MITRE ATT&CK",         icon: Grid3x3, to: "/heatmap", external: true },
-      { key: "kb",       label: "Knowledge Base",       icon: BookOpen, to: "/kb", external: true },
+      { key: "ti",       label: "Threat Intelligence",  icon: Globe,
+        reserved: "/xdr/intelligence/threat",
+        title: "Native XDR Threat Intelligence — arrives in a later slice" },
+      { key: "ioc",      label: "IOC Intelligence",     icon: Bug,
+        reserved: "/xdr/intelligence/iocs",
+        title: "Native XDR IOC Intelligence — arrives in a later slice" },
+      { key: "cmd",      label: "Command Intelligence", icon: Terminal,
+        reserved: "/xdr/intelligence/command",
+        title: "Native XDR Command Intelligence — arrives in Slice 14" },
+      { key: "malware",  label: "Malware Intelligence", icon: Bug,
+        reserved: "/xdr/intelligence/malware",
+        title: "Native XDR Malware Intelligence — arrives in a later slice" },
+      { key: "mitre",    label: "MITRE ATT&CK",         icon: Grid3x3,
+        reserved: "/xdr/intelligence/mitre",
+        title: "Native XDR MITRE ATT&CK console — arrives in a later slice" },
+      { key: "kb",       label: "Knowledge Base",       icon: BookOpen,
+        reserved: "/xdr/intelligence/kb",
+        title: "Native XDR Knowledge Base — arrives in a later slice" },
     ],
   },
   {
@@ -98,7 +112,8 @@ const SIDEBAR = [
   {
     section: "Administration",
     items: [
-      { key: "integrations",     label: "Integrations",      icon: Plug,       to: "/admin", external: true },
+      { key: "integrations",     label: "Integrations",      icon: Plug,       disabled: true,
+        title: "Native XDR Integrations — arrives in a later slice" },
       { key: "data-sources",     label: "Data Sources",      icon: HardDrive,  disabled: true },
       { key: "collectors",       label: "Collectors",        icon: Cpu,        disabled: true },
       { key: "agents",           label: "Agents",            icon: Wifi,       disabled: true },
@@ -106,11 +121,12 @@ const SIDEBAR = [
       { key: "telemetry-health", label: "Telemetry Health",  icon: ActivityIcon, disabled: true },
       { key: "parsers",          label: "Parsers",           icon: Filter,     disabled: true },
       { key: "normalization",    label: "Normalization",     icon: Shuffle,    disabled: true },
-      { key: "detection-rules",  label: "Detection Rules",   icon: Zap,        to: "/admin/models", external: true },
+      { key: "detection-rules",  label: "Detection Rules",   icon: Zap,        disabled: true },
       { key: "response-policies", label: "Response Policies", icon: ArrowRightLeft, disabled: true },
-      { key: "users-roles",      label: "Users / Roles",     icon: Users,      to: "/admin", external: true },
+      { key: "users-roles",      label: "Users / Roles",     icon: Users,      disabled: true },
       { key: "api-webhooks",     label: "API / Webhooks",    icon: Webhook,    disabled: true },
-      { key: "platform-health",  label: "Platform Health",   icon: HeartPulse, to: "/platform", external: true },
+      { key: "platform-health",  label: "Platform Health",   icon: HeartPulse, disabled: true,
+        title: "Native XDR Platform Health — arrives in a later slice" },
     ],
   },
 ];
@@ -119,11 +135,16 @@ const SIDEBAR = [
 function useActiveKey() {
   const { pathname, search } = useLocation();
   return useMemo(() => {
-    if (pathname === "/xdr")                     return "dashboard";
+    if (pathname === "/xdr")                     return "incidents";
     if (pathname.startsWith("/xdr/incidents")) {
       return search.includes("mine=1") ? "my-queue" : "incidents";
     }
-    if (pathname.startsWith("/xdr/endpoints"))  return "endpoints";
+    if (pathname.startsWith("/xdr/intelligence/")) {
+      const key = pathname.split("/")[3];
+      if (["threat","iocs","command","malware","mitre","kb"].includes(key)) {
+        return key === "iocs" ? "ioc" : key === "threat" ? "ti" : key;
+      }
+    }
     return null;
   }, [pathname, search]);
 }
