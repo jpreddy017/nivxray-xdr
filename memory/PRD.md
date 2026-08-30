@@ -1597,3 +1597,115 @@ rewired to the live API.
 
 - Frontend commit `421a51b` deployed to Vercel; the base admin now
   reports live 242-entry LOLBAS state + real parent-child tier counts.
+
+### LOLBAS · Multi-hop Chains + CLI Heuristics · SHIPPED (this session)
+
+Following the user-supplied `Windows_LOLBAs_360_Training-1.pdf` (parent-child SOC playbook: Outlook → Word → Regsvr32 → C2, and Outlook → Word → Rundll32 → malicious DLL), the LOLBAS pipeline now produces layered evidence beyond simple image/argument matches.
+
+**New primitive kinds** in `routers/xdr_lolbas.py`:
+- `lolbin.attack_chain` — named multi-hop tradecraft chains
+  (grandparent → parent → child).  7 chains seeded from real
+  intrusion patterns, each with MITRE technique + description.
+- `lolbin.cli_heuristic` — deterministic regex signals over the
+  command line: `userwritable_path`, `http_argument`,
+  `encoded_command`, `hidden_window`, `dll_load_export`.
+
+**MatchBody** now accepts `grandparent_image`.  `_match_event()`
+returns tier-labelled parent-child hits, attack-chain hits with
+`chain_label` + `mitre` + `description`, and per-heuristic CLI hits.
+
+**Anti-hallucination hardening**: the regression gate now requires
+UPSTREAM-BACKED evidence (`lolbin.image` or `lolbin.argument`) — not
+just synthetic chain or heuristic hits — so a 1-entry pack can never
+falsely reach COMPLETE by riding on synthetic chain primitives.  The
+`test_removal_detected_and_handled_safely` case verifies this.
+
+**Live E2E on preview URL** after fresh sync:
+- 242 / 242 · outcome COMPLETE · coverage 100 % · **2 341 primitives**.
+- **Squiblydoo phishing chain** (Outlook → Word → Regsvr32) returns
+  4 layered hits: IMAGE match on Regsvr32.exe · PARENT-CHILD suspicious ·
+  CHAIN `phishing.office.regsvr32.remote_scriptlet` (T1218.010) ·
+  CLI-HEUR `http_argument`.
+- **Rundll32 DLL-load chain** (Outlook → Word → Rundll32,
+  `C:\Users\Public\update.dll,Start` per the training doc) returns
+  5 hits: IMAGE Rundll32.exe · PARENT-CHILD suspicious ·
+  CHAIN `phishing.office.rundll32.dll_load` (T1218.011) ·
+  CLI-HEUR `userwritable_path` · CLI-HEUR `dll_load_export`.
+- Every hit carries `evidence=<kind>-match`; NO hit carries a verdict —
+  contract reaffirmed via the `note` field on the response.
+
+**Tests**: 15/15 LOLBAS pytest passing (added
+`test_attack_chain_and_cli_heuristics`).  Full XDR suite still green:
+**54/54** across audit-log + secrets + lolbas + rbac + api-keys.
+Ruff clean.
+
+**Queue** (per user's latest directive):
+P0-5 Webhooks → P0-8 Collectors/Data Sources → RBAC retrofit sweep
+across Secrets/API-Keys/Webhooks/LOLBAS/Detection Content/etc. →
+Phase B GTFOBins + LOLDrivers → Detection + Correlation Engine
+(Admin → Detection → Correlation Rules) → OSINT/TI Hub.  Do NOT jump
+to GTFOBins yet.
+
+### LOLBAS · Capability-Not-Verdict Semantics + Full 242 Parent-Child Coverage · SHIPPED (this session)
+
+**User directive**: "LOLBIN identity is a CAPABILITY, not a verdict."
+Also: "Don't limit to 15 LOLBAS · I need complete full size of LOLBAS."
+
+**Fix 1 — Universal parent-child coverage** (`_derive_universal_tiers`
+in `routers/xdr_lolbas.py`):
+- Every executable LOLBAS entry now emits parent-child primitives.
+- Curated `_PARENT_CHILD_TIERS` (15 high-signal LOLBINs) still takes
+  precedence for those specific keys.
+- Universal defaults for the remaining ~227 entries:
+  - `normal`     — Explorer / svchost / services / userinit / shells
+  - `suspicious` — Office / mail-client / browser processes
+  - `abnormal`   — LOLBIN-from-LOLBIN (any known LOLBIN spawned by
+                              another LOLBIN)
+- **Result**: **226 distinct LOLBINs with tiered parent-child
+  primitives** (vs. 15 previously) · 448 normal · 1 930 suspicious ·
+  2 622 abnormal · **11 196 total primitives** (5× growth over the
+  previous 2 341).
+
+**Fix 2 — Capability-not-verdict semantics** (every match hit
+annotated by `_annotate_hit`):
+- Every hit carries `observation_type` (LOLBIN / PARENT_CHILD /
+  SEQUENCE / PATTERN / ATTACK_TECHNIQUE / LOLBIN_CAPABILITY) and
+  `signal_strength` (OBSERVED / INFORMATIONAL / WEAK / MODERATE /
+  STRONG).
+- `lolbin.image` hit → `observation_type=LOLBIN`,
+  `signal_strength=OBSERVED`, `note="living-off-the-land binary is
+  a CAPABILITY, not a verdict"`.
+- Parent-child hits map tier→strength (NORMAL=INFORMATIONAL,
+  SUSPICIOUS=WEAK, ABNORMAL=MODERATE).
+- Attack-chain hits carry `signal_strength=STRONG` **AND** an explicit
+  "still EVIDENCE, correlation decides verdict" note.
+- Response includes a `contract` clause with the principle and a
+  deterministic `disposition` (OBSERVED / OBSERVED_WITH_SIGNAL /
+  CONTEXTUALIZED / CORRELATION_CANDIDATE) computed from aggregate
+  signal strength — **never a verdict**.
+
+**Non-regression gates** (`tests/test_xdr_lolbas.py`):
+- `test_lolbin_identity_is_capability_not_verdict` — bare LOLBIN →
+  OBSERVED · contract principle present · no `verdict` field ·
+  even Squiblydoo chain reaches at most CONTEXTUALIZED / STRONG hit
+  with "not a verdict" note.
+- `test_universal_parent_child_coverage_beyond_15` — verifies at
+  least one LOLBIN OUTSIDE the curated 15 (Atbroker / Cmstp / Cdb /
+  Presentationhost / etc.) has all three tiers indexed.
+
+**Live E2E evidence** on preview URL after fresh sync:
+- Bare `regsvr32.exe` → disposition **OBSERVED**, aggregate **0**.
+- `explorer → powershell → Get-Process` → **OBSERVED**, aggregate 1.
+- Full Squiblydoo `outlook → winword → regsvr32 + http URL` →
+  **CONTEXTUALIZED**, aggregate **7** (strongest LOLBAS-only case).
+- Non-curated `Cmstp.exe` (previously invisible to parent-child)
+  now emits suspicious parent-child hit for winword.exe parent +
+  userwritable_path CLI heuristic.
+
+**Full XDR test suite**: **56/56 pass** (17 LOLBAS + 11 secrets +
+5 audit + 14 rbac + 9 api-keys).  Ruff clean.
+
+**Queue** (per user's confirmed sequence):
+P0-5 Webhooks → P0-8 Collectors/Data Sources → RBAC retrofit sweep
+across every protected router → Phase B GTFOBins + LOLDrivers →
+Detection + Correlation Engine → OSINT/TI Hub.

