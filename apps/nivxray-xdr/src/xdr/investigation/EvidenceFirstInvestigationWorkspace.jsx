@@ -332,10 +332,8 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
             ))}
           </g>
         </svg>
-        {showMinimap && (
-          <Minimap nodes={nodes} pan={pan} zoom={zoom}
-                        selectedId={selected} canvasRef={canvasRef} />
-        )}
+        {/* Minimap removed per owner directive — Evidence Trajectory
+                MITRE ATT&CK view is the primary spatial reference. */}
         <CanvasLegend />
         {/* Selected-cluster hint to collapse */}
         {selectedNode?.type === "cluster" && (
@@ -1444,10 +1442,6 @@ function InvestigationToolbar({
                         testid="xdr-toolbar-fit" onClick={onFit} />
       <ToolbarBtn label="Reset"    icon={RotateCcw}
                         testid="xdr-toolbar-reset" onClick={onReset} />
-      <ToolbarBtn label="Minimap"  icon={MapIcon}
-                        testid="xdr-toolbar-minimap"
-                        active={showMinimap}
-                        onClick={onToggleMinimap} />
       <ToolbarBtn label="Timeline" icon={Clock}
                         testid="xdr-toolbar-timeline"
                         active={showTimeline}
