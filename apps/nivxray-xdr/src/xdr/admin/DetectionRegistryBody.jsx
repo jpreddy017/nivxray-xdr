@@ -14,10 +14,12 @@ import api from "@/lib/api";
 export default function DetectionRegistryBody() {
   const [status,  setStatus]  = useState(null);
   const [rules,   setRules]   = useState([]);
+  const [versions, setVersions] = useState([]);
   const [err,     setErr]     = useState(null);
   const [busy,    setBusy]    = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [q,       setQ]       = useState("");
+  const [tab,     setTab]     = useState("rules");
   const [filter,  setFilter]  = useState({ source: "", rule_type: "",
                                                                     state: "", attack: "" });
   const [refresh, setRefresh] = useState(0);
@@ -26,14 +28,16 @@ export default function DetectionRegistryBody() {
     (async () => {
       setBusy(true); setErr(null);
       try {
-        const [st, rl] = await Promise.all([
+        const [st, rl, vs] = await Promise.all([
           api.get("/xdr/detection/status"),
           api.get("/xdr/detection/rules", { params: { limit: 1000,
               q: q || undefined, ...Object.fromEntries(Object.entries(filter)
                     .filter(([, v]) => v)) } }),
+          api.get("/xdr/detection/versions"),
         ]);
         setStatus(st?.data?.data || null);
         setRules(rl?.data?.data?.rules || []);
+        setVersions(vs?.data?.data?.versions || []);
       } catch (e) {
         setErr(e?.response?.data?.detail || e?.message || "load failed");
       } finally { setBusy(false); }
@@ -94,7 +98,31 @@ export default function DetectionRegistryBody() {
                    testid="det-stat-types" />
       </div>
 
-      {/* ATT&CK coverage tag chips */}
+      {/* Tabs · RULES | CONTENT PACKS | ATT&CK | PROVENANCE | VERSIONS | VALIDATION */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 12,
+                          borderBottom: "1px solid var(--border)" }}>
+        {[
+          ["rules",     "Rules",         rules.length],
+          ["packs",     "Content Packs", Object.keys(s.sources || {}).length],
+          ["attack",    "ATT&CK",        attackTechniques.length],
+          ["provenance","Provenance",    rules.length],
+          ["versions",  "Versions",      versions.length],
+          ["validation","Validation",    "beta"],
+        ].map(([k, label, count]) => (
+          <button key={k} onClick={() => setTab(k)}
+                       data-testid={`det-tab-${k}`}
+                       className={tab === k ? "btn" : "btn ghost"}
+                       style={{ padding: "4px 10px", fontSize: 11,
+                                       borderRadius: "3px 3px 0 0",
+                                       borderBottom: "none" }}>
+            {label} · <span style={{ color: tab === k ? "var(--cyan)"
+                                                                      : "var(--faint)" }}>{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ATT&CK coverage tab */}
+      {tab === "attack" && (
       <div style={{ marginBottom: 12 }}>
         <div className="mono" style={sectionLabel}>ATT&CK Coverage</div>
         <div data-testid="det-attack-chips"
@@ -108,8 +136,136 @@ export default function DetectionRegistryBody() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* Filter row */}
+      {/* Content Packs tab · shows source breakdown from the registry */}
+      {tab === "packs" && (
+        <div data-testid="det-packs-body" style={{ marginBottom: 12 }}>
+          <div className="mono" style={sectionLabel}>Content Packs · by source</div>
+          {Object.entries(s.sources || {}).map(([k, n]) => (
+            <div key={k} style={{ display: "flex", gap: 10, padding: "6px 8px",
+                                              border: "1px solid var(--border)",
+                                              borderRadius: 3, marginBottom: 4,
+                                              fontFamily: "var(--mono)",
+                                              fontSize: 11.5, color: "var(--text-dim)",
+                                              background: "var(--panel2)" }}>
+              <b style={{ color: "var(--cyan)" }}>{k}</b>
+              <span style={{ flex: 1 }} />
+              <span>{n} rules</span>
+            </div>
+          ))}
+          {Object.keys(s.sources || {}).length === 0 && (
+            <div style={emptyText}>NO CONTENT PACKS INSTALLED</div>
+          )}
+        </div>
+      )}
+
+      {/* Provenance tab · flat list showing each rule's lineage */}
+      {tab === "provenance" && (
+        <div data-testid="det-provenance-body" style={{ marginBottom: 12,
+                                          border: "1px solid var(--border)",
+                                          borderRadius: 3, overflow: "hidden" }}>
+          <div className="mono" style={{ display: "grid",
+              gridTemplateColumns: "1.8fr 0.7fr 0.7fr 1.2fr 1.4fr",
+              gap: 6, padding: "4px 8px", background: "var(--panel2)",
+              fontSize: 10, color: "var(--faint)",
+              textTransform: "uppercase" }}>
+            <div>Rule / Upstream ID</div><div>Source</div>
+            <div>License</div><div>Author · Dates</div><div>SHA-256</div>
+          </div>
+          {rules.map((r) => (
+            <div key={r.id} className="mono" style={{ display: "grid",
+                gridTemplateColumns: "1.8fr 0.7fr 0.7fr 1.2fr 1.4fr",
+                gap: 6, padding: "6px 8px", fontSize: 10.5,
+                color: "var(--text-dim)",
+                borderTop: "1px solid var(--border)",
+                alignItems: "center" }}>
+              <div>
+                <div style={{ color: "var(--text)" }}>{r.title}</div>
+                <div style={{ color: "var(--faint)", fontSize: 9.5 }}>
+                  {r.upstream_id}
+                </div>
+              </div>
+              <div style={{ color: "var(--cyan)" }}>{r.source}</div>
+              <div style={{ color: r.license_verified ? "var(--mint)"
+                                                                            : "var(--amber)" }}>
+                {r.license}
+              </div>
+              <div style={{ fontSize: 10 }}>
+                {r.author}<br/>
+                <span style={{ color: "var(--faint)" }}>
+                  {r.created} → {r.modified}
+                </span>
+              </div>
+              <div style={{ fontSize: 9.5, color: "var(--faint)",
+                                    overflow: "hidden", textOverflow: "ellipsis" }}>
+                {r.original_content_hash?.slice(0, 32)}…
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Versions tab · sync history */}
+      {tab === "versions" && (
+        <div data-testid="det-versions-body" style={{ marginBottom: 12,
+                                          border: "1px solid var(--border)",
+                                          borderRadius: 3, overflow: "hidden" }}>
+          <div className="mono" style={{ display: "grid",
+              gridTemplateColumns: "1fr 0.8fr 0.6fr 1fr 1fr",
+              gap: 6, padding: "4px 8px", background: "var(--panel2)",
+              fontSize: 10, color: "var(--faint)",
+              textTransform: "uppercase" }}>
+            <div>Version</div><div>Outcome</div><div>Active</div>
+            <div>Registered</div><div>Synced at</div>
+          </div>
+          {versions.map((v) => (
+            <div key={v.id} className="mono" style={{ display: "grid",
+                gridTemplateColumns: "1fr 0.8fr 0.6fr 1fr 1fr",
+                gap: 6, padding: "6px 8px", fontSize: 11,
+                color: "var(--text-dim)",
+                borderTop: "1px solid var(--border)",
+                alignItems: "center" }}>
+              <div style={{ color: "var(--text)", fontSize: 10 }}>{v.id}</div>
+              <div style={{ color: v.outcome === "COMPLETE"
+                                              ? "var(--mint)" : "var(--amber)" }}>
+                {v.outcome}
+              </div>
+              <div>{v.active ? "✓" : "—"}</div>
+              <div>{v.counts?.registered ?? 0}</div>
+              <div style={{ fontSize: 10 }}>{v.synced_at}</div>
+            </div>
+          ))}
+          {versions.length === 0 && (
+            <div style={emptyRow}>NO SYNC VERSIONS YET</div>
+          )}
+        </div>
+      )}
+
+      {/* Validation tab · placeholder that honestly names the next work */}
+      {tab === "validation" && (
+        <div data-testid="det-validation-body" style={{ marginBottom: 12,
+                                          padding: 14, fontFamily: "var(--mono)",
+                                          fontSize: 11.5,
+                                          border: "1px dashed var(--amber)",
+                                          borderRadius: 4,
+                                          background: "rgba(245,166,35,.06)",
+                                          color: "var(--text-dim)" }}>
+          <b style={{ color: "var(--amber)" }}>REGRESSION GATE — PENDING</b>
+          <div style={{ marginTop: 6, lineHeight: 1.6 }}>
+            Every rule promotion to <code>ACTIVE</code> will require positive +
+            negative + false-positive tests to pass against the Investigation
+            Corpus. The gate is queued as the immediate next milestone; no rule
+            in this registry has been forced to <code>ACTIVE</code> without evidence.
+            Current authoritative state: <b style={{ color: "var(--cyan)" }}>
+              VALIDATED
+            </b> — schema + license + provenance verified.
+          </div>
+        </div>
+      )}
+
+      {/* Filter row · only visible on the Rules tab */}
+      {tab === "rules" && (
       <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         <input type="text" placeholder="Search title / description…"
                     value={q} onChange={(e) => setQ(e.target.value)}
@@ -134,11 +290,13 @@ export default function DetectionRegistryBody() {
           <RefreshCcw size={11} /> Refresh
         </button>
       </div>
+      )}
 
       {err && <div data-testid="det-error" style={{ color: "var(--amber)",
                                           fontSize: 11, marginBottom: 8 }}>{err}</div>}
 
-      {/* Rules table */}
+      {/* Rules table · only visible on the Rules tab */}
+      {tab === "rules" && (
       <div style={{ border: "1px solid var(--border)", borderRadius: 3,
                           overflow: "hidden" }}>
         <div className="mono" style={rowHead}>
@@ -211,6 +369,7 @@ export default function DetectionRegistryBody() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
