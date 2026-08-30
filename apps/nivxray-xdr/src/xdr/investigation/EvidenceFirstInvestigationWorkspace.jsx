@@ -35,6 +35,7 @@ import {
 
 import { RULE_TO_TECHNIQUE, TECHNIQUE_INDEX } from "@/xdr/mitre/mitreTactics";
 import api from "@/lib/api";
+import { XdrIocEnrichmentPanel } from "@/xdr/adopt/consumerPanels";
 
 // ── Node type palette (single restrained accent per kind) ─────────
 const NODE_TYPE = {
@@ -1025,6 +1026,9 @@ function EntityInspector({ node, incident, onPivotHighlight, onOpenPivot }) {
             <Row k="Indicator" v={typeof raw === "string" ? raw : raw.value} mono copy />
             <Row k="Source"    v={typeof raw === "object" ? (raw.source || raw.provider) : "—"} />
             <Row k="Verdict"   v={typeof raw === "object" ? raw.verdict : "—"} />
+            <XdrIocEnrichmentPanel
+              value={typeof raw === "string" ? raw : (raw.value || node.title)}
+              kind={node.type} />
           </>
         )}
         {node.type === "technique" && (

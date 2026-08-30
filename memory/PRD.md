@@ -7,6 +7,75 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-10 · Technology Adoption — Four P0 Consumers Wired
+
+Continued the adoption program: XDR now CONSUMES the authoritative
+NivXRay engines rather than re-implementing them.  Zero duplicate
+engines introduced.
+
+### 1 · Verdict Stage-2 Consumer
+- `XdrVerdictPanel` (`src/xdr/adopt/consumerPanels.jsx`) calls
+  `POST /api/verdict/stage2` directly.  Renders the authoritative
+  verdict + severity + confidence, contributing evidence, MITRE
+  techniques (deep-linked to heatmap), and negative-explainability
+  reasons.  No second XDR verdict engine.
+- Mounted on `XdrIncidentDetailPage.jsx` above the legacy subtabs.
+
+### 2 · IOC Intelligence Consumer
+- `XdrIocEnrichmentPanel` calls `GET /api/ioc/lookup`.
+- Wired into the Investigation Canvas Entity Inspector — selecting
+  an `ip / domain / hash / url` node now inline-fetches reputation,
+  malware-family attribution, sources, first-seen, and related
+  incidents from the authoritative IOC intelligence.  No local IOC DB.
+
+### 3 · Decode Chain Consumer
+- `decodeCommandLineViaBase` calls `POST /api/analyze` and is
+  surfaced as a **"Decode via NivXRay"** button next to Evaluate on
+  the Sigma test/replay screen.  The XDR editor NEVER implements
+  its own decoder; when the base is unreachable the panel shows
+  the honesty banner rather than an ad-hoc fallback.
+
+### 4 · Investigation Report Consumer
+- `XdrInvestigationReportPanel` calls
+  `GET /api/incidents/{id}/summary`.  Mounted on the Investigation
+  tab so analysts see the authoritative report in-place — no
+  second XDR report engine.
+
+### Shared adoption primitives
+- `src/xdr/adopt/baseCapabilities.js` — thin, typed HTTP client for
+  every base API the XDR consumes.  On failure returns
+  `{ ok: false, error, not_wired }` so the honesty banner can
+  render.
+- `src/xdr/adopt/consumerPanels.jsx` — the four consumers.
+- `src/xdr/capabilityRegistry.js` — `honestyBanner(id)` used by
+  every consumer so unwired states always surface
+  `AVAILABLE IN NIVXRAY — XDR ADAPTER NOT YET CONNECTED`.
+
+### Honesty invariants (upheld)
+- **No fabricated verdict.**  If `/api/verdict/stage2` fails, the
+  panel says so; nothing invented.
+- **No fabricated IOC verdict.**  If `/api/ioc/lookup` fails,
+  the enrichment box says so.
+- **No shadow decoder.**  If `/api/analyze` fails, the button
+  reports it — never a home-grown base64 helper.
+- **No second Investigation report writer.**
+
+### Verification
+- Response Engine pytest **27/27** · Base backend **10/10** ·
+  Collector **44/44** · frontend `yarn build` clean.
+
+### Still to wire (from the Adoption Matrix)
+- Correlation engine consumer (`engine/correlation_engine.py`).
+- Process-tree deep-link → real base call (`/api/edr/process-tree`).
+- Analyst-corrections consumer (`/api/corrections`).
+- Behavioral registry consumer (`/api/behavioral`).
+- Golden-corpus regression proof in XDR CI.
+
+---
+
+
+---
+
 ## ✅ 2026-02-10 · Detection Engineering + Technology Adoption Directive
 
 ### Detection Engineering (Milestone D)

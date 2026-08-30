@@ -23,6 +23,8 @@ import {
   LIFECYCLE, LIFECYCLE_LABELS, LIFECYCLE_TRANSITIONS, RUNTIME_STATUS,
 } from "@/xdr/detect/detectionRuleStore";
 import { parseSigma, evaluateSigma } from "@/xdr/detect/sigmaEngine";
+import { decodeCommandLineViaBase } from "@/xdr/adopt/consumerPanels";
+import { honestyBanner } from "@/xdr/capabilityRegistry";
 
 const SAMPLE_EVENT = `{
   "EventID": 1,
@@ -43,6 +45,8 @@ export default function XdrDetectionRuleEditorPage() {
   const [dirty, setDirty]   = useState(false);
   const [trace, setTrace]   = useState(null);
   const [error, setError]   = useState(null);
+  const [decoded, setDecoded] = useState(null);
+  const [decoding, setDecoding] = useState(false);
 
   // Live parse — surfaces schema errors + unsupported modifiers as
   // the analyst types.  Never silently drops issues.
@@ -82,6 +86,22 @@ export default function XdrDetectionRuleEditorPage() {
     catch (e) { setError("Invalid event JSON: " + e.message); return; }
     const t = evaluateSigma(parsed, parsedEvent);
     setTrace(t);
+  }
+  async function doDecodeViaBase() {
+    setError(null); setDecoded(null); setDecoding(true);
+    try {
+      let parsedEvent;
+      try { parsedEvent = JSON.parse(event); }
+      catch (e) { setError("Invalid event JSON: " + e.message); return; }
+      const cmd = parsedEvent.CommandLine || parsedEvent.command_line
+                     || parsedEvent.command;
+      if (!cmd) {
+        setError("Test event has no CommandLine field to decode.");
+        return;
+      }
+      const r = await decodeCommandLineViaBase(cmd);
+      setDecoded(r);
+    } finally { setDecoding(false); }
   }
 
   const allowedTransitions = LIFECYCLE_TRANSITIONS[rule.lifecycle] || [];
@@ -252,9 +272,45 @@ export default function XdrDetectionRuleEditorPage() {
                     style={{ padding: "4px 12px", marginTop: 6 }}>
             <Play size={11} /> Evaluate
           </button>
+          <button className="btn" onClick={doDecodeViaBase}
+                    disabled={decoding}
+                    data-testid="xdr-rule-decode-via-base"
+                    title="Decode CommandLine via authoritative NivXRay /api/analyze — never a copy of the decoder"
+                    style={{ padding: "4px 12px", marginTop: 6, marginLeft: 6 }}>
+            <Bug size={11} /> {decoding ? "Decoding…" : "Decode via NivXRay"}
+          </button>
           {error && (
             <div style={{ marginTop: 6, color: "#ff9494", fontSize: 11 }}>
               <AlertTriangle size={11} /> {error}
+            </div>
+          )}
+          {decoded && (
+            <div data-testid="xdr-rule-decoded"
+                    style={{ marginTop: 8, padding: 8, borderRadius: 3,
+                                background: "var(--panel2)",
+                                border: `1px solid ${decoded.ok ? "var(--mint)" : "var(--amber)"}`,
+                                fontSize: 11 }}>
+              <div className="mono" style={{ color: "var(--faint)", fontSize: 10,
+                                                        textTransform: "uppercase",
+                                                        marginBottom: 4 }}>
+                Decode chain · authoritative NivXRay /api/analyze
+              </div>
+              {!decoded.ok && (
+                <div style={{ color: "var(--amber)" }}>
+                  {(honestyBanner("decode.chain") || {}).text
+                    || "Base /api/analyze unavailable · showing honest result."}
+                  <div style={{ fontSize: 10, color: "var(--faint)", marginTop: 4 }}>
+                    {decoded.error || decoded.status}
+                  </div>
+                </div>
+              )}
+              {decoded.ok && (
+                <pre className="mono"
+                        style={{ fontSize: 10.5, whiteSpace: "pre-wrap",
+                                    color: "var(--text-dim)", margin: 0 }}>
+                  {JSON.stringify(decoded.data, null, 2)}
+                </pre>
+              )}
             </div>
           )}
         </section>

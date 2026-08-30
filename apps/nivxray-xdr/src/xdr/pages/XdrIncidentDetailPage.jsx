@@ -17,6 +17,8 @@ import DomainCardsGrid from "@/xdr/components/DomainCardsGrid";
 import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
 import EvidenceFirstInvestigationWorkspace
   from "@/xdr/investigation/EvidenceFirstInvestigationWorkspace";
+import { XdrVerdictPanel, XdrInvestigationReportPanel }
+  from "@/xdr/adopt/consumerPanels";
 
 import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
 import { useAuth } from "@/lib/auth";
@@ -336,6 +338,11 @@ function InvestigationTab({ incident }) {
   return (
     <div>
       <EvidenceFirstInvestigationWorkspace incident={incident} />
+
+      {/* Authoritative Verdict Stage-2 (consumed from base) */}
+      <XdrVerdictPanel incident={incident} />
+      {/* Authoritative Investigation Report (consumed from base) */}
+      <XdrInvestigationReportPanel incident={incident} />
 
       {/* Legacy deep-link subtabs preserved below the workspace so
              every capability the previous view surfaced still lands
