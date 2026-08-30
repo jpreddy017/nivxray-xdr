@@ -5,6 +5,31 @@
 
 ---
 
+## ✅ 2026-02-30 · B (SOC-100 shell) + Report tab shell + Q1·C adopter cleanup — SHIPPED
+
+* **B · SOC-100 Scenario Intelligence** — 20/100 scenarios in the
+  compact corpus at `/app/backend/data/soc100_scenarios.json`.
+  Backend router `routers/xdr_scenarios.py` exposes
+  `GET /api/xdr/scenarios`, `GET /api/xdr/scenarios/{id}` and
+  `POST /api/xdr/investigation/{id}/scenario-match` with
+  deterministic scoring (3 pts per matching technique + 1 pt per
+  keyword hit).  Frontend `ScenarioIntelligencePanel.jsx` mounted
+  in the Investigation tab and verified live on Vercel.  Guidance
+  only · never evidence · never verdict.  **Full-100 ingestion
+  queued as B follow-up.**
+* **Q2·ii · Report tab shell** — `InvestigationReportShell.jsx`
+  renders Executive Summary + Coverage (8 facets) + Sections
+  availability list.  Generate PDF disabled — shell NEVER
+  fabricates content.  Full engine deferred to F.
+* **Q1·C · Adopter cleanup** — retired `XdrVerdictPanel`,
+  legacy `XdrInvestigationReportPanel`, `XdrIueTimelinePanel`,
+  `XdrUaieCatalogPanel`.  Kept DIE, IEDDE, UIL as reused NivXRay
+  Tool intelligence.
+* Bundle: `XdrIncidentDetailPage` 107.65 → 113.89 kB.
+  Pushed as `178bd29`.  Zero page errors on live verify.
+
+---
+
 ## 🔒 2026-02-30 · NivXRay XDR Investigation Architecture — LOCKED
 
 **Execution queue (locked · non-negotiable):**

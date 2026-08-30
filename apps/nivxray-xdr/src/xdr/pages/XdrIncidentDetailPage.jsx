@@ -15,16 +15,15 @@ import ActivityTab  from "@/components/incidents/tabs/ActivityTab";
 import Pivot       from "@/xdr/components/Pivot";
 import DomainCardsGrid from "@/xdr/components/DomainCardsGrid";
 import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
-import { XdrVerdictPanel, XdrInvestigationReportPanel }
-  from "@/xdr/adopt/consumerPanels";
 import { XdrDieChainPanel, XdrIeddeStagePanel,
-  XdrIueTimelinePanel, XdrUaieCatalogPanel,
   XdrUilClassifierPanel }
   from "@/xdr/adopt/enginePanels";
 import XdrRecommendationsPanel from "@/xdr/intel/XdrRecommendationsPanel";
 import XdrCompletenessPanel   from "@/xdr/investigation/XdrCompletenessPanel";
 import ProcessTreePanel       from "@/xdr/investigation/ProcessTreePanel";
 import AttackChainPanel       from "@/xdr/investigation/AttackChainPanel";
+import ScenarioIntelligencePanel from "@/xdr/investigation/ScenarioIntelligencePanel";
+import InvestigationReportShell  from "@/xdr/investigation/InvestigationReportShell";
 import { WorkspaceSelectionProvider }
   from "@/xdr/investigation/WorkspaceSelectionContext";
 
@@ -352,26 +351,27 @@ function InvestigationTab({ incident }) {
       {/* Predicted Process Tree — graph visual */}
       <ProcessTreePanel incident={incident} />
 
+      {/* Scenario Intelligence — SOC-100 guidance layer (B).  Guidance
+             only · never evidence · never verdict. */}
+      <ScenarioIntelligencePanel incident={incident} />
+
       {/* Investigation Completeness — deterministic gap checker */}
       <XdrCompletenessPanel incident={incident} />
 
-      {/* Authoritative Verdict Stage-2 (consumed from base) */}
-      <XdrVerdictPanel incident={incident} />
-      {/* Recommended Next Steps — deterministic, evidence-driven,
-             composed from base recommender + rules + IOC + verdict +
-             playbook state.  Recalculates on evidence change. */}
+      {/* Recommended Next Steps — deterministic, evidence-driven */}
       <XdrRecommendationsPanel incident={incident} />
-      {/* Authoritative Investigation Report (consumed from base) */}
-      <XdrInvestigationReportPanel incident={incident} />
 
-      {/* P1 Engine Adoption Wave — consume NivXRay's authoritative
-             engines (DIE / IEDDE / IUE / UAIE) inline.  Never
-             re-implement, never fabricate.  See docs/
-             NIVXRAY_XDR_TECHNOLOGY_ADOPTION_MATRIX.md § 1. */}
+      {/* Report Tab shell (Q2·ii).  Full report engine deferred to F —
+             the shell never fabricates content. */}
+      <InvestigationReportShell incident={incident} />
+
+      {/* Reused NivXRay Tool intelligence capabilities (Q1·c):
+             DIE · IEDDE · UIL.  Retired: UAIE Catalog, IUE lanes,
+             Verdict Stage-2 panel, legacy Investigation Report panel.
+             They are folded into the canonical IKG → ICE → Verdict →
+             Report path handled by F. */}
       <XdrDieChainPanel incident={incident} />
       <XdrIeddeStagePanel incident={incident} />
-      <XdrIueTimelinePanel incident={incident} />
-      <XdrUaieCatalogPanel />
       <XdrUilClassifierPanel incident={incident} />
 
       {/* Legacy deep-link subtabs preserved below the workspace so
