@@ -24,6 +24,8 @@ import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
 import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
 import EnginesBody from "@/xdr/admin/EnginesBody";
 import CorpusBody from "@/xdr/admin/CorpusBody";
+import CapabilityHubBody from "@/xdr/admin/CapabilityHubBody";
+import DetectionContentBody from "@/xdr/admin/DetectionContentBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
 
@@ -166,6 +168,13 @@ function AdminBody({ section }) {
       setState("populated");
       return;
     }
+    if (section.kind === "capability_hub" || section.kind === "detection_content") {
+      // Both surfaces are fully client-side, read-only projections of
+      // in-tree registries.  No network call.
+      setPayload(null);
+      setState("populated");
+      return;
+    }
     if (!section.api) {
       setState(section.connected === false ? "not_connected" : "not_available");
       return;
@@ -276,6 +285,10 @@ function AdminBody({ section }) {
               ? <EnginesBody />
               : section.kind === "corpus"
               ? <CorpusBody />
+              : section.kind === "capability_hub"
+              ? <CapabilityHubBody />
+              : section.kind === "detection_content"
+              ? <DetectionContentBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}

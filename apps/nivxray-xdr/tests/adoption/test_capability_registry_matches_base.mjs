@@ -158,7 +158,57 @@ for (const cat of REQUIRED_CATEGORIES) {
   }
 }
 
-// ── 5. Result ──────────────────────────────────────────────────
+// ── 5. Extension manifests — every JSON must parse + declare required keys ─
+log("▶", "Extension manifests: every JSON must be a valid contract…");
+const REQUIRED_MANIFEST_KEYS = [
+  "capability_id", "name", "type", "provider", "version", "vendor",
+  "authentication", "permissions", "supported_operations",
+  "input_schema", "output_schema", "health_check", "lifecycle",
+  "adapter_status",
+];
+const EXTENSION_TYPES_SET = new Set([
+  "CONNECTOR","COLLECTOR","PROTOCOL","PARSER","NORMALIZER",
+  "DETECTOR","CORRELATOR","ENRICHMENT","TI_PROVIDER","ACTION",
+  "PLAYBOOK_PACK","CONTENT_PACK","AGENT","PATTERN_ENGINE",
+]);
+const extensionsRoot = path.join(REPO_ROOT, "docs/extensions");
+function _walk(dir) {
+  const out = [];
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) out.push(..._walk(p));
+      else if (entry.isFile() && entry.name.endsWith(".json")) out.push(p);
+    }
+  } catch { /* dir missing */ }
+  return out;
+}
+const manifests = _walk(extensionsRoot);
+if (manifests.length === 0) {
+  log("❌", "no extension manifests found under docs/extensions/");
+  failures += 1;
+}
+for (const f of manifests) {
+  let m;
+  try { m = JSON.parse(fs.readFileSync(f, "utf8")); }
+  catch (e) {
+    log("❌", `${f} · invalid JSON: ${e.message}`);
+    failures += 1;
+    continue;
+  }
+  const missing = REQUIRED_MANIFEST_KEYS.filter((k) => !(k in m));
+  const bad = [];
+  if (m.type && !EXTENSION_TYPES_SET.has(m.type)) bad.push(`type:${m.type}`);
+  if (missing.length > 0 || bad.length > 0) {
+    log("❌", `${m.capability_id || f} · missing ${missing.join(",")} `
+                 + (bad.length ? ` · invalid ${bad.join(",")}` : ""));
+    failures += 1;
+  } else {
+    log("✅", `${m.capability_id} · ${m.lifecycle}`);
+  }
+}
+
+// ── 6. Result ──────────────────────────────────────────────────
 if (failures > 0) {
   log("💥", `${failures} failure(s) — anti-hallucination gate BROKEN`);
   process.exit(1);

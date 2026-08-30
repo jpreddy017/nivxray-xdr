@@ -13,7 +13,7 @@
 import {
   LayoutGrid, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, ArrowRightLeft, Users, Webhook, HeartPulse,
-  Boxes, FolderTree,
+  Boxes, FolderTree, Radar, PlusCircle,
 } from "lucide-react";
 
 export const ADMIN_SECTIONS = [
@@ -21,6 +21,16 @@ export const ADMIN_SECTIONS = [
     key: "overview", label: "Overview", icon: LayoutGrid,
     subtitle: "Aggregate admin KPIs · deterministic counts from authoritative surfaces.",
     api: "/admin/stats", kind: "kv",
+  },
+  {
+    key: "capability-hub", label: "Capability Hub", icon: PlusCircle,
+    subtitle: "Plug-and-play extension registry · Install → Configure → Test → Enable · every capability is a validated manifest, never uploaded code.",
+    api: null, kind: "capability_hub", connected: true,
+  },
+  {
+    key: "detection-content", label: "Detection Content", icon: Radar,
+    subtitle: "Rules · Pattern Rules · LOLBAS · ATT&CK coverage · every entry contributes evidence to the deterministic Verdict engine.",
+    api: null, kind: "detection_content", connected: true,
   },
   {
     key: "engines", label: "Engines", icon: Boxes,
