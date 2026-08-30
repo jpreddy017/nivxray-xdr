@@ -410,3 +410,58 @@ and `/app/backend` untouched, 87-pass baseline unaffected.
 - **P3 · Phase D**: Windows WEF / WinRM / WMI.
 - **P4 · Slice 8 → 12**: Device Trajectory rewrite, Lifecycle,
   Response Approval Loop, Global Response Center.
+
+---
+
+## 2026-02 Fork · Continuation Log — Preflight + Playbook Designer
+
+### Ingest Preflight (COMPLETE · deployed)
+- `POST /api/xdr/ingest-preflight` on the collector sends a
+  synthetic envelope (`event_type=preflight`, `canonical.nivxray_preflight=true`)
+  through the real IngestClient and returns the concrete outcome:
+  `HEALTHY (2xx)` / `DEGRADED (5xx/timeout)` / `NOT_CONFIGURED`.
+- Wizard "Preflight" button surfaces the result end-to-end so
+  operators can prove `NIVX_INGEST_URL` + token wiring without
+  pushing real telemetry.
+- 3 additional pytests (44/44 total collector suite passes).
+- `INGEST_CONTRACT.md` and `DEPLOY.md` published in the collector
+  repo — the ingest wire is locked and ready for the base backend
+  team to implement.
+
+### Playbook Designer (COMPLETE · deployed · design-only)
+- New sidebar section **RESPOND → Playbooks**.
+- `/xdr/respond/playbooks` list page (create / duplicate / delete /
+  lifecycle pill), `/xdr/respond/playbooks/:id` designer.
+- Designer canvas: START → TRIGGER → CONDITION → ACTION → END with
+  insert-action, insert-condition, per-node inspector, parameter
+  editing.
+- Lifecycle DRAFT → TESTING → ENABLED → DISABLED → DEPRECATED with
+  allowed-transition guard.  Versioned + audited persistence
+  (localStorage today; execution-ready shape swaps to a real
+  `/api/playbooks` endpoint later).
+- **Response Action Registry** at `src/xdr/respond/actionRegistry.js` —
+  DELIBERATELY DECOUPLED from the Collector Connector Registry.
+  18 canonical actions (endpoint · identity · network · email ·
+  nivxray) with `action_id, provider, capability, parameters,
+  required_permissions, approval_required, reversible, destructive,
+  execution_status`.
+- Every Run/Test surface is disabled and shows
+  `NOT WIRED — Response Engine not yet connected`.  No fake executor
+  at any layer — honest per user directive.
+- Deployed to Vercel: commit `5789b84`.
+
+### Immediate backlog
+- **P0 · Deploy the collector** using DEPLOY.md; set Vercel
+  `VITE_XDR_COLLECTOR_URL`.
+- **P0 · Implement `POST /api/xdr/ingest` on the base backend**
+  per `INGEST_CONTRACT.md`.  Idempotent on
+  `(tenant_id, connector_id, source_event_id)`.
+- **P1 · Response Engine contract** — mirror of the ingest
+  contract for response actions (`POST /api/respond/execute`).
+  Unlocks the Playbook Designer's Run/Test buttons.
+- **P2 · Automation Rules** page (Respond → Automation Rules) —
+  WHEN/THEN triggers that invoke playbooks.
+- **P3 · Phase C vendor adapters** on the REST poller.
+- **P4 · Full IA restructure** to OVERVIEW / DETECT / HUNT /
+  INVESTIGATE / RESPOND / INTELLIGENCE / ASSETS / ADMIN once
+  Response Engine is real.

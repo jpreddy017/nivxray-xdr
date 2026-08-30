@@ -34,14 +34,23 @@ class IngestOutcome:
 
 class IngestClient:
     def __init__(self) -> None:
-        self.url     = os.environ.get("NIVX_INGEST_URL") or None
-        self.token   = os.environ.get("NIVX_INGEST_TOKEN") or None
-        self.timeout = float(os.environ.get("NIVX_INGEST_TIMEOUT", "10"))
         self.delivered:       int = 0
         self.failed_retryable: int = 0
         self.failed_fatal:    int = 0
         self.last_error: str | None = None
         self.last_delivery_at: str | None = None
+
+    # Read env fresh on every call so operators can hot-fix the token
+    # by setting the env and letting the next delivery pick it up.
+    @property
+    def url(self) -> str | None:
+        return os.environ.get("NIVX_INGEST_URL") or None
+    @property
+    def token(self) -> str | None:
+        return os.environ.get("NIVX_INGEST_TOKEN") or None
+    @property
+    def timeout(self) -> float:
+        return float(os.environ.get("NIVX_INGEST_TIMEOUT", "10"))
 
     def configured(self) -> bool:
         return bool(self.url)

@@ -328,6 +328,26 @@ function IngestHealthStrip({ state, health, onRefresh }) {
         </span>
       )}
       <span style={{ flex: 1 }} />
+      <button className="btn" style={{ padding: "3px 10px" }}
+                onClick={async () => {
+                  try {
+                    const r = await C.ingestPreflight();
+                    const status = r.status_code ? ` (HTTP ${r.status_code})` : "";
+                    window.alert(
+                      `Ingest preflight: ${r.state?.toUpperCase()}${status}\n\n` +
+                      (r.reason ? `Reason: ${r.reason}\n\n` : "") +
+                      `Outcome: ${r.outcome || "n/a"}\n` +
+                      `Ok: ${r.ok}\n` +
+                      `See INGEST_CONTRACT.md §3 for the wire contract.`
+                    );
+                    onRefresh();
+                  } catch (e) {
+                    window.alert("Preflight request failed: " + (e?.message || e));
+                  }
+                }}
+                data-testid="xdr-int-preflight">
+        Preflight
+      </button>
       <button className="btn" style={{ padding: "3px 10px" }} onClick={onRefresh}
                 data-testid="xdr-int-health-refresh">
         <RotateCcw size={11} /> Refresh

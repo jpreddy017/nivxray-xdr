@@ -20,6 +20,8 @@ const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomain
 const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
 const XdrAdminPage            = lazy(() => import("@/xdr/pages/XdrAdminPage"));
 const XdrMitreHeatmap         = lazy(() => import("@/xdr/pages/XdrMitreHeatmap"));
+const XdrPlaybooksPage        = lazy(() => import("@/xdr/pages/XdrPlaybooksPage"));
+const XdrPlaybookDesigner     = lazy(() => import("@/xdr/pages/XdrPlaybookDesignerPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -97,6 +99,8 @@ export default function App() {
         <Route path="/xdr/intelligence/command" element={<Protected><XdrReservedPage capability="command" /></Protected>} />
         <Route path="/xdr/intelligence/malware" element={<Protected><XdrReservedPage capability="malware" /></Protected>} />
         <Route path="/xdr/intelligence/mitre"   element={<Protected><XdrMitreHeatmap /></Protected>} />
+        <Route path="/xdr/respond/playbooks"          element={<Protected><XdrPlaybooksPage /></Protected>} />
+        <Route path="/xdr/respond/playbooks/:id"      element={<Protected><XdrPlaybookDesigner /></Protected>} />
         <Route path="/xdr/intelligence/kb"      element={<Protected><XdrReservedPage capability="kb" /></Protected>} />
 
         {/* Slice 10 · Native XDR Admin Console.  All 14 admin

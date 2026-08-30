@@ -46,6 +46,7 @@ from routes.telemetry_health import router as telemetry_health_router
 from routes.data_sources     import router as data_sources_router
 from routes.webhooks         import router as webhooks_router
 from routes.outbox           import router as outbox_router
+from routes.preflight        import router as preflight_router
 
 
 _CLASS_BY_TYPE = {
@@ -131,6 +132,7 @@ app.include_router(telemetry_health_router, prefix="/api/xdr")
 app.include_router(data_sources_router,     prefix="/api/xdr")
 app.include_router(webhooks_router,         prefix="/api/xdr")
 app.include_router(outbox_router,           prefix="/api/xdr")
+app.include_router(preflight_router,        prefix="/api/xdr")
 
 
 @app.get("/health")

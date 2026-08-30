@@ -55,6 +55,12 @@ export async function getOutboxHealth() {
   const { data } = await client.get("/outbox/health");
   return data;
 }
+export async function ingestPreflight(tenantId = "default") {
+  if (!client) notDeployed();
+  const { data } = await client.post("/ingest-preflight", null,
+                                          { headers: { "X-Tenant-Id": tenantId } });
+  return data;
+}
 
 // ── CRUD + control ────────────────────────────────────────
 export async function createConnector(body, tenantId = "default") {

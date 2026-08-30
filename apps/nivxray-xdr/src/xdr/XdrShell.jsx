@@ -93,6 +93,14 @@ const SIDEBAR = [
     ],
   },
   {
+    section: "Respond",
+    items: [
+      { key: "playbooks", label: "Playbooks", icon: Zap,
+        to: "/xdr/respond/playbooks",
+        title: "Reusable response workflows · design-only until the Response Engine is wired" },
+    ],
+  },
+  {
     section: "Exposure",
     items: [
       { key: "assets",          label: "Assets",          icon: Boxes,    disabled: true },
