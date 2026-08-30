@@ -29,43 +29,91 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Search, Zap, Cpu, Server, User, Globe, FileDigit, Hash,
   ShieldAlert, GitBranch, X, Copy, ExternalLink, ChevronRight,
+  Filter, Maximize2, RotateCcw, Map as MapIcon, Layers, Clock,
+  Boxes, MinusSquare, PlusSquare, ListTree,
 } from "lucide-react";
 
 import { RULE_TO_TECHNIQUE, TECHNIQUE_INDEX } from "@/xdr/mitre/mitreTactics";
 
 // ── Node type palette (single restrained accent per kind) ─────────
 const NODE_TYPE = {
-  incident:  { color: "#f87171", icon: ShieldAlert, label: "INCIDENT"  },
-  host:      { color: "#38bdf8", icon: Server,      label: "HOST"      },
-  user:      { color: "#c084fc", icon: User,        label: "IDENTITY"  },
-  process:   { color: "#a78bfa", icon: Cpu,         label: "PROCESS"   },
-  ip:        { color: "#22d3ee", icon: Globe,       label: "IP"        },
-  domain:    { color: "#22d3ee", icon: Globe,       label: "DOMAIN"    },
-  hash:      { color: "#facc15", icon: Hash,        label: "HASH"      },
-  url:       { color: "#22d3ee", icon: Globe,       label: "URL"       },
-  evidence:  { color: "#fbbf24", icon: FileDigit,   label: "EVIDENCE"  },
-  technique: { color: "#f472b6", icon: GitBranch,   label: "MITRE"     },
-  response:  { color: "#34d399", icon: Zap,         label: "RESPONSE"  },
+  incident:  { color: "#f87171", icon: ShieldAlert, label: "INCIDENT",  shape: "hex" },
+  host:      { color: "#38bdf8", icon: Server,      label: "HOST",      shape: "square" },
+  user:      { color: "#c084fc", icon: User,        label: "IDENTITY",  shape: "circle" },
+  process:   { color: "#a78bfa", icon: Cpu,         label: "PROCESS",   shape: "circle" },
+  file:      { color: "#e5e7eb", icon: FileDigit,   label: "FILE",      shape: "diamond" },
+  ip:        { color: "#22d3ee", icon: Globe,       label: "IP",        shape: "diamond" },
+  domain:    { color: "#22d3ee", icon: Globe,       label: "DOMAIN",    shape: "diamond" },
+  hash:      { color: "#facc15", icon: Hash,        label: "HASH",      shape: "diamond" },
+  url:       { color: "#22d3ee", icon: Globe,       label: "URL",       shape: "diamond" },
+  evidence:  { color: "#fbbf24", icon: FileDigit,   label: "EVIDENCE",  shape: "circle" },
+  technique: { color: "#f472b6", icon: GitBranch,   label: "MITRE",     shape: "hex" },
+  verdict:   { color: "#f87171", icon: ShieldAlert, label: "VERDICT",   shape: "hex" },
+  response:  { color: "#34d399", icon: Zap,         label: "RESPONSE",  shape: "square" },
+  cluster:   { color: "#7c8494", icon: Boxes,       label: "CLUSTER",   shape: "square" },
 };
 
 const EDGE_KIND = {
-  observed:   { color: "rgba(160,160,180,.55)", dashed: false, label: "observed" },
-  derived:    { color: "rgba(160,160,180,.32)", dashed: true,  label: "derived"  },
-  mapped:     { color: "rgba(244,114,182,.55)", dashed: true,  label: "mapped"   },
-  responded:  { color: "rgba(52,211,153,.65)",  dashed: false, label: "responded"},
+  // Semantic edge taxonomy — every edge on the canvas must be one of
+  // these.  Never a generic "connected".  If the incident payload does
+  // not support a semantic relationship, we do NOT draw an edge.
+  parent_of:    { color: "#c084fc", dashed: false, label: "parent_of",    weight: 1.6 },
+  created:      { color: "#facc15", dashed: false, label: "created",      weight: 1.4 },
+  executed:     { color: "#a78bfa", dashed: false, label: "executed",     weight: 1.4 },
+  connected_to: { color: "#22d3ee", dashed: false, label: "connected_to", weight: 1.2 },
+  resolved_to:  { color: "#22d3ee", dashed: true,  label: "resolved_to",  weight: 1.0 },
+  mapped_to:    { color: "#f472b6", dashed: true,  label: "mapped_to",    weight: 1.0 },
+  responded:    { color: "#34d399", dashed: false, label: "responded",    weight: 1.6 },
+  produced:     { color: "#34d399", dashed: true,  label: "produced",     weight: 1.2 },
+  // legacy fallbacks (kept for older callers)
+  observed:     { color: "rgba(160,160,180,.55)", dashed: false, label: "observed" },
+  derived:      { color: "rgba(160,160,180,.32)", dashed: true,  label: "derived"  },
 };
+
+
+// Filter chips — chosen kinds narrow both the canvas and the timeline
+// via the same predicate.  "all" means no filter.
+const FILTERS = [
+  { key: "all",      label: "All",       types: null },
+  { key: "evidence", label: "Evidence",  types: ["evidence"] },
+  { key: "process",  label: "Process",   types: ["process", "host", "cluster"] },
+  { key: "network",  label: "Network",   types: ["ip", "domain", "url"] },
+  { key: "identity", label: "Identity",  types: ["user"] },
+  { key: "mitre",    label: "MITRE",     types: ["technique"] },
+  { key: "response", label: "Response",  types: ["response"] },
+];
 
 
 export default function EvidenceFirstInvestigationWorkspace({ incident }) {
   // 1 · Build the graph deterministically from the incident payload.
-  const { nodes, edges } = useMemo(() => buildGraph(incident), [incident]);
+  const raw = useMemo(() => buildGraph(incident), [incident]);
+
+  // Cluster expansion state — expanded clusters re-inject their
+  // hidden children so the analyst can drill in without leaving the
+  // canvas.
+  const [expandedClusters, setExpandedClusters] = useState(() => new Set());
+  const { nodes, edges } = useMemo(
+    () => expandClusters(raw, expandedClusters, incident),
+    [raw, expandedClusters, incident],
+  );
+
   const [selected, setSelected]   = useState(null);
   const [hovered, setHovered]     = useState(null);
   const [highlight, setHighlight] = useState(null); // { technique_id? | evidence_id? }
   const [pivot, setPivot]         = useState(null); // {x,y,node}
   const [zoom, setZoom]           = useState(1);
   const [pan,  setPan]            = useState({ x: 0, y: 0 });
+  const [filter, setFilter]       = useState("all");
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [showTimeline, setShowTimeline] = useState(true);
   const dragRef = useRef({ dragging: false, ox: 0, oy: 0 });
+  const canvasRef = useRef(null);
+
+  const filterFn = useMemo(() => {
+    const f = FILTERS.find((x) => x.key === filter);
+    if (!f || !f.types) return () => true;
+    return (n) => f.types.includes(n.type) || n.type === "incident";
+  }, [filter]);
 
   // Auto-select the incident node on first load.
   useEffect(() => {
@@ -103,19 +151,71 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
     return () => window.removeEventListener("click", close);
   }, []);
 
+  // ── Toolbar actions ─
+  const doFitView = useCallback(() => {
+    if (!nodes.length || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const gw = Math.max(1, maxX - minX), gh = Math.max(1, maxY - minY);
+    // Reserve 80px of padding around the graph bounds.
+    const scale = Math.min(1.8, Math.max(0.4,
+      Math.min((rect.width  - 160) / gw,
+                  (rect.height - 160) / gh)));
+    setZoom(scale);
+    setPan({
+      x: rect.width  / 2 - ((minX + maxX) / 2) * scale,
+      y: rect.height / 2 - ((minY + maxY) / 2) * scale,
+    });
+  }, [nodes]);
+
+  const doReset = useCallback(() => {
+    setZoom(1); setPan({ x: 0, y: 0 });
+    setSelected(null); setHighlight(null);
+    setFilter("all");
+    setExpandedClusters(new Set());
+  }, []);
+
+  const onNodeClick = useCallback((e, node) => {
+    e.stopPropagation();
+    if (node.type === "cluster") {
+      setExpandedClusters((s) => new Set([...s, node.id]));
+      setSelected(null);
+      return;
+    }
+    setSelected(node.id);
+  }, []);
+  const collapseCluster = useCallback((clusterId) => {
+    setExpandedClusters((s) => {
+      const n = new Set(s); n.delete(clusterId); return n;
+    });
+  }, []);
+
   const selectedNode = nodes.find((n) => n.id === selected) || null;
 
   return (
     <div data-testid="xdr-investigation-workspace"
             style={{ display: "grid",
                         gridTemplateColumns: "1fr 340px",
-                        gridTemplateRows: "1fr auto",
-                        gap: 12, height: 720 }}>
+                        gridTemplateRows: "auto 1fr auto",
+                        gap: 12, height: 780 }}>
+      {/* Investigation Toolbar (spans full width) */}
+      <div style={{ gridColumn: "1 / 3", gridRow: 1 }}>
+        <InvestigationToolbar
+          nodeCount={nodes.length} edgeCount={edges.length}
+          filter={filter} onFilter={setFilter}
+          onFit={doFitView} onReset={doReset}
+          showMinimap={showMinimap} onToggleMinimap={() => setShowMinimap((v) => !v)}
+          showTimeline={showTimeline} onToggleTimeline={() => setShowTimeline((v) => !v)}
+        />
+      </div>
+
       {/* Canvas */}
-      <section className="panel"
+      <section ref={canvasRef} className="panel"
                   style={{ position: "relative", overflow: "hidden",
                               background: "linear-gradient(160deg, #0a0d14 0%, #0e131c 100%)",
-                              borderRadius: 6, gridRow: 1 }}
+                              borderRadius: 6, gridRow: 2 }}
                   data-testid="xdr-investigation-canvas"
                   onMouseDown={onCanvasMouseDown}
                   onMouseMove={onCanvasMouseMove}
@@ -136,36 +236,65 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
               const s = nodes.find((n) => n.id === e.source);
               const t = nodes.find((n) => n.id === e.target);
               if (!s || !t) return null;
-              const dim = highlight
-                && !_edgeMatches(e, s, t, highlight);
+              const dimByFilter = !(filterFn(s) || filterFn(t));
+              const dimByHl = highlight && !_edgeMatches(e, s, t, highlight);
+              const dim = dimByFilter || dimByHl;
               const meta = EDGE_KIND[e.kind] || EDGE_KIND.observed;
               return (
-                <line key={e.id}
-                         x1={s.x} y1={s.y} x2={t.x} y2={t.y}
-                         stroke={meta.color}
-                         strokeWidth={1.4}
-                         strokeDasharray={meta.dashed ? "4 4" : "none"}
-                         opacity={dim ? 0.15 : 1} />
+                <g key={e.id} opacity={dim ? 0.12 : 1}>
+                  <line
+                    x1={s.x} y1={s.y} x2={t.x} y2={t.y}
+                    stroke={meta.color}
+                    strokeWidth={meta.weight || 1.4}
+                    strokeDasharray={meta.dashed ? "4 4" : "none"} />
+                  {/* small semantic tag mid-edge for legibility on hover */}
+                  {(selected === s.id || selected === t.id
+                        || hovered === s.id || hovered === t.id) && (
+                    <text
+                      x={(s.x + t.x) / 2} y={(s.y + t.y) / 2 - 4}
+                      textAnchor="middle" fill={meta.color}
+                      fontSize={9} fontFamily="ui-monospace, monospace"
+                      style={{ pointerEvents: "none" }}>
+                      {meta.label}
+                    </text>
+                  )}
+                </g>
               );
             })}
             {nodes.map((n) => (
               <NodeGlyph key={n.id} node={n}
                               selected={selected === n.id}
                               hovered={hovered === n.id}
-                              dimmed={highlight && !_nodeMatches(n, highlight)}
-                              onClick={(e) => { e.stopPropagation(); setSelected(n.id); }}
+                              dimmed={(highlight && !_nodeMatches(n, highlight))
+                                          || !filterFn(n)}
+                              onClick={(e) => onNodeClick(e, n)}
                               onContextMenu={(e) => openPivot(e, n)}
                               onMouseEnter={() => setHovered(n.id)}
                               onMouseLeave={() => setHovered(null)} />
             ))}
           </g>
         </svg>
+        {showMinimap && (
+          <Minimap nodes={nodes} pan={pan} zoom={zoom}
+                        selectedId={selected} canvasRef={canvasRef} />
+        )}
         <CanvasLegend />
+        {/* Selected-cluster hint to collapse */}
+        {selectedNode?.type === "cluster" && (
+          <button className="btn ghost"
+                    onClick={() => collapseCluster(selectedNode.id)}
+                    data-testid="xdr-canvas-cluster-collapse"
+                    style={{ position: "absolute", top: 44, right: 12,
+                                padding: "3px 10px", fontSize: 10.5,
+                                zIndex: 4 }}>
+            <MinusSquare size={11} /> Collapse cluster
+          </button>
+        )}
       </section>
 
       {/* Right-side stack: Inspector on top, Attack Story below */}
       <aside style={{ display: "flex", flexDirection: "column", gap: 10,
-                          overflow: "hidden", gridRow: 1 }}>
+                          overflow: "hidden", gridRow: 2 }}>
         <EntityInspector
           node={selectedNode} incident={incident}
           onPivotHighlight={setHighlight}
@@ -181,15 +310,17 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
       </aside>
 
       {/* Synchronized Timeline strip — one investigation surface */}
-      <div style={{ gridColumn: "1 / 3", gridRow: 2 }}>
-        <SynchronizedTimeline
-          incident={incident} nodes={nodes}
-          selectedId={selected}
-          highlight={highlight}
-          onSelect={setSelected}
-          onHighlight={setHighlight}
-        />
-      </div>
+      {showTimeline && (
+        <div style={{ gridColumn: "1 / 3", gridRow: 3 }}>
+          <SynchronizedTimeline
+            incident={incident} nodes={nodes}
+            selectedId={selected}
+            highlight={highlight}
+            onSelect={setSelected}
+            onHighlight={setHighlight}
+          />
+        </div>
+      )}
 
       {/* Pivot context menu */}
       {pivot && (
@@ -209,31 +340,52 @@ function buildGraph(incident) {
   const edges = [];
   if (!incident) return { nodes, edges };
 
-  const push = (n) => { if (!nodes.find((x) => x.id === n.id)) nodes.push(n); };
-  const edge = (source, target, kind = "observed", label) => {
+  const push = (n) => {
+    const existing = nodes.find((x) => x.id === n.id);
+    if (existing) {
+      // Merge badge counters across duplicate refs.
+      existing.badges = _mergeBadges(existing.badges, n.badges);
+      return existing;
+    }
+    n.badges = n.badges || {};
+    nodes.push(n);
+    return n;
+  };
+  const edge = (source, target, kind = "connected_to") => {
     if (!source || !target || source === target) return;
-    if (!edges.find((e) => e.source === source && e.target === target))
-      edges.push({ id: `${source}->${target}`, source, target, kind, label });
+    if (!edges.find((e) =>
+        e.source === source && e.target === target && e.kind === kind))
+      edges.push({ id: `${source}->${target}#${kind}`,
+                       source, target, kind });
   };
 
-  // Layout: incident at center, hosts left, users right, IOCs bottom-left,
-  // evidence bottom-right, techniques far bottom, response nodes far right.
+  // Layout (deterministic; d3-force is P1).
   const cx = 480, cy = 220;
-  push({ id: `inc:${incident.id}`, type: "incident",
-            title: incident.name || incident.number || "Incident",
-            subtitle: incident.severity || "",
-            x: cx, y: cy });
 
+  const incidentNode = push({
+    id: `inc:${incident.id}`, type: "incident",
+    title: incident.name || incident.number || "Incident",
+    subtitle: incident.severity || "",
+    badges: { severity: incident.severity },
+    x: cx, y: cy,
+  });
+
+  // ── Hosts + their processes (executed edges + parent_of within tree) ─
   const hosts = incident.assets?.hosts || incident.hosts || [];
+  const hostIndex = {};
   hosts.forEach((h, i) => {
-    const id = `host:${h.host_id || h.id || h.name || i}`;
+    const hostKey = h.host_id || h.id || h.name || i;
+    const id = `host:${hostKey}`;
     push({ id, type: "host",
               title: h.host_id || h.name || h.id || "host",
               subtitle: h.os || h.ip || "",
-              raw: h, x: cx - 220 - (i % 3) * 80, y: cy - 60 + i * 42 });
-    edge(`inc:${incident.id}`, id, "observed");
+              raw: h, badges: { ip: h.ip },
+              x: cx - 220 - (i % 3) * 80, y: cy - 60 + i * 42 });
+    edge(`inc:${incident.id}`, id, "connected_to");
+    hostIndex[hostKey] = id;
   });
 
+  // ── Identities ─
   const users = incident.assets?.users || incident.users || [];
   users.forEach((u, i) => {
     const id = `user:${u.user_id || u.id || u.email || i}`;
@@ -241,52 +393,82 @@ function buildGraph(incident) {
               title: u.email || u.user_id || u.name || "user",
               subtitle: u.role || u.department || "",
               raw: u, x: cx + 240 + (i % 2) * 60, y: cy - 60 + i * 42 });
-    edge(`inc:${incident.id}`, id, "observed");
+    edge(`inc:${incident.id}`, id, "connected_to");
   });
 
-  // Processes from evidence (rule_id or entity.command_line).
+  // ── Processes (executed / parent_of edges) ─
   const processes = _extractProcesses(incident);
   processes.forEach((p, i) => {
     const id = `proc:${p.pid || p.name || i}`;
     push({ id, type: "process",
               title: p.name || `pid:${p.pid || "?"}`,
               subtitle: p.command_line ? _short(p.command_line, 42) : "",
-              raw: p, x: cx - 30 + (i - processes.length / 2) * 90, y: cy + 70 });
-    edge(`inc:${incident.id}`, id, "observed");
-    if (p.host_id) {
-      const hostId = `host:${p.host_id}`;
-      if (nodes.find((n) => n.id === hostId)) edge(hostId, id, "observed");
+              raw: p,
+              badges: { pid: p.pid },
+              x: cx - 30 + (i - processes.length / 2) * 90, y: cy + 70 });
+    if (p.host_id && hostIndex[p.host_id])
+      edge(hostIndex[p.host_id], id, "executed");
+    if (p.parent_pid) {
+      const parentId = `proc:${p.parent_pid}`;
+      if (nodes.find((n) => n.id === parentId)) edge(parentId, id, "parent_of");
     }
   });
 
+  // ── IOCs (typed indicators + resolved_to / connected_to edges) ─
   const iocs = incident.iocs || {};
   const iocKinds = [
-    ["hash", iocs.hash],   ["ip", iocs.ip],
-    ["domain", iocs.domain], ["url", iocs.url],
+    ["hash",   iocs.hash,   "created"],
+    ["ip",     iocs.ip,     "connected_to"],
+    ["domain", iocs.domain, "resolved_to"],
+    ["url",    iocs.url,    "connected_to"],
   ];
   let iocRow = 0;
-  iocKinds.forEach(([kind, values]) => {
+  iocKinds.forEach(([kind, values, semantic]) => {
     (values || []).forEach((v, i) => {
-      const id = `${kind}:${typeof v === "string" ? v : v.value || i}`;
+      const val = typeof v === "string" ? v : v.value || i;
+      const id  = `${kind}:${val}`;
       push({ id, type: kind,
-                title: typeof v === "string" ? _short(v, 22) : _short(v.value || "", 22),
+                title: _short(String(val), 22),
                 subtitle: typeof v === "object" ? v.provider || v.source || "" : "",
-                raw: v, x: cx - 250 + (i % 3) * 70,
+                raw: v, badges: {},
+                x: cx - 250 + (i % 3) * 70,
                 y: cy + 160 + iocRow * 48 });
+      // Attribute the IOC to a real producing process if the payload
+      // links them; otherwise attach to the host (never to nothing).
+      const linkedProc = typeof v === "object" && v.process
+        ? nodes.find((n) => n.id === `proc:${v.process}`) : null;
+      const linkedHost = typeof v === "object" && v.host_id
+        ? hostIndex[v.host_id] : null;
+      if (linkedProc) edge(linkedProc.id, id, semantic);
+      else if (linkedHost) edge(linkedHost, id, semantic);
     });
     if ((values || []).length) iocRow++;
   });
 
+  // ── Evidence (produced / mapped_to edges + MITRE technique nodes) ─
   const stage2 = incident.verdict_stage2 || {};
-  (stage2.evidence || incident.evidence || []).slice(0, 24).forEach((ev, i) => {
+  const evList = (stage2.evidence || incident.evidence || []).slice(0, 24);
+  evList.forEach((ev, i) => {
     const id = `evid:${ev.rule_id || ev.id || i}`;
     push({ id, type: "evidence",
               title: ev.rule_id || ev.title || `evidence #${i}`,
               subtitle: ev.detected_by || ev.engine || "",
-              raw: ev, x: cx + 130 + (i % 3) * 80,
+              raw: ev,
+              badges: { weight: ev.weight },
+              x: cx + 130 + (i % 3) * 80,
               y: cy + 150 + Math.floor(i / 3) * 48 });
-    edge(`inc:${incident.id}`, id, "observed");
-    // Rule → MITRE mapping (from authoritative table).
+    // Prefer attaching evidence to the specific process/host it names.
+    const evHostId = ev.entity?.host_id ? hostIndex[ev.entity.host_id] : null;
+    const evProcId = ev.entity?.pid ? `proc:${ev.entity.pid}` : null;
+    const proc     = evProcId && nodes.find((n) => n.id === evProcId);
+    if (proc)         edge(proc.id, id, "produced");
+    else if (evHostId) edge(evHostId, id, "produced");
+    else              edge(`inc:${incident.id}`, id, "produced");
+    // Bump the parent's evidence-count badge.
+    const owner = proc ? proc : evHostId ? nodes.find((n) => n.id === evHostId) : incidentNode;
+    if (owner) owner.badges.evidence_count = (owner.badges.evidence_count || 0) + 1;
+
+    // Rule → MITRE mapping (from the authoritative RULE_TO_TECHNIQUE table).
     const rid  = String(ev.rule_id || "").toUpperCase();
     const tech = ev.technique_id || RULE_TO_TECHNIQUE[rid];
     if (tech) {
@@ -295,22 +477,25 @@ function buildGraph(incident) {
                 title: tech,
                 subtitle: TECHNIQUE_INDEX[tech]?.name || "",
                 raw: TECHNIQUE_INDEX[tech] || { technique_id: tech },
+                badges: {},
                 x: cx + 80 + (i % 4) * 90, y: cy + 300 });
-      edge(id, tid, "mapped");
+      edge(id, tid, "mapped_to");
+      if (owner) owner.badges.technique_count = (owner.badges.technique_count || 0) + 1;
     }
   });
 
-  // Response actions produced from the Response Engine (if present on
-  // the incident payload — surfaced via a dedicated collection when
-  // wired end-to-end).  We tolerate the field being absent.
+  // ── Response executions (responded + produced edges to evidence) ─
   const responses = incident.response_executions || incident.responses || [];
   responses.slice(0, 10).forEach((r, i) => {
     const id = `resp:${r.execution_id || i}`;
     push({ id, type: "response",
               title: r.action_id || "response",
               subtitle: r.state || r.status || "",
-              raw: r, x: cx + 320, y: cy - 40 + i * 46 });
+              raw: r,
+              badges: { state: r.state || r.status },
+              x: cx + 320, y: cy - 40 + i * 46 });
     edge(`inc:${incident.id}`, id, "responded");
+    // Response → its evidence node (real ref from base backend).
     if (r.evidence_ref) {
       const evId = `evid:${r.evidence_ref}`;
       if (!nodes.find((n) => n.id === evId)) {
@@ -318,13 +503,126 @@ function buildGraph(incident) {
                   title: _short(r.evidence_ref, 18),
                   subtitle: "response evidence",
                   raw: { evidence_ref: r.evidence_ref },
+                  badges: { via_response: true },
                   x: cx + 220, y: cy - 40 + i * 46 });
       }
-      edge(id, evId, "responded");
+      edge(id, evId, "produced");
     }
+    // Response → host / user it targeted (real target from parameters).
+    const tgtHostId = r.parameters?.host_id ? hostIndex[r.parameters.host_id] : null;
+    if (tgtHostId) edge(id, tgtHostId, "responded");
+    const tgtUser  = r.parameters?.user_id || r.parameters?.user;
+    if (tgtUser) {
+      const uId = `user:${tgtUser}`;
+      if (nodes.find((n) => n.id === uId)) edge(id, uId, "responded");
+    }
+    incidentNode.badges.response_count = (incidentNode.badges.response_count || 0) + 1;
   });
 
+  // ── Cluster collapse — hosts with > CLUSTER_THRESHOLD child processes
+  // fold into a single node the analyst can expand.  Keeps the canvas
+  // legible without hiding data (expansion is a click away).
+  return _foldClusters({ nodes, edges }, { threshold: 4 });
+}
+
+
+function _foldClusters({ nodes, edges }, { threshold = 4 } = {}) {
+  // Group processes by their executed-parent host.
+  const byHost = {};
+  for (const e of edges) {
+    if (e.kind !== "executed") continue;
+    (byHost[e.source] = byHost[e.source] || []).push(e.target);
+  }
+  const collapsed = [];
+  const droppedNodeIds = new Set();
+  for (const [hostId, procIds] of Object.entries(byHost)) {
+    if (procIds.length < threshold) continue;
+    const hostNode = nodes.find((n) => n.id === hostId);
+    if (!hostNode) continue;
+    // Mark procs as clusterable; the toolbar / node click can expand.
+    const clusterId = `cluster:${hostId}`;
+    if (nodes.find((n) => n.id === clusterId)) continue;
+    nodes.push({
+      id: clusterId, type: "cluster",
+      title: `${procIds.length} processes`,
+      subtitle: hostNode.title,
+      badges: { count: procIds.length, parent_host: hostId },
+      collapsed: true, contains: procIds,
+      x: hostNode.x + 90, y: hostNode.y + 40,
+    });
+    for (const pid of procIds) droppedNodeIds.add(pid);
+    collapsed.push(clusterId);
+  }
+  if (droppedNodeIds.size === 0) return { nodes, edges };
+  const keepNodes = nodes.filter((n) => !droppedNodeIds.has(n.id));
+  const keepEdges = edges.filter((e) =>
+    !droppedNodeIds.has(e.source) && !droppedNodeIds.has(e.target));
+  // Re-attach a cluster→host edge for each collapsed group.
+  for (const cid of collapsed) {
+    const cluster = keepNodes.find((n) => n.id === cid);
+    if (!cluster) continue;
+    keepEdges.push({ id: `${cluster.badges.parent_host}->${cid}#executed`,
+                          source: cluster.badges.parent_host,
+                          target: cid, kind: "executed" });
+  }
+  return { nodes: keepNodes, edges: keepEdges,
+             _hiddenNodes: [...droppedNodeIds] };
+}
+
+
+function _mergeBadges(a = {}, b = {}) {
+  const out = { ...a };
+  for (const [k, v] of Object.entries(b)) {
+    if (typeof v === "number") out[k] = (out[k] || 0) + v;
+    else if (out[k] == null)   out[k] = v;
+  }
+  return out;
+}
+
+
+// Given the folded graph, put the child nodes back for any cluster
+// the analyst has opened.  We rebuild those child nodes from the
+// incident payload so the semantic edges reappear correctly.
+function expandClusters(raw, expandedIds, incident) {
+  if (!expandedIds || expandedIds.size === 0) return raw;
+  const nodes = raw.nodes.filter((n) =>
+    n.type !== "cluster" || !expandedIds.has(n.id));
+  const edges = raw.edges.filter((e) => !expandedIds.has(e.target));
+  // Re-inject the child processes that were folded away.
+  for (const cid of expandedIds) {
+    const cluster = raw.nodes.find((n) => n.id === cid);
+    if (!cluster) continue;
+    const hostId = cluster.badges.parent_host;
+    const host   = raw.nodes.find((n) => n.id === hostId);
+    const baseX  = host ? host.x + 90 : cluster.x;
+    const baseY  = host ? host.y + 30 : cluster.y;
+    (cluster.contains || []).forEach((pid, i) => {
+      const proc = _rebuildProcess(pid, incident);
+      if (!proc) return;
+      nodes.push({
+        ...proc, x: baseX + (i % 3) * 80, y: baseY + Math.floor(i / 3) * 40,
+      });
+      if (host) edges.push({ id: `${hostId}->${pid}#executed`,
+                                    source: hostId, target: pid, kind: "executed" });
+    });
+  }
   return { nodes, edges };
+}
+
+
+function _rebuildProcess(procId, incident) {
+  // procId like `proc:<pid|name|index>`.
+  const key = procId.slice(5);
+  const procs = _extractProcesses(incident);
+  const match = procs.find((p) => String(p.pid) === key ||
+                                              String(p.name) === key);
+  if (!match) return null;
+  return {
+    id: procId, type: "process",
+    title: match.name || `pid:${match.pid || "?"}`,
+    subtitle: match.command_line ? _short(match.command_line, 42) : "",
+    raw: match, badges: { pid: match.pid },
+  };
 }
 
 function _extractProcesses(incident) {
@@ -350,6 +648,8 @@ function NodeGlyph({ node, selected, hovered, dimmed,
   const meta = NODE_TYPE[node.type] || NODE_TYPE.evidence;
   const Icon = meta.icon;
   const r    = selected ? 22 : hovered ? 20 : 18;
+  const badges = _renderBadges(node);
+  const isCluster = node.type === "cluster";
   return (
     <g transform={`translate(${node.x}, ${node.y})`}
           opacity={dimmed ? 0.22 : 1}
@@ -358,13 +658,14 @@ function NodeGlyph({ node, selected, hovered, dimmed,
           data-testid={`xdr-node-${node.id}`}
           style={{ cursor: "pointer" }}>
       {selected && (
-        <circle r={r + 6} fill="none" stroke={meta.color}
-                    strokeOpacity={0.35} strokeWidth={2} />
+        <ShapePath shape={meta.shape} r={r + 6} fill="none"
+                          stroke={meta.color} strokeOpacity={0.35}
+                          strokeWidth={2} />
       )}
-      <circle r={r}
-                 fill={_hexA(meta.color, selected ? 0.28 : 0.14)}
-                 stroke={meta.color}
-                 strokeWidth={selected ? 2 : 1.2} />
+      <ShapePath shape={meta.shape} r={r}
+                        fill={_hexA(meta.color, selected ? 0.28 : 0.14)}
+                        stroke={meta.color}
+                        strokeWidth={selected ? 2 : 1.2} />
       <foreignObject x={-9} y={-9} width={18} height={18}
                           style={{ pointerEvents: "none" }}>
         <div style={{ color: meta.color, display: "flex",
@@ -373,6 +674,16 @@ function NodeGlyph({ node, selected, hovered, dimmed,
           <Icon size={14} />
         </div>
       </foreignObject>
+      {isCluster && (
+        <foreignObject x={r - 4} y={-r - 4} width={16} height={16}
+                              style={{ pointerEvents: "none" }}>
+          <div style={{ color: meta.color, display: "flex",
+                            alignItems: "center", justifyContent: "center",
+                            width: 16, height: 16 }}>
+            <PlusSquare size={12} />
+          </div>
+        </foreignObject>
+      )}
       <text y={r + 12} textAnchor="middle"
               fill="#e6e9f2" fontSize={10.5}
               fontFamily="Inter, system-ui" fontWeight={600}
@@ -387,8 +698,177 @@ function NodeGlyph({ node, selected, hovered, dimmed,
           {_short(node.subtitle, 32)}
         </text>
       )}
+      {/* Badges — small semantic chips (evidence count / MITRE count /
+              severity / response state).  Each badge is minted only from
+              a real datum. */}
+      {badges.map((b, i) => (
+        <g key={i} transform={`translate(${r - 4 + i * 14}, ${-(r + 6)})`}
+              style={{ pointerEvents: "none" }}>
+          <rect x={-6} y={-6} width={12} height={12} rx={2}
+                    fill={b.bg} stroke={b.fg} strokeWidth={0.7} />
+          <text x={0} y={2.5} textAnchor="middle"
+                    fill={b.fg} fontSize={7.5} fontWeight={800}
+                    fontFamily="ui-monospace, monospace">
+            {b.label}
+          </text>
+        </g>
+      ))}
     </g>
   );
+}
+
+
+// Small SVG-path helper so nodes can be rendered as different shapes
+// (hex for INCIDENT/MITRE/VERDICT, square for HOST/RESPONSE, diamond
+// for indicators/FILE, circle otherwise).  Deliberately compact.
+function ShapePath({ shape, r, ...rest }) {
+  if (shape === "hex") {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i - Math.PI / 6;
+      pts.push([r * Math.cos(a), r * Math.sin(a)]);
+    }
+    return <polygon points={pts.map(([x, y]) => `${x},${y}`).join(" ")} {...rest} />;
+  }
+  if (shape === "square") {
+    return <rect x={-r} y={-r} width={2 * r} height={2 * r} rx={4} {...rest} />;
+  }
+  if (shape === "diamond") {
+    const p = `0,${-r} ${r},0 0,${r} ${-r},0`;
+    return <polygon points={p} {...rest} />;
+  }
+  return <circle r={r} {...rest} />;
+}
+
+
+function _renderBadges(node) {
+  const b = node.badges || {};
+  const out = [];
+  const chip = (label, fg, bg) => out.push({ label, fg, bg });
+  // Severity for incident + inherited to owners with heavy evidence.
+  if (node.type === "incident" && b.severity) {
+    chip(String(b.severity)[0].toUpperCase(),
+            _sevFg(b.severity), _hexA(_sevFg(b.severity), 0.22));
+  }
+  if (typeof b.evidence_count === "number" && b.evidence_count > 0) {
+    chip(String(b.evidence_count), "#fbbf24", "rgba(251,191,36,.22)");
+  }
+  if (typeof b.technique_count === "number" && b.technique_count > 0) {
+    chip("T" + b.technique_count, "#f472b6", "rgba(244,114,182,.22)");
+  }
+  if (b.state && node.type === "response") {
+    const isOk = b.state === "SUCCEEDED";
+    chip(isOk ? "✓" : "!",
+            isOk ? "#34d399" : "#ff9494",
+            isOk ? "rgba(52,211,153,.22)" : "rgba(255,148,148,.22)");
+  }
+  if (typeof b.count === "number" && node.type === "cluster") {
+    chip(String(b.count), "#e5e7eb", "rgba(160,160,180,.24)");
+  }
+  return out.slice(0, 3);   // never crowd the node
+}
+function _sevFg(sev) {
+  const s = String(sev || "").toLowerCase();
+  return s.startsWith("crit") ? "#f87171"
+       : s.startsWith("high") ? "#fb923c"
+       : s.startsWith("med")  ? "#facc15"
+       : s.startsWith("low")  ? "#38bdf8"
+       : "#94a3b8";
+}
+
+
+// P1 · Contextual entity actions.  Each pill deep-links into an
+// existing NivXRay capability — none of them fabricate an action.
+// When a linked feature doesn't exist for a given entity, we simply
+// don't render the pill.
+function EntityActions({ node, incident, onPivotHighlight }) {
+  const actions = useMemo(() => _entityActions(node, incident,
+                                                             onPivotHighlight),
+                                 [node, incident, onPivotHighlight]);
+  if (!actions.length) return null;
+  return (
+    <div data-testid="xdr-inspector-entity-actions"
+            style={{ display: "flex", flexWrap: "wrap", gap: 4,
+                        marginTop: 10 }}>
+      {actions.map((a, i) => (
+        <button key={i} className="btn ghost"
+                  onClick={a.onClick}
+                  data-testid={`xdr-inspector-action-${a.key}`}
+                  title={a.title}
+                  style={{ padding: "2px 8px", fontSize: 10,
+                              border: "1px solid var(--border)",
+                              borderRadius: 3 }}>
+          {a.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+function _entityActions(node, incident, onPivotHighlight) {
+  if (!node) return [];
+  const raw = node.raw || {};
+  const push = (arr, key, label, onClick, title) =>
+    arr.push({ key, label, onClick, title });
+  const open = (u) => window.open(u, "_blank", "noopener,noreferrer");
+  const actions = [];
+  const encId = incident?.id ? encodeURIComponent(incident.id) : "";
+
+  push(actions, "investigate", "Investigate",
+        () => open(`/analyst?case=${encId}`),
+        "Open in Analyst Workspace");
+
+  if (node.type === "host") {
+    push(actions, "trajectory", "Trajectory",
+          () => open(`/xdr/endpoints/${encodeURIComponent(raw.host_id || node.title)}/trajectory`),
+          "Device trajectory");
+    push(actions, "related",    "Related Incidents",
+          () => open(`/xdr/incidents?q=${encodeURIComponent(raw.host_id || node.title)}`));
+  }
+  if (node.type === "user") {
+    push(actions, "user-incidents", "User Incidents",
+          () => open(`/xdr/incidents?q=${encodeURIComponent(raw.email || raw.user_id || node.title)}`));
+  }
+  if (node.type === "process") {
+    push(actions, "process-tree", "Process Tree",
+          () => open(`/edr/process-tree?case=${encId}`),
+          "Open process tree");
+  }
+  if (["hash", "ip", "domain", "url"].includes(node.type)) {
+    push(actions, "ti", "Threat Intel",
+          () => open(`/threat-intel?ioc=${encodeURIComponent(node.title)}`),
+          "Threat intel enrichment");
+    push(actions, "ioc-related", "Related",
+          () => open(`/xdr/incidents?q=${encodeURIComponent(node.title)}`));
+  }
+  if (node.type === "evidence") {
+    push(actions, "raw", "Raw Evidence",
+          () => open(`/analyst?case=${encId}&evidence=${encodeURIComponent(raw.rule_id || node.title)}`));
+    const tech = raw.technique_id || (raw.rule_id && RULE_TO_TECHNIQUE[String(raw.rule_id).toUpperCase()]);
+    if (tech) push(actions, "mitre-focus", "MITRE",
+                            () => onPivotHighlight({ technique_id: tech }));
+  }
+  if (node.type === "technique") {
+    push(actions, "heatmap", "Heatmap",
+          () => open(`/xdr/intelligence/mitre?technique=${encodeURIComponent(node.title)}`));
+    push(actions, "filter",  "Filter graph",
+          () => onPivotHighlight({ technique_id: node.title }),
+          "Filter to this technique on the canvas");
+    push(actions, "tech-related", "Related Incidents",
+          () => open(`/xdr/incidents?technique=${encodeURIComponent(node.title)}`));
+  }
+  if (node.type === "response") {
+    push(actions, "resp-chain", "Response Chain",
+          () => open(`/xdr/evidence/${encodeURIComponent(raw.execution_id || "")}`),
+          "Full response chain");
+    if (raw.evidence_ref) {
+      push(actions, "resp-evidence", "Evidence",
+            () => open(`/xdr/evidence/${encodeURIComponent(raw.execution_id || "")}#evidence`));
+    }
+  }
+  push(actions, "run-response", "Response",
+        () => open(`/xdr/incidents/${encId}#respond`),
+        "Run a response action for this incident");
+  return actions;
 }
 
 
@@ -435,6 +915,10 @@ function EntityInspector({ node, incident, onPivotHighlight, onOpenPivot }) {
           {node.subtitle}
         </div>
       )}
+
+      {/* Contextual entity actions strip (P1) */}
+      <EntityActions node={node} incident={incident}
+                            onPivotHighlight={onPivotHighlight} />
 
       <div style={{ marginTop: 10, overflow: "auto", flex: 1 }}>
         {node.type === "evidence" && (
@@ -883,6 +1367,149 @@ function buildPivotItems(node, incident) {
 
 
 /* ───────────────────────────── ancillary ─────────────────────────── */
+function InvestigationToolbar({
+  nodeCount, edgeCount, filter, onFilter,
+  onFit, onReset, showMinimap, onToggleMinimap,
+  showTimeline, onToggleTimeline,
+}) {
+  return (
+    <div className="panel" data-testid="xdr-investigation-toolbar"
+            style={{ padding: "6px 10px",
+                        display: "flex", alignItems: "center",
+                        gap: 6, flexWrap: "wrap" }}>
+      <ToolbarBtn label="Fit view" icon={Maximize2}
+                        testid="xdr-toolbar-fit" onClick={onFit} />
+      <ToolbarBtn label="Reset"    icon={RotateCcw}
+                        testid="xdr-toolbar-reset" onClick={onReset} />
+      <ToolbarBtn label="Minimap"  icon={MapIcon}
+                        testid="xdr-toolbar-minimap"
+                        active={showMinimap}
+                        onClick={onToggleMinimap} />
+      <ToolbarBtn label="Timeline" icon={Clock}
+                        testid="xdr-toolbar-timeline"
+                        active={showTimeline}
+                        onClick={onToggleTimeline} />
+      <span style={{ width: 1, height: 20, background: "var(--border)",
+                        margin: "0 4px" }} />
+      <span className="mono" style={{ fontSize: 10, color: "var(--faint)",
+                                                    marginRight: 4,
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: ".3px" }}>
+        <Filter size={10} style={{ verticalAlign: "middle",
+                                                marginRight: 3 }} />
+        Filter
+      </span>
+      {FILTERS.map((f) => (
+        <button key={f.key}
+                  className="btn ghost"
+                  data-testid={`xdr-toolbar-filter-${f.key}`}
+                  onClick={() => onFilter(f.key)}
+                  style={{ padding: "3px 9px",
+                              background: filter === f.key
+                                              ? "rgba(155,123,240,.18)" : "transparent",
+                              color: filter === f.key
+                                        ? "var(--text)" : "var(--text-dim)",
+                              fontSize: 10.5, borderRadius: 4,
+                              fontWeight: filter === f.key ? 700 : 500 }}>
+          {f.label}
+        </button>
+      ))}
+      <span style={{ flex: 1 }} />
+      <span className="mono" style={{ fontSize: 10, color: "var(--faint)" }}>
+        {nodeCount} nodes · {edgeCount} edges
+      </span>
+    </div>
+  );
+}
+function ToolbarBtn({ icon: Icon, label, testid, onClick, active }) {
+  return (
+    <button className="btn ghost" onClick={onClick}
+              data-testid={testid}
+              style={{ padding: "3px 8px", fontSize: 10.5,
+                          background: active ? "rgba(155,123,240,.18)" : "transparent",
+                          color: active ? "var(--text)" : "var(--text-dim)",
+                          display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <Icon size={11} /> {label}
+    </button>
+  );
+}
+
+
+// Overview minimap — projects the full graph into a tiny viewport
+// with a red frame showing the current pan/zoom.  Clicking a spot
+// on the minimap does NOT recenter yet (kept simple); this is a
+// legibility aid for large investigations.
+function Minimap({ nodes, pan, zoom, selectedId, canvasRef }) {
+  const size = { w: 140, h: 90 };
+  const layout = useMemo(() => {
+    if (!nodes.length) return null;
+    const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
+    const minX = Math.min(...xs) - 40, maxX = Math.max(...xs) + 40;
+    const minY = Math.min(...ys) - 40, maxY = Math.max(...ys) + 40;
+    const sx = size.w / Math.max(1, maxX - minX);
+    const sy = size.h / Math.max(1, maxY - minY);
+    return { minX, minY, sx, sy };
+  }, [nodes]);
+  if (!layout) return null;
+  const project = (x, y) => ({
+    x: (x - layout.minX) * layout.sx,
+    y: (y - layout.minY) * layout.sy,
+  });
+
+  // Compute the viewport rectangle in graph coords → minimap coords.
+  const rect = canvasRef.current?.getBoundingClientRect();
+  const vp = rect
+    ? {
+        x1: (-pan.x) / zoom, y1: (-pan.y) / zoom,
+        x2: (rect.width  - pan.x) / zoom,
+        y2: (rect.height - pan.y) / zoom,
+      }
+    : null;
+  const vpProj = vp && {
+    p1: project(vp.x1, vp.y1), p2: project(vp.x2, vp.y2),
+  };
+
+  return (
+    <div data-testid="xdr-canvas-minimap"
+            style={{
+              position: "absolute", right: 10, bottom: 40, zIndex: 5,
+              width: size.w, height: size.h,
+              background: "rgba(10,13,20,.85)",
+              border: "1px solid #22293a", borderRadius: 4,
+              boxShadow: "0 4px 14px rgba(0,0,0,.5)",
+              padding: 3,
+            }}>
+      <svg width={size.w - 6} height={size.h - 6}
+              style={{ display: "block" }}>
+        {nodes.map((n) => {
+          const p = project(n.x, n.y);
+          const meta = NODE_TYPE[n.type] || NODE_TYPE.evidence;
+          return (
+            <circle key={n.id} cx={p.x} cy={p.y}
+                        r={selectedId === n.id ? 3 : 1.8}
+                        fill={meta.color}
+                        opacity={selectedId === n.id ? 1 : 0.6} />
+          );
+        })}
+        {vpProj && (
+          <rect
+            x={Math.max(0, Math.min(size.w, vpProj.p1.x))}
+            y={Math.max(0, Math.min(size.h, vpProj.p1.y))}
+            width={Math.max(0,
+                     Math.min(size.w, vpProj.p2.x) -
+                     Math.max(0, vpProj.p1.x))}
+            height={Math.max(0,
+                      Math.min(size.h, vpProj.p2.y) -
+                      Math.max(0, vpProj.p1.y))}
+            fill="none" stroke="#f87171"
+            strokeWidth={1} strokeDasharray="2 2" />
+        )}
+      </svg>
+    </div>
+  );
+}
+
+
 function CanvasToolbar({ incidentId, nodeCount, edgeCount,
                                 zoom, onZoom, highlight, onClearHighlight }) {
   return (
@@ -891,7 +1518,8 @@ function CanvasToolbar({ incidentId, nodeCount, edgeCount,
       display: "flex", alignItems: "center", gap: 8,
       pointerEvents: "none",
     }}>
-      <div className="mono" style={{ color: "var(--faint)", fontSize: 10 }}>
+      <div className="mono" style={{ color: "var(--faint)", fontSize: 10,
+                                                pointerEvents: "auto" }}>
         {nodeCount} nodes · {edgeCount} edges
       </div>
       <span style={{ flex: 1 }} />
@@ -916,28 +1544,73 @@ function CanvasToolbar({ incidentId, nodeCount, edgeCount,
     </div>
   );
 }
+
+
 function CanvasLegend() {
-  const shown = ["host", "user", "process", "evidence", "response", "technique"];
+  // Semantic edge legend + node type legend.  Every symbol on the
+  // canvas has a corresponding entry here — no mystery glyphs.
+  const nodeKinds = ["host", "user", "process", "evidence", "response",
+                        "technique", "ip", "hash"];
+  const edgeKinds = ["parent_of", "executed", "created", "connected_to",
+                        "resolved_to", "mapped_to", "responded", "produced"];
   return (
-    <div style={{
-      position: "absolute", bottom: 8, left: 10, display: "flex",
-      gap: 8, flexWrap: "wrap", zIndex: 2,
-    }}>
-      {shown.map((k) => {
-        const meta = NODE_TYPE[k];
-        return (
-          <span key={k}
-                   style={{ display: "inline-flex", alignItems: "center", gap: 4,
-                               padding: "2px 6px", borderRadius: 3,
-                               border: `1px solid ${meta.color}`,
-                               background: _hexA(meta.color, 0.08),
-                               fontSize: 9.5, color: meta.color,
-                               fontFamily: "var(--mono)",
-                               letterSpacing: ".3px" }}>
-            {meta.label}
-          </span>
-        );
-      })}
+    <div data-testid="xdr-canvas-legend"
+            style={{
+              position: "absolute", bottom: 8, left: 10, zIndex: 2,
+              display: "flex", gap: 16, alignItems: "flex-end",
+              maxWidth: "70%",
+            }}>
+      <div>
+        <div className="mono" style={{ fontSize: 9, color: "var(--faint)",
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: ".3px",
+                                                    marginBottom: 3 }}>
+          Entities
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {nodeKinds.map((k) => {
+            const meta = NODE_TYPE[k];
+            return (
+              <span key={k}
+                       style={{ display: "inline-flex", alignItems: "center",
+                                   gap: 3, padding: "1px 5px", borderRadius: 3,
+                                   border: `1px solid ${meta.color}`,
+                                   background: _hexA(meta.color, 0.08),
+                                   fontSize: 9, color: meta.color,
+                                   fontFamily: "var(--mono)",
+                                   letterSpacing: ".3px" }}>
+                {meta.label}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <div className="mono" style={{ fontSize: 9, color: "var(--faint)",
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: ".3px",
+                                                    marginBottom: 3 }}>
+          Relationships
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {edgeKinds.map((k) => {
+            const meta = EDGE_KIND[k];
+            return (
+              <span key={k}
+                       style={{ display: "inline-flex", alignItems: "center",
+                                   gap: 4, padding: "1px 5px",
+                                   fontSize: 9, color: meta.color,
+                                   fontFamily: "var(--mono)",
+                                   letterSpacing: ".3px" }}>
+                <span style={{ display: "inline-block", width: 12,
+                                    borderTop: `${meta.dashed ? "dashed" : "solid"} 1.4px ${meta.color}`,
+                                    height: 0 }} />
+                {meta.label}
+              </span>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -995,7 +1668,12 @@ function _nodeMatches(node, h) {
   }
   if (h.rule_id && node.type === "evidence")
     return String(node.raw?.rule_id || "") === String(h.rule_id || "");
+  // Response nodes that produced evidence with this rule_id count too.
+  if (h.rule_id && node.type === "response") {
+    return String(node.raw?.rule_id || "") === String(h.rule_id || "");
+  }
   if (h.technique_id && node.type === "incident") return true;
+  if (h.rule_id      && node.type === "incident") return true;
   return false;
 }
 function _edgeMatches(edge, s, t, h) {

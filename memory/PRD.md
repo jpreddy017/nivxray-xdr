@@ -7,6 +7,85 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-10 · Investigation Workspace — Visual Intelligence Pass (P0)
+
+Landed the P0 items of the "Visual Intelligence Pass" you directed —
+evolved the existing Evidence-First Workspace, did NOT replace it.
+P1 force-layout stays queued per your explicit direction ("only after
+the semantic/density model is implemented").
+
+### What shipped
+**Rich semantic node glyphs** — 13 canonical node types (incident,
+host, user, process, file, ip, domain, url, hash, evidence,
+technique, verdict, response, cluster) each with:
+- Its own icon + accent color.
+- A shape variant (`hex` for verdicts/incidents/MITRE, `square` for
+  host/response, `diamond` for indicators/file, `circle` for
+  process/user/evidence).
+- Up to 3 real-data badges: severity, evidence_count,
+  technique_count, response state, cluster count.
+
+**Semantic edge taxonomy + legend** — every edge is now one of eight
+authoritative kinds:
+`parent_of` · `executed` · `created` · `connected_to` ·
+`resolved_to` · `mapped_to` · `responded` · `produced`.  Never a
+generic "connected" and never an edge without a real referent.  On
+hover / selection the semantic tag renders mid-edge.  The legend
+below the canvas lists every entity type AND every relationship type.
+
+**Expandable clusters** — hosts with ≥ 4 executed processes fold into
+a single cluster node with a `+` glyph and a count badge.  Clicking
+expands it in place; a "Collapse cluster" button re-folds.  Fold
+never hides data — every child is one click away.
+
+**Minimap** — top-down miniature of the full graph in the bottom-
+right of the canvas.  Nodes shown by type color.  A dashed red
+frame shows the current pan/zoom viewport.  Toggle via toolbar.
+
+**Investigation Toolbar** (persistent above the canvas)
+`FIT VIEW · RESET · MINIMAP · TIMELINE · FILTER` with filter chips:
+`All · Evidence · Process · Network · Identity · MITRE · Response`.
+The filter dims non-matching nodes AND edges across the whole
+synchronized surface.
+
+**Entity Contextual Actions** — Inspector now shows a pill strip
+of deep-links per entity type:
+`Investigate · Trajectory · Related · Process Tree · Threat Intel ·
+MITRE · Response Chain · Response`.  Each pill goes to a real
+NivXRay route; missing pills are simply not rendered (never faked).
+
+### One synchronized surface (preserved & extended)
+Canvas ↔ Timeline ↔ Attack Story ↔ Inspector ↔ MITRE stay in lock-
+step.  Filter and highlight now propagate to timeline markers, edge
+opacity, and Inspector visibility — a single click updates every
+panel.
+
+### Owner-locked invariants (still honoured)
+- No fabricated relationships. Every edge originates from a real
+  incident-payload attribute or a real Response Engine ref.
+- Cluster folding hides visual noise, never data.
+- Filters and highlights are additive projections — nothing is
+  invented on the client.
+- Existing Evidence / Timeline / Attack Story / ATT&CK / Verdict /
+  Report subtabs remain intact below the workspace.
+
+### Verification
+- `yarn build` clean. `XdrIncidentDetailPage` chunk grew 65KB → 81KB
+  (visual-intelligence code path).
+- All three test suites remain 100% green: Response Engine 18/18 ·
+  Base backend `/api/xdr/response-evidence` 7/7 · Collector 44/44.
+
+### Explicitly deferred
+- **P1 · d3-force layout** — will be added once the semantic model
+  proves out in production incidents (per your direction).
+- **Phase C · CrowdStrike adapter** — next milestone after the UI
+  pass.
+
+---
+
+
+---
+
 ## ✅ 2026-02-10 · One Investigation Surface + Approvals Queue + Evidence Deep-Link
 
 Landed the three priorities you named in order:
