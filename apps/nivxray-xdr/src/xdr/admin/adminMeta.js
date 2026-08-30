@@ -13,7 +13,7 @@
 import {
   LayoutGrid, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, ArrowRightLeft, Users, Webhook, HeartPulse,
-  Boxes, FolderTree, Radar, PlusCircle, ShieldCheck, KeyRound,
+  Boxes, FolderTree, Radar, PlusCircle, ShieldCheck, KeyRound, Package,
 } from "lucide-react";
 
 export const ADMIN_SECTIONS = [
@@ -31,6 +31,11 @@ export const ADMIN_SECTIONS = [
     key: "secrets", label: "Secrets Store", icon: KeyRound,
     subtitle: "Server-side encrypted secrets · per-tenant DEK · masked reads · explicit reveal · every mutation audit-logged.",
     api: null, kind: "secrets", connected: true,
+  },
+  {
+    key: "content-pack-lolbas", label: "Content Pack · LOLBAS", icon: Package,
+    subtitle: "Phase A · 100% upstream synchronization · 10-stage pipeline (discover→download→parse→validate→normalize→index→primitives→ATT&CK→regression→complete) · deterministic evidence generation · every mutation audit-logged.",
+    api: null, kind: "content_pack_lolbas", connected: true,
   },
   {
     key: "capability-hub", label: "Capability Hub", icon: PlusCircle,

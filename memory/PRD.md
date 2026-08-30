@@ -1375,3 +1375,89 @@ Execution order confirmed by user:
 **Non-negotiable "CONNECTED" bar**: UI + API + persistence +
 authorization + audit + real backend behavior + tests.  A UI page
 alone is NOT a capability.
+
+### Phase A · Complete LOLBAS Content Pack · SHIPPED (2026-02-30)
+
+**Directive**: Replace the 15-seed handcrafted pack with a real
+upstream synchronization mechanism.  100 % of current upstream must
+be discovered, downloaded, parsed, validated, normalized, indexed,
+converted to detection primitives, ATT&CK-mapped, regression-tested,
+and accounted for.  No hard-coded counts.
+
+- **Backend** (`routers/xdr_lolbas.py`) — 10-stage deterministic pipeline:
+    `DISCOVERED → DOWNLOADED → PARSED → VALIDATED → NORMALIZED →
+    INDEXED → PRIMITIVES_GENERATED → ATTACK_MAPPED →
+    REGRESSION_TESTED → COMPLETE`
+- Storage collections: `xdr_lolbas_entries`, `xdr_lolbas_primitives`,
+  `xdr_lolbas_versions` (with per-version diff added/removed/modified).
+- Full upstream preservation in `raw_upstream` per entry (Name,
+  Author, Description, Full_Path, Commands, Detection[Sigma/IOC/…],
+  Resources, MitreID, Category, Privileges, OperatingSystem,
+  upstream url, Created).
+- Detection primitives generated per entry: `lolbin.image`,
+  `lolbin.command_line`, `lolbin.argument`, `lolbin.capability`,
+  `attack.technique`.  242 entries → **2 183 primitives**.
+- Evidence-only `POST /api/xdr/lolbas/match` — never emits a verdict;
+  every response carries the contract note: *"primitives contribute
+  EVIDENCE, not a verdict.  The correlation engine decides the
+  outcome."*
+- Endpoints: `sync`, `status`, `entries` (paged/filterable),
+  `entries/{name}` (with generated primitives), `entries/{name}/enable|
+  disable`, `primitives`, `versions`, `rollback/{version}`,
+  `coverage`, `match`.
+- Tenant-scoped disable: LOLBAS content is global, but SOCs can
+  suppress specific entries without altering the imported dataset.
+- Sync audit-emits `LOLBAS_SYNCED` (SUCCESS or PARTIAL); rollback
+  emits `LOLBAS_ROLLED_BACK`; enable/disable emit
+  `LOLBAS_ENTRY_ENABLED|DISABLED`.
+- **Upstream unavailability** never destroys the active pack — sync
+  returns `outcome: UPSTREAM_UNAVAILABLE` and the previous active
+  version is retained.
+- **Malformed upstream** never marks the pack COMPLETE — the pipeline
+  returns `outcome: PARSE_FAILED` (or PARTIAL if validation fails
+  entry-by-entry).
+- **Completeness gate**: COMPLETE requires *every* stage OK AND
+  `invalid == 0`.  A 1-entry upstream that lacks known LOLBIN targets
+  (regsvr32/mshta/rundll32/msiexec/certutil) is marked PARTIAL by
+  REGRESSION_TESTED — the exact anti-hallucination behaviour
+  demanded.
+
+- **Tests** (`tests/test_xdr_lolbas.py`) — **13/13 passing**, offline
+  fixture at `backend/fixtures/lolbas_snapshot.json`:
+  1. sync reaches COMPLETE / 100 % (every stage OK, `invalid == 0`)
+  2. entries persisted with full upstream data preserved
+  3. primitives generated + indexed (kinds coverage)
+  4. match engine detects regsvr32 abuse
+  5. match engine detects mshta abuse
+  6. second sync is idempotent (empty diff)
+  7. removal detected + PARTIAL correctly assigned when regression
+      targets absent
+  8. upstream unavailable leaves active pack intact
+  9. rollback flips `active` flag on version docs
+  10. disable is tenant-scoped and hides entry from matches
+  11. status + coverage return honest numbers
+  12. audit chain captures every sync + mutation, chain stays valid
+  13. malformed upstream fails PARSED stage (PARSE_FAILED)
+
+- **Live E2E** against preview URL: SYNC 242/242 · outcome COMPLETE ·
+  coverage 100.0 % · upstream_sha256 recorded · 2 183 primitives ·
+  Regsvr32 investigation returns evidence hit with 8 preserved
+  upstream Sigma refs · raw_upstream intact · audit chain valid.
+
+- **Admin UI** (`src/xdr/admin/ContentPackLolbasBody.jsx`) — tabbed
+  surface: **Overview** (Upstream/Imported/Valid/Invalid/Coverage %/
+  Primitives/Enabled/Source ver./Synced-at), **Entries** (paged, q/
+  category/MITRE filters, Enable/Disable, drill-in modal preserving
+  raw upstream), **Match tester** (deterministic evidence match),
+  **Versions** (per-sync diff + Roll back), **Stages** (per-stage
+  OK/PARTIAL/FAIL with key metrics).  Deployed to Vercel commit
+  `70c5f61`.
+
+### User-noted gaps (queued, not yet started)
+- Users & Roles admin write surface (P0-3).
+- Add-Collector admin action (P0-8).
+- Engines still in ADOPT vs. CONNECTED state — needs
+  engine-by-engine wiring audit.
+These are next in queue AFTER Phase B (GTFOBins + LOLDrivers)
+completes, per the user's confirmed sequence:
+`P0-2 → A → B → D/E → C → P0-3..8 → F–L → vendor adapters → d3-force`.

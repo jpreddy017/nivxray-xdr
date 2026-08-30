@@ -240,6 +240,8 @@ from routers.xdr_audit_log import router as xdr_audit_log_router
 app.include_router(xdr_audit_log_router)
 from routers.xdr_secrets import router as xdr_secrets_router
 app.include_router(xdr_secrets_router)
+from routers.xdr_lolbas import router as xdr_lolbas_router
+app.include_router(xdr_lolbas_router)
 
 # Phase A · Capability Catalog — read-only endpoint exposing the
 # machine-readable UAIE capability registry + derived dependency
