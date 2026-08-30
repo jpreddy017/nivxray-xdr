@@ -240,7 +240,8 @@ def create_webhook(body: CreateWebhookBody, request: Request):
                  "audit_ref": audit["id"]}
 
 
-@router.get("")
+@router.get("",
+                     dependencies=[Depends(require_permission("webhooks.read"))])
 def list_webhooks(request: Request,
                             limit: int = Query(200, ge=1, le=1000)):
     if _c_hooks() is None:
@@ -252,7 +253,8 @@ def list_webhooks(request: Request,
     return {"ok": True, "data": {"webhooks": rows, "count": len(rows)}}
 
 
-@router.get("/{webhook_id}")
+@router.get("/{webhook_id}",
+                     dependencies=[Depends(require_permission("webhooks.read"))])
 def get_webhook(webhook_id: str, request: Request):
     ten, _, _ = _principal(request)
     doc = _c_hooks().find_one({"id": webhook_id, "tenant_id": ten})
@@ -346,7 +348,8 @@ def test_delivery(webhook_id: str, body: TestDeliveryBody, request: Request):
     return {"ok": True, "data": delivery, "audit_ref": audit["id"]}
 
 
-@router.get("/{webhook_id}/deliveries")
+@router.get("/{webhook_id}/deliveries",
+                     dependencies=[Depends(require_permission("webhooks.read"))])
 def list_deliveries(webhook_id: str, request: Request,
                              state: str | None = Query(None),
                              limit: int = Query(50, ge=1, le=500)):

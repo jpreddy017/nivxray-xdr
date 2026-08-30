@@ -23,14 +23,14 @@ Collections (created on demand):
 """
 from __future__ import annotations
 
-import os
 import uuid
 from datetime import datetime, timezone
-from typing   import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi  import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from routers.xdr_rbac import require_permission
 
 router = APIRouter(prefix="/xdr", tags=["xdr-response-evidence"])
 
@@ -38,19 +38,19 @@ router = APIRouter(prefix="/xdr", tags=["xdr-response-evidence"])
 class Invoker(BaseModel):
     kind:    str
     id:      str
-    context: Dict[str, Any] = Field(default_factory=dict)
+    context: dict[str, Any] = Field(default_factory=dict)
 
 
 class ActionRef(BaseModel):
     action_id:  str
-    provider:   Optional[str] = None
-    capability: Optional[str] = None
+    provider:   str | None = None
+    capability: str | None = None
 
 
 class Authorization(BaseModel):
-    approved_by:  Optional[str] = None
-    approval_ref: Optional[str] = None
-    reason:       Optional[str] = None
+    approved_by:  str | None = None
+    approval_ref: str | None = None
+    reason:       str | None = None
 
 
 class ResponseEvidenceRequest(BaseModel):
@@ -58,17 +58,17 @@ class ResponseEvidenceRequest(BaseModel):
     tenant_id:        str
     invoker:          Invoker
     action:           ActionRef
-    parameters:       Dict[str, Any] = Field(default_factory=dict)
-    canonical_target: Dict[str, Any] = Field(default_factory=dict)
-    adapter_result:   Optional[Dict[str, Any]] = None
+    parameters:       dict[str, Any] = Field(default_factory=dict)
+    canonical_target: dict[str, Any] = Field(default_factory=dict)
+    adapter_result:   dict[str, Any] | None = None
     adapter_ok:       bool = False
-    started_at:       Optional[str] = None
-    completed_at:     Optional[str] = None
+    started_at:       str | None = None
+    completed_at:     str | None = None
     dry_run:          bool = False
     authorization:    Authorization = Field(default_factory=Authorization)
     # Provenance is optional in the wire payload — the engine stamps it,
     # but for hand-crafted test POSTs we tolerate its absence and fill in.
-    provenance:       Optional[Dict[str, Any]] = None
+    provenance:       dict[str, Any] | None = None
 
 
 def _iso() -> str:
@@ -79,7 +79,8 @@ def _mint(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
 
 
-@router.post("/response-evidence")
+@router.post("/response-evidence",
+                       dependencies=[Depends(require_permission("response.execute"))])
 async def response_evidence(body: ResponseEvidenceRequest, request: Request):
     """Idempotent evidence sink for the Response Engine.  See module docstring."""
     db = _resolve_db(request)
@@ -167,15 +168,16 @@ async def response_evidence(body: ResponseEvidenceRequest, request: Request):
     }
 
 
-@router.get("/response-evidence/{execution_id}")
+@router.get("/response-evidence/{execution_id}",
+                     dependencies=[Depends(require_permission("evidence.read"))])
 async def get_response_evidence(execution_id: str, request: Request,
-                                        tenant_id: Optional[str] = None):
+                                        tenant_id: str | None = None):
     """Reads the persisted triple for an execution.  Optional tenant
     filter as a defensive check on top of upstream authz."""
     db = _resolve_db(request)
     if db is None:
         raise HTTPException(503, detail={"error": "database_unavailable"})
-    q: Dict[str, Any] = {"execution_id": execution_id}
+    q: dict[str, Any] = {"execution_id": execution_id}
     if tenant_id:
         q["tenant_id"] = tenant_id
     row = await db.xdr_response_executions.find_one(q)
@@ -186,10 +188,11 @@ async def get_response_evidence(execution_id: str, request: Request,
                  "timeline_ref", "ingested_at")}
 
 
-@router.get("/incidents/{incident_id}/response-executions")
+@router.get("/incidents/{incident_id}/response-executions",
+                     dependencies=[Depends(require_permission("evidence.read"))])
 async def list_incident_response_executions(
         incident_id: str, request: Request,
-        tenant_id: Optional[str] = None, limit: int = 100):
+        tenant_id: str | None = None, limit: int = 100):
     """Backfill route for the Investigation Canvas.
 
     Returns every response execution whose invoker context carries the
@@ -211,12 +214,12 @@ async def list_incident_response_executions(
     # we read from ``xdr_response_evidence`` filtered by
     # ``invoker.context.incident_id`` and join in the ref triple from
     # the dedup index.
-    q: Dict[str, Any] = {"invoker.context.incident_id": incident_id}
+    q: dict[str, Any] = {"invoker.context.incident_id": incident_id}
     if tenant_id:
         q["tenant_id"] = tenant_id
 
     cursor = db.xdr_response_evidence.find(q).sort("completed_at", -1)
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     async for r in cursor:
         # Motor is optional in tests; the fake in tests returns a plain
         # list-backed collection so we tolerate a `find(...)` that
@@ -250,10 +253,10 @@ async def list_incident_response_executions(
     # Join in audit + timeline refs.  Bulk-fetch by execution_id.
     ex_ids = [p["execution_id"] for p in projected if p["execution_id"]]
     if ex_ids:
-        dedup_q: Dict[str, Any] = {"execution_id": {"$in": ex_ids}}
+        dedup_q: dict[str, Any] = {"execution_id": {"$in": ex_ids}}
         if tenant_id: dedup_q["tenant_id"] = tenant_id
         dedup_cur = db.xdr_response_executions.find(dedup_q)
-        dedup_map: Dict[str, Dict[str, Any]] = {}
+        dedup_map: dict[str, dict[str, Any]] = {}
         async for d in dedup_cur:
             dedup_map[d.get("execution_id")] = d
         for p in projected:
@@ -290,7 +293,7 @@ def _resolve_db(request: Request):
     if fake is not None:
         return fake
     try:
-        from server import db as _server_db                    # type: ignore
+        from server import db as _server_db  # type: ignore
         return _server_db
     except Exception:                                           # pragma: no cover
         return None

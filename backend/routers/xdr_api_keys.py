@@ -149,7 +149,8 @@ def create_key(body: CreateKeyBody, request: Request):
     }, "audit_ref": audit["id"]}
 
 
-@router.get("")
+@router.get("",
+                     dependencies=[Depends(require_permission("api_keys.read"))])
 def list_keys(request: Request,
                     enabled: bool | None = Query(None),
                     limit: int = Query(200, ge=1, le=1000)):
@@ -164,7 +165,8 @@ def list_keys(request: Request,
     return {"ok": True, "data": {"api_keys": rows, "count": len(rows)}}
 
 
-@router.get("/{key_id}")
+@router.get("/{key_id}",
+                     dependencies=[Depends(require_permission("api_keys.read"))])
 def get_key(key_id: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")

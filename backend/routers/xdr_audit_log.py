@@ -11,18 +11,18 @@ event carries `prev_sig` forming a tamper-evident chain per tenant.
 NO fabrication.  NO synthetic events.  Empty result sets return `[]`.
 """
 from __future__ import annotations
+
 import hashlib
 import hmac
 import json
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
-from pymongo import MongoClient, DESCENDING, ASCENDING
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-
+from pymongo import ASCENDING, DESCENDING, MongoClient
 
 router = APIRouter(prefix="/api/xdr/audit-log", tags=["xdr-audit-log"])
 
@@ -73,9 +73,9 @@ def emit_audit(
     *, tenant_id: str, principal_id: str, principal_kind: str,
     action: str, resource_kind: str, resource_id: str,
     outcome: str = "SUCCESS",
-    before: Optional[dict] = None, after: Optional[dict] = None,
-    correlation_id: Optional[str] = None,
-    source: str = "xdr-admin", metadata: Optional[dict] = None,
+    before: dict | None = None, after: dict | None = None,
+    correlation_id: str | None = None,
+    source: str = "xdr-admin", metadata: dict | None = None,
 ) -> dict:
     """Write one audit event.  Returns the persisted document.
 
@@ -121,8 +121,8 @@ class AuditEvent(BaseModel):
     resource_kind: str
     resource_id: str
     outcome: str
-    before: Optional[dict] = None
-    after:  Optional[dict] = None
+    before: dict | None = None
+    after:  dict | None = None
     correlation_id: str
     source: str
     metadata: dict = Field(default_factory=dict)
@@ -144,16 +144,28 @@ def _principal(req: Request) -> tuple[str, str, str]:
     return ten, pid, pkd
 
 
-@router.get("")
+# ── Lazy RBAC dependency (avoids circular import with xdr_rbac
+# which imports `emit_audit` from this module). ────────────────
+def _lazy_require(permission: str):
+    """Return a FastAPI dependency that defers importing
+    ``routers.xdr_rbac.require_permission`` until first request —
+    prevents the audit-log ↔ RBAC circular import at module load."""
+    def _dep(request: Request):
+        from routers.xdr_rbac import require_permission  # local import
+        return require_permission(permission)(request)
+    return _dep
+
+
+@router.get("", dependencies=[Depends(_lazy_require("audit.read"))])
 def list_events(
     request: Request,
-    tenant: Optional[str] = Query(None),
-    action: Optional[str] = Query(None),
-    resource_kind: Optional[str] = Query(None),
-    principal_id: Optional[str] = Query(None),
-    outcome: Optional[str] = Query(None),
-    since: Optional[str] = Query(None),
-    until: Optional[str] = Query(None),
+    tenant: str | None = Query(None),
+    action: str | None = Query(None),
+    resource_kind: str | None = Query(None),
+    principal_id: str | None = Query(None),
+    outcome: str | None = Query(None),
+    since: str | None = Query(None),
+    until: str | None = Query(None),
     limit: int = Query(200, ge=1, le=1000),
 ):
     if _get_coll() is None:
@@ -176,7 +188,8 @@ def list_events(
     return {"ok": True, "data": {"events": rows, "count": len(rows)}}
 
 
-@router.get("/{event_id}")
+@router.get("/{event_id}",
+                     dependencies=[Depends(_lazy_require("audit.read"))])
 def get_event(event_id: str, request: Request):
     if _get_coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -187,7 +200,8 @@ def get_event(event_id: str, request: Request):
     return {"ok": True, "data": doc}
 
 
-@router.get("/verify/chain")
+@router.get("/verify/chain",
+                     dependencies=[Depends(_lazy_require("audit.read"))])
 def verify_chain(request: Request, limit: int = Query(500, ge=1, le=5000)):
     """Walk the tenant's chain from oldest to newest, recomputing each
     signature.  Returns the first break (if any) or 'valid'."""
@@ -224,14 +238,15 @@ class EmitBody(BaseModel):
     resource_kind: str
     resource_id: str
     outcome: str = "SUCCESS"
-    before: Optional[dict] = None
-    after:  Optional[dict] = None
-    correlation_id: Optional[str] = None
+    before: dict | None = None
+    after:  dict | None = None
+    correlation_id: str | None = None
     source: str = "xdr-admin"
     metadata: dict = Field(default_factory=dict)
 
 
-@router.post("/emit")
+@router.post("/emit",
+                       dependencies=[Depends(_lazy_require("audit.write"))])
 def emit_endpoint(body: EmitBody, request: Request):
     ten, pid, pkd = _principal(request)
     doc = emit_audit(

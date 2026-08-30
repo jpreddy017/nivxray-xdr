@@ -58,9 +58,9 @@ export default function DetectionContentBody() {
     (async () => {
       try {
         const [s, e, p] = await Promise.all([
-          api.get("/api/xdr/lolbas/status"),
-          api.get("/api/xdr/lolbas/entries", { params: { limit: 50 }}),
-          api.get("/api/xdr/lolbas/primitives",
+          api.get("/xdr/lolbas/status"),
+          api.get("/xdr/lolbas/entries", { params: { limit: 50 }}),
+          api.get("/xdr/lolbas/primitives",
                           { params: { kind: "lolbin.parent_child", limit: 5000 }}),
         ]);
         setLolbasStatus(s?.data?.data || null);

@@ -46,7 +46,7 @@ export default function XdrEvidenceRefPage() {
       }
       // 2. Persisted evidence refs from the base backend.
       try {
-        const r = await api.get(`/api/xdr/response-evidence/${executionId}`);
+        const r = await api.get(`/xdr/response-evidence/${executionId}`);
         out.refs = r.data;
       } catch (e) {
         const c = e?.response?.data?.detail?.error || e?.response?.status || e?.message;

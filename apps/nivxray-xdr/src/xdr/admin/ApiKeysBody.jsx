@@ -98,7 +98,7 @@ function AddKeyModal({ onClose, onCreated }) {
       const body = { name: f.name, description: f.description || null,
                               scopes };
       if (f.expires_at) body.expires_at = f.expires_at;
-      const r = await api.post("/api/xdr/api-keys", body);
+      const r = await api.post("/xdr/api-keys", body);
       onCreated?.(r?.data);
       onClose();
     } catch (e) {
@@ -176,7 +176,7 @@ export default function ApiKeysBody() {
   const load = async () => {
     setState({ loading: true, err: null });
     try {
-      const r = await api.get("/api/xdr/api-keys");
+      const r = await api.get("/xdr/api-keys");
       const j = r?.data;
       if (j && j.ok === false) {
         setRows([]);
@@ -199,7 +199,7 @@ export default function ApiKeysBody() {
 
   const rotate = async (k) => {
     try {
-      const r = await api.post(`/api/xdr/api-keys/${k.id}/rotate`);
+      const r = await api.post(`/xdr/api-keys/${k.id}/rotate`);
       setReveal({ plaintext: r?.data?.data?.plaintext,
                           prefix:    r?.data?.data?.prefix,
                           notice:    r?.data?.data?.reveal_notice
@@ -213,7 +213,7 @@ export default function ApiKeysBody() {
   const revoke = async (k) => {
     if (!window.confirm(`Revoke API key '${k.name}'?  This cannot be undone.`)) return;
     try {
-      const r = await api.post(`/api/xdr/api-keys/${k.id}/revoke`);
+      const r = await api.post(`/xdr/api-keys/${k.id}/revoke`);
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
@@ -223,7 +223,7 @@ export default function ApiKeysBody() {
   const remove = async (k) => {
     if (!window.confirm(`Delete API key '${k.name}'?`)) return;
     try {
-      const r = await api.delete(`/api/xdr/api-keys/${k.id}`);
+      const r = await api.delete(`/xdr/api-keys/${k.id}`);
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {

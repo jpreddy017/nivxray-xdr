@@ -309,7 +309,8 @@ def test_upstream_unavailable_leaves_active_pack_intact():
     # Snapshot current active version id.
     before = lb._versions().find_one({"active": True})
     assert before is not None
-    r = client.post("/api/xdr/lolbas/sync?url=file:///nonexistent.json",
+    r = client.post("/api/xdr/lolbas/sync?url=file:///nonexistent.json"
+                          "&use_bundled_fallback=false",
                           headers=_hdrs())
     v = r.json()["data"]
     assert v["outcome"] == "UPSTREAM_UNAVAILABLE"
@@ -399,3 +400,46 @@ def test_pipeline_fails_on_malformed_upstream(tmp_path):
     assert v["stages"]["PARSED"]["status"] == "FAIL"
     # Restore.
     client.post(f"/api/xdr/lolbas/sync?url={FIXTURE_URL}", headers=_hdrs())
+
+
+
+# ── 13 · P0-0 · Bundled fallback rescues an unreachable primary ────
+def test_sync_falls_back_to_bundled_when_primary_unreachable():
+    _skip_if_no_mongo()
+    # Snapshot active version so we can restore later.
+    active_before = lb._versions().find_one({"active": True}, {"_id": 0, "id": 1})
+    r = client.post("/api/xdr/lolbas/sync?url=https://invalid.upstream.test/x.json"
+                          "&use_bundled_fallback=true",
+                          headers=_hdrs())
+    v = r.json()["data"]
+    assert v["outcome"] == "COMPLETE", v
+    dl = v["stages"]["DOWNLOADED"]
+    assert dl["status"] == "OK"
+    assert dl["fallback_used"] is True
+    assert dl["used_url"].startswith("file://")
+    # Restore active pointer to the pre-existing version.
+    if active_before:
+        lb._versions().update_many({"active": True}, {"$set": {"active": False}})
+        lb._versions().update_one({"id": active_before["id"]},
+                                                    {"$set": {"active": True}})
+
+
+# ── 14 · P0-0 · ensure_synced() is idempotent when DB is populated ─
+def test_ensure_synced_is_idempotent_when_pack_present():
+    _skip_if_no_mongo()
+    # Precondition: at least one active pack already exists.
+    assert lb._versions().find_one({"active": True}) is not None
+    r = lb.ensure_synced(("t", "system@boot", "system"))
+    assert r.get("outcome") == "COMPLETE"
+    assert r.get("already_synced") is True
+
+
+# ── 15 · P0-0 · /status exposes honest sync_state + bundled flag ──
+def test_status_reports_sync_state_and_bundled_flag():
+    _skip_if_no_mongo()
+    r = client.get("/api/xdr/lolbas/status", headers=_hdrs())
+    d = r.json()["data"]
+    assert d["sync_state"] in {"SYNCED", "PARTIAL", "UPSTREAM_UNAVAILABLE",
+                                                "NEVER_SYNCED"}
+    # Bundled snapshot ships with the backend, so this must be True in tests.
+    assert d["bundled_fallback_available"] is True

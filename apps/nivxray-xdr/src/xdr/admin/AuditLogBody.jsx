@@ -25,7 +25,7 @@ export default function AuditLogBody() {
       Object.entries(q).filter(([, v]) => v && v.trim())
     );
     try {
-      const r = await api.get("/api/xdr/audit-log", { params });
+      const r = await api.get("/xdr/audit-log", { params });
       const events = r?.data?.data?.events || [];
       setRows(events);
       setState({ loading: false, err: null });
@@ -38,7 +38,7 @@ export default function AuditLogBody() {
 
   const verifyChain = async () => {
     try {
-      const r = await api.get("/api/xdr/audit-log/verify/chain");
+      const r = await api.get("/xdr/audit-log/verify/chain");
       setChain(r?.data?.data || null);
     } catch (e) {
       setChain({ status: "unavailable",

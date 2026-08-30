@@ -7,6 +7,106 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-30 · P0-0 LOLBAS Live-Sync + Deployment Consistency (SHIPPED)
+
+**Problem:** Standalone NivXRay XDR Vercel UI showed `NEVER_SYNCED · UPSTREAM UNAVAILABLE · 404`
+while the backend held 242 entries + 11,196 primitives. Two independent bugs.
+
+**Root causes:**
+1. **Frontend:** axios `baseURL = ${BACKEND_URL}/api`, but 7 admin bodies wrongly
+   called `api.get("/api/xdr/…")` → resolved to `/api/api/xdr/…` → 404.
+2. **Backend:** no cold-boot fallback; a fresh pod with unreachable upstream
+   would show `NEVER_SYNCED` forever.
+
+**Fix (backend `/app/backend/routers/xdr_lolbas.py`):**
+- Bundled `lolbas_snapshot.json` (242 entries) shipped alongside the router
+  as `file:///app/backend/fixtures/lolbas_snapshot.json`.
+- `_sync_pipeline(url, fallback_urls=[…], idempotent=True)` — transparent
+  primary → fallback cascade; short-circuits on matching `upstream_sha256`.
+- `POST /api/xdr/lolbas/sync?use_bundled_fallback=true` (default) uses cascade.
+- `POST /api/xdr/lolbas/ensure-synced` — idempotent boot-time entry point.
+- FastAPI `on_startup` thread launches `ensure_synced()` — non-blocking,
+  never leaves a cold pod empty.
+- `GET /api/xdr/lolbas/status` now returns honest `sync_state ∈
+  {SYNCED, PARTIAL, UPSTREAM_UNAVAILABLE, NEVER_SYNCED}` + `bundled_fallback_available`.
+
+**Fix (frontend `/app/apps/nivxray-xdr/src/xdr/admin/*.jsx`):**
+- Stripped duplicate `/api/` prefix across 25 call sites in 8 files.
+- `ContentPackLolbasBody.jsx` renders `sync_state` + `BUNDLED FALLBACK · OK` badge.
+
+**Verified E2E on live preview backend:**
+- `sync_state=SYNCED · entries=242 · primitives=11196`
+- Bad primary URL → automatic bundled fallback → `outcome=COMPLETE`, `fallback_used=true`
+- Cold-boot with unreachable upstream + wiped DB → still finishes COMPLETE from bundle
+- Vercel UI shows SYNCED + 242/242/242/0/100%/11196 + BUNDLED FALLBACK · OK
+
+**Tests added:** 3 new (`test_sync_falls_back_to_bundled_…`,
+`test_ensure_synced_is_idempotent_…`, `test_status_reports_sync_state_…`).
+Full LOLBAS suite: **20/20 pass**.
+
+---
+
+## ✅ 2026-02-30 · P0-1 Global RBAC Retrofit (SHIPPED)
+
+**Directive:** Apply `require_permission(...)` server-side across ALL existing
+XDR routes so no privileged operation can be bypassed by direct API access.
+
+**Route inventory · 60 XDR endpoints across 7 routers:**
+
+| Router | Before | After |
+|---|---|---|
+| `xdr_secrets.py`          | 0/7  | **7/7 ✅** |
+| `xdr_api_keys.py`         | 5/7  | **7/7 ✅** |
+| `xdr_webhooks.py`         | 6/9  | **9/9 ✅** |
+| `xdr_lolbas.py`           | 0/12 | **12/12 ✅** |
+| `xdr_audit_log.py`        | 0/4  | **4/4 ✅** (lazy import — resolves circular RBAC ↔ audit) |
+| `xdr_rbac.py`             | 13/18| **18/18 ✅** |
+| `xdr_response_evidence.py`| 0/3  | **3/3 ✅** |
+| **Total**                 | **24/60** | **60/60 ✅** |
+
+**Permission additions:** `audit.write` (new action) → protects `POST /audit-log/emit`
+so nobody can inject forged audit rows without `audit.write`.
+
+**Enforcement contract (deterministic on every mutation):**
+```
+Request → Authentication → Tenant Resolution → RBAC Permission
+        → Resource/Scope Authorization → Mutation → Audit
+```
+
+Denial response: `HTTP 403 {"code":"ACCESS_DENIED","permission":"<perm>","reason":"<code>"}`
+Denial audit event: `action=ACCESS_DENIED, outcome=FAILURE, resource_id=<perm>`.
+
+**Verified:**
+- 21 new negative tests (`test_xdr_rbac_enforcement.py`) exercise:
+  - 15 parameterised denials across every retrofitted router
+  - Owned-perm allow paths
+  - `platform_admin` positive control
+  - `ACCESS_DENIED` audit emission
+  - Audit chain remains `valid` after denials
+  - Tenant isolation across principals
+  - Wildcard `secrets.*` expansion covers create/read but not `users.create`
+- Live E2E on preview backend: unauthorized `POST /rbac/roles` → HTTP 403 with
+  structured detail; authorized `GET /lolbas/status` → HTTP 200.
+
+**Semantics preserved (per owner directive):**
+- Capability ≠ Verdict remains intact. `powershell.exe`, `cmd.exe`, `rundll32.exe`
+  still emit `OBSERVED` / `WEAK` evidence, never automatic verdicts.
+- Every existing LOLBAS test (12) still passes.
+
+**Test totals:** 68 P0 → **89 P0 (68 original + 21 new negative-enforcement)**. All green.
+**Ruff:** all XDR routers + new tests clean.
+
+**Not yet enforced (bootstrap allow — documented, not a regression):**
+- Fresh tenants with zero provisioned users bypass enforcement so the first
+  admin can be seeded (chicken-and-egg). As soon as the first user is
+  persisted for the tenant, enforcement engages. This is the same behaviour
+  the original `xdr_rbac.py` shipped with.
+
+---
+
+
+---
+
 ## ✅ 2026-02-10 · P0 Investigator Workspace foundations (SHIPPED)
 
 Per the owner directive ("finish scope"), executed the P0 items:

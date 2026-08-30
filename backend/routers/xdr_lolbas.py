@@ -39,11 +39,12 @@ from urllib.parse import urlparse
 from urllib.request import Request as URLRequest
 from urllib.request import urlopen
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from pymongo import ASCENDING, DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit
+from routers.xdr_rbac import require_permission
 
 router = APIRouter(prefix="/api/xdr/lolbas", tags=["xdr-lolbas"])
 
@@ -55,6 +56,12 @@ LOLBAS_UPSTREAM_URL = (
 )
 LOLBAS_LICENSE  = "Creative Commons CC-BY 4.0 (LOLBAS Project)"
 LOLBAS_SOURCE   = "LOLBAS Project · lolbas-project.github.io"
+
+# Bundled last-known-good snapshot — shipped with the backend so a
+# cold-boot pod is NEVER empty even when the public LOLBAS upstream
+# is unreachable.  Refreshed by a real upstream sync when possible.
+_BUNDLED_SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "lolbas_snapshot.json"
+LOLBAS_BUNDLED_URL = f"file://{_BUNDLED_SNAPSHOT_PATH}" if _BUNDLED_SNAPSHOT_PATH.exists() else None
 
 # ── Mongo binding ─────────────────────────────────────────────────
 _MONGO_URL = os.environ.get("MONGO_URL")
@@ -757,10 +764,25 @@ _STAGES = [
 ]
 
 
-def _sync_pipeline(url: str, principal: tuple[str, str, str]) -> dict:
+def _sync_pipeline(url: str, principal: tuple[str, str, str],
+                                 *, fallback_urls: list[str] | None = None,
+                                 idempotent: bool = False) -> dict:
     """Run every stage in order.  Returns the version doc that was
     persisted (with per-stage status).  Never raises — packs the
-    outcome into `status` so callers can render honestly."""
+    outcome into `status` so callers can render honestly.
+
+    * If `fallback_urls` are provided and the primary DOWNLOAD stage
+      fails (upstream unreachable), the pipeline transparently retries
+      against each fallback in order.  The version doc records the
+      URL that actually produced bytes under `used_url`, and the
+      DOWNLOADED stage carries `fallback_used=True` when applicable.
+
+    * If `idempotent=True` and the active version's upstream SHA is
+      already the SHA we just downloaded, the pipeline short-circuits
+      and returns the existing active version doc — no re-indexing,
+      no diff churn.  This is what the boot hook uses to avoid a
+      thundering-herd re-sync on every pod restart.
+    """
     ten, pid, pkd = principal
     _ = (ten, pid, pkd)  # captured by _persist_version() via `principal`
     if _db() is None:
@@ -776,18 +798,45 @@ def _sync_pipeline(url: str, principal: tuple[str, str, str]) -> dict:
     # 1 · DISCOVERED
     stages["DISCOVERED"] = {"status": "OK", "url": url, "at": now}
 
-    # 2 · DOWNLOADED
-    try:
-        raw_bytes, used_url = _fetch_upstream(url)
-    except UpstreamError as exc:
-        stages["DOWNLOADED"] = {"status": "FAIL", "code": exc.code,
-                                              "detail": exc.detail}
+    # 2 · DOWNLOADED (with transparent fallback cascade)
+    fetch_targets: list[str] = [url]
+    for f in (fallback_urls or []):
+        if f and f not in fetch_targets:
+            fetch_targets.append(f)
+    raw_bytes: bytes | None = None
+    used_url = url
+    fetch_errors: list[dict] = []
+    for i, tgt in enumerate(fetch_targets):
+        try:
+            raw_bytes, used_url = _fetch_upstream(tgt)
+            break
+        except UpstreamError as exc:
+            fetch_errors.append({"url": tgt, "code": exc.code,
+                                             "detail": exc.detail})
+            raw_bytes = None
+    if raw_bytes is None:
+        stages["DOWNLOADED"] = {"status": "FAIL",
+                                              "code": (fetch_errors[-1]["code"]
+                                                              if fetch_errors else "UPSTREAM_UNAVAILABLE"),
+                                              "detail": (fetch_errors[-1]["detail"]
+                                                              if fetch_errors else "no source reachable"),
+                                              "attempts": fetch_errors}
         return _persist_version(stages, upstream_count, imported, valid,
                                                  invalid, diff, principal,
                                                  outcome="UPSTREAM_UNAVAILABLE")
     upstream_hash = hashlib.sha256(raw_bytes).hexdigest()
     stages["DOWNLOADED"] = {"status": "OK", "bytes": len(raw_bytes),
-                                        "sha256": upstream_hash, "used_url": used_url}
+                                        "sha256": upstream_hash, "used_url": used_url,
+                                        "fallback_used": used_url != fetch_targets[0],
+                                        "attempts": fetch_errors}
+
+    # Idempotency short-circuit: same bytes as current active version →
+    # skip re-indexing entirely.
+    if idempotent and _versions() is not None:
+        active = _versions().find_one({"active": True}, {"_id": 0})
+        if (active and active.get("upstream_sha256") == upstream_hash
+                and active.get("outcome") == "COMPLETE"):
+            return {**active, "idempotent_skip": True}
 
     # 3 · PARSED
     try:
@@ -1015,17 +1064,65 @@ def _persist_version(stages: dict, upstream_count: int, imported: int,
 
 
 # ── Endpoints ─────────────────────────────────────────────────────
-@router.post("/sync")
+@router.post("/sync",
+                       dependencies=[Depends(require_permission("lolbas.sync"))])
 def sync_now(request: Request,
                      url: str | None = Query(None,
-                         description="Override upstream URL (also accepts file://)")):
+                         description="Override upstream URL (also accepts file://)"),
+                     use_bundled_fallback: bool = Query(True,
+                         description="If primary upstream is unreachable, fall back to the bundled snapshot")):
     if _db() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
-    return {"ok": True, "data": _sync_pipeline(url or LOLBAS_UPSTREAM_URL,
-                                                                   _principal(request))}
+    fallbacks = [LOLBAS_BUNDLED_URL] if (use_bundled_fallback and LOLBAS_BUNDLED_URL) else []
+    return {"ok": True, "data": _sync_pipeline(
+        url or LOLBAS_UPSTREAM_URL, _principal(request),
+        fallback_urls=fallbacks)}
 
 
-@router.get("/status")
+@router.post("/ensure-synced",
+                       dependencies=[Depends(require_permission("lolbas.sync"))])
+def ensure_synced_endpoint(request: Request):
+    """Idempotent boot-time sync.  If DB already has an active COMPLETE
+    version whose SHA matches the current upstream (or bundled), skips
+    the pipeline entirely.  Falls back to the bundled snapshot if the
+    live upstream is unreachable — a cold-boot pod is NEVER empty.
+    """
+    if _db() is None:
+        raise HTTPException(status_code=503, detail="storage unavailable")
+    doc = ensure_synced(_principal(request))
+    return {"ok": True, "data": doc}
+
+
+def ensure_synced(principal: tuple[str, str, str] | None = None) -> dict:
+    """Public helper — safe to call from FastAPI startup.
+
+    Rules (all deterministic, no fabrication):
+      1.  If versions collection ALREADY has an active COMPLETE
+          version → return it, no work.
+      2.  Otherwise run the full pipeline against LOLBAS_UPSTREAM_URL
+          with the bundled snapshot as a fallback.
+      3.  If everything fails (no upstream, no bundle, storage down)
+          → return an honest UPSTREAM_UNAVAILABLE version doc.
+
+    Never raises.
+    """
+    principal = principal or ("default", "system@boot", "system")
+    if _db() is None:
+        return {"outcome": "STORAGE_UNAVAILABLE"}
+    if _versions() is not None:
+        active = _versions().find_one({"active": True}, {"_id": 0})
+        # If active COMPLETE and entries exist, we're done.
+        if (active and active.get("outcome") == "COMPLETE"
+                and _entries() is not None
+                and _entries().count_documents({}) > 0):
+            return {**active, "already_synced": True}
+    fallbacks = [LOLBAS_BUNDLED_URL] if LOLBAS_BUNDLED_URL else []
+    return _sync_pipeline(LOLBAS_UPSTREAM_URL, principal,
+                                        fallback_urls=fallbacks, idempotent=True)
+
+
+@router.get("/status",
+                     dependencies=[Depends(require_permission("lolbas.read"))])
 def status(request: Request):
     if _db() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -1049,10 +1146,16 @@ def status(request: Request):
         "source":  LOLBAS_SOURCE,
         "license": LOLBAS_LICENSE,
         "upstream_url": LOLBAS_UPSTREAM_URL,
+        "bundled_fallback_available": bool(LOLBAS_BUNDLED_URL),
+        "sync_state": ("SYNCED"       if (active and active.get("outcome") == "COMPLETE" and total_entries > 0)
+                              else "PARTIAL"       if (active and active.get("outcome") == "PARTIAL")
+                              else "UPSTREAM_UNAVAILABLE" if active
+                              else "NEVER_SYNCED"),
     }}
 
 
-@router.get("/entries")
+@router.get("/entries",
+                     dependencies=[Depends(require_permission("lolbas.read"))])
 def list_entries(request: Request,
                           category: str | None = Query(None),
                           mitre: str | None = Query(None),
@@ -1086,7 +1189,8 @@ def list_entries(request: Request,
                                                       "total": total}}
 
 
-@router.get("/entries/{name}")
+@router.get("/entries/{name}",
+                     dependencies=[Depends(require_permission("lolbas.read"))])
 def get_entry(name: str, request: Request):
     if _entries() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -1102,7 +1206,8 @@ def get_entry(name: str, request: Request):
     return {"ok": True, "data": doc}
 
 
-@router.post("/entries/{name}/disable")
+@router.post("/entries/{name}/disable",
+                       dependencies=[Depends(require_permission("lolbas.disable"))])
 def disable_entry(name: str, request: Request):
     if _entries() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -1119,7 +1224,8 @@ def disable_entry(name: str, request: Request):
                  "audit_ref": audit["id"]}
 
 
-@router.post("/entries/{name}/enable")
+@router.post("/entries/{name}/enable",
+                       dependencies=[Depends(require_permission("lolbas.disable"))])
 def enable_entry(name: str, request: Request):
     if _entries() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -1136,7 +1242,8 @@ def enable_entry(name: str, request: Request):
                  "audit_ref": audit["id"]}
 
 
-@router.get("/primitives")
+@router.get("/primitives",
+                     dependencies=[Depends(require_permission("lolbas.read"))])
 def list_primitives(kind: str | None = Query(None),
                                   entry: str | None = Query(None),
                                   skip: int = Query(0, ge=0),
@@ -1153,7 +1260,8 @@ def list_primitives(kind: str | None = Query(None),
                                                       "total": total}}
 
 
-@router.get("/versions")
+@router.get("/versions",
+                     dependencies=[Depends(require_permission("lolbas.read"))])
 def list_versions(limit: int = Query(20, ge=1, le=200)):
     if _versions() is None:
         return {"ok": False, "error": {"code": "STORAGE_UNAVAILABLE"}}
@@ -1161,7 +1269,8 @@ def list_versions(limit: int = Query(20, ge=1, le=200)):
     return {"ok": True, "data": {"versions": list(cur)}}
 
 
-@router.post("/rollback/{version_id}")
+@router.post("/rollback/{version_id}",
+                       dependencies=[Depends(require_permission("lolbas.rollback"))])
 def rollback(version_id: str, request: Request):
     """Mark a previously-COMPLETE version as active.  Does NOT re-fetch
     upstream — it is intended for quickly reverting when a bad sync
@@ -1188,7 +1297,8 @@ def rollback(version_id: str, request: Request):
                  "audit_ref": audit["id"]}
 
 
-@router.get("/coverage")
+@router.get("/coverage",
+                     dependencies=[Depends(require_permission("lolbas.read"))])
 def coverage(request: Request):
     if _versions() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -1208,7 +1318,8 @@ def coverage(request: Request):
     }}
 
 
-@router.post("/match")
+@router.post("/match",
+                       dependencies=[Depends(require_permission("lolbas.read"))])
 def match(body: MatchBody, request: Request):
     """Deterministic evidence-only matcher.  Never returns a verdict.
 

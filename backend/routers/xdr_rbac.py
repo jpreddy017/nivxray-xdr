@@ -89,7 +89,7 @@ def _c_assignments():   return _db()["xdr_user_roles"]   if _db() is not None el
 # Format: "resource.action"  →  human_label
 # Actions are drawn from a fixed vocabulary so UIs can render matrices
 # consistently.  Adding a new permission is a one-line change here.
-_ACTIONS = ["read", "create", "update", "delete", "enable", "disable",
+_ACTIONS = ["read", "write", "create", "update", "delete", "enable", "disable",
                     "execute", "approve", "publish", "rollback", "test",
                     "export", "sync", "rotate", "reveal", "revoke",
                     "install", "assign", "merge", "split", "annotate",
@@ -114,7 +114,7 @@ _RESOURCES: dict[str, dict[str, Any]] = {
                               "group": "Integrations"},
     "secrets":       {"actions": ["read", "create", "update", "rotate",
                                                    "reveal", "delete"], "group": "Governance"},
-    "audit":         {"actions": ["read"], "group": "Governance"},
+    "audit":         {"actions": ["read", "write"], "group": "Governance"},
     "tenants":       {"actions": ["read", "manage"], "group": "Platform"},
     "platform":      {"actions": ["read", "admin"], "group": "Platform"},
     "engines":       {"actions": ["read", "admin"], "group": "Platform"},
@@ -542,7 +542,8 @@ class SimulateBody(BaseModel):
 
 
 # ── Endpoints · permissions catalog ──────────────────────────────
-@router.get("/permissions")
+@router.get("/permissions",
+                     dependencies=[Depends(require_permission("permissions.read"))])
 def list_permissions():
     groups: dict[str, list[dict]] = {}
     for r, meta in _RESOURCES.items():
@@ -561,13 +562,15 @@ def _list_all_roles():
     return _BUILTIN_ROLES + custom
 
 
-@router.get("/roles")
+@router.get("/roles",
+                     dependencies=[Depends(require_permission("roles.read"))])
 def list_roles():
     rows = _list_all_roles()
     return {"ok": True, "data": {"roles": rows, "count": len(rows)}}
 
 
-@router.get("/roles/{role_id}")
+@router.get("/roles/{role_id}",
+                     dependencies=[Depends(require_permission("roles.read"))])
 def get_role(role_id: str):
     role = _role_by_id(role_id)
     if not role:
@@ -698,7 +701,8 @@ def delete_role(role_id: str, request: Request):
 
 
 # ── Endpoints · users ─────────────────────────────────────────────
-@router.get("/users")
+@router.get("/users",
+                     dependencies=[Depends(require_permission("users.read"))])
 def list_users(request: Request):
     if _c_users() is None:
         return {"ok": False, "error": {"code": "STORAGE_UNAVAILABLE"}}
@@ -866,7 +870,8 @@ def revoke_role(user_id: str, assignment_id: str, request: Request):
                  "audit_ref": audit["id"]}
 
 
-@router.get("/users/{user_id}/effective")
+@router.get("/users/{user_id}/effective",
+                     dependencies=[Depends(require_permission("users.read"))])
 def effective_permissions(user_id: str, request: Request):
     """Return the resolved permission set for a user (union of assigned roles)."""
     ten, _, _ = _principal(request)
@@ -886,7 +891,8 @@ def effective_permissions(user_id: str, request: Request):
 
 
 # ── Endpoints · groups ────────────────────────────────────────────
-@router.get("/groups")
+@router.get("/groups",
+                     dependencies=[Depends(require_permission("groups.read"))])
 def list_groups(request: Request):
     if _c_groups() is None:
         return {"ok": False, "error": {"code": "STORAGE_UNAVAILABLE"}}
@@ -936,7 +942,8 @@ def delete_group(group_id: str, request: Request):
 
 
 # ── Access simulation ─────────────────────────────────────────────
-@router.post("/simulate")
+@router.post("/simulate",
+                       dependencies=[Depends(require_permission("permissions.read"))])
 def simulate(body: SimulateBody, request: Request):
     """Test whether a user WOULD be allowed a specific permission.
     Never mutates state.  Emits an audit ACCESS_SIMULATED event."""

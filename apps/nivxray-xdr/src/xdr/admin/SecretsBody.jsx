@@ -49,7 +49,7 @@ function AddSecretModal({ onClose, onCreated }) {
   const submit = async () => {
     setBusy(true); setErr(null);
     try {
-      const r = await api.post("/api/xdr/secrets", form);
+      const r = await api.post("/xdr/secrets", form);
       onCreated?.(r?.data);
       onClose();
     } catch (e) {
@@ -237,7 +237,7 @@ function RotateModal({ secret, onClose, onRotated }) {
   const submit = async () => {
     setBusy(true); setErr(null);
     try {
-      const r = await api.post(`/api/xdr/secrets/${secret.id}/rotate`,
+      const r = await api.post(`/xdr/secrets/${secret.id}/rotate`,
                                             { value: val });
       onRotated?.(r?.data);
       onClose();
@@ -304,7 +304,7 @@ export default function SecretsBody() {
   const load = async () => {
     setState({ loading: true, err: null });
     try {
-      const r = await api.get("/api/xdr/secrets");
+      const r = await api.get("/xdr/secrets");
       const j = r?.data;
       if (j && j.ok === false) {
         setRows([]);
@@ -326,7 +326,7 @@ export default function SecretsBody() {
 
   const toggleEnabled = async (s) => {
     try {
-      const r = await api.put(`/api/xdr/secrets/${s.id}`,
+      const r = await api.put(`/xdr/secrets/${s.id}`,
                                           { enabled: !s.enabled });
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
@@ -336,7 +336,7 @@ export default function SecretsBody() {
   const removeSecret = async (s) => {
     if (!window.confirm(`Delete secret '${s.name}'?`)) return;
     try {
-      const r = await api.delete(`/api/xdr/secrets/${s.id}`);
+      const r = await api.delete(`/xdr/secrets/${s.id}`);
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch {/* no-op */}

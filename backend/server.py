@@ -619,6 +619,35 @@ async def _startup():
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] FileStore retention sweeper failed: {e}")
 
+    # P0-0 · LOLBAS boot-time idempotent sync.  Runs in a background
+    # thread so it never blocks startup.  If DB already has an active
+    # COMPLETE version, it short-circuits.  If the live upstream is
+    # unreachable, it falls back to the bundled snapshot — the pod
+    # is NEVER empty.
+    try:
+        import threading
+        from routers.xdr_lolbas import ensure_synced as _lolbas_ensure_synced
+
+        def _lolbas_boot_sync():
+            try:
+                r = _lolbas_ensure_synced()
+                out = r.get("outcome") or r.get("sync_state") or "UNKNOWN"
+                if r.get("already_synced"):
+                    log.info(f"[startup] LOLBAS already synced ({r.get('imported')} entries)")
+                elif r.get("idempotent_skip"):
+                    log.info("[startup] LOLBAS idempotent skip (same upstream sha)")
+                else:
+                    log.info(f"[startup] LOLBAS boot-sync outcome={out} "
+                                    f"imported={r.get('imported')}")
+            except Exception as _e:  # noqa: BLE001
+                log.warning(f"[startup] LOLBAS boot-sync failed: {_e}")
+
+        threading.Thread(target=_lolbas_boot_sync,
+                                    name="lolbas-boot-sync", daemon=True).start()
+        log.info("[startup] LOLBAS boot-sync thread launched")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] LOLBAS boot-sync arm failed: {e}")
+
 
 @app.on_event("shutdown")
 async def _shutdown():

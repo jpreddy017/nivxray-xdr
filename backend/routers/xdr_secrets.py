@@ -25,11 +25,12 @@ from typing import Any
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from pymongo import DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit  # sibling router
+from routers.xdr_rbac import require_permission
 
 router = APIRouter(prefix="/api/xdr/secrets", tags=["xdr-secrets"])
 
@@ -150,7 +151,8 @@ class RotateSecretBody(BaseModel):
 
 
 # ── Endpoints ─────────────────────────────────────────────────────
-@router.post("")
+@router.post("",
+                       dependencies=[Depends(require_permission("secrets.create"))])
 def create_secret(body: CreateSecretBody, request: Request):
     if _get_coll() is None:
         raise HTTPException(status_code=503, detail="secrets storage unavailable")
@@ -187,7 +189,8 @@ def create_secret(body: CreateSecretBody, request: Request):
     return {"ok": True, "data": _mask(doc), "audit_ref": audit["id"]}
 
 
-@router.get("")
+@router.get("",
+                     dependencies=[Depends(require_permission("secrets.read"))])
 def list_secrets(request: Request,
                         kind: str | None = Query(None),
                         enabled: bool | None = Query(None),
@@ -205,7 +208,8 @@ def list_secrets(request: Request,
     return {"ok": True, "data": {"secrets": rows, "count": len(rows)}}
 
 
-@router.get("/{secret_id}")
+@router.get("/{secret_id}",
+                     dependencies=[Depends(require_permission("secrets.read"))])
 def get_secret(secret_id: str, request: Request):
     if _get_coll() is None:
         raise HTTPException(status_code=503, detail="secrets storage unavailable")
@@ -216,7 +220,8 @@ def get_secret(secret_id: str, request: Request):
     return {"ok": True, "data": _mask(doc)}
 
 
-@router.put("/{secret_id}")
+@router.put("/{secret_id}",
+                     dependencies=[Depends(require_permission("secrets.update"))])
 def update_secret(secret_id: str, body: UpdateSecretBody, request: Request):
     if _get_coll() is None:
         raise HTTPException(status_code=503, detail="secrets storage unavailable")
@@ -244,7 +249,8 @@ def update_secret(secret_id: str, body: UpdateSecretBody, request: Request):
     return {"ok": True, "data": _mask(updated), "audit_ref": audit["id"]}
 
 
-@router.post("/{secret_id}/rotate")
+@router.post("/{secret_id}/rotate",
+                       dependencies=[Depends(require_permission("secrets.rotate"))])
 def rotate_secret(secret_id: str, body: RotateSecretBody, request: Request):
     if _get_coll() is None:
         raise HTTPException(status_code=503, detail="secrets storage unavailable")
@@ -281,7 +287,8 @@ def rotate_secret(secret_id: str, body: RotateSecretBody, request: Request):
     return {"ok": True, "data": _mask(updated), "audit_ref": audit["id"]}
 
 
-@router.post("/{secret_id}/reveal")
+@router.post("/{secret_id}/reveal",
+                       dependencies=[Depends(require_permission("secrets.reveal"))])
 def reveal_secret(secret_id: str, request: Request):
     """Explicit plaintext reveal.  MUST include header X-Secret-Reveal: yes.
     Always emits SECRET_REVEALED audit — visible in the tamper-evident chain."""
@@ -311,7 +318,8 @@ def reveal_secret(secret_id: str, request: Request):
     }, "audit_ref": audit["id"]}
 
 
-@router.delete("/{secret_id}")
+@router.delete("/{secret_id}",
+                          dependencies=[Depends(require_permission("secrets.delete"))])
 def delete_secret(secret_id: str, request: Request):
     if _get_coll() is None:
         raise HTTPException(status_code=503, detail="secrets storage unavailable")

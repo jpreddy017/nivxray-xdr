@@ -77,7 +77,7 @@ function AddModal({ onClose, onCreated }) {
     try {
       const body = { ...f,
                               events: f.events.split(/[\s,]+/).filter(Boolean) };
-      const r = await api.post("/api/xdr/webhooks", body);
+      const r = await api.post("/xdr/webhooks", body);
       onCreated?.(r?.data); onClose();
     } catch (e) {
       setErr(e?.response?.data?.detail?.reason
@@ -132,15 +132,15 @@ function DeliveriesPanel({ hook, onClose }) {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get(`/api/xdr/webhooks/${hook.id}/deliveries`);
+        const r = await api.get(`/xdr/webhooks/${hook.id}/deliveries`);
         setRows(r?.data?.data?.deliveries || []);
       } catch { setRows([]); }
     })();
   }, [hook]);
   const replay = async (d) => {
     try {
-      await api.post(`/api/xdr/webhooks/${hook.id}/replay/${d.id}`);
-      const r = await api.get(`/api/xdr/webhooks/${hook.id}/deliveries`);
+      await api.post(`/xdr/webhooks/${hook.id}/replay/${d.id}`);
+      const r = await api.get(`/xdr/webhooks/${hook.id}/deliveries`);
       setRows(r?.data?.data?.deliveries || []);
     } catch { /* honest */ }
   };
@@ -195,7 +195,7 @@ export default function WebhooksBody() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get("/api/xdr/webhooks");
+        const r = await api.get("/xdr/webhooks");
         const j = r?.data;
         if (j?.ok === false) { setErr(j?.error?.detail || "unavailable"); setRows([]); return; }
         setRows(j?.data?.webhooks || []); setErr(null);
@@ -208,7 +208,7 @@ export default function WebhooksBody() {
 
   const test = async (h) => {
     try {
-      const r = await api.post(`/api/xdr/webhooks/${h.id}/test`, {
+      const r = await api.post(`/xdr/webhooks/${h.id}/test`, {
         event: "webhook.test", payload: { hello: "nivxray" },
       });
       setLastAudit(r?.data?.audit_ref);
@@ -217,7 +217,7 @@ export default function WebhooksBody() {
   };
   const rotate = async (h) => {
     try {
-      const r = await api.post(`/api/xdr/webhooks/${h.id}/rotate-secret`);
+      const r = await api.post(`/xdr/webhooks/${h.id}/rotate-secret`);
       setRevealSecret(r?.data?.data?.secret);
       setLastAudit(r?.data?.audit_ref);
     } catch (e) { alert(e?.response?.data?.detail || e?.message); }
@@ -225,13 +225,13 @@ export default function WebhooksBody() {
   const remove = async (h) => {
     if (!window.confirm(`Delete webhook '${h.name}'?`)) return;
     try {
-      const r = await api.delete(`/api/xdr/webhooks/${h.id}`);
+      const r = await api.delete(`/xdr/webhooks/${h.id}`);
       setLastAudit(r?.data?.audit_ref); setTick((n) => n + 1);
     } catch (e) { alert(e?.response?.data?.detail || e?.message); }
   };
   const toggle = async (h) => {
     try {
-      const r = await api.put(`/api/xdr/webhooks/${h.id}`, { enabled: !h.enabled });
+      const r = await api.put(`/xdr/webhooks/${h.id}`, { enabled: !h.enabled });
       setLastAudit(r?.data?.audit_ref); setTick((n) => n + 1);
     } catch (e) { alert(e?.response?.data?.detail || e?.message); }
   };

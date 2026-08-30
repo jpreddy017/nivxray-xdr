@@ -50,7 +50,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get("/api/xdr/rbac/users");
+        const r = await api.get("/xdr/rbac/users");
         setUsers(r?.data?.data?.users || []); setErr(null);
       } catch (e) {
         setErr(e?.response?.data?.detail || e?.message || "list failed");
@@ -61,7 +61,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
 
   const toggleEnabled = async (u) => {
     try {
-      const r = await api.put(`/api/xdr/rbac/users/${u.id}`,
+      const r = await api.put(`/xdr/rbac/users/${u.id}`,
                                           { enabled: !u.enabled });
       setLastAudit(r?.data?.audit_ref); onRefresh();
     } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
@@ -69,7 +69,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
   const removeUser = async (u) => {
     if (!window.confirm(`Remove user ${u.email}?`)) return;
     try {
-      const r = await api.delete(`/api/xdr/rbac/users/${u.id}`);
+      const r = await api.delete(`/xdr/rbac/users/${u.id}`);
       setLastAudit(r?.data?.audit_ref); onRefresh();
     } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
   };
@@ -186,7 +186,7 @@ function AddUserModal({ roles, onClose, onCreated }) {
   const submit = async () => {
     setBusy(true); setErr(null);
     try {
-      const r = await api.post("/api/xdr/rbac/users", f);
+      const r = await api.post("/xdr/rbac/users", f);
       onCreated?.(r?.data); onClose();
     } catch (e) {
       setErr(e?.response?.data?.detail?.reason
@@ -249,7 +249,7 @@ function AssignRoleModal({ user, roles, onClose, onAssigned }) {
     if (!selected) return;
     setBusy(true); setErr(null);
     try {
-      const r = await api.post(`/api/xdr/rbac/users/${user.id}/roles`,
+      const r = await api.post(`/xdr/rbac/users/${user.id}/roles`,
                                           { role_id: selected, scope: {} });
       onAssigned?.(r?.data); onClose();
     } catch (e) {
@@ -294,7 +294,7 @@ function EffectiveModal({ user, onClose }) {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get(`/api/xdr/rbac/users/${user.id}/effective`);
+        const r = await api.get(`/xdr/rbac/users/${user.id}/effective`);
         setEff(r?.data?.data);
       } catch { setEff({ error: true }); }
     })();
@@ -338,7 +338,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
 
   const clone = async (r) => {
     try {
-      const res = await api.post(`/api/xdr/rbac/roles/${r.id}/clone`);
+      const res = await api.post(`/xdr/rbac/roles/${r.id}/clone`);
       setLastAudit(res?.data?.audit_ref); onRefresh();
     } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
   };
@@ -346,7 +346,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
     if (r.type === "SYSTEM") return;
     if (!window.confirm(`Delete role ${r.name}?`)) return;
     try {
-      const res = await api.delete(`/api/xdr/rbac/roles/${r.id}`);
+      const res = await api.delete(`/xdr/rbac/roles/${r.id}`);
       setLastAudit(res?.data?.audit_ref); onRefresh();
     } catch (e) {
       setErr(e?.response?.data?.detail || e?.message);
@@ -437,7 +437,7 @@ function AddRoleModal({ onClose, onCreated }) {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get("/api/xdr/rbac/permissions");
+        const r = await api.get("/xdr/rbac/permissions");
         setPerms(r?.data?.data);
       } catch { setPerms({ error: true }); }
     })();
@@ -450,7 +450,7 @@ function AddRoleModal({ onClose, onCreated }) {
   const submit = async () => {
     setBusy(true); setErr(null);
     try {
-      const r = await api.post("/api/xdr/rbac/roles", f);
+      const r = await api.post("/xdr/rbac/roles", f);
       onCreated?.(r?.data); onClose();
     } catch (e) {
       setErr(e?.response?.data?.detail?.reason
@@ -542,7 +542,7 @@ function PermissionsTab() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get("/api/xdr/rbac/permissions");
+        const r = await api.get("/xdr/rbac/permissions");
         setD(r?.data?.data);
       } catch { setD({ error: true }); }
     })();
@@ -595,7 +595,7 @@ function SimulatorTab({ users, permissionsCatalog }) {
   const submit = async () => {
     setBusy(true); setErr(null); setRes(null);
     try {
-      const r = await api.post("/api/xdr/rbac/simulate", {
+      const r = await api.post("/xdr/rbac/simulate", {
         user_id_or_email: form.user, permission: form.permission,
       });
       setRes(r?.data?.data);
@@ -716,9 +716,9 @@ export default function UsersRolesBody() {
     (async () => {
       try {
         const [rr, ru, rp] = await Promise.all([
-          api.get("/api/xdr/rbac/roles"),
-          api.get("/api/xdr/rbac/users"),
-          api.get("/api/xdr/rbac/permissions"),
+          api.get("/xdr/rbac/roles"),
+          api.get("/xdr/rbac/users"),
+          api.get("/xdr/rbac/permissions"),
         ]);
         setRoles(rr?.data?.data?.roles || []);
         setUsers(ru?.data?.data?.users || []);

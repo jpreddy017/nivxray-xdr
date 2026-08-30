@@ -60,7 +60,11 @@ function OverviewCard({ status, onSync, syncing, syncErr, lastSyncOutcome }) {
   const coverage = v?.coverage_pct;
   const covColor = coverage === 100 ? "var(--mint)"
                               : coverage != null ? "var(--amber)" : "var(--faint)";
-  const outcome = v?.outcome || "NEVER_SYNCED";
+  // Prefer the honest sync_state from the API (introduced in P0-0):
+  //   SYNCED · PARTIAL · UPSTREAM_UNAVAILABLE · NEVER_SYNCED
+  const outcome = status?.sync_state
+                            || (v?.outcome || "NEVER_SYNCED");
+  const bundledOk = !!status?.bundled_fallback_available;
   return (
     <div className="panel" style={{ padding: 14 }}
               data-testid="lolbas-overview-card">
@@ -74,6 +78,17 @@ function OverviewCard({ status, onSync, syncing, syncErr, lastSyncOutcome }) {
                    data-testid="lolbas-status-badge">
           {outcome}
         </span>
+        {bundledOk && (
+          <span data-testid="lolbas-bundled-badge"
+                    style={{ padding: "1px 6px",
+                                    border: "1px solid var(--faint)",
+                                    color: "var(--faint)", borderRadius: 3,
+                                    fontSize: 9.5, fontFamily: "var(--mono)",
+                                    letterSpacing: ".3px" }}
+                    title="Bundled last-known-good snapshot is available on-disk">
+            BUNDLED FALLBACK · OK
+          </span>
+        )}
         <span style={{ flex: 1 }} />
         <button className="btn" onClick={onSync} disabled={syncing}
                      data-testid="lolbas-sync-btn"
@@ -214,7 +229,7 @@ function EntriesTab({ refresh, onToggle, onOpen, filters, setFilters }) {
         if (filters.q)        params.q        = filters.q;
         if (filters.category) params.category = filters.category;
         if (filters.mitre)    params.mitre    = filters.mitre;
-        const r = await api.get("/api/xdr/lolbas/entries", { params });
+        const r = await api.get("/xdr/lolbas/entries", { params });
         setRows(r?.data?.data?.entries || []);
         setTotal(r?.data?.data?.total ?? 0);
       } catch (e) {
@@ -336,7 +351,7 @@ function EntryDetail({ name, onClose }) {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get(`/api/xdr/lolbas/entries/${encodeURIComponent(name)}`);
+        const r = await api.get(`/xdr/lolbas/entries/${encodeURIComponent(name)}`);
         setD(r?.data?.data);
       } catch (e) {
         setErr(e?.response?.data?.detail || e?.message || "load failed");
@@ -491,7 +506,7 @@ function VersionsTab({ refresh, onRollback }) {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get("/api/xdr/lolbas/versions");
+        const r = await api.get("/xdr/lolbas/versions");
         setRows(r?.data?.data?.versions || []);
       } catch { /* honest empty */ }
     })();
@@ -551,7 +566,7 @@ function MatchTester() {
   const run = async () => {
     setBusy(true); setErr(null);
     try {
-      const r = await api.post("/api/xdr/lolbas/match", ev);
+      const r = await api.post("/xdr/lolbas/match", ev);
       setHits(r?.data?.data);
     } catch (e) {
       setErr(e?.response?.data?.detail || e?.message || "match failed");
@@ -631,7 +646,7 @@ export default function ContentPackLolbasBody() {
 
   const loadStatus = async () => {
     try {
-      const r = await api.get("/api/xdr/lolbas/status");
+      const r = await api.get("/xdr/lolbas/status");
       setStatus(r?.data?.data);
     } catch (e) { setSyncErr(e?.message || "status fetch failed"); }
   };
@@ -640,7 +655,7 @@ export default function ContentPackLolbasBody() {
   const doSync = async () => {
     setSyncing(true); setSyncErr(null); setLastOutcome(null);
     try {
-      const r = await api.post("/api/xdr/lolbas/sync");
+      const r = await api.post("/xdr/lolbas/sync");
       const v = r?.data?.data;
       setLastOutcome(v?.outcome);
       if (v?.outcome === "UPSTREAM_UNAVAILABLE") {
@@ -655,7 +670,7 @@ export default function ContentPackLolbasBody() {
   const toggleEntry = async (r) => {
     const op = r.enabled_for_tenant ? "disable" : "enable";
     try {
-      await api.post(`/api/xdr/lolbas/entries/${encodeURIComponent(r.name)}/${op}`);
+      await api.post(`/xdr/lolbas/entries/${encodeURIComponent(r.name)}/${op}`);
       setRefresh((n) => n + 1);
     } catch { /* honest failure — refresh already retriggers list */ }
   };
@@ -663,7 +678,7 @@ export default function ContentPackLolbasBody() {
   const doRollback = async (versionId) => {
     if (!window.confirm("Roll back active pack to this version?")) return;
     try {
-      await api.post(`/api/xdr/lolbas/rollback/${versionId}`);
+      await api.post(`/xdr/lolbas/rollback/${versionId}`);
       setRefresh((n) => n + 1);
     } catch { /* keep UI honest */ }
   };
