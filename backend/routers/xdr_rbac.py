@@ -453,12 +453,15 @@ def require_permission(permission: str, *, resource_id_header: str | None = None
         @router.post("/x", dependencies=[Depends(require_permission("secrets.create"))])
     """
     def _dep(request: Request):
-        # BOOTSTRAP: if no users are provisioned yet, allow everything.
-        # This lets a fresh install work.  As soon as one user is
-        # provisioned, enforcement engages.
-        if _c_users() is None or _c_users().count_documents({}) == 0:
+        # BOOTSTRAP: if THIS tenant has no users provisioned yet, allow.
+        # This lets the first admin in a fresh tenant be seeded without
+        # a chicken-and-egg RBAC lockout.  As soon as one user is
+        # provisioned for the tenant, enforcement engages.
+        if _c_users() is None:
             return True
         ten, pid, pkd = _principal(request)
+        if _c_users().count_documents({"tenant_id": ten}) == 0:
+            return True
         rid = request.headers.get(resource_id_header) if resource_id_header else None
         # RBAC bypass header for platform-level automation is intentionally
         # NOT supported — every request must resolve to a real principal.

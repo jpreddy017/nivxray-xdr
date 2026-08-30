@@ -1494,3 +1494,52 @@ completes, per the user's confirmed sequence:
 
 ### Queue after P0-3 (per user's confirmed sequence)
 P0-4 API Keys → P0-5 Webhooks → P0-8 Collectors/Data Sources → Phase B GTFOBins/LOLDrivers → Detection/Correlation Engine → OSINT/TI Hub → final enterprise gap audit matrix (Cisco/Microsoft/CrowdStrike/Palo Alto/Splunk/Elastic/Google parity).
+
+### P0-4 · API Keys · SHIPPED (this session, 2026-02-30)
+
+- **Backend** (`routers/xdr_api_keys.py`):
+  - Storage: `xdr_api_keys` MongoDB collection.  Format `nvx_<48-hex-chars>`.
+  - **Server never stores plaintext** — only SHA-256(`hash`) + `prefix`
+    (first 12 chars, safe to display).
+  - **One-time reveal** at create + rotate.  Every other endpoint
+    returns the masked shape (no `hash` field ever).
+  - **Scopes** are drawn from the same permission catalog RBAC uses
+    (`_valid_permission()` from `xdr_rbac`) — a key can express any of
+    the 135 canonical permissions including wildcards.
+  - **Expiration + revoke + disable** — `verify_api_key()` refuses any
+    of them.  Rotation invalidates the old plaintext.
+  - **`last_used_at` + `last_used_ip` + `use_count`** stamped by
+    `verify_api_key()` — enables "which keys are actually active?".
+  - **RBAC-gated**: every mutation guarded by `require_permission(...)`
+    for `api_keys.create` / `api_keys.rotate` / `api_keys.revoke` /
+    `api_keys.delete`.  ACCESS_DENIED events written to Audit Log with
+    reason (currently: `user-not-provisioned`, `user-disabled`,
+    `permission-not-granted`, `scope-denied`, `unknown-permission`).
+  - Audit actions: `API_KEY_CREATED / UPDATED / ROTATED / REVOKED /
+    DELETED`.
+- **Tests** (`tests/test_xdr_api_keys.py`) — **9/9 passing**: plaintext
+  once + hash never leaks, duplicate rejected, invalid scope rejected,
+  verify + rotate invalidates old plaintext + use_count increments,
+  expired never verifies, revoke disables verification, delete audits,
+  RBAC 403 for analyst, audit chain valid.
+- **Live E2E** against preview URL: bootstrap admin → CREATE returns
+  `plaintext=nvx_...` and `hash_leaked=false` in response · LIST is
+  masked with no `hash` · ROTATE returns new plaintext + new prefix ·
+  REVOKE succeeds.
+- **RBAC bootstrap correction**: bootstrap short-circuit is now
+  per-tenant (`count_documents({tenant_id: X}) == 0`) rather than
+  global — fresh tenants can still seed their first admin without a
+  chicken-and-egg lockout, and existing tenants enforce properly.
+  All 52 tests still green.
+- **Admin UI** (`src/xdr/admin/ApiKeysBody.jsx`) — Add-key dialog with
+  scope + expiration, list with prefix / scopes / status / last-used /
+  expires / use-count / actions, Rotate + Revoke + Delete actions,
+  one-time Reveal modal with Copy + "I've stored the key"
+  confirmation.  Deployed to Vercel commit `88ed576`.
+
+### Queue after P0-4 (per confirmed sequence)
+P0-5 Webhooks → P0-8 Collectors/Data Sources → RBAC retrofit onto
+existing routes (Secrets/LOLBAS/etc.) → Phase B GTFOBins+LOLDrivers →
+Detection/Correlation Engine (Phase D/E) → OSINT/TI Hub (Phase C) →
+Enterprise gap matrix vs. Cisco/Microsoft/CrowdStrike/Palo Alto/
+Splunk/Elastic/Google.

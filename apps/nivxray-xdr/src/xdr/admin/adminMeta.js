@@ -160,10 +160,15 @@ export const ADMIN_SECTIONS = [
     api: null, kind: "users_roles", connected: true,
   },
   {
+    key: "api-keys", label: "API Keys", icon: KeyRound,
+    subtitle: "Programmatic access tokens · hashed server-side (SHA-256) · plaintext revealed once at create/rotate · scoped by permission · expiration · rotate · revoke · every mutation audit-logged and RBAC-gated.",
+    api: null, kind: "api_keys", connected: true,
+  },
+  {
     key: "api-webhooks", label: "API / Webhooks", icon: Webhook,
     subtitle: "Outbound webhooks and API keys.",
     api: null, connected: false,
-    integration: "Webhook + API-key service",
+    integration: "Webhook service (P0-5 · arrives next)",
   },
   {
     key: "platform-health", label: "Platform Health", icon: HeartPulse,

@@ -244,6 +244,8 @@ from routers.xdr_lolbas import router as xdr_lolbas_router
 app.include_router(xdr_lolbas_router)
 from routers.xdr_rbac import router as xdr_rbac_router
 app.include_router(xdr_rbac_router)
+from routers.xdr_api_keys import router as xdr_api_keys_router
+app.include_router(xdr_api_keys_router)
 
 # Phase A · Capability Catalog — read-only endpoint exposing the
 # machine-readable UAIE capability registry + derived dependency
