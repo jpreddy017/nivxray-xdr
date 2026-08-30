@@ -19,9 +19,45 @@
 import React, { useEffect, useState } from "react";
 import { BookOpen, ArrowRight, AlertCircle, Compass } from "lucide-react";
 import api from "@/lib/api";
+import { useSelection } from "@/xdr/investigation/WorkspaceSelectionContext";
+
+
+// Deterministic pivot → investigation-surface mapping.  This is
+// investigation guidance projected into the existing WorkspaceSelection
+// bus — never a second navigation mechanism.  Matching is a lowercase
+// substring of the pivot text against a small vocabulary of surface
+// facets extracted from the SOC-100 PDF itself.  If no facet matches,
+// the pivot is emitted as `kind:"pivot"` for surfaces that want a
+// generic "highlight-and-filter" hint (rather than fabricating one).
+const PIVOT_TO_SURFACE = [
+  { pattern: /process|parent|child|command line|ancestry|process tree|integrity/i,
+      surface: "process", panel: "process-tree" },
+  { pattern: /network|outbound|beacon|proxy|dns|url|domain|c2/i,
+      surface: "network", panel: "network" },
+  { pattern: /ioc|indicator|hash|sha256|ti|threat intel|osint/i,
+      surface: "ioc", panel: "iocs" },
+  { pattern: /timeline|temporal|window|sequence|ordering|first[\-_ ]seen|last[\-_ ]seen/i,
+      surface: "timeline", panel: "trajectory" },
+  { pattern: /endpoint|host|hostname|device|edr|antivirus/i,
+      surface: "endpoint", panel: "endpoint" },
+  { pattern: /identity|user|session|mfa|sign[\-_ ]in|token/i,
+      surface: "identity", panel: "identity" },
+  { pattern: /att&?ck|technique|tactic|mitre/i,
+      surface: "technique", panel: "attack-chain" },
+];
+
+
+function resolvePivotSurface(pivotText) {
+  const t = String(pivotText || "");
+  for (const rule of PIVOT_TO_SURFACE) {
+    if (rule.pattern.test(t)) return rule;
+  }
+  return { surface: "generic", panel: null };
+}
 
 
 export default function ScenarioIntelligencePanel({ incident }) {
+  const { setSelection } = useSelection();
   const [data, setData] = useState(null);
   const [err,  setErr]  = useState(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -117,12 +153,32 @@ export default function ScenarioIntelligencePanel({ incident }) {
                 <div>
                   <div style={sectTitle}>Recommended pivots</div>
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {(m.recommended_pivots || []).slice(0, 8).map((p) => (
-                      <span key={p} style={chip}
-                                            data-testid={`xdr-scenario-pivot-${m.scenario_id}-${p}`}>
-                        {p}
-                      </span>
-                    ))}
+                    {(m.recommended_pivots || []).slice(0, 8).map((p) => {
+                      const { surface, panel } = resolvePivotSurface(p);
+                      const isKnown = panel !== null;
+                      return (
+                        <button key={p}
+                                            type="button"
+                                            data-testid={`xdr-scenario-pivot-${m.scenario_id}-${p}`}
+                                            onClick={() => setSelection({
+                                              kind: "pivot",
+                                              ref: { pivot: p, surface, panel,
+                                                            scenario_id: m.scenario_id },
+                                              source: "scenario-intelligence",
+                                            })}
+                                            title={isKnown
+                                                        ? `Pivot to ${panel} · ${p}`
+                                                        : `${p} — no mapped surface`}
+                                            style={{ ...chip,
+                                                            cursor: "pointer",
+                                                            borderColor: isKnown ? "var(--cyan)"
+                                                                                                        : "var(--border)",
+                                                            color:       isKnown ? "var(--cyan)"
+                                                                                                        : "var(--text-dim)" }}>
+                          {p}
+                        </button>
+                      );
+                    })}
                     {m.recommended_pivots?.length > 8 && (
                       <span style={{ ...chip, color: "var(--faint)" }}>
                         +{m.recommended_pivots.length - 8}

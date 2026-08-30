@@ -22,7 +22,7 @@
  * If a tactic has no evidence, its row is empty (honest gap).
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Minus, Plus, X, Info, Clock } from "lucide-react";
+import { RotateCcw, Minus, Plus, X, Info, Clock, Maximize2 } from "lucide-react";
 
 import { KILL_CHAIN, RULE_TO_TECHNIQUE, TECHNIQUE_INDEX }
     from "@/xdr/mitre/mitreTactics";
@@ -30,7 +30,7 @@ import { useSelection } from "@/xdr/investigation/WorkspaceSelectionContext";
 import api from "@/lib/api";
 
 
-// Tactic accent palette (matches the base NivXRay Tool trajectory).
+// Tactic accent palette (matches base NivXRay Tool trajectory colours).
 const TACTIC_COLOR = {
   "reconnaissance":       "#60a5fa",
   "resource-development": "#a78bfa",
@@ -49,18 +49,18 @@ const TACTIC_COLOR = {
 };
 
 const REL_COLOR = {
-  OBSERVED:   "var(--mint)",
-  SEQUENCED:  "var(--cyan)",
+  OBSERVED:   "#4ade80",
+  SEQUENCED:  "#67e8f9",
   CORRELATED: "#a78bfa",
-  INFERRED:   "var(--faint)",
+  INFERRED:   "#94a3b8",
 };
 
-// Layout constants
-const ROW_H         = 68;
-const LANE_X        = 130;                       // width of the tactic label column
-const NODE_W        = 132;
-const NODE_H        = 22;
-const NODE_GAP_X    = 96;
+// Layout constants — match NivXRay Tool trajectory sizing.
+const ROW_H         = 74;
+const LANE_X        = 148;
+const NODE_W        = 210;
+const NODE_H        = 42;
+const NODE_GAP_X    = 130;
 const CANVAS_HEIGHT = KILL_CHAIN.length * ROW_H + 40;
 
 
@@ -74,6 +74,7 @@ export default function AttackChainPanel({ incident }) {
   const [nodeDrag, setNodeDrag] = useState(null);
   const [overrides, setOverrides] = useState({});   // per-node manual x/y
   const [collapsed, setCollapsed] = useState(false);
+  const [popout, setPopout]       = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,9 +157,13 @@ export default function AttackChainPanel({ incident }) {
 
   const reset = () => { setOverrides({}); setPan({ x: 0, y: 0 }); setZoom(100); };
 
-  // Canvas width — enough to hold all nodes + margins.
+  // Canvas width — always generous so the horizontal scrollbar
+  // engages and users can drag/scroll left-to-right just like the
+  // NivXRay Tool trajectory.  The floor of 2200 gives room for
+  // ~12 columns of technique nodes; grows further as more nodes
+  // are plotted.
   const contentWidth = Math.max(
-    LANE_X + 160,
+    2200,
     LANE_X + 60 + (nodes.length || 1) * NODE_GAP_X);
 
   const onMouseDown = (e) => {
@@ -188,7 +193,8 @@ export default function AttackChainPanel({ incident }) {
                        style={{ marginTop: 14 }}>
         <Header collapsed={collapsed} setCollapsed={setCollapsed}
                         zoom={zoom} setZoom={setZoom} reset={reset}
-                        techniques={0} />
+                        techniques={0}
+                        popout={popout} setPopout={setPopout} />
         {!collapsed && (
           <>
             <TacticLegend />
@@ -216,7 +222,100 @@ export default function AttackChainPanel({ incident }) {
                    style={{ marginTop: 14 }}>
       <Header collapsed={collapsed} setCollapsed={setCollapsed}
                     zoom={zoom} setZoom={setZoom} reset={reset}
-                    techniques={nodes.length} />
+                    techniques={nodes.length}
+                    popout={popout} setPopout={setPopout} />
+
+      {popout && (
+        <div style={popoutBackdrop}
+                   data-testid="xdr-chain-popout-modal"
+                   onClick={() => setPopout(false)}>
+          <div style={popoutInner}
+                       onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center",
+                                    gap: 8, marginBottom: 8 }}>
+              <b style={{ fontFamily: "JetBrains Mono, monospace",
+                                          fontSize: 13, color: "#e2e8f0" }}>
+                EVIDENCE TRAJECTORY · MITRE ATT&CK
+              </b>
+              <span style={{ fontSize: 11, color: "#94a3b8",
+                                          fontFamily: "JetBrains Mono, monospace" }}>
+                {nodes.length} technique{nodes.length === 1 ? "" : "s"} · 14 tactics
+              </span>
+              <span style={{ flex: 1 }} />
+              <button type="button"
+                            data-testid="xdr-chain-popout-close"
+                            onClick={() => setPopout(false)}
+                            style={ctrlBtn}>
+                <X size={11} /> CLOSE
+              </button>
+            </div>
+          <div style={canvasFramePopout}
+                     onMouseDown={onMouseDown}
+                     onMouseMove={onMouseMove}
+                     onMouseUp={endDrag}
+                     onMouseLeave={endDrag}
+                     data-testid="xdr-chain-popout-canvas">
+              <svg width={Math.max(contentWidth * (zoom / 100), 600)}
+                       height={(CANVAS_HEIGHT + 20) * (zoom / 100)}
+                       style={{ display: "block", cursor: drag ? "grabbing" : "grab" }}
+                       viewBox={`0 0 ${contentWidth} ${CANVAS_HEIGHT + 20}`}
+                       preserveAspectRatio="xMinYMin meet">
+                <g transform={`translate(${pan.x}, ${pan.y})`}>
+                  {KILL_CHAIN.map((k, i) => (
+                    <g key={k.key}>
+                      <rect x={0} y={20 + i * ROW_H}
+                                  width={contentWidth} height={ROW_H - 2}
+                                  fill={i % 2 === 0 ? "rgba(148,163,184,0.03)"
+                                                                          : "transparent"} />
+                      <text x={14} y={20 + i * ROW_H + ROW_H / 2 - 2}
+                                  fill="#e2e8f0" fontFamily="JetBrains Mono, monospace"
+                                  fontSize={11} fontWeight={700} letterSpacing={0.4}>
+                        {k.label.toUpperCase()}
+                      </text>
+                    </g>
+                  ))}
+                  {edges.map((e) => {
+                    const a = laidOut[e.from], b = laidOut[e.to];
+                    if (!a || !b) return null;
+                    const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2;
+                    const x2 = b.x,          y2 = b.y + NODE_H / 2;
+                    const dx = Math.max(30, Math.abs(x2 - x1) * 0.55);
+                    return <path key={`p${e.from}${e.to}`}
+                                                d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
+                                                fill="none" stroke="rgba(148,163,184,0.35)"
+                                                strokeWidth={1.4} />;
+                  })}
+                  {nodes.map((n) => {
+                    const p = laidOut[n.technique_id];
+                    if (!p) return null;
+                    const color = TACTIC_COLOR[n.tactic] || "#67e8f9";
+                    return (
+                      <g key={`pn${n.technique_id}`}
+                              transform={`translate(${p.x}, ${p.y})`}>
+                        <rect width={NODE_W} height={NODE_H} rx={6}
+                                    fill="rgba(15,23,42,0.9)"
+                                    stroke={color} strokeWidth={1.6} />
+                        <circle cx={12} cy={NODE_H / 2} r={5.5}
+                                       fill={color} stroke="#0b1220" strokeWidth={2} />
+                        <text x={24} y={NODE_H / 2 - 3}
+                                    fill="#e2e8f0" fontFamily="JetBrains Mono, monospace"
+                                    fontSize={12} fontWeight={700}>
+                          {n.technique_id}
+                        </text>
+                        <text x={24} y={NODE_H / 2 + 12}
+                                    fill="#94a3b8" fontFamily="JetBrains Mono, monospace"
+                                    fontSize={10}>
+                          {truncate(n.name || "—", 24)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!collapsed && (
         <>
@@ -227,69 +326,69 @@ export default function AttackChainPanel({ incident }) {
                      onMouseUp={endDrag}
                      onMouseLeave={endDrag}
                      data-testid="xdr-chain-canvas">
-            <svg width="100%" height={CANVAS_HEIGHT + 20}
+            <svg width={Math.max(contentWidth * (zoom / 100), 600)}
+                     height={(CANVAS_HEIGHT + 20) * (zoom / 100)}
                      style={{ display: "block", cursor: drag ? "grabbing" : "grab" }}
                      viewBox={`0 0 ${contentWidth} ${CANVAS_HEIGHT + 20}`}
                      preserveAspectRatio="xMinYMin meet">
-              <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom / 100})`}>
-                {/* Swim-lane rows */}
+              <g transform={`translate(${pan.x}, ${pan.y})`}>
+                {/* Swim-lane rows · NivXRay Tool visual language */}
                 {KILL_CHAIN.map((k, i) => (
                   <g key={k.key} data-testid={`xdr-chain-row-${k.key}`}>
                     <rect x={0}
                                 y={20 + i * ROW_H}
                                 width={contentWidth}
                                 height={ROW_H - 2}
-                                fill={i % 2 === 0 ? "rgba(255,255,255,0.015)"
+                                fill={i % 2 === 0 ? "rgba(148,163,184,0.03)"
                                                                   : "transparent"} />
-                    <text x={10}
-                                y={20 + i * ROW_H + ROW_H / 2 - 3}
-                                fill="var(--faint)"
-                                fontFamily="var(--mono)"
-                                fontSize={10.5}
+                    <text x={14}
+                                y={20 + i * ROW_H + ROW_H / 2 - 2}
+                                fill="#e2e8f0"
+                                fontFamily="JetBrains Mono, monospace"
+                                fontSize={11}
                                 fontWeight={700}
                                 letterSpacing={0.4}>
                       {k.label.toUpperCase()}
                     </text>
-                    <text x={10}
-                                y={20 + i * ROW_H + ROW_H / 2 + 12}
-                                fill="rgba(160,160,180,0.35)"
-                                fontFamily="var(--mono)"
-                                fontSize={8.5}>
-                      technique command behavior
+                    <text x={14}
+                                y={20 + i * ROW_H + ROW_H / 2 + 14}
+                                fill="#64748b"
+                                fontFamily="JetBrains Mono, monospace"
+                                fontSize={9}
+                                letterSpacing={0.3}>
+                      technique · command · behavior
                     </text>
-                    <line x1={LANE_X - 6} y1={20 + i * ROW_H}
-                                x2={LANE_X - 6} y2={20 + i * ROW_H + ROW_H}
-                                stroke="rgba(255,255,255,0.06)"
+                    <line x1={LANE_X - 8} y1={20 + i * ROW_H}
+                                x2={LANE_X - 8} y2={20 + i * ROW_H + ROW_H}
+                                stroke="rgba(148,163,184,0.10)"
                                 strokeWidth={1} />
                   </g>
                 ))}
 
-                {/* Curves between consecutive (temporally-ordered) techniques */}
+                {/* Bezier curves between consecutive (temporal) techniques */}
                 {edges.map((e) => {
                   const a = laidOut[e.from];
                   const b = laidOut[e.to];
                   if (!a || !b) return null;
-                  const mx = (a.x + NODE_W + b.x) / 2;
-                  const c1 = `${mx},${a.y + NODE_H / 2}`;
-                  const c2 = `${mx},${b.y + NODE_H / 2}`;
+                  const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2;
+                  const x2 = b.x,          y2 = b.y + NODE_H / 2;
+                  const dx = Math.max(30, Math.abs(x2 - x1) * 0.55);
                   return (
                     <path key={`${e.from}->${e.to}`}
                                 data-testid={`xdr-chain-edge-${e.from}-${e.to}`}
-                                d={`M ${a.x + NODE_W} ${a.y + NODE_H / 2}
-                                       C ${c1} ${c2}
-                                          ${b.x} ${b.y + NODE_H / 2}`}
+                                d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
                                 fill="none"
-                                stroke="rgba(200,200,220,0.28)"
-                                strokeWidth={1.2} />
+                                stroke="rgba(148,163,184,0.35)"
+                                strokeWidth={1.4} />
                   );
                 })}
 
-                {/* Technique nodes */}
+                {/* Technique nodes · NivXRay Tool visual language */}
                 {nodes.map((n) => {
                   const p = laidOut[n.technique_id];
                   if (!p) return null;
                   const active = selectedTech === n.technique_id;
-                  const color = TACTIC_COLOR[n.tactic] || "var(--cyan)";
+                  const color = TACTIC_COLOR[n.tactic] || "#67e8f9";
                   return (
                     <g key={n.technique_id}
                             transform={`translate(${p.x}, ${p.y})`}
@@ -312,18 +411,25 @@ export default function AttackChainPanel({ incident }) {
                                 source: "attack-chain-trajectory",
                               });
                             }}>
-                      <rect width={NODE_W} height={NODE_H}
-                                  rx={3} ry={3}
-                                  fill={active ? "rgba(56,189,248,0.22)"
-                                                                : "rgba(20,25,35,0.9)"}
-                                  stroke={color}
-                                  strokeWidth={active ? 1.6 : 1} />
-                      <circle cx={9} cy={NODE_H / 2} r={3}
-                                     fill={color} />
-                      <text x={20} y={NODE_H / 2 + 3.5}
-                                  fill="var(--text)" fontFamily="var(--mono)"
-                                  fontSize={9.5}>
-                        {n.technique_id} · {truncate(n.name || "—", 14)}
+                      <rect width={NODE_W} height={NODE_H} rx={6}
+                                  fill="rgba(15,23,42,0.9)"
+                                  stroke={active ? "#fbbf24" : color}
+                                  strokeWidth={active ? 2.2 : 1.6} />
+                      <circle cx={12} cy={NODE_H / 2} r={5.5}
+                                     fill={color}
+                                     stroke="#0b1220" strokeWidth={2} />
+                      <text x={24} y={NODE_H / 2 - 3}
+                                  fill="#e2e8f0"
+                                  fontFamily="JetBrains Mono, monospace"
+                                  fontSize={12}
+                                  fontWeight={700}>
+                        {n.technique_id}
+                      </text>
+                      <text x={24} y={NODE_H / 2 + 12}
+                                  fill="#94a3b8"
+                                  fontFamily="JetBrains Mono, monospace"
+                                  fontSize={10}>
+                        {truncate(n.name || "—", 20)}
                       </text>
                     </g>
                   );
@@ -355,28 +461,28 @@ export default function AttackChainPanel({ incident }) {
 
 
 function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
-                            techniques }) {
+                            techniques, popout, setPopout }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10,
                             padding: "0 4px 6px" }}>
       <div style={{ display: "flex", flexDirection: "column",
-                              gap: 0, flex: 1 }}>
-        <span style={{ fontSize: 9.5, color: "var(--faint)",
-                                  fontFamily: "var(--mono)", fontWeight: 700,
-                                  letterSpacing: 0.4, textTransform: "uppercase" }}>
+                              gap: 2, flex: 1 }}>
+        <span style={{ fontSize: 9, letterSpacing: "0.22em",
+                                  textTransform: "uppercase", color: "#67e8f9",
+                                  fontFamily: "JetBrains Mono, monospace" }}>
           Evidence Trajectory
         </span>
-        <span style={{ fontSize: 16, color: "var(--text)",
-                                  fontFamily: "var(--mono)", fontWeight: 700,
-                                  letterSpacing: 0.6 }}>
+        <span style={{ fontSize: 17, color: "#e2e8f0",
+                                  fontFamily: "JetBrains Mono, monospace",
+                                  fontWeight: 700, letterSpacing: 0.6 }}>
           MITRE ATT&CK
         </span>
       </div>
-      <span style={{ padding: "1px 6px", fontSize: 9.5,
-                              fontFamily: "var(--mono)", fontWeight: 700,
-                              background: "var(--panel2)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 2, color: "var(--faint)" }}>
+      <span style={{ padding: "3px 8px", fontSize: 10.5,
+                              fontFamily: "JetBrains Mono, monospace",
+                              fontWeight: 600, color: "#94a3b8",
+                              border: "1px solid #334467",
+                              borderRadius: 4 }}>
         {techniques} technique{techniques === 1 ? "" : "s"} · 14 tactics
       </span>
       <button type="button"
@@ -384,11 +490,11 @@ function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
                     onClick={() => setZoom((z) => Math.max(25, z - 10))}
                     title="Zoom out"
                     style={ctrlBtn}>
-        <Minus size={11} />
+        <Minus size={12} />
       </button>
-      <span style={{ fontSize: 11, fontFamily: "var(--mono)",
-                              minWidth: 42, textAlign: "center",
-                              color: "var(--text)" }}
+      <span style={{ fontSize: 12, fontFamily: "JetBrains Mono, monospace",
+                              minWidth: 48, textAlign: "center",
+                              color: "#e2e8f0", fontWeight: 600 }}
                    data-testid="xdr-chain-zoom-value">
         {zoom}%
       </span>
@@ -397,21 +503,28 @@ function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
                     onClick={() => setZoom((z) => Math.min(400, z + 10))}
                     title="Zoom in"
                     style={ctrlBtn}>
-        <Plus size={11} />
+        <Plus size={12} />
       </button>
       <button type="button"
                     data-testid="xdr-chain-reset"
                     onClick={reset}
                     title="Reset layout + pan + zoom"
-                    style={{ ...ctrlBtn, gap: 3 }}>
-        <RotateCcw size={10} /> RESET
+                    style={{ ...ctrlBtn, gap: 4 }}>
+        <RotateCcw size={11} /> RESET
+      </button>
+      <button type="button"
+                    data-testid="xdr-chain-popout"
+                    onClick={() => setPopout && setPopout(true)}
+                    title="Pop out to full screen"
+                    style={{ ...ctrlBtn, gap: 4 }}>
+        <Maximize2 size={11} /> POPOUT
       </button>
       <button type="button"
                     data-testid="xdr-chain-toggle"
                     onClick={() => setCollapsed((c) => !c)}
                     title={collapsed ? "Expand" : "Collapse"}
-                    style={{ ...ctrlBtn, gap: 3 }}>
-        <X size={10} /> {collapsed ? "OPEN" : "CLOSE"}
+                    style={{ ...ctrlBtn, gap: 4 }}>
+        <X size={11} /> {collapsed ? "OPEN" : "CLOSE"}
       </button>
     </div>
   );
@@ -420,22 +533,22 @@ function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
 
 function TacticLegend() {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 10,
-                            padding: "0 4px 8px", alignItems: "center" }}
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 12,
+                            padding: "0 4px 10px", alignItems: "center" }}
                 data-testid="xdr-chain-legend">
-      <span style={{ fontSize: 9, fontFamily: "var(--mono)",
-                              color: "var(--faint)", fontWeight: 700,
-                              letterSpacing: 0.4, textTransform: "uppercase" }}>
+      <span style={{ fontSize: 9, letterSpacing: "0.14em",
+                              textTransform: "uppercase", color: "#64748b",
+                              fontFamily: "JetBrains Mono, monospace" }}>
         MITRE tactics projected:
       </span>
       {KILL_CHAIN.map((k) => (
         <span key={k.key}
                     data-testid={`xdr-chain-legend-${k.key}`}
                     style={{ display: "inline-flex", alignItems: "center",
-                                    gap: 4, fontSize: 10, fontFamily: "var(--mono)",
-                                    color: "var(--text-dim)" }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%",
-                                    background: TACTIC_COLOR[k.key] || "var(--cyan)" }} />
+                                    gap: 6, fontSize: 11, color: "#94a3b8",
+                                    fontFamily: "JetBrains Mono, monospace" }}>
+          <span style={{ width: 10, height: 10, borderRadius: "50%",
+                                    background: TACTIC_COLOR[k.key] || "#67e8f9" }} />
           {k.label}
         </span>
       ))}
@@ -450,37 +563,39 @@ function TacticLegend() {
 function EmptyCanvas({ contentWidth, pan, zoom }) {
   return (
     <div style={canvasFrame} data-testid="xdr-chain-canvas">
-      <svg width="100%" height={CANVAS_HEIGHT + 20}
+      <svg width={Math.max(contentWidth * (zoom / 100), 600)}
+                height={(CANVAS_HEIGHT + 20) * (zoom / 100)}
                 style={{ display: "block" }}
                 viewBox={`0 0 ${contentWidth} ${CANVAS_HEIGHT + 20}`}
                 preserveAspectRatio="xMinYMin meet">
-        <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom / 100})`}>
+        <g transform={`translate(${pan.x}, ${pan.y})`}>
           {KILL_CHAIN.map((k, i) => (
             <g key={k.key} data-testid={`xdr-chain-row-${k.key}`}>
               <rect x={0} y={20 + i * ROW_H}
                           width={contentWidth}
                           height={ROW_H - 2}
-                          fill={i % 2 === 0 ? "rgba(255,255,255,0.015)"
+                          fill={i % 2 === 0 ? "rgba(148,163,184,0.03)"
                                                               : "transparent"} />
-              <text x={10}
-                          y={20 + i * ROW_H + ROW_H / 2 - 3}
-                          fill="var(--faint)"
-                          fontFamily="var(--mono)"
-                          fontSize={10.5}
+              <text x={14}
+                          y={20 + i * ROW_H + ROW_H / 2 - 2}
+                          fill="#e2e8f0"
+                          fontFamily="JetBrains Mono, monospace"
+                          fontSize={11}
                           fontWeight={700}
                           letterSpacing={0.4}>
                 {k.label.toUpperCase()}
               </text>
-              <text x={10}
-                          y={20 + i * ROW_H + ROW_H / 2 + 12}
-                          fill="rgba(160,160,180,0.35)"
-                          fontFamily="var(--mono)"
-                          fontSize={8.5}>
-                technique command behavior
+              <text x={14}
+                          y={20 + i * ROW_H + ROW_H / 2 + 14}
+                          fill="#64748b"
+                          fontFamily="JetBrains Mono, monospace"
+                          fontSize={9}
+                          letterSpacing={0.3}>
+                technique · command · behavior
               </text>
-              <line x1={LANE_X - 6} y1={20 + i * ROW_H}
-                          x2={LANE_X - 6} y2={20 + i * ROW_H + ROW_H}
-                          stroke="rgba(255,255,255,0.06)"
+              <line x1={LANE_X - 8} y1={20 + i * ROW_H}
+                          x2={LANE_X - 8} y2={20 + i * ROW_H + ROW_H}
+                          stroke="rgba(148,163,184,0.10)"
                           strokeWidth={1} />
             </g>
           ))}
@@ -594,23 +709,56 @@ function truncate(s, n) {
 
 // ── styles ────────────────────────────────────────────────────────
 const canvasFrame = {
-  border: "1px solid var(--border)", borderRadius: 3,
-  background: "var(--panel)", overflow: "hidden",
+  border: "1px solid #1f2b3f", borderRadius: 10,
+  background: "rgba(2,6,23,0.65)",
+  overflowX: "scroll",                     // ALWAYS-visible horizontal (NivXRay Tool parity)
+  overflowY: "auto",
   userSelect: "none", position: "relative",
+  minHeight: 560,
+  maxHeight: 1000,
+  scrollbarColor: "#334467 #0b1220",
+};
+const popoutBackdrop = {
+  position: "fixed", inset: 0, zIndex: 200,
+  background: "rgba(2,6,23,0.86)",
+  padding: 24, display: "flex", alignItems: "center",
+  justifyContent: "center",
+};
+const popoutInner = {
+  width: "100%", maxWidth: 1600,
+  maxHeight: "calc(100vh - 48px)",
+  background: "rgba(15,23,42,0.98)",
+  border: "1px solid #334467", borderRadius: 12,
+  padding: 16, display: "flex", flexDirection: "column",
+  overflow: "hidden",
+};
+const canvasFramePopout = {
+  flex: 1,
+  border: "1px solid #1f2b3f", borderRadius: 10,
+  background: "rgba(2,6,23,0.65)",
+  overflowX: "scroll", overflowY: "auto",
+  userSelect: "none",
+  maxHeight: "calc(100vh - 220px)",
+  scrollbarColor: "#334467 #0b1220",
 };
 const helpText = {
-  padding: "6px 4px", fontSize: 10, fontFamily: "var(--mono)",
-  color: "var(--faint)", fontStyle: "italic",
+  padding: "8px 4px", fontSize: 10.5,
+  fontFamily: "JetBrains Mono, monospace",
+  color: "#64748b", fontStyle: "italic",
+  letterSpacing: 0.2,
 };
 const ctrlBtn = {
-  padding: "3px 8px", fontSize: 10, fontWeight: 700,
-  background: "var(--panel2)", border: "1px solid var(--border)",
-  color: "var(--text-dim)", borderRadius: 2, cursor: "pointer",
-  fontFamily: "var(--mono)", display: "inline-flex",
-  alignItems: "center", letterSpacing: 0.3,
+  padding: "4px 10px", fontSize: 11, fontWeight: 600,
+  color: "#67e8f9", background: "rgba(103,232,249,0.08)",
+  border: "1px solid rgba(103,232,249,0.35)",
+  borderRadius: 4, cursor: "pointer",
+  fontFamily: "JetBrains Mono, monospace",
+  display: "inline-flex", alignItems: "center",
+  letterSpacing: 0.3,
 };
 const emptyBox = {
-  padding: "10px 12px", fontSize: 11, fontFamily: "var(--mono)",
-  color: "var(--faint)", border: "1px dashed var(--border)",
-  borderRadius: 3, display: "flex", alignItems: "center",
+  padding: "10px 12px", fontSize: 11,
+  fontFamily: "JetBrains Mono, monospace",
+  color: "#94a3b8", border: "1px dashed #334467",
+  borderRadius: 6, display: "flex", alignItems: "center",
 };

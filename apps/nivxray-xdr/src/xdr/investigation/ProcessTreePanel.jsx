@@ -18,7 +18,8 @@
  * MALICIOUS.  Process behaviour is an OBSERVATION.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Cpu, ChevronDown, ChevronUp, Copy, Info, Search } from "lucide-react";
+import { Cpu, ChevronDown, ChevronUp, Copy, Info, Search,
+                Maximize2, X as XClose } from "lucide-react";
 
 import { TECHNIQUE_INDEX } from "@/xdr/mitre/mitreTactics";
 import { useSelection } from "@/xdr/investigation/WorkspaceSelectionContext";
@@ -70,8 +71,10 @@ const V_GAP  = 30;
 export default function ProcessTreePanel({ incident }) {
   const { selection, setSelection } = useSelection();
   const [enrichment, setEnrichment] = useState(null);
+  const [summary, setSummary]       = useState(null);
   const [q, setQ] = useState("");
   const [collapsed, setCollapsed] = useState(false);
+  const [popout, setPopout] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,13 +85,34 @@ export default function ProcessTreePanel({ incident }) {
                                     { params: { incident_id: incident.id }});
         if (!cancelled) setEnrichment(r?.data || null);
       } catch { if (!cancelled) setEnrichment(null); }
+      // Authoritative NivXRay-Tool incident summary — best-effort.
+      // Feeds real process evidence (suspicious_elements) into the
+      // canonical graph when the XDR incident payload alone does not
+      // carry it.
+      try {
+        const s = await api.get(`/incidents/${incident.id}/summary`);
+        if (!cancelled) setSummary(s?.data || null);
+      } catch { if (!cancelled) setSummary(null); }
     })();
     return () => { cancelled = true; };
   }, [incident?.id]);
 
+  // Merge summary suspicious_elements as additional evidence rows —
+  // never mutating the incident.
+  const enrichedIncident = useMemo(() => {
+    if (!summary) return incident;
+    const mergedEvidence = [
+      ...(incident?.verdict_stage2?.evidence || []),
+      ...(summary?.suspicious_elements || []),
+    ];
+    return { ...incident,
+                    verdict_stage2: { ...(incident?.verdict_stage2 || {}),
+                                              evidence: mergedEvidence } };
+  }, [incident, summary]);
+
   const { nodes, edges, roots, procById } = useMemo(
-    () => buildCanonicalGraph(incident, enrichment),
-    [incident, enrichment]);
+    () => buildCanonicalGraph(enrichedIncident, enrichment),
+    [enrichedIncident, enrichment]);
 
   // Auto-layout: BFS from each root, columns per depth, rows within.
   const laidOut = useMemo(
@@ -137,6 +161,13 @@ export default function ProcessTreePanel({ incident }) {
                        data-testid="xdr-process-tree-search"
                        style={inputStyle} />
         </div>
+        <button type="button"
+                      data-testid="xdr-process-tree-popout"
+                      onClick={() => setPopout(true)}
+                      title="Pop out to full screen"
+                      style={ctrlBtn}>
+          <Maximize2 size={10} /> POPOUT
+        </button>
         <button type="button"
                       data-testid="xdr-process-tree-toggle"
                       onClick={() => setCollapsed((c) => !c)}
@@ -262,7 +293,103 @@ export default function ProcessTreePanel({ incident }) {
           </div>
         </div>
       )}
+      {popout && (
+        <div style={popoutBackdrop}
+                   data-testid="xdr-process-tree-popout-modal"
+                   onClick={() => setPopout(false)}>
+          <div style={popoutInner}
+                       onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center",
+                                    gap: 8, marginBottom: 8 }}>
+              <Cpu size={13} style={{ color: "#a78bfa" }} />
+              <b style={{ fontFamily: "var(--mono)", fontSize: 13 }}>
+                PREDICTED PROCESS TREE
+              </b>
+              <span style={metaChip}>
+                {nodes.length} process{nodes.length === 1 ? "" : "es"} · {roots.length} root{roots.length === 1 ? "" : "s"} · {edges.length} edge{edges.length === 1 ? "" : "s"}
+              </span>
+              <span style={{ flex: 1 }} />
+              <button type="button"
+                            data-testid="xdr-process-tree-popout-close"
+                            onClick={() => setPopout(false)}
+                            style={ctrlBtn}>
+                <XClose size={11} /> CLOSE
+              </button>
+            </div>
+            <div style={{ flex: 1, overflow: "auto",
+                                    border: "1px solid var(--border)",
+                                    borderRadius: 6 }}>
+              <ProcessGraphInner nodes={nodes} edges={edges}
+                                                laidOut={laidOut}
+                                                selectedId={selectedId}
+                                                filteredIds={filteredIds}
+                                                onSelect={(n) => setSelection({
+                                                  kind: "process",
+                                                  ref: { pid: n.pid, name: n.name, id: n.id },
+                                                  source: "process-tree-graph",
+                                                })} />
+            </div>
+          </div>
+        </div>
+      )}
     </section>
+  );
+}
+
+
+// Extract the inner SVG graph so the popout can reuse it.
+function ProcessGraphInner({ nodes, edges, laidOut, selectedId,
+                                              filteredIds, onSelect }) {
+  const { W, H } = boundsFrom(laidOut, nodes.length === 0);
+  return (
+    <svg width={W} height={H} style={{ display: "block" }}>
+      {edges.map((e) => {
+        const a = laidOut[e.from];
+        const b = laidOut[e.to];
+        if (!a || !b) return null;
+        const ax = a.x + NODE_W, ay = a.y + NODE_H / 2;
+        const bx = b.x,          by = b.y + NODE_H / 2;
+        const midX = (ax + bx) / 2;
+        return (
+          <path key={`${e.from}->${e.to}`}
+                      d={`M ${ax} ${ay} C ${midX} ${ay}, ${midX} ${by}, ${bx} ${by}`}
+                      fill="none"
+                      stroke="rgba(200,200,220,0.32)"
+                      strokeWidth={1.2} />
+        );
+      })}
+      {nodes.map((n) => {
+        const p = laidOut[n.id];
+        if (!p) return null;
+        const active   = selectedId === n.id;
+        const inFilter = filteredIds.has(n.id);
+        const primary  = pickAccent(n);
+        return (
+          <g key={n.id} transform={`translate(${p.x}, ${p.y})`}
+                  opacity={inFilter ? 1 : 0.28}
+                  onClick={() => onSelect(n)}
+                  style={{ cursor: "pointer" }}>
+            <rect width={NODE_W} height={NODE_H} rx={6}
+                        fill={active ? "rgba(250,204,21,0.10)"
+                                                        : "rgba(20,25,35,0.9)"}
+                        stroke={primary}
+                        strokeWidth={active ? 1.8 : 1.2} />
+            <text x={12} y={20} fill={primary}
+                        fontFamily="var(--mono)" fontSize={12} fontWeight={700}>
+              {n.name}
+            </text>
+            <text x={12} y={36} fill="var(--faint)"
+                        fontFamily="var(--mono)" fontSize={10}>
+              {n.tactic_hint || "—"}
+            </text>
+            <text x={12} y={54} fill="var(--text-dim)"
+                        fontFamily="var(--mono)" fontSize={10}>
+              {n.techniques.slice(0, 4).join(", ") || (n.pid != null ? `pid:${n.pid}` : "")}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -599,6 +726,20 @@ function pickAccent(n) {
 
 
 // ── styles ────────────────────────────────────────────────────────
+const popoutBackdrop = {
+  position: "fixed", inset: 0, zIndex: 200,
+  background: "rgba(2,6,23,0.86)",
+  padding: 24, display: "flex", alignItems: "center",
+  justifyContent: "center",
+};
+const popoutInner = {
+  width: "100%", maxWidth: 1600,
+  maxHeight: "calc(100vh - 48px)",
+  background: "rgba(15,23,42,0.98)",
+  border: "1px solid #334467", borderRadius: 12,
+  padding: 16, display: "flex", flexDirection: "column",
+  overflow: "hidden",
+};
 const header = {
   display: "flex", alignItems: "center", gap: 8, marginBottom: 8,
   padding: "0 4px", flexWrap: "wrap",
