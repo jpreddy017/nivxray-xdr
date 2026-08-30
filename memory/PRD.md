@@ -7,6 +7,84 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ⚠️ 2026-02-10 · Deployment gap explained
+
+Every UI change in this session lives in `/app/apps/nivxray-xdr` (local
+mirror).  It is verified via `yarn build` and by running `vite dev` in
+this pod (Admin › Engines rendered live with 51 engines · 35 ADOPT ·
+14 CONNECTED · 2 BASE_ONLY).  To surface it on
+`https://nivxray-xdr.vercel.app` the user must press **Save to
+GitHub** in the chat input; Vercel auto-deploys on push to
+`jpreddy017/nivxray-xdr` main.  Emergent cannot push git on the user's
+behalf.
+
+
+---
+
+## ✅ 2026-02-10 · Capability-Gap Audit (10 areas)
+
+Delivered `docs/NIVXRAY_XDR_CAPABILITY_GAP_AUDIT.md`.  Every row
+cites a concrete backend path; every classification is `ADOPT ·
+CONSUME · ADAPT · EXTEND · REBUILD · NEW · NOT_PRESENT`.  No
+speculation.
+
+### Top findings
+- **Workspace** — 30 native base pages inspected; the biggest gap is
+  **selection sync**: DIE/IEDDE/IUE/UAIE + Recommendations panels
+  currently receive `incident` only, not a live `selection` bus.
+- **Corpus** — base has 6 golden-corpus modules + full
+  `/api/regression/*`, `/api/batch/test/*`, `/api/corpus/validate/*`
+  and analyst-corrections lifecycle with rollback.  XDR consumes
+  none of them yet for tuning.  Scenario-level corpus is XDR-owned
+  (NEW) because base corpus is per-input.
+- **Rule tuning** — every metric can be sourced from base
+  (`/api/regression/latest`, `/api/batch/test/json`,
+  `/api/regression/gate`); the UI is the only missing piece.
+- **Playbook tuning** — Response Engine has execution records; needs
+  a new analytics endpoint (`GET /api/respond/executions/analytics`).
+- **Recommendation tuning** — the deterministic composer shipped
+  this session; the tuning workbench and A/B compare surface remain.
+
+### Priority-ranked backlog (from audit)
+- **P0 · One investigation OS** — `WorkspaceSelectionContext` bus +
+  continuous recompute + recommendation deep-links.
+- **P0 · Corpus / Replay / Regression** — scenario corpus + XDR
+  replay engine + CI regression.
+- **P0 · Rule / Playbook / Recommendation tuning workbenches**.
+- **P1** · Evidence Explorer · native Command Intelligence · History ·
+  Related-incidents · Global search.
+- **P1** · Feedback-loop tightening (auto-refresh on new evidence).
+- **P2** · Vendor adapters (deliberately deprioritised).
+
+---
+
+## ✅ 2026-02-10 · Recommendation Intelligence + Engine Panels shipped
+
+- `src/xdr/intel/recommendationEngine.js` — deterministic composer:
+  base evidence-driven mitigations + rule matches + IOC dispositions +
+  verdict + playbook state.  Every rec carries `supporting[]` +
+  `risk_modifiers[]`; already-executed actions are surfaced but
+  suppressed from re-recommendation.
+- `src/xdr/intel/XdrRecommendationsPanel.jsx` — analyst-facing
+  Recommended Next Steps on the Investigation surface, with `why?`
+  explainability toggle per row.
+- `src/xdr/adopt/baseCapabilities.js` gained typed consumers for
+  the base tuning primitives:
+  - `RecommendationsConsumer` (`/api/decode/mitigations/evidence_driven` +
+    `/api/mitigations/*`)
+  - `PlannerConsumer`, `RegressionConsumer`, `BatchTestConsumer`,
+    `CorpusConsumer`, `CorrectionsConsumer`.
+- **P1 engine panels** (DIE / IEDDE / IUE / UAIE) mounted on the
+  Investigation surface — verified rendering on the local Vite dev
+  server.
+- **Admin › Engines** page ships the data-driven adoption diagram
+  (`51 engines · 35 ADOPT · 14 CONNECTED · 2 BASE_ONLY`), backed by
+  the anti-hallucination CI gate (`test_capability_registry_matches_base.mjs` —
+  46 base-owned rows · 0 gaps).
+
+
+---
+
 ## ✅ 2026-02-10 · Full Technology Adoption + Admin › Engines (SHIPPED)
 
 Executed the "Full NivXRay Technology Adoption Directive" end-to-end.

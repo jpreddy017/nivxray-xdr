@@ -176,3 +176,66 @@ export const IceConsumer = {
   provenance:  (caseId) => _call("GET",  `/api/correlations/provenance/${encodeURIComponent(caseId)}`),
   suggestions: (cid)    => _call("GET",  `/api/correlations/${encodeURIComponent(cid)}/suggestions`),
 };
+
+// ── Evidence-driven recommendations (base engine) ─────────────
+// `/api/decode/mitigations/evidence_driven` — the AUTHORITATIVE
+// recommendation engine.  XDR NEVER re-implements the recommendation
+// scoring; it consumes this + composes with local rule/playbook state.
+export const RecommendationsConsumer = {
+  /** POST /api/decode/mitigations/evidence_driven — schema v2 */
+  fromEvidence: (input) => _call("POST", "/api/decode/mitigations/evidence_driven",
+                                                 { data: { input } }),
+  /** POST /api/mitigations — legacy schema v1 */
+  legacy:       (body)  => _call("POST", "/api/mitigations", { data: body }),
+  /** POST /api/mitigations/from_outcome — outcome-driven mitigations */
+  fromOutcome:  (body)  => _call("POST", "/api/mitigations/from_outcome",
+                                                 { data: body }),
+  /** POST /api/mitigations/compare — diff two mitigation sets */
+  compare:      (body)  => _call("POST", "/api/mitigations/compare",
+                                                 { data: body }),
+};
+
+// ── Planner (base) ─────────────────────────────────────────────
+// `/api/planner/*` — decoder-plan advisor.  XDR uses this to explain
+// "what should I try next?" during payload investigation.
+export const PlannerConsumer = {
+  advise: (input) => _call("POST", "/api/planner/advise", { data: { input } }),
+  trace:  (steps) => _call("POST", "/api/planner/trace",  { data: { steps } }),
+};
+
+// ── Regression / Batch-test / Corpus (base tuning primitives) ──
+// These are the AUTHORITATIVE evidence-backed replay + regression
+// gate + golden corpus surfaces.  XDR rule tuning MUST consume these
+// rather than fabricating metrics locally.
+export const RegressionConsumer = {
+  entriesList:   ()       => _call("GET",  "/api/regression/corpus/entries"),
+  entriesCreate: (body)   => _call("POST", "/api/regression/corpus/entries", { data: body }),
+  run:           (body)   => _call("POST", "/api/regression/run", { data: body }),
+  latest:        ()       => _call("GET",  "/api/regression/latest"),
+  history:       ()       => _call("GET",  "/api/regression/history"),
+  gate:          ()       => _call("GET",  "/api/regression/gate"),
+  runById:       (runId)  => _call("GET",  `/api/regression/runs/${encodeURIComponent(runId)}`),
+};
+
+export const BatchTestConsumer = {
+  test:      (body)   => _call("POST", "/api/batch/test/json", { data: body }),
+  history:   ()       => _call("GET",  "/api/batch/history"),
+  historyById: (runId)=> _call("GET",  `/api/batch/history/${encodeURIComponent(runId)}`),
+  example:   ()       => _call("GET",  "/api/batch/test/example"),
+};
+
+export const CorpusConsumer = {
+  validate: (body) => _call("POST", "/api/corpus/validate/json", { data: body }),
+  example:  ()     => _call("GET",  "/api/corpus/validate/example"),
+};
+
+export const CorrectionsConsumer = {
+  list:      ()       => _call("GET",  "/api/corrections"),
+  create:    (body)   => _call("POST", "/api/corrections", { data: body }),
+  pending:   ()       => _call("GET",  "/api/corrections/pending"),
+  analytics: ()       => _call("GET",  "/api/corrections/analytics"),
+  approve:   (id, r)  => _call("POST", `/api/corrections/${encodeURIComponent(id)}/approve`, { data: r }),
+  reject:    (id, r)  => _call("POST", `/api/corrections/${encodeURIComponent(id)}/reject`,  { data: r }),
+  rollback:  (id, r)  => _call("POST", `/api/corrections/${encodeURIComponent(id)}/rollback`,{ data: r }),
+  preview:   (body)   => _call("POST", "/api/corrections/preview", { data: body }),
+};

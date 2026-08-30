@@ -22,6 +22,7 @@ import { XdrVerdictPanel, XdrInvestigationReportPanel }
 import { XdrDieChainPanel, XdrIeddeStagePanel,
   XdrIueTimelinePanel, XdrUaieCatalogPanel }
   from "@/xdr/adopt/enginePanels";
+import XdrRecommendationsPanel from "@/xdr/intel/XdrRecommendationsPanel";
 
 import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
 import { useAuth } from "@/lib/auth";
@@ -344,6 +345,10 @@ function InvestigationTab({ incident }) {
 
       {/* Authoritative Verdict Stage-2 (consumed from base) */}
       <XdrVerdictPanel incident={incident} />
+      {/* Recommended Next Steps — deterministic, evidence-driven,
+             composed from base recommender + rules + IOC + verdict +
+             playbook state.  Recalculates on evidence change. */}
+      <XdrRecommendationsPanel incident={incident} />
       {/* Authoritative Investigation Report (consumed from base) */}
       <XdrInvestigationReportPanel incident={incident} />
 
