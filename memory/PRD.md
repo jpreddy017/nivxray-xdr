@@ -465,3 +465,46 @@ and `/app/backend` untouched, 87-pass baseline unaffected.
 - **P4 · Full IA restructure** to OVERVIEW / DETECT / HUNT /
   INVESTIGATE / RESPOND / INTELLIGENCE / ASSETS / ADMIN once
   Response Engine is real.
+
+---
+
+## 2026-02 Fork · Continuation Log — Response Contract + Automation Rules
+
+### Response Contract (LOCKED spec, unimplemented) — `docs/RESPONSE_CONTRACT.md`
+- Mirror of `INGEST_CONTRACT.md`.  Declares `POST /api/respond/execute`
+  and `POST /api/respond/reversals` + `GET /api/respond/executions/{id}`.
+- Idempotent on `(tenant_id, invoker_kind, invoker_id, execution_id)`.
+- Every completed execution MUST write evidence_ref + audit_ref +
+  timeline_ref — no opaque SOAR blobs.  Response actions become part
+  of the investigation record.
+- Approval gates, dry-run, target resolution (asset/identity inventory),
+  reversal window, error semantics all specified.
+
+### Automation Rules (COMPLETE · deployed · design-only)
+- New sidebar entry **RESPOND → Automation Rules**.
+- `/xdr/respond/automation-rules` list + `/xdr/respond/automation-rules/:id` editor.
+- Editor: WHEN (trigger) → IF (conditions) → THEN (actions with
+  sequential/parallel order).
+- Action kinds: `invoke_playbook` (picks from playbook store,
+  deep-links to designer), `tag_incident`, `assign`,
+  `change_severity`, `notify`.
+- Lifecycle mirrors playbooks (DRAFT/TESTING/ENABLED/DISABLED/DEPRECATED).
+- Client-side simulator: pastes hypothetical event JSON → returns
+  MATCH / NO MATCH + would-execute list.  Never fires a real
+  playbook, never touches the Response Engine.
+- Deployed to Vercel: commit `e6a44dd`.
+
+### Immediate backlog (post-fork)
+- **P0 · Deploy the collector** — `DEPLOY.md` + set Vercel
+  `VITE_XDR_COLLECTOR_URL`.
+- **P0 · Implement `POST /api/xdr/ingest`** on base backend per
+  `INGEST_CONTRACT.md`.
+- **P1 · Implement `POST /api/respond/execute`** per
+  `docs/RESPONSE_CONTRACT.md`.  Unlocks the Playbook Designer Run
+  button and Automation-Rule real execution in one release.
+- **P2 · Analyst-facing manual response drawer** on Incidents that
+  invokes the Response Contract with `invoker.kind = "analyst"`.
+- **P3 · Phase C vendor adapters** on the REST poller (CrowdStrike →
+  Defender → SentinelOne → Cisco SEP).
+- **P4 · Full IA restructure** (OVERVIEW / DETECT / HUNT /
+  INVESTIGATE / RESPOND / INTELLIGENCE / ASSETS / ADMIN).

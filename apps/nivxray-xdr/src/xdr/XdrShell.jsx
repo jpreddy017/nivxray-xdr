@@ -98,6 +98,9 @@ const SIDEBAR = [
       { key: "playbooks", label: "Playbooks", icon: Zap,
         to: "/xdr/respond/playbooks",
         title: "Reusable response workflows · design-only until the Response Engine is wired" },
+      { key: "automation-rules", label: "Automation Rules", icon: ArrowRightLeft,
+        to: "/xdr/respond/automation-rules",
+        title: "WHEN → THEN rules that invoke playbooks · design-only until Response Engine is wired" },
     ],
   },
   {
