@@ -161,7 +161,9 @@ export function getAction(id) {
   return RESPONSE_ACTIONS.find((a) => a.action_id === id) || null;
 }
 
-// Response Engine is not deployed yet.  UI treats every action as
-// "not_wired" and refuses to execute — the Playbook Designer is
-// design-only in this milestone.
-export const RESPONSE_ENGINE_WIRED = false;
+// Response Engine wiring: driven by VITE_XDR_RESPONSE_URL.  When
+// unset the engine is treated as NOT WIRED — every Run/Test surface
+// stays disabled with an honest banner.  When set, the standalone
+// Response Engine (/app/apps/nivxray-xdr-response) handles execution.
+import { RESPONSE_ENGINE_CONFIGURED } from "@/xdr/respond/responseEngineApi";
+export const RESPONSE_ENGINE_WIRED = RESPONSE_ENGINE_CONFIGURED;

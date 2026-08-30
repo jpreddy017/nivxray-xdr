@@ -20,6 +20,7 @@ import {
 import {
   RESPONSE_ACTIONS, ACTIONS_BY_PROVIDER, getAction, RESPONSE_ENGINE_WIRED,
 } from "@/xdr/respond/actionRegistry";
+import * as Engine from "@/xdr/respond/responseEngineApi";
 
 
 const LIFECYCLE_BUTTONS = [
@@ -38,6 +39,10 @@ export default function XdrPlaybookDesignerPage() {
   const [selected, setSel]  = useState(null);
   const [dirty, setDirty]   = useState(false);
   const [saveState, setSs]  = useState("clean");
+
+  const [sim, setSim] = useState(null);
+  const [simEvent, setSimEvent] = useState('{"verdict":"malicious","severity":"critical"}');
+  const [simBusy, setSimBusy] = useState(false);
 
   useEffect(() => {
     const p = getPlaybook(id);
@@ -64,6 +69,26 @@ export default function XdrPlaybookDesignerPage() {
   const doLifecycle = (to) => {
     try { setPb(transitionLifecycle(pb.id, to, { by: "operator" })); }
     catch (e) { window.alert(String(e)); }
+  };
+  const doSimulate = async () => {
+    setSimBusy(true); setSim(null);
+    try {
+      let evt = {};
+      try { evt = JSON.parse(simEvent); }
+      catch { setSim({ error: "Invalid event JSON" }); setSimBusy(false); return; }
+      const result = await Engine.simulatePlaybook({
+        playbook_id: pb.id,
+        tenant_id:   pb.tenant_id || "simulate",
+        entry:       pb.entry,
+        nodes:       pb.nodes,
+        event:       evt,
+      });
+      setSim(result);
+    } catch (e) {
+      setSim({ error: e?.code === "RESPONSE_ENGINE_NOT_DEPLOYED"
+        ? "Response Engine URL not set (VITE_XDR_RESPONSE_URL). Simulation requires the standalone engine."
+        : (e?.response?.data?.detail?.error || e?.message || String(e)) });
+    } finally { setSimBusy(false); }
   };
 
   const selNode = pb.nodes.find((n) => n.id === selected) || null;
@@ -93,10 +118,20 @@ export default function XdrPlaybookDesignerPage() {
           v{pb.version} · {pb.lifecycle.toUpperCase()}
         </span>
         <div style={{ flex: 1 }} />
-        <button className="btn" style={{ padding: "4px 10px", opacity: 0.5, cursor: "not-allowed" }}
-                  disabled title="Response Engine not wired"
+        <button className="btn" style={{ padding: "4px 10px" }}
+                  onClick={doSimulate} disabled={simBusy}
+                  data-testid="xdr-designer-simulate">
+          <FlaskConical size={11} /> {simBusy ? "Simulating…" : "Simulate"}
+        </button>
+        <button className="btn" style={{ padding: "4px 10px",
+                                                 opacity: RESPONSE_ENGINE_WIRED ? 1 : 0.5,
+                                                 cursor: RESPONSE_ENGINE_WIRED ? "pointer" : "not-allowed" }}
+                  disabled={!RESPONSE_ENGINE_WIRED}
+                  title={RESPONSE_ENGINE_WIRED
+                            ? "Run against real Response Engine — real adapters, but stubs in Phase 1"
+                            : "Response Engine not wired · set VITE_XDR_RESPONSE_URL"}
                   data-testid="xdr-designer-run-disabled">
-          <Play size={11} /> Run (disabled)
+          <Play size={11} /> Run {RESPONSE_ENGINE_WIRED ? "" : "(disabled)"}
         </button>
         <button className="btn primary" onClick={doSave} disabled={!dirty || saveState === "saving"}
                   style={{ padding: "4px 10px" }}
@@ -171,9 +206,58 @@ export default function XdrPlaybookDesignerPage() {
                            fontSize: 10.5, color: "var(--faint)",
                            fontFamily: "var(--mono)" }}>
             <ShieldAlert size={10} style={{ verticalAlign: "middle", marginRight: 4 }} />
-            Response Engine: <b style={{ color: "var(--amber)" }}>NOT WIRED</b>
-            <br />See <span style={{ color: "var(--cyan)" }}>INGEST_CONTRACT.md</span>{" "}
-            for the collector plane; the response contract is not yet defined.
+            Response Engine:{" "}
+            <b style={{ color: RESPONSE_ENGINE_WIRED ? "var(--mint)" : "var(--amber)" }}>
+              {RESPONSE_ENGINE_WIRED ? "WIRED" : "NOT WIRED"}
+            </b>
+            <br />See <span style={{ color: "var(--cyan)" }}>RESPONSE_CONTRACT.md</span>.
+          </div>
+
+          {/* Simulate input + trace */}
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}
+                  data-testid="xdr-designer-sim-panel">
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 800,
+                             color: "var(--muted)", textTransform: "uppercase",
+                             letterSpacing: ".3px", marginBottom: 8 }}>
+              Simulation input
+            </div>
+            <textarea rows={4} value={simEvent}
+                         onChange={(e) => setSimEvent(e.target.value)}
+                         className="x-input"
+                         style={{ fontFamily: "var(--mono)", fontSize: 11 }}
+                         data-testid="xdr-designer-sim-event" />
+            {sim && (
+              <div style={{ marginTop: 10, padding: 8, borderRadius: 4,
+                               background: "var(--panel2)",
+                               border: `1px solid ${sim.error ? "#ff5b5b" : "var(--mint)"}`,
+                               fontSize: 11, color: "var(--text-dim)" }}
+                      data-testid="xdr-designer-sim-trace">
+                {sim.error
+                  ? <span style={{ color: "#ff9494" }}>{sim.error}</span>
+                  : <>
+                      <div style={{ color: "var(--mint)", fontWeight: 700 }}>
+                        MODE: {sim.mode?.toUpperCase()} · {sim.steps} steps
+                      </div>
+                      <div style={{ marginTop: 6 }}>
+                        {(sim.trace || []).map((t, i) => (
+                          <div key={i} className="mono"
+                                  style={{ fontSize: 10.5, color: t.status === "rejected"
+                                              ? "#ff9494" : t.branch === "yes"
+                                              ? "var(--mint)" : t.branch === "no"
+                                              ? "var(--faint)" : "var(--text-dim)" }}>
+                            {i + 1}. {t.kind?.toUpperCase()}
+                            {t.action_id ? " · " + t.action_id : ""}
+                            {t.branch ? " → " + t.branch : ""}
+                            {t.status ? " [" + t.status + "]" : ""}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 6, color: "var(--faint)", fontSize: 10 }}>
+                        {sim.note}
+                      </div>
+                    </>}
+              </div>
+            )}
           </div>
         </aside>
       </div>

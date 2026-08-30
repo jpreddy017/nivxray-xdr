@@ -508,3 +508,63 @@ and `/app/backend` untouched, 87-pass baseline unaffected.
   Defender → SentinelOne → Cisco SEP).
 - **P4 · Full IA restructure** (OVERVIEW / DETECT / HUNT /
   INVESTIGATE / RESPOND / INTELLIGENCE / ASSETS / ADMIN).
+
+---
+
+## 2026-02 Fork · Continuation Log — Standalone Response Engine
+
+### Response Engine Service (COMPLETE · new pod at `/app/apps/nivxray-xdr-response`)
+- FastAPI service, independently deployable via `Dockerfile`.
+- **Framework**: `ActionRegistry` (18 canonical actions across
+  endpoint/identity/network/email/nivxray, DECOUPLED from Collector
+  Connector Registry), stub `adapters` (dry_run success, reversible
+  where the registry says so), `IdempotencyStore` (SQLite,
+  `(tenant, invoker_kind, invoker_id, execution_id)` unique index,
+  restart recovery → `failed_recovered`), `EvidenceForwarder` (posts
+  to `NIVX_RESPONSE_EVIDENCE_URL`; when unset returns synthetic refs
+  with honest `forwarding_state: "not_wired"`), `Executor` (validate
+  → authorize → approval-check → resolve target → run adapter →
+  forward → finalise).
+- **Owner-locked invariant**: `succeeded` requires adapter ok AND
+  forwarder ok. Adapter succeeded but forwarding failed → `failed`
+  with `forwarding_state: "failed_forwarding"`. No opaque SOAR.
+- **Endpoints**: `POST /api/respond/execute`,
+  `POST /api/respond/simulate-playbook` (walks a whole playbook via
+  dry_run and returns a trace), `GET /api/respond/executions/{id}`,
+  `GET /api/respond/actions`, `GET /health`.
+- **13/13 pytest**: success + all-three-refs, idempotent replay,
+  missing scope 403, approval required 403 + ok-with-approval,
+  unresolved target 422, unknown action 422, missing parameter 422,
+  dry_run bypass, execution fetch, playbook simulator walks the
+  graph, action catalogue.
+- **`RESPONSE_INGEST_CONTRACT.md`** locks the Response→Base evidence
+  wire (base team implementation checklist included).
+
+### Frontend wiring (COMPLETE · deployed `b18ad84`)
+- `src/xdr/respond/responseEngineApi.js` — axios client speaking
+  `VITE_XDR_RESPONSE_URL`.
+- `RESPONSE_ENGINE_WIRED` now derives from that env var; when unset,
+  every Run/Simulate surface still renders honest NOT WIRED.
+- Playbook Designer: new **Simulate** button → engine's
+  `/simulate-playbook` → trace panel renders START → CONDITION(branch)
+  → ACTION[status] → END with duration. Live E2E verified.
+- **Run** button enables when engine URL is configured. Wiring to
+  actual `POST /api/respond/execute` from Designer + Automation
+  Rules + Analyst Response Drawer is the next slice.
+
+### Immediate backlog
+- **P0 · Wire live Run** in Playbook Designer + Automation Rule
+  invoker (route → engine `/execute`). Analyst Response Drawer on
+  Incidents with `invoker.kind = "analyst"`.
+- **P0 · Visual Debugger** (Cortex XSOAR-style): breakpoints,
+  step-over, force-branch, override outputs, animated canvas
+  highlight per trace step.
+- **P0 · Base backend endpoint**: implement
+  `POST /api/xdr/response-evidence` per `RESPONSE_INGEST_CONTRACT.md`.
+- **P1 · End-to-end Rule → Playbook → Response** simulation: paste
+  event JSON → rule matches → playbook fires → trace animates.
+- **P2 · Phase C real adapters** (CrowdStrike, Defender, SentinelOne,
+  Cisco SEP) — swap stubs, no execution-model changes.
+
+Boundary preserved: `/app/frontend` + `/app/backend` untouched,
+base `/api/health` = 200, collector 44/44 tests intact.
