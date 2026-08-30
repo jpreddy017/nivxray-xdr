@@ -83,64 +83,120 @@ PowerShell ≠ malicious · LOLBIN ≠ malicious · IOC_MATCH ≠ compromise
 
 ## 📋 P1 · Next locked queue — Detection Engineering / Rule Studio
 
-Owner directive (2026-02-30) — after CVE, evolve current
+Owner directive (2026-02-30, revised) — after CVE, evolve current
 `/xdr/detections` + `/xdr/detect/tuning` + `/xdr/admin/correlation-rules`
-into a unified **Rule Studio** with the following model:
+into ONE unified **Rule Studio** that owns EVERY authoring lane.
+
+**Non-negotiable architectural separation** (this is the whole point):
+```
+  RULE  →  OBSERVATION  →  CORRELATION  →  EVIDENCE BUNDLE
+        →  IKG  →  ICE  →  VERDICT  →  INCIDENT  →  PLAYBOOK / POLICY
+```
+A rule NEVER produces a verdict.  It produces an OBSERVATION with
+capability / signal strength / severity / confidence / ATT&CK.  The
+existing Verdict Engine remains the single source of truth for
+verdicts.  Examples:
+* `rundll32.exe executed`      → `LOLBIN_CAPABILITY` observation, NOT MALICIOUS
+* `CVE-XXXX affects software`  → `EXPOSURE` observation, NOT COMPROMISED
+* `SigmaHQ rule fires`         → `DETECTION` observation, NOT INCIDENT
+
+### Rule Studio lanes (Detect › Rule Studio)
 
 ```
-                  DETECTION ENGINEERING
-                          │
-                ┌─────────┴─────────┐
-                │    Rule Studio    │
-                └─────────┬─────────┘
-                          │
-    ┌───────────┬─────────┼─────────┬───────────┐
-    ↓           ↓         ↓         ↓           ↓
- Detection  Correlation Policy   Playbook   Exception
-    │           │         │         │           │
-    └───────────┴─────────┴─────────┴───────────┘
-                          ↓
-                  Validation Engine
-                          ↓
-                  Regression Corpus
-                          ↓
-                    Promotion Gate
-                          ↓
-                        ACTIVE
+Rule Studio
+├── Event / Log Source          Event ID · provider/channel · application ·
+│                               log source · field/value · severity/action/result
+├── Endpoint / EDR              process · parent/child · command line ·
+│                               file/hash/signature · registry · service ·
+│                               scheduled task · persistence · network conn ·
+│                               LOLBAS capability
+├── IOC / Threat Intelligence   IP · domain · URL · hash · email ·
+│                               certificate · IOC lists · TI confidence/reputation
+├── Network / IDS / IPS         Snort · Suricata · protocol · port · signature ·
+│                               payload/metadata · network behavior
+├── DNS / Proxy                 DNS query · domain · DGA · NXDOMAIN ·
+│                               frequency · destination · URL/category ·
+│                               proxy action
+├── CVE / Exposure              CVE · CPE · affected software/version ·
+│                               CVSS · EPSS · KEV · asset exposure ·
+│                               exploit evidence
+├── Correlation                 sequence · temporal · threshold · value count ·
+│                               group by · cross-source · cross-host ·
+│                               cross-user · negative evidence
+│                               (absorbs current /xdr/admin/correlation-rules)
+├── Behavior / Heuristic /      behavioral patterns · frequency deviations ·
+│   Anomaly                     baselines · heuristic features · ML observations
+└── Content-based               Sigma · YARA · Snort · Suricata · ATT&CK
+                                analytics
 ```
 
-**Detection rule types to support** (dynamic UI per type):
-Event/field · IOC match · Parent-child · Signature · Pattern/regex ·
-Threshold · Sequence · Behavioral · Heuristic · CVE-based · TI-based
-· Anomaly/ML · Custom/DSL (KQL · Sigma · EQL · YARA · Snort · Suricata)
+### Rule lifecycle (never a toggle)
 
-**Rule outputs** (never a bare "alert"):
-Observation type · Signal strength · Severity · Confidence ·
-ATT&CK techniques · Tactic · Evidence fields · Risk contribution ·
-Entity · Dedup key · Correlation key · **Verdict = NOT_SET** by rule.
+```
+DRAFT → TESTING → VALIDATED → ENABLED → ACTIVE → TUNING → DISABLED / DEPRECATED
+Test → Tune → Regression → Approve → Enable
+```
 
-**Lifecycle** (not a toggle):
-`DRAFT → TESTING → VALIDATED → ENABLED → ACTIVE → TUNING → DISABLED/DEPRECATED`.
-Before ACTIVE: syntax valid · data source available · required fields
-available · positive/negative/FP tests pass · corpus regression passes
-· performance acceptable · RBAC approved · provenance valid.
+### Regression Gate — HARD gate before ACTIVE
 
-**Tuning UI** (per rule): Matches / TP / FP / Unknown / Precision · top
-FP dimensions · suggested tuning candidates (Rule modification /
-Exception / Scope restriction / Suppression / Threshold change).
+All 10 checks MUST pass; any single failure blocks ACTIVE:
 
-**Enforcement modes** for every rule/policy:
-`MONITOR → ALERT → SIMULATE → ENFORCE`.
+```
+✓ Schema valid
+✓ Data-source availability
+✓ Positive tests pass
+✓ Negative tests pass
+✓ False-positive tests pass
+✓ Correlation tests pass
+✓ Investigation Corpus pass
+✓ Performance acceptable
+✓ Tenant / RBAC approved
+✓ Provenance valid
+✓ License valid
+```
+
+### Rule outputs (never a bare "alert")
+
+Every rule authored in Rule Studio emits:
+`observation_type · signal_strength · severity · confidence ·
+attack_techniques · tactic · evidence_fields · risk_contribution ·
+entity · dedup_key · correlation_key · verdict=NOT_SET`.
+
+### Tuning Center — Why it fires + Why it's noisy
+
+Not just an exclusion textbox.  Every rule tuning surface shows:
+* Matches / TP / FP / Unknown / Precision
+* Top FP dimensions (parent process · user · host · signer · time window)
+* **Why fired** breakdown per event (matched conditions + contributing evidence)
+* **What would make this rule NOT fire?** (deterministic explainer)
+* Suggested tuning candidates classified as:
+  * Rule modification (logic too broad)
+  * Exception (rule correct, environment-specific benign)
+  * Scope restriction
+  * Suppression
+  * Threshold change
+
+### Enforcement modes on every rule / policy
+
+`MONITOR → ALERT → SIMULATE → ENFORCE`
 Dangerous response: `DRY RUN → REQUIRE APPROVAL → AUTOMATIC`.
 
-**Order of implementation (locked):**
-1. Rule Studio scaffold (unified New Rule wizard + type selector)
-2. Detection rule types (Event · IOC · Parent-child · Threshold)
-3. Sequence + Behavioral rule types
-4. Policy + Playbook lanes
-5. Tuning Center (FP dimensions · suggestions · Exception vs Tune)
-6. Regression Corpus expansion (8 → 50 scenarios) + Promotion Gate
-7. Correlation authoring UI + validation replay
+### Order of implementation (locked)
+
+1. **Rule Studio scaffold** — unified `/xdr/rule-studio` shell with the
+   9 lane tabs + type-aware New Rule wizard; absorb Correlation authoring
+2. **Lifecycle + Regression Gate infra** — DRAFT/TESTING/…/DEPRECATED
+   states persisted; POST `/rules/{id}/promote` checks all 10 gates
+3. **Event/Log Source + Endpoint/EDR lanes** — dynamic condition builder
+   per lane (visual ↔ advanced DSL toggle)
+4. **IOC/TI + Network/IDS/IPS lanes**
+5. **DNS/Proxy + CVE/Exposure lanes** (CVE lane consumes the pillar
+   shipped 2026-02-30)
+6. **Correlation lane (in Rule Studio)** — retire `/xdr/admin/correlation-rules`
+7. **Behavior/Heuristic/Anomaly lane** — supporting evidence, deterministic-first
+8. **Content-based lane** — consumes Detection Registry (Sigma/YARA/Snort/Suricata)
+9. **Tuning Center** — FP dimensions · Why-fired / Why-not-fired explainers
+10. **Corpus expansion 8 → 50** wired to the Regression Gate
 
 ---
 
