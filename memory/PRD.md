@@ -7,6 +7,85 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-30 · P1 · Correlation Engine — REAL STATEFUL ENGINE SHIPPED
+
+**Directive:** Build a real stateful event-stream correlation orchestrator
+between Detection/Observations and the existing IKG/ICE/Verdict stack.
+Never reimplement those engines. Never emit a verdict from correlation.
+
+**Backend (`/app/backend/routers/xdr_correlation.py`):**
+
+Real per-entity sliding-window engine — 13 operators IMPLEMENTED:
+`EVENT_MATCH · TEMPORAL · TEMPORAL_ORDERED · SEQUENCE · COUNT ·
+THRESHOLD · VALUE_COUNT · GROUP_BY · ENTITY_CORRELATION · CROSS_SOURCE ·
+CROSS_HOST · CROSS_USER · NEGATIVE_EVIDENCE`.
+
+**CRITICAL invariant:** correlation matches emit **CORRELATION_OBSERVED / CANDIDATE / SUPPORTED** — **NEVER a verdict**. Every match doc carries `capability_not_verdict: True`. Final significance is decided downstream by IKG → ICE → Verdict.
+
+**Evidence chain shape (preserved per match):**
+`correlation_id · correlation_name · level · operator · entity_key ·
+matched_conditions · missing_conditions · signal_ids · detection_ids ·
+raw_event_ids · evidence_chain (per-step signal payload) ·
+attack_techniques · window_start/end · provenance · capability_not_verdict`
+
+**5 bundled correlation rules seeded at boot** covering the mandatory test scenarios:
+1. Office → PowerShell → External Connection (TEMPORAL_ORDERED)
+2. LOLBIN Spawned From Office (parent-child capability observation)
+3. Brute Force Then Success (SEQUENCE)
+4. Cross-host Credential Pivot (CROSS_HOST)
+5. Detection Without Follow-up (NEGATIVE_EVIDENCE)
+
+**Endpoints (all RBAC-gated + audit-logged):**
+```
+GET  /api/xdr/correlation/status    — honest counts + operators
+GET  /api/xdr/correlation/rules
+POST /api/xdr/correlation/rules
+POST /api/xdr/correlation/rules/{id}/enable
+POST /api/xdr/correlation/rules/{id}/disable
+POST /api/xdr/correlation/signals   — evaluate signals, persist matches
+POST /api/xdr/correlation/replay    — dry-run replay with full trace
+GET  /api/xdr/correlation/matches
+```
+
+**RBAC:** `correlation.read / create / update / delete / publish / test`.
+Audit: `CORRELATION_RULE_CREATED / _ENABLED / _DISABLED · CORRELATION_REPLAY`.
+
+**Live E2E on Vercel-linked backend (proof of the acceptance criterion):**
+```
+Real signals (3) → Detection dets (2) + event (1)
+                → Stateful correlation (TEMPORAL_ORDERED)
+                → Evidence chain (3 steps · HOST-LIVE)
+                → CORRELATION_SUPPORTED
+                    · matched: A, B, C
+                    · missing: (none)
+                    · ATT&CK: T1204.002 · T1059.001 · T1071.001
+                    · capability_not_verdict: True
+```
+
+**Frontend (`CorrelationRulesBody.jsx`, live on Vercel):**
+Stats grid (Total / Active / Matches / Supported / Candidates / Operators),
+Rules tab with operator + window + ATT&CK badges, Matches tab with
+matched-vs-missing badge, evidence-chain length, entity_key, ATT&CK
+chips, and a "Replay demo chain" button that exercises the Office →
+PowerShell → external scenario end-to-end and persists real matches
+for operator review.
+
+**Tests · 17/17 pass (P1 correlation):**
+Bundle+operators honest count · BENIGN → no match · SUSPICIOUS →
+CANDIDATE · MALICIOUS → SUPPORTED · FALSE POSITIVE (non-Office parent)
+→ no Office match · Brute force → SUPPORTED · CROSS_HOST → SUPPORTED
+with pivot list · NEGATIVE_EVIDENCE → CANDIDATE · Multi-stage timeline
+produces multiple matches · dry_run does NOT persist · RBAC negative
+(3 write paths) · scoped-user read · tenant isolation · audit event
+recorded · deterministic (same input → same output).
+
+**Full backend regression: 141/141 pass** (124 previous + 17 new). Ruff clean.
+
+---
+
+
+---
+
 ## ✅ 2026-02-30 · P1 · Detection Content Registry — FOUNDATION SHIPPED
 
 **Directive:** Build a real, populated, executable detection-content

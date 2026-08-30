@@ -53,6 +53,11 @@ export const ADMIN_SECTIONS = [
     api: null, kind: "detection_registry", connected: true,
   },
   {
+    key: "correlation-rules", label: "Correlation Rules", icon: Shuffle,
+    subtitle: "Stateful event-stream correlation engine · 13 operators (temporal · sequence · threshold · group_by · cross-host / user · negative evidence) · emits CORRELATION_OBSERVED / CANDIDATE / SUPPORTED — never a verdict.",
+    api: null, kind: "correlation_rules", connected: true,
+  },
+  {
     key: "engines", label: "Engines", icon: Boxes,
     subtitle: "Inventory of every NivXRay engine XDR consumes · adopt-before-invent registry + architecture diagram.",
     api: null, kind: "engines", connected: true,

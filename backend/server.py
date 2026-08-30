@@ -261,6 +261,10 @@ app.include_router(xdr_ingest_router)
 # 10-stage sync pipeline · never fabricates · bundled snapshot fallback.
 from routers.xdr_detection_content import router as xdr_detection_content_router
 app.include_router(xdr_detection_content_router)
+# P1 · Correlation Engine (stateful event-stream orchestrator).
+# Emits CORRELATION_OBSERVED / CANDIDATE / SUPPORTED evidence — never a verdict.
+from routers.xdr_correlation import router as xdr_correlation_router
+app.include_router(xdr_correlation_router)
 
 # Phase A · Capability Catalog — read-only endpoint exposing the
 # machine-readable UAIE capability registry + derived dependency
@@ -684,6 +688,16 @@ async def _startup():
                                     name="detection-boot-sync", daemon=True).start()
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] Detection boot-sync arm failed: {e}")
+
+    # P1 · Correlation Engine — seed the bundled correlation rule
+    # pack (idempotent).  Never fabricates verdicts; these rules only
+    # emit correlation evidence for IKG/ICE to consume.
+    try:
+        from routers.xdr_correlation import ensure_bundled_seeded as _cor_seed
+        n = _cor_seed()
+        log.info(f"[startup] Correlation rules seeded (new inserts={n})")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] Correlation seeding failed: {e}")
 
 
 @app.on_event("shutdown")
