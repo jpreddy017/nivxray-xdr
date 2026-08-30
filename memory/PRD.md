@@ -5,6 +5,130 @@
 
 ---
 
+## 🔒 2026-02-30 · NivXRay XDR Investigation Architecture — LOCKED
+
+**Execution queue (locked · non-negotiable):**
+
+| Priority | Work                                    | Why                                                       |
+|----------|-----------------------------------------|-----------------------------------------------------------|
+| 🔴 P0    | **B · SOC-100 Scenario Intelligence**   | Investigation guidance foundation                        |
+| 🔴 P0    | **E · Process Genealogy (server-side)** | Canonical behavioral observations                        |
+| 🔴 P0    | **C · Attack Story Panel**              | Human-readable evidence-backed explanation               |
+| 🔴 P0    | **A · Selection Sync**                  | Makes all investigation projections one workspace        |
+| 🟠 P1    | **F · Auto-Investigation Report**       | Consumes the completed investigation model               |
+| 🟡 P1    | **D · Rule Studio Visual Builder**      | Detection authoring UX (does not block investigation)    |
+
+**Rules that apply to every step:**
+* Do **not** create parallel Process Tree, Behavior, ATT&CK Chain or
+  Attack Story engines.  Reuse existing NivXRay Tool intelligence /
+  behavior capabilities wherever equivalent functionality exists.
+* SOC-100 is investigation **guidance only** — never detection, never
+  evidence-state, never verdict.
+* Process Genealogy produces **OBSERVATION** objects only — never
+  verdicts.
+* All three projections consume the canonical evidence/behavior model.
+* Preserve evidence traceability + anti-fabrication invariants at
+  every stage.
+* Do not expand scope until each stage passes its acceptance gate.
+
+---
+
+## 🔒 2026-02-30 · NivXRay XDR Investigation Architecture — LOCKED
+
+Owner directive (verbatim intent — non-negotiable):
+
+**One canonical model, three projections.  Never three engines.**
+
+```
+                 CANONICAL EVIDENCE
+                        │
+                        ▼
+              NivXRay Behavior Model
+                        │
+          ┌─────────────┼─────────────┐
+          ▼             ▼             ▼
+    Process Tree    ATT&CK Chain   Attack Story
+          │             │             │
+          └─────────────┼─────────────┘
+                        ▼
+                 Evidence Graph
+                        │
+                  IKG → ICE
+                        │
+                     VERDICT
+                        │
+                     INCIDENT
+                        │
+             Auto-Investigation Report
+```
+
+* Process Tree, ATT&CK Chain and Attack Story are **projections** of
+  the same canonical evidence.  They MUST remain cross-linked.
+* Selection sync (`WorkspaceSelectionContext`) is a hard requirement:
+  clicking a process must highlight the matching ATT&CK technique,
+  Evidence Trajectory node, network/IOC/detection rows, raw event and
+  Attack Story sentence.
+* Every ATT&CK Chain arrow must carry a relationship kind:
+  `OBSERVED · SEQUENCED · CORRELATED · INFERRED`.
+* Attack Story must be evidence-referenced sentence-by-sentence;
+  never a "Threat Score 8.8"-style opaque narrative.
+
+### SOC-100 Scenario Corpus · Scenario Intelligence layer
+
+```
+                 SOC-100 Scenario Corpus
+                         │
+              Scenario Intelligence
+                         │
+       ┌─────────────────┼──────────────────┐
+       ↓                 ↓                  ↓
+ Recommended        Investigation       Validation /
+ Pivots             Workflow             Regression
+```
+
+* Scenarios drive **investigation guidance**, NOT detection, NOT
+  evidence-state, NOT verdicts.
+* NivXRay says:  *"Scenario match: Suspicious Office child process ·
+  Why: WINWORD → PowerShell observed · Recommended pivots: command
+  line → parent process → file provenance → hash → network →
+  persistence · Evidence still missing: network activity · Next best
+  investigation action: inspect PowerShell network connections."*
+* NivXRay does NOT say: *"Scenario matched therefore malicious."*
+* Ingest the PDF as structured knowledge per scenario: name, threat,
+  initial observable, required telemetry, pivots, process
+  relationships, IOC types, ATT&CK techniques, expected evidence,
+  investigation sequence, false-positive considerations, next-step
+  recommendation.
+
+### Anti-fabrication rules (locked)
+
+```
+Scenario knowledge  ≠  Incident evidence  ≠  Verdict
+```
+
+* PDF says "LSASS access should be investigated"; incident has zero
+  LSASS evidence → **NOT OBSERVED** (never "SUSPICIOUS", never
+  fabricated).
+* Techniques with zero evidence are never rendered.
+* Unknown parents remain unknown ("unknown parent" root).
+* Missing tactic stages remain missing — listed in the honest-gaps
+  surface, never inferred to complete the chain.
+
+### Correction to earlier PRD wording
+
+The previous section said "6-state evidence-state badges from the
+SOC-100-scenarios PDF".  This is a misstatement.  The correct
+statement:
+
+* The 6 canonical evidence states (`CAPABILITY · ATTEMPTED ·
+  OBSERVED · EXECUTED · CORRELATED · CONFIRMED_IMPACT`) are derived
+  from **actual telemetry-backed evidence** at investigation time.
+* The SOC-100 corpus defines *scenario state expectations* (what
+  should be looked for), never the observed state on any real
+  incident.
+
+---
+
 ## ✅ 2026-02-30 · Investigation · Process Tree graph visual + UnIsolate + Trajectory operational
 
 **Owner directive** (verified live on `nivxray-xdr.vercel.app`):
@@ -45,8 +169,11 @@
   curved bezier edges parent → child; deterministic BFS layout.
 * Per-node evidence-state badge strip · 6 canonical states
   (`CAPABILITY · ATTEMPTED · OBSERVED · EXECUTED · CORRELATED ·
-  CONFIRMED_IMPACT`) plus `SUSPICIOUS` (rare parent-child) and
-  `DETECTED` (rule fired).  NONE of these are verdicts.
+  CONFIRMED_IMPACT`) derived from actual evidence, plus
+  `SUSPICIOUS` (rare parent-child OBSERVATION) and `DETECTED`
+  (rule fired).  NONE of these are verdicts.  The SOC-100 corpus
+  defines what to LOOK for, never what HAPPENED — the states above
+  come from real telemetry.
 * Consumes evidence rows AND direct `incident.processes[]` /
   `incident.process_tree[]` arrays (flat or nested via children[]).
 * 6 rare parent-child rules (Office → script · Browser → shell ·

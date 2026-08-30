@@ -270,6 +270,9 @@ app.include_router(xdr_rule_studio_router)
 from routers.xdr_correlation import router as xdr_correlation_router
 app.include_router(xdr_correlation_router)
 
+from routers.xdr_scenarios import router as xdr_scenarios_router
+app.include_router(xdr_scenarios_router)
+
 # Phase A · Capability Catalog — read-only endpoint exposing the
 # machine-readable UAIE capability registry + derived dependency
 # graph.  Stable public API; no UI wired to it yet (postponed until
