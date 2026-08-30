@@ -33,7 +33,7 @@ import {
   Boxes, MinusSquare, PlusSquare, ListTree,
 } from "lucide-react";
 
-import { RULE_TO_TECHNIQUE, TECHNIQUE_INDEX } from "@/xdr/mitre/mitreTactics";
+import { KILL_CHAIN, RULE_TO_TECHNIQUE, TECHNIQUE_INDEX } from "@/xdr/mitre/mitreTactics";
 import api from "@/lib/api";
 import { XdrIocEnrichmentPanel, XdrProcessCausalityPanel,
   XdrBehaviorRegistryPanel, fetchCorrelationEdges } from "@/xdr/adopt/consumerPanels";

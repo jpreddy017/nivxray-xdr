@@ -5,6 +5,33 @@
 
 ---
 
+## ✅ 2026-02-30 · Investigation tab · KILL_CHAIN black-screen fix — SHIPPED
+
+**Symptom:** clicking *Investigation* on any incident produced a black
+screen.  Root cause: the Tactic Ribbon (ce4eceb) referenced
+`KILL_CHAIN` but the mitre import list only pulled
+`RULE_TO_TECHNIQUE` and `TECHNIQUE_INDEX`, so
+`EvidenceFirstInvestigationWorkspace.jsx` threw
+`ReferenceError: KILL_CHAIN is not defined` at render.
+
+**Fix:** added `KILL_CHAIN` to the existing import in
+`src/xdr/investigation/EvidenceFirstInvestigationWorkspace.jsx`.  No
+behaviour change beyond the crash.  Verified live on
+`https://nivxray-xdr.vercel.app` — Investigation tab now renders the
+full workspace (Tactic Ribbon, Trajectory canvas, filter chips,
+Process Chain, Attack Story, Timeline) with **zero page errors**.
+
+**In-flight (paused during the fix):**
+
+* Rule Studio · Visual Condition Builder — canonical AST layer
+  (`src/xdr/rule-studio/conditionAst.js`) and recursive UI
+  (`src/xdr/rule-studio/VisualConditionBuilder.jsx`) have been
+  authored (AST → validation → Sigma-compatible JSON), but the
+  New-Rule wizard still uses the JSON textarea.  Wiring the builder
+  into the wizard is the next chunk.
+
+---
+
 ## ✅ 2026-02-30 · P1 · Rule Studio scaffold (Step 1 + Step 2) — SHIPPED
 
 **Authoritative authoring layer**.  ONE surface, 9 owner-locked lanes.
