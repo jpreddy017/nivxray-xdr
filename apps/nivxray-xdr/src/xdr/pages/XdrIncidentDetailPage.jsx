@@ -20,7 +20,8 @@ import EvidenceFirstInvestigationWorkspace
 import { XdrVerdictPanel, XdrInvestigationReportPanel }
   from "@/xdr/adopt/consumerPanels";
 import { XdrDieChainPanel, XdrIeddeStagePanel,
-  XdrIueTimelinePanel, XdrUaieCatalogPanel }
+  XdrIueTimelinePanel, XdrUaieCatalogPanel,
+  XdrUilClassifierPanel }
   from "@/xdr/adopt/enginePanels";
 import XdrRecommendationsPanel from "@/xdr/intel/XdrRecommendationsPanel";
 import XdrCompletenessPanel   from "@/xdr/investigation/XdrCompletenessPanel";
@@ -367,6 +368,7 @@ function InvestigationTab({ incident }) {
       <XdrIeddeStagePanel incident={incident} />
       <XdrIueTimelinePanel incident={incident} />
       <XdrUaieCatalogPanel />
+      <XdrUilClassifierPanel incident={incident} />
 
       {/* Legacy deep-link subtabs preserved below the workspace so
              every capability the previous view surfaced still lands

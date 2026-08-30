@@ -23,11 +23,11 @@
  */
 import React, { useEffect, useState } from "react";
 import { Cpu, ScanLine, GitBranch, Layers, RefreshCw, Play,
-  BookOpen } from "lucide-react";
+  BookOpen, Filter } from "lucide-react";
 
 import { honestyBanner } from "@/xdr/capabilityRegistry";
 import { DieConsumer, IeddeConsumer, IueConsumer,
-  UaieConsumer } from "@/xdr/adopt/baseCapabilities";
+  UaieConsumer, UilConsumer } from "@/xdr/adopt/baseCapabilities";
 
 
 /* ══════════════════════════════════════════════════════════════
@@ -594,6 +594,88 @@ export function XdrUaieCatalogPanel() {
     </div>
   );
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   §5 · UIL Unified Input Classifier
+   ══════════════════════════════════════════════════════════════ */
+export function XdrUilClassifierPanel({ incident, defaultInput }) {
+  const [input, setInput] = useState(defaultInput
+    || _pickCommandFromIncident(incident) || "");
+  const [state, setState] = useState({ loading: false, data: null, err: null });
+
+  const run = async () => {
+    if (!input.trim()) return;
+    setState({ loading: true, data: null, err: null });
+    const r = await UilConsumer.classify(input);
+    setState({ loading: false, data: r.ok ? r.data : null,
+                    err: r.ok ? null : r });
+  };
+
+  const d = state.data;
+  return (
+    <div className="panel" data-testid="xdr-uil-classifier-panel"
+            style={{ padding: 12, marginTop: 12 }}>
+      <div className="section-title" style={{ marginBottom: 6,
+                                                            display: "flex", alignItems: "center", gap: 6 }}>
+        <Filter size={12} /> UIL · Unified Input Classifier
+        <span className="mono" style={{ fontSize: 10, color: "var(--faint)",
+                                                        marginLeft: 4 }}>
+          /api/uil/classify
+        </span>
+        <span style={{ flex: 1 }} />
+        <_RunButton onClick={run} disabled={state.loading}
+                          testid="xdr-uil-run" label="Classify" />
+      </div>
+      <_Honesty capId="engine.uil.classify"
+                    extra="Classifies mixed/single input · returns canonical entry + session split." />
+      {state.err && (
+        <_Honesty capId="engine.uil.classify"
+                        extra={`Base call failed · ${state.err.error || state.err.status}`} />
+      )}
+      <_AnalystInputBox value={input} onChange={setInput}
+                                  placeholder="Paste raw input for UIL to classify…"
+                                  data-testid="xdr-uil-input" />
+      {state.loading && (
+        <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 6 }}>
+          Classifying via UIL…
+        </div>
+      )}
+      {d && (
+        <div style={{ marginTop: 8 }} data-testid="xdr-uil-result">
+          <div className="mono" style={{ fontSize: 10, color: "var(--faint)",
+                                                        textTransform: "uppercase",
+                                                        marginBottom: 4 }}>
+            Classification
+          </div>
+          <div style={{ padding: 6, borderRadius: 3,
+                            background: "var(--panel2)",
+                            border: "1px solid var(--border)" }}>
+            <span className="mono" style={{ fontSize: 11,
+                                                            color: "var(--cyan)" }}>
+              kind: {d.kind || d.classification || "unknown"}
+            </span>
+            {d.confidence != null && (
+              <span className="mono" style={{ marginLeft: 8,
+                                                              fontSize: 10.5,
+                                                              color: "var(--mint)" }}>
+                confidence: {d.confidence}
+              </span>
+            )}
+            {Array.isArray(d.sessions) && (
+              <div style={{ marginTop: 4, fontSize: 10.5,
+                                color: "var(--text-dim)" }}>
+                sessions: <b>{d.sessions.length}</b>
+              </div>
+            )}
+          </div>
+          <_Provenance>provenance: uil/classify · deterministic</_Provenance>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 
 /* ══════════════════════════════════════════════════════════════

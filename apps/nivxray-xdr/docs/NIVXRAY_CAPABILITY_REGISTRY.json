@@ -9,57 +9,452 @@
     ]
   },
   "capabilities": [
-    { "id": "evidence.ingest",              "name": "Evidence ingestion",             "owner": "base",     "base_api": "/api/analyze",                       "backend_path": "backend/engine/orchestrator.py",                                        "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "evidence.schema",              "name": "Canonical evidence schema",      "owner": "base",     "source": "backend/schemas.py",                                                                                                                       "adoption": "SHARED_LIBRARY", "status": "ADOPT" },
-    { "id": "evidence.provenance",          "name": "Evidence provenance",            "owner": "base+xdr", "base_api": "/api/xdr/response-evidence",         "backend_path": "backend/routers/xdr_response_evidence.py",                              "adoption": "EXTEND",         "status": "CONNECTED" },
-    { "id": "artifact.router",              "name": "Artifact router",                "owner": "base",     "base_api": "/api/artifacts",                     "backend_path": "backend/routers/artifacts.py",                                          "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "artifact.analyze",             "name": "Artifact analyzer",              "owner": "base",     "base_api": "/api/analyze",                       "backend_path": "backend/routers/analyze.py",                                            "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "decode.chain",                 "name": "Decoder chain (analyze proxy)",  "owner": "base",     "base_api": "/api/analyze",                       "backend_path": "backend/routers/analyze.py",                                            "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "command.intel",                "name": "Command-line intelligence",      "owner": "base",     "base_api": "/api/behavioral",                    "backend_path": "backend/routers/behavioral.py",                                         "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "ioc.intel",                    "name": "IOC intelligence",               "owner": "base",     "base_api": "/api/ioc",                           "backend_path": "backend/routers/ioc_intelligence.py",                                   "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "malware.intel",                "name": "Malware family intelligence",    "owner": "base",     "base_api": "/api/ioc",                           "backend_path": "backend/routers/ioc_intelligence.py",                                   "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "reputation.osint",             "name": "OSINT reputation",               "owner": "base",     "base_api": "/api/osint",                         "backend_path": "backend/osint.py",                                                      "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "detection.behavioral",         "name": "Behavioral detection",           "owner": "base",     "base_api": "/api/behavioral",                    "backend_path": "backend/routers/behavioral.py",                                         "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "detection.behavior_registry",  "name": "Behavior registry",              "owner": "base",     "base_api": "/api/behavior-registry",             "backend_path": "backend/routers/behavior_registry.py",                                  "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "detection.sigma",              "name": "Sigma detection authoring",      "owner": "xdr",     "source": "xdr/detect/sigmaEngine.js",                                                                                                                    "adoption": "EXTERNAL",       "status": "CONNECTED" },
-    { "id": "correlation.engine",           "name": "Correlation engine (rules)",     "owner": "base",     "source": "backend/engine/correlation_engine.py",                                                                                                     "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "verdict.stage2",               "name": "Verdict Stage-2",                "owner": "base",     "base_api": "/api/verdict/stage2",                "backend_path": "backend/routers/verdict_stage2.py",                                     "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "verdict.explainability",       "name": "Negative explainability",        "owner": "base",     "source": "backend/engine/detectors/explainability.py",                                                                                               "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "mitre.taxonomy",               "name": "MITRE ATT&CK taxonomy",          "owner": "external", "source": "attack.mitre.org",                                                                                                                         "adoption": "EXTERNAL",       "status": "CONNECTED" },
-    { "id": "mitre.mapping",                "name": "Rule → technique mapping",       "owner": "base",     "source": "backend/engine/detectors/mitre_mapper.py",                                                                                                 "adoption": "CONSUME",        "status": "CONNECTED" },
-    { "id": "mitre.stix_export",            "name": "STIX bundle export",             "owner": "base",     "base_api": "/api/mitre/stix",                    "backend_path": "backend/engine/detectors/mitre_stix_export.py",                         "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "ssot",                         "name": "Single Source of Truth",         "owner": "base",     "source": "backend/engine/orchestrator.py",                                                                                                           "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "ikg.graph",                    "name": "Incident Knowledge Graph",       "owner": "base",     "source": "backend/engine/evidence_graph.py",                                                                                                         "adoption": "CONSUME",        "status": "CONNECTED" },
-    { "id": "process.tree",                 "name": "Process tree",                   "owner": "base",     "base_api": "/api/edr/process-tree",              "backend_path": "backend/routers/edr.py",                                                "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "trajectory.device",            "name": "Device trajectory",              "owner": "base",     "base_api": "/api/edr/trajectory",                "backend_path": "backend/routers/edr.py",                                                "adoption": "CONSUME",        "status": "CONNECTED" },
-    { "id": "attack.story",                 "name": "Attack story",                   "owner": "base",     "base_api": "/api/incidents/{id}/summary",        "backend_path": "backend/routers/incident_summary.py",                                   "adoption": "CONSUME",        "status": "CONNECTED" },
-    { "id": "timeline.iue",                 "name": "IUE unified timeline",           "owner": "base",     "base_api": "/api/iue/timeline",                  "backend_path": "backend/routers/iue_timeline.py",                                       "adoption": "CONSUME",        "status": "CONNECTED" },
-    { "id": "report.investigation",         "name": "Investigation report",           "owner": "base",     "base_api": "/api/v2/report-writer",              "backend_path": "backend/routers/report_writer.py",                                      "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "corrections.analyst",          "name": "Analyst corrections",            "owner": "base",     "base_api": "/api/corrections",                   "backend_path": "backend/routers/analyst_corrections.py",                                "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "response.engine",              "name": "Response Engine",                "owner": "xdr",      "source": "apps/nivxray-xdr-response",                                                                                                                "adoption": "NEW",            "status": "CONNECTED" },
-    { "id": "response.vendor_adapters",     "name": "Vendor adapter contract",        "owner": "xdr",      "source": "framework/vendor_adapters.py",                                                                                                             "adoption": "NEW",            "status": "CONNECTED (stubs)" },
-    { "id": "response.evidence_sink",       "name": "Response evidence sink",         "owner": "base+xdr", "base_api": "/api/xdr/response-evidence",         "backend_path": "backend/routers/xdr_response_evidence.py",                              "adoption": "EXTEND",         "status": "CONNECTED" },
-    { "id": "collector",                    "name": "Telemetry collector",            "owner": "xdr",      "source": "apps/nivxray-xdr-collector",                                                                                                               "adoption": "NEW",            "status": "CONNECTED (not deployed)" },
-    { "id": "corpus.golden",                "name": "Golden regression corpus",       "owner": "base",     "source": "backend/engine/golden_corpus.py",                                                                                                          "adoption": "CONSUME",        "status": "ADOPT" },
-
-    { "id": "engine.die",                   "name": "DIE · Deterministic Investigation Engine",             "owner": "base", "base_api": "/api/die",                "backend_path": "backend/services/die/",                                    "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.die.analyze",           "name": "DIE analyze",                                            "owner": "base", "base_api": "/api/die/analyze",        "backend_path": "backend/routers/die.py",                                   "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.die.chain",             "name": "DIE decode chain",                                        "owner": "base", "base_api": "/api/die/chain",          "backend_path": "backend/routers/die.py",                                   "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.die.iocs",              "name": "DIE IOC extraction",                                      "owner": "base", "base_api": "/api/die/iocs",           "backend_path": "backend/routers/die.py",                                   "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.die.lolbas",            "name": "DIE LOLBAS mapping",                                      "owner": "base", "base_api": "/api/die/lolbas",         "backend_path": "backend/services/die/lolbas.py",                           "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.iedde",                 "name": "IEDDE · Iterative Evidence-Driven Decoding Engine",     "owner": "base", "base_api": "/api/iedde/analyze",      "backend_path": "backend/routers/iedde.py",                                 "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.iue.lane_a",            "name": "IUE Lane A · Understanding",                              "owner": "base", "base_api": "/api/iue/lane-a/analyze", "backend_path": "backend/routers/iue_lane_a.py",                            "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.iue.lane_b",            "name": "IUE Lane B · Understanding",                              "owner": "base", "base_api": "/api/iue/lane-b/analyze", "backend_path": "backend/routers/iue_lane_b.py",                            "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.iue.lane_c",            "name": "IUE Lane C · Understanding",                              "owner": "base", "base_api": "/api/iue/lane-c/analyze", "backend_path": "backend/routers/iue_lane_c.py",                            "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.iue.timeline_fuse",     "name": "IUE timeline fuse (unified)",                            "owner": "base", "base_api": "/api/iue/timeline/fuse",  "backend_path": "backend/routers/iue_timeline.py",                          "adoption": "CONSUME",        "status": "CONNECTED" },
-    { "id": "engine.uaie.catalog",          "name": "UAIE Capability Catalog",                                 "owner": "base", "base_api": "/api/uaie/catalog",       "backend_path": "backend/routers/uaie_catalog.py",                          "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.uaie.dry_run",          "name": "UAIE Planner dry-run",                                    "owner": "base", "base_api": "/api/uaie/dry-run",       "backend_path": "backend/routers/uaie.py",                                  "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.uil.classify",          "name": "UIL · Unified Input Classifier",                          "owner": "base", "base_api": "/api/uil/classify",       "backend_path": "backend/routers/uil.py",                                   "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.uil.split",             "name": "UIL · Mixed-input Split",                                 "owner": "base", "base_api": "/api/uil/split",          "backend_path": "backend/routers/uil.py",                                   "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.uil.investigate",       "name": "UIL · Recursive investigate",                             "owner": "base", "base_api": "/api/uil/investigate",    "backend_path": "backend/routers/uil.py",                                   "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.ida",                   "name": "IDA · Input Discovery Acquisition",                       "owner": "base", "source": "backend/services/ida/",     "backend_path": "backend/services/ida/input_classifier.py",                 "adoption": "SHARED_LIBRARY", "status": "BASE_ONLY" },
-    { "id": "engine.ice",                   "name": "ICE · Investigation Correlation Engine",                  "owner": "base", "base_api": "/api/correlations",       "backend_path": "backend/services/ice/correlate.py",                        "adoption": "CONSUME",        "status": "CONNECTED" },
-    { "id": "engine.cem",                   "name": "CEM · Canonical Evidence Model",                          "owner": "base", "base_api": "/api/correlations/cem",   "backend_path": "backend/services/cem.py",                                  "adoption": "CONSUME",        "status": "ADOPT" },
-    { "id": "engine.veee",                  "name": "VEEE · Vision Evidence Extraction Engine",                "owner": "base", "source": "backend/services/veee/",   "backend_path": "backend/services/veee/evidence_extractor.py",              "adoption": "SHARED_LIBRARY", "status": "BASE_ONLY" }
+    {
+      "id": "evidence.ingest",
+      "name": "Evidence ingestion",
+      "owner": "base",
+      "base_api": "/api/analyze",
+      "backend_path": "backend/engine/orchestrator.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "evidence.schema",
+      "name": "Canonical evidence schema",
+      "owner": "base",
+      "source": "backend/schemas.py",
+      "adoption": "SHARED_LIBRARY",
+      "status": "ADOPT"
+    },
+    {
+      "id": "evidence.provenance",
+      "name": "Evidence provenance",
+      "owner": "base+xdr",
+      "base_api": "/api/xdr/response-evidence",
+      "backend_path": "backend/routers/xdr_response_evidence.py",
+      "adoption": "EXTEND",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "artifact.router",
+      "name": "Artifact router",
+      "owner": "base",
+      "base_api": "/api/artifacts",
+      "backend_path": "backend/routers/artifacts.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "artifact.analyze",
+      "name": "Artifact analyzer",
+      "owner": "base",
+      "base_api": "/api/analyze",
+      "backend_path": "backend/routers/analyze.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "decode.chain",
+      "name": "Decoder chain (analyze proxy)",
+      "owner": "base",
+      "base_api": "/api/analyze",
+      "backend_path": "backend/routers/analyze.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "command.intel",
+      "name": "Command-line intelligence",
+      "owner": "base",
+      "base_api": "/api/behavioral",
+      "backend_path": "backend/routers/behavioral.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "ioc.intel",
+      "name": "IOC intelligence",
+      "owner": "base",
+      "base_api": "/api/ioc",
+      "backend_path": "backend/routers/ioc_intelligence.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "malware.intel",
+      "name": "Malware family intelligence",
+      "owner": "base",
+      "base_api": "/api/ioc",
+      "backend_path": "backend/routers/ioc_intelligence.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "reputation.osint",
+      "name": "OSINT reputation",
+      "owner": "base",
+      "base_api": "/api/osint",
+      "backend_path": "backend/osint.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "detection.behavioral",
+      "name": "Behavioral detection",
+      "owner": "base",
+      "base_api": "/api/behavioral",
+      "backend_path": "backend/routers/behavioral.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "detection.behavior_registry",
+      "name": "Behavior registry",
+      "owner": "base",
+      "base_api": "/api/behavior-registry",
+      "backend_path": "backend/routers/behavior_registry.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "detection.sigma",
+      "name": "Sigma detection authoring",
+      "owner": "xdr",
+      "source": "xdr/detect/sigmaEngine.js",
+      "adoption": "EXTERNAL",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "correlation.engine",
+      "name": "Correlation engine (rules)",
+      "owner": "base",
+      "source": "backend/engine/correlation_engine.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "verdict.stage2",
+      "name": "Verdict Stage-2",
+      "owner": "base",
+      "base_api": "/api/verdict/stage2",
+      "backend_path": "backend/routers/verdict_stage2.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "verdict.explainability",
+      "name": "Negative explainability",
+      "owner": "base",
+      "source": "backend/engine/detectors/explainability.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "mitre.taxonomy",
+      "name": "MITRE ATT&CK taxonomy",
+      "owner": "external",
+      "source": "attack.mitre.org",
+      "adoption": "EXTERNAL",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "mitre.mapping",
+      "name": "Rule \u2192 technique mapping",
+      "owner": "base",
+      "source": "backend/engine/detectors/mitre_mapper.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "mitre.stix_export",
+      "name": "STIX bundle export",
+      "owner": "base",
+      "base_api": "/api/mitre/stix",
+      "backend_path": "backend/engine/detectors/mitre_stix_export.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "ssot",
+      "name": "Single Source of Truth",
+      "owner": "base",
+      "source": "backend/engine/orchestrator.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "ikg.graph",
+      "name": "Incident Knowledge Graph",
+      "owner": "base",
+      "source": "backend/engine/evidence_graph.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "process.tree",
+      "name": "Process tree",
+      "owner": "base",
+      "base_api": "/api/edr/process-tree",
+      "backend_path": "backend/routers/edr.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "trajectory.device",
+      "name": "Device trajectory",
+      "owner": "base",
+      "base_api": "/api/edr/trajectory",
+      "backend_path": "backend/routers/edr.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "attack.story",
+      "name": "Attack story",
+      "owner": "base",
+      "base_api": "/api/incidents/{id}/summary",
+      "backend_path": "backend/routers/incident_summary.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "timeline.iue",
+      "name": "IUE unified timeline",
+      "owner": "base",
+      "base_api": "/api/iue/timeline",
+      "backend_path": "backend/routers/iue_timeline.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "report.investigation",
+      "name": "Investigation report",
+      "owner": "base",
+      "base_api": "/api/v2/report-writer",
+      "backend_path": "backend/routers/report_writer.py",
+      "adoption": "CONSUME",
+      "status": "ADOPT"
+    },
+    {
+      "id": "corrections.analyst",
+      "name": "Analyst corrections",
+      "owner": "base",
+      "base_api": "/api/corrections",
+      "backend_path": "backend/routers/analyst_corrections.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "response.engine",
+      "name": "Response Engine",
+      "owner": "xdr",
+      "source": "apps/nivxray-xdr-response",
+      "adoption": "NEW",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "response.vendor_adapters",
+      "name": "Vendor adapter contract",
+      "owner": "xdr",
+      "source": "framework/vendor_adapters.py",
+      "adoption": "NEW",
+      "status": "CONNECTED (stubs)"
+    },
+    {
+      "id": "response.evidence_sink",
+      "name": "Response evidence sink",
+      "owner": "base+xdr",
+      "base_api": "/api/xdr/response-evidence",
+      "backend_path": "backend/routers/xdr_response_evidence.py",
+      "adoption": "EXTEND",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "collector",
+      "name": "Telemetry collector",
+      "owner": "xdr",
+      "source": "apps/nivxray-xdr-collector",
+      "adoption": "NEW",
+      "status": "CONNECTED (not deployed)"
+    },
+    {
+      "id": "corpus.golden",
+      "name": "Golden regression corpus",
+      "owner": "base",
+      "source": "backend/engine/golden_corpus.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.die",
+      "name": "DIE \u00b7 Deterministic Investigation Engine",
+      "owner": "base",
+      "base_api": "/api/die",
+      "backend_path": "backend/services/die/",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.die.analyze",
+      "name": "DIE analyze",
+      "owner": "base",
+      "base_api": "/api/die/analyze",
+      "backend_path": "backend/routers/die.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.die.chain",
+      "name": "DIE decode chain",
+      "owner": "base",
+      "base_api": "/api/die/chain",
+      "backend_path": "backend/routers/die.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.die.iocs",
+      "name": "DIE IOC extraction",
+      "owner": "base",
+      "base_api": "/api/die/iocs",
+      "backend_path": "backend/routers/die.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.die.lolbas",
+      "name": "DIE LOLBAS mapping",
+      "owner": "base",
+      "base_api": "/api/die/lolbas",
+      "backend_path": "backend/services/die/lolbas.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.iedde",
+      "name": "IEDDE \u00b7 Iterative Evidence-Driven Decoding Engine",
+      "owner": "base",
+      "base_api": "/api/iedde/analyze",
+      "backend_path": "backend/routers/iedde.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.iue.lane_a",
+      "name": "IUE Lane A \u00b7 Understanding",
+      "owner": "base",
+      "base_api": "/api/iue/lane-a/analyze",
+      "backend_path": "backend/routers/iue_lane_a.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.iue.lane_b",
+      "name": "IUE Lane B \u00b7 Understanding",
+      "owner": "base",
+      "base_api": "/api/iue/lane-b/analyze",
+      "backend_path": "backend/routers/iue_lane_b.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.iue.lane_c",
+      "name": "IUE Lane C \u00b7 Understanding",
+      "owner": "base",
+      "base_api": "/api/iue/lane-c/analyze",
+      "backend_path": "backend/routers/iue_lane_c.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.iue.timeline_fuse",
+      "name": "IUE timeline fuse (unified)",
+      "owner": "base",
+      "base_api": "/api/iue/timeline/fuse",
+      "backend_path": "backend/routers/iue_timeline.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.uaie.catalog",
+      "name": "UAIE Capability Catalog",
+      "owner": "base",
+      "base_api": "/api/uaie/catalog",
+      "backend_path": "backend/routers/uaie_catalog.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.uaie.dry_run",
+      "name": "UAIE Planner dry-run",
+      "owner": "base",
+      "base_api": "/api/uaie/dry-run",
+      "backend_path": "backend/routers/uaie.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.uil.classify",
+      "name": "UIL \u00b7 Unified Input Classifier",
+      "owner": "base",
+      "base_api": "/api/uil/classify",
+      "backend_path": "backend/routers/uil.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.uil.split",
+      "name": "UIL \u00b7 Mixed-input Split",
+      "owner": "base",
+      "base_api": "/api/uil/split",
+      "backend_path": "backend/routers/uil.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.uil.investigate",
+      "name": "UIL \u00b7 Recursive investigate",
+      "owner": "base",
+      "base_api": "/api/uil/investigate",
+      "backend_path": "backend/routers/uil.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.ida",
+      "name": "IDA \u00b7 Input Discovery Acquisition",
+      "owner": "base",
+      "source": "backend/services/ida/",
+      "backend_path": "backend/services/ida/input_classifier.py",
+      "adoption": "SHARED_LIBRARY",
+      "status": "BASE_ONLY"
+    },
+    {
+      "id": "engine.ice",
+      "name": "ICE \u00b7 Investigation Correlation Engine",
+      "owner": "base",
+      "base_api": "/api/correlations",
+      "backend_path": "backend/services/ice/correlate.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.cem",
+      "name": "CEM \u00b7 Canonical Evidence Model",
+      "owner": "base",
+      "base_api": "/api/correlations/cem",
+      "backend_path": "backend/services/cem.py",
+      "adoption": "CONSUME",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "engine.veee",
+      "name": "VEEE \u00b7 Vision Evidence Extraction Engine",
+      "owner": "base",
+      "source": "backend/services/veee/",
+      "backend_path": "backend/services/veee/evidence_extractor.py",
+      "adoption": "SHARED_LIBRARY",
+      "status": "BASE_ONLY"
+    }
   ]
 }
