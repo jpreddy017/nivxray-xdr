@@ -31,6 +31,7 @@ import SecretsBody from "@/xdr/admin/SecretsBody";
 import ContentPackLolbasBody from "@/xdr/admin/ContentPackLolbasBody";
 import DataSourcesBody       from "@/xdr/admin/DataSourcesBody";
 import CollectorsBody        from "@/xdr/admin/CollectorsBody";
+import DetectionRegistryBody from "@/xdr/admin/DetectionRegistryBody";
 import UsersRolesBody from "@/xdr/admin/UsersRolesBody";
 import ApiKeysBody from "@/xdr/admin/ApiKeysBody";
 import WebhooksBody from "@/xdr/admin/WebhooksBody";
@@ -183,7 +184,8 @@ function AdminBody({ section }) {
          || section.kind === "api_keys"
          || section.kind === "webhooks"
          || section.kind === "data_sources_native"
-         || section.kind === "collectors_native") {
+         || section.kind === "collectors_native"
+         || section.kind === "detection_registry") {
       // Fully client-side (each fetches from base API on mount).
       setPayload(null);
       setState("populated");
@@ -319,6 +321,8 @@ function AdminBody({ section }) {
               ? <DataSourcesBody />
               : section.kind === "collectors_native"
               ? <CollectorsBody />
+              : section.kind === "detection_registry"
+              ? <DetectionRegistryBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}

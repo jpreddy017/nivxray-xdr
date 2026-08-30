@@ -48,6 +48,11 @@ export const ADMIN_SECTIONS = [
     api: null, kind: "detection_content", connected: true,
   },
   {
+    key: "detection-registry", label: "Detection Registry", icon: Radar,
+    subtitle: "Real, populated, executable detection-content registry · Sigma DRL-1.1 · full lineage (source · license · hash · author · version) · Detection ≠ Verdict preserved.",
+    api: null, kind: "detection_registry", connected: true,
+  },
+  {
     key: "engines", label: "Engines", icon: Boxes,
     subtitle: "Inventory of every NivXRay engine XDR consumes · adopt-before-invent registry + architecture diagram.",
     api: null, kind: "engines", connected: true,

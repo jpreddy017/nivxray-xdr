@@ -7,6 +7,82 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-30 · P1 · Detection Content Registry — FOUNDATION SHIPPED
+
+**Directive:** Build a real, populated, executable detection-content
+registry — never fabricate rules to reach a target number.
+
+**Backend (`/app/backend/routers/xdr_detection_content.py`):**
+
+10-stage deterministic sync pipeline (mirrors the proven LOLBAS pattern):
+```
+DISCOVERED → DOWNLOADED → PARSED → LICENSE_VALIDATED
+           → SCHEMA_VALIDATED → NORMALIZED → DEDUPLICATED
+           → ATT&CK_MAPPED → REGISTERED → COMPLETE
+```
+
+* **Allowed licenses:** DRL 1.1 · MIT · Apache-2.0 · BSD-3-Clause · NivXRay Public Content
+* **Rule lifecycle states:** IMPORTED · VALIDATED · COMPILED · TESTED · ENABLED · ACTIVE
+* **Failure states (never ACTIVE):** INVALID · PARSE_FAILED · LICENSE_BLOCKED · UNSUPPORTED · REGRESSION_FAILED · DISABLED
+* **Bundled snapshot:** `/app/backend/fixtures/detection/sigma_snapshot.json` — 20 real DRL-1.1 licensed rules with full provenance (source, source_url, license, hash, author, dates) so a cold-boot pod is NEVER empty
+* **Boot-sync:** non-blocking, idempotent — same pattern as LOLBAS
+* **RBAC-enforced:** every mutation requires `detections.publish`, reads require `detections.read`
+* **Audit-logged:** `DETECTION_SYNCED`, `DETECTION_RULE_ENABLED`, `DETECTION_RULE_DISABLED`
+* **Detection ≠ Verdict preserved:** the `capability_not_verdict` flag is normalized and rendered in the UI
+
+**Endpoints:**
+```
+POST /api/xdr/detection/sync                (fallback cascade + idempotent)
+POST /api/xdr/detection/ensure-synced       (boot entry point)
+GET  /api/xdr/detection/status
+GET  /api/xdr/detection/rules               (filter by source/type/attack/state/enabled/q)
+GET  /api/xdr/detection/rules/{id}
+POST /api/xdr/detection/rules/{id}/enable   (rejects invalid-state rules → 409)
+POST /api/xdr/detection/rules/{id}/disable
+GET  /api/xdr/detection/versions
+```
+
+**Live registry state on Vercel-linked backend:**
+
+| Metric | Value |
+|---|---|
+| Total rules       | **20** |
+| Valid rules       | **20** |
+| ATT&CK techniques | **20** (T1027, T1047, T1053.005, T1059.001, T1071, T1071.001, T1071.004, T1078.004, T1098, T1105, T1110, T1114.003, T1197, T1204.002, T1218.005, T1218.007, T1218.010, T1218.011, T1547.001, T1566.001) |
+| Sources           | 2 (SigmaHQ, NivXRay-native) |
+| Rule types        | 7 (process_creation, parent_child, field_match, regex, threshold, registry, ioc) |
+
+**Combined coverage with LOLBAS (33 techniques): ~50 unique ATT&CK techniques from real, licensed content with full provenance.** When SigmaHQ upstream is reachable the same pipeline scales to thousands — but the numbers displayed will always emerge from imported content, never a target.
+
+**Frontend (`DetectionRegistryBody.jsx`, deployed to Vercel):**
+* SYNCED / BUNDLED · OK status badges
+* Real stats (Total / Valid / Active / ATT&CK / Sources / Rule types)
+* ATT&CK coverage chip strip — union of real rule tags
+* Filterable rule table with source, upstream_id, author, ATT&CK, state, CAPABILITY marker
+* Sync now + Refresh + Enable/Disable actions
+
+**Tests · 15/15 pass:**
+CRUD + boot-sync populated + license blocking + ATT&CK extraction
+shape + technique-count-is-union + dedup + idempotency + bundled
+fallback + RBAC negative (4 mutation paths) + scoped-user reads +
+invalid-rule enable-guard → 409 + capability_not_verdict preserved +
+enable/disable state transitions.
+
+**Full backend regression: 124/124 pass** (109 previous + 15 new).
+Ruff clean on all new files.
+
+**Left for the next milestones (explicit and honest — nothing hidden):**
+* Correlation Engine (temporal / sequence / threshold / group_by / cross-source) — the atomic detections above will feed it
+* Rule testing (positive / negative / FP / regression against Investigation Corpus)
+* Additional acquisition sources: Elastic Detection Rules, MITRE ATT&CK analytics, Snort/Suricata IDS, YARA
+* OSINT/TI Hub (VirusTotal · AbuseIPDB · OTX · URLhaus · MalwareBazaar · MISP)
+* Corpus expansion 8 → 50 → 100 → 250+
+
+---
+
+
+---
+
 ## ✅ 2026-02-30 · P0-8 Data Sources + Collectors + Real Telemetry (SHIPPED)
 
 **New authoritative main-backend routers (RBAC-enforced + audit-logged):**

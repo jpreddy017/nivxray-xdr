@@ -257,6 +257,10 @@ from routers.xdr_collectors import router as xdr_collectors_router
 app.include_router(xdr_collectors_router)
 from routers.xdr_ingest import router as xdr_ingest_router
 app.include_router(xdr_ingest_router)
+# P1 · Detection Content Registry (Sigma + MITRE analytics + native).
+# 10-stage sync pipeline · never fabricates · bundled snapshot fallback.
+from routers.xdr_detection_content import router as xdr_detection_content_router
+app.include_router(xdr_detection_content_router)
 
 # Phase A · Capability Catalog — read-only endpoint exposing the
 # machine-readable UAIE capability registry + derived dependency
@@ -656,6 +660,30 @@ async def _startup():
         log.info("[startup] LOLBAS boot-sync thread launched")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] LOLBAS boot-sync arm failed: {e}")
+
+    # P1 · Detection Content Registry — boot-time idempotent sync
+    # (bundled DRL-1.1 snapshot fallback so cold pod is never empty).
+    try:
+        import threading
+        from routers.xdr_detection_content import ensure_synced as _det_ensure
+        def _det_boot_sync():
+            try:
+                r = _det_ensure()
+                if r.get("already_synced"):
+                    log.info("[startup] Detection registry already synced "
+                                  f"({r.get('counts', {}).get('registered', '?')} rules)")
+                elif r.get("idempotent_skip"):
+                    log.info("[startup] Detection registry idempotent skip")
+                else:
+                    c = r.get("counts", {})
+                    log.info(f"[startup] Detection registry outcome="
+                                  f"{r.get('outcome')} registered={c.get('registered')}")
+            except Exception as _e:  # noqa: BLE001
+                log.warning(f"[startup] Detection registry boot-sync failed: {_e}")
+        threading.Thread(target=_det_boot_sync,
+                                    name="detection-boot-sync", daemon=True).start()
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] Detection boot-sync arm failed: {e}")
 
 
 @app.on_event("shutdown")
