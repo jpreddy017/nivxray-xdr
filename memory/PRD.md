@@ -1461,3 +1461,36 @@ and accounted for.  No hard-coded counts.
 These are next in queue AFTER Phase B (GTFOBins + LOLDrivers)
 completes, per the user's confirmed sequence:
 `P0-2 → A → B → D/E → C → P0-3..8 → F–L → vendor adapters → d3-force`.
+
+### P0-3 · Users, Roles & RBAC · SHIPPED (this session, 2026-02-30)
+
+**Model**: `USER → GROUPS → ROLE_ASSIGNMENTS(with SCOPE) → ROLE → PERMISSION[]`.  Enforced server-side via `require_permission(...)` FastAPI dependency; frontend never decides access.
+
+- **Backend** (`routers/xdr_rbac.py`):
+  - **Permission registry**: 32 resources × 27 actions → **135 canonical permissions**, grouped into Identity / Integrations / Governance / Platform / Data & Collection / Detection / Intelligence / Investigation / Response.
+  - **Wildcards**: `*.*`, `resource.*`, `*.action` — expanded server-side.
+  - **11 starter roles**: `platform_admin`, `tenant_admin`, `soc_manager`, `l3_investigator`, `l2_investigator`, `l1_analyst`, `threat_hunter`, `detection_sme`, `responder`, `auditor`, `read_only`.  Built-ins are immutable but cloneable to CUSTOM.
+  - **Custom roles**: `POST /roles`, `PUT /roles/{id}`, `POST /roles/{id}/clone`, `DELETE /roles/{id}`.  Deletion blocked when assignments still reference the role.
+  - **Users**: full CRUD + `POST /users/{id}/roles` (multi-role assignment with scope) + `DELETE /users/{id}/roles/{aid}` (revoke) + `GET /users/{id}/effective` (union permissions).
+  - **Groups**: create + list + delete (foundation for group-scoped assignments in P0-3b).
+  - **Access simulation**: `POST /rbac/simulate` — deterministic ALLOW/DENY with reason (`user-not-provisioned`, `user-disabled`, `permission-not-granted`, `scope-denied`, `role-permission-match`, `unknown-permission`).
+  - **Enforcement bootstrap**: When no users are provisioned yet, `require_permission` returns True (fresh-install allowance).  As soon as the first user exists, enforcement engages.
+  - **Audit integration**: emits `USER_CREATED/UPDATED/DELETED/ENABLED/DISABLED`, `ROLE_CREATED/UPDATED/CLONED/DELETED`, `ROLE_ASSIGNED/REMOVED`, `GROUP_CREATED/DELETED`, `ACCESS_DENIED`, `ACCESS_SIMULATED`.
+- **Tests** (`tests/test_xdr_rbac.py`) — **14/14 passing** covering catalog comprehensiveness, built-in roles + wildcard expansion, user CRUD + effective permissions union, access simulation ALLOW+DENY paths, custom role CRUD + wildcard validation, built-in immutability, role clone, `require_permission` deny path + audit-emitted ACCESS_DENIED, `require_permission` allow path, assignment idempotency, disable-user denies access, audit chain valid across full lifecycle, deletion-guard on roles with active assignments.
+- **Live E2E**: `/api/xdr/rbac/permissions` → 135 perms · `/roles` → 11 starter roles · Create SOC-lead + L3 role · Simulate `response.execute` = ALLOW (matched_role=l3_investigator) · Simulate `platform.admin` = DENY (reason=permission-not-granted).
+- **Admin UI** (`src/xdr/admin/UsersRolesBody.jsx`) — tabbed surface:
+  - **Users**: Invite + assign starter role, Enable/Disable, Delete, Effective-permissions viewer, Assign-role dialog with any role.
+  - **Roles**: Built-in + custom listing with Perms count, Clone, Delete (custom only).
+  - **Permissions**: Full 135-entry catalog grouped by domain with per-resource action badges.
+  - **Simulator**: Test-access screen with user + permission dropdowns, colored ALLOW/DENY panel showing matched_role + reason + effective-count.
+- Deployed to Vercel commit `3a64200`.
+
+### Follow-ups queued within P0-3 (not blocking, tracked)
+- Session revocation surface (needs session middleware — not yet in platform).
+- SSO / SAML / OIDC integration surfaces.
+- Access reviews scheduling.
+- Group-scoped role assignments (backend supports scope; UI-level group editing arrives next iteration).
+- Retrofit `require_permission` onto every existing admin router (currently opt-in per route to avoid accidental lockouts during rollout — Secrets/LOLBAS/etc. still open pending explicit gating call).
+
+### Queue after P0-3 (per user's confirmed sequence)
+P0-4 API Keys → P0-5 Webhooks → P0-8 Collectors/Data Sources → Phase B GTFOBins/LOLDrivers → Detection/Correlation Engine → OSINT/TI Hub → final enterprise gap audit matrix (Cisco/Microsoft/CrowdStrike/Palo Alto/Splunk/Elastic/Google parity).

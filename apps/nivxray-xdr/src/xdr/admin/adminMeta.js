@@ -156,16 +156,8 @@ export const ADMIN_SECTIONS = [
   },
   {
     key: "users-roles", label: "Users & Roles", icon: Users,
-    subtitle: "Console users, roles, tenant scope.",
-    api: "/admin/users", kind: "table",
-    columns: [
-      { k: "email",    label: "Email",     mono: true },
-      { k: "role",     label: "Role" },
-      { k: "tenant",   label: "Tenant",    mono: true },
-      { k: "active",   label: "Active",    render: (v) => v ? "YES" : "NO" },
-      { k: "last_login", label: "Last Login", mono: true },
-    ],
-    empty: "No console users returned.",
+    subtitle: "Enterprise RBAC · users · custom + built-in roles (L1/L2/L3/SME/Manager/Admin/Auditor) · granular resource×action permissions · access simulator · every mutation audit-logged and server-enforced.",
+    api: null, kind: "users_roles", connected: true,
   },
   {
     key: "api-webhooks", label: "API / Webhooks", icon: Webhook,
