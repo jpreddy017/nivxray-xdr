@@ -52,12 +52,15 @@ const SIDEBAR = [
   {
     section: "Detect",
     items: [
+      { key: "rule-studio", label: "Rule Studio", icon: Layers,
+        to: "/xdr/rule-studio",
+        title: "Authoritative authoring layer · 9 lanes · lifecycle · 11-check Regression Gate" },
       { key: "detection-registry", label: "Detection Registry", icon: Radar,
         to: "/xdr/admin/detection-registry",
         title: "AUTHORITATIVE detection-content registry · single source of truth for every rule NivXRay executes" },
       { key: "correlation-rules", label: "Correlation Rules", icon: Radar,
         to: "/xdr/admin/correlation-rules",
-        title: "Stateful event-stream correlation engine · 13 operators · emits evidence, never verdicts" },
+        title: "Stateful event-stream correlation engine · 13 operators · emits evidence, never verdicts · absorbed into Rule Studio lane" },
       { key: "detections", label: "Detection Engineering", icon: Radar,
         to: "/xdr/detections",
         title: "Sigma-compatible authoring workstation · rules authored here promote to the Detection Registry" },

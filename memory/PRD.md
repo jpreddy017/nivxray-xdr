@@ -1,11 +1,86 @@
 # NivXRay — Master Reminders + Product Requirements
 
 **Authoritative execution baseline (locked 2026-08-29).**
-This file supersedes all prior architecture instructions.  Every future
-NivXRay XDR session must obey these rules verbatim.
 
 
 ---
+
+## ✅ 2026-02-30 · P1 · Rule Studio scaffold (Step 1 + Step 2) — SHIPPED
+
+**Authoritative authoring layer**.  ONE surface, 9 owner-locked lanes.
+No competing authoring surfaces permitted.
+
+**Backend (`routers/xdr_rule_studio.py`, 192/192 xdr tests pass · 9 new
+Rule Studio tests):**
+
+* Nine locked lanes: `event · endpoint · ioc · network · dns_proxy ·
+  cve_exposure · correlation · behavior · content`.
+* Mandatory lifecycle persisted on EVERY rule (`lifecycle_state` +
+  `lifecycle_history[]`):
+  `DRAFT → TESTING → VALIDATED → ENABLED → ACTIVE → TUNING →
+  DISABLED → DEPRECATED`.  Illegal transitions refused with a
+  deterministic `LIFECYCLE_TRANSITION_REFUSED` error.
+* **11-check Regression Gate** (owner-locked, corrected from 10):
+  schema · data_source · positive · negative · false_positive ·
+  correlation · corpus · performance · rbac · provenance · license.
+  `POST /rules/{id}/promote` refuses ACTIVE unless every check PASSes.
+  SKIP does NOT count as PASS.  Failure returns
+  `REGRESSION_GATE_FAILED` with the full gate object.
+* **Architectural semantic stamping on every persisted rule** (non-
+  negotiable): `emits='OBSERVATION'`, `emits_verdict=False`,
+  `verdict_capable=False`, `capability_not_verdict=True`.
+* Correlation rules **mirrored into the SAME `xdr_detection_rules`
+  collection** with `lane='correlation'` — one authoritative store.
+* Idempotent metadata backfill at boot — total rule count is
+  UNCHANGED by the backfill (no synthetic rules).
+
+**New endpoints (RBAC-gated + audit-logged):**
+```
+GET  /api/xdr/rule-studio/status
+GET  /api/xdr/rule-studio/lanes
+GET  /api/xdr/rule-studio/rules
+POST /api/xdr/rule-studio/rules
+POST /api/xdr/rule-studio/rules/{id}/transition
+POST /api/xdr/rule-studio/rules/{id}/promote
+POST /api/xdr/rule-studio/rules/{id}/gate        # dry-run · no state change
+```
+
+**Frontend (Vercel · `jpreddy017/nivxray-xdr` main → `960b16f`):**
+* NEW `/xdr/rule-studio` — full shell:
+  * 9-lane switcher with live per-lane counts
+  * Lifecycle filter strip (all 8 states) with live counts
+  * Rule table filterable by lane / lifecycle / free-text
+  * Rule detail drawer with full 11-check gate visualisation
+    (PASS · FAIL · SKIP · UNKNOWN per check, with reason)
+  * Type-aware **New Rule wizard** (creates DRAFT rules)
+  * Promote button enforces the hard gate architecturally in the UI
+* Sidebar: `Detect › Rule Studio` (top of lane)
+* `/xdr/detect/studio` redirects to `/xdr/rule-studio`
+* No lane bodies yet — foundation only (per owner directive)
+
+**Investigation graph zoom (owner clarification 2026-02-30):**
+* Zoom `−` / `+` buttons on the canvas toolbar are REQUIRED.
+* Mouse-wheel and touchpad-pinch zoom are DISABLED — zoom is driven
+  ONLY by the explicit `−` / `+` buttons + Fit view.
+
+**Semantic contract preserved end-to-end:**
+```
+RULE → OBSERVATION → CORRELATION → EVIDENCE BUNDLE → IKG → ICE →
+VERDICT → INCIDENT → PLAYBOOK / POLICY
+```
+Verdicts are owned by the Verdict Engine.  Rules NEVER emit verdicts.
+
+**Locked queue for next chunk (order unchanged):**
+3. Event + IOC + Endpoint + Network lanes (bodies + condition builders)
+4. DNS/Proxy + CVE/Exposure + Content lanes
+5. Correlation lane absorption — retire `/xdr/admin/correlation-rules`
+6. Behavior / Heuristic / Anomaly lane
+7. Tuning Center
+8. Corpus 8 → 50 → 100
+9. Large-scale real content acquisition
+
+---
+
 
 ## ✅ 2026-02-30 · P1 · CVE / Vulnerability Intelligence & Exposure Pillar — SHIPPED
 

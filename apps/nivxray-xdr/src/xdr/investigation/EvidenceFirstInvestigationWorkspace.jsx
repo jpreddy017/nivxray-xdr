@@ -195,10 +195,9 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
                 y: dragRef.current.py + (e.clientY - dragRef.current.oy) });
   }, []);
   const onCanvasMouseUp   = useCallback(() => { dragRef.current.dragging = false; }, []);
-  const onWheel = useCallback((e) => {
-    e.preventDefault();
-    setZoom((z) => Math.min(2.4, Math.max(0.35, z * (e.deltaY > 0 ? 0.92 : 1.08))));
-  }, []);
+  // Wheel / touchpad-pinch zoom disabled per owner directive — zoom is
+  // driven only by the on-screen −/+ buttons on the canvas toolbar.
+  const onWheel = useCallback(() => {}, []);
 
   const openPivot = useCallback((e, node) => {
     e.preventDefault();
@@ -280,8 +279,7 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
                   onMouseDown={onCanvasMouseDown}
                   onMouseMove={onCanvasMouseMove}
                   onMouseUp={onCanvasMouseUp}
-                  onMouseLeave={onCanvasMouseUp}
-                  onWheel={onWheel}>
+                  onMouseLeave={onCanvasMouseUp}>
         <CanvasToolbar
           incidentId={incident?.id}
           nodeCount={nodes.length} edgeCount={edges.length}

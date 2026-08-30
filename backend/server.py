@@ -263,6 +263,8 @@ from routers.xdr_detection_content import router as xdr_detection_content_router
 app.include_router(xdr_detection_content_router)
 from routers.xdr_cve import router as xdr_cve_router
 app.include_router(xdr_cve_router)
+from routers.xdr_rule_studio import router as xdr_rule_studio_router
+app.include_router(xdr_rule_studio_router)
 # P1 · Correlation Engine (stateful event-stream orchestrator).
 # Emits CORRELATION_OBSERVED / CANDIDATE / SUPPORTED evidence — never a verdict.
 from routers.xdr_correlation import router as xdr_correlation_router
@@ -712,6 +714,16 @@ async def _startup():
                                     name="cve-boot-sync", daemon=True).start()
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] CVE boot-sync arm failed: {e}")
+
+    # P1 · Rule Studio metadata backfill (idempotent)
+    try:
+        from routers.xdr_rule_studio import ensure_studio_ready
+        r = ensure_studio_ready()
+        log.info(f"[startup] Rule Studio ready · backfill="
+                      f"{r.get('backfill')} · correlation_adopt="
+                      f"{r.get('correlation_adopt')}")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] Rule Studio backfill failed: {e}")
 
     # P1 · Correlation Engine — seed the bundled correlation rule
     # pack (idempotent).  Never fabricates verdicts; these rules only
