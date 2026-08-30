@@ -28,12 +28,14 @@ src/nivxforge/pages/EdrReservedPages.jsx
 src/pages/LoginPage.jsx
 src/styles/globals.css
 src/xdr/XdrShell.jsx
+src/xdr/admin/adminMeta.js
 src/xdr/components/DomainCardsGrid.jsx
 src/xdr/components/IncidentContextStrip.jsx
 src/xdr/components/IncidentQueue.jsx
 src/xdr/components/Pivot.jsx
 src/xdr/components/TrajectoryTimelineCanvas.jsx
 src/xdr/domains/domainMeta.js
+src/xdr/pages/XdrAdminPage.jsx
 src/xdr/pages/XdrDashboardPage.jsx
 src/xdr/pages/XdrDeviceTrajectoryPage.jsx
 src/xdr/pages/XdrEndpointsPage.jsx

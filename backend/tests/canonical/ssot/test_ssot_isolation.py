@@ -436,6 +436,11 @@ def test_no_route_file_modified_by_phase2():
         "apps/nivxray-xdr/src/xdr/components/DomainCardsGrid.jsx",
         "apps/nivxray-xdr/src/xdr/pages/XdrIncidentDomainPage.jsx",
         "apps/nivxray-xdr/src/xdr/pages/XdrReservedPage.jsx",
+        # Slice 10 · Native XDR Admin Console (2026-02-XX).
+        # Fourteen native admin surfaces reading authoritative
+        # NivXRay backend APIs (never a deep-link to base /admin).
+        "apps/nivxray-xdr/src/xdr/admin/adminMeta.js",
+        "apps/nivxray-xdr/src/xdr/pages/XdrAdminPage.jsx",
         "frontend/src/nivxforge/edrApi.js",
         "frontend/src/nivxforge/pages/EdrDetectionsPage.jsx",
         "frontend/src/nivxforge/pages/EdrProcessTreePage.jsx",

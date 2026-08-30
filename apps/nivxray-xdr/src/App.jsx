@@ -18,6 +18,7 @@ const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetail
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
 const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomainPage"));
 const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
+const XdrAdminPage            = lazy(() => import("@/xdr/pages/XdrAdminPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -96,6 +97,13 @@ export default function App() {
         <Route path="/xdr/intelligence/malware" element={<Protected><XdrReservedPage capability="malware" /></Protected>} />
         <Route path="/xdr/intelligence/mitre"   element={<Protected><XdrReservedPage capability="mitre" /></Protected>} />
         <Route path="/xdr/intelligence/kb"      element={<Protected><XdrReservedPage capability="kb" /></Protected>} />
+
+        {/* Slice 10 · Native XDR Admin Console.  All 14 admin
+            surfaces render natively; each consumes an authoritative
+            NivXRay backend API where available and surfaces four
+            distinct honest states otherwise. */}
+        <Route path="/xdr/admin"          element={<Protected><XdrAdminPage /></Protected>} />
+        <Route path="/xdr/admin/:section" element={<Protected><XdrAdminPage /></Protected>} />
 
         {/* NivXForge EDR Console — pivots to /edr/trajectory in the
             ORIGINAL NivXRay app via a new browser tab (never

@@ -112,21 +112,19 @@ const SIDEBAR = [
   {
     section: "Administration",
     items: [
-      { key: "integrations",     label: "Integrations",      icon: Plug,       disabled: true,
-        title: "Native XDR Integrations — arrives in a later slice" },
-      { key: "data-sources",     label: "Data Sources",      icon: HardDrive,  disabled: true },
-      { key: "collectors",       label: "Collectors",        icon: Cpu,        disabled: true },
-      { key: "agents",           label: "Agents",            icon: Wifi,       disabled: true },
-      { key: "telemetry-studio", label: "Telemetry Studio",  icon: Sliders,    disabled: true },
-      { key: "telemetry-health", label: "Telemetry Health",  icon: ActivityIcon, disabled: true },
-      { key: "parsers",          label: "Parsers",           icon: Filter,     disabled: true },
-      { key: "normalization",    label: "Normalization",     icon: Shuffle,    disabled: true },
-      { key: "detection-rules",  label: "Detection Rules",   icon: Zap,        disabled: true },
-      { key: "response-policies", label: "Response Policies", icon: ArrowRightLeft, disabled: true },
-      { key: "users-roles",      label: "Users / Roles",     icon: Users,      disabled: true },
-      { key: "api-webhooks",     label: "API / Webhooks",    icon: Webhook,    disabled: true },
-      { key: "platform-health",  label: "Platform Health",   icon: HeartPulse, disabled: true,
-        title: "Native XDR Platform Health — arrives in a later slice" },
+      { key: "integrations",      label: "Integrations",      icon: Plug,          to: "/xdr/admin/integrations" },
+      { key: "data-sources",      label: "Data Sources",      icon: HardDrive,     to: "/xdr/admin/data-sources" },
+      { key: "collectors",        label: "Collectors",        icon: Cpu,           to: "/xdr/admin/collectors" },
+      { key: "agents",            label: "Agents",            icon: Wifi,          to: "/xdr/admin/agents" },
+      { key: "telemetry-studio",  label: "Telemetry Studio",  icon: Sliders,       to: "/xdr/admin/telemetry-studio" },
+      { key: "telemetry-health",  label: "Telemetry Health",  icon: ActivityIcon,  to: "/xdr/admin/telemetry-health" },
+      { key: "parsers",           label: "Parsers",           icon: Filter,        to: "/xdr/admin/parsers" },
+      { key: "normalization",     label: "Normalization",     icon: Shuffle,       to: "/xdr/admin/normalization" },
+      { key: "detection-rules",   label: "Detection Rules",   icon: Zap,           to: "/xdr/admin/detection-rules" },
+      { key: "response-policies", label: "Response Policies", icon: ArrowRightLeft, to: "/xdr/admin/response-policies" },
+      { key: "users-roles",       label: "Users / Roles",     icon: Users,         to: "/xdr/admin/users-roles" },
+      { key: "api-webhooks",      label: "API / Webhooks",    icon: Webhook,       to: "/xdr/admin/api-webhooks" },
+      { key: "platform-health",   label: "Platform Health",   icon: HeartPulse,    to: "/xdr/admin/platform-health" },
     ],
   },
 ];
@@ -138,6 +136,10 @@ function useActiveKey() {
     if (pathname === "/xdr")                     return "incidents";
     if (pathname.startsWith("/xdr/incidents")) {
       return search.includes("mine=1") ? "my-queue" : "incidents";
+    }
+    if (pathname.startsWith("/xdr/admin")) {
+      const key = pathname.split("/")[3];
+      return key || "integrations";
     }
     if (pathname.startsWith("/xdr/intelligence/")) {
       const key = pathname.split("/")[3];

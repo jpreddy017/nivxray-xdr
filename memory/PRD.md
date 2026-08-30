@@ -157,6 +157,52 @@ Response
 
 ---
 
+## Locked slice roadmap (owner-approved, mockup-order)
+
+- Slice 1  — Contextual Pivot menus ✅
+- Slice 2  — Native Investigation sub-tab bodies ✅
+- Slice 3  — Detection Sourcing (`detected_by` first-class + engine pivot) ✅
+- Slice 6  — Native XDR Device Trajectory Canvas (v1 · category-lane) ✅
+- Slice 7  — Sidebar correction + Overview IA + Domain Cards + Domain routes ✅
+- **Slice 8**  — Device Trajectory IA rewrite (entity-per-row · density strips · compromise band · lineage connectors · tri-directional sync)
+- **Slice 9**  — Lifecycle audit tightening (button matrix · Hold modal · banner · immutable Activity writes)
+- **Slice 10** — Native XDR Admin Console (all 14 admin surfaces reading authoritative APIs, never deep-linking base `/admin`) ✅
+- **Slice 11** — Response Approval Loop (Requested → Policy Check → Executed → Verified · immutable audit)
+- **Slice 12** — Global Response Center (cross-incident view)
+- **Slice 13** — Other Domain Consoles (NDR / ITDR / Email / Cloud / App / Data / Exposure / IOC — reproduce `tab*()` from the mockup)
+- **Slice 14** — Native Command Intelligence (inline in XDR, consumes existing decoder API)
+- **Slice 15** — Activity / Notes / Attachments completion (separated sections, SHA-256, previews)
+- **Slice 16** — Final native-XDR / deep-link elimination audit
+
+## Permanent rules (owner-locked)
+
+1. **No base-UI deep-links in "complete" XDR features.**  Before any
+   XDR capability is declared complete, audit it for `/analyze`,
+   `/heatmap`, `/analyst`, `/v2/irg`, `/edr/trajectory`, or `/admin`
+   deep-links.  If the capability belongs to the XDR product it
+   must ultimately have a native XDR implementation reading the
+   authoritative NivXRay APIs.
+2. **Reuse APIs, not UI.**  Native XDR UI → existing authoritative
+   NivXRay APIs (Verdict, Evidence, IKG, Activity Inventory,
+   Process Tree, Decoder, MITRE, Health).  No engine, SSOT, or
+   security-model duplication.
+3. **Data honesty · four distinct states** — never collapse into a
+   generic "empty":
+     - `NOT OBSERVED`     — telemetry ran, negative result
+     - `NOT ESTABLISHED`  — projection not built yet
+     - `NOT AVAILABLE`    — capability absent from the SSOT
+     - `NOT CONNECTED`    — integration not wired for tenant
+4. **Quality bar (locked)** — every component must be more
+   reliable + explainable + efficient than Microsoft Defender XDR,
+   CrowdStrike Falcon, Cisco Secure Endpoint / Cisco XDR:
+     - provenance on every field
+     - rule + weight + source engine on every verdict/detection
+     - sub-second incident open
+     - immutable audit on every state transition + response action
+     - server-side tenant firewall (never client-side filtering)
+
+---
+
 ## Live baseline (verified this session)
 
 - Standalone XDR shipped: Dashboard operational, KPIs filter queue, sidebar/top-nav all clickable (no dead UI), Incident detail 4 tabs, NivXForge EDR launcher opens base `/edr/trajectory` in new tab.
@@ -165,6 +211,20 @@ Response
 - Base NivXRay: untouched.
 
 ## Session log
+
+### 2026-02 · Slice 10 · Native XDR Admin Console · SHIPPED
+- 14 native admin surfaces at `/xdr/admin/*`, each reading authoritative NivXRay APIs.  No deep-link to base `/admin`.
+- Verified: `/admin/stats` populates Overview KV grid; `/admin/users` renders real table; `/health` populates Platform Health; unconnected surfaces (Collectors / Agents / Parsers / Normalization / Response-Policies / API-Webhooks) surface `NOT CONNECTED` with integration guidance.
+- Sidebar Administration items no longer disabled — every one navigates natively.
+- Files: `src/xdr/admin/adminMeta.js`, `src/xdr/pages/XdrAdminPage.jsx`.
+- `pytest tests/canonical/{ssot,edr,incidents}` — 87 passed.
+
+### 2026-02 · Slice 7 · Sidebar + Overview IA + Domain routes · SHIPPED
+- Sidebar Operations reduced to `Incidents · My Queue · Response`.  Dashboard duplicate + global Endpoints peer removed.
+- Investigation sub-tabs corrected: removed erroneous `summary`; Summary body moved onto Overview.
+- New `DomainCardsGrid` on Overview + persistent `IncidentContextStrip` on all six domain routes.
+- Intelligence deep-links replaced by native `XdrReservedPage` placeholders naming the authoritative API each future slice will consume.
+- Files: `src/xdr/domains/domainMeta.js`, `src/xdr/components/{DomainCardsGrid,IncidentContextStrip}.jsx`, `src/xdr/pages/{XdrIncidentDomainPage,XdrReservedPage}.jsx`.
 
 ### 2026-02 · Slice 6 · Native XDR Device Trajectory Canvas · SHIPPED
 - New backend projections (additive, `/app/backend/routers/edr.py`):
@@ -183,12 +243,13 @@ Response
 ## Session-start prompt for the next agent
 
 > Continue mockup slice-by-slice build per PRD.md.  Standalone NivXRay
-> XDR only.  Do not touch the base NivXRay application.  Slice 6
-> (Device Trajectory Canvas) is DONE.  Next candidate: **Slice 3 ·
-> Detection Sourcing** (elevate `detected_by` as first-class column
-> across Suspicious Elements + pivot back to source engine), or
-> **Deterministic Severity Mapper**.  Do not begin without owner
-> confirmation of slice order.
+> XDR only.  Do not touch the base NivXRay application.  Slice 10
+> (Native XDR Admin Console) is DONE.  Next: **Slice 8 · Device
+> Trajectory IA rewrite** — entity-per-row, density strips,
+> compromise-window band, lineage connectors, tri-directional pane
+> sync, right-pane default Device Summary, `x3` duplicate grouping,
+> time-navigation beyond the incident window.  Do not begin without
+> owner confirmation of slice.
 
 ## Test credentials
 

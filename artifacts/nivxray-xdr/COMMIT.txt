@@ -1,4 +1,4 @@
-commit 7a8b1a810578551b04dbc2104c19e2e6bae8992d
+commit 8a4291132bbeef934cd1fdbdb7386402bfec1be2
 author emergent-agent-e1 <github@emergent.sh>
-date   Sun Aug 30 03:55:00 2026 +0000
-subject Slice 7 · sidebar correction + Overview IA + Domain Cards + 6 domain routes + Incident Context strip + Reserved-page pattern
+date   Sun Aug 30 04:07:41 2026 +0000
+subject Slice 10 · Native XDR Admin Console (14 surfaces · authoritative APIs · no base UI deep-link)
