@@ -268,6 +268,13 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
           showMinimap={showMinimap} onToggleMinimap={() => setShowMinimap((v) => !v)}
           showTimeline={showTimeline} onToggleTimeline={() => setShowTimeline((v) => !v)}
         />
+        <TacticRibbon
+          nodes={nodes}
+          highlight={highlight}
+          onSelectTactic={(k) => setHighlight(highlight?.tactic === k
+                                                                          ? null : { tactic: k })}
+          onClear={() => setHighlight(null)}
+        />
       </div>
 
       {/* Canvas */}
@@ -348,13 +355,17 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
         )}
       </section>
 
-      {/* Right-side stack: Inspector on top, Attack Story below */}
+      {/* Right-side stack: Inspector on top, Process Chain, Attack Story below */}
       <aside style={{ display: "flex", flexDirection: "column", gap: 10,
                           overflow: "hidden", gridRow: 2 }}>
         <EntityInspector
           node={selectedNode} incident={incident}
           onPivotHighlight={setHighlight}
           onOpenPivot={(e) => selectedNode && openPivot(e, selectedNode)}
+        />
+        <ProcessChainPanel
+          nodes={nodes} edges={edges}
+          selectedId={selected} onSelect={setSelected}
         />
         <AttackStoryPanel
           incident={incident}
@@ -1717,6 +1728,23 @@ function _hexA(hex, a) {
 }
 function _nodeMatches(node, h) {
   if (!h) return true;
+  if (h.tactic) {
+    // Match technique nodes whose tactic == h.tactic; and evidence /
+    // response nodes whose technique_id resolves to that tactic.
+    if (node.type === "technique") {
+      const tid = node.title;
+      const meta = TECHNIQUE_INDEX[tid];
+      return meta?.tactic === h.tactic;
+    }
+    if (node.type === "evidence" || node.type === "response") {
+      const rid = String(node.raw?.rule_id || "").toUpperCase();
+      const tid = node.raw?.technique_id || RULE_TO_TECHNIQUE[rid];
+      if (!tid) return false;
+      return TECHNIQUE_INDEX[tid]?.tactic === h.tactic;
+    }
+    if (node.type === "incident") return true;
+    return false;
+  }
   if (h.technique_id && node.type === "technique") return node.title === h.technique_id;
   if (h.technique_id && node.type === "evidence") {
     const rid = String(node.raw?.rule_id || "").toUpperCase();
@@ -1735,4 +1763,189 @@ function _nodeMatches(node, h) {
 }
 function _edgeMatches(edge, s, t, h) {
   return _nodeMatches(s, h) || _nodeMatches(t, h);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// TacticRibbon — evidence-driven MITRE ATT&CK tactic filter strip.
+// Sits directly above the Evidence Trajectory canvas.
+//
+// Rule per owner directive:
+//   Evidence → Observed technique → ATT&CK mapping → Tactic
+//   The ribbon is NEVER derived from the verdict.
+// ═══════════════════════════════════════════════════════════════════
+function TacticRibbon({ nodes, highlight, onSelectTactic, onClear }) {
+  const activeKey = highlight?.tactic || null;
+  // Count evidence + technique nodes per tactic — deterministic, only
+  // counts what actually appears in the current investigation graph.
+  const counts = React.useMemo(() => {
+    const c = {};
+    for (const n of (nodes || [])) {
+      let tid = null;
+      if (n.type === "technique") tid = n.title;
+      else if (n.type === "evidence" || n.type === "response") {
+        const rid = String(n.raw?.rule_id || "").toUpperCase();
+        tid = n.raw?.technique_id || RULE_TO_TECHNIQUE[rid] || null;
+      }
+      if (!tid) continue;
+      const tactic = TECHNIQUE_INDEX[tid]?.tactic;
+      if (!tactic) continue;
+      c[tactic] = (c[tactic] || 0) + 1;
+    }
+    return c;
+  }, [nodes]);
+
+  return (
+    <div data-testid="xdr-tactic-ribbon"
+              style={{ marginTop: 8, padding: "6px 10px",
+                              background: "var(--panel)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 4,
+                              display: "flex", alignItems: "center", gap: 8,
+                              flexWrap: "wrap" }}>
+      <span style={{ fontFamily: "var(--mono)", fontSize: 9,
+                              color: "var(--faint)", fontWeight: 700,
+                              textTransform: "uppercase", letterSpacing: ".4px" }}>
+        Tactics
+      </span>
+      {KILL_CHAIN.map((t) => {
+        const n = counts[t.key] || 0;
+        const active   = activeKey === t.key;
+        const touched  = n > 0;
+        const color    = touched
+          ? (active ? "var(--cyan)" : "var(--text)")
+          : "var(--faint)";
+        return (
+          <button key={t.key}
+                        data-testid={`xdr-tactic-ribbon-${t.key}`}
+                        disabled={!touched}
+                        onClick={() => onSelectTactic(t.key)}
+                        title={touched ? `${n} evidence-linked technique(s)`
+                                                    : "No evidence for this tactic in this investigation"}
+                        style={{
+                          padding: "3px 8px", borderRadius: 3,
+                          border: `1px solid ${active
+                                                              ? "var(--cyan)"
+                                                              : (touched ? "var(--border)"
+                                                                                : "transparent")}`,
+                          background: touched ? "var(--panel2)" : "transparent",
+                          color, cursor: touched ? "pointer" : "default",
+                          opacity: touched ? 1 : 0.45,
+                          fontFamily: "var(--mono)", fontSize: 10,
+                          fontWeight: 700, letterSpacing: ".3px" }}>
+            {t.label}{touched && ` · ${n}`}
+          </button>
+        );
+      })}
+      {activeKey && (
+        <button data-testid="xdr-tactic-ribbon-clear"
+                      onClick={onClear}
+                      style={{ marginLeft: "auto",
+                                      padding: "3px 8px", borderRadius: 3,
+                                      border: "1px solid var(--amber)",
+                                      color: "var(--amber)",
+                                      background: "transparent",
+                                      cursor: "pointer",
+                                      fontFamily: "var(--mono)", fontSize: 10,
+                                      fontWeight: 700 }}>
+          Clear filter
+        </button>
+      )}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// ProcessChainPanel — parent → child process ancestry.
+// Reads directly from the investigation graph (process nodes +
+// parent_of edges).  Never fabricates a process; if there are no
+// process nodes, the panel renders an honest empty state.
+// ═══════════════════════════════════════════════════════════════════
+function ProcessChainPanel({ nodes, edges, selectedId, onSelect }) {
+  const trees = React.useMemo(() => {
+    const procs = (nodes || []).filter((n) => n.type === "process");
+    if (!procs.length) return [];
+    const byId = new Map(procs.map((p) => [p.id, p]));
+    const parentEdges = (edges || []).filter((e) => e.kind === "parent_of");
+    const parentOf = new Map();   // childId → parentId
+    const childrenOf = new Map(); // parentId → [childId]
+    for (const e of parentEdges) {
+      if (byId.has(e.source) && byId.has(e.target)) {
+        parentOf.set(e.target, e.source);
+        const arr = childrenOf.get(e.source) || [];
+        arr.push(e.target);
+        childrenOf.set(e.source, arr);
+      }
+    }
+    const roots = procs.filter((p) => !parentOf.has(p.id));
+    const build = (id, depth) => {
+      const kids = (childrenOf.get(id) || [])
+        .map((cid) => build(cid, depth + 1));
+      return { node: byId.get(id), depth, children: kids };
+    };
+    return roots.map((r) => build(r.id, 0));
+  }, [nodes, edges]);
+
+  return (
+    <div className="panel" data-testid="xdr-process-chain-panel"
+              style={{ display: "flex", flexDirection: "column",
+                              minHeight: 0, maxHeight: 240 }}>
+      <div style={{ padding: "6px 10px",
+                              borderBottom: "1px solid var(--border)",
+                              fontFamily: "var(--mono)", fontSize: 10.5,
+                              fontWeight: 700, color: "var(--text-dim)",
+                              textTransform: "uppercase", letterSpacing: ".4px" }}>
+        Process Chain (parent → child)
+      </div>
+      <div style={{ overflow: "auto", padding: "6px 10px",
+                              fontFamily: "var(--mono)", fontSize: 11,
+                              lineHeight: 1.55 }}>
+        {trees.length === 0 && (
+          <div style={{ color: "var(--faint)", fontSize: 10.5 }}>
+            No process evidence in this investigation.
+          </div>
+        )}
+        {trees.map((root) => (
+          <ProcessNodeRow key={root.node.id} tree={root}
+                                        selectedId={selectedId}
+                                        onSelect={onSelect} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+function ProcessNodeRow({ tree, selectedId, onSelect, isLast = true,
+                                                prefix = "" }) {
+  const { node, children } = tree;
+  const isSel = selectedId === node.id;
+  const connector = prefix === "" ? "" : (isLast ? "└─ " : "├─ ");
+  return (
+    <>
+      <div data-testid={`xdr-process-chain-${node.id}`}
+                onClick={() => onSelect(node.id)}
+                style={{ cursor: "pointer",
+                                color: isSel ? "var(--cyan)" : "var(--text)",
+                                whiteSpace: "nowrap",
+                                background: isSel ? "rgba(56,189,248,.08)"
+                                                                  : "transparent",
+                                padding: "1px 2px", borderRadius: 2 }}>
+        <span style={{ color: "var(--faint)" }}>{prefix}{connector}</span>
+        <span style={{ fontWeight: 700 }}>{node.title || node.id}</span>
+        {node.raw?.pid && (
+          <span style={{ color: "var(--faint)", marginLeft: 6 }}>
+            pid={node.raw.pid}
+          </span>
+        )}
+      </div>
+      {children.map((c, i) => (
+        <ProcessNodeRow key={c.node.id} tree={c}
+                                      selectedId={selectedId} onSelect={onSelect}
+                                      isLast={i === children.length - 1}
+                                      prefix={prefix + (isLast ? "   " : "│  ")} />
+      ))}
+    </>
+  );
 }

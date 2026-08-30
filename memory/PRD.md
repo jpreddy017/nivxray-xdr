@@ -63,6 +63,20 @@ POST /api/xdr/rule-studio/rules/{id}/gate        # dry-run · no state change
 * Mouse-wheel and touchpad-pinch zoom are DISABLED — zoom is driven
   ONLY by the explicit `−` / `+` buttons + Fit view.
 
+**Investigation graph — ATT&CK Tactic Ribbon + Parent-Child Process Chain (owner-approved 2026-02-30):**
+* NEW `TacticRibbon` above the Evidence Trajectory canvas — renders the
+  14 ATT&CK tactics; only tactics with evidence in the current
+  investigation are enabled.  Derived from Evidence → observed
+  technique → ATT&CK mapping → tactic.  **Never from the verdict.**
+  Clicking a tactic filters the canvas (nodes/edges without that
+  tactic dim to 12%); "Clear filter" pill appears while active.
+* NEW `ProcessChainPanel` in the right sidebar — indented parent → child
+  process ancestry derived from process nodes + parent_of edges.
+  Honest empty state when there is no process evidence.
+* No minimap re-introduction — the tactic ribbon is the compact
+  navigation layer; the Evidence Trajectory remains the primary
+  spatial visualisation.
+
 **Semantic contract preserved end-to-end:**
 ```
 RULE → OBSERVATION → CORRELATION → EVIDENCE BUNDLE → IKG → ICE →
