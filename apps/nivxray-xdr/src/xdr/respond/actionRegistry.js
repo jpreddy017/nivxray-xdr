@@ -30,6 +30,13 @@ export const RESPONSE_ACTIONS = [
     required_permissions: [{ role: "responder", scope: "endpoint:isolate" }],
     approval_required: true, reversible: true, destructive: true,
     execution_status: "not_wired" },
+  { action_id: "endpoint.unisolate",     provider: "endpoint", capability: "unisolate_endpoint",
+    label: "UnIsolate Endpoint",
+    description: "Release network containment on the endpoint via the connected EDR.  Reverses endpoint.isolate.",
+    parameters: [{ key: "host_id", label: "Host ID", type: "string", required: true }],
+    required_permissions: [{ role: "responder", scope: "endpoint:isolate" }],
+    approval_required: true, reversible: true, destructive: false,
+    execution_status: "not_wired" },
   { action_id: "endpoint.kill_process",  provider: "endpoint", capability: "kill_process",
     label: "Kill Process",
     parameters: [

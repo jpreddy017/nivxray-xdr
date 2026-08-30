@@ -67,6 +67,7 @@ const CANVAS_HEIGHT = KILL_CHAIN.length * ROW_H + 40;
 export default function AttackChainPanel({ incident }) {
   const { selection, setSelection } = useSelection();
   const [correlations, setCorrelations] = useState([]);
+  const [summary, setSummary]           = useState(null);
   const [zoom, setZoom]         = useState(100);
   const [pan, setPan]           = useState({ x: 0, y: 0 });
   const [drag, setDrag]         = useState(null);
@@ -83,13 +84,39 @@ export default function AttackChainPanel({ incident }) {
                                     { params: { incident_id: incident.id }});
         if (!cancelled) setCorrelations(r?.data?.data?.matches || []);
       } catch { if (!cancelled) setCorrelations([]); }
+      // Authoritative NivXRay-Tool incident summary — best-effort.
+      // Feeds real ATT&CK techniques + evidence into the trajectory
+      // even when the XDR incident payload alone does not carry them.
+      try {
+        const s = await api.get(`/incidents/${incident.id}/summary`);
+        if (!cancelled) setSummary(s?.data || null);
+      } catch { if (!cancelled) setSummary(null); }
     })();
     return () => { cancelled = true; };
   }, [incident?.id]);
 
+  // Merge the summary's evidence + MITRE arrays into an enriched
+  // incident view before deriving the trajectory.  The merge is
+  // additive — never mutates the incident.
+  const enrichedIncident = useMemo(() => {
+    if (!summary) return incident;
+    const mergedEvidence = [
+      ...(incident?.verdict_stage2?.evidence || []),
+      ...(summary?.suspicious_elements || []),
+    ];
+    const mergedMitre = [
+      ...(incident?.mitre || []),
+      ...(summary?.mitre  || []),
+    ];
+    return { ...incident,
+                    verdict_stage2: { ...(incident?.verdict_stage2 || {}),
+                                              evidence: mergedEvidence },
+                    mitre: mergedMitre };
+  }, [incident, summary]);
+
   const { nodes, edges, gaps, hasEvidence } = useMemo(
-    () => buildTrajectory(incident, correlations),
-    [incident, correlations]);
+    () => buildTrajectory(enrichedIncident, correlations),
+    [enrichedIncident, correlations]);
 
   const selectedTech = selection?.kind === "technique"
                                             ? selection?.ref?.technique_id : null;
@@ -485,24 +512,43 @@ function buildTrajectory(incident, correlations) {
     const cur = byTech.get(tech);
     cur.evidence_count += 1;
     cur.rels.add("OBSERVED");
-    const ts = ev.timestamp || ev.first_seen || null;
+    const ts = ev?.timestamp || ev?.first_seen || null;
     if (!cur.first_seen || (ts && ts < cur.first_seen)) cur.first_seen = ts;
     if (!cur.last_seen  || (ts && ts > cur.last_seen))  cur.last_seen  = ts;
   };
 
+  // 1 · Evidence rows (Stage-2 or generic).
   for (const ev of evs) {
     const tech = ev.technique_id
               || (ev.rule_id && RULE_TO_TECHNIQUE[String(ev.rule_id).toUpperCase()]);
     if (tech) seedTech(tech, ev);
   }
 
-  // SEQUENCED — mark every technique that has ≥1 predecessor as SEQUENCED.
+  // 2 · Direct MITRE arrays surfaced by the incident payload.
+  //     Accepts:
+  //         incident.mitre       = [{ technique_id | id, timestamp?, count? }, …]
+  //         incident.techniques  = ["T1059.001", …]  or  [{ id, timestamp? }]
+  //         incident.attack_techniques = ["T1059.001", …]
+  const collectDirect = (arr) => {
+    for (const m of (arr || [])) {
+      if (!m) continue;
+      const t = typeof m === "string" ? m : (m.technique_id || m.id);
+      if (!t) continue;
+      const ev = typeof m === "object" ? m : {};
+      for (let i = 0; i < (ev.count || 1); i++) seedTech(t, ev);
+    }
+  };
+  collectDirect(incident?.mitre);
+  collectDirect(incident?.techniques);
+  collectDirect(incident?.attack_techniques);
+
+  // 3 · SEQUENCED — mark every technique after the first as SEQUENCED.
   const sorted = Array.from(byTech.values())
       .filter((t) => t.first_seen)
       .sort((a, b) => (a.first_seen || "").localeCompare(b.first_seen || ""));
   for (let i = 1; i < sorted.length; i++) sorted[i].rels.add("SEQUENCED");
 
-  // CORRELATED — from correlation matches.
+  // 4 · CORRELATED — from correlation matches.
   for (const c of correlations || []) {
     const attks = c.attack_techniques || c.techniques || [];
     for (const at of attks) {
@@ -511,14 +557,13 @@ function buildTrajectory(incident, correlations) {
     }
   }
 
-  // Filter — only techniques with a resolvable tactic can be plotted.
+  // 5 · Only techniques with a resolvable tactic can be plotted.
   const validTactics = new Set(KILL_CHAIN.map((k) => k.key));
   const nodes = Array.from(byTech.values())
     .filter((t) => t.tactic && validTactics.has(t.tactic))
     .map((t) => ({ ...t, rels: Array.from(t.rels) }));
 
-  // Sequential edges — connect each technique to the next in temporal
-  // order.  Temporal, NOT causal.
+  // 6 · Sequential edges — temporal, NOT causal.
   const edges = [];
   const sortedNodes = [...nodes]
     .sort((a, b) => (a.first_seen || "").localeCompare(b.first_seen || ""));
@@ -527,12 +572,17 @@ function buildTrajectory(incident, correlations) {
                           to:   sortedNodes[i].technique_id });
   }
 
-  // Honest tactic gaps
+  // 7 · Honest tactic gaps
   const covered = new Set(nodes.map((n) => n.tactic));
   const gaps = KILL_CHAIN.filter((k) => !covered.has(k.key))
                                    .map((k) => k.label);
 
-  return { nodes, edges, gaps, hasEvidence: evs.length > 0 };
+  const hasEvidence = evs.length > 0
+       || (incident?.mitre || []).length > 0
+       || (incident?.techniques || []).length > 0
+       || (incident?.attack_techniques || []).length > 0;
+
+  return { nodes, edges, gaps, hasEvidence };
 }
 
 

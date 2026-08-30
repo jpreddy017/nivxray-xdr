@@ -5,7 +5,76 @@
 
 ---
 
-## ✅ 2026-02-30 · Investigation · Process Tree + ATT&CK Chain first-class panels — SHIPPED
+## ✅ 2026-02-30 · Investigation · Process Tree graph visual + UnIsolate + Trajectory operational
+
+**Owner directive** (verified live on `nivxray-xdr.vercel.app`):
+* **Adopt NivXRay Tool intelligence** into the XDR Investigation surface — don't rebuild.
+* **100% real mapping** — no fabrication, no missing, no quality
+  compromise.  Absence of evidence remains absence.
+* **Semantic invariants** (SOC-100-scenarios PDF corpus):
+  `CAPABILITY · ATTEMPTED · OBSERVED · EXECUTED · CORRELATED ·
+  CONFIRMED_IMPACT`.  Verdict Engine remains sole verdict owner.
+
+**ATT&CK Trajectory (`AttackChainPanel.jsx`) — OPERATIONAL:**
+* Full 14 tactic swim-lanes ALWAYS rendered.
+* Technique nodes plotted temporally with bezier curves connecting
+  sequential techniques (temporal, NEVER causal — noted in help caption).
+* Data sources merged additively (NEVER mutating the incident):
+  1. `verdict_stage2.evidence[]` + `incident.evidence[]` via
+     `RULE_TO_TECHNIQUE[rule_id]` + direct `technique_id` (authoritative).
+  2. `incident.mitre[]` / `incident.techniques[]` / `incident.attack_techniques[]`
+     — string OR `{technique_id | id, timestamp, count}` objects.
+  3. `GET /api/incidents/{id}/summary` (base NivXRay-Tool authoritative
+     summary) — `suspicious_elements[].rule_id` → RULE_TO_TECHNIQUE.
+  4. `GET /api/xdr/correlation/matches?incident_id=` — flips per-technique
+     `CORRELATED` badge from the authoritative correlation engine.
+* 4 relationship badges per technique:
+  `OBSERVED · SEQUENCED · CORRELATED · INFERRED`.
+* Zoom `− · % · +`, RESET (auto-layout+pan+zoom), CLOSE.  Nodes are
+  draggable; canvas is pannable.  Technique metadata sourced from
+  canonical `TECHNIQUE_INDEX` (MITRE Enterprise v16, Oct 2024).
+* Techniques with 0 evidence are NEVER plotted — honest gap surface
+  lists untouched tactics ("13/14 tactics without evidence: …").
+* Live-verified on Vercel: `PrevMode` incident → `T1027 · Obfuscated
+  Files` renders in DEFENSE EVASION lane.  Zero page errors.
+
+**Process Tree (`ProcessTreePanel.jsx`) — graph visual:**
+* Replaced the indented-tree list with an SVG process-graph
+  matching NivXRay Tool's "PREDICTED PROCESS TREE" style:
+  rounded rectangles with process name + tactic + technique IDs;
+  curved bezier edges parent → child; deterministic BFS layout.
+* Per-node evidence-state badge strip · 6 canonical states
+  (`CAPABILITY · ATTEMPTED · OBSERVED · EXECUTED · CORRELATED ·
+  CONFIRMED_IMPACT`) plus `SUSPICIOUS` (rare parent-child) and
+  `DETECTED` (rule fired).  NONE of these are verdicts.
+* Consumes evidence rows AND direct `incident.processes[]` /
+  `incident.process_tree[]` arrays (flat or nested via children[]).
+* 6 rare parent-child rules (Office → script · Browser → shell ·
+  Service → shell · Web-server → shell · PowerShell → LOLBIN ·
+  LOLBIN → network) emit SUSPICIOUS OBSERVATION only.
+* Right-hand details pane: image · pid · ppid · guid · user · host
+  · command_line · sha256 · signer · signature · integrity ·
+  techniques · detections · evidence refs.
+* Unknown parents remain unknown — never fabricated.
+
+**Response Action Registry — UnIsolate Endpoint:**
+* Added `endpoint.unisolate` action (label "UnIsolate Endpoint")
+  next to `endpoint.isolate` — reversible, non-destructive, same
+  `responder:endpoint:isolate` permission.  Analyst Response
+  drawer picks it up automatically via `ACTIONS_BY_PROVIDER`.
+
+**Backlog captured from owner directive:**
+* SOC-100-Scenarios PDF → Scenario Corpus (first-class investigation
+  knowledge, not detection rules).  Validate Process Tree +
+  Genealogy against scenarios 013–024 and 053–062.
+* Server-side Process Genealogy & Behavioral Analytics engine.
+* Auto-Investigation Report consuming Trajectory + Process Tree.
+* Rule Studio Visual Condition Builder wiring (AST + recursive UI
+  already authored in `src/xdr/rule-studio/`).
+
+---
+
+## ✅ 2026-02-30 · Investigation tab · KILL_CHAIN black-screen fix — SHIPPED
 
 **Owner directive (2026-02-30):** *"NivXRay XDR = NivXRay Tool + XDR
 Platform.  Do not create a separate XDR ATT&CK Chain implementation.
