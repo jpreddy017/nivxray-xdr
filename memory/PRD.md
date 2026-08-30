@@ -1543,3 +1543,57 @@ existing routes (Secrets/LOLBAS/etc.) → Phase B GTFOBins+LOLDrivers →
 Detection/Correlation Engine (Phase D/E) → OSINT/TI Hub (Phase C) →
 Enterprise gap matrix vs. Cisco/Microsoft/CrowdStrike/Palo Alto/
 Splunk/Elastic/Google.
+
+### LOLBAS · Visible-15 Bug + Parent-Child Tiers · FIXED (this session)
+
+**User complaint**: "Still I can see 15 LOLBAS, I told you to add all
+LOLBINs/LOLBAS and all parent-child relations (normal, suspicious,
+abnormal)."
+
+**Root cause**: The base `DetectionContentBody.jsx` still imported the
+retired 15-seed `docs/content/packs/lolbas.pack.json` and rendered it as
+"LOLBAS Content Pack".  The new 242-entry live pack existed at
+`Admin → Content Pack · LOLBAS` but the old admin page had not been
+rewired to the live API.
+
+**Fix**:
+- Removed the seed-JSON import from `DetectionContentBody.jsx`.
+- The admin page now fetches from
+  `/api/xdr/lolbas/status`, `/api/xdr/lolbas/entries` and
+  `/api/xdr/lolbas/primitives?kind=lolbin.parent_child` and shows real
+  counts, coverage %, upstream version and license.
+- A "Manage full pack →" link jumps to Content Pack · LOLBAS.
+
+**Parent-Child Relations (three tiers)**:
+- **Backend** (`routers/xdr_lolbas.py`):
+  - New primitive kind `lolbin.parent_child` with `tier ∈ {normal,
+    suspicious, abnormal}` + `parent` + `child` fields.
+  - Curated registry `_PARENT_CHILD_TIERS` covers 15 high-signal
+    LOLBINs (powershell, cmd, wscript, cscript, mshta, regsvr32,
+    rundll32, msiexec, certutil, installutil, bitsadmin, hh, msbuild,
+    wmic, schtasks) with normal/suspicious/abnormal parents drawn
+    from Sigma / MITRE / Elastic detections tradecraft.
+  - `_global_parent_child_primitives()` also emits primitives for
+    LOLBINs the registry covers but upstream does not carry
+    (e.g. `powershell.exe`) so parent-child evidence is available
+    regardless of upstream shape.
+  - `_match_event()` now takes `parent_image` and returns
+    `parent-child-match` hits carrying the tier.
+  - Regression suite includes "office-spawns-powershell" — the pack
+    cannot mark COMPLETE without valid parent-child matching.
+
+- **Live E2E** on preview URL after fresh sync:
+  - 242 / 242 entries · coverage 100.0 % · **2 334 primitives**
+    (up from 2 183 pre-fix)
+  - Parent-child breakdown: **45 normal · 51 suspicious · 55 abnormal**
+  - Match `winword.exe → powershell.exe`  →  tier `suspicious`
+  - Match `mshta.exe    → powershell.exe`  →  tier `abnormal`
+  - Match `explorer.exe → powershell.exe`  →  tier `normal`
+
+- **Tests**: **14/14 LOLBAS pytest pass** (added
+  `test_parent_child_tier_normal_suspicious_abnormal`).
+  Full XDR suite still green: **53/53** across audit-log + secrets +
+  lolbas + rbac + api-keys.  Ruff clean.
+
+- Frontend commit `421a51b` deployed to Vercel; the base admin now
+  reports live 242-entry LOLBAS state + real parent-child tier counts.

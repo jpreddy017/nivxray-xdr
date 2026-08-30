@@ -8,12 +8,13 @@
  *
  * Every row is real content in-tree.  No fabrication.
  */
-import React, { useMemo, useState } from "react";
-import { Radar, Search, ExternalLink } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
+import { Radar, Search, ExternalLink, Package } from "lucide-react";
 
 import { listRules as listDetectionRules } from "@/xdr/detect/detectionRuleStore";
 import { listPatternRules }   from "@/xdr/detect/patternRuleStore";
-import lolbasPack             from "../../../docs/content/packs/lolbas.pack.json";
+import api                    from "@/lib/api";
 
 
 function StatCard({ label, value, testid, sub }) {
@@ -43,19 +44,50 @@ function StatCard({ label, value, testid, sub }) {
 
 export default function DetectionContentBody() {
   const [q, setQ] = useState("");
+  const [lolbasStatus, setLolbasStatus] = useState(null);
+  const [lolbasSample, setLolbasSample] = useState([]);
+  const [pcCounts, setPcCounts] = useState({ normal: 0, suspicious: 0,
+                                                                        abnormal: 0 });
 
   const rules    = useMemo(() => listDetectionRules(), []);
   const patterns = useMemo(() => listPatternRules(),   []);
-  const lolbins  = lolbasPack.binaries || [];
+
+  // Live LOLBAS metadata + sample from the authoritative API.  Never
+  // read from the retired 15-seed JSON.
+  useEffect(() => {
+    (async () => {
+      try {
+        const [s, e, p] = await Promise.all([
+          api.get("/api/xdr/lolbas/status"),
+          api.get("/api/xdr/lolbas/entries", { params: { limit: 50 }}),
+          api.get("/api/xdr/lolbas/primitives",
+                          { params: { kind: "lolbin.parent_child", limit: 5000 }}),
+        ]);
+        setLolbasStatus(s?.data?.data || null);
+        setLolbasSample(e?.data?.data?.entries || []);
+        const prims = p?.data?.data?.primitives || [];
+        setPcCounts({
+          normal:     prims.filter((x) => x.tier === "normal").length,
+          suspicious: prims.filter((x) => x.tier === "suspicious").length,
+          abnormal:   prims.filter((x) => x.tier === "abnormal").length,
+        });
+      } catch { /* honest empty state */ }
+    })();
+  }, []);
+
+  const lolbasCount = lolbasStatus?.entries_total ?? 0;
+  const lolbasCoverage = lolbasStatus?.active_version?.coverage_pct;
+  const lolbasVersion  = lolbasStatus?.active_version?.upstream_version;
+  const lolbasLicense  = lolbasStatus?.license;
 
   const attackTechniques = useMemo(() => {
     const s = new Set();
     for (const r of rules) (r.tags || []).filter((t) => /^T\d+/.test(t))
                                                           .forEach((t) => s.add(t));
     for (const p of patterns) (p.tags || []).forEach((t) => s.add(t));
-    for (const b of lolbins)  (b.attack || []).forEach((t) => s.add(t));
+    for (const b of lolbasSample) (b.mitre_ids || []).forEach((t) => s.add(t));
     return Array.from(s).sort();
-  }, [rules, patterns, lolbins]);
+  }, [rules, patterns, lolbasSample]);
 
   const filteredPatterns = useMemo(() => {
     const n = q.trim().toLowerCase();
@@ -67,11 +99,11 @@ export default function DetectionContentBody() {
 
   const filteredLolbins = useMemo(() => {
     const n = q.trim().toLowerCase();
-    if (!n) return lolbins;
-    return lolbins.filter((b) => `${b.binary} ${b.id}
-                                                  ${(b.attack || []).join(" ")}`.toLowerCase()
-                                                 .includes(n));
-  }, [lolbins, q]);
+    if (!n) return lolbasSample;
+    return lolbasSample.filter((b) => `${b.name} ${b.description}
+                                                    ${(b.mitre_ids || []).join(" ")}`.toLowerCase()
+                                                   .includes(n));
+  }, [lolbasSample, q]);
 
   return (
     <div data-testid="xdr-detection-content-body">
@@ -104,7 +136,10 @@ export default function DetectionContentBody() {
         <StatCard label="Pattern Rules" testid="content-stat-patterns"
                         value={patterns.length} sub="regex · glob · exact" />
         <StatCard label="LOLBAS Binaries" testid="content-stat-lolbas"
-                        value={lolbins.length} sub={lolbasPack.pack_id} />
+                        value={lolbasCount}
+                        sub={lolbasCoverage != null
+                          ? `${lolbasCoverage}% upstream coverage · live sync`
+                          : "sync pack in Content Pack · LOLBAS"} />
         <StatCard label="ATT&CK Techniques" testid="content-stat-mitre"
                         value={attackTechniques.length}
                         sub="union across rules/patterns/LOLBAS" />
@@ -160,52 +195,62 @@ export default function DetectionContentBody() {
         ))}
       </div>
 
-      {/* LOLBAS Content Pack */}
+      {/* LOLBAS · live from the 10-stage synchronization pipeline */}
       <div className="section-title" style={{ marginTop: 12, marginBottom: 6,
                                                             display: "flex", alignItems: "center", gap: 6 }}>
-        <Radar size={11} /> LOLBAS Content Pack ({filteredLolbins.length})
+        <Package size={11} /> LOLBAS · live pack ({lolbasCount} entries · sample: {filteredLolbins.length})
         <span className="mono" style={{ marginLeft: 6, fontSize: 10,
                                                         color: "var(--faint)" }}>
-          {lolbasPack.pack_id} · v{lolbasPack.version}
+          {lolbasVersion || "not-synced"}
         </span>
+        <span style={{ flex: 1 }} />
+        <NavLink to="/xdr/admin/content-pack-lolbas"
+                        className="btn ghost"
+                        data-testid="xdr-content-open-lolbas-pack"
+                        style={{ padding: "2px 8px", fontSize: 10 }}>
+          Manage full pack →
+        </NavLink>
       </div>
       <div className="mono" style={{ fontSize: 10, color: "var(--faint)",
                                                     marginBottom: 6 }}>
-        {lolbasPack.license}
+        {lolbasLicense || "license: not synced yet"} · parent-child relations:
+        {" "}<span style={{ color: "var(--mint)" }}>{pcCounts.normal} normal</span>
+        {" · "}<span style={{ color: "var(--amber)" }}>{pcCounts.suspicious} suspicious</span>
+        {" · "}<span style={{ color: "#f87171" }}>{pcCounts.abnormal} abnormal</span>
       </div>
       <div style={{ display: "grid",
                         gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
                         gap: 8 }}>
-        {filteredLolbins.map((b) => (
-          <div key={b.id} className="panel"
-                  data-testid={`xdr-lolbin-${b.id}`}
+        {filteredLolbins.slice(0, 24).map((b) => (
+          <div key={b.name} className="panel"
+                  data-testid={`xdr-lolbin-${b.name}`}
                   style={{ padding: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <b className="mono" style={{ fontSize: 11, color: "var(--cyan)" }}>
-                {b.binary}
+                {b.name}
               </b>
               <span style={{ flex: 1 }} />
               <span className="mono" style={{ fontSize: 9.5,
-                                                              color: "var(--amber)" }}>
-                {b.severity?.toUpperCase()} · {b.confidence?.toUpperCase()}
+                                                              color: b.enabled_for_tenant ? "var(--mint)" : "#f87171" }}>
+                {b.enabled_for_tenant ? "ENABLED" : "DISABLED"}
               </span>
             </div>
             <div style={{ fontSize: 10.5, color: "var(--text-dim)",
                               marginTop: 4 }}>
-              {b.legitimate_purpose}
+              {(b.description || "").slice(0, 120)}
+              {(b.description || "").length > 120 ? "…" : ""}
             </div>
-            {(b.suspicious_arguments || []).length > 0 && (
+            {(b.categories || []).length > 0 && (
               <div style={{ marginTop: 4, fontSize: 10,
                                 color: "var(--faint)",
                                 fontFamily: "var(--mono)" }}>
-                <b style={{ color: "var(--text-dim)" }}>suspicious args:</b>{" "}
-                {(b.suspicious_arguments || []).slice(0, 3).join(", ")}
-                {(b.suspicious_arguments || []).length > 3 ? "…" : ""}
+                <b style={{ color: "var(--text-dim)" }}>categories:</b>{" "}
+                {(b.categories || []).join(", ")}
               </div>
             )}
-            {(b.attack || []).length > 0 && (
+            {(b.mitre_ids || []).length > 0 && (
               <div style={{ marginTop: 4 }}>
-                {(b.attack || []).map((t) => (
+                {(b.mitre_ids || []).map((t) => (
                   <span key={t} className="mono"
                             style={{ padding: "1px 5px", marginRight: 4,
                                         border: "1px solid #f472b6",
@@ -218,6 +263,13 @@ export default function DetectionContentBody() {
             )}
           </div>
         ))}
+        {filteredLolbins.length > 24 && (
+          <div className="mono" style={{ padding: 10, fontSize: 11,
+                                                              color: "var(--faint)",
+                                                              alignSelf: "center" }}>
+            +{filteredLolbins.length - 24} more · use Content Pack · LOLBAS for full list
+          </div>
+        )}
       </div>
 
       {/* ATT&CK coverage */}
@@ -240,7 +292,7 @@ export default function DetectionContentBody() {
       <div style={{ marginTop: 12, fontSize: 10.5, color: "var(--faint)",
                        fontFamily: "var(--mono)" }}>
         source: <span style={{ color: "var(--cyan)" }}>
-          detectionRuleStore · patternRuleStore · docs/content/packs/lolbas.pack.json
+          detectionRuleStore · patternRuleStore · GET /api/xdr/lolbas/*
         </span>{" "}· deterministic evidence · never a verdict on its own.
       </div>
     </div>

