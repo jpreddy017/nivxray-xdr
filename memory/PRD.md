@@ -137,9 +137,12 @@ DRAFT → TESTING → VALIDATED → ENABLED → ACTIVE → TUNING → DISABLED /
 Test → Tune → Regression → Approve → Enable
 ```
 
-### Regression Gate — HARD gate before ACTIVE
+### Regression Gate — HARD gate before ACTIVE (**11-check**)
 
-All 10 checks MUST pass; any single failure blocks ACTIVE:
+All 11 checks MUST pass; any single failure blocks ACTIVE.  This is
+enforced **architecturally** — the `POST /rules/{id}/promote` endpoint
+computes every check and refuses transition on any failure.  Documentation
+alone is not sufficient.
 
 ```
 ✓ Schema valid
@@ -181,22 +184,49 @@ Not just an exclusion textbox.  Every rule tuning surface shows:
 `MONITOR → ALERT → SIMULATE → ENFORCE`
 Dangerous response: `DRY RUN → REQUIRE APPROVAL → AUTOMATIC`.
 
-### Order of implementation (locked)
+### Order of implementation (locked · owner-approved 2026-02-30)
 
-1. **Rule Studio scaffold** — unified `/xdr/rule-studio` shell with the
-   9 lane tabs + type-aware New Rule wizard; absorb Correlation authoring
-2. **Lifecycle + Regression Gate infra** — DRAFT/TESTING/…/DEPRECATED
-   states persisted; POST `/rules/{id}/promote` checks all 10 gates
-3. **Event/Log Source + Endpoint/EDR lanes** — dynamic condition builder
-   per lane (visual ↔ advanced DSL toggle)
-4. **IOC/TI + Network/IDS/IPS lanes**
-5. **DNS/Proxy + CVE/Exposure lanes** (CVE lane consumes the pillar
-   shipped 2026-02-30)
-6. **Correlation lane (in Rule Studio)** — retire `/xdr/admin/correlation-rules`
-7. **Behavior/Heuristic/Anomaly lane** — supporting evidence, deterministic-first
-8. **Content-based lane** — consumes Detection Registry (Sigma/YARA/Snort/Suricata)
-9. **Tuning Center** — FP dimensions · Why-fired / Why-not-fired explainers
-10. **Corpus expansion 8 → 50** wired to the Regression Gate
+```
+1. Rule Studio shell
+        ↓
+2. Rule lifecycle + 11-check Gate infrastructure
+        ↓
+3. Event + IOC + Endpoint + Network lanes
+        ↓
+4. DNS/Proxy + CVE/Exposure + Content lanes
+        ↓
+5. Correlation lane absorption
+   (retire /xdr/admin/correlation-rules — engine stays, UI absorbed)
+        ↓
+6. Behavior / Heuristic / Anomaly lane
+        ↓
+7. Tuning Center
+        ↓
+8. Corpus 8 → 50 → 100
+        ↓
+9. Large-scale real content acquisition
+```
+
+### Anti-fake-rule rule (architectural invariant)
+
+Rule Studio MUST NOT be artificially populated with fake rules to make
+the UI look complete.  What may appear immediately:
+* every existing real detection registered by the multi-source pipeline
+  (Sigma · Snort · Suricata · YARA · MITRE ATT&CK) — surfaced under the
+  correct lane
+* explicitly-marked `source: NivXRay-native` rules
+Everything else must come from actual upstream/licensed content going
+through the same 10-stage content pipeline and 11-check regression gate.
+
+### Enforcement discipline (architectural, not documentation)
+
+* Rule creation stamps the semantic separation on every persisted rule:
+  `emits: OBSERVATION`, `emits_verdict: false`, `verdict_capable: false`
+* Promotion endpoint refuses transition unless all 11 gate checks pass
+* Correlation lane persists into the same `xdr_detection_rules` collection
+  with `lane: correlation` so there is ONE authoritative rule store
+* Observations emitted by rule execution are stamped
+  `capability_not_verdict: true` and never write to the verdict store
 
 ---
 
