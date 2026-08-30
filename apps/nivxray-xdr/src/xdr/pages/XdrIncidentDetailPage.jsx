@@ -25,6 +25,8 @@ import { XdrDieChainPanel, XdrIeddeStagePanel,
   from "@/xdr/adopt/enginePanels";
 import XdrRecommendationsPanel from "@/xdr/intel/XdrRecommendationsPanel";
 import XdrCompletenessPanel   from "@/xdr/investigation/XdrCompletenessPanel";
+import ProcessTreePanel       from "@/xdr/investigation/ProcessTreePanel";
+import AttackChainPanel       from "@/xdr/investigation/AttackChainPanel";
 import { WorkspaceSelectionProvider }
   from "@/xdr/investigation/WorkspaceSelectionContext";
 
@@ -347,6 +349,18 @@ function InvestigationTab({ incident }) {
     <WorkspaceSelectionProvider incident={incident}>
     <div>
       <EvidenceFirstInvestigationWorkspace incident={incident} />
+
+      {/* ATT&CK Chain — ordered tactic → technique projection from
+             the same canonical evidence.  OBSERVED / SEQUENCED /
+             CORRELATED / INFERRED relationship badges preserve the
+             invariant: ATT&CK mapping ≠ verdict. */}
+      <AttackChainPanel incident={incident} />
+
+      {/* Process Tree — canonical process evidence from incident +
+             optional /api/edr/process-tree enrichment.  Badges are
+             OBSERVED / DETECTED / CORRELATED / SUSPICIOUS.  Process
+             behavior is NEVER a verdict. */}
+      <ProcessTreePanel incident={incident} />
 
       {/* Investigation Completeness — deterministic gap checker */}
       <XdrCompletenessPanel incident={incident} />

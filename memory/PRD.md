@@ -5,6 +5,92 @@
 
 ---
 
+## ✅ 2026-02-30 · Investigation · Process Tree + ATT&CK Chain first-class panels — SHIPPED
+
+**Owner directive (2026-02-30):** *"NivXRay XDR = NivXRay Tool + XDR
+Platform.  Do not create a separate XDR ATT&CK Chain implementation.
+Do not build a competing process tree.  Project the existing Tool
+capabilities into the XDR Investigation workspace using XDR-collected
+evidence.  Preserve evidence-to-node traceability.  Never fabricate."*
+
+**Delivered — two new first-class panels, zero new engines:**
+
+* **`ProcessTreePanel.jsx`** — mounted inside the Investigation tab
+  right below Evidence Trajectory.  Canonical Process Evidence
+  extracted from the SAME source Evidence Trajectory uses
+  (`verdict_stage2.evidence[]` + `incident.evidence[]`).  Optional
+  enrichment from `GET /api/edr/process-tree` treated as an adapter,
+  NEVER a competing tree.
+  * Expandable indented tree · process-details pane with tabs:
+    Overview · Command Line · Hash & Signer · Network · Detections ·
+    ATT&CK · Evidence.
+  * Search by pid / image / command / sha256.  "Only suspicious"
+    filter.
+  * **Behavioral analytics (MVP)** — 6 rare parent-child rules ship
+    at boot:  Office → script · Browser → unusual child · Service →
+    shell · Web server → shell · PowerShell → LOLBIN · LOLBIN →
+    network.  Every match emits an OBSERVATION badge (SUSPICIOUS),
+    NEVER a verdict.
+  * **Badges:** OBSERVED · DETECTED · CORRELATED · SUSPICIOUS.
+    Process behaviour is never coloured "malicious"; the Verdict
+    Engine remains authoritative.
+  * **Honest empty state:** unknown parents render as an "unknown
+    parent" root (Windows genealogy legitimately allows this).
+    Never fabricated.
+
+* **`AttackChainPanel.jsx`** — mounted between Evidence Trajectory and
+  Process Tree.  Ordered tactic → technique projection built from
+  the SAME evidence rows, mapped through the authoritative
+  `RULE_TO_TECHNIQUE` table.  Never derived from the verdict.
+  * FOUR relationship kinds surfaced per technique so the chain is
+    never a decorative attack story:
+    * `OBSERVED`     evidence directly supports the technique
+    * `SEQUENCED`    temporal ordering established from timestamps
+    * `CORRELATED`   participates in a correlation match (best-effort
+                     enrichment from `/api/xdr/correlation/matches`)
+    * `INFERRED`     analytical relationship, not directly observed
+      (deliberately never auto-marked from the client)
+  * Honest gaps preserved — missing tactics are listed explicitly
+    with a "not completed with inferred stages" note.
+
+**Selection sync — one investigation surface:**
+Both panels drive `setSelection({kind})` on click.  Existing panels
+that consume `useSelection()` (Evidence Trajectory highlight, IOC
+enrichment, technique markers) sync automatically.  Clicking a
+technique in ATT&CK Chain highlights the matching evidence + rule +
+process across the workspace.
+
+**Semantic contract preserved end-to-end:**
+```
+Rule → Observation → Correlation → Evidence Bundle →
+IKG → ICE → Verdict → Incident → Playbook / Policy
+
+Process ≠ malicious · LOLBIN ≠ malicious ·
+Detection ≠ verdict · IOC match ≠ compromise ·
+ATT&CK mapping ≠ verdict
+```
+
+**Verified live on `nivxray-xdr.vercel.app`:**
+* Both panels present on Investigation tab · zero page errors
+* Empty-state test case (`Phase1` incident with only 1 URL indicator)
+  renders honest "no process evidence" and "no ATT&CK-mapped
+  evidence" messages — never fabricates a tree/chain.
+* Bundle size: `XdrIncidentDetailPage` 131 KB → 154 KB
+  (Process Tree + ATT&CK Chain + selection wiring).
+
+**Deferred to next chunks (explicit backlog):**
+* Rule Studio · Visual Condition Builder wiring (AST + recursive UI
+  are authored in `src/xdr/rule-studio/`, still not wired into the
+  New-Rule wizard textarea).
+* "Integrations-style card grid" launcher for
+  Endpoint / Incident / Genealogy / Hunt modes of Process Tree.
+* Auto-assembled Investigation Report incorporating Process Tree +
+  ATT&CK Chain.
+* Process Genealogy & Behavioral Analytics **engine** (server-side
+  correlation of rare/abnormal chains feeding IKG → ICE).
+
+---
+
 ## ✅ 2026-02-30 · Investigation tab · KILL_CHAIN black-screen fix — SHIPPED
 
 **Symptom:** clicking *Investigation* on any incident produced a black
