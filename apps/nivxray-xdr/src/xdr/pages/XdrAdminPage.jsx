@@ -26,6 +26,8 @@ import EnginesBody from "@/xdr/admin/EnginesBody";
 import CorpusBody from "@/xdr/admin/CorpusBody";
 import CapabilityHubBody from "@/xdr/admin/CapabilityHubBody";
 import DetectionContentBody from "@/xdr/admin/DetectionContentBody";
+import AuditLogBody from "@/xdr/admin/AuditLogBody";
+import SecretsBody from "@/xdr/admin/SecretsBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
 
@@ -168,9 +170,9 @@ function AdminBody({ section }) {
       setState("populated");
       return;
     }
-    if (section.kind === "capability_hub" || section.kind === "detection_content") {
-      // Both surfaces are fully client-side, read-only projections of
-      // in-tree registries.  No network call.
+    if (section.kind === "capability_hub" || section.kind === "detection_content"
+         || section.kind === "audit_log" || section.kind === "secrets") {
+      // Fully client-side (audit_log/secrets fetch from base API on mount).
       setPayload(null);
       setState("populated");
       return;
@@ -289,6 +291,10 @@ function AdminBody({ section }) {
               ? <CapabilityHubBody />
               : section.kind === "detection_content"
               ? <DetectionContentBody />
+              : section.kind === "audit_log"
+              ? <AuditLogBody />
+              : section.kind === "secrets"
+              ? <SecretsBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}

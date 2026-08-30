@@ -1300,3 +1300,78 @@ and `/app/backend` untouched, 87-pass baseline unaffected.
 
 Boundary preserved: `/app/frontend` + `/app/backend` untouched,
 base `/api/health` = 200, collector 44/44 tests intact.
+
+---
+
+## 2026-02 Fork · P0 Enterprise Control Plane — Progress Log
+
+### P0-1 Audit Log · SHIPPED (previous session)
+- MongoDB `xdr_audit_log`, per-tenant HMAC chain (genesis → sig).
+- Router `POST /api/xdr/audit-log/emit`, GET list/filter/get-by-id,
+  `GET /verify/chain` returns `valid` or `chain_broken` with reason.
+- Sync `pymongo` used specifically to avoid TestClient event-loop
+  mismatches (motor was rejected as a testing gate blocker).
+- Tests: 5/5 pytest passing.  Admin UI: `AuditLogBody.jsx`.
+- **Ruff lint blocker resolved this session**: removed leftover
+  `_run_async` helper referencing undefined `asyncio`.
+
+### P0-2 Secrets Store · SHIPPED (this session, 2026-02-30)
+- **Backend** (`routers/xdr_secrets.py`):
+  - MongoDB `xdr_secrets`, envelope encryption:
+    `MASTER → HKDF-SHA256(tenant_id) → Fernet(DEK) → ciphertext`.
+  - Tenant isolation on every read/write.
+  - Masked reads only (`preview` = last-4).  Ciphertext + previous
+    versions never leave the DB in list/get responses.
+  - Explicit reveal: `POST /{id}/reveal` requires
+    `X-Secret-Reveal: yes` header AND emits `SECRET_REVEALED` to
+    Audit Log with reveal reason.
+  - Rotation: `POST /{id}/rotate` bumps `version`, preserves last 3
+    ciphertexts under `previous_versions`.
+  - `resolve_secret(tenant, name)` server-internal accessor for
+    OSINT/webhook backends (no reveal audit; caller emits domain
+    audit).
+  - Kinds: api_key, bearer_token, oauth_client_secret, hmac_secret,
+    password, generic.
+- **Audit integration**: Every mutation writes SECRET_CREATED /
+  SECRET_UPDATED / SECRET_ROTATED / SECRET_REVEALED / SECRET_DELETED.
+  E2E smoke: audit chain remains `valid` across full CRUD cycle.
+- **Tests** (`tests/test_xdr_secrets.py`): 11/11 passing.  Covers
+  create-and-masked-readback, duplicate rejection, tenant isolation,
+  rotate-bumps-version-and-preview, reveal-requires-header + emits
+  audit, disabled-refuses-reveal, ciphertext-tamper-detected (Fernet
+  AEAD 422), delete-and-audit, list filters, audit-chain-still-valid
+  after full cycle, internal `resolve_secret` helper.
+- **Admin UI** (`src/xdr/admin/SecretsBody.jsx`): Add / Rotate /
+  Reveal (with reason field + audit banner) / Enable-Disable /
+  Delete.  Every mutation surfaces the returned `audit_ref`.
+  Deployed to Vercel via `git push` to `jpreddy017/nivxray-xdr`
+  commit `b2be30d`.
+- **E2E smoke** against external preview URL: Create → List (masked)
+  → Rotate (v1→v2) → Reveal (plaintext + audit_ref) → chain valid →
+  Delete.  All flows returned audit_refs.
+- **XDR_SECRETS_MASTER** env var accepted (Fernet key or passphrase
+  auto-stretched via HKDF).  Dev fallback is deterministic-but-
+  loudly-labeled "do-not-use-in-prod".
+
+### Next in queue (per user directive · 2026-02-30)
+Execution order confirmed by user:
+1. ✅ P0-2 Secrets Store
+2. ⏭ **Phase A · 100% LOLBAS upstream sync** (no hard-coded 242;
+    compute upstream/imported/valid/missing/coverage at sync time;
+    every entry → detection primitive with provenance/license).
+3. ⏭ Phase B · GTFOBins + LOLDrivers + LOTL
+4. ⏭ Phase D/E · Detection content + rule engine
+    (Sigma, Windows, PowerShell, LOLBIN, parent/child, network,
+    identity/AD, cloud, email, regex, IOC, behavioral, sequence,
+    correlation, MITRE mapping)
+5. ⏭ Phase C · OSINT/TI provider adapter framework
+    (secrets from P0-2)
+6. ⏭ P0-3 Users/RBAC · P0-4 API Keys · P0-5 Webhooks ·
+    P0-6 Extensions · P0-7 Data Sources · P0-8 Collectors
+7. ⏭ Phase F-L hardening / completeness gates
+8. ⏭ Vendor adapters (CrowdStrike, SentinelOne, Defender XDR)
+9. ⏭ d3-force Investigation Canvas layout
+
+**Non-negotiable "CONNECTED" bar**: UI + API + persistence +
+authorization + audit + real backend behavior + tests.  A UI page
+alone is NOT a capability.

@@ -13,7 +13,7 @@
 import {
   LayoutGrid, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, ArrowRightLeft, Users, Webhook, HeartPulse,
-  Boxes, FolderTree, Radar, PlusCircle,
+  Boxes, FolderTree, Radar, PlusCircle, ShieldCheck, KeyRound,
 } from "lucide-react";
 
 export const ADMIN_SECTIONS = [
@@ -21,6 +21,16 @@ export const ADMIN_SECTIONS = [
     key: "overview", label: "Overview", icon: LayoutGrid,
     subtitle: "Aggregate admin KPIs · deterministic counts from authoritative surfaces.",
     api: "/admin/stats", kind: "kv",
+  },
+  {
+    key: "audit-log", label: "Audit Log", icon: ShieldCheck,
+    subtitle: "Append-only tamper-evident audit trail · HMAC-signed chain · tenant-scoped · every enterprise write must emit here.",
+    api: null, kind: "audit_log", connected: true,
+  },
+  {
+    key: "secrets", label: "Secrets Store", icon: KeyRound,
+    subtitle: "Server-side encrypted secrets · per-tenant DEK · masked reads · explicit reveal · every mutation audit-logged.",
+    api: null, kind: "secrets", connected: true,
   },
   {
     key: "capability-hub", label: "Capability Hub", icon: PlusCircle,
