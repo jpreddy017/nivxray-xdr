@@ -7,6 +7,123 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-10 · P0 Investigator Workspace foundations (SHIPPED)
+
+Per the owner directive ("finish scope"), executed the P0 items:
+
+### 1 · WorkspaceSelectionContext (one selection bus)
+`src/xdr/investigation/WorkspaceSelectionContext.jsx` — a global
+selection provider hosting `{ kind, ref, source, at, meta? }` with
+kinds ∈ {process · ioc · host · user · evidence · technique · rule ·
+response · playbook}.  Exposes `setSelection`, `useSelection`, and
+per-kind facets (`processId`, `iocRef`, `technique`, …).  Wraps the
+Investigation surface on `XdrIncidentDetailPage`; every existing +
+new panel can subscribe.  Never fabricates: `useSelectionOf(kind)`
+returns `null` when the current selection is a different kind.
+
+### 2 · Investigation Completeness (deterministic gap checker)
+`src/xdr/investigation/completeness.js` — deterministic scorer over
+15 facets (identity · endpoint · process · file · network · dns ·
+persistence · threat_intel · mitre · lateral_movement · blast_radius ·
+response · evidence · root_cause · user_validation).  Score =
+`(present + 0.5·partial) / total`.  `XdrCompletenessPanel` renders
+per-facet OK / PARTIAL / MISSING with source attribution and blocks
+"Investigation Complete" until score = 1.0.  Never guesses.
+
+### 3 · Rule Tuning Workbench · `/xdr/detect/tuning/:ruleId`
+`src/xdr/pages/XdrRuleTuningPage.jsx` — evidence-backed workbench
+that consumes the base primitives (which already exist):
+- `/api/regression/latest`, `/api/regression/run`, `/api/regression/gate`
+- `/api/batch/test/json`
+- `/api/corrections/analytics`
+- `/api/corpus/validate/json`
+Every metric card is honest: if the base returns nothing, the card
+renders **INSUFFICIENT TELEMETRY FOR METRIC**.  Replay controls: Last
+24h · Last 7d · Golden Corpus.  Pivot from the Detection Rule editor
+via "Open Rule Tuning Workbench" link.
+
+### 4 · Investigation Corpus (8 categories · scenario schema)
+`src/xdr/corpus/scenarioRegistry.js` + `docs/corpus/scenarios/**/*.json`.
+One seed scenario per required category:
+- SCN-2026-BEN-001 · IT admin PowerShell inventory
+- SCN-2026-MAL-001 · Encoded PowerShell → C2 → persistence
+- SCN-2026-FP-001  · Vulnerability scanner triggers encoded-PS rule
+- SCN-2026-AMB-001 · PsExec used by IT — cannot yet distinguish
+- SCN-2026-INC-001 · Detection fires but process metadata missing
+- SCN-2026-CON-001 · TI marks domain malicious, DNS shows CDN
+- SCN-2026-UNK-001 · First-seen binary from low-signal source
+- SCN-2026-MS-001  · Phishing → OAuth theft → lateral movement → staging
+
+Each scenario exercises the FULL loop: raw events → normalized
+evidence → expected entities/correlations/rules/MITRE → attack story
+→ verdict → severity → recommendations → playbook → response outcome
+→ report sections.  Corpus admin page (`/xdr/admin/corpus`) renders
+category coverage, search + filter, and per-scenario validation.
+
+### 5 · Anti-hallucination CI gate extended
+`tests/adoption/test_capability_registry_matches_base.mjs` now ALSO
+verifies:
+- **8 corpus categories** each have ≥1 scenario (else CI fail)
+- Every scenario is valid JSON with matching id + category
+
+Result: **9/9 engines · 46/46 registry rows · 8/8 corpus categories**.
+
+### 6 · Wired into Investigation surface
+`XdrIncidentDetailPage` Investigation tab now hosts, in order:
+1. Evidence-First Canvas (with sync bus available for future extension)
+2. Investigation Completeness (new)
+3. Verdict Stage-2 (authoritative)
+4. Recommended Next Steps (deterministic composer)
+5. Investigation Report (authoritative)
+6. DIE / IEDDE / IUE / UAIE panels
+Everything wrapped in `WorkspaceSelectionProvider`.
+
+### Verification
+- Response Engine pytest **27/27**
+- Base backend evidence pytest **10/10**
+- Collector pytest **44/44**
+- Anti-hallucination + corpus-coverage gate green
+- `yarn build` clean · new lazy chunks (`XdrRuleTuningPage`,
+  `XdrAdminPage` grew to 72kB with `CorpusBody` + `EnginesBody`)
+- Local Vite dev server verified: Admin › Corpus renders 8/8
+  categories covered with 8 scenarios listed and validated live.
+
+### Owner-locked invariants held
+- Base `/app/backend` still authoritative and unmodified.
+- Consumes existing base engines/APIs (regression, batch-test,
+  corrections, corpus_validate, mitigations); zero duplication of
+  SSOT / IKG / Verdict / Regression / Response engines.
+- No fake telemetry.  Metrics either come from real base data or
+  render `INSUFFICIENT TELEMETRY FOR METRIC` / `MISSING`.
+- Deterministic-first, AI-optional preserved (composer + corpus + gap
+  checker are pure logic; no ML in the loop).
+
+### ⚠️ Deployment gap (unchanged)
+All work is in `/app/apps/nivxray-xdr` (local mirror).  To surface on
+`https://nivxray-xdr.vercel.app`, the user must press **Save to
+GitHub** — Vercel auto-deploys on push to
+`jpreddy017/nivxray-xdr` main.  Emergent cannot push git on the
+user's behalf.
+
+### Still to build (per capability-gap audit)
+- **Playbook Tuning Workbench** (`/xdr/respond/tuning/:playbookId`) —
+  needs a new Response Engine analytics endpoint (EXTEND).
+- **Recommendation Tuning Workbench** (`/xdr/investigate/tuning/recommendations`)
+  — explainability + suppression + A/B compare.
+- **Extend selection sync** — DIE/IEDDE/IUE/UAIE + Recommendations
+  panels currently receive `incident` only; wire them to
+  `useSelection()` so a canvas click updates every panel.
+- **XdrReplayEngine** — compose regression + batch-test + local
+  recommender + playbook simulator into `{ before, after, delta }`.
+- **Corpus expansion** — more scenarios per category (target ≥5/cat
+  before ML enters the loop).
+- **Investigation Report auto-generation** across all 22 report
+  sections listed in the malicious/multi-stage scenarios.
+
+
+---
+
+
 ## ⚠️ 2026-02-10 · Deployment gap explained
 
 Every UI change in this session lives in `/app/apps/nivxray-xdr` (local

@@ -125,7 +125,40 @@ if (!isPresent("backend/services/ice/correlate.py")) {
   failures += 1;
 } else log("✅", "ICE present");
 
-// ── 4. Result ──────────────────────────────────────────────────
+// ── 4. Investigation Corpus — 8 categories MUST all be represented ─
+log("▶", "Investigation Corpus: 8 categories must all have ≥1 scenario…");
+const REQUIRED_CATEGORIES = ["benign", "malicious", "false_positive",
+                                                        "ambiguous", "incomplete", "conflicting",
+                                                        "unknown", "multi_stage"];
+const corpusRoot = path.join(REPO_ROOT, "docs/corpus/scenarios");
+for (const cat of REQUIRED_CATEGORIES) {
+  const dir = path.join(corpusRoot, cat);
+  let scenarios = [];
+  try {
+    scenarios = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  } catch { /* dir missing */ }
+  if (scenarios.length === 0) {
+    log("❌", `corpus category "${cat}" is EMPTY`);
+    failures += 1;
+  } else {
+    log("✅", `corpus category "${cat}" · ${scenarios.length} scenario(s)`);
+    // Every scenario JSON must parse and carry an id + matching category.
+    for (const f of scenarios) {
+      try {
+        const s = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+        if (!s.id || s.category !== cat) {
+          log("❌", `scenario ${f} has wrong id/category`);
+          failures += 1;
+        }
+      } catch (e) {
+        log("❌", `scenario ${f} is not valid JSON: ${e.message}`);
+        failures += 1;
+      }
+    }
+  }
+}
+
+// ── 5. Result ──────────────────────────────────────────────────
 if (failures > 0) {
   log("💥", `${failures} failure(s) — anti-hallucination gate BROKEN`);
   process.exit(1);

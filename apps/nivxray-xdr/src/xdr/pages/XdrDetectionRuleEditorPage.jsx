@@ -133,6 +133,20 @@ export default function XdrDetectionRuleEditorPage() {
         {rule.description || "(no description)"}
       </div>
 
+      {/* Rule Tuning Workbench pivot */}
+      <div style={{ marginTop: 8 }}>
+        <Link to={`/xdr/detect/tuning/${encodeURIComponent(rule.id)}`}
+                className="btn ghost"
+                data-testid="xdr-rule-open-tuning"
+                style={{ padding: "3px 10px", fontSize: 11 }}>
+          → Open Rule Tuning Workbench
+        </Link>
+        <span className="mono" style={{ marginLeft: 8, fontSize: 10,
+                                                        color: "var(--faint)" }}>
+          evidence-backed metrics · replay · golden-corpus gate · consumes /api/regression/*
+        </span>
+      </div>
+
       {/* Runtime honesty */}
       <div data-testid="xdr-rule-runtime-banner"
               style={{ marginTop: 10, padding: 8,

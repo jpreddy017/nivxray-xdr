@@ -23,6 +23,9 @@ import { XdrDieChainPanel, XdrIeddeStagePanel,
   XdrIueTimelinePanel, XdrUaieCatalogPanel }
   from "@/xdr/adopt/enginePanels";
 import XdrRecommendationsPanel from "@/xdr/intel/XdrRecommendationsPanel";
+import XdrCompletenessPanel   from "@/xdr/investigation/XdrCompletenessPanel";
+import { WorkspaceSelectionProvider }
+  from "@/xdr/investigation/WorkspaceSelectionContext";
 
 import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
 import { useAuth } from "@/lib/auth";
@@ -340,8 +343,12 @@ function InvestigationTab({ incident }) {
   const caps = buildCaps(incident);
   const cap  = caps[sub];
   return (
+    <WorkspaceSelectionProvider incident={incident}>
     <div>
       <EvidenceFirstInvestigationWorkspace incident={incident} />
+
+      {/* Investigation Completeness — deterministic gap checker */}
+      <XdrCompletenessPanel incident={incident} />
 
       {/* Authoritative Verdict Stage-2 (consumed from base) */}
       <XdrVerdictPanel incident={incident} />
@@ -388,6 +395,7 @@ function InvestigationTab({ incident }) {
         <SubtabBody sub={sub} cap={cap} />
       </div>
     </div>
+    </WorkspaceSelectionProvider>
   );
 }
 

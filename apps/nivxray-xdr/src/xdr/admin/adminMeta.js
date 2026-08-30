@@ -13,7 +13,7 @@
 import {
   LayoutGrid, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, ArrowRightLeft, Users, Webhook, HeartPulse,
-  Boxes,
+  Boxes, FolderTree,
 } from "lucide-react";
 
 export const ADMIN_SECTIONS = [
@@ -26,6 +26,11 @@ export const ADMIN_SECTIONS = [
     key: "engines", label: "Engines", icon: Boxes,
     subtitle: "Inventory of every NivXRay engine XDR consumes · adopt-before-invent registry + architecture diagram.",
     api: null, kind: "engines", connected: true,
+  },
+  {
+    key: "corpus", label: "Investigation Corpus", icon: FolderTree,
+    subtitle: "Eight-category scenario corpus · every scenario exercises evidence → correlation → verdict → severity → recommendation → playbook → report.",
+    api: null, kind: "corpus", connected: true,
   },
   {
     key: "integrations", label: "Integrations", icon: Plug,

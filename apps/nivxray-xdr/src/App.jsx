@@ -28,6 +28,7 @@ const XdrApprovalsPage        = lazy(() => import("@/xdr/pages/XdrApprovalsPage"
 const XdrEvidenceRefPage      = lazy(() => import("@/xdr/pages/XdrEvidenceRefPage"));
 const XdrDetectionsPage       = lazy(() => import("@/xdr/pages/XdrDetectionsPage"));
 const XdrDetectionRuleEditor  = lazy(() => import("@/xdr/pages/XdrDetectionRuleEditorPage"));
+const XdrRuleTuningPage       = lazy(() => import("@/xdr/pages/XdrRuleTuningPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -113,6 +114,7 @@ export default function App() {
         <Route path="/xdr/evidence/:executionId"       element={<Protected><XdrEvidenceRefPage /></Protected>} />
         <Route path="/xdr/detections"          element={<Protected><XdrDetectionsPage /></Protected>} />
         <Route path="/xdr/detections/:id"      element={<Protected><XdrDetectionRuleEditor /></Protected>} />
+        <Route path="/xdr/detect/tuning/:ruleId" element={<Protected><XdrRuleTuningPage /></Protected>} />
         <Route path="/xdr/intelligence/kb"      element={<Protected><XdrReservedPage capability="kb" /></Protected>} />
 
         {/* Slice 10 · Native XDR Admin Console.  All 14 admin

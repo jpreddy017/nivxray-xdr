@@ -23,6 +23,7 @@ import XdrShell from "@/xdr/XdrShell";
 import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
 import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
 import EnginesBody from "@/xdr/admin/EnginesBody";
+import CorpusBody from "@/xdr/admin/CorpusBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
 
@@ -158,6 +159,13 @@ function AdminBody({ section }) {
       setState("populated");
       return;
     }
+    if (section.kind === "corpus") {
+      // Corpus panel reads exclusively from the in-tree scenario
+      // registry.  No network call required.
+      setPayload(null);
+      setState("populated");
+      return;
+    }
     if (!section.api) {
       setState(section.connected === false ? "not_connected" : "not_available");
       return;
@@ -266,6 +274,8 @@ function AdminBody({ section }) {
               ? <IntegrationsBody />
               : section.kind === "engines"
               ? <EnginesBody />
+              : section.kind === "corpus"
+              ? <CorpusBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}
