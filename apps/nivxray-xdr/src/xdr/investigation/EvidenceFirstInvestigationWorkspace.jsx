@@ -107,13 +107,15 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
 
   return (
     <div data-testid="xdr-investigation-workspace"
-            style={{ display: "grid", gridTemplateColumns: "1fr 340px",
-                        gap: 12, height: 640 }}>
+            style={{ display: "grid",
+                        gridTemplateColumns: "1fr 340px",
+                        gridTemplateRows: "1fr auto",
+                        gap: 12, height: 720 }}>
       {/* Canvas */}
       <section className="panel"
                   style={{ position: "relative", overflow: "hidden",
                               background: "linear-gradient(160deg, #0a0d14 0%, #0e131c 100%)",
-                              borderRadius: 6 }}
+                              borderRadius: 6, gridRow: 1 }}
                   data-testid="xdr-investigation-canvas"
                   onMouseDown={onCanvasMouseDown}
                   onMouseMove={onCanvasMouseMove}
@@ -162,7 +164,8 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
       </section>
 
       {/* Right-side stack: Inspector on top, Attack Story below */}
-      <aside style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }}>
+      <aside style={{ display: "flex", flexDirection: "column", gap: 10,
+                          overflow: "hidden", gridRow: 1 }}>
         <EntityInspector
           node={selectedNode} incident={incident}
           onPivotHighlight={setHighlight}
@@ -170,10 +173,23 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
         />
         <AttackStoryPanel
           incident={incident}
+          selectedNodeId={selected}
           onHighlightTechnique={(t) => setHighlight({ technique_id: t })}
           onHighlightEvidence={(rid) => setHighlight({ rule_id: rid })}
+          onFocusNode={(nid) => setSelected(nid)}
         />
       </aside>
+
+      {/* Synchronized Timeline strip — one investigation surface */}
+      <div style={{ gridColumn: "1 / 3", gridRow: 2 }}>
+        <SynchronizedTimeline
+          incident={incident} nodes={nodes}
+          selectedId={selected}
+          highlight={highlight}
+          onSelect={setSelected}
+          onHighlight={setHighlight}
+        />
+      </div>
 
       {/* Pivot context menu */}
       {pivot && (
@@ -452,6 +468,16 @@ function EntityInspector({ node, incident, onPivotHighlight, onOpenPivot }) {
             <Row k="Timeline Ref"  v={raw.timeline_ref} mono copy />
             <Row k="Invoker"       v={raw.invoker?.id || raw.invoker?.kind} />
             <Row k="Approved by"   v={raw.approval?.approved_by} />
+            {raw.execution_id && (
+              <div style={{ marginTop: 8 }}>
+                <a href={`/xdr/evidence/${encodeURIComponent(raw.execution_id)}`}
+                      target="_blank" rel="noreferrer"
+                      style={{ color: "var(--cyan)", fontSize: 10.5 }}
+                      data-testid="xdr-inspector-response-deeplink">
+                  Open full response chain <ExternalLink size={10} />
+                </a>
+              </div>
+            )}
           </>
         )}
         {node.type === "host" && (
@@ -517,7 +543,9 @@ function EntityInspector({ node, incident, onPivotHighlight, onOpenPivot }) {
 
 
 /* ───────────────────────────── attack story ──────────────────────── */
-function AttackStoryPanel({ incident, onHighlightTechnique, onHighlightEvidence }) {
+function AttackStoryPanel({ incident, selectedNodeId,
+                                    onHighlightTechnique, onHighlightEvidence,
+                                    onFocusNode }) {
   const sentences = useMemo(() => buildAttackStory(incident), [incident]);
   return (
     <div className="panel" data-testid="xdr-attack-story"
@@ -531,28 +559,42 @@ function AttackStoryPanel({ incident, onHighlightTechnique, onHighlightEvidence 
           incident carries Stage-2 evidence.
         </div>
       )}
-      {sentences.map((s, i) => (
-        <div key={i} style={{ fontSize: 11.5, color: "var(--text-dim)",
-                                    padding: "5px 0",
-                                    borderBottom: "1px solid var(--border)",
-                                    cursor: "pointer" }}
-                onClick={() => {
-                  if (s.technique) onHighlightTechnique(s.technique);
-                  else if (s.rule_id) onHighlightEvidence(s.rule_id);
-                }}
-                data-testid={`xdr-attack-story-sentence-${i}`}>
-          <span className="mono" style={{ color: "var(--faint)", fontSize: 10 }}>
-            {String(i + 1).padStart(2, "0")}.
-          </span>{" "}
-          {s.text}
-          {s.technique && (
-            <span className="mono"
-                     style={{ marginLeft: 4, color: "#f472b6", fontSize: 9.5 }}>
-              [{s.technique}]
-            </span>
-          )}
-        </div>
-      ))}
+      {sentences.map((s, i) => {
+        const isSelected = selectedNodeId
+          && ((s.rule_id && selectedNodeId === `evid:${s.rule_id}`) ||
+                (s.technique && selectedNodeId === `tech:${s.technique}`) ||
+                (s.response && selectedNodeId === `resp:${s.response}`));
+        return (
+          <div key={i}
+                  style={{ fontSize: 11.5,
+                              color: isSelected ? "var(--text)" : "var(--text-dim)",
+                              padding: "5px 6px",
+                              borderLeft: isSelected ? "2px solid var(--purple)"
+                                                                : "2px solid transparent",
+                              background: isSelected ? "rgba(155,123,240,.06)" : "transparent",
+                              borderBottom: "1px solid var(--border)",
+                              cursor: "pointer" }}
+                  onClick={() => {
+                    if (s.response) onFocusNode(`resp:${s.response}`);
+                    else if (s.rule_id) { onFocusNode(`evid:${s.rule_id}`);
+                                                   onHighlightEvidence(s.rule_id); }
+                    else if (s.technique) { onFocusNode(`tech:${s.technique}`);
+                                                     onHighlightTechnique(s.technique); }
+                  }}
+                  data-testid={`xdr-attack-story-sentence-${i}`}>
+            <span className="mono" style={{ color: "var(--faint)", fontSize: 10 }}>
+              {String(i + 1).padStart(2, "0")}.
+            </span>{" "}
+            {s.text}
+            {s.technique && (
+              <span className="mono"
+                       style={{ marginLeft: 4, color: "#f472b6", fontSize: 9.5 }}>
+                [{s.technique}]
+              </span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -582,6 +624,161 @@ function buildAttackStory(incident) {
     });
   }
   return out;
+}
+
+
+/* ───────────────────────────── synchronized timeline ────────────── */
+/**
+ * Timeline strip below the canvas that stays in lockstep with every
+ * other panel.  Selecting a marker updates the canvas + inspector;
+ * highlighting a technique dims non-related markers; selecting a
+ * canvas node scrolls the corresponding marker into view.
+ *
+ * Markers are minted strictly from real data — evidence timestamps,
+ * response `completed_at`, and the incident opened-at.  No decorative
+ * beats.
+ */
+function SynchronizedTimeline({ incident, nodes, selectedId, highlight,
+                                          onSelect, onHighlight }) {
+  const markers = useMemo(() => buildMarkers(incident), [incident]);
+  const scrollerRef = useRef(null);
+  useEffect(() => {
+    if (!selectedId || !scrollerRef.current) return;
+    const el = scrollerRef.current.querySelector(
+      `[data-marker-node="${selectedId}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [selectedId]);
+
+  if (markers.length === 0) return null;
+
+  return (
+    <div className="panel" data-testid="xdr-timeline-strip"
+            style={{ padding: "8px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center",
+                        marginBottom: 6, gap: 8 }}>
+        <span className="section-title">Timeline</span>
+        <span className="mono" style={{ fontSize: 10, color: "var(--faint)" }}>
+          {markers.length} events · {markers[0].label_short} → {markers[markers.length - 1].label_short}
+        </span>
+      </div>
+      <div ref={scrollerRef}
+              style={{ display: "flex", alignItems: "flex-end", gap: 4,
+                          overflowX: "auto", padding: "8px 4px 4px" }}>
+        {markers.map((m, i) => {
+          const isSel = selectedId === m.node_id;
+          const dim   = highlight && !_markerMatches(m, highlight);
+          const meta  = NODE_TYPE[m.type] || NODE_TYPE.evidence;
+          return (
+            <div key={i}
+                    data-marker-node={m.node_id}
+                    data-testid={`xdr-timeline-marker-${i}`}
+                    onClick={() => onSelect(m.node_id)}
+                    onMouseEnter={() => onHighlight(
+                      m.type === "technique" ? { technique_id: m.technique_id }
+                        : m.type === "evidence" && m.rule_id ? { rule_id: m.rule_id }
+                        : null)}
+                    onMouseLeave={() => onHighlight(null)}
+                    style={{ cursor: "pointer", flex: "0 0 auto",
+                                display: "flex", flexDirection: "column",
+                                alignItems: "center",
+                                opacity: dim ? 0.3 : 1,
+                                minWidth: 90, padding: 4,
+                                borderTop: isSel ? `2px solid ${meta.color}` : "2px solid transparent",
+                                background: isSel ? _hexA(meta.color, 0.08) : "transparent",
+                                transition: "opacity 200ms ease" }}>
+              <div style={{ height: 24, display: "flex", alignItems: "flex-end" }}>
+                <div style={{ width: 3, height: (m.weight || 0.5) * 24 + 4,
+                                  background: meta.color, borderRadius: 1,
+                                  boxShadow: isSel
+                                                ? `0 0 6px ${_hexA(meta.color, 0.9)}`
+                                                : "none" }} />
+              </div>
+              <div className="mono"
+                      style={{ fontSize: 9, color: meta.color,
+                                  fontWeight: 700, letterSpacing: ".3px",
+                                  marginTop: 3 }}>
+                {meta.label}
+              </div>
+              <div className="mono"
+                      style={{ fontSize: 9.5, color: "var(--text-dim)",
+                                  marginTop: 1, whiteSpace: "nowrap",
+                                  maxWidth: 90, overflow: "hidden",
+                                  textOverflow: "ellipsis" }}>
+                {m.title}
+              </div>
+              <div className="mono"
+                      style={{ fontSize: 9, color: "var(--faint)",
+                                  marginTop: 1 }}>
+                {m.label_short}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function buildMarkers(incident) {
+  const rows = [];
+  if (!incident) return rows;
+
+  const pushMarker = (m) => {
+    if (!m.at) return;
+    const t = new Date(m.at).getTime();
+    if (Number.isNaN(t)) return;
+    rows.push({ ...m, ts: t });
+  };
+
+  pushMarker({
+    at: incident.created_at || incident.opened_at,
+    type: "incident", title: incident.name || "Incident opened",
+    node_id: `inc:${incident.id}`, weight: 0.75,
+  });
+
+  const evs = incident.verdict_stage2?.evidence || incident.evidence || [];
+  evs.slice(0, 40).forEach((ev, i) => {
+    const rid  = String(ev.rule_id || "").toUpperCase();
+    const tech = ev.technique_id || RULE_TO_TECHNIQUE[rid];
+    pushMarker({
+      at: ev.timestamp || ev.at,
+      type: "evidence", title: ev.rule_id || `evidence ${i + 1}`,
+      node_id: `evid:${ev.rule_id || ev.id || i}`,
+      rule_id: ev.rule_id, technique_id: tech,
+      weight: Math.min(1, (ev.weight || 30) / 60),
+    });
+  });
+
+  const rs = incident.response_executions || incident.responses || [];
+  rs.slice(0, 20).forEach((r, i) => {
+    pushMarker({
+      at: r.completed_at || r.started_at,
+      type: "response", title: r.action_id || `response ${i + 1}`,
+      node_id: `resp:${r.execution_id || i}`,
+      weight: r.state === "SUCCEEDED" ? 0.9 : 0.6,
+    });
+  });
+
+  rows.sort((a, b) => a.ts - b.ts);
+  for (const r of rows) r.label_short = _shortTime(r.at);
+  return rows;
+}
+
+function _shortTime(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toISOString().slice(11, 19) + "Z";
+  } catch { return String(iso || "").slice(11, 19); }
+}
+function _markerMatches(m, h) {
+  if (!h) return true;
+  if (h.technique_id) {
+    return m.technique_id === h.technique_id || m.type === "incident";
+  }
+  if (h.rule_id) {
+    return m.rule_id === h.rule_id || m.type === "incident";
+  }
+  return true;
 }
 
 
@@ -666,8 +863,12 @@ function buildPivotItems(node, incident) {
                     action: () => open(`/xdr/incidents?technique=${encodeURIComponent(node.title)}`) });
   }
   if (node.type === "response") {
-    base.push({ key: "resp-detail",  label: `Open execution ${_short(raw.execution_id || "", 12)}`,
-                    action: () => copy(raw.execution_id) });
+    base.push({ key: "resp-detail",  label: `Open response chain (${_short(raw.execution_id || "", 12)})`,
+                    action: () => open(`/xdr/evidence/${encodeURIComponent(raw.execution_id || "")}`) });
+    if (raw.evidence_ref) {
+      base.push({ key: "resp-evidence-copy", label: "Copy evidence_ref",
+                      action: () => copy(raw.evidence_ref) });
+    }
   }
 
   base.push({ divider: true });

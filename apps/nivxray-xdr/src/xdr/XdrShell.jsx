@@ -21,7 +21,7 @@ import {
   Radar, Globe, Bug, Grid3x3, BookOpen, Terminal,
   Boxes, ShieldOff, Route, KeyRound, Layers,
   Database, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
-  Filter, Shuffle, Zap, Users, Webhook, HeartPulse,
+  Filter, Shuffle, Zap, Users, Webhook, HeartPulse, CheckSquare,
   ExternalLink, Bell, HelpCircle, Lock,
 } from "lucide-react";
 
@@ -101,6 +101,9 @@ const SIDEBAR = [
       { key: "automation-rules", label: "Automation Rules", icon: ArrowRightLeft,
         to: "/xdr/respond/automation-rules",
         title: "WHEN → THEN rules that invoke playbooks · design-only until Response Engine is wired" },
+      { key: "approvals", label: "Approvals Queue", icon: CheckSquare,
+        to: "/xdr/respond/approvals",
+        title: "Peer-approval queue for pending Response Engine executions" },
     ],
   },
   {

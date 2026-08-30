@@ -24,6 +24,8 @@ const XdrPlaybooksPage        = lazy(() => import("@/xdr/pages/XdrPlaybooksPage"
 const XdrPlaybookDesigner     = lazy(() => import("@/xdr/pages/XdrPlaybookDesignerPage"));
 const XdrAutomationRulesPage  = lazy(() => import("@/xdr/pages/XdrAutomationRulesPage"));
 const XdrAutomationRuleEditor = lazy(() => import("@/xdr/pages/XdrAutomationRuleEditorPage"));
+const XdrApprovalsPage        = lazy(() => import("@/xdr/pages/XdrApprovalsPage"));
+const XdrEvidenceRefPage      = lazy(() => import("@/xdr/pages/XdrEvidenceRefPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -105,6 +107,8 @@ export default function App() {
         <Route path="/xdr/respond/playbooks/:id"      element={<Protected><XdrPlaybookDesigner /></Protected>} />
         <Route path="/xdr/respond/automation-rules"        element={<Protected><XdrAutomationRulesPage /></Protected>} />
         <Route path="/xdr/respond/automation-rules/:id"    element={<Protected><XdrAutomationRuleEditor /></Protected>} />
+        <Route path="/xdr/respond/approvals"           element={<Protected><XdrApprovalsPage /></Protected>} />
+        <Route path="/xdr/evidence/:executionId"       element={<Protected><XdrEvidenceRefPage /></Protected>} />
         <Route path="/xdr/intelligence/kb"      element={<Protected><XdrReservedPage capability="kb" /></Protected>} />
 
         {/* Slice 10 · Native XDR Admin Console.  All 14 admin

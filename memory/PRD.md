@@ -7,6 +7,69 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-10 · One Investigation Surface + Approvals Queue + Evidence Deep-Link
+
+Landed the three priorities you named in order:
+
+### 1 · Approvals Queue (`/xdr/respond/approvals`)
+- **`XdrApprovalsPage.jsx`** — dedicated peer-approval queue.
+- Auto-refresh every 8s. Search + tenant filter.
+- Inline approve / reject with optional reason (recorded in audit).
+- Peer requirement enforced client-side: the requesting analyst
+  cannot approve their own action.
+- "NOT WIRED" banner honours the same principle as the Integrations
+  tab when `VITE_XDR_RESPONSE_URL` is unset.
+- Deep-links each row to its incident and playbook if the invoker
+  context carries them.
+- Wired into the Respond section of the shell nav.
+
+### 2 · Evidence Deep-Linking (`/xdr/evidence/:executionId`)
+- **`XdrEvidenceRefPage.jsx`** — response-chain deep-link surface
+  that joins the Response Engine execution record with the base
+  backend's persisted evidence / audit / timeline triple.
+- Chain view: `Incident → Invoker → Execution → Action → Evidence →
+  Audit → Timeline`.
+- Approval trail + forwarding metadata sidebar.
+- Investigation Canvas response nodes now open this page via a
+  first-class "Open full response chain" link + pivot-menu entry.
+
+### 3 · One Synchronized Investigation Surface
+Every panel now selects / highlights in lockstep — as you specified,
+Canvas + Timeline + Inspector + Attack Story + MITRE + Response
+behave as ONE surface:
+- **Synchronized Timeline** (`SynchronizedTimeline`, new component)
+  — real markers minted from `incident.created_at` / evidence
+  timestamps / response `completed_at`. Scrolls the selected marker
+  into view. Hovering a marker highlights the technique/rule on the
+  canvas; clicking selects the node.
+- **Attack Story ↔ Canvas ↔ Timeline** cross-highlight is fully
+  bidirectional: clicking an Attack-Story sentence focuses the
+  originating node, highlights the technique, and scrolls the
+  timeline. Selecting a canvas node visually pins the matching
+  Attack-Story line.
+- **Response nodes in-canvas** deep-link to the new Evidence Ref
+  page directly from the Inspector.
+
+### Verification
+- `yarn build` clean, two new lazy chunks (`XdrApprovalsPage`,
+  `XdrEvidenceRefPage`).
+- All three test suites remain 100% green (Response Engine 18/18 ·
+  Base backend `/api/xdr/response-evidence` 7/7 · Collector 44/44).
+
+### Owner-locked invariants held
+- No fake nodes / edges / markers. Every visual element is a
+  projection of real incident payload data or a real Response
+  Engine / base-backend record.
+- The Response Engine SQLite is authoritative for execution state.
+- The base backend is authoritative for evidence / audit / timeline.
+- The two truths are joined through the ref triple, surfaced in
+  both the Investigation Canvas and the new Evidence Ref page.
+
+---
+
+
+---
+
 ## ✅ 2026-02-10 · Evidence-First Investigation Workspace (UI depth pass)
 
 Landed the Cortex-level UI depth pass — evolving (not replacing) the
