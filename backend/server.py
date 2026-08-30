@@ -261,6 +261,8 @@ app.include_router(xdr_ingest_router)
 # 10-stage sync pipeline · never fabricates · bundled snapshot fallback.
 from routers.xdr_detection_content import router as xdr_detection_content_router
 app.include_router(xdr_detection_content_router)
+from routers.xdr_cve import router as xdr_cve_router
+app.include_router(xdr_cve_router)
 # P1 · Correlation Engine (stateful event-stream orchestrator).
 # Emits CORRELATION_OBSERVED / CANDIDATE / SUPPORTED evidence — never a verdict.
 from routers.xdr_correlation import router as xdr_correlation_router
@@ -691,6 +693,25 @@ async def _startup():
                                     name="detection-boot-sync", daemon=True).start()
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] Detection boot-sync arm failed: {e}")
+
+    # P1 · CVE / Vulnerability Intelligence pillar — boot sync
+    try:
+        import threading
+        from routers.xdr_cve import ensure_synced as _cve_ensure
+        def _cve_boot_sync():
+            try:
+                r = _cve_ensure()
+                if r.get("already_synced"):
+                    log.info("[startup] CVE registry already synced")
+                else:
+                    log.info(f"[startup] CVE outcome={r.get('outcome')} "
+                                  f"counts={r.get('counts')}")
+            except Exception as _e:  # noqa: BLE001
+                log.warning(f"[startup] CVE boot-sync failed: {_e}")
+        threading.Thread(target=_cve_boot_sync,
+                                    name="cve-boot-sync", daemon=True).start()
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] CVE boot-sync arm failed: {e}")
 
     # P1 · Correlation Engine — seed the bundled correlation rule
     # pack (idempotent).  Never fabricates verdicts; these rules only

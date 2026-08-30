@@ -7,6 +7,144 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-30 · P1 · CVE / Vulnerability Intelligence & Exposure Pillar — SHIPPED
+
+**First-class pillar, not a single engine.**  Delivers the complete
+Vulnerability & Exposure lane end-to-end.
+
+**Backend (`routers/xdr_cve.py`, 183/183 xdr tests pass):**
+* NVD ingestion (bundled + live opt-in) via unified content_pipeline
+* CISA KEV correlation (embedded per CVE record with date_added + due date)
+* EPSS score + percentile per CVE
+* CVSS v3 (baseScore, vector, severity) normalized
+* CPE 2.3 matching against software inventory
+* Vendor advisory framework (references[] persisted, adapter planned)
+* Asset inventory + Software inventory (tenant-scoped, RBAC-gated)
+* **Deterministic 6-state Exposure Machine (evidence-gated):**
+  ```
+  CVE_PRESENT → AFFECTED_SOFTWARE → VULNERABLE_ASSET
+              → EXPLOITABLE → EXPLOITATION_OBSERVED → COMPROMISE_EVIDENCE
+  ```
+  Each transition REQUIRES its own evidence bucket.
+  Higher states are NEVER inferred from lower states.
+
+**Bundled snapshot (12 real CVEs, all with real CVSS/KEV/EPSS):**
+Log4Shell (CVE-2021-44228) · Zerologon (CVE-2020-1472) · EternalBlue
+(CVE-2017-0144) · Follina (CVE-2022-30190) · Chrome libwebp
+(CVE-2023-4863) · Palo Alto CVE-2024-3400 · ScreenConnect
+(CVE-2024-1709) · NetScaler CVE-2023-3519 · Citrix CVE-2019-19781 ·
+Ivanti CVE-2024-21887 · regreSSHion (CVE-2024-6387) · ActiveMQ
+(CVE-2023-46604).
+
+**Endpoints (all RBAC-gated + audit-logged):**
+```
+POST /api/xdr/cve/sync                — deterministic ingestion
+POST /api/xdr/cve/ensure-synced       — idempotent boot sync
+GET  /api/xdr/cve/status              — pillar status + states
+GET  /api/xdr/cve/list                — catalog (kev/severity/epss filters)
+GET  /api/xdr/cve/{id}                — single CVE
+POST /api/xdr/cve/assets              — register tenant asset
+GET  /api/xdr/cve/assets              — list tenant assets
+POST /api/xdr/cve/software            — register software row (asset↔vendor↔product)
+GET  /api/xdr/cve/software            — list software rows
+POST /api/xdr/cve/exposures/compute   — deterministic recomputation
+GET  /api/xdr/cve/exposures           — computed exposures with evidence buckets
+```
+
+**Frontend (Vercel · `jpreddy017/nivxray-xdr` main → `6159b70`):**
+* NEW `/xdr/exposure` — Vulnerability Exposure page
+* Renders pillar stats + 6-state machine strip with live per-state counts
+* CVE catalog with KEV / severity / EPSS filters
+* Asset + Software minimal inventory management (inline forms)
+* Exposure table shows evidence bucket names — never states without evidence
+* Sidebar: `Intelligence › Vulnerability Exposure`
+* `/xdr/cve` redirects to `/xdr/exposure`
+
+**Capability registry honesty updates:**
+* CVE engines flipped to CONNECTED where wired (9), IMPLEMENTED where
+  backend-only (2), NOT_YET_INTEGRATED where honest gaps remain (3 —
+  correlation→CVE bridge, verdict bridge, remediation prioritization)
+* **NIST correction**: `engine.nist_mapping` flipped from claimed
+  "consumed by XDR" to `xdr_integrated=False · ADOPTED`.  NivXRay Tool
+  has NIST content; XDR native wiring is honestly `NOT_YET_INTEGRATED`.
+* Registry summary: **150 caps · 61 CONNECTED · 39 ADOPTED · 13
+  IMPLEMENTED · 4 SCAFFOLD · 7 EXTERNAL_AVAILABLE · 26
+  NOT_YET_INTEGRATED · 105 verified backend paths**.
+
+**Semantic contract preserved end-to-end:**
+```
+CVE ≠ vulnerable asset ≠ exploitable ≠ exploited ≠ compromised
+Detection ≠ Correlation ≠ Policy ≠ Playbook ≠ Verdict
+PowerShell ≠ malicious · LOLBIN ≠ malicious · IOC_MATCH ≠ compromise
+```
+
+
+---
+
+## 📋 P1 · Next locked queue — Detection Engineering / Rule Studio
+
+Owner directive (2026-02-30) — after CVE, evolve current
+`/xdr/detections` + `/xdr/detect/tuning` + `/xdr/admin/correlation-rules`
+into a unified **Rule Studio** with the following model:
+
+```
+                  DETECTION ENGINEERING
+                          │
+                ┌─────────┴─────────┐
+                │    Rule Studio    │
+                └─────────┬─────────┘
+                          │
+    ┌───────────┬─────────┼─────────┬───────────┐
+    ↓           ↓         ↓         ↓           ↓
+ Detection  Correlation Policy   Playbook   Exception
+    │           │         │         │           │
+    └───────────┴─────────┴─────────┴───────────┘
+                          ↓
+                  Validation Engine
+                          ↓
+                  Regression Corpus
+                          ↓
+                    Promotion Gate
+                          ↓
+                        ACTIVE
+```
+
+**Detection rule types to support** (dynamic UI per type):
+Event/field · IOC match · Parent-child · Signature · Pattern/regex ·
+Threshold · Sequence · Behavioral · Heuristic · CVE-based · TI-based
+· Anomaly/ML · Custom/DSL (KQL · Sigma · EQL · YARA · Snort · Suricata)
+
+**Rule outputs** (never a bare "alert"):
+Observation type · Signal strength · Severity · Confidence ·
+ATT&CK techniques · Tactic · Evidence fields · Risk contribution ·
+Entity · Dedup key · Correlation key · **Verdict = NOT_SET** by rule.
+
+**Lifecycle** (not a toggle):
+`DRAFT → TESTING → VALIDATED → ENABLED → ACTIVE → TUNING → DISABLED/DEPRECATED`.
+Before ACTIVE: syntax valid · data source available · required fields
+available · positive/negative/FP tests pass · corpus regression passes
+· performance acceptable · RBAC approved · provenance valid.
+
+**Tuning UI** (per rule): Matches / TP / FP / Unknown / Precision · top
+FP dimensions · suggested tuning candidates (Rule modification /
+Exception / Scope restriction / Suppression / Threshold change).
+
+**Enforcement modes** for every rule/policy:
+`MONITOR → ALERT → SIMULATE → ENFORCE`.
+Dangerous response: `DRY RUN → REQUIRE APPROVAL → AUTOMATIC`.
+
+**Order of implementation (locked):**
+1. Rule Studio scaffold (unified New Rule wizard + type selector)
+2. Detection rule types (Event · IOC · Parent-child · Threshold)
+3. Sequence + Behavioral rule types
+4. Policy + Playbook lanes
+5. Tuning Center (FP dimensions · suggestions · Exception vs Tune)
+6. Regression Corpus expansion (8 → 50 scenarios) + Promotion Gate
+7. Correlation authoring UI + validation replay
+
+---
+
+
 ## ✅ 2026-02-30 · P0-C · Content Pipeline + Collector Catalog + Full Engine Registry — SHIPPED
 
 **Architectural framing accepted (owner directive):**

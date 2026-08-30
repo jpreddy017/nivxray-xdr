@@ -437,51 +437,67 @@ A(E("engine.osint.stix_exporter", "STIX Exporter", D7,
 D8 = "Vulnerability & Exposure"
 A(E("engine.cve", "CVE / Vulnerability Intelligence", D8,
        "NVD / CISA KEV / EPSS / CVSS · asset ↔ software ↔ CVE correlation",
-       status="NOT_YET_INTEGRATED",
-       external_available=True, open_source_project="nvd.nist.gov / cisa.gov/known-exploited-vulnerabilities",
-       notes="P1 pillar · NEVER conflate CVE ≠ vulnerable ≠ exploitable ≠ exploited ≠ compromised"))
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED",
+       tests=["backend/tests/test_xdr_cve.py"],
+       notes="CVE ≠ vulnerable ≠ exploitable ≠ exploited ≠ compromised — enforced"))
 A(E("engine.cve.nvd", "NVD Feed", D8,
-       "National Vulnerability Database sync",
-       status="NOT_YET_INTEGRATED", external_available=True,
-       open_source_project="nvd.nist.gov", license="Public Domain"))
+       "National Vulnerability Database sync (bundled + live)",
+       backend_path="fixtures/cve/nvd_kev_snapshot.json",
+       xdr_integrated=True, status="IMPLEMENTED",
+       external_available=True, open_source_project="nvd.nist.gov",
+       license="Public Domain"))
 A(E("engine.cve.kev", "CISA KEV Feed", D8,
-       "Known Exploited Vulnerabilities catalog",
-       status="NOT_YET_INTEGRATED", external_available=True,
-       open_source_project="cisa.gov/kev", license="Public Domain"))
+       "Known Exploited Vulnerabilities — embedded in each CVE record",
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED",
+       external_available=True, open_source_project="cisa.gov/kev",
+       license="Public Domain"))
 A(E("engine.cve.epss", "EPSS Feed", D8,
-       "Exploit Prediction Scoring System",
-       status="NOT_YET_INTEGRATED", external_available=True,
-       open_source_project="first.org/epss", license="Public Domain"))
+       "Exploit Prediction Scoring System — embedded in each CVE record",
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED",
+       external_available=True, open_source_project="first.org/epss",
+       license="Public Domain"))
 A(E("engine.cve.cvss", "CVSS Scorer", D8,
-       "Common Vulnerability Scoring System v3.x",
-       status="NOT_YET_INTEGRATED", external_available=True,
-       open_source_project="FIRST.org", license="Free"))
+       "CVSS v3.x severity + vector persisted per CVE",
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED"))
 A(E("engine.cve.cpe_match", "CPE Matching Engine", D8,
        "Common Platform Enumeration · software ↔ CPE",
-       status="NOT_YET_INTEGRATED"))
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED"))
 A(E("engine.asset_inventory", "Asset Inventory", D8,
-       "Endpoint / cloud asset inventory",
-       status="NOT_YET_INTEGRATED"))
+       "Tenant-scoped endpoint / cloud asset inventory",
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED"))
 A(E("engine.software_inventory", "Software Inventory", D8,
-       "Installed software inventory per asset",
-       status="NOT_YET_INTEGRATED"))
+       "Installed software inventory per asset (vendor / product / version / patched)",
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED"))
 A(E("engine.exposure", "Vulnerability Exposure Engine", D8,
-       "Asset ↔ CVE correlation surface",
-       status="NOT_YET_INTEGRATED"))
+       "Deterministic 6-state exposure machine — never infers higher states",
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED",
+       tests=["backend/tests/test_xdr_cve.py::test_exposure_state_machine_never_infers_higher_states"]))
 A(E("engine.exploitability", "Exploitability Assessment", D8,
-       "Exploit-in-the-wild + PoC availability",
-       status="NOT_YET_INTEGRATED"))
+       "Exploit availability + KEV listing evidence — feeds EXPLOITABLE state",
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="CONNECTED"))
 A(E("engine.exploited_in_env", "Exploited-in-Environment Detection", D8,
-       "Cross-check KEV/EPSS with detection evidence",
-       status="NOT_YET_INTEGRATED"))
+       "Bridge KEV/EPSS with observed detection evidence · needs correlation→IKG wire",
+       status="NOT_YET_INTEGRATED",
+       notes="Requires correlation match → CVE bridge (P2)"))
 A(E("engine.compromise_correlation", "Compromise Correlation", D8,
-       "Bridge exploitability + observed compromise evidence",
-       status="NOT_YET_INTEGRATED"))
+       "Bridge exploitability + observed compromise evidence via Verdict",
+       status="NOT_YET_INTEGRATED",
+       notes="Requires verdict engine bridge (P2)"))
 A(E("engine.patch_intel", "Patch Intelligence", D8,
-       "Vendor advisories + patch availability",
-       status="NOT_YET_INTEGRATED"))
+       "Vendor advisories references[] persisted; feed adapter planned",
+       backend_path="routers/xdr_cve.py",
+       xdr_integrated=True, status="IMPLEMENTED"))
 A(E("engine.remediation_priority", "Remediation Prioritization", D8,
-       "Risk-scored patch prioritization",
+       "Risk-scored patch prioritization (KEV + EPSS + CVSS combined)",
        status="NOT_YET_INTEGRATED"))
 
 # ═════════════════════════════════════════════════════════════════
@@ -573,9 +589,10 @@ A(E("engine.docs", "Documentation Engine", D10,
        backend_path="routers/docs.py", status="ADOPTED",
        notes="XDR native /xdr/docs page landed 2026-02-30"))
 A(E("engine.nist_mapping", "NIST Framework Mapping", D10,
-       "NIST CSF / 800-53 control mapping",
+       "NIST CSF / 800-53 control mapping — exists in NivXRay Tool",
        backend_path="services/knowledge",
-       status="ADOPTED", notes="NivXRay Tool already has NIST mapping; XDR consumes"))
+       xdr_integrated=False, status="ADOPTED",
+       notes="NivXRay Tool has NIST content; XDR native integration NOT_YET_INTEGRATED"))
 
 # ═════════════════════════════════════════════════════════════════
 # DOMAIN 11 · Response / SOAR

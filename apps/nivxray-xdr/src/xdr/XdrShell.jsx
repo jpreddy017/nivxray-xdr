@@ -22,7 +22,7 @@ import {
   Boxes, ShieldOff, Route, KeyRound, Layers,
   Database, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, Users, Webhook, HeartPulse, CheckSquare,
-  ExternalLink, Bell, HelpCircle, Lock,
+  ExternalLink, Bell, HelpCircle, Lock, ShieldAlert,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -107,6 +107,9 @@ const SIDEBAR = [
       { key: "docs",     label: "Documentation",        icon: BookOpen,
         to: "/xdr/docs",
         title: "Native XDR Documentation · consumes /api/docs" },
+      { key: "exposure", label: "Vulnerability Exposure", icon: ShieldAlert,
+        to: "/xdr/exposure",
+        title: "CVE / NVD / KEV / EPSS · asset ↔ software ↔ CVE correlation" },
     ],
   },
   {

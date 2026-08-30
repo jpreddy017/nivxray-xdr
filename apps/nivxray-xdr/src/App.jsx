@@ -31,6 +31,7 @@ const XdrDetectionRuleEditor  = lazy(() => import("@/xdr/pages/XdrDetectionRuleE
 const XdrRuleTuningPage       = lazy(() => import("@/xdr/pages/XdrRuleTuningPage"));
 const XdrKbPage               = lazy(() => import("@/xdr/pages/XdrKbPage"));
 const XdrDocsPage             = lazy(() => import("@/xdr/pages/XdrDocsPage"));
+const XdrExposurePage         = lazy(() => import("@/xdr/pages/XdrExposurePage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -120,6 +121,8 @@ export default function App() {
         <Route path="/xdr/intelligence/kb"      element={<Protected><XdrKbPage /></Protected>} />
         <Route path="/xdr/kb"                   element={<Protected><XdrKbPage /></Protected>} />
         <Route path="/xdr/docs"                 element={<Protected><XdrDocsPage /></Protected>} />
+        <Route path="/xdr/exposure"             element={<Protected><XdrExposurePage /></Protected>} />
+        <Route path="/xdr/cve"                  element={<Navigate to="/xdr/exposure" replace />} />
         <Route path="/kb"                       element={<Navigate to="/xdr/kb" replace />} />
         <Route path="/docs"                     element={<Navigate to="/xdr/docs" replace />} />
 
