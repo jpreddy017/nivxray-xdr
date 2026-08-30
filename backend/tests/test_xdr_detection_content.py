@@ -151,6 +151,10 @@ def test_deduplication_keeps_upstream_id_unique(tmp_path):
     assert d["counts"]["parsed"]        == 2
     assert d["counts"]["deduplicated"]  == 1
     assert d["stages"]["DEDUPLICATED"]["collapsed"] == 1
+    # Cleanup — remove the synthetic rule so it doesn't leak into
+    # cross-file assertions (P1 consolidation test asserts full
+    # provenance on every bundled-source rule).
+    dc._c_rules().delete_many({"upstream_id": "dup_1"})
 
 
 # ── 5 · Idempotency ─────────────────────────────────────────────

@@ -7,6 +7,40 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-30 · P1 · Detection Surface Consolidation (option a) — SHIPPED
+
+**Problem:** Four overlapping detection surfaces made it impossible to tell which was authoritative:
+`Admin › Detection Rules` (legacy verdict weights) · `Admin › Detection Content` (legacy static summary) · `Admin › Detection Registry` (new P1) · `Detection Engineering` (authoring workstation). Counts disagreed.
+
+**Fix:**
+* **Detection Registry** (`/api/xdr/detection/*`) is now the SINGLE SOURCE OF TRUTH.
+* Both legacy admin surfaces relabelled **"· DEPRECATED"** in the sidebar. Opening them shows a loud `DeprecatedBanner` with a "Go to Detection Registry" action. **No data or functionality removed**.
+* `Detection Engineering` (top-level) carries a new **Consolidation Notice** ("ONE AUTHORITATIVE REGISTRY") + link, and states that authoring here promotes into the same `/api/xdr/detection` registry — no parallel rule store.
+* Sidebar rewrites under **Detect**: Detection Registry → Correlation Rules → Detection Engineering (authoritative first, authoring last).
+
+**Backend invariants (`test_xdr_detection_consolidation.py`):**
+1. `/status` counts ≡ `/rules` count ≡ ATT&CK-union count (self-consistent).
+2. Every real-source rule carries FULL provenance (9 fields).
+3. Every `original_content_hash` is a valid SHA-256.
+4. No legacy endpoint returns registry-shaped rules.
+5. Registry reads require `detections.read` (single RBAC path).
+
+**Live Vercel E2E:** `nivxray-xdr.vercel.app` bundle `index-t3RCLBSn.js` — 3 legacy surfaces show correct banners, `/xdr/admin/detection-registry` shows 20 / 20 / 20 with real provenance and `CAPABILITY ≠ VERDICT` marker on the LOLBIN observation rule.
+
+**Full backend regression: 146/146 pass · ruff clean.**
+
+**Roadmap (locked-in sequence per your directive):**
+1. ✅ Detection Surface Consolidation
+2. ⏭️ Investigation Corpus 8 → 50 scenarios
+3. ⏭️ Regression Gate (positive/negative/FP per rule)
+4. ⏭️ Correlation → IKG → ICE → Verdict bridge
+5. ⏭️ **CVE / Vulnerability Intelligence & Exposure Engine** (elevated to a first-class pillar per your new directive — not buried under OSINT)
+6. ⏭️ Sigma / Elastic / MITRE ATT&CK real acquisition (20 → thousands)
+7. ⏭️ OSINT / TI Hub, 100 predefined rule pack, Corpus 100
+
+
+---
+
 ## ✅ 2026-02-30 · P1 · Correlation Engine — REAL STATEFUL ENGINE SHIPPED
 
 **Directive:** Build a real stateful event-stream correlation orchestrator

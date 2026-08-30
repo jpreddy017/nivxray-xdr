@@ -52,9 +52,15 @@ const SIDEBAR = [
   {
     section: "Detect",
     items: [
-      { key: "detections", label: "Detection Rules", icon: Radar,
+      { key: "detection-registry", label: "Detection Registry", icon: Radar,
+        to: "/xdr/admin/detection-registry",
+        title: "AUTHORITATIVE detection-content registry · single source of truth for every rule NivXRay executes" },
+      { key: "correlation-rules", label: "Correlation Rules", icon: Radar,
+        to: "/xdr/admin/correlation-rules",
+        title: "Stateful event-stream correlation engine · 13 operators · emits evidence, never verdicts" },
+      { key: "detections", label: "Detection Engineering", icon: Radar,
         to: "/xdr/detections",
-        title: "Sigma-compatible detection engineering workstation · authoring available, runtime not wired" },
+        title: "Sigma-compatible authoring workstation · rules authored here promote to the Detection Registry" },
     ],
   },
   {

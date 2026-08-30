@@ -26,6 +26,7 @@ import EnginesBody from "@/xdr/admin/EnginesBody";
 import CorpusBody from "@/xdr/admin/CorpusBody";
 import CapabilityHubBody from "@/xdr/admin/CapabilityHubBody";
 import DetectionContentBody from "@/xdr/admin/DetectionContentBody";
+import DeprecatedBanner     from "@/xdr/admin/DeprecatedBanner";
 import AuditLogBody from "@/xdr/admin/AuditLogBody";
 import SecretsBody from "@/xdr/admin/SecretsBody";
 import ContentPackLolbasBody from "@/xdr/admin/ContentPackLolbasBody";
@@ -179,6 +180,7 @@ function AdminBody({ section }) {
       return;
     }
     if (section.kind === "capability_hub" || section.kind === "detection_content"
+         || section.kind === "deprecated_detection_content"
          || section.kind === "audit_log" || section.kind === "secrets"
          || section.kind === "content_pack_lolbas"
          || section.kind === "users_roles"
@@ -297,6 +299,13 @@ function AdminBody({ section }) {
         )}
         {state === "populated" && (
           <div data-testid={`xdr-admin-populated-${section.key}`}>
+            {section.deprecated && (
+              <DeprecatedBanner
+                authoritativeKey={section.redirect_to || "detection-registry"}
+                authoritativeLabel="Detection Registry"
+                rationale={`This surface (${section.label}) has been superseded by the authoritative Detection Registry. Rule state, counts, RBAC, audit and provenance now live in a single registry — do not treat this legacy page as source of truth.`}
+              />
+            )}
             {section.kind === "integrations"
               ? <IntegrationsBody />
               : section.kind === "engines"
@@ -305,7 +314,8 @@ function AdminBody({ section }) {
               ? <CorpusBody />
               : section.kind === "capability_hub"
               ? <CapabilityHubBody />
-              : section.kind === "detection_content"
+              : (section.kind === "detection_content"
+                  || section.kind === "deprecated_detection_content")
               ? <DetectionContentBody />
               : section.kind === "audit_log"
               ? <AuditLogBody />

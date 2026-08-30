@@ -43,8 +43,29 @@ export default function XdrDetectionsPage() {
       <div className="page-sub">
         Author Sigma-compatible detection rules with lifecycle,
         version history, MITRE mapping, and evidence-backed
-        test/replay.  Runtime execution is NOT WIRED yet — this is
-        the authoring &amp; testing workstation.
+        test/replay.  Rules authored here promote to the
+        <b> Detection Registry</b>, which is the single source of
+        truth for every rule NivXRay executes.
+      </div>
+
+      {/* Consolidation notice — one rule identity, one registry. */}
+      <div data-testid="xdr-detections-consolidation-banner"
+              style={{ marginTop: 10, padding: 10,
+                          border: "1px solid var(--cyan)", borderRadius: 4,
+                          background: "rgba(6,182,212,.06)",
+                          color: "var(--text-dim)", fontSize: 11.5,
+                          display: "flex", alignItems: "center", gap: 10 }}>
+        <b style={{ color: "var(--cyan)", fontFamily: "var(--mono)",
+                          letterSpacing: ".3px" }}>ONE AUTHORITATIVE REGISTRY</b>
+        — the authoring workstation is a UI over the same
+        <code style={{ margin: "0 4px" }}>/api/xdr/detection</code> registry
+        surfaced under Admin › Detection Registry.  No parallel rule store.
+        <span style={{ flex: 1 }} />
+        <a href="/xdr/admin/detection-registry"
+              style={{ color: "var(--cyan)",
+                              fontFamily: "var(--mono)", fontSize: 11 }}>
+          Open Detection Registry →
+        </a>
       </div>
 
       {/* Honest runtime banner */}
