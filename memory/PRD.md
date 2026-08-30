@@ -63,19 +63,26 @@ POST /api/xdr/rule-studio/rules/{id}/gate        # dry-run · no state change
 * Mouse-wheel and touchpad-pinch zoom are DISABLED — zoom is driven
   ONLY by the explicit `−` / `+` buttons + Fit view.
 
-**Investigation graph — ATT&CK Tactic Ribbon + Parent-Child Process Chain (owner-approved 2026-02-30):**
+**Investigation graph — ATT&CK Tactic Ribbon + Parent-Child Process Chain + Technique Breakdown Popover (owner-approved 2026-02-30):**
 * NEW `TacticRibbon` above the Evidence Trajectory canvas — renders the
   14 ATT&CK tactics; only tactics with evidence in the current
   investigation are enabled.  Derived from Evidence → observed
   technique → ATT&CK mapping → tactic.  **Never from the verdict.**
   Clicking a tactic filters the canvas (nodes/edges without that
   tactic dim to 12%); "Clear filter" pill appears while active.
+* NEW `TechniqueBreakdown` popover — clicking an active tactic reveals
+  a compact popover listing the observed techniques for that tactic
+  (technique ID + name · evidence count · hosts/users/procs/rules
+  affected · first-seen / last-seen · click → highlight technique
+  on canvas).  Anti-fabrication guard: a technique with 0 evidence
+  rows is retained only if it appeared as a first-class technique
+  node in the graph.  Never derived from verdict.
 * NEW `ProcessChainPanel` in the right sidebar — indented parent → child
   process ancestry derived from process nodes + parent_of edges.
   Honest empty state when there is no process evidence.
-* No minimap re-introduction — the tactic ribbon is the compact
-  navigation layer; the Evidence Trajectory remains the primary
-  spatial visualisation.
+* No minimap re-introduction — the tactic ribbon + technique popover
+  are the compact navigation layer; the Evidence Trajectory remains
+  the primary spatial visualisation.
 
 **Semantic contract preserved end-to-end:**
 ```
@@ -85,8 +92,12 @@ VERDICT → INCIDENT → PLAYBOOK / POLICY
 Verdicts are owned by the Verdict Engine.  Rules NEVER emit verdicts.
 
 **Locked queue for next chunk (order unchanged):**
-3. Event + IOC + Endpoint + Network lanes (bodies + condition builders)
-4. DNS/Proxy + CVE/Exposure + Content lanes
+3. ✅ *(started 2026-02-30)* Event + Endpoint + IOC + Network lane
+   **field vocabularies** shipped (`lib/lane_schemas.py`); wizard
+   renders lane-specific field chips + real-world templates.
+   **Next**: visual condition builder replacing the JSON textarea for
+   the four foundation lanes.
+4. DNS/Proxy + CVE/Exposure + Content lane bodies
 5. Correlation lane absorption — retire `/xdr/admin/correlation-rules`
 6. Behavior / Heuristic / Anomaly lane
 7. Tuning Center

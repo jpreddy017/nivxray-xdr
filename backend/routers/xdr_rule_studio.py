@@ -50,6 +50,7 @@ from pymongo import ASCENDING, DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
+from lib.lane_schemas import all_lane_schemas, get_lane_schema
 
 router = APIRouter(prefix="/api/xdr/rule-studio", tags=["xdr-rule-studio"])
 
@@ -687,3 +688,31 @@ def lanes_summary():
         {"key": "content",       "label": "Content-based",
           "description": "Sigma · YARA · Snort · Suricata · ATT&CK analytics"},
     ]}}
+
+
+@router.get("/lanes/{lane}/schema",
+                     dependencies=[Depends(require_permission("detections.read"))])
+def lane_schema(lane: str):
+    """Deterministic field vocabulary + template pack for a given lane.
+
+    Returned schema is consumed by the Rule Studio New Rule wizard so
+    authors get the right condition surface without switching to
+    advanced DSL.  Fields correspond to actual normalization output —
+    NEVER aspirational fields.
+    """
+    if lane not in LANES:
+        raise HTTPException(400, detail={"code": "LANE_UNKNOWN",
+                                                                "allowed": LANES})
+    schema = get_lane_schema(lane)
+    if not schema:
+        return {"ok": True, "data": {"lane": lane, "available": False,
+                                                            "message": "Lane body not yet shipped"}}
+    return {"ok": True, "data": {"lane": lane, "available": True,
+                                                        "schema": schema}}
+
+
+@router.get("/lanes/schemas",
+                     dependencies=[Depends(require_permission("detections.read"))])
+def all_schemas():
+    return {"ok": True, "data": {"schemas": all_lane_schemas(),
+                                                        "covered_lanes": list(all_lane_schemas().keys())}}

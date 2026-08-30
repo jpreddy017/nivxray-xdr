@@ -273,6 +273,7 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
           highlight={highlight}
           onSelectTactic={(k) => setHighlight(highlight?.tactic === k
                                                                           ? null : { tactic: k })}
+          onSelectTechnique={(tid) => setHighlight({ technique_id: tid })}
           onClear={() => setHighlight(null)}
         />
       </div>
@@ -1774,26 +1775,81 @@ function _edgeMatches(edge, s, t, h) {
 //   Evidence → Observed technique → ATT&CK mapping → Tactic
 //   The ribbon is NEVER derived from the verdict.
 // ═══════════════════════════════════════════════════════════════════
-function TacticRibbon({ nodes, highlight, onSelectTactic, onClear }) {
+function TacticRibbon({ nodes, highlight, onSelectTactic, onClear,
+                                                onSelectTechnique }) {
   const activeKey = highlight?.tactic || null;
-  // Count evidence + technique nodes per tactic — deterministic, only
-  // counts what actually appears in the current investigation graph.
-  const counts = React.useMemo(() => {
-    const c = {};
+  const [openTactic, setOpenTactic] = React.useState(null);
+  // Aggregate evidence-linked technique observations per tactic.
+  // We track per-technique metadata deterministically from the graph:
+  //   evidenceCount, hosts, users, processes, ruleIds, firstSeen, lastSeen.
+  //   NEVER derived from the verdict.
+  const stats = React.useMemo(() => {
+    // techId → {tactic, name, evidence, hosts, users, processes,
+    //           ruleIds:Set, firstSeen, lastSeen}
+    const byTech = new Map();
     for (const n of (nodes || [])) {
       let tid = null;
       if (n.type === "technique") tid = n.title;
       else if (n.type === "evidence" || n.type === "response") {
         const rid = String(n.raw?.rule_id || "").toUpperCase();
         tid = n.raw?.technique_id || RULE_TO_TECHNIQUE[rid] || null;
-      }
+      } else continue;
       if (!tid) continue;
-      const tactic = TECHNIQUE_INDEX[tid]?.tactic;
+      const meta = TECHNIQUE_INDEX[tid];
+      const tactic = meta?.tactic;
       if (!tactic) continue;
-      c[tactic] = (c[tactic] || 0) + 1;
+      const row = byTech.get(tid) || {
+        technique_id: tid, name: meta?.technique_name || tid, tactic,
+        evidence: 0, hosts: new Set(), users: new Set(), processes: new Set(),
+        ruleIds: new Set(), firstSeen: null, lastSeen: null,
+      };
+      // Count only rows that are actual EVIDENCE observations — a bare
+      // ATT&CK-knowledge technique node without evidence should NOT
+      // inflate the evidence count.
+      if (n.type === "evidence" || n.type === "response") {
+        row.evidence += 1;
+        const rid = n.raw?.rule_id;
+        if (rid) row.ruleIds.add(String(rid));
+        const ts = n.raw?.first_seen || n.raw?.timestamp || n.raw?.ts;
+        if (ts) {
+          if (!row.firstSeen || ts < row.firstSeen) row.firstSeen = ts;
+          if (!row.lastSeen  || ts > row.lastSeen)  row.lastSeen  = ts;
+        }
+      }
+      const h = n.raw?.host || n.raw?.hostname;
+      if (h) row.hosts.add(h);
+      const u = n.raw?.user || n.raw?.username;
+      if (u) row.users.add(u);
+      const p = n.raw?.process || n.raw?.process_name;
+      if (p) row.processes.add(p);
+      byTech.set(tid, row);
+    }
+    // Bucket per tactic and sort by evidence count desc.
+    const byTactic = {};
+    for (const row of byTech.values()) {
+      // ANTI-FABRICATION invariant: a technique with 0 evidence is only
+      // kept when it appeared as a first-class technique node — never
+      // manufacture entries from rule mappings alone.
+      const hasEvidence = row.evidence > 0
+              || (nodes || []).some(
+                    (n) => n.type === "technique" && n.title === row.technique_id);
+      if (!hasEvidence) continue;
+      (byTactic[row.tactic] = byTactic[row.tactic] || []).push(row);
+    }
+    for (const k of Object.keys(byTactic)) {
+      byTactic[k].sort((a, b) => b.evidence - a.evidence);
+    }
+    return byTactic;
+  }, [nodes]);
+
+  const counts = React.useMemo(() => {
+    const c = {};
+    for (const k of Object.keys(stats)) {
+      c[k] = stats[k].reduce((s, r) => s + r.evidence, 0)
+                || stats[k].length;
     }
     return c;
-  }, [nodes]);
+  }, [stats]);
 
   return (
     <div data-testid="xdr-tactic-ribbon"
@@ -1802,7 +1858,7 @@ function TacticRibbon({ nodes, highlight, onSelectTactic, onClear }) {
                               border: "1px solid var(--border)",
                               borderRadius: 4,
                               display: "flex", alignItems: "center", gap: 8,
-                              flexWrap: "wrap" }}>
+                              flexWrap: "wrap", position: "relative" }}>
       <span style={{ fontFamily: "var(--mono)", fontSize: 9,
                               color: "var(--faint)", fontWeight: 700,
                               textTransform: "uppercase", letterSpacing: ".4px" }}>
@@ -1816,30 +1872,45 @@ function TacticRibbon({ nodes, highlight, onSelectTactic, onClear }) {
           ? (active ? "var(--cyan)" : "var(--text)")
           : "var(--faint)";
         return (
-          <button key={t.key}
-                        data-testid={`xdr-tactic-ribbon-${t.key}`}
-                        disabled={!touched}
-                        onClick={() => onSelectTactic(t.key)}
-                        title={touched ? `${n} evidence-linked technique(s)`
-                                                    : "No evidence for this tactic in this investigation"}
-                        style={{
-                          padding: "3px 8px", borderRadius: 3,
-                          border: `1px solid ${active
-                                                              ? "var(--cyan)"
-                                                              : (touched ? "var(--border)"
-                                                                                : "transparent")}`,
-                          background: touched ? "var(--panel2)" : "transparent",
-                          color, cursor: touched ? "pointer" : "default",
-                          opacity: touched ? 1 : 0.45,
-                          fontFamily: "var(--mono)", fontSize: 10,
-                          fontWeight: 700, letterSpacing: ".3px" }}>
-            {t.label}{touched && ` · ${n}`}
-          </button>
+          <div key={t.key} style={{ position: "relative" }}>
+            <button data-testid={`xdr-tactic-ribbon-${t.key}`}
+                          disabled={!touched}
+                          onClick={() => {
+                            onSelectTactic(t.key);
+                            setOpenTactic((cur) => cur === t.key ? null : t.key);
+                          }}
+                          title={touched ? `${n} evidence-linked technique(s) — click for breakdown`
+                                                      : "No evidence for this tactic in this investigation"}
+                          style={{
+                            padding: "3px 8px", borderRadius: 3,
+                            border: `1px solid ${active
+                                                                ? "var(--cyan)"
+                                                                : (touched ? "var(--border)"
+                                                                                  : "transparent")}`,
+                            background: touched ? "var(--panel2)" : "transparent",
+                            color, cursor: touched ? "pointer" : "default",
+                            opacity: touched ? 1 : 0.45,
+                            fontFamily: "var(--mono)", fontSize: 10,
+                            fontWeight: 700, letterSpacing: ".3px" }}>
+              {t.label}{touched && ` · ${n}`}
+            </button>
+            {openTactic === t.key && touched && (
+              <TechniqueBreakdown
+                tactic={t}
+                rows={stats[t.key] || []}
+                onSelectTechnique={(tid) => {
+                  onSelectTechnique(tid);
+                  setOpenTactic(null);
+                }}
+                onClose={() => setOpenTactic(null)}
+              />
+            )}
+          </div>
         );
       })}
       {activeKey && (
         <button data-testid="xdr-tactic-ribbon-clear"
-                      onClick={onClear}
+                      onClick={() => { onClear(); setOpenTactic(null); }}
                       style={{ marginLeft: "auto",
                                       padding: "3px 8px", borderRadius: 3,
                                       border: "1px solid var(--amber)",
@@ -1849,6 +1920,92 @@ function TacticRibbon({ nodes, highlight, onSelectTactic, onClear }) {
                                       fontFamily: "var(--mono)", fontSize: 10,
                                       fontWeight: 700 }}>
           Clear filter
+        </button>
+      )}
+    </div>
+  );
+}
+
+
+function TechniqueBreakdown({ tactic, rows, onSelectTechnique, onClose }) {
+  const [showAll, setShowAll] = React.useState(false);
+  const visible = showAll ? rows : rows.slice(0, 8);
+  return (
+    <div data-testid={`xdr-technique-breakdown-${tactic.key}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: "absolute", top: "calc(100% + 4px)", left: 0,
+                minWidth: 320, maxWidth: 420, zIndex: 40,
+                background: "var(--panel)",
+                border: "1px solid var(--cyan)",
+                borderRadius: 4,
+                boxShadow: "0 6px 20px rgba(0,0,0,.35)",
+                padding: 8, fontFamily: "var(--mono)", fontSize: 10.5 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6,
+                              marginBottom: 6,
+                              borderBottom: "1px solid var(--border)",
+                              paddingBottom: 4 }}>
+        <b style={{ color: "var(--cyan)", fontSize: 10.5,
+                            textTransform: "uppercase", letterSpacing: ".3px" }}>
+          {tactic.label}
+        </b>
+        <span style={{ color: "var(--faint)" }}>
+          · {rows.length} technique{rows.length === 1 ? "" : "s"}
+        </span>
+        <span style={{ flex: 1 }} />
+        <button onClick={onClose}
+                      data-testid={`xdr-technique-breakdown-close-${tactic.key}`}
+                      style={{ background: "transparent", border: 0,
+                                      color: "var(--faint)", cursor: "pointer",
+                                      fontSize: 12 }}>×</button>
+      </div>
+      {rows.length === 0 && (
+        <div style={{ color: "var(--faint)" }}>
+          No evidence-linked techniques observed.
+        </div>
+      )}
+      {visible.map((r) => (
+        <div key={r.technique_id}
+                    data-testid={`xdr-technique-row-${r.technique_id}`}
+                    onClick={() => onSelectTechnique(r.technique_id)}
+                    style={{ padding: "4px 6px", cursor: "pointer",
+                                    borderRadius: 2,
+                                    display: "grid",
+                                    gridTemplateColumns: "auto 1fr auto",
+                                    columnGap: 8, alignItems: "baseline",
+                                    borderBottom: "1px dashed var(--border)" }}>
+          <span style={{ color: "var(--cyan)", fontWeight: 700 }}>
+            {r.technique_id}
+          </span>
+          <span style={{ color: "var(--text)", overflow: "hidden",
+                                  textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {r.name}
+          </span>
+          <span style={{ color: "var(--faint)" }}>
+            {r.evidence} evidence
+          </span>
+          <span />
+          <span style={{ color: "var(--faint)", fontSize: 9.5,
+                                    gridColumn: "2 / span 2" }}>
+            {r.hosts.size    ? `hosts=${r.hosts.size} `        : ""}
+            {r.users.size    ? `users=${r.users.size} `        : ""}
+            {r.processes.size? `procs=${r.processes.size} `    : ""}
+            {r.ruleIds.size  ? `rules=${r.ruleIds.size} `      : ""}
+            {r.firstSeen     ? `first=${String(r.firstSeen).slice(11,19)}Z ` : ""}
+            {r.lastSeen      ? `last=${String(r.lastSeen).slice(11,19)}Z`    : ""}
+          </span>
+        </div>
+      ))}
+      {rows.length > 8 && !showAll && (
+        <button data-testid={`xdr-technique-breakdown-view-all-${tactic.key}`}
+                      onClick={() => setShowAll(true)}
+                      style={{ marginTop: 6, width: "100%",
+                                      padding: "3px 6px", borderRadius: 2,
+                                      background: "var(--panel2)",
+                                      border: "1px solid var(--border)",
+                                      color: "var(--text-dim)", cursor: "pointer",
+                                      fontFamily: "var(--mono)", fontSize: 10 }}>
+          View all techniques ({rows.length})
         </button>
       )}
     </div>

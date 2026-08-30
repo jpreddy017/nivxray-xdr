@@ -431,6 +431,35 @@ function NewRuleWizard({ lanes, onClose, onCreated }) {
   });
   const [busy, setBusy] = useState(false);
   const [err,  setErr]  = useState(null);
+  const [schema, setSchema] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.get(`/xdr/rule-studio/lanes/${form.lane}/schema`);
+        if (!cancelled) setSchema(r?.data?.data || null);
+      } catch { if (!cancelled) setSchema(null); }
+    })();
+    return () => { cancelled = true; };
+  }, [form.lane]);
+
+  const insertField = (fieldKey) => {
+    try {
+      const obj = JSON.parse(form.detection);
+      const sel = obj.selection || (obj.selection = {});
+      if (!(fieldKey in sel)) sel[fieldKey] = "";
+      setForm({ ...form,
+                        detection: JSON.stringify(obj, null, 2) });
+    } catch {
+      setErr("Detection body must be valid JSON before inserting a field");
+    }
+  };
+  const applyTemplate = (tpl) => {
+    setForm({ ...form,
+                      title: form.title || tpl.title,
+                      detection: JSON.stringify(tpl.detection, null, 2) });
+  };
 
   const submit = async () => {
     setBusy(true); setErr(null);
@@ -454,6 +483,7 @@ function NewRuleWizard({ lanes, onClose, onCreated }) {
     } finally { setBusy(false); }
   };
 
+  const laneSchema = schema?.schema;
   return (
     <div style={drawerBackdrop} onClick={onClose}>
       <div style={drawerPanel} onClick={(e) => e.stopPropagation()}
@@ -486,6 +516,60 @@ function NewRuleWizard({ lanes, onClose, onCreated }) {
                        placeholder="What observation does this rule emit?"
                        data-testid="rs-wizard-description" style={inputStyle} />
         </Field>
+
+        {laneSchema && (
+          <>
+            <Field label={`${laneSchema.display_name} · fields (click to insert)`}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}
+                        data-testid="rs-wizard-field-chips">
+                {laneSchema.fields.map((f) => (
+                  <button key={f.key} type="button"
+                                data-testid={`rs-wizard-field-${f.key}`}
+                                onClick={() => insertField(f.key)}
+                                title={`${f.type}${f.example
+                                                            ? ` · e.g. ${f.example}`
+                                                            : ""}${f.description
+                                                                                ? ` — ${f.description}`
+                                                                                : ""}`}
+                                style={{ padding: "2px 6px", fontSize: 10,
+                                                fontFamily: "var(--mono)", cursor: "pointer",
+                                                background: "var(--panel2)",
+                                                border: "1px solid var(--border)",
+                                                borderRadius: 2, color: "var(--cyan)" }}>
+                    {f.key}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            {(laneSchema.templates || []).length > 0 && (
+              <Field label="Templates (click to load)">
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}
+                          data-testid="rs-wizard-templates">
+                  {laneSchema.templates.map((t) => (
+                    <button key={t.title} type="button"
+                                  data-testid={`rs-wizard-template-${t.title.replace(/[^a-z0-9]/gi, "-").toLowerCase()}`}
+                                  onClick={() => applyTemplate(t)}
+                                  style={{ padding: "2px 6px", fontSize: 10,
+                                                  fontFamily: "var(--mono)", cursor: "pointer",
+                                                  background: "var(--panel2)",
+                                                  border: "1px dashed var(--cyan)",
+                                                  borderRadius: 2, color: "var(--text)" }}>
+                    {t.title}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            )}
+          </>
+        )}
+        {schema && !schema.available && (
+          <div style={{ padding: "4px 8px", fontSize: 10.5,
+                                  fontFamily: "var(--mono)",
+                                  color: "var(--faint)", marginBottom: 6 }}>
+            Lane body not yet shipped — advanced-mode JSON detection accepted.
+          </div>
+        )}
+
         <Field label="Rule type">
           <input value={form.rule_type}
                        onChange={(e) => setForm({ ...form, rule_type: e.target.value })}
