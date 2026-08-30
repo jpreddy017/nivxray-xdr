@@ -7,6 +7,68 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-10 · Evidence-First Investigation Workspace (UI depth pass)
+
+Landed the Cortex-level UI depth pass — evolving (not replacing) the
+Incident Investigation view into a real, evidence-backed workspace.
+
+### What shipped
+- **`EvidenceFirstInvestigationWorkspace.jsx`** — new central component:
+  - **Investigation Canvas** — SVG interactive graph, zoom / pan
+    (mouse-drag + scroll wheel), select, right-click. Nodes minted
+    ONLY from the canonical incident payload (hosts, users, IOCs,
+    Stage-2 evidence, MITRE mappings via `RULE_TO_TECHNIQUE`,
+    response executions). Never fabricates a relationship.
+  - **Entity Inspector** (right panel) — per-node type (evidence,
+    process, host, user, IP/hash/domain/URL, MITRE technique,
+    response execution). Shows source, timestamp, host/user,
+    command line, hashes, verdict contribution, provenance,
+    evidence_ref, related response execution.
+  - **Analyst Pivot Menu** (right-click) — Investigate, Show process
+    tree, Show device trajectory, Search this IOC, Search related
+    incidents, Pivot to user / host / MITRE technique, Create
+    automation rule, Run response action, Add to case notes.
+  - **Attack Story Panel** — evidence-backed sentences (built from
+    Stage-2 evidence + response executions). Click a sentence →
+    highlights the technique / rule on the canvas. Cross-highlight
+    is bidirectional.
+  - **Response integration** — every response execution appears as
+    a first-class node on the canvas, linked from the incident by a
+    `responded` edge and connected to its `evidence_ref` node.
+    Never rendered as an isolated SOAR blob.
+  - **MITRE integration** — selecting or clicking a technique node
+    highlights all supporting evidence + processes + attack-story
+    sentences on the canvas simultaneously.
+- **`XdrIncidentDetailPage.jsx`** — Investigation tab now leads with
+  the Workspace; legacy deep-link subtabs are preserved BELOW as
+  "Related capabilities" so no existing route or capability is lost.
+
+### Design language
+- Dense enterprise-SOC layout, dark analyst workspace.
+- Restrained accent palette (single color per entity type).
+- Strong typography hierarchy: mono for identifiers, sans for prose.
+- SVG-based canvas — genuinely interactive (drag / zoom / select /
+  context-menu), not decorative.
+- No AI-slop patterns: no purple gradients, no equal-spacing hero
+  cards, no fake data.
+
+### Verification
+- `yarn build` clean.
+- All three test suites remain 100% green (Response Engine 18/18 ·
+  Base backend `/api/xdr/response-evidence` 7/7 · Collector 44/44).
+
+### Note on Integrations tab
+The Integrations tab is honest, not stale: it shows
+`COLLECTOR RUNTIME NOT DEPLOYED` because `VITE_XDR_COLLECTOR_URL`
+is unset in Vercel. To wire it: deploy
+`/app/apps/nivxray-xdr-collector` to a public URL, set the env var,
+and redeploy the Vercel app.
+
+---
+
+
+---
+
 ## ✅ 2026-02-10 · Response Execution Integration slice DONE
 
 Landed **the complete "Implement Now" instruction**: the standalone

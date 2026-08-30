@@ -15,6 +15,8 @@ import ActivityTab  from "@/components/incidents/tabs/ActivityTab";
 import Pivot       from "@/xdr/components/Pivot";
 import DomainCardsGrid from "@/xdr/components/DomainCardsGrid";
 import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
+import EvidenceFirstInvestigationWorkspace
+  from "@/xdr/investigation/EvidenceFirstInvestigationWorkspace";
 
 import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
 import { useAuth } from "@/lib/auth";
@@ -314,31 +316,41 @@ function VerdictCard({ tone, lbl, val }) {
   );
 }
 
-/* ── Investigation (7 sub-tabs, all reuse existing capabilities) ─ */
+/* ── Investigation Workspace (Evidence-First canvas + subtabs) ─ */
 function InvestigationTab({ incident }) {
   const [sub, setSub] = useState(SUBTABS[0].key);
   const caps = buildCaps(incident);
   const cap  = caps[sub];
   return (
     <div>
-      <div className="subnav" role="tablist" data-testid="xdr-incident-subnav">
-        {SUBTABS.map((s) => (
-          <button
-            key={s.key}
-            type="button"
-            role="tab"
-            className={`subtabbtn ${sub === s.key ? "active" : ""}`}
-            aria-selected={sub === s.key}
-            onClick={() => setSub(s.key)}
-            data-testid={`xdr-incident-subtab-${s.key}`}
-          >
-            {s.label}
-          </button>
-        ))}
+      <EvidenceFirstInvestigationWorkspace incident={incident} />
+
+      {/* Legacy deep-link subtabs preserved below the workspace so
+             every capability the previous view surfaced still lands
+             in a single click.  The canvas replaces decorative
+             "reserved" cards with a real evidence-backed graph.  */}
+      <div style={{ marginTop: 18, borderTop: "1px solid var(--border)",
+                        paddingTop: 12 }}>
+        <div className="section-title" style={{ marginBottom: 6 }}>
+          Related capabilities
+        </div>
+        <div className="subnav" role="tablist" data-testid="xdr-incident-subnav">
+          {SUBTABS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              role="tab"
+              className={`subtabbtn ${sub === s.key ? "active" : ""}`}
+              aria-selected={sub === s.key}
+              onClick={() => setSub(s.key)}
+              data-testid={`xdr-incident-subtab-${s.key}`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <SubtabBody sub={sub} cap={cap} />
       </div>
-      {sub === "evidence"
-        ? <SubtabBody sub={sub} cap={cap} />
-        : <SubtabBody sub={sub} cap={cap} />}
     </div>
   );
 }
