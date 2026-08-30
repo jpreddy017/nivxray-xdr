@@ -31,6 +31,7 @@ import SecretsBody from "@/xdr/admin/SecretsBody";
 import ContentPackLolbasBody from "@/xdr/admin/ContentPackLolbasBody";
 import UsersRolesBody from "@/xdr/admin/UsersRolesBody";
 import ApiKeysBody from "@/xdr/admin/ApiKeysBody";
+import WebhooksBody from "@/xdr/admin/WebhooksBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
 
@@ -177,7 +178,8 @@ function AdminBody({ section }) {
          || section.kind === "audit_log" || section.kind === "secrets"
          || section.kind === "content_pack_lolbas"
          || section.kind === "users_roles"
-         || section.kind === "api_keys") {
+         || section.kind === "api_keys"
+         || section.kind === "webhooks") {
       // Fully client-side (each fetches from base API on mount).
       setPayload(null);
       setState("populated");
@@ -307,6 +309,8 @@ function AdminBody({ section }) {
               ? <UsersRolesBody />
               : section.kind === "api_keys"
               ? <ApiKeysBody />
+              : section.kind === "webhooks"
+              ? <WebhooksBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}

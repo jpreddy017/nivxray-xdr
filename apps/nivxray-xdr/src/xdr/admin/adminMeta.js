@@ -165,10 +165,9 @@ export const ADMIN_SECTIONS = [
     api: null, kind: "api_keys", connected: true,
   },
   {
-    key: "api-webhooks", label: "API / Webhooks", icon: Webhook,
-    subtitle: "Outbound webhooks and API keys.",
-    api: null, connected: false,
-    integration: "Webhook service (P0-5 · arrives next)",
+    key: "api-webhooks", label: "Webhooks", icon: Webhook,
+    subtitle: "Outbound webhooks · HMAC-SHA256 signed · secret via P0-2 Secrets Store · retry/backoff/DLQ · replay · delivery states PENDING/DELIVERING/DELIVERED/RETRYING/FAILED/DLQ (DELIVERED requires an actual 2xx response) · RBAC-gated · audit-logged.",
+    api: null, kind: "webhooks", connected: true,
   },
   {
     key: "platform-health", label: "Platform Health", icon: HeartPulse,

@@ -1709,3 +1709,76 @@ annotated by `_annotate_hit`):
 P0-5 Webhooks → P0-8 Collectors/Data Sources → RBAC retrofit sweep
 across every protected router → Phase B GTFOBins + LOLDrivers →
 Detection + Correlation Engine → OSINT/TI Hub.
+
+### P0-5 · Webhooks + Global Observation Contract · SHIPPED (this session)
+
+**Global observation contract** (`services/xdr_observation_contract.py`):
+- Codifies the capability-not-verdict principle as a platform-wide
+  reusable module (any future detection subsystem — GTFOBins,
+  LOLDrivers, Sigma, OSINT, IOC intel — imports from it).
+- Enum `ObservationType`: LOLBIN / LOLBIN_CAPABILITY / PARENT_CHILD /
+  SEQUENCE / PATTERN / IOC / ATTACK_TECHNIQUE / DETECTION /
+  CORRELATION / NEGATIVE_EVIDENCE / IDENTITY / NETWORK / FILE.
+- Enum `SignalStrength`: OBSERVED / INFORMATIONAL / WEAK / MODERATE /
+  STRONG with `STRENGTH_WEIGHT` numeric weights (max STRONG=5 so
+  a full LOLBAS chain aggregates only to ~7).
+- `compute_disposition()`: deterministic ladder OBSERVED →
+  OBSERVED_WITH_SIGNAL → CONTEXTUALIZED → CORRELATION_CANDIDATE.
+  NO evidence subsystem may produce a verdict from this module.
+- `contract_block()`: standard `{principle, note}` clause to attach
+  to every evidence response.
+
+**P0-5 Webhooks** (`routers/xdr_webhooks.py`):
+- Storage: `xdr_webhooks` + `xdr_webhook_deliveries`.
+- **HMAC-SHA256 signing**, secret persisted as **Fernet-encrypted
+  ciphertext in the webhook document using the P0-2 Secrets Store
+  helpers** (`_encrypt` / `_decrypt`).  Only `secret_preview` (last-6
+  chars) is ever returned in list/get responses.  Full plaintext
+  shown ONCE at create + rotate.
+- **Delivery engine** (`_emit_delivery`) with retry loop, HTTP
+  headers `X-NivXRay-Signature`, `X-NivXRay-Event`,
+  `X-NivXRay-Delivery-Id`, `X-NivXRay-Attempt`.  Final state one of
+  DELIVERED / FAILED / DLQ / RETRYING (transient).  **DELIVERED is
+  written only after an actual 2xx HTTP response** — never fabricated
+  on error/timeout/4xx/5xx.
+- **RBAC-gated** on every mutation via `require_permission(...)`
+  (`webhooks.create/update/delete/rotate/test`).
+- **Endpoints**: create, list, get, update, rotate-secret, delete,
+  test, deliveries (with `state=` filter), replay/{delivery_id}.
+- **`broadcast(tenant, event, payload)`** server-internal helper for
+  other backend services to fan events out to subscribed hooks.
+- **Audit actions**: `WEBHOOK_CREATED / UPDATED / ENABLED / DISABLED
+  / DELETED / SECRET_ROTATED / TEST_DELIVERY / REPLAY`.
+- Event subscription glob-lite (`ALERT_*`, `INCIDENT_CREATED`, `*`).
+
+**Tests** (`tests/test_xdr_webhooks.py`) — **9/9 passing**:
+- One-time secret reveal + hash-only persistence
+- Duplicate name rejected (409)
+- Test delivery → DELIVERED path (mocked 202); HMAC signature
+  independently reconstructed from the plaintext secret + body matches
+- Retry loop exhausts to **DLQ** (mocked persistent 503, 1 initial + 2
+  retries = 3 attempts, `attempt_count == 3`, `final_state == DLQ`,
+  `last_status == 503`).
+- **Replay** from DLQ produces a fresh delivery with `replay_of` set
+  and reaches DELIVERED when upstream now returns 200.
+- Rotate-secret produces a new plaintext (different from the original).
+- Disabled webhook refuses test delivery (409).
+- Tenant isolation.
+- Audit chain remains valid across the full lifecycle.
+
+**Admin UI** (`src/xdr/admin/WebhooksBody.jsx`):
+- Add / rotate-secret / test-delivery / deliveries panel (with per-
+  delivery replay) / enable-disable / delete.
+- One-time reveal modal with Copy + acknowledgement.
+- Every mutation surfaces the returned `audit_ref`.
+- Deployed to Vercel commit `6fc95f5`.
+
+**Full XDR test suite**: **65/65 pass** (audit-log 5 + secrets 11 +
+lolbas 17 + rbac 14 + api-keys 9 + webhooks 9).  Ruff clean.
+
+### Queue (per confirmed sequence)
+P0-8 Collectors + Data Sources → RBAC retrofit sweep across every
+protected router → Phase B GTFOBins + LOLDrivers → Detection +
+Correlation Engine (Admin → Detection → Rules / Correlation Rules /
+Pattern Rules / Content Packs / Testing / Replay / Versioning /
+Rollback) → OSINT/TI Hub (Admin → Intelligence → OSINT Providers).
