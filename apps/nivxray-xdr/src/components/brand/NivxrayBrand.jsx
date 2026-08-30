@@ -1,11 +1,11 @@
 /**
  * NivXRay brand mark + wordmark for the standalone XDR tool.
  *
- * Same visual language as the parent NivXRay identity — angular N
- * glyph with mint gradient and an orange dot accent — but the
- * wordmark suffix is "XDR" (this tool), not "DECODER / THREAT-LAB"
- * (the parent tool).  Pure inline SVG so it renders without any
- * external asset dependency.
+ * The mark now matches the authoritative NivX Machines identity used
+ * by the base NivXRay product (see /app/frontend/public/brand/
+ * nivxray-mark.svg): asymmetric bracket-N with mint stroke gradient
+ * and an orange spark accent — inline SVG, no external asset
+ * dependency.  Only the wordmark suffix changes ("XDR").
  */
 import React from "react";
 
@@ -15,52 +15,55 @@ import React from "react";
  */
 export function NivxrayMark({ size = 28, boxed = true, className, ...rest }) {
   const s = size;
-  const stroke = "url(#nx-mint)";
   return (
     <svg
       width={s}
       height={s}
-      viewBox="0 0 64 64"
+      viewBox="0 0 512 512"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      role="img"
       aria-label="NivXRay"
       {...rest}
     >
       <defs>
-        <linearGradient id="nx-mint" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0"   stopColor="#7BE0C1" />
-          <stop offset="1"   stopColor="#2FB89A" />
+        {/* Same gradient stops as the base NivX Machines mark. */}
+        <linearGradient id="nx-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stopColor="#5cc0a5" />
+          <stop offset="100%" stopColor="#3b8b75" />
         </linearGradient>
-        <radialGradient id="nx-halo" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0"   stopColor="#3CE8B8" stopOpacity="0.14" />
-          <stop offset="1"   stopColor="#3CE8B8" stopOpacity="0" />
+        <radialGradient id="nx-glow" cx="50%" cy="50%" r="55%">
+          <stop offset="0%"   stopColor="#4aa890" stopOpacity="0.18" />
+          <stop offset="70%"  stopColor="#4aa890" stopOpacity="0.02" />
+          <stop offset="100%" stopColor="#4aa890" stopOpacity="0" />
         </radialGradient>
       </defs>
 
+      {/* Optional frame — matches the base identity. */}
       {boxed && (
         <rect
-          x="1.5" y="1.5" width="61" height="61" rx="10"
-          fill="#0A0C11" stroke="#212736" strokeWidth="1"
+          x="8" y="8" width="496" height="496" rx="24" ry="24"
+          fill="none" stroke="#2d3135" strokeWidth="4"
         />
       )}
-      <circle cx="32" cy="32" r="26" fill="url(#nx-halo)" />
 
-      {/* Angular N glyph — one continuous polyline: bottom-left up,
-          diagonal down to bottom-right, then straight up.
-          Matches the reference identity's blocky N shape and renders
-          reliably at any size. */}
-      <polyline
-        points="18,50 18,14 46,50 46,14"
+      {/* Ambient glow. */}
+      <circle cx="256" cy="256" r="200" fill="url(#nx-glow)" />
+
+      {/* Bracket-N geometry — authoritative NivX Machines glyph. */}
+      <path
+        d="M 96 384 L 96 128 L 176 128 L 320 320 L 320 128 L 416 128"
         fill="none"
-        stroke={stroke}
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        stroke="url(#nx-stroke)"
+        strokeWidth="32"
+        strokeLinejoin="miter"
+        strokeLinecap="square"
       />
 
-      {/* Orange dot accent — the identity signature. */}
-      <circle cx="49" cy="50" r="3.4" fill="#E88B5E" />
-      <circle cx="49" cy="50" r="5.8" fill="none" stroke="#E88B5E" strokeOpacity="0.4" strokeWidth="1" />
+      {/* Orange spark accent — identity signature. */}
+      <circle cx="416" cy="384" r="32" fill="#e27e5d" />
+      <circle cx="416" cy="384" r="46" fill="none"
+                stroke="#e27e5d" strokeOpacity="0.35" strokeWidth="4" />
     </svg>
   );
 }

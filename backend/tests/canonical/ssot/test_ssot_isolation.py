@@ -418,6 +418,15 @@ def test_no_route_file_modified_by_phase2():
         "apps/nivxray-xdr/src/xdr/pages/XdrEndpointsPage.jsx",
         "apps/nivxray-xdr/src/xdr/pages/XdrDeviceTrajectoryPage.jsx",
         "apps/nivxray-xdr/src/nivxforge/edrApi.js",
+        # Slice 3 · Detection Sourcing — P3 (2026-02-XX).
+        # Elevate `detected_by` into a first-class column on the
+        # Suspicious Elements body + Slice 1-style pivot to source
+        # engine.  Read-only consumer of `/api/incidents/{id}/summary`.
+        "apps/nivxray-xdr/src/xdr/pages/XdrIncidentDetailPage.jsx",
+        # Brand alignment — the XDR mark now uses the authoritative
+        # NivX Machines bracket-N glyph from the base product's
+        # /brand/nivxray-mark.svg.  Inline SVG only, no asset copy.
+        "apps/nivxray-xdr/src/components/brand/NivxrayBrand.jsx",
         "frontend/src/nivxforge/edrApi.js",
         "frontend/src/nivxforge/pages/EdrDetectionsPage.jsx",
         "frontend/src/nivxforge/pages/EdrProcessTreePage.jsx",

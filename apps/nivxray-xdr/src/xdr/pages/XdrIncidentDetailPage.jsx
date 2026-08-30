@@ -12,6 +12,7 @@ import { AlertOctagon, ChevronLeft, ExternalLink, Lock, Loader2 } from "lucide-r
 import XdrShell from "@/xdr/XdrShell";
 import LifecycleBar from "@/components/incidents/LifecycleBar";
 import ActivityTab  from "@/components/incidents/tabs/ActivityTab";
+import Pivot       from "@/xdr/components/Pivot";
 
 import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
 import api from "@/lib/api";
@@ -463,17 +464,62 @@ function SummarySubtabBody({ incident }) {
       <Block title="Suspicious Elements" testid="xdr-summary-suspicious">
         {(s.suspicious_elements || []).length === 0
           ? stateBadge("no_matching_evidence")
-          : <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
-              {s.suspicious_elements.map((r, i) => (
-                <li key={i} style={{ color: "var(--text-dim)" }}>
-                  <span className="mono" style={{ color: "var(--amber)" }}>{r.rule_id}</span>
-                  {r.weight != null && <span className="mono" style={{ color: "var(--faint)" }}> · +{r.weight}</span>}
-                  <span className="mono" style={{ marginLeft: 6, color: "var(--mint)", fontSize: 10 }}>
-                    · detected_by: {r.detected_by}
-                  </span>
-                </li>
-              ))}
-            </ul>}
+          : <table className="x-table" style={{ width: "100%" }}
+                    data-testid="xdr-summary-suspicious-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "24%" }}>Rule</th>
+                  <th style={{ width: "10%" }}>Weight</th>
+                  <th style={{ width: "34%" }}>Detected By</th>
+                  <th>Provenance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.suspicious_elements.map((r, i) => {
+                  const key = `${r.rule_id || "rule"}-${i}`;
+                  const engine = r.detected_by || null;
+                  const pivotCtx = {
+                    incident_id: incident?.id,
+                    rule_id:     r.rule_id,
+                  };
+                  return (
+                    <tr key={key}
+                          data-testid={`xdr-summary-suspicious-row-${i}`}>
+                      <td>
+                        <Pivot
+                          kind="rule"
+                          value={r.rule_id}
+                          ctx={pivotCtx}
+                          testid={`xdr-summary-suspicious-rule-${i}`}
+                        />
+                      </td>
+                      <td className="mono" style={{
+                          color: (r.weight || 0) >= 20 ? "var(--amber)" : "var(--text-dim)"
+                        }}
+                        data-testid={`xdr-summary-suspicious-weight-${i}`}>
+                        {r.weight != null ? `+${r.weight}` : "—"}
+                      </td>
+                      <td data-testid={`xdr-summary-suspicious-detected-by-${i}`}>
+                        {engine
+                          ? <Pivot
+                              kind="engine"
+                              value={engine}
+                              ctx={pivotCtx}
+                              testid={`xdr-summary-suspicious-engine-${i}`}
+                            />
+                          : stateBadge("not_available")}
+                      </td>
+                      <td className="mono" style={{
+                          color: "var(--faint)", fontSize: 10.5,
+                        }}
+                        data-testid={`xdr-summary-suspicious-provenance-${i}`}>
+                        {r.provenance || stateBadge("not_available")}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>}
       </Block>
 
       <Block title="Evidence Gaps · Negative Explainability"

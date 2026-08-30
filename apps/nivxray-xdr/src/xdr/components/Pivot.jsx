@@ -9,7 +9,7 @@
  *   • Entities without a value show `NOT AVAILABLE` — no fake IDs.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, ExternalLink, Radar, Terminal, Globe, Grid3x3, Search } from "lucide-react";
+import { ChevronDown, ExternalLink, Radar, Terminal, Globe, Grid3x3, Search, FileText } from "lucide-react";
 
 // Pivot targets per entity kind.  Keep the list surgical — one row per
 // existing capability the analyst can actually reach.
@@ -58,6 +58,48 @@ const PIVOTS = {
       icon: Grid3x3, to: `/heatmap`,
       external: true, hint: "MITRE technique map (new tab)" },
   ],
+  // Slice 3 · Detection Sourcing — pivot on a detection's source engine.
+  // `ctx` may carry {incident_id, rule_id} so the engine viewer can
+  // ground into the same case + rule.
+  engine: (v, ctx) => {
+    const enc  = ctx?.incident_id ? encodeURIComponent(ctx.incident_id) : null;
+    const rule = ctx?.rule_id     ? encodeURIComponent(ctx.rule_id)     : null;
+    const low  = String(v || "").toLowerCase();
+    // Deterministic mapping: which authoritative surface owns each
+    // known source-engine identifier?  Anything unknown → NO MATCHING
+    // EVIDENCE handled at the caller.
+    const targets = [];
+    if (low.includes("verdict engine")) {
+      targets.push({
+        key: "verdict", label: "Open Stage-2 Verdict Engine",
+        icon: Radar,
+        to: enc
+          ? `/edr/trajectory?incident_id=${enc}${rule ? `&rule=${rule}` : ""}`
+          : `/edr/trajectory`,
+        external: true, hint: "Existing Verdict Engine viewer (new tab)",
+      });
+      if (enc) targets.push({
+        key: "analyst", label: "Open Analyst Workspace",
+        icon: ExternalLink, to: `/analyst?case=${enc}&tab=verdict`,
+        external: true, hint: "Rehydrated in the Analyst Workspace (new tab)",
+      });
+    } else if (low.includes("collector") || low.includes("iue")) {
+      targets.push({
+        key: "iue", label: "Open IUE Lane C",
+        icon: Terminal,
+        to: enc ? `/analyst?case=${enc}&tab=iue` : `/analyst`,
+        external: true, hint: "IUE collector lane (new tab)",
+      });
+    } else if (low === "magic-byte" || low === "magic"
+                  || low === "zip-content" || low === "heuristic") {
+      targets.push({
+        key: "artifact", label: "Open Artifact Intelligence",
+        icon: FileText, to: `/documents${enc ? `?case=${enc}` : ""}`,
+        external: true, hint: "Artifact intelligence source (new tab)",
+      });
+    }
+    return targets;
+  },
   user: () => [],
 };
 
