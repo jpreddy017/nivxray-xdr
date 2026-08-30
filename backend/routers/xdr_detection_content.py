@@ -1,65 +1,136 @@
 """
-XDR Detection Content Registry — P1 · Foundation.
+XDR Detection Content Registry — P1 · Multi-Source Foundation.
 
-Real, populated, executable detection-content registry.  Mirrors the
-proven LOLBAS 10-stage pipeline (see /app/backend/routers/xdr_lolbas.py):
+REAL, populated, executable detection-content registry backed by the
+unified `lib.content_pipeline` framework.  Every source (Sigma · Snort
+· Suricata · YARA · MITRE ATT&CK) flows through the SAME deterministic
+10-stage pipeline:
 
-    DISCOVER → DOWNLOAD → LICENSE_VALIDATE → PARSE → SCHEMA_VALIDATE
-             → NORMALIZE → DEDUPLICATE → ATT&CK_MAP
-             → REGRESSION_TEST → REGISTER → ENABLE
+    DISCOVERED  →  DOWNLOADED  →  PARSED  →  LICENSE_EVALUATED
+                →  SCHEMA_VALIDATED  →  NORMALIZED  →  DEDUPLICATED
+                →  ATT&CK_MAPPED  →  REGISTERED  →  COMPLETE
 
 Rules NEVER become ACTIVE merely because they were downloaded.
-Invalid content remains in explicit failure states:
-INVALID · PARSE_FAILED · LICENSE_BLOCKED · UNSUPPORTED · REGRESSION_FAILED · DISABLED.
+Invalid / LICENSE_BLOCKED / LICENSE_REVIEW content remains in explicit
+failure states (retained for audit, never enters ACTIVE).
 
 Storage:
-  * xdr_detection_rules      — one doc per registered rule
-  * xdr_detection_versions   — one doc per completed sync (with diff)
+  * xdr_detection_rules      — one doc per registered rule (any source)
+  * xdr_detection_versions   — one doc per completed sync (per source)
 
-The bundled snapshot `/app/backend/fixtures/detection/sigma_snapshot.json`
-carries 20 real DRL-1.1 licensed Sigma rules with full provenance so a
-cold-boot pod is NEVER empty even if the SigmaHQ upstream is
-unreachable.  When SigmaHQ upstream is reachable the same pipeline
-scales to the thousands.
+Bundled snapshots ship alongside the router at
+`/app/backend/fixtures/detection/*.json` so a cold-boot pod is NEVER
+empty even when the upstream repositories are unreachable.  When
+upstream is reachable the same pipeline scales to the full corpus.
 
-Detection ≠ Verdict:  A rule firing is EVIDENCE for the correlation
-engine, NEVER an automatic verdict.  The `xdr_observation_contract`
-principle is preserved.
+Detection ≠ Verdict:  every rule firing is EVIDENCE for the correlation
+engine, NEVER an automatic verdict.  The `capability_not_verdict`
+principle is preserved end-to-end.
 """
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
-from urllib.request import Request as URLRequest
-from urllib.request import urlopen
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pymongo import ASCENDING, DESCENDING, MongoClient
 
+from lib.content_pipeline import (
+    ContentSource,
+    is_activatable,
+    json_list_parser,
+    run_pipeline,
+)
+from lib.content_policy import policy_matrix
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
 
 router = APIRouter(prefix="/api/xdr/detection", tags=["xdr-detection-content"])
 
-# ── Config ────────────────────────────────────────────────────────
-SIGMA_UPSTREAM_URL = os.environ.get("SIGMA_UPSTREAM_URL")   # optional; git archive JSON
-BUNDLED_SNAPSHOT   = Path(__file__).resolve().parents[1] / "fixtures" / "detection" / "sigma_snapshot.json"
-BUNDLED_URL        = f"file://{BUNDLED_SNAPSHOT}" if BUNDLED_SNAPSHOT.exists() else None
+# ── Bundled snapshots ────────────────────────────────────────────
+_FIX = Path(__file__).resolve().parents[1] / "fixtures" / "detection"
 
-ALLOWED_LICENSES = {
-    "DRL 1.1", "DRL-1.1", "Detection Rule License 1.1",
-    "MIT", "Apache-2.0", "BSD-3-Clause",
-    "NivXRay Public Content",
-}
 
-_ATTACK_RE = re.compile(r"^attack\.t\d{4}(?:\.\d{3})?$", re.IGNORECASE)
+def _bundled(name: str) -> str | None:
+    p = _FIX / name
+    return f"file://{p}" if p.exists() else None
+
+
+# ── Source registry ──────────────────────────────────────────────
+def _make_sources() -> list[ContentSource]:
+    """Deterministic list of every content source NivXRay ingests.
+
+    Each ContentSource carries its own live URL (env-overridable), an
+    optional intermediate fallback URL, and finally the bundled offline
+    snapshot as the guaranteed last-resort fallback.
+    """
+    return [
+        ContentSource(
+            name="SigmaHQ",
+            display_name="SigmaHQ (Sigma detection rules)",
+            homepage="https://github.com/SigmaHQ/sigma",
+            upstream_url=os.environ.get("SIGMA_UPSTREAM_URL"),
+            bundled_url=_bundled("sigma_snapshot.json"),
+            parser=json_list_parser,
+            default_license="DRL 1.1",
+            default_rule_type="process_creation",
+        ),
+        ContentSource(
+            name="Snort",
+            display_name="Snort / Emerging Threats Open",
+            homepage="https://www.snort.org/",
+            upstream_url=os.environ.get("SNORT_UPSTREAM_URL"),
+            bundled_url=_bundled("snort_snapshot.json"),
+            parser=json_list_parser,
+            default_license="BSD-3-Clause",
+            default_rule_type="snort_signature",
+        ),
+        ContentSource(
+            name="Suricata",
+            display_name="Suricata / ET Open",
+            homepage="https://suricata.io/",
+            upstream_url=os.environ.get("SURICATA_UPSTREAM_URL"),
+            bundled_url=_bundled("suricata_snapshot.json"),
+            parser=json_list_parser,
+            default_license="BSD-3-Clause",
+            default_rule_type="suricata_signature",
+        ),
+        ContentSource(
+            name="YARA-Rules",
+            display_name="YARA-Rules / Signature Base",
+            homepage="https://github.com/Yara-Rules/rules",
+            upstream_url=os.environ.get("YARA_UPSTREAM_URL"),
+            bundled_url=_bundled("yara_snapshot.json"),
+            parser=json_list_parser,
+            default_license="GPL-2.0",
+            default_rule_type="yara",
+        ),
+        ContentSource(
+            name="MITRE ATT&CK",
+            display_name="MITRE ATT&CK (technique knowledge)",
+            homepage="https://attack.mitre.org/",
+            upstream_url=os.environ.get("ATTACK_UPSTREAM_URL"),
+            bundled_url=_bundled("attack_snapshot.json"),
+            parser=json_list_parser,
+            default_license="MITRE ATT&CK",
+            default_rule_type="attack_technique",
+        ),
+    ]
+
+
+SOURCES: list[ContentSource] = _make_sources()
+SOURCE_BY_NAME: dict[str, ContentSource] = {s.name: s for s in SOURCES}
+BUNDLED_URL = _bundled("sigma_snapshot.json")   # kept for legacy tests
+
+_RULE_STATES_VALID   = {"IMPORTED", "VALIDATED", "COMPILED", "TESTED",
+                                    "ENABLED", "ACTIVE"}
+_RULE_STATES_INVALID = {"INVALID", "PARSE_FAILED", "LICENSE_BLOCKED",
+                                    "LICENSE_REVIEW", "UNSUPPORTED",
+                                    "REGRESSION_FAILED", "DISABLED"}
 
 
 # ── Mongo binding (sync) ─────────────────────────────────────────
@@ -98,284 +169,194 @@ def _mask(d: dict) -> dict:
     return {k: v for k, v in d.items() if k != "_id"}
 
 
-# ── Fetch ─────────────────────────────────────────────────────────
-class UpstreamError(Exception):
-    def __init__(self, code: str, detail: str):
-        self.code, self.detail = code, detail
-        super().__init__(f"{code}: {detail}")
+# ── Registrar (stage 9) — writes into Mongo, deterministic ───────
+def _register(rules: list[dict]) -> dict[str, int]:
+    counts = {"registered": 0, "updated": 0, "existing_unchanged": 0,
+                    "retained_non_activatable": 0}
+    if _c_rules() is None or not rules:
+        return counts
+    existing = {d["upstream_id"]: d for d in _c_rules().find(
+        {"upstream_id": {"$in": [r["upstream_id"] for r in rules]}},
+        {"_id": 0, "upstream_id": 1, "original_content_hash": 1, "id": 1})}
+    for n in rules:
+        # Rules that fail license policy are RETAINED for audit but
+        # never counted as "registered" (activatable content).
+        activatable = is_activatable(n["license_policy_state"])
+        target_state = ("VALIDATED" if activatable
+                                else "LICENSE_BLOCKED"
+                                if n["license_policy_state"] == "LICENSE_BLOCKED"
+                                else "LICENSE_REVIEW")
+        n_final = {**n, "state": target_state}
+        prev = existing.get(n["upstream_id"])
+        if prev and prev["original_content_hash"] == n["original_content_hash"]:
+            counts["existing_unchanged"] += 1
+            continue
+        if prev:
+            n_final["id"] = prev["id"]
+            _c_rules().update_one({"upstream_id": n["upstream_id"]},
+                                              {"$set": n_final})
+            if activatable:
+                counts["updated"] += 1
+            else:
+                counts["retained_non_activatable"] += 1
+        else:
+            _c_rules().insert_one(dict(n_final))
+            if activatable:
+                counts["registered"] += 1
+            else:
+                counts["retained_non_activatable"] += 1
+    try:
+        _c_rules().create_index([("upstream_id", ASCENDING)], unique=True)
+        _c_rules().create_index([("source", ASCENDING)])
+        _c_rules().create_index([("rule_type", ASCENDING)])
+        _c_rules().create_index([("attack_techniques", ASCENDING)])
+    except Exception:  # noqa: BLE001,S110
+        pass
+    return counts
 
 
-def _fetch(url: str, timeout: float = 30.0) -> tuple[bytes, str]:
-    parsed = urlparse(url)
-    if parsed.scheme == "file":
-        p = Path(parsed.path)
-        if not p.exists():
-            raise UpstreamError("UPSTREAM_UNAVAILABLE", f"not found: {p}")
-        return p.read_bytes(), url
-    if parsed.scheme in ("http", "https"):
-        try:
-            req = URLRequest(url, headers={"User-Agent": "NivXRay-XDR/1.0"})
-            with urlopen(req, timeout=timeout) as r:
-                return r.read(), url
-        except Exception as exc:
-            raise UpstreamError("UPSTREAM_UNAVAILABLE", str(exc)) from exc
-    raise UpstreamError("UPSTREAM_UNSUPPORTED", parsed.scheme)
-
-
-# ── Stages ────────────────────────────────────────────────────────
-_STAGES = ["DISCOVERED", "DOWNLOADED", "PARSED", "LICENSE_VALIDATED",
-                  "SCHEMA_VALIDATED", "NORMALIZED", "DEDUPLICATED",
-                  "ATTACK_MAPPED", "REGISTERED", "COMPLETE"]
-
-_RULE_STATES_VALID   = {"IMPORTED", "VALIDATED", "COMPILED", "TESTED",
-                                    "ENABLED", "ACTIVE"}
-_RULE_STATES_INVALID = {"INVALID", "PARSE_FAILED", "LICENSE_BLOCKED",
-                                    "UNSUPPORTED", "REGRESSION_FAILED", "DISABLED"}
-
-
-def _validate_rule(raw: dict) -> list[str]:
-    errs: list[str] = []
-    if not isinstance(raw, dict):
-        return ["not-a-dict"]
-    for k in ("id", "title", "source", "license", "detection", "rule_type"):
-        if not raw.get(k):
-            errs.append(f"missing {k}")
-    if raw.get("license") and raw["license"] not in ALLOWED_LICENSES:
-        errs.append(f"license not allowed: {raw['license']}")
-    return errs
-
-
-def _normalize(raw: dict, upstream_hash: str) -> dict:
-    tags   = [t for t in (raw.get("tags") or []) if isinstance(t, str)]
-    attack = sorted({t.upper().replace("ATTACK.", "")
-                                for t in tags if _ATTACK_RE.match(t)})
-    ct = json.dumps(raw.get("detection") or {}, sort_keys=True)
-    content_hash = hashlib.sha256(ct.encode()).hexdigest()
-    return {
-        "id":                     f"det_{uuid.uuid4().hex[:20]}",
-        "upstream_id":            raw["id"],
-        "upstream_version":       f"sha256:{upstream_hash[:12]}",
-        "title":                  raw["title"],
-        "description":            raw.get("description"),
-        "source":                 raw["source"],
-        "source_url":             raw.get("source_url"),
-        "license":                raw["license"],
-        "license_verified":       bool(raw.get("license_verified")),
-        "author":                 raw.get("author"),
-        "created":                raw.get("created"),
-        "modified":               raw.get("modified"),
-        "original_content_hash":  content_hash,
-        "level":                  raw.get("level"),
-        "status":                 raw.get("status"),
-        "tags":                   tags,
-        "attack_techniques":      attack,
-        "logsource":              raw.get("logsource") or {},
-        "detection":              raw.get("detection"),
-        "rule_type":              raw["rule_type"],
-        "capability_not_verdict": bool(raw.get("capability_not_verdict")),
-        "state":                  "IMPORTED",
-        "state_reason":           "imported from upstream snapshot",
-        "enabled":                False,
-        "parser_version":         "sigma-yaml-json-1.0",
-        "lineage":                {"pipeline": _STAGES, "imported_at": _now()},
-    }
-
-
-def _persist_version(stages: dict, counts: dict, principal: tuple[str, str, str],
-                                 outcome: str, upstream_sha: str = "",
-                                 upstream_url: str = "") -> dict:
+def _persist_version(source_name: str, version: dict,
+                                 principal: tuple[str, str, str]) -> dict:
     ten, pid, _ = principal
     doc = {
-        "id":              f"det_v_{uuid.uuid4().hex[:16]}",
-        "outcome":         outcome,
-        "stages":          stages,
-        "counts":          counts,
-        "upstream_sha256": upstream_sha,
-        "upstream_url":    upstream_url,
-        "synced_at":       _now(),
-        "synced_by":       pid,
-        "active":          outcome == "COMPLETE",
+        "id":               f"det_v_{uuid.uuid4().hex[:16]}",
+        "source":           source_name,
+        "outcome":          version["outcome"],
+        "stages":           version["stages"],
+        "counts":           version["counts"],
+        "upstream_sha256":  version.get("upstream_sha256", ""),
+        "upstream_url":     version.get("upstream_url", ""),
+        "fallback_used":    version.get("fallback_used", False),
+        "acquisition_state": version.get("acquisition_state",
+                                                          "UNAVAILABLE"),
+        "synced_at":        _now(),
+        "synced_by":        pid,
+        "active":           version["outcome"] == "COMPLETE",
     }
     if _c_versions() is not None:
         if doc["active"]:
-            _c_versions().update_many({"active": True},
-                                                      {"$set": {"active": False}})
+            _c_versions().update_many(
+                {"source": source_name, "active": True},
+                {"$set": {"active": False}})
         _c_versions().insert_one(dict(doc))
     doc.pop("_id", None)
     try:
         emit_audit(tenant_id=ten, principal_id=pid, principal_kind="user",
                         action="DETECTION_SYNCED", resource_kind="detection_pack",
                         resource_id=doc["id"],
-                        outcome="SUCCESS" if outcome == "COMPLETE" else "PARTIAL",
-                        after={"counts": counts})
+                        outcome=("SUCCESS" if doc["active"] else "PARTIAL"),
+                        after={"source": source_name, "counts": doc["counts"]})
     except Exception:  # noqa: BLE001,S110
         pass
     return doc
 
 
-def _sync_pipeline(url: str, principal: tuple[str, str, str],
-                                *, fallback_urls: list[str] | None = None,
-                                idempotent: bool = False) -> dict:
-    """10-stage deterministic sync pipeline · never fabricates."""
+def _sync_source(source: ContentSource,
+                            principal: tuple[str, str, str],
+                            *, idempotent: bool = False) -> dict:
+    """Run the unified pipeline for a single source, register the
+    resulting rules, and persist the version doc.
+
+    Returns a legacy-compatible payload merging pipeline stages/counts
+    with registrar counts, plus source metadata.
+    """
     if _db() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
-    stages = {s: {"status": "PENDING"} for s in _STAGES}
-    counts = {"discovered": 0, "downloaded": 0, "parsed": 0,
-                  "license_valid": 0, "license_blocked": 0,
-                  "schema_valid": 0, "schema_invalid": 0,
-                  "deduplicated": 0, "attack_mapped": 0,
-                  "registered": 0, "existing_unchanged": 0}
 
-    # 1 DISCOVERED
-    stages["DISCOVERED"] = {"status": "OK", "url": url}
-    # 2 DOWNLOADED (with fallback)
-    targets = [url] + [u for u in (fallback_urls or []) if u and u != url]
-    raw = None
-    used_url = url
-    errs: list[dict] = []
-    for t in targets:
-        try:
-            raw, used_url = _fetch(t)
-            break
-        except UpstreamError as exc:
-            errs.append({"url": t, "code": exc.code, "detail": exc.detail})
-    if raw is None:
-        stages["DOWNLOADED"] = {"status": "FAIL", "attempts": errs}
-        return _persist_version(stages, counts, principal,
-                                                 outcome="UPSTREAM_UNAVAILABLE")
-    upstream_hash = hashlib.sha256(raw).hexdigest()
-    stages["DOWNLOADED"] = {"status": "OK", "bytes": len(raw),
-                                        "sha256": upstream_hash, "used_url": used_url,
-                                        "fallback_used": used_url != targets[0]}
-    if idempotent and _c_versions() is not None:
-        active = _c_versions().find_one({"active": True}, {"_id": 0})
-        if active and active.get("upstream_sha256") == upstream_hash and \
-                active.get("outcome") == "COMPLETE":
-            return {**active, "idempotent_skip": True}
+    def _hash_check(upstream_sha: str) -> dict | None:
+        if not idempotent or _c_versions() is None:
+            return None
+        active = _c_versions().find_one(
+            {"source": source.name, "active": True}, {"_id": 0})
+        if active and active.get("upstream_sha256") == upstream_sha \
+                and active.get("outcome") == "COMPLETE":
+            return active
+        return None
 
-    # 3 PARSED
-    try:
-        data = json.loads(raw.decode("utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        stages["PARSED"] = {"status": "FAIL", "detail": str(exc)}
-        return _persist_version(stages, counts, principal, outcome="PARSE_FAILED")
-    if not isinstance(data, list):
-        stages["PARSED"] = {"status": "FAIL", "detail": "expected JSON list"}
-        return _persist_version(stages, counts, principal, outcome="PARSE_FAILED")
-    counts["discovered"] = counts["downloaded"] = counts["parsed"] = len(data)
-    stages["PARSED"] = {"status": "OK", "rules": len(data)}
+    version = run_pipeline(source, idempotent_hash_check=_hash_check)
+    reg_counts = _register(version.get("rules", []))
+    version["counts"].update(reg_counts)
+    # Legacy compat aliases (older tests read these keys):
+    version["counts"]["license_valid"]   = (
+        version["counts"]["license_permitted"]
+        + version["counts"]["license_restricted"])
+    version["counts"]["license_blocked_or_review"] = (
+        version["counts"]["license_blocked"]
+        + version["counts"]["license_review"])
+    # `license_blocked` was previously overloaded to also count review
+    # in the single-source model; keep the raw blocked count and add
+    # the alias above.
+    # `registered` legacy name → new registrar output.
+    version["counts"]["registered"] = reg_counts["registered"]
+    version["stages"]["REGISTERED"] = {
+        "status": "OK",
+        "registered": reg_counts["registered"],
+        "updated": reg_counts["updated"],
+        "existing_unchanged": reg_counts["existing_unchanged"],
+        "retained_non_activatable": reg_counts["retained_non_activatable"],
+    }
+    persisted = _persist_version(source.name, version, principal)
+    # Return without the (potentially large) `rules[]` payload
+    out = {k: v for k, v in version.items() if k != "rules"}
+    out["persisted_version_id"] = persisted["id"]
+    return out
 
-    # 4 LICENSE_VALIDATED
-    licensed: list[dict] = []
-    license_blocked_ids: list[str] = []
-    for r in data:
-        lic = r.get("license")
-        if not lic or lic not in ALLOWED_LICENSES:
-            license_blocked_ids.append(r.get("id") or "<unnamed>")
-            continue
-        licensed.append(r)
-    counts["license_valid"]   = len(licensed)
-    counts["license_blocked"] = len(license_blocked_ids)
-    stages["LICENSE_VALIDATED"] = {
-        "status": "OK" if not license_blocked_ids else "PARTIAL",
-        "valid": len(licensed), "blocked": len(license_blocked_ids),
-        "blocked_sample": license_blocked_ids[:10]}
 
-    # 5 SCHEMA_VALIDATED
-    valid: list[dict] = []
-    invalid: list[dict] = []
-    for r in licensed:
-        errs2 = _validate_rule(r)
-        if errs2:
-            invalid.append({"id": r.get("id"), "errors": errs2})
-        else:
-            valid.append(r)
-    counts["schema_valid"]   = len(valid)
-    counts["schema_invalid"] = len(invalid)
-    stages["SCHEMA_VALIDATED"] = {
-        "status": "OK" if not invalid else "PARTIAL",
-        "valid": len(valid), "invalid": len(invalid),
-        "invalid_sample": invalid[:10]}
-
-    # 6 NORMALIZED
-    normalized = [_normalize(r, upstream_hash) for r in valid]
-    stages["NORMALIZED"] = {"status": "OK", "normalized": len(normalized)}
-
-    # 7 DEDUPLICATED (by upstream_id + content hash)
-    seen: set[tuple] = set()
-    deduped: list[dict] = []
-    for n in normalized:
-        key = (n["upstream_id"], n["original_content_hash"])
-        if key in seen:
-            continue
-        seen.add(key); deduped.append(n)
-    counts["deduplicated"] = len(deduped)
-    stages["DEDUPLICATED"] = {"status": "OK", "kept": len(deduped),
-                                              "collapsed": len(normalized) - len(deduped)}
-
-    # 8 ATT&CK_MAPPED
-    mapped = sum(1 for n in deduped if n["attack_techniques"])
-    counts["attack_mapped"] = mapped
-    stages["ATTACK_MAPPED"] = {"status": "OK", "mapped": mapped,
-                                                  "unmapped": len(deduped) - mapped}
-
-    # 9 REGISTERED (upsert into xdr_detection_rules by upstream_id)
-    registered = 0
-    if _c_rules() is not None:
-        existing_by_uid = {d["upstream_id"]: d
-                                      for d in _c_rules().find({},
-                                          {"_id": 0, "upstream_id": 1,
-                                            "original_content_hash": 1, "id": 1})}
-        for n in deduped:
-            prev = existing_by_uid.get(n["upstream_id"])
-            if prev and prev["original_content_hash"] == n["original_content_hash"]:
-                counts["existing_unchanged"] += 1
-                continue
-            if prev:
-                # Content changed — retain id, bump lineage.
-                n["id"] = prev["id"]
-                _c_rules().update_one({"upstream_id": n["upstream_id"]},
-                                                  {"$set": {**n, "state": "VALIDATED"}})
-            else:
-                n["state"] = "VALIDATED"
-                _c_rules().insert_one(dict(n))
-            registered += 1
-        try:
-            _c_rules().create_index([("upstream_id", ASCENDING)], unique=True)
-            _c_rules().create_index([("rule_type", ASCENDING)])
-            _c_rules().create_index([("attack_techniques", ASCENDING)])
-        except Exception:  # noqa: BLE001,S110
-            pass
-    counts["registered"] = registered
-    stages["REGISTERED"] = {"status": "OK", "registered": registered,
-                                              "existing_unchanged": counts["existing_unchanged"]}
-
-    # 10 COMPLETE gate
-    every_ok = all(stages[s]["status"] == "OK" for s in
-                              ["DISCOVERED", "DOWNLOADED", "PARSED", "NORMALIZED",
-                                "DEDUPLICATED", "ATTACK_MAPPED", "REGISTERED"])
-    stages["COMPLETE"] = {"status": "OK" if every_ok else "PARTIAL"}
-    outcome = "COMPLETE" if every_ok and not invalid and not license_blocked_ids \
-                        else "PARTIAL"
-    return _persist_version(stages, counts, principal,
-                                             outcome=outcome,
-                                             upstream_sha=upstream_hash,
-                                             upstream_url=used_url)
+# ── Legacy single-URL sync (still used by tests that hand in a
+#   synthetic file:// path).  Detects the SigmaHQ source or, if the
+#   provided URL doesn't match any registered source's bundle, treats
+#   the payload as a Sigma-shaped JSON list for backwards compat.
+# ─────────────────────────────────────────────────────────────────
+def _sync_pipeline_legacy(url: str, principal: tuple[str, str, str],
+                                            *, fallback_urls: list[str] | None = None,
+                                            idempotent: bool = False) -> dict:
+    """Backwards-compat wrapper: run the unified pipeline for a single
+    ad-hoc URL treated as SigmaHQ content."""
+    source = ContentSource(
+        name="SigmaHQ",
+        display_name="SigmaHQ (adhoc)",
+        homepage="https://github.com/SigmaHQ/sigma",
+        upstream_url=url,
+        bundled_url=None,
+        fallback_urls=[u for u in (fallback_urls or []) if u and u != url],
+        parser=json_list_parser,
+        default_license="DRL 1.1",
+    )
+    return _sync_source(source, principal, idempotent=idempotent)
 
 
 def ensure_synced(principal: tuple[str, str, str] | None = None) -> dict:
+    """Boot / on-demand: run every configured source (with idempotent
+    hash guards).  Returns aggregated results."""
     principal = principal or ("default", "system@boot", "system")
     if _db() is None:
         return {"outcome": "STORAGE_UNAVAILABLE"}
-    if _c_versions() is not None and _c_rules() is not None:
-        active = _c_versions().find_one({"active": True}, {"_id": 0})
-        if active and active.get("outcome") == "COMPLETE" \
-                and _c_rules().count_documents({}) > 0:
-            return {**active, "already_synced": True}
-    primary = SIGMA_UPSTREAM_URL or BUNDLED_URL or ""
-    fallbacks = [BUNDLED_URL] if BUNDLED_URL else []
-    return _sync_pipeline(primary, principal,
-                                        fallback_urls=fallbacks, idempotent=True)
+    per_source: dict[str, dict] = {}
+    already = 0
+    ran = 0
+    for src in SOURCES:
+        try:
+            r = _sync_source(src, principal, idempotent=True)
+            per_source[src.name] = r
+            if r.get("idempotent_skip"):
+                already += 1
+            else:
+                ran += 1
+        except Exception as exc:  # noqa: BLE001
+            per_source[src.name] = {"outcome": "ERROR", "error": str(exc)}
+    total = _c_rules().count_documents({}) if _c_rules() is not None else 0
+    return {
+        "outcome":       ("COMPLETE" if ran + already == len(SOURCES) else "PARTIAL"),
+        "sources_run":   ran,
+        "sources_skipped": already,
+        "per_source":    per_source,
+        "total_rules":   total,
+        "already_synced": ran == 0 and already > 0,
+    }
+
+
+# Backwards-compat alias — some external callers imported `_sync_pipeline`.
+_sync_pipeline = _sync_pipeline_legacy
 
 
 # ── Endpoints ─────────────────────────────────────────────────────
@@ -383,17 +364,64 @@ def ensure_synced(principal: tuple[str, str, str] | None = None) -> dict:
                        dependencies=[Depends(require_permission("detections.publish"))])
 def sync_now(request: Request,
                      url: str | None = Query(None),
-                     use_bundled_fallback: bool = Query(True)):
-    primary = url or SIGMA_UPSTREAM_URL or BUNDLED_URL or ""
+                     use_bundled_fallback: bool = Query(True),
+                     source: str | None = Query(None,
+                             description="Registered source name (SigmaHQ, Snort, Suricata, YARA-Rules, MITRE ATT&CK). "
+                                                 "When omitted the request runs an ad-hoc URL as SigmaHQ.")):
+    principal = _principal(request)
+    if source and source in SOURCE_BY_NAME:
+        return {"ok": True, "data": _sync_source(SOURCE_BY_NAME[source],
+                                                                            principal, idempotent=False)}
+    primary = url or (SOURCE_BY_NAME["SigmaHQ"].upstream_url) or BUNDLED_URL or ""
     fallbacks = [BUNDLED_URL] if (use_bundled_fallback and BUNDLED_URL) else []
-    return {"ok": True, "data": _sync_pipeline(primary, _principal(request),
-                                                                   fallback_urls=fallbacks)}
+    return {"ok": True, "data": _sync_pipeline_legacy(primary, principal,
+                                                                                fallback_urls=fallbacks)}
 
 
 @router.post("/ensure-synced",
                        dependencies=[Depends(require_permission("detections.publish"))])
 def ensure_synced_endpoint(request: Request):
     return {"ok": True, "data": ensure_synced(_principal(request))}
+
+
+@router.get("/sources/catalog",
+                     dependencies=[Depends(require_permission("detections.read"))])
+def sources_catalog(request: Request):
+    """List every content source NivXRay knows about with honest
+    acquisition status (LIVE / BUNDLED_FALLBACK / UNAVAILABLE) and
+    latest sync outcome."""
+    versions_by_source: dict[str, dict] = {}
+    if _c_versions() is not None:
+        for v in _c_versions().find({"active": True}, {"_id": 0}):
+            versions_by_source[v.get("source")] = v
+    counts_by_source: dict[str, int] = {}
+    active_by_source: dict[str, int] = {}
+    if _c_rules() is not None:
+        for d in _c_rules().find({}, {"_id": 0, "source": 1,
+                                                              "enabled": 1, "state": 1}):
+            src = d.get("source") or "unknown"
+            counts_by_source[src] = counts_by_source.get(src, 0) + 1
+            if d.get("enabled") and d.get("state") == "ACTIVE":
+                active_by_source[src] = active_by_source.get(src, 0) + 1
+    catalog = []
+    for s in SOURCES:
+        v = versions_by_source.get(s.name)
+        catalog.append({
+            "name":              s.name,
+            "display_name":      s.display_name or s.name,
+            "homepage":          s.homepage,
+            "upstream_url":      s.upstream_url,
+            "bundled_available": bool(s.bundled_url),
+            "default_license":   s.default_license,
+            "default_rule_type": s.default_rule_type,
+            "rules_total":       counts_by_source.get(s.name, 0),
+            "rules_active":      active_by_source.get(s.name, 0),
+            "latest_sync":       v,
+            "acquisition_state": (v.get("acquisition_state")
+                                                if v else "UNAVAILABLE"),
+        })
+    return {"ok": True, "data": {"sources": catalog,
+                                                        "policy": policy_matrix()}}
 
 
 @router.get("/status",
@@ -406,23 +434,30 @@ def status(request: Request):
         list(_RULE_STATES_VALID)}}) if _c_rules() is not None else 0
     active_rules = _c_rules().count_documents({"state": "ACTIVE",
         "enabled": True}) if _c_rules() is not None else 0
+    # Latest version doc — legacy tests read a single "active_version"
     active_version = None
     if _c_versions() is not None:
-        active_version = _c_versions().find_one({"active": True}, {"_id": 0})
+        active_version = _c_versions().find_one({"active": True},
+                                                                          {"_id": 0},
+                                                                          sort=[("synced_at", DESCENDING)])
 
     # ATT&CK coverage across the whole registry
     attack_set: set[str] = set()
     rule_types: dict[str, int] = {}
     sources:    dict[str, int] = {}
+    license_state_counts: dict[str, int] = {}
     if _c_rules() is not None:
         for d in _c_rules().find({}, {"_id": 0, "attack_techniques": 1,
-                                                              "rule_type": 1, "source": 1}):
+                                                              "rule_type": 1, "source": 1,
+                                                              "license_policy_state": 1}):
             for t in (d.get("attack_techniques") or []):
                 attack_set.add(t)
             rule_types[d.get("rule_type") or "unknown"] = \
                 rule_types.get(d.get("rule_type") or "unknown", 0) + 1
             sources[d.get("source") or "unknown"] = \
                 sources.get(d.get("source") or "unknown", 0) + 1
+            lps = d.get("license_policy_state") or "UNKNOWN"
+            license_state_counts[lps] = license_state_counts.get(lps, 0) + 1
 
     return {"ok": True, "data": {
         "active_version":            active_version,
@@ -433,6 +468,7 @@ def status(request: Request):
         "attack_technique_count":    len(attack_set),
         "rule_types":                rule_types,
         "sources":                   sources,
+        "license_state_counts":      license_state_counts,
         "bundled_fallback_available": bool(BUNDLED_URL),
         "sync_state": ("SYNCED"      if (active_version and total > 0)
                               else "NEVER_SYNCED"),
@@ -446,6 +482,7 @@ def list_rules(request: Request,
                        rule_type: str | None = Query(None),
                        attack: str | None = Query(None),
                        state: str | None = Query(None),
+                       license_state: str | None = Query(None),
                        enabled: bool | None = Query(None),
                        q: str | None = Query(None),
                        skip: int = Query(0, ge=0),
@@ -453,11 +490,12 @@ def list_rules(request: Request,
     if _c_rules() is None:
         return {"ok": False, "error": {"code": "STORAGE_UNAVAILABLE"}}
     query: dict[str, Any] = {}
-    if source:    query["source"]              = source
-    if rule_type: query["rule_type"]           = rule_type
-    if attack:    query["attack_techniques"]   = attack.upper()
-    if state:     query["state"]               = state
-    if enabled is not None: query["enabled"]   = enabled
+    if source:        query["source"]              = source
+    if rule_type:     query["rule_type"]           = rule_type
+    if attack:        query["attack_techniques"]   = attack.upper()
+    if state:         query["state"]               = state
+    if license_state: query["license_policy_state"] = license_state
+    if enabled is not None: query["enabled"]       = enabled
     if q:
         query["$or"] = [
             {"title":       {"$regex": re.escape(q), "$options": "i"}},
@@ -491,7 +529,13 @@ def _toggle_rule(rule_id: str, request: Request, *, enable: bool):
         raise HTTPException(409, detail={
             "code": "RULE_IN_INVALID_STATE",
             "state": doc.get("state"),
-            "reason": "invalid rules cannot be enabled"})
+            "reason": "invalid/non-activatable rules cannot be enabled"})
+    # Additionally block enabling if license policy denies it.
+    if enable and not is_activatable(doc.get("license_policy_state") or ""):
+        raise HTTPException(409, detail={
+            "code": "RULE_IN_INVALID_STATE",
+            "state": doc.get("license_policy_state"),
+            "reason": "license policy does not permit activation"})
     new_state = "ACTIVE" if enable else "DISABLED"
     _c_rules().update_one({"_id": doc["_id"]},
         {"$set": {"enabled": enable, "state": new_state,
@@ -521,9 +565,20 @@ def disable_rule(rule_id: str, request: Request):
 
 @router.get("/versions",
                      dependencies=[Depends(require_permission("detections.read"))])
-def list_versions(limit: int = Query(20, ge=1, le=200)):
+def list_versions(source: str | None = Query(None),
+                            limit: int = Query(20, ge=1, le=200)):
     if _c_versions() is None:
         return {"ok": False, "error": {"code": "STORAGE_UNAVAILABLE"}}
-    cur = _c_versions().find({}, {"_id": 0}).sort("synced_at",
+    q: dict[str, Any] = {}
+    if source: q["source"] = source
+    cur = _c_versions().find(q, {"_id": 0}).sort("synced_at",
                                                                                           DESCENDING).limit(limit)
     return {"ok": True, "data": {"versions": list(cur)}}
+
+
+@router.get("/policy",
+                     dependencies=[Depends(require_permission("detections.read"))])
+def get_license_policy():
+    """Deterministic snapshot of the license policy matrix — read by
+    the UI to render the license badges + policy legend."""
+    return {"ok": True, "data": policy_matrix()}

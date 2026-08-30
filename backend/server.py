@@ -675,13 +675,16 @@ async def _startup():
                 r = _det_ensure()
                 if r.get("already_synced"):
                     log.info("[startup] Detection registry already synced "
-                                  f"({r.get('counts', {}).get('registered', '?')} rules)")
+                                  f"({r.get('total_rules', '?')} rules across "
+                                  f"{r.get('sources_skipped', 0)} sources)")
                 elif r.get("idempotent_skip"):
                     log.info("[startup] Detection registry idempotent skip")
                 else:
-                    c = r.get("counts", {})
                     log.info(f"[startup] Detection registry outcome="
-                                  f"{r.get('outcome')} registered={c.get('registered')}")
+                                  f"{r.get('outcome')} "
+                                  f"sources_run={r.get('sources_run', 0)} "
+                                  f"sources_skipped={r.get('sources_skipped', 0)} "
+                                  f"total_rules={r.get('total_rules', 0)}")
             except Exception as _e:  # noqa: BLE001
                 log.warning(f"[startup] Detection registry boot-sync failed: {_e}")
         threading.Thread(target=_det_boot_sync,

@@ -15,45 +15,54 @@ export default function DetectionRegistryBody() {
   const [status,  setStatus]  = useState(null);
   const [rules,   setRules]   = useState([]);
   const [versions, setVersions] = useState([]);
+  const [srcCat,  setSrcCat]  = useState(null);
   const [err,     setErr]     = useState(null);
   const [busy,    setBusy]    = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [q,       setQ]       = useState("");
   const [tab,     setTab]     = useState("rules");
   const [filter,  setFilter]  = useState({ source: "", rule_type: "",
-                                                                    state: "", attack: "" });
+                                                                    state: "", attack: "",
+                                                                    license_state: "" });
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     (async () => {
       setBusy(true); setErr(null);
       try {
-        const [st, rl, vs] = await Promise.all([
+        const [st, rl, vs, sc] = await Promise.all([
           api.get("/xdr/detection/status"),
           api.get("/xdr/detection/rules", { params: { limit: 1000,
               q: q || undefined, ...Object.fromEntries(Object.entries(filter)
                     .filter(([, v]) => v)) } }),
           api.get("/xdr/detection/versions"),
+          api.get("/xdr/detection/sources/catalog"),
         ]);
         setStatus(st?.data?.data || null);
         setRules(rl?.data?.data?.rules || []);
         setVersions(vs?.data?.data?.versions || []);
+        setSrcCat(sc?.data?.data || null);
       } catch (e) {
         setErr(e?.response?.data?.detail || e?.message || "load failed");
       } finally { setBusy(false); }
     })();
   }, [refresh, q, filter]);
 
-  const doSync = async () => {
+  const doSync = async (source) => {
     setSyncing(true);
-    try { await api.post("/xdr/detection/sync"); setRefresh((n) => n + 1); }
-    catch (e) {
+    try {
+      const url = source ? `/xdr/detection/sync?source=${encodeURIComponent(source)}`
+                                  : "/xdr/detection/sync";
+      await api.post(url);
+      setRefresh((n) => n + 1);
+    } catch (e) {
       alert(JSON.stringify(e?.response?.data?.detail || e?.message));
     } finally { setSyncing(false); }
   };
 
   const s = status || {};
   const attackTechniques = s.attack_techniques || [];
+  const licenseStates = s.license_state_counts || {};
 
   return (
     <div data-testid="xdr-admin-detection-registry-body">
@@ -75,10 +84,23 @@ export default function DetectionRegistryBody() {
           </span>
         )}
         <span style={{ flex: 1 }} />
-        <button className="btn" onClick={doSync} disabled={syncing}
+        <button className="btn" onClick={() => doSync()} disabled={syncing || busy}
                      data-testid="det-sync-btn"
-                     style={{ padding: "3px 10px", fontSize: 11 }}>
-          <RefreshCcw size={11} /> {syncing ? "Syncing…" : "Sync now"}
+                     style={{ padding: "3px 10px", fontSize: 11,
+                                     opacity: (syncing || busy) ? 0.5 : 1,
+                                     cursor: (syncing || busy) ? "wait" : "pointer" }}>
+          <RefreshCcw size={11}
+                                  style={{ animation: syncing ? "spin 0.8s linear infinite"
+                                                                          : "none" }} /> {syncing ? "Syncing…" : "Sync all"}
+        </button>
+        <button className="btn ghost" onClick={() => setRefresh((n) => n + 1)}
+                     data-testid="det-refresh-btn" disabled={busy}
+                     style={{ padding: "3px 10px", fontSize: 11,
+                                     opacity: busy ? 0.5 : 1,
+                                     cursor: busy ? "wait" : "pointer" }}>
+          <RefreshCcw size={11}
+                                  style={{ animation: busy ? "spin 0.8s linear infinite"
+                                                                          : "none" }} /> {busy ? "Loading…" : "Refresh"}
         </button>
       </div>
 
@@ -96,6 +118,21 @@ export default function DetectionRegistryBody() {
                    testid="det-stat-sources" />
         <Stat label="Rule types"        value={Object.keys(s.rule_types || {}).length}
                    testid="det-stat-types" />
+      </div>
+
+      {/* License policy strip */}
+      <div data-testid="det-license-policy-strip"
+                style={{ display: "flex", gap: 6, marginBottom: 12,
+                                flexWrap: "wrap" }}>
+        {Object.entries(licenseStates).map(([k, n]) => (
+          <span key={k} style={{
+                padding: "2px 8px", fontSize: 10, fontFamily: "var(--mono)",
+                fontWeight: 700, borderRadius: 3,
+                border: `1px solid ${licenseColor(k)}`,
+                color: licenseColor(k), letterSpacing: ".3px" }}>
+            {k}: {n}
+          </span>
+        ))}
       </div>
 
       {/* Tabs · RULES | CONTENT PACKS | ATT&CK | PROVENANCE | VERSIONS | VALIDATION */}
@@ -141,21 +178,70 @@ export default function DetectionRegistryBody() {
       {/* Content Packs tab · shows source breakdown from the registry */}
       {tab === "packs" && (
         <div data-testid="det-packs-body" style={{ marginBottom: 12 }}>
-          <div className="mono" style={sectionLabel}>Content Packs · by source</div>
-          {Object.entries(s.sources || {}).map(([k, n]) => (
-            <div key={k} style={{ display: "flex", gap: 10, padding: "6px 8px",
-                                              border: "1px solid var(--border)",
-                                              borderRadius: 3, marginBottom: 4,
-                                              fontFamily: "var(--mono)",
-                                              fontSize: 11.5, color: "var(--text-dim)",
-                                              background: "var(--panel2)" }}>
-              <b style={{ color: "var(--cyan)" }}>{k}</b>
-              <span style={{ flex: 1 }} />
-              <span>{n} rules</span>
+          <div className="mono" style={sectionLabel}>
+            Content Sources · Sigma · Snort · Suricata · YARA · MITRE ATT&CK
+          </div>
+          {(srcCat?.sources || []).map((src) => (
+            <div key={src.name} data-testid={`det-source-${src.name}`}
+                       style={{ border: "1px solid var(--border)", borderRadius: 3,
+                                        padding: 10, marginBottom: 6,
+                                        background: "var(--panel2)",
+                                        fontFamily: "var(--mono)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <b style={{ color: "var(--cyan)", fontSize: 12 }}>
+                  {src.display_name || src.name}
+                </b>
+                <span style={{
+                  padding: "1px 6px",
+                  border: `1px solid ${acqColor(src.acquisition_state)}`,
+                  color: acqColor(src.acquisition_state),
+                  borderRadius: 2, fontSize: 9, fontWeight: 700,
+                  letterSpacing: ".3px" }}>
+                  {src.acquisition_state}
+                </span>
+                <span style={{ color: "var(--faint)", fontSize: 10 }}>
+                  license default: {src.default_license || "—"}
+                </span>
+                <span style={{ flex: 1 }} />
+                <span style={{ color: "var(--text)", fontSize: 11 }}>
+                  {src.rules_total} rules · {src.rules_active} active
+                </span>
+                <button className="btn ghost"
+                              disabled={syncing || busy}
+                              onClick={() => doSync(src.name)}
+                              data-testid={`det-source-sync-${src.name}`}
+                              style={{ padding: "2px 8px", fontSize: 10,
+                                              opacity: (syncing || busy) ? 0.5 : 1 }}>
+                  <RefreshCcw size={9} /> Sync
+                </button>
+              </div>
+              {src.homepage && (
+                <div style={{ color: "var(--faint)", fontSize: 10, marginTop: 4 }}>
+                  {src.homepage}
+                </div>
+              )}
             </div>
           ))}
-          {Object.keys(s.sources || {}).length === 0 && (
-            <div style={emptyText}>NO CONTENT PACKS INSTALLED</div>
+          {(!srcCat || !(srcCat.sources || []).length) && (
+            <div style={emptyText}>NO CONTENT SOURCES CONFIGURED</div>
+          )}
+          {srcCat?.policy && (
+            <div style={{ marginTop: 12, padding: 10,
+                                    border: "1px solid var(--border)",
+                                    borderRadius: 3, background: "var(--panel2)",
+                                    fontFamily: "var(--mono)", fontSize: 10.5,
+                                    color: "var(--faint)" }}>
+              <b style={{ color: "var(--text-dim)" }}>License policy v{srcCat.policy.version} · </b>
+              <span style={{ color: licenseColor("PERMITTED") }}>
+                PERMITTED
+              </span>: {srcCat.policy.permitted.join(", ")} ·{" "}
+              <span style={{ color: licenseColor("RESTRICTED") }}>
+                RESTRICTED
+              </span>: {srcCat.policy.restricted.join(", ")} ·{" "}
+              <span style={{ color: licenseColor("LICENSE_BLOCKED") }}>
+                BLOCKED
+              </span>: {srcCat.policy.blocked.join(", ")}
+            </div>
           )}
         </div>
       )}
@@ -388,6 +474,27 @@ function StateBadge({ state, ...p }) {
       <Icon size={10} /> {state}
     </span>
   );
+}
+
+
+function licenseColor(state) {
+  switch (state) {
+    case "PERMITTED":       return "var(--mint)";
+    case "RESTRICTED":      return "#38bdf8";
+    case "LICENSE_REVIEW":  return "var(--amber)";
+    case "LICENSE_BLOCKED": return "#f87171";
+    default:                return "var(--faint)";
+  }
+}
+
+
+function acqColor(state) {
+  switch (state) {
+    case "LIVE":              return "var(--mint)";
+    case "BUNDLED_FALLBACK":  return "var(--amber)";
+    case "UNAVAILABLE":       return "#f87171";
+    default:                  return "var(--faint)";
+  }
 }
 
 

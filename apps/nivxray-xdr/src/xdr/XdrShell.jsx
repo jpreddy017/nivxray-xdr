@@ -102,8 +102,11 @@ const SIDEBAR = [
         to: "/xdr/intelligence/mitre",
         title: "Native XDR MITRE ATT&CK heatmap · powered by authoritative NivXRay incident evidence" },
       { key: "kb",       label: "Knowledge Base",       icon: BookOpen,
-        reserved: "/xdr/intelligence/kb",
-        title: "Native XDR Knowledge Base — arrives in a later slice" },
+        to: "/xdr/kb",
+        title: "Native XDR Knowledge Base · consumes /api/kb" },
+      { key: "docs",     label: "Documentation",        icon: BookOpen,
+        to: "/xdr/docs",
+        title: "Native XDR Documentation · consumes /api/docs" },
     ],
   },
   {

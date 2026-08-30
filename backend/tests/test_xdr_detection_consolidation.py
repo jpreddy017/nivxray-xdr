@@ -89,8 +89,10 @@ def test_every_rule_has_full_provenance():
     # test files (dedup fixtures, license-block fixtures) are excluded.
     rs = [r for r in rs if r.get("state") not in
                 {"INVALID", "PARSE_FAILED", "LICENSE_BLOCKED",
-                  "UNSUPPORTED", "REGRESSION_FAILED"}
-              and r.get("source") in {"SigmaHQ", "NivXRay-native"}]
+                  "LICENSE_REVIEW", "UNSUPPORTED", "REGRESSION_FAILED"}
+              and r.get("source") in {"SigmaHQ", "NivXRay-native",
+                                                      "Snort", "Suricata", "YARA-Rules",
+                                                      "MITRE ATT&CK"}]
     assert rs
     for r in rs:
         for k in _REQUIRED_PROV_FIELDS:
@@ -104,7 +106,7 @@ def test_content_hashes_are_valid_sha256():
                               headers=_hdrs()).json()["data"]["rules"]
     rs = [r for r in rs if r.get("state") not in
                 {"INVALID", "PARSE_FAILED", "LICENSE_BLOCKED",
-                  "UNSUPPORTED", "REGRESSION_FAILED"}]
+                  "LICENSE_REVIEW", "UNSUPPORTED", "REGRESSION_FAILED"}]
     for r in rs:
         h = r.get("original_content_hash")
         assert isinstance(h, str) and re.fullmatch(r"[0-9a-f]{64}", h), h

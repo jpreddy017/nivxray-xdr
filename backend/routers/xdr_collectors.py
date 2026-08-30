@@ -51,6 +51,8 @@ from pymongo import DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
+from lib.collector_catalog import CATALOG as PREDEFINED_CATALOG
+from lib.collector_catalog import catalog_by_category, summary as catalog_summary
 
 router = APIRouter(prefix="/api/xdr/collectors", tags=["xdr-collectors"])
 
@@ -252,6 +254,31 @@ def list_collectors(request: Request,
     rows = [_mask(d) for d in cur]
     return {"ok": True, "data": {"collectors": rows, "count": len(rows),
                                                       "protocols": PROTOCOL_REGISTRY}}
+
+
+@router.get("/catalog",
+                     dependencies=[Depends(require_permission("collectors.read"))])
+def predefined_catalog():
+    """Predefined collector catalog — curated templates covering
+    endpoint / network / DNS / web / cloud / identity / email /
+    container telemetry.  Each entry references a protocol from the
+    protocol registry so the honest IMPLEMENTED / SCAFFOLD / BLOCKED
+    status carries through to the UI.  Never fabricated."""
+    enriched = []
+    for e in PREDEFINED_CATALOG:
+        proto = PROTOCOL_REGISTRY.get(e["protocol"], {})
+        enriched.append({**e,
+                                    "implementation": proto.get("implementation"),
+                                    "transport":      proto.get("transport"),
+                                    "canonical_schema": proto.get("canonical_schema")})
+    return {"ok": True, "data": {
+        "catalog": enriched,
+        "by_category": {k: [{**x,
+                                                "implementation": PROTOCOL_REGISTRY.get(x["protocol"], {}).get("implementation")}
+                                             for x in v]
+                                for k, v in catalog_by_category().items()},
+        "summary": catalog_summary(),
+    }}
 
 
 @router.get("/{cid}",

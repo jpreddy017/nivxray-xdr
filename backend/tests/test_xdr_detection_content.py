@@ -230,8 +230,15 @@ def test_capability_not_verdict_marker_persisted():
     rules = r.json()["data"]["rules"]
     caps = [r for r in rules if r.get("capability_not_verdict")]
     assert caps, "expected at least one capability_not_verdict rule from snapshot"
+    # Allow every rule_type NivXRay ingests today — behavioural
+    # observations may come from Sigma parent-child rules, IOC lists,
+    # dedicated behavioural rules, IDS signature packs, YARA memory
+    # rules, or the MITRE ATT&CK knowledge base.
+    allowed = {"parent_child", "ioc", "behavioral",
+                    "snort_signature", "suricata_signature",
+                    "yara", "attack_technique"}
     for c in caps:
-        assert c["rule_type"] in {"parent_child", "ioc", "behavioral"}
+        assert c["rule_type"] in allowed, c["rule_type"]
 
 
 # ── 10 · Enable/disable a healthy rule cycles state ───────────────

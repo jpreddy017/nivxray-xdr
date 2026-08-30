@@ -29,6 +29,8 @@ const XdrEvidenceRefPage      = lazy(() => import("@/xdr/pages/XdrEvidenceRefPag
 const XdrDetectionsPage       = lazy(() => import("@/xdr/pages/XdrDetectionsPage"));
 const XdrDetectionRuleEditor  = lazy(() => import("@/xdr/pages/XdrDetectionRuleEditorPage"));
 const XdrRuleTuningPage       = lazy(() => import("@/xdr/pages/XdrRuleTuningPage"));
+const XdrKbPage               = lazy(() => import("@/xdr/pages/XdrKbPage"));
+const XdrDocsPage             = lazy(() => import("@/xdr/pages/XdrDocsPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -115,7 +117,11 @@ export default function App() {
         <Route path="/xdr/detections"          element={<Protected><XdrDetectionsPage /></Protected>} />
         <Route path="/xdr/detections/:id"      element={<Protected><XdrDetectionRuleEditor /></Protected>} />
         <Route path="/xdr/detect/tuning/:ruleId" element={<Protected><XdrRuleTuningPage /></Protected>} />
-        <Route path="/xdr/intelligence/kb"      element={<Protected><XdrReservedPage capability="kb" /></Protected>} />
+        <Route path="/xdr/intelligence/kb"      element={<Protected><XdrKbPage /></Protected>} />
+        <Route path="/xdr/kb"                   element={<Protected><XdrKbPage /></Protected>} />
+        <Route path="/xdr/docs"                 element={<Protected><XdrDocsPage /></Protected>} />
+        <Route path="/kb"                       element={<Navigate to="/xdr/kb" replace />} />
+        <Route path="/docs"                     element={<Navigate to="/xdr/docs" replace />} />
 
         {/* Slice 10 · Native XDR Admin Console.  All 14 admin
             surfaces render natively; each consumes an authoritative

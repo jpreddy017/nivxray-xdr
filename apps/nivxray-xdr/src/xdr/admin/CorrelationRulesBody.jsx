@@ -92,13 +92,21 @@ export default function CorrelationRulesBody() {
         <span style={{ flex: 1 }} />
         <button className="btn" onClick={runDemoReplay}
                      data-testid="cor-replay-demo"
-                     style={{ padding: "3px 10px", fontSize: 11 }}>
-          <Play size={11} /> Replay demo chain
+                     disabled={busy}
+                     style={{ padding: "3px 10px", fontSize: 11,
+                                     opacity: busy ? 0.5 : 1,
+                                     cursor: busy ? "wait" : "pointer" }}>
+          <Play size={11} /> {busy ? "Working…" : "Replay demo chain"}
         </button>
         <button className="btn ghost" onClick={() => setRefresh((n) => n + 1)}
                      data-testid="cor-refresh"
-                     style={{ padding: "3px 10px", fontSize: 11 }}>
-          <RefreshCcw size={11} /> Refresh
+                     disabled={busy}
+                     style={{ padding: "3px 10px", fontSize: 11,
+                                     opacity: busy ? 0.5 : 1,
+                                     cursor: busy ? "wait" : "pointer" }}>
+          <RefreshCcw size={11}
+                                  style={{ animation: busy ? "spin 0.8s linear infinite"
+                                                                          : "none" }} /> {busy ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 

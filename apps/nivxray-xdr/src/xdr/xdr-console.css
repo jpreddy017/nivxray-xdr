@@ -534,3 +534,6 @@
 .xdr-console .x-input:focus  { border-color: var(--purple); }
 .xdr-console .x-input:hover  { border-color: var(--border-sf); }
 .xdr-console select.x-input  { appearance: none; padding-right: 22px; }
+
+/* Generic spin used by refresh buttons across admin bodies. */
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }

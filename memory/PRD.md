@@ -7,6 +7,109 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-30 · P0-C · Content Pipeline + Collector Catalog + Full Engine Registry — SHIPPED
+
+**Architectural framing accepted (owner directive):**
+`NivXRay XDR = NivXRay Tool + XDR Platform`.  Every existing Tool
+engine is **ADOPTED**, not rebuilt.  External open-source content is
+**INTEGRATED** through license/provenance validation.  Only truly
+missing capabilities are **NEW**.
+
+**Unified Content Pipeline (`/app/backend/lib/content_pipeline.py`):**
+Single 10-stage adapter used by ALL sources — no source-specific shortcuts:
+```
+DISCOVER → DOWNLOAD (live → bundled fallback → UNAVAILABLE)
+        → PARSE → LICENSE_EVALUATE → SCHEMA_VALIDATE
+        → NORMALIZE → DEDUPLICATE → ATT&CK_MAP
+        → REGISTER → COMPLETE
+```
+
+**License Policy Engine (`/app/backend/lib/content_policy.py`) — 4 states:**
+* `PERMITTED`       — MIT · Apache-2.0 · BSD · DRL 1.1 · CC0 · MITRE ATT&CK
+* `RESTRICTED`      — GPL-2.0/3.0 · LGPL · AGPL · CC-BY / CC-BY-SA · MPL — activatable, redistribution obligations surfaced
+* `LICENSE_REVIEW`  — unknown/custom — retained for audit, NOT activatable
+* `LICENSE_BLOCKED` — proprietary / no-redistribution — retained, NEVER activatable
+
+**Multi-source Detection Registry (`routers/xdr_detection_content.py`):**
+| Source        | Bundled snapshot                         | Rules | License                        |
+|---------------|------------------------------------------|-------|--------------------------------|
+| SigmaHQ       | fixtures/detection/sigma_snapshot.json   | 20    | DRL 1.1 / NivXRay-Public       |
+| Snort         | fixtures/detection/snort_snapshot.json   | 8     | BSD-3-Clause / GPL-2.0         |
+| Suricata      | fixtures/detection/suricata_snapshot.json| 7     | BSD-3-Clause                   |
+| YARA-Rules    | fixtures/detection/yara_snapshot.json    | 9     | GPL-2.0 / CC-BY-4.0            |
+| MITRE ATT&CK  | fixtures/detection/attack_snapshot.json  | 12    | MITRE ATT&CK                   |
+
+**56 real rules · 31 unique ATT&CK techniques · 45 PERMITTED · 11 RESTRICTED · all LIVE from bundled.**
+
+**Predefined Collector Catalog (`/app/backend/lib/collector_catalog.py`):**
+17 curated templates across 8 categories (Endpoint · Network · DNS ·
+Web · Cloud · Identity · Email · Container).  Each entry references a
+protocol from the honest IMPLEMENTED / SCAFFOLD / BLOCKED registry.
+
+**New backend endpoints (RBAC-gated + audit-logged):**
+```
+GET  /api/xdr/detection/sources/catalog     — per-source acquisition state + policy
+POST /api/xdr/detection/sync?source=<name>  — per-source deterministic sync
+GET  /api/xdr/detection/policy              — license policy matrix
+GET  /api/xdr/collectors/catalog            — 17 predefined templates
+```
+
+**NivXRay Capability Registry v2 (`docs/NIVXRAY_CAPABILITY_REGISTRY.json`):**
+Rewritten from 46 → **150 REAL engines across 12 domains** with rich
+per-engine metadata (Purpose · Consumes · Produces · NivXRay Tool
+existing · XDR integrated · External available · Open-source project ·
+License · APIs · Tests · Notes).  **NO fake engines.**  Auto-verified:
+**94 backend paths physically exist on disk**.
+
+Honest status buckets (owner-mandated):
+```
+CONNECTED           52   Wired end-to-end (XDR UI + API + tests)
+ADOPTED             39   Base engine present, XDR consumer exists
+IMPLEMENTED         11   Engine exists · not yet in XDR UI
+SCAFFOLD             4   Vocabulary + config · no adapter yet
+EXTERNAL_AVAILABLE   7   Open-source ready to integrate
+NOT_YET_INTEGRATED  37   Planned · no code yet (CVE pillar mostly)
+```
+
+**12 domains inventoried:**
+Intelligence & Investigation (16) · Command & Decode (5) · Artifact
+Analysis (9) · Detection · Correlation · Verdict (26) · Endpoint/EDR
+(9) · Network/NDR (7) · Threat Intelligence/OSINT (14) · Vulnerability
+& Exposure (14) · Identity/Cloud/SaaS (8) · Investigation/Report/IKG
+(16) · Response/SOAR (6) · Platform/Data plane (20).
+
+**Frontend — deployed to Vercel:**
+* Admin › Engines completely rewritten — status buckets are clickable
+  filters; per-engine drawer shows the full metadata schema.
+* **NEW  /xdr/kb**    — native Knowledge Base consuming `/api/kb`.
+* **NEW  /xdr/docs**  — native Documentation consuming `/api/docs`.
+* `/kb` and `/docs` redirect to the native XDR pages.
+* Detection Registry rewrite — per-source acquisition state
+  (LIVE / BUNDLED_FALLBACK / UNAVAILABLE), per-source sync, license
+  policy legend + license-state stat strip.
+* Correlation Rules + Detection Registry — stale-button fix: busy
+  state · disabled · spinning icon feedback on Refresh / Sync.
+
+**Backend regression: 179/179 pass** (previous 156 + 11 new content
+pipeline + 12 widened consolidation tests). Ruff clean.
+
+**Semantic contract preserved end-to-end:**
+```
+PowerShell ≠ malicious · LOLBIN ≠ malicious · CVE ≠ vulnerable
+Vulnerable ≠ exploitable · Exploitable ≠ exploited
+Exploited ≠ compromised · Detection ≠ verdict · IDS signature ≠ compromise
+```
+
+**Next phases (P1 · locked queue):**
+1. CVE / Vulnerability / Exposure pillar (NVD · KEV · EPSS · CVSS · CPE · vendor advisories)
+2. Investigation Corpus 8 → 50 scenarios
+3. Regression Gate (positive/negative/FP before enable)
+4. OSINT adapter integration (VT · AbuseIPDB · OTX · URLhaus · MalwareBazaar · MISP)
+5. Endpoint / Network / Identity native analytics (persistence, DGA, impossible-travel, MFA abuse)
+
+---
+
+
 ## ✅ 2026-02-30 · P1 · Detection Surface Consolidation (option a) — SHIPPED
 
 **Problem:** Four overlapping detection surfaces made it impossible to tell which was authoritative:
