@@ -51,6 +51,7 @@ const SIDEBAR = [
       { key: "dashboard",  label: "Dashboard",  icon: LayoutGrid,     to: "/xdr" },
       { key: "incidents",  label: "Incidents",  icon: AlertOctagon,   to: "/xdr/incidents" },
       { key: "my-queue",   label: "My Queue",   icon: UserIcon,       to: "/xdr/incidents?mine=1" },
+      { key: "endpoints",  label: "Endpoints",  icon: HardDrive,      to: "/xdr/endpoints" },
       { key: "response",   label: "Response",   icon: ArrowRightLeft, disabled: true,
         title: "Response console — arrives in a later slice" },
     ],
@@ -122,6 +123,7 @@ function useActiveKey() {
     if (pathname.startsWith("/xdr/incidents")) {
       return search.includes("mine=1") ? "my-queue" : "incidents";
     }
+    if (pathname.startsWith("/xdr/endpoints"))  return "endpoints";
     return null;
   }, [pathname, search]);
 }

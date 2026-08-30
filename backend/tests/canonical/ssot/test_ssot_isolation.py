@@ -407,6 +407,17 @@ def test_no_route_file_modified_by_phase2():
         "apps/nivxray-xdr/README.md",
         "apps/nivxray-xdr/package.json",
         "apps/nivxray-xdr/SEPARATION_TODO.md",
+        # Slice 6 · Native XDR Device Trajectory Canvas (2026-02-XX).
+        # New pages/components inside the standalone XDR app.  Backend
+        # edits are limited to additive endpoints on backend/routers/edr.py
+        # (already in the allow-list above).
+        "apps/nivxray-xdr/src/App.jsx",
+        "apps/nivxray-xdr/src/xdr/XdrShell.jsx",
+        "apps/nivxray-xdr/src/xdr/components/Pivot.jsx",
+        "apps/nivxray-xdr/src/xdr/components/TrajectoryTimelineCanvas.jsx",
+        "apps/nivxray-xdr/src/xdr/pages/XdrEndpointsPage.jsx",
+        "apps/nivxray-xdr/src/xdr/pages/XdrDeviceTrajectoryPage.jsx",
+        "apps/nivxray-xdr/src/nivxforge/edrApi.js",
         "frontend/src/nivxforge/edrApi.js",
         "frontend/src/nivxforge/pages/EdrDetectionsPage.jsx",
         "frontend/src/nivxforge/pages/EdrProcessTreePage.jsx",

@@ -149,10 +149,10 @@ Response
 
 ## Roadmap after P0
 
-- **P1** — Native Endpoints view at `/xdr/endpoints` reusing `/api/edr/*`.  No new endpoint engine.
+- **P1** — Native Endpoints view at `/xdr/endpoints` reusing `/api/edr/*`.  No new endpoint engine.  ✅ **DONE (Slice 6 · 2026-02)**.
 - **P2** — Deterministic severity mapper.  Evidence-driven only.
 - **Later — Response Approval Loop** — `REQUESTED → PENDING → APPROVED/REJECTED → QUEUED → EXECUTING → SUCCEEDED/FAILED → VERIFIED`, immutable audit (actor · timestamp · action · target · prev state · new state · verification).
-- **Later — Device Trajectory operational fidelity** (~95% Cisco Secure Endpoint behavioral equivalence) — separate slice, standalone XDR only.
+- **Later — Device Trajectory operational fidelity** (~95% Cisco Secure Endpoint behavioral equivalence) — Slice 6 v2 (deeper canvas density + zoom-to-window).
 - **Later — Additional telemetry domains** — NDR / ITDR / Email / Cloud / Application-API / Data Security / CTEM.  Each shows honest state until wired.
 
 ---
@@ -161,21 +161,34 @@ Response
 
 - Standalone XDR shipped: Dashboard operational, KPIs filter queue, sidebar/top-nav all clickable (no dead UI), Incident detail 4 tabs, NivXForge EDR launcher opens base `/edr/trajectory` in new tab.
 - Cross-origin auth confirmed: shared `nvx_token` in localStorage, tenant scoping enforced server-side.
-- Backend regression: **821 passed / 0 failed / 4 skipped**.
+- Backend regression: **821 passed / 0 failed / 4 skipped** (held after Slice 6 · 2026-02).
 - Base NivXRay: untouched.
+
+## Session log
+
+### 2026-02 · Slice 6 · Native XDR Device Trajectory Canvas · SHIPPED
+- New backend projections (additive, `/app/backend/routers/edr.py`):
+  - `GET /api/edr/endpoints` — device inventory aggregated from `workspace_cases`.
+  - `GET /api/edr/device-trajectory?device=<host>&hours=<n>` — device-scoped detections + activity nodes, lane-mapped, time-windowed.
+- New XDR pages:
+  - `/xdr/endpoints` — `XdrEndpointsPage.jsx` with row → **View Trajectory**.
+  - `/xdr/endpoints/:device/trajectory` — `XdrDeviceTrajectoryPage.jsx` (3-pane).
+- New components:
+  - `TrajectoryTimelineCanvas.jsx` — hybrid `<canvas>` (density + hour ticks) + `<svg>` overlay (interactive markers, hover, selection).
+  - `Pivot.jsx` — Slice 1 contextual pivots consumed by details pane (host/process/file/rule/ip/domain/hash/url).
+- SSOT isolation test allow-list extended to Slice 6 paths (`tests/canonical/ssot/test_ssot_isolation.py`).
+- Verified: `pytest tests/canonical` → **821 passed, 4 skipped** (no regressions).
+- Verified via screenshot: endpoints, trajectory canvas w/ markers, selected event details w/ Pivot.
 
 ## Session-start prompt for the next agent
 
 > Continue mockup slice-by-slice build per PRD.md.  Standalone NivXRay
-> XDR only.  Do not touch the base NivXRay application.  Start with
-> **Slice 1 · Pivot menus** — implement hover-triggered contextual
-> overlays on every entity (process/user/ip/hash/domain/mitre) across
-> Dashboard + Incident Detail + Endpoints screens.  Owner reference:
-> `nivxray-one-xdr-console_New.html` (fetch via crawl if needed).
-> Device Trajectory is now UNLOCKED — Slice 6 will render a native
-> 3-pane canvas inside standalone XDR without modifying
-> `/edr/trajectory` on the base host.  Start implementation
-> immediately without asking for scope confirmation.
+> XDR only.  Do not touch the base NivXRay application.  Slice 6
+> (Device Trajectory Canvas) is DONE.  Next candidate: **Slice 3 ·
+> Detection Sourcing** (elevate `detected_by` as first-class column
+> across Suspicious Elements + pivot back to source engine), or
+> **Deterministic Severity Mapper**.  Do not begin without owner
+> confirmation of slice order.
 
 ## Test credentials
 

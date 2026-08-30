@@ -15,6 +15,8 @@ import LoginPage from "@/pages/LoginPage";
 const XdrDashboardPage       = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
 const XdrIncidentsPage       = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage  = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
+const XdrEndpointsPage        = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));
+const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -71,6 +73,8 @@ export default function App() {
         <Route path="/xdr"                 element={<Protected><XdrDashboardPage /></Protected>} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
+        <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
+        <Route path="/xdr/endpoints/:device/trajectory" element={<Protected><XdrDeviceTrajectoryPage /></Protected>} />
 
         {/* NivXForge EDR Console — pivots to /edr/trajectory in the
             ORIGINAL NivXRay app via a new browser tab (never
