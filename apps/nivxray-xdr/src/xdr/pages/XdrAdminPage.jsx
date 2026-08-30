@@ -142,6 +142,13 @@ function AdminBody({ section }) {
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (section.kind === "integrations") {
+      // Live wizard fetches directly from the collector — the outer
+      // state machine only needs to render the container.
+      setPayload(null);
+      setState("populated");
+      return;
+    }
     if (!section.api) {
       setState(section.connected === false ? "not_connected" : "not_available");
       return;
@@ -247,7 +254,7 @@ function AdminBody({ section }) {
         {state === "populated" && (
           <div data-testid={`xdr-admin-populated-${section.key}`}>
             {section.kind === "integrations"
-              ? <IntegrationsBody rows={extractRows(payload)} />
+              ? <IntegrationsBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}

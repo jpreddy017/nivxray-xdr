@@ -517,3 +517,20 @@
 .xdr-console .grow { flex: 1; min-width: 0; }
 .xdr-console .spin { animation: xdr-spin 1s linear infinite; }
 @keyframes xdr-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* ── Wizard form inputs ────────────────────────────────────────── */
+.xdr-console .x-input {
+  width: 100%;
+  padding: 6px 9px;
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--sans);
+  font-size: 12px;
+  outline: none;
+  transition: border-color .12s;
+}
+.xdr-console .x-input:focus  { border-color: var(--purple); }
+.xdr-console .x-input:hover  { border-color: var(--border-sf); }
+.xdr-console select.x-input  { appearance: none; padding-right: 22px; }

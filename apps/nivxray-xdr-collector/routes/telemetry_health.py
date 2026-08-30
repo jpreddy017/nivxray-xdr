@@ -1,9 +1,9 @@
 """
-Telemetry health projection · Phase B.
+Telemetry health projection · Phase B.5.
 
-Emits per-configured-source health rows.  When no instances exist for
-a source-type the row is honestly `NEVER CONNECTED`.  With instances,
-the row reflects the running connector's health + metrics.
+Provides per-transport health, ingest health, and outbox health in
+a single canonical response the Admin UI can render without cross-
+endpoint composition.
 """
 from __future__ import annotations
 
@@ -15,13 +15,10 @@ router = APIRouter(tags=["telemetry-health"])
 KNOWN_SOURCE_TYPES = ["rest", "webhook", "syslog"]
 
 
-@router.get("/telemetry-health")
-def telemetry_health(request: Request):
-    instances = getattr(request.app.state, "instances", {})
+def _transport_health(instances):
     by_type: dict[str, list[dict]] = {}
     for inst in instances.values():
         by_type.setdefault(inst.source_type, []).append(inst.describe())
-
     rows = []
     for st in KNOWN_SOURCE_TYPES:
         insts = by_type.get(st, [])
@@ -36,6 +33,21 @@ def telemetry_health(request: Request):
                               "identity":    inst["identity"],
                               "health":      inst["health"],
                               "metrics":     inst["metrics"]})
-    return {"rows": rows, "phase": "B",
-              "ingest": request.app.state.runtime.ingest.status()
-                          if hasattr(request.app.state, "runtime") else None}
+    return rows
+
+
+@router.get("/telemetry-health")
+def telemetry_health(request: Request):
+    runtime   = getattr(request.app.state, "runtime", None)
+    instances = getattr(request.app.state, "instances", {})
+    transports = _transport_health(instances)
+    ingest = runtime.ingest.status() if runtime else {"state": "not_ready"}
+    outbox = runtime.outbox.metrics() if runtime else {}
+    worker = runtime.worker.status() if runtime else {"running": False}
+    return {
+        "transports": transports,
+        "ingest":     ingest,
+        "outbox":     outbox,
+        "worker":     worker,
+        "phase":      "B.5",
+    }

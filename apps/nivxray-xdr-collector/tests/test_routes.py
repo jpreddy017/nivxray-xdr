@@ -24,7 +24,7 @@ async def test_health_endpoint():
         r = await c.get("/health")
     assert r.status_code == 200
     j = r.json()
-    assert j["phase"] == "B"
+    assert j["phase"] == "B.5"
     assert "connectors" in j
 
 
@@ -64,9 +64,11 @@ async def test_connector_crud_and_webhook_delivery():
 
         # 4) telemetry-health reflects the instance
         r = await c.get("/api/xdr/telemetry-health")
-        rows = r.json()["rows"]
-        wh_rows = [x for x in rows if x["source_type"] == "webhook"]
+        j = r.json()
+        wh_rows = [x for x in j["transports"] if x["source_type"] == "webhook"]
         assert any(x.get("identity") == cid for x in wh_rows)
+        # ingest is not configured in the test env → must say so honestly
+        assert j["ingest"]["state"] == "not_configured"
 
         # 5) data-sources projection shows accepted events
         r = await c.get("/api/xdr/data-sources")

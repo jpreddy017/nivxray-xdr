@@ -14,7 +14,8 @@
  *   • Auto-poll every 30s to keep the console live.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCcw, Filter } from "lucide-react";
+import { RefreshCcw, Filter, ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import XdrShell from "@/xdr/XdrShell";
 import { listIncidents } from "@/lib/incidentsApi";
@@ -47,6 +48,7 @@ function fmtRelative(iso) {
 }
 
 export default function XdrMitreHeatmap() {
+  const navigate = useNavigate();
   const [incidents, setIncidents] = useState(null);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefresh]  = useState(false);
@@ -379,6 +381,17 @@ export default function XdrMitreHeatmap() {
                      data-testid="xdr-mitre-attack-link">
                     attack.mitre.org/techniques/{selected.id}
                   </a>} />
+                {/* Pivot to filtered Incidents queue — real navigation,
+                       driven by authoritative Stage-2 evidence. */}
+                <div style={{ marginTop: 12, display: "flex", gap: 8,
+                                 flexWrap: "wrap" }}>
+                  <button className="btn primary"
+                             style={{ padding: "5px 12px" }}
+                             onClick={() => navigate(`/xdr/incidents?technique=${selected.id}`)}
+                             data-testid="xdr-mitre-pivot-incidents">
+                    <ExternalLink size={11} /> Open incidents mapped to {selected.id}
+                  </button>
+                </div>
                 {selected.count === 0 && (
                   <div style={{
                     marginTop: 10, padding: 10,

@@ -337,3 +337,76 @@ and `/app/backend` untouched, 87-pass baseline unaffected.
 - **P4 · Slice 12** — Global Response Center.
 - **P5 · Slices 13-16** — remaining domain consoles, native Command
   Intelligence, Notes/Attachments.
+
+---
+
+## 2026-02 Fork · Continuation Log — Phase B.5 + Wizard + Pivot
+
+### Phase B.5 · Durable delivery (COMPLETE · service-ready)
+- **Persistent SQLite outbox** at `${XDR_STATE_DIR}/outbox.db`
+  (falls back to `:memory:` for tests).  Every canonical envelope
+  passes through the outbox BEFORE being reported as delivered.
+- **Event lifecycle**: RECEIVED → QUEUED → DELIVERING → DELIVERED /
+  RETRYING / DEAD_LETTER.
+- **Idempotency** via a unique index on
+  `(tenant_id, connector_id, source_event_id)` so vendor retries and
+  webhook redeliveries never double-insert.
+- **Restart recovery**: on `Outbox()` init, any rows stuck in
+  DELIVERING are reset to QUEUED — ingest is expected to be
+  idempotent so replay is safe.
+- **Ingest classifier** (`framework/delivery.py`): 2xx = OK,
+  5xx/408/429/timeout/transport-error = RETRYABLE, other 4xx = FATAL.
+  Never silently accepts an event as delivered.
+- **Retry policy**: exponential backoff (30s, 60s, 2m, 5m, 10m, 20m,
+  30m, 1h — 8 attempts).  Exhausted rows land in DEAD_LETTER; a
+  `POST /api/xdr/outbox/{id}/replay` endpoint requeues them.
+- **Delivery worker** (`framework/delivery_worker.py`) — background
+  asyncio task drains the outbox every 2s.  Exposes tick counters,
+  last-tick timestamp, last error.
+- **Health endpoints**: `/api/xdr/outbox/health` composes ingest +
+  outbox + worker into a single HEALTHY / DEGRADED / IDLE /
+  NOT_CONFIGURED state.  Root `/health` includes the same block plus
+  transport counters.
+- **Metrics** in `/api/xdr/telemetry-health`: per-transport health,
+  ingest counters (delivered / failed_retryable / failed_fatal /
+  last_error / last_delivery_at), outbox counts by status, queue
+  depth, oldest queued, worker running/ticks.
+- **Test suite**: 41/41 pass (12 outbox — enqueue, dedupe by event-id,
+  2xx / 4xx-fatal / 5xx-retryable / 429-retryable / timeout, missing
+  ingest URL keeps events queued, max-attempts→DLQ, restart recovery,
+  replay-dead, batch delivery, per-connector metrics).
+- **Live end-to-end verified**: 5 webhook events → outbox → delivery
+  worker → stub NivXRay ingest → `state: healthy, delivered: 5`.
+
+### Live Integrations Wizard (COMPLETE · deployed)
+- `Admin → Integrations` now consumes the collector CRUD API instead
+  of the base OSINT-services placeholder.
+- Full wizard flow for the three Phase-B transports with field-level
+  hints, honest secret handling (`***` on re-open), per-tenant scope.
+- Honest states throughout: COLLECTOR RUNTIME NOT DEPLOYED,
+  NEVER CONNECTED, INGEST NOT CONFIGURED, DEGRADED, ERROR, plus
+  transport health from the connector describe().
+- Live health strip polls `/api/xdr/outbox/health` every 15s.
+- Deployed to Vercel: commit `ad10ca2` on `jpreddy017/nivxray-xdr`.
+
+### MITRE → Incidents Pivot (COMPLETE · deployed)
+- Technique detail panel exposes `Open incidents mapped to T####`.
+- Route: `/xdr/incidents?technique=T####`.
+- Rows filtered by authoritative Stage-2 evidence
+  (`evidence[].technique_id` or `RULE_TO_TECHNIQUE[evidence[].rule_id]`).
+- Empty result renders honest `NO MATCHING EVIDENCE` with an
+  explicit "this is NOT a safe result" statement.
+- Filter renders as a dismissible pill; deployed same commit.
+
+### Immediate backlog
+- **P0 · Deploy the collector**: publish the Docker image, wire
+  `NIVX_INGEST_URL`/`NIVX_INGEST_TOKEN` at the tenant edge, set
+  `VITE_XDR_COLLECTOR_URL` on Vercel.
+- **P1 · Ingest contract**: define the authoritative NivXRay
+  ingestion endpoint contract (canonical envelope in → SSOT/Verdict
+  pipeline) so Phase C vendor adapters can slot in.
+- **P2 · Phase C**: CrowdStrike / Defender / SentinelOne / Cisco SEP
+  adapters on top of the Phase-B REST poller.
+- **P3 · Phase D**: Windows WEF / WinRM / WMI.
+- **P4 · Slice 8 → 12**: Device Trajectory rewrite, Lifecycle,
+  Response Approval Loop, Global Response Center.

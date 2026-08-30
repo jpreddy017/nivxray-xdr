@@ -1,13 +1,20 @@
 """
-Ingest client · Phase B "outbox" stub.
+Ingest client · Phase B.5.
 
-Owns the responsibility of shipping canonical envelopes to the
-authoritative NivXRay ingestion endpoint.  Phase B ships events
-best-effort; Phase B.5 makes it durable (retry / DLQ / observability).
+Ships canonical envelopes to the authoritative NivXRay ingestion API.
+Callers (the delivery worker) act on the returned outcome:
 
-The boundary is critical: the collector NEVER decides "is this
-malicious".  Its outbox emits envelopes; NivXRay's authoritative
-ingest owns evidence, verdict, IKG and SSOT.
+    OK          → HTTP 2xx, mark envelopes DELIVERED
+    RETRYABLE   → HTTP 5xx, 408, 429, or transport/timeout error →
+                     mark RETRYING with backoff
+    FATAL       → HTTP 4xx (except 408, 429) or unparsable response →
+                     mark DEAD_LETTER
+
+The client never silently accepts an event as delivered.  If
+`NIVX_INGEST_URL` is not configured, `deliver()` returns
+`ok=False, retryable=True, reason=ingest_not_configured` — the
+worker keeps the envelope in the outbox and reports NOT_CONFIGURED
+in health so operators fix it.
 """
 from __future__ import annotations
 
@@ -19,46 +26,51 @@ import httpx
 from framework.base import Envelope
 
 
+class IngestOutcome:
+    OK        = "ok"
+    RETRYABLE = "retryable"
+    FATAL     = "fatal"
+
+
 class IngestClient:
-    """Best-effort forwarder.  Absent config → no-op emit (queue only).
-
-    Config env vars:
-      NIVX_INGEST_URL   – full URL to the authoritative XDR ingest API
-      NIVX_INGEST_TOKEN – bearer token
-      NIVX_INGEST_TIMEOUT – seconds, default 10
-    """
-
     def __init__(self) -> None:
         self.url     = os.environ.get("NIVX_INGEST_URL") or None
         self.token   = os.environ.get("NIVX_INGEST_TOKEN") or None
         self.timeout = float(os.environ.get("NIVX_INGEST_TIMEOUT", "10"))
+        self.delivered:       int = 0
+        self.failed_retryable: int = 0
+        self.failed_fatal:    int = 0
         self.last_error: str | None = None
-        self.delivered: int = 0
-        self.queued:    int = 0
+        self.last_delivery_at: str | None = None
 
     def configured(self) -> bool:
         return bool(self.url)
 
     def status(self) -> Dict[str, Any]:
         return {
-            "configured":  self.configured(),
-            "url_set":     bool(self.url),
-            "token_set":   bool(self.token),
-            "delivered":   self.delivered,
-            "queued":      self.queued,
-            "last_error":  self.last_error,
+            "configured":         self.configured(),
+            "url_set":            bool(self.url),
+            "token_set":          bool(self.token),
+            "delivered":          self.delivered,
+            "failed_retryable":   self.failed_retryable,
+            "failed_fatal":       self.failed_fatal,
+            "last_error":         self.last_error,
+            "last_delivery_at":   self.last_delivery_at,
+            "state":              "connected" if self.configured() else "not_configured",
         }
 
     async def deliver(self, envelopes: Iterable[Envelope]) -> Dict[str, Any]:
         batch: List[Dict[str, Any]] = [e.to_dict() for e in envelopes]
         if not batch:
-            return {"ok": True, "delivered": 0, "queued": 0}
+            return {"outcome": IngestOutcome.OK, "delivered": 0}
+
         if not self.configured():
-            # Phase B: honest "queued but not delivered" — Phase B.5
-            # replaces with a durable outbox.
-            self.queued += len(batch)
-            return {"ok": False, "delivered": 0, "queued": len(batch),
-                     "reason": "ingest_not_configured"}
+            self.failed_retryable += len(batch)
+            self.last_error = "ingest_not_configured"
+            return {"outcome": IngestOutcome.RETRYABLE,
+                     "delivered": 0,
+                     "reason":    "ingest_not_configured"}
+
         try:
             headers = {"Content-Type": "application/json"}
             if self.token:
@@ -66,12 +78,34 @@ class IngestClient:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(self.url, json={"envelopes": batch},
                                               headers=headers)
-                resp.raise_for_status()
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            self.failed_retryable += len(batch)
+            self.last_error = f"{type(e).__name__}: {e}"
+            return {"outcome": IngestOutcome.RETRYABLE,
+                     "delivered": 0, "reason": self.last_error}
+        except Exception as e:                                  # noqa: BLE001
+            self.failed_retryable += len(batch)
+            self.last_error = f"{type(e).__name__}: {e}"
+            return {"outcome": IngestOutcome.RETRYABLE,
+                     "delivered": 0, "reason": self.last_error}
+
+        code = resp.status_code
+        if 200 <= code < 300:
+            import datetime as _dt
             self.delivered += len(batch)
             self.last_error = None
-            return {"ok": True, "delivered": len(batch), "queued": 0}
-        except Exception as e:                                 # noqa: BLE001
-            self.last_error = f"{type(e).__name__}: {e}"
-            self.queued += len(batch)
-            return {"ok": False, "delivered": 0, "queued": len(batch),
+            self.last_delivery_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
+            return {"outcome": IngestOutcome.OK, "delivered": len(batch),
+                     "status_code": code}
+        if code in (408, 429) or 500 <= code < 600:
+            self.failed_retryable += len(batch)
+            self.last_error = f"HTTP {code}"
+            return {"outcome": IngestOutcome.RETRYABLE,
+                     "delivered": 0, "status_code": code,
                      "reason": self.last_error}
+        # Any other 4xx is a fatal, don't-retry response.
+        self.failed_fatal += len(batch)
+        self.last_error = f"HTTP {code}"
+        return {"outcome": IngestOutcome.FATAL,
+                 "delivered": 0, "status_code": code,
+                 "reason": self.last_error}

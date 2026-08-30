@@ -45,6 +45,7 @@ from routes.collectors       import router as collectors_router
 from routes.telemetry_health import router as telemetry_health_router
 from routes.data_sources     import router as data_sources_router
 from routes.webhooks         import router as webhooks_router
+from routes.outbox           import router as outbox_router
 
 
 _CLASS_BY_TYPE = {
@@ -79,14 +80,27 @@ async def lifespan(app: FastAPI):
             # will surface it as `not_started` for operator repair.
             continue
 
+    # Start the delivery worker (drains outbox → ingest).  Test
+    # environments can disable with XDR_DISABLE_DELIVERY_WORKER=1.
+    if os.environ.get("XDR_DISABLE_DELIVERY_WORKER") != "1":
+        await app.state.runtime.start_worker()
+
     yield
 
     # ── Graceful shutdown ─────────────────────────────────
+    try:
+        await app.state.runtime.stop_worker()
+    except Exception:                                           # noqa: BLE001
+        pass
     for inst in list(app.state.instances.values()):
         try:
             await app.state.runtime.stop(inst)
         except Exception:                                       # noqa: BLE001
             pass
+    try:
+        app.state.runtime.outbox.close()
+    except Exception:                                           # noqa: BLE001
+        pass
 
 
 app = FastAPI(
@@ -116,22 +130,29 @@ app.include_router(collectors_router,       prefix="/api/xdr")
 app.include_router(telemetry_health_router, prefix="/api/xdr")
 app.include_router(data_sources_router,     prefix="/api/xdr")
 app.include_router(webhooks_router,         prefix="/api/xdr")
+app.include_router(outbox_router,           prefix="/api/xdr")
 
 
 @app.get("/health")
 def liveness():
     """Liveness probe.  Never touches downstream systems."""
-    running_rest    = len(app.state.runtime.scheduler.running()) if hasattr(app.state, "runtime") else 0
-    running_syslog  = len(app.state.runtime.syslog.running())    if hasattr(app.state, "runtime") else 0
+    runtime = getattr(app.state, "runtime", None)
+    running_rest    = len(runtime.scheduler.running())    if runtime else 0
+    running_syslog  = len(runtime.syslog.running())       if runtime else 0
+    outbox_metrics  = runtime.outbox.metrics()            if runtime else {}
+    ingest_status   = runtime.ingest.status()             if runtime else {}
+    worker_status   = runtime.worker.status()             if runtime else {}
     return {
-        "status":        "ok",
-        "service":       "nivxray-xdr-collector",
-        "phase":         "B",
-        "version":       "0.2.0-phaseB",
-        "connectors":    len(getattr(app.state, "instances", {})),
-        "rest_running":  running_rest,
+        "status":         "ok",
+        "service":        "nivxray-xdr-collector",
+        "phase":          "B.5",
+        "version":        "0.3.0-phaseB5",
+        "connectors":     len(getattr(app.state, "instances", {})),
+        "rest_running":   running_rest,
         "syslog_running": running_syslog,
-        "ingest":        app.state.runtime.ingest.status() if hasattr(app.state, "runtime") else None,
+        "ingest":         ingest_status,
+        "outbox":         outbox_metrics,
+        "worker":         worker_status,
     }
 
 
