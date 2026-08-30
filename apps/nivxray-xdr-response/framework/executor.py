@@ -1,34 +1,44 @@
 """
-Executor · Phase 1.
+Executor · Response Engine state-machine core.
 
-Single execution pipeline:
+Implements the persisted execution lifecycle documented in
+RESPONSE_CONTRACT.md:
 
-    validate → authorize → approval-check → target-resolve →
-    idempotency-lookup → run adapter → forward evidence →
-    finalise → return response
+    QUEUED
+      ├── (no approval)     ─→ RUNNING ─→ EXECUTING ─→ FORWARDING_EVIDENCE ─→ SUCCEEDED
+      ├── (approval needed) ─→ WAITING_APPROVAL
+      │                          ├── (approve) ─→ EXECUTING ─→ FORWARDING_EVIDENCE ─→ SUCCEEDED
+      │                          └── (reject)  ─→ FAILED_APPROVAL
+      └── (validation fail) ─→ REJECTED / FAILED_TARGET
 
-The invariant: an execution MUST NOT be reported `succeeded` unless:
-  1. the adapter returned ok=True
-  2. the forwarder produced evidence/audit/timeline refs
-
-If forwarding failed, status is `failed` — even if the adapter
-succeeded — because the evidence chain is broken.  Operators can
-investigate via /executions/{id} and re-run.
+Owner-locked invariants:
+  1. An execution is SUCCEEDED only when adapter returned ok=True AND
+     the Evidence Forwarder produced evidence_ref + audit_ref + timeline_ref.
+  2. If the adapter succeeded but forwarding failed → FAILED_FORWARDING.
+     Never fabricate success.
+  3. Every state transition is persisted BEFORE any external side effect,
+     so a crash mid-flight leaves an inspectable failed_recovered row —
+     never a silently re-executed action.
+  4. Idempotency: re-POSTing the same
+     (tenant_id, invoker_kind, invoker_id, execution_id) returns the
+     prior response verbatim with ``idempotent_replay = true``.
 """
 from __future__ import annotations
 
-import asyncio
 import re
 import uuid
 from datetime import datetime, timezone
-from typing   import Any, Dict, Optional
+from typing   import Any, Dict, List, Optional
 
-from framework.forwarder   import EvidenceForwarder
-from framework.idempotency import (
-    IdempotencyStore,
-    STATUS_SUCCEEDED, STATUS_FAILED, STATUS_IN_PROGRESS, STATUS_REJECTED,
+from framework.forwarder       import EvidenceForwarder
+from framework.execution_store import (
+    ExecutionStore,
+    STATE_QUEUED, STATE_RUNNING, STATE_WAITING_APPROVAL, STATE_EXECUTING,
+    STATE_FORWARDING, STATE_SUCCEEDED, STATE_FAILED_APPROVAL,
+    STATE_FAILED_TARGET, STATE_FAILED_EXECUTION, STATE_FAILED_FORWARDING,
+    STATE_REJECTED, TERMINAL_STATES,
 )
-from framework.registry    import ActionRegistry, ActionSpec
+from framework.registry        import ActionRegistry, ActionSpec
 
 
 def _iso() -> str:
@@ -45,16 +55,14 @@ class ExecutorError(Exception):
 
 class Executor:
     def __init__(self, *, registry: ActionRegistry,
-                    idempotency: IdempotencyStore,
+                    store: ExecutionStore,
                     forwarder: EvidenceForwarder) -> None:
-        self.registry    = registry
-        self.idempotency = idempotency
-        self.forwarder   = forwarder
+        self.registry  = registry
+        self.store     = store
+        self.forwarder = forwarder
 
-    # ── target resolution ────────────────────────────────────
+    # ── target resolution ───────────────────────────────────────────
     def resolve_target(self, action: ActionSpec, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Phase 1: shape validation only.  Phase 2 will call the base
-        Asset/Identity graph over the same evidence contract."""
         canonical: Dict[str, Any] = {}
         if "host_id" in params:
             h = str(params["host_id"] or "").strip()
@@ -80,12 +88,16 @@ class Executor:
             canonical["indicator"] = f"hash:{params['hash']}"
         return canonical
 
-    # ── authorization ────────────────────────────────────────
-    def authorize(self, action: ActionSpec, authz: Dict[str, Any],
-                     invoker: Dict[str, Any]) -> None:
-        # Phase 1: check `authz.scopes` (list) covers every required scope.
-        # Real deployments will validate the bearer token upstream and
-        # inject the resolved scopes here.
+    # ── param + scope validation ────────────────────────────────────
+    def validate_params(self, action: ActionSpec, params: Dict[str, Any]) -> None:
+        for p in action.parameters:
+            if p.get("required") and (p["key"] not in params
+                                            or params[p["key"]] in (None, "")):
+                raise ExecutorError(422, "missing_parameter",
+                                          {"key": p["key"]})
+
+    def check_scopes(self, action: ActionSpec, authz: Dict[str, Any],
+                        invoker: Dict[str, Any]) -> None:
         scopes = set(authz.get("scopes") or [])
         need   = {(p["role"], p["scope"]) for p in action.required_permissions}
         missing = [f"{r}:{s}" for (r, s) in need
@@ -94,24 +106,8 @@ class Executor:
             raise ExecutorError(403, "authorization_failed",
                                       {"missing_scopes": missing,
                                         "invoker": invoker})
-        # Approval gate
-        if action.approval_required:
-            approval_ref = authz.get("approval_ref")
-            approved_by  = authz.get("approved_by")
-            if not approval_ref or not approved_by:
-                raise ExecutorError(403, "approval_required",
-                                          {"action_id": action.action_id,
-                                            "detail":    "authorization.approval_ref + approved_by required"})
 
-    # ── param validation ─────────────────────────────────────
-    def validate_params(self, action: ActionSpec, params: Dict[str, Any]) -> None:
-        for p in action.parameters:
-            if p.get("required") and (p["key"] not in params
-                                            or params[p["key"]] in (None, "")):
-                raise ExecutorError(422, "missing_parameter",
-                                          {"key": p["key"]})
-
-    # ── main entrypoint ──────────────────────────────────────
+    # ── main entrypoint ─────────────────────────────────────────────
     async def execute(self, req: Dict[str, Any]) -> Dict[str, Any]:
         # 1. structural validation
         for field in ("execution_id", "tenant_id", "invoker", "action"):
@@ -119,20 +115,19 @@ class Executor:
                 raise ExecutorError(400, "malformed_request",
                                           {"missing_field": field})
         invoker = req["invoker"]
-        action_req = req["action"]
         for f in ("kind", "id"):
             if not invoker.get(f):
                 raise ExecutorError(400, "malformed_request",
                                           {"missing_field": f"invoker.{f}"})
-        action_id = action_req.get("action_id")
+        action_req = req["action"]
+        action_id  = action_req.get("action_id")
         if not action_id:
             raise ExecutorError(400, "malformed_request",
                                       {"missing_field": "action.action_id"})
 
         spec = self.registry.get(action_id)
         if not spec:
-            raise ExecutorError(422, "unknown_action",
-                                      {"action_id": action_id})
+            raise ExecutorError(422, "unknown_action", {"action_id": action_id})
 
         tenant       = req["tenant_id"]
         exec_id      = req["execution_id"]
@@ -141,29 +136,138 @@ class Executor:
         constraints  = req.get("constraints") or {}
         dry_run      = bool(constraints.get("dry_run"))
 
-        # 2. idempotency lookup — return prior result verbatim
-        prior = self.idempotency.find(tenant, invoker["kind"],
-                                            invoker["id"], exec_id)
-        if prior:
+        # 2. idempotency lookup — return prior response verbatim
+        prior = self.store.find(tenant, invoker["kind"], invoker["id"], exec_id)
+        if prior and prior.get("response"):
             return {**prior["response"], "idempotent_replay": True}
 
-        # 3. authorize + validate params + resolve target
+        # 3. authz + params + target resolution.  Every rejection is
+        #    still recorded as a REJECTED row so a replay is deterministic.
         try:
-            self.authorize(spec, authz, invoker)
+            self.check_scopes(spec, authz, invoker)
             self.validate_params(spec, params)
             canonical = self.resolve_target(spec, params)
         except ExecutorError as e:
-            return await self._finalise_error(req, spec, e)
+            return self._reject(req, spec, e)
 
-        # 4. record in-progress
+        # 4. Persist as QUEUED
+        approval_required = bool(spec.approval_required)
+        preapproved       = approval_required and bool(authz.get("approval_ref")) \
+                              and bool(authz.get("approved_by"))
+        self.store.insert({
+            "tenant_id":         tenant,
+            "invoker_kind":      invoker["kind"],
+            "invoker_id":        invoker["id"],
+            "invoker":           invoker,
+            "execution_id":      exec_id,
+            "action_id":         action_id,
+            "provider":          spec.provider,
+            "capability":        spec.capability,
+            "parameters":        params,
+            "canonical":         canonical,
+            "scopes":            authz.get("scopes") or [],
+            "approval_required": approval_required,
+            "approval_status":   "approved" if preapproved
+                                    else ("pending" if approval_required else None),
+            "dry_run":           dry_run,
+            "state":             STATE_QUEUED,
+        })
+        key = self.store.key_of(tenant, invoker["kind"], invoker["id"], exec_id)
+
+        # 5. If approval required and NOT pre-approved → park in WAITING_APPROVAL.
+        #    Do NOT return 403 — the execution is pending, not rejected.
+        if approval_required and not preapproved:
+            self.store.transition(key, state=STATE_WAITING_APPROVAL,
+                                     patch={"approval_status": "pending",
+                                              "requested_at":     _iso()})
+            return self._snapshot(key, extra={
+                "note": "waiting_approval — call POST /api/respond/approve/{execution_id} to resume",
+            })
+
+        # 6. Otherwise run adapter → forwarder → SUCCEEDED / FAILED_*
+        if preapproved:
+            self.store.transition(key, state=STATE_QUEUED, patch={
+                "approval_status": "approved",
+                "approval_ref":    authz.get("approval_ref"),
+                "approved_by":     authz.get("approved_by"),
+                "approved_at":     _iso(),
+                "approval_reason": authz.get("reason"),
+            })
+        return await self._run(key)
+
+    # ── approval decisions ──────────────────────────────────────────
+    async def approve(self, execution_id: str, *, approved_by: str,
+                        approval_ref: Optional[str] = None,
+                        reason: Optional[str] = None) -> Dict[str, Any]:
+        row = self.store.find_by_execution_id(execution_id)
+        if not row:
+            raise ExecutorError(404, "execution_not_found",
+                                      {"execution_id": execution_id})
+        if row["state"] != STATE_WAITING_APPROVAL:
+            # Immutable audit — an approval can only be applied once,
+            # and only to a truly pending execution.
+            raise ExecutorError(409, "invalid_state_for_approval",
+                                      {"state": row["state"]})
+        if not approved_by:
+            raise ExecutorError(400, "missing_field", {"field": "approved_by"})
+        key = self.store.key_of(row["tenant_id"], row["invoker_kind"],
+                                     row["invoker_id"], row["execution_id"])
+        self.store.transition(key, state=STATE_QUEUED, patch={
+            "approval_status": "approved",
+            "approval_ref":    approval_ref or f"approval-{uuid.uuid4().hex[:12]}",
+            "approved_by":     approved_by,
+            "approved_at":     _iso(),
+            "approval_reason": reason,
+        })
+        return await self._run(key)
+
+    def reject(self, execution_id: str, *, rejected_by: str,
+                  reason: Optional[str] = None) -> Dict[str, Any]:
+        row = self.store.find_by_execution_id(execution_id)
+        if not row:
+            raise ExecutorError(404, "execution_not_found",
+                                      {"execution_id": execution_id})
+        if row["state"] != STATE_WAITING_APPROVAL:
+            raise ExecutorError(409, "invalid_state_for_rejection",
+                                      {"state": row["state"]})
+        key = self.store.key_of(row["tenant_id"], row["invoker_kind"],
+                                     row["invoker_id"], row["execution_id"])
+        self.store.transition(key, state=STATE_FAILED_APPROVAL, patch={
+            "approval_status":  "rejected",
+            "rejected_by":      rejected_by,
+            "rejected_at":      _iso(),
+            "rejection_reason": reason,
+            "failure_reason":   "rejected_by_" + rejected_by,
+            "completed_at":     _iso(),
+        })
+        return self._finalise_snapshot(key)
+
+    # ── the real execution pipeline (adapter → forwarder) ───────────
+    async def _run(self, key: str) -> Dict[str, Any]:
+        # Load current row → we work from the persisted spec, not the
+        # inbound request, so an approval-driven resume runs the exact
+        # action the analyst approved (no request-body swap).
+        row = self._require(key)
+        exec_id  = row["execution_id"]
+        tenant   = row["tenant_id"]
+        invoker  = row.get("invoker") or {}
+        spec     = self.registry.get(row["action_id"])
+        if not spec:  # deleted between intake and run — hard failure
+            self.store.transition(key, state=STATE_FAILED_EXECUTION,
+                                     patch={"failure_reason": "unknown_action",
+                                              "completed_at":    _iso()})
+            return self._finalise_snapshot(key)
+
+        params    = row.get("parameters") or {}
+        canonical = row.get("canonical") or {}
+        dry_run   = bool(row.get("dry_run"))
+
         started_at = _iso()
-        stub_response = {"execution_id": exec_id, "status": STATUS_IN_PROGRESS,
-                            "started_at": started_at}
-        self.idempotency.record_in_progress(tenant, invoker["kind"],
-                                                  invoker["id"], exec_id,
-                                                  action_id, stub_response)
+        self.store.transition(key, state=STATE_RUNNING,
+                                 patch={"started_at": started_at})
 
-        # 5. run adapter (or short-circuit for dry-run)
+        # ── adapter phase ─
+        self.store.transition(key, state=STATE_EXECUTING)
         try:
             if dry_run:
                 adapter_out = {"ok": True,
@@ -171,106 +275,188 @@ class Executor:
                                   "reversal_id": None}
             else:
                 adapter_out = await spec.adapter(params,
-                                                       {"invoker": invoker,
+                                                       {"invoker":   invoker,
                                                          "tenant_id": tenant,
                                                          "canonical": canonical})
         except Exception as e:                                  # noqa: BLE001
             adapter_out = {"ok": False,
                               "error": f"{type(e).__name__}: {e}"}
+        adapter_ok = bool(adapter_out.get("ok"))
+        self.store.transition(key, state=STATE_EXECUTING, patch={
+            "adapter_ok":          1 if adapter_ok else 0,
+            "adapter_result_json": adapter_out.get("result"),
+            "adapter_error":       adapter_out.get("error"),
+        })
 
-        # 6. forward evidence — MANDATORY
+        # ── forwarding phase ─
+        self.store.transition(key, state=STATE_FORWARDING)
         completed_at = _iso()
         envelope = {
             "execution_id":     exec_id,
             "tenant_id":        tenant,
             "invoker":          invoker,
-            "action":           {"action_id": action_id,
-                                   "provider":  spec.provider,
+            "action":           {"action_id":  spec.action_id,
+                                   "provider":   spec.provider,
                                    "capability": spec.capability},
             "parameters":       params,
             "canonical_target": canonical,
             "adapter_result":   adapter_out.get("result"),
-            "adapter_ok":       adapter_out.get("ok", False),
+            "adapter_ok":       adapter_ok,
             "started_at":       started_at,
             "completed_at":     completed_at,
             "dry_run":          dry_run,
-            "authorization":    {"approved_by":  authz.get("approved_by"),
-                                   "approval_ref": authz.get("approval_ref"),
-                                   "reason":       authz.get("reason")},
+            "authorization": {
+                "approved_by":  row.get("approved_by"),
+                "approval_ref": row.get("approval_ref"),
+                "reason":       row.get("approval_reason"),
+            },
         }
         forward = await self.forwarder.forward(envelope)
-
-        # 7. final status
-        adapter_ok = adapter_out.get("ok", False)
         forward_ok = forward.get("forwarding_state") in ("forwarded", "not_wired")
+
+        # ── final state ─
         if adapter_ok and forward_ok:
-            status = STATUS_SUCCEEDED
-            err    = None
+            state       = STATE_SUCCEEDED
+            failure_msg = None
+        elif not adapter_ok:
+            state       = STATE_FAILED_EXECUTION
+            failure_msg = adapter_out.get("error") or "adapter_failed"
         else:
-            status = STATUS_FAILED
-            if not adapter_ok:
-                err = adapter_out.get("error") or "adapter_failed"
-            else:
-                err = f"evidence_forwarding_failed: {forward.get('reason')}"
+            state       = STATE_FAILED_FORWARDING
+            failure_msg = f"evidence_forwarding_failed: {forward.get('reason')}"
 
-        response = {
-            "execution_id":  exec_id,
-            "status":        status,
-            "started_at":    started_at,
-            "completed_at":  completed_at,
-            "duration_ms":   _duration_ms(started_at, completed_at),
-            "result":        adapter_out.get("result"),
-            "evidence_ref":  forward.get("evidence_ref"),
-            "audit_ref":     forward.get("audit_ref"),
-            "timeline_ref":  forward.get("timeline_ref"),
+        self.store.transition(key, state=state, patch={
+            "evidence_ref":     forward.get("evidence_ref"),
+            "audit_ref":        forward.get("audit_ref"),
+            "timeline_ref":     forward.get("timeline_ref"),
             "forwarding_state": forward.get("forwarding_state"),
-            "reversal": {
-                "reversible":  bool(spec.reversible) and adapter_ok,
-                "reversal_id": adapter_out.get("reversal_id"),
-                "expires_at":  None,
-            },
-            "error":         err,
-            "invoker":       invoker,
-            "action_id":     action_id,
-            "dry_run":       dry_run,
-        }
-        self.idempotency.finalise(tenant, invoker["kind"], invoker["id"],
-                                        exec_id, status, response)
-        return response
+            "forwarding_error": forward.get("reason") if not forward_ok else None,
+            "failure_reason":   failure_msg,
+            "completed_at":     completed_at,
+        })
+        return self._finalise_snapshot(key)
 
-    async def _finalise_error(self, req: Dict[str, Any],
-                                    spec: ActionSpec,
-                                    err: ExecutorError) -> Dict[str, Any]:
-        # Persist the rejection so a re-POST returns the same verdict.
+    # ── rejection helper (validation errors) ────────────────────────
+    def _reject(self, req: Dict[str, Any], spec: ActionSpec,
+                     err: ExecutorError) -> Dict[str, Any]:
         now = _iso()
-        response = {
-            "execution_id":  req["execution_id"],
-            "status":        STATUS_REJECTED,
-            "started_at":    now, "completed_at": now, "duration_ms": 0,
-            "result":        None,
-            "evidence_ref":  None, "audit_ref": None, "timeline_ref": None,
-            "forwarding_state": "not_attempted",
-            "reversal":      {"reversible": False, "reversal_id": None},
-            "error":         err.error,
-            "detail":        err.detail,
-            "invoker":       req["invoker"],
-            "action_id":     req["action"].get("action_id"),
-            "dry_run":       bool((req.get("constraints") or {}).get("dry_run")),
-        }
-        try:
-            self.idempotency.record_in_progress(
-                req["tenant_id"], req["invoker"]["kind"], req["invoker"]["id"],
-                req["execution_id"], spec.action_id, response)
-            self.idempotency.finalise(
-                req["tenant_id"], req["invoker"]["kind"], req["invoker"]["id"],
-                req["execution_id"], STATUS_REJECTED, response)
-        except Exception:                                       # noqa: BLE001
-            pass
-        # Re-raise so the route returns the right HTTP code.
+        # Persist the rejection so a replay returns the same verdict.
+        self.store.insert({
+            "tenant_id":         req["tenant_id"],
+            "invoker_kind":      req["invoker"]["kind"],
+            "invoker_id":        req["invoker"]["id"],
+            "invoker":           req["invoker"],
+            "execution_id":      req["execution_id"],
+            "action_id":         spec.action_id,
+            "provider":          spec.provider,
+            "capability":        spec.capability,
+            "parameters":        req["action"].get("parameters") or {},
+            "canonical":         {},
+            "scopes":            (req.get("authorization") or {}).get("scopes") or [],
+            "approval_required": bool(spec.approval_required),
+            "approval_status":   None,
+            "dry_run":           bool((req.get("constraints") or {}).get("dry_run")),
+            "state":             STATE_REJECTED,
+        })
+        key = self.store.key_of(req["tenant_id"], req["invoker"]["kind"],
+                                     req["invoker"]["id"], req["execution_id"])
+        self.store.transition(key, state=STATE_FAILED_TARGET if err.error == "unresolved_target"
+                                                                else STATE_REJECTED,
+                                 patch={"failure_reason": err.error,
+                                          "completed_at":    now,
+                                          "started_at":      now})
+        # Preserve the previous behaviour: the route surfaces HTTP 4xx.
         raise err
 
+    # ── snapshotting ────────────────────────────────────────────────
+    def _require(self, key: str) -> Dict[str, Any]:
+        parts = key.split("|", 3)
+        row = self.store.find(*parts)
+        if not row:
+            raise ExecutorError(500, "execution_row_missing", {"key": key})
+        return row
 
-def _duration_ms(a: str, b: str) -> int:
+    def _snapshot(self, key: str,
+                     extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Build the wire response for an in-flight / waiting execution."""
+        row = self._require(key)
+        return self._response_from_row(row, extra=extra)
+
+    def _finalise_snapshot(self, key: str) -> Dict[str, Any]:
+        """Snapshot + persist the final response_json so idempotent
+        replays return the identical body verbatim."""
+        row = self._require(key)
+        resp = self._response_from_row(row)
+        if row["state"] in TERMINAL_STATES:
+            self.store.transition(key, state=row["state"],
+                                     patch={"response_json": resp})
+        return resp
+
+    @staticmethod
+    def _response_from_row(row: Dict[str, Any],
+                                extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        # ── legacy `status` field maintained so existing tests + UI
+        #    that speak "succeeded/failed/rejected" keep working.
+        st = row["state"]
+        legacy = {
+            STATE_SUCCEEDED:         "succeeded",
+            STATE_FAILED_APPROVAL:   "failed",
+            STATE_FAILED_TARGET:     "rejected",
+            STATE_FAILED_EXECUTION:  "failed",
+            STATE_FAILED_FORWARDING: "failed",
+            STATE_REJECTED:          "rejected",
+            STATE_WAITING_APPROVAL:  "waiting_approval",
+            STATE_QUEUED:            "in_progress",
+            STATE_RUNNING:           "in_progress",
+            STATE_EXECUTING:         "in_progress",
+            STATE_FORWARDING:        "in_progress",
+        }.get(st, "in_progress")
+        spec_row = {
+            "execution_id":     row["execution_id"],
+            "state":            st,
+            "status":           legacy,
+            "action_id":        row["action_id"],
+            "invoker":          row.get("invoker") or {},
+            "tenant_id":        row["tenant_id"],
+            "started_at":       row.get("started_at"),
+            "completed_at":     row.get("completed_at"),
+            "requested_at":     row.get("requested_at"),
+            "duration_ms":      _dur(row.get("started_at"), row.get("completed_at")),
+            "result":           row.get("adapter_result"),
+            "adapter_ok":       bool(row.get("adapter_ok")),
+            "evidence_ref":     row.get("evidence_ref"),
+            "audit_ref":        row.get("audit_ref"),
+            "timeline_ref":     row.get("timeline_ref"),
+            "forwarding_state": row.get("forwarding_state"),
+            "forwarding_error": row.get("forwarding_error"),
+            "failure_reason":   row.get("failure_reason"),
+            "dry_run":          bool(row.get("dry_run")),
+            "approval": {
+                "required":  bool(row.get("approval_required")),
+                "status":    row.get("approval_status"),
+                "ref":       row.get("approval_ref"),
+                "approved_by": row.get("approved_by"),
+                "approved_at": row.get("approved_at"),
+                "reason":      row.get("approval_reason"),
+                "rejected_by": row.get("rejected_by"),
+                "rejected_at": row.get("rejected_at"),
+                "rejection_reason": row.get("rejection_reason"),
+            },
+            "reversal": {
+                "reversible": bool(row.get("adapter_ok")),
+                "reversal_id": None,   # future: wire adapter reversal_id
+            },
+            "error": row.get("failure_reason") if st in TERMINAL_STATES
+                                                        and st != STATE_SUCCEEDED
+                        else None,
+        }
+        if extra: spec_row.update(extra)
+        return spec_row
+
+
+def _dur(a: Optional[str], b: Optional[str]) -> int:
+    if not a or not b:
+        return 0
     try:
         da = datetime.fromisoformat(a.replace("Z", "+00:00"))
         db = datetime.fromisoformat(b.replace("Z", "+00:00"))

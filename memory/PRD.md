@@ -4,6 +4,85 @@
 This file supersedes all prior architecture instructions.  Every future
 NivXRay XDR session must obey these rules verbatim.
 
+
+---
+
+## ✅ 2026-02-10 · Response Execution Integration slice DONE
+
+Landed **the complete "Implement Now" instruction**: the standalone
+Response Engine now owns a persisted execution state machine and an
+approval workflow, and every invocation surface (Playbook Designer
+Run, Automation Rules, Analyst Response Drawer, Visual Execution
+Studio) speaks the *same* execution contract.
+
+### What shipped
+- **Base backend** — added ONE new endpoint:
+  `POST /api/xdr/response-evidence` (idempotent on `execution_id`,
+  provenance-validated, tenant-scoped). NO changes to SSOT / Verdict
+  / IKG / detection code. New collections: `xdr_response_evidence`,
+  `xdr_response_audit`, `xdr_response_timeline`,
+  `xdr_response_executions`. 7 focused pytest tests, all green.
+- **Response Engine** (`/app/apps/nivxray-xdr-response`) — refactored
+  to a durable state machine:
+  `QUEUED → RUNNING → WAITING_APPROVAL → EXECUTING → FORWARDING_EVIDENCE → SUCCEEDED`
+  with `FAILED_APPROVAL / FAILED_TARGET / FAILED_EXECUTION /
+  FAILED_FORWARDING / FAILED_RECOVERED / REJECTED`. Dedicated
+  SQLite DB at `data/executions.db` (never shared with the
+  Collector). New endpoints:
+  `POST /api/respond/approve/{execution_id}`,
+  `POST /api/respond/reject/{execution_id}`,
+  `GET  /api/respond/pending-approvals?tenant_id=…`. 18/18 pytest
+  green.
+- **Evidence-first invariant** — `SUCCEEDED` requires adapter OK
+  AND evidence forwarding OK. If forwarding to the base endpoint
+  fails, the execution is reported as `FAILED_FORWARDING`; never
+  fabricates success.
+- **Restart recovery** — RUNNING / EXECUTING / FORWARDING rows on
+  boot flip to `FAILED_RECOVERED`. No silent re-firing.
+- **Frontend** (`/app/apps/nivxray-xdr`):
+  - `responseEngineApi.js` gained `approve`, `reject`, `pollUntilTerminal`,
+    `buildExecutePayload`, canonical state constants.
+  - `AnalystResponseDrawer.jsx` — right-side drawer on
+    `/xdr/incidents/:id`. `invoker.kind = "analyst"`. Peer approval
+    strictly enforced ("cannot approve your own request").
+  - `VisualExecutionStudio.jsx` — evolved simulator with breakpoints,
+    pause / resume / step-over / step-into, force TRUE/FALSE branch,
+    animated node highlighting, per-node execution card
+    (state, duration, evidence_ref, audit_ref, timeline_ref,
+    inline approve / reject).
+  - `XdrPlaybookDesignerPage.jsx` — Design ↔ Studio view switcher.
+    "Run" button opens Studio in Live mode.
+  - `XdrAutomationRuleEditorPage.jsx` — added "Live Run" that
+    dispatches through the SAME Response Engine contract used by
+    playbooks and the drawer.
+- **Contracts** — `RESPONSE_CONTRACT.md` + `RESPONSE_INGEST_CONTRACT.md`
+  fully documented (state machine, approval lifecycle, idempotency,
+  evidence invariants, invoker kinds, target resolution, adapter
+  status, deploy variables).
+
+### Verification
+- Response Engine pytest: 18/18 (approval, idempotency, tenant
+  isolation, target resolution, missing scope/param, restart
+  recovery, dry-run, playbook simulator, action registry).
+- Base backend pytest for evidence endpoint: 7/7.
+- Collector pytest: **preserved 44/44 (not touched)**.
+- Frontend `yarn build`: clean.
+- Full E2E via curl: analyst-invoker → `WAITING_APPROVAL` → peer
+  approve → `SUCCEEDED` with real evidence_ref / audit_ref /
+  timeline_ref written to the base backend and read-back verified.
+
+### Boundary (owner-locked, honoured)
+- Base backend NOT modified except for the single evidence sink
+  endpoint.
+- Response Engine remains an independently-deployable service with
+  its own dedicated database.
+- Adapters remain deterministic Phase-1 stubs (`adapter_status:
+  AVAILABLE`, `simulation_only: true`). Phase C plugs real
+  CrowdStrike / Defender / SentinelOne / Cisco SEP adapters without
+  changing the execution model.
+
+---
+
 ---
 
 ## 🔴 The one rule that supersedes everything else

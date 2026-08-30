@@ -230,6 +230,13 @@ api.include_router(analyst_v2_router)
 from routers.auto_investigate import router as auto_investigate_router
 api.include_router(auto_investigate_router)
 
+# XDR Response-Evidence sink (ADR · Response Execution Integration
+# 2026-02-10 · owner-authorised).  ONLY base-backend endpoint the
+# standalone Response Engine (/app/apps/nivxray-xdr-response) writes
+# to.  Idempotent on execution_id · never touches SSOT / Verdict / IKG.
+from routers.xdr_response_evidence import router as xdr_response_evidence_router
+api.include_router(xdr_response_evidence_router)
+
 # Phase A · Capability Catalog — read-only endpoint exposing the
 # machine-readable UAIE capability registry + derived dependency
 # graph.  Stable public API; no UI wired to it yet (postponed until

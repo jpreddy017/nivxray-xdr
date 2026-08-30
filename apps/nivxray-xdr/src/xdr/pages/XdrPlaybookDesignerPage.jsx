@@ -5,10 +5,11 @@
  * insert-condition affordances.  Right-side inspector edits the
  * selected node.  Never executes; execution surface says NOT WIRED.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Plus, Save, Trash2, GitBranch, ArrowRight, X,
   Play, Pause, Archive, FlaskConical, ArrowDown, ShieldAlert,
+  Undo2, Redo2,
 } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
@@ -21,6 +22,8 @@ import {
   RESPONSE_ACTIONS, ACTIONS_BY_PROVIDER, getAction, RESPONSE_ENGINE_WIRED,
 } from "@/xdr/respond/actionRegistry";
 import * as Engine from "@/xdr/respond/responseEngineApi";
+import VisualExecutionStudio from "@/xdr/respond/VisualExecutionStudio";
+import { useAuth } from "@/lib/auth";
 
 
 const LIFECYCLE_BUTTONS = [
@@ -35,26 +38,79 @@ const LIFECYCLE_BUTTONS = [
 export default function XdrPlaybookDesignerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [pb, setPb]         = useState(null);
   const [selected, setSel]  = useState(null);
   const [dirty, setDirty]   = useState(false);
   const [saveState, setSs]  = useState("clean");
-
-  const [sim, setSim] = useState(null);
-  const [simEvent, setSimEvent] = useState('{"verdict":"malicious","severity":"critical"}');
-  const [simBusy, setSimBusy] = useState(false);
+  // View switcher: Design canvas vs full Visual Execution Studio.
+  const [view, setView]     = useState("design");    // "design" | "studio"
+  const [studioMode, setStudioMode] = useState("debug");   // "debug" | "live"
 
   useEffect(() => {
     const p = getPlaybook(id);
     if (!p) { navigate("/xdr/respond/playbooks"); return; }
     setPb(p);
+    // Seed the history stack with the loaded playbook.
+    setHistory([JSON.parse(JSON.stringify(p))]);
+    setHistoryIndex(0);
   }, [id, navigate]);
+
+  // History stack for Undo/Redo.  Every mutation snapshots the
+  // PREVIOUS playbook state; Undo restores it.  Save operations
+  // also snapshot so a save can be un-done in-session before the
+  // next mutation truncates the redo tail.
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  const pushHistory = useCallback((snapshot) => {
+    setHistory((h) => {
+      const trimmed = h.slice(0, historyIndex + 1);
+      trimmed.push(JSON.parse(JSON.stringify(snapshot)));
+      // Cap at 50 snapshots.
+      return trimmed.length > 50 ? trimmed.slice(-50) : trimmed;
+    });
+    setHistoryIndex((i) => Math.min(i + 1, 49));
+  }, [historyIndex]);
+
+  const undo = useCallback(() => {
+    if (!canUndo) return;
+    const prev = history[historyIndex - 1];
+    setPb(JSON.parse(JSON.stringify(prev)));
+    setHistoryIndex((i) => i - 1);
+    setDirty(true);
+  }, [canUndo, history, historyIndex]);
+  const redo = useCallback(() => {
+    if (!canRedo) return;
+    const nxt = history[historyIndex + 1];
+    setPb(JSON.parse(JSON.stringify(nxt)));
+    setHistoryIndex((i) => i + 1);
+    setDirty(true);
+  }, [canRedo, history, historyIndex]);
+
+  // Keyboard shortcuts (Cmd/Ctrl+Z / Cmd/Ctrl+Shift+Z).
+  useEffect(() => {
+    const onKey = (e) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (meta && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   const chain = useMemo(() => flatten(pb), [pb]);
 
   if (!pb) return null;
 
   const mutate = (fn) => {
+    // Snapshot the current playbook BEFORE the mutation so Undo
+    // restores exactly what the user saw.
+    pushHistory(pb);
     const next = fn({ ...pb, nodes: pb.nodes.map((n) => ({ ...n })) });
     setPb(next); setDirty(true);
   };
@@ -67,28 +123,11 @@ export default function XdrPlaybookDesignerPage() {
     } catch (e) { setSs("error"); window.alert(String(e)); }
   };
   const doLifecycle = (to) => {
-    try { setPb(transitionLifecycle(pb.id, to, { by: "operator" })); }
-    catch (e) { window.alert(String(e)); }
-  };
-  const doSimulate = async () => {
-    setSimBusy(true); setSim(null);
     try {
-      let evt = {};
-      try { evt = JSON.parse(simEvent); }
-      catch { setSim({ error: "Invalid event JSON" }); setSimBusy(false); return; }
-      const result = await Engine.simulatePlaybook({
-        playbook_id: pb.id,
-        tenant_id:   pb.tenant_id || "simulate",
-        entry:       pb.entry,
-        nodes:       pb.nodes,
-        event:       evt,
-      });
-      setSim(result);
-    } catch (e) {
-      setSim({ error: e?.code === "RESPONSE_ENGINE_NOT_DEPLOYED"
-        ? "Response Engine URL not set (VITE_XDR_RESPONSE_URL). Simulation requires the standalone engine."
-        : (e?.response?.data?.detail?.error || e?.message || String(e)) });
-    } finally { setSimBusy(false); }
+      pushHistory(pb);                     // snapshot so Undo works
+      setPb(transitionLifecycle(pb.id, to, { by: "operator" }));
+    }
+    catch (e) { window.alert(String(e)); }
   };
 
   const selNode = pb.nodes.find((n) => n.id === selected) || null;
@@ -118,19 +157,32 @@ export default function XdrPlaybookDesignerPage() {
           v{pb.version} · {pb.lifecycle.toUpperCase()}
         </span>
         <div style={{ flex: 1 }} />
+        <button className="btn" style={{ padding: "4px 8px" }}
+                  onClick={undo} disabled={!canUndo}
+                  title="Undo (Ctrl/Cmd+Z)"
+                  data-testid="xdr-designer-undo">
+          <Undo2 size={11} />
+        </button>
+        <button className="btn" style={{ padding: "4px 8px" }}
+                  onClick={redo} disabled={!canRedo}
+                  title="Redo (Ctrl/Cmd+Shift+Z)"
+                  data-testid="xdr-designer-redo">
+          <Redo2 size={11} />
+        </button>
         <button className="btn" style={{ padding: "4px 10px" }}
-                  onClick={doSimulate} disabled={simBusy}
+                  onClick={() => { setStudioMode("debug"); setView("studio"); }}
                   data-testid="xdr-designer-simulate">
-          <FlaskConical size={11} /> {simBusy ? "Simulating…" : "Simulate"}
+          <FlaskConical size={11} /> Studio · Debug
         </button>
         <button className="btn" style={{ padding: "4px 10px",
                                                  opacity: RESPONSE_ENGINE_WIRED ? 1 : 0.5,
                                                  cursor: RESPONSE_ENGINE_WIRED ? "pointer" : "not-allowed" }}
                   disabled={!RESPONSE_ENGINE_WIRED}
                   title={RESPONSE_ENGINE_WIRED
-                            ? "Run against real Response Engine — real adapters, but stubs in Phase 1"
+                            ? "Live run — real Response Engine · state machine · persisted approvals"
                             : "Response Engine not wired · set VITE_XDR_RESPONSE_URL"}
-                  data-testid="xdr-designer-run-disabled">
+                  onClick={() => { setStudioMode("live"); setView("studio"); }}
+                  data-testid="xdr-designer-run">
           <Play size={11} /> Run {RESPONSE_ENGINE_WIRED ? "" : "(disabled)"}
         </button>
         <button className="btn primary" onClick={doSave} disabled={!dirty || saveState === "saving"}
@@ -162,6 +214,41 @@ export default function XdrPlaybookDesignerPage() {
         })}
       </div>
 
+      {/* Design ↔ Studio switcher */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8,
+                        borderBottom: "1px solid var(--border)" }}
+              data-testid="xdr-designer-view-switch">
+        <button className="btn ghost"
+                  onClick={() => setView("design")}
+                  data-testid="xdr-designer-view-design"
+                  style={{ padding: "4px 12px", borderRadius: 0,
+                              borderBottom: view === "design"
+                                              ? "2px solid var(--purple)" : "2px solid transparent",
+                              color: view === "design" ? "var(--text)" : "var(--faint)",
+                              fontWeight: view === "design" ? 700 : 500 }}>
+          Design
+        </button>
+        <button className="btn ghost"
+                  onClick={() => setView("studio")}
+                  data-testid="xdr-designer-view-studio"
+                  style={{ padding: "4px 12px", borderRadius: 0,
+                              borderBottom: view === "studio"
+                                              ? "2px solid var(--purple)" : "2px solid transparent",
+                              color: view === "studio" ? "var(--text)" : "var(--faint)",
+                              fontWeight: view === "studio" ? 700 : 500 }}>
+          Visual Execution Studio
+        </button>
+      </div>
+
+      {view === "studio" && (
+        <VisualExecutionStudio
+          playbook={pb}
+          analystEmail={user?.email}
+          mode={studioMode}
+        />
+      )}
+
+      {view === "design" && (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 340px",
                        gap: 14, alignItems: "start" }}>
         {/* Canvas — linear chain */}
@@ -212,55 +299,9 @@ export default function XdrPlaybookDesignerPage() {
             </b>
             <br />See <span style={{ color: "var(--cyan)" }}>RESPONSE_CONTRACT.md</span>.
           </div>
-
-          {/* Simulate input + trace */}
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}
-                  data-testid="xdr-designer-sim-panel">
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 800,
-                             color: "var(--muted)", textTransform: "uppercase",
-                             letterSpacing: ".3px", marginBottom: 8 }}>
-              Simulation input
-            </div>
-            <textarea rows={4} value={simEvent}
-                         onChange={(e) => setSimEvent(e.target.value)}
-                         className="x-input"
-                         style={{ fontFamily: "var(--mono)", fontSize: 11 }}
-                         data-testid="xdr-designer-sim-event" />
-            {sim && (
-              <div style={{ marginTop: 10, padding: 8, borderRadius: 4,
-                               background: "var(--panel2)",
-                               border: `1px solid ${sim.error ? "#ff5b5b" : "var(--mint)"}`,
-                               fontSize: 11, color: "var(--text-dim)" }}
-                      data-testid="xdr-designer-sim-trace">
-                {sim.error
-                  ? <span style={{ color: "#ff9494" }}>{sim.error}</span>
-                  : <>
-                      <div style={{ color: "var(--mint)", fontWeight: 700 }}>
-                        MODE: {sim.mode?.toUpperCase()} · {sim.steps} steps
-                      </div>
-                      <div style={{ marginTop: 6 }}>
-                        {(sim.trace || []).map((t, i) => (
-                          <div key={i} className="mono"
-                                  style={{ fontSize: 10.5, color: t.status === "rejected"
-                                              ? "#ff9494" : t.branch === "yes"
-                                              ? "var(--mint)" : t.branch === "no"
-                                              ? "var(--faint)" : "var(--text-dim)" }}>
-                            {i + 1}. {t.kind?.toUpperCase()}
-                            {t.action_id ? " · " + t.action_id : ""}
-                            {t.branch ? " → " + t.branch : ""}
-                            {t.status ? " [" + t.status + "]" : ""}
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ marginTop: 6, color: "var(--faint)", fontSize: 10 }}>
-                        {sim.note}
-                      </div>
-                    </>}
-              </div>
-            )}
-          </div>
         </aside>
       </div>
+      )}
     </XdrShell>
   );
 }

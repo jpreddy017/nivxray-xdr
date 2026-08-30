@@ -47,7 +47,7 @@ export function canTransition(from, to) {
     testing:    ["enabled", "draft", "disabled", "deprecated"],
     enabled:    ["disabled", "deprecated"],
     disabled:   ["draft", "testing", "enabled", "deprecated"],
-    deprecated: [],
+    deprecated: ["draft"],                  // recovery-only
   };
   return (F[from] || []).includes(to);
 }
@@ -208,4 +208,132 @@ export function simulate(rule, sampleEvent) {
     would_execute: matches ? (rule.actions || []).map((a) => a.kind) : [],
     note:          "Simulation only — Response Engine NOT WIRED · no side effects performed.",
   };
+}
+
+
+// ── LIVE dispatch (Response Engine) ──────────────────────────
+//
+// WHEN → IF → THEN → invoke_playbook goes through the SAME
+// Response Engine contract used by the Playbook Designer's Run
+// button and the Analyst Response Drawer.  A single execution
+// pipeline, a single approval workflow, a single audit trail.
+//
+// Non-invoke_playbook actions (tag, assign, change_severity,
+// notify) still surface honestly as `not_wired_locally` — they
+// don't have adapters yet; the Response Engine treats them as
+// nivxray-native actions where the Registry has entries.
+import * as Engine from "@/xdr/respond/responseEngineApi";
+import { getPlaybook } from "@/xdr/respond/playbookStore";
+import { getAction }   from "@/xdr/respond/actionRegistry";
+
+const NATIVE_ACTION_MAP = {
+  tag_incident:    "nivxray.create_ticket",       // closest native
+  assign:          "nivxray.assign_analyst",
+  change_severity: "nivxray.change_verdict",
+  notify:          "nivxray.notify",
+};
+
+const _uuid = () =>
+  "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+
+
+export async function runRuleLive(rule, event, { tenantId, actor } = {}) {
+  // 1. Evaluate conditions first — no side effects if they don't match.
+  const s = simulate(rule, event || {});
+  if (!s.matched) {
+    return { matched: false, invocations: [] };
+  }
+  const invocations = [];
+  const invoker = {
+    kind:    "automation_rule",
+    id:      `rule:${rule.id}`,
+    context: { rule_id: rule.id, actor: actor || "automation" },
+  };
+  for (const action of (rule.actions || [])) {
+    if (action.kind === "invoke_playbook") {
+      const pbId = action.playbook_id;
+      const pb   = pbId ? getPlaybook(pbId) : null;
+      if (!pb) {
+        invocations.push({ kind: "invoke_playbook", playbook_id: pbId,
+                              error: "playbook_not_found" });
+        continue;
+      }
+      // Walk the playbook's action nodes and dispatch each one.  A
+      // full linear walker is enough for the automation surface —
+      // richer graph walking still lives in the Visual Execution
+      // Studio for humans in the loop.
+      for (const node of pb.nodes || []) {
+        if (node.kind !== "action" || !node.action_id) continue;
+        const executionId = `exec-rule-${rule.id}-${node.id}-${_uuid()}`;
+        try {
+          const res = await Engine.execute(Engine.buildExecutePayload({
+            executionId, tenantId: tenantId || pb.tenant_id || "acme",
+            invoker: { ...invoker,
+                          context: { ...invoker.context,
+                                       playbook_id: pb.id,
+                                       playbook_node_id: node.id } },
+            action:     node.action_id,
+            parameters: (node.config || {}).parameters || {},
+            scopes:     _scopesFor(node.action_id),
+          }));
+          invocations.push({ kind: "invoke_playbook", playbook_id: pb.id,
+                                execution_id: executionId, state: res.state,
+                                node_id: node.id, action_id: node.action_id });
+        } catch (e) {
+          invocations.push({ kind: "invoke_playbook", playbook_id: pb.id,
+                                node_id: node.id, action_id: node.action_id,
+                                error: e?.response?.data?.detail?.error
+                                          || e?.message || String(e) });
+        }
+      }
+    } else if (NATIVE_ACTION_MAP[action.kind]) {
+      const actionId = NATIVE_ACTION_MAP[action.kind];
+      const executionId = `exec-rule-${rule.id}-${action.kind}-${_uuid()}`;
+      try {
+        const res = await Engine.execute(Engine.buildExecutePayload({
+          executionId, tenantId: tenantId || rule.tenant_id || "acme",
+          invoker,
+          action:     actionId,
+          parameters: _paramsForNative(action),
+          scopes:     _scopesFor(actionId),
+        }));
+        invocations.push({ kind: action.kind, execution_id: executionId,
+                              state: res.state, action_id: actionId });
+      } catch (e) {
+        invocations.push({ kind: action.kind, action_id: actionId,
+                              error: e?.response?.data?.detail?.error
+                                        || e?.message || String(e) });
+      }
+    } else {
+      invocations.push({ kind: action.kind, state: "not_wired",
+                            note: "action kind has no engine adapter" });
+    }
+  }
+  return { matched: true, invocations };
+}
+
+
+function _scopesFor(actionId) {
+  const a = getAction(actionId);
+  if (!a) return [];
+  return (a.required_permissions || []).flatMap((p) => [
+    `${p.role}:${p.scope}`, p.scope,
+  ]);
+}
+
+function _paramsForNative(action) {
+  const out = {};
+  for (const [k, v] of Object.entries(action)) {
+    if (k === "kind") continue;
+    out[k] = v;
+  }
+  // change_severity → nivxray.change_verdict uses `verdict`
+  if (action.kind === "change_severity" && action.severity) {
+    out.verdict = String(action.severity);
+    delete out.severity;
+  }
+  return out;
 }

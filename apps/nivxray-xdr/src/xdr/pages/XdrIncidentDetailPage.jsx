@@ -5,17 +5,19 @@
  * incident shell in the XDR chrome and reuses existing NivXRay
  * capabilities via deep-linked new tabs — never duplicates them.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertOctagon, ChevronLeft, ExternalLink, Lock, Loader2 } from "lucide-react";
+import { AlertOctagon, ChevronLeft, ExternalLink, Lock, Loader2, Zap } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import LifecycleBar from "@/components/incidents/LifecycleBar";
 import ActivityTab  from "@/components/incidents/tabs/ActivityTab";
 import Pivot       from "@/xdr/components/Pivot";
 import DomainCardsGrid from "@/xdr/components/DomainCardsGrid";
+import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
 
 import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
+import { useAuth } from "@/lib/auth";
 import api from "@/lib/api";
 
 const SEV_CLASS = {
@@ -48,10 +50,12 @@ const SUBTABS = [
 
 export default function XdrIncidentDetailPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [incident, setIncident] = useState(null);
   const [loading, setL]         = useState(true);
   const [error, setError]       = useState(null);
   const [tab, setTab]           = useState("overview");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -67,9 +71,19 @@ export default function XdrIncidentDetailPage() {
     setIncident(updated);
   };
 
+  // Prefill host / user from incident assets when opening the drawer.
+  const drawerDefaults = useMemo(() => {
+    const hosts = incident?.assets?.hosts || incident?.hosts || [];
+    const users = incident?.assets?.users || incident?.users || [];
+    return {
+      hostId: hosts[0]?.host_id || hosts[0]?.id || hosts[0]?.name || "",
+      userId: users[0]?.user_id || users[0]?.id || users[0]?.email || "",
+    };
+  }, [incident]);
+
   return (
     <XdrShell>
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: 10, display: "flex", alignItems: "center" }}>
         <Link to="/xdr/incidents" style={{
           display: "inline-flex", alignItems: "center", gap: 6,
           color: "var(--muted)", textDecoration: "none",
@@ -78,6 +92,13 @@ export default function XdrIncidentDetailPage() {
         }}>
           <ChevronLeft size={12} /> Back to queue
         </Link>
+        <span style={{ flex: 1 }} />
+        <button className="btn primary" onClick={() => setDrawerOpen(true)}
+                  disabled={!incident}
+                  data-testid="xdr-incident-respond-btn"
+                  style={{ padding: "5px 12px" }}>
+          <Zap size={11} /> Respond
+        </button>
       </div>
 
       {loading && (
@@ -102,10 +123,19 @@ export default function XdrIncidentDetailPage() {
             {tab === "overview"      && <OverviewTab      incident={incident} />}
             {tab === "investigation" && <InvestigationTab incident={incident} />}
             {tab === "activity"      && <ActivityTab      incident={incident} />}
-            {tab === "response"      && <ResponseTab      incident={incident} />}
+            {tab === "response"      && <ResponseTab      incident={incident}
+                                                                  onOpenDrawer={() => setDrawerOpen(true)} />}
           </div>
         </div>
       )}
+      <AnalystResponseDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        incident={incident}
+        analystEmail={user?.email}
+        defaultHostId={drawerDefaults.hostId}
+        defaultUserId={drawerDefaults.userId}
+      />
     </XdrShell>
   );
 }
@@ -587,11 +617,20 @@ const IOC_ACTIONS = [
   { key: "block-url",    label: "Block URL",    iocKey: "url" },
 ];
 
-function ResponseTab({ incident }) {
+function ResponseTab({ incident, onOpenDrawer }) {
   const iocs = incident?.iocs || {};
   return (
     <div>
-      <div className="section-title" style={{ marginBottom: 6 }}>Response Workflow</div>
+      <div className="section-title" style={{ marginBottom: 6, display: "flex",
+                                                        alignItems: "center", gap: 12 }}>
+        <span>Response Workflow</span>
+        <button className="btn primary"
+                  onClick={onOpenDrawer}
+                  data-testid="xdr-incident-response-open-drawer"
+                  style={{ padding: "3px 10px", fontSize: 10.5 }}>
+          Open Analyst Response Drawer
+        </button>
+      </div>
       <div className="progression" data-testid="xdr-incident-response-workflow">
         {RESPONSE_STAGES.map((label, i) => (
           <React.Fragment key={label}>
@@ -606,8 +645,8 @@ function ResponseTab({ incident }) {
 
       <div className="section-title" style={{ marginTop: 12, marginBottom: 6 }}>IOC Response Actions</div>
       <div style={{ color: "var(--muted)", fontSize: 11, marginBottom: 10 }}>
-        No destructive action executes on one click.  Every action must clear Approval → Execution →
-        Verification.  In this slice the buttons record intent only; execution lands in Slice 3.
+        Every destructive action clears Approval → Execution → Evidence Forwarding.  Buttons
+        below deep-link into the Analyst Response Drawer with the target pre-filled.
       </div>
       <div className="row" data-testid="xdr-incident-ioc-actions">
         {IOC_ACTIONS.map((a) => {

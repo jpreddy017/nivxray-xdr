@@ -48,7 +48,7 @@ export function canTransition(from, to) {
     testing:    ["enabled", "draft", "disabled", "deprecated"],
     enabled:    ["disabled", "deprecated"],
     disabled:   ["draft", "testing", "enabled", "deprecated"],
-    deprecated: [],                        // terminal
+    deprecated: ["draft"],                 // recovery-only: user can revive
   };
   return (F[from] || []).includes(to);
 }

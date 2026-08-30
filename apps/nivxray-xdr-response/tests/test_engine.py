@@ -1,18 +1,38 @@
-"""Response Engine · pytest suite."""
+"""Response Engine · pytest suite (state machine + approval workflow)."""
+import os
+import tempfile
+
 import httpx
 import pytest
 from contextlib import asynccontextmanager
-from main import app
 
 
-def _client():
+@pytest.fixture(autouse=True)
+def _fresh_state(monkeypatch, tmp_path):
+    """Every test gets its own SQLite DB — no leakage between cases.
+
+    We DO NOT reload framework modules; reloading breaks exception-class
+    identity (`except ExecutorError` in the route becomes a different
+    class than the one the executor raises).  A fresh tmp_path gives us
+    a fresh SQLite file on the next app lifespan; that's enough."""
+    monkeypatch.setenv("XDR_RESPOND_STATE_DIR", str(tmp_path))
+    yield
+
+
+def _make_app():
+    from main import app
+    return app
+
+
+def _client(app):
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
                                 base_url="http://t")
 
 @asynccontextmanager
 async def _lc():
+    app = _make_app()
     async with app.router.lifespan_context(app):
-        async with _client() as c:
+        async with _client(app) as c:
             yield c
 
 
@@ -27,22 +47,29 @@ BASE_REQ = {
 }
 
 
+# ── Basic sanity ────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_health():
     async with _lc() as c: r = await c.get("/health")
-    j = r.json(); assert j["phase"] == "1" and j["actions"] > 0
+    j = r.json()
+    assert j["service"] == "nivxray-xdr-response"
+    assert j["actions"] > 0
+    assert isinstance(j["executions"], dict)
 
 
+# ── Straight-through succeeded execution ────────────────────────────
 @pytest.mark.asyncio
 async def test_execute_succeeds_and_produces_all_three_refs():
     async with _lc() as c: r = await c.post("/api/respond/execute", json=BASE_REQ)
     assert r.status_code == 200, r.text
     j = r.json()
+    assert j["state"] == "SUCCEEDED"
     assert j["status"] == "succeeded"
     assert j["evidence_ref"] and j["audit_ref"] and j["timeline_ref"]
-    assert j["forwarding_state"] == "not_wired"    # NIVX_RESPONSE_EVIDENCE_URL unset in tests
+    assert j["forwarding_state"] == "not_wired"    # NIVX_RESPONSE_EVIDENCE_URL unset
 
 
+# ── Idempotent replay returns identical response ────────────────────
 @pytest.mark.asyncio
 async def test_idempotent_replay_returns_prior_result():
     async with _lc() as c:
@@ -53,6 +80,7 @@ async def test_idempotent_replay_returns_prior_result():
     assert j2.get("idempotent_replay") is True
 
 
+# ── Authorization / scope failures ──────────────────────────────────
 @pytest.mark.asyncio
 async def test_missing_scope_returns_403():
     body = {**BASE_REQ, "execution_id": "exec-403",
@@ -62,20 +90,92 @@ async def test_missing_scope_returns_403():
     assert r.json()["detail"]["error"] == "authorization_failed"
 
 
+# ── Approval workflow · new async lifecycle ─────────────────────────
 @pytest.mark.asyncio
-async def test_approval_required_action_rejects_without_approval():
-    body = {**BASE_REQ, "execution_id": "exec-approv",
+async def test_approval_required_action_parks_in_waiting_approval():
+    body = {**BASE_REQ, "execution_id": "exec-approv-wait",
               "action": {"action_id": "endpoint.isolate",
                           "parameters": {"host_id": "H1"}},
               "authorization": {"scopes": ["responder:endpoint:isolate"]}}   # no approval_ref
-    async with _lc() as c: r = await c.post("/api/respond/execute", json=body)
-    assert r.status_code == 403
-    assert r.json()["detail"]["error"] == "approval_required"
+    async with _lc() as c:
+        r = await c.post("/api/respond/execute", json=body)
+        assert r.status_code == 200, r.text
+        j = r.json()
+        assert j["state"] == "WAITING_APPROVAL"
+        assert j["status"] == "waiting_approval"
+        assert j["approval"]["required"] is True
+        assert j["approval"]["status"] == "pending"
 
 
 @pytest.mark.asyncio
-async def test_approval_required_action_succeeds_with_approval():
-    body = {**BASE_REQ, "execution_id": "exec-approv-ok",
+async def test_approval_resumes_same_execution():
+    body = {**BASE_REQ, "execution_id": "exec-approv-resume",
+              "action": {"action_id": "endpoint.isolate",
+                          "parameters": {"host_id": "H1"}},
+              "authorization": {"scopes": ["responder:endpoint:isolate"]}}
+    async with _lc() as c:
+        r1 = await c.post("/api/respond/execute", json=body)
+        assert r1.json()["state"] == "WAITING_APPROVAL"
+
+        r2 = await c.post("/api/respond/approve/exec-approv-resume",
+                              json={"approved_by": "user:lead@acme.com",
+                                      "reason": "IR playbook step 3"})
+        assert r2.status_code == 200, r2.text
+        j = r2.json()
+        assert j["state"] == "SUCCEEDED"
+        assert j["approval"]["approved_by"] == "user:lead@acme.com"
+        assert j["evidence_ref"]
+
+
+@pytest.mark.asyncio
+async def test_rejection_terminates_same_execution():
+    body = {**BASE_REQ, "execution_id": "exec-approv-rej",
+              "action": {"action_id": "endpoint.isolate",
+                          "parameters": {"host_id": "H1"}},
+              "authorization": {"scopes": ["responder:endpoint:isolate"]}}
+    async with _lc() as c:
+        await c.post("/api/respond/execute", json=body)
+        r = await c.post("/api/respond/reject/exec-approv-rej",
+                             json={"rejected_by": "user:lead@acme.com",
+                                     "reason": "not authorised on this host"})
+        assert r.status_code == 200, r.text
+        j = r.json()
+        assert j["state"] == "FAILED_APPROVAL"
+        assert j["approval"]["rejected_by"] == "user:lead@acme.com"
+        # Second approve MUST fail immutably.
+        r2 = await c.post("/api/respond/approve/exec-approv-rej",
+                               json={"approved_by": "user:lead@acme.com"})
+        assert r2.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_approve_unknown_execution_returns_404():
+    async with _lc() as c:
+        r = await c.post("/api/respond/approve/does-not-exist",
+                             json={"approved_by": "user:lead@acme.com"})
+        assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_double_approval_rejected():
+    body = {**BASE_REQ, "execution_id": "exec-double-approve",
+              "action": {"action_id": "endpoint.isolate",
+                          "parameters": {"host_id": "H1"}},
+              "authorization": {"scopes": ["responder:endpoint:isolate"]}}
+    async with _lc() as c:
+        await c.post("/api/respond/execute", json=body)
+        r1 = await c.post("/api/respond/approve/exec-double-approve",
+                               json={"approved_by": "user:lead@acme.com"})
+        assert r1.status_code == 200
+        r2 = await c.post("/api/respond/approve/exec-double-approve",
+                               json={"approved_by": "user:other@acme.com"})
+        assert r2.status_code == 409
+
+
+# ── Pre-approved (legacy synchronous flow) still works ──────────────
+@pytest.mark.asyncio
+async def test_preapproved_execution_runs_straight_through():
+    body = {**BASE_REQ, "execution_id": "exec-approv-preok",
               "action": {"action_id": "endpoint.isolate",
                           "parameters": {"host_id": "H1"}},
               "authorization": {"scopes": ["responder:endpoint:isolate"],
@@ -85,11 +185,11 @@ async def test_approval_required_action_succeeds_with_approval():
     async with _lc() as c: r = await c.post("/api/respond/execute", json=body)
     assert r.status_code == 200
     j = r.json()
-    assert j["status"] == "succeeded"
-    assert j["reversal"]["reversible"] is True
-    assert j["reversal"]["reversal_id"]
+    assert j["state"] == "SUCCEEDED"
+    assert j["approval"]["approved_by"] == "user:lead@acme.com"
 
 
+# ── Target / parameter / action validation ──────────────────────────
 @pytest.mark.asyncio
 async def test_unresolved_target_rejects_with_422():
     body = {**BASE_REQ, "execution_id": "exec-target-bad",
@@ -123,6 +223,7 @@ async def test_missing_parameter_returns_422():
     assert r.json()["detail"]["error"] == "missing_parameter"
 
 
+# ── Dry-run ─────────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_dry_run_never_calls_real_adapter():
     body = {**BASE_REQ, "execution_id": "exec-dry",
@@ -133,10 +234,11 @@ async def test_dry_run_never_calls_real_adapter():
               "constraints": {"dry_run": True}}
     async with _lc() as c: r = await c.post("/api/respond/execute", json=body)
     j = r.json()
-    assert j["status"] == "succeeded"
+    assert j["state"] == "SUCCEEDED"
     assert j["result"]["dry_run"] is True
 
 
+# ── Read + tenant isolation ─────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_get_execution_returns_prior_result():
     async with _lc() as c:
@@ -149,6 +251,27 @@ async def test_get_execution_returns_prior_result():
     assert r.json()["execution_id"] == "exec-fetch"
 
 
+@pytest.mark.asyncio
+async def test_tenant_isolation_on_pending_approvals():
+    """Executions under tenant A must never appear when B queries."""
+    async with _lc() as c:
+        for tid in ("acme", "globex"):
+            body = {**BASE_REQ,
+                      "execution_id": f"exec-iso-{tid}",
+                      "tenant_id":    tid,
+                      "action": {"action_id": "endpoint.isolate",
+                                    "parameters": {"host_id": "H1"}},
+                      "authorization": {"scopes": ["responder:endpoint:isolate"]}}
+            await c.post("/api/respond/execute", json=body)
+        acme = await c.get("/api/respond/pending-approvals", params={"tenant_id": "acme"})
+        globex = await c.get("/api/respond/pending-approvals", params={"tenant_id": "globex"})
+    assert acme.json()["count"]   == 1
+    assert globex.json()["count"] == 1
+    assert acme.json()["rows"][0]["execution_id"]   == "exec-iso-acme"
+    assert globex.json()["rows"][0]["execution_id"] == "exec-iso-globex"
+
+
+# ── Playbook simulator ──────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_simulate_playbook_walks_the_graph():
     body = {
@@ -172,13 +295,13 @@ async def test_simulate_playbook_walks_the_graph():
     assert r.status_code == 200, r.text
     j = r.json()
     assert j["mode"] == "simulation"
-    # start → condition(yes) → isolate → end
     kinds = [t["kind"] for t in j["trace"]]
     assert kinds == ["start", "condition", "action", "end"]
     assert j["trace"][1]["branch"] == "yes"
     assert j["trace"][2]["status"] == "succeeded"
 
 
+# ── Action registry catalogue ───────────────────────────────────────
 @pytest.mark.asyncio
 async def test_list_actions_returns_registry():
     async with _lc() as c: r = await c.get("/api/respond/actions")
@@ -186,3 +309,4 @@ async def test_list_actions_returns_registry():
     ids = {a["action_id"] for a in j["actions"]}
     assert "endpoint.isolate" in ids and "network.block_ip" in ids
     assert j["count"] >= 18
+    assert all("adapter_status" in a for a in j["actions"])

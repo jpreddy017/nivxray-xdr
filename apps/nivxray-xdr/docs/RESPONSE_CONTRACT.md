@@ -1,241 +1,136 @@
-# NivXRay Response Engine · Contract (LOCKED, unimplemented)
+# NivXRay XDR — Response Contract
 
-**Status:** contract-only. No executor exists yet.
-**Owner:** NivXRay backend team (execution) + NivXRay XDR team (invocation).
-**Consumers:** Playbook Designer, Automation Rules, analyst-initiated
-manual actions from Incidents.
+**Status:** Response Execution Integration slice · v0.2 · 2026-02-10.
 
-This document is the mirror of `INGEST_CONTRACT.md`. Where the ingest
-contract carries data INTO the platform, this one carries **response
-actions OUT** — always through a single authoritative endpoint so
-response actions become part of the evidence record, never an opaque
-SOAR blob.
-
----
-
-## 1 · Architectural rule (owner-locked)
-
-```
-Incident / Alert
-      ↓
-Automation Rule  ─── or ───  Analyst
-      ↓                        ↓
-Playbook                Manual Response
-      ↓                        ↓
-      └──────── Response Contract ────────┐
-                                            ↓
-                                POST /api/respond/execute
-                                            ↓
-                                     Response Engine
-                                            ↓
-                    Vendor SDK (Endpoint / Identity / Network / Email)
-                                            ↓
-                                       Result
-                                            ↓
-                    Evidence (append to authoritative NivXRay evidence)
-                                            ↓
-                    Incident timeline + Audit log
-```
-
-Every response execution MUST produce:
-
-| Artefact | Purpose |
-| --- | --- |
-| `execution_id` | Unique key referenced by the invoker (playbook / rule / analyst). |
-| `evidence_ref` | Pointer to the appended NivXRay evidence row. |
-| `audit_entry` | Immutable audit log entry. |
-| `timeline_entry` | Incident timeline record analysts see in Investigation. |
-
-A response action is not "done" until all four are written. No opaque
-automation.
-
----
-
-## 2 · Endpoint
-
-| | |
-| --- | --- |
-| **Method** | `POST` |
-| **Path**   | `POST {NIVX_RESPOND_URL}` — e.g. `https://nivxray.example.com/api/respond/execute` |
-| **Auth**   | `Authorization: Bearer {NIVX_RESPOND_TOKEN}`. The token's scopes MUST include every `required_permissions` entry of the action. |
-| **Content-Type** | `application/json` |
-| **Idempotency** | Required on `(tenant_id, invoker_kind, invoker_id, execution_id)`. Retrying with the same `execution_id` MUST NOT execute the action twice; return the prior result. |
-| **Timeout** | Server-side hard cap 60 s per action. Longer-running actions must return `status = "in_progress"` + a follow-up `GET /api/respond/executions/{id}` handle. |
-
-### 2.1 Request body
-
-```json
-{
-  "execution_id":  "exec-<uuid>",
-  "tenant_id":     "acme",
-  "invoker": {
-    "kind": "playbook | automation_rule | analyst",
-    "id":   "pb-abc123 | rule-xyz789 | user:alice@acme.com",
-    "context": {
-      "incident_id":       "INC-2026-00192",
-      "playbook_node_id":  "n-04",
-      "rule_id":           "rule-xyz789"
-    }
-  },
-  "action": {
-    "action_id":   "endpoint.isolate",
-    "provider":    "endpoint",
-    "capability":  "isolate_endpoint",
-    "parameters":  { "host_id": "THEBORG-PHX" }
-  },
-  "authorization": {
-    "approved_by": "user:alice@acme.com",
-    "approval_ref": "approval-abc123",
-    "reason":       "Confirmed lateral movement · IR playbook step 3"
-  },
-  "constraints": {
-    "max_duration_seconds": 30,
-    "dry_run":              false
-  }
-}
-```
-
-### 2.2 Response body (synchronous)
-
-```json
-{
-  "execution_id":   "exec-<uuid>",
-  "status":         "succeeded | failed | in_progress | rejected",
-  "started_at":     "2026-02-10T09:12:33Z",
-  "completed_at":   "2026-02-10T09:12:35Z",
-  "duration_ms":    2137,
-  "result": { "isolated": true, "vendor_ref": "cs-abc" },
-  "evidence_ref":   "evidence-91237",
-  "audit_ref":      "audit-88712",
-  "timeline_ref":   "timeline-33091",
-  "reversal": {
-    "reversible":   true,
-    "reversal_id":  "exec-rev-<uuid>",
-    "expires_at":   "2026-02-11T09:12:33Z"
-  },
-  "error":          null
-}
-```
-
-`in_progress` responses MUST include an `execution_id` retrievable via
+The Response plane is a standalone service:
+`/app/apps/nivxray-xdr-response/`. Every invocation surface —
+Playbook Designer Run, Automation Rules, Analyst Response Drawer,
+Visual Execution Studio — sends a single canonical request to
+`POST /api/respond/execute` and reads state back from
 `GET /api/respond/executions/{id}`.
 
-### 2.3 Status codes
-
-| Code | Meaning | Invoker action |
-| --- | --- | --- |
-| `202` | Accepted, async execution. Poll `GET /executions/{id}`. | Show "in progress" in the invoker; poll. |
-| `200` | Completed synchronously. | Read `status` for outcome. |
-| `400` | Malformed body. | Fatal — do not retry. |
-| `401` / `403` | Auth or approval failure. | Fatal for the caller; surface the specific approval requirement. |
-| `409` | Duplicate `execution_id`. | Read the prior result via `GET /executions/{id}`. |
-| `422` | Semantic validation failure (unknown action_id, bad parameters, unresolved target). | Fatal. |
-| `429` | Rate limited. | Backoff + retry. |
-| `5xx` | Backend fault. | Backoff + retry. |
-
----
-
-## 3 · Authorization & approval
-
-- Every action carries `required_permissions` in the Response Action
-  Registry. The Response Engine MUST verify the caller's bearer
-  token scopes include all of them.
-- Every `approval_required: true` action MUST include an
-  `authorization.approval_ref` that resolves to an
-  `approved` approval record. Missing / stale approvals → `403`.
-- `dry_run: true` MUST NOT touch any vendor system. It exercises the
-  target resolution + parameter validation + evidence write and
-  returns `status: "succeeded"` with `result.dry_run: true`.
-
----
-
-## 4 · Target resolution
-
-Actions MUST resolve their target into a canonical NivXRay entity
-BEFORE dispatching to the vendor SDK.
-
-- `host_id` → `asset:{host_id}` (must exist in Asset Inventory).
-- `user_id` → `identity:{user_id}` (must exist in Identity graph).
-- Any target that fails resolution → `422 unresolved_target`.
-
-The resolved canonical entity is what gets written to
-`evidence_ref` — not the raw vendor id — so an analyst investigating
-in NivXRay always sees a stable target.
-
----
-
-## 5 · Idempotency & retry
-
-- Callers generate `execution_id` client-side (UUID recommended).
-- The engine records `(tenant_id, invoker_kind, invoker_id, execution_id)` in a de-dup index.
-- Retrying with the same tuple returns the prior result verbatim.
-- The Playbook Designer and Automation Rule invoker MUST NOT rewrite
-  `execution_id` on retry — they persist it with the node/rule and
-  reuse it.
-
----
-
-## 6 · Reversal
-
-Actions with `reversible: true` in the registry MUST return a
-`reversal.reversal_id`. A caller may reverse within `reversal.expires_at`
-by:
+## 1 · Execution State Machine
 
 ```
-POST /api/respond/reversals
-{ "reversal_id": "exec-rev-<uuid>", "reason": "…" }
+QUEUED
+  ├── (no approval needed)     ─→ RUNNING ─→ EXECUTING ─→ FORWARDING_EVIDENCE
+  │                                                            ├── SUCCEEDED
+  │                                                            └── FAILED_FORWARDING
+  ├── (approval needed)        ─→ WAITING_APPROVAL
+  │                                 ├── approve ─→ EXECUTING ─→ FORWARDING_EVIDENCE ─→ …
+  │                                 └── reject  ─→ FAILED_APPROVAL
+  └── (validation error)       ─→ REJECTED / FAILED_TARGET
 ```
 
-Reversals themselves create their own `execution_id` + evidence.
+Every state transition is persisted to the Response Engine's own
+SQLite DB (`executions.db`) BEFORE any external side effect.
 
----
+- **Restart recovery**: any row stuck in `RUNNING` / `EXECUTING` /
+  `FORWARDING_EVIDENCE` on engine boot is flipped to
+  `FAILED_RECOVERED` — the operator sees where the crash happened
+  rather than the engine silently re-firing a vendor call.
 
-## 7 · Evidence, audit, timeline
+## 2 · Approval Workflow
 
-Every completed execution MUST write:
+Approval-required actions do NOT return 403 synchronously. They
+transition into `WAITING_APPROVAL` and the caller receives an
+`execution_id`. A peer decides:
 
-- **Evidence row** in the authoritative canonical evidence table,
-  with `provenance.kind = "response_action"`. Analysts see this in
-  Investigation → Evidence just like a detection would appear.
-- **Audit row** — immutable, WORM if the tenant policy requires it.
-- **Timeline row** on the incident (`incident_timeline.appended`)
-  so the response is visible in Investigation → Attack Story.
+- `POST /api/respond/approve/{execution_id}` → resumes the same
+  execution (never a duplicate).
+- `POST /api/respond/reject/{execution_id}` → terminates with
+  `FAILED_APPROVAL`.
 
-No response action is considered complete until all three writes
-succeed. If any of them fails, the engine MUST roll the whole
-execution to `status = "failed"` with a descriptive `error`.
+Approval decisions are immutable — `409 invalid_state_for_approval`
+on any second decision.
 
----
+Legacy pre-approved path is preserved: if the initial `execute` call
+carries `authorization.approval_ref` + `authorization.approved_by`,
+the engine treats the action as pre-approved and runs straight
+through. This keeps the Playbook Simulator dry-run path frictionless.
 
-## 8 · What this contract deliberately does NOT include (yet)
+## 3 · Idempotency
 
-- Streaming / WebSocket variants — Phase E.
-- Bulk / batch execution — Phase E. For now, one action per POST.
-- Response DAGs — playbooks handle sequencing; the engine executes
-  one action at a time.
-- Automatic reversal on failure — the caller is responsible for
-  ordering `reversal` invocations if it wants transactional-style
-  playbooks.
+Key: `(tenant_id, invoker_kind, invoker_id, execution_id)`.
 
----
+- Duplicate POSTs return the prior response verbatim with
+  `idempotent_replay: true`.
+- Terminal executions replay identically. A duplicate approve on a
+  terminal execution returns 409.
 
-## 9 · Implementation checklist (base backend team)
+## 4 · Evidence-First Invariants
 
-- [ ] `POST /api/respond/execute` with the request/response shape above.
-- [ ] `GET /api/respond/executions/{execution_id}` for polling.
-- [ ] `POST /api/respond/reversals` for reversal.
-- [ ] Idempotency index on `(tenant_id, invoker_kind, invoker_id, execution_id)`.
-- [ ] Approval-record resolver.
-- [ ] Target-resolution against Asset Inventory + Identity graph.
-- [ ] Evidence writer with `provenance.kind = "response_action"`.
-- [ ] Audit writer.
-- [ ] Incident-timeline appender.
-- [ ] Vendor SDK adapters (start with the same priority order as
-  Phase C: CrowdStrike, Defender, SentinelOne, Cisco SEP).
-- [ ] Per-action `dry_run` path.
-- [ ] `NIVX_RESPOND_URL` + `NIVX_RESPOND_TOKEN` deploy vars.
+An execution reaches `SUCCEEDED` **only when both**:
 
-Once these ship, the Playbook Designer's Run button, the Automation
-Rules invoker, and the Incident manual-action drawer can all light up
-in a single frontend release — because they all speak this one
-contract.
+1. `adapter_result.ok == True` (real vendor call reported success),
+2. Evidence Forwarder produced `evidence_ref` + `audit_ref` +
+   `timeline_ref` (or `forwarding_state == "not_wired"` if the base
+   endpoint URL is intentionally unset in this deployment).
+
+If (1) holds but (2) fails → `FAILED_FORWARDING`.
+The engine never claims success while the evidence chain is broken.
+
+## 5 · Invoker Kinds
+
+- `playbook`         — Playbook Designer Run.
+- `automation_rule`  — WHEN → IF → THEN.
+- `analyst`          — Analyst Response Drawer.
+- `simulator`        — Visual Execution Studio Debug mode (dry-run).
+
+The engine trusts none of these individually — every request MUST
+carry `authorization.scopes` covering the action's
+`required_permissions`. Missing scopes → HTTP 403 `authorization_failed`.
+
+## 6 · Response Action Registry
+
+18 canonical actions across `endpoint`, `identity`, `network`,
+`email`, `nivxray` providers. Each carries:
+
+- `action_id`, `provider`, `capability`, `label`
+- `parameters` (typed, with `required` markers)
+- `required_permissions` (role + scope)
+- `approval_required`, `reversible`, `destructive`
+- `adapter_status`: `AVAILABLE` / `NOT_CONNECTED` / `NOT_IMPLEMENTED`
+  / `NOT_AUTHORIZED` — Phase 1 ships every action as `AVAILABLE`
+  with `simulation_only: true` because adapters are deterministic
+  stubs. Phase C wires real CrowdStrike / Defender / SentinelOne /
+  Cisco SEP adapters without changing the execution model.
+
+## 7 · Target Resolution
+
+The engine resolves parameters into a canonical target:
+
+- `host_id`  → `asset:<host_id>`
+- `user_id`  → `identity:<user_id>`
+- `ip`       → `indicator:ip:<ip>`     (regex-validated)
+- `domain`   → `indicator:domain:<domain>`
+- `hash`     → `indicator:hash:<hash>`
+
+If a target cannot be resolved → `FAILED_TARGET`.
+
+## 8 · Frontend Surfaces
+
+- **Playbook Designer** (`/xdr/respond/playbooks/:id`) — Design
+  view is authoring only. Visual Execution Studio button opens the
+  debug/live simulator.
+- **Visual Execution Studio** — Full walker with breakpoints, pause,
+  resume, step-over, step-into, force TRUE / FALSE branch, animated
+  node highlighting, per-node evidence panel. Two modes: `debug`
+  (dry-run through Response Engine's `/simulate-playbook` +
+  per-action `/execute` with `constraints.dry_run=True`) and `live`
+  (persisted state machine, real approvals).
+- **Automation Rules Editor** — WHEN / IF / THEN with two run
+  buttons: `Simulate` (design-time only; client-side condition
+  eval) and `Live Run` (dispatches through the Response Engine
+  using the same execution contract as everything else).
+- **Analyst Response Drawer** — Right-side drawer on
+  `/xdr/incidents/:id`. `invoker.kind = "analyst"`. Peer-approval
+  enforced — the analyst who requested an action cannot approve it.
+
+## 9 · Evidence Forwarding to Base
+
+Every terminal execution POSTs an envelope to
+`POST /api/xdr/response-evidence` on the base backend and receives
+back `{ evidence_ref, audit_ref, timeline_ref }`. See
+`RESPONSE_INGEST_CONTRACT.md` for the wire shape and the
+authoritative invariants written on the base side.

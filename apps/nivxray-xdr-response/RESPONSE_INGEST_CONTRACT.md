@@ -1,8 +1,13 @@
 # NivXRay Response Engine → Base · Evidence / Audit / Timeline Ingest
 
-**Status:** LOCKED contract, unimplemented on the base backend.
-**Consumer:** the standalone Response Engine (`/app/apps/nivxray-xdr-response/`).
-**Producer of writes:** the base NivXRay backend.
+**Status:** IMPLEMENTED — base backend accepts response evidence on
+`POST /api/xdr/response-evidence`. Every completed Response Engine
+execution forwards a canonical evidence envelope here.
+
+**Consumer:** the standalone Response Engine
+(`/app/apps/nivxray-xdr-response/`).
+**Producer of writes:** the base NivXRay backend
+(`/app/backend/routers/xdr_response_evidence.py`).
 
 ## 1 · Purpose
 
@@ -12,13 +17,13 @@ investigation record — never an opaque SOAR blob:
 
 | Ref | Written into | Meaning |
 | --- | --- | --- |
-| `evidence_ref` | Canonical Evidence table with `provenance.kind = "response_action"` | An analyst investigating in NivXRay sees this alongside detection evidence. |
-| `audit_ref` | Immutable audit log | Compliance / DFIR chain-of-custody. |
-| `timeline_ref` | Incident timeline (`incident_timeline`) | The response appears in Investigation → Attack Story. |
+| `evidence_ref` | `xdr_response_evidence` collection with `provenance.kind = "response_action"` | An analyst investigating in NivXRay sees this alongside detection evidence. |
+| `audit_ref` | `xdr_response_audit` (immutable audit trail) | Compliance / DFIR chain-of-custody. |
+| `timeline_ref` | `xdr_response_timeline` (per-incident timeline) | The response appears in Investigation → Attack Story. |
 
 If any of the three writes fails the Response Engine MUST report the
-execution as `status = "failed"` with `forwarding_state = "failed_forwarding"`.
-Reporting `succeeded` while the evidence chain is broken is forbidden.
+execution as `state = "FAILED_FORWARDING"`. Reporting `SUCCEEDED` while
+the evidence chain is broken is forbidden.
 
 ## 2 · Endpoint
 
@@ -26,9 +31,9 @@ Reporting `succeeded` while the evidence chain is broken is forbidden.
 | --- | --- |
 | **Method** | `POST` |
 | **Path** | `POST {NIVX_RESPONSE_EVIDENCE_URL}` — e.g. `https://nivxray.example.com/api/xdr/response-evidence` |
-| **Auth** | `Authorization: Bearer {NIVX_RESPONSE_EVIDENCE_TOKEN}` |
-| **Idempotency** | Required on `execution_id`. Repeat POSTs return the same refs. |
-| **Timeout** | ≤ 10 s. On 5xx / timeout the engine retries with backoff and holds the execution in `failed_forwarding` until success. |
+| **Auth** | `Authorization: Bearer {NIVX_RESPONSE_EVIDENCE_TOKEN}` (base backend authentication mirrors the rest of the `/api` surface) |
+| **Idempotency** | Required on `execution_id`. Repeat POSTs return the same refs and `idempotent_replay: true`. |
+| **Timeout** | ≤ 10 s. On 5xx / timeout the engine retries with backoff and holds the execution in `FAILED_FORWARDING` until success. |
 
 ## 3 · Request body
 
@@ -57,38 +62,69 @@ Reporting `succeeded` while the evidence chain is broken is forbidden.
     "approved_by":  "user:alice@acme.com",
     "approval_ref": "approval-abc123",
     "reason":       "Confirmed lateral movement · IR playbook step 3"
+  },
+  "provenance": {
+    "kind":         "response_action",
+    "execution_id": "exec-<uuid>"
   }
 }
 ```
+
+If `provenance` is omitted, the base backend stamps
+`provenance.kind = "response_action"` and echoes back `execution_id`.
+
+If `provenance.kind` is present and is **not** `"response_action"`, the
+endpoint returns `400 invalid_provenance`.
 
 ## 4 · Response body
 
 ```json
 {
-  "evidence_ref": "evidence-91237",
-  "audit_ref":    "audit-88712",
-  "timeline_ref": "timeline-33091"
+  "evidence_ref": "evidence-91237a12ee31",
+  "audit_ref":    "audit-88712dee00c1",
+  "timeline_ref": "timeline-33091ff220ab",
+  "idempotent_replay": false
 }
 ```
 
-If any of the three could not be created return the appropriate
-partial refs and a non-2xx status. The engine's forwarder considers
-the whole batch failed until all three are present.
+On idempotent replay `idempotent_replay: true` is included and the
+three refs are identical to the original write.
 
-## 5 · Attribution invariants (owner-locked)
+## 5 · Attribution invariants
 
-- Every evidence row MUST carry `provenance.execution_id` referencing
-  the response engine's execution — so an analyst can trace evidence
-  → response → invoker → approval trail.
-- Every timeline row MUST carry `execution_id` + `action_id` + a
-  human label like `"Isolate Endpoint · WS-123 · by alice@acme.com"`
-  so Attack Story reads cleanly.
-- Every audit row MUST carry the full `authorization` block verbatim.
-- `dry_run: true` executions still generate all three artefacts but
-  MUST be tagged `simulation = true` — the base MAY choose to hide
-  them from Investigation views while retaining them for compliance.
+- Every evidence row carries `provenance.execution_id`, `provenance.kind`,
+  `tenant_id`, and the full `invoker`/`action`/`authorization` blocks.
+- Every timeline row is tagged `incident_id` from `invoker.context` (nullable
+  — analyst-initiated actions on assets not tied to an incident still write
+  to a per-asset timeline).
+- Every audit row carries the full `authorization` block verbatim.
+- `dry_run: true` executions still generate all three artefacts but are
+  tagged `simulation = true` — Investigation views MAY choose to hide
+  them.
 
-## 6 · Deploy variables
+## 6 · Base backend read surface
+
+`GET /api/xdr/response-evidence/{execution_id}?tenant_id=acme` returns
+the ref triple for the execution. 404 on unknown or mis-tenanted id.
+
+## 7 · Boundary invariant
+
+This endpoint is the **only** base-backend write path that the standalone
+Response Engine invokes. The endpoint never mutates SSOT, Verdict, IKG,
+Incident state, or detection logic. It writes to dedicated collections:
+
+- `xdr_response_evidence`
+- `xdr_response_audit`
+- `xdr_response_timeline`
+- `xdr_response_executions`  (dedup index on `execution_id`)
+
+The Response Engine's execution store (own SQLite DB at
+`/app/apps/nivxray-xdr-response/data/executions.db`) is authoritative for
+the execution lifecycle and approval decisions; the base backend is
+authoritative for evidence, audit, and timeline. These two authoritative
+truths are joined through the ref triple.
+
+## 8 · Deploy variables
 
 | Var | Purpose |
 | --- | --- |
@@ -100,19 +136,3 @@ When unset, the Response Engine still records executions locally
 (SQLite `executions.db`) and returns synthetic local refs with
 `forwarding_state = "not_wired"` so callers get a deterministic
 outcome, but the execution is honestly flagged as un-forwarded.
-
-## 7 · Base backend implementation checklist
-
-- [ ] `POST /api/xdr/response-evidence` per the request/response shape above.
-- [ ] Idempotency on `execution_id`.
-- [ ] Evidence writer with `provenance.kind = "response_action"` and
-  `provenance.execution_id`.
-- [ ] Timeline appender bound to the invoker's `context.incident_id`
-  (nullable — analyst-initiated actions on assets not tied to an
-  incident still write to a per-asset timeline).
-- [ ] Audit writer.
-- [ ] Tenant + RBAC enforcement mirroring the rest of the base API.
-
-Once implemented, every response action — whether triggered by
-Playbook Run, Automation Rule, or Analyst Response Drawer — becomes
-first-class evidence in NivXRay's investigation record.

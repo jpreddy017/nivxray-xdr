@@ -13,7 +13,7 @@ import {
 
 import XdrShell from "@/xdr/XdrShell";
 import {
-  getRule, saveRule, transitionLifecycle, simulate,
+  getRule, saveRule, transitionLifecycle, simulate, runRuleLive,
   TRIGGERS, getTrigger, OPS, ACTION_KINDS, getActionKind,
   LIFECYCLE, canTransition,
 } from "@/xdr/respond/automationRuleStore";
@@ -38,6 +38,8 @@ export default function XdrAutomationRuleEditorPage() {
   const [saveState, setSs] = useState("clean");
   const [sim, setSim] = useState(null);
   const [simEvent, setSimEvent] = useState('{"severity":"critical","verdict":"malicious"}');
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [liveResult, setLiveResult] = useState(null);
 
   useEffect(() => {
     const r = getRule(id);
@@ -68,6 +70,21 @@ export default function XdrAutomationRuleEditorPage() {
       const evt = JSON.parse(simEvent);
       setSim(simulate(rule, evt));
     } catch (e) { setSim({ error: "Invalid JSON: " + e.message }); }
+  };
+  const doLiveRun = async () => {
+    setLiveBusy(true); setLiveResult(null);
+    try {
+      const evt = JSON.parse(simEvent);
+      const res = await runRuleLive(rule, evt, {
+        tenantId: rule.tenant_id || "acme",
+        actor:    "rule-editor",
+      });
+      setLiveResult(res);
+    } catch (e) {
+      setLiveResult({ error: e?.code === "RESPONSE_ENGINE_NOT_DEPLOYED"
+        ? "Response Engine URL not set (VITE_XDR_RESPONSE_URL)."
+        : (e?.message || String(e)) });
+    } finally { setLiveBusy(false); }
   };
 
   // ── Condition helpers ─────────────────────────────────────
@@ -330,6 +347,12 @@ export default function XdrAutomationRuleEditorPage() {
                     data-testid="xdr-rule-sim-run">
             <FlaskConical size={11} /> Simulate
           </button>
+          <button className="btn primary" onClick={doLiveRun}
+                    disabled={liveBusy || !RESPONSE_ENGINE_WIRED}
+                    style={{ padding: "4px 10px", marginTop: 8, marginLeft: 6 }}
+                    data-testid="xdr-rule-live-run">
+            <Play size={11} /> {liveBusy ? "Running…" : "Live Run"}
+          </button>
           {sim && (
             <div style={{ marginTop: 10, padding: 8, borderRadius: 4,
                              background: "var(--panel2)",
@@ -349,6 +372,41 @@ export default function XdrAutomationRuleEditorPage() {
                     )}
                     <div style={{ marginTop: 6, color: "var(--faint)", fontSize: 10 }}>
                       {sim.note}
+                    </div>
+                  </>}
+            </div>
+          )}
+          {liveResult && (
+            <div style={{ marginTop: 10, padding: 8, borderRadius: 4,
+                             background: "var(--panel2)",
+                             border: `1px solid ${liveResult.error ? "#ff5b5b"
+                                                                 : liveResult.matched ? "var(--mint)"
+                                                                 : "var(--amber)"}`,
+                             fontSize: 11, color: "var(--text-dim)" }}
+                    data-testid="xdr-rule-live-result">
+              {liveResult.error
+                ? <span style={{ color: "#ff9494" }}>{liveResult.error}</span>
+                : <>
+                    <div><b style={{ color: liveResult.matched ? "var(--mint)" : "var(--amber)" }}>
+                      LIVE · {liveResult.matched ? "DISPATCHED" : "NO MATCH"}
+                    </b></div>
+                    {(liveResult.invocations || []).map((inv, i) => (
+                      <div key={i} className="mono"
+                              style={{ fontSize: 10.5,
+                                          color: inv.error ? "#ff9494"
+                                                  : inv.state === "SUCCEEDED" ? "var(--mint)"
+                                                  : inv.state === "WAITING_APPROVAL" ? "var(--amber)"
+                                                  : "var(--text-dim)",
+                                          marginTop: 3 }}>
+                        {inv.kind} · {inv.action_id || inv.playbook_id || ""}
+                        {inv.state ? " [" + inv.state + "]" : ""}
+                        {inv.error ? " (" + inv.error + ")" : ""}
+                      </div>
+                    ))}
+                    <div style={{ marginTop: 6, color: "var(--faint)", fontSize: 10 }}>
+                      Runs through the same Response Engine as the Playbook Designer
+                      and Analyst Response Drawer. Approval-required actions parked
+                      in WAITING_APPROVAL are visible in the Studio and Drawer.
                     </div>
                   </>}
             </div>
