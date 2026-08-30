@@ -7,6 +7,79 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-10 · Detection Engineering + Technology Adoption Directive
+
+### Detection Engineering (Milestone D)
+- **`sigmaEngine.js`** — adopts the open **Sigma** detection format
+  (SigmaHQ) rather than inventing a DSL.  Deterministic evaluator
+  supports the common Sigma modifier set (`contains`, `startswith`,
+  `endswith`, `all`, `gt/gte/lt/lte`, `re`, `null`).  Rules with
+  unsupported modifiers are marked honestly (`unsupported: [...]`)
+  and the engine refuses to fake a match.
+- **`detectionRuleStore.js`** — Rule persistence with the required
+  lifecycle (`draft → testing → enabled → disabled → deprecated`),
+  version history with per-change notes, MITRE technique derivation
+  from Sigma tags, and coverage-by-technique / by-data-source view.
+- **`/xdr/detections`** — Detection Engineering catalog with the
+  runtime-honesty banner `AUTHORING AVAILABLE — DETECTION RUNTIME
+  NOT WIRED` (no fake execution).
+- **`/xdr/detections/:id`** — Rule editor workstation: Sigma YAML
+  editor with live parse + unsupported-modifier warnings, metadata
+  sidebar, lifecycle transitions, version history, test/replay with
+  evidence-backed evaluation trace ("MATCH" always accompanied by
+  the concrete fields+values that fired).
+- Sample rule ships: **Encoded PowerShell Execution** (MITRE
+  `T1059.001`), immediately testable against a synthetic Sysmon
+  process-creation event.
+
+### Technology Adoption Directive
+Owner directive: *NivXRay XDR must adopt what NivXRay Tool already
+implements — never re-implement.*  Delivered the three governance
+artefacts required:
+
+- **`docs/NIVXRAY_XDR_TECHNOLOGY_ADOPTION_MATRIX.md`** — Full
+  capability inventory across Evidence & Analysis / Detection &
+  Intelligence / Investigation / Verdict / Response / Testing.
+  Each capability tagged with adoption method (`CONSUME`, `PROXY`,
+  `SHARED_LIBRARY`, `ADAPTER`, `EXTEND`, `NEW`, `EXTERNAL`) and
+  status (`ADOPT` / `CONNECTED` / etc.).  Priority-ordered gap
+  report.  ~32 capabilities catalogued from the base
+  `/app/backend/` (89 routers + rich `engine/` folder).
+- **`docs/NIVXRAY_XDR_SHARED_ENGINE_ARCHITECTURE.md`** — Layer
+  contract (who owns what), boundary invariants (base is
+  authoritative; XDR writes only via
+  `POST /api/xdr/response-evidence`), adoption methods, honesty
+  invariants (`AVAILABLE IN NIVXRAY — XDR ADAPTER NOT YET
+  CONNECTED`), and the testing invariant that a capability is not
+  "adopted" until a wire test + regression test + honesty test
+  are all green.
+- **`docs/NIVXRAY_CAPABILITY_REGISTRY.json`** — Machine-readable
+  registry (32 entries) consumed by the XDR frontend via
+  `src/xdr/capabilityRegistry.js`; provides `getCapability`,
+  `statusOf`, `honestyBanner` helpers so any surface can render the
+  honest state of a capability rather than fake it.
+
+### Adopt-before-invent rule (now codified)
+Every new XDR need must first ask: "Does the base already have
+this?".  If yes: `CONSUME` / `PROXY` / `SHARED_LIBRARY`.  Only if
+no: adopt an established open standard/library (`EXTERNAL`), and
+only if both fail: `NEW`.  Documented in the Adoption Matrix and
+enforced through the registry's honesty banner.
+
+### Verification
+- Response Engine pytest **27/27**.
+- Base backend evidence pytest **10/10**.
+- Collector pytest **44/44**.
+- `yarn build` clean.  Two new lazy chunks (`XdrDetectionsPage`,
+  `XdrDetectionRuleEditorPage`).
+- Sigma engine sanity-checked with a real match (+ real non-match)
+  via Node ESM execution — behavior evidence-backed.
+
+---
+
+
+---
+
 ## ✅ 2026-02-10 · Investigation Workspace — Visual Intelligence Pass (P0)
 
 Landed the P0 items of the "Visual Intelligence Pass" you directed —

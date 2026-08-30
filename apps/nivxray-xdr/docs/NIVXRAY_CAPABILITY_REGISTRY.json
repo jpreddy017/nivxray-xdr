@@ -1,0 +1,45 @@
+{
+  "$schema": "https://nivxray.io/schemas/capability-registry.v1.json",
+  "generated_at": "2026-02-10",
+  "principle": "adopt_before_invent",
+  "boundary": {
+    "authoritative_base_url_env": "REACT_APP_NIVXRAY_API_URL",
+    "xdr_write_paths": [
+      "POST /api/xdr/response-evidence"
+    ]
+  },
+  "capabilities": [
+    { "id": "evidence.ingest",         "name": "Evidence ingestion",          "owner": "base", "base_api": "/api/analyze",               "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "evidence.schema",         "name": "Canonical evidence schema",   "owner": "base", "source": "backend/schemas.py",           "adoption": "SHARED_LIBRARY",  "status": "ADOPT" },
+    { "id": "evidence.provenance",     "name": "Evidence provenance",         "owner": "base+xdr", "base_api": "/api/xdr/response-evidence", "adoption": "EXTEND",       "status": "CONNECTED" },
+    { "id": "artifact.router",         "name": "Artifact router",             "owner": "base", "base_api": "/api/artifacts",             "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "artifact.analyze",        "name": "Artifact analyzer",           "owner": "base", "base_api": "/api/analyze",               "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "decode.chain",            "name": "Decoder chain",               "owner": "base", "base_api": "/api/analyze",               "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "command.intel",           "name": "Command-line intelligence",   "owner": "base", "base_api": "/api/behavioral",            "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "ioc.intel",               "name": "IOC intelligence",            "owner": "base", "base_api": "/api/ioc",                   "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "malware.intel",           "name": "Malware family intelligence", "owner": "base", "base_api": "/api/ioc",                   "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "reputation.osint",        "name": "OSINT reputation",            "owner": "base", "base_api": "/api/osint",                 "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "detection.behavioral",    "name": "Behavioral detection",        "owner": "base", "base_api": "/api/behavioral",            "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "detection.behavior_registry","name": "Behavior registry",        "owner": "base", "base_api": "/api/behavior-registry",     "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "detection.sigma",         "name": "Sigma detection authoring",   "owner": "xdr",  "source": "xdr/detect/sigmaEngine.js",     "adoption": "EXTERNAL",        "status": "CONNECTED" },
+    { "id": "correlation.engine",      "name": "Correlation engine",          "owner": "base", "source": "backend/engine/correlation_engine.py", "adoption": "CONSUME", "status": "ADOPT" },
+    { "id": "verdict.stage2",          "name": "Verdict Stage-2",             "owner": "base", "base_api": "/api/verdict/stage2",        "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "verdict.explainability",  "name": "Negative explainability",     "owner": "base", "source": "backend/engine/detectors/explainability.py", "adoption": "CONSUME", "status": "ADOPT" },
+    { "id": "mitre.taxonomy",          "name": "MITRE ATT&CK taxonomy",       "owner": "external", "source": "attack.mitre.org",         "adoption": "EXTERNAL",        "status": "CONNECTED" },
+    { "id": "mitre.mapping",           "name": "Rule → technique mapping",    "owner": "base", "source": "backend/engine/detectors/mitre_mapper.py", "adoption": "CONSUME", "status": "CONNECTED" },
+    { "id": "mitre.stix_export",       "name": "STIX bundle export",          "owner": "base", "base_api": "/api/mitre/stix",            "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "ssot",                    "name": "Single Source of Truth",      "owner": "base", "source": "backend/engine/orchestrator.py","adoption": "CONSUME",       "status": "ADOPT" },
+    { "id": "ikg.graph",               "name": "Incident Knowledge Graph",    "owner": "base", "source": "backend/engine/evidence_graph.py","adoption": "CONSUME",     "status": "CONNECTED" },
+    { "id": "process.tree",            "name": "Process tree",                "owner": "base", "base_api": "/api/edr/process-tree",      "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "trajectory.device",       "name": "Device trajectory",           "owner": "base", "base_api": "/api/edr/trajectory",        "adoption": "CONSUME",         "status": "CONNECTED" },
+    { "id": "attack.story",            "name": "Attack story",                "owner": "base", "base_api": "/api/incidents/{id}/summary","adoption": "CONSUME",         "status": "CONNECTED" },
+    { "id": "timeline.iue",            "name": "Incident timeline",           "owner": "base", "base_api": "/api/iue/timeline",          "adoption": "CONSUME",         "status": "CONNECTED" },
+    { "id": "report.investigation",    "name": "Investigation report",        "owner": "base", "base_api": "/api/v2/report-writer",      "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "corrections.analyst",     "name": "Analyst corrections",         "owner": "base", "base_api": "/api/corrections",           "adoption": "CONSUME",         "status": "ADOPT" },
+    { "id": "response.engine",         "name": "Response Engine",             "owner": "xdr",  "source": "apps/nivxray-xdr-response",     "adoption": "NEW",             "status": "CONNECTED" },
+    { "id": "response.vendor_adapters","name": "Vendor adapter contract",     "owner": "xdr",  "source": "framework/vendor_adapters.py",  "adoption": "NEW",             "status": "CONNECTED (stubs)" },
+    { "id": "response.evidence_sink",  "name": "Response evidence sink",      "owner": "base+xdr","base_api": "/api/xdr/response-evidence", "adoption": "EXTEND",       "status": "CONNECTED" },
+    { "id": "collector",               "name": "Telemetry collector",         "owner": "xdr",  "source": "apps/nivxray-xdr-collector",   "adoption": "NEW",             "status": "CONNECTED (not deployed)" },
+    { "id": "corpus.golden",           "name": "Golden regression corpus",    "owner": "base", "source": "backend/engine/golden_corpus*.py","adoption": "CONSUME",     "status": "ADOPT" }
+  ]
+}

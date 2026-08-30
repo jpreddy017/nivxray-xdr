@@ -26,7 +26,7 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime, timezone
-from typing   import Any, Dict, Optional
+from typing   import Any, Dict, List, Optional
 
 from fastapi  import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -184,6 +184,89 @@ async def get_response_evidence(execution_id: str, request: Request,
     return {k: row[k] for k in
                 ("execution_id", "tenant_id", "evidence_ref", "audit_ref",
                  "timeline_ref", "ingested_at")}
+
+
+@router.get("/incidents/{incident_id}/response-executions")
+async def list_incident_response_executions(
+        incident_id: str, request: Request,
+        tenant_id: Optional[str] = None, limit: int = 100):
+    """Backfill route for the Investigation Canvas.
+
+    Returns every response execution whose invoker context carries the
+    requested ``incident_id``, joined with its persisted ref triple.
+    The Response Engine still owns the execution lifecycle (own SQLite);
+    the base backend owns the evidence/audit/timeline record; this route
+    surfaces the base's authoritative projection so the frontend does
+    not need a second call to the Response Engine.
+
+    Tenant-scoped.  If ``tenant_id`` is passed, only rows matching that
+    tenant are returned — defensive scoping on top of upstream authz.
+    Never leaks records for other tenants.
+    """
+    db = _resolve_db(request)
+    if db is None:
+        raise HTTPException(503, detail={"error": "database_unavailable"})
+
+    # Evidence rows carry the full invoker/action/parameters block, so
+    # we read from ``xdr_response_evidence`` filtered by
+    # ``invoker.context.incident_id`` and join in the ref triple from
+    # the dedup index.
+    q: Dict[str, Any] = {"invoker.context.incident_id": incident_id}
+    if tenant_id:
+        q["tenant_id"] = tenant_id
+
+    cursor = db.xdr_response_evidence.find(q).sort("completed_at", -1)
+    rows: List[Dict[str, Any]] = []
+    async for r in cursor:
+        # Motor is optional in tests; the fake in tests returns a plain
+        # list-backed collection so we tolerate a `find(...)` that
+        # returns a synchronous iterable too.
+        rows.append(r)
+        if len(rows) >= max(1, min(limit, 500)):
+            break
+    projected = []
+    for r in rows:
+        projected.append({
+            "execution_id":     r.get("execution_id"),
+            "tenant_id":        r.get("tenant_id"),
+            "invoker":          r.get("invoker"),
+            "action":           r.get("action"),
+            "action_id":        (r.get("action") or {}).get("action_id"),
+            "parameters":       r.get("parameters"),
+            "canonical_target": r.get("canonical_target"),
+            "adapter_ok":       r.get("adapter_ok"),
+            "adapter_result":   r.get("adapter_result"),
+            "started_at":       r.get("started_at"),
+            "completed_at":     r.get("completed_at"),
+            "dry_run":          r.get("dry_run"),
+            "simulation":       r.get("simulation"),
+            "authorization":    r.get("authorization"),
+            "evidence_ref":     r.get("_ref") or r.get("ref"),
+            # audit + timeline refs come from the dedup index — join.
+            "audit_ref":        None,
+            "timeline_ref":     None,
+            "state":            "SUCCEEDED" if r.get("adapter_ok") else "FAILED_EXECUTION",
+        })
+    # Join in audit + timeline refs.  Bulk-fetch by execution_id.
+    ex_ids = [p["execution_id"] for p in projected if p["execution_id"]]
+    if ex_ids:
+        dedup_q: Dict[str, Any] = {"execution_id": {"$in": ex_ids}}
+        if tenant_id: dedup_q["tenant_id"] = tenant_id
+        dedup_cur = db.xdr_response_executions.find(dedup_q)
+        dedup_map: Dict[str, Dict[str, Any]] = {}
+        async for d in dedup_cur:
+            dedup_map[d.get("execution_id")] = d
+        for p in projected:
+            d = dedup_map.get(p["execution_id"])
+            if not d: continue
+            p["audit_ref"]    = d.get("audit_ref")
+            p["timeline_ref"] = d.get("timeline_ref")
+    return {
+        "incident_id":   incident_id,
+        "tenant_id":     tenant_id,
+        "count":         len(projected),
+        "executions":    projected,
+    }
 
 
 def _timeline_label(body: ResponseEvidenceRequest) -> str:

@@ -50,6 +50,14 @@ const SIDEBAR = [
     ],
   },
   {
+    section: "Detect",
+    items: [
+      { key: "detections", label: "Detection Rules", icon: Radar,
+        to: "/xdr/detections",
+        title: "Sigma-compatible detection engineering workstation · authoring available, runtime not wired" },
+    ],
+  },
+  {
     section: "Operations",
     items: [
       { key: "incidents",  label: "Incidents",  icon: AlertOctagon,   to: "/xdr/incidents" },

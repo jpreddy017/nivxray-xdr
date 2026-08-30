@@ -6,7 +6,7 @@
  * capabilities via deep-linked new tabs — never duplicates them.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AlertOctagon, ChevronLeft, ExternalLink, Lock, Loader2, Zap } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
@@ -52,12 +52,24 @@ const SUBTABS = [
 
 export default function XdrIncidentDetailPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [incident, setIncident] = useState(null);
   const [loading, setL]         = useState(true);
   const [error, setError]       = useState(null);
-  const [tab, setTab]           = useState("overview");
+  const [tab, setTab]           = useState(
+    searchParams.get("tab") || "overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Open the analyst response drawer if the URL asks for it — used by
+  // pivot menu "Run response action…" and any other deep-link entry
+  // point that wants to jump straight to the drawer.
+  useEffect(() => {
+    if (searchParams.get("respond") === "1") setDrawerOpen(true);
+    const t = searchParams.get("tab");
+    if (t && t !== tab) setTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     if (!id) return;

@@ -21,18 +21,46 @@ from routers.xdr_response_evidence import router
 
 
 # ── Minimal in-memory Motor stand-in ─────────────────────────────────
+class _AsyncCursor:
+    def __init__(self, rows): self._rows = rows
+    def sort(self, *a, **kw):  return self
+    def __aiter__(self):        return self._agen()
+    async def _agen(self):
+        for r in self._rows: yield r
+
+
 class _FakeCollection:
     def __init__(self) -> None:
         self.rows: List[Dict[str, Any]] = []
 
     async def find_one(self, q: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         for r in self.rows:
-            if all(r.get(k) == v for k, v in q.items()):
-                return r
+            if _q_match(r, q): return r
         return None
+
+    def find(self, q: Dict[str, Any]) -> "_AsyncCursor":
+        return _AsyncCursor([r for r in self.rows if _q_match(r, q)])
 
     async def insert_one(self, doc: Dict[str, Any]) -> None:
         self.rows.append(dict(doc))
+
+
+def _q_match(row: Dict[str, Any], q: Dict[str, Any]) -> bool:
+    for k, v in q.items():
+        # Dotted paths (Mongo-style) — only what we actually use.
+        if "." in k:
+            cur = row
+            for part in k.split("."):
+                cur = cur.get(part) if isinstance(cur, dict) else None
+                if cur is None: break
+            actual = cur
+        else:
+            actual = row.get(k)
+        if isinstance(v, dict) and "$in" in v:
+            if actual not in v["$in"]: return False
+        else:
+            if actual != v: return False
+    return True
 
 
 class _FakeDb:
@@ -163,3 +191,59 @@ async def test_response_evidence_marks_dry_run_as_simulation():
     row = app.state.db.xdr_response_evidence.rows[0]
     assert row["simulation"] is True
     assert row["dry_run"]    is True
+
+
+# ── Incident backfill route ─────────────────────────────────────────
+@pytest.mark.asyncio
+async def test_list_incident_response_executions_returns_only_matching_incident():
+    app = _app()
+    async with AsyncClient(transport=ASGITransport(app=app),
+                              base_url="http://t") as c:
+        # Two executions on INC-1, one on INC-2.
+        for i, iid in enumerate(["INC-1", "INC-1", "INC-2"]):
+            body = {**BODY, "execution_id": f"exec-list-{i}",
+                       "invoker": {**BODY["invoker"], "context": {"incident_id": iid}}}
+            await c.post("/api/xdr/response-evidence", json=body)
+        r = await c.get("/api/xdr/incidents/INC-1/response-executions",
+                             params={"tenant_id": "acme"})
+    assert r.status_code == 200
+    j = r.json()
+    assert j["count"] == 2
+    assert all(e["invoker"]["context"]["incident_id"] == "INC-1"
+                  for e in j["executions"])
+    # Every execution row must carry the joined ref triple.
+    for e in j["executions"]:
+        assert e["evidence_ref"] and e["audit_ref"] and e["timeline_ref"]
+        assert e["state"] == "SUCCEEDED"
+
+
+@pytest.mark.asyncio
+async def test_list_incident_response_executions_tenant_scoped():
+    app = _app()
+    async with AsyncClient(transport=ASGITransport(app=app),
+                              base_url="http://t") as c:
+        # Two tenants writing to the same incident id.
+        for tid in ("acme", "globex"):
+            body = {**BODY, "execution_id": f"exec-tenant-{tid}",
+                       "tenant_id": tid,
+                       "invoker": {**BODY["invoker"], "context": {"incident_id": "INC-9"}}}
+            await c.post("/api/xdr/response-evidence", json=body)
+        acme = await c.get("/api/xdr/incidents/INC-9/response-executions",
+                                params={"tenant_id": "acme"})
+        globex = await c.get("/api/xdr/incidents/INC-9/response-executions",
+                                  params={"tenant_id": "globex"})
+    assert acme.json()["count"]   == 1
+    assert globex.json()["count"] == 1
+    assert acme.json()["executions"][0]["tenant_id"]   == "acme"
+    assert globex.json()["executions"][0]["tenant_id"] == "globex"
+
+
+@pytest.mark.asyncio
+async def test_list_incident_response_executions_empty():
+    app = _app()
+    async with AsyncClient(transport=ASGITransport(app=app),
+                              base_url="http://t") as c:
+        r = await c.get("/api/xdr/incidents/UNKNOWN/response-executions")
+    assert r.status_code == 200
+    assert r.json()["count"] == 0
+    assert r.json()["executions"] == []

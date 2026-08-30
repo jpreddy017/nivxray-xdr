@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 
 import { RULE_TO_TECHNIQUE, TECHNIQUE_INDEX } from "@/xdr/mitre/mitreTactics";
+import api from "@/lib/api";
 
 // ── Node type palette (single restrained accent per kind) ─────────
 const NODE_TYPE = {
@@ -85,16 +86,50 @@ const FILTERS = [
 
 
 export default function EvidenceFirstInvestigationWorkspace({ incident }) {
+  // Base-backend backfill of response executions.  We fetch by
+  // incident_id so response nodes appear on the canvas even when the
+  // incident payload does not embed them.  If the endpoint isn't
+  // available (older base) we silently fall back to
+  // ``incident.response_executions`` — the graph builder tolerates
+  // an empty array.
+  const [responseExecutions, setRespExec] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!incident?.id) return;
+    (async () => {
+      try {
+        const r = await api.get(
+          `/api/xdr/incidents/${encodeURIComponent(incident.id)}/response-executions`,
+          { params: incident.tenant_id ? { tenant_id: incident.tenant_id } : {} });
+        if (!cancelled) setRespExec(r.data?.executions || []);
+      } catch {
+        // Older base — fall back to whatever the payload carried.
+        if (!cancelled) setRespExec(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [incident?.id, incident?.tenant_id]);
+
+  // Enrich the incident with the fetched executions so buildGraph
+  // sees them in a single place.  Prefer server-authoritative data
+  // over any embedded payload copies.
+  const enrichedIncident = useMemo(() => {
+    if (!incident) return incident;
+    if (responseExecutions == null) return incident;
+    return { ...incident, response_executions: responseExecutions };
+  }, [incident, responseExecutions]);
+
   // 1 · Build the graph deterministically from the incident payload.
-  const raw = useMemo(() => buildGraph(incident), [incident]);
+  const raw = useMemo(() => buildGraph(enrichedIncident),
+                                [enrichedIncident]);
 
   // Cluster expansion state — expanded clusters re-inject their
   // hidden children so the analyst can drill in without leaving the
   // canvas.
   const [expandedClusters, setExpandedClusters] = useState(() => new Set());
   const { nodes, edges } = useMemo(
-    () => expandClusters(raw, expandedClusters, incident),
-    [raw, expandedClusters, incident],
+    () => expandClusters(raw, expandedClusters, enrichedIncident),
+    [raw, expandedClusters, enrichedIncident],
   );
 
   const [selected, setSelected]   = useState(null);
@@ -313,7 +348,7 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
       {showTimeline && (
         <div style={{ gridColumn: "1 / 3", gridRow: 3 }}>
           <SynchronizedTimeline
-            incident={incident} nodes={nodes}
+            incident={enrichedIncident} nodes={nodes}
             selectedId={selected}
             highlight={highlight}
             onSelect={setSelected}
@@ -813,9 +848,11 @@ function _entityActions(node, incident, onPivotHighlight) {
   const actions = [];
   const encId = incident?.id ? encodeURIComponent(incident.id) : "";
 
+  // "Investigate" is the default action — always jump back to the
+  // incident detail (that IS the investigation surface).
   push(actions, "investigate", "Investigate",
-        () => open(`/analyst?case=${encId}`),
-        "Open in Analyst Workspace");
+        () => open(`/xdr/incidents/${encId}`),
+        "Open incident investigation");
 
   if (node.type === "host") {
     push(actions, "trajectory", "Trajectory",
@@ -830,19 +867,19 @@ function _entityActions(node, incident, onPivotHighlight) {
   }
   if (node.type === "process") {
     push(actions, "process-tree", "Process Tree",
-          () => open(`/edr/process-tree?case=${encId}`),
+          () => open(`/edr/process-tree?incident=${encId}`),
           "Open process tree");
   }
   if (["hash", "ip", "domain", "url"].includes(node.type)) {
     push(actions, "ti", "Threat Intel",
-          () => open(`/threat-intel?ioc=${encodeURIComponent(node.title)}`),
+          () => open(`/xdr/intelligence/iocs?ioc=${encodeURIComponent(node.title)}`),
           "Threat intel enrichment");
     push(actions, "ioc-related", "Related",
           () => open(`/xdr/incidents?q=${encodeURIComponent(node.title)}`));
   }
   if (node.type === "evidence") {
     push(actions, "raw", "Raw Evidence",
-          () => open(`/analyst?case=${encId}&evidence=${encodeURIComponent(raw.rule_id || node.title)}`));
+          () => open(`/xdr/incidents/${encId}?tab=investigation&evidence=${encodeURIComponent(raw.rule_id || node.title)}`));
     const tech = raw.technique_id || (raw.rule_id && RULE_TO_TECHNIQUE[String(raw.rule_id).toUpperCase()]);
     if (tech) push(actions, "mitre-focus", "MITRE",
                             () => onPivotHighlight({ technique_id: tech }));
@@ -860,14 +897,7 @@ function _entityActions(node, incident, onPivotHighlight) {
     push(actions, "resp-chain", "Response Chain",
           () => open(`/xdr/evidence/${encodeURIComponent(raw.execution_id || "")}`),
           "Full response chain");
-    if (raw.evidence_ref) {
-      push(actions, "resp-evidence", "Evidence",
-            () => open(`/xdr/evidence/${encodeURIComponent(raw.execution_id || "")}#evidence`));
-    }
   }
-  push(actions, "run-response", "Response",
-        () => open(`/xdr/incidents/${encId}#respond`),
-        "Run a response action for this incident");
   return actions;
 }
 
@@ -1316,7 +1346,7 @@ function buildPivotItems(node, incident) {
 
   if (node.type === "host") {
     base.push({ key: "trajectory", label: "Show device trajectory",
-                    action: () => open(`/xdr/endpoints?host=${encodeURIComponent(raw.host_id || node.title)}`) });
+                    action: () => open(`/xdr/endpoints/${encodeURIComponent(raw.host_id || node.title)}/trajectory`) });
     base.push({ key: "search-host", label: "Search related incidents",
                     action: () => open(`/xdr/incidents?q=${encodeURIComponent(raw.host_id || node.title)}`) });
   }
@@ -1326,21 +1356,21 @@ function buildPivotItems(node, incident) {
   }
   if (node.type === "process") {
     base.push({ key: "process-tree", label: "Open process tree",
-                    action: () => open(`/edr/process-tree?case=${encId}`) });
+                    action: () => open(`/edr/process-tree?incident=${encId}`) });
   }
   if (["hash", "ip", "domain", "url"].includes(node.type)) {
     base.push({ key: "ioc-search",  label: `Search this ${node.type.toUpperCase()}`,
                     action: () => open(`/xdr/incidents?q=${encodeURIComponent(node.title)}`) });
     base.push({ key: "ioc-ti",      label: "Threat intel enrichment",
-                    action: () => open(`/threat-intel?ioc=${encodeURIComponent(node.title)}`) });
+                    action: () => open(`/xdr/intelligence/iocs?ioc=${encodeURIComponent(node.title)}`) });
   }
   if (node.type === "evidence") {
-    base.push({ key: "evidence-decode", label: "Open in Analyst Workspace",
-                    action: () => open(`/analyst?case=${encId}`) });
+    base.push({ key: "evidence-open", label: "Open in incident investigation",
+                    action: () => open(`/xdr/incidents/${encId}?tab=investigation&evidence=${encodeURIComponent(raw.rule_id || node.title)}`) });
   }
   if (node.type === "technique") {
     base.push({ key: "tech-heatmap",  label: "Highlight on MITRE heatmap",
-                    action: () => open(`/xdr/mitre?technique=${encodeURIComponent(node.title)}`) });
+                    action: () => open(`/xdr/intelligence/mitre?technique=${encodeURIComponent(node.title)}`) });
     base.push({ key: "tech-filter",   label: "Filter this technique on canvas",
                     action: ({ onHighlight }) => onHighlight({ technique_id: node.title }) });
     base.push({ key: "tech-incidents", label: "Incidents with this technique",
@@ -1361,7 +1391,7 @@ function buildPivotItems(node, incident) {
   base.push({ key: "automation",  label: "Create automation rule",
                  action: () => open(`/xdr/respond/automation-rules`) });
   base.push({ key: "respond",     label: "Run response action…",
-                 action: () => open(`/xdr/incidents/${encId}#respond`) });
+                 action: () => open(`/xdr/incidents/${encId}?respond=1`) });
   return base;
 }
 
