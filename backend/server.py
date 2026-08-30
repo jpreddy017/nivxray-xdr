@@ -248,6 +248,15 @@ from routers.xdr_api_keys import router as xdr_api_keys_router
 app.include_router(xdr_api_keys_router)
 from routers.xdr_webhooks import router as xdr_webhooks_router
 app.include_router(xdr_webhooks_router)
+# P0-8 · Data Sources + Collectors + Ingest telemetry (evidence-backed
+# CONNECTED gate).  Every mutation is RBAC-enforced + audit-logged;
+# CONNECTED is only ever assigned via /api/xdr/ingest/telemetry.
+from routers.xdr_data_sources import router as xdr_data_sources_router
+app.include_router(xdr_data_sources_router)
+from routers.xdr_collectors import router as xdr_collectors_router
+app.include_router(xdr_collectors_router)
+from routers.xdr_ingest import router as xdr_ingest_router
+app.include_router(xdr_ingest_router)
 
 # Phase A · Capability Catalog — read-only endpoint exposing the
 # machine-readable UAIE capability registry + derived dependency

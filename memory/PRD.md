@@ -7,6 +7,97 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-30 · P0-8 Data Sources + Collectors + Real Telemetry (SHIPPED)
+
+**New authoritative main-backend routers (RBAC-enforced + audit-logged):**
+
+| Router | Endpoints | Coverage |
+|---|---|---|
+| `xdr_data_sources.py` | list/get/create/update/enable/disable/test/rotate/delete + `/kinds/catalog` | 10/10 RBAC-guarded |
+| `xdr_collectors.py`   | list/get/create/update/start/stop/enable/disable/test/rotate/delete + `/protocols/catalog` | 12/12 RBAC-guarded |
+| `xdr_ingest.py`       | `POST /telemetry` — the ONLY code path that may set CONNECTED | 1/1 RBAC-guarded |
+
+**State machine (identical vocabulary to the P0-8 directive):**
+```
+ADOPTED → CONFIGURED → STARTING → CONNECTED
+                                   ↓
+                       AUTH_FAILED / CONNECTION_FAILED /
+                       NO_TELEMETRY / PARSE_ERROR / DEGRADED / DISABLED
+```
+Admin API CANNOT promote to CONNECTED — attempting it in the internal
+`_transition_state(admin=True)` raises `CONNECTED_REQUIRES_TELEMETRY`.
+
+**Evidence-backed CONNECTED gate** (in `xdr_ingest.py`):
+* CONNECTED assigned only when `received > 0 AND parsed > 0 AND normalized > 0`.
+* Error ratio > 10% → DEGRADED (never CONNECTED).
+* `parser_ok=False` on every event → PARSE_ERROR.
+* Every state transition emits `COLLECTOR_STATE_CHANGED` audit with the
+  exact counter evidence (`received/parsed/normalized/errors`).
+
+**Protocol registry — honest implementation status:**
+
+| Protocol | Status | Notes |
+|---|---|---|
+| syslog  | **IMPLEMENTED** | Real receiver · `nivxray-xdr-collector/framework/syslog.py` |
+| webhook | **IMPLEMENTED** | Real HMAC-validated receiver |
+| rest    | **IMPLEMENTED** | Real REST poller |
+| cef     | SCAFFOLD | Uses syslog transport; CEF parser wiring pending |
+| leef    | SCAFFOLD | Uses syslog transport; LEEF parser wiring pending |
+| kafka   | SCAFFOLD | Consumer not implemented |
+| otlp    | SCAFFOLD | Receiver not implemented |
+| wef     | SCAFFOLD | Windows Event Forwarding subscription not implemented |
+| file    | SCAFFOLD | File tailer not implemented |
+| edr     | SCAFFOLD | Vendor adapter framework exists; wiring pending |
+| ndr     | SCAFFOLD | Vendor adapter framework exists; wiring pending |
+| cloud   | SCAFFOLD | AWS / GCP / Azure audit connectors not wired |
+
+**Total: 3 IMPLEMENTED · 9 SCAFFOLD · 0 BLOCKED.** UI badge is honest.
+
+**Tenant isolation (defense-in-depth):**
+* Envelope `tenant_id` MUST equal collector's `tenant_id` → else HTTP 403 `TENANT_ISOLATION_VIOLATION`.
+* Header tenant MUST equal collector's `tenant_id` → else HTTP 403.
+* List endpoints scope by tenant — another tenant's collector names do NOT appear.
+
+**Audit actions emitted:**
+`DATA_SOURCE_CREATED · DATA_SOURCE_UPDATED · DATA_SOURCE_ENABLED ·
+DATA_SOURCE_DISABLED · DATA_SOURCE_TESTED ·
+DATA_SOURCE_CREDENTIAL_ROTATED · DATA_SOURCE_DELETED ·
+COLLECTOR_CREATED · COLLECTOR_UPDATED · COLLECTOR_STARTED ·
+COLLECTOR_STOPPED · COLLECTOR_ENABLED · COLLECTOR_DISABLED ·
+COLLECTOR_TESTED · COLLECTOR_CREDENTIAL_ROTATED · COLLECTOR_DELETED ·
+COLLECTOR_STATE_CHANGED (carries the evidence block).`
+
+**Frontend (Vercel-deployed):**
+* `DataSourcesBody.jsx` — add / edit / enable / disable / test / delete, kinds catalog dropdown reads live backend.
+* `CollectorsBody.jsx` — same + protocol registry badge (IMPLEMENTED / SCAFFOLD / BLOCKED) + **State Evidence panel** on each row.
+
+**Live E2E on preview backend (proof of the CONNECTED gate):**
+```
+seed admin           → HTTP 200
+create collector     → col_0a2558ae9fcd4fc59c4a
+start collector      → state = STARTING
+POST /ingest/telemetry (5 clean envelopes)
+                       → collector_state = CONNECTED
+                       → reason "telemetry received/parsed/normalized: 5/5/5"
+GET /collectors/{id} → rx/parsed/norm/err = 5/5/5/0
+cross-tenant inject  → HTTP 403 TENANT_ISOLATION_VIOLATION
+```
+
+**Test totals (backend regression):**
+109/109 passing = 89 previous + **20 new P0-8 tests**:
+CRUD, kind/protocol validation, admin transitions, ILLEGAL transition
+rejection (admin cannot set CONNECTED), parse-failure → PARSE_ERROR,
+error-ratio → DEGRADED, real-telemetry → CONNECTED, envelope-tenant
+isolation, header-tenant isolation, list-does-not-leak,
+data-source counters bubble up, audit chain remains valid.
+
+**Ruff:** all new files clean.
+
+---
+
+
+---
+
 ## ✅ 2026-02-30 · P0-0 LOLBAS Live-Sync + Deployment Consistency (SHIPPED)
 
 **Problem:** Standalone NivXRay XDR Vercel UI showed `NEVER_SYNCED · UPSTREAM UNAVAILABLE · 404`
