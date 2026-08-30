@@ -22,6 +22,7 @@ import { Loader2, RefreshCcw, ArrowRightLeft } from "lucide-react";
 import XdrShell from "@/xdr/XdrShell";
 import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
 import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
+import EnginesBody from "@/xdr/admin/EnginesBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
 
@@ -149,6 +150,14 @@ function AdminBody({ section }) {
       setState("populated");
       return;
     }
+    if (section.kind === "engines") {
+      // The Engines panel is fully driven by the local capability
+      // registry — no network call required.  It IS the authoritative
+      // surface for what XDR consumes.
+      setPayload(null);
+      setState("populated");
+      return;
+    }
     if (!section.api) {
       setState(section.connected === false ? "not_connected" : "not_available");
       return;
@@ -255,14 +264,18 @@ function AdminBody({ section }) {
           <div data-testid={`xdr-admin-populated-${section.key}`}>
             {section.kind === "integrations"
               ? <IntegrationsBody />
+              : section.kind === "engines"
+              ? <EnginesBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}
-            <div style={{ marginTop: 10, color: "var(--faint)", fontSize: 10.5,
-                            fontFamily: "var(--xmono)" }}>
-              source: <span style={{ color: "var(--cyan)" }}>{section.api}</span>{" "}
-              · read-only projection · never mutated.
-            </div>
+            {section.api && (
+              <div style={{ marginTop: 10, color: "var(--faint)", fontSize: 10.5,
+                              fontFamily: "var(--xmono)" }}>
+                source: <span style={{ color: "var(--cyan)" }}>{section.api}</span>{" "}
+                · read-only projection · never mutated.
+              </div>
+            )}
           </div>
         )}
       </section>

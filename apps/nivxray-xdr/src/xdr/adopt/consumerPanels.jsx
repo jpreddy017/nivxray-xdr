@@ -14,7 +14,8 @@ import { ShieldCheck, AlertTriangle, ExternalLink, RefreshCw,
 
 import { honestyBanner } from "@/xdr/capabilityRegistry";
 import { VerdictConsumer, IocConsumer, ReportConsumer,
-  AnalyzeConsumer } from "@/xdr/adopt/baseCapabilities";
+  AnalyzeConsumer, CorrelationConsumer, ProcessTreeConsumer,
+  BehaviorRegistryConsumer } from "@/xdr/adopt/baseCapabilities";
 
 
 function _HonestyBox({ capId, extra }) {
@@ -292,4 +293,185 @@ function _sev(v) {
   if (s.startsWith("med"))   return "#facc15";
   if (s.startsWith("clean") || s.startsWith("bng")) return "var(--mint)";
   return "var(--faint)";
+}
+
+
+// ── Correlation engine consumer (used by the Canvas) ─────────────
+// Fetches correlation graph for an incident.  Callers merge these
+// causal edges into the canvas edge set — layout stays XDR-owned,
+// causality comes from NivXRay.
+export async function fetchCorrelationEdges(incidentId) {
+  const list = await CorrelationConsumer.forIncident(incidentId);
+  if (!list.ok || !Array.isArray(list.data?.correlations)) {
+    return { ok: false, edges: [], not_wired: list.not_wired,
+                error: list.error };
+  }
+  const edges = [];
+  for (const c of list.data.correlations) {
+    const g = await CorrelationConsumer.graph(c.id || c.cid);
+    if (!g.ok) continue;
+    for (const e of (g.data.edges || [])) {
+      edges.push({
+        // Map correlation semantic → XDR semantic edge taxonomy.
+        source: e.source, target: e.target,
+        kind:   _mapCorrEdge(e.kind || e.relation || "connected_to"),
+        correlation_id: c.id || c.cid,
+        provenance: e.provenance || c.provenance,
+      });
+    }
+  }
+  return { ok: true, edges };
+}
+function _mapCorrEdge(k) {
+  const s = String(k).toLowerCase();
+  if (s.includes("parent")) return "parent_of";
+  if (s.includes("exec"))   return "executed";
+  if (s.includes("create")) return "created";
+  if (s.includes("resolv")) return "resolved_to";
+  if (s.includes("respond")) return "responded";
+  if (s.includes("produc")) return "produced";
+  if (s.includes("mitre") || s.includes("map")) return "mapped_to";
+  return "connected_to";
+}
+
+
+// ── Process Causality consumer ────────────────────────────────────
+// Real inline consumer of /api/edr/process-tree — replaces the
+// pivot deep-link so the analyst gets parent/child + command line
+// + hashes + user + timestamps + MITRE attribution IN PLACE.
+export function XdrProcessCausalityPanel({ pid, hostId, incidentId }) {
+  const [state, setState] = useState({ loading: true, data: null, err: null });
+  useEffect(() => {
+    if (!pid && !hostId && !incidentId) return;
+    let cancelled = false;
+    (async () => {
+      setState({ loading: true, data: null, err: null });
+      const r = await ProcessTreeConsumer.fetch(
+        Object.fromEntries(Object.entries(
+          { pid, host_id: hostId, incident_id: incidentId }).filter(([, v]) => v)));
+      if (!cancelled) setState({ loading: false,
+                                       data: r.ok ? r.data : null,
+                                       err: r.ok ? null : r });
+    })();
+    return () => { cancelled = true; };
+  }, [pid, hostId, incidentId]);
+  const d = state.data;
+  return (
+    <div data-testid="xdr-process-causality"
+            style={{ marginTop: 8, padding: 10, borderRadius: 4,
+                        background: "var(--panel2)",
+                        border: "1px solid var(--border)", fontSize: 11 }}>
+      <div className="mono" style={{ fontSize: 10, color: "var(--faint)",
+                                                    textTransform: "uppercase", marginBottom: 4 }}>
+        NivXRay Process Causality · /api/edr/process-tree
+      </div>
+      {state.err && (
+        <_HonestyBox capId="process.tree"
+                          extra={`Base call failed · ${state.err.error || state.err.status || "unavailable"}`} />
+      )}
+      {state.loading && <div style={{ color: "var(--faint)" }}>Loading…</div>}
+      {d && (
+        <div>
+          {(d.processes || d.nodes || []).slice(0, 12).map((p, i) => (
+            <div key={i} style={{ paddingLeft: (p.depth || 0) * 10,
+                                        fontSize: 11, color: "var(--text-dim)",
+                                        padding: "2px 0",
+                                        borderBottom: "1px solid var(--border)" }}>
+              <span className="mono" style={{ color: "var(--cyan)" }}>
+                pid {p.pid || "?"}
+              </span>
+              {p.ppid != null && (
+                <span className="mono" style={{ color: "var(--faint)",
+                                                              marginLeft: 4, fontSize: 10 }}>
+                  · parent {p.ppid}
+                </span>
+              )}
+              <span style={{ marginLeft: 6 }}>{p.image || p.name || p.command || "?"}</span>
+              {p.user && (
+                <span className="mono" style={{ marginLeft: 4,
+                                                              color: "#c084fc", fontSize: 10 }}>
+                  · {p.user}
+                </span>
+              )}
+              {p.technique_id && (
+                <span className="mono" style={{ marginLeft: 4,
+                                                              color: "#f472b6", fontSize: 10 }}>
+                  · {p.technique_id}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── Behavioral Registry consumer ─────────────────────────────────
+export function XdrBehaviorRegistryPanel({ ruleId, pid }) {
+  const [state, setState] = useState({ loading: true, data: null, err: null });
+  useEffect(() => {
+    if (!ruleId && !pid) return;
+    let cancelled = false;
+    (async () => {
+      setState({ loading: true, data: null, err: null });
+      const r = ruleId ? await BehaviorRegistryConsumer.forRule(ruleId)
+                            : await BehaviorRegistryConsumer.forProcess(pid);
+      if (!cancelled) setState({ loading: false,
+                                       data: r.ok ? r.data : null,
+                                       err: r.ok ? null : r });
+    })();
+    return () => { cancelled = true; };
+  }, [ruleId, pid]);
+  const d = state.data;
+  return (
+    <div data-testid="xdr-behavior-registry"
+            style={{ marginTop: 8, padding: 10, borderRadius: 4,
+                        background: "var(--panel2)",
+                        border: "1px solid var(--border)", fontSize: 11 }}>
+      <div className="mono" style={{ fontSize: 10, color: "var(--faint)",
+                                                    textTransform: "uppercase", marginBottom: 4 }}>
+        NivXRay Behavior Registry · /api/behavior-registry
+      </div>
+      {state.err && (
+        <_HonestyBox capId="detection.behavior_registry"
+                          extra={`Base call failed · ${state.err.error || state.err.status || "unavailable"}`} />
+      )}
+      {state.loading && <div style={{ color: "var(--faint)" }}>Loading…</div>}
+      {d && (
+        <div>
+          {(d.behaviors || d.rows || (Array.isArray(d) ? d : [])).slice(0, 10)
+                                  .map((b, i) => (
+            <div key={i} style={{ padding: "2px 0", fontSize: 11,
+                                        color: "var(--text-dim)",
+                                        borderBottom: "1px solid var(--border)" }}>
+              <span className="mono" style={{ color: "var(--cyan)" }}>
+                {b.behavior_id || b.id || `behavior_${i + 1}`}
+              </span>
+              <span style={{ marginLeft: 6 }}>{b.name || b.title}</span>
+              {b.technique_id && (
+                <span className="mono" style={{ marginLeft: 4,
+                                                              color: "#f472b6", fontSize: 10 }}>
+                  · {b.technique_id}
+                </span>
+              )}
+              {b.confidence != null && (
+                <span className="mono" style={{ marginLeft: 4,
+                                                              color: "var(--mint)", fontSize: 10 }}>
+                  · c{b.confidence}
+                </span>
+              )}
+              {b.source && (
+                <span className="mono" style={{ marginLeft: 4,
+                                                              color: "var(--faint)", fontSize: 10 }}>
+                  · {b.source}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

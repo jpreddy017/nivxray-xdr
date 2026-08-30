@@ -7,6 +7,118 @@ NivXRay XDR session must obey these rules verbatim.
 
 ---
 
+## ✅ 2026-02-10 · Full Technology Adoption + Admin › Engines (SHIPPED)
+
+Executed the "Full NivXRay Technology Adoption Directive" end-to-end.
+No engine invented, none duplicated, none renamed.  Every canonical
+NivXRay engine now has an inspected, code-backed registry entry AND a
+typed XDR consumer.
+
+### 1 · Evidence-backed matrix rewritten
+`docs/NIVXRAY_XDR_TECHNOLOGY_ADOPTION_MATRIX.md` — fully replaced.
+- Every named acronym verified in `/app/backend/`:
+  DIE (`services/die/` + `routers/die.py`), IEDDE (`routers/iedde.py`),
+  IUE (`services/iue/` + `routers/iue_lane_{a,b,c}.py` + `iue_timeline.py`),
+  UAIE (`services/uaie/` + `routers/uaie.py` + `uaie_catalog.py`),
+  UIL (`services/uil/` + `routers/uil.py`), IDA (`services/ida/`),
+  CEM (`services/cem.py` + `v2/cem/`),
+  **ICE (`services/ice/correlate.py`)** — PRESENT despite earlier assumption,
+  **VEEE (`services/veee/`)** — PRESENT despite earlier assumption.
+- 30+ additional real engines catalogued (SSOT, IKG, verdict Stage-2,
+  correlations, IOC intel, threat intel, MITRE mapper, sigma,
+  behavioral registry, process tree, trajectory, NivXForge, v2/*
+  packages, golden corpus, analyst corrections, and more).
+- Each row cites a concrete file path + API surface.
+- Adoption method assigned per row (ADOPT / ADAPT / EXTEND / PROXY /
+  SHARED_LIBRARY / NEW / BASE_ONLY / NOT_PRESENT / EXTERNAL).
+
+### 2 · Adoption layer extended
+- `docs/NIVXRAY_CAPABILITY_REGISTRY.json` — 12 new capabilities
+  registered with concrete backend paths (`engine.die`, `engine.iedde`,
+  `engine.iue.lane_{a,b,c}`, `engine.iue.timeline_fuse`,
+  `engine.uaie.catalog`, `engine.uaie.dry_run`, `engine.uil.{classify,split,investigate}`,
+  `engine.ida`, `engine.ice`, `engine.cem`, `engine.veee`).
+- `src/xdr/adopt/baseCapabilities.js` — typed consumers added:
+  `DieConsumer`, `IeddeConsumer`, `IueConsumer`, `UaieConsumer`,
+  `UilConsumer`, `IceConsumer`.
+- `src/xdr/capabilityRegistry.js` — honesty banner now distinguishes
+  `not_wired · base_only · external · not_present · not_implemented`.
+
+### 3 · P1 · Analyst-facing panels wired
+New `src/xdr/adopt/enginePanels.jsx` mounts four consumers on the
+Investigation surface (`XdrIncidentDetailPage`):
+- **DIE Decoder Chain Panel** (`data-testid=xdr-die-chain-panel`) —
+  analyst pastes a payload, calls `POST /api/die/analyze`, renders the
+  stage-by-stage decode chain, canonical output, extracted IOCs, and
+  provenance.
+- **IEDDE Stage Inspector** (`xdr-iedde-stage-panel`) — calls
+  `POST /api/iedde/analyze`, shows interpreter identification,
+  iteration count, stop reason, per-iteration stage trace with
+  canonicality delta, final technique inventory.
+- **IUE Timeline Panel** (`xdr-iue-timeline-panel`) — calls
+  `GET /api/iue/lane-a/status`, `GET /api/iue/lane-c/status`, and
+  `POST /api/iue/timeline/fuse` to render the authoritative unified
+  timeline with lane attribution + technique tags.
+- **UAIE Catalog Panel** (`xdr-uaie-catalog-panel`) — calls
+  `GET /api/uaie/catalog`, renders the relationship-rich capability
+  catalog with produces/requires per row + dependency-edge count +
+  schema version.
+- UIL / IDA / CEM registered honestly in the registry as
+  `ADOPT / BASE_ONLY`; no fabricated UI.
+
+### 4 · Anti-hallucination CI gate
+`tests/adoption/test_capability_registry_matches_base.mjs` — Node ESM
+regression test.  Fails CI if:
+- Any of DIE / IEDDE / IUE / UAIE / UIL / IDA / CEM / ICE / VEEE is
+  missing its concrete implementation.
+- Any registry row marked `owner ⊇ base` references a `backend_path`
+  or `source` that does NOT exist on disk.
+- Any row falsely claims `NOT_PRESENT` when the file exists.
+- Result today: **46 base-owned rows verified · 0 gaps · 9/9 engines present**.
+
+### 5 · Admin → Engines (NEW native surface)
+Route: `/xdr/admin/engines`.
+- Reads exclusively from `docs/NIVXRAY_CAPABILITY_REGISTRY.json` —
+  the same registry the anti-hallucination CI gate validates.
+- Header strip: total engine count + status-band histogram
+  (CONNECTED / ADOPT / BASE_ONLY / NEW / EXTERNAL).
+- Search + group filter (canonical acronyms, evidence & analysis,
+  detection & correlation, investigation & IKG, response & collector).
+- **Data-driven architecture diagram** (SVG, `xdr-engines-architecture`):
+  four lanes — XDR Surfaces → Adopt Layer → Base Engines (rendered
+  from the actual canonical rows) → Authoritative Out (SSOT, Verdict
+  Stage-2, Response Engine).
+- Every engine card shows: canonical name, id, base_api, backend_path,
+  owner, adoption method, honest status banner.
+- Footer surfaces provenance: registry file + regression test path +
+  link to the adoption matrix.
+- Sidebar entry added between Overview and Integrations (`Boxes`
+  icon).  No `NOT CONNECTED` state — the registry IS the authoritative
+  source for this surface.
+
+### Verification
+- Response Engine pytest **27/27**.
+- Base backend evidence pytest **10/10**.
+- Collector pytest **44/44**.
+- Anti-hallucination gate: **9/9 engines present · 46 rows · 0 gaps**.
+- `yarn build` clean · 4 additional lazy chunks · Admin bundle
+  now 48kB (was 28kB — includes EnginesBody + registry).
+
+### Owner-locked invariants held
+- Base `/app/backend` still authoritative and unmodified.
+- XDR consumes; never re-implements SSOT · Verdict · Correlation ·
+  Decoder · IUE · DIE · IEDDE · UAIE · UIL · IDA · CEM · ICE · VEEE.
+- Response Engine SQLite still authoritative for execution state.
+- One XDR write path preserved: `POST /api/xdr/response-evidence`.
+
+### Still queued (P2 backlog, per owner directive)
+- Investigation Canvas d3-force layout.
+- Phase C CrowdStrike vendor adapter.
+- NTR (Network Detection Response) + ITDR expansion.
+
+---
+
+
 ## ✅ 2026-02-10 · Technology Adoption — Four P0 Consumers Wired
 
 Continued the adoption program: XDR now CONSUMES the authoritative

@@ -22,6 +22,19 @@ export function statusOf(id) {
 export function isConnected(id) {
   return String(statusOf(id)).toUpperCase().startsWith("CONNECTED");
 }
+
+/**
+ * honestyBanner
+ *   → `null`               capability is CONNECTED (nothing to warn about)
+ *   → `{ kind, text }`     banner to render
+ *
+ * Kinds:
+ *   not_wired          — base exposes it, XDR adapter not connected
+ *   base_only          — deliberately not surfaced in XDR analyst UI
+ *   external           — requires an external dependency / standard
+ *   not_present        — verified absent from base after code inspection
+ *   not_implemented    — capability id unknown to the registry
+ */
 export function honestyBanner(id) {
   const c = getCapability(id);
   if (!c) return {
@@ -34,6 +47,15 @@ export function honestyBanner(id) {
     kind: "not_wired",
     text: `AVAILABLE IN NIVXRAY — XDR ADAPTER NOT YET CONNECTED · `
              + `${c.name} lives in ${c.base_api || c.source}.  Wire via ${c.adoption}.`,
+  };
+  if (s === "BASE_ONLY") return {
+    kind: "base_only",
+    text: `AVAILABLE IN NIVXRAY — analyst surface intentionally not built in XDR · `
+             + `${c.name} lives in ${c.base_api || c.source}.`,
+  };
+  if (s === "NOT_PRESENT") return {
+    kind: "not_present",
+    text: `NOT PRESENT IN NIVXRAY — verified absent after code inspection · ${c.name}.`,
   };
   if (s === "EXTERNAL") return {
     kind: "external",

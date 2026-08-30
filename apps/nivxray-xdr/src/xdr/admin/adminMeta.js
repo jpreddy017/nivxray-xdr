@@ -13,6 +13,7 @@
 import {
   LayoutGrid, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, ArrowRightLeft, Users, Webhook, HeartPulse,
+  Boxes,
 } from "lucide-react";
 
 export const ADMIN_SECTIONS = [
@@ -20,6 +21,11 @@ export const ADMIN_SECTIONS = [
     key: "overview", label: "Overview", icon: LayoutGrid,
     subtitle: "Aggregate admin KPIs · deterministic counts from authoritative surfaces.",
     api: "/admin/stats", kind: "kv",
+  },
+  {
+    key: "engines", label: "Engines", icon: Boxes,
+    subtitle: "Inventory of every NivXRay engine XDR consumes · adopt-before-invent registry + architecture diagram.",
+    api: null, kind: "engines", connected: true,
   },
   {
     key: "integrations", label: "Integrations", icon: Plug,

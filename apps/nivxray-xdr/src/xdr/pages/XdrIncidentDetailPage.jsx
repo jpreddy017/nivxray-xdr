@@ -19,6 +19,9 @@ import EvidenceFirstInvestigationWorkspace
   from "@/xdr/investigation/EvidenceFirstInvestigationWorkspace";
 import { XdrVerdictPanel, XdrInvestigationReportPanel }
   from "@/xdr/adopt/consumerPanels";
+import { XdrDieChainPanel, XdrIeddeStagePanel,
+  XdrIueTimelinePanel, XdrUaieCatalogPanel }
+  from "@/xdr/adopt/enginePanels";
 
 import { getIncident, getIncidentSummary, transitionIncidentState } from "@/lib/incidentsApi";
 import { useAuth } from "@/lib/auth";
@@ -343,6 +346,15 @@ function InvestigationTab({ incident }) {
       <XdrVerdictPanel incident={incident} />
       {/* Authoritative Investigation Report (consumed from base) */}
       <XdrInvestigationReportPanel incident={incident} />
+
+      {/* P1 Engine Adoption Wave — consume NivXRay's authoritative
+             engines (DIE / IEDDE / IUE / UAIE) inline.  Never
+             re-implement, never fabricate.  See docs/
+             NIVXRAY_XDR_TECHNOLOGY_ADOPTION_MATRIX.md § 1. */}
+      <XdrDieChainPanel incident={incident} />
+      <XdrIeddeStagePanel incident={incident} />
+      <XdrIueTimelinePanel incident={incident} />
+      <XdrUaieCatalogPanel />
 
       {/* Legacy deep-link subtabs preserved below the workspace so
              every capability the previous view surfaced still lands

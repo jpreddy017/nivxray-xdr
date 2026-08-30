@@ -35,7 +35,8 @@ import {
 
 import { RULE_TO_TECHNIQUE, TECHNIQUE_INDEX } from "@/xdr/mitre/mitreTactics";
 import api from "@/lib/api";
-import { XdrIocEnrichmentPanel } from "@/xdr/adopt/consumerPanels";
+import { XdrIocEnrichmentPanel, XdrProcessCausalityPanel,
+  XdrBehaviorRegistryPanel, fetchCorrelationEdges } from "@/xdr/adopt/consumerPanels";
 
 // ── Node type palette (single restrained accent per kind) ─────────
 const NODE_TYPE = {
@@ -94,6 +95,7 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
   // ``incident.response_executions`` — the graph builder tolerates
   // an empty array.
   const [responseExecutions, setRespExec] = useState(null);
+  const [corrEdges, setCorrEdges] = useState([]);   // authoritative causality
   useEffect(() => {
     let cancelled = false;
     if (!incident?.id) return;
@@ -104,9 +106,13 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
           { params: incident.tenant_id ? { tenant_id: incident.tenant_id } : {} });
         if (!cancelled) setRespExec(r.data?.executions || []);
       } catch {
-        // Older base — fall back to whatever the payload carried.
         if (!cancelled) setRespExec(null);
       }
+      // Correlation consumer — layout XDR-owned, causality NivXRay-owned.
+      try {
+        const cr = await fetchCorrelationEdges(incident.id);
+        if (!cancelled && cr.ok) setCorrEdges(cr.edges || []);
+      } catch { /* stay silent — canvas legend shows nothing invented */ }
     })();
     return () => { cancelled = true; };
   }, [incident?.id, incident?.tenant_id]);
@@ -129,8 +135,26 @@ export default function EvidenceFirstInvestigationWorkspace({ incident }) {
   // canvas.
   const [expandedClusters, setExpandedClusters] = useState(() => new Set());
   const { nodes, edges } = useMemo(
-    () => expandClusters(raw, expandedClusters, enrichedIncident),
-    [raw, expandedClusters, enrichedIncident],
+    () => {
+      const g = expandClusters(raw, expandedClusters, enrichedIncident);
+      // Merge authoritative correlation edges (never overwriting real
+      // XDR edges that already exist between the same endpoints).
+      if (corrEdges.length) {
+        const existing = new Set(g.edges.map((e) => `${e.source}->${e.target}#${e.kind}`));
+        for (const ce of corrEdges) {
+          const key = `${ce.source}->${ce.target}#${ce.kind}`;
+          if (existing.has(key)) continue;
+          // Only draw when BOTH endpoints exist as canvas nodes; never
+          // fabricate a floating edge.
+          if (g.nodes.find((n) => n.id === ce.source)
+                && g.nodes.find((n) => n.id === ce.target)) {
+            g.edges.push({ id: key, ...ce });
+          }
+        }
+      }
+      return g;
+    },
+    [raw, expandedClusters, enrichedIncident, corrEdges],
   );
 
   const [selected, setSelected]   = useState(null);
@@ -970,6 +994,9 @@ function EntityInspector({ node, incident, onPivotHighlight, onOpenPivot }) {
                 </span>
               } />
             )}
+            {raw.rule_id && (
+              <XdrBehaviorRegistryPanel ruleId={raw.rule_id} />
+            )}
           </>
         )}
         {node.type === "response" && (
@@ -1018,6 +1045,10 @@ function EntityInspector({ node, incident, onPivotHighlight, onOpenPivot }) {
             <Row k="PID"        v={raw.pid} />
             <Row k="Host"       v={raw.host_id} />
             <Row k="Command"    v={raw.command_line} mono />
+            <XdrProcessCausalityPanel
+              pid={raw.pid}
+              hostId={raw.host_id}
+              incidentId={incident?.id} />
           </>
         )}
         {(node.type === "ip" || node.type === "domain" || node.type === "hash"
