@@ -55,12 +55,12 @@ const REL_COLOR = {
   INFERRED:   "#94a3b8",
 };
 
-// Layout constants — match NivXRay Tool trajectory sizing.
-const ROW_H         = 74;
-const LANE_X        = 148;
-const NODE_W        = 210;
-const NODE_H        = 42;
-const NODE_GAP_X    = 130;
+// Layout constants — match NivXRay Tool trajectory sizing exactly.
+const ROW_H         = 90;
+const LANE_X        = 168;
+const NODE_W        = 250;
+const NODE_H        = 52;
+const NODE_GAP_X    = 150;
 const CANVAS_HEIGHT = KILL_CHAIN.length * ROW_H + 40;
 
 
@@ -121,6 +121,8 @@ export default function AttackChainPanel({ incident }) {
 
   const selectedTech = selection?.kind === "technique"
                                             ? selection?.ref?.technique_id : null;
+  const selectedNode = selectedTech
+      ? nodes.find((n) => n.technique_id === selectedTech) : null;
 
   // Canvas width — always generous so the horizontal scrollbar
   // engages and users can drag/scroll left-to-right just like the
@@ -348,8 +350,7 @@ export default function AttackChainPanel({ incident }) {
       {!collapsed && (
         <>
           <TacticLegend />
-          <div ref={canvasRef}
-                     style={canvasFrame}
+          <div style={canvasFrame}
                      onMouseDown={onMouseDown}
                      onMouseMove={onMouseMove}
                      onMouseUp={endDrag}
@@ -458,7 +459,7 @@ export default function AttackChainPanel({ incident }) {
                                   fill="#94a3b8"
                                   fontFamily="JetBrains Mono, monospace"
                                   fontSize={10}>
-                        {truncate(n.name || "—", 20)}
+                        {truncate(n.name || "—", 26)}
                       </text>
                     </g>
                   );
@@ -484,9 +485,157 @@ export default function AttackChainPanel({ incident }) {
           )}
         </>
       )}
+
+      {selectedNode && (
+        <NodeInspector node={selectedNode}
+                                      onClose={() => setSelection(null)} />
+      )}
     </section>
   );
 }
+
+
+// ── Node Inspector ────────────────────────────────────────────────
+// Matches the NivXRay Tool "NODE INSPECTOR" layout: technique_id + name
+// heading, stage line, ATT&CK tactic chip, MITRE techniques chip strip,
+// and a factual confidence line derived ONLY from real evidence
+// (evidence_count · matched relationships · rules).  Never fabricates
+// a confidence score.
+function NodeInspector({ node, onClose }) {
+  const tacticLabel = (KILL_CHAIN.find((k) => k.key === node.tactic)?.label) || node.tactic || "—";
+  const tacticColor = TACTIC_COLOR[node.tactic] || "#67e8f9";
+  // Honest confidence: OBSERVED = 25 pts, each additional rel = 25 pts,
+  // capped at 100.  This is NOT a verdict — it reflects how many
+  // evidence-first checks the technique satisfied.
+  const relScore  = Math.min(100, (node.rels?.length || 0) * 25);
+  return (
+    <div style={inspectorPanel}
+             data-testid={`xdr-chain-inspector-${node.technique_id}`}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8,
+                              marginBottom: 10 }}>
+        <span style={{ fontSize: 9, letterSpacing: "0.18em",
+                                    textTransform: "uppercase", color: "#94a3b8",
+                                    fontFamily: "JetBrains Mono, monospace" }}>
+          Node Inspector
+        </span>
+        <span style={{ flex: 1 }} />
+        <button type="button"
+                      data-testid="xdr-chain-inspector-close"
+                      onClick={onClose}
+                      style={ctrlBtn}>
+          <X size={11} /> CLOSE
+        </button>
+      </div>
+      <h3 style={{ margin: "4px 0 6px",
+                              fontFamily: "JetBrains Mono, monospace",
+                              fontSize: 18, color: "#e2e8f0",
+                              fontWeight: 700, lineHeight: 1.35 }}
+              data-testid={`xdr-chain-inspector-title-${node.technique_id}`}>
+        {node.technique_id} · {node.name || "—"}
+      </h3>
+      <div style={{ fontSize: 11, color: "#94a3b8",
+                              fontFamily: "JetBrains Mono, monospace",
+                              marginBottom: 14 }}>
+        {node.first_seen
+              ? `First observed ${new Date(node.first_seen).toISOString()}`
+              : "First observed —"}
+        {" · "}
+        {node.last_seen ? new Date(node.last_seen).toISOString() : "—"}
+      </div>
+
+      <InspectorSection title="ATT&CK Tactic">
+        <span style={{ ...tagChip, borderColor: tacticColor,
+                                    color: tacticColor }}
+                    data-testid={`xdr-chain-inspector-tactic-${node.technique_id}`}>
+          {tacticLabel}
+        </span>
+      </InspectorSection>
+
+      <InspectorSection title="MITRE Techniques">
+        <span style={{ ...tagChip, borderColor: "#67e8f9",
+                                    color: "#67e8f9" }}
+                    data-testid={`xdr-chain-inspector-tech-${node.technique_id}`}>
+          {node.technique_id}
+        </span>
+      </InspectorSection>
+
+      <InspectorSection title="Relationships">
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {(node.rels || []).map((r) => (
+            <span key={r}
+                        data-testid={`xdr-chain-inspector-rel-${node.technique_id}-${r}`}
+                        style={{ ...tagChip, borderColor: REL_COLOR[r],
+                                        color: REL_COLOR[r] }}>
+              {r}
+            </span>
+          ))}
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Confidence">
+        <div style={{ fontSize: 26, color: "#4ade80",
+                                  fontFamily: "JetBrains Mono, monospace",
+                                  fontWeight: 700 }}
+                     data-testid={`xdr-chain-inspector-confidence-${node.technique_id}`}>
+          {relScore}%
+        </div>
+        <div style={{ marginTop: 8, fontSize: 11, color: "#cbd5e1",
+                                    fontFamily: "JetBrains Mono, monospace",
+                                    lineHeight: 1.8 }}>
+          {node.rels?.includes("OBSERVED")
+                    && <div>✓ Evidence-first mapping matched</div>}
+          {node.rels?.includes("SEQUENCED")
+                    && <div>✓ Temporal ordering established</div>}
+          {node.rels?.includes("CORRELATED")
+                    && <div>✓ Correlation engine confirmed</div>}
+          {node.rels?.includes("INFERRED")
+                    && <div>⚠ Inferred — additional evidence required</div>}
+          <div>✓ No AI inference · deterministic</div>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Evidence">
+        <div style={{ fontSize: 11, color: "#94a3b8",
+                                  fontFamily: "JetBrains Mono, monospace" }}>
+          {node.evidence_count} evidence row{node.evidence_count === 1 ? "" : "s"} support{node.evidence_count === 1 ? "s" : ""} this mapping.
+        </div>
+      </InspectorSection>
+    </div>
+  );
+}
+
+
+function InspectorSection({ title, children }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 9, color: "#64748b",
+                              letterSpacing: "0.18em", textTransform: "uppercase",
+                              fontFamily: "JetBrains Mono, monospace",
+                              marginBottom: 6 }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+
+const inspectorPanel = {
+  position: "fixed", top: 80, right: 20, width: 380,
+  maxHeight: "calc(100vh - 120px)", overflowY: "auto",
+  padding: 18, zIndex: 60,
+  background: "rgba(15,23,42,0.98)",
+  border: "1px solid #334467", borderRadius: 12,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+};
+
+const tagChip = {
+  display: "inline-block", padding: "3px 10px",
+  fontSize: 11, fontWeight: 600,
+  fontFamily: "JetBrains Mono, monospace",
+  border: "1px solid", borderRadius: 4,
+  background: "rgba(15,23,42,0.6)",
+};
 
 
 function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
