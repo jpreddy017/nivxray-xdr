@@ -3658,3 +3658,36 @@ The Platform Overview at `/xdr/admin` is the acceptance test for the whole Phase
 - NOT_WIRED softening: Should we turn every `NOT_WIRED` admin block into a "Coming soon" teaser like the intel pages?
 - Rule "Active" counter: Should I wire the counter to `lifecycle_state=ACTIVE` so it reflects the just-promoted 81 rules?
 - TI/IOC/Malware Intelligence: Are you ready to lift the freeze on these so we can start real implementation?
+
+---
+
+## 2026-02-08 (evening) · Phase A.3 · Immediate-priority page composition redesigns
+
+Delivered three trust-critical page redesigns called out by user:
+
+**Detection Registry — trust fix**
+- `active_rules` counter was querying the nonexistent `state="ACTIVE"` while the schema uses `state=VALIDATED` + `lifecycle_state=ACTIVE`
+- Fixed backend query in `xdr_detection_content.py::status` to count `enabled=true AND state IN [VALIDATED, ACTIVE]`
+- ACTIVE RULES now shows 81 (was 0) — trust restored
+
+**MITRE ATT&CK Coverage Intelligence — complete redesign**
+- Replaced the 14-column heatmap (which set `minWidth: 2128px` and overflowed horizontally at any viewport under 1600px) with a two-pane Coverage Intelligence workspace
+- Hero + 5-KPI attention strip (Coverage % · Techniques Observed · Rules Mapped · Incidents Scanned · Coverage Gaps)
+- Left pane: expandable tactic list — each tactic shows its coverage bar, `observed/total` and detection count, click to reveal the techniques beneath it
+- Right pane: technique detail panel — id + tactic + observation state pill + coverage summary (Detections/Incidents/Rules Mapped) + observed-incidents list with priority pills + related techniques + attack.mitre.org link
+- Fits cleanly at 1440px, no horizontal page overflow
+
+**Incidents Operations workspace — composition upgrade**
+- Inserted an operational-intelligence band between the priority strip and the queue toolbar
+- Three cards: **Incident distribution** (state + priority h-bars) · **Aging & SLA exposure** (SLA-at-risk + Unassigned exposure tiles + age-bucket h-bars for 7-30/30-90 days) · **Workload & assignment** (top owners h-bar with unassigned first)
+- All computed client-side from `rows` — no new endpoint, no fabricated metrics
+- Fills the previously empty canvas with meaningful operational intelligence
+
+### Still to do (Phase A.3 batches continuing)
+- Rule Studio → Detection Engineering workstation (split-pane editor + rule intelligence)
+- Correlation Rules → Correlation Intelligence workspace
+- Detection Engineering → Content Control Center
+- Investigation Workspace / Evidence Explorer / Entity Search / Attack Story / Device Trajectory
+- Admin sub-pages (Audit Log, Users & Roles, Data Sources, Collectors, Telemetry, Parsers, Normalization, Response Policies, API Keys, Webhooks, Platform Health)
+- NOT_WIRED chip softening into "Coming soon" teasers
+- Nav redirects (waiting on user to specify which exact tabs misroute)

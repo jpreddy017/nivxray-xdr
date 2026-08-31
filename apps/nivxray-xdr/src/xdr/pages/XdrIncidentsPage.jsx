@@ -32,7 +32,7 @@ import {
 } from "@/lib/incidentsApi";
 import XdrShell from "@/xdr/XdrShell";
 
-import { NxHeroHeader } from "@/xdr/nx";
+import { NxHeroHeader, NxHBar, NxSurface } from "@/xdr/nx";
 
 import PriorityStrip           from "./incidents/PriorityStrip";
 import QueueToolbar            from "./incidents/QueueToolbar";
@@ -463,6 +463,12 @@ export default function XdrIncidentsPage() {
         {/* Priority strip */}
         <PriorityStrip activeLens={urlLens} onLensClick={onLensClick} />
 
+        {/* Operational Intelligence — insights derived from the
+             current in-view incident set.  Not a duplicate of the
+             queue: this answers *what shape is the workload right
+             now*, at a glance, before the analyst dives in. */}
+        <IncidentOpsIntel rows={rows || []} />
+
         {/* Toolbar */}
         <QueueToolbar
           search={urlSearch}
@@ -625,3 +631,194 @@ export default function XdrIncidentsPage() {
     </XdrShell>
   );
 }
+
+
+/**
+ * IncidentOpsIntel · Phase A.3 · compact operational intelligence
+ * band between the priority strip and the queue table.
+ *
+ * Answers three analyst questions at a glance:
+ *   · How is the current workload distributed?
+ *   · Where is SLA/aging exposure concentrated?
+ *   · Which owners carry the load right now?
+ *
+ * Derives everything from the in-view incident rows — no new API
+ * dependency, no fabricated metrics.  When the workload is small
+ * enough that this intelligence adds nothing, the band collapses
+ * to a single explanatory line rather than showing empty bars.
+ */
+function IncidentOpsIntel({ rows }) {
+  const [stateBars, priorityBars, agingBuckets, ownerBars, agingTotals] = React.useMemo(() => {
+    const stateCount = {};
+    const prioCount  = {};
+    const owner      = {};
+    const aging      = { fresh: 0, day: 0, week: 0, month: 0, older: 0 };
+    let slaAtRisk = 0, unassigned = 0;
+    const now = Date.now();
+    for (const r of rows) {
+      const s = r.state || "new";
+      const p = r?.priority?.code || "P?";
+      stateCount[s] = (stateCount[s] || 0) + 1;
+      prioCount[p]  = (prioCount[p]  || 0) + 1;
+      const own = r.assignee || null;
+      if (!own) unassigned += 1;
+      else owner[own] = (owner[own] || 0) + 1;
+      if (r.sla_due_at) {
+        const t = Date.parse(r.sla_due_at);
+        if (Number.isFinite(t) && t - now < 6 * 3600_000) slaAtRisk += 1;
+      }
+      if (r.created_at) {
+        const t = Date.parse(r.created_at);
+        if (Number.isFinite(t)) {
+          const days = (now - t) / 86400_000;
+          if      (days < 1)   aging.fresh += 1;
+          else if (days < 7)   aging.day   += 1;
+          else if (days < 30)  aging.week  += 1;
+          else if (days < 90)  aging.month += 1;
+          else                 aging.older += 1;
+        }
+      }
+    }
+    const stateTone = { new: "blue", in_progress: "amber", on_hold: "purple", resolved: "teal", closed: "faint" };
+    const prioTone  = { P1: "red",   P2: "amber",         P3: "amber",       P4: "teal",       P5: "faint" };
+    const s = Object.entries(stateCount)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => ({ key: k, label: k.replace("_", " "), value: v, tone: stateTone[k] || "faint" }));
+    const p = Object.entries(prioCount)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([k, v]) => ({ key: k, label: k, value: v, tone: prioTone[k] || "faint" }));
+    const o = [
+      { key: "__unassigned", label: "Unassigned", value: unassigned, tone: "amber" },
+      ...Object.entries(owner)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([k, v]) => ({ key: k, label: shortenOwner(k), value: v, tone: "purple" })),
+    ].filter(x => x.value > 0);
+    return [s, p, aging, o, { slaAtRisk, unassigned, total: rows.length }];
+  }, [rows]);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="xdr-incidents-intel"
+             data-testid="xdr-incidents-ops-intel"
+             style={{
+               display: "grid",
+               gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
+               gap: 12,
+               margin: "14px 0",
+             }}>
+      <NxSurface
+        title="Incident distribution"
+        subtitle={`${rows.length} incident${rows.length === 1 ? "" : "s"} in current view`}
+        testid="xdr-incidents-intel-distribution"
+      >
+        <div style={{ display: "grid", gap: 14 }}>
+          <IntelBlock label="By state"    bars={stateBars} />
+          <IntelBlock label="By priority" bars={priorityBars} />
+        </div>
+      </NxSurface>
+
+      <NxSurface
+        title="Aging & SLA exposure"
+        subtitle="How long these incidents have been open"
+        testid="xdr-incidents-intel-aging"
+      >
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+          }}>
+            <ExposureTile
+              label="SLA at risk"
+              value={agingTotals.slaAtRisk}
+              tone={agingTotals.slaAtRisk > 0 ? "critical" : "faint"}
+              sub="Due within 6 h"
+            />
+            <ExposureTile
+              label="Unassigned"
+              value={agingTotals.unassigned}
+              tone={agingTotals.unassigned > 0 ? "amber" : "faint"}
+              sub="No owner"
+            />
+          </div>
+          <IntelBlock
+            label="Age distribution"
+            bars={[
+              { key: "fresh", label: "< 1 day", value: agingBuckets.fresh, tone: "teal" },
+              { key: "day",   label: "1–7 days", value: agingBuckets.day,   tone: "blue" },
+              { key: "week",  label: "7–30 days", value: agingBuckets.week,  tone: "amber" },
+              { key: "month", label: "30–90 days", value: agingBuckets.month, tone: "red" },
+              { key: "older", label: "> 90 days", value: agingBuckets.older, tone: "faint" },
+            ].filter(b => b.value > 0)}
+          />
+        </div>
+      </NxSurface>
+
+      <NxSurface
+        title="Workload & assignment"
+        subtitle="Where the current queue sits"
+        testid="xdr-incidents-intel-workload"
+      >
+        <IntelBlock label="Top owners" bars={ownerBars} />
+      </NxSurface>
+    </div>
+  );
+}
+
+function IntelBlock({ label, bars }) {
+  return (
+    <div>
+      <div style={{
+        fontFamily: "var(--sans)", fontSize: 10, fontWeight: 800,
+        letterSpacing: 0.5, textTransform: "uppercase",
+        color: "var(--nx-muted)", marginBottom: 6,
+      }}>{label}</div>
+      {bars.length === 0 ? (
+        <div style={{ fontSize: 12, color: "var(--nx-text-dim)",
+                             fontFamily: "var(--sans)" }}>
+          Nothing in this segment.
+        </div>
+      ) : (
+        <NxHBar items={bars} />
+      )}
+    </div>
+  );
+}
+
+function ExposureTile({ label, value, tone, sub }) {
+  const bgMap = { critical: "#FEF2F2", amber: "#FFFBEB", faint: "var(--nx-surf-inset)" };
+  const fgMap = { critical: "var(--nx-critical)", amber: "var(--nx-medium)", faint: "var(--nx-muted)" };
+  const bMap  = { critical: "#FCA5A5", amber: "#FCD34D", faint: "var(--nx-bd-quiet)" };
+  return (
+    <div style={{
+      padding: "10px 12px",
+      background: bgMap[tone] || bgMap.faint,
+      border: `1px solid ${bMap[tone] || bMap.faint}`,
+      borderRadius: 8,
+    }}>
+      <div style={{ fontFamily: "var(--mono)", fontSize: 22, fontWeight: 800,
+                          color: fgMap[tone] || fgMap.faint, lineHeight: 1 }}>
+        {value}
+      </div>
+      <div style={{ fontFamily: "var(--sans)", fontSize: 10.5, fontWeight: 800,
+                          letterSpacing: 0.4, textTransform: "uppercase",
+                          color: fgMap[tone] || fgMap.faint, marginTop: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: "var(--sans)", fontSize: 11,
+                          color: "var(--nx-text-dim)", marginTop: 2 }}>
+        {sub}
+      </div>
+    </div>
+  );
+}
+
+function shortenOwner(s) {
+  if (!s) return "—";
+  const [name] = s.split("@");
+  return (name || s).slice(0, 18);
+}
+

@@ -1,51 +1,50 @@
 /**
- * XdrMitreHeatmap · Native XDR MITRE ATT&CK Heatmap.
+ * XdrMitreHeatmap · Native XDR MITRE ATT&CK · Phase A.3 redesign.
  *
  * Route: `/xdr/intelligence/mitre`
  *
- * Data honesty guardrails (owner-locked):
- *   • Heat = REAL detection count over the observation window from
- *     authoritative NivXRay incident evidence — never a fabricated
- *     risk score.
- *   • Every technique cell with zero hits is an HONEST coverage gap
- *     (not "safe").  Detail panel says so explicitly.
- *   • Refresh button re-fetches live and updates "Last synced" so
- *     the analyst can see the page is operational.
- *   • Auto-poll every 30s to keep the console live.
+ * Composition — ATT&CK Coverage Intelligence workspace:
+ *
+ *   Hero + refresh
+ *   Coverage attention strip (5 KPIs, real data)
+ *   Two-pane workspace:
+ *     · Left column   → Tactic Coverage list (14 tactics · bar per
+ *                           tactic · expandable to show techniques)
+ *     · Right column → Technique Detail panel (selected technique's
+ *                           description, detections, incidents, related
+ *                           techniques, investigation link)
+ *
+ * Data honesty guardrails preserved:
+ *   • Heat = REAL detection count from authoritative evidence
+ *   • Every unobserved technique is an HONEST coverage gap
+ *   • No fabricated risk score anywhere
+ *
+ * Fits inside a 1440px viewport without horizontal overflow.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCcw, Filter, ExternalLink } from "lucide-react";
+import { RefreshCcw, Search, ExternalLink, ChevronRight, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import XdrShell from "@/xdr/XdrShell";
+import { NxKpi, NxEmptyBlock as NxEmpty, NxPill } from "@/xdr/nx";
 import { listIncidents } from "@/lib/incidentsApi";
 import {
   KILL_CHAIN, TECHNIQUES_BY_TACTIC, TECHNIQUE_INDEX,
   DISTINCT_TECHNIQUE_IDS, RULE_TO_TECHNIQUE,
 } from "@/xdr/mitre/mitreTactics";
 
-const HEAT_BINS = [
-  { max: 0,   color: "rgba(148, 163, 184, 0.08)", border: "var(--border)",  label: "0" },
-  { max: 5,   color: "rgba(60, 232, 184, 0.20)",  border: "var(--mint)",    label: "1-5" },
-  { max: 15,  color: "rgba(60, 232, 184, 0.42)",  border: "var(--mint)",    label: "6-15" },
-  { max: 40,  color: "rgba(245, 166, 35, 0.55)",  border: "var(--amber)",   label: "16-40" },
-  { max: 1e9, color: "rgba(239, 91, 91, 0.75)",   border: "var(--red)",     label: "41+" },
-];
-function heatFor(n) {
-  for (const b of HEAT_BINS) if (n <= b.max) return b;
-  return HEAT_BINS[HEAT_BINS.length - 1];
-}
-
 const AUTO_REFRESH_MS = 30_000;
+
 
 function fmtRelative(iso) {
   if (!iso) return "never";
   const d = (Date.now() - new Date(iso).getTime()) / 1000;
   if (d < 5)   return "just now";
   if (d < 60)  return `${Math.floor(d)}s ago`;
-  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
-  return `${Math.floor(d / 3600)}h ago`;
+  if (d < 3600) return `${Math.floor(d / 60)} min ago`;
+  return `${Math.floor(d / 3600)} h ago`;
 }
+
 
 export default function XdrMitreHeatmap() {
   const navigate = useNavigate();
@@ -55,9 +54,9 @@ export default function XdrMitreHeatmap() {
   const [error, setError]         = useState(null);
   const [q, setQ]                 = useState("");
   const [selected, setSelected]   = useState(null);
+  const [openTactic, setOpenTactic] = useState(null); // key
   const [lastSyncedAt, setSynced] = useState(null);
-  const [refreshCount, setRefreshCount] = useState(0);
-  const [, forceTick]             = useState(0);          // for "Xs ago"
+  const [, forceTick]             = useState(0);
   const inflight = useRef(false);
 
   const load = useCallback(async (mode = "initial") => {
@@ -65,381 +64,588 @@ export default function XdrMitreHeatmap() {
     inflight.current = true;
     if (mode === "initial") setLoading(true);
     if (mode === "refresh" || mode === "manual") setRefresh(true);
-    // On a manual refresh, explicitly reset transient view state so
-    // the analyst sees the page 'clear and re-fetch' — no lingering
-    // filter or selection carrying over.
-    if (mode === "manual") {
-      setQ("");
-      setSelected(null);
-      setIncidents(null);
-    }
     setError(null);
     try {
       const data = await listIncidents({ limit: 500 });
       setIncidents(data?.incidents || data || []);
       setSynced(new Date().toISOString());
-      if (mode === "manual" || mode === "refresh") {
-        setRefreshCount((n) => n + 1);
-      }
     } catch (e) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load incidents.");
     } finally {
-      setLoading(false);
-      setRefresh(false);
-      inflight.current = false;
+      setLoading(false); setRefresh(false); inflight.current = false;
     }
   }, []);
 
   useEffect(() => { load("initial"); }, [load]);
-
-  // Auto-refresh
   useEffect(() => {
     const t = setInterval(() => load("refresh"), AUTO_REFRESH_MS);
     return () => clearInterval(t);
   }, [load]);
-
-  // Tick every 5s so "Last synced Xs ago" is live.
   useEffect(() => {
     const t = setInterval(() => forceTick((n) => n + 1), 5000);
     return () => clearInterval(t);
   }, []);
 
-  // Roll up detections per technique + per tactic from evidence.
-  const { counts, tacticTotals, incidentsScanned } = useMemo(() => {
-    const c = {};
-    const tt = {};
+  // Roll up detections and incidents per technique + per tactic.
+  const rollup = useMemo(() => {
+    const perTech = {};          // T-id -> { detections, incidents:Set }
+    const perTactic = {};        // tactic key -> { detections, techniquesObserved:Set }
     const list = incidents || [];
     for (const inc of list) {
       const ev = inc?.verdict_stage2?.evidence || inc?.evidence || [];
       for (const e of ev) {
         const rid = (e.rule_id || "").toUpperCase();
-        // Direct rule map first; otherwise use e.technique_id if the
-        // authoritative evidence already carries it.
         const tid = RULE_TO_TECHNIQUE[rid] || e.technique_id;
         if (!tid || !TECHNIQUE_INDEX[tid]) continue;
-        c[tid] = (c[tid] || 0) + 1;
+        const pt = perTech[tid] || { detections: 0, incidents: new Set() };
+        pt.detections += 1;
+        pt.incidents.add(inc.id);
+        perTech[tid] = pt;
+
         const tactic = TECHNIQUE_INDEX[tid].tactic;
-        tt[tactic] = (tt[tactic] || 0) + 1;
+        const pty = perTactic[tactic] || {
+          detections: 0, techniquesObserved: new Set(), incidents: new Set(),
+        };
+        pty.detections += 1;
+        pty.techniquesObserved.add(tid);
+        pty.incidents.add(inc.id);
+        perTactic[tactic] = pty;
       }
     }
-    return { counts: c, tacticTotals: tt, incidentsScanned: list.length };
+    return { perTech, perTactic, incidentsScanned: list.length };
   }, [incidents]);
 
   const kpis = useMemo(() => {
     const totalTechniques = DISTINCT_TECHNIQUE_IDS.length;
     const mappedTechIds   = new Set(Object.values(RULE_TO_TECHNIQUE));
     const withMappedRule  = [...mappedTechIds].filter((t) => TECHNIQUE_INDEX[t]).length;
-    const observed        = Object.keys(counts).length;
-    const totalDetections = Object.values(counts).reduce((a, b) => a + b, 0);
-    return { totalTechniques, withMappedRule, observed, totalDetections };
-  }, [counts]);
+    const observed        = Object.keys(rollup.perTech).length;
+    const coverage        = totalTechniques ? (observed / totalTechniques) * 100 : 0;
+    return {
+      totalTechniques, withMappedRule, observed,
+      coveragePct: Math.round(coverage * 10) / 10,
+      incidentsScanned: rollup.incidentsScanned,
+    };
+  }, [rollup]);
 
   const filter = q.trim().toLowerCase();
 
   return (
     <XdrShell>
-      <div style={{ display: "flex", alignItems: "center", gap: 10,
-                      marginBottom: 8 }}>
-        <h1 className="page-h1" style={{ margin: 0 }}
-             data-testid="xdr-mitre-heading">MITRE ATT&amp;CK Heatmap</h1>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 6,
-                        border: "1px solid var(--border)", borderRadius: 4,
-                        padding: "3px 8px", background: "var(--panel2)" }}>
-          <Filter size={11} style={{ color: "var(--muted)" }} />
-          <input
-            placeholder="Filter T-ID or name…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            data-testid="xdr-mitre-filter"
-            style={{ background: "transparent", border: 0, outline: "none",
-                        color: "var(--text)", fontSize: 11.5, width: 220 }}
+      <div className="mitre-page" data-testid="xdr-mitre-page">
+        {/* Hero */}
+        <header className="mitre-hero" data-testid="xdr-mitre-hero">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="nx-page-hero-eyebrow">Intelligence · ATT&CK Coverage</div>
+            <h1 className="nx-page-hero-title" data-testid="xdr-mitre-heading">
+              MITRE ATT&amp;CK Coverage Intelligence
+            </h1>
+            <div className="nx-page-hero-desc">
+              Detection coverage across the ATT&CK matrix — every
+              highlighted technique cites the incidents that observed
+              it. Unobserved techniques are honest coverage gaps, not
+              fabricated risk scores.
+            </div>
+          </div>
+          <div className="mitre-hero-actions">
+            <div className="mitre-search">
+              <Search size={13} />
+              <input
+                placeholder="Search technique ID or name…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                data-testid="xdr-mitre-filter"
+              />
+            </div>
+            <button className="btn" onClick={() => load("manual")}
+                       disabled={refreshing || loading}
+                       data-testid="xdr-mitre-refresh">
+              <RefreshCcw size={12}
+                style={{ animation: refreshing ? "xdr-spin 900ms linear infinite" : "none" }} />
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
+        </header>
+
+        {/* Attention strip */}
+        <div className="nx-attn nx-attn-5" data-testid="xdr-mitre-kpis">
+          <NxKpi
+            icon={Target}
+            tone="critical"
+            label="Coverage"
+            value={`${kpis.coveragePct}%`}
+            sub={`${kpis.observed}/${kpis.totalTechniques} techniques observed`}
+          />
+          <NxKpi
+            label="Techniques Observed"
+            value={kpis.observed}
+            tone="high"
+            sub="From authoritative evidence"
+          />
+          <NxKpi
+            label="Rules Mapped"
+            value={`${kpis.withMappedRule}/${kpis.totalTechniques}`}
+            tone="info"
+            sub="Techniques with a detection rule"
+          />
+          <NxKpi
+            label="Incidents Scanned"
+            value={kpis.incidentsScanned}
+            tone="benign"
+            sub={`Last synced ${fmtRelative(lastSyncedAt)}`}
+          />
+          <NxKpi
+            label="Coverage Gaps"
+            value={kpis.totalTechniques - kpis.observed}
+            tone="medium"
+            sub="Techniques with no evidence yet"
           />
         </div>
-        <button className="btn" style={{ padding: "4px 10px" }}
-                  onClick={() => load("manual")}
-                  disabled={refreshing || loading}
-                  data-testid="xdr-mitre-refresh">
-          <RefreshCcw size={11}
-                        style={{ animation: refreshing ? "xdr-spin 900ms linear infinite" : "none" }} />
-          {refreshing ? "Refreshing…" : "Refresh"}
-        </button>
-      </div>
 
-      <div className="page-sub" data-testid="xdr-mitre-sub"
-             style={{ display: "flex", flexWrap: "wrap", gap: 12,
-                        alignItems: "center" }}>
-        <span>Environment-wide detection coverage — heat reflects
-              <b> real detections</b>, <b>not a fabricated risk score</b>.</span>
-      </div>
+        {loading && <NxEmpty title="Loading matrix…" body="Aggregating evidence from all incidents." />}
+        {!loading && error && <NxEmpty title="Failed to load" body={String(error)} />}
 
-      {/* Catalog constants — static, deliberately not in KPIs so
-             they can't be misread as live metrics. */}
-      <div data-testid="xdr-mitre-meta"
-             style={{ display: "flex", flexWrap: "wrap", gap: 14,
-                        alignItems: "center", marginTop: 8,
-                        padding: "8px 12px", borderRadius: 4,
-                        background: "var(--panel2)",
-                        border: "1px solid var(--border)",
-                        fontFamily: "var(--mono)", fontSize: 11,
-                        color: "var(--text-dim)" }}>
-        <span><b style={{ color: "var(--faint)", fontWeight: 800,
-                                 textTransform: "uppercase", letterSpacing: ".3px",
-                                 fontSize: 10 }}>Catalog</b>
-              &nbsp; MITRE ATT&amp;CK Enterprise v16 · 14 tactics ·{" "}
-              <b style={{ color: "var(--text)" }}>{kpis.totalTechniques}</b> techniques ·{" "}
-              <b style={{ color: "var(--text)" }}>{kpis.withMappedRule}</b> with mapped rule
-        </span>
-        <span style={{ color: "var(--faint)" }}>·</span>
-        <span data-testid="xdr-mitre-last-sync">
-          <b style={{ color: "var(--faint)", fontWeight: 800,
-                          textTransform: "uppercase", letterSpacing: ".3px",
-                          fontSize: 10 }}>Last synced</b>
-          &nbsp; <b style={{ color: "var(--mint)" }}>{fmtRelative(lastSyncedAt)}</b>
-        </span>
-        <span style={{ color: "var(--faint)" }}>·</span>
-        <span data-testid="xdr-mitre-window">
-          <b style={{ color: "var(--faint)", fontWeight: 800,
-                          textTransform: "uppercase", letterSpacing: ".3px",
-                          fontSize: 10 }}>Auto-refresh</b>
-          &nbsp; every 30s
-        </span>
-        <span style={{ color: "var(--faint)" }}>·</span>
-        <span data-testid="xdr-mitre-scanned">
-          <b style={{ color: "var(--faint)", fontWeight: 800,
-                          textTransform: "uppercase", letterSpacing: ".3px",
-                          fontSize: 10 }}>Incidents scanned</b>
-          &nbsp; <b style={{ color: "var(--text)" }}>{incidentsScanned}</b>
-        </span>
-        <span style={{ color: "var(--faint)" }}>·</span>
-        <span data-testid="xdr-mitre-refresh-counter">
-          <b style={{ color: "var(--faint)", fontWeight: 800,
-                          textTransform: "uppercase", letterSpacing: ".3px",
-                          fontSize: 10 }}>Refreshes</b>
-          &nbsp; <b style={{ color: "var(--text)" }}>{refreshCount}</b>
-        </span>
-      </div>
+        {!loading && !error && (
+          <div className="mitre-workspace">
+            {/* Left · Tactic coverage list */}
+            <section className="mitre-tactic-list" data-testid="xdr-mitre-tactics">
+              <div className="mitre-tactic-list-head">
+                <span className="mitre-list-title">Tactic Coverage</span>
+                <span className="mitre-list-sub">14 tactics · click a tactic to expand</span>
+              </div>
+              <div className="mitre-tactic-list-body">
+                {KILL_CHAIN.map((tactic) => {
+                  const techs = TECHNIQUES_BY_TACTIC[tactic.key] || [];
+                  const total = techs.length;
+                  const pty = rollup.perTactic[tactic.key] || {};
+                  const observed = pty.techniquesObserved ? pty.techniquesObserved.size : 0;
+                  const dets = pty.detections || 0;
+                  const pct = total ? Math.round((observed / total) * 100) : 0;
+                  const isOpen = openTactic === tactic.key;
+                  const visibleTechs = techs.filter(t =>
+                    !filter || t.id.toLowerCase().includes(filter) ||
+                                 t.name.toLowerCase().includes(filter));
 
-      {/* KPIs — live-only, computed from authoritative evidence. */}
-      <div style={{ display: "grid", gap: 10, marginTop: 12,
-                       gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}
-             data-testid="xdr-mitre-kpis">
-        <Kpi label="Detections (window)"    value={kpis.totalDetections} color="var(--red)" />
-        <Kpi label="Techniques Observed"    value={kpis.observed}         color="var(--amber)" />
-        <Kpi label="Rule Coverage"
-              value={`${kpis.withMappedRule}/${kpis.totalTechniques}`}
-              color="var(--cyan)" />
-        <Kpi label="Incidents Scanned"      value={incidentsScanned}      color="var(--mint)" />
-      </div>
-
-      {loading && <div className="x-empty" style={{ marginTop: 14 }}
-                          data-testid="xdr-mitre-loading">Loading …</div>}
-      {!loading && error && <div className="x-empty"
-                                    style={{ marginTop: 14, color: "var(--red)" }}
-                                    data-testid="xdr-mitre-error">{String(error)}</div>}
-
-      {!loading && !error && (
-        <>
-          {/* Kill-chain grid */}
-          <section className="panel" style={{ padding: 12, marginTop: 12,
-                                                    overflow: "auto" }}
-                     data-testid="xdr-mitre-grid">
-            <div style={{ display: "grid", gap: 8,
-                             gridTemplateColumns: `repeat(${KILL_CHAIN.length}, minmax(148px, 1fr))`,
-                             minWidth: KILL_CHAIN.length * 152 }}>
-              {KILL_CHAIN.map((tactic) => {
-                const techs = TECHNIQUES_BY_TACTIC[tactic.key] || [];
-                const shown = techs.filter((t) => !filter ||
-                    t.id.toLowerCase().includes(filter) ||
-                    t.name.toLowerCase().includes(filter));
-                const tacticN = tacticTotals[tactic.key] || 0;
-                return (
-                  <div key={tactic.key}>
-                    <div style={{
-                      display: "flex", justifyContent: "space-between",
-                      alignItems: "flex-end", gap: 6,
-                      marginBottom: 6, paddingBottom: 4,
-                      borderBottom: "1px solid var(--border)",
-                    }}>
-                      <div>
-                        <div style={{
-                          fontFamily: "var(--mono)", fontSize: 10,
-                          letterSpacing: ".3px", fontWeight: 800,
-                          color: "var(--muted)", textTransform: "uppercase",
-                        }}>{tactic.label}</div>
-                        <div style={{ fontSize: 9, fontWeight: 600,
-                                         color: "var(--faint)", marginTop: 2 }}>
-                          {techs.length} techniques
+                  return (
+                    <div key={tactic.key} className="mitre-tactic-row"
+                            data-testid={`xdr-mitre-tactic-${tactic.key}`}>
+                      <button
+                        type="button"
+                        className={`mitre-tactic-head ${isOpen ? "open" : ""}`}
+                        onClick={() => setOpenTactic(isOpen ? null : tactic.key)}
+                        data-testid={`xdr-mitre-tactic-toggle-${tactic.key}`}
+                      >
+                        <ChevronRight
+                          size={12}
+                          className="mitre-caret"
+                          style={{ transform: isOpen ? "rotate(90deg)" : "none" }}
+                        />
+                        <div className="mitre-tactic-title">
+                          <div className="mitre-tactic-label">{tactic.label}</div>
+                          <div className="mitre-tactic-meta">
+                            <span className="mono">{observed}/{total}</span> techniques ·{" "}
+                            <span className="mono">{dets}</span> detections
+                          </div>
                         </div>
-                      </div>
-                      <div style={{
-                        fontFamily: "var(--mono)", fontSize: 11, fontWeight: 800,
-                        color: tacticN > 0 ? "var(--mint)" : "var(--faint)",
-                      }} title="Detections in this tactic (window)">
-                        {tacticN}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {shown.map((t) => {
-                        const n   = counts[t.id] || 0;
-                        const bin = heatFor(n);
-                        const isSel = selected?.id === t.id && selected?.tacticLabel === tactic.label;
-                        return (
-                          <button key={`${tactic.key}-${t.id}`} type="button"
-                            data-testid={`xdr-mitre-cell-${tactic.key}-${t.id}`}
-                            onClick={() => setSelected({ ...t, tactic: tactic.key,
-                                                              tacticLabel: tactic.label, count: n })}
+                        <div className="mitre-tactic-bar">
+                          <div
+                            className="mitre-tactic-bar-fill"
                             style={{
-                              textAlign: "left", padding: "6px 8px",
-                              borderRadius: 4, background: bin.color,
-                              border: `1px solid ${isSel ? "var(--mint)" : bin.border}`,
-                              cursor: "pointer", color: "inherit",
-                            }}>
-                            <div className="mono" style={{ fontSize: 10.5,
-                                                                  color: "var(--text)",
-                                                                  fontWeight: 700 }}>{t.id}</div>
-                            <div style={{ fontSize: 10, color: "var(--text-dim)",
-                                             marginTop: 2, lineHeight: 1.3 }}>{t.name}</div>
-                            <div style={{ display: "flex", justifyContent: "flex-end",
-                                             marginTop: 4, fontFamily: "var(--mono)",
-                                             fontSize: 12, fontWeight: 800,
-                                             color: n > 0 ? "var(--text)" : "var(--faint)" }}>
-                              {n}
-                            </div>
-                          </button>
-                        );
-                      })}
-                      {shown.length === 0 && (
-                        <div style={{ fontSize: 10, color: "var(--faint)",
-                                         padding: "6px 4px", fontStyle: "italic" }}>
-                          no match
+                              width: `${pct}%`,
+                              background: pct >= 60 ? "var(--nx-benign)"
+                                        : pct >= 25 ? "var(--nx-medium)"
+                                        : pct > 0   ? "var(--nx-high)"
+                                        : "transparent",
+                            }}
+                          />
                         </div>
+                        <span className="mitre-tactic-pct mono">{pct}%</span>
+                      </button>
+                      {isOpen && (
+                        <ul className="mitre-tactic-techs">
+                          {visibleTechs.length === 0 && (
+                            <li className="mitre-tech-empty">No matching techniques.</li>
+                          )}
+                          {visibleTechs.map(t => {
+                            const rec = rollup.perTech[t.id];
+                            const n = rec?.detections || 0;
+                            const isSelected = selected?.id === t.id;
+                            return (
+                              <li key={t.id}>
+                                <button
+                                  type="button"
+                                  className={`mitre-tech ${isSelected ? "selected" : ""} ${n > 0 ? "observed" : "gap"}`}
+                                  onClick={() => setSelected({
+                                    ...t, tactic: tactic.key, tacticLabel: tactic.label,
+                                    detections: n, incidents: rec ? [...rec.incidents] : [],
+                                  })}
+                                  data-testid={`xdr-mitre-tech-${t.id}`}
+                                >
+                                  <span className="mitre-tech-id mono">{t.id}</span>
+                                  <span className="mitre-tech-name">{t.name}</span>
+                                  <span className={`mitre-tech-count mono ${n > 0 ? "hot" : "cold"}`}>
+                                    {n}
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Legend */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12,
-                             marginTop: 12, paddingTop: 10,
-                             borderTop: "1px solid var(--border)",
-                             fontSize: 10.5, color: "var(--muted)",
-                             flexWrap: "wrap" }}
-                    data-testid="xdr-mitre-legend">
-              <span style={{ fontFamily: "var(--mono)", letterSpacing: ".3px",
-                                fontWeight: 800, textTransform: "uppercase",
-                                color: "var(--faint)" }}>Detections (window)</span>
-              {HEAT_BINS.map((b) => (
-                <span key={b.label} style={{ display: "inline-flex",
-                                                    alignItems: "center", gap: 5 }}>
-                  <span style={{ display: "inline-block", width: 12, height: 12,
-                                    borderRadius: 2, background: b.color,
-                                    border: `1px solid ${b.border}` }} />
-                  <span className="mono">{b.label}</span>
-                </span>
-              ))}
-            </div>
-          </section>
-
-          {/* Technique detail */}
-          <section className="panel" style={{ padding: 14, marginTop: 12 }}
-                     data-testid="xdr-mitre-detail">
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10,
-                             letterSpacing: ".3px", fontWeight: 800,
-                             color: "var(--muted)", textTransform: "uppercase",
-                             marginBottom: 10 }}>Technique Detail</div>
-            {!selected && (
-              <div style={{ color: "var(--text-dim)", fontSize: 12 }}>
-                Click a cell above to see technique detail + honest coverage gap.
+                  );
+                })}
               </div>
-            )}
-            {selected && (
-              <div>
-                <Row k="Technique" v={
-                  <span className="mono" style={{ color: "var(--text)",
-                                                        fontWeight: 800 }}>
-                    {selected.id} — {selected.name}
-                  </span>} />
-                <Row k="Tactic" v={selected.tacticLabel} />
-                <Row k="Detections (window)" v={
-                  <span className="mono" style={{ color: selected.count > 0
-                    ? "var(--mint)" : "var(--faint)", fontWeight: 800 }}>
-                    {selected.count}
-                  </span>} />
-                <Row k="Mapped Detection Rule" v={
-                  Object.entries(RULE_TO_TECHNIQUE)
-                    .filter(([, tid]) => tid === selected.id)
-                    .map(([r]) => r).join(", ")
-                    || <span style={{ color: "var(--amber)", fontWeight: 700 }}>
-                         None — coverage gap
-                       </span>} />
-                <Row k="MITRE Reference" v={
-                  <a href={`https://attack.mitre.org/techniques/${selected.id.replace(".", "/")}/`}
-                     target="_blank" rel="noreferrer"
-                     style={{ color: "var(--cyan)" }}
-                     data-testid="xdr-mitre-attack-link">
-                    attack.mitre.org/techniques/{selected.id}
-                  </a>} />
-                {/* Pivot to filtered Incidents queue — real navigation,
-                       driven by authoritative Stage-2 evidence. */}
-                <div style={{ marginTop: 12, display: "flex", gap: 8,
-                                 flexWrap: "wrap" }}>
-                  <button className="btn primary"
-                             style={{ padding: "5px 12px" }}
-                             onClick={() => navigate(`/xdr/incidents?technique=${selected.id}`)}
-                             data-testid="xdr-mitre-pivot-incidents">
-                    <ExternalLink size={11} /> Open incidents mapped to {selected.id}
-                  </button>
+            </section>
+
+            {/* Right · Technique detail */}
+            <section className="mitre-detail" data-testid="xdr-mitre-detail">
+              {!selected ? (
+                <div className="mitre-detail-empty">
+                  <Target size={22} />
+                  <h4>Select a technique</h4>
+                  <p>Expand a tactic on the left and pick any technique to see its detections, incidents and coverage state.</p>
                 </div>
-                {selected.count === 0 && (
-                  <div style={{
-                    marginTop: 10, padding: 10,
-                    background: "var(--panel2)",
-                    border: "1px dashed var(--amber)", borderRadius: 4,
-                    color: "var(--text-dim)", fontSize: 11.5, lineHeight: 1.6,
-                  }} data-testid="xdr-mitre-coverage-gap">
-                    <b style={{ color: "var(--amber)" }}>Honest coverage gap.</b>{" "}
-                    No detections observed for this technique in the current
-                    window.  This is <b>not</b> a "safe" result — consider
-                    whether this technique is relevant to your environment
-                    and write / enable a rule if it is.  Fabricating a green
-                    tick here would mislead the analyst.
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-        </>
-      )}
+              ) : (
+                <TechniqueDetail
+                  tech={selected}
+                  navigate={navigate}
+                  incidentDocs={incidents || []}
+                />
+              )}
+            </section>
+          </div>
+        )}
+      </div>
 
-      <style>{`@keyframes xdr-spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        .mitre-page { padding: 0; }
+        .mitre-hero {
+          display: flex; gap: 20px; align-items: flex-start;
+          padding: 22px 4px 18px;
+          border-bottom: 1px solid var(--nx-bd-quiet);
+          margin-bottom: 20px;
+        }
+        .mitre-hero-actions { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+        .mitre-search {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 10px;
+          background: var(--nx-surf-primary);
+          border: 1px solid var(--nx-bd-quiet);
+          border-radius: 6px;
+          color: var(--nx-muted);
+          box-shadow: var(--nx-shadow-1);
+        }
+        .mitre-search input {
+          background: transparent; border: 0; outline: none;
+          font-family: var(--sans); font-size: 12px;
+          color: var(--nx-text); width: 240px;
+        }
+        .mitre-search input::placeholder { color: var(--nx-muted); }
+
+        .mitre-workspace {
+          display: grid;
+          grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+          gap: 16px;
+          min-height: 620px;
+          margin-top: 4px;
+        }
+        @media (max-width: 1200px) {
+          .mitre-workspace { grid-template-columns: 1fr; }
+        }
+
+        .mitre-tactic-list, .mitre-detail {
+          background: var(--nx-surf-primary);
+          border: 1px solid var(--nx-bd-quiet);
+          border-radius: 12px;
+          box-shadow: var(--nx-shadow-1);
+          overflow: hidden;
+          display: flex; flex-direction: column;
+        }
+        .mitre-tactic-list-head {
+          padding: 14px 16px;
+          border-bottom: 1px solid var(--nx-bd-quiet);
+          background: var(--nx-surf-inset);
+        }
+        .mitre-list-title {
+          font-family: var(--sans); font-size: 13px; font-weight: 700;
+          color: var(--nx-text);
+        }
+        .mitre-list-sub {
+          display: block; margin-top: 2px;
+          font-family: var(--sans); font-size: 11px;
+          color: var(--nx-muted);
+        }
+        .mitre-tactic-list-body {
+          overflow-y: auto;
+          max-height: 620px;
+          padding: 0;
+        }
+
+        .mitre-tactic-row { border-bottom: 1px solid var(--nx-bd-quiet); }
+        .mitre-tactic-row:last-child { border-bottom: none; }
+
+        .mitre-tactic-head {
+          display: grid;
+          grid-template-columns: 16px 1fr 120px 44px;
+          gap: 12px;
+          align-items: center;
+          width: 100%;
+          padding: 10px 16px;
+          background: var(--nx-surf-primary);
+          border: 0;
+          text-align: left;
+          cursor: pointer;
+          transition: background 100ms ease;
+        }
+        .mitre-tactic-head:hover { background: var(--nx-surf-inset); }
+        .mitre-tactic-head.open { background: var(--nx-surf-inset); }
+        .mitre-caret {
+          color: var(--nx-muted);
+          transition: transform 120ms ease;
+        }
+        .mitre-tactic-label {
+          font-family: var(--sans); font-size: 12.5px; font-weight: 700;
+          color: var(--nx-text);
+        }
+        .mitre-tactic-meta {
+          font-family: var(--sans); font-size: 11px;
+          color: var(--nx-muted);
+          margin-top: 2px;
+        }
+        .mitre-tactic-bar {
+          position: relative;
+          height: 6px;
+          background: var(--nx-surf-inset);
+          border-radius: 999px;
+          overflow: hidden;
+        }
+        .mitre-tactic-bar-fill {
+          height: 100%;
+          transition: width 200ms ease;
+        }
+        .mitre-tactic-pct {
+          font-family: var(--mono); font-size: 11px; font-weight: 700;
+          color: var(--nx-text-dim);
+          text-align: right;
+        }
+
+        .mitre-tactic-techs {
+          list-style: none; margin: 0; padding: 8px 16px 12px 44px;
+          background: var(--nx-surf-inset);
+          display: flex; flex-direction: column;
+          gap: 4px;
+        }
+        .mitre-tech {
+          display: grid;
+          grid-template-columns: 80px 1fr 36px;
+          gap: 10px;
+          align-items: baseline;
+          width: 100%;
+          padding: 6px 10px;
+          background: var(--nx-surf-primary);
+          border: 1px solid var(--nx-bd-quiet);
+          border-radius: 5px;
+          text-align: left;
+          cursor: pointer;
+          transition: border-color 100ms ease, background 100ms ease;
+        }
+        .mitre-tech:hover { border-color: var(--nx-bd-strong); }
+        .mitre-tech.selected {
+          border-color: var(--nx-purple);
+          background: var(--nx-purple-dim);
+        }
+        .mitre-tech.observed { border-left: 3px solid var(--nx-benign); }
+        .mitre-tech.gap { border-left: 3px solid var(--nx-bd-quiet); }
+        .mitre-tech-id {
+          font-size: 11px; font-weight: 700;
+          color: var(--nx-purple);
+        }
+        .mitre-tech-name {
+          font-family: var(--sans); font-size: 11.5px;
+          color: var(--nx-text);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .mitre-tech-count {
+          font-size: 11px; font-weight: 800; text-align: right;
+        }
+        .mitre-tech-count.hot { color: var(--nx-text); }
+        .mitre-tech-count.cold { color: var(--nx-muted); }
+        .mitre-tech-empty {
+          padding: 8px 10px;
+          font-family: var(--sans); font-size: 11.5px;
+          color: var(--nx-muted); font-style: italic;
+        }
+
+        .mitre-detail {
+          padding: 22px 22px 18px;
+        }
+        .mitre-detail-empty {
+          margin: auto;
+          text-align: center;
+          padding: 40px 20px;
+          color: var(--nx-muted);
+          max-width: 320px;
+        }
+        .mitre-detail-empty h4 {
+          margin: 12px 0 6px;
+          font-family: var(--sans); font-size: 14px; font-weight: 700;
+          color: var(--nx-text);
+        }
+        .mitre-detail-empty p {
+          font-family: var(--sans); font-size: 12.5px;
+          color: var(--nx-text-dim); line-height: 1.55; margin: 0;
+        }
+      `}</style>
     </XdrShell>
   );
 }
 
-function Kpi({ label, value, color }) {
+
+function TechniqueDetail({ tech, navigate, incidentDocs }) {
+  // Get real incidents where this technique was observed.
+  const incs = useMemo(() => {
+    const set = new Set(tech.incidents || []);
+    return incidentDocs.filter(i => set.has(i.id));
+  }, [tech, incidentDocs]);
+  const related = useMemo(() => {
+    // Techniques in the same tactic.
+    return (TECHNIQUES_BY_TACTIC[tech.tactic] || [])
+      .filter(t => t.id !== tech.id)
+      .slice(0, 6);
+  }, [tech]);
+
+  const attackUrl = `https://attack.mitre.org/techniques/${tech.id.replace(".", "/")}/`;
+
   return (
-    <div className="panel" style={{ padding: "12px 14px",
-                                             borderLeft: `3px solid ${color}` }}>
-      <div style={{ fontFamily: "var(--mono)", fontSize: 9.5,
-                       letterSpacing: ".3px", fontWeight: 800,
-                       color: "var(--faint)", textTransform: "uppercase",
-                       marginBottom: 4 }}>{label}</div>
-      <div style={{ fontFamily: "var(--mono)", fontSize: 26, color,
-                       fontWeight: 800 }}>{value}</div>
+    <div data-testid="xdr-mitre-detail-body"
+            style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8,
+                        marginBottom: 6 }}>
+          <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 800,
+                             color: "var(--nx-purple)" }}>{tech.id}</span>
+          <NxPill tone="purple">{tech.tacticLabel}</NxPill>
+          {tech.detections > 0
+            ? <NxPill tone="benign">OBSERVED</NxPill>
+            : <NxPill tone="amber">COVERAGE GAP</NxPill>}
+        </div>
+        <h2 style={{ margin: "0 0 6px",
+                          fontFamily: "var(--sans)", fontSize: 20, fontWeight: 700,
+                          color: "var(--nx-text)", letterSpacing: "-0.01em" }}>
+          {tech.name}
+        </h2>
+        <a href={attackUrl} target="_blank" rel="noreferrer"
+              style={{ fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600,
+                          color: "var(--nx-purple)", textDecoration: "none",
+                          display: "inline-flex", alignItems: "center", gap: 4 }}>
+          View on attack.mitre.org <ExternalLink size={11} />
+        </a>
+      </div>
+
+      {/* Coverage summary */}
+      <div className="nx-attn nx-attn-3" style={{ margin: 0 }}>
+        <NxKpi label="Detections"
+                  value={tech.detections}
+                  tone={tech.detections > 0 ? "high" : "medium"} />
+        <NxKpi label="Incidents"
+                  value={incs.length}
+                  tone={incs.length > 0 ? "info" : "medium"} />
+        <NxKpi label="Rules Mapped"
+                  value={countMapped(tech.id)}
+                  tone={countMapped(tech.id) > 0 ? "benign" : "medium"} />
+      </div>
+
+      {/* Incidents that observed this technique */}
+      <div>
+        <div style={{ fontFamily: "var(--sans)", fontSize: 10, fontWeight: 800,
+                          textTransform: "uppercase", letterSpacing: 0.5,
+                          color: "var(--nx-muted)", marginBottom: 8 }}>
+          Incidents observed
+        </div>
+        {incs.length === 0 ? (
+          <NxEmpty
+            title="No evidence yet"
+            body={`This technique has not been observed in any current incident. Coverage gap — investigate whether a detection rule exists and whether telemetry supports it.`}
+          />
+        ) : (
+          <ul style={{ listStyle: "none", padding: 0, margin: 0,
+                             display: "flex", flexDirection: "column", gap: 6 }}>
+            {incs.slice(0, 8).map(i => (
+              <li key={i.id}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/xdr/incidents/${i.id}`)}
+                  style={{
+                    width: "100%", display: "grid",
+                    gridTemplateColumns: "70px 1fr auto",
+                    gap: 10, alignItems: "center",
+                    padding: "8px 10px", cursor: "pointer",
+                    background: "var(--nx-surf-inset)",
+                    border: "1px solid var(--nx-bd-quiet)",
+                    borderRadius: 6, textAlign: "left",
+                  }}
+                  data-testid={`xdr-mitre-detail-incident-${i.id}`}
+                >
+                  <NxPill tone={priorityTone(i.priority?.code)}>
+                    {i.priority?.code || "—"}
+                  </NxPill>
+                  <span style={{ fontFamily: "var(--sans)", fontSize: 12.5,
+                                     color: "var(--nx-text)",
+                                     overflow: "hidden", textOverflow: "ellipsis",
+                                     whiteSpace: "nowrap" }}>
+                    {i.name || "(unnamed)"}
+                  </span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11,
+                                     color: "var(--nx-muted)" }}>
+                    {i.number}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Related techniques */}
+      {related.length > 0 && (
+        <div>
+          <div style={{ fontFamily: "var(--sans)", fontSize: 10, fontWeight: 800,
+                             textTransform: "uppercase", letterSpacing: 0.5,
+                             color: "var(--nx-muted)", marginBottom: 8 }}>
+            Related techniques in {tech.tacticLabel}
+          </div>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0,
+                             display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {related.map(r => (
+              <li key={r.id}>
+                <span className="nx-pill nx-pill-faint">
+                  <span style={{ fontFamily: "var(--mono)",
+                                     color: "var(--nx-purple)" }}>
+                    {r.id}
+                  </span>
+                  {" · "}{r.name}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
-function Row({ k, v }) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "200px 1fr",
-                    gap: 10, padding: "6px 0",
-                    borderBottom: "1px solid var(--border)" }}>
-      <div style={{ color: "var(--faint)", fontSize: 10,
-                       fontWeight: 800, textTransform: "uppercase",
-                       letterSpacing: ".3px" }}>{k}</div>
-      <div style={{ color: "var(--text-dim)", fontSize: 12 }}>{v}</div>
-    </div>
-  );
+
+function countMapped(techId) {
+  let n = 0;
+  for (const t of Object.values(RULE_TO_TECHNIQUE)) if (t === techId) n += 1;
+  return n;
+}
+
+function priorityTone(code) {
+  const c = String(code || "").toUpperCase();
+  if (c === "P1") return "critical";
+  if (c === "P2") return "amber";
+  if (c === "P3") return "amber";
+  if (c === "P4") return "benign";
+  return "faint";
 }

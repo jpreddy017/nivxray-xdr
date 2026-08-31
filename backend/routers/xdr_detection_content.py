@@ -432,8 +432,12 @@ def status(request: Request):
     total = _c_rules().count_documents({}) if _c_rules() is not None else 0
     valid = _c_rules().count_documents({"state": {"$in":
         list(_RULE_STATES_VALID)}}) if _c_rules() is not None else 0
-    active_rules = _c_rules().count_documents({"state": "ACTIVE",
-        "enabled": True}) if _c_rules() is not None else 0
+    active_rules = _c_rules().count_documents({
+        "$and": [
+            {"enabled": True},
+            {"state": {"$in": ["VALIDATED", "ACTIVE"]}},
+        ]
+    }) if _c_rules() is not None else 0
     # Latest version doc — legacy tests read a single "active_version"
     active_version = None
     if _c_versions() is not None:
