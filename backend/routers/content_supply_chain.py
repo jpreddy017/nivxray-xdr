@@ -45,6 +45,7 @@ from detection_content.xdr_pipeline import (
 )
 from detection_content.xdr_investigation import project_investigation
 from detection_content.xdr_response_fabric import orchestrate as response_orchestrate
+from detection_content.xdr_closed_loop   import recompute as closed_loop_recompute
 from detection_content.xdr_action_registry import list_actions, registry_summary
 
 
@@ -532,6 +533,7 @@ async def e2e_snort_golden(user=Depends(require_admin)):
         "incident":  pipeline.get("incident"),
         "investigation": pipeline.get("investigation"),
         "response":      pipeline.get("response"),
+        "closed_loop":   pipeline.get("closed_loop"),
         "honesty_note": (
             "Every EXECUTED stage ran real code; every BLOCKED / NOT_CREATED "
             "stage records the exact reason.  No stage is fabricated."
@@ -570,6 +572,19 @@ async def response_fabric(incident_id: str,
     are runtime, no fabricated SUCCESS.
     """
     return await response_orchestrate(db, incident_id)
+
+
+@router.post("/response/{incident_id}/recompute")
+async def response_recompute(incident_id: str,
+                                    user=Depends(require_admin)):
+    """P0.7.1 · Closed-Loop Recompute.
+
+    Turns every SUCCEEDED action result into a provenance-bearing
+    intelligence observation, then recomputes Investigation Fabric
+    and Recommendations idempotently.  Deterministic — running
+    twice on the same evidence state returns changed=False.
+    """
+    return await closed_loop_recompute(db, incident_id)
 
 
 @router.get("/dsm/registry")

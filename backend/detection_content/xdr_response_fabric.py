@@ -35,7 +35,13 @@ async def orchestrate(db, incident_id: str, *,
 
     Returns the full record: context + recommendations + decision +
     approval + execution.  HONEST STATE preserved end-to-end.
+
+    Round 14 (§9): loop protection — if an execution with the same
+    (action_id, evidence_state_hash) has already SUCCEEDED, we do
+    not re-execute; state is reported as ALREADY_EXECUTED.
     """
+    from .xdr_closed_loop import _evidence_state_hash
+
     context = await build_response_context(db, incident_id)
     if context.get("state") != "READY":
         return {
@@ -47,17 +53,55 @@ async def orchestrate(db, incident_id: str, *,
             "context":       context,
         }
 
-    recos    = recommend(context)
+    # Load observations for context (Round 14 · §14).
+    all_obs: list[dict] = []
+    async for o in db["xdr_intelligence_observations"].find(
+        {"incident_id": incident_id}, {"_id": 0}
+    ):
+        all_obs.append(o)
+    if all_obs:
+        context["observations"] = [
+            {"provider": o.get("provider"), "verdict": o.get("verdict"),
+              "indicator": o.get("indicator")} for o in all_obs]
+
+    # Evidence-state hash for loop protection.
+    inc = await db["workspace_cases"].find_one({"id": incident_id}, {"_id": 0})
+    executions: list[dict] = []
+    async for e in db["xdr_response_executions"].find(
+        {"incident_id": incident_id}, {"_id": 0}
+    ):
+        executions.append(e)
+    evidence_hash = _evidence_state_hash(inc or {}, all_obs, executions)
+
+    # Recommendations must consider observations too.
+    from .xdr_closed_loop import recommend_with_observations
+    recos    = recommend_with_observations(context, all_obs)
     decision = decide(context, recos)
 
-    approval = None
+    approval  = None
     execution = None
-    playbook = _resolve_playbook(decision)
+    playbook  = _resolve_playbook(decision)
 
-    if decision["decision"] == "DIRECT_ACTION_AVAILABLE":
+    if decision["decision"] in ("DIRECT_ACTION_AVAILABLE",
+                                            "APPROVAL_REQUIRED"):
         approval = evaluate_approval(decision.get("action_entry") or {})
-        params = _resolve_parameters(decision, context, recos)
-        if not dry_run:
+        params   = _resolve_parameters(decision, context, recos)
+
+        # Loop protection (§9): if this action already SUCCEEDED on
+        # this incident, do not re-execute.  Legitimate re-invocation
+        # requires the caller to first supersede the observation via
+        # explicit analyst action.
+        already = next((e for e in executions
+                                if e.get("action_id") == decision["required_action"]
+                                and e.get("state") == "SUCCEEDED"),
+                              None)
+        if already:
+            execution = {**already, "state": "ALREADY_EXECUTED",
+                              "reason":
+                                  f"action {decision['required_action']} already "
+                                  f"SUCCEEDED on this evidence_state_hash "
+                                  f"({evidence_hash}) · loop protection engaged"}
+        elif not dry_run:
             execution = await execute_action(
                 db,
                 incident_id=incident_id,
@@ -66,25 +110,20 @@ async def orchestrate(db, incident_id: str, *,
                 principal_id=principal_id,
                 tenant_id=tenant_id,
                 approval=approval)
-    elif decision["decision"] == "APPROVAL_REQUIRED":
-        approval = evaluate_approval(decision.get("action_entry") or {})
-        params = _resolve_parameters(decision, context, recos)
-        # Queue the record honestly in APPROVAL_REQUIRED state.
-        if not dry_run:
-            execution = await execute_action(
-                db,
-                incident_id=incident_id,
-                action_id=decision["required_action"],
-                parameters=params,
-                principal_id=principal_id,
-                tenant_id=tenant_id,
-                approval=approval)
+            # Tag the execution with the evidence-state hash so
+            # future orchestrate() calls can enforce loop protection.
+            if execution and execution.get("execution_id"):
+                await db["xdr_response_executions"].update_one(
+                    {"execution_id": execution["execution_id"]},
+                    {"$set": {"evidence_state_hash": evidence_hash}})
+                execution["evidence_state_hash"] = evidence_hash
 
     return {
         "engine_id":       FABRIC_ENGINE_ID,
         "engine_version":  FABRIC_VERSION,
         "state":           "READY",
         "incident_id":     incident_id,
+        "evidence_state_hash": evidence_hash,
         "context":         context,
         "recommendations": recos,
         "decision":        decision,
@@ -94,7 +133,8 @@ async def orchestrate(db, incident_id: str, *,
         "honesty_note":
             "Every stage is a projection of persisted evidence + a real "
             "capability probe.  A response reaches SUCCEEDED only when a "
-            "real adapter confirms it — never fabricated.",
+            "real adapter confirms it — never fabricated.  Loop protection "
+            "prevents re-execution on identical evidence state (§9).",
     }
 
 

@@ -19,6 +19,7 @@ import { Play, CheckCircle2, XCircle, Circle, AlertTriangle,
 import api from "@/lib/api";
 import InvestigationLanes from "@/xdr/admin/InvestigationLanes";
 import ResponseFabricPanel from "@/xdr/admin/ResponseFabricPanel";
+import ClosedLoopPanel from "@/xdr/admin/ClosedLoopPanel";
 
 
 const STATUS_META = {
@@ -263,6 +264,9 @@ export default function GoldenPipelineTrace({ testid }) {
                                             testid="golden-investigation-lanes" />
               <ResponseFabricPanel incidentId={result.incident.incident_id}
                                               testid="golden-response-fabric" />
+              <ClosedLoopPanel incidentId={result.incident.incident_id}
+                                        initial={result.closed_loop}
+                                        testid="golden-closed-loop" />
             </>
           )}
 

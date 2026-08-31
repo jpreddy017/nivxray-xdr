@@ -88,6 +88,19 @@ def _timeline_lane(incident: dict, canonical: dict | None,
             "summary":       f"ICE match on rule {m.get('rule_name') or m.get('rule_id')}",
         })
 
+    # Round 14 · observations from response actions are timeline
+    # events too (classification = action_derived).
+    for o in (incident.get("_observations") or []):
+        events.append({
+            "at":       o.get("at"),
+            "stage":    "closed_loop",
+            "kind":     "intelligence_observation",
+            "summary":  f"{o.get('provider')} → {o.get('verdict')} "
+                          f"for {o.get('indicator')}",
+            "classification": (o.get("provenance") or {}).get(
+                                            "classification") or "action_derived",
+        })
+
     if incident.get("created_at"):
         events.append({
             "at":       incident.get("created_at"),
@@ -193,6 +206,21 @@ def _evidence_graph_lane(incident: dict, canonical: dict | None,
                             "attrs": {"level": m.get("evidence_level")}})
         edges.append({"from": f"incident:{incident.get('id')}",
                           "to":   mid, "kind": "correlated_by"})
+
+    # Round 14 · action-derived observations become graph nodes
+    # with the ENRICHED / ACTION_DERIVED relation kind (§13).
+    for o in (incident.get("_observations") or []):
+        oid = f"observation:{o.get('id')}"
+        nodes.append({"id": oid, "kind": "intelligence_observation",
+                            "label": f"{o.get('provider')}:{o.get('verdict')}",
+                            "attrs": {"indicator": o.get("indicator"),
+                                            "action_id":  o.get("action_id"),
+                                            "classification":
+                                                (o.get("provenance") or {})
+                                                .get("classification")
+                                                    or "action_derived"}})
+        edges.append({"from": f"incident:{incident.get('id')}",
+                          "to":   oid, "kind": "enriched_by"})
 
     if len(nodes) == 1:
         return {"state": "MINIMAL", "nodes": nodes, "edges": [],
@@ -303,6 +331,14 @@ async def project_investigation(db, incident_id: str) -> dict:
             {"match_id": {"$in": ice_ids}}, {"_id": 0}
         ):
             ice_matches.append(m)
+
+    # Round 14 · pull action-derived observations for this incident.
+    observations: list[dict] = []
+    async for o in db["xdr_intelligence_observations"].find(
+        {"incident_id": incident_id}, {"_id": 0}
+    ):
+        observations.append(o)
+    inc["_observations"] = observations
 
     lanes = {
         LANE_TIMELINE:          _timeline_lane(inc, canonical, ice_matches),

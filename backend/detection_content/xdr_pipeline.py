@@ -21,6 +21,7 @@ from .xdr_veee import compute_verdict as veee_compute
 from .xdr_incident import materialise_incident
 from .xdr_investigation import project_investigation
 from .xdr_response_fabric import orchestrate as response_orchestrate
+from .xdr_closed_loop import recompute as closed_loop_recompute
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -292,6 +293,7 @@ async def process_event_through_pipeline(db, raw_event: dict,
     # existing evidence + provenance (§37: no second engine).
     investigation = None
     response = None
+    loop = None
     if incident.get("created"):
         investigation = await project_investigation(
             db, incident["incident_id"])
@@ -312,6 +314,18 @@ async def process_event_through_pipeline(db, raw_event: dict,
                 execution_state=(execution or {}).get("state"),
                 engine_id=response.get("engine_id"),
                 recommendations=len(response.get("recommendations") or []))
+
+        # Closed-Loop Recompute — Round 14 · P0.7.1 · Action result
+        # becomes provenance-bearing observation, Investigation and
+        # Recommendations recompute idempotently.
+        loop = await closed_loop_recompute(db, incident["incident_id"])
+        _s("closed_loop", "EXECUTED",
+                engine_id=loop.get("engine_id"),
+                changed=loop.get("changed"),
+                new_observations=loop.get("new_observations"),
+                created_recos=len((loop.get("recommendations") or {}).get("created") or []),
+                superseded_recos=len((loop.get("recommendations") or {}).get("superseded") or []),
+                decision=loop.get("decision"))
     else:
         _s("investigation", "NOT_CREATED",
                 reason="upstream incident not created — no synthetic "
@@ -319,6 +333,9 @@ async def process_event_through_pipeline(db, raw_event: dict,
         _s("response", "NOT_CREATED",
                 reason="upstream incident not created — response fabric "
                         "requires a materialised incident (§37)")
+        _s("closed_loop", "NOT_CREATED",
+                reason="upstream incident not created — closed-loop "
+                        "recompute requires materialised evidence")
 
     blocker = None if incident.get("created") else "incident_gate"
     return {"stages":         stages,
@@ -330,4 +347,5 @@ async def process_event_through_pipeline(db, raw_event: dict,
             "verdict":        verdict,
             "incident":       incident,
             "investigation":  investigation,
-            "response":       response}
+            "response":       response,
+            "closed_loop":    loop if incident.get("created") else None}

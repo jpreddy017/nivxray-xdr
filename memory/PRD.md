@@ -3,6 +3,61 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 14 · P0.7.1 Closed-Loop Evidence Recompute — SHIPPED
+
+Pipeline is now truly **closed-loop**: 15 / 15 stages EXECUTED.
+
+**New stage — `closed_loop`:**
+Every SUCCEEDED action result becomes a provenance-bearing intelligence
+observation, the Investigation Fabric recomputes idempotently, and
+Recommendations + Decision are re-evaluated.
+
+**Owner-locked contracts honored:**
+- §1 · reuse existing SSOTs (`workspace_cases`, `xdr_response_executions`, `xdr_response_timeline`, `xdr_audit_log`); no parallel engine or audit stream
+- §3 · action results are `intelligence_observation` (classification=`action_derived`); **never** promoted to canonical customer evidence
+- §4 · recompute is idempotent — stable observation IDs (`hash(execution+indicator+provider)`), upsert-based, second run reports `changed=False`
+- §5–6 · Recommendations are **evidence-derived**, not template-driven; observation corroboration (≥2 malicious providers) escalates guidance to IP_BLOCK
+- §7 · Recommendation lifecycle preserved — `xdr_recommendations` collection records ACTIVE → SUPERSEDED transitions
+- §9 · Loop protection — same (action_id, incident_id, SUCCEEDED) → `ALREADY_EXECUTED`; verified by 42-test regression
+- §13 · Graph edges distinguish `enriched_by` (action-derived) from `derived_from` (canonical evidence) and `correlated_by` (ICE)
+- §16 · VEEE score is not forced to move — recompute stays honest if evidence doesn't justify a change
+- §24 · FAILED / NOT_CONFIGURED actions never produce observations
+
+**Backend files:**
+- `+ detection_content/xdr_closed_loop.py` — Observation Adapter + Recompute Orchestrator + observation-aware recommender + evidence_state_hash
+- `~ detection_content/xdr_response_fabric.py` — evidence_state_hash resolution + loop protection + observation-aware context
+- `~ detection_content/xdr_investigation.py` — Timeline + Evidence Graph consume observations (`enriched_by` edges)
+- `~ detection_content/xdr_pipeline.py` — new `closed_loop` stage post-response
+- `~ routers/content_supply_chain.py` — `POST /response/{id}/recompute` endpoint
+
+**UI:**
+- `+ apps/nivxray-xdr/src/xdr/admin/ClosedLoopPanel.jsx` — KPIs (changed / observations / decision) + 3-column ACTIVE / CREATED / SUPERSEDED recommendation grid + on-demand Recompute button
+- Auto-mounts under GoldenPipelineTrace after Response Fabric.
+
+**Tests — 42 / 42 pass (Rounds 8–14):**
+- `tests/test_xdr_round14_closed_loop.py` · 10 new
+  - observation creation from SUCCEEDED
+  - idempotent second recompute (no duplicates)
+  - recommendation history persistence
+  - loop protection (only 1 SUCCEEDED per incident/action)
+  - full provenance chain (incident → exec → observation)
+  - observation-aware IP_BLOCK escalation on 2 malicious providers
+  - evidence_state_hash determinism
+  - timeline recomputation event emission
+  - Investigation Fabric graph renders `intelligence_observation`
+  - FAILED action produces zero observations
+
+**Golden E2E result:**
+```
+executed: 15 / 15 · verdict: COMPLETE · blocker: None
+closed_loop.state: READY · changed: True
+new_observations: 1 · active recos: 5 · superseded: 0
+decision: DIRECT_ACTION_AVAILABLE (recomputed from observation-enriched context)
+```
+
+---
+
+
 ## ✅ 2026-02-14 · Round 13 · P0.7 Response Fabric + OSINT Integration — SHIPPED
 
 The Golden E2E pipeline now **executes 14 / 14 stages · verdict: COMPLETE** with
