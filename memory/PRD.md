@@ -5,6 +5,102 @@
 
 ---
 
+---
+
+## 🔒 2026-02-31 · SUPERSEDING ARCHITECTURE — NivXRay Analyst Operations
+
+**Locked by owner directive on 2026-02-31.**  The previous
+`B → E → C → A → F → D` queue is **superseded** by a new pillar:
+**NivXRay Analyst Operations** — the operational nervous system around
+the existing NivXRay investigation brain.
+
+### Non-negotiable principles
+
+1. Analyst Operations is a NEW pillar that **orchestrates and presents**
+   the existing engine fabric.  It **does not** re-implement any engine.
+2. Engines that remain first-class reusable services (never removed,
+   never simplified, never replaced by LLM output):
+   * **Investigation** — IDA · IUE · UAIE · VEEE · DIE · ICE
+   * **Decoding / Command** — IEDDE · UIL · Interpreter Identifier ·
+     Recipe Planner · Recursive Child Pipeline
+   * **Artifact / Malware** — Artifact Intelligence · PE Analyzer ·
+     Behavioral · Attack Fingerprint · Technique Detector · IOC
+     Intelligence
+   * **Governance** — CEM · Confidence & Provenance · SSOT
+   * **Knowledge** — KB · MITRE · LOLBAS · Sigma · Threat Intelligence ·
+     OSINT · Evidence-Driven Mitigation · SOC-100
+3. Retirement of an analyst-facing panel is **not** removal of the
+   underlying engine (IUE/UAIE/VEEE remain intact).
+4. Anti-fabrication invariants preserved on every layer:
+   * Scenario knowledge ≠ Incident evidence ≠ Detection ≠ Verdict
+   * Recommendation ≠ Executed action
+   * System-generated ≠ Analyst-authored
+   * Missing engine result is honest, not fabricated
+
+### Locked phase order (replaces B → E → C → A → F → D)
+
+| Phase | Deliverable |
+|-------|-------------|
+| **0** | Architecture Audit (`/app/memory/ANALYST_OPERATIONS_ARCHITECTURE.md`) — **DONE** |
+| **1** | Operations Dashboard (routed) with real lens tiles: Critical · High Priority · High Fidelity · Unassigned · In Progress (mine) · Customer Response · On Hold · Aging · Recently Created · Recently Updated |
+| **2** | Incident Queues — operational lenses + filters (state / severity / priority / customer / assignee / detection source / technique / verdict / created / updated) |
+| **3** | Incident Record + Lifecycle + Ownership (`new / triaged / investigating / containment / eradication / recovery / resolved / closed / canceled` + side-states `on-hold / waiting-customer / waiting-evidence / waiting-vendor`) |
+| **4** | Auto-Investigation Orchestration — wires IDA→IUE→UAIE→DIE→VEEE→ICE→Verdict + Process Genealogy (was Task E) + Correlation into a per-incident engine-execution ledger; emits canonical OBSERVATION rows into `xdr_observations` |
+| **5** | Executive Summary · Technical Summary · Supporting Evidence · Recommendations (evidence-referenced, generated ↔ analyst-annotated) |
+| **6** | Enrichment (IP / Domain / URL / Hash / File / Process / User / Host / Certificate) + Telemetry navigation + OSINT + TI |
+| **7** | Activity · Notes · Related Records · Attachments |
+| **8** | Response integration (isolate / quarantine / block / disable / collect / terminate / net-contain) with immutable execution telemetry |
+| **9** | Closure + Closure Readiness (Root Cause / Cause Category / Threat Stage / Responsible Party / Resolution / Customer Confirmation / Closure Evidence) |
+| **10** | Final evidence-backed Report |
+
+### Task B status
+
+* **B · SOC-100 Scenario Intelligence — DONE (2026-02-30).**
+  * `soc100_scenarios.json` = 100/100 scenarios with full playbook
+    schema (`investigation_objective`, 13-step `investigation_steps`,
+    `decision_evidence.{malicious,benign,contained}`, `containment`,
+    `escalation`, `closure`, `detection_improvement`, `pivots`,
+    `attack_techniques`, `source_page`).
+  * 68 unique ATT&CK techniques, categories aligned with PDF section
+    boundaries: phishing 12 · malware 12 · credential 12 · vpn 8 ·
+    dns 8 · powershell 10 · ransomware 12 · cloud 10 · insider 8 ·
+    web 8.
+  * Router `routers/xdr_scenarios.py` returns extended playbook fields
+    on match (`investigation_objective`, `investigation_steps`,
+    `decision_evidence`, `containment`, `escalation`, `closure`,
+    `detection_improvement`).  Deterministic ordering:
+    `sort by (-match_score, scenario_number)`.
+  * Pytest `tests/test_xdr_scenarios.py` — **24 tests green** covering:
+    corpus load, exactly-100, sequential 1..100, unique IDs, required
+    fields, valid categories, well-formed ATT&CK ids, ≥1 technique
+    per scenario, full playbook schema, deterministic match / score /
+    ranking / pivots, PowerShell-technique match, missing-incident
+    404, ranking-by-score, empty-incident zero matches, empty-incident
+    zero observed telemetry, no verdict-shaped keys leaked, no
+    incident evidence mutation, no observation writes to any
+    canonical collection, missing-techniques never labelled observed,
+    invariant string surfaced.
+  * All anti-fabrication invariants enforced.
+
+### Task E (was P0) — now folded into **Phase 4**
+
+The server-side Process Genealogy engine that was Task E is now the
+mandatory deliverable of **Phase 4 · Auto-Investigation Orchestration**.
+It will emit canonical OBSERVATION rows into `xdr_observations` and
+feed the correlation engine — same requirement, correct architectural
+home.
+
+### Reference documents
+
+* `/app/memory/ANALYST_OPERATIONS_ARCHITECTURE.md` — full engine
+  inventory, API contract map, ENGINE → INPUT → OUTPUT → CONSUMER
+  diagram, frontend surface map, gap analysis, locked phase order.
+* `/app/backend/data/soc100_scenarios.json` — 100/100 SOC scenarios.
+* `/app/backend/tests/test_xdr_scenarios.py` — anti-fabrication +
+  determinism regression suite (24 tests).
+
+
+
 ## ✅ 2026-02-30 · B (SOC-100 shell) + Report tab shell + Q1·C adopter cleanup — SHIPPED
 
 * **B · SOC-100 Scenario Intelligence** — 20/100 scenarios in the
