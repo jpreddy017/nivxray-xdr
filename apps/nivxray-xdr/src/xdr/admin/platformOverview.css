@@ -188,8 +188,8 @@
 
 .platform-overview .po-ioc {
   display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 20px;
+  grid-template-columns: 170px 1fr;
+  gap: 18px;
   align-items: center;
 }
 .platform-overview .po-ioc-chart { display: flex; justify-content: center; }
@@ -212,18 +212,22 @@
   list-style: none; margin: 0; padding: 0;
   display: flex; flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 .platform-overview .po-ioc-legend li {
-  display: grid;
-  grid-template-columns: 12px 80px 1fr auto;
-  align-items: center;
-  gap: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   font-family: var(--sans);
   font-size: 12px;
   color: var(--nx-text);
+  white-space: nowrap;
+  min-width: 0;
 }
 .platform-overview .po-ioc-dot {
-  width: 10px; height: 10px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
+  flex: 0 0 8px;
+  transform: translateY(-1px);
 }
 .platform-overview .po-ioc-dot-purple { background: #6D4EE0; }
 .platform-overview .po-ioc-dot-blue   { background: #2563EB; }
@@ -233,18 +237,22 @@
 .platform-overview .po-ioc-legend-label {
   color: var(--nx-text-dim);
   font-weight: 500;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .platform-overview .po-ioc-legend-value {
   font-family: var(--mono);
   font-weight: 700;
   color: var(--nx-text);
-  text-align: right;
+  flex: 0 0 auto;
 }
 .platform-overview .po-ioc-legend-pct {
   font-family: var(--mono);
   color: var(--nx-muted);
   font-size: 11px;
-  margin-left: 4px;
+  flex: 0 0 auto;
 }
 
 /* ── Operations trend ──────────────────────────────────────────── */
@@ -299,24 +307,27 @@
   border-collapse: collapse;
   font-family: var(--sans);
   font-size: 12.5px;
+  table-layout: auto;
 }
 .platform-overview .po-table th {
   text-align: left;
-  padding: 8px 10px;
+  padding: 8px 8px;
   font-family: var(--sans);
   font-size: 10px; font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--nx-muted);
   border-bottom: 1px solid var(--nx-bd-quiet);
+  white-space: nowrap;
 }
 .platform-overview .po-table th.num { text-align: right; }
-.platform-overview .po-table th.bar-col { width: 30%; }
+.platform-overview .po-table th.bar-col { width: 26%; min-width: 90px; }
 .platform-overview .po-table td {
-  padding: 10px;
+  padding: 10px 8px;
   border-bottom: 1px solid var(--nx-bd-quiet);
   color: var(--nx-text);
   vertical-align: middle;
+  white-space: nowrap;
 }
 .platform-overview .po-table tr:last-child td { border-bottom: none; }
 .platform-overview .po-table td.num {
@@ -328,6 +339,10 @@
   font-family: var(--mono);
   color: var(--nx-text-dim);
   font-size: 11.5px;
+}
+.platform-overview .po-table td:first-child {
+  white-space: normal;
+  min-width: 0;
 }
 
 /* Inline distribution bars inside the detection table */
