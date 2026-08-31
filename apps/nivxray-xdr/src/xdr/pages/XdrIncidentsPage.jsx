@@ -441,7 +441,7 @@ export default function XdrIncidentsPage() {
         <NxHeroHeader
           eyebrow="ANALYST OPERATIONS"
           title="Incidents"
-          description="Investigation-aware queue · projection of canonical evidence · never runs an engine · missing data stays honest."
+          description="Prioritize the incidents that need analyst attention right now."
           metrics={[
             { label: "All", value: (rows || []).length, tone: "neutral" },
             { label: "Selected", value: selected.size || null, tone: "purple" },
@@ -457,7 +457,7 @@ export default function XdrIncidentsPage() {
               MSS Dashboard
             </button>
           )}
-          provenance={<span>workspace_cases.live</span>}
+          provenance={null}
         />
 
         {/* Priority strip */}
@@ -600,12 +600,6 @@ export default function XdrIncidentsPage() {
           onSort={onSort}
           loading={loading}
         />
-
-        {invariant && (
-          <div className="ql-invariant" data-testid="xdr-incidents-invariant">
-            {invariant}
-          </div>
-        )}
 
         {/* Preview drawer */}
         <IncidentPreviewDrawer

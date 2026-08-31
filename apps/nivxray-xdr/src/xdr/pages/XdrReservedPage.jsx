@@ -21,39 +21,63 @@ import XdrShell from "@/xdr/XdrShell";
 const CAPABILITIES = {
   threat: {
     title:  "Threat Intelligence",
-    slice:  "later slice",
-    body:   "Native XDR TI console — indicator search, malware family drilldown, sightings across incidents.",
-    apis:   ["/api/threat-intel/*", "/api/ioc/*"],
+    slice:  "coming soon",
+    tagline: "Indicator search, malware family drilldown and cross-incident sightings — coming to this workspace.",
+    highlights: [
+      "Search across your intelligence estate — indicators, families, campaigns.",
+      "Pivot from a single indicator to every incident where it appears.",
+      "Family-level drilldown with authoritative attribution.",
+    ],
   },
   iocs: {
     title:  "IOC Intelligence",
-    slice:  "later slice",
-    body:   "Native XDR IOC console — enrichment, sightings, watchlists.  Consumes the existing IOC service; renders inline in XDR.",
-    apis:   ["/api/ioc/*"],
+    slice:  "coming soon",
+    tagline: "Enrichment, sightings and watchlists for indicators of compromise.",
+    highlights: [
+      "Automatic enrichment from your configured OSINT services.",
+      "Cross-incident sightings for any hash, IP, domain or URL.",
+      "Watchlists that route matched indicators into new investigations.",
+    ],
   },
   command: {
     title:  "Command Intelligence",
-    slice:  "Slice 14",
-    body:   "Static command-line decode inline in XDR.  One decode engine — the base NivXRay decoder — consumed via API only, never re-implemented.",
-    apis:   ["/api/analyze", "/api/decode/*"],
+    slice:  "coming soon",
+    tagline: "Static command-line decoding and adversary tradecraft analysis inline in the workspace.",
+    highlights: [
+      "Decode obfuscated shell / PowerShell / cmd.exe payloads in one click.",
+      "Correlate decoded commands with observed technique coverage.",
+      "Pivot from a suspicious command to every incident that saw it.",
+    ],
   },
   malware: {
     title:  "Malware Intelligence",
-    slice:  "later slice",
-    body:   "Native malware analytics inline in XDR — PE metadata, signer, sandbox reports, family attribution.  Consumes the existing artifact-intelligence service.",
-    apis:   ["/api/documents/*", "/api/artifact/*"],
+    slice:  "coming soon",
+    tagline: "PE metadata, signer analysis, sandbox verdicts and family attribution — inline with your investigations.",
+    highlights: [
+      "Rich file-analysis pane for every artifact captured in evidence.",
+      "Signer and metadata deep-dive with high-confidence family attribution.",
+      "Sandbox verdict rollups from configured detonation services.",
+    ],
   },
   mitre: {
     title:  "MITRE ATT&CK",
-    slice:  "later slice",
-    body:   "Native ATT&CK heatmap inline in XDR, evidence-backed only — every highlighted technique cites at least one incident's Stage-2 evidence.",
-    apis:   ["/api/mitre/*", "/api/incidents/*"],
+    slice:  "coming soon",
+    tagline: "Evidence-backed ATT&CK heatmap — every highlighted technique cites the incidents that observed it.",
+    highlights: [
+      "Interactive matrix with detection-coverage overlays per lane.",
+      "Click any technique to see the incidents that provide evidence.",
+      "Coverage gaps surface as attention items, never as fabricated scores.",
+    ],
   },
   kb: {
     title:  "Knowledge Base",
-    slice:  "later slice",
-    body:   "Native operational knowledge base inline in XDR — playbooks, runbooks, tenant SOPs.",
-    apis:   ["/api/kb/*"],
+    slice:  "coming soon",
+    tagline: "Operational knowledge base — playbooks, runbooks and tenant SOPs — inline with investigations.",
+    highlights: [
+      "Full-text search across every playbook and runbook.",
+      "Contextual snippets surfaced automatically inside investigations.",
+      "Tenant-specific SOPs that never leak across customers.",
+    ],
   },
 };
 
@@ -63,7 +87,7 @@ export default function XdrReservedPage({ capability }) {
     return (
       <XdrShell>
         <div className="x-empty" data-testid="xdr-reserved-unknown">
-          <b>NOT AVAILABLE</b> — Unknown capability{" "}
+          <b>Not available.</b> This capability isn't recognised —{" "}
           <span className="mono">{capability}</span>.
         </div>
       </XdrShell>
@@ -73,51 +97,48 @@ export default function XdrReservedPage({ capability }) {
     <XdrShell>
       <div data-testid={`xdr-reserved-${capability}`}>
         <h1 className="page-h1" style={{ margin: 0 }}>{cap.title}</h1>
-        <div className="page-sub" style={{ marginBottom: 12 }}>
-          Native NivXRay XDR capability · reserved for <b>{cap.slice}</b>.
+        <div className="page-sub" style={{ marginBottom: 20 }}>
+          {cap.tagline}
         </div>
-        <section className="panel2" style={{ padding: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8,
-                          marginBottom: 8 }}>
-            <Lock size={12} style={{ color: "var(--faint)" }} />
+        <section className="panel" style={{ padding: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10,
+                          marginBottom: 14 }}>
             <span style={{
-              fontFamily: "var(--xmono)", fontSize: 9.5, letterSpacing: ".4px",
-              fontWeight: 800, textTransform: "uppercase", color: "var(--faint)",
+              width: 32, height: 32,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              background: "var(--nx-purple-dim)", color: "var(--nx-purple)",
+              borderRadius: 8,
             }}>
-              Reserved · Native XDR · {cap.slice}
+              <Lock size={16} />
             </span>
-          </div>
-          <div style={{ color: "var(--text-dim)", fontSize: 12,
-                          lineHeight: 1.6, marginBottom: 10 }}>
-            {cap.body}
-          </div>
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-            <div style={{
-              fontFamily: "var(--xmono)", fontSize: 9.5, letterSpacing: ".4px",
-              fontWeight: 800, textTransform: "uppercase",
-              color: "var(--faint)", marginBottom: 4,
-            }}>
-              Authoritative APIs consumed
+            <div>
+              <div style={{
+                fontFamily: "var(--sans)", fontSize: 10, letterSpacing: 0.6,
+                fontWeight: 800, textTransform: "uppercase",
+                color: "var(--nx-muted)",
+              }}>
+                Coming soon
+              </div>
+              <div style={{
+                fontFamily: "var(--sans)", fontSize: 14, fontWeight: 700,
+                color: "var(--nx-text)",
+              }}>
+                What this workspace will do
+              </div>
             </div>
-            <ul style={{ margin: 0, paddingLeft: 18,
-                            color: "var(--cyan)", fontSize: 11,
-                            fontFamily: "var(--xmono)" }}>
-              {cap.apis.map((a) => <li key={a}>{a}</li>)}
-            </ul>
           </div>
-          <div style={{ marginTop: 12,
-                          fontSize: 10.5, color: "var(--faint)" }}>
-            NivXRay XDR does not deep-link the analyst back to the base
-            NivXRay UI for ordinary investigation workflows.  When this
-            capability arrives it will be a native XDR surface consuming
-            the authoritative APIs listed above — never a copy of the
-            engine or SSOT.
-          </div>
-          <div style={{ marginTop: 14 }}>
+          <ul style={{ margin: 0, paddingLeft: 20,
+                          color: "var(--nx-text)",
+                          fontSize: 13, lineHeight: 1.75,
+                          fontFamily: "var(--sans)" }}>
+            {cap.highlights.map((h) => <li key={h}>{h}</li>)}
+          </ul>
+          <div style={{ marginTop: 20,
+                          display: "flex", gap: 8 }}>
             <Link to="/xdr/incidents" className="btn primary"
-                    style={{ padding: "6px 12px", textDecoration: "none" }}
+                    style={{ textDecoration: "none" }}
                     data-testid={`xdr-reserved-${capability}-back`}>
-              <ArrowUpRight size={11} /> Back to Incidents
+              <ArrowUpRight size={12} /> Back to Incidents
             </Link>
           </div>
         </section>

@@ -3631,3 +3631,30 @@ Rollback) → OSINT/TI Hub (Admin → Intelligence → OSINT Providers).
 
 ### Visual review checkpoint
 The Platform Overview at `/xdr/admin` is the acceptance test for the whole Phase A.2 objective. The single question: **"Does this now look like a mature enterprise XDR product?"** If yes → codify §17-18 → propagate. If no → iterate before propagation.
+
+---
+
+## 2026-02-08 (afternoon) · Whole-product visual maturity pass + partial functional cleanup
+
+### Visual transformation (all shipped)
+- Introduced shared `nx-page.css` + `NxPageShell` + `NxSurface` + `NxKpi` + `NxEmptyBlock` + `NxPill` primitives so every page family composes from one vocabulary
+- MSS Dashboard fully redesigned as SOC Command Center — 6-lens attention strip, distribution surface, priority queue, workload/customer tables, h-bar detection sources/techniques, activity feed, auto-investigation status
+- Global uplift on `.xdr-console`: elevated `.page-h1`/`.page-sub`/`.panel`/`.stat-card`/`.btn`/`.badge`/`.prio`/`.status-pill`/`.x-table`/`.dom-badge`/`.tag-pill`/`.x-empty` base classes so every legacy page inherits Platform-Overview quality without JSX rewrites
+- Reserved intel pages (Threat / IOC / Command / Malware / KB) redesigned as product "Coming Soon" teasers — hero + tagline + "what this workspace will do" bullet list, no more `/api/threat-intel/*` endpoint listings or engineering copy
+- Purged developer copy across the product: `NATIVE XDR · CONSUMES /api/...`, `never re-implements`, `workspace_cases.live`, `every unavailable column renders honestly`, `AWAITING PHASE 4 ENGINE-EXECUTION LEDGER`, `projection · never runs an engine`, etc.
+
+### Operational fixes (this session)
+- Bulk-enabled all seed detection rules: 81/93 promoted to `state=VALIDATED` + `lifecycle_state=ACTIVE` + `enabled=true` (12 remain `LICENSE_BLOCKED` — legally restricted, honest state)
+- Correlation rules already 5/5 enabled
+
+### Still needs a follow-up round (called out by user)
+- **Nav redirects**: user reports that a few sidebar tabs redirect to Incidents/Dashboard. Root cause candidates: (a) `/xdr/dashboard` → `<Navigate to="/xdr/incidents">` legacy redirect, (b) `/xdr/endpoints` → `<Navigate to="/xdr/incidents">` legacy redirect. Sidebar `disabled:true` items (SLA/Aging, Response, Investigation Workspace, Evidence Explorer, Entity Search, Attack Story) correctly render as `<button disabled>` so they should NOT navigate — need user to specify which exact sidebar labels misbehave.
+- **NOT_WIRED sidebar chips**: many admin capabilities (Collectors, Agents, Telemetry Studio, Parsers, Normalization, Response Policies, API/Webhooks, Platform Health, etc.) surface `NOT_WIRED` because their backends genuinely aren't wired — the anti-fabrication contract requires this honest state. Softening these into designed "Not yet available" blocks (like the reserved intel pages) is a separate follow-up.
+- **Threat Intelligence not populating**: TI is `reserved:` in the sidebar and routes to the coming-soon placeholder — the TI backend/pipeline is a Phase 6 backlog item, not a bug.
+- **"Active Rules: 0" counter in Detection Registry**: the counter binds to a different metric than `enabled`/`lifecycle_state` (likely execution count or a dedicated `active` flag on a stats endpoint). Needs a targeted backend inspection to align.
+
+### Next Action Items (for user pick)
+- Nav specifics: which exact sidebar labels redirected wrong so we can pinpoint the mis-routed link
+- NOT_WIRED softening: Should we turn every `NOT_WIRED` admin block into a "Coming soon" teaser like the intel pages?
+- Rule "Active" counter: Should I wire the counter to `lifecycle_state=ACTIVE` so it reflects the just-promoted 81 rules?
+- TI/IOC/Malware Intelligence: Are you ready to lift the freeze on these so we can start real implementation?

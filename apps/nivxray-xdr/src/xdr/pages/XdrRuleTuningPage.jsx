@@ -184,10 +184,9 @@ export default function XdrRuleTuningPage() {
             <MetricCard label="Regression Gate" testid="metric-gate"
                               value={_honest(gate?.status || gate?.state)} />
           </div>
-          <div style={{ marginTop: 6, fontSize: 10.5, color: "var(--faint)",
-                            fontFamily: "var(--mono)" }}>
-            source: /api/regression/latest + /api/corrections/analytics + /api/regression/gate ·
-            deterministic · never fabricated.
+          <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted)",
+                            fontFamily: "var(--sans)" }}>
+            Regression, corrections and quality gate — refreshed on each build.
           </div>
         </section>
 

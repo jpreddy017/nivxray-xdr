@@ -80,33 +80,27 @@ export default function XdrDocsPage() {
       <div data-testid="xdr-docs-page">
         <div style={{ display: "flex", alignItems: "center", gap: 10,
                                 marginBottom: 6 }}>
-          <FileText size={16} style={{ color: "var(--cyan)" }} />
+          <FileText size={16} style={{ color: "var(--nx-purple)" }} />
           <h1 className="page-h1" style={{ margin: 0 }}>Documentation</h1>
-          <span style={{ padding: "1px 6px", border: "1px solid var(--cyan)",
-                                  color: "var(--cyan)", borderRadius: 2, fontSize: 9.5,
-                                  fontFamily: "var(--mono)", fontWeight: 700 }}>
-            NATIVE XDR · CONSUMES /api/docs
-          </span>
           <span style={{ flex: 1 }} />
           <a href={`${(import.meta.env.VITE_XDR_API || "")}/docs`}
                 target="_blank" rel="noreferrer"
-                className="btn ghost" style={{ padding: "3px 10px", fontSize: 11,
+                className="btn ghost" style={{ padding: "6px 12px", fontSize: 12,
                                                               textDecoration: "none" }}
                 data-testid="xdr-docs-openapi-link">
-            <BookOpen size={11} /> OpenAPI Explorer
+            <BookOpen size={12} /> OpenAPI Explorer
           </a>
           <button className="btn ghost" disabled={busy}
                         onClick={() => setRefresh((n) => n + 1)}
                         data-testid="xdr-docs-refresh"
-                        style={{ padding: "3px 10px", fontSize: 11,
+                        style={{ padding: "6px 12px", fontSize: 12,
                                         opacity: busy ? 0.5 : 1 }}>
-            <RefreshCcw size={11} /> {busy ? "Loading…" : "Refresh"}
+            <RefreshCcw size={12} /> {busy ? "Loading…" : "Refresh"}
           </button>
         </div>
-        <div className="page-sub" style={{ marginBottom: 14 }}>
-          Product documentation — features, workflows, RAG-indexed
-          articles.  Reads from the authoritative NivXRay docs service;
-          XDR never re-implements the engine.
+        <div className="page-sub" style={{ marginBottom: 20 }}>
+          Product documentation — features, workflows and searchable
+          knowledge articles for the platform.
         </div>
 
         <div style={statsGrid}>

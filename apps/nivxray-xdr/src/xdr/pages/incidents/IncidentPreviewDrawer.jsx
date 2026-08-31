@@ -237,9 +237,9 @@ export default function IncidentPreviewDrawer({
         </div>
 
         <div className="ql-drawer-foot">
-          <span style={{ fontFamily: "var(--qs-mono)", fontSize: 10.5,
+          <span style={{ fontFamily: "var(--qs-sans)", fontSize: 11,
                           color: "#78808F" }}>
-            projection · never runs an engine
+            Preview · updated live
           </span>
           <button
             type="button"

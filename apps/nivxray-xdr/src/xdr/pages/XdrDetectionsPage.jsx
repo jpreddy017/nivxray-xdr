@@ -173,10 +173,9 @@ export default function XdrDetectionsPage() {
           <div className="section-title" style={{ marginBottom: 6 }}>
             Detection Coverage
           </div>
-          <div style={{ fontSize: 10.5, color: "var(--faint)", marginBottom: 8 }}>
-            Coverage is a projection of the rule catalog only — it exposes
-            gaps rather than pretty percentages.  Zero means you have
-            no detection for that lane; that IS the signal.
+          <div style={{ fontSize: 11.5, color: "var(--muted)", marginBottom: 10 }}>
+            Where your detection catalog covers the MITRE matrix. Zero
+            in a lane means no detection exists for it yet.
           </div>
           <div style={{ display: "grid",
                             gridTemplateColumns: "1fr 1fr", gap: 12 }}>

@@ -70,26 +70,20 @@ export default function XdrKbPage() {
       <div data-testid="xdr-kb-page">
         <div style={{ display: "flex", alignItems: "center", gap: 10,
                                 marginBottom: 6 }}>
-          <BookOpen size={16} style={{ color: "var(--cyan)" }} />
+          <BookOpen size={16} style={{ color: "var(--nx-purple)" }} />
           <h1 className="page-h1" style={{ margin: 0 }}>Knowledge Base</h1>
-          <span style={{ padding: "1px 6px", border: "1px solid var(--cyan)",
-                                  color: "var(--cyan)", borderRadius: 2, fontSize: 9.5,
-                                  fontFamily: "var(--mono)", fontWeight: 700 }}>
-            NATIVE XDR · CONSUMES /api/kb
-          </span>
           <span style={{ flex: 1 }} />
           <button className="btn ghost" disabled={busy}
                         onClick={() => setRefresh((n) => n + 1)}
                         data-testid="xdr-kb-refresh"
-                        style={{ padding: "3px 10px", fontSize: 11,
+                        style={{ padding: "6px 12px", fontSize: 12,
                                         opacity: busy ? 0.5 : 1 }}>
-            <RefreshCcw size={11} /> {busy ? "Loading…" : "Refresh"}
+            <RefreshCcw size={12} /> {busy ? "Loading…" : "Refresh"}
           </button>
         </div>
-        <div className="page-sub" style={{ marginBottom: 14 }}>
-          Operational knowledge base — playbooks, runbooks, SOPs.  Reads
-          from the authoritative NivXRay KB service; XDR never
-          re-implements the engine.
+        <div className="page-sub" style={{ marginBottom: 20 }}>
+          Operational knowledge base — playbooks, runbooks and standard
+          operating procedures for the SOC.
         </div>
 
         {/* Stats */}

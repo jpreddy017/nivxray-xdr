@@ -263,7 +263,7 @@ function RecommendationRow({ rec }) {
                 data-testid={`xdr-rec-explain-${rec.action}`}>
           <div className="mono" style={{ marginBottom: 2,
                                                         color: "var(--text-dim)" }}>
-            source: {rec.source}
+            Source · {rec.source}
           </div>
           {rec.supporting.length > 0 && (
             <div style={{ marginBottom: 2 }}>

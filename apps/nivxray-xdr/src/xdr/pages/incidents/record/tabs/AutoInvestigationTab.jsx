@@ -93,9 +93,9 @@ export default function AutoInvestigationTab({ incident }) {
         <div className="rl-section-title">Engine executions · provenance</div>
         {(ai?.executions || []).length === 0
           ? <div className="rl-empty">
-              NOT_RUN — per-engine execution provenance arrives with
-              Phase 4 (<code>xdr_observations</code> + <code>engine_executions</code>).
-              <span className="kbd">queue is a projection · never runs an engine</span>
+              Auto-investigation has not run for this incident yet.
+              Per-engine execution history and timings will appear here
+              once the investigation is initiated.
             </div>
           : <table className="rl-table">
               <thead><tr>

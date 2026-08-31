@@ -170,7 +170,7 @@ export default function QueueTable({
       <div className="ql-empty" data-testid="ql-table-empty">
         {emptyMessage}
         <span className="kbd">
-          queue == projection · never runs an engine · never fabricates a value
+          Queue is empty for the current filter. Adjust filters or search to see more incidents.
         </span>
       </div>
     );
