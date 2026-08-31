@@ -74,6 +74,7 @@ from routers.ai import router as ai_router
 from routers.reports import router as reports_router
 from routers.admin import router as admin_router
 from routers.admin_aggregations import router as admin_aggregations_router
+from routers.content_supply_chain import router as content_supply_chain_router
 from routers.telemetry import router as telemetry_router
 from routers.threat_intel import router as threat_intel_router, _ensure_iocs_indexes
 from routers.history import router as history_router
@@ -210,6 +211,7 @@ api.include_router(ai_router)
 api.include_router(reports_router)
 api.include_router(admin_router)
 api.include_router(admin_aggregations_router)
+api.include_router(content_supply_chain_router)
 api.include_router(telemetry_router)
 api.include_router(threat_intel_router)
 api.include_router(history_router)
