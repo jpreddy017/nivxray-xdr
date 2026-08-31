@@ -20,6 +20,7 @@ from .xdr_ice import correlate as ice_correlate
 from .xdr_veee import compute_verdict as veee_compute
 from .xdr_incident import materialise_incident
 from .xdr_investigation import project_investigation
+from .xdr_response_fabric import orchestrate as response_orchestrate
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -290,6 +291,7 @@ async def process_event_through_pipeline(db, raw_event: dict,
     # Investigation Fabric — Round 12 · P0.6 · projection over
     # existing evidence + provenance (§37: no second engine).
     investigation = None
+    response = None
     if incident.get("created"):
         investigation = await project_investigation(
             db, incident["incident_id"])
@@ -298,18 +300,34 @@ async def process_event_through_pipeline(db, raw_event: dict,
                 lanes_ready=investigation["lanes_ready"],
                 lanes_total=investigation["lanes_total"],
                 engine_id=investigation["engine_id"])
+
+        # Response Fabric — Round 13 · P0.7 · Context → Recommendation
+        # → Decision → Approval → Executor (with real OSINT adapter).
+        response = await response_orchestrate(db, incident["incident_id"])
+        decision  = (response.get("decision") or {})
+        execution = (response.get("execution") or {})
+        _s("response", "EXECUTED",
+                decision=decision.get("decision"),
+                required_action=decision.get("required_action"),
+                execution_state=(execution or {}).get("state"),
+                engine_id=response.get("engine_id"),
+                recommendations=len(response.get("recommendations") or []))
     else:
         _s("investigation", "NOT_CREATED",
                 reason="upstream incident not created — no synthetic "
                         "investigation is fabricated (§37/§42)")
+        _s("response", "NOT_CREATED",
+                reason="upstream incident not created — response fabric "
+                        "requires a materialised incident (§37)")
 
     blocker = None if incident.get("created") else "incident_gate"
-    return {"stages":       stages,
-            "blocker":      blocker,
-            "canonical":    canonical,
-            "detection":    detection,
-            "iue":          iue,
-            "ice":          ice,
-            "verdict":      verdict,
-            "incident":     incident,
-            "investigation": investigation}
+    return {"stages":         stages,
+            "blocker":        blocker,
+            "canonical":      canonical,
+            "detection":      detection,
+            "iue":            iue,
+            "ice":            ice,
+            "verdict":        verdict,
+            "incident":       incident,
+            "investigation":  investigation,
+            "response":       response}

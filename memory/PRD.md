@@ -3,6 +3,69 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 13 · P0.7 Response Fabric + OSINT Integration — SHIPPED
+
+The Golden E2E pipeline now **executes 14 / 14 stages · verdict: COMPLETE** with
+a real OSINT adapter running end-to-end.
+
+**Response Fabric — evidence-first architecture (owner-locked):**
+
+`Incident → Response Context → Recommendation → Response Decision →
+Action Registry → (Playbook) → Approval Policy → Executor →
+Real Adapter → Audit + Timeline`
+
+The Decision Engine emits ONE of six deterministic outcomes:
+`NO_RESPONSE_JUSTIFIED · ANALYST_INVESTIGATION_REQUIRED ·
+DIRECT_ACTION_AVAILABLE · PLAYBOOK_AVAILABLE · APPROVAL_REQUIRED ·
+CAPABILITY_UNAVAILABLE`.
+
+**OSINT Integration (all keyless-first, adapters upgrade when keys present):**
+- **Talos Intelligence** — public IP blacklist (`talosintelligence.com/documents/ip-blacklist`) · Cisco · direct source · new provider `services/ioc_intelligence/providers/talos.py`
+- **SANS DShield** — top-attackers keyless JSON · new provider `services/ioc_intelligence/providers/dshield.py`
+- **VirusTotal / AbuseIPDB / URLScan** — reused via existing `services/ioc_intelligence/providers/`; each stays honestly `pending` until its API key is set
+- **abuse.ch (URLhaus / ThreatFox / MalwareBazaar)** — already wired via existing engine (no key required)
+- **NivX Machines** — NOT bridged (per owner rule); all feeds consumed directly from their origin
+
+**Backend:**
+- `detection_content/xdr_action_registry.py` — 9 canonical actions with honest `capability_available`
+- `detection_content/xdr_response_decision.py` — Context Builder + Recommendation Intelligence + Decision Engine
+- `detection_content/xdr_response_executor.py` — Approval Policy + Executor + real OSINT dispatcher · reuses `xdr_audit_log` (tamper-evident chain) + `xdr_response_executions/timeline` (existing SSOT)
+- `detection_content/xdr_response_fabric.py` — pure orchestrator (composer, NOT a second engine)
+- New endpoints:
+  - `GET /api/admin/content-supply-chain/response/{incident_id}` — full run
+  - `GET /api/admin/content-supply-chain/response/actions` — registry + summary
+
+**Golden E2E result (post-Round-13):**
+```
+executed: 14 / 14 · verdict: COMPLETE · blocker: None
+response.state:     READY (5 recommendations)
+decision:           DIRECT_ACTION_AVAILABLE → OSINT_ENRICH_IP
+execution.state:    SUCCEEDED  (real adapter: consensus=clean · providers ran)
+audit rows:         written to xdr_audit_log tamper-evident chain
+timeline rows:      written to xdr_response_timeline (existing SSOT)
+```
+
+Non-OSINT destructive actions (`ENDPOINT_ISOLATE`, `IP_BLOCK`, …) honestly
+report `capability_available=False` because no EDR/firewall integration is
+wired in this deployment.  Executor **never** fabricates SUCCESS.
+
+**UI:**
+- `apps/nivxray-xdr/src/xdr/admin/ResponseFabricPanel.jsx` — Recommendations
+  · Decision · Approval · Execution grid.  Adapter results shown only when
+  executor genuinely reports SUCCEEDED.
+- Auto-mounts under `GoldenPipelineTrace` after incident materialises,
+  immediately below the Investigation Fabric lanes.
+- Vite build clean.
+
+**Tests (35 / 35 pass):**
+- `tests/test_xdr_round13_response.py` — 7 new (registry honesty, decision
+  engine bail conditions, E2E response stage execution, OSINT SUCCEEDED,
+  audit + timeline persistence)
+- Rounds 8-12 regression: all pass
+
+---
+
+
 ## ✅ 2026-02-14 · Round 12 · P0.6 Investigation Fabric Convergence — SHIPPED
 
 The Golden E2E pipeline now **executes 13 / 13 stages** with `verdict: COMPLETE`.

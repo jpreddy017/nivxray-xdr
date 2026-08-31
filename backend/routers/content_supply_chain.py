@@ -44,6 +44,8 @@ from detection_content.xdr_pipeline import (
     CANONICAL_COLLECTION,
 )
 from detection_content.xdr_investigation import project_investigation
+from detection_content.xdr_response_fabric import orchestrate as response_orchestrate
+from detection_content.xdr_action_registry import list_actions, registry_summary
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -529,6 +531,7 @@ async def e2e_snort_golden(user=Depends(require_admin)):
         "veee":      pipeline.get("verdict"),
         "incident":  pipeline.get("incident"),
         "investigation": pipeline.get("investigation"),
+        "response":      pipeline.get("response"),
         "honesty_note": (
             "Every EXECUTED stage ran real code; every BLOCKED / NOT_CREATED "
             "stage records the exact reason.  No stage is fabricated."
@@ -548,6 +551,25 @@ async def investigation_fabric(incident_id: str,
     empty lanes carry the exact reason.
     """
     return await project_investigation(db, incident_id)
+
+
+@router.get("/response/actions")
+async def response_actions(user=Depends(require_admin)):
+    """P0.7 · Authoritative Action Registry — every executable
+    action + honest capability_available flag."""
+    return {"summary": registry_summary(), "actions": list_actions()}
+
+
+@router.get("/response/{incident_id}")
+async def response_fabric(incident_id: str,
+                              user=Depends(require_admin)):
+    """P0.7 · Response Fabric run for one incident.
+
+    Context → Recommendation → Decision → Approval → Executor →
+    Audit → Timeline.  Honest state end-to-end: capability probes
+    are runtime, no fabricated SUCCESS.
+    """
+    return await response_orchestrate(db, incident_id)
 
 
 @router.get("/dsm/registry")

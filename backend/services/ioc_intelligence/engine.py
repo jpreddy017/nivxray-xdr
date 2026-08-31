@@ -20,6 +20,7 @@ from .consensus  import build_card
 from .schema     import IocCard, ProviderResult
 
 from .providers import malwarebazaar, threatfox, urlhaus, urlscan, hybrid_analysis
+from .providers import talos, dshield
 from .providers.virustotal_abuseipdb import (
     lookup_virustotal, lookup_abuseipdb,
 )
@@ -37,6 +38,8 @@ _PROVIDERS: List[Tuple[str, Any, set]] = [
     (urlhaus.name,         urlhaus.lookup,         set(urlhaus.SUPPORTED_KINDS)),
     (urlscan.name,         urlscan.lookup,         set(urlscan.SUPPORTED_KINDS)),
     (hybrid_analysis.name, hybrid_analysis.lookup, set(hybrid_analysis.SUPPORTED_KINDS)),
+    (talos.name,           talos.lookup,           set(talos.SUPPORTED_KINDS)),
+    (dshield.name,         dshield.lookup,         set(dshield.SUPPORTED_KINDS)),
     ("virustotal",         lookup_virustotal,      {"hash", "url", "domain", "ip"}),
     ("abuseipdb",          lookup_abuseipdb,       {"ip"}),
 ]

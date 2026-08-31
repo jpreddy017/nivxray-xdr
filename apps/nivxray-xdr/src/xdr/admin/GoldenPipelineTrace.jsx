@@ -18,6 +18,7 @@ import { Play, CheckCircle2, XCircle, Circle, AlertTriangle,
                 ArrowRight, ShieldAlert, Copy } from "lucide-react";
 import api from "@/lib/api";
 import InvestigationLanes from "@/xdr/admin/InvestigationLanes";
+import ResponseFabricPanel from "@/xdr/admin/ResponseFabricPanel";
 
 
 const STATUS_META = {
@@ -257,8 +258,12 @@ export default function GoldenPipelineTrace({ testid }) {
           <VerdictCard result={result} />
 
           {result?.incident?.created && result?.incident?.incident_id && (
-            <InvestigationLanes incidentId={result.incident.incident_id}
-                                          testid="golden-investigation-lanes" />
+            <>
+              <InvestigationLanes incidentId={result.incident.incident_id}
+                                            testid="golden-investigation-lanes" />
+              <ResponseFabricPanel incidentId={result.incident.incident_id}
+                                              testid="golden-response-fabric" />
+            </>
           )}
 
           <div style={{ marginTop: 10, fontFamily: "var(--mono)",
