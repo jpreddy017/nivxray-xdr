@@ -3691,3 +3691,31 @@ Delivered three trust-critical page redesigns called out by user:
 - Admin sub-pages (Audit Log, Users & Roles, Data Sources, Collectors, Telemetry, Parsers, Normalization, Response Policies, API Keys, Webhooks, Platform Health)
 - NOT_WIRED chip softening into "Coming soon" teasers
 - Nav redirects (waiting on user to specify which exact tabs misroute)
+
+---
+
+## 2026-02-08 (night) · P0 Operational Fabric · Phase-1 scaffolding
+
+**Directive received:** Freeze visual work. Build NivXRay XDR Operational Fabric (Data · Engine · Content · Investigation · Response fabrics). No fabricated records, no UI-only integrations, ACTIVE ≠ "row exists".
+
+### Repository audit completed
+- **30+ engine implementations** discovered across `canonical/`, `services/`, `engine/`: IUE, DIE, UAIE, Verdict Stage2, correlation_engine, evidence_graph, chain_analyzer, command_analyzer, shellcode_analyzer, amsi_detector, corrupt_payload_detector, pe_analyzer, mitre_mapper, behavior_extractor, lolbin_v2, verdict_v2, decoders (magic/llm/smart), cmd/powershell interpreters + parsers, ps normalizers, IUE Lanes A/B/C, orchestrator, golden_corpus (5 modules), Nivxforge `Engine(Protocol)` runtime contract
+- **Real content counts:** `xdr_detection_rules`=93 · `xdr_correlation_rules`=5 · `xdr_lolbas_primitives`=11,196 (this is where "3,000+" perception came from) · `xdr_lolbas_entries`=242 · `iocs`=91,479 · `xdr_detection_versions`=810
+- **Data fabric records vs reality:** 110 collectors + 22 data sources exist as records but only 280 canonical events + 2 response executions have been proven end-to-end
+- **Sigma tooling already partially present:** `sigma_generator.py`, `sigma_export.py`, `routers/sigma.py`, `fixtures/detection/sigma_snapshot.json`
+
+### Shipped this session (Phase-1 scaffolding for the Content Fabric)
+- **Canonical `detection_content` model** (`backend/detection_content/model.py`) with 18-state lifecycle enum · 7 ContentSource values · `can_promote_to_active()` guardrail so nothing reaches ACTIVE without accumulating required milestones (PARSED · VALID · SUPPORTED · EXECUTION_READY · ENABLED)
+- **SigmaHQ ingester** (`backend/detection_content/sigma_ingest.py`) — walks a cloned Sigma tree, parses YAML, records DISCOVERED/PARSED/VALID/INVALID/SUPPORTED/UNSUPPORTED/FIELD_MAPPING_MISSING/ENGINE_UNBOUND milestones per rule, extracts ATT&CK tags + required fields + logsource + platform, emits an authoritative per-milestone compatibility report
+- **API endpoints** `GET /api/admin/content-supply-chain/report` + `/samples` — read-only, return honest zero-report when nothing ingested
+- **Proven end-to-end** on a real Sigma rule (T1105 Certutil Download) — state history: `[DISCOVERED, PARSED, VALID, SUPPORTED, ENGINE_UNBOUND]`
+
+### Next slice sequencing (feature freeze on visual work remains)
+1. **P0.2a — Real SigmaHQ ingestion**: `git clone https://github.com/SigmaHQ/sigma` to a persistent path (e.g. `/var/nivxray/content/sigma`), run the ingester across the full 3,000+ rule corpus, produce the authoritative compatibility report
+2. **P0.2b — pySigma integration**: replace the YAML fallback with pysigma-based parsing so we honor the Sigma spec strictly (backend/requirements addition)
+3. **P0.2c — Engine binding phase**: walk the discovered engine set (30+ implementations), define engine capability contracts, bind each SUPPORTED rule to the engine that can execute it, promote to ENGINE_BOUND
+4. **P0.2d — Execution test harness**: run each ENGINE_BOUND rule against the existing golden_corpus, promote passing rules to TEST_PASSED → EXECUTION_READY
+5. **P0.1 — Engine Registry**: authoritative `xdr_engines` collection consuming the discovered engine inventory, real state (DISCOVERED → REGISTERED → CONFIGURED → DEPS_RESOLVED → READY → CONNECTED → EXECUTING/DEGRADED/ERROR)
+6. **P0.3 — Collector Fabric with real state**: turn the 110 collector records into lifecycle-driven runtime
+7. **P0.4 — End-to-end replay acceptance test**
+8. **P0.5 — Platform Health becomes mathematical**
