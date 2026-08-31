@@ -1,11 +1,11 @@
 """
 /api/admin/content-supply-chain/* · Detection Content Supply Chain
 compatibility report + inventory summary endpoints.
+Also exposes the Engine Registry inventory.
 
-Read-only.  Serves the authoritative `detection_content` collection
-that the SigmaHQ (and future) ingestion pipeline writes into.  If
-the collection is empty (nothing has been ingested yet) the
-endpoint returns an honest zero-report — no fabricated numbers.
+Read-only.  Serves the authoritative `detection_content` and
+`xdr_engines` collections.  If a collection is empty, returns an
+honest zero-report — no fabricated numbers.
 """
 from __future__ import annotations
 
@@ -13,6 +13,10 @@ from fastapi import APIRouter, Depends
 
 from deps import db, require_admin
 from detection_content.model import COLLECTION, LifecycleState
+from detection_content.engine_registry import (
+    COLLECTION as ENGINES_COLLECTION,
+    EngineRole, EngineState,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -98,3 +102,62 @@ def _empty_report():
             "notes":              "Detection Content Supply Chain has not run yet. Run `python -m detection_content.sigma_ingest` after cloning SigmaHQ under /var/nivxray/content/sigma to populate the authoritative content store.",
         },
     }
+
+
+# ── Engine Registry ─────────────────────────────────────────────
+
+@router.get("/engines/report")
+async def engines_report(user=Depends(require_admin)):
+    """
+    Return the Engine Registry inventory — real classified roles
+    from the codebase.  When empty, returns honest zeros with
+    instructions rather than fabricated data.
+    """
+    coll = db[ENGINES_COLLECTION]
+    total = await coll.count_documents({})
+    if total == 0:
+        return {
+            "total_engines":     0,
+            "roles":             {r.value: 0 for r in EngineRole},
+            "states":            {s.value: 0 for s in EngineState},
+            "notes":             "Engine Registry has not been populated. Run detection_content.engine_classifier.discover_engines() to inventory the real codebase.",
+        }
+    roles: dict[str, int] = {}
+    async for r in coll.aggregate([
+        {"$group": {"_id": "$role", "n": {"$sum": 1}}}
+    ]):
+        roles[r["_id"]] = r["n"]
+    states: dict[str, int] = {}
+    async for r in coll.aggregate([
+        {"$group": {"_id": "$state", "n": {"$sum": 1}}}
+    ]):
+        states[r["_id"]] = r["n"]
+    scopes: dict[str, int] = {}
+    async for r in coll.aggregate([
+        {"$group": {"_id": "$scope", "n": {"$sum": 1}}}
+    ]):
+        scopes[r["_id"]] = r["n"]
+    return {
+        "total_engines":     total,
+        "roles":             roles,
+        "states":            states,
+        "scopes":            scopes,
+        "guardrails": {
+            "notes":         "Roles are classified from source-code paths and inspection. READY/CONNECTED require dependency resolution + runtime invocation — these transitions are subsequent slices.",
+        },
+    }
+
+
+@router.get("/engines/list")
+async def engines_list(role: str = None, scope: str = None,
+                             limit: int = 200,
+                             user=Depends(require_admin)):
+    q = {}
+    if role:  q["role"]  = role.upper()
+    if scope: q["scope"] = scope
+    items = []
+    async for d in db[ENGINES_COLLECTION].find(
+        q, {"_id": 0, "state_history": 0, "provenance": 0}
+    ).limit(min(limit, 500)):
+        items.append(d)
+    return {"count": len(items), "items": items}
