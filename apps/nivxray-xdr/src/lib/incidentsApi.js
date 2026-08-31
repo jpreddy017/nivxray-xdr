@@ -4,8 +4,23 @@
  */
 import api from "@/lib/api";
 
-export async function listIncidents({ limit = 100 } = {}) {
-  const { data } = await api.get("/incidents", { params: { limit } });
+export async function listIncidents({ limit = 100, lens = null } = {}) {
+  const params = { limit };
+  if (lens) params.lens = lens;
+  const { data } = await api.get("/incidents", { params });
+  return data;
+}
+
+export async function getDashboardTiles() {
+  const { data } = await api.get("/xdr/dashboard/tiles");
+  return data;
+}
+
+export async function patchIncidentOperations(incidentId, fields) {
+  const { data } = await api.patch(
+    `/incidents/${encodeURIComponent(incidentId)}/operations`,
+    fields,
+  );
   return data;
 }
 

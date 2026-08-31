@@ -27,7 +27,7 @@ import os
 import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 import bcrypt
 import jwt
@@ -317,6 +317,37 @@ async def get_current_user_raw(creds: HTTPAuthorizationCredentials = Depends(sec
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+
+_security_optional = HTTPBearer(auto_error=False)
+
+
+async def get_current_user_optional(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_security_optional),
+) -> Optional[Dict[str, Any]]:
+    """Return the authenticated user, or ``None`` when no valid bearer
+    token was presented.  Used by capabilities (Operations Dashboard,
+    scoped incident list) that must serve an honest empty state to
+    unauthenticated callers rather than 403.
+
+    Never raises for missing / invalid tokens — the caller decides
+    how to degrade.  A ``must_change_password`` flag on the user
+    still short-circuits to ``None`` to prevent stale-session leakage.
+    """
+    if creds is None:
+        return None
+    try:
+        payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALG])
+        email = payload.get("sub")
+    except jwt.PyJWTError:
+        return None
+    if not email:
+        return None
+    user = await db.users.find_one({"email": email}, {"_id": 0, "password": 0})
+    if not user or user.get("must_change_password"):
+        return None
+    return user
+
 
 
 async def require_admin(user=Depends(get_current_user)) -> Dict[str, Any]:

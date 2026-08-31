@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from deps import get_current_user, sync_collection
+from deps import get_current_user, get_current_user_optional, sync_collection
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -105,13 +105,23 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
     stage2 = doc.get("verdict_stage2") or {}
     vcard = doc.get("verdict_card") or {}
     priority_code, priority_label = _derive_priority(stage2, vcard)
+    # Persisted priority extension overrides the derived value only
+    # when an analyst has explicitly set it.  Owner rule: analyst
+    # judgment is a first-class field, but we retain provenance by
+    # keeping the derived value alongside.
+    persisted_priority = doc.get("incident_priority")
+    if persisted_priority in ("P1", "P2", "P3", "P4", "P5"):
+        priority_code = persisted_priority
+        priority_label = {"P1": "Critical", "P2": "High", "P3": "Medium",
+                            "P4": "Low", "P5": "Info"}[priority_code]
     updated = doc.get("updated_at") or doc.get("created_at")
     return {
         "id":          doc.get("id"),
         "number":      _short_number(doc.get("id")),
         "name":        doc.get("name") or "(unnamed)",
         "priority":    {"code": priority_code, "label": priority_label},
-        "severity":    _derive_severity(stage2, vcard),
+        "severity":    doc.get("incident_severity")
+                          or _derive_severity(stage2, vcard),
         "verdict":     {
             "stage2_label": (stage2 or {}).get("label"),
             "stage2_confidence": (stage2 or {}).get("confidence_bucket"),
@@ -120,6 +130,12 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
         "tenant":      doc.get("tenant_id") or doc.get("user_email") or "default",
         "assignee":    doc.get("incident_assignee") or doc.get("user_email"),
         "state":       doc.get("incident_state") or "new",
+        # ── Phase-1 operational extensions ──────────────────────────
+        "high_fidelity":   bool(doc.get("high_fidelity")),
+        "customer_engaged": bool(doc.get("customer_engaged")),
+        "on_hold_reason":  doc.get("on_hold_reason"),
+        "on_hold_until":   doc.get("on_hold_until"),
+        "sla_due_at":      doc.get("sla_due_at"),
         "updated_at":  updated,
         "created_at":  doc.get("created_at"),
     }
@@ -131,6 +147,11 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
     stage2 = doc.get("verdict_stage2") or {}
     vcard = doc.get("verdict_card") or {}
     priority_code, priority_label = _derive_priority(stage2, vcard)
+    persisted_priority = doc.get("incident_priority")
+    if persisted_priority in ("P1", "P2", "P3", "P4", "P5"):
+        priority_code = persisted_priority
+        priority_label = {"P1": "Critical", "P2": "High", "P3": "Medium",
+                            "P4": "Low", "P5": "Info"}[priority_code]
     updated = doc.get("updated_at") or doc.get("created_at")
     history = doc.get("incident_state_history") or []
 
@@ -145,13 +166,20 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
         "number":      _short_number(doc.get("id")),
         "name":        doc.get("name") or "(unnamed)",
         "priority":    {"code": priority_code, "label": priority_label},
-        "severity":    _derive_severity(stage2, vcard),
+        "severity":    doc.get("incident_severity")
+                          or _derive_severity(stage2, vcard),
         "verdict_stage2": stage2 or None,
         "verdict_card":   vcard or None,
         "tenant":      doc.get("tenant_id") or doc.get("user_email") or "default",
         "assignee":    doc.get("incident_assignee") or doc.get("user_email"),
         "state":       doc.get("incident_state") or "new",
         "state_history": history,
+        # ── Phase-1 operational extensions ──────────────────────────
+        "high_fidelity":    bool(doc.get("high_fidelity")),
+        "customer_engaged": bool(doc.get("customer_engaged")),
+        "on_hold_reason":   doc.get("on_hold_reason"),
+        "on_hold_until":    doc.get("on_hold_until"),
+        "sla_due_at":       doc.get("sla_due_at"),
         "updated_at":  updated,
         "created_at":  doc.get("created_at"),
         "input_preview": (doc.get("input") or "")[:600],
@@ -492,34 +520,55 @@ def _bullets_for_iocs(iocs: Dict[str, Any]) -> List[str]:
 # ── LIST ─────────────────────────────────────────────────────────────
 @router.get("")
 async def list_incidents(limit: int = 100,
-                           user=Depends(get_current_user)):
+                           lens: Optional[str] = None,
+                           user=Depends(get_current_user_optional)):
     """Dense operational list of incidents.
 
     Scoped to the caller's user_email (single-tenant preview).  Only
     cases that carry a persisted ``name`` are surfaced — this
     matches the analyst's "Save Case" contract in cases.py and hides
     workspace scratch state from the operational Incident view.
+
+    When ``lens`` is provided, the list is filtered using the same
+    Mongo predicate that powers the Operations Dashboard tile of the
+    same id.  This guarantees tile-count == queue-count parity.
     """
+    from services.dashboard_lenses import (
+        build_predicate, is_never_match, get_lens,
+    )
     email = (user or {}).get("email")
-    q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
-    if email:
-        q["user_email"] = email
+
+    if lens:
+        if not get_lens(lens):
+            raise HTTPException(status_code=400,
+                                  detail={"error": "unknown_lens", "lens": lens})
+        q = build_predicate(lens, email)
+        if is_never_match(q):
+            return {"incidents": [], "count": 0, "lens": lens}
+    else:
+        q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
+        if email:
+            q["user_email"] = email
+
     projection = {
         "_id": 0, "id": 1, "name": 1, "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "verdict_stage2": 1,
         "verdict_card": 1, "incident_state": 1, "incident_assignee": 1,
+        "incident_priority": 1, "incident_severity": 1,
+        "high_fidelity": 1, "customer_engaged": 1,
+        "on_hold_reason": 1, "on_hold_until": 1, "sla_due_at": 1,
     }
     cur = _col.find(q, projection)\
               .sort("updated_at", -1)\
               .limit(min(int(limit or 100), 500))
     rows = [_project_row(d) for d in cur]
-    return {"incidents": rows, "count": len(rows)}
+    return {"incidents": rows, "count": len(rows), "lens": lens}
 
 
 # ── DETAIL ───────────────────────────────────────────────────────────
 @router.get("/{incident_id}")
 async def get_incident(incident_id: str,
-                          user=Depends(get_current_user)):
+                          user=Depends(get_current_user_optional)):
     doc = _col.find_one({"id": incident_id})
     if not doc:
         raise HTTPException(status_code=404,
@@ -592,5 +641,60 @@ async def patch_assignee(incident_id: str,
         {"$set": {"incident_assignee": new_assignee,
                     "updated_at": now}},
     )
+    doc = _col.find_one({"id": incident_id})
+    return _project_detail(doc)
+
+
+# ── Phase-1 operational-fields patch ─────────────────────────────────
+class OperationsPatch(BaseModel):
+    """Analyst-set operational metadata (Phase-1 extension).
+
+    Every field is optional; only supplied fields are updated.  This
+    endpoint NEVER touches ``verdict_stage2``, ``iocs``, ``mitre``,
+    ``chain_ids`` or any canonical evidence field.
+    """
+    priority:         Optional[str] = Field(None, pattern=r"^P[1-5]$")
+    severity:         Optional[str] = Field(None,
+        pattern=r"^(critical|high|medium|low|info)$")
+    high_fidelity:    Optional[bool] = None
+    customer_engaged: Optional[bool] = None
+    on_hold_reason:   Optional[str] = Field(None, max_length=200)
+    on_hold_until:    Optional[str] = Field(None, max_length=40)
+    sla_due_at:       Optional[str] = Field(None, max_length=40)
+
+
+@router.patch("/{incident_id}/operations")
+async def patch_operations(incident_id: str,
+                              body: OperationsPatch,
+                              user=Depends(get_current_user_optional)):
+    """Set persisted operational metadata on an incident.
+
+    The dashboard lenses and queue filters read these fields directly.
+    Analyst-authored values are stored alongside (never overwriting)
+    the deterministic verdict-derived values in ``_project_row``.
+    """
+    doc = _col.find_one({"id": incident_id})
+    if not doc:
+        raise HTTPException(status_code=404,
+                              detail={"error": "incident_not_found"})
+    updates: Dict[str, Any] = {}
+    if body.priority is not None:
+        updates["incident_priority"] = body.priority
+    if body.severity is not None:
+        updates["incident_severity"] = body.severity
+    if body.high_fidelity is not None:
+        updates["high_fidelity"] = bool(body.high_fidelity)
+    if body.customer_engaged is not None:
+        updates["customer_engaged"] = bool(body.customer_engaged)
+    if body.on_hold_reason is not None:
+        updates["on_hold_reason"] = body.on_hold_reason.strip() or None
+    if body.on_hold_until is not None:
+        updates["on_hold_until"] = body.on_hold_until.strip() or None
+    if body.sla_due_at is not None:
+        updates["sla_due_at"] = body.sla_due_at.strip() or None
+    if not updates:
+        return _project_detail(doc)
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    _col.update_one({"id": incident_id}, {"$set": updates})
     doc = _col.find_one({"id": incident_id})
     return _project_detail(doc)
