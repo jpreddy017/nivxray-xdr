@@ -5,6 +5,43 @@
 
 ---
 
+## Reference hierarchy (owner-locked · 2026-02-32)
+
+- **Primary** — Microsoft Defender XDR (NivXRay is an XDR platform,
+  so Defender is the strongest end-to-end reference).
+- **Secondary** — ServiceNow SIR (case-management / workspace /
+  lifecycle patterns).
+
+Reference URLs:
+- Defender · Incident Queue: https://learn.microsoft.com/en-us/defender-xdr/incident-queue
+- Defender · Manage Incidents: https://learn.microsoft.com/en-us/defender-xdr/manage-incidents
+- Defender · Investigate Incidents: https://learn.microsoft.com/en-us/defender-xdr/investigate-incidents
+- SIR · Workspace Landing: https://www.servicenow.com/docs/r/security-management/security-incident-response/sir-workspace-landing-page.html
+- SIR · New UI: https://www.servicenow.com/docs/r/xanadu/security-management/security-incident-response/sir-new-ui.html
+
+### Reference-to-area mapping (use as the design decision matrix)
+
+| NivXRay area | Primary reference |
+|---|---|
+| XDR overall experience | **Defender XDR** |
+| Incident Queue | **Defender XDR** |
+| Detection → Incident workflow | **Defender XDR** |
+| Investigation workspace | **Defender XDR** |
+| Evidence / context presentation | **Defender XDR** + NivXRay evidence-first model |
+| MITRE / attack investigation | **Defender XDR** |
+| Incident record | Defender XDR + ServiceNow SIR |
+| Case lifecycle | **ServiceNow SIR** |
+| Assignment / ownership | **ServiceNow SIR** |
+| SLA / workflow | **ServiceNow SIR** |
+| Tabs / workspaces / operational actions | Both |
+| Visual design / theme | Both — pick what works best |
+
+The goal is **Defender-level XDR usability + SIR-level incident
+workflow + NivXRay's evidence-first architecture + NivXRay's own
+visual identity.**  Never a clone of either.
+
+---
+
 ## Verbatim owner instruction
 
 > Read the locked Layer 2 mandate and execute it end-to-end.
