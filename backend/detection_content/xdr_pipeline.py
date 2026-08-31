@@ -22,6 +22,7 @@ from .xdr_incident import materialise_incident
 from .xdr_investigation import project_investigation
 from .xdr_response_fabric import orchestrate as response_orchestrate
 from .xdr_closed_loop import recompute as closed_loop_recompute
+from .xdr_framework_mapping import resolve_mappings as framework_resolve
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -294,6 +295,7 @@ async def process_event_through_pipeline(db, raw_event: dict,
     investigation = None
     response = None
     loop = None
+    framework = None
     if incident.get("created"):
         investigation = await project_investigation(
             db, incident["incident_id"])
@@ -326,6 +328,14 @@ async def process_event_through_pipeline(db, raw_event: dict,
                 created_recos=len((loop.get("recommendations") or {}).get("created") or []),
                 superseded_recos=len((loop.get("recommendations") or {}).get("superseded") or []),
                 decision=loop.get("decision"))
+
+        # Framework Mapping Fabric — Round 15 · P0.7.2 · knowledge
+        # mapping above the engines.  Pure Fabric composer.
+        framework = await framework_resolve(db, incident["incident_id"])
+        _s("framework_mapping", "EXECUTED",
+                engine_id=framework.get("engine_id"),
+                frameworks_active=[fw for fw, c in (framework.get("counts") or {}).items() if c > 0],
+                counts=framework.get("counts") or {})
     else:
         _s("investigation", "NOT_CREATED",
                 reason="upstream incident not created — no synthetic "
@@ -336,6 +346,9 @@ async def process_event_through_pipeline(db, raw_event: dict,
         _s("closed_loop", "NOT_CREATED",
                 reason="upstream incident not created — closed-loop "
                         "recompute requires materialised evidence")
+        _s("framework_mapping", "NOT_CREATED",
+                reason="upstream incident not created — framework "
+                        "mapping requires incident context")
 
     blocker = None if incident.get("created") else "incident_gate"
     return {"stages":         stages,
@@ -348,4 +361,5 @@ async def process_event_through_pipeline(db, raw_event: dict,
             "incident":       incident,
             "investigation":  investigation,
             "response":       response,
-            "closed_loop":    loop if incident.get("created") else None}
+            "closed_loop":    loop if incident.get("created") else None,
+            "framework":      framework if incident.get("created") else None}

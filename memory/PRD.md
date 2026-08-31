@@ -3,6 +3,68 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 15 · P0.7.2 Framework Mapping Fabric — SHIPPED
+
+Golden E2E now **executes 16 / 16 stages · verdict: COMPLETE**.
+
+Framework Mapping is a **cross-cutting knowledge Fabric above the engines**,
+not a runtime engine.  It does NOT appear in the Engine Control Plane and it
+NEVER independently creates evidence, detections or actions.
+
+**Supported frameworks (evidence-derived, per incident):**
+- **MITRE ATT&CK** — techniques from ICE `attack_techniques` (DETECTION_RULE, HIGH) + signature-name knowledge cues (KNOWLEDGE_MAPPING, LOW)
+- **MITRE D3FEND** — countermeasures derived from active ATT&CK techniques (KNOWLEDGE_MAPPING, mirrors ATT&CK confidence)
+- **NIST SP 800-61 Rev.3** — lifecycle state (DETECTION_AND_ANALYSIS / CONTAINMENT / ERADICATION) derived from real successful executions (INVESTIGATION_DERIVED, HIGH)
+- **NIST CSF 2.0** — DE / RS / ID / … functions only when execution/correlation evidence supports them
+- **OWASP** — surfaces only when canonical `event_type` contains http/waf/api/web; otherwise honestly `NOT_APPLICABLE` with the exact reason
+
+**Owner-locked contracts honored:**
+- §2 · no MITREEngine / NISTEngine / D3FENDEngine / OWASPEngine — not in control plane
+- §12 · every mapping carries `mapping_method`, `confidence`, `source_refs`, `provenance`
+- §13 · six mapping methods enumerated: DIRECT_EVIDENCE / DETECTION_RULE / ENGINE_DERIVED / INTELLIGENCE_DERIVED / CORRELATION_DERIVED / INVESTIGATION_DERIVED / KNOWLEDGE_MAPPING
+- §11 · OSINT is NOT a framework — remains in the Intelligence Fabric (Round 14)
+- §15/§18 · Recommendations attach `framework_rationale` (ATT&CK / D3FEND / NIST / CSF citations) — never invents mappings
+- §27 · Framework recompute integrated into Closed-Loop (§Round 14): new observation → framework re-resolve → recommendation re-annotate
+- §28 · idempotent — stable mapping IDs (hash of incident/framework/object/source_refs); re-resolve produces `changed=False`, zero duplicates
+
+**Backend:**
+- `+ detection_content/xdr_framework_mapping.py` — pure Fabric composer + registry + 5 resolvers
+- `~ detection_content/xdr_closed_loop.py` — framework recompute inline; `_annotate_framework()` attaches framework rationale to each recommendation
+- `~ detection_content/xdr_pipeline.py` — new `framework_mapping` stage
+- `~ routers/content_supply_chain.py` — `/frameworks` + `/incidents/{id}/framework-mappings` endpoints
+
+**UI:**
+- `+ apps/nivxray-xdr/src/xdr/admin/FrameworkMappingsPanel.jsx` — one card per framework; ACTIVE mappings + honest NOT_APPLICABLE reason; mapping_method + confidence pill per row
+- Auto-mounts under GoldenPipelineTrace after Investigation Lanes
+
+**Tests — 49 / 49 pass (Rounds 8-15 combined):**
+- `tests/test_xdr_round15_framework.py` · 7 new
+  - registry lists 5 frameworks
+  - framework_mapping stage executes
+  - resolve is idempotent (re-run creates 0 dups)
+  - OWASP honestly reports NOT_APPLICABLE for network_alert
+  - NIST IR reports DETECTION_AND_ANALYSIS
+  - CSF reports both DE and RS
+  - every mapping carries provenance + valid mapping_method
+
+**Golden E2E result:**
+```
+executed: 16 / 16 · verdict: COMPLETE · blocker: None
+frameworks: mitre_attack=1 · mitre_d3fend=1 · nist_ir=1 · nist_csf_2=2 · owasp=0(NOT_APPLICABLE)
+```
+
+**Locked architectural rule (§33):**
+> Frameworks are contextual knowledge, not execution engines.  NivXRay XDR must not
+> convert NIST, ATT&CK, D3FEND, OWASP or others into generic incident templates.
+> Mappings are dynamically resolved from the actual evidence, detections, investigation
+> state, threat intelligence and observed behaviors of each incident.  A recommendation
+> must have an applicability reason and, wherever possible, an evidence/provenance
+> reference.  No incident receives recommendations merely because it belongs to a
+> predefined category.
+
+---
+
+
 ## ✅ 2026-02-14 · Round 14 · P0.7.1 Closed-Loop Evidence Recompute — SHIPPED
 
 Pipeline is now truly **closed-loop**: 15 / 15 stages EXECUTED.

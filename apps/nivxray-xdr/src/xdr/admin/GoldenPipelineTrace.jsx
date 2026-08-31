@@ -20,6 +20,7 @@ import api from "@/lib/api";
 import InvestigationLanes from "@/xdr/admin/InvestigationLanes";
 import ResponseFabricPanel from "@/xdr/admin/ResponseFabricPanel";
 import ClosedLoopPanel from "@/xdr/admin/ClosedLoopPanel";
+import FrameworkMappingsPanel from "@/xdr/admin/FrameworkMappingsPanel";
 
 
 const STATUS_META = {
@@ -262,6 +263,8 @@ export default function GoldenPipelineTrace({ testid }) {
             <>
               <InvestigationLanes incidentId={result.incident.incident_id}
                                             testid="golden-investigation-lanes" />
+              <FrameworkMappingsPanel incidentId={result.incident.incident_id}
+                                                    testid="golden-framework-mappings" />
               <ResponseFabricPanel incidentId={result.incident.incident_id}
                                               testid="golden-response-fabric" />
               <ClosedLoopPanel incidentId={result.incident.incident_id}

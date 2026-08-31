@@ -295,6 +295,11 @@ async def recompute(db, incident_id: str) -> dict:
     #    function of persisted state so it is naturally idempotent.
     investigation = await project_investigation(db, incident_id)
 
+    # 3b. Recompute Framework Mapping Fabric (Round 15).  Also
+    #    idempotent — stable mapping IDs prevent duplicates.
+    from .xdr_framework_mapping import resolve_mappings as _resolve_fw
+    framework = await _resolve_fw(db, incident_id)
+
     # 4. Rebuild Response Context using observations (§4-§6).
     ctx = await build_response_context(db, incident_id)
     if ctx.get("state") == "READY":
@@ -305,6 +310,13 @@ async def recompute(db, incident_id: str) -> dict:
         ]
 
     recos     = recommend_with_observations(ctx, all_observations)
+    # Round 15 · attach framework rationale to each recommendation
+    # (guidance-level annotation only — never a new reco source).
+    fw_maps = []
+    for fw_list in (framework.get("mappings") or {}).values():
+        fw_maps.extend([m for m in fw_list if m.get("status") == "ACTIVE"])
+    for r in recos:
+        r["framework_rationale"] = _annotate_framework(r, fw_maps)
     reco_delta = await _persist_recommendations(
         db, incident_id=incident_id, recos=recos,
         evidence_state_hash=new_hash)
@@ -349,6 +361,7 @@ async def recompute(db, incident_id: str) -> dict:
         "total_observations":        len(all_observations),
         "investigation_state":       investigation.get("state"),
         "lanes_ready":               investigation.get("lanes_ready"),
+        "framework_counts":          framework.get("counts") or {},
         "recommendations": {
             "active":     reco_delta["active_now"],
             "created":    reco_delta["created"],
@@ -365,6 +378,38 @@ async def recompute(db, incident_id: str) -> dict:
 
 
 # ── Enrichment-aware recommendation engine ───────────────────
+
+def _annotate_framework(reco: dict, fw_maps: list[dict]) -> dict:
+    """
+    Attach framework rationale to a recommendation deterministically.
+    Never invents a mapping — reads only from active fw_maps.
+    """
+    action = (reco.get("suggested_action") or "")
+    tag: dict[str, list[str]] = {"attack": [], "d3fend": [],
+                                              "nist_ir": [], "csf": []}
+    # Simple, deterministic action→framework hints.
+    action_to_countermeasures = {
+        "IP_BLOCK":              {"D3-NTF", "D3-DNSDL"},
+        "OSINT_ENRICH_IP":       {"D3-NTA"},
+        "OSINT_ENRICH_URL":      {"D3-NTA"},
+        "OSINT_ENRICH_DOMAIN":   {"D3-DNSAL"},
+        "IOC_ADD_WATCHLIST":     {"D3-NTA"},
+        "ENDPOINT_ISOLATE":      {"D3-EAL"},
+        "COLLECT_FORENSIC_SNAPSHOT": {"D3-EL"},
+    }
+    relevant = action_to_countermeasures.get(action, set())
+    for m in fw_maps:
+        if m["framework"] == "mitre_attack":
+            tag["attack"].append(f"{m['object_id']} ({m.get('object_name')})")
+        elif m["framework"] == "mitre_d3fend" and m["object_id"] in relevant:
+            tag["d3fend"].append(f"{m['object_id']} ({m.get('object_name')})")
+        elif m["framework"] == "nist_ir":
+            tag["nist_ir"].append(m.get("object_name"))
+        elif m["framework"] == "nist_csf_2":
+            tag["csf"].append(m.get("object_name"))
+    # Only surface non-empty groups.
+    return {k: v for k, v in tag.items() if v}
+
 
 def recommend_with_observations(context: dict,
                                               observations: list[dict]) -> list[dict]:

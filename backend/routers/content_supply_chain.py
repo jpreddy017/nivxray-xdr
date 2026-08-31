@@ -46,6 +46,9 @@ from detection_content.xdr_pipeline import (
 from detection_content.xdr_investigation import project_investigation
 from detection_content.xdr_response_fabric import orchestrate as response_orchestrate
 from detection_content.xdr_closed_loop   import recompute as closed_loop_recompute
+from detection_content.xdr_framework_mapping import (
+    resolve_mappings as framework_resolve, framework_registry,
+)
 from detection_content.xdr_action_registry import list_actions, registry_summary
 
 
@@ -534,6 +537,7 @@ async def e2e_snort_golden(user=Depends(require_admin)):
         "investigation": pipeline.get("investigation"),
         "response":      pipeline.get("response"),
         "closed_loop":   pipeline.get("closed_loop"),
+        "framework":     pipeline.get("framework"),
         "honesty_note": (
             "Every EXECUTED stage ran real code; every BLOCKED / NOT_CREATED "
             "stage records the exact reason.  No stage is fabricated."
@@ -585,6 +589,32 @@ async def response_recompute(incident_id: str,
     twice on the same evidence state returns changed=False.
     """
     return await closed_loop_recompute(db, incident_id)
+
+
+@router.get("/frameworks")
+async def frameworks_registry(user=Depends(require_admin)):
+    """P0.7.2 · Framework Mapping Fabric registry.  Lists supported
+    frameworks with honest AVAILABLE / PARTIAL / NOT_LOADED state."""
+    return {"frameworks": framework_registry(),
+                "honesty_note":
+                    "Frameworks are contextual knowledge only.  "
+                    "They never independently create evidence, "
+                    "detections or actions.  Mappings must be "
+                    "evidence-derived per incident."}
+
+
+@router.get("/incidents/{incident_id}/framework-mappings")
+async def framework_mappings(incident_id: str,
+                                    user=Depends(require_admin)):
+    """P0.7.2 · Read-only framework mappings for one incident.
+    Idempotent — repeated resolve() calls produce no duplicates."""
+    return await framework_resolve(db, incident_id)
+
+
+@router.post("/incidents/{incident_id}/framework-mappings/resolve")
+async def framework_mappings_resolve(incident_id: str,
+                                              user=Depends(require_admin)):
+    return await framework_resolve(db, incident_id)
 
 
 @router.get("/dsm/registry")
