@@ -7,6 +7,52 @@
 
 ---
 
+## 🟠 2026-02-34 · Enterprise Visual System · re-scoped
+
+Owner reviewed the "Enterprise Visual System v1" screenshots and
+called out that the pass had drifted back into "change background
+colour" territory rather than delivering a coherent enterprise
+visual system.  The prior v1 pass is treated as an intermediate
+milestone, not visual acceptance.
+
+**Direction reset**
+- Do not proceed to Phase 3 (Lifecycle/SLA) or Phase 4
+  (Auto-Investigation provenance) until the visual system is
+  genuinely operational and acceptance-tested against the
+  Defender + SIR pattern set.
+- Study interaction patterns, not screenshots.
+- Establish visual grammar before writing any `Nx*` component.
+
+**Deliverables produced (this checkpoint · no code)**
+- `/app/memory/NIVXRAY_ENTERPRISE_UX_GAP_ANALYSIS.md` (v1.1) —
+  15-area gap analysis, owner amendments A1–A14, sequencing lock
+  Queue → Record → MSS Dashboard → MITRE → Evidence.
+- `/app/memory/NIVXRAY_VISUAL_GRAMMAR.md` (v1) — locked
+  specification.  14 sections: surfaces, hierarchy, type ramp,
+  colour system, truth-state chip grammar, provenance grammar,
+  IKG affordance, execution-state pulse, evidence-first
+  interaction, interaction states, empty/reserved grammar,
+  density, component consequences, grammar acceptance test.
+
+**Locked NivXRay visual signatures** (five)
+1. Selective evidence provenance.
+2. Truth-state chips (filled = observed · dashed = absent /
+   uncertain / not-run).
+3. IKG relationship affordance (backend-flagged entities only).
+4. Execution-state pulse (backend-flagged execution only).
+5. Evidence-first interaction — decision-critical values are
+   navigation edges back to evidence.  **Strongest
+   differentiator.**
+
+**Next**
+Awaiting owner sign-off on the grammar before implementation.
+On sign-off, Phase B builds a small `Nx*` primitive library that
+implements the grammar, then Queue → Record → MSS → MITRE →
+Evidence receive individual visual passes that must pass the
+grammar acceptance test in §14 of the grammar document.
+
+---
+
 ## ✅ 2026-02-34 · Enterprise Visual System v1 · SHIPPED
 
 Global product-wide design-system pass — the entire `/xdr/*`
