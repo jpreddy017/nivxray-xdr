@@ -797,3 +797,65 @@
   padding: 9px 12px;
   font-size: 12.5px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Visual Maturity · Queue composition
+   The incident table is the focal point (§16.5, §16.2).
+   ═══════════════════════════════════════════════════════════════ */
+
+.xdr-queue-l2 { background: var(--nx-surf-canvas) !important; padding-top: 0 !important; }
+.xdr-queue-l2 .ql-header { display: none; }            /* replaced by NxHeroHeader */
+.xdr-queue-l2 .ql-strip {
+  background: transparent;
+  padding: 12px 0 14px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--nx-bd-quiet);
+  gap: 22px;
+}
+.xdr-queue-l2 .ql-tile {
+  background: transparent !important;
+  border: none !important;
+  border-left: 2px solid var(--ql-border) !important;
+  border-radius: 0 !important;
+  padding: 2px 12px !important;
+  box-shadow: none !important;
+  gap: 3px;
+}
+.xdr-queue-l2 .ql-tile:hover { background: transparent !important; box-shadow: none !important; border-left-color: var(--nx-purple) !important; }
+.xdr-queue-l2 .ql-tile.active { box-shadow: none !important; }
+.xdr-queue-l2 .ql-tile.crit    { border-left-color: var(--nx-critical) !important; }
+.xdr-queue-l2 .ql-tile.high    { border-left-color: var(--nx-high) !important; }
+.xdr-queue-l2 .ql-tile.amber   { border-left-color: var(--nx-medium) !important; }
+.xdr-queue-l2 .ql-tile.blue    { border-left-color: var(--nx-low) !important; }
+.xdr-queue-l2 .ql-tile.purple  { border-left-color: var(--nx-purple) !important; }
+.xdr-queue-l2 .ql-tile.green   { border-left-color: var(--nx-benign) !important; }
+.xdr-queue-l2 .ql-tile-count { font-size: 20px !important; }
+.xdr-queue-l2 .ql-tile-label { font-size: 9.5px !important; letter-spacing: 0.5px; }
+.xdr-queue-l2 .ql-tile .nx-prov { display: none; }
+
+/* Toolbar → inset control surface (subordinate) */
+.xdr-queue-l2 .ql-toolbar {
+  background: var(--nx-surf-inset) !important;
+  border-color: var(--nx-bd-quiet) !important;
+  padding: 6px 10px !important;
+}
+.xdr-queue-l2 .ql-chips  { background: var(--nx-surf-inset) !important; }
+.xdr-queue-l2 .ql-tabs   { background: var(--nx-surf-inset) !important; }
+
+/* Table → PRIMARY surface (focal point) */
+.xdr-queue-l2 .ql-table-wrap {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-strong);
+  box-shadow: var(--nx-shadow-1);
+  border-radius: 0 0 var(--nx-r-card) var(--nx-r-card);
+}
+.xdr-queue-l2 .ql-table thead th {
+  background: var(--nx-surf-inset);
+  border-bottom: 1px solid var(--nx-bd-strong);
+}
+
+/* §16.4 · Kill mono-everywhere — incident name uses human voice */
+.xdr-queue-l2 .ql-td-name { font-family: var(--nx-sans, var(--qs-sans)) !important; }
+
+/* Metadata is quiet */
+.xdr-queue-l2 .ql-td-mono { color: var(--nx-faint); }

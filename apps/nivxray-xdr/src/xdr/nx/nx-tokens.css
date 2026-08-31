@@ -264,3 +264,26 @@
   --nx-cell-px:  14px;
   --nx-body-sz:  13px;
 }
+
+/* §16.3 · 5-surface materiality tokens (Phase A.2) */
+.xdr-console {
+  --nx-surf-canvas:   #F4F3F0;  /* subtle warm application background */
+  --nx-surf-primary:  #FFFFFF;  /* dominant work surface */
+  --nx-surf-raised:   #FFFFFF;  /* popovers / dropdowns */
+  --nx-surf-inset:    #FAFAF8;  /* controls / sub-sections */
+  --nx-surf-selected: var(--nx-purple-dim);
+  --nx-surf-hover:    #F7F6F3;
+
+  --nx-bd-quiet:  #E9E7E1;      /* canvas → primary boundary */
+  --nx-bd-strong: #D9D7D1;      /* stronger material seam */
+}
+
+/* Update workspace surfaces to consume materiality tokens */
+.xdr-console .main { background: var(--nx-surf-canvas); }
+
+/* §16.3 helper classes for composition */
+.nx-canvas   { background: var(--nx-surf-canvas);   }
+.nx-primary  { background: var(--nx-surf-primary);  border: 1px solid var(--nx-bd-quiet);  border-radius: var(--nx-r-card); box-shadow: var(--nx-shadow-1); }
+.nx-inset    { background: var(--nx-surf-inset);    border: 1px solid var(--nx-bd-quiet);  border-radius: var(--nx-r-card); }
+.nx-raised   { background: var(--nx-surf-raised);   border: 1px solid var(--nx-bd-strong); border-radius: var(--nx-r-card); box-shadow: var(--nx-shadow-2); }
+.nx-selected { background: var(--nx-surf-selected); }

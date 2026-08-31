@@ -1,19 +1,32 @@
 /**
- * RecordHeader · Layer 3 · Defender-inspired incident header.
+ * RecordHeader · Layer 3 · Phase A.2 · Visual Maturity composition.
  *
- * Renders identity, chips (Priority · Severity · Verdict · State),
- * meta strip (Confidence · Owner · Customer · Detection · SLA · Aging
- * · First seen · Last activity), and analyst actions.  Every field
- * that has no backing data renders honestly (`—`, `NOT_RUN`, `UNKNOWN`,
- * `NOT AVAILABLE`, `UNASSIGNED`).
+ * Sits on the workspace CANVAS.  Answers the §16.5 three questions
+ * with a single operational attention statement — not a wall of
+ * numeric metrics — followed by quiet supporting metadata.
+ *
+ *   1. What am I looking at?  → incident name + number
+ *   2. What is important?     → priority chip + one-line
+ *                              operational attention statement
+ *                              (e.g. "Awaiting first analyst",
+ *                               "Investigation in progress · verdict pending",
+ *                               "MALICIOUS · 12 artifacts · 5 techniques")
+ *   3. What can I do?         → Respond (primary) · Report · More
+ *
+ * Two typographic voices (§16.4).  Honest data states preserved.
+ * Engineering vocabulary ("workspace_cases.live", "NOT_RUN")
+ * intentionally kept out of the hero — those belong in the
+ * technical tab, not on the identity band.
  */
 import React from "react";
-import { ChevronLeft, Zap, ExternalLink, FileText, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, Zap, FileText, MoreHorizontal, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { NxHeroHeader } from "@/xdr/nx";
 import {
   PriorityChip, SeverityChip, VerdictChip, StateChip,
 } from "@/xdr/components/chips";
+
 
 function fmtDate(iso) {
   if (!iso) return null;
@@ -32,18 +45,106 @@ function fmtAging(created) {
   return `${Math.floor(sec/86400)}d`;
 }
 
-const dash = <span className="v dash">—</span>;
-const unassigned = <span className="v" style={{ color: "#D97706", fontWeight: 600 }}>UNASSIGNED</span>;
-const notRun = <span className="v dash">NOT_RUN</span>;
-const na = <span className="v dash">NOT AVAILABLE</span>;
+
+/**
+ * Compose the operational attention statement.
+ *
+ * Returns { headline, sub, tone } — a single dominant read that
+ * summarises WHAT MATTERS about this incident right now.
+ * Never fabricates: every branch is derived from real state.
+ */
+function attentionStatement(incident) {
+  const stage2   = incident.verdict_stage2 || {};
+  const verdict  = String(stage2.label || "").toLowerCase();
+  const conf     = stage2.confidence_bucket || null;
+  const evidence = incident.evidence_count || 0;
+  const techs    = incident.mitre?.length || 0;
+  const state    = incident.state || "new";
+  const owner    = incident.assignee || null;
+  const aging    = fmtAging(incident.created_at);
+
+  // Resolved / closed → celebrate the completion, quietly.
+  if (state === "closed") {
+    return {
+      headline: "Incident closed",
+      sub: verdict && verdict !== "unknown"
+        ? `Final verdict · ${verdict.toUpperCase()}`
+        : "No outstanding actions",
+      tone: "benign",
+    };
+  }
+  if (state === "resolved") {
+    return {
+      headline: "Resolved · awaiting closure review",
+      sub: verdict && verdict !== "unknown"
+        ? `Verdict · ${verdict.toUpperCase()}`
+        : "No outstanding actions",
+      tone: "benign",
+    };
+  }
+
+  // Known malicious or suspicious → attention is the verdict.
+  if (verdict === "malicious" || verdict === "suspicious") {
+    const parts = [];
+    if (evidence > 0) parts.push(`${evidence} artifact${evidence > 1 ? "s" : ""}`);
+    if (techs > 0)    parts.push(`${techs} technique${techs > 1 ? "s" : ""}`);
+    if (conf)         parts.push(`${conf} confidence`);
+    return {
+      headline: verdict === "malicious" ? "Malicious activity confirmed"
+                                        : "Suspicious activity — under review",
+      sub: parts.length ? parts.join(" · ") : "Evidence still being collected",
+      tone: verdict === "malicious" ? "critical" : "high",
+    };
+  }
+
+  // Benign resolved verdict.
+  if (verdict === "benign") {
+    return {
+      headline: "Verified benign",
+      sub: "No malicious signal — retain for reference",
+      tone: "benign",
+    };
+  }
+
+  // In-progress but no verdict yet.
+  if (state === "in_progress") {
+    return {
+      headline: owner ? "Investigation in progress" : "In progress — unassigned",
+      sub: owner
+        ? "Verdict pending · analyst actively working"
+        : "Verdict pending · needs an owner",
+      tone: owner ? "purple" : "medium",
+    };
+  }
+
+  if (state === "on_hold") {
+    return {
+      headline: "On hold",
+      sub: "Waiting on external input or customer response",
+      tone: "medium",
+    };
+  }
+
+  // Default: new / awaiting triage.
+  if (!owner) {
+    return {
+      headline: "Awaiting first analyst",
+      sub: aging ? `Unassigned for ${aging} since first seen` : "Unassigned",
+      tone: "medium",
+    };
+  }
+  return {
+    headline: "New incident · triage pending",
+    sub: "Owner assigned · investigation not started",
+    tone: "low",
+  };
+}
+
 
 export default function RecordHeader({ incident, onOpenRespond }) {
-  const stage2   = incident.verdict_stage2 || {};
   const priority = incident.priority?.code || null;
-  const verdict  = stage2.label || null;
-  const conf     = stage2.confidence_bucket || null;
-  const risk     = stage2.risk_score;
-  const src      = stage2.engine || incident.engine || null;
+  const state    = incident.state || "new";
+  const attn     = attentionStatement(incident);
 
   return (
     <>
@@ -53,111 +154,110 @@ export default function RecordHeader({ incident, onOpenRespond }) {
           Incidents
         </Link>
         <span className="sep">/</span>
-        <span style={{ fontFamily: "var(--rs-mono)", color: "var(--rl-text-dim)" }}>
+        <span className="rl-crumb-id">
           {incident.number || (incident.id || "").slice(0, 12) + "…"}
         </span>
       </div>
 
-      <section className="rl-header" data-testid="xdr-record-header">
-        <div className="rl-header-top">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="rl-header-id" data-testid="xdr-record-id">
-              {incident.number}
-              <span className="sep">·</span>
-              First seen {fmtDate(incident.created_at) || "—"}
-              <span className="sep">·</span>
-              Last activity {fmtDate(incident.updated_at) || "—"}
-            </div>
-            <h1 className="rl-header-title" data-testid="xdr-record-title">
+      <div data-testid="xdr-record-header">
+        <NxHeroHeader
+          eyebrow="Incident"
+          title={
+            <span data-testid="xdr-record-title">
               {incident.name || "(unnamed incident)"}
-            </h1>
-            <div className="rl-header-chips" data-testid="xdr-record-chips">
+            </span>
+          }
+          description={
+            <span className="rl-hero-sub" data-testid="xdr-record-id">
+              <span className="rl-hero-mono">{incident.number}</span>
+              <span className="rl-hero-sep">·</span>
+              <span>First seen&nbsp;
+                <span className="rl-hero-mono">{fmtDate(incident.created_at) || "—"}</span>
+              </span>
+              <span className="rl-hero-sep">·</span>
+              <span>Last activity&nbsp;
+                <span className="rl-hero-mono">{fmtDate(incident.updated_at) || "—"}</span>
+              </span>
+            </span>
+          }
+          chips={
+            <div className="rl-attn" data-testid="xdr-record-attention">
               {priority
                 ? <PriorityChip code={priority} />
                 : <span className="rl-state na">P?</span>}
-              <SeverityChip value={incident.severity || "unknown"} />
-              <VerdictChip value={verdict || "unknown"} />
-              <StateChip value={incident.state || "new"} />
-              {incident.high_fidelity && (
-                <span className="rl-state err" data-testid="xdr-record-hifi">
-                  HIGH FIDELITY
-                </span>
+              <StateChip value={state} />
+              <span className={`rl-attn-headline rl-attn-tone-${attn.tone}`}
+                       data-testid="xdr-record-attention-headline">
+                {attn.headline}
+              </span>
+              <span className="rl-attn-sub"
+                       data-testid="xdr-record-attention-sub">
+                {attn.sub}
+              </span>
+            </div>
+          }
+          metrics={[]}
+          action={
+            <>
+              <button
+                type="button"
+                className="rl-btn primary"
+                onClick={onOpenRespond}
+                data-testid="xdr-record-respond"
+              >
+                <Zap size={13} /> Respond
+              </button>
+              <button
+                type="button"
+                className="rl-btn"
+                disabled
+                title="Report writer — Phase 5"
+                data-testid="xdr-record-report"
+              >
+                <FileText size={13} /> Generate Report
+              </button>
+              <button
+                type="button"
+                className="rl-btn"
+                disabled
+                title="More actions — Phase 3+"
+                data-testid="xdr-record-more"
+              >
+                <MoreHorizontal size={13} />
+              </button>
+            </>
+          }
+          provenance={
+            <div className="rl-hero-context" data-testid="xdr-record-context">
+              <span className="rl-hero-owner-inline">
+                <span className="rl-hero-context-label">Owner</span>
+                {incident.assignee
+                  ? <span className="rl-hero-mono">{incident.assignee}</span>
+                  : <span className="rl-hero-unassigned">Unassigned</span>}
+              </span>
+              {incident.tenant && (
+                <>
+                  <span className="rl-hero-sep">·</span>
+                  <span className="rl-hero-owner-inline">
+                    <span className="rl-hero-context-label">Customer</span>
+                    <span className="rl-hero-mono">{incident.tenant}</span>
+                  </span>
+                </>
               )}
-              {incident.customer_engaged && (
-                <span className="rl-state ok" data-testid="xdr-record-customer-engaged">
-                  CUSTOMER ENGAGED
-                </span>
+              {incident.sla_due_at && (
+                <>
+                  <span className="rl-hero-sep">·</span>
+                  <span className="rl-hero-owner-inline">
+                    <Clock size={11} style={{ marginRight: 3, verticalAlign: "-1.5px" }} />
+                    <span className="rl-hero-context-label">SLA due</span>
+                    <span className="rl-hero-mono">{fmtDate(incident.sla_due_at)}</span>
+                  </span>
+                </>
               )}
             </div>
-          </div>
-          <div className="rl-header-actions">
-            <button
-              type="button"
-              className="rl-btn primary"
-              onClick={onOpenRespond}
-              data-testid="xdr-record-respond"
-            >
-              <Zap size={13} /> Respond
-            </button>
-            <button
-              type="button"
-              className="rl-btn"
-              disabled
-              title="Report writer — Phase 5"
-              data-testid="xdr-record-report"
-            >
-              <FileText size={13} /> Generate Report
-            </button>
-            <button
-              type="button"
-              className="rl-btn"
-              disabled
-              title="More actions — Phase 3+"
-              data-testid="xdr-record-more"
-            >
-              <MoreHorizontal size={13} />
-            </button>
-          </div>
-        </div>
-
-        <div className="rl-meta" data-testid="xdr-record-meta">
-          <MetaCell k="Confidence" testid="xdr-record-meta-confidence"
-                     v={conf ? <span className="v mono">{String(conf).toUpperCase()}</span> : notRun} />
-          <MetaCell k="Risk Score" testid="xdr-record-meta-risk"
-                     v={risk != null
-                        ? <span className="v mono">{risk}/100</span>
-                        : na} />
-          <MetaCell k="Owner"      testid="xdr-record-meta-owner"
-                     v={incident.assignee
-                        ? <span className="v mono">{incident.assignee}</span>
-                        : unassigned} />
-          <MetaCell k="Customer"   testid="xdr-record-meta-customer"
-                     v={incident.tenant
-                        ? <span className="v mono">{incident.tenant}</span>
-                        : dash} />
-          <MetaCell k="Detection"  testid="xdr-record-meta-detection"
-                     v={src ? <span className="v mono">{src}</span> : notRun} />
-          <MetaCell k="SLA Due"    testid="xdr-record-meta-sla"
-                     v={incident.sla_due_at
-                        ? <span className="v mono">{fmtDate(incident.sla_due_at)}</span>
-                        : dash} />
-          <MetaCell k="Aging"      testid="xdr-record-meta-aging"
-                     v={<span className="v mono">{fmtAging(incident.created_at) || "—"}</span>} />
-          <MetaCell k="Techniques" testid="xdr-record-meta-mitre"
-                     v={(incident.mitre?.length ?? 0) > 0
-                        ? <span className="v mono">{incident.mitre.length}</span>
-                        : dash} />
-        </div>
-      </section>
+          }
+        />
+      </div>
     </>
-  );
-}
-
-function MetaCell({ k, v, testid }) {
-  return (
-    <div className="m" data-testid={testid}>
-      <div className="k">{k}</div>
-      {v}
-    </div>
   );
 }

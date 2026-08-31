@@ -32,6 +32,8 @@ import {
 } from "@/lib/incidentsApi";
 import XdrShell from "@/xdr/XdrShell";
 
+import { NxHeroHeader } from "@/xdr/nx";
+
 import PriorityStrip           from "./incidents/PriorityStrip";
 import QueueToolbar            from "./incidents/QueueToolbar";
 import StateTabs               from "./incidents/StateTabs";
@@ -435,24 +437,17 @@ export default function XdrIncidentsPage() {
   return (
     <XdrShell>
       <div className="xdr-queue-l2" data-testid="xdr-incidents-l2">
-        {/* Header */}
-        <div className="ql-header">
-          <div>
-            <h1 className="ql-title" data-testid="xdr-incidents-heading">
-              Incidents
-              {urlLens && (
-                <span style={{ color: "var(--ql-purple)", fontWeight: 600,
-                                fontSize: 16, marginLeft: 8 }}>
-                  · {LENS_LABELS[urlLens] || urlLens}
-                </span>
-              )}
-            </h1>
-            <div className="ql-sub">
-              Analyst work surface · projection of canonical evidence ·
-              never runs an engine · missing data stays honest.
-            </div>
-          </div>
-          <div className="ql-header-actions">
+        {/* Hero header — first-5-seconds identity */}
+        <NxHeroHeader
+          eyebrow="ANALYST OPERATIONS"
+          title="Incidents"
+          description="Investigation-aware queue · projection of canonical evidence · never runs an engine · missing data stays honest."
+          metrics={[
+            { label: "All", value: (rows || []).length, tone: "neutral" },
+            { label: "Selected", value: selected.size || null, tone: "purple" },
+            urlLens ? { label: "Lens", value: (LENS_LABELS[urlLens] || urlLens), tone: "purple" } : null,
+          ].filter(Boolean)}
+          action={(
             <button
               type="button"
               className="ql-btn"
@@ -461,8 +456,9 @@ export default function XdrIncidentsPage() {
             >
               MSS Dashboard
             </button>
-          </div>
-        </div>
+          )}
+          provenance={<span>workspace_cases.live</span>}
+        />
 
         {/* Priority strip */}
         <PriorityStrip activeLens={urlLens} onLensClick={onLensClick} />

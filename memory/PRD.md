@@ -7,6 +7,45 @@
 
 ---
 
+## ✅ 2026-02-35 · Phase A.2 · Visual Maturity Layer · Queue composition · SHIPPED
+
+Commit `bbab9c8` — 5 files, +224 / -20.  Live at
+`https://nivxray-xdr.vercel.app/xdr/incidents` after Vercel deploy.
+
+**Materiality tokens (`nx-tokens.css`)**
+- 5-surface system: Canvas (`#F4F3F0`) · Primary (`#FFFFFF` +
+  `shadow-1`) · Raised (`#FFFFFF` + `shadow-2`) · Inset (`#FAFAF8`)
+  · Selected (`--nx-purple-dim`).  `.nx-canvas` / `.nx-primary` /
+  `.nx-inset` / `.nx-raised` / `.nx-selected` helpers.
+
+**NxHeroHeader primitive**
+- Renders eyebrow → H1 title → one-line description → integrated
+  attention metrics (numeric + label, optionally clickable) →
+  right-side action + quiet provenance.  NOT a KPI card wall.
+
+**Queue composition pass**
+- Table becomes the focal point (Primary surface, `shadow-1`).
+- KPI strip drops from bordered cards to left-border-only inline
+  text — subordinate.
+- Toolbar + chips + tabs move onto Inset surface.
+- Canvas is warm neutral (no more white-inside-white).
+- Incident names use human sans; technical identity stays mono.
+- Provenance quieted to `--nx-faint`.
+
+**Contracts unchanged** — engine lock, anti-fabrication.
+
+**Sequenced plan (locked)**
+- A.2 · Queue → **SHIPPED**
+- A.2 · Incident Record → next
+- A.2 · MSS Dashboard
+- A.2 · Rule Studio
+- A.2 · KB / Threat Intelligence
+- B.5 · Cross-screen coherence pass
+
+Phase 3/4 remain paused.
+
+---
+
 ## 🟠 2026-02-34 · Visual Maturity Layer · design lock (feature freeze)
 
 Owner reviewed the shipped Queue/Rule-Studio screenshots and
@@ -3557,3 +3596,38 @@ protected router → Phase B GTFOBins + LOLDrivers → Detection +
 Correlation Engine (Admin → Detection → Rules / Correlation Rules /
 Pattern Rules / Content Packs / Testing / Replay / Versioning /
 Rollback) → OSINT/TI Hub (Admin → Intelligence → OSINT Providers).
+
+---
+
+## 2026-02-08 · Phase A.2 · Platform Overview shipped as Visual Maturity benchmark
+
+### What shipped
+- **3 read-only aggregation endpoints** (no engine touched):
+  - `GET /api/admin/ioc/composition` — canonical IOC breakdown (hash/domain/ip/url/other) from `iocs` collection
+  - `GET /api/admin/data-sources/summary` — `xdr_data_sources` rolled up per kind with adopted/enabled/connected counts + `last_telemetry_at`
+  - `GET /api/admin/detection/summary` — `xdr_detection_rules` rolled up by category (content/network/endpoint/correlation/ioc/technique)
+  - Wired in `server.py` as `admin_aggregations_router` (new file `routers/admin_aggregations.py`)
+- **Nx chart primitives** (SVG, zero deps): `NxDonut`, `NxAreaSpark`, `NxHBar` — exported from `@/xdr/nx`
+- **Platform Overview page** (`/xdr/admin` overview) as the A.2 visual benchmark:
+  - Hero on canvas: eyebrow · title · description · right-side operational health chip
+  - 6-KPI strip fed by `/api/admin/stats` (Users · Shares · IOCs · Ops · OSINT · Detection Rules)
+  - Main analytical row: IOC Composition (donut+legend) · Operations Over Time (area, honest-empty when history absent) · LOLBAS Intelligence (h-bars + last-updated timestamp)
+  - Operational row: Data Sources Health table · Detection Content Summary distribution table · Administrator Insights (attention list derived from real state)
+  - Anti-fabrication footer band
+- **Anti-fabrication guarantees preserved**:
+  - Trend deltas ("↑ 12.4% vs last 7 days") only render when `/api/platform/timeseries` returns ≥2 snapshots
+  - Operations Over Time shows a designed "Historical trend not yet available" state, not a fake chart, when snapshots < 2
+
+### Incident Record composition (also shipped this session)
+- Hero replaced with single operational **attention statement** (e.g. "Investigation in progress · verdict pending", "Awaiting first analyst · Unassigned for 43d") instead of a 5-metric KPI wall
+- Executive tab: "Not yet investigated" designed truth-state block replaces mechanical `NOT_RUN / — / —` cards
+- Lifecycle strip compressed to a subordinate pill trail so the tab panel becomes the visible focal point
+- Engineering copy (`workspace_cases.live`) removed from the hero
+
+### Pending — do not start without user confirmation
+- **§17 + §18 of NIVXRAY_VISUAL_GRAMMAR.md** — codify the six page families + chart primitive grammar + honest-aggregate data contract once Platform Overview visual review is accepted
+- **Phase A.2 propagation** (per user's sequenced plan): MSS Dashboard → Rule Studio → Knowledge Base (using the §17-18 rules)
+- Phase 3 (Lifecycle/SLA), Phase 4 (Live provenance), Phase 5+ still frozen
+
+### Visual review checkpoint
+The Platform Overview at `/xdr/admin` is the acceptance test for the whole Phase A.2 objective. The single question: **"Does this now look like a mature enterprise XDR product?"** If yes → codify §17-18 → propagate. If no → iterate before propagation.

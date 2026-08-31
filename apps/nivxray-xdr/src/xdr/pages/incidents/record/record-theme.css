@@ -676,3 +676,420 @@
 .xdr-record-l3 .rl-ai-status.running  .badge { background: #EFF6FF;             color: var(--rl-blue);  border: 3px solid var(--rl-blue); }
 .xdr-record-l3 .rl-ai-status .txt h5 { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--rl-text); }
 .xdr-record-l3 .rl-ai-status .txt p  { margin: 0; font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Visual Maturity · Record composition
+   Canvas → (subordinate) Lifecycle + Tabs bar → (focal) Tab panel.
+   The tab panel is the visual focal point of the Record page.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 1 · Canvas the page — no more full-page grey card feel */
+.xdr-record-l3 {
+  background: var(--nx-surf-canvas);
+}
+
+/* 2 · Hide the old white-on-grey header card — replaced by
+       NxHeroHeader sitting on canvas.                          */
+.xdr-record-l3 .rl-header {
+  display: none !important;
+}
+
+/* 3 · Breadcrumb sits on canvas · human sans, monospace only
+       for the incident number chip.                            */
+.xdr-record-l3 .rl-breadcrumb {
+  margin: -4px 0 8px;
+  font-family: var(--rs-sans);
+}
+.xdr-record-l3 .rl-crumb-id {
+  font-family: var(--rs-mono);
+  color: var(--rl-text-dim);
+}
+
+/* 4 · NxHeroHeader — sits directly on canvas, not a card.
+       Border-bottom already provided by NxHeroHeader itself.   */
+.xdr-record-l3 .nx-hero {
+  padding: 20px 4px 18px !important;
+  border-bottom: 1px solid var(--nx-bd-quiet) !important;
+  background: transparent;
+}
+.xdr-record-l3 .nx-hero .nx-t-h1 {
+  font-size: 22px !important;
+  letter-spacing: -0.01em;
+}
+
+/* Hero sub-description — human sans with mono technical bits. */
+.xdr-record-l3 .rl-hero-sub {
+  display: inline-flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--rs-sans);
+  font-size: 12.5px;
+  color: var(--rl-text-dim);
+}
+.xdr-record-l3 .rl-hero-mono {
+  font-family: var(--rs-mono);
+  color: var(--rl-text);
+  font-size: 11.5px;
+}
+.xdr-record-l3 .rl-hero-sep {
+  color: var(--rl-faint);
+  margin: 0 2px;
+}
+
+/* Hero chips row — attention chips first, then owner/customer
+   micro-labels (human sans) with mono identifiers.             */
+.xdr-record-l3 .rl-hero-chips {
+  display: inline-flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+}
+.xdr-record-l3 .rl-hero-owner {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid var(--nx-bd-quiet);
+  background: var(--nx-surf-inset);
+  border-radius: 4px;
+  font-family: var(--rs-sans);
+  font-size: 11.5px;
+  color: var(--rl-text-dim);
+}
+.xdr-record-l3 .rl-hero-owner-label {
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--rl-muted);
+}
+.xdr-record-l3 .rl-hero-owner.unassigned {
+  color: var(--rl-amber);
+  border-color: #FCD34D;
+  background: #FFFBEB;
+  font-family: var(--rs-mono);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+}
+.xdr-record-l3 .rl-hero-owner.unassigned .rl-hero-owner-label {
+  color: var(--rl-amber);
+}
+
+/* Hero metric row is denser here than on Queue */
+.xdr-record-l3 .nx-hero > div:first-child > div:nth-child(4),
+.xdr-record-l3 .nx-hero > div:first-child > div:nth-child(5) {
+  gap: 24px;
+}
+
+/* 5 · Lifecycle strip → inset control surface, subordinate to
+       the tab panel below.                                     */
+.xdr-record-l3 .rl-lifecycle {
+  background: var(--nx-surf-inset) !important;
+  border: 1px solid var(--nx-bd-quiet) !important;
+  border-radius: var(--nx-r-card) var(--nx-r-card) 0 0;
+  padding: 10px 16px !important;
+  margin: 14px 0 0 !important;
+  box-shadow: none !important;
+}
+.xdr-record-l3 .rl-lifecycle + .rl-tabs {
+  border-top: none;
+  border-radius: 0;
+}
+.xdr-record-l3 .rl-step { min-width: 84px !important; }
+.xdr-record-l3 .rl-step .dot {
+  width: 22px !important; height: 22px !important;
+  border-width: 2px !important;
+  font-size: 9.5px !important;
+}
+.xdr-record-l3 .rl-step .lbl { font-size: 9.5px !important; }
+.xdr-record-l3 .rl-step-arrow { top: -14px !important; }
+.xdr-record-l3 .rl-step.active .dot {
+  box-shadow: 0 0 0 3px var(--rl-purple-dim) !important;
+}
+
+/* 6 · Tabs bar → inset control surface, docked flush with
+       lifecycle above and the primary panel below.             */
+.xdr-record-l3 .rl-tabs {
+  background: var(--nx-surf-inset) !important;
+  border: 1px solid var(--nx-bd-quiet) !important;
+  border-top: 1px solid var(--nx-bd-quiet) !important;
+  border-radius: 0 !important;
+  padding: 0 8px !important;
+}
+.xdr-record-l3 .rl-tab {
+  padding: 11px 14px !important;
+  font-size: 12px !important;
+}
+
+/* 7 · Tab panel → PRIMARY focal surface (§16.2 focal point).
+       Elevated, crisp, sits on canvas.                         */
+.xdr-record-l3 .rl-tabpanel {
+  background: var(--nx-surf-primary) !important;
+  border: 1px solid var(--nx-bd-strong) !important;
+  border-top: 1px solid var(--nx-bd-quiet) !important;
+  border-radius: 0 0 var(--nx-r-card) var(--nx-r-card) !important;
+  box-shadow: var(--nx-shadow-1) !important;
+  padding: 20px 20px !important;
+}
+
+/* 8 · Sections inside the tab panel → INSET (no white-on-white).
+       Only the outer tab panel is primary; sections are inset.  */
+.xdr-record-l3 .rl-tabpanel .rl-section {
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  box-shadow: none;
+}
+
+/* 9 · §16.4 · Kill mono on human labels.
+       kv-key labels are human sans, not mono.                   */
+.xdr-record-l3 .rl-kv .k {
+  font-family: var(--rs-sans);
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+  color: var(--rl-muted);
+}
+/* State chip label uses micro sans, not mono (grammar §3 · §5). */
+.xdr-record-l3 .rl-state {
+  font-family: var(--rs-sans);
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+}
+/* Timeline body is prose, not code. */
+.xdr-record-l3 .rl-timeline-body {
+  font-family: var(--rs-sans);
+}
+/* Section title label is human sans (already is; strengthen the
+   contract by explicitly restating it). */
+.xdr-record-l3 .rl-section-title,
+.xdr-record-l3 .rl-metric .k,
+.xdr-record-l3 .rl-tab .count {
+  font-family: var(--rs-sans);
+}
+/* Note composer is prose. */
+.xdr-record-l3 .rl-note-input { font-family: var(--rs-sans); }
+
+/* 10 · Empty / error states stay honest but tonal, not shouty. */
+.xdr-record-l3 .rl-empty {
+  background: var(--nx-surf-inset);
+  border-color: var(--nx-bd-quiet);
+}
+
+/* 11 · The compat `.canvas` variant is now the same PRIMARY
+        surface — override its cosmetic border to match.        */
+.xdr-record-l3 .rl-tabpanel.canvas {
+  background: var(--nx-surf-primary) !important;
+  border-color: var(--nx-bd-strong) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Record composition · v2 overrides
+   Single dominant attention statement replaces the KPI wall.
+   Lifecycle strip compressed to a subordinate control pill.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Attention line — priority + state chip + operational headline. */
+.xdr-record-l3 .rl-attn {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0 4px;
+}
+.xdr-record-l3 .rl-attn-headline {
+  font-family: var(--rs-sans);
+  font-size: 15px; font-weight: 700;
+  color: var(--rl-text);
+  letter-spacing: -0.01em;
+}
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-critical { color: var(--rl-red); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-high     { color: var(--rl-orange); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-medium   { color: var(--rl-amber); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-low      { color: var(--rl-blue); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-benign   { color: var(--rl-green); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-purple   { color: var(--rl-purple); }
+
+.xdr-record-l3 .rl-attn-sub {
+  font-family: var(--rs-sans);
+  font-size: 12.5px;
+  color: var(--rl-text-dim);
+  font-weight: 500;
+}
+
+/* Hero context row (provenance slot) — quiet inline meta. */
+.xdr-record-l3 .rl-hero-context {
+  display: inline-flex; flex-wrap: wrap; align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  font-family: var(--rs-sans);
+  font-size: 11.5px;
+  color: var(--rl-text-dim);
+}
+.xdr-record-l3 .rl-hero-owner-inline {
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.xdr-record-l3 .rl-hero-context-label {
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--rl-muted);
+}
+.xdr-record-l3 .rl-hero-unassigned {
+  color: var(--rl-amber);
+  font-family: var(--rs-sans);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* Kill the mono `Source · ...` provenance prefix on Record hero
+   because we're already labelling the context inline.           */
+.xdr-record-l3 .nx-hero .nx-prov::before {
+  content: "";
+}
+.xdr-record-l3 .nx-hero .nx-prov {
+  font-family: var(--rs-sans);
+  color: var(--rl-text-dim);
+  padding: 0;
+  margin-top: 8px;
+  font-size: 11.5px;
+}
+
+/* Lifecycle → single compact pill trail, tightly subordinate. */
+.xdr-record-l3 .rl-lifecycle {
+  padding: 6px 12px !important;
+  gap: 0;
+  margin-top: 12px !important;
+}
+.xdr-record-l3 .rl-step {
+  min-width: auto !important;
+  flex-direction: row !important;
+  gap: 6px !important;
+  padding: 3px 8px !important;
+}
+.xdr-record-l3 .rl-step .dot {
+  width: 16px !important; height: 16px !important;
+  border-width: 1.5px !important;
+  font-size: 8.5px !important;
+}
+.xdr-record-l3 .rl-step .lbl {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+}
+.xdr-record-l3 .rl-step.active .lbl { font-weight: 700 !important; }
+.xdr-record-l3 .rl-step.active .dot {
+  box-shadow: 0 0 0 2px var(--rl-purple-dim) !important;
+}
+.xdr-record-l3 .rl-step-arrow {
+  top: 0 !important;
+  min-width: 12px !important; height: 1px !important;
+  margin: 0 6px !important;
+  align-self: center;
+}
+
+/* Section boundary between chips and hero-context.
+   Chips currently sit ABOVE the metric row, so no metric row
+   means chips flow straight into the context — tighten spacing. */
+.xdr-record-l3 .nx-hero > div:first-child > div[data-testid="nx-hero-chips"] {
+  margin-bottom: 4px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Designed truth-state blocks (Executive tab)
+   Replaces mechanical "NOT_RUN · — · UNKNOWN · —" KPI walls.
+   ═══════════════════════════════════════════════════════════════ */
+
+.xdr-record-l3 .rl-verdict-pending {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-left: 3px solid var(--rl-purple);
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+.xdr-record-l3 .rl-verdict-pending-icon {
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--rl-purple-dim);
+  color: var(--rl-purple);
+  border-radius: 8px;
+}
+.xdr-record-l3 .rl-verdict-pending-title {
+  margin: 0 0 4px;
+  font-family: var(--rs-sans);
+  font-size: 14px; font-weight: 700;
+  color: var(--rl-text);
+}
+.xdr-record-l3 .rl-verdict-pending-copy {
+  margin: 0 0 12px;
+  font-family: var(--rs-sans);
+  font-size: 12.5px; line-height: 1.55;
+  color: var(--rl-text-dim);
+  max-width: 620px;
+}
+.xdr-record-l3 .rl-verdict-pending-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+/* Gap summary block (grouped honest absence) */
+.xdr-record-l3 .rl-gap-summary {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.xdr-record-l3 .rl-gap-summary-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 6px;
+}
+.xdr-record-l3 .rl-gap-summary-row.not_connected      { border-left: 3px solid var(--rl-border-hi); }
+.xdr-record-l3 .rl-gap-summary-row.not_available      { border-left: 3px solid var(--rl-amber); }
+.xdr-record-l3 .rl-gap-summary-row.no_matching_evidence { border-left: 3px solid var(--rl-blue); }
+.xdr-record-l3 .rl-gap-summary-icon {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--nx-elevated);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 6px;
+  color: var(--rl-muted);
+}
+.xdr-record-l3 .rl-gap-summary-row.not_available .rl-gap-summary-icon { color: var(--rl-amber); }
+.xdr-record-l3 .rl-gap-summary-row.no_matching_evidence .rl-gap-summary-icon { color: var(--rl-blue); }
+.xdr-record-l3 .rl-gap-summary-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--rs-sans);
+  font-size: 12.5px; font-weight: 700;
+  color: var(--rl-text);
+  margin-bottom: 2px;
+}
+.xdr-record-l3 .rl-gap-summary-count {
+  font-family: var(--rs-mono);
+  font-size: 10.5px; font-weight: 800;
+  padding: 1px 7px;
+  background: var(--nx-elevated);
+  border: 1px solid var(--nx-bd-quiet);
+  color: var(--rl-text-dim);
+  border-radius: 999px;
+}
+.xdr-record-l3 .rl-gap-summary-copy {
+  font-family: var(--rs-sans);
+  font-size: 12px; line-height: 1.5;
+  color: var(--rl-text-dim);
+}
+
+/* Quiet empty (used inside Observed facts when zero facts) */
+.xdr-record-l3 .rl-empty-quiet {
+  background: transparent;
+  border-color: var(--nx-bd-quiet);
+  border-style: dashed;
+  text-align: left;
+  padding: 14px 16px;
+  color: var(--rl-text-dim);
+  font-family: var(--rs-sans);
+}
+.xdr-record-l3 .rl-empty-quiet .kbd {
+  color: var(--rl-muted);
+  font-family: var(--rs-sans);
+  font-size: 11.5px;
+}

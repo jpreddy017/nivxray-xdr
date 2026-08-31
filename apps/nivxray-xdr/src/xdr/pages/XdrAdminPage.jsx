@@ -34,6 +34,7 @@ import DataSourcesBody       from "@/xdr/admin/DataSourcesBody";
 import CollectorsBody        from "@/xdr/admin/CollectorsBody";
 import DetectionRegistryBody from "@/xdr/admin/DetectionRegistryBody";
 import CorrelationRulesBody  from "@/xdr/admin/CorrelationRulesBody";
+import PlatformOverviewBody  from "@/xdr/admin/PlatformOverviewBody";
 import UsersRolesBody from "@/xdr/admin/UsersRolesBody";
 import ApiKeysBody from "@/xdr/admin/ApiKeysBody";
 import WebhooksBody from "@/xdr/admin/WebhooksBody";
@@ -152,6 +153,13 @@ async function fetchSection(section) {
 
 // ── The admin body ──────────────────────────────────────────────
 function AdminBody({ section }) {
+  // Overview is the Phase A.2 visual benchmark — it composes its
+  // own hero + KPI + analytical rows and fetches all authoritative
+  // aggregates directly.  Skip the generic KV pipeline.
+  if (section.key === "overview") {
+    return <PlatformOverviewBody />;
+  }
+
   const [state, setState] = useState("loading");
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
