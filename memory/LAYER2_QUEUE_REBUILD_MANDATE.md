@@ -3,6 +3,32 @@
 **Locked** · Owner directive · 2026-02-32
 **Status** · Pending · fresh session · full-context delivery required
 
+## 🔒 2026-02-32 · Final owner directive · execution authority granted
+
+> **Execute Layer 2 now.  Do not ask multiple questions.  Use your
+> product-design judgment.**
+
+- **Design authority is granted to the executing agent.**  Do not ask
+  the owner to choose between light/dark, columns, chip styles, layout
+  options, spacing, typography, etc.  Study the five references,
+  implement the strongest solution, verify it, ship it.
+- **Do not default to the existing NivXRay black theme.**  If light is
+  best, use light.  If dark is genuinely better, use dark.  If hybrid
+  is better, use hybrid.  Do not preserve black merely for consistency
+  with the existing UI.
+- **The result must feel like a mature enterprise SOC product**
+  comparable in usability and information density to Microsoft
+  Defender XDR / ServiceNow SIR, while retaining NivXRay's own
+  identity.  Not a superficial cosmetic patch.
+- **Acceptance is not `yarn build` passing.**  The deployed queue at
+  `https://nivxray-xdr.vercel.app/xdr/incidents` must visibly
+  demonstrate the intended Defender / SIR-level analyst experience
+  and satisfy the 6 required screenshots (full queue · KPI strip +
+  toolbar · Customize Columns · filtered queue · preview drawer ·
+  bulk selection).
+- **Existing routing preserved.**  `/xdr/incidents` = primary analyst
+  landing page.  `/xdr/mss-dashboard` = separate MSS Command Center.
+
 ## Explicit scope guard
 
 > Layer 2 is a **visual / product-quality rebuild** of the Incident

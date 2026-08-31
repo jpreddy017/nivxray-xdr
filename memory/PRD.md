@@ -7,6 +7,26 @@
 
 ---
 
+## ⚡ 2026-02-32 · Execution authority granted · next-session directive
+
+Owner has explicitly delegated Layer 2 design authority to the executing agent:
+
+> **Execute Layer 2 now.  Do not ask multiple questions.**  Do not ask
+> the owner to choose between light/dark themes, column selection,
+> chip styles, layout options, spacing, typography, etc.  Study the
+> five references (Defender Queue / Manage / Investigate + ServiceNow
+> SIR Workspace / New UI), implement the strongest solution, verify
+> it, ship it.
+
+The next session must **not** open with `ask_human` for preference
+questions.  Read `/app/memory/LAYER2_QUEUE_REBUILD_MANDATE.md` and
+execute end-to-end.  Ask only if a truly blocking ambiguity arises —
+never for cosmetic / design choices.
+
+
+
+---
+
 ## 🔒 2026-02-32 · LAYER 2 · AUTHORIZED · EXECUTE NEXT SESSION
 
 Owner has explicitly authorized Layer 2 execution as a **product-quality
