@@ -27,15 +27,14 @@ import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
 
 import RecordHeader          from "./incidents/record/RecordHeader";
 import LifecycleStrip        from "./incidents/record/LifecycleStrip";
-import RecordTabs, {
-  RECORD_TABS, CANVAS_TABS,
-}                            from "./incidents/record/RecordTabs";
+import RecordTabs, { RECORD_TABS } from "./incidents/record/RecordTabs";
 import ExecutiveTab          from "./incidents/record/tabs/ExecutiveTab";
 import TechnicalTab          from "./incidents/record/tabs/TechnicalTab";
 import EvidenceTab           from "./incidents/record/tabs/EvidenceTab";
 import AutoInvestigationTab  from "./incidents/record/tabs/AutoInvestigationTab";
-import { MitreTab, AttackStoryTab, RecommendationsTab }
-                              from "./incidents/record/tabs/CanvasTabs";
+import MitreTab              from "./incidents/record/tabs/MitreTab";
+import AttackStoryTab        from "./incidents/record/tabs/AttackStoryTab";
+import RecommendationsTab    from "./incidents/record/tabs/RecommendationsTab";
 import NotesTab              from "./incidents/record/tabs/NotesTab";
 import TimelineTab           from "./incidents/record/tabs/TimelineTab";
 import RelatedTab            from "./incidents/record/tabs/RelatedTab";
@@ -101,8 +100,6 @@ export default function XdrIncidentDetailPage() {
     };
   }, [incident]);
 
-  const inCanvas = CANVAS_TABS.has(tab);
-
   return (
     <XdrShell>
       <div className="xdr-record-l3" data-testid="xdr-record-l3">
@@ -129,28 +126,21 @@ export default function XdrIncidentDetailPage() {
             />
             <RecordTabs current={tab} onChange={setTab} />
             <div
-              className={`rl-tabpanel ${inCanvas ? "canvas" : ""}`}
+              className="rl-tabpanel"
               data-testid={`xdr-record-tabpanel-${tab}`}
             >
-              {inCanvas ? (
-                <div className="canvas-inner">
-                  {tab === "auto_investigation" && <AutoInvestigationTab incident={incident} />}
-                  {tab === "mitre"              && <MitreTab              incident={incident} />}
-                  {tab === "attack_story"       && <AttackStoryTab        incident={incident} />}
-                  {tab === "recommendations"    && <RecommendationsTab    incident={incident} />}
-                </div>
-              ) : (
-                <>
-                  {tab === "executive" && <ExecutiveTab incident={incident} />}
-                  {tab === "technical" && <TechnicalTab incident={incident} />}
-                  {tab === "evidence"  && <EvidenceTab  incident={incident} />}
-                  {tab === "notes"     && <NotesTab     incident={incident} />}
-                  {tab === "timeline"  && <TimelineTab  incident={incident} />}
-                  {tab === "related"   && <RelatedTab   incident={incident} />}
-                  {tab === "closure"   && <ClosureTab   incident={incident}
-                                                                onUpdated={setIncident} />}
-                </>
-              )}
+              {tab === "executive"          && <ExecutiveTab         incident={incident} />}
+              {tab === "technical"          && <TechnicalTab         incident={incident} />}
+              {tab === "evidence"           && <EvidenceTab          incident={incident} />}
+              {tab === "auto_investigation" && <AutoInvestigationTab incident={incident} />}
+              {tab === "mitre"              && <MitreTab             incident={incident} />}
+              {tab === "attack_story"       && <AttackStoryTab       incident={incident} />}
+              {tab === "recommendations"    && <RecommendationsTab   incident={incident} />}
+              {tab === "notes"              && <NotesTab             incident={incident} />}
+              {tab === "timeline"           && <TimelineTab          incident={incident} />}
+              {tab === "related"            && <RelatedTab           incident={incident} />}
+              {tab === "closure"            && <ClosureTab           incident={incident}
+                                                                              onUpdated={setIncident} />}
             </div>
           </>
         )}

@@ -1,6 +1,60 @@
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
+## 2026-02-34 · Layer 3 v2 · light-first Defender/SIR visual redesign
+
+Layer 3 v1 shipped functionality but visually was still the legacy
+NivXRay dark UI with new tabs.  v2 is a full **visual language**
+redesign that matches the Defender XDR + ServiceNow SIR quality bar.
+
+### XDR shell
+- `XdrShell.jsx` now reads the current route and toggles a scoped
+  `.xdr-console--light` chrome for `/xdr/incidents` (queue + record).
+  Other XDR pages keep the legacy dark shell.
+- `xdr-console.css` appends the light-chrome tokens (white surfaces,
+  charcoal typography, purple accents, semantic sidebar hovers).
+
+### Incident Record tabs — full rebuild
+- **EvidenceTab** rewritten as native light domain cards
+  (RELATED · SEARCHED · NO EVIDENCE · NOT CONNECTED).  Drops the
+  reused dark `DomainCardsGrid` visual.
+- **MitreTab** (new): metric header + light tactic groups ordered by
+  KILL_CHAIN with tactic → technique → confidence rows.  Drops the
+  reused dark `AttackChainPanel` visual.
+- **AttackStoryTab** (new): light vertical timeline with tactic-
+  coloured event dots + technique badges from
+  `incident.attack_progression`.  Drops the reused dark
+  `ProcessTreePanel` + `ScenarioIntelligencePanel` visuals.
+- **RecommendationsTab** (new): light priority-coded recommendation
+  list from `evidence_gaps` + `/api/xdr/incidents/:id/response-executions`.
+  Drops the reused dark `XdrCompletenessPanel` +
+  `XdrRecommendationsPanel` visuals.
+- **AutoInvestigationTab** rewritten as a light status card with a
+  circular semantic badge + metric tiles + Phase-4 provenance
+  placeholder.
+
+### Record page
+- `XdrIncidentDetailPage` drops the `CANVAS_TABS` concept — every
+  tab now uses the same light `.rl-tabpanel` frame.
+- `CanvasTabs.jsx` deleted.
+
+### Contracts unchanged
+- Anti-fabrication contract preserved.
+- Engine lock preserved: zero backend changes.  The reused dark
+  engine panels still exist for other pages; only the record
+  stopped importing them.
+
+### Verification
+- Local `yarn build` clean (record chunk shrank 120 KB → 61 KB).
+- 5 production acceptance screenshots captured on
+  `https://nivxray-xdr.vercel.app/xdr/incidents(/:id)` covering
+  queue, Evidence, MITRE, Recommendations, Auto-Investigation.
+
+Commit: `877df28 feat(record): Layer 3 v2 · light-first Defender/SIR
+workspace`.
+
+---
+
 ## 2026-02-33 · Layer 3 · Incident Record product-quality rebuild — SHIPPED
 
 Complete Defender/SIR-inspired rebuild of `/xdr/incidents/:id` — the

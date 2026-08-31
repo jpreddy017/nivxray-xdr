@@ -254,41 +254,19 @@
   box-shadow: 0 1px 2px rgba(15,20,30,0.03);
 }
 
-/* Dark analyst-canvas variant used by MITRE / Attack Story /
-   Recommendations / Auto-Investigation tabs so the existing
-   engine panels retain their native visual language. */
+/* Dark analyst-canvas variant · DEPRECATED (Layer 3 v2).
+   Layer 3 is fully light-first now.  Kept as an alias so any
+   .canvas class name still renders as the normal light tab panel. */
 .xdr-record-l3 .rl-tabpanel.canvas {
-  background: var(--rd-bg);
-  color: var(--rd-text);
-  border-color: var(--rd-border);
-  padding: 4px 4px 6px;
+  background: var(--rl-surface);
+  color: var(--rl-text);
+  border-color: var(--rl-border);
+  padding: 18px;
 }
 .xdr-record-l3 .rl-tabpanel.canvas .canvas-inner {
-  /* Provide the xdr-console CSS vars this panel needs. */
-  padding: 14px 16px 18px;
-  background: var(--rd-bg);
-  color: var(--rd-text);
-  --bg:      var(--rd-bg);
-  --bg2:     var(--rd-panel);
-  --panel:   var(--rd-panel);
-  --panel2:  var(--rd-panel-2);
-  --border:  var(--rd-border);
-  --border-sf: var(--rd-border);
-  --text:    var(--rd-text);
-  --text-dim: var(--rd-text-dim);
-  --muted:   var(--rd-muted);
-  --faint:   var(--rd-faint);
-  --purple:  var(--rd-purple);
-  --purple-dim: #2A2145;
-  --mint:    #3CE8B8;
-  --cyan:    #3FC1E8;
-  --amber:   #F5A623;
-  --yellow:  #E8C547;
-  --red:     #EF5B5B;
-  --red-dim: #331A1D;
-  --mono:    var(--rs-mono);
-  --sans:    var(--rs-sans);
-  --radius:  6px;
+  padding: 0;
+  background: transparent;
+  color: var(--rl-text);
 }
 
 /* ── Content blocks (light) ───────────────────────────────────── */
@@ -512,3 +490,189 @@
   border-color: var(--rl-purple-hover);
 }
 .xdr-record-l3 .rl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Layer 3 v2 · light-first tab components (Feb 34)
+   Replaces the old dark analyst-canvas visual language.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Domain cards (Evidence tab) */
+.xdr-record-l3 .rl-domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+.xdr-record-l3 .rl-domain-card {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.xdr-record-l3 .rl-domain-card:hover {
+  border-color: var(--rl-border-hi);
+  box-shadow: 0 2px 8px rgba(15,20,30,0.06);
+}
+.xdr-record-l3 .rl-domain-card.related       { border-left: 3px solid var(--rl-green); }
+.xdr-record-l3 .rl-domain-card.searched      { border-left: 3px solid var(--rl-blue); }
+.xdr-record-l3 .rl-domain-card.no_evidence   { border-left: 3px solid var(--rl-amber); }
+.xdr-record-l3 .rl-domain-card.not_connected { border-left: 3px solid var(--rl-border-hi); opacity: 0.85; }
+.xdr-record-l3 .rl-domain-head { display: flex; align-items: center; gap: 8px; }
+.xdr-record-l3 .rl-domain-icon {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--rl-purple-dim); color: var(--rl-purple);
+  border-radius: 6px;
+}
+.xdr-record-l3 .rl-domain-name  { font-size: 13px; font-weight: 700; color: var(--rl-text); flex: 1; }
+.xdr-record-l3 .rl-domain-status {
+  font-family: var(--rs-mono);
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 2px 7px; border-radius: 3px;
+  text-transform: uppercase;
+}
+.xdr-record-l3 .rl-domain-status.related       { background: #ECFDF5; color: var(--rl-green); }
+.xdr-record-l3 .rl-domain-status.searched      { background: #EFF6FF; color: var(--rl-blue); }
+.xdr-record-l3 .rl-domain-status.no_evidence   { background: #FFFBEB; color: var(--rl-amber); }
+.xdr-record-l3 .rl-domain-status.not_connected { background: var(--rl-surface-3); color: var(--rl-muted); }
+.xdr-record-l3 .rl-domain-sub   { font-family: var(--rs-mono); font-size: 11px; color: var(--rl-text-dim); line-height: 1.5; }
+.xdr-record-l3 .rl-domain-count { font-family: var(--rs-mono); font-size: 22px; font-weight: 800; color: var(--rl-text); line-height: 1; }
+.xdr-record-l3 .rl-domain-count.dim { color: var(--rl-faint); font-size: 14px; }
+.xdr-record-l3 .rl-domain-actions {
+  display: flex; gap: 6px; margin-top: 4px;
+  padding-top: 8px; border-top: 1px solid var(--rl-border);
+}
+.xdr-record-l3 .rl-domain-link {
+  font-size: 11.5px; font-weight: 600;
+  color: var(--rl-purple); text-decoration: none;
+  cursor: pointer; background: transparent; border: none;
+  padding: 0; display: inline-flex; align-items: center; gap: 3px;
+}
+.xdr-record-l3 .rl-domain-link:hover { text-decoration: underline; }
+
+/* MITRE tactic groups */
+.xdr-record-l3 .rl-tactic-group {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.xdr-record-l3 .rl-tactic-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.xdr-record-l3 .rl-tactic-badge {
+  padding: 2px 8px; border-radius: 3px;
+  background: var(--rl-purple-dim); color: var(--rl-purple);
+  font-family: var(--rs-mono);
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.4px; text-transform: uppercase;
+}
+.xdr-record-l3 .rl-tactic-name  { font-size: 13px; font-weight: 700; color: var(--rl-text); flex: 1; }
+.xdr-record-l3 .rl-tactic-count { font-family: var(--rs-mono); font-size: 11px; color: var(--rl-muted); }
+.xdr-record-l3 .rl-technique-row {
+  display: grid; grid-template-columns: 90px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 6px 4px;
+  border-top: 1px solid var(--rl-border);
+  font-size: 12px;
+}
+.xdr-record-l3 .rl-technique-row:first-of-type { border-top: none; }
+.xdr-record-l3 .rl-technique-id   { font-family: var(--rs-mono); font-size: 11.5px; font-weight: 700; color: var(--rl-purple); }
+.xdr-record-l3 .rl-technique-name { color: var(--rl-text); overflow: hidden; text-overflow: ellipsis; }
+.xdr-record-l3 .rl-technique-conf {
+  font-family: var(--rs-mono);
+  font-size: 10px; font-weight: 800;
+  padding: 1px 6px; border-radius: 3px;
+  letter-spacing: 0.3px; text-transform: uppercase;
+}
+.xdr-record-l3 .rl-technique-conf.high   { background: #ECFDF5; color: var(--rl-green); }
+.xdr-record-l3 .rl-technique-conf.medium { background: #FFFBEB; color: var(--rl-amber); }
+.xdr-record-l3 .rl-technique-conf.low    { background: var(--rl-surface-3); color: var(--rl-muted); }
+
+/* Attack story timeline */
+.xdr-record-l3 .rl-timeline { position: relative; padding-left: 26px; }
+.xdr-record-l3 .rl-timeline::before {
+  content: ""; position: absolute;
+  left: 10px; top: 6px; bottom: 6px;
+  width: 2px; background: var(--rl-border);
+}
+.xdr-record-l3 .rl-timeline-event {
+  position: relative;
+  padding: 10px 14px;
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+.xdr-record-l3 .rl-timeline-event::before {
+  content: ""; position: absolute;
+  left: -21px; top: 14px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--rl-purple);
+  border: 3px solid var(--rl-surface);
+  box-shadow: 0 0 0 1px var(--rl-purple);
+}
+.xdr-record-l3 .rl-timeline-event.reconn::before  { background: var(--rl-blue);   box-shadow: 0 0 0 1px var(--rl-blue); }
+.xdr-record-l3 .rl-timeline-event.exec::before    { background: var(--rl-red);    box-shadow: 0 0 0 1px var(--rl-red); }
+.xdr-record-l3 .rl-timeline-event.persist::before { background: var(--rl-orange); box-shadow: 0 0 0 1px var(--rl-orange); }
+.xdr-record-l3 .rl-timeline-event.impact::before  { background: var(--rl-red);    box-shadow: 0 0 0 1px var(--rl-red); }
+.xdr-record-l3 .rl-timeline-head  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.xdr-record-l3 .rl-timeline-time  { font-family: var(--rs-mono); font-size: 10.5px; color: var(--rl-muted); }
+.xdr-record-l3 .rl-timeline-title { font-size: 12.5px; font-weight: 700; color: var(--rl-text); }
+.xdr-record-l3 .rl-timeline-body  { font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; font-family: var(--rs-mono); }
+
+/* Recommendations */
+.xdr-record-l3 .rl-reco {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: 76px 1fr auto;
+  gap: 12px; align-items: start;
+}
+.xdr-record-l3 .rl-reco-prio {
+  padding: 2px 7px; border-radius: 3px;
+  font-family: var(--rs-mono);
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.4px;
+  text-align: center; text-transform: uppercase;
+  align-self: flex-start;
+}
+.xdr-record-l3 .rl-reco-prio.critical { background: #FEF2F2; color: var(--rl-red);    border: 1px solid #FCA5A5; }
+.xdr-record-l3 .rl-reco-prio.high     { background: #FFF7ED; color: var(--rl-orange); border: 1px solid #FDBA74; }
+.xdr-record-l3 .rl-reco-prio.medium   { background: #FFFBEB; color: var(--rl-amber);  border: 1px solid #FCD34D; }
+.xdr-record-l3 .rl-reco-prio.low      { background: #EFF6FF; color: var(--rl-blue);   border: 1px solid #93C5FD; }
+.xdr-record-l3 .rl-reco-body h5   { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--rl-text); }
+.xdr-record-l3 .rl-reco-body p    { margin: 0; font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; }
+.xdr-record-l3 .rl-reco-basis     { margin-top: 6px; font-family: var(--rs-mono); font-size: 10.5px; color: var(--rl-faint); }
+
+/* Auto-Investigation status card */
+.xdr-record-l3 .rl-ai-status {
+  border: 1px solid var(--rl-border);
+  background: var(--rl-surface);
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 20px; align-items: center;
+  margin-bottom: 12px;
+}
+.xdr-record-l3 .rl-ai-status .badge {
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--rs-mono);
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 0.5px; text-align: center;
+}
+.xdr-record-l3 .rl-ai-status.not_run  .badge { background: var(--rl-surface-3); color: var(--rl-muted); border: 3px solid var(--rl-border-hi); }
+.xdr-record-l3 .rl-ai-status.complete .badge { background: #ECFDF5;             color: var(--rl-green); border: 3px solid var(--rl-green); }
+.xdr-record-l3 .rl-ai-status.partial  .badge { background: #FFFBEB;             color: var(--rl-amber); border: 3px solid var(--rl-amber); }
+.xdr-record-l3 .rl-ai-status.failed   .badge { background: #FEF2F2;             color: var(--rl-red);   border: 3px solid var(--rl-red); }
+.xdr-record-l3 .rl-ai-status.running  .badge { background: #EFF6FF;             color: var(--rl-blue);  border: 3px solid var(--rl-blue); }
+.xdr-record-l3 .rl-ai-status .txt h5 { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--rl-text); }
+.xdr-record-l3 .rl-ai-status .txt p  { margin: 0; font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; }

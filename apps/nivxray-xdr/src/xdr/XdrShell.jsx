@@ -210,6 +210,7 @@ export default function XdrShell({ children }) {
   const { user, logout } = useAuth();
   const activeKey = useActiveKey();
   const navigate  = useNavigate();
+  const { pathname } = useLocation();
   const [q, setQ] = useState("");
 
   const initials = (user?.email || "?").slice(0, 2).toUpperCase();
@@ -224,8 +225,16 @@ export default function XdrShell({ children }) {
 
   const openExternal = (to) => window.open(to, "_blank", "noopener,noreferrer");
 
+  // Layer 3 · light-first chrome for the analyst operations surfaces
+  // (incident queue + incident record).  Other XDR routes keep the
+  // legacy dark shell until they are individually redesigned.
+  const path = pathname || "";
+  const lightChrome = path.startsWith("/xdr/incidents");
+
   return (
-    <div className="xdr-console" data-testid="xdr-shell">
+    <div className={`xdr-console ${lightChrome ? "xdr-console--light" : ""}`}
+          data-testid="xdr-shell"
+          data-chrome={lightChrome ? "light" : "dark"}>
       {/* ── Top bar (utility only) ────────────────────────── */}
       <div className="topbar">
         <Link to="/xdr" className="brand" data-testid="xdr-brand">

@@ -7,6 +7,62 @@
 
 ---
 
+## ✅ 2026-02-34 · Layer 3 v2 · SHIPPED (visual redesign)
+
+You called out that Layer 3 v1 was still visually the legacy
+NivXRay dark UI with Defender-shaped chrome bolted on top.  Layer
+3 v2 is a full **visual language redesign** — not another
+functionality pass.
+
+Live on production at
+`https://nivxray-xdr.vercel.app/xdr/incidents/:id`.
+
+Commit `877df28` — 10 files, +965 / -251:
+
+- **Global light chrome** (`xdr-console--light`): the topbar and
+  sidebar switch to white surfaces + charcoal typography whenever
+  the URL is under `/xdr/incidents`.  Other XDR pages keep their
+  legacy dark shell until they are individually redesigned.
+- **The dark analyst-canvas concept is deprecated** — every Layer 3
+  tab now renders inside the same light tab panel.
+- **Reused dark engine panels dropped from the record** —
+  `AttackChainPanel`, `ProcessTreePanel`, `XdrCompletenessPanel`,
+  `XdrRecommendationsPanel`, `ScenarioIntelligencePanel`,
+  `DomainCardsGrid` are no longer imported here.  They still exist
+  for other pages; the record now reads the same authoritative
+  data (`evidence_pointers`, `mitre`, `attack_progression`,
+  `summary`, `response-executions`) and renders it in native light
+  components.
+- **New light-first tabs**:
+  - **EvidenceTab**: six light domain cards (Endpoint · Identity ·
+    Files · Network · Email · Cloud) with semantic status pills
+    (RELATED · SEARCHED · NO EVIDENCE · NOT CONNECTED), detection
+    counts and honest reason text.
+  - **MitreTab**: metric header (Tactics · Techniques · Confidence)
+    plus one light card per observed tactic, ordered by KILL_CHAIN,
+    each with a tactic → technique → confidence row.
+  - **AttackStoryTab**: light vertical timeline with tactic-coloured
+    event dots and technique badges derived from
+    `attack_progression`.
+  - **RecommendationsTab**: light priority-coded recommendation list
+    (CRIT / HIGH / MED / LOW) built from evidence gaps + response
+    executions, plus a response-execution table.
+  - **AutoInvestigationTab**: light status card with a circular
+    NOT_RUN / COMPLETE / PARTIAL / FAILED / RUNNING badge and
+    Phase-4 provenance placeholder.
+- **Anti-fabrication contract preserved** everywhere — NOT_RUN ·
+  NO EVIDENCE · NOT AVAILABLE · UNKNOWN · em-dash.
+- **Engine lock still absolute** — zero backend changes.
+
+5 production acceptance screenshots captured (queue · Evidence ·
+MITRE · Recommendations · Auto-Investigation).  All match the
+Defender/SIR quality bar.
+
+Next sequence: Phase 3 Lifecycle/SLA policy engine → Phase 4
+Auto-Investigation provenance orchestration.
+
+---
+
 ## ✅ 2026-02-33 · Layer 3 · SHIPPED
 
 Layer 3 (Incident Record product-quality rebuild) is **complete and

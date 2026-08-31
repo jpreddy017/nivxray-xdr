@@ -537,3 +537,100 @@
 
 /* Generic spin used by refresh buttons across admin bodies. */
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════
+   Layer 3 v2 · light chrome override for analyst-operations routes
+   Applied when `.xdr-console--light` (incident queue + record).
+   Everything else on the console keeps the legacy dark theme.
+   ═══════════════════════════════════════════════════════════════ */
+.xdr-console--light {
+  --bg:         #F5F6F8;
+  --bg2:        #FFFFFF;
+  --panel:      #FFFFFF;
+  --panel2:     #FAFBFC;
+  --border:     #E2E5EA;
+  --border-sf:  #CBD0D8;
+  --text:       #1B1F26;
+  --text-dim:   #4B5563;
+  --muted:      #6B7280;
+  --faint:      #9CA3AF;
+  --purple:     #6D4EE0;
+  --purple-dim: #EDE7FF;
+  background: #F5F6F8;
+  color: #1B1F26;
+}
+
+/* Topbar */
+.xdr-console--light .topbar {
+  background: #FFFFFF;
+  border-bottom: 1px solid #E2E5EA;
+  color: #1B1F26;
+  box-shadow: 0 1px 2px rgba(15,20,30,0.03);
+}
+.xdr-console--light .topbar .brand,
+.xdr-console--light .topbar .brand:hover { color: #1B1F26; }
+.xdr-console--light .topbar .accent { color: #6D4EE0; }
+.xdr-console--light .top-search {
+  background: #FAFBFC;
+  border: 1px solid #E2E5EA;
+  color: #4B5563;
+}
+.xdr-console--light .top-search input { background: transparent; color: #1B1F26; }
+.xdr-console--light .top-search input::placeholder { color: #9CA3AF; }
+.xdr-console--light .top-search:focus-within {
+  border-color: #6D4EE0;
+  box-shadow: 0 0 0 3px #EDE7FF;
+}
+.xdr-console--light .tier-pill {
+  background: #EDE7FF;
+  color: #6D4EE0;
+  border: 1px solid #C7B8F2;
+}
+.xdr-console--light .btn.ghost {
+  color: #4B5563;
+  background: transparent;
+}
+.xdr-console--light .btn.ghost:hover { background: #F1F3F6; color: #1B1F26; }
+.xdr-console--light .user-chip {
+  background: #6D4EE0;
+  color: #FFFFFF;
+}
+
+/* Sidebar */
+.xdr-console--light .sidebar {
+  background: #FFFFFF;
+  border-right: 1px solid #E2E5EA;
+  color: #4B5563;
+}
+.xdr-console--light .sidebar .nav-title {
+  color: #6B7280;
+  border-top: 1px solid #E2E5EA;
+}
+.xdr-console--light .sidebar .nav-item {
+  color: #4B5563;
+}
+.xdr-console--light .sidebar .nav-item:hover {
+  background: #F1F3F6;
+  color: #1B1F26;
+}
+.xdr-console--light .sidebar .nav-item.active {
+  background: #EDE7FF;
+  color: #6D4EE0;
+  font-weight: 700;
+}
+.xdr-console--light .sidebar .nav-item.disabled {
+  color: #9CA3AF;
+  opacity: 0.7;
+}
+.xdr-console--light .sidebar .nav-item .ic { color: inherit; }
+.xdr-console--light .sidebar .nav-item .ext { color: #9CA3AF; }
+
+/* Main area — let the page own its background. */
+.xdr-console--light .main {
+  background: #F5F6F8;
+  color: #1B1F26;
+}
+
+/* Ensure the L2 queue container's negative margins still slot in. */
+.xdr-console--light .xdr-queue-l2,
+.xdr-console--light .xdr-record-l3 { background: transparent; }
