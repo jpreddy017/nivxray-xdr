@@ -164,6 +164,11 @@ export default function EnginesBody() {
 
   return (
     <div data-testid="xdr-admin-engines-body">
+      {/* AUTHORITATIVE BACKEND REGISTRY BANNER — real state from
+             `xdr_engines` collection, not from the legacy client-side
+             capability declarations below.                       */}
+      <BackendEngineRegistryBanner />
+
       {/* Header + summary */}
       <div style={{ display: "flex", gap: 10, alignItems: "center",
                           marginBottom: 8 }}>
@@ -312,3 +317,100 @@ const selectStyle = {
   border: "1px solid var(--border)", color: "var(--text)",
   fontSize: 11, borderRadius: 3, fontFamily: "var(--mono)",
 };
+
+
+/**
+ * BackendEngineRegistryBanner
+ * Reads the authoritative Engine Registry from the backend and
+ * surfaces the honest count of discovered implementations by role
+ * and by lifecycle state.  The legacy client-side capability
+ * registry (below) remains visible for continuity but no longer
+ * defines truth.
+ */
+function BackendEngineRegistryBanner() {
+  const [report, setReport] = React.useState(null);
+  const [err,    setErr]    = React.useState(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const api = (await import("@/lib/api")).default;
+        const { data } = await api.get("/admin/content-supply-chain/engines/report");
+        setReport(data);
+      } catch (e) {
+        setErr(e?.response?.data?.detail || e?.message || "unavailable");
+      }
+    })();
+  }, []);
+
+  if (err) return null;
+  if (!report) return null;
+
+  const roles  = report.roles  || {};
+  const states = report.states || {};
+
+  return (
+    <div className="panel"
+             data-testid="xdr-engines-authoritative-banner"
+             style={{ padding: "14px 16px", marginBottom: 14,
+                          borderLeft: "3px solid var(--nx-purple)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10,
+                            marginBottom: 8 }}>
+        <span style={{
+          fontFamily: "var(--sans)", fontSize: 10, fontWeight: 800,
+          letterSpacing: 0.6, textTransform: "uppercase",
+          color: "var(--nx-purple)",
+        }}>
+          Authoritative Engine Registry
+        </span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontFamily: "var(--mono)", fontSize: 11,
+                                color: "var(--nx-text-dim)" }}>
+          {report.total_engines} implementations discovered
+        </span>
+      </div>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+        gap: 10, marginBottom: 10,
+      }}>
+        {["DETECTION_ENGINE","VERDICT_ENGINE","CORRELATION_ENGINE",
+             "ANALYZER","INTELLIGENCE_ENGINE","GRAPH_ENGINE",
+             "EVIDENCE_ENGINE","DECODER","PARSER","INTERPRETER"].map(r => (
+          <div key={r} style={{
+            padding: "8px 10px",
+            background: "var(--nx-surf-inset)",
+            border: "1px solid var(--nx-bd-quiet)",
+            borderRadius: 6,
+          }}
+             data-testid={`xdr-engines-role-${r}`}>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 20,
+                                    fontWeight: 800,
+                                    color: (roles[r] || 0) > 0 ? "var(--nx-text)" : "var(--nx-muted)" }}>
+              {roles[r] || 0}
+            </div>
+            <div style={{ fontFamily: "var(--sans)", fontSize: 10,
+                                    fontWeight: 800, letterSpacing: 0.4,
+                                    color: "var(--nx-muted)",
+                                    textTransform: "uppercase" }}>
+              {r.replace(/_/g, " ").toLowerCase()}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{
+        fontFamily: "var(--sans)", fontSize: 12, color: "var(--nx-text-dim)",
+        lineHeight: 1.55,
+      }}>
+        Every discovered implementation is at{" "}
+        <span className="nx-pill nx-pill-purple">
+          {Object.entries(states).map(([k,v]) => `${k}: ${v}`).join(" · ") || "DISCOVERED"}
+        </span>.
+        Promotions to READY/CONNECTED/ENABLED require dependency resolution,
+        real runtime readiness checks and execution validation — none of
+        those milestones have been recorded yet, and the registry will not
+        fabricate them.
+      </div>
+    </div>
+  );
+}

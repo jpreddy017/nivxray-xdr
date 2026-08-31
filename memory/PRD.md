@@ -2,8 +2,81 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+---
+
+## ✅ 2026-02-35 · Admin Control Plane Convergence (Round 1) · SHIPPED
+
+Every admin surface in `/app/apps/nivxray-xdr/src/xdr/admin/` now
+converges on the Detection Registry visual grammar while surfacing
+100% authoritative backend state — no fabricated counts.
+
+**Two new shared primitives**
+- `AdminHero.jsx` — canonical page header (eyebrow › title ›
+  subtitle › source-provenance › right-side actions › up-to-6 stat
+  cards).  A stat with `value === 0` renders in `--faint` so honest
+  zero states never LOOK like fake populated data.
+- `PipelineStrip.jsx` — visualises the ingestion pipeline
+  `Integrations → Data Sources → Collectors → Parsers → Normalizers
+  → Canonical Evidence`.  Each stage's count is pulled from the
+  authoritative admin API for that resource; stages without a
+  backend (`Parsers`, `Normalizers`) render dashed + `PENDING` —
+  the UI will never invent one.
+
+**Converged surfaces (`AdminHero` applied · real backend counts)**
+| Surface        | Authoritative source                | Real state today |
+|----------------|-------------------------------------|------------------|
+| Overview       | `/admin/stats` + `PipelineStrip`    | Live KPIs · pipeline mostly NOT CONFIGURED |
+| Engines        | `/admin/content-supply-chain/engines/report` | 329 · 0 DETECTION_ENGINE · all DISCOVERED |
+| Collectors     | `/xdr/collectors`                   | 0 configured · 3 protocols impl · 9 scaffold |
+| Data Sources   | `/xdr/data-sources`                 | 0 configured · 16 kind templates |
+| Integrations   | `/xdr/collector/*` + `/xdr/health/outbox` | COLLECTOR RUNTIME NOT DEPLOYED |
+| API Keys       | `/xdr/api-keys`                     | 0 provisioned |
+| Webhooks       | `/xdr/webhooks`                     | 0 configured |
+| Users & Roles  | `/xdr/rbac/*`                       | 0 users · 10 system roles · 2 custom · 142 perms |
+
+**Verified live**
+- `vite build` clean · 268 kB `XdrAdminPage-*.js`.
+- 8 acceptance screenshots taken against local `vite preview`
+  proving every hero renders with honest counts and every empty
+  state reads as intentional design, not developer scaffold.
+
+**Round 1 acceptance rule preserved**
+- Zero engines/capabilities/bindings/states were invented to make
+  the UI look better.  Every "0" on screen is a real "0" the
+  backend reported.
 
 ---
+
+## 🔜 Round 2 — P0.2 Detection Content Fabric (dependency order)
+
+Locked by owner directive 2026-02-35 (revised sequence):
+
+```
+   REAL ENGINE INVENTORY (329 · DISCOVERED · 0 detection engine)
+                       │
+   P0.2c CAPABILITY CONTRACTS ← START HERE
+                       │
+   P0.2b STRICT pySigma
+                       │
+   P0.2d RULE↔ENGINE BINDING MATRIX
+                       │
+   P0.2e DETECTION EXECUTION HARNESS  (new · owner-added)
+                       │
+   P0.2f FULL SIGMAHQ INGEST
+                       │
+   AUTHORITATIVE COVERAGE REPORT
+```
+
+**Non-negotiable rule for Round 2** — Do NOT reclassify any of the
+13 ANALYZERs / 62 DECODERs / 25 INTELLIGENCE_ENGINEs as
+DETECTION_ENGINEs just to make Sigma rules bind.  `DETECTION_ENGINE
+= 0` is a valuable, honest finding of the architecture audit.
+P0.2c must determine whether any existing module genuinely
+satisfies a detection-execution contract; if none does, the
+Binding Matrix will honestly report `ENGINE_UNBOUND` for every
+Sigma rule that has no compatible engine.
+
+
 
 ---
 

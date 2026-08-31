@@ -25,6 +25,7 @@ import {
 
 import { NxHeroHeader, NxDonut, NxAreaSpark, NxHBar } from "@/xdr/nx";
 import api from "@/lib/api";
+import PipelineStrip from "@/xdr/admin/PipelineStrip";
 import "./platformOverview.css";
 
 
@@ -153,6 +154,9 @@ export default function PlatformOverviewBody() {
         opsDelta={opsDelta}
         detTotal={det?.total}
       />
+
+      {/* Ingestion pipeline · authoritative counts per stage */}
+      <PipelineStrip testid="overview-pipeline" />
 
       {/* Main analytical row */}
       <div className="po-row po-row-main">

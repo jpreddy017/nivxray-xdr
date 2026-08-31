@@ -19,6 +19,8 @@ import { Plus, RefreshCcw, Play, Square, Power, PowerOff, PlayCircle,
                  Trash2, CheckCircle2, AlertTriangle, XCircle, Cpu,
                  ChevronRight } from "lucide-react";
 import api from "@/lib/api";
+import AdminHero from "@/xdr/admin/AdminHero";
+import PipelineStrip from "@/xdr/admin/PipelineStrip";
 
 
 const STATE_COLOR = {
@@ -73,18 +75,48 @@ export default function CollectorsBody() {
   const openRow = useMemo(() =>
     rows.find((r) => r.id === openId), [rows, openId]);
 
+  const connected = rows.filter((r) => r.state === "CONNECTED").length;
+  const errored   = rows.filter((r) =>
+      ["AUTH_FAILED", "CONNECTION_FAILED", "PARSE_ERROR"].includes(r.state)).length;
+  const stats = [
+    { label: "Configured",    value: rows.length,
+      testid: "col-hero-stat-total" },
+    { label: "Connected",     value: connected, color: "var(--mint)",
+      testid: "col-hero-stat-connected",
+      hint: "requires real telemetry evidence" },
+    { label: "Errored",       value: errored, color: errored ? "#f87171" : undefined,
+      testid: "col-hero-stat-errored" },
+    { label: "Protocols · impl", value: counts.implemented || 0, color: "var(--mint)",
+      testid: "col-hero-stat-proto-impl" },
+    { label: "Protocols · scaffold", value: counts.scaffold || 0, color: "var(--amber)",
+      testid: "col-hero-stat-proto-scaffold" },
+  ];
+
   return (
     <div data-testid="xdr-admin-collectors-body">
+      <AdminHero
+        icon={Cpu}
+        eyebrow="Admin › Collectors"
+        title="Collector Control Plane"
+        subtitle="Ingestion endpoints that terminate real transports (syslog, webhook, REST, kafka, edr…) into canonical evidence. A collector is only CONNECTED once the ingest path has received, parsed and normalized real telemetry — never before."
+        source="/api/xdr/collectors"
+        stats={stats}
+        testid="col-hero"
+        actions={<>
+          <button className="btn" data-testid="col-add-btn-hero"
+                       onClick={() => setShowAdd(true)}
+                       style={{ padding: "3px 10px", fontSize: 11 }}>
+            <Plus size={11} /> Add collector
+          </button>
+          <button className="btn ghost" data-testid="col-refresh-hero"
+                       onClick={() => setRefresh((n) => n + 1)}
+                       style={{ padding: "3px 10px", fontSize: 11 }}>
+            <RefreshCcw size={11} /> Refresh
+          </button>
+        </>}
+      />
+
       <div style={rowBar}>
-        <button className="btn" data-testid="col-add-btn"
-                     onClick={() => setShowAdd(true)}>
-          <Plus size={11} /> Add collector
-        </button>
-        <button className="btn ghost" data-testid="col-refresh"
-                     onClick={() => setRefresh((n) => n + 1)}>
-          <RefreshCcw size={11} /> Refresh
-        </button>
-        <span style={{ flex: 1 }} />
         <ProtoBadge counts={counts} />
       </div>
 

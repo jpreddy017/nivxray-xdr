@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import AdminHero from "@/xdr/admin/AdminHero";
 
 
 function Badge({ label, color = "var(--faint)", testid }) {
@@ -231,20 +232,45 @@ export default function ApiKeysBody() {
     }
   };
 
+  const active  = rows.filter((r) => r.enabled).length;
+  const revoked = rows.filter((r) => !r.enabled).length;
+  const totalUses = rows.reduce((s, r) => s + (r.use_count || 0), 0);
+  const heroStats = [
+    { label: "Provisioned", value: rows.length,     testid: "ak-hero-stat-total" },
+    { label: "Active",      value: active,          color: "var(--mint)",
+      testid: "ak-hero-stat-active" },
+    { label: "Revoked",     value: revoked,
+      color: revoked ? "var(--faint)" : undefined,
+      testid: "ak-hero-stat-revoked" },
+    { label: "Total uses",  value: totalUses,       testid: "ak-hero-stat-uses" },
+  ];
+
   return (
     <div data-testid="xdr-api-keys-body">
+      <AdminHero
+        icon={KeyRound}
+        eyebrow="Admin › Identity & Access › API Keys"
+        title="Programmatic Access Tokens"
+        subtitle="Long-lived credentials for CI runners, automation and integrations. Plaintext is revealed exactly once at create/rotate; only the SHA-256 hash is persisted. Every mutation is RBAC-gated and appended to the tamper-evident audit log."
+        source="/api/xdr/api-keys"
+        stats={heroStats}
+        testid="ak-hero"
+        actions={<>
+          <button className="btn" onClick={() => setAddOpen(true)}
+                       data-testid="xdr-api-key-add-btn"
+                       style={{ padding: "3px 10px", fontSize: 11 }}>
+            <Plus size={11} /> Add API key
+          </button>
+          <button className="btn ghost" onClick={() => setTick((n) => n + 1)}
+                       data-testid="xdr-api-key-refresh"
+                       style={{ padding: "3px 10px", fontSize: 11 }}>
+            <RefreshCcw size={11} /> Refresh
+          </button>
+        </>}
+      />
+
       <div style={{ display: "flex", alignItems: "center", gap: 8,
                        marginBottom: 8 }}>
-        <button className="btn" onClick={() => setAddOpen(true)}
-                     data-testid="xdr-api-key-add-btn"
-                     style={{ padding: "3px 10px", fontSize: 11 }}>
-          <Plus size={11} /> Add API key
-        </button>
-        <button className="btn ghost" onClick={() => setTick((n) => n + 1)}
-                     data-testid="xdr-api-key-refresh"
-                     style={{ padding: "3px 10px", fontSize: 11 }}>
-          <RefreshCcw size={11} /> Refresh
-        </button>
         <span style={{ flex: 1 }} />
         {lastAudit && (
           <span data-testid="xdr-api-key-last-audit"

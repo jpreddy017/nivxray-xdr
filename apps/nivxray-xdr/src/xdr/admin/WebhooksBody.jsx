@@ -16,6 +16,7 @@ import {
   History,
 } from "lucide-react";
 import api from "@/lib/api";
+import AdminHero from "@/xdr/admin/AdminHero";
 
 
 function Badge({ label, color = "var(--faint)" }) {
@@ -236,18 +237,42 @@ export default function WebhooksBody() {
     } catch (e) { alert(e?.response?.data?.detail || e?.message); }
   };
 
+  const enabled = rows.filter((h) => h.enabled).length;
+  const disabled = rows.length - enabled;
+  const heroStats = [
+    { label: "Configured", value: rows.length, testid: "wh-hero-stat-total" },
+    { label: "Enabled",    value: enabled, color: "var(--mint)",
+      testid: "wh-hero-stat-enabled" },
+    { label: "Disabled",   value: disabled,
+      color: disabled ? "var(--faint)" : undefined,
+      testid: "wh-hero-stat-disabled" },
+  ];
+
   return (
     <div data-testid="xdr-webhooks-body">
+      <AdminHero
+        icon={Webhook}
+        eyebrow="Admin › API › Webhooks"
+        title="Outbound Webhook Delivery"
+        subtitle="HMAC-SHA256 signed outbound webhooks with automatic retry, exponential backoff and dead-letter queue. A delivery is marked DELIVERED only after a real 2xx HTTP response from the destination — never on 'send success'."
+        source="/api/xdr/webhooks"
+        stats={heroStats}
+        testid="wh-hero"
+        actions={<>
+          <button className="btn" onClick={() => setAddOpen(true)}
+                       data-testid="xdr-webhook-add-btn"
+                       style={{ padding: "3px 10px", fontSize: 11 }}>
+            <Plus size={11} /> Add webhook
+          </button>
+          <button className="btn ghost" onClick={() => setTick((n) => n + 1)}
+                       data-testid="xdr-webhook-refresh"
+                       style={{ padding: "3px 10px", fontSize: 11 }}>
+            <RefreshCcw size={11} /> Refresh
+          </button>
+        </>}
+      />
+
       <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
-        <button className="btn" onClick={() => setAddOpen(true)}
-                     data-testid="xdr-webhook-add-btn"
-                     style={{ padding: "3px 10px", fontSize: 11 }}>
-          <Plus size={11} /> Add webhook
-        </button>
-        <button className="btn ghost" onClick={() => setTick((n) => n + 1)}
-                     style={{ padding: "3px 10px", fontSize: 11 }}>
-          <RefreshCcw size={11} /> Refresh
-        </button>
         <span style={{ flex: 1 }} />
         {lastAudit && <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--faint)" }}>
           last audit: {lastAudit}

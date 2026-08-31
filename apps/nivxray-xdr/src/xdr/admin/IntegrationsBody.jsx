@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 
 import * as C from "@/xdr/admin/collectorApi";
+import AdminHero from "@/xdr/admin/AdminHero";
+import PipelineStrip from "@/xdr/admin/PipelineStrip";
 
 // ── 12-tile catalog mapped to Phase-B transports ────────────
 const CATALOG = [
@@ -155,6 +157,44 @@ export default function IntegrationsBody() {
 
   return (
     <div data-testid="xdr-admin-integrations-body">
+      {(() => {
+        const connectedCount = connectors.filter((r) => r.runtime?.health === "connected").length;
+        const heroStats = state === "not_deployed" ? [] : [
+          { label: "Configured",   value: connectors.length,
+            testid: "int-hero-stat-total" },
+          { label: "Connected",    value: connectedCount, color: "var(--mint)",
+            testid: "int-hero-stat-connected" },
+          { label: "Queue depth",  value: health?.outbox?.queue_depth ?? 0,
+            color: (health?.outbox?.queue_depth || 0) ? "var(--amber)" : undefined,
+            testid: "int-hero-stat-queue" },
+          { label: "Dead letter",  value: health?.outbox?.counts?.dead_letter ?? 0,
+            color: (health?.outbox?.counts?.dead_letter || 0) ? "#f87171" : undefined,
+            testid: "int-hero-stat-dlq" },
+          { label: "Delivered",    value: health?.ingest?.delivered ?? 0, color: "var(--mint)",
+            testid: "int-hero-stat-delivered" },
+        ];
+        return (
+          <AdminHero
+            icon={Plug}
+            eyebrow="Admin › Integrations"
+            title="Live Integration Fabric"
+            subtitle="Configure real telemetry sources — every connector maps to a Phase-B transport (REST poller · Webhook receiver · Syslog receiver), flows into canonical evidence, and is only 'CONNECTED' after the runtime reports actual event delivery. Never fabricated."
+            source="/api/xdr/collector/*  ·  /api/xdr/health/outbox"
+            stats={heroStats}
+            testid="int-hero"
+            actions={
+              <button className="btn ghost" data-testid="int-hero-refresh"
+                          onClick={load}
+                          style={{ padding: "3px 10px", fontSize: 11 }}>
+                <RotateCcw size={11} /> Refresh
+              </button>
+            }
+          />
+        );
+      })()}
+
+      <PipelineStrip testid="int-pipeline" />
+
       {/* Ingest / outbox health strip */}
       <IngestHealthStrip state={state} health={health} onRefresh={load} />
 

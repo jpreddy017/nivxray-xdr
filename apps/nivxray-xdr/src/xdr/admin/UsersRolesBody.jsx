@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import AdminHero from "@/xdr/admin/AdminHero";
 
 
 // ── Small helpers ─────────────────────────────────────────────────
@@ -734,8 +735,42 @@ export default function UsersRolesBody() {
     { key: "simulator",   label: "Simulator",   icon: PlayCircle },
   ];
 
+  const activeUsers = users.filter((u) => u.enabled).length;
+  const systemRoles = roles.filter((r) => r.type === "SYSTEM").length;
+  const customRoles = roles.length - systemRoles;
+  const heroStats = [
+    { label: "Users",           value: users.length,
+      testid: "rbac-hero-stat-users" },
+    { label: "Enabled",         value: activeUsers, color: "var(--mint)",
+      testid: "rbac-hero-stat-enabled-users" },
+    { label: "System roles",    value: systemRoles,
+      testid: "rbac-hero-stat-system-roles" },
+    { label: "Custom roles",    value: customRoles,
+      color: customRoles ? "var(--mint)" : undefined,
+      testid: "rbac-hero-stat-custom-roles" },
+    { label: "Permissions",     value: (perms?.all || []).length,
+      testid: "rbac-hero-stat-perms" },
+  ];
+
   return (
     <div data-testid="xdr-users-roles-body">
+      <AdminHero
+        icon={Shield}
+        eyebrow="Admin › Identity & Access › Users & Roles"
+        title="Enterprise RBAC Control Plane"
+        subtitle="Built-in SOC roles (L1 / L2 / L3 / Threat Hunter / Detection SME / Manager / Auditor) plus tenant-scoped custom roles. Permissions are enforced server-side — the UI reflects backend outcomes, it never decides access. Every mutation and simulation is appended to the audit log."
+        source="/api/xdr/rbac/*"
+        stats={heroStats}
+        testid="rbac-hero"
+        actions={
+          <button className="btn ghost" onClick={() => setTick((n) => n + 1)}
+                      data-testid="rbac-hero-refresh"
+                      style={{ padding: "3px 10px", fontSize: 11 }}>
+            <RefreshCcw size={11} /> Refresh
+          </button>
+        }
+      />
+
       <div style={{ display: "flex", gap: 4, marginBottom: 10,
                        borderBottom: "1px solid var(--border)" }}>
         {TABS.map((t) => (

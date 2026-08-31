@@ -17,6 +17,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Plus, RefreshCcw, Power, PowerOff, PlayCircle, Trash2,
                  CheckCircle2, AlertTriangle, HardDrive } from "lucide-react";
 import api from "@/lib/api";
+import AdminHero from "@/xdr/admin/AdminHero";
 
 
 export default function DataSourcesBody() {
@@ -53,22 +54,47 @@ export default function DataSourcesBody() {
     }
   };
 
+  const connected = rows.filter((r) => r.state === "CONNECTED").length;
+  const enabled   = rows.filter((r) => r.enabled).length;
+  const errored   = rows.filter((r) =>
+      ["AUTH_FAILED", "CONNECTION_FAILED", "PARSE_ERROR"].includes(r.state)).length;
+  const stats = [
+    { label: "Configured",  value: rows.length,
+      testid: "ds-hero-stat-total" },
+    { label: "Connected",   value: connected, color: "var(--mint)",
+      testid: "ds-hero-stat-connected" },
+    { label: "Enabled",     value: enabled,
+      testid: "ds-hero-stat-enabled" },
+    { label: "Errored",     value: errored, color: errored ? "#f87171" : undefined,
+      testid: "ds-hero-stat-errored" },
+    { label: "Kinds catalog", value: Object.keys(kinds || {}).length,
+      testid: "ds-hero-stat-kinds",
+      hint: "canonical source-type templates" },
+  ];
+
   return (
     <div data-testid="xdr-admin-data-sources-body">
-      <div style={rowBar}>
-        <button className="btn" data-testid="ds-add-btn"
-                     onClick={() => setShowAdd(true)}>
-          <Plus size={11} /> Add data source
-        </button>
-        <button className="btn ghost" data-testid="ds-refresh"
-                     onClick={() => setRefresh((n) => n + 1)}>
-          <RefreshCcw size={11} /> Refresh
-        </button>
-        <span style={{ flex: 1 }} />
-        <span className="mono" style={{ fontSize: 10.5, color: "var(--faint)" }}>
-          {rows.length} data source{rows.length === 1 ? "" : "s"}
-        </span>
-      </div>
+      <AdminHero
+        icon={HardDrive}
+        eyebrow="Admin › Data Sources"
+        title="Data Source Control Plane"
+        subtitle="Every telemetry source flows through a canonical data-source contract: a name, a kind (CloudTrail, Sysmon WEF, generic syslog…), and a protocol binding. The lifecycle mirrors the collector — DISABLED → CONFIGURED → NO_TELEMETRY → CONNECTED — never fabricated."
+        source="/api/xdr/data-sources"
+        stats={stats}
+        testid="ds-hero"
+        actions={<>
+          <button className="btn" data-testid="ds-add-btn-hero"
+                       onClick={() => setShowAdd(true)}
+                       style={{ padding: "3px 10px", fontSize: 11 }}>
+            <Plus size={11} /> Add data source
+          </button>
+          <button className="btn ghost" data-testid="ds-refresh-hero"
+                       onClick={() => setRefresh((n) => n + 1)}
+                       style={{ padding: "3px 10px", fontSize: 11 }}>
+            <RefreshCcw size={11} /> Refresh
+          </button>
+        </>}
+      />
 
       {err && <div data-testid="ds-error"
                              style={{ color: "var(--amber)", fontSize: 11,
