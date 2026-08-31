@@ -4,6 +4,113 @@
 
 ---
 
+## ✅ 2026-02-35 · P0.0 Navigation IA · P0.1 Truthful Capability Pages · SHIPPED
+
+The XDR SPA sidebar is now restructured around the analyst mental
+model and every "Coming Soon" placeholder is replaced with an
+enterprise-grade honest zero-state capability contract.
+
+**Locked sidebar IA** (owner-locked, `/app/apps/nivxray-xdr/src/xdr/XdrShell.jsx`)
+
+```
+WORKSPACE          Analyst Workspace
+COMMAND CENTER     MSS Dashboard
+OPERATIONS         Incidents · My Queue · SLA/Aging · Response
+INVESTIGATIONS     Investigation Workspace · Evidence Explorer · Entity Search · Attack Story
+DETECT             Rule Studio · Detection Registry · Correlation Rules · Detection Engineering
+INTELLIGENCE       Threat · IOC · Command · Malware · MITRE ATT&CK · Knowledge Base
+DATA               Security Data Lake · Telemetry Studio · Telemetry Health
+RESPOND            Playbooks · Automation Rules · Approvals Queue
+EXPOSURE           Assets · Vulnerabilities · Vulnerability Exposure · Attack Paths · Critical Assets
+ADMINISTRATION     Integrations · Data Sources · Collectors · Agents · Parsers · Normalization ·
+                   Detection Rules · Response Policies · Users/Roles · API/Webhooks
+SYSTEM             Platform Health · Documentation
+```
+
+Key moves (from prior IA):
+- **Detection Rules** moved to Administration (governance/config).
+  Rule Studio stays in Detect (authoring).  Distinction locked.
+- **Parsers / Normalization** moved to Administration (infrastructure).
+- **Vulnerability Exposure** moved out of Intelligence → Exposure.
+- **Telemetry Studio / Telemetry Health** moved out of Administration → Data.
+- **Platform Health / Documentation** moved out of Admin/Intelligence → System.
+- **Analyst-first ordering**: OPERATIONS → INVESTIGATIONS → DETECT →
+  INTELLIGENCE → DATA → RESPOND → EXPOSURE, then Administration/System
+  at the bottom.
+
+**Truthful capability pages** (`XdrReservedPage.jsx` rewritten)
+
+Every previously-"Coming Soon" surface (Threat Intel, IOC Intel,
+Command Intel, Malware Intel, MITRE, Knowledge Base) now renders:
+
+1. `AdminHero` with capability-specific eyebrow › title › subtitle ›
+   `STATUS · NOT CONFIGURED` provenance.
+2. Real zero-count metrics (Sources · Indicators · Enrichments ·
+   Watchlists · Sightings) — every "0" is authoritative, dim-styled.
+3. Amber `STATUS · NOT CONFIGURED` panel with the actual reason
+   ("No intelligence sources are configured for this tenant.")
+   and a real CTA that navigates to the wiring page
+   (`/xdr/admin/integrations`, `/xdr/admin/collectors`, etc.).
+4. **Capability Contract** card declaring `Consumes` /
+   `Produces` / `Requires` in machine-readable terms — this is the
+   surface that Round 2's P0.2c work will feed from.
+5. Honest footer: "No metric on this page is fabricated. Every '0'
+   is an authoritative zero from the backing service."
+
+**Round 1 (Admin Convergence) still shipped** — `AdminHero` +
+`PipelineStrip` applied to all 8 admin surfaces (Overview · Engines ·
+Collectors · Data Sources · Integrations · API Keys · Webhooks ·
+Users & Roles), all reading real backend counts.
+
+**Deploy note** — every change is in `/app/apps/nivxray-xdr/` (the
+XDR SPA that deploys separately to `https://nivxray-xdr.vercel.app`).
+The `greeting-app-5782.preview.emergentagent.com` preview URL only
+serves the base NivXRay Tool; XDR changes require a Vercel redeploy
+(Save-to-GitHub → auto-deploy) to become visible in production.
+
+---
+
+## 🔜 Round 2 — P0.2 Detection Content Fabric (dependency order)
+
+Locked sequence with the correct architectural discipline:
+
+```
+P0.2c Implementation Capability Contracts  ← START HERE
+        │  describe all 329 implementations · classify honestly
+        │  detection = false (default) · runtime-verify to promote
+        ▼
+P0.2b Strict pySigma Parse
+        │  pySigma is the authoritative parser
+        │  parse/compile errors preserved · never silently accepted
+        ▼
+P0.2d Rule ↔ Capability Matching (deterministic)
+        │  compatible engines identified per rule
+        │  unmatched rules → ENGINE_UNBOUND (a first-class product state)
+        ▼
+P0.2e Detection Execution Harness
+        │  one Sigma rule end-to-end · positive fixture DETECTED
+        │  negative fixture NOT DETECTED · then EXECUTION_READY
+        ▼
+P0.2f Full SigmaHQ Ingest
+        │  gated: 1 rule → 10-20 → 100 → 3,000+
+        ▼
+Authoritative Detection Capability Coverage Report
+```
+
+**Contract status ladder** (owner-locked · never auto-promoted):
+`DISCOVERED → CONTRACT_PENDING → CONTRACT_DECLARED →
+RUNTIME_VERIFIED → EXECUTION_VERIFIED`
+
+**Non-negotiable rule** — Do NOT reclassify any of the 13 ANALYZERs
+/ 62 DECODERs / 25 INTELLIGENCE_ENGINEs as DETECTION_ENGINEs just
+to make Sigma rules bind.  `DETECTION_ENGINE = 0` is a valuable,
+honest finding.  P0.2c must determine whether any existing module
+genuinely satisfies a detection-execution contract; if none does,
+the Binding Matrix will honestly report `ENGINE_UNBOUND` for every
+Sigma rule that has no compatible engine.
+
+---
+
 ## ✅ 2026-02-35 · Admin Control Plane Convergence (Round 1) · SHIPPED
 
 Every admin surface in `/app/apps/nivxray-xdr/src/xdr/admin/` now
@@ -44,39 +151,6 @@ converges on the Detection Registry visual grammar while surfacing
 - Zero engines/capabilities/bindings/states were invented to make
   the UI look better.  Every "0" on screen is a real "0" the
   backend reported.
-
----
-
-## 🔜 Round 2 — P0.2 Detection Content Fabric (dependency order)
-
-Locked by owner directive 2026-02-35 (revised sequence):
-
-```
-   REAL ENGINE INVENTORY (329 · DISCOVERED · 0 detection engine)
-                       │
-   P0.2c CAPABILITY CONTRACTS ← START HERE
-                       │
-   P0.2b STRICT pySigma
-                       │
-   P0.2d RULE↔ENGINE BINDING MATRIX
-                       │
-   P0.2e DETECTION EXECUTION HARNESS  (new · owner-added)
-                       │
-   P0.2f FULL SIGMAHQ INGEST
-                       │
-   AUTHORITATIVE COVERAGE REPORT
-```
-
-**Non-negotiable rule for Round 2** — Do NOT reclassify any of the
-13 ANALYZERs / 62 DECODERs / 25 INTELLIGENCE_ENGINEs as
-DETECTION_ENGINEs just to make Sigma rules bind.  `DETECTION_ENGINE
-= 0` is a valuable, honest finding of the architecture audit.
-P0.2c must determine whether any existing module genuinely
-satisfies a detection-execution contract; if none does, the
-Binding Matrix will honestly report `ENGINE_UNBOUND` for every
-Sigma rule that has no compatible engine.
-
-
 
 ---
 
