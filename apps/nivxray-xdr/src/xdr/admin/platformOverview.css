@@ -168,7 +168,7 @@
 .platform-overview .po-card-body {
   flex: 1;
   display: flex; flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .platform-overview .po-card-foot {
   border-top: 1px solid var(--nx-bd-quiet);
