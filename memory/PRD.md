@@ -7,6 +7,58 @@
 
 ---
 
+## ✅ 2026-02-34 · Phase B.1 · Queue acceptance · SHIPPED
+
+Grammar §15 (Enterprise Refinement Layer, rules R1-R11) is now
+locked as a release criterion.  The Queue is the first screen
+taken through acceptance against §14 + §15.  Live at
+`https://nivxray-xdr.vercel.app/xdr/incidents`.
+
+Commit `923793f` — 3 files, +148 / -6.
+
+**Grammar addendum**
+- `/app/memory/NIVXRAY_VISUAL_GRAMMAR.md` §15 · Phase A.1
+  Enterprise Refinement Layer.  11 rules: R1 tonal depth · R2
+  deliberate density · R3 typography hierarchy · R4 monospace
+  discipline · R5 rows as instruments · R6 purple has one
+  meaning · R7 evidence-first is composition · R8 empty is
+  intentional · R9 restrained motion · R10 attention hierarchy ·
+  R11 cross-screen coherence.
+
+**Queue refinements**
+- R2 KPI tile density: tighter padding, 22 px count as primary
+  read, provenance line dim + smaller.
+- R5 row instrument states: subtle `#F9FAFB` hover tint;
+  selected + previewed rows carry a 3-px purple left rail +
+  `--purple-dim` wash + purple `→` glyph anchor on the right
+  edge showing which row drives the peek drawer.
+- R3 incident-name typography 600 12.5 px sans -0.1px carries
+  row hierarchy.
+- R6 focus rings limited to purple ring token.
+- R9 restrained 120 ms transitions.
+- Sorted column adopts 2-px purple bottom border.
+- Sort marker chip `SORTED BY <col> · ↓` with Reset appears
+  above the table when sort ≠ default; sort state is now
+  discoverable, not implicit.
+- Evidence-first cell drill (grammar §9 R7): customer +
+  detection_source cells wrapped in `NxLink`; clicking filters
+  the queue on that dimension.  Missing values keep rendering
+  as dashed honesty chips.
+
+**Contracts unchanged** — engine lock, anti-fabrication.
+
+**Sequenced plan (locked)**
+- B.1 · Queue → **SHIPPED (this checkpoint)**
+- B.2 · Incident Record → next
+- B.3 · MSS Dashboard operational rebuild
+- B.4 · MITRE + Evidence
+- B.5 · Cross-screen polish pass
+
+Phase 3 (Lifecycle/SLA) and Phase 4 (Auto-Investigation
+provenance) remain paused until B.1-B.5 pass acceptance.
+
+---
+
 ## ✅ 2026-02-34 · Phase B · Nx primitives + Queue grammar rebuild · SHIPPED
 
 Phase B ships the grammar in code and adopts it on the Queue as

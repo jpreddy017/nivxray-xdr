@@ -688,3 +688,112 @@
 .xdr-console[data-density="compact"] .xdr-queue-l2 .ql-chips {
   padding: 5px 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase B.1 · Queue refinement (grammar §15 · A.1)
+   Precision, not decoration.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* R2 · KPI tile density — tighter, count is primary read */
+.xdr-queue-l2 .ql-tile {
+  padding: 8px 10px 7px;
+  gap: 2px;
+}
+.xdr-queue-l2 .ql-tile-label {
+  font-size: 9.5px;
+  color: var(--nx-muted);
+  letter-spacing: 0.5px;
+}
+.xdr-queue-l2 .ql-tile-count {
+  font: 800 22px/1.05 var(--qs-mono);
+  letter-spacing: -0.4px;
+}
+.xdr-queue-l2 .ql-tile .nx-prov {
+  font-size: 9.5px;
+  color: var(--nx-faint);
+  margin-top: 1px;
+}
+
+/* R5 · table row instrument-grade states */
+.xdr-queue-l2 .ql-table tbody tr {
+  transition: background 90ms ease;
+  position: relative;
+}
+.xdr-queue-l2 .ql-table tbody tr:hover {
+  background: #F9FAFB;
+}
+.xdr-queue-l2 .ql-table tbody tr.selected {
+  background: var(--nx-purple-dim);
+  box-shadow: inset 3px 0 0 var(--nx-purple);
+}
+.xdr-queue-l2 .ql-table tbody tr.previewed {
+  background: var(--nx-purple-dim);
+  box-shadow: inset 3px 0 0 var(--nx-purple);
+}
+.xdr-queue-l2 .ql-table tbody tr.previewed::after {
+  content: "→";
+  position: absolute;
+  right: 8px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--nx-purple);
+  font-family: var(--qs-mono);
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.xdr-queue-l2 .ql-table thead th.sortable::after {
+  content: "";
+}
+.xdr-queue-l2 .ql-table thead th.sorted {
+  color: var(--nx-purple);
+  border-bottom: 2px solid var(--nx-purple);
+}
+
+/* R3 · incident-name typography carries hierarchy */
+.xdr-queue-l2 .ql-td-name {
+  font: 600 12.5px/1.4 var(--qs-sans);
+  letter-spacing: -0.1px;
+  color: var(--nx-text);
+}
+.xdr-queue-l2 .ql-td-name:hover {
+  color: var(--nx-purple);
+  text-decoration: underline;
+}
+
+/* R6 · purple only for interactive intelligence */
+.xdr-queue-l2 .ql-btn:focus-visible,
+.xdr-queue-l2 .ql-select:focus-visible,
+.xdr-queue-l2 .ql-table tbody tr:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--nx-purple-ring);
+}
+
+/* R9 · restrained transitions on interactive elements */
+.xdr-queue-l2 .ql-btn { transition: background 120ms ease, border-color 120ms ease, color 120ms ease; }
+.xdr-queue-l2 .ql-tab { transition: color 120ms ease, border-color 120ms ease; }
+
+/* Sort marker chip near the state tabs — surface active sort */
+.xdr-queue-l2 .ql-sort-marker {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; margin-left: 10px;
+  background: var(--nx-workspace-alt);
+  border: 1px solid var(--nx-divider);
+  border-radius: 3px;
+  font: 800 10px/1.4 var(--qs-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--nx-muted);
+}
+.xdr-queue-l2 .ql-sort-marker b {
+  color: var(--nx-text-dim);
+  font-weight: 800;
+}
+
+/* R2 · state-tabs row density */
+.xdr-queue-l2 .ql-tabs {
+  padding: 0 10px;
+}
+.xdr-queue-l2 .ql-tab {
+  padding: 9px 12px;
+  font-size: 12.5px;
+}

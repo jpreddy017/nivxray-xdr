@@ -533,6 +533,28 @@ export default function XdrIncidentsPage() {
           onChange={(k) => setParam("state", k)}
         />
 
+        {(urlSort !== "updated_at" || urlOrder !== "desc") && (
+          <div style={{ padding: "6px 12px",
+                          background: "var(--ql-surface)",
+                          borderLeft: "1px solid var(--ql-border)",
+                          borderRight: "1px solid var(--ql-border)",
+                          borderBottom: "1px solid var(--ql-border)" }}>
+            <span className="ql-sort-marker" data-testid="xdr-incidents-sort-marker">
+              Sorted by <b>{urlSort}</b> · {urlOrder === "desc" ? "↓" : "↑"}
+              <button
+                type="button"
+                onClick={() => setManyParams({ sort: "updated_at", order: "desc" })}
+                data-testid="xdr-incidents-sort-clear"
+                style={{ marginLeft: 6, background: "transparent", border: "none",
+                          color: "var(--nx-purple)", fontWeight: 700,
+                          fontFamily: "var(--qs-mono)", fontSize: 10, cursor: "pointer" }}
+              >
+                Reset
+              </button>
+            </span>
+          </div>
+        )}
+
         {/* Bulk actions bar */}
         {selected.size > 0 && (
           <div className="ql-bulk" data-testid="xdr-incidents-bulk-bar">
@@ -576,6 +598,7 @@ export default function XdrIncidentsPage() {
           previewId={previewId}
           onRowClick={onRowClick}
           onNameClick={onNameClick}
+          onCellDrill={(field, value) => setParam(field, value)}
           sort={urlSort}
           order={urlOrder}
           onSort={onSort}

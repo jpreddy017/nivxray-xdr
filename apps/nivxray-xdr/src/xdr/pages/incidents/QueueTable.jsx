@@ -10,7 +10,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   PriorityChip, SeverityChip, VerdictChip, StateChip,
 } from "@/xdr/components/chips";
-import { NxHonestyChip, NxChip } from "@/xdr/nx";
+import { NxHonestyChip, NxChip, NxLink } from "@/xdr/nx";
 
 // Default column set + sortable metadata.  All 15 columns known
 // to the backend projection; visible/hidden and ordering is
@@ -60,7 +60,7 @@ const notRun = <NxHonestyChip state="not_run" />;
 const naChip = <NxHonestyChip state="not_available" />;
 const noEv   = <NxHonestyChip state="no_evidence" />;
 
-function renderCell(colId, r) {
+function renderCell(colId, r, onDrill) {
   switch (colId) {
     case "priority":
       return r.priority?.code
@@ -79,10 +79,20 @@ function renderCell(colId, r) {
         : notRun;
     case "customer":
       return r.customer
-        ? <span className="ql-td-mono">{r.customer}</span> : dash;
+        ? (
+          <NxLink
+            className="ql-td-mono"
+            onClick={onDrill ? (e) => { e.stopPropagation(); onDrill("customer", r.customer); } : null}
+          >{r.customer}</NxLink>
+        ) : dash;
     case "detection_source":
       return r.detection_source
-        ? <span className="ql-td-mono">{r.detection_source}</span> : notRun;
+        ? (
+          <NxLink
+            className="ql-td-mono"
+            onClick={onDrill ? (e) => { e.stopPropagation(); onDrill("detection_source", r.detection_source); } : null}
+          >{r.detection_source}</NxLink>
+        ) : notRun;
     case "evidence_count":
       return (r.evidence_count ?? 0) > 0
         ? <NxChip tone="available" variant="tinted" size="sm">{r.evidence_count}</NxChip>
@@ -142,7 +152,7 @@ export default function QueueTable({
   visibleColumns,          // array of column meta in display order
   selected, onToggleSelect, onSelectAll, allSelected,
   previewId,
-  onRowClick, onNameClick,
+  onRowClick, onNameClick, onCellDrill,
   sort, order, onSort,
   loading,
   emptyMessage = "NO INCIDENTS MATCH THIS FILTER — honest empty state.",
@@ -237,7 +247,7 @@ export default function QueueTable({
                       key={c.id}
                       data-testid={`ql-cell-${c.id}-${r.id}`}
                     >
-                      {renderCell(c.id, r)}
+                      {renderCell(c.id, r, onCellDrill)}
                     </td>
                   );
                 })}

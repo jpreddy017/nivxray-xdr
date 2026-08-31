@@ -314,3 +314,94 @@ A screen passes grammar review when:
 8. The visual signature (§§5-9) is visible somewhere on the
    screen without being decorative.
 MDEOF
+---
+
+## 15 · Phase A.1 · Enterprise Product Refinement Layer
+
+The grammar (§§1-14) is authoritative but not sufficient by
+itself.  Every screen must additionally satisfy the following
+refinement rules; a screen that satisfies the grammar but fails
+these rules is a "prototype-shaped" screen and must not ship.
+
+**R1 · Surface depth is tonal, not decorative.**
+No gradients.  No large shadows.  Depth comes from three tonal
+neutrals (workspace · inset · elevated) plus a single `shadow-1`
+on cards.  Never `shadow-3` on a persistent surface — only on
+overlays.
+
+**R2 · Density is deliberate.**
+No empty cards, no giant tiles wrapping one number.  A KPI tile's
+count is the primary read; provenance is a *secondary* read
+rendered smaller and dimmer.  Whitespace is used to separate
+*meaning-groups*, not to pad decoration.
+
+**R3 · Typography carries hierarchy, not the border.**
+On a compact table row, the incident title reads at `body 13/600`,
+metadata at `meta 11/500 mono faint`, chips at `micro 10/800`.
+The eye lands on the title, then the chip, then the metadata.
+If the eye lands elsewhere first, weight is wrong.
+
+**R4 · Monospace communicates technical identity — nowhere else.**
+Mono is reserved for hashes, IPs, host/user ids, process names,
+command lines, event ids, timestamps, IOC values, provenance
+paths, evidence ids.  Free-text names / labels / descriptions
+use `body` sans.  Mixing them makes the interface look like a
+developer console.
+
+**R5 · Table rows are analyst instruments.**
+- Row height obeys density tokens (§12).
+- Row `hover` — subtle inset tint, no border move, no shadow.
+- Row `selected` — 3-px purple left rail + `--purple-dim` tint.
+- Row `previewed` (adjacent to drawer) — same as selected + a
+  faint mono `→` glyph on the right edge showing the row that
+  drives the drawer.
+- Cell padding must not exceed the density token.  Wider cells
+  break the "instrument" feel.
+
+**R6 · Purple has a single meaning: investigation intelligence.**
+Purple is reserved for: selected navigation · active rail ·
+focused investigation · IKG relationship · running investigation
+· interactive affordances · selected entities · investigation
+transitions.  Never used for KPI values, severity, verdict,
+lifecycle state, SLA, or empty/loading polish.
+
+**R7 · Evidence-first is a visual composition rule.**
+Any authoritative or derived value on any screen must render as a
+`value → provenance` block, not as a bare number:
+```
+MALICIOUS
+Evidence · 14 artifacts · Verdict Engine v3.1b
+```
+Provenance uses `meta` mono, dim.  The provenance line is
+*intentional composition*, not "debug metadata".
+
+**R8 · Empty is intentional, not blank.**
+Empty state at row level → dashed honesty chip inside the row
+(§5).  Empty state at section level → compact `nx-empty` with
+a one-line reason (§11).  Empty state at page level → product-
+shape preview (§11).  There is no such thing as a blank card in
+this product.
+
+**R9 · Motion is restrained.**
+Only three animations exist:
+1. `nx-shimmer` on skeleton loaders.
+2. `nx-pulse` on the running-state dot (§8).
+3. 120-160 ms colour / shadow transitions on hover / focus.
+No slide-ins on cards.  No fade-ins on rows.  No decorative
+motion on chips.  If it moves without meaning, it is a bug.
+
+**R10 · The eye follows attention hierarchy, not container
+boundaries.**  Attention hierarchy per screen:
+identity → primary decision surface → operational controls →
+primary data → context → metadata (§2).  Borders are the last
+tool used to establish hierarchy — typography, spacing, semantic
+colour, and alignment come first.  A screen that establishes
+hierarchy primarily through cards is under-designed.
+
+**R11 · Cross-screen visual coherence is a release criterion.**
+Queue, Record, MSS, MITRE, Evidence must feel like the same
+product.  A component that appears on two screens must look and
+behave the same on both.  Divergence between screens is a bug.
+
+**Acceptance test (§14 + R1..R11) must pass before the screen
+moves on to the next in the sequenced plan.**
