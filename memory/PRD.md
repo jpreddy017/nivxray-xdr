@@ -26,6 +26,15 @@ Non-negotiable rules attached to this authorization:
    gives an SOC analyst the best readability, density and hierarchy.
    Provide Light / Dark / System theme support where it improves
    analyst ergonomics.
+
+   **2026-02-32 clarification** — full visual-system unlock: derive
+   colour · surfaces · typography · spacing · cards · borders ·
+   buttons · dropdowns · filters · chips · tables · tabs · toolbars ·
+   side panes · hover/selected/active states · empty states ·
+   information hierarchy · responsive behaviour from Defender + SIR
+   references.  Do not inherit the current dark theme by default.
+   This is a **design decision**, not an inherited constraint.
+   Think like a product designer + SOC architect.
 3. **Reference UX benchmarks** (never clone):
    - Microsoft Defender XDR — Incident Queue · Manage · Investigate
    - ServiceNow SIR — Workspace Landing · New UI

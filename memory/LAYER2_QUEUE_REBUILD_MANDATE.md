@@ -25,6 +25,60 @@ The current all-dark theme is **not** a design constraint.  Ask the right questi
 
 If that is light — use light.  If dark — use dark.  If hybrid (light workspace + dark drawers, or Defender-style neutral surfaces) — use hybrid.  **Provide Light / Dark / System theme support** where it improves analyst ergonomics.
 
+### 🔒 2026-02-32 · Owner clarification · full visual-system unlock
+
+Do **NOT** treat the current black/dark background as a fixed NivXRay
+constraint.  For Analyst Operations / Incident Queue / Incident Record
+work, do not stick to the existing black theme simply because NivXRay
+currently uses it.
+
+Use the Microsoft Defender XDR + ServiceNow SIR references as
+**authoritative UX benchmarks for the overall visual language**,
+including every one of the following:
+
+- colour / theme
+- background and surface colours
+- typography hierarchy
+- spacing and density
+- cards and panels
+- borders / dividers
+- buttons
+- dropdowns
+- filters
+- chips / pills / badges
+- tables
+- tabs
+- toolbars
+- side panes / drawers
+- hover / selected / active states
+- empty states
+- information hierarchy
+- responsive behaviour
+
+Do not assume NivXRay must remain black.  Evaluate the references and
+choose the theme that produces the most professional, readable,
+analyst-friendly SOC experience.  A light, dark, or hybrid treatment
+is acceptable — this is a **design decision**, not an inherited
+constraint.
+
+**Reference UX patterns to derive** (never clone branding · logos ·
+proprietary assets · pixel layouts):
+- Defender's priority-score model, configurable columns, time-range
+  selection, filters, search, and incident summary pane.
+- ServiceNow SIR's quick filters, personalized/sortable incident
+  lists, peek/preview views, quick actions, and tabbed incident
+  experience.
+
+Create a **distinct NivXRay visual system** derived from the best
+ideas in those references — think like a **product designer + SOC
+architect**, not like someone applying a dark-theme cosmetic patch.
+
+**Engineering constraint stays absolute**: zero changes to the
+existing investigation engine fabric.  Presentation/workflow layers
+consume existing APIs, canonical evidence, and existing engine
+outputs only.  Missing engine data → honest empty/unknown state.
+Never fabricate data merely to make the UI look complete.
+
 ## Target layout
 
 ```
