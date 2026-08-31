@@ -69,6 +69,7 @@ DISCOVERY_ROOTS = [
     "engine",        # correlation engine, graphs, planners, detectors
     "decoders",
     "workspace",
+    "detection_content",  # P0.2e — native detection engines live here
 ]
 
 # Files to skip

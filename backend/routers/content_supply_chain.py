@@ -10,6 +10,7 @@ honest zero-report — no fabricated numbers.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from deps import db, require_admin
 from detection_content.model import COLLECTION, LifecycleState
@@ -26,6 +27,10 @@ from detection_content.contract_registry import (
 )
 from detection_content.sigma_strict import strict_parse, StrictParseStatus
 from detection_content.rule_binding import match_rule_to_contracts
+from detection_content.detection_harness import (
+    HarnessFixture, run_harness, record_verification,
+)
+from detection_content import nivxray_native_sigma as _nx_native
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -294,3 +299,66 @@ async def binding_report(user=Depends(require_admin)):
             "through the P0.2e execution harness."
         ),
     }
+
+
+# ── P0.2e · Detection Execution Harness ──────────────────────────
+
+# In-process registry of engines whose `evaluate()` callable is
+# available to the harness endpoint.  Adding an engine to this map
+# is INTENTIONAL — it is the developer stating "this module claims
+# to be able to execute Sigma", which the harness will then verify.
+_HARNESS_EVALUATORS = {
+    _nx_native.ENGINE_ID: _nx_native.evaluate,
+}
+
+
+class HarnessRequest(BaseModel):
+    engine_id: str
+    rule:      str
+    positive_evidence: dict
+    negative_evidence: dict
+    positive_name:     str = "positive"
+    negative_name:     str = "negative"
+
+
+@router.post("/harness/run")
+async def harness_run(body: HarnessRequest,
+                            user=Depends(require_admin)):
+    """
+    Execute the P0.2e Detection Execution Harness for one
+    (engine, rule) pair.  On EXECUTION_VERIFIED the engine's
+    capability contract is promoted to detection=True and
+    classification=DETECTION_ENGINE.  On FAILED nothing is promoted
+    but the attempt is preserved in verification_history[].
+    """
+    evaluator = _HARNESS_EVALUATORS.get(body.engine_id)
+    if evaluator is None:
+        return {"ok": False,
+                    "engine_id": body.engine_id,
+                    "note": ("Engine has no registered evaluate() callable. "
+                                "Only engines added to _HARNESS_EVALUATORS may be "
+                                "verified — the harness never proves an engine "
+                                "that has not intentionally opted in.")}
+
+    result = run_harness(
+        engine_id       = body.engine_id,
+        rule_body       = body.rule,
+        engine_evaluate = evaluator,
+        positive        = HarnessFixture(body.positive_name,
+                                                    body.positive_evidence, True),
+        negative        = HarnessFixture(body.negative_name,
+                                                    body.negative_evidence, False),
+    )
+    persistence = await record_verification(db, result)
+    return {"ok": True, "harness": result.to_dict(),
+                "persistence": persistence}
+
+
+@router.get("/harness/engines")
+async def harness_engines(user=Depends(require_admin)):
+    """
+    List engines that have registered an `evaluate()` callable with
+    the harness (opt-in).  These are the ONLY engines whose contract
+    can move to EXECUTION_VERIFIED via /harness/run.
+    """
+    return {"engines": sorted(_HARNESS_EVALUATORS.keys())}
