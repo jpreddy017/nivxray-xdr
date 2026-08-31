@@ -7,6 +7,58 @@
 
 ---
 
+## ✅ 2026-02-34 · Enterprise Visual System v1 · SHIPPED
+
+Global product-wide design-system pass — the entire `/xdr/*`
+surface now reads as one cohesive enterprise SOC product.  Live in
+production at `https://nivxray-xdr.vercel.app/xdr/*`.
+
+Commit `562a4c3` — 2 files, +196 / -205:
+
+**Design tokens (`xdr-console.css` root)**
+- Deep navy-slate navigation surface (topbar + sidebar) —
+  `#0F172A` / `#111827` with slate-800 borders.  Premium, confident;
+  replaces the flat matte-black shell.
+- Warm neutral workspace surface (`#FAFAF9` → `#F5F5F4`) with pure
+  white card layer.  Not clinical white; not gray-on-gray.
+- Refined NivXRay purple identity (`#6D4EE0`) with hover, focus
+  ring, dim variants.
+- Restrained teal secondary accent for supporting data.
+- Full semantic status system (success · info · warn · danger ·
+  critical) with matched bg / border tokens.
+- 3-tier elevation shadows.
+- Enterprise typography scale + antialiased rendering.
+- Every downstream page (MSS Dashboard, Rule Studio, Threat
+  Intelligence, MITRE Heatmap, Admin, Playbooks) consumes the same
+  tokens and re-themes automatically — no page-level edits needed.
+
+**Topbar refresh**
+- 50 px deep navy sticky header, refined search field with purple
+  focus ring, rounded purple tenant pill, 30 px purple avatar chip.
+
+**Sidebar refresh**
+- Deep navy `#0F172A` with slate-200 typography and slate-500
+  section headers.
+- Active state: purple 3 px left indicator + subtle purple wash
+  + white bold typography.  Disabled items at 55 % opacity.
+
+**XdrShell**
+- Retired the `.xdr-console--light` Layer 3 v2 escape hatch.  One
+  design system covers every route.
+
+**Contracts unchanged** — engine lock absolute, anti-fabrication
+preserved.
+
+6 production acceptance screenshots captured (queue · record ·
+MSS Dashboard · Rule Studio · MITRE Heatmap · Admin/Integrations).
+Every route reads as one cohesive commercial-quality enterprise XDR.
+
+Next sequence: Phase 3 Lifecycle/SLA policy engine → Phase 4
+Auto-Investigation provenance orchestration → per-page density
+refinements.
+
+---
+
 ## ✅ 2026-02-34 · Layer 3 v2 · SHIPPED (visual redesign)
 
 You called out that Layer 3 v1 was still visually the legacy

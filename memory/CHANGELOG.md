@@ -1,6 +1,61 @@
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
+## 2026-02-34 · NivXRay Enterprise Visual System v1 — SHIPPED
+
+Product-wide design-system pass.  Every `/xdr/*` route now reads
+as one cohesive commercial-quality enterprise SOC product rather
+than separately themed pages.
+
+### Frontend (`/app/apps/nivxray-xdr`)
+- `xdr-console.css` root token block completely rewritten.
+  Introduces:
+  - Deep navy-slate navigation tokens (`--nav-bg/-2`, `--nav-text/-dim`,
+    `--nav-border/-2`, `--nav-hover-bg`, `--nav-active-bg`).
+  - Warm neutral workspace tokens (`--bg`, `--bg2`, `--panel`,
+    `--panel2`, `--border`, `--border-sf`).
+  - Semantic status tokens (`--success/-bg/-bd`, `--info/-bg/-bd`,
+    `--warn/-bg/-bd`, `--danger/-bg/-bd`, `--critical/-bg`).
+  - Refined purple / teal accents with hover / ring / dim variants.
+  - 3-tier elevation shadows.
+- `.xdr-console .topbar` rebuilt (50 px deep navy header, refined
+  search + tenant pill + avatar chip).
+- `.xdr-console .sidebar` rebuilt (deep navy surface, slate-500
+  section headers, purple 3 px active-left indicator, subtle wash
+  on hover, disabled at 55 % opacity).
+- `.xdr-console .main` reworked as the warm neutral workspace.
+- Legacy `.xdr-console--light` block deleted — the whole console
+  now inherits the new design system unconditionally.
+
+### XdrShell
+- Removed the `lightChrome` conditional; the `xdr-console` root
+  class alone drives the new design system.
+
+### Impact
+- Queue and Record pages continue to look correct (they already
+  used their own scoped `--ql-*` and `--rl-*` tokens with matching
+  values).
+- Legacy dark dashboards (MSS Dashboard, Rule Studio, Threat
+  Intelligence, MITRE Heatmap, Admin) automatically inherit the
+  warm workspace surface via the shared tokens — no page-level
+  edits needed.  Internal card / chip styling still needs a page
+  pass, but the shell + surface are now coherent.
+
+### Contracts unchanged
+- Engine lock still absolute — zero backend changes.
+- Anti-fabrication contract preserved.
+
+### Verification
+- Local `yarn build` clean.
+- 6 production acceptance screenshots captured on
+  `https://nivxray-xdr.vercel.app/xdr/*` covering queue, record,
+  MSS Dashboard, Rule Studio, MITRE Heatmap, Admin/Integrations.
+
+Commit: `562a4c3 feat(design-system): NivXRay Enterprise Visual
+System v1`.
+
+---
+
 ## 2026-02-34 · Layer 3 v2 · light-first Defender/SIR visual redesign
 
 Layer 3 v1 shipped functionality but visually was still the legacy
