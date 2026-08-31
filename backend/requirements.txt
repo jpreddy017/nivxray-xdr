@@ -34,6 +34,8 @@ cssselect==1.5.0
 cssselect2==0.9.0
 dateparser==1.4.2
 defusedxml==0.7.1
+diskcache==5.6.3
+diskcache-stubs==5.6.3.6.20240818
 distro==1.9.0
 dnspython==2.8.0
 ecdsa==0.19.2
@@ -41,8 +43,9 @@ EditorConfig==0.17.1
 email-validator==2.3.0
 emergentintegrations==0.2.0
 et_xmlfile==2.0.0
+evtx==0.12.1
 execnet==2.1.2
-fastapi==0.110.1
+fastapi==0.115.5
 fastuuid==0.14.0
 feedparser==6.0.12
 filelock==3.29.7
@@ -62,11 +65,13 @@ greenlet==3.5.3
 grpcio==1.82.1
 grpcio-status==1.71.2
 h11==0.16.0
+hexdump==3.3
 hf-xet==1.5.1
 html5lib==1.1
 htmldate==1.10.0
 httpcore==1.0.9
 httplib2==0.32.0
+httptools==0.8.0
 httpx==0.28.1
 huggingface_hub==1.22.0
 idna==3.18
@@ -77,7 +82,7 @@ isort==8.0.1
 Jinja2==3.1.6
 jiter==0.16.0
 jmespath==1.1.0
-jq==1.11.0
+jq==1.12.0
 jsbeautifier==2.0.3
 jsonpointer==3.1.1
 jsonschema==4.26.0
@@ -136,6 +141,7 @@ pymupdf==1.28.0
 pyparsing==3.3.2
 pypdf==6.14.2
 pypdfium2==5.12.1
+pySigma==1.5.0
 pytesseract==0.3.13
 pytest==9.1.1
 pytest-asyncio==1.4.0
@@ -144,7 +150,8 @@ pytest-xdist==3.8.0
 python-bidi==0.6.11
 python-dateutil==2.9.0.post0
 python-docx==1.1.2
-python-dotenv==1.2.2
+python-dotenv==1.0.1
+python-evtx==0.8.1
 python-jose==3.5.0
 python-multipart==0.0.32
 python-pptx==1.0.2
@@ -173,7 +180,7 @@ simplejson==4.1.1
 six==1.17.0
 sniffio==1.3.1
 soupsieve==2.9
-starlette==0.37.2
+starlette==0.41.3
 stix2==3.0.2
 stix2-patterns==2.1.2
 stix2-validator==3.3.1
@@ -188,6 +195,7 @@ tokenizers==0.23.1
 tqdm==4.68.4
 trafilatura==2.2.0
 typer==0.26.8
+types-PyYAML==6.0.12.20260815
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 tzdata==2026.2
@@ -196,7 +204,8 @@ uri-template==1.3.0
 uritemplate==4.2.0
 uritools==6.1.2
 urllib3==2.7.0
-uvicorn==0.25.0
+uvicorn==0.32.1
+uvloop==0.22.1
 watchfiles==1.2.0
 webcolors==25.10.0
 webencodings==0.5.1
@@ -206,5 +215,3 @@ xlsxwriter==3.2.9
 yarl==1.24.2
 zipp==4.1.0
 zstandard==0.25.0
-hexdump==3.3
-python-evtx==0.8.1

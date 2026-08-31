@@ -25,6 +25,7 @@ from .model import (
     COLLECTION, ContentSource, LifecycleState,
     new_content_doc,
 )
+from .sigma_strict import strict_parse, StrictParseStatus, is_pysigma_available
 
 
 def _hash_content(body: str) -> str:
@@ -152,9 +153,15 @@ def ingest_sigmahq(
         "with_data_source": 0,
         "field_mapping_missing": 0,
         "engine_unbound": 0,
+        # P0.2b strict-parse breakdown
+        "strict_parsed":     0,
+        "strict_parse_error":   0,
+        "strict_compile_error": 0,
+        "strict_lib_missing":   0,
     }
     products: dict[str, int] = {}
     unsupported_reasons: dict[str, int] = {}
+    parse_errors: list[dict] = []       # up to N samples for the API
     samples: list[dict] = []
 
     if not root.exists():
@@ -174,12 +181,44 @@ def ingest_sigmahq(
         totals["discovered"] += 1
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
-            y = _load_yaml(text)
-        except Exception as e:
+        except Exception:
+            totals["invalid"] += 1
+            continue
+
+        # ---- P0.2b · Strict pySigma parse ------------------------
+        result = strict_parse(text)
+        if result.status == StrictParseStatus.LIB_MISSING:
+            totals["strict_lib_missing"] += 1
+        elif result.status == StrictParseStatus.PARSE_ERROR:
+            totals["strict_parse_error"] += 1
+            if len(parse_errors) < 30:
+                parse_errors.append({
+                    "path":           str(path.relative_to(root)),
+                    **result.to_dict(),
+                })
+            totals["invalid"] += 1
+            continue
+        elif result.status == StrictParseStatus.COMPILE_ERROR:
+            totals["strict_compile_error"] += 1
+            if len(parse_errors) < 30:
+                parse_errors.append({
+                    "path":           str(path.relative_to(root)),
+                    **result.to_dict(),
+                })
+            totals["invalid"] += 1
+            continue
+        else:
+            totals["strict_parsed"] += 1
+
+        # Legacy YAML re-parse purely for the metadata surface —
+        # cheap after the strict parse has already succeeded.
+        import yaml as _yaml
+        try:
+            y = _yaml.safe_load(text)
+        except Exception:
             totals["invalid"] += 1
             continue
         if not isinstance(y, dict) or "detection" not in y:
-            # Not a Sigma rule (probably filters/tests/etc).
             continue
         totals["parsed"] += 1
 
@@ -296,5 +335,7 @@ def ingest_sigmahq(
         "totals":               totals,
         "products":             products,
         "unsupported_reasons":  unsupported_reasons,
+        "parse_errors":         parse_errors,
+        "pysigma_available":    is_pysigma_available(),
         "samples":              samples,
     }
