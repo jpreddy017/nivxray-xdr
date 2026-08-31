@@ -1,8 +1,8 @@
 {
   "installCommand": "yarn install --production=false --frozen-lockfile",
-  "buildCommand": "yarn build",
+  "buildCommand": "yarn run vercel-build",
   "outputDirectory": "dist",
-  "framework": "vite",
+  "framework": null,
   "build": {
     "env": {
       "NPM_CONFIG_PRODUCTION": "false",
