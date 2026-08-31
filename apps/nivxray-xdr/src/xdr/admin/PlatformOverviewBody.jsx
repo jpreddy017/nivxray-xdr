@@ -26,6 +26,7 @@ import {
 import { NxHeroHeader, NxDonut, NxAreaSpark, NxHBar } from "@/xdr/nx";
 import api from "@/lib/api";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
+import GoldenPipelineTrace from "@/xdr/admin/GoldenPipelineTrace";
 import "./platformOverview.css";
 
 
@@ -157,6 +158,9 @@ export default function PlatformOverviewBody() {
 
       {/* Ingestion pipeline · authoritative counts per stage */}
       <PipelineStrip testid="overview-pipeline" />
+
+      {/* Round 11 · Golden E2E replay — Snort → IUE → ICE → VEEE → Incident */}
+      <GoldenPipelineTrace testid="overview-golden-trace" />
 
       {/* Main analytical row */}
       <div className="po-row po-row-main">

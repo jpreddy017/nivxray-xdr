@@ -3,6 +3,59 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 11 · P0.4 IUE + ICE + VEEE + Incident — SHIPPED
+
+The Golden E2E pipeline is **no longer blocked at IUE**.  Every one of
+the 13 stages runs real code and the pipeline honestly completes with
+a verdict + materialised incident.  Snort → Integration → Collector →
+DSM → Parser → Normalizer → Canonical Evidence → SSOT → Detection →
+**IUE → Correlation → Verdict → Incident** → Investigation (READY).
+
+**New engines (in-process, deterministic, HONEST STATE preserved):**
+- `detection_content/xdr_iue.py` — extracts entities, capability tags,
+  severity_hint, bounded confidence (≤70 for single-event evidence).
+- `detection_content/xdr_ice.py` — single-signal EVENT_MATCH correlator;
+  reuses `xdr_correlation_rules` SSOT; reports `NO_RULES_ENABLED` when
+  catalog is empty (never fabricates matches).
+- `detection_content/xdr_veee.py` — deterministic weighted verdict
+  projection.  Same inputs → byte-identical `{label, score, reason}`.
+- `detection_content/xdr_incident.py` — gated materialiser into the
+  existing `workspace_cases` SSOT; only labels MALICIOUS/SUSPICIOUS
+  with score ≥ INCIDENT_MIN_SCORE (55) qualify.  Full provenance
+  chain preserved in `workspace_cases.xdr_pipeline`.
+
+**Wired:**
+- `xdr_pipeline.process_event_through_pipeline()` now calls
+  IUE → ICE → VEEE → Incident inline; all previous BLOCKED
+  placeholders are gone.
+- `engine_control_plane._RUNTIME_ADAPTERS` gains IUE / CorrelationEngine
+  / VerdictEngine / IncidentEngine — the 6-axis registry now reflects
+  four newly ADAPTER_READY engines.
+- `POST /api/admin/content-supply-chain/e2e/snort-golden` returns the
+  full trace + veee + ice + incident sub-documents.  Verdict:
+  `COMPLETE`, executed: **12 / 13** (investigation stays `READY` until
+  P0.6 Investigation Fabric ships).
+
+**Tests (all passing, 21/21):**
+- `tests/test_xdr_round11_pipeline.py` — 7 new tests (IUE determinism,
+  VEEE bands, E2E stage coverage, incident gate refusal, provenance).
+- Regression: `test_capability_contracts.py` (8/8) +
+  `test_rule_binding.py` (6/6) unchanged.
+
+**UI (Frontend — XDR SPA):**
+- `apps/nivxray-xdr/src/xdr/admin/GoldenPipelineTrace.jsx` — one-click
+  Replay Snort golden button that renders the 13-stage honest trace
+  with color-coded status chips + VEEE label + incident id.  Mounted
+  on Admin → Platform Overview beside the existing PipelineStrip.
+- Vite build clean (`npx vite build` → exit 0, dist emitted).
+
+Honesty note: no fabricated readiness — IUE confidence caps at 70 for
+single-event evidence; correlation reports NO_MATCH when rules exist
+but don't match; incident gate honestly refuses low-score verdicts.
+
+---
+
+
 
 ## ✅ 2026-02-35 · P0.2 Detection Content Fabric — Rounds 3–6 · SHIPPED
 

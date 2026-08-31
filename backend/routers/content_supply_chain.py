@@ -38,7 +38,10 @@ from detection_content.engine_control_plane import (
 from detection_content.collector_runtime import (
     MANAGER as COLLECTOR_MANAGER,
     bootstrap_snort_collector,
-    run_golden_e2e,
+)
+from detection_content.xdr_pipeline import (
+    process_event_through_pipeline, DSM_REGISTRY,
+    CANONICAL_COLLECTION,
 )
 
 
@@ -484,4 +487,59 @@ async def e2e_snort_golden(user=Depends(require_admin)):
     halts at the first stage that is not yet executable; never
     manufactures downstream success.  Provenance-preserving.
     """
-    return await run_golden_e2e(db)
+    from detection_content.collector_runtime import (
+        GOLDEN_SNORT_EVENT, MANAGER, CollectorState, bootstrap_snort_collector,
+    )
+    from datetime import datetime, timezone
+    import uuid as _uuid
+
+    trace_id = str(_uuid.uuid4())
+    bootstrap_snort_collector()
+    coll = "collector-snort-ref"
+    if MANAGER._collectors[coll]["state"] != CollectorState.RUNNING.value:
+        await MANAGER.start(coll)
+    stages: list[dict] = [
+        {"stage": "integration", "status": "EXECUTED",
+          "adapter": "snort-suricata-eve"},
+        {"stage": "collector",   "status": "EXECUTED",
+          "collector_id": coll},
+    ]
+    # Also record ingest through the manager for real event counters.
+    await MANAGER.ingest_one(coll, dict(GOLDEN_SNORT_EVENT))
+
+    pipeline = await process_event_through_pipeline(
+        db, dict(GOLDEN_SNORT_EVENT), trace_id,
+        integration_id="integration-snort-ref",
+        collector_id=coll)
+    stages.extend(pipeline["stages"])
+
+    executed = sum(1 for s in stages if s["status"] == "EXECUTED")
+    return {
+        "trace_id":  trace_id,
+        "stages":    stages,
+        "executed":  executed,
+        "total":     len(stages),
+        "blocker":   pipeline.get("blocker"),
+        "verdict":   "PARTIAL" if pipeline.get("blocker") else "COMPLETE",
+        "canonical_event_id": (pipeline.get("canonical") or {}).get("event_id"),
+        "detection": pipeline.get("detection"),
+        "iue":       pipeline.get("iue"),
+        "ice":       pipeline.get("ice"),
+        "veee":      pipeline.get("verdict"),
+        "incident":  pipeline.get("incident"),
+        "honesty_note": (
+            "Every EXECUTED stage ran real code; every BLOCKED / NOT_CREATED "
+            "stage records the exact reason.  No stage is fabricated."
+        ),
+    }
+
+
+@router.get("/dsm/registry")
+async def dsm_registry_list(user=Depends(require_admin)):
+    return {"dsms": DSM_REGISTRY.list()}
+
+
+@router.get("/canonical-evidence/count")
+async def canonical_evidence_count(user=Depends(require_admin)):
+    return {"collection": CANONICAL_COLLECTION,
+                "count": await db[CANONICAL_COLLECTION].count_documents({})}

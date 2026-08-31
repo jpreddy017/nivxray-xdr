@@ -100,6 +100,25 @@ _RUNTIME_ADAPTERS: dict[str, dict] = {
         "execution_mode": ExecutionMode.IN_PROCESS.value,
         "note": "nivxray_native_sigma.evaluate — verified via P0.2e harness",
     },
+    "IUE": {
+        "execution_mode": ExecutionMode.IN_PROCESS.value,
+        "note": "detection_content.xdr_iue.understand — Round 11 XDR IUE",
+    },
+    "CorrelationEngine": {
+        "execution_mode": ExecutionMode.IN_PROCESS.value,
+        "note": "detection_content.xdr_ice.correlate — Round 11 XDR ICE "
+                  "(single-event EVENT_MATCH; stateful multi-event lives "
+                  "in routers/xdr_correlation.py)",
+    },
+    "VerdictEngine": {
+        "execution_mode": ExecutionMode.IN_PROCESS.value,
+        "note": "detection_content.xdr_veee.compute_verdict — Round 11 VEEE",
+    },
+    "IncidentEngine": {
+        "execution_mode": ExecutionMode.IN_PROCESS.value,
+        "note": "detection_content.xdr_incident.materialise_incident — "
+                  "Round 11 gated incident materialiser",
+    },
 }
 
 
