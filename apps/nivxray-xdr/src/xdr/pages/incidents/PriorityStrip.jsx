@@ -8,6 +8,7 @@
  */
 import React, { useEffect, useState, useCallback } from "react";
 import { getMssKpis } from "@/lib/incidentsApi";
+import { NxProvenance } from "@/xdr/nx";
 
 // Lens id → { label, tone } — mapped from Defender's "top priorities"
 // pattern into NivXRay-specific lens ids.
@@ -63,6 +64,9 @@ export default function PriorityStrip({ activeLens, onLensClick }) {
             <span className="ql-tile-count">
               {showDash ? "—" : count.toLocaleString()}
             </span>
+            {!showDash && (
+              <NxProvenance>workspace_cases.live</NxProvenance>
+            )}
           </button>
         );
       })}

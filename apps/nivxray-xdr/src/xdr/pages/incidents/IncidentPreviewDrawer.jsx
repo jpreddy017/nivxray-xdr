@@ -33,6 +33,7 @@ function fmtAging(sec) {
 
 export default function IncidentPreviewDrawer({
   incident, onClose, onOpen, onPrev, onNext, hasPrev, hasNext,
+  position, total,
 }) {
   // Escape-to-close.
   useEffect(() => {
@@ -66,6 +67,13 @@ export default function IncidentPreviewDrawer({
             {r.number || (r.id?.slice(0, 12) + "…")}
           </span>
           <div className="ql-drawer-head-actions">
+            {position != null && total != null && (
+              <span style={{ fontFamily: "var(--qs-mono)", fontSize: 10.5,
+                              color: "var(--qd-muted)", marginRight: 6 }}
+                      data-testid="ql-drawer-counter">
+                {position} of {total}
+              </span>
+            )}
             <button
               type="button"
               className="ql-drawer-icon-btn"

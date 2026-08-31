@@ -521,14 +521,16 @@ right now?"* — not *"here are numbers"*.
 Ultra mode is deferred until real usage justifies it.  Do not
 build preference UI that no one has asked for.
 
-**A13 · NivXRay identity locked as five signatures.**
-1. Evidence provenance (selective — A1).
-2. Truth-state chips (filled vs dashed — A2).
-3. IKG relationship affordance (A4).
-4. Execution-state pulse (A3).
-5. **Evidence-first interaction** — important values are clickable
-   and lead the analyst back to evidence.  *This is the strongest
-   NivXRay differentiator.*
+**A13 · NivXRay identity locked as five signatures (ordered).**
+The ordering *is* the message: evidence-first is the product's
+soul, not decoration.
+1. **Evidence-first interaction** — decision-critical values are
+   navigation edges back to evidence.  *Primary NivXRay design
+   principle.*
+2. Evidence provenance (selective — A1).
+3. Truth-state chips (filled vs dashed — A2).
+4. IKG relationship affordance (A4).
+5. Execution-state pulse (A3).
 
 **A14 · Sequencing lock.**
 Post-Phase-B, redesign in this order:

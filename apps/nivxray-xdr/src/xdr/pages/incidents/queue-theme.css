@@ -669,3 +669,22 @@
   animation: qlSpin 0.7s linear infinite;
 }
 @keyframes qlSpin { to { transform: rotate(360deg); } }
+
+/* NxDensity binding · queue table respects Comfort/Compact */
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-table thead th,
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-table tbody td {
+  padding: 5px 8px;
+}
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-table {
+  font-size: 12px;
+}
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-tile {
+  padding: 8px 10px;
+}
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-tile-count {
+  font-size: 18px;
+}
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-toolbar,
+.xdr-console[data-density="compact"] .xdr-queue-l2 .ql-chips {
+  padding: 5px 8px;
+}

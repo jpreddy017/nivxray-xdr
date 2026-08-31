@@ -10,6 +10,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   PriorityChip, SeverityChip, VerdictChip, StateChip,
 } from "@/xdr/components/chips";
+import { NxHonestyChip, NxChip } from "@/xdr/nx";
 
 // Default column set + sortable metadata.  All 15 columns known
 // to the backend projection; visible/hidden and ordering is
@@ -54,7 +55,10 @@ function fmtISO(iso) {
   return s.length >= 16 ? s.slice(0, 16).replace("T", " ") : s;
 }
 
-const dash = <span className="ql-td-dash">—</span>;
+const dash = <NxHonestyChip state="unknown" />;
+const notRun = <NxHonestyChip state="not_run" />;
+const naChip = <NxHonestyChip state="not_available" />;
+const noEv   = <NxHonestyChip state="no_evidence" />;
 
 function renderCell(colId, r) {
   switch (colId) {
@@ -71,17 +75,18 @@ function renderCell(colId, r) {
         : <VerdictChip value="unknown" />;
     case "confidence":
       return r.confidence
-        ? <span className="ql-td-mono">{r.confidence.toUpperCase()}</span>
-        : dash;
+        ? <NxChip tone="low" variant="tinted" size="sm">{r.confidence.toUpperCase()}</NxChip>
+        : notRun;
     case "customer":
       return r.customer
         ? <span className="ql-td-mono">{r.customer}</span> : dash;
     case "detection_source":
       return r.detection_source
-        ? <span className="ql-td-mono">{r.detection_source}</span> : dash;
+        ? <span className="ql-td-mono">{r.detection_source}</span> : notRun;
     case "evidence_count":
       return (r.evidence_count ?? 0) > 0
-        ? <span className="ql-td-mono">{r.evidence_count}</span> : dash;
+        ? <NxChip tone="available" variant="tinted" size="sm">{r.evidence_count}</NxChip>
+        : noEv;
     case "techniques_top":
       return r.techniques_top?.length
         ? (
@@ -91,39 +96,42 @@ function renderCell(colId, r) {
               && ` +${r.techniques_total - r.techniques_top.length}`}
           </span>
         )
-        : dash;
+        : noEv;
     case "sla_due_at":
       return r.sla_due_at
         ? <span className="ql-td-mono">{fmtISO(r.sla_due_at)}</span>
-        : dash;
+        : <span className="ql-td-dash">—</span>;
     case "aging_seconds":
       return <span className="ql-td-mono">{fmtAging(r.aging_seconds)}</span>;
     case "assignee":
       return r.assignee
         ? <span className="ql-td-mono">{r.assignee}</span>
-        : <span className="ql-td-mono"
-                  style={{ color: "var(--ql-amber)" }}>UNASSIGNED</span>;
+        : <NxHonestyChip state="unknown">UNASSIGNED</NxHonestyChip>;
     case "state":
       return <StateChip value={r.state} />;
     case "last_activity":
       return <span className="ql-td-mono">{fmtISO(r.last_activity)}</span>;
     case "auto_investigation": {
-      const s = r.auto_investigation?.status || "NOT_RUN";
-      const color = s === "COMPLETE" ? "var(--ql-green)"
-                       : s === "PARTIAL"  ? "var(--ql-orange)"
-                       : s === "FAILED"   ? "var(--ql-red)"
-                       : s === "RUNNING"  ? "var(--ql-blue)"
-                       : "var(--ql-muted)";
-      return <span className="ql-td-mono" style={{ color, fontWeight: 700 }}>{s}</span>;
+      const s = r.auto_investigation?.status;
+      if (!s || s === "NOT_RUN") return notRun;
+      const toneMap = { COMPLETE: "complete", PARTIAL: "partial",
+                          FAILED: "failed", RUNNING: "running" };
+      const tone = toneMap[s] || "not_run";
+      return (
+        <NxChip tone={tone} variant="tinted" size="sm"
+                  dot={s === "RUNNING"} pulse={s === "RUNNING"}>
+          {s}
+        </NxChip>
+      );
     }
     case "engine_results":
       return r.auto_investigation?.engines_total > 0
         ? (
-          <span className="ql-td-mono">
+          <NxChip tone="complete" variant="tinted" size="sm">
             {r.auto_investigation.engines_ok}/{r.auto_investigation.engines_total}
-          </span>
+          </NxChip>
         )
-        : <span className="ql-td-mono" style={{ color: "var(--ql-faint)" }}>NOT_RUN</span>;
+        : notRun;
     default:
       return dash;
   }

@@ -7,6 +7,54 @@
 
 ---
 
+## ✅ 2026-02-34 · Phase B · Nx primitives + Queue grammar rebuild · SHIPPED
+
+Phase B ships the grammar in code and adopts it on the Queue as
+the first grammar-benchmark screen.  Live at
+`https://nivxray-xdr.vercel.app/xdr/incidents`.
+
+Commit `55e6c3d` — 17 files, +793 / -160.
+
+**Primitives (`src/xdr/nx/`)**
+- `nx-tokens.css` — five-surface palette, nine-role type ramp,
+  semantic colour systems, density tokens (Comfort · Compact),
+  chip + provenance + IKG + empty + skeleton grammar.
+- `NxChip` + `NxHonestyChip` — §5 truth-state grammar enforced in
+  one place.  `variant=filled|tinted|dashed`; dashed is locked
+  for honesty states.
+- `NxProvenance` — §6 selective `Source · …` sub-line.
+- `NxLink` — §9 evidence-first navigation edge.
+- `NxIkgGlyph` — §7 renders only when `linked=true`.
+- `NxExecPulse` — §8 execution-state pulse (backend-flagged only).
+- `NxEmpty` + `NxSkeleton` — §11 empty / loading grammar.
+- `NxDensityProvider` + `useNxDensity` — §12 two-mode density,
+  persists as `data-density` on `.xdr-console`.
+
+**Grammar enforcement in one place**
+- `components/chips/index.jsx` rewritten to delegate to `NxChip`.
+  Every existing chip (Priority · Severity · Verdict · State ·
+  SideState · Domain) inherits §5 without callsite changes.
+
+**Queue as grammar benchmark**
+- `QueueTable` — `NOT_RUN` / `NO EVIDENCE` / `UNKNOWN` cells render
+  as dashed honesty chips (not faded gray text).  Auto-Investigation
+  status renders as a tinted chip with a pulsing dot for `RUNNING`.
+- `QueueToolbar` — Comfort ↔ Compact density toggle wired to
+  NxDensity.
+- `PriorityStrip` — selective provenance sub-line under each
+  non-empty count (`Source · workspace_cases.live`).
+- `IncidentPreviewDrawer` — position counter `1 of 2`.
+- `queue-theme.css` — density bindings on compact rows.
+
+**Contracts unchanged** — engine lock, anti-fabrication.
+
+**Next in the sequenced plan** (locked in gap analysis §A14)
+Queue continues → Incident Record → MSS Dashboard → MITRE →
+Evidence.  Then and only then, Phase 3 (Lifecycle/SLA) and Phase
+4 (Auto-Investigation provenance) start.
+
+---
+
 ## 🟠 2026-02-34 · Enterprise Visual System · re-scoped
 
 Owner reviewed the "Enterprise Visual System v1" screenshots and

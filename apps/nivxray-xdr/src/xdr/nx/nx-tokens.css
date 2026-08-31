@@ -1,0 +1,266 @@
+/* NivXRay · Phase B · Design-system tokens
+ *
+ * Implements the locked visual grammar:
+ *   §1 surfaces · §3 typography · §4 semantic colour · §5 chip
+ *   grammar · §6 provenance · §10 interaction states · §12 density.
+ *
+ * Scoped under `.xdr-console` (inherited from the shell) — every
+ * downstream page inherits the same tokens.  A component that
+ * hard-codes a colour instead of consuming a token is a grammar
+ * violation.
+ */
+
+.xdr-console {
+  /* §1 — surfaces (layered light) */
+  --nx-app:            #0F172A;
+  --nx-app-alt:        #111827;
+  --nx-workspace:      #FAFAF9;
+  --nx-workspace-alt:  #F5F5F4;
+  --nx-elevated:       #FFFFFF;
+  --nx-inset:          #F7F7F6;
+  --nx-divider:        #E7E5E4;
+  --nx-divider-strong: #D6D3D1;
+
+  /* Text */
+  --nx-text:      #111827;
+  --nx-text-dim:  #4B5563;
+  --nx-muted:     #6B7280;
+  --nx-faint:     #9CA3AF;
+
+  /* Elevation */
+  --nx-shadow-1: 0 1px 2px rgba(15, 20, 30, 0.04);
+  --nx-shadow-2: 0 2px 8px rgba(15, 20, 30, 0.08);
+  --nx-shadow-3: 0 8px 24px rgba(15, 20, 30, 0.12);
+
+  /* Corners */
+  --nx-r-chip: 4px;
+  --nx-r-card: 8px;
+  --nx-r-large: 10px;
+
+  /* NivXRay brand */
+  --nx-purple:       #6D4EE0;
+  --nx-purple-hover: #5B3ED1;
+  --nx-purple-dim:   #EDE7FF;
+  --nx-purple-ring:  rgba(109, 78, 224, 0.20);
+
+  /* Supporting secondary */
+  --nx-teal:      #0D9488;
+  --nx-teal-dim:  #CCFBF1;
+
+  /* §4 — semantic colour systems (text/bg/bd triads) */
+  --nx-critical: #991B1B; --nx-critical-bg: #FEE2E2; --nx-critical-bd: #F87171;
+  --nx-high:     #EA580C; --nx-high-bg:     #FFEDD5; --nx-high-bd:     #FB923C;
+  --nx-medium:   #D97706; --nx-medium-bg:   #FEF3C7; --nx-medium-bd:   #FCD34D;
+  --nx-low:      #2563EB; --nx-low-bg:      #DBEAFE; --nx-low-bd:      #93C5FD;
+
+  --nx-malicious:  var(--nx-critical); --nx-malicious-bg:  #FEF2F2; --nx-malicious-bd:  #FCA5A5;
+  --nx-suspicious: var(--nx-high);     --nx-suspicious-bg: #FFF7ED; --nx-suspicious-bd: #FDBA74;
+  --nx-benign:     #059669;            --nx-benign-bg:     #ECFDF5; --nx-benign-bd:     #A7F3D0;
+
+  --nx-lc-new:         var(--nx-low);
+  --nx-lc-in_progress: var(--nx-purple);
+  --nx-lc-on_hold:     var(--nx-muted);
+  --nx-lc-resolved:    var(--nx-benign);
+  --nx-lc-closed:      var(--nx-text-dim);
+
+  --nx-sla-ok:       var(--nx-benign);
+  --nx-sla-risk:     var(--nx-high);
+  --nx-sla-breached: var(--nx-critical);
+
+  --nx-ev-available:     var(--nx-teal);
+  --nx-ev-searched:      var(--nx-low);
+  --nx-ev-no_evidence:   var(--nx-medium);
+  --nx-ev-not_connected: var(--nx-muted);
+
+  --nx-exec-not_run:  var(--nx-muted);
+  --nx-exec-running:  var(--nx-purple);
+  --nx-exec-complete: var(--nx-benign);
+  --nx-exec-partial:  var(--nx-medium);
+  --nx-exec-failed:   var(--nx-critical);
+}
+
+/* §3 — typography roles */
+.nx-t-display  { font: 700 24px/1.2 var(--sans); letter-spacing: -0.25px; color: var(--nx-text); }
+.nx-t-h1       { font: 700 20px/1.25 var(--sans); letter-spacing: -0.1px; color: var(--nx-text); }
+.nx-t-h2       { font: 700 14px/1.35 var(--sans); color: var(--nx-text); }
+.nx-t-eyebrow  { font: 800 11px/1.2 var(--sans); text-transform: uppercase; letter-spacing: 0.6px; color: var(--nx-muted); }
+.nx-t-kpi      { font: 800 24px/1 var(--mono); color: var(--nx-text); letter-spacing: -0.2px; }
+.nx-t-body     { font: 400 13px/1.55 var(--sans); color: var(--nx-text); }
+.nx-t-meta     { font: 500 11px/1.5 var(--mono); color: var(--nx-faint); }
+.nx-t-micro    { font: 800 10px/1 var(--sans); text-transform: uppercase; letter-spacing: 0.5px; }
+.nx-t-code     { font: 500 11.5px/1.5 var(--mono); color: var(--nx-text-dim); }
+
+/* §5 — truth-state chip grammar
+ * Filled = known/observed · Dashed = absent/uncertain/not-run.
+ * A downstream chip that softens a filled border for uncertainty
+ * or fills a dashed chip for balance violates the grammar. */
+.nx-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--nx-r-chip);
+  font: 800 10px/1.6 var(--sans);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--nx-text-dim);
+  vertical-align: middle;
+}
+.nx-chip .nx-chip-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 6px;
+}
+.nx-chip--filled { /* known/observed */
+  color: #fff; background: var(--nx-tone, var(--nx-text-dim));
+  border-color: var(--nx-tone, var(--nx-text-dim));
+}
+.nx-chip--tinted { /* known/observed · softer surface */
+  color: var(--nx-tone, var(--nx-text-dim));
+  background: var(--nx-tone-bg, var(--nx-inset));
+  border-color: var(--nx-tone-bd, var(--nx-divider-strong));
+}
+.nx-chip--dashed { /* absent/uncertain — locked grammar */
+  color: var(--nx-muted);
+  background: transparent;
+  border: 1px dashed var(--nx-divider-strong);
+}
+.nx-chip--dashed.nx-chip--tinted {
+  /* dashed chip may carry a subtle tint — border stays dashed */
+  color: var(--nx-tone, var(--nx-muted));
+  background: var(--nx-tone-bg, transparent);
+  border-color: var(--nx-tone-bd, var(--nx-divider-strong));
+  border-style: dashed;
+}
+.nx-chip--pulse .nx-chip-dot {
+  animation: nx-pulse 1.8s ease-in-out infinite;
+}
+@keyframes nx-pulse {
+  0%, 100% { opacity: 1;  transform: scale(1);   }
+  50%      { opacity: 0.35; transform: scale(1.35); }
+}
+
+/* Sizing */
+.nx-chip--sm { padding: 1px 6px; font-size: 9.5px; }
+.nx-chip--md { padding: 2px 8px; }
+.nx-chip--lg { padding: 3px 10px; font-size: 11px; }
+
+/* Interactive chip */
+.nx-chip[role="button"],
+.nx-chip.nx-chip--interactive {
+  cursor: pointer;
+  transition: box-shadow 120ms ease, transform 100ms ease;
+}
+.nx-chip[role="button"]:hover,
+.nx-chip.nx-chip--interactive:hover { filter: brightness(1.05); box-shadow: var(--nx-shadow-1); }
+.nx-chip[role="button"]:focus-visible,
+.nx-chip.nx-chip--interactive:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--nx-purple-ring);
+}
+
+/* §6 — selective provenance sub-line */
+.nx-prov {
+  display: block;
+  margin-top: 2px;
+  font: 500 10.5px/1.35 var(--mono);
+  color: var(--nx-faint);
+  letter-spacing: 0.1px;
+}
+.nx-prov::before {
+  content: "Source · ";
+  color: var(--nx-muted);
+  font-weight: 700;
+}
+.nx-prov--inline { display: inline; margin-top: 0; margin-left: 6px; }
+
+/* §9 — evidence-first link
+ * Wraps any decision-critical value.  Renders the underlying value
+ * with a subtle purple hover treatment and full keyboard support. */
+.nx-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color 120ms ease, background 120ms ease;
+}
+.nx-link:hover { color: var(--nx-purple); }
+.nx-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--nx-purple-ring);
+}
+.nx-link[disabled] { color: inherit; cursor: default; }
+.nx-link[disabled]:hover { color: inherit; }
+
+/* §7 — IKG glyph */
+.nx-ikg {
+  display: inline-flex; align-items: center;
+  width: 14px; height: 14px;
+  margin-left: 4px;
+  color: var(--nx-purple);
+  border-radius: 3px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  vertical-align: -2px;
+  transition: background 120ms ease;
+}
+.nx-ikg:hover { background: var(--nx-purple-dim); }
+.nx-ikg:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--nx-purple-ring);
+}
+
+/* §11 — empty grammar */
+.nx-empty {
+  padding: 20px 16px;
+  background: var(--nx-workspace-alt);
+  border: 1px dashed var(--nx-divider-strong);
+  border-radius: var(--nx-r-card);
+  color: var(--nx-muted);
+  font: 400 12.5px/1.5 var(--sans);
+  text-align: center;
+}
+.nx-empty--compact { padding: 12px 14px; text-align: left; }
+.nx-empty__title { font: 700 12.5px/1.4 var(--sans); color: var(--nx-text-dim); margin-bottom: 3px; }
+.nx-empty__hint  { font: 500 10.5px/1.4 var(--mono); color: var(--nx-faint); margin-top: 6px; }
+.nx-empty__cta   { margin-top: 8px; }
+
+/* Skeleton row */
+.nx-skel {
+  height: 12px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--nx-workspace-alt) 25%, var(--nx-inset) 37%, var(--nx-workspace-alt) 63%);
+  background-size: 400% 100%;
+  animation: nx-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes nx-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* §12 — density modes */
+.xdr-console[data-density="comfort"] {
+  --nx-row-h:    40px;
+  --nx-cell-py:  10px;
+  --nx-cell-px:  14px;
+  --nx-body-sz:  13px;
+}
+.xdr-console[data-density="compact"] {
+  --nx-row-h:    32px;
+  --nx-cell-py:  6px;
+  --nx-cell-px:  10px;
+  --nx-body-sz:  12.5px;
+}
+.xdr-console:not([data-density]) {
+  --nx-row-h:    40px;
+  --nx-cell-py:  10px;
+  --nx-cell-px:  14px;
+  --nx-body-sz:  13px;
+}

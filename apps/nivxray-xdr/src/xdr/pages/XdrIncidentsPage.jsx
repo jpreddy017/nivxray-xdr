@@ -597,6 +597,8 @@ export default function XdrIncidentsPage() {
           onNext={onDrawerNext}
           hasPrev={previewIndex > 0}
           hasNext={previewIndex >= 0 && previewIndex < visibleRows.length - 1}
+          position={previewIndex >= 0 ? previewIndex + 1 : null}
+          total={visibleRows.length}
         />
 
         {/* Filters panel */}

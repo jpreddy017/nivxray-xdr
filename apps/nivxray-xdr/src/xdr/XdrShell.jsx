@@ -28,6 +28,8 @@ import {
 import { useAuth } from "@/lib/auth";
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import "./xdr-console.css";
+import "./nx/nx-tokens.css";
+import { NxDensityProvider } from "./nx";
 
 // ── Sidebar tree · owner-locked ────────────────────────────────────
 // key      – unique id (used for active highlighting + data-testid)
@@ -226,6 +228,7 @@ export default function XdrShell({ children }) {
   const openExternal = (to) => window.open(to, "_blank", "noopener,noreferrer");
 
   return (
+    <NxDensityProvider>
     <div className="xdr-console"
           data-testid="xdr-shell">
       {/* ── Top bar (utility only) ────────────────────────── */}
@@ -338,5 +341,6 @@ export default function XdrShell({ children }) {
         </main>
       </div>
     </div>
+    </NxDensityProvider>
   );
 }

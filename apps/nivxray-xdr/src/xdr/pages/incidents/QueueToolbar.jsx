@@ -8,8 +8,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Search, Filter, Bookmark, Columns3, Download, RefreshCw, Clock, Save,
-  Trash2, Check, GripVertical,
+  Trash2, Check, GripVertical, LayoutList, LayoutGrid,
 } from "lucide-react";
+import { useNxDensity } from "@/xdr/nx";
 
 const TIME_OPTIONS = [
   { key: "1d",  label: "Last 24 hours" },
@@ -55,6 +56,7 @@ export default function QueueToolbar({
   const [viewOpen, setViewOpen] = useState(false);
   const [viewName, setViewName] = useState("");
   const [dragKey, setDragKey] = useState(null);
+  const { mode: density, cycle: cycleDensity } = useNxDensity();
 
   const handleDragStart = (id) => setDragKey(id);
   const handleDragOver = (e) => e.preventDefault();
@@ -254,6 +256,19 @@ export default function QueueToolbar({
               <option key={t.key} value={t.key}>{t.label}</option>)}
           </select>
         </div>
+
+        <button
+          type="button"
+          className="ql-btn"
+          onClick={cycleDensity}
+          data-testid="ql-toolbar-density"
+          title={`Density · ${density === "comfort" ? "Comfort" : "Compact"} (click to switch)`}
+        >
+          {density === "comfort"
+            ? <LayoutList size={13} />
+            : <LayoutGrid size={13} />}
+          {density === "comfort" ? "Comfort" : "Compact"}
+        </button>
 
         <button
           type="button"
