@@ -1,6 +1,61 @@
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
+## 2026-02-33 · Layer 2 · Incident Queue product-quality rebuild — SHIPPED
+
+Complete Defender-inspired visual/product rebuild of
+`/xdr/incidents` — the primary analyst landing page.
+
+### Frontend (`/app/apps/nivxray-xdr`)
+- New scoped hybrid theme (`queue-theme.css`): **light analyst
+  workspace** + **dark investigation preview drawer** + NivXRay
+  purple accent.  Escapes the outer console dark theme via the
+  `xdr-queue-l2` container.
+- Six reusable chip primitives in `src/xdr/components/chips/`
+  (Priority filled pill · Severity filled badge · Verdict filled
+  pill · State outlined pill · Side-state dashed pill · Domain tag).
+- `pages/incidents/PriorityStrip.jsx` — 8 lens tiles reading
+  `/api/xdr/mss/kpis`.
+- `pages/incidents/QueueToolbar.jsx` — search · Filters · Saved
+  Views · Customize Columns (drag-reorder + toggle + reset) ·
+  time selector (default 7 d) · CSV export · Refresh.
+- `pages/incidents/FiltersPanel.jsx` — right-side sheet with
+  priority · severity · verdict · confidence · customer · detection
+  source · MITRE technique.
+- `pages/incidents/StateTabs.jsx` — All / New / In Progress /
+  On Hold / Resolved / Closed with live counts.
+- `pages/incidents/QueueTable.jsx` — sticky-header dense table
+  driven by column-order + hidden-set state (persisted in
+  localStorage).
+- `pages/incidents/IncidentPreviewDrawer.jsx` — dark drawer with
+  chips + Key Facts KV + Auto-Investigation status + Evidence &
+  Techniques metrics + up/down/Escape nav + Open Investigation CTA.
+- `pages/XdrIncidentsPage.jsx` rewritten from scratch to orchestrate
+  the above components, URL-persist every filter / sort / lens /
+  state / time / view / search value.
+
+### Anti-fabrication contract
+- Missing data rendered as `NOT_RUN` · `NO EVIDENCE` · `NOT AVAILABLE`
+  · `UNKNOWN` · em-dash — never as invented values.
+- The queue is a **pure READ MODEL** — never invokes an engine.
+
+### Engine lock
+- Zero changes to any backend service / router / engine.  The
+  investigation fabric (IDA, IUE, UAIE, VEEE, DIE, ICE, IEDDE, UIL,
+  …) is untouched.
+
+### Verification
+- Local `yarn build` clean.
+- 6 acceptance screenshots captured on production
+  `https://nivxray-xdr.vercel.app/xdr/incidents` (full queue · KPI +
+  toolbar · Customize dropdown · filtered queue with active chip ·
+  preview drawer · bulk selection).
+
+Commit: `2635401 feat(queue): Layer 2 · Defender-inspired analyst
+workspace rebuild`.
+
+---
+
 ## 2026-02-28 · P0 · Input Understanding Engine (IUE) + Structured Preprocessor
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN — unchanged).

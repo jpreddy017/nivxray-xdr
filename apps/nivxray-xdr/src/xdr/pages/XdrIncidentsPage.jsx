@@ -1,31 +1,29 @@
 /**
  * XdrIncidentsPage · `/xdr/incidents`
  *
- * Phase 2 · Investigation-Aware Incident Queue.
+ * Layer 2 · full product-quality rebuild of the primary analyst
+ * landing page.  Defender-inspired light workspace + dark
+ * investigation preview drawer + NivXRay purple accent.
  *
- * URL params (all optional, all URL-persisted, all shareable):
- *   ?lens=<id>          Phase-1 lens (critical, high_priority, ...)
- *   ?state=…            filter by lifecycle state
- *   ?priority=P1|P2|…   filter by priority
- *   ?severity=…         critical|high|medium|low|info
- *   ?verdict=…          malicious|suspicious|benign|unknown
- *   ?confidence=…       high|medium|low
- *   ?customer=…         tenant/customer id
- *   ?detection_source=… engine that produced the evidence
- *   ?technique=T####    filter by MITRE technique
- *   ?sort=…&order=…     column + direction
- *   ?view=<uuid>        pre-loaded saved view
+ * Composition:
+ *   PriorityStrip · attention/lens tiles
+ *   QueueToolbar  · search · filters · saved views · customize columns · time · CSV · refresh
+ *   Active filter chips row
+ *   StateTabs     · All · New · In Progress · On Hold · Resolved · Closed
+ *   Bulk action bar (appears when ≥1 row selected)
+ *   QueueTable    · sticky dense projection of canonical incidents
+ *   IncidentPreviewDrawer · right-side dark peek panel
  *
  * Owner-locked rules:
- *   - Queue is a READ MODEL.  NEVER invokes an engine.
- *   - Every unavailable field renders honest empty state (— or NOT_RUN).
- *   - Bulk operations require confirmation, write audit rows,
- *     never mutate canonical evidence.
- *   - Saved views are per-user; shareable via ?view=<id>.
+ *   · The queue is a READ MODEL — never invokes an engine.
+ *   · Every unavailable field renders honestly (— · NOT_RUN · NO EVIDENCE).
+ *   · Bulk operations require confirmation, write audit rows,
+ *     and never mutate canonical evidence.
+ *   · Saved views are per-user and shareable via ?view=<id>.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { X, Filter as FilterIcon, ChevronDown, ChevronUp, Save, Trash2 } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
 import {
@@ -33,6 +31,16 @@ import {
   listSavedViews, createSavedView, deleteSavedView,
 } from "@/lib/incidentsApi";
 import XdrShell from "@/xdr/XdrShell";
+
+import PriorityStrip           from "./incidents/PriorityStrip";
+import QueueToolbar            from "./incidents/QueueToolbar";
+import StateTabs               from "./incidents/StateTabs";
+import QueueTable, {
+  ALL_COLUMNS, DEFAULT_VISIBLE, DEFAULT_ORDER,
+}                              from "./incidents/QueueTable";
+import IncidentPreviewDrawer   from "./incidents/IncidentPreviewDrawer";
+import FiltersPanel            from "./incidents/FiltersPanel";
+import "./incidents/queue-theme.css";
 
 
 const LENS_LABELS = {
@@ -44,42 +52,66 @@ const LENS_LABELS = {
   recently_created: "Recently Created", recently_updated: "Recently Updated",
 };
 
-const PRIO_COLOR = { P1: "#f87171", P2: "#fb923c", P3: "#fbbf24",
-                        P4: "#4ade80", P5: "#a3a3a3" };
-const VERDICT_COLOR = { malicious: "#f87171", suspicious: "#fb923c",
-                             benign: "#4ade80", unknown: "#a3a3a3" };
-const STATE_COLOR = { new: "#22d3ee", in_progress: "#fbbf24",
-                           on_hold: "#f472b6", resolved: "#4ade80",
-                           closed: "#a3a3a3" };
-const AI_COLOR = { NOT_RUN: "#525252", RUNNING: "#fbbf24",
-                       COMPLETE: "#4ade80", PARTIAL: "#fb923c",
-                       FAILED: "#f87171" };
-
-const COLUMNS = [
-  { id: "priority", label: "Priority", sort: "priority", w: 70 },
-  { id: "severity", label: "Severity", sort: "severity", w: 90 },
-  { id: "verdict", label: "Verdict", w: 100 },
-  { id: "confidence", label: "Confidence", w: 90 },
-  { id: "customer", label: "Customer", sort: "customer", w: 130 },
-  { id: "detection_source", label: "Detection Source", w: 130 },
-  { id: "evidence_count", label: "Evidence", w: 70 },
-  { id: "techniques_top", label: "MITRE", w: 150 },
-  { id: "sla_due_at", label: "SLA", sort: "sla_due_at", w: 130 },
-  { id: "aging_seconds", label: "Aging", w: 70 },
-  { id: "assignee", label: "Owner", sort: "assignee", w: 130 },
-  { id: "state", label: "State", sort: "state", w: 90 },
-  { id: "last_activity", label: "Last Activity", sort: "updated_at", w: 130 },
-  { id: "auto_investigation", label: "Auto-Investigation", w: 120 },
-  { id: "engine_results", label: "Engine Results", w: 110 },
+const FILTER_KEYS = [
+  "priority", "severity", "verdict", "confidence",
+  "customer", "detection_source", "technique",
 ];
 
+const TIME_WINDOW_MS = {
+  "1d":  86400_000,
+  "3d":  3 * 86400_000,
+  "7d":  7 * 86400_000,
+  "30d": 30 * 86400_000,
+  "6m":  180 * 86400_000,
+  all:   null,
+};
 
-function fmtAging(sec) {
-  if (sec == null) return "—";
-  if (sec < 60) return `${sec}s`;
-  if (sec < 3600) return `${Math.floor(sec/60)}m`;
-  if (sec < 86400) return `${Math.floor(sec/3600)}h`;
-  return `${Math.floor(sec/86400)}d`;
+// ── CSV export (client-side · uses the currently-loaded rows) ──────
+function toCSV(rows, cols) {
+  const header = ["ID", "Number", "Name", ...cols.map(c => c.label)];
+  const esc = (s) => {
+    const v = s == null ? "" : String(s);
+    return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  };
+  const lines = [header.join(",")];
+  for (const r of rows.slice(0, 10000)) {
+    const row = [r.id, r.number, r.name];
+    for (const c of cols) {
+      switch (c.id) {
+        case "priority":       row.push(r.priority?.code); break;
+        case "severity":       row.push(r.severity); break;
+        case "verdict":        row.push(r.verdict?.stage2_label); break;
+        case "confidence":     row.push(r.confidence); break;
+        case "customer":       row.push(r.customer); break;
+        case "detection_source":row.push(r.detection_source); break;
+        case "evidence_count": row.push(r.evidence_count); break;
+        case "techniques_top": row.push((r.techniques_top || []).join("|")); break;
+        case "sla_due_at":     row.push(r.sla_due_at); break;
+        case "aging_seconds":  row.push(r.aging_seconds); break;
+        case "assignee":       row.push(r.assignee); break;
+        case "state":          row.push(r.state); break;
+        case "last_activity":  row.push(r.last_activity); break;
+        case "auto_investigation": row.push(r.auto_investigation?.status); break;
+        case "engine_results": row.push(
+          r.auto_investigation?.engines_total
+            ? `${r.auto_investigation.engines_ok}/${r.auto_investigation.engines_total}`
+            : "");
+          break;
+        default: row.push("");
+      }
+    }
+    lines.push(row.map(esc).join(","));
+  }
+  return lines.join("\n");
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 }
 
 
@@ -88,97 +120,264 @@ export default function XdrIncidentsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
-  // ── URL-persisted filters ───────────────────────────────────────
-  const filters = {
-    lens:             params.get("lens"),
-    state:            params.get("state"),
-    priority:         params.get("priority"),
-    severity:         params.get("severity"),
-    verdict:          params.get("verdict"),
-    confidence:       params.get("confidence"),
-    customer:         params.get("customer"),
-    detection_source: params.get("detection_source"),
-    technique:        params.get("technique"),
-  };
-  const sort  = params.get("sort")  || "updated_at";
-  const order = params.get("order") || "desc";
+  // ── URL-persisted state ─────────────────────────────────────────
+  const urlLens     = params.get("lens");
+  const urlState    = params.get("state");
+  const urlSearch   = params.get("q") || "";
+  const urlTime     = params.get("time") || "7d";
+  const urlSort     = params.get("sort")  || "updated_at";
+  const urlOrder    = params.get("order") || "desc";
+  const urlViewId   = params.get("view");
 
-  const [body, setBody]     = useState(null);
-  const [loading, setL]     = useState(true);
-  const [error, setError]   = useState(null);
-  const [selected, setSel]  = useState(new Set());
-  const [views, setViews]   = useState([]);
-  const [viewName, setVName] = useState("");
-  const [hidden, setHidden]  = useState(new Set());   // hidden columns
+  const filters = useMemo(() => {
+    const out = {};
+    FILTER_KEYS.forEach(k => { out[k] = params.get(k) || null; });
+    return out;
+  }, [params]);
 
-  const load = useCallback(async () => {
-    setL(true); setError(null);
+  // ── Local state ─────────────────────────────────────────────────
+  const [rows, setRows]         = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefresh] = useState(false);
+  const [error, setError]       = useState(null);
+  const [selected, setSelected] = useState(new Set());
+  const [previewId, setPrevId]  = useState(null);
+  const [views, setViews]       = useState([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [invariant, setInvariant]   = useState(null);
+
+  // Column visibility + order (persisted in localStorage).
+  const [hidden, setHidden] = useState(() => {
     try {
-      const res = await listIncidents({ ...filters, sort, order, limit: 500 });
-      setBody(res);
-      setSel(new Set());
-    } catch (e) {
-      setError(e?.response?.data?.detail?.error
-                  || e?.response?.data?.detail
-                  || e?.message || "Failed to load.");
-    } finally { setL(false); }
-  }, [JSON.stringify(filters), sort, order]);
+      const raw = localStorage.getItem("xdr.queue.hiddenCols");
+      if (raw) return new Set(JSON.parse(raw));
+    } catch (_) { /* noop */ }
+    return new Set(ALL_COLUMNS.filter(c => c.defaultHidden).map(c => c.id));
+  });
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const raw = localStorage.getItem("xdr.queue.columnOrder");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Only trust it if it still covers every known column.
+        const known = new Set(DEFAULT_ORDER);
+        const ok = parsed.length === DEFAULT_ORDER.length
+          && parsed.every(id => known.has(id));
+        if (ok) return parsed;
+      }
+    } catch (_) { /* noop */ }
+    return DEFAULT_ORDER.slice();
+  });
 
-  const loadViews = useCallback(async () => {
-    try { setViews((await listSavedViews()).views || []); } catch (_) {}
-  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("xdr.queue.hiddenCols", JSON.stringify([...hidden]));
+      localStorage.setItem("xdr.queue.columnOrder", JSON.stringify(columnOrder));
+    } catch (_) { /* noop */ }
+  }, [hidden, columnOrder]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadViews(); }, [loadViews]);
-
-  // ── URL helpers ─────────────────────────────────────────────────
-  const setParam = (k, v) => {
+  // ── Helpers to mutate URL params ────────────────────────────────
+  const setParam = useCallback((k, v) => {
     const next = new URLSearchParams(params);
     if (v == null || v === "") next.delete(k); else next.set(k, v);
     setParams(next, { replace: true });
-  };
-  const clearAll = () => setParams(new URLSearchParams(), { replace: true });
+  }, [params, setParams]);
 
-  const rows = body?.incidents || [];
-  const visibleCols = useMemo(() => COLUMNS.filter(c => !hidden.has(c.id)),
-                                     [hidden]);
+  const setManyParams = useCallback((updates) => {
+    const next = new URLSearchParams(params);
+    Object.entries(updates).forEach(([k, v]) => {
+      if (v == null || v === "") next.delete(k); else next.set(k, v);
+    });
+    setParams(next, { replace: true });
+  }, [params, setParams]);
 
-  const activeChips = Object.entries(filters).filter(([, v]) => v);
+  const clearAllFilters = useCallback(() => {
+    const next = new URLSearchParams();
+    if (urlSort  !== "updated_at") next.set("sort",  urlSort);
+    if (urlOrder !== "desc")       next.set("order", urlOrder);
+    if (urlTime  !== "7d")         next.set("time",  urlTime);
+    setParams(next, { replace: true });
+  }, [urlSort, urlOrder, urlTime, setParams]);
 
-  // ── Bulk actions ────────────────────────────────────────────────
-  const doBulkAssign = async () => {
-    const assignee = prompt("Bulk assign — new owner email (blank to unassign):");
-    if (assignee === null) return;
-    if (!confirm(`Assign ${selected.size} incident(s) to "${assignee || "unassigned"}"?`)) return;
-    await bulkAssign([...selected], assignee.trim() || null,
-                       "bulk_assign from queue");
-    await load();
-  };
-  const doBulkState = async () => {
-    const st = prompt("Bulk state — target state (new|in_progress|on_hold|resolved|closed):");
-    if (!st) return;
-    if (!confirm(`Transition ${selected.size} incident(s) to "${st}"?`)) return;
+  // ── Data load ───────────────────────────────────────────────────
+  const load = useCallback(async ({ silent = false } = {}) => {
+    if (silent) setRefresh(true); else setLoading(true);
+    setError(null);
     try {
-      await bulkState([...selected], st.trim(), "bulk_state from queue");
-      await load();
+      const res = await listIncidents({
+        ...filters,
+        lens:  urlLens  || null,
+        state: urlState || null,
+        sort:  urlSort,
+        order: urlOrder,
+        limit: 500,
+      });
+      setRows(res.incidents || []);
+      setInvariant(res.invariant || null);
+      setSelected(new Set());
     } catch (e) {
-      alert(e?.response?.data?.detail?.error || "Failed");
+      setError(e?.response?.data?.detail?.error
+        || e?.response?.data?.detail
+        || e?.message || "Failed to load incidents.");
+    } finally {
+      setLoading(false); setRefresh(false);
+    }
+  }, [filters, urlLens, urlState, urlSort, urlOrder]);
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [load]);
+
+  const loadViews = useCallback(async () => {
+    try { setViews((await listSavedViews()).views || []); } catch (_) { /* noop */ }
+  }, []);
+  useEffect(() => { loadViews(); }, [loadViews]);
+
+  // ── Client-side search + time filtering ─────────────────────────
+  const visibleRows = useMemo(() => {
+    let out = rows;
+    const q = urlSearch.trim().toLowerCase();
+    if (q) {
+      out = out.filter(r => {
+        const bag = [
+          r.name, r.id, r.number, r.customer, r.assignee,
+          r.detection_source, r.priority?.code, r.severity,
+          r.verdict?.stage2_label, r.state,
+          ...(r.techniques_top || []),
+        ].filter(Boolean).join(" ").toLowerCase();
+        return bag.includes(q);
+      });
+    }
+    const win = TIME_WINDOW_MS[urlTime];
+    if (win) {
+      const cutoff = Date.now() - win;
+      out = out.filter(r => {
+        const ts = r.last_activity || r.updated_at || r.created_at;
+        if (!ts) return true;
+        const t = Date.parse(ts);
+        return Number.isFinite(t) ? t >= cutoff : true;
+      });
+    }
+    return out;
+  }, [rows, urlSearch, urlTime]);
+
+  // ── Client-side counts per lifecycle state ──────────────────────
+  const stateCounts = useMemo(() => {
+    const c = { new: 0, in_progress: 0, on_hold: 0, resolved: 0, closed: 0 };
+    (visibleRows || []).forEach(r => {
+      const s = r.state || "new";
+      if (c[s] != null) c[s] += 1;
+    });
+    return c;
+  }, [visibleRows]);
+
+  // Columns in display order.
+  const orderedCols = useMemo(
+    () => columnOrder.map(id => ALL_COLUMNS.find(c => c.id === id)).filter(Boolean),
+    [columnOrder]);
+  const visibleColumns = useMemo(
+    () => orderedCols.filter(c => !hidden.has(c.id)),
+    [orderedCols, hidden]);
+
+  // ── Column customization callbacks ──────────────────────────────
+  const toggleColumn = (id) => {
+    setHidden(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const moveColumn = (from, to) => {
+    setColumnOrder(prev => {
+      const next = prev.slice();
+      const fi = next.indexOf(from);
+      const ti = next.indexOf(to);
+      if (fi < 0 || ti < 0) return prev;
+      next.splice(fi, 1);
+      next.splice(ti, 0, from);
+      return next;
+    });
+  };
+  const resetColumns = () => {
+    setHidden(new Set(ALL_COLUMNS.filter(c => c.defaultHidden).map(c => c.id)));
+    setColumnOrder(DEFAULT_ORDER.slice());
+  };
+
+  // ── Sort ────────────────────────────────────────────────────────
+  const onSort = (colSort) => {
+    if (urlSort === colSort) {
+      setParam("order", urlOrder === "desc" ? "asc" : "desc");
+    } else {
+      setManyParams({ sort: colSort, order: "desc" });
     }
   };
 
-  // ── Save current view ───────────────────────────────────────────
-  const saveView = async () => {
-    if (!viewName.trim()) return;
-    await createSavedView({
-      name: viewName.trim(),
-      filters: Object.fromEntries(Object.entries(filters).filter(([, v]) => v)),
-      sort, order,
-      lens: filters.lens || null,
-      visible_columns: visibleCols.map(c => c.id),
+  // ── Selection + preview ─────────────────────────────────────────
+  const toggleSelect = (id, on) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (on) next.add(id); else next.delete(id);
+      return next;
     });
-    setVName("");
-    await loadViews();
   };
+  const selectAll = (on) => {
+    setSelected(on ? new Set(visibleRows.map(r => r.id)) : new Set());
+  };
+
+  const previewIndex = useMemo(
+    () => visibleRows.findIndex(r => r.id === previewId),
+    [visibleRows, previewId]);
+
+  const previewRow = previewIndex >= 0 ? visibleRows[previewIndex] : null;
+
+  const onRowClick = (r) => setPrevId(r.id);
+  const onNameClick = (r) => navigate(`/xdr/incidents/${r.id}`);
+  const onDrawerOpen = () => {
+    if (previewRow) navigate(`/xdr/incidents/${previewRow.id}`);
+  };
+  const onDrawerPrev = () => {
+    if (previewIndex > 0) setPrevId(visibleRows[previewIndex - 1].id);
+  };
+  const onDrawerNext = () => {
+    if (previewIndex >= 0 && previewIndex < visibleRows.length - 1) {
+      setPrevId(visibleRows[previewIndex + 1].id);
+    }
+  };
+
+  // ── Bulk operations ─────────────────────────────────────────────
+  const doBulkAssign = async () => {
+    if (selected.size === 0) return;
+    const assignee = window.prompt(
+      "Bulk assign — new owner email (blank to unassign):",
+      "");
+    if (assignee === null) return;
+    if (!window.confirm(
+      `Assign ${selected.size} incident(s) to "${assignee || "unassigned"}"?`)) return;
+    try {
+      await bulkAssign([...selected], assignee.trim() || null,
+                          "bulk_assign from queue");
+      await load({ silent: true });
+    } catch (e) {
+      window.alert(e?.response?.data?.detail?.error || "Bulk assign failed.");
+    }
+  };
+
+  const doBulkState = async () => {
+    if (selected.size === 0) return;
+    const target = window.prompt(
+      "Bulk state — target state (new|in_progress|on_hold|resolved|closed):",
+      "in_progress");
+    if (!target) return;
+    if (!window.confirm(
+      `Transition ${selected.size} incident(s) to "${target}"?`)) return;
+    try {
+      await bulkState([...selected], target.trim(),
+                          "bulk_state from queue");
+      await load({ silent: true });
+    } catch (e) {
+      window.alert(e?.response?.data?.detail?.error || "Bulk state failed.");
+    }
+  };
+
+  // ── Saved views ─────────────────────────────────────────────────
   const applyView = (v) => {
     const next = new URLSearchParams();
     Object.entries(v.filters || {}).forEach(([k, val]) => val && next.set(k, val));
@@ -189,339 +388,225 @@ export default function XdrIncidentsPage() {
     setParams(next, { replace: true });
     if (v.visible_columns?.length) {
       const shown = new Set(v.visible_columns);
-      setHidden(new Set(COLUMNS.map(c => c.id).filter(id => !shown.has(id))));
+      setHidden(new Set(ALL_COLUMNS.map(c => c.id).filter(id => !shown.has(id))));
     }
   };
   const removeView = async (v) => {
-    if (!confirm(`Delete saved view "${v.name}"?`)) return;
+    if (!window.confirm(`Delete saved view "${v.name}"?`)) return;
     await deleteSavedView(v.id);
     await loadViews();
   };
-
-  // ── Sort click ──────────────────────────────────────────────────
-  const clickSort = (colSort) => {
-    if (!colSort) return;
-    if (sort === colSort) setParam("order", order === "desc" ? "asc" : "desc");
-    else { setParam("sort", colSort); setParam("order", "desc"); }
+  const onSaveView = async (name) => {
+    await createSavedView({
+      name,
+      filters: Object.fromEntries(
+        Object.entries(filters).filter(([, v]) => v)),
+      sort: urlSort, order: urlOrder,
+      lens: urlLens || null,
+      visible_columns: visibleColumns.map(c => c.id),
+    });
+    await loadViews();
   };
 
+  // ── CSV export ──────────────────────────────────────────────────
+  const doExportCsv = () => {
+    const csv = toCSV(visibleRows, visibleColumns);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    downloadCSV(csv, `nivxray-incidents-${stamp}.csv`);
+  };
+
+  // ── Priority strip lens click ───────────────────────────────────
+  const onLensClick = (lensId) => {
+    if (urlLens === lensId) setParam("lens", null);
+    else setParam("lens", lensId);
+  };
+
+  // ── Filters ─────────────────────────────────────────────────────
+  const applyFilters = (next) => {
+    setManyParams(next);
+  };
+
+  const activeChips = [
+    urlLens  && ["lens",  urlLens],
+    urlState && ["state", urlState],
+    ...FILTER_KEYS.map(k => filters[k] && [k, filters[k]]).filter(Boolean),
+  ].filter(Boolean);
+
   return (
-    <XdrShell activeTop="dashboards">
-      <div style={headerRow}>
-        <div>
-          <h1 className="page-h1" data-testid="xdr-incidents-heading">
-            {filters.lens ? `Incidents · ${LENS_LABELS[filters.lens] || filters.lens}` : "Incidents"}
-          </h1>
-          <div className="page-sub">
-            Investigation-aware queue · projection of canonical evidence ·
-            never runs an engine.
+    <XdrShell>
+      <div className="xdr-queue-l2" data-testid="xdr-incidents-l2">
+        {/* Header */}
+        <div className="ql-header">
+          <div>
+            <h1 className="ql-title" data-testid="xdr-incidents-heading">
+              Incidents
+              {urlLens && (
+                <span style={{ color: "var(--ql-purple)", fontWeight: 600,
+                                fontSize: 16, marginLeft: 8 }}>
+                  · {LENS_LABELS[urlLens] || urlLens}
+                </span>
+              )}
+            </h1>
+            <div className="ql-sub">
+              Analyst work surface · projection of canonical evidence ·
+              never runs an engine · missing data stays honest.
+            </div>
+          </div>
+          <div className="ql-header-actions">
+            <button
+              type="button"
+              className="ql-btn"
+              onClick={() => navigate("/xdr/mss-dashboard")}
+              data-testid="xdr-incidents-mss"
+            >
+              MSS Dashboard
+            </button>
           </div>
         </div>
-        <button className="btn ghost"
-                   data-testid="xdr-incidents-back-to-mss"
-                   onClick={() => navigate("/xdr/mss-dashboard")}
-                   style={{ padding: "6px 10px", fontSize: 11,
-                            fontFamily: "var(--mono)" }}>
-          ← MSS Dashboard
-        </button>
-      </div>
 
-      {/* ── Filter chip row ─────────────────────────────────────── */}
-      <div style={chipRow} data-testid="xdr-incidents-filters">
-        <FilterIcon size={11} style={{ color: "var(--purple)" }} />
-        {activeChips.length === 0 && (
-          <span style={{ fontFamily: "var(--mono)", fontSize: 11,
-                           color: "var(--text-dim)" }}>
-            No filters — showing everything.
-          </span>
-        )}
-        {activeChips.map(([k, v]) => (
-          <span key={k} style={chip}
-                  data-testid={`xdr-incidents-chip-${k}`}>
-            <span style={chipK}>{k}:</span>
-            <span style={chipV}>{v}</span>
-            <button onClick={() => setParam(k, null)}
-                       data-testid={`xdr-incidents-chip-clear-${k}`}
-                       style={chipClose}>
-              <X size={10} />
-            </button>
-          </span>
-        ))}
-        {activeChips.length > 0 && (
-          <button className="btn ghost"
-                     data-testid="xdr-incidents-clear-all"
-                     onClick={clearAll}
-                     style={{ padding: "2px 8px", fontSize: 10 }}>
-            Clear all
-          </button>
-        )}
-      </div>
+        {/* Priority strip */}
+        <PriorityStrip activeLens={urlLens} onLensClick={onLensClick} />
 
-      {/* ── Saved views bar ─────────────────────────────────────── */}
-      <div style={savedRow} data-testid="xdr-incidents-saved-views">
-        <span style={{ fontFamily: "var(--mono)", fontSize: 10,
-                         color: "var(--text-dim)" }}>
-          SAVED VIEWS
-        </span>
-        {views.map(v => (
-          <span key={v.id} style={savedChip}>
-            <button onClick={() => applyView(v)}
-                       data-testid={`xdr-incidents-view-${v.id}`}
-                       style={savedName}>
-              {v.name}
-            </button>
-            <button onClick={() => removeView(v)}
-                       data-testid={`xdr-incidents-view-del-${v.id}`}
-                       style={savedDel}>
-              <Trash2 size={9} />
-            </button>
-          </span>
-        ))}
-        <input value={viewName} onChange={e => setVName(e.target.value)}
-                placeholder="Name…"
-                data-testid="xdr-incidents-view-name"
-                style={viewInput} />
-        <button onClick={saveView} disabled={!viewName.trim()}
-                   data-testid="xdr-incidents-view-save"
-                   style={saveBtn}>
-          <Save size={10} /> Save current
-        </button>
-      </div>
+        {/* Toolbar */}
+        <QueueToolbar
+          search={urlSearch}
+          onSearchChange={(v) => setParam("q", v)}
+          time={urlTime}
+          onTimeChange={(v) => setParam("time", v)}
+          columns={ALL_COLUMNS}
+          hidden={hidden}
+          columnOrder={columnOrder}
+          onColumnToggle={toggleColumn}
+          onColumnMove={moveColumn}
+          onColumnReset={resetColumns}
+          savedViews={views}
+          currentViewId={urlViewId}
+          onApplyView={applyView}
+          onDeleteView={removeView}
+          onSaveView={onSaveView}
+          onCsvExport={doExportCsv}
+          onRefresh={() => load({ silent: true })}
+          refreshing={refreshing}
+          onOpenFilters={() => setFilterOpen(true)}
+          activeFilterCount={FILTER_KEYS.filter(k => filters[k]).length}
+        />
 
-      {/* ── Bulk-op bar ─────────────────────────────────────────── */}
-      {selected.size > 0 && (
-        <div style={bulkBar} data-testid="xdr-incidents-bulk-bar">
-          <span>{selected.size} selected</span>
-          <button onClick={doBulkAssign}
-                     data-testid="xdr-incidents-bulk-assign"
-                     style={bulkBtn}>Assign…</button>
-          <button onClick={doBulkState}
-                     data-testid="xdr-incidents-bulk-state"
-                     style={bulkBtn}>Change state…</button>
-          <button onClick={() => setSel(new Set())}
+        {/* Active-filter chip row */}
+        <div className="ql-chips" data-testid="xdr-incidents-filters">
+          {activeChips.length === 0 && (
+            <span className="ql-empty-chip">
+              No filters — showing all incidents in the selected time window.
+            </span>
+          )}
+          {activeChips.map(([k, v]) => (
+            <span key={k} className="ql-chip"
+                    data-testid={`xdr-incidents-chip-${k}`}>
+              <b>{k}:</b> {v}
+              <button
+                type="button"
+                className="ql-chip-x"
+                onClick={() => setParam(k, null)}
+                data-testid={`xdr-incidents-chip-clear-${k}`}
+                title={`Remove ${k}`}
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          {activeChips.length > 0 && (
+            <button
+              type="button"
+              className="ql-btn ghost"
+              onClick={clearAllFilters}
+              data-testid="xdr-incidents-clear-all"
+              style={{ padding: "3px 8px", fontSize: 11 }}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+
+        {/* State tabs */}
+        <StateTabs
+          current={urlState}
+          counts={stateCounts}
+          onChange={(k) => setParam("state", k)}
+        />
+
+        {/* Bulk actions bar */}
+        {selected.size > 0 && (
+          <div className="ql-bulk" data-testid="xdr-incidents-bulk-bar">
+            <span className="ql-bulk-count">
+              {selected.size} selected
+            </span>
+            <button type="button" className="ql-btn primary"
+                     onClick={doBulkAssign}
+                     data-testid="xdr-incidents-bulk-assign">
+              Assign owner
+            </button>
+            <button type="button" className="ql-btn"
+                     onClick={doBulkState}
+                     data-testid="xdr-incidents-bulk-state">
+              Change state
+            </button>
+            <button type="button" className="ql-btn ghost"
+                     onClick={() => setSelected(new Set())}
                      data-testid="xdr-incidents-bulk-clear"
-                     style={bulkBtnGhost}>Clear</button>
-        </div>
-      )}
+                     style={{ marginLeft: "auto" }}>
+              Clear selection
+            </button>
+          </div>
+        )}
 
-      {/* ── Loading / error ─────────────────────────────────────── */}
-      {loading && <div className="x-empty">LOADING…</div>}
-      {error && (
-        <div className="x-empty"
-              data-testid="xdr-incidents-error"
-              style={{ color: "#ff9494" }}>{String(error)}</div>
-      )}
+        {/* Error */}
+        {error && (
+          <div className="ql-error" data-testid="xdr-incidents-error">
+            {String(error)}
+          </div>
+        )}
 
-      {/* ── Queue table ─────────────────────────────────────────── */}
-      {!loading && !error && (
-        <div style={{ overflowX: "auto", marginTop: 10 }}>
-          <table style={tbl} data-testid="xdr-incidents-queue">
-            <thead>
-              <tr>
-                <th style={{ ...th, width: 24 }}>
-                  <input type="checkbox"
-                            data-testid="xdr-incidents-select-all"
-                            checked={rows.length > 0 && selected.size === rows.length}
-                            onChange={e => setSel(e.target.checked
-                              ? new Set(rows.map(r => r.id)) : new Set())} />
-                </th>
-                <th style={{ ...th, width: 100 }}>ID</th>
-                <th style={{ ...th, width: 200 }}>Name</th>
-                {visibleCols.map(c => (
-                  <th key={c.id} style={{ ...th, width: c.w,
-                                                cursor: c.sort ? "pointer" : "default" }}
-                         onClick={() => clickSort(c.sort)}
-                         data-testid={`xdr-incidents-col-${c.id}`}>
-                    {c.label}
-                    {c.sort && sort === c.sort && (
-                      order === "desc" ? <ChevronDown size={10} /> : <ChevronUp size={10} />
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={visibleCols.length + 3} className="x-empty"
-                           data-testid="xdr-incidents-empty"
-                           style={{ padding: 20 }}>
-                  NO INCIDENTS MATCH THIS FILTER — honest empty state.
-                </td></tr>
-              )}
-              {rows.map(r => (
-                <tr key={r.id}
-                       data-testid={`xdr-incidents-row-${r.id}`}
-                       style={{ ...tr,
-                                background: selected.has(r.id)
-                                  ? "rgba(155,123,240,0.08)" : "transparent" }}>
-                  <td style={td} onClick={e => e.stopPropagation()}>
-                    <input type="checkbox"
-                              data-testid={`xdr-incidents-select-${r.id}`}
-                              checked={selected.has(r.id)}
-                              onChange={e => {
-                                const n = new Set(selected);
-                                if (e.target.checked) n.add(r.id); else n.delete(r.id);
-                                setSel(n);
-                              }} />
-                  </td>
-                  <td style={{ ...td, fontFamily: "var(--mono)", cursor: "pointer" }}
-                        onClick={() => navigate(`/xdr/incidents/${r.id}`)}>
-                    {r.id?.slice(0, 10)}…
-                  </td>
-                  <td style={{ ...td, cursor: "pointer" }}
-                        onClick={() => navigate(`/xdr/incidents/${r.id}`)}>
-                    {r.name}
-                  </td>
-                  {visibleCols.map(c => (
-                    <td key={c.id} style={td}
-                           data-testid={`xdr-incidents-cell-${c.id}-${r.id}`}>
-                      {renderCell(c.id, r)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        {/* Table */}
+        <QueueTable
+          rows={visibleRows}
+          visibleColumns={visibleColumns}
+          selected={selected}
+          allSelected={visibleRows.length > 0 && selected.size === visibleRows.length}
+          onToggleSelect={toggleSelect}
+          onSelectAll={selectAll}
+          previewId={previewId}
+          onRowClick={onRowClick}
+          onNameClick={onNameClick}
+          sort={urlSort}
+          order={urlOrder}
+          onSort={onSort}
+          loading={loading}
+        />
 
-      {body?.invariant && (
-        <div style={invariantNote}
-              data-testid="xdr-incidents-invariant">{body.invariant}</div>
-      )}
+        {invariant && (
+          <div className="ql-invariant" data-testid="xdr-incidents-invariant">
+            {invariant}
+          </div>
+        )}
+
+        {/* Preview drawer */}
+        <IncidentPreviewDrawer
+          incident={previewRow}
+          onClose={() => setPrevId(null)}
+          onOpen={onDrawerOpen}
+          onPrev={onDrawerPrev}
+          onNext={onDrawerNext}
+          hasPrev={previewIndex > 0}
+          hasNext={previewIndex >= 0 && previewIndex < visibleRows.length - 1}
+        />
+
+        {/* Filters panel */}
+        <FiltersPanel
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          filters={filters}
+          onApply={applyFilters}
+        />
+      </div>
     </XdrShell>
   );
 }
-
-
-function renderCell(colId, r) {
-  const dash = <span style={{ color: "var(--faint)" }}>—</span>;
-  switch (colId) {
-    case "priority":
-      return r.priority?.code
-        ? <span style={{ color: PRIO_COLOR[r.priority.code] || "var(--text)" }}>{r.priority.code}</span>
-        : dash;
-    case "severity":
-      return r.severity || dash;
-    case "verdict":
-      return r.verdict?.stage2_label
-        ? <span style={{ color: VERDICT_COLOR[r.verdict.stage2_label] || "var(--text)" }}>
-            {r.verdict.stage2_label}
-          </span>
-        : <span style={{ color: "var(--faint)" }}>UNKNOWN</span>;
-    case "confidence":
-      return r.confidence || dash;
-    case "customer":
-      return <span style={{ fontFamily: "var(--mono)" }}>{r.customer}</span>;
-    case "detection_source":
-      return r.detection_source
-        ? <span style={{ fontFamily: "var(--mono)" }}>{r.detection_source}</span>
-        : dash;
-    case "evidence_count":
-      return (r.evidence_count ?? 0) > 0 ? r.evidence_count : dash;
-    case "techniques_top":
-      return r.techniques_top?.length
-        ? <span style={{ fontFamily: "var(--mono)", fontSize: 10 }}>
-            {r.techniques_top.join(" · ")}
-            {r.techniques_total > r.techniques_top.length
-              && ` +${r.techniques_total - r.techniques_top.length}`}
-          </span>
-        : dash;
-    case "sla_due_at":
-      return r.sla_due_at
-        ? r.sla_due_at.slice(0, 16).replace("T", " ")
-        : dash;
-    case "aging_seconds":
-      return fmtAging(r.aging_seconds);
-    case "assignee":
-      return r.assignee
-        ? <span style={{ fontFamily: "var(--mono)" }}>{r.assignee}</span>
-        : <span style={{ color: "#fbbf24" }}>UNASSIGNED</span>;
-    case "state":
-      return <span style={{ color: STATE_COLOR[r.state] || "var(--text)" }}>{r.state}</span>;
-    case "last_activity":
-      return r.last_activity?.slice(0, 16).replace("T", " ") || dash;
-    case "auto_investigation":
-      return <span style={{ color: AI_COLOR[r.auto_investigation?.status] || "var(--faint)",
-                              fontFamily: "var(--mono)", fontSize: 10 }}>
-        {r.auto_investigation?.status || "NOT_RUN"}
-      </span>;
-    case "engine_results":
-      return r.auto_investigation?.engines_total > 0
-        ? `${r.auto_investigation.engines_ok}/${r.auto_investigation.engines_total}`
-        : dash;
-    default:
-      return dash;
-  }
-}
-
-
-// ── Styles ─────────────────────────────────────────────────────────
-const headerRow = { display: "flex", justifyContent: "space-between",
-                       alignItems: "flex-start", gap: 12, marginBottom: 4 };
-const chipRow = { display: "flex", alignItems: "center",
-                     gap: 6, flexWrap: "wrap", marginTop: 10, marginBottom: 6 };
-const chip = { display: "inline-flex", alignItems: "center", gap: 6,
-                  padding: "2px 8px", borderRadius: 3,
-                  border: "1px solid var(--purple)",
-                  background: "rgba(155,123,240,0.10)",
-                  fontFamily: "var(--mono)", fontSize: 10 };
-const chipK = { color: "var(--text-dim)" };
-const chipV = { color: "var(--text)", fontWeight: 700 };
-const chipClose = { background: "none", border: "none",
-                        color: "var(--text-dim)", cursor: "pointer",
-                        padding: 0, display: "flex" };
-const savedRow = { display: "flex", alignItems: "center", gap: 6,
-                      flexWrap: "wrap", marginTop: 6, marginBottom: 6,
-                      padding: "6px 8px",
-                      border: "1px dashed rgba(120,130,150,0.20)",
-                      borderRadius: 4 };
-const savedChip = { display: "inline-flex", alignItems: "center", gap: 4,
-                        padding: "2px 4px", borderRadius: 3,
-                        border: "1px solid rgba(120,130,150,0.25)",
-                        background: "rgba(255,255,255,0.02)" };
-const savedName = { background: "none", border: "none",
-                        color: "var(--text)", fontFamily: "var(--mono)",
-                        fontSize: 10, cursor: "pointer", padding: "0 4px" };
-const savedDel = { background: "none", border: "none",
-                       color: "#f87171", cursor: "pointer",
-                       padding: "0 2px", display: "flex" };
-const viewInput = { padding: "3px 6px", border: "1px solid rgba(120,130,150,0.30)",
-                        background: "transparent", color: "var(--text)",
-                        borderRadius: 3, fontFamily: "var(--mono)", fontSize: 10,
-                        width: 100 };
-const saveBtn = { display: "inline-flex", alignItems: "center", gap: 4,
-                     padding: "3px 8px", fontSize: 10,
-                     background: "rgba(155,123,240,0.14)",
-                     border: "1px solid var(--purple)",
-                     borderRadius: 3, color: "var(--text)",
-                     cursor: "pointer", fontFamily: "var(--mono)" };
-const bulkBar = { display: "flex", alignItems: "center", gap: 8,
-                     padding: "6px 10px", marginTop: 8,
-                     background: "rgba(155,123,240,0.12)",
-                     border: "1px solid var(--purple)",
-                     borderRadius: 4, fontFamily: "var(--mono)", fontSize: 11 };
-const bulkBtn = { padding: "3px 10px", fontSize: 11,
-                     background: "var(--purple)", border: "none",
-                     color: "#000", cursor: "pointer", borderRadius: 3,
-                     fontWeight: 700 };
-const bulkBtnGhost = { padding: "3px 10px", fontSize: 11,
-                          background: "transparent",
-                          border: "1px solid rgba(255,255,255,0.15)",
-                          color: "var(--text)", cursor: "pointer",
-                          borderRadius: 3 };
-const tbl = { width: "100%", borderCollapse: "collapse", fontSize: 11,
-                 fontFamily: "var(--mono)" };
-const th = { textAlign: "left", padding: "6px 8px",
-                borderBottom: "1px solid rgba(120,130,150,0.20)",
-                color: "var(--text-dim)", fontWeight: 600,
-                letterSpacing: 0.5, fontSize: 10, whiteSpace: "nowrap" };
-const tr = { transition: "background 100ms ease" };
-const td = { padding: "6px 8px",
-                borderBottom: "1px solid rgba(120,130,150,0.08)",
-                color: "var(--text)", whiteSpace: "nowrap" };
-const invariantNote = { marginTop: 22, padding: "8px 10px",
-                            border: "1px dashed rgba(120,130,150,0.35)",
-                            borderRadius: 4, fontFamily: "var(--mono)",
-                            fontSize: 10, color: "var(--text-dim)",
-                            letterSpacing: 0.25, lineHeight: 1.55 };

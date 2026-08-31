@@ -7,6 +7,50 @@
 
 ---
 
+## ✅ 2026-02-33 · Layer 2 · SHIPPED
+
+Layer 2 (Incident Queue product-quality rebuild) is **complete and
+live on production** at `https://nivxray-xdr.vercel.app/xdr/incidents`.
+
+Delivered in a single commit (`2635401`) — 9 files, +2 484 / -436:
+
+- Hybrid theme: Defender-parity **light analyst workspace** +
+  **dark investigation preview drawer** + NivXRay purple accent.
+- 6 reusable chip families in `src/xdr/components/chips/`
+  (Priority · Severity · Verdict · State · Side-state · Domain) —
+  reused later in Layer 3.
+- 8-tile **PriorityStrip** (Critical · High · Unassigned · My Queue ·
+  SLA Risk · On Hold · New · Updated) driven by `/api/xdr/mss/kpis`.
+- **QueueToolbar**: search · Filters button · Saved Views dropdown
+  (apply / delete / save-current) · Customize Columns (drag-reorder
+  + toggle + reset) · 7 d time selector · CSV export (client-side,
+  10 000-row cap) · Refresh.
+- **FiltersPanel** side sheet: priority · severity · verdict ·
+  confidence · customer · detection source · MITRE technique.
+- **StateTabs**: All · New · In Progress · On Hold · Resolved ·
+  Closed with live counts, URL-persisted (`?state=`).
+- **QueueTable**: sticky-header dense table · 10 default cols +
+  5 hideable · sortable · multi-select · keyboard-friendly.
+- **IncidentPreviewDrawer**: right-side dark drawer · chips ·
+  Key Facts KV · Auto-Investigation status metrics · Evidence &
+  Techniques metrics · Executive Summary excerpt (only when
+  provided) · up/down/Escape nav · Open Investigation CTA.
+- Column visibility + order persisted in `localStorage`.
+- All missing data preserved as **NOT_RUN · NO EVIDENCE ·
+  NOT AVAILABLE · UNKNOWN · —**.  Anti-fabrication intact.
+
+**Engine lock respected** — zero changes to backend engines/APIs.
+
+6 acceptance screenshots captured on Vercel (full queue · KPI + toolbar ·
+Customize dropdown · filtered queue with active chip · preview drawer ·
+bulk selection state).  All pass.
+
+Next work items are Layer 3 (Incident Record) and Phase 3
+(Lifecycle / SLA), preserving the same chip primitives and
+anti-fabrication contract.
+
+---
+
 ## 🛑 2026-02-32 · READ THIS FIRST — Layer 2 Final Execution Contract
 
 The owner has issued the **final** Layer 2 execution contract.  Read
