@@ -32,6 +32,9 @@ from detection_content.detection_harness import (
 )
 from detection_content import nivxray_native_sigma as _nx_native
 from detection_content.architecture_audit import audit as run_architecture_audit
+from detection_content.engine_control_plane import (
+    build_engine_registry, dependency_graph,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -404,3 +407,26 @@ async def architecture_audit_summary(user=Depends(require_admin)):
         "reports":               slim_reports,
         "honesty_note":          a["honesty_note"],
     }
+
+
+# ── P0.1 · Engine Control Plane ──────────────────────────────────
+
+@router.get("/engines/control-plane")
+async def engines_control_plane(user=Depends(require_admin)):
+    """
+    Unified Engine Registry with six independent state axes:
+    presence · contract · runtime · execution · readiness · health.
+
+    Consumes the P0.0 architecture audit and the P0.2c capability
+    contract collection — no re-discovery.
+    """
+    return await build_engine_registry(db)
+
+
+@router.get("/engines/control-plane/dependencies")
+async def engines_dependencies(user=Depends(require_admin)):
+    """
+    Contract-derived dependency graph — every edge is honest
+    (produces ∩ consumes overlap in declared contracts).
+    """
+    return await dependency_graph(db)
