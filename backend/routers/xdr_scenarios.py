@@ -77,9 +77,9 @@ def list_scenarios(category: str | None = None) -> Dict[str, Any]:
         "total":   len(corpus["scenarios"]),
         "categories": sorted({s["category"] for s in corpus["scenarios"]}),
         "scenarios": [
-            {k: s[k] for k in ("scenario_id", "scenario_number", "category",
-                                                            "name", "threat", "attack_techniques",
-                                                            "source_page")}
+            {k: s.get(k) for k in ("scenario_id", "scenario_number", "category",
+                                    "name", "threat", "attack_techniques",
+                                    "investigation_objective", "source_page")}
             for s in scenarios
         ],
     }
@@ -142,9 +142,15 @@ def scenario_match(incident_id: str) -> Dict[str, Any]:
             "category": s["category"],
             "threat": s.get("threat"),
             "match_score": score,
-            "matching_techniques": matching_techs,
-            "missing_techniques": gap,
+            "matching_techniques": sorted(matching_techs),
+            "missing_techniques": sorted(gap),
             "recommended_pivots": s.get("pivots") or [],
+            "investigation_objective": s.get("investigation_objective"),
+            "investigation_steps": s.get("investigation_steps") or [],
+            "decision_evidence": s.get("decision_evidence") or {},
+            "containment": s.get("containment") or [],
+            "escalation": s.get("escalation") or [],
+            "closure": s.get("closure") or [],
             "expected_evidence_gap":
                 [e for e in (s.get("expected_evidence") or [])
                     if not any(k for k in observed_keywords
@@ -156,7 +162,8 @@ def scenario_match(incident_id: str) -> Dict[str, Any]:
             "source_page": s.get("source_page"),
         })
 
-    matches.sort(key=lambda m: m["match_score"], reverse=True)
+    # Deterministic ordering — sort by score DESC, then by scenario_number ASC.
+    matches.sort(key=lambda m: (-m["match_score"], m["scenario_number"] or 0))
 
     return {
         "incident_id": incident_id,
