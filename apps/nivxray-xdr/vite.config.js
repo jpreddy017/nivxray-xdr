@@ -46,12 +46,15 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 3100,
-      strictPort: true,
+      strictPort: false,
+      host: "0.0.0.0",
+      allowedHosts: true,
     },
     preview: {
       port: 3100,
-      strictPort: true,
+      strictPort: false,
       host: "0.0.0.0",
+      allowedHosts: true,
     },
   };
 });
