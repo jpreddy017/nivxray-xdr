@@ -16,7 +16,7 @@
 import React, { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutGrid, AlertOctagon, User as UserIcon, ArrowRightLeft,
+  LayoutGrid, LayoutDashboard, AlertOctagon, User as UserIcon, ArrowRightLeft,
   Search, FolderSearch, Fingerprint,
   Radar, Globe, Bug, Grid3x3, BookOpen, Terminal,
   Boxes, ShieldOff, Route, KeyRound, Layers,
@@ -69,6 +69,8 @@ const SIDEBAR = [
   {
     section: "Operations",
     items: [
+      { key: "mss-dashboard", label: "MSS Dashboard", icon: LayoutDashboard, to: "/xdr/mss-dashboard",
+        title: "SOC command center · triage lenses · analyst workload · customer operations · auto-investigation status · detection & MITRE overview" },
       { key: "incidents",  label: "Incidents",  icon: AlertOctagon,   to: "/xdr/incidents" },
       { key: "my-queue",   label: "My Queue",   icon: UserIcon,       to: "/xdr/incidents?mine=1" },
       { key: "response",   label: "Response",   icon: ArrowRightLeft, disabled: true,

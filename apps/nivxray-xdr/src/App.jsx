@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth";
 import LoginPage from "@/pages/LoginPage";
 
 const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
+const XdrMssDashboardPage     = lazy(() => import("@/xdr/pages/XdrMssDashboardPage"));
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
@@ -90,6 +91,7 @@ export default function App() {
             (Slice 7 · owner-locked information architecture). */}
         <Route path="/xdr"                 element={<Navigate to="/xdr/incidents" replace />} />
         <Route path="/xdr/dashboard"       element={<Protected><XdrDashboardPage /></Protected>} />
+        <Route path="/xdr/mss-dashboard"   element={<Protected><XdrMssDashboardPage /></Protected>} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
         <Route path="/xdr/incidents/:id/domain/:domainKey"

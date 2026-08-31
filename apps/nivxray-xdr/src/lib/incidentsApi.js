@@ -16,6 +16,40 @@ export async function getDashboardTiles() {
   return data;
 }
 
+// ── MSS Dashboard projections ───────────────────────────────────────
+export async function getMssKpis() {
+  const { data } = await api.get("/xdr/mss/kpis");
+  return data;
+}
+export async function getMssStateDistribution() {
+  const { data } = await api.get("/xdr/mss/state-distribution");
+  return data;
+}
+export async function getMssSocQueue(limit = 10) {
+  const { data } = await api.get("/xdr/mss/soc-queue", { params: { limit } });
+  return data;
+}
+export async function getMssAnalystWorkload() {
+  const { data } = await api.get("/xdr/mss/analyst-workload");
+  return data;
+}
+export async function getMssCustomerOperations() {
+  const { data } = await api.get("/xdr/mss/customer-operations");
+  return data;
+}
+export async function getMssAutoInvestigation() {
+  const { data } = await api.get("/xdr/mss/auto-investigation");
+  return data;
+}
+export async function getMssDetectionOverview() {
+  const { data } = await api.get("/xdr/mss/detection-overview");
+  return data;
+}
+export async function getMssRecentActivity(limit = 15) {
+  const { data } = await api.get("/xdr/mss/recent-activity", { params: { limit } });
+  return data;
+}
+
 export async function patchIncidentOperations(incidentId, fields) {
   const { data } = await api.patch(
     `/incidents/${encodeURIComponent(incidentId)}/operations`,
