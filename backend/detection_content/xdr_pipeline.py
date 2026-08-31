@@ -19,6 +19,7 @@ from .xdr_iue import understand as iue_understand
 from .xdr_ice import correlate as ice_correlate
 from .xdr_veee import compute_verdict as veee_compute
 from .xdr_incident import materialise_incident
+from .xdr_investigation import project_investigation
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -286,24 +287,29 @@ async def process_event_through_pipeline(db, raw_event: dict,
                 reason=incident.get("reason"),
                 engine_id=incident.get("engine_id"))
 
-    # Investigation convergence remains a downstream step (P0.6).
+    # Investigation Fabric — Round 12 · P0.6 · projection over
+    # existing evidence + provenance (§37: no second engine).
+    investigation = None
     if incident.get("created"):
-        _s("investigation", "READY",
+        investigation = await project_investigation(
+            db, incident["incident_id"])
+        _s("investigation", "EXECUTED",
                 incident_id=incident["incident_id"],
-                note="incident materialised — Investigation Fabric (P0.6) "
-                        "will surface Timeline/Process Tree/Evidence Graph "
-                        "from this incident id")
+                lanes_ready=investigation["lanes_ready"],
+                lanes_total=investigation["lanes_total"],
+                engine_id=investigation["engine_id"])
     else:
         _s("investigation", "NOT_CREATED",
                 reason="upstream incident not created — no synthetic "
                         "investigation is fabricated (§37/§42)")
 
     blocker = None if incident.get("created") else "incident_gate"
-    return {"stages":     stages,
-            "blocker":    blocker,
-            "canonical":  canonical,
-            "detection":  detection,
-            "iue":        iue,
-            "ice":        ice,
-            "verdict":    verdict,
-            "incident":   incident}
+    return {"stages":       stages,
+            "blocker":      blocker,
+            "canonical":    canonical,
+            "detection":    detection,
+            "iue":          iue,
+            "ice":          ice,
+            "verdict":      verdict,
+            "incident":     incident,
+            "investigation": investigation}

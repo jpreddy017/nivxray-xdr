@@ -43,6 +43,7 @@ from detection_content.xdr_pipeline import (
     process_event_through_pipeline, DSM_REGISTRY,
     CANONICAL_COLLECTION,
 )
+from detection_content.xdr_investigation import project_investigation
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -527,11 +528,26 @@ async def e2e_snort_golden(user=Depends(require_admin)):
         "ice":       pipeline.get("ice"),
         "veee":      pipeline.get("verdict"),
         "incident":  pipeline.get("incident"),
+        "investigation": pipeline.get("investigation"),
         "honesty_note": (
             "Every EXECUTED stage ran real code; every BLOCKED / NOT_CREATED "
             "stage records the exact reason.  No stage is fabricated."
         ),
     }
+
+
+@router.get("/investigation/{incident_id}")
+async def investigation_fabric(incident_id: str,
+                                    user=Depends(require_admin)):
+    """
+    P0.6 · Investigation Fabric projection for one incident.
+
+    Reads `workspace_cases` + linked canonical_evidence + linked
+    correlation matches and emits the six lanes required by the
+    Investigation UI.  Pure projection · no second engine ·
+    empty lanes carry the exact reason.
+    """
+    return await project_investigation(db, incident_id)
 
 
 @router.get("/dsm/registry")

@@ -3,6 +3,61 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 12 · P0.6 Investigation Fabric Convergence — SHIPPED
+
+The Golden E2E pipeline now **executes 13 / 13 stages** with `verdict: COMPLETE`.
+The `investigation` stage flipped from `READY` → `EXECUTED` because the new
+Investigation Fabric composer produces at least one populated lane.
+
+**Owner-locked rule respected:** no second investigation engine — the
+Fabric is a pure projection over `workspace_cases.xdr_pipeline` provenance
+plus linked canonical evidence + linked correlation matches.  The six
+axes (presence/contract/runtime/execution/readiness/health) remain
+INDEPENDENT for IUE/ICE/VEEE/Incident — they stay `ADAPTER_READY` and
+were **not** silently upgraded to `RUNTIME_VERIFIED` or `HEALTHY`.
+
+**Backend:**
+- `detection_content/xdr_investigation.py` — pure Fabric composer with
+  six deterministic lanes:
+  1. **Timeline** — chronologically ordered provenance events
+  2. **Process Tree** — honestly EMPTY for `network_alert`
+  3. **Evidence Graph** — real incident/canonical/host/rule/match nodes
+  4. **Device Trajectory** — honestly EMPTY when no endpoint telemetry
+  5. **Attack Story** — deterministic prose from signature + verdict + ICE
+  6. **ATT&CK** — surfaced only from ICE match `attack_techniques`
+- `xdr_pipeline.process_event_through_pipeline()` now calls the Fabric
+  post-incident-creation; investigation stage becomes EXECUTED with
+  `lanes_ready` count recorded.
+- New router: `GET /api/admin/content-supply-chain/investigation/{incident_id}`.
+
+**Golden E2E current state:**
+```
+executed: 13 / 13 · verdict: COMPLETE · blocker: None
+investigation lanes: 3 / 6 READY
+  timeline           READY  (3 events)
+  process_tree       EMPTY  (no host-side process telemetry)
+  evidence_graph     READY  (5 nodes · 4 edges)
+  device_trajectory  EMPTY  (no endpoint telemetry)
+  attack_story       READY  (2 chapters)
+  attck              EMPTY  (no ATT&CK techniques on any correlation match)
+```
+
+**UI:**
+- `apps/nivxray-xdr/src/xdr/admin/InvestigationLanes.jsx` — six-lane
+  grid, color-coded state pills, EMPTY lanes show the exact backend
+  `reason`.  Auto-mounts inside `GoldenPipelineTrace` right after an
+  incident is materialised.
+- Vite build clean.
+
+**Tests (29 / 29 pass):**
+- `tests/test_xdr_round12_investigation.py` — 4 new (stage flip,
+  six-lane presence, evidence-graph shape, missing-incident honest
+  MISSING).
+- All Round 8-11 regression tests continue passing.
+
+---
+
+
 ## ✅ 2026-02-14 · Round 11 · P0.4 IUE + ICE + VEEE + Incident — SHIPPED
 
 The Golden E2E pipeline is **no longer blocked at IUE**.  Every one of
