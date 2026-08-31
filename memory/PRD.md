@@ -7,6 +7,84 @@
 
 ---
 
+## 🔒 2026-02-32 · LAYER 2 · AUTHORIZED · EXECUTE NEXT SESSION
+
+Owner has explicitly authorized Layer 2 execution as a **product-quality
+rebuild**, not an incremental patch.  The authoritative brief is:
+
+**`/app/memory/LAYER2_QUEUE_REBUILD_MANDATE.md`**
+
+Non-negotiable rules attached to this authorization:
+
+1. **No engine changes.**  IDA · IUE · UAIE · VEEE · DIE · ICE · IEDDE ·
+   UIL · Interpreter · Recipe · Recursive · Artifact Intelligence · PE ·
+   Behavioral · Fingerprint · Technique · IOC Intelligence · CEM ·
+   Provenance · SSOT · KB · MITRE · LOLBAS · Sigma · TI · OSINT ·
+   Evidence-Driven Mitigation · 43 UAIE plugins — untouched.
+2. **Theme lock lifted.**  Do not preserve the current all-dark UI just
+   because it exists.  Choose the theme (light · dark · hybrid) that
+   gives an SOC analyst the best readability, density and hierarchy.
+   Provide Light / Dark / System theme support where it improves
+   analyst ergonomics.
+3. **Reference UX benchmarks** (never clone):
+   - Microsoft Defender XDR — Incident Queue · Manage · Investigate
+   - ServiceNow SIR — Workspace Landing · New UI
+4. **Rebuild `/xdr/incidents` from scratch** around existing data /
+   APIs / contracts.  All existing filter · lens · saved-view · bulk ·
+   audit · evidence-immutability · engine-status-projection ·
+   anti-fabrication invariants preserved.
+5. **6 component families** shipped as reusable primitives in
+   `xdr/components/chips/`: Priority · Severity · Verdict · State ·
+   Side-State · Domain tag.
+6. **12 layout components** shipped: priority strip · toolbar ·
+   state-tab strip · time selector · filter chip row · sticky header ·
+   multi-select · bulk-action toolbar · Customize Columns · preview
+   drawer · CSV export · responsive horizontal scroll.
+7. **Default visible columns cut to 10**; 5 hidden behind Customize
+   Columns.
+8. **Anti-fabrication contract** verbatim:  no evidence → `NO EVIDENCE`
+   · no enrichment → `NOT AVAILABLE` · no engine execution → `NOT RUN`
+   · no MITRE → `—` · no SLA → `—` · no verdict → `UNKNOWN` · engine
+   failed → `FAILED`.
+9. **Acceptance** requires 6 verified screenshots on the deployed URL:
+   full queue · KPI strip + toolbar · Customize Columns open · filtered
+   queue · preview drawer · bulk-selection state.  `yarn build`
+   passing is **not** acceptance on its own.
+10. **`/xdr/incidents` stays the primary analyst landing page.**
+    **`/xdr/mss-dashboard` stays the separate SOC/MSS Command Center.**
+
+### Locked queue after Layer 1
+
+```
+Phase 0 ✅  Architecture Audit
+Phase 1 ✅  Analyst Operations Dashboard (superseded/redirected)
+MSS Dashboard ✅
+Phase 2 ✅  Investigation-Aware Queue (v1 · 15-column functional baseline)
+Layer 1 ✅  Queue-first IA
+Layer 2 🎯  Product-quality Queue Rebuild ← NEXT SESSION
+Layer 3      Incident Record Redesign (chip components reusable from Layer 2)
+Phase 3      Lifecycle + SLA policy engine
+Phase 4      Auto-Investigation Orchestration (xdr_observations · engine_executions)
+Phase 5      Investigation Surface (Exec · Technical · Evidence · Attack Story · MITRE · Recommendations)
+Phase 6      Enrichment (internal telemetry + TI + OSINT + artifact)
+Phase 7      Activity · Notes · Related Records · Attachments
+Phase 8      Response integration
+Phase 9      Resolution + Closure Readiness
+Phase 10     Final Auto-Investigation Report
+```
+
+### Memory files for the next session (read in this order)
+
+1. `/app/memory/LAYER2_QUEUE_REBUILD_MANDATE.md` — Layer 2 authoritative brief
+2. `/app/memory/ANALYST_OPERATIONS_MANDATE.md` — full 7-layer program + engine-fabric lock
+3. `/app/memory/ANALYST_OPERATIONS_ARCHITECTURE.md` — Phase 0 engine inventory
+4. `/app/memory/PHASE4_ORCHESTRATION_SPEC.md` — Phase 4 contracts
+5. `/app/memory/PRD.md` — this file (locked phase order · task-B completion)
+
+
+
+---
+
 ## 🔒 2026-02-31 · SUPERSEDING ARCHITECTURE — NivXRay Analyst Operations
 
 **Locked by owner directive on 2026-02-31.**  The previous
