@@ -89,8 +89,13 @@ export default function App() {
         {/* Root of the standalone app.  `/xdr` collapses onto
             Incidents — Dashboard is no longer a separate destination
             (Slice 7 · owner-locked information architecture). */}
+        {/* Layer-1 IA lock (owner directive · Phase 3+ mandate):
+            Incident Queue is the primary analyst work surface.  Both
+            /xdr and /xdr/dashboard redirect to /xdr/incidents.  The
+            MSS Dashboard remains a separate destination under the
+            Command Center sidebar section. */}
         <Route path="/xdr"                 element={<Navigate to="/xdr/incidents" replace />} />
-        <Route path="/xdr/dashboard"       element={<Protected><XdrDashboardPage /></Protected>} />
+        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/incidents" replace />} />
         <Route path="/xdr/mss-dashboard"   element={<Protected><XdrMssDashboardPage /></Protected>} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />

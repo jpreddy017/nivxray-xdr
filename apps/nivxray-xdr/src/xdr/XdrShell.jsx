@@ -67,25 +67,35 @@ const SIDEBAR = [
     ],
   },
   {
-    section: "Operations",
+    section: "Command Center",
     items: [
       { key: "mss-dashboard", label: "MSS Dashboard", icon: LayoutDashboard, to: "/xdr/mss-dashboard",
         title: "SOC command center · triage lenses · analyst workload · customer operations · auto-investigation status · detection & MITRE overview" },
-      { key: "incidents",  label: "Incidents",  icon: AlertOctagon,   to: "/xdr/incidents" },
+    ],
+  },
+  {
+    section: "Operations",
+    items: [
+      { key: "incidents",  label: "Incidents",  icon: AlertOctagon,   to: "/xdr/incidents",
+        title: "Primary analyst work surface · investigation-aware incident queue" },
       { key: "my-queue",   label: "My Queue",   icon: UserIcon,       to: "/xdr/incidents?mine=1" },
+      { key: "sla-aging",  label: "SLA / Aging", icon: ArrowRightLeft, disabled: true,
+        title: "SLA & aging dashboard — arrives in Phase 3" },
       { key: "response",   label: "Response",   icon: ArrowRightLeft, disabled: true,
-        title: "Cross-incident Response Center — arrives in Slice 12" },
+        title: "Cross-incident Response Center — arrives in Phase 8" },
     ],
   },
   {
     section: "Investigations",
     items: [
-      { key: "investigations", label: "Investigations", icon: FolderSearch,
-        disabled: true, title: "Native XDR investigations index — later slice" },
+      { key: "investigations", label: "Investigation Workspace", icon: FolderSearch,
+        disabled: true, title: "Native XDR investigation workspace — arrives in Phase 5" },
       { key: "evidence-explorer", label: "Evidence Explorer", icon: Search,
-        disabled: true, title: "Cross-case Evidence Explorer — later slice" },
+        disabled: true, title: "Cross-case Evidence Explorer — arrives in Phase 5" },
       { key: "entity-search", label: "Entity Search", icon: Fingerprint,
-        disabled: true, title: "Cross-case entity search — later slice" },
+        disabled: true, title: "Cross-case entity search — arrives in Phase 6" },
+      { key: "attack-story", label: "Attack Story", icon: Fingerprint,
+        disabled: true, title: "Deterministic attack-story projection — arrives in Phase 5" },
     ],
   },
   {

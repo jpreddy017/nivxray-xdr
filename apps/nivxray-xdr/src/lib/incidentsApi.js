@@ -4,10 +4,51 @@
  */
 import api from "@/lib/api";
 
-export async function listIncidents({ limit = 100, lens = null } = {}) {
-  const params = { limit };
+export async function listIncidents({
+  limit = 100, lens = null, state = null, priority = null, severity = null,
+  verdict = null, confidence = null, customer = null,
+  detection_source = null, technique = null,
+  sort = "updated_at", order = "desc",
+} = {}) {
+  const params = { limit, sort, order };
   if (lens) params.lens = lens;
+  if (state) params.state = state;
+  if (priority) params.priority = priority;
+  if (severity) params.severity = severity;
+  if (verdict) params.verdict = verdict;
+  if (confidence) params.confidence = confidence;
+  if (customer) params.customer = customer;
+  if (detection_source) params.detection_source = detection_source;
+  if (technique) params.technique = technique;
   const { data } = await api.get("/incidents", { params });
+  return data;
+}
+
+// ── Bulk operations + Saved Views (Phase 2) ────────────────────────
+export async function bulkAssign(incidentIds, assignee, reason = null) {
+  const { data } = await api.post("/xdr/incidents/bulk/assign",
+    { incident_ids: incidentIds, assignee, reason });
+  return data;
+}
+export async function bulkState(incidentIds, targetState, note = null) {
+  const { data } = await api.post("/xdr/incidents/bulk/state",
+    { incident_ids: incidentIds, target_state: targetState, note });
+  return data;
+}
+export async function listSavedViews() {
+  const { data } = await api.get("/xdr/saved-views");
+  return data;
+}
+export async function createSavedView(view) {
+  const { data } = await api.post("/xdr/saved-views", view);
+  return data;
+}
+export async function updateSavedView(id, view) {
+  const { data } = await api.put(`/xdr/saved-views/${id}`, view);
+  return data;
+}
+export async function deleteSavedView(id) {
+  const { data } = await api.delete(`/xdr/saved-views/${id}`);
   return data;
 }
 

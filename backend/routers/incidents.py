@@ -100,45 +100,138 @@ def _short_number(case_id: Optional[str]) -> str:
 
 
 def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
-    """List-row projection — dense operational columns only.  Never
-    surfaces the full SSOT bundle."""
+    """Investigation-aware queue row projection.
+
+    Phase-2 owner-locked rule: this projection is a READ MODEL.  It
+    consumes canonical evidence produced by the existing engine
+    fabric — it NEVER runs an engine, and it NEVER invents a value.
+    Every column carries an explicit "unavailable" state when its
+    canonical source is missing.
+    """
     stage2 = doc.get("verdict_stage2") or {}
     vcard = doc.get("verdict_card") or {}
     priority_code, priority_label = _derive_priority(stage2, vcard)
-    # Persisted priority extension overrides the derived value only
-    # when an analyst has explicitly set it.  Owner rule: analyst
-    # judgment is a first-class field, but we retain provenance by
-    # keeping the derived value alongside.
     persisted_priority = doc.get("incident_priority")
     if persisted_priority in ("P1", "P2", "P3", "P4", "P5"):
         priority_code = persisted_priority
         priority_label = {"P1": "Critical", "P2": "High", "P3": "Medium",
                             "P4": "Low", "P5": "Info"}[priority_code]
     updated = doc.get("updated_at") or doc.get("created_at")
+
+    # ── Evidence count · projection of canonical evidence, never inferred ──
+    evidence = (stage2.get("evidence") or []) if isinstance(stage2, dict) else []
+    evidence_count = len(evidence)
+
+    # ── MITRE techniques · union of evidence[].technique_id + mitre + techniques
+    tech_set = set()
+    for e in evidence:
+        t = (e or {}).get("technique_id")
+        if t: tech_set.add(str(t).upper())
+    for m in (doc.get("mitre") or []):
+        t = m.get("technique_id") if isinstance(m, dict) else None
+        if t: tech_set.add(str(t).upper())
+    for t in (doc.get("techniques") or []):
+        if t: tech_set.add(str(t).upper())
+    techniques_top = sorted(tech_set)[:3]
+
     return {
         "id":          doc.get("id"),
         "number":      _short_number(doc.get("id")),
         "name":        doc.get("name") or "(unnamed)",
+        # ── Investigation-aware queue columns (15) ──────────────────
         "priority":    {"code": priority_code, "label": priority_label},
         "severity":    doc.get("incident_severity")
                           or _derive_severity(stage2, vcard),
         "verdict":     {
-            "stage2_label": (stage2 or {}).get("label"),
-            "stage2_confidence": (stage2 or {}).get("confidence_bucket"),
-            "risk_score": (stage2 or {}).get("risk_score"),
+            "stage2_label": stage2.get("label"),
+            "stage2_confidence": stage2.get("confidence_bucket"),
+            "risk_score":       stage2.get("risk_score"),
         },
-        "tenant":      doc.get("tenant_id") or doc.get("user_email") or "default",
+        "confidence":  stage2.get("confidence_bucket"),
+        "customer":    doc.get("tenant_id") or doc.get("user_email") or "default",
+        "detection_source": stage2.get("engine") or doc.get("engine") or None,
+        "evidence_count":   evidence_count,
+        "techniques_top":   techniques_top,
+        "techniques_total": len(tech_set),
+        "sla_due_at":       doc.get("sla_due_at"),
+        # aging = now - created_at, expressed in ISO seconds
+        "aging_seconds":    _aging_seconds(doc.get("created_at")),
         "assignee":    doc.get("incident_assignee") or doc.get("user_email"),
         "state":       doc.get("incident_state") or "new",
-        # ── Phase-1 operational extensions ──────────────────────────
+        "last_activity": updated,
+        # Auto-Investigation state · reads engine_executions, else NOT_RUN.
+        "auto_investigation": _auto_investigation_status(doc.get("id")),
+        # ── Legacy fields preserved for backwards compat ────────────
+        "tenant":      doc.get("tenant_id") or doc.get("user_email") or "default",
         "high_fidelity":   bool(doc.get("high_fidelity")),
         "customer_engaged": bool(doc.get("customer_engaged")),
         "on_hold_reason":  doc.get("on_hold_reason"),
         "on_hold_until":   doc.get("on_hold_until"),
-        "sla_due_at":      doc.get("sla_due_at"),
         "updated_at":  updated,
         "created_at":  doc.get("created_at"),
     }
+
+
+def _aging_seconds(created_at: Any) -> Optional[int]:
+    if not created_at: return None
+    try:
+        from datetime import datetime, timezone
+        ts = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+        return int((datetime.now(timezone.utc) - ts).total_seconds())
+    except Exception:
+        return None
+
+
+# In-request cache for engine_executions to avoid one query per row.
+_ENGINE_EXEC_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _auto_investigation_status(incident_id: Any) -> Dict[str, Any]:
+    """Read the incident's engine-execution rollup from the persisted
+    `engine_executions` collection (Phase 4).  When the collection is
+    absent or has no runs for this incident, honestly emit NOT_RUN —
+    never fabricate COMPLETE."""
+    if not incident_id:
+        return {"status": "NOT_RUN", "engines_ok": 0, "engines_total": 0,
+                "source": "unavailable"}
+    cached = _ENGINE_EXEC_CACHE.get(incident_id)
+    if cached is not None:
+        return cached
+    try:
+        col = _col.database["engine_executions"] \
+                if "engine_executions" in _col.database.list_collection_names() \
+                else None
+        if col is None:
+            out = {"status": "NOT_RUN", "engines_ok": 0, "engines_total": 0,
+                     "source": "engine_executions.unavailable"}
+        else:
+            docs = list(col.find({"incident_id": incident_id},
+                                    {"_id": 0, "status": 1}))
+            if not docs:
+                out = {"status": "NOT_RUN", "engines_ok": 0, "engines_total": 0,
+                         "source": "engine_executions.no_runs"}
+            else:
+                total = len(docs)
+                ok = sum(1 for d in docs if d.get("status") == "ok")
+                run = sum(1 for d in docs if d.get("status") == "running")
+                err = sum(1 for d in docs if d.get("status") == "error")
+                if run > 0:
+                    st = "RUNNING"
+                elif err > 0 and ok == 0:
+                    st = "FAILED"
+                elif ok == total:
+                    st = "COMPLETE"
+                elif err > 0:
+                    st = "PARTIAL"
+                else:
+                    st = "NOT_RUN"
+                out = {"status": st, "engines_ok": ok, "engines_total": total,
+                         "source": "engine_executions.live"}
+    except Exception:
+        out = {"status": "NOT_RUN", "engines_ok": 0, "engines_total": 0,
+                 "source": "engine_executions.error"}
+    _ENGINE_EXEC_CACHE[incident_id] = out
+    return out
 
 
 def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -518,24 +611,44 @@ def _bullets_for_iocs(iocs: Dict[str, Any]) -> List[str]:
 
 
 # ── LIST ─────────────────────────────────────────────────────────────
+_SORTABLE = {
+    "updated_at":  "updated_at",
+    "created_at":  "created_at",
+    "sla_due_at":  "sla_due_at",
+    "priority":    "incident_priority",
+    "severity":    "incident_severity",
+    "state":       "incident_state",
+    "customer":    "tenant_id",
+    "assignee":    "incident_assignee",
+}
+
+
 @router.get("")
-async def list_incidents(limit: int = 100,
-                           lens: Optional[str] = None,
-                           user=Depends(get_current_user_optional)):
-    """Dense operational list of incidents.
+async def list_incidents(
+    limit: int = 100,
+    lens: Optional[str] = None,
+    state: Optional[str] = None,
+    priority: Optional[str] = None,
+    severity: Optional[str] = None,
+    verdict: Optional[str] = None,
+    confidence: Optional[str] = None,
+    customer: Optional[str] = None,
+    detection_source: Optional[str] = None,
+    technique: Optional[str] = None,
+    sort: str = "updated_at",
+    order: str = "desc",
+    user=Depends(get_current_user_optional),
+):
+    """Investigation-aware incident queue.
 
-    Scoped to the caller's user_email (single-tenant preview).  Only
-    cases that carry a persisted ``name`` are surfaced — this
-    matches the analyst's "Save Case" contract in cases.py and hides
-    workspace scratch state from the operational Incident view.
-
-    When ``lens`` is provided, the list is filtered using the same
-    Mongo predicate that powers the Operations Dashboard tile of the
-    same id.  This guarantees tile-count == queue-count parity.
+    All filter chips compose with the Phase-1 ``lens``.  The queue is a
+    READ MODEL — never runs an engine, never fabricates a value.
     """
     from services.dashboard_lenses import (
         build_predicate, is_never_match, get_lens,
     )
+    # Clear the per-request engine-execution cache.
+    _ENGINE_EXEC_CACHE.clear()
     email = (user or {}).get("email")
 
     if lens:
@@ -544,11 +657,45 @@ async def list_incidents(limit: int = 100,
                                   detail={"error": "unknown_lens", "lens": lens})
         q = build_predicate(lens, email)
         if is_never_match(q):
-            return {"incidents": [], "count": 0, "lens": lens}
+            return {"incidents": [], "count": 0, "lens": lens,
+                    "applied_filters": {},
+                    "invariant": "queue == projection · never engine"}
     else:
         q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
         if email:
             q["user_email"] = email
+
+    applied: Dict[str, Any] = {}
+    if state:            q["incident_state"]    = state;     applied["state"] = state
+    if priority:         q["incident_priority"] = priority;  applied["priority"] = priority
+    if severity:         q["incident_severity"] = severity;  applied["severity"] = severity
+    if customer:         q["tenant_id"]         = customer;  applied["customer"] = customer
+    if verdict:
+        q["verdict_stage2.label"] = verdict
+        applied["verdict"] = verdict
+    if confidence:
+        q["verdict_stage2.confidence_bucket"] = confidence
+        applied["confidence"] = confidence
+    if detection_source:
+        q["$or"] = [
+            {"verdict_stage2.engine": detection_source},
+            {"engine": detection_source},
+        ]
+        applied["detection_source"] = detection_source
+    if technique:
+        # Technique may appear in verdict_stage2.evidence[].technique_id,
+        # mitre[].technique_id or techniques[].
+        t = technique.upper()
+        clauses = [
+            {"verdict_stage2.evidence.technique_id": t},
+            {"mitre.technique_id": t},
+            {"techniques": t},
+        ]
+        if "$or" in q:
+            q = {"$and": [q, {"$or": clauses}]}
+        else:
+            q["$or"] = clauses
+        applied["technique"] = t
 
     projection = {
         "_id": 0, "id": 1, "name": 1, "user_email": 1, "tenant_id": 1,
@@ -557,12 +704,25 @@ async def list_incidents(limit: int = 100,
         "incident_priority": 1, "incident_severity": 1,
         "high_fidelity": 1, "customer_engaged": 1,
         "on_hold_reason": 1, "on_hold_until": 1, "sla_due_at": 1,
+        "mitre": 1, "techniques": 1, "engine": 1,
     }
+    sort_field = _SORTABLE.get(sort, "updated_at")
+    sort_dir = -1 if (order or "desc").lower() == "desc" else 1
     cur = _col.find(q, projection)\
-              .sort("updated_at", -1)\
+              .sort([(sort_field, sort_dir), ("id", 1)])\
               .limit(min(int(limit or 100), 500))
     rows = [_project_row(d) for d in cur]
-    return {"incidents": rows, "count": len(rows), "lens": lens}
+    return {
+        "incidents":       rows,
+        "count":           len(rows),
+        "lens":            lens,
+        "applied_filters": applied,
+        "sort":            {"field": sort, "order": order},
+        "invariant":       "Incident queue is a projection of canonical "
+                             "evidence · never runs an engine · never "
+                             "fabricates a value · every unavailable "
+                             "column renders honestly.",
+    }
 
 
 # ── DETAIL ───────────────────────────────────────────────────────────
