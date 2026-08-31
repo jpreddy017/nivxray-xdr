@@ -1,6 +1,64 @@
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
+## 2026-02-33 · Layer 3 · Incident Record product-quality rebuild — SHIPPED
+
+Complete Defender/SIR-inspired rebuild of `/xdr/incidents/:id` — the
+canonical analyst investigation workspace.  Reuses the Layer 2 chip
+primitives and hybrid theme (light workspace + dark analyst canvas).
+
+### Frontend (`/app/apps/nivxray-xdr`)
+- `pages/incidents/record/record-theme.css` — record-scoped light
+  workspace theme + dark analyst-canvas variant that provides the
+  legacy `.xdr-console` CSS variables so the existing engine panels
+  keep their visual language unchanged.
+- `pages/incidents/record/RecordHeader.jsx` — breadcrumb, identity
+  strip, chips, 8-cell meta grid, action bar (Respond / Generate
+  Report / More).
+- `pages/incidents/record/LifecycleStrip.jsx` — Defender-parity
+  stepper (New → In Progress → On Hold → Resolved → Closed) that
+  invokes the existing state PATCH endpoint via
+  `LIFECYCLE_TRANSITIONS`.
+- `pages/incidents/record/RecordTabs.jsx` — 11 URL-persisted tabs
+  with active-tab underline + count badges (Canvas tabs are
+  MITRE · Attack Story · Recommendations · Auto-Investigation).
+- `pages/incidents/record/tabs/*` — Executive · Technical ·
+  Evidence · Auto-Investigation · Notes · Timeline · Related ·
+  Closure (light workspace) and `CanvasTabs.jsx` that hosts MITRE /
+  Attack Story / Recommendations by reusing the existing dark engine
+  panels unmodified.
+- `pages/XdrIncidentDetailPage.jsx` rewritten from scratch to
+  orchestrate the header + lifecycle + tabs + tab panels + reused
+  AnalystResponseDrawer.
+
+### Anti-fabrication contract
+- Every unavailable field renders honestly (NOT_RUN · NO EVIDENCE ·
+  NOT AVAILABLE · UNKNOWN · —).
+- Notes / Related / Auto-Investigation surfaces show explicit
+  Phase-3 / Phase-4 reservation copy rather than fabricated content.
+- Closure form only calls the existing state PATCH endpoint —
+  structured disposition + root cause are folded into the transition
+  note until Phase 3 promotes them to real columns.
+
+### Engine lock
+- Zero changes to backend routers / services / engines.
+- MITRE / Attack Story / Recommendations / Auto-Investigation tabs
+  reuse the existing dark-themed engine panels
+  (`AttackChainPanel`, `ProcessTreePanel`,
+  `ScenarioIntelligencePanel`, `XdrCompletenessPanel`,
+  `XdrRecommendationsPanel`) unchanged.
+
+### Verification
+- Local `yarn build` clean.
+- 4 production acceptance screenshots captured on
+  `https://nivxray-xdr.vercel.app/xdr/incidents/:id`
+  (Executive · Evidence · Auto-Investigation dark canvas · Notes).
+
+Commit: `327f79b feat(record): Layer 3 · Incident Record
+product-quality rebuild`.
+
+---
+
 ## 2026-02-33 · Layer 2 · Incident Queue product-quality rebuild — SHIPPED
 
 Complete Defender-inspired visual/product rebuild of

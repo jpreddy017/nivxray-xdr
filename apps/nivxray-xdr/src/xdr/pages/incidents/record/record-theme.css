@@ -1,0 +1,514 @@
+/**
+ * NivXRay · Layer 3 · Incident Record — theme (extends L2 tokens).
+ *
+ * Same hybrid model as Layer 2: light Defender-parity workspace for
+ * the header · lifecycle · tabs · executive / technical / evidence /
+ * notes / timeline / related / closure surfaces, and a dark analyst
+ * canvas surface for the deep investigation panels (which retain
+ * the existing engine-fabric visual language).
+ *
+ * Scoped under `.xdr-record-l3`.  Reuses `.xdr-queue-l2` chip / button
+ * classes wherever it makes sense so we ship one visual language, not
+ * two.
+ */
+
+.xdr-record-l3 {
+  /* Light workspace tokens (Defender-parity) */
+  --rl-bg:            #F5F6F8;
+  --rl-surface:       #FFFFFF;
+  --rl-surface-2:     #FAFBFC;
+  --rl-surface-3:     #F1F3F6;
+  --rl-border:        #E2E5EA;
+  --rl-border-hi:     #CBD0D8;
+  --rl-text:          #1B1F26;
+  --rl-text-dim:      #4B5563;
+  --rl-muted:         #6B7280;
+  --rl-faint:         #9CA3AF;
+
+  /* Accent + semantic */
+  --rl-purple:        #6D4EE0;
+  --rl-purple-dim:    #EDE7FF;
+  --rl-purple-hover:  #5B3ED1;
+  --rl-red:           #DC2626;
+  --rl-orange:        #EA580C;
+  --rl-amber:         #D97706;
+  --rl-green:         #059669;
+  --rl-blue:          #2563EB;
+
+  /* Dark analyst canvas tokens */
+  --rd-bg:            #0E1017;
+  --rd-panel:         #151823;
+  --rd-panel-2:       #1B1F2D;
+  --rd-border:        #262B3A;
+  --rd-text:          #E7E9EF;
+  --rd-text-dim:      #B4B9C6;
+  --rd-muted:         #78808F;
+  --rd-faint:         #4A5162;
+  --rd-purple:        #A88BFF;
+
+  --rs-mono: 'IBM Plex Mono','SFMono-Regular',Consolas,ui-monospace,monospace;
+  --rs-sans: 'Inter','Segoe UI',system-ui,sans-serif;
+
+  background: var(--rl-bg);
+  color: var(--rl-text);
+  font-family: var(--rs-sans);
+  min-height: 100%;
+  margin: -18px -22px -32px;
+  padding: 20px 24px 40px;
+}
+
+/* ── Breadcrumb + top actions ─────────────────────────────────── */
+.xdr-record-l3 .rl-breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--rl-muted);
+  margin-bottom: 10px;
+}
+.xdr-record-l3 .rl-breadcrumb a {
+  color: var(--rl-purple);
+  text-decoration: none;
+  font-weight: 600;
+}
+.xdr-record-l3 .rl-breadcrumb a:hover { text-decoration: underline; }
+.xdr-record-l3 .rl-breadcrumb .sep { color: var(--rl-faint); }
+
+/* ── Record header (light) ────────────────────────────────────── */
+.xdr-record-l3 .rl-header {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(15,20,30,0.03);
+}
+.xdr-record-l3 .rl-header-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap;
+}
+.xdr-record-l3 .rl-header-id {
+  font-family: var(--rs-mono);
+  font-size: 11px; color: var(--rl-muted);
+  margin-bottom: 4px;
+}
+.xdr-record-l3 .rl-header-id .sep {
+  color: var(--rl-faint); margin: 0 6px;
+}
+.xdr-record-l3 .rl-header-title {
+  font-size: 22px; font-weight: 700;
+  color: var(--rl-text); margin: 0 0 10px;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.xdr-record-l3 .rl-header-chips {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; margin-bottom: 8px;
+}
+.xdr-record-l3 .rl-header-actions {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+
+/* ── Meta strip (header key/value grid) ───────────────────────── */
+.xdr-record-l3 .rl-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 24px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rl-border);
+}
+.xdr-record-l3 .rl-meta .m .k {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--rl-muted);
+  margin-bottom: 3px;
+}
+.xdr-record-l3 .rl-meta .m .v {
+  font-family: var(--rs-mono);
+  font-size: 12px;
+  color: var(--rl-text);
+  word-break: break-word;
+}
+.xdr-record-l3 .rl-meta .m .v.dash { color: var(--rl-faint); }
+.xdr-record-l3 .rl-meta .m .v.warn { color: var(--rl-amber); }
+
+/* ── Lifecycle strip ──────────────────────────────────────────── */
+.xdr-record-l3 .rl-lifecycle {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  display: flex; align-items: center;
+  overflow-x: auto;
+  box-shadow: 0 1px 2px rgba(15,20,30,0.03);
+}
+.xdr-record-l3 .rl-step {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; min-width: 96px;
+  background: transparent; border: none; padding: 0;
+  cursor: default;
+}
+.xdr-record-l3 .rl-step .dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--rl-surface-3);
+  border: 2px solid var(--rl-border-hi);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--rs-mono);
+  font-size: 10.5px; font-weight: 800;
+  color: var(--rl-muted);
+  transition: all 120ms ease;
+}
+.xdr-record-l3 .rl-step .lbl {
+  font-size: 10.5px;
+  color: var(--rl-muted);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-align: center;
+}
+.xdr-record-l3 .rl-step.done .dot {
+  background: var(--rl-green);
+  border-color: var(--rl-green);
+  color: #fff;
+}
+.xdr-record-l3 .rl-step.done .lbl { color: var(--rl-green); }
+.xdr-record-l3 .rl-step.active .dot {
+  background: var(--rl-purple);
+  border-color: var(--rl-purple);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--rl-purple-dim);
+}
+.xdr-record-l3 .rl-step.active .lbl {
+  color: var(--rl-purple);
+  font-weight: 700;
+}
+.xdr-record-l3 .rl-step.actionable { cursor: pointer; }
+.xdr-record-l3 .rl-step.actionable:hover .dot {
+  border-color: var(--rl-purple);
+  color: var(--rl-purple);
+}
+.xdr-record-l3 .rl-step.actionable:hover .lbl { color: var(--rl-purple); }
+.xdr-record-l3 .rl-step-arrow {
+  flex: 1; height: 2px; min-width: 20px;
+  background: var(--rl-border-hi);
+  margin: 0 3px; position: relative; top: -18px;
+}
+.xdr-record-l3 .rl-step.done + .rl-step-arrow,
+.xdr-record-l3 .rl-step-arrow.done { background: var(--rl-green); }
+
+.xdr-record-l3 .rl-lifecycle-error {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  color: var(--rl-red);
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 4px;
+  font-family: var(--rs-mono);
+  font-size: 11px;
+}
+
+/* ── Tab bar ──────────────────────────────────────────────────── */
+.xdr-record-l3 .rl-tabs {
+  display: flex; gap: 0; overflow-x: auto;
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0 6px;
+}
+.xdr-record-l3 .rl-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 12px 16px;
+  background: transparent; border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--rl-muted);
+  font-family: var(--rs-sans);
+  font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.xdr-record-l3 .rl-tab:hover { color: var(--rl-text-dim); }
+.xdr-record-l3 .rl-tab.active {
+  color: var(--rl-purple);
+  border-bottom-color: var(--rl-purple);
+}
+.xdr-record-l3 .rl-tab .count {
+  background: var(--rl-surface-3);
+  color: var(--rl-muted);
+  padding: 0 6px; border-radius: 999px;
+  font-family: var(--rs-mono);
+  font-size: 10px;
+}
+.xdr-record-l3 .rl-tab.active .count {
+  background: var(--rl-purple-dim);
+  color: var(--rl-purple);
+}
+
+.xdr-record-l3 .rl-tabpanel {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 18px;
+  min-height: 340px;
+  box-shadow: 0 1px 2px rgba(15,20,30,0.03);
+}
+
+/* Dark analyst-canvas variant used by MITRE / Attack Story /
+   Recommendations / Auto-Investigation tabs so the existing
+   engine panels retain their native visual language. */
+.xdr-record-l3 .rl-tabpanel.canvas {
+  background: var(--rd-bg);
+  color: var(--rd-text);
+  border-color: var(--rd-border);
+  padding: 4px 4px 6px;
+}
+.xdr-record-l3 .rl-tabpanel.canvas .canvas-inner {
+  /* Provide the xdr-console CSS vars this panel needs. */
+  padding: 14px 16px 18px;
+  background: var(--rd-bg);
+  color: var(--rd-text);
+  --bg:      var(--rd-bg);
+  --bg2:     var(--rd-panel);
+  --panel:   var(--rd-panel);
+  --panel2:  var(--rd-panel-2);
+  --border:  var(--rd-border);
+  --border-sf: var(--rd-border);
+  --text:    var(--rd-text);
+  --text-dim: var(--rd-text-dim);
+  --muted:   var(--rd-muted);
+  --faint:   var(--rd-faint);
+  --purple:  var(--rd-purple);
+  --purple-dim: #2A2145;
+  --mint:    #3CE8B8;
+  --cyan:    #3FC1E8;
+  --amber:   #F5A623;
+  --yellow:  #E8C547;
+  --red:     #EF5B5B;
+  --red-dim: #331A1D;
+  --mono:    var(--rs-mono);
+  --sans:    var(--rs-sans);
+  --radius:  6px;
+}
+
+/* ── Content blocks (light) ───────────────────────────────────── */
+.xdr-record-l3 .rl-section {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.xdr-record-l3 .rl-section:last-child { margin-bottom: 0; }
+.xdr-record-l3 .rl-section-title {
+  font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--rl-muted);
+  margin: 0 0 8px;
+}
+.xdr-record-l3 .rl-section-body { font-size: 12.5px; line-height: 1.55; color: var(--rl-text); }
+.xdr-record-l3 .rl-kv {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) 1fr;
+  gap: 6px 16px;
+  font-size: 12.5px;
+}
+.xdr-record-l3 .rl-kv .k {
+  color: var(--rl-muted);
+  font-family: var(--rs-mono);
+  font-size: 10.5px;
+  padding-top: 2px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.xdr-record-l3 .rl-kv .v { color: var(--rl-text); }
+.xdr-record-l3 .rl-kv .v.mono { font-family: var(--rs-mono); font-size: 11.5px; color: var(--rl-text-dim); }
+.xdr-record-l3 .rl-kv .v.dash { color: var(--rl-faint); font-family: var(--rs-mono); }
+
+.xdr-record-l3 .rl-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.xdr-record-l3 .rl-metric {
+  background: var(--rl-surface-2);
+  border: 1px solid var(--rl-border);
+  border-left: 3px solid var(--rl-border);
+  border-radius: 5px;
+  padding: 10px 12px;
+}
+.xdr-record-l3 .rl-metric.crit  { border-left-color: var(--rl-red); }
+.xdr-record-l3 .rl-metric.high  { border-left-color: var(--rl-orange); }
+.xdr-record-l3 .rl-metric.amber { border-left-color: var(--rl-amber); }
+.xdr-record-l3 .rl-metric.info  { border-left-color: var(--rl-blue); }
+.xdr-record-l3 .rl-metric.ok    { border-left-color: var(--rl-green); }
+.xdr-record-l3 .rl-metric.na    { border-left-color: var(--rl-border); opacity: 0.9; }
+.xdr-record-l3 .rl-metric .k {
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--rl-muted);
+}
+.xdr-record-l3 .rl-metric .v {
+  font-family: var(--rs-mono);
+  font-size: 20px; font-weight: 800;
+  color: var(--rl-text);
+  margin-top: 4px;
+}
+.xdr-record-l3 .rl-metric.crit .v  { color: var(--rl-red); }
+.xdr-record-l3 .rl-metric.high .v  { color: var(--rl-orange); }
+.xdr-record-l3 .rl-metric.amber .v { color: var(--rl-amber); }
+.xdr-record-l3 .rl-metric.info .v  { color: var(--rl-blue); }
+.xdr-record-l3 .rl-metric.ok .v    { color: var(--rl-green); }
+.xdr-record-l3 .rl-metric.na .v    { color: var(--rl-faint); font-size: 13px; }
+.xdr-record-l3 .rl-metric .sub {
+  margin-top: 3px; font-size: 10.5px;
+  color: var(--rl-muted);
+  font-family: var(--rs-mono);
+}
+
+/* ── State badges (four Slice-2 states) ───────────────────────── */
+.xdr-record-l3 .rl-state {
+  display: inline-block;
+  padding: 2px 8px; border-radius: 3px;
+  border: 1px solid var(--rl-border-hi);
+  font-family: var(--rs-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--rl-muted);
+  background: var(--rl-surface-2);
+}
+.xdr-record-l3 .rl-state.ok      { color: var(--rl-green);  border-color: var(--rl-green);  background: #ECFDF5; }
+.xdr-record-l3 .rl-state.miss    { color: var(--rl-amber);  border-color: var(--rl-amber);  background: #FFFBEB; }
+.xdr-record-l3 .rl-state.discon  { color: var(--rl-muted);  }
+.xdr-record-l3 .rl-state.na      { color: var(--rl-faint);  }
+.xdr-record-l3 .rl-state.err     { color: var(--rl-red);    border-color: var(--rl-red);    background: #FEF2F2; }
+
+/* ── Table helpers (light) ────────────────────────────────────── */
+.xdr-record-l3 .rl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--rs-sans);
+  font-size: 12.5px;
+}
+.xdr-record-l3 .rl-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--rl-muted);
+  background: var(--rl-surface-2);
+  border-bottom: 1px solid var(--rl-border);
+}
+.xdr-record-l3 .rl-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rl-border);
+  color: var(--rl-text);
+  vertical-align: top;
+}
+.xdr-record-l3 .rl-table tr:last-child td { border-bottom: none; }
+.xdr-record-l3 .rl-table .mono {
+  font-family: var(--rs-mono);
+  color: var(--rl-text-dim);
+  font-size: 11.5px;
+}
+
+/* ── Bulleted lists ───────────────────────────────────────────── */
+.xdr-record-l3 .rl-list {
+  margin: 0; padding-left: 18px;
+  font-size: 12.5px; line-height: 1.6;
+  color: var(--rl-text);
+}
+.xdr-record-l3 .rl-list li { margin-bottom: 4px; }
+.xdr-record-l3 .rl-list .prov {
+  color: var(--rl-faint);
+  font-family: var(--rs-mono);
+  font-size: 10.5px;
+  margin-left: 6px;
+}
+
+/* ── Empty / error / loading ──────────────────────────────────── */
+.xdr-record-l3 .rl-empty {
+  padding: 32px 18px;
+  text-align: center;
+  color: var(--rl-muted);
+  font-size: 12.5px;
+  background: var(--rl-surface-2);
+  border: 1px dashed var(--rl-border-hi);
+  border-radius: 6px;
+}
+.xdr-record-l3 .rl-empty .kbd {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--rs-mono);
+  font-size: 10.5px;
+  color: var(--rl-faint);
+}
+.xdr-record-l3 .rl-error {
+  padding: 10px 14px;
+  color: var(--rl-red);
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 6px;
+  font-family: var(--rs-mono);
+  font-size: 11.5px;
+}
+.xdr-record-l3 .rl-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--rl-muted);
+  font-family: var(--rs-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+/* ── Notes composer ───────────────────────────────────────────── */
+.xdr-record-l3 .rl-note-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  background: var(--rl-surface-2);
+  color: var(--rl-text);
+  font-family: var(--rs-sans);
+  font-size: 12.5px;
+  resize: vertical;
+  outline: none;
+}
+.xdr-record-l3 .rl-note-input:focus {
+  border-color: var(--rl-purple);
+  box-shadow: 0 0 0 3px var(--rl-purple-dim);
+}
+
+/* ── Buttons (reused from L2 but scoped) ──────────────────────── */
+.xdr-record-l3 .rl-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 5px;
+  color: var(--rl-text-dim);
+  font-family: var(--rs-sans);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.xdr-record-l3 .rl-btn:hover {
+  background: var(--rl-surface-3);
+  color: var(--rl-text);
+  border-color: var(--rl-border-hi);
+}
+.xdr-record-l3 .rl-btn.primary {
+  background: var(--rl-purple);
+  border-color: var(--rl-purple);
+  color: #fff;
+}
+.xdr-record-l3 .rl-btn.primary:hover {
+  background: var(--rl-purple-hover);
+  border-color: var(--rl-purple-hover);
+}
+.xdr-record-l3 .rl-btn:disabled { opacity: 0.5; cursor: not-allowed; }

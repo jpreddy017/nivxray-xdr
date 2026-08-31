@@ -7,6 +7,62 @@
 
 ---
 
+## ✅ 2026-02-33 · Layer 3 · SHIPPED
+
+Layer 3 (Incident Record product-quality rebuild) is **complete and
+live on production** at
+`https://nivxray-xdr.vercel.app/xdr/incidents/:id`.
+
+Delivered in a single commit (`327f79b`) — 14 files, +1 920 / -697:
+
+- Hybrid theme: light Defender-parity workspace for the header ·
+  lifecycle · executive / technical / evidence / notes / timeline /
+  related / closure surfaces + a scoped **dark analyst canvas** for
+  the deep engine panels (MITRE trajectory · Attack Story process
+  tree · Completeness · Recommendations · Auto-Investigation
+  status).  Reuses the Layer 2 chip primitives.
+- **RecordHeader**: breadcrumb → identity strip → Priority/Severity/
+  Verdict/State chips (+ High-Fidelity / Customer-Engaged when set)
+  → 8-cell meta grid (Confidence · Risk · Owner · Customer ·
+  Detection · SLA Due · Aging · Techniques) → Respond / Generate
+  Report / More actions.
+- **LifecycleStrip**: Defender-parity stepper driven by
+  `LIFECYCLE_TRANSITIONS` map, invokes the existing
+  `PATCH /api/incidents/:id/state` endpoint.
+- **RecordTabs**: 11 URL-persisted tabs — Executive · Technical ·
+  Evidence · Auto-Investigation · MITRE · Attack Story ·
+  Recommendations · Notes · Timeline · Related · Closure.
+- **Executive / Technical / Evidence / Notes / Timeline / Related /
+  Closure**: light-workspace panels rendering canonical data from
+  `/api/incidents/:id` + `/api/incidents/:id/summary` +
+  `/api/activity/inventory` with the honest four-state semantics
+  (OK · NO MATCHING EVIDENCE · NOT CONNECTED · NOT AVAILABLE ·
+  ERROR).
+- **MITRE / Attack Story / Recommendations / Auto-Investigation**:
+  dark analyst canvas that reuses the existing engine panels
+  (`AttackChainPanel`, `ProcessTreePanel`,
+  `ScenarioIntelligencePanel`, `XdrCompletenessPanel`,
+  `XdrRecommendationsPanel`) unmodified.
+- **Closure**: disposition + root-cause selectors + mandatory
+  note + Mark Resolved / Close Incident actions that invoke the
+  existing state transition endpoint.  Structured closure fields
+  are packaged into the transition note today; Phase 3 will
+  promote them to real columns.
+- **Anti-fabrication kept honest** — NOT_RUN · NO EVIDENCE ·
+  NOT AVAILABLE · UNKNOWN · em-dash everywhere.
+
+**Engine lock respected** — zero backend changes; every deep
+investigation surface is reused as-is.
+
+4 production acceptance screenshots captured (Executive · Evidence ·
+Auto-Investigation dark canvas · Notes).  All pass.
+
+Next sequence: Phase 3 Lifecycle/SLA policy engine → Phase 4
+Auto-Investigation provenance orchestration.  Queue Row Density
+Toggle stays in the Layer-2 backlog.
+
+---
+
 ## ✅ 2026-02-33 · Layer 2 · SHIPPED
 
 Layer 2 (Incident Queue product-quality rebuild) is **complete and
