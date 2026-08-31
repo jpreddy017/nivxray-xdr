@@ -3,6 +3,12 @@
   "buildCommand": "yarn build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "build": {
+    "env": {
+      "NPM_CONFIG_PRODUCTION": "false",
+      "YARN_PRODUCTION": "false"
+    }
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]

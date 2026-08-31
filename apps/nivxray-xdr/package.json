@@ -11,17 +11,17 @@
     "lint": "eslint . --ext js,jsx"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^4.3.2",
     "axios": "^1.7.7",
     "js-yaml": "^5.4.1",
     "lucide-react": "^0.446.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2"
+    "react-router-dom": "^6.26.2",
+    "vite": "^5.4.8"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.2",
-    "eslint": "^9.11.1",
-    "vite": "^5.4.8"
+    "eslint": "^9.11.1"
   },
   "notes": {
     "boundary": "This package MUST NOT import from /app/frontend/src. See README.md.",
