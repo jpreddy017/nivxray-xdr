@@ -31,6 +31,7 @@ from detection_content.detection_harness import (
     HarnessFixture, run_harness, record_verification,
 )
 from detection_content import nivxray_native_sigma as _nx_native
+from detection_content.architecture_audit import audit as run_architecture_audit
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -362,3 +363,44 @@ async def harness_engines(user=Depends(require_admin)):
     can move to EXECUTION_VERIFIED via /harness/run.
     """
     return {"engines": sorted(_HARNESS_EVALUATORS.keys())}
+
+
+# ── P0.0 · Architecture Audit ────────────────────────────────────
+
+@router.get("/architecture/audit")
+async def architecture_audit(user=Depends(require_admin)):
+    """
+    Authoritative source-code audit of every declared NivXRay engine
+    family (IUE · VEEE · DIE · IDE · ICE · UAIE · Verdict · Correlation
+    · IKG · Evidence Graph · Process Tree · Device Trajectory · etc.).
+
+    Reports source-code presence only — never runtime readiness.
+    Presence is the honest starting point; every subsequent P0 slice
+    verifies capability against this baseline.
+    """
+    return run_architecture_audit()
+
+
+@router.get("/architecture/audit/summary")
+async def architecture_audit_summary(user=Depends(require_admin)):
+    """
+    Slim version of the audit — only the family-level rollup, no
+    file-level hits.  Useful for the XDR admin UI header strip.
+    """
+    a = run_architecture_audit()
+    slim_reports = [{
+        "family":          r["family"],
+        "implementations": r["implementations"],
+        "total_symbols":   r["total_symbols"],
+    } for r in a["reports"]]
+    return {
+        "audit_version":         a["audit_version"],
+        "files_scanned":         a["files_scanned"],
+        "families_total":        a["families_total"],
+        "families_present":      a["families_present"],
+        "families_missing":      a["families_missing"],
+        "families_present_list": a["families_present_list"],
+        "families_missing_list": a["families_missing_list"],
+        "reports":               slim_reports,
+        "honesty_note":          a["honesty_note"],
+    }

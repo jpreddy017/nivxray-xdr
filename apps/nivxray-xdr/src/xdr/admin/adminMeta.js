@@ -111,15 +111,15 @@ export const ADMIN_SECTIONS = [
   },
   {
     key: "parsers", label: "Parsers", icon: Filter,
-    subtitle: "Raw event parsers per source type.",
-    api: null, connected: false,
-    integration: "Parser registry service",
+    subtitle: "Real Python parser implementations discovered by the Engine Classifier — NivXRay's DSM equivalent, split from normalization.",
+    api: "/admin/content-supply-chain/engines/list?role=PARSER",
+    kind: "parsers", connected: true,
   },
   {
     key: "normalization", label: "Normalization", icon: Shuffle,
-    subtitle: "OCSF / ECS mapping and field normalisation.",
-    api: null, connected: false,
-    integration: "Normalisation pipeline",
+    subtitle: "Normalizer implementations that lift parsed evidence into canonical evidence for the NivXRay analytical fabric.",
+    api: "/admin/content-supply-chain/engines/list?role=NORMALIZER",
+    kind: "normalization", connected: true,
   },
   {
     key: "response-policies", label: "Response Policies", icon: ArrowRightLeft,

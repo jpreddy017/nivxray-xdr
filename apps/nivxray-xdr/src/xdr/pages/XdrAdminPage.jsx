@@ -23,6 +23,8 @@ import XdrShell from "@/xdr/XdrShell";
 import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
 import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
 import EnginesBody from "@/xdr/admin/EnginesBody";
+import ParsersBody from "@/xdr/admin/ParsersBody";
+import NormalizationBody from "@/xdr/admin/NormalizationBody";
 import CorpusBody from "@/xdr/admin/CorpusBody";
 import CapabilityHubBody from "@/xdr/admin/CapabilityHubBody";
 import DetectionContentBody from "@/xdr/admin/DetectionContentBody";
@@ -318,6 +320,10 @@ function AdminBody({ section }) {
               ? <IntegrationsBody />
               : section.kind === "engines"
               ? <EnginesBody />
+              : section.kind === "parsers"
+              ? <ParsersBody />
+              : section.kind === "normalization"
+              ? <NormalizationBody />
               : section.kind === "corpus"
               ? <CorpusBody />
               : section.kind === "capability_hub"
