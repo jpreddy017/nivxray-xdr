@@ -17,6 +17,13 @@ from detection_content.engine_registry import (
     COLLECTION as ENGINES_COLLECTION,
     EngineRole, EngineState,
 )
+from detection_content.capability_contract import (
+    COLLECTION as CONTRACTS_COLLECTION,
+    ContractStatus,
+)
+from detection_content.contract_registry import (
+    declare_all_contracts, contract_report,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -161,3 +168,54 @@ async def engines_list(role: str = None, scope: str = None,
     ).limit(min(limit, 500)):
         items.append(d)
     return {"count": len(items), "items": items}
+
+
+# ── P0.2c · Implementation Capability Contracts ─────────────────
+
+@router.get("/contracts/report")
+async def contracts_report(user=Depends(require_admin)):
+    """
+    Authoritative Implementation Capability Contract report.
+    Contracts are DECLARED, never auto-promoted; the report is
+    the honest state of the ladder at this moment.
+    """
+    return await contract_report(db)
+
+
+@router.post("/contracts/declare")
+async def contracts_declare(user=Depends(require_admin)):
+    """
+    (Re-)declare CONTRACT_DECLARED records for every engine in
+    `xdr_engines`.  Contracts already at RUNTIME_VERIFIED or
+    EXECUTION_VERIFIED are frozen — this pass will not touch them.
+    """
+    return await declare_all_contracts(db)
+
+
+@router.get("/contracts")
+async def contracts_list(classification: str = None,
+                              status: str = None,
+                              detection: bool | None = None,
+                              limit: int = 200,
+                              user=Depends(require_admin)):
+    q: dict = {}
+    if classification: q["classification"]  = classification.upper()
+    if status:         q["contract_status"] = status.upper()
+    if detection is not None:
+        q["execution.detection"] = bool(detection)
+    items = []
+    async for d in db[CONTRACTS_COLLECTION].find(
+        q, {"_id": 0, "status_history": 0}
+    ).limit(min(limit, 500)):
+        items.append(d)
+    return {"count": len(items), "items": items}
+
+
+@router.get("/contracts/{engine_id:path}")
+async def contract_one(engine_id: str, user=Depends(require_admin)):
+    doc = await db[CONTRACTS_COLLECTION].find_one(
+        {"engine_id": engine_id}, {"_id": 0})
+    if not doc:
+        return {"engine_id": engine_id, "found": False,
+                    "note": "No contract declared for this engine yet."}
+    return {"engine_id": engine_id, "found": True, "contract": doc}
