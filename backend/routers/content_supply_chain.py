@@ -35,6 +35,11 @@ from detection_content.architecture_audit import audit as run_architecture_audit
 from detection_content.engine_control_plane import (
     build_engine_registry, dependency_graph,
 )
+from detection_content.collector_runtime import (
+    MANAGER as COLLECTOR_MANAGER,
+    bootstrap_snort_collector,
+    run_golden_e2e,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -430,3 +435,53 @@ async def engines_dependencies(user=Depends(require_admin)):
     (produces ∩ consumes overlap in declared contracts).
     """
     return await dependency_graph(db)
+
+
+# ── P0.3 · Collector Runtime + Snort Adapter ────────────────────
+
+@router.get("/collector-runtime/status")
+async def collector_runtime_status(user=Depends(require_admin)):
+    """
+    Live status of the in-process CollectorManager.  Reports real
+    lifecycle state; NOT_DEPLOYED is preserved when no collector
+    is registered.
+    """
+    s = COLLECTOR_MANAGER.status()
+    if s["count"] == 0:
+        s["runtime_state"] = "NOT_DEPLOYED"
+    else:
+        s["runtime_state"] = "RUNNING" if s["running"] > 0 else "REGISTERED"
+    return s
+
+
+@router.post("/collector-runtime/bootstrap-snort")
+async def collector_runtime_bootstrap_snort(user=Depends(require_admin)):
+    """
+    Idempotently register the reference Snort collector.
+    Explicit operator action — never auto-runs.
+    """
+    return bootstrap_snort_collector()
+
+
+@router.post("/collector-runtime/{collector_id}/start")
+async def collector_runtime_start(collector_id: str,
+                                             user=Depends(require_admin)):
+    return await COLLECTOR_MANAGER.start(collector_id)
+
+
+@router.post("/collector-runtime/{collector_id}/stop")
+async def collector_runtime_stop(collector_id: str,
+                                            user=Depends(require_admin)):
+    return await COLLECTOR_MANAGER.stop(collector_id)
+
+
+# ── P0.4 · Golden E2E harness ───────────────────────────────────
+
+@router.post("/e2e/snort-golden")
+async def e2e_snort_golden(user=Depends(require_admin)):
+    """
+    Run one golden Suricata-EVE alert through the pipeline.  Honestly
+    halts at the first stage that is not yet executable; never
+    manufactures downstream success.  Provenance-preserving.
+    """
+    return await run_golden_e2e(db)
