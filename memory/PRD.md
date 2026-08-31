@@ -7,6 +7,25 @@
 
 ---
 
+## 🛑 2026-02-32 · READ THIS FIRST — Layer 2 Final Execution Contract
+
+The owner has issued the **final** Layer 2 execution contract.  Read
+it before doing anything else:
+
+**`/app/memory/LAYER2_FINAL_EXECUTION_CONTRACT.md`**
+
+Key rule: **Do not ask** the owner to choose theme, colours, layout,
+columns, chip styles, spacing, buttons, or any other cosmetic/UX
+decision.  Design authority is delegated to the executing agent.
+
+Study → Design → Implement → Verify → Ship.  The deployed UI plus
+6 acceptance screenshots are the completion gate.  `yarn build`
+passing is not acceptance.
+
+
+
+---
+
 ## ⚡ 2026-02-32 · Execution authority granted · next-session directive
 
 Owner has explicitly delegated Layer 2 design authority to the executing agent:
