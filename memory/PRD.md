@@ -3719,3 +3719,51 @@ Delivered three trust-critical page redesigns called out by user:
 6. **P0.3 — Collector Fabric with real state**: turn the 110 collector records into lifecycle-driven runtime
 7. **P0.4 — End-to-end replay acceptance test**
 8. **P0.5 — Platform Health becomes mathematical**
+
+---
+
+## 2026-02-08 (late) · P0.2 · Engine Registry Phase-1 shipped
+
+### What shipped
+- `detection_content/engine_registry.py` — canonical `EngineRole` enum (17 roles) + `EngineState` enum (10-state lifecycle)
+- `detection_content/engine_classifier.py` — source-code-driven classifier that walks `canonical/`, `services/`, `engine/`, `decoders/`, `workspace/` and assigns each module its ACTUAL role (never assumes DETECTION_ENGINE)
+- Populated `xdr_engines` collection with **329 real classifications**
+- API endpoints: `GET /api/admin/content-supply-chain/engines/report` + `/engines/list`
+
+### Real classified inventory (from source, not from acronyms)
+| Role | Count |
+|---|---|
+| VERDICT_ENGINE | 7 |
+| CORRELATION_ENGINE | 3 |
+| GRAPH_ENGINE | 6 (evidence_graph, exec_graph, process_tree) |
+| EVIDENCE_ENGINE | 6 |
+| ANALYZER | 13 (pe, elf, office, shellcode, behavior_extractor, …) |
+| INTELLIGENCE_ENGINE | 25 (lolbas, iocs, attack_chain, attack_story, mitre, kb, …) |
+| PARSER | 10 |
+| DECODER | 62 |
+| INTERPRETER | 2 (cmd, powershell) |
+| NORMALIZER | 2 |
+| ORCHESTRATOR | 2 |
+| PLANNER | 3 |
+| PROTOCOL | 4 |
+| **DETECTION_ENGINE** | **0** — honest state; no module currently exposes a detection-engine capability contract |
+| OTHER | 184 (models, helpers, utilities) |
+
+**All 329 engines currently at `state=DISCOVERED`** — no fake READY/CONNECTED promotions. Every promotion beyond DISCOVERED requires the subsequent slice's real dependency resolution + runtime readiness check.
+
+### The critical honest finding
+The Sigma rule ingested earlier reached `ENGINE_UNBOUND` — that state is correct. NivXRay currently has 0 modules exposing a `DETECTION_ENGINE` capability contract. Binding Sigma content requires either:
+- **Option A**: designate one or more existing ANALYZERs / INTERPRETERs (e.g. `services/behavior_extractor`, `engine/interpreters/powershell_interpreter`, `engine/detectors/*`) as detection-execution capable and wire their capability contract, OR
+- **Option B**: build a new NivXRay Sigma-execution engine that consumes canonical evidence and executes Sigma detection semantics
+
+Neither is silent — both require a real capability contract + execution test harness (P0.2c/P0.2d).
+
+### Explicit remaining P0 blockers
+1. **P0.2b — pySigma parsing** (replace permissive YAML fallback, honor Sigma spec exactly)
+2. **P0.2c — Engine capability contracts** — for each of the 7 VERDICT/3 CORRELATION/13 ANALYZER modules, define input/output contracts machine-readably
+3. **P0.2d — Rule↔engine binding matrix** based on capability compatibility (not "bind everything to everything")
+4. **P0.2e — Execution test harness** using the existing golden_corpus
+5. **P0.2f — Full SigmaHQ ingest** (`git clone https://github.com/SigmaHQ/sigma` → run the full ingester)
+6. **P0.3 — Collector Fabric with real lifecycle** (turn 110 collector records into runtime state)
+7. **P0.4 — End-to-end replay acceptance test**
+8. **P0.5 — Platform Health becomes mathematical**
