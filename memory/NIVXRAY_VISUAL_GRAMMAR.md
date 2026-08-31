@@ -405,3 +405,213 @@ behave the same on both.  Divergence between screens is a bug.
 
 **Acceptance test (§14 + R1..R11) must pass before the screen
 moves on to the next in the sequenced plan.**
+
+---
+
+## 16 · Phase A.2 · Visual Maturity Layer (composition · gravity · materiality)
+
+The grammar (§§1-14) and refinement layer (§15) are load-bearing
+but insufficient.  Screens that pass §14 + §15 can still read as
+"drawn on a page" rather than "built as an application".  §16
+locks the composition system that turns grammar-compliant pages
+into a mature enterprise SOC/XDR product with its own visual
+identity.
+
+**One sentence** — the missing ingredient is not colour or grammar,
+it is **surface materiality + hierarchy + interaction**.  Every
+screen must express its analyst workflow through composition, not
+through more cards.
+
+### 16.1 · The visual stack (10 layers, ordered)
+
+01 · **Shell** — deep midnight command/navigation environment
+    (`--nx-app` / `--nx-app-alt`).  Not black — deep navy with a
+    subtle purple undertone.  Contains topbar + sidebar only.
+02 · **Canvas** — subtle warm neutral application background
+    (`--nx-workspace`).  Never pure white.  Never a card.  Is
+    what content *sits on*, not another surface.
+03 · **Surfaces** — four surface roles: primary · raised · inset
+    · selected.  Each is a *tonal* layer, differentiated by 2-4%
+    lightness and a single `shadow-1`.  Never gradients.
+04 · **Hierarchy** — every page reads title → attention → primary
+    data → context → metadata (§2 + §15 R10).
+05 · **Semantic colour** — three intensities per meaning: strong
+    (filled solid), soft (tinted surface), quiet (dashed / mono
+    metadata).  A screen mixes intensities intentionally.
+06 · **Interaction** — every load-bearing element carries the
+    eleven states (§10) + interaction residue (§15 R5 · row `→`
+    anchor, hover reveal of secondary actions, focus ring on
+    everything reachable by keyboard).
+07 · **Typography** — two voices, not one.  *Human voice* for UI
+    (sans, proportional) — labels, titles, descriptions.
+    *Technical voice* (mono) — hashes, IPs, host/user ids,
+    process names, command lines, timestamps, IOC values,
+    provenance paths, evidence ids.  Never mix them within a
+    single value.
+08 · **Density** — Comfort · Compact only (§12).  Density adjusts
+    row height, cell padding, and body size — never surface,
+    hierarchy, or colour.
+09 · **Motion** — three motions only (§15 R9): skeleton shimmer,
+    running pulse, 120-160 ms colour/shadow transitions.  Every
+    other motion is a bug.
+10 · **Composition** — visual gravity + rhythm + focal point.  See
+    §16.2.
+
+### 16.2 · Visual gravity (the missing concept)
+
+Every screen has an intentional **visual gravity hierarchy**.  The
+eye lands on the strongest weight, then travels down.
+
+```
+        VISUAL GRAVITY
+
+              ACTION              — outer purple CTA / respond button
+                ▲
+                │
+             ATTENTION            — Priority · SLA-risk · Unassigned
+                │
+           INVESTIGATION          — Verdict · Confidence · Running
+                │
+             EVIDENCE             — artifacts · techniques · entities
+                │
+              CONTEXT             — customer · owner · detection
+                │
+             METADATA             — provenance · timestamps · ids
+```
+
+Visual treatment weakens progressively:
+
+| Level | Weight | Colour intensity | Type |
+| --- | --- | --- | --- |
+| Action | strong purple / solid fill | strong | h2 / body 600 |
+| Attention | filled semantic chip · large numeric | strong | kpi + eyebrow |
+| Investigation | filled semantic chip · verdict pill | strong | body 600 |
+| Evidence | tinted chip · numeric | soft | body |
+| Context | proportional body sans | soft / neutral | body |
+| Metadata | mono faint · dashed chip when honest | quiet | meta |
+
+**Rule** — one focal point per screen.  Two focal points means
+the analyst's eye doesn't know where to start.  The Queue's focal
+point is the incident table.  The Record's focal point is the
+identity band.  The Dashboard's focal point is the Attention
+strip.  Never let a KPI strip compete with a table.
+
+### 16.3 · Surface materiality (the "not drawn on a page" rule)
+
+Depth comes from four tonal surfaces plus one shadow, not from
+borders and gradients.
+
+| Surface | Colour | Border | Shadow | Role |
+| --- | --- | --- | --- | --- |
+| Canvas | `--nx-workspace` `#FAFAF9` | none | none | The page background — content sits *on* it. |
+| Primary | `--nx-elevated` `#FFFFFF` | 1 px `--nx-divider` | `shadow-1` | Cards that earn a container (a table, a KPI strip, a drawer body). |
+| Raised | `#FFFFFF` | 1 px `--nx-divider-strong` | `shadow-2` | Popovers, menus, active drag. |
+| Inset | `--nx-inset` `#F7F7F6` | none | none | Sub-sections inside a Primary surface (e.g. `Key Facts` inside the drawer).  Never a nested white-on-white card. |
+| Selected | `--nx-purple-dim` `#EDE7FF` | 3 px purple left rail | none | Rows / nav items in the selected state. |
+
+**Rule** — no white-inside-white nesting.  When a section lives
+inside a Primary surface, it must be an Inset, not another Primary.
+
+### 16.4 · Two typographic voices (kill the "developer console" feel)
+
+- **Human voice** — sans, proportional.  All UI: titles, labels,
+  descriptions, button copy, section headers.  Analyst-facing.
+- **Technical voice** — monospace.  Reserved for values that carry
+  technical identity: hashes, IPs, hostnames, usernames, process
+  names, command lines, timestamps, IOC values, provenance paths,
+  evidence ids, incident numbers, engine ids.
+
+**Rule** — a single visible value uses one voice.  A section
+mixes both to distinguish name from identity:
+
+```
+Rule Studio                                   ← human
+Detection engineering control plane           ← human
+93 rules · 48 validated · 5 active            ← human · numeric
+── inside a row:
+APT29 WellMess Backdoor                       ← human
+content · TESTING · 6/11 · RESTRICTED         ← mixed (mono metadata)
+```
+
+Everything monospace means "developer tool".  Everything
+proportional means "marketing site".  Both together, used with
+discipline, means "enterprise analyst instrument".
+
+### 16.5 · Hero information (first 5 seconds)
+
+Every screen must answer three questions in the first read:
+
+1. **What am I looking at?**
+2. **What is important right now?**
+3. **What can I do?**
+
+Concretely, each page's top band renders:
+
+```
+<PAGE NAME>                              [ contextual action ]
+<one-line description that survives quickly>
+<3-6 attention numbers · click to drill>
+```
+
+If a screen fails any of those three questions, it is
+under-composed.
+
+### 16.6 · Interaction residue
+
+The application must **look responsive even when idle**.  Rules:
+
+- Hover on a row surfaces a `→` anchor glyph in the last cell
+  (§15 R5).  Not a hover shadow.
+- Hover on a chip shows the semantic tooltip within 200 ms
+  (contributing factors for a verdict, evidence path for a
+  provenance chip).
+- Focus rings are on every keyboard-reachable element
+  (§10 · §15 R6).
+- Selected state on a nav item lifts a 3-px purple rail and
+  brightens the icon.  Not just a background wash.
+- Running state pulses the dot inside a filled chip (§8).
+- Empty state is a dashed chip or an `NxEmpty` — never a blank
+  cell.
+
+### 16.7 · NivXRay personality (identity, not colour scheme)
+
+The product's identity in one line:
+
+> **Evidence-grade precision.**
+
+Locked visual expressions of that identity:
+
+- Deep-midnight command shell.
+- Warm neutral investigation canvas.
+- Crisp elevated surfaces at `shadow-1`.
+- Restrained violet as NivXRay brand (interaction intelligence).
+- Cyan for evidence / intelligence.
+- Green for verified / healthy.
+- Amber for attention.
+- Red **only** for genuine danger.
+- Two typographic voices (human + technical).
+- Subtle 1-2 px tonal depth — never gradients.
+- Very restrained motion — three approved animations only.
+- Dense but breathable analyst layouts.
+
+**Never** decorative gradients, oversized shadows, saturated
+purple everywhere, glassmorphism, or animated hero banners.
+
+### 16.8 · Materiality acceptance test (§16.1-16.7)
+
+A screen passes maturity review only when:
+
+1. Canvas, Primary, Inset, and Selected surfaces are all visible
+   in a single screenshot.
+2. The visual gravity hierarchy is legible — a stranger can point
+   at the focal point without prompting.
+3. Human and technical voices are both used, and neither
+   dominates.
+4. Every row / chip / tile answers *"is this interactive?"* at a
+   glance.
+5. No white-inside-white nesting anywhere.
+6. No card exists purely to hold metadata (§15 R10, A5).
+7. First 5 seconds answer the three hero questions (§16.5).
+8. Nothing on the screen moves except the three approved motions.
+
+**§14 + §15 + §16 acceptance is required** before a screen ships.

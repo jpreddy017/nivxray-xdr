@@ -7,6 +7,64 @@
 
 ---
 
+## 🟠 2026-02-34 · Visual Maturity Layer · design lock (feature freeze)
+
+Owner reviewed the shipped Queue/Rule-Studio screenshots and
+called out the correct diagnosis: NivXRay is grammar-compliant
+but *composition-poor*.  The product currently reads as *drawn
+on a page* rather than *built as an application*.
+
+**The missing ingredient is not colour or grammar — it is
+surface materiality + hierarchy + interaction.**
+
+**Feature work is frozen.**  Next milestone is a dedicated
+"Visual Maturity / Surface Composition" pass across
+Queue → Incident Record → MSS Dashboard → Rule Studio → KB →
+Response.  Phase 3 (Lifecycle/SLA) and Phase 4 (Auto-
+Investigation provenance) remain paused.
+
+**Deliverable produced this checkpoint (no code)**
+- `/app/memory/NIVXRAY_VISUAL_GRAMMAR.md` §16 · Phase A.2
+  Visual Maturity Layer.  Locks:
+  - 16.1 · The 10-layer visual stack (Shell · Canvas ·
+    Surfaces · Hierarchy · Semantic colour · Interaction ·
+    Typography · Density · Motion · Composition).
+  - 16.2 · **Visual gravity** hierarchy (Action → Attention →
+    Investigation → Evidence → Context → Metadata) as the
+    missing composition concept.
+  - 16.3 · Surface materiality — 5 surfaces (Canvas · Primary ·
+    Raised · Inset · Selected) with locked tonal depths, no
+    white-inside-white nesting.
+  - 16.4 · Two typographic voices (human + technical) instead
+    of one monospace "developer console" voice.
+  - 16.5 · Hero information rule — every page answers *what am
+    I looking at · what is important · what can I do* in the
+    first 5 seconds.
+  - 16.6 · Interaction residue — the app looks responsive even
+    when idle.
+  - 16.7 · NivXRay personality locked as *evidence-grade
+    precision*, expressed through 11 visual rules.
+  - 16.8 · Materiality acceptance test — every screen must pass
+    §14 + §15 + §16 before it ships.
+
+**Implementation plan (next turn, single dedicated pass)**
+1. Extend `nx-tokens.css` with the 5-surface materiality
+   tokens (Canvas · Primary · Raised · Inset · Selected).
+2. Introduce a Hero Header primitive rendering the first-5-
+   seconds strip (title · one-line description · attention
+   numbers).
+3. Enforce two typographic voices in the queue: human sans for
+   titles, mono for identity/IOC/timestamp values only.
+4. Apply visual gravity per-screen: identify the focal point,
+   raise the surrounding surfaces to Primary, drop supporting
+   sections to Inset, dim metadata to `--nx-faint` mono.
+5. Ship interaction residue: row-hover `→` glyph, chip hover
+   tooltips, richer selected-nav-item, focus rings audit.
+6. Cross-screen materiality pass on Queue → Record → MSS →
+   Rule Studio → Threat Intel to verify §16.8 acceptance.
+
+---
+
 ## ✅ 2026-02-34 · Phase B.1 · Queue acceptance · SHIPPED
 
 Grammar §15 (Enterprise Refinement Layer, rules R1-R11) is now
