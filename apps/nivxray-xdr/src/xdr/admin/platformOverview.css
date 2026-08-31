@@ -150,6 +150,8 @@
   box-shadow: var(--nx-shadow-1);
   display: flex; flex-direction: column;
   min-height: 260px;
+  min-width: 0;               /* allow grid items to shrink properly */
+  overflow: hidden;           /* nothing bleeds past the rounded edge */
 }
 .platform-overview .po-card-head { margin-bottom: 12px; }
 .platform-overview .po-card-title {
@@ -302,6 +304,12 @@
 
 /* ── Tables (Data Sources / Detection) ─────────────────────────── */
 
+/* Wrapper allows the table to scroll horizontally if a card ends
+   up too narrow for the row content — nothing gets clipped without
+   an explicit affordance for the analyst. */
+.platform-overview .po-card-body {
+  overflow-x: auto;
+}
 .platform-overview .po-table {
   width: 100%;
   border-collapse: collapse;
@@ -327,22 +335,28 @@
   border-bottom: 1px solid var(--nx-bd-quiet);
   color: var(--nx-text);
   vertical-align: middle;
-  white-space: nowrap;
 }
 .platform-overview .po-table tr:last-child td { border-bottom: none; }
 .platform-overview .po-table td.num {
   font-family: var(--mono);
   font-weight: 700;
   text-align: right;
+  white-space: nowrap;
 }
 .platform-overview .po-table td.mono {
   font-family: var(--mono);
   color: var(--nx-text-dim);
   font-size: 11.5px;
+  white-space: nowrap;
 }
+/* First (label) column may wrap onto two lines */
 .platform-overview .po-table td:first-child {
   white-space: normal;
   min-width: 0;
+}
+/* Pill cells must stay on one line */
+.platform-overview .po-table td .po-pill {
+  white-space: nowrap;
 }
 
 /* Inline distribution bars inside the detection table */
