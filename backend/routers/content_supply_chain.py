@@ -24,6 +24,8 @@ from detection_content.capability_contract import (
 from detection_content.contract_registry import (
     declare_all_contracts, contract_report,
 )
+from detection_content.sigma_strict import strict_parse, StrictParseStatus
+from detection_content.rule_binding import match_rule_to_contracts
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -219,3 +221,76 @@ async def contract_one(engine_id: str, user=Depends(require_admin)):
         return {"engine_id": engine_id, "found": False,
                     "note": "No contract declared for this engine yet."}
     return {"engine_id": engine_id, "found": True, "contract": doc}
+
+
+# ── P0.2d · Rule ↔ Capability Matching ──────────────────────────
+
+from fastapi import Body
+
+
+@router.post("/binding/match")
+async def binding_match(rule_body: str = Body(..., media_type="text/plain"),
+                                 user=Depends(require_admin)):
+    """
+    Strict-parse a Sigma rule from the request body and return the
+    deterministic rule ↔ contract match report.  This endpoint is
+    read-only — it does not persist the rule or any binding state.
+    """
+    parsed = strict_parse(rule_body)
+    if parsed.status != StrictParseStatus.PARSED:
+        return {
+            "status":   "PARSE_FAILED",
+            "parse":    parsed.to_dict(),
+            "note":     "Strict pySigma parse failed. Fix the rule before running the matcher.",
+        }
+    contracts: list[dict] = []
+    async for c in db[CONTRACTS_COLLECTION].find(
+        {}, {"_id": 0, "status_history": 0}):
+        contracts.append(c)
+    report = match_rule_to_contracts(parsed.rule, contracts)
+    return {"status": "OK", "parse": parsed.to_dict(), "match": report}
+
+
+@router.get("/binding/report")
+async def binding_report(user=Depends(require_admin)):
+    """
+    Roll up the current contract registry into a binding-readiness
+    view: how many engines COULD potentially execute detection
+    (candidates) and how many actually can today (detection_capable).
+    """
+    coll = db[CONTRACTS_COLLECTION]
+    total = await coll.count_documents({})
+    if total == 0:
+        return {
+            "total_contracts":            0,
+            "detection_capable":          0,
+            "candidate_detection":        0,
+            "note": "No contracts declared. Run POST /contracts/declare first.",
+        }
+
+    detection_capable = 0
+    candidate = 0
+    async for c in coll.find(
+        {}, {"execution": 1, "consumes": 1}):
+        ex = c.get("execution") or {}
+        if ex.get("detection"):
+            detection_capable += 1
+        else:
+            # A contract that consumes canonical.evidence is a
+            # candidate for detection promotion (P0.2e).
+            if any(ev.startswith("canonical.evidence")
+                       for ev in (c.get("consumes") or [])):
+                candidate += 1
+
+    return {
+        "total_contracts":     total,
+        "detection_capable":   detection_capable,
+        "candidate_detection": candidate,
+        "note": (
+            "detection_capable is the authoritative count of engines "
+            "that CAN execute a Sigma rule today (execution.detection=True). "
+            "candidate_detection is the count of engines whose inputs "
+            "match canonical evidence but which have NOT been promoted "
+            "through the P0.2e execution harness."
+        ),
+    }
