@@ -172,7 +172,8 @@ class AttackGraphService:
                 "label":  f"canonical:{canonical.get('event_id') or '—'}",
                 "state":  "OBSERVED",
                 "attrs":  {"timestamp": canonical_ts,
-                             "provider": (canonical.get("dsm") or {}).get("id")},
+                             "provider": (canonical.get("dsm") or {}).get("id"),
+                             "event_id": canonical.get("event_id")},
             })
             _add_edge(incident_nid, "DETECTED_BY", canonical_evt_nid,
                           state="OBSERVED",
@@ -484,11 +485,13 @@ class AttackGraphService:
                 "label":  f.get("summary") or f["finding_id"],
                 "state":  graph_state,
                 "attrs":  {
+                    "finding_id":       f["finding_id"],
                     "capability":       f.get("capability"),
                     "confidence":       f.get("confidence"),
                     "kind":             f.get("kind"),
                     "subject":          f"{f.get('subject_kind')}:{f.get('subject_value')}",
                     "finding_state":    f.get("state"),
+                    "summary":          f.get("summary"),
                 },
             })
             # Anchor findings to their subject / anchor node.

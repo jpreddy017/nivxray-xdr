@@ -13,10 +13,44 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, ZoomIn, ZoomOut, Maximize2, RotateCcw,
-           Play, Pause, SkipBack, SkipForward, Maximize, X, HelpCircle } from "lucide-react";
+          Play, Pause, SkipBack, SkipForward, Maximize, X, HelpCircle,
+          AlertTriangle } from "lucide-react";
 
 import api from "@/lib/api";
 import { ProcessTreeView }  from "./attack_graph/ProcessTreeView";
+import EvidenceInspector    from "@/xdr/components/EvidenceInspector";
+
+
+// Map an Attack-Graph node (or process-tree node) to canonical
+// {kind, refId} arguments for the shared EvidenceInspector.  Every
+// graph tab MUST route through this so we never ship display-only
+// data to the inspector (owner rule §11 + Round 38.3).
+function nodeToInspectorArgs(node) {
+  if (!node) return { kind: null, refId: null };
+  const a = node.attrs || {};
+  switch (node.kind) {
+    case "technique":
+      return { kind: "technique", refId: a.tid || node.label };
+    case "process":
+      return { kind: "process", refId: node.label };
+    case "event":
+      return { kind: "event", refId: a.event_id
+                       || (node.label || "").replace(/^canonical:/, "") };
+    case "commandline":
+      return { kind: "commandline", refId: node.id };
+    case "finding":
+      return { kind: "finding", refId: a.finding_id || node.id };
+    case "incident":
+      return { kind: "incident", refId: node.label };
+    case "host":     return { kind: "host",     refId: node.label };
+    case "user":     return { kind: "user",     refId: node.label };
+    case "ip":       return { kind: "ip",       refId: node.label };
+    case "hash":     return { kind: "hash",     refId: node.label };
+    case "signature":return { kind: "signature",refId: node.label };
+    default:
+      return { kind: node.kind, refId: node.label || node.id };
+  }
+}
 
 
 const STATE_TONE = {
@@ -520,6 +554,8 @@ export default function AttackGraphTab({ incident }) {
               const isSel = selId === n.id && selKind === "node";
               const isPrim = primaryPath.has(n.id);
               const stroke = isSel ? "#fbbf24" : isPrim ? "#fbbf24" : nodeStroke;
+              const findingAnnotations = (n.annotations?.findings) || [];
+              const findingCount = findingAnnotations.length;
               return (
                 <g key={n.id}
                     onClick={(ev) => { ev.stopPropagation();
@@ -548,6 +584,24 @@ export default function AttackGraphTab({ incident }) {
                          fill="#f8fafc" style={{ fontWeight: 500 }}>
                     {nodeLabel(n)}
                   </text>
+                  {findingCount > 0 && (
+                    <g data-testid={`xdr-ag-node-annot-${n.id}`}>
+                      <title>
+                        {findingCount} finding(s) anchored on this entity:
+                        {findingAnnotations.slice(0, 5)
+                                              .map(f => `\n• [${f.state}] ${f.capability || ""} · ${f.summary || f.finding_id || ""}`)
+                                              .join("")}
+                      </title>
+                      <circle cx={p.x + NODE_W - 8} cy={p.y + 6} r={6}
+                                fill="#fbbf24" stroke="#78350f" strokeWidth={0.8} />
+                      <text x={p.x + NODE_W - 8} y={p.y + 9}
+                              fontSize={8} fontFamily="ui-monospace, monospace"
+                              fill="#78350f" textAnchor="middle"
+                              style={{ fontWeight: 700 }}>
+                        {findingCount > 9 ? "9+" : findingCount}
+                      </text>
+                    </g>
+                  )}
                 </g>
               );
             })}
@@ -566,69 +620,20 @@ export default function AttackGraphTab({ incident }) {
         </div>
         </div>)}
       </div>
-      {/* Evidence Inspector */}
-      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0",
-                       borderRadius: 6, padding: 12, fontSize: 12,
+      {/* Evidence Inspector · Round 38.3 shared component (owner rule §11) */}
+      <div style={{ background: "#0b1220", border: "1px solid #1e293b",
+                       borderRadius: 6, fontSize: 12,
                        maxHeight: 820, overflow: "auto" }}
             data-testid="xdr-ag-inspector">
-        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>
-          Evidence Inspector
-        </div>
-        {!selected && (
-          <div style={{ opacity: 0.55 }}>
-            Click any node or edge to inspect its governed evidence,
-            techniques, findings, and provenance.
-          </div>
-        )}
-        {selected && selKind === "node" && (
-          <div>
-            <div className="mono" style={{ fontSize: 10, opacity: 0.55 }}>{selected.id}</div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{selected.label}</div>
-            <div style={{ marginTop: 4 }}>
-              <span className="mono" style={{ fontSize: 11 }}>{selected.kind}</span>{" · "}
-              <span style={{ color: STATE_TONE[selected.state]?.stroke }}>
-                {STATE_TONE[selected.state]?.label} {selected.state}
-              </span>
-            </div>
-            {selected.attrs && Object.keys(selected.attrs).length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Attributes</div>
-                <table style={{ fontSize: 11, width: "100%" }}>
-                  <tbody>
-                    {Object.entries(selected.attrs).map(([k, v]) => (
-                      <tr key={k}>
-                        <td style={{ opacity: 0.6, verticalAlign: "top",
-                                          paddingRight: 8, width: 90 }}>{k}</td>
-                        <td className="mono" style={{ wordBreak: "break-all" }}>
-                          {typeof v === "object" ? JSON.stringify(v) : String(v)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Connections</div>
-              {graph.edges.filter(e => e.src === selected.id || e.dst === selected.id)
-                            .slice(0, 15).map(e => (
-                <div key={e.id} style={{ padding: "4px 0",
-                                                borderBottom: "1px dashed #e2e8f0" }}>
-                  <span className="mono" style={{ fontSize: 10, opacity: 0.6 }}>
-                    {e.src === selected.id ? "→" : "←"}</span>{" "}
-                  <b>{e.rel}</b>{" "}
-                  <span className="mono" style={{ fontSize: 10 }}>
-                    {(nodeMap.get(e.src === selected.id ? e.dst : e.src)?.label
-                        || "").slice(0, 32)}
-                  </span>
-                  <div style={{ opacity: 0.55, fontSize: 10 }}>{e.reason}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {(!selected || selKind === "node") && (
+          <EvidenceInspector incidentId={incident?.id}
+                                       embedded
+                                       {...(selected && selKind === "node"
+                                             ? nodeToInspectorArgs(selected)
+                                             : { kind: null, refId: null })} />
         )}
         {selected && selKind === "edge" && (
-          <div>
+          <div style={{ padding: 12, color: "#e2e8f0" }}>
             <div className="mono" style={{ fontSize: 10, opacity: 0.55 }}>{selected.id}</div>
             <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{selected.rel}</div>
             <div style={{ marginTop: 6, fontSize: 11 }}>
@@ -655,7 +660,7 @@ export default function AttackGraphTab({ incident }) {
                 </ul>
               </div>
             )}
-            <div style={{ marginTop: 10, borderTop: "1px solid #e2e8f0",
+            <div style={{ marginTop: 10, borderTop: "1px solid #1e293b",
                              paddingTop: 8, fontSize: 11 }}>
               <div><b>Endpoints</b></div>
               <div>src: {nodeMap.get(selected.src)?.label}</div>

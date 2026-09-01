@@ -2,6 +2,44 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 39 — SHIPPED · Step 4 · Attack Graph Cleanup
+
+Owner-locked Step 4 of the investigation chain shipped.  The shared
+Evidence Inspector is now the ONLY inspector consumed by the Attack
+Graph tab; findings live as ⚠ annotations on their parent entity
+nodes; capability nodes never render on the canvas.
+
+### Shipped
+- Activity Graph projection enriched with `annotations.findings[]`
+  per kept node (assembled from `SUPPORTED_BY` edges).
+- `event` nodes now expose `attrs.event_id`; `finding` nodes now
+  expose `attrs.finding_id` + `attrs.summary` so the frontend
+  resolves the shared inspector without display-only payloads.
+- Evidence Inspector service extended with governed resolvers for
+  `host` / `user` / `ip` — never fabricates when the entity is not
+  present in canonical evidence.
+- `AttackGraphTab.jsx` inline node inspector replaced by
+  `<EvidenceInspector>` (Round 38.3 shared component); edge inspector
+  kept inline (edges are transitions, not governed entities).
+- Finding annotations rendered as amber ⚠ badges on Activity Graph
+  entity nodes.  Hover tooltip shows the first five findings.
+
+### Verified
+- 13 new R39-Step4 regression tests · full R21-R39 chain **75/75** green.
+- End-to-end verified on the R35 EDR incident: 12 nodes rendered, 6
+  finding annotations on parent entities, shared `xdr-insp` component
+  populated after node selection.
+
+### Chain progress
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment        ✅
+    Step 3  · Shared Evidence Inspector           ✅
+    Step 4  · Attack Graph cleanup                ✅
+    Step 5  · Report PDF export                   🔵 NEXT
+
+---
+
+
 ## ✅ 2026-09-01 · Round 37.0 — SHIPPED · Investigation Report Contract
 
 Four-section structured report with strict ownership rules — same

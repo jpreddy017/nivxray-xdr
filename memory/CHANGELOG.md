@@ -2,6 +2,80 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 39 — Step 4 · Attack Graph Cleanup — SHIPPED
+
+Owner-locked Step 4 of the SSOT chain: **the shared Evidence Inspector
+is wired into the Attack Graph tab; findings live as annotations on
+their parent entity nodes; capability nodes never render on the
+canvas.**
+
+**Backend**
+- `services/attack_graph/projections.py::project_activity_graph()`
+  now attaches an `annotations.findings[]` list to every kept node
+  (assembled from `SUPPORTED_BY` edges terminating on `finding`
+  nodes).  Deterministic ordering; every annotation carries
+  `finding_id`, `state`, `capability`, `summary`, `evidence_refs`.
+- Activity Graph totals extended with `annotated_nodes` and
+  `finding_annotations` counts.
+- `services/attack_graph/service.py` — `event` nodes now expose
+  `attrs.event_id`; `finding` nodes now expose `attrs.finding_id`
+  and `attrs.summary` so the frontend can resolve the shared
+  inspector without display-only payloads.
+- `services/evidence_inspector/service.py` — added first-class
+  resolvers for `host`, `user`, `ip` kinds so Activity Graph
+  clicks route through governed canonical evidence (never
+  fabricated).  MISSING state returned when the referenced entity
+  is not present in canonical evidence.
+
+**Frontend — `AttackGraphTab.jsx`**
+- Inline node inspector replaced by `<EvidenceInspector>` (Round
+  38.3 shared component).  `nodeToInspectorArgs(node)` translates
+  every graph node kind into canonical `(kind, refId)` pairs.
+- Activity Graph SVG renders finding annotations as ⚠ amber badges
+  in the top-right of parent entity nodes with a hover tooltip
+  listing up to 5 findings (state · capability · summary).
+  **Findings never appear as distinct canvas boxes.**
+- Edge inspector remains inline (edges are transitions, not
+  governed entities).
+- Process Tree sub-tab preserved; its selections now open the
+  shared inspector for the process entity.
+- No changes to the split between MITRE / Attack Story / Attack
+  Graph — three views over one SSOT.
+
+**Tests — `tests/test_xdr_round39_step4_attack_graph_cleanup.py`** (13 tests)
+- Activity Graph excludes `capability` + `finding` node kinds.
+- Every kept node carries an `annotations.findings` list.
+- At least one entity node carries a finding annotation on the
+  Step 4 fixture; totals aggregate correctly.
+- Annotations expose required fields (`finding_id`, `state`,
+  `summary`).
+- `event` node exposes `attrs.event_id`; `finding` node exposes
+  `attrs.finding_id`.
+- Process Tree remains inside Attack Graph output.
+- Projections deterministic after annotation enrichment.
+- Shared inspector resolves `host`, `user`, `ip` from canonical
+  evidence; returns MISSING for unknown entities (non-fabrication).
+
+**End-to-end verified on the R35 EDR incident in preview:**
+- 12 Activity Graph nodes rendered — zero capability/finding nodes.
+- 6 finding annotations rendered on parent entities (INCIDENT · IP ·
+  EVENT · PROCESS · USER · HASH).
+- Shared `xdr-insp` component present in the right column; clicking
+  a node populates identity + context + provenance + INVESTIGATE
+  actions.
+
+**Regression: 75/75 across R21 / R35 / R36 / R37 / R38 / R38.1 /
+R38.2 / R38.3 / R39.Step4 green.**
+
+Chain progress:
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment        ✅
+    Step 3  · Shared Evidence Inspector           ✅
+    Step 4  · Attack Graph cleanup                ✅
+    Step 5  · Report PDF export                   🔵 NEXT
+
+
+
 ## 2026-09-01 · Round 38.3 — Shared Evidence Inspector (Step 3/5) — SHIPPED
 
 One resolver, one component.  Every governed object in NivXRay —

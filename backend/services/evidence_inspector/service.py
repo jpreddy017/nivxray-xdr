@@ -274,6 +274,89 @@ async def resolve(db, incident_id: str, kind: str, ref_id: str
                                 "evidence_id": f"incident:{incident_id}",
                                 "note": (inc.get("verdict_card") or {}).get("engine")})
 
+    # ── HOST ─────────────────────────────────────────────────────
+    elif kind == "host":
+        host_name = ((canonical or {}).get("host") or {}).get("name")
+        if not host_name or host_name != ref_id:
+            return {"state": "MISSING", "kind": kind, "ref_id": ref_id,
+                        "reason": "host not present in canonical evidence"}
+        identity = {
+            "label":    host_name, "subtitle": "HOST",
+            "badges":   [{"label": "OBSERVED", "tone": "state"}],
+        }
+        rows = []
+        h = canonical.get("host") or {}
+        for k in ("hostname", "os", "ip", "domain"):
+            if h.get(k):
+                rows.append({"label": k.upper(), "value": str(h[k])})
+        u = ((canonical or {}).get("user") or {}).get("name")
+        if u: rows.append({"label": "OBSERVED USER", "value": u})
+        context = {"relationships": rows}
+        if canonical_id:
+            evidence.append({"id": f"canonical:{canonical_id}",
+                                  "kind": "event", "label": canonical_id,
+                                  "source_ref": canonical_id})
+        provenance.append({"source": "canonical_evidence",
+                                "evidence_id": f"canonical:{canonical_id}",
+                                "note": "Host observed on canonical event."})
+
+    # ── USER ─────────────────────────────────────────────────────
+    elif kind == "user":
+        user_name = ((canonical or {}).get("user") or {}).get("name")
+        if not user_name or user_name != ref_id:
+            return {"state": "MISSING", "kind": kind, "ref_id": ref_id,
+                        "reason": "user not present in canonical evidence"}
+        identity = {
+            "label":    user_name, "subtitle": "USER",
+            "badges":   [{"label": "OBSERVED", "tone": "state"}],
+        }
+        rows = []
+        u = canonical.get("user") or {}
+        for k in ("domain", "id", "email"):
+            if u.get(k):
+                rows.append({"label": k.upper(), "value": str(u[k])})
+        h = ((canonical or {}).get("host") or {}).get("name")
+        if h: rows.append({"label": "OBSERVED HOST", "value": h})
+        context = {"relationships": rows}
+        if canonical_id:
+            evidence.append({"id": f"canonical:{canonical_id}",
+                                  "kind": "event", "label": canonical_id,
+                                  "source_ref": canonical_id})
+        provenance.append({"source": "canonical_evidence",
+                                "evidence_id": f"canonical:{canonical_id}",
+                                "note": "User identity observed on canonical event."})
+
+    # ── IP ───────────────────────────────────────────────────────
+    elif kind == "ip":
+        net = (canonical or {}).get("network") or {}
+        src_ip = (net.get("src") or {}).get("ip")
+        dst_ip = (net.get("dst") or {}).get("ip")
+        role = None
+        if ref_id == src_ip:
+            role = "source"
+        elif ref_id == dst_ip:
+            role = "destination"
+        else:
+            return {"state": "MISSING", "kind": kind, "ref_id": ref_id,
+                        "reason": "ip not present in canonical evidence"}
+        identity = {
+            "label":    ref_id,
+            "subtitle": f"IP · {role.upper()}",
+            "badges":   [{"label": "OBSERVED", "tone": "state"}],
+        }
+        context = {"relationships": [
+            {"label": "ROLE", "value": role},
+            {"label": "SRC IP", "value": src_ip},
+            {"label": "DST IP", "value": dst_ip},
+        ]}
+        if canonical_id:
+            evidence.append({"id": f"canonical:{canonical_id}",
+                                  "kind": "event", "label": canonical_id,
+                                  "source_ref": canonical_id})
+        provenance.append({"source": "canonical_evidence",
+                                "evidence_id": f"canonical:{canonical_id}",
+                                "note": f"IP observed as {role} on canonical event."})
+
     else:
         # Generic fallback: derive identity but do not fabricate.
         identity = {"label": ref_id, "subtitle": kind.upper(), "badges": []}

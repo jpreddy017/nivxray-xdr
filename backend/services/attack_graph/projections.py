@@ -280,10 +280,54 @@ def project_activity_graph(nodes: List[Dict[str, Any]],
     techniques, detections, matches and gaps intentionally *excluded*.
     This is the view for "what interacted with what?" — MITRE mapping
     stays in the MITRE Chain view where it belongs.
+
+    Round 39 · Step 4 · Findings are surfaced as *annotations* on
+    their anchor entity node (owner rule: findings are derived
+    conclusions, not first-class canvas boxes).  Every kept node
+    carries an ``annotations.findings[]`` list assembled from the
+    ``SUPPORTED_BY`` edges that terminate on a finding.
     """
+    nodes_by_id = {n["id"]: n for n in nodes}
     kept_ids = {n["id"] for n in nodes
                     if n["kind"] in _ACTIVITY_ALLOWED_KINDS}
-    kept_nodes = [n for n in nodes if n["id"] in kept_ids]
+
+    # Assemble finding annotations grouped by anchor node id.
+    annotations_by_anchor: Dict[str, List[Dict[str, Any]]] = {}
+    for e in edges:
+        if e.get("rel") != "SUPPORTED_BY" or e.get("state") == "NOT_OBSERVED":
+            continue
+        anchor_id = e["src"]
+        finding_node = nodes_by_id.get(e["dst"])
+        if not finding_node or finding_node.get("kind") != "finding":
+            continue
+        if anchor_id not in kept_ids:
+            continue
+        attrs = finding_node.get("attrs") or {}
+        annotations_by_anchor.setdefault(anchor_id, []).append({
+            "finding_id":     attrs.get("finding_id"),
+            "state":          finding_node.get("state"),
+            "finding_state":  attrs.get("finding_state"),
+            "capability":     attrs.get("capability"),
+            "kind":           attrs.get("kind"),
+            "summary":        attrs.get("summary") or finding_node.get("label"),
+            "confidence":     attrs.get("confidence"),
+            "evidence_refs":  sorted(set(e.get("evidence_refs") or [])),
+        })
+    # Deterministic ordering within each anchor.
+    for lst in annotations_by_anchor.values():
+        lst.sort(key=lambda a: (str(a.get("state") or ""),
+                                          str(a.get("capability") or ""),
+                                          str(a.get("finding_id") or "")))
+
+    kept_nodes: List[Dict[str, Any]] = []
+    for n in nodes:
+        if n["id"] not in kept_ids:
+            continue
+        enriched = dict(n)
+        annots = annotations_by_anchor.get(n["id"], [])
+        enriched["annotations"] = {"findings": annots}
+        kept_nodes.append(enriched)
+
     kept_edges = [e for e in edges
                     if e["src"] in kept_ids and e["dst"] in kept_ids
                        and e["state"] != "NOT_OBSERVED"]
@@ -293,5 +337,9 @@ def project_activity_graph(nodes: List[Dict[str, Any]],
         "totals": {
             "nodes": len(kept_nodes),
             "edges": len(kept_edges),
+            "annotated_nodes": sum(1 for n in kept_nodes
+                                             if n["annotations"]["findings"]),
+            "finding_annotations": sum(len(n["annotations"]["findings"])
+                                                 for n in kept_nodes),
         },
     }
