@@ -59,6 +59,49 @@ never defaulted.
 
 ---
 
+## ✅ 2026-09-01 · Round 34 — SHIPPED · Threat Model Engine + Executive UI
+
+**The Executive tab now leads with a live deterministic Threat
+Assessment.** Backend `ThreatModelService` produces 5 sub-dimensions
+plus an independent Impact axis; the new `ThreatAssessmentCard`
+component renders the intelligence produced by Rounds 30-33 into
+an analyst-facing surface with a clickable 14-stage Attack Path.
+
+### Shipped
+- `services/threat_model/service.py` — deterministic composer
+  (5 dimensions · impact · blast radius · why-it-matters ·
+  exec summary). Impact does **not** inflate threat likelihood.
+- `GET /api/incidents/{id}/threat-model` — read-only API.
+- `ThreatAssessmentCard.jsx` prepended to the Executive tab —
+  band chip · dimension bars · 14-stage clickable path ·
+  supporting/reducing/unknown factors · impact tiles.
+- Every generated block ships with `machine_generated: true`
+  + `editable: true` (foundation for Round 35).
+
+### Verified end-to-end
+- Snort-golden pipeline → Executive tab now shows:
+  MODERATE / 50 / risk MODERATE · progression `Command & Control`
+  · 5 dimension bars · 13 honest NOT_OBSERVED stages · empty
+  blast radius · full narrative.
+- EDR fixture (WINWORD → PowerShell) → dimensions rise honestly:
+  detection_confidence + evidence_confidence + attack_path_confidence
+  all become non-trivial as endpoint capabilities light up.
+
+### Testing
+- 10/10 tests in `tests/test_xdr_round34_threat_model.py` green.
+- 172/172 cross-round regression green (Rounds 11-34).
+
+### Round 34.5 / 35 handoff
+- Round 34.5 (Scenario Library) plugs into the same envelope; the
+  `progression_summary` field is where scenarios (Phishing,
+  Ransomware, Credential Theft, LOL, Supply Chain) will attach.
+- Round 35 (editable/versioned intelligence) will wrap every
+  `machine_generated: true` block with analyst-edit + version
+  history — the metadata is already in place.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 33 — SHIPPED · Attack Story + AttackFlow v1
 
 **The 14-stage evidence-backed attack progression is live.** Round 33

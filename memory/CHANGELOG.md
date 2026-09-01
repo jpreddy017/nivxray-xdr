@@ -2,6 +2,72 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 34 — Threat Model Engine + Executive UI Transformation — SHIPPED
+
+Round 34 turns the backend intelligence from Rounds 30-33 into a
+visible analyst-facing surface.  The Executive tab now leads with
+a live **Threat Assessment** card driven by the deterministic
+Round 34 Threat Model Engine — 5-dimension breakdown, 14-stage
+Attack Path with clickable stage-detail rows, Why-It-Matters
+(supporting / reducing / unknown), and a machine-generated
+Executive Investigation Summary that is `editable: true` ready for
+Round 35.
+
+**Shipped (backend)**
+- `services/threat_model/service.py` — `ThreatModelService.compose()`:
+  - 5 sub-dimensions (0-100): `detection_confidence`,
+    `threat_likelihood`, `evidence_confidence`,
+    `attack_path_confidence`, `impact_confidence` — each anchored
+    to concrete counts (verdict + finding-state distribution +
+    IUE observed/total facts + attack-cycle coverage).
+  - Overall Threat Assessment = weighted sum of the FIRST FOUR
+    dimensions only.  **`impact_confidence` does NOT inflate
+    threat likelihood** (owner-locked invariant).
+  - Independent Impact axis with `current_score`, `potential_score`,
+    C2/Persistence/Lateral/Cred/Exfil/Impact signals, and a
+    Blast Radius surrogate (related incidents · hosts · users).
+  - Why-It-Matters: `supporting_factors[]`,
+    `reducing_factors[]`, `unknown[]`, `next_questions[]` — every
+    factor carries evidence_refs / techniques / finding_id.
+  - Executive Investigation Summary: 4-sentence machine-generated
+    narrative with `editable: true` + `machine_generated: true`
+    + `version: 1` metadata for Round 35.
+- Reuses Round 33 `attack_cycle.STAGES` unchanged (SSOT).
+- `routers/incident_threat_model.py` — `GET /api/incidents/{id}/threat-model`.
+
+**Shipped (UI transformation)**
+- `apps/nivxray-xdr/src/xdr/pages/incidents/record/ThreatAssessmentCard.jsx`
+  — new component that renders:
+    1. Threat Assessment card (band chip + overall score + progression)
+    2. 5-dimension breakdown table with bars
+    3. 14-stage Attack Path (clickable rows reveal evidence /
+       findings / techniques for each non-NOT_OBSERVED stage)
+    4. Why-It-Matters (three-column supporting / reducing / unknown)
+    5. Impact + Blast Radius counter tiles
+- `ExecutiveTab.jsx` prepends the Threat Assessment card so the
+  analyst sees the intelligence produced by R30-R33 immediately on
+  opening any incident — no button, no drill-down required.
+
+**Testing**
+- 10/10 tests in `tests/test_xdr_round34_threat_model.py` green.
+  Covers: envelope shape · dimension bounds · impact-independence
+  invariant · SSOT reuse · determinism · evidence-anchored
+  why-it-matters · non-fabrication · EDR-backed profile raise ·
+  missing-incident · editable-ready metadata.
+- Cross-round regression: **172/172 across Rounds 11-34** green.
+
+**Boundaries preserved**
+- Deterministic; AI-optional (never mandatory).
+- Verdict Engine untouched.
+- SSOT (`attack_cycle.STAGES`) not duplicated.
+- No fabrication.
+- Every generated block ships with `machine_generated: true` and
+  `editable: true` — foundation for Round 35 versioned intelligence.
+
+---
+
+
+
 ## 2026-09-01 · Round 33 — Attack Story + AttackFlow (evidence-backed) — SHIPPED
 
 Round 33 completes the deterministic autonomous investigation loop by

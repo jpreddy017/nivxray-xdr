@@ -19,6 +19,7 @@ import { useSearchParams } from "react-router-dom";
 import { getIncidentSummary } from "@/lib/incidentsApi";
 import api from "@/lib/api";
 import AnnotationsEditor from "../AnnotationsEditor";
+import ThreatAssessmentCard from "../ThreatAssessmentCard";
 
 const STATE_BADGE = {
   ok:                    { label: "OK",                    cls: "ok"     },
@@ -93,6 +94,9 @@ export default function ExecutiveTab({ incident }) {
 
   return (
     <div data-testid="xdr-record-executive">
+      {/* Round 34 · Threat Assessment · deterministic engine on top */}
+      <ThreatAssessmentCard incidentId={incident?.id} />
+
       {/* Round 18.5 · Deterministic Executive Summary composer */}
       {exec && exec.state === "READY" && (
         <ExecutiveSummaryBlock exec={exec}
