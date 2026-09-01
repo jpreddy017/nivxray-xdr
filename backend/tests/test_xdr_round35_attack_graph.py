@@ -194,6 +194,73 @@ def test_primary_path_walkable(loop, db, edr_incident_id):
     assert len(g["primary_path"]) >= 2
     for nid in g["primary_path"]:
         assert nid in node_ids, f"primary path references unknown node {nid}"
+    # Every adjacent pair MUST have a real edge in edges[].
+    edge_pairs = {(e["src"], e["dst"]) for e in g["edges"]}
+    for i in range(len(g["primary_path"]) - 1):
+        pair = (g["primary_path"][i], g["primary_path"][i + 1])
+        assert pair in edge_pairs, (
+            f"primary_path not walkable at hop {i}: "
+            f"{pair[0]} → {pair[1]} has no edge in edges[]")
+
+
+# ── 8b · Round 35.3 · No flat Incident → Technique MAPPED_TO ────────
+def test_no_flat_incident_to_technique_mapped_to(loop, db, edr_incident_id):
+    """R35.3 semantic correction: incident.mitre techniques must route
+    through a Detection intermediate node, never directly off the
+    Incident.  Flat Incident → Technique MAPPED_TO edges are a
+    fabrication that hides causality."""
+    g = _run(loop, AttackGraphService.compose(db, edr_incident_id))
+    node_kind = {n["id"]: n["kind"] for n in g["nodes"]}
+    for e in g["edges"]:
+        if e["rel"] != "MAPPED_TO":
+            continue
+        src_kind = node_kind.get(e["src"])
+        dst_kind = node_kind.get(e["dst"])
+        assert not (src_kind == "incident" and dst_kind == "technique"), (
+            f"Flat Incident → Technique MAPPED_TO edge {e['id']} — "
+            "techniques must route through Detection/Match/Evidence."
+        )
+
+
+# ── 8c · Round 35.3 · Detection intermediate node exists ────────────
+def test_detection_node_present_when_incident_has_mitre(
+        loop, db, edr_incident_id):
+    g = _run(loop, AttackGraphService.compose(db, edr_incident_id))
+    detection_nodes = [n for n in g["nodes"] if n["kind"] == "detection"]
+    assert detection_nodes, (
+        "Round 35.3: Detection intermediate node must exist when "
+        "incident.mitre techniques are attributed by detection.")
+    # And every OBSERVED technique must be reachable via MAPPED_TO
+    # from a detection or a deeper evidence node (commandline/process
+    # /event/signature) — never from the Incident directly.
+    obs_techs = {n["id"] for n in g["nodes"]
+                 if n["kind"] == "technique" and n["state"] == "OBSERVED"}
+    for e in g["edges"]:
+        if e["rel"] == "MAPPED_TO" and e["dst"] in obs_techs:
+            src_kind = next((n["kind"] for n in g["nodes"]
+                              if n["id"] == e["src"]), None)
+            assert src_kind in {"detection", "commandline", "process",
+                                    "event", "signature", "match"}, (
+                f"Observed technique {e['dst']} mapped from unexpected "
+                f"kind {src_kind}"
+            )
+
+
+# ── 8d · Round 35.3 · PowerShell golden chain reaches a Stage ──────
+def test_edr_primary_path_reaches_stage(loop, db, edr_incident_id):
+    g = _run(loop, AttackGraphService.compose(db, edr_incident_id))
+    kinds_in_path = [next(n["kind"] for n in g["nodes"] if n["id"] == nid)
+                      for nid in g["primary_path"]]
+    assert "stage" in kinds_in_path, (
+        f"primary_path must reach a Stage node — got kinds {kinds_in_path}"
+    )
+    # The chain must include a process AND a technique for the EDR fixture.
+    assert "process" in kinds_in_path, (
+        f"primary_path missing process node — kinds {kinds_in_path}"
+    )
+    assert "technique" in kinds_in_path, (
+        f"primary_path missing technique node — kinds {kinds_in_path}"
+    )
 
 
 # ── 9 · Timeline temporally ordered ─────────────────────────────────

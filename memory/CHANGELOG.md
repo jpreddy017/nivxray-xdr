@@ -2,6 +2,60 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 35.3 — Semantic Attack Graph Correction — SHIPPED
+
+Fixed the Attack Graph's causal composition. Techniques no longer
+dangle directly off the Incident node.
+
+**Backend — `services/attack_graph/service.py`**
+- **New `detection` intermediate node**: every incident.mitre technique
+  is now routed through a `Detection · rule-id` node. Chain becomes
+  `evidence → detection → technique → stage`, never
+  `incident → technique`.
+- **New `match` intermediate node**: correlation-derived techniques
+  route through a per-match `Correlation · rule-name` node
+  (`CORRELATED_WITH → MAPPED_TO`).
+- MAPPED_TO anchor now uses the **deepest available evidence node**
+  (commandline > process > canonical event > signature) instead of
+  the shallowest.
+- Parent process now has `host → EXECUTED → parent` edge so the
+  primary walk includes WINWORD before PowerShell.
+- Process → command edge relabelled `TRIGGERED` → `EXECUTED` (matches
+  the user-stated edge semantics grammar).
+- **`_compute_paths` rewritten as a proper DFS walk**. Every adjacent
+  pair in `primary_path[]` is guaranteed by an edge in `edges[]`
+  (asserted at compose time). Gap nodes and `PIVOTED_TO` edges are
+  excluded from the causal spine. `alternative_paths[]` seeded from
+  unvisited detection/match nodes.
+
+**Frontend — `AttackGraphTab.jsx`**
+- Added `detection` and `match` kinds to layout column/layer maps.
+- New per-kind `KIND_TONE` palette: incident (magenta), host/user
+  (teal), event/signature (blue/green), process (orange),
+  commandline (red-orange), detection/match (violet/rose), technique
+  (purple), stage (green). Analyst can identify node type at a
+  glance.
+- New **Edge Semantics Legend** toolbar button (`HelpCircle`) — toggles
+  a compact 12-relation reference panel above the canvas.
+
+**Tests — `tests/test_xdr_round35_attack_graph.py`**
+- New: `test_no_flat_incident_to_technique_mapped_to` — regressions
+  against the flat `Incident → Technique` composition.
+- New: `test_detection_node_present_when_incident_has_mitre` —
+  guarantees the detection intermediate is created.
+- New: `test_edr_primary_path_reaches_stage` — guarantees the
+  primary path contains process + technique + stage kinds.
+- Strengthened: `test_primary_path_walkable` — every adjacent hop
+  must have a real edge in `edges[]`.
+
+**Result on PowerShell golden case** — primary walk is now:
+`incident → event → host → winword.exe → powershell.exe →
+commandline → detection → T1218.011 → Defense Evasion` (walkable).
+
+All 76 tests in R30-R35 regression pass. R35 alone: 15/15 green.
+
+
+
 ## 2026-09-01 · Round 35 — Operational Attack Graph — SHIPPED
 
 The NivXRay incident workspace now has a **first-class operational

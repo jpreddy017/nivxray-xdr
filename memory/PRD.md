@@ -59,6 +59,41 @@ never defaulted.
 
 ---
 
+## ✅ 2026-09-01 · Round 35.3 — SHIPPED · Semantic Attack Graph Correction
+
+The Attack Graph now composes a genuine evidence-backed operational
+attack reconstruction. Techniques no longer dangle as star-spokes off
+the Incident — they route through Detection or Correlation Match
+intermediates and reach an ATT&CK Stage via a walkable causal chain.
+
+### Shipped
+- **Detection intermediate node** — every `incident.mitre` technique
+  is routed through a `detection` node (`Detection · <rule-id>`).
+  Chain: `evidence → detection → technique → stage`.
+- **Correlation Match intermediate node** — per-match `match` node
+  routes correlation-derived techniques.
+- **Deepest-evidence MAPPED_TO anchor** — command line > process >
+  event > signature (never Incident).
+- **Parent-process spine** — `host → EXECUTED → parent` edge added
+  so WINWORD → powershell is on the primary walk.
+- **Walkable `primary_path`** — DFS composer asserts every adjacent
+  hop has a real edge; gap/PIVOTED_TO edges excluded from the spine.
+- Frontend: kind-tone palette so each node kind is visually distinct;
+  new Edge Semantics Legend toolbar toggle.
+- Tests: `test_no_flat_incident_to_technique_mapped_to`,
+  `test_detection_node_present_when_incident_has_mitre`,
+  `test_edr_primary_path_reaches_stage`, walkability strengthened.
+
+### Verified
+- EDR fixture primary walk = `incident → event → host → winword.exe →
+  powershell.exe → commandline → detection → T1218.011 →
+  Defense Evasion`.
+- 15/15 R35 tests green · 76/76 R30-R35 regression green.
+- UI screenshot verified against the running preview.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 34 — SHIPPED · Threat Model Engine + Executive UI
 
 **The Executive tab now leads with a live deterministic Threat

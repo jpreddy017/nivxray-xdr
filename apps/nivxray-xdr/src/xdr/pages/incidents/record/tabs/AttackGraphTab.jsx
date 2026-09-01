@@ -13,7 +13,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, ZoomIn, ZoomOut, Maximize2, RotateCcw,
-           Play, Pause, SkipBack, SkipForward, Maximize, X } from "lucide-react";
+           Play, Pause, SkipBack, SkipForward, Maximize, X, HelpCircle } from "lucide-react";
 
 import api from "@/lib/api";
 
@@ -25,11 +25,34 @@ const STATE_TONE = {
   NOT_OBSERVED: { fill: "#0f172a", stroke: "#334155", label: "—" },
 };
 
+// Per-kind fill override so the analyst can immediately identify
+// what type of node they are looking at, even in dense chains.
+const KIND_TONE = {
+  incident:    { fill: "#831843", stroke: "#f472b6" },
+  host:        { fill: "#134e4a", stroke: "#5eead4" },
+  user:        { fill: "#134e4a", stroke: "#67e8f9" },
+  ip:          { fill: "#083344", stroke: "#7dd3fc" },
+  hash:        { fill: "#0c4a6e", stroke: "#7dd3fc" },
+  event:       { fill: "#1e3a8a", stroke: "#93c5fd" },
+  event_id:    { fill: "#1e3a8a", stroke: "#93c5fd" },
+  signature:   { fill: "#365314", stroke: "#bef264" },
+  process:     { fill: "#78350f", stroke: "#fdba74" },
+  commandline: { fill: "#7c2d12", stroke: "#fca5a5" },
+  detection:   { fill: "#3b0764", stroke: "#d8b4fe" },
+  match:       { fill: "#4c0519", stroke: "#fda4af" },
+  finding:     { fill: "#4c1d95", stroke: "#c4b5fd" },
+  capability:  { fill: "#312e81", stroke: "#a5b4fc" },
+  technique:   { fill: "#6d28d9", stroke: "#ddd6fe" },
+  stage:       { fill: "#166534", stroke: "#86efac" },
+  gap:         { fill: "#111827", stroke: "#64748b" },
+};
+
 const KIND_COLUMN = {
   incident: 0, host: 1, user: 1, ip: 1, hash: 1,
   event: 2, event_id: 2, signature: 2,
   process: 3, commandline: 3,
   finding: 4, capability: 4,
+  detection: 4, match: 4,
   technique: 5, stage: 6, gap: 7,
 };
 
@@ -39,9 +62,25 @@ const KIND_LAYER = {
   event: "events",       event_id: "events",  signature: "events",
   process: "processes",  commandline: "processes",
   finding: "findings",   capability: "capabilities",
+  detection: "findings", match: "findings",
   technique: "mitre",    stage: "mitre",
   gap: "gaps",
 };
+
+const EDGE_SEMANTICS = [
+  ["SPAWNED",         "Process created another process"],
+  ["EXECUTED",        "Process executed a command / action"],
+  ["TRIGGERED",       "Event/signature triggered downstream activity"],
+  ["DETECTED_BY",     "Evidence detected by a rule / finding"],
+  ["MAPPED_TO",       "Evidence / finding mapped to ATT&CK technique"],
+  ["BELONGS_TO",      "Technique belongs to ATT&CK stage / tactic"],
+  ["CORRELATED_WITH", "Evidence linked to a correlation match"],
+  ["SUPPORTED_BY",    "Node supported by a finding"],
+  ["CONNECTED_TO",    "Process/host connected to a network endpoint"],
+  ["OBSERVED_ON",     "Event observed on this entity"],
+  ["AUTHENTICATED_TO","Identity authenticated to entity"],
+  ["PIVOTED_TO",      "Investigation pivots toward this gap"],
+];
 
 const COL_W = 180, ROW_H = 38, NODE_W = 170, NODE_H = 30;
 
@@ -68,6 +107,7 @@ export default function AttackGraphTab({ incident }) {
   const [timeMax, setTimeMax]     = useState(100);
   const [playing, setPlaying]     = useState(false);
   const [popOut, setPopOut]       = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
   const [nodeOverrides, setNodeOverrides] = useState({}); // id → {x,y}
   const [dragState, setDragState] = useState(null); // {nodeId, ox, oy, startX, startY} | {pan:true, ...}
   const scrollRef = useRef(null);
@@ -266,6 +306,13 @@ export default function AttackGraphTab({ incident }) {
                       style={{ ...btnS, fontSize: 10, padding: "4px 8px" }}>
               Reset Layout
             </button>
+            <button onClick={() => setShowLegend(v => !v)}
+                      title="Edge semantics legend"
+                      data-testid="xdr-ag-legend-toggle"
+                      style={{ ...btnS, background: showLegend ? "#7c3aed" : "#1e293b" }}>
+              <HelpCircle size={12} />
+              <span style={{ marginLeft: 4, fontSize: 10 }}>Legend</span>
+            </button>
             <button onClick={() => setPopOut(true)}
                       title="Pop out full-screen"
                       data-testid="xdr-ag-popout"
@@ -293,6 +340,25 @@ export default function AttackGraphTab({ incident }) {
                     style={{ flex: 1 }}
                     data-testid="xdr-ag-tl-scrub" />
             <span className="mono">{timeMax}% · {timelineWindow ? timelineWindow.size : 0}</span>
+          </div>
+        )}
+        {/* Edge semantics legend (toggle) */}
+        {showLegend && (
+          <div style={{ padding: "8px 10px", borderBottom: "1px solid #1e293b",
+                          background: "#0f172a", color: "#cbd5e1",
+                          fontSize: 11, display: "grid",
+                          gridTemplateColumns: "repeat(2, 1fr)", gap: "4px 16px" }}
+                data-testid="xdr-ag-legend">
+            {EDGE_SEMANTICS.map(([k, desc]) => (
+              <div key={k} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span className="mono" style={{ color: "#a78bfa",
+                                                       fontWeight: 600,
+                                                       minWidth: 130 }}>
+                  → {k}
+                </span>
+                <span style={{ color: "#94a3b8" }}>{desc}</span>
+              </div>
+            ))}
           </div>
         )}
         {/* SVG canvas with native scrollbars + drag/pan */}
@@ -375,9 +441,14 @@ export default function AttackGraphTab({ incident }) {
               const p = layout.pos.get(n.id);
               if (!p) return null;
               const tone = STATE_TONE[n.state] || STATE_TONE.NOT_OBSERVED;
+              const kindTone = KIND_TONE[n.kind];
+              const nodeFill = (n.state === "OBSERVED" || n.state === "SUPPORTED")
+                && kindTone ? kindTone.fill : tone.fill;
+              const nodeStroke = (n.state === "OBSERVED" || n.state === "SUPPORTED")
+                && kindTone ? kindTone.stroke : tone.stroke;
               const isSel = selId === n.id && selKind === "node";
               const isPrim = primaryPath.has(n.id);
-              const stroke = isSel ? "#fbbf24" : isPrim ? "#fbbf24" : tone.stroke;
+              const stroke = isSel ? "#fbbf24" : isPrim ? "#fbbf24" : nodeStroke;
               return (
                 <g key={n.id}
                     onClick={(ev) => { ev.stopPropagation();
@@ -393,7 +464,7 @@ export default function AttackGraphTab({ incident }) {
                     style={{ cursor: dragState?.nodeId === n.id ? "grabbing" : "grab" }}
                     data-testid={`xdr-ag-node-${n.id}`}>
                   <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={4}
-                         fill={tone.fill}
+                         fill={nodeFill}
                          stroke={stroke}
                          strokeWidth={isSel || isPrim ? 1.5 : 0.8} />
                   <text x={p.x + 6} y={p.y + 11}

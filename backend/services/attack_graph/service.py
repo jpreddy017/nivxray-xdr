@@ -154,6 +154,8 @@ class AttackGraphService:
         canonical_evt_nid: Optional[str] = None
         host_nid = user_nid = process_nid = parent_nid = None
         src_ip_nid = dst_ip_nid = None
+        cli_nid: Optional[str] = None
+        sig_nid: Optional[str] = None
         event_id_str: Optional[str] = None
         event_intel: Optional[Dict[str, Any]] = None
         canonical_ts = None
@@ -254,6 +256,13 @@ class AttackGraphService:
                         "kind": "process", "label": parent_name,
                         "state": "OBSERVED",
                         "attrs": {"role": "parent", "host": host_name}})
+                    if host_nid:
+                        _add_edge(host_nid, "EXECUTED", parent_nid,
+                                      state="OBSERVED",
+                                      evidence_refs=[canonical.get("event_id")],
+                                      event_id=event_id_str,
+                                      timestamp=canonical_ts,
+                                      reason="Parent process observed on host.")
                     _add_edge(parent_nid, "SPAWNED", process_nid,
                                   state="OBSERVED",
                                   evidence_refs=[canonical.get("event_id")],
@@ -270,7 +279,7 @@ class AttackGraphService:
                         "label": str(proc["commandline"])[:80],
                         "state": "OBSERVED",
                         "attrs": {"full": str(proc["commandline"])[:400]}})
-                    _add_edge(process_nid, "TRIGGERED", cli_nid,
+                    _add_edge(process_nid, "EXECUTED", cli_nid,
                                   state="OBSERVED",
                                   evidence_refs=[canonical.get("event_id")],
                                   timestamp=canonical_ts,
@@ -314,8 +323,47 @@ class AttackGraphService:
                               timestamp=canonical_ts,
                               reason="Detection signature fired on this event.")
 
+        # ── Detection intermediate node ──────────────────────────
+        # Anchor for incident.mitre techniques.  Routes causality
+        # through the DETECTION step so techniques never dangle
+        # directly off the incident.
+        # Deepest available evidence node = commandline > process >
+        # canonical event > signature > incident.
+        deepest_evidence_nid = (cli_nid or process_nid or canonical_evt_nid
+                                       or sig_nid or incident_nid)
+        detection_nid: Optional[str] = None
+        detection_rule_id = pipe.get("detection_rule_id") or (
+            (incident.get("verdict_card") or {}).get("engine"))
+        if incident.get("mitre") and deepest_evidence_nid:
+            det_seed = str(detection_rule_id or incident_id)
+            det_label = ("Detection · " + str(detection_rule_id)) if detection_rule_id \
+                                else "Detection · rule"
+            detection_nid = _add_node({
+                "id":    _nid("detection", det_seed),
+                "kind":  "detection",
+                "label": det_label,
+                "state": "OBSERVED",
+                "attrs": {
+                    "rule_id":     detection_rule_id,
+                    "verdict":     (incident.get("verdict_card") or {}).get("verdict"),
+                    "engine":      (incident.get("verdict_card") or {}).get("engine"),
+                    "trace_id":    pipe.get("trace_id"),
+                },
+            })
+            _add_edge(deepest_evidence_nid, "DETECTED_BY", detection_nid,
+                          state="OBSERVED",
+                          evidence_refs=[(canonical or {}).get("event_id")] if canonical else [],
+                          timestamp=canonical_ts,
+                          reason=(
+                              f"Detection rule {detection_rule_id or 'rule'} "
+                              f"fired on this evidence."
+                          ),
+                          source="detection")
+
         # ── MITRE technique nodes ────────────────────────────────
-        # Evidence-derived (incident.mitre → OBSERVED)
+        # Evidence-derived (incident.mitre → OBSERVED).  Routed
+        # through the detection node — NOT directly off the incident.
+        tech_anchor = detection_nid or deepest_evidence_nid or incident_nid
         for m in (incident.get("mitre") or []):
             if not isinstance(m, dict):
                 continue
@@ -327,15 +375,17 @@ class AttackGraphService:
                 "id": _nid("technique", tid), "kind": "technique",
                 "label": tid, "state": "OBSERVED",
                 "attrs": {"source": "incident.mitre",
-                             "tactic_id": m.get("tactic_id") or m.get("tactic")}})
-            # Connect from canonical event or from process, whichever exists.
-            anchor = process_nid or canonical_evt_nid or incident_nid
-            _add_edge(anchor, "MAPPED_TO", tech_nid,
+                             "tactic_id": m.get("tactic_id") or m.get("tactic"),
+                             "name":      m.get("name") or m.get("technique_name")}})
+            _add_edge(tech_anchor, "MAPPED_TO", tech_nid,
                           state="OBSERVED",
                           evidence_refs=[canonical.get("event_id")] if canonical else [],
                           technique_id=tid,
                           timestamp=canonical_ts,
-                          reason="Technique attributed by detection evidence.")
+                          reason=(
+                              f"Technique {tid} attributed by "
+                              f"{'detection rule' if detection_nid else 'evidence'}."
+                          ))
             # Technique → stage(s).
             for st in stages_for_technique(tid) or []:
                 stage_nid = stage_by_name.get(st)
@@ -347,9 +397,35 @@ class AttackGraphService:
                                   reason=f"Technique {tid} belongs to {st}.")
                     nodes[stage_nid]["state"] = "OBSERVED"
 
-        # Correlation-derived MITRE (SUPPORTED).
+        # Correlation-derived MITRE (SUPPORTED) — routed through a
+        # per-match Correlation Match node (never straight off incident).
         for m in ice_matches:
             mid = str(m.get("match_id") or m.get("id") or "")
+            if not mid:
+                continue
+            match_nid = _add_node({
+                "id":    _nid("match", mid),
+                "kind":  "match",
+                "label": (f"Correlation · "
+                             f"{m.get('rule_name') or m.get('rule_id') or mid[:12]}"),
+                "state": "SUPPORTED",
+                "attrs": {
+                    "match_id":   mid,
+                    "rule_id":    m.get("rule_id"),
+                    "rule_name":  m.get("rule_name"),
+                    "engine":     m.get("engine_id"),
+                    "kind":       m.get("kind"),
+                },
+            })
+            _add_edge(deepest_evidence_nid or incident_nid,
+                          "CORRELATED_WITH", match_nid,
+                          state="SUPPORTED",
+                          evidence_refs=[mid],
+                          reason=(
+                              f"Correlation match {m.get('rule_name') or mid[:12]} "
+                              f"anchored on this evidence."
+                          ),
+                          source="correlation")
             for tech in (m.get("mitre") or []):
                 tid = (tech.get("technique_id") or tech.get("technique")
                           if isinstance(tech, dict) else str(tech))
@@ -357,28 +433,32 @@ class AttackGraphService:
                     continue
                 tid = str(tid).upper()
                 if _nid("technique", tid) not in nodes:
-                    tech_nid = _add_node({
+                    _add_node({
                         "id": _nid("technique", tid), "kind": "technique",
                         "label": tid, "state": "SUPPORTED",
                         "attrs": {"source": "correlation"}})
-                    _add_edge(incident_nid, "CORRELATED_WITH", tech_nid,
-                                  state="SUPPORTED",
-                                  evidence_refs=[mid],
-                                  technique_id=tid,
-                                  reason="Technique attributed by correlation.")
-                    for st in stages_for_technique(tid) or []:
-                        stage_nid = stage_by_name.get(st)
-                        if stage_nid:
-                            _add_edge(tech_nid, "BELONGS_TO", stage_nid,
-                                          state="SUPPORTED",
-                                          evidence_refs=[mid],
-                                          technique_id=tid,
-                                          reason=(
-                                              f"Technique {tid} belongs "
-                                              f"to {st} (correlation)."
-                                          ))
-                            if nodes[stage_nid]["state"] == "NOT_OBSERVED":
-                                nodes[stage_nid]["state"] = "SUPPORTED"
+                tech_nid_here = _nid("technique", tid)
+                _add_edge(match_nid, "MAPPED_TO", tech_nid_here,
+                              state="SUPPORTED",
+                              evidence_refs=[mid],
+                              technique_id=tid,
+                              reason=(
+                                  f"Technique {tid} attributed by "
+                                  f"correlation match."
+                              ))
+                for st in stages_for_technique(tid) or []:
+                    stage_nid = stage_by_name.get(st)
+                    if stage_nid:
+                        _add_edge(tech_nid_here, "BELONGS_TO", stage_nid,
+                                      state="SUPPORTED",
+                                      evidence_refs=[mid],
+                                      technique_id=tid,
+                                      reason=(
+                                          f"Technique {tid} belongs "
+                                          f"to {st} (correlation)."
+                                      ))
+                        if nodes[stage_nid]["state"] == "NOT_OBSERVED":
+                            nodes[stage_nid]["state"] = "SUPPORTED"
 
         # ── Finding nodes ────────────────────────────────────────
         # Normalise finding grammar → graph 4-state grammar.
@@ -580,58 +660,121 @@ class AttackGraphService:
                             parent_nid: Optional[str],
                             dst_ip_nid: Optional[str]
                           ) -> Tuple[List[str], List[List[str]]]:
-        """Primary path = strongest observed chain.
+        """Primary path = strongest evidence-backed *walkable* chain.
 
-        We construct it deterministically:
-          incident → canonical event → parent process → child process →
-          command line → destination IP → technique(s) → stage(s)
-        Only nodes/edges that actually exist are included; nothing is
-        fabricated.
+        We construct a real graph walk: every consecutive node in the
+        returned list is connected by an edge that exists in ``edges``.
+
+        Preference order (edge relations + node kinds):
+          incident → (canonical event) → (parent process) →
+          (process) → (commandline) → (detection) → (technique) → (stage)
+
+        Only observed/supported evidence-backed transitions are used.
+        Never fabricates a path.  Owner rule §11.
         """
-        # Deterministic walk: for each candidate node, include only if
-        # present in ``nodes``.  Preserves owner rule §11 (no invention).
-        primary: List[str] = [incident_nid]
-        # Find canonical event node.
-        for n in nodes.values():
-            if n["kind"] == "event":
-                primary.append(n["id"])
-                break
-        if parent_nid and parent_nid in nodes:
-            primary.append(parent_nid)
-        if process_nid and process_nid in nodes:
-            primary.append(process_nid)
-        # Command line if present.
-        for n in nodes.values():
-            if n["kind"] == "commandline":
-                primary.append(n["id"])
-                break
-        if dst_ip_nid and dst_ip_nid in nodes:
-            primary.append(dst_ip_nid)
-        # Observed techniques.
-        obs_techs = sorted([n["id"] for n in nodes.values()
-                                 if n["kind"] == "technique"
-                                   and n["state"] == "OBSERVED"])
-        primary.extend(obs_techs)
-        # Observed stages.
-        obs_stages = [stage_by_name[s] for s in STAGES
-                          if nodes[stage_by_name[s]]["state"] == "OBSERVED"]
-        primary.extend(obs_stages)
-        # Deduplicate preserving order.
-        seen: set = set()
-        primary_clean: List[str] = []
-        for nid in primary:
-            if nid in seen:
+        # Build directed adjacency: src → [(dst, rel, state, priority)]
+        # Priority favors the causal spine.
+        REL_PRIORITY = {
+            "DETECTED_BY":       10,   # incident/event → detection or finding
+            "SPAWNED":            9,   # parent → child process
+            "EXECUTED":           9,   # process → commandline
+            "TRIGGERED":          8,
+            "MAPPED_TO":          8,   # detection/match/commandline → technique
+            "BELONGS_TO":         7,   # technique → stage
+            "CORRELATED_WITH":    6,
+            "CONNECTED_TO":       5,
+            "OBSERVED_ON":        3,
+            "AUTHENTICATED_TO":   3,
+            "SUPPORTED_BY":       4,
+            "INVESTIGATED_BY":    2,
+            "PIVOTED_TO":         1,
+        }
+        STATE_PRIORITY = {"OBSERVED": 3, "SUPPORTED": 2,
+                             "POSSIBLE": 1, "NOT_OBSERVED": 0}
+        KIND_TIER = {
+            "incident":    0,
+            "event":       1, "signature": 1, "event_id": 1,
+            "host":        2, "user": 2,
+            "process":     3,
+            "commandline": 4,
+            "finding":     5, "capability": 5,
+            "detection":   6, "match": 6,
+            "technique":   7,
+            "stage":       8,
+            "ip":          4, "hash": 4,
+            "gap":         -1,   # dead-end · never part of primary chain
+        }
+        adj: Dict[str, List[Tuple[str, str, str, int]]] = {}
+        for e in edges:
+            src, dst, rel, state = e["src"], e["dst"], e["rel"], e["state"]
+            if state == "NOT_OBSERVED":
                 continue
-            seen.add(nid)
-            primary_clean.append(nid)
+            # PIVOTED_TO and gap targets are investigation hints, not
+            # causal transitions — exclude from primary chain walk.
+            if rel == "PIVOTED_TO":
+                continue
+            if nodes.get(dst, {}).get("kind") == "gap":
+                continue
+            score = (STATE_PRIORITY.get(state, 0) * 100
+                        + REL_PRIORITY.get(rel, 0) * 10
+                        + KIND_TIER.get(nodes.get(dst, {}).get("kind", ""), 0))
+            adj.setdefault(src, []).append((dst, rel, state, score))
+        for lst in adj.values():
+            lst.sort(key=lambda t: (-t[3], t[1], t[0]))
 
-        # Alternative: SUPPORTED-only chain through correlation techniques.
-        sup_techs = sorted([n["id"] for n in nodes.values()
-                                 if n["kind"] == "technique"
-                                   and n["state"] == "SUPPORTED"])
+        # Best-first DFS from incident preferring higher-tier
+        # destination kinds — we want to reach a Stage.  Returns the
+        # deterministic longest evidence-backed walk from ``start``.
+        def _walk_forward(start: str) -> List[str]:
+            best_path: List[str] = [start]
+            best_tier = KIND_TIER.get(nodes.get(start, {}).get("kind", ""), 0)
+
+            def _dfs(cur: str, path: List[str], visited: set) -> None:
+                nonlocal best_path, best_tier
+                cur_tier = KIND_TIER.get(nodes.get(cur, {}).get("kind", ""), 0)
+                # Track the deepest-tier walk (prefer longer on ties).
+                if (cur_tier > best_tier
+                        or (cur_tier == best_tier and len(path) > len(best_path))):
+                    best_tier = cur_tier
+                    best_path = list(path)
+                for dst, rel, state, score in adj.get(cur, []):
+                    if dst in visited:
+                        continue
+                    dst_tier = KIND_TIER.get(nodes.get(dst, {}).get("kind", ""), 0)
+                    # Never retreat below current tier (except into stage which is terminal).
+                    if dst_tier < cur_tier:
+                        continue
+                    visited.add(dst)
+                    path.append(dst)
+                    _dfs(dst, path, visited)
+                    path.pop()
+                    visited.remove(dst)
+
+            _dfs(start, [start], {start})
+            return best_path
+
+        primary_clean = _walk_forward(incident_nid)
+
+        # Validate walkability — assert every adjacent pair has an edge.
+        edge_pairs = {(e["src"], e["dst"]) for e in edges
+                          if e["state"] != "NOT_OBSERVED"}
+        for i in range(len(primary_clean) - 1):
+            assert (primary_clean[i], primary_clean[i + 1]) in edge_pairs, (
+                f"primary_path not walkable at "
+                f"{primary_clean[i]} → {primary_clean[i + 1]}")
+
+        # Alternative paths: walk from every unvisited OBSERVED/SUPPORTED
+        # match/detection node forward (deterministic, evidence-backed).
         alt: List[List[str]] = []
-        if sup_techs:
-            sup_stages = [stage_by_name[s] for s in STAGES
-                              if nodes[stage_by_name[s]]["state"] == "SUPPORTED"]
-            alt.append([incident_nid] + sup_techs + sup_stages)
+        visited_all = set(primary_clean)
+        for start in sorted(nodes.keys()):
+            n = nodes[start]
+            if n["kind"] not in ("detection", "match"):
+                continue
+            if start in visited_all:
+                continue
+            walk = _walk_forward(start)
+            if len(walk) >= 2:
+                alt.append(walk)
+                visited_all.update(walk)
         return primary_clean, alt
