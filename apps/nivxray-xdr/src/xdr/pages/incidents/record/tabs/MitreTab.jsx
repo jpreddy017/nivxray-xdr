@@ -363,7 +363,6 @@ function NodePanel({ n, onClear }) {
       <Row k="Why mapped"  v={n.why_mapped || "—"} />
       <Row k="Method"      v={n.mapping_method || "—"} />
       <Row k="Telemetry"   v={(n.telemetry_sources || []).join(", ") || "—"} />
-      <Row k="Evidence"    v={(n.evidence_ids || []).join(", ") || "—"} />
       <Row k="Source refs" v={(n.source_refs || []).join(", ") || "—"} />
       {n.entities?.length > 0 && (
         <Section title={`Entities (${n.entities.length})`}>
@@ -377,6 +376,13 @@ function NodePanel({ n, onClear }) {
                 {String(e.value).slice(0, 40)}
               </span>
             </div>
+          ))}
+        </Section>
+      )}
+      {n.evidence_ids?.length > 0 && (
+        <Section title={`Evidence (${n.evidence_ids.length})`}>
+          {n.evidence_ids.map((eid) => (
+            <EvidenceRow key={eid} evidenceRef={eid} />
           ))}
         </Section>
       )}
@@ -404,6 +410,144 @@ function NodePanel({ n, onClear }) {
                         fontFamily: "var(--mono)", color: "#a78bfa" }}>
         attack.mitre.org <ChevronRight size={9} />
       </a>
+    </div>
+  );
+}
+
+
+/* Round 22 · Interactive Evidence Traversal.  Clicking an evidence
+   ref opens the actual document + reverse-provenance + honest
+   'not present in source telemetry' list. */
+function EvidenceRow({ evidenceRef }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err,  setErr]  = useState(null);
+
+  const load = async () => {
+    if (data || busy) return;
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.get(
+        `/admin/content-supply-chain/evidence/${encodeURIComponent(evidenceRef)}`);
+      setData(r.data);
+    } catch (e) {
+      setErr(e?.response?.data?.detail || e?.message || "unavailable");
+    } finally { setBusy(false); }
+  };
+  const toggle = () => { setOpen((o) => !o); if (!open) load(); };
+
+  return (
+    <div data-testid={`evidence-row-${evidenceRef}`}
+              style={{ marginBottom: 4,
+                              border: "1px solid var(--border)",
+                              borderRadius: 2 }}>
+      <button onClick={toggle}
+                    data-testid={`evidence-toggle-${evidenceRef}`}
+                    style={{ width: "100%", padding: "3px 6px",
+                                    display: "flex", alignItems: "center",
+                                    gap: 6, background: "transparent",
+                                    border: "none",
+                                    color: "var(--cyan)",
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 10, cursor: "pointer",
+                                    textAlign: "left" }}>
+        {open ? "▾" : "▸"} evidence: {evidenceRef.slice(0, 32)}
+      </button>
+      {open && (
+        <div style={{ padding: 6, background: "rgba(0,0,0,0.15)",
+                            fontFamily: "var(--mono)", fontSize: 10,
+                            color: "var(--text-dim)" }}>
+          {busy && <span>resolving…</span>}
+          {err && <span style={{ color: "var(--amber)" }}>{err}</span>}
+          {data && data.state === "MISSING" && (
+            <div data-testid={`evidence-missing-${evidenceRef}`}
+                      style={{ color: "var(--amber)" }}>
+              MISSING · {data.reason}
+            </div>
+          )}
+          {data && data.state === "READY" && (
+            <EvidenceDetail data={data} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function EvidenceDetail({ data }) {
+  const doc = data.document || {};
+  // Render the most useful canonical-event fields when the kind is
+  // CANONICAL_EVENT — never invent absent ones.
+  const isCanonical = data.kind === "CANONICAL_EVENT";
+  return (
+    <div data-testid={`evidence-detail-${data.id}`}>
+      <div style={{ display: "grid",
+                          gridTemplateColumns: "80px 1fr",
+                          gap: 4, marginBottom: 4 }}>
+        <span style={{ color: "var(--faint)" }}>kind</span>
+        <b style={{ color: "var(--cyan)" }}>{data.kind}</b>
+        <span style={{ color: "var(--faint)" }}>id</span>
+        <span>{data.id}</span>
+      </div>
+      {isCanonical && (
+        <div style={{ marginTop: 4 }}>
+          <div style={{ color: "var(--faint)", marginBottom: 2 }}>
+            canonical event
+          </div>
+          <KV k="timestamp"     v={doc["@timestamp"]} />
+          <KV k="event_type"    v={doc.event_type} />
+          <KV k="vendor·product"
+                v={[doc.source?.vendor, doc.source?.product]
+                        .filter(Boolean).join(" · ")} />
+          <KV k="src.ip"    v={doc.network?.src?.ip} />
+          <KV k="dst.ip"    v={doc.network?.dst?.ip} />
+          <KV k="protocol" v={doc.network?.protocol} />
+          <KV k="signature" v={doc.security?.signature?.name} />
+        </div>
+      )}
+      {data.missing_fields?.length > 0 && (
+        <div style={{ marginTop: 6 }}
+                  data-testid={`evidence-missing-fields-${data.id}`}>
+          <div style={{ color: "var(--amber)", marginBottom: 2 }}>
+            not present in source telemetry ({data.missing_fields.length})
+          </div>
+          {data.missing_fields.map((mf) => (
+            <div key={mf.field} style={{ color: "var(--faint)",
+                                                          padding: "1px 0" }}>
+              — {mf.field}
+            </div>
+          ))}
+        </div>
+      )}
+      {data.traversal && Object.keys(data.traversal).length > 0 && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ color: "var(--faint)", marginBottom: 2 }}>
+            reverse provenance
+          </div>
+          {Object.entries(data.traversal).map(([k, v]) => (
+            <KV key={k} k={k} v={Array.isArray(v) ? `${v.length} refs`
+                                                                    : String(v)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function KV({ k, v }) {
+  return (
+    <div style={{ display: "grid",
+                        gridTemplateColumns: "110px 1fr",
+                        gap: 4, padding: "1px 0" }}>
+      <span style={{ color: "var(--faint)" }}>{k}</span>
+      <span>{v == null || v === ""
+                    ? <i style={{ color: "var(--amber)" }}>
+                          not present in source telemetry
+                        </i>
+                    : String(v)}</span>
     </div>
   );
 }

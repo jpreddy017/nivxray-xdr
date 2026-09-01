@@ -73,6 +73,9 @@ from detection_content.xdr_osint_cache import (
 from detection_content.xdr_attack_chain_graph import (
     compose as _compose_attack_graph,
 )
+from detection_content.xdr_evidence_traversal import (
+    resolve as _resolve_evidence,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -779,15 +782,25 @@ async def osint_cache_summary(user=Depends(require_admin)):
 @router.get("/incidents/{incident_id}/attack-chain-graph")
 async def incident_attack_chain_graph(incident_id: str,
                                                 user=Depends(require_admin)):
-    """Round 21 · Evidence-First Attack-Chain Graph.
-
-    Nodes  = ATT&CK techniques SUPPORTED BY EVIDENCE from this incident.
-    Edges  = evidence-backed relationships (shared entity or shared
-             canonical evidence reference).
-    Every node carries confidence STATE (CONFIRMED / SUPPORTED /
-    INSUFFICIENT_EVIDENCE / NOT_OBSERVED / UNKNOWN) — NEVER a
-    probability."""
+    """Round 21 · Evidence-First Attack-Chain Graph."""
     return await _compose_attack_graph(db, incident_id)
+
+
+@router.get("/evidence/{evidence_ref:path}")
+async def evidence_traversal(evidence_ref: str,
+                                          user=Depends(require_admin)):
+    """Round 22 · Evidence Traversability.
+
+    Resolve any evidence reference (canonical event id, IUE id,
+    correlation match id, framework mapping id, intelligence
+    observation id, response execution id, recommendation id,
+    incident id, annotation id) to the RAW stored document + the
+    reverse-provenance chain + an honest list of telemetry fields
+    that were not present in the source event.
+
+    Prefixed references such as `canonical:<id>`, `mapping:<id>`,
+    `incident:<id>` are accepted for disambiguation."""
+    return await _resolve_evidence(db, evidence_ref)
 
 
 @router.get("/incidents/{incident_id}/executive-summary")

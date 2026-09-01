@@ -36,6 +36,70 @@ logs, Windows events, Auth events, File events, Process events.
 Command-line/PowerShell is one possible source, never the foundation.
 
 ---
+## 🔒 SUPREME INVARIANT · Evidence Traversability (LOCKED 2026-02-14)
+
+Every CONFIRMED or SUPPORTED investigation finding, framework
+mapping, recommendation, graph node, and graph relationship MUST
+provide a deterministic traversal path to the underlying collected
+evidence. If the supporting evidence cannot be surfaced, the
+conclusion MUST NOT be presented as substantiated.
+
+## 🔒 SUPREME INVARIANT · Telemetry Neutrality (LOCKED 2026-02-14)
+
+Evidence correlation MUST operate on canonical telemetry and
+available fields. The system MUST NEVER require command-line,
+PowerShell, cmd.exe, process names, or any particular telemetry
+field unless that field is actually present and explicitly required
+by the applicable evidence predicate.
+
+**Analyst-facing rendering rule**: when an expected field is absent
+from the source telemetry, render it verbatim as
+`not present in source telemetry` — never blank, never inferred,
+never defaulted.
+
+---
+## ✅ 2026-02-14 · Round 22 · Evidence Traversability — SHIPPED
+
+**Every graph node/edge and every mapping cite becomes clickable
+down to the exact stored document that justified it.**
+
+### Files delivered
+- `backend/detection_content/xdr_evidence_traversal.py` —
+  deterministic resolver. Accepts raw ids OR prefixed refs
+  (`canonical:` / `incident:` / `mapping:` / `match:` / `obs:` /
+  `exec:` / `reco:` / `ann:`). Returns:
+    * `state` (READY | MISSING)
+    * `kind` — CANONICAL_EVENT / IUE_RECORD / CORRELATION_MATCH /
+      FRAMEWORK_MAPPING / INTELLIGENCE_OBSERVATION /
+      RESPONSE_EXECUTION / RECOMMENDATION / INCIDENT / ANALYST_ANNOTATION
+    * `document` — the RAW stored record (no rewriting)
+    * `missing_fields` — canonical fields absent from source
+      telemetry, honestly listed
+    * `traversal` — reverse-provenance chain (what other records
+      reference this evidence)
+- Endpoint `GET /api/admin/content-supply-chain/evidence/{ref}`.
+- Frontend `MitreTab.jsx` NodePanel additions:
+    * New `EvidenceRow` — expandable per evidence pointer
+    * New `EvidenceDetail` — canonical event key/value + missing-fields
+      amber list + reverse-provenance
+    * New `KV` primitive renders absent fields as `not present in
+      source telemetry` (never blank).
+- KB-style refs like `signature:2027865` correctly return
+  `MISSING` — the resolver never fabricates a record.
+
+### Test coverage
+`tests/test_xdr_round22_evidence_traversal.py` — 10/10 pass.
+Full XDR regression rounds 11–22: **128/128 pass**.
+
+### Verified live
+Golden Snort canonical event → resolver returns kind=CANONICAL_EVENT
+with the raw doc + `8 missing_fields` (process.command_line,
+process.image, process.user, process.parent_image, file.hash,
+file.path, user.name, host.name — all "not present in source
+telemetry") + reverse-provenance to the parent incident.  Bogus
+reference `never_existed_123` → honest `MISSING` state.
+
+---
 ## ✅ 2026-02-14 · Round 21 · Evidence-First ATT&CK Attack-Chain Graph — SHIPPED
 
 **Deterministic operational graph.** Reuses the existing framework
