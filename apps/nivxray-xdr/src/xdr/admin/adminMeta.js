@@ -143,6 +143,11 @@ export const ADMIN_SECTIONS = [
     api: null, kind: "webhooks", connected: true,
   },
   {
+    key: "response-strategies", label: "Response Strategies", icon: ShieldCheck,
+    subtitle: "Round 20 · Knowledge transparency surface · Threat-Family → Response-Strategy → Candidate-Actions matrix (14 families × 5 objectives) · exclusion permissions · required evidence dimensions · not an engine.",
+    api: null, kind: "response_strategies", connected: true,
+  },
+  {
     key: "platform-health", label: "Platform Health", icon: HeartPulse,
     subtitle: "Backend liveness, DB, decoder registry.",
     api: "/health", kind: "kv",

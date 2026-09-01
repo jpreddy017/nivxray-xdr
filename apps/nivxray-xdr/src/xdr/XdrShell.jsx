@@ -175,6 +175,8 @@ const SIDEBAR = [
         title: "Governance / configuration inventory of deployed detection rules · lifecycle · ownership · schedules" },
       { key: "response-policies", label: "Response Policies", icon: ArrowRightLeft, to: "/xdr/admin/response-policies",
         title: "Defines what response actions are ALLOWED · executed via Respond › Playbooks" },
+      { key: "response-strategies", label: "Response Strategies", icon: Layers, to: "/xdr/admin/response-strategies",
+        title: "Round 20 · Threat-Family → Response Strategy knowledge (14 families × 5 objectives) · not an engine" },
       { key: "users-roles",       label: "Users / Roles",     icon: Users,         to: "/xdr/admin/users-roles" },
       { key: "api-webhooks",      label: "API / Webhooks",    icon: Webhook,       to: "/xdr/admin/api-webhooks" },
     ],

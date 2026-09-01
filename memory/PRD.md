@@ -3,6 +3,91 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 20 · Closed-Loop Determinism — SHIPPED
+
+**The golden proof of NivXRay's closed-loop architecture.**
+
+### LOCKED INVARIANT (append to §33)
+> Closed-loop determinism: Given identical canonical evidence and
+> identical system state, recomputation MUST produce the same
+> investigation, strategy, recommendation, and outcome state. Any
+> state change MUST be attributable to newly observed evidence or an
+> explicit analyst decision/action. Repeated recomputation MUST be
+> idempotent and MUST NOT create duplicate actions, recommendations,
+> observations, or audit events.
+
+### LOCKED INVARIANT (append to §33)
+> External analyst guidance is Response Knowledge, not Response
+> Templates. NivXRay must decompose guidance into evidence
+> predicates, response strategies, candidate actions, applicability
+> requirements, capability requirements, risk controls, and
+> verification conditions. Recommendations must be synthesized from
+> the current incident evidence and may not be emitted solely
+> because a malware/threat-family name matches.
+
+### Files delivered
+- `backend/detection_content/xdr_closure_classification.py` —
+  Furthest-Confirmed-Activity classifier. Phase ladder RECON →
+  RESOURCE_DEV → INITIAL_ACCESS → EXECUTION → PERSISTENCE →
+  PRIV_ESC → DEFENSE_EVASION → CRED_ACCESS → DISCOVERY →
+  LATERAL_MOVEMENT → COLLECTION → COMMAND_AND_CONTROL →
+  EXFILTRATION → IMPACT. Bumps phase using ACTIVE MITRE mappings,
+  threat-family floor (only when family confidence ≥ MEDIUM), OSINT
+  malicious/suspicious observations, and VEEE detection contributors.
+  Never advances past cited evidence.
+- `backend/detection_content/xdr_osint_cache.py` —
+  Read-through OSINT cache. Per-provider TTL (Talos/DShield 6h,
+  AbuseIPDB 12h, VT 24h, URLScan 12h, ThreatFox 6h, MalwareBazaar
+  24h, consensus 1h). Never fabricates on upstream failure — returns
+  last-known with `is_stale=True` or honest `unknown`.
+- `xdr_executive_summary.py::compose` — additive
+  `closure_classification` block (initial phase + furthest confirmed
+  phase + `phase_advanced_by_investigation` + citations).
+- Endpoints:
+  * `GET /api/admin/content-supply-chain/incidents/{id}/closure-classification`
+  * `GET /api/admin/content-supply-chain/osint-cache/summary`
+  * `GET /api/admin/content-supply-chain/response-strategies` (Round 19)
+  * `GET /api/admin/content-supply-chain/response-strategies/{family}`
+- Frontend `apps/nivxray-xdr/src/xdr/admin/ResponseStrategiesBody.jsx`
+  — new **knowledge-transparency surface** at
+  `/xdr/admin/response-strategies` rendering the 14-family × 5-objective
+  matrix with searchable filter · per-strategy required evidence dims ·
+  candidate action IDs · EXCLUSIONS OK / BLOCKED badge · framework
+  hint · description. Added to sidebar under Operations.
+
+### Golden Determinism Test — tests/test_xdr_round20_closed_loop_determinism.py
+9/9 pass. Proves:
+1. **H1 stability** — pipeline produces a stable evidence-state hash
+2. **H1 → H1 idempotency** — second recompute over identical state
+   creates zero duplicates (observations, executions, recos,
+   timeline events)
+3. **Family + Strategy provenance** — every reco carries
+   `strategy: C2_CONTAINMENT / Containment` for the C2 golden event
+4. **H1 → H2 state transition** — inserting a real SUCCEEDED action
+   + observation transitions the hash and reports `changed=True`
+5. **Action alone cannot move the verdict** — VEEE label/score
+   before ≡ after (only new evidence moves the verdict)
+6. **H2 → H2 idempotency** — recompute after transition is
+   idempotent again
+7. **Closure is deterministic** — same evidence → identical
+   `furthest_confirmed_phase` + citations
+8. **Closure never advances past evidence** — reported phase MUST
+   appear in citations
+9. **Snort Golden closure = COMMAND_AND_CONTROL** — driven by C2
+   family floor with MEDIUM confidence
+
+### Testing
+- `test_xdr_round20_closed_loop_determinism.py` — 9/9
+- `test_xdr_round20_osint_cache.py` — 9/9
+- Full XDR regression rounds 11–20: **109/109 pass**
+
+### Verified live
+- `GET .../closure-classification` on Golden Snort → `state=READY,
+  furthest_confirmed_phase=COMMAND_AND_CONTROL, citations=[
+  {phase:C2, source:threat_family:C2(MEDIUM)}]`.
+- `GET .../osint-cache/summary` → default_ttl_s=21600 (6h) exposed.
+
+---
 ## ✅ 2026-02-14 · Round 19 · Threat-Family → Response Strategy Layer — SHIPPED
 
 **Knowledge layer only.** Sits between Threat Family (Round 16) and

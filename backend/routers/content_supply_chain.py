@@ -64,6 +64,12 @@ from detection_content.xdr_response_strategy import (
     registry_summary as _strategy_summary,
     strategies_for as _strategies_for,
 )
+from detection_content.xdr_closure_classification import (
+    classify as _closure_classify,
+)
+from detection_content.xdr_osint_cache import (
+    summary as _osint_cache_summary,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -731,8 +737,7 @@ async def recommendation_decision(recommendation_id: str,
 @router.get("/response-strategies")
 async def response_strategies_summary(user=Depends(require_admin)):
     """Round 19 · Threat-Family → Response Strategy knowledge layer
-    introspection.  Read-only.  Returns the full strategy registry
-    grouped by objective and family."""
+    introspection.  Read-only.  Returns the full strategy registry."""
     return {
         "summary":    _strategy_summary(),
         "strategies": _all_strategies(),
@@ -747,6 +752,25 @@ async def response_strategies_for_family(family: str,
         "family":     family,
         "strategies": _strategies_for(family),
     }
+
+
+@router.get("/incidents/{incident_id}/closure-classification")
+async def incident_closure_classification(incident_id: str,
+                                                    user=Depends(require_admin)):
+    """Round 20 · Furthest-confirmed-activity closure classification.
+
+    Deterministic: same evidence → same phase.  Never advances beyond
+    what the evidence supports.  When only the initial alert is known,
+    closure == initial_alert_phase and
+    `phase_advanced_by_investigation` is False."""
+    return await _closure_classify(db, incident_id)
+
+
+@router.get("/osint-cache/summary")
+async def osint_cache_summary(user=Depends(require_admin)):
+    """Round 20 · Read-only OSINT cache introspection: total + stale
+    per provider + configured TTLs."""
+    return await _osint_cache_summary(db)
 
 
 @router.get("/incidents/{incident_id}/executive-summary")

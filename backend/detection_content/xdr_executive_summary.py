@@ -372,6 +372,10 @@ async def compose(db, incident_id: str) -> dict:
     from .xdr_analyst_annotations import group_by_section as _group_ann
     ann_by_section = await _group_ann(db, incident_id)
 
+    # ── Round 20 · Furthest-confirmed-activity closure classification
+    from .xdr_closure_classification import classify as _closure_classify
+    closure = await _closure_classify(db, incident_id)
+
     return {
         "engine_id":       COMPOSER_ENGINE_ID,
         "engine_version":  COMPOSER_VERSION,
@@ -394,6 +398,13 @@ async def compose(db, incident_id: str) -> dict:
             "technical":            ann_by_section.get("technical")           or [],
             "supporting_evidence":  ann_by_section.get("supporting_evidence") or [],
             "recommendations":      ann_by_section.get("recommendations")     or [],
+        },
+        "closure_classification": {
+            "initial_alert_phase":      closure.get("initial_alert_phase"),
+            "furthest_confirmed_phase": closure.get("furthest_confirmed_phase"),
+            "phase_advanced_by_investigation":
+                                        closure.get("phase_advanced_by_investigation"),
+            "citations":                closure.get("citations") or [],
         },
         "provenance": {
             "canonical_event_id": (canon or {}).get("event_id"),

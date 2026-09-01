@@ -40,6 +40,7 @@ import PlatformOverviewBody  from "@/xdr/admin/PlatformOverviewBody";
 import UsersRolesBody from "@/xdr/admin/UsersRolesBody";
 import ApiKeysBody from "@/xdr/admin/ApiKeysBody";
 import WebhooksBody from "@/xdr/admin/WebhooksBody";
+import ResponseStrategiesBody from "@/xdr/admin/ResponseStrategiesBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
 
@@ -199,7 +200,8 @@ function AdminBody({ section }) {
          || section.kind === "data_sources_native"
          || section.kind === "collectors_native"
          || section.kind === "detection_registry"
-         || section.kind === "correlation_rules") {
+         || section.kind === "correlation_rules"
+         || section.kind === "response_strategies") {
       // Fully client-side (each fetches from base API on mount).
       setPayload(null);
       setState("populated");
@@ -351,6 +353,8 @@ function AdminBody({ section }) {
               ? <DetectionRegistryBody />
               : section.kind === "correlation_rules"
               ? <CorrelationRulesBody />
+              : section.kind === "response_strategies"
+              ? <ResponseStrategiesBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}
