@@ -20,7 +20,7 @@ async def get_report(incident_id: str) -> Dict[str, Any]:
 
 
 @router.get("/{incident_id}/report/pdf")
-async def get_report_pdf(incident_id: str) -> Response:
+async def get_report_pdf(incident_id: str, cover: bool = True) -> Response:
     """Round 39 · Step 5 — branded PDF projection of the report.
 
     Owner rule: PDF is a *projection* of the exact contract returned
@@ -28,10 +28,15 @@ async def get_report_pdf(incident_id: str) -> Response:
     report-generation engine.  If the incident is missing, the
     renderer emits a one-page honest error PDF rather than a
     fabricated report.
+
+    Round 43 · Optional branded cover page (default ``cover=true``).
+    Set ``?cover=false`` to fall back to the exact Step 5 export.
+    Page-number footers are always on.
     """
     report = await report_svc.compose(db, incident_id)
-    pdf_bytes = report_svc.render_pdf(report)
-    filename = f"nivxray-report-{incident_id}.pdf"
+    pdf_bytes = report_svc.render_pdf(report, cover=cover)
+    suffix = "" if cover else "-nocover"
+    filename = f"nivxray-report-{incident_id}{suffix}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

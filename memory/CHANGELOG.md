@@ -2,6 +2,56 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 43 — Report PDF Cover Art — SHIPPED
+
+Presentation-only enhancement to `/api/incidents/{id}/report/pdf`.
+Zero second-report engine.  Zero change to the four-section
+Investigation Report contract.
+
+**Backend — `services/report/pdf.py`**
+- `render(report, cover=True)` — default cover-on.  `cover=False`
+  restores the exact Step 5 layout.
+- `NumberedCanvas` — two-pass canvas that stamps every page
+  (cover-on and cover-off) with
+  `NivXRay XDR · Investigation Report … Page X of Y`.
+- `_build_cover()` reads only the existing `report["header"]` and
+  top-level fields — no duplicate model.  Cover carries brand ·
+  title · incident id · VERDICT · PRIORITY · INVESTIGATION STATE ·
+  DETECTION · HOST · TENANT · generated timestamp · provenance
+  notice naming all four badges (EVIDENCE-DERIVED, NIVXRAY
+  GENERATED, ANALYST ADDED, ANALYST EDITED).
+- MISSING incident: honest one-page PDF regardless of the flag;
+  page footer preserved.
+
+**Backend — `routers/report.py`**
+- `GET /api/incidents/{id}/report/pdf?cover=true|false`, default
+  `true`.  `Content-Disposition` filename is
+  `nivxray-report-{id}{-nocover}.pdf`.
+
+**Tests — `tests/test_xdr_round43_report_pdf_cover.py`** (10 tests)
+- cover=True adds exactly one page.
+- Cover-only KPIs never leak into cover=False export.
+- Four canonical section titles ordered correctly in both modes.
+- Every page carries `Page X of Y` in both modes.
+- All four provenance badges preserved in both modes.
+- MISSING incident: no fabricated cover under either flag.
+- MISSING PDF still page-numbered.
+- Default signature is cover-on (backwards-compatible).
+- No parallel engine symbols in `report_svc`.
+
+**End-to-end verified via curl on the R35 EDR incident:**
+    ?cover=true  → HTTP 200 · 5 pages · 10 550 bytes · VERDICT KPI
+                        present · page footer present · all badges
+                        present · four sections in order
+    ?cover=false → HTTP 200 · 4 pages ·  8 968 bytes · VERDICT KPI
+                        absent  · page footer present · all badges
+                        present · four sections in order
+
+**Cumulative regression: 246/246 green per-module across
+R21 → R43 (30 modules).**
+
+
+
 ## 2026-09-01 · Round 42 — Evidence Deep-Links — SHIPPED
 
 Owner-locked as a **navigation/deep-linking enhancement only** —

@@ -2,6 +2,67 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 43 — SHIPPED · Report PDF Cover Art
+
+Owner-locked as a **presentation enhancement only**.  Zero
+second-report engine; zero change to the four-section Investigation
+Report contract; zero reinterpretation of report data.
+
+    Existing Report SSOT
+            │
+            ▼
+    report_svc.compose()               ← untouched
+            │
+            ▼
+    Existing PDF Projection            ← untouched
+            │
+            ├── Optional NivXRay XDR Cover   ← R43
+            ├── Four existing sections
+            └── "Page X of Y" footer         ← R43
+
+### Shipped
+- `services/report/pdf.py`
+  - `render(report, cover=True)` — default cover-on.  Callers on the
+    Step 5 signature get the enhanced export immediately.  Set
+    `cover=False` to fall back to the exact Step 5 layout.
+  - `NumberedCanvas` — two-pass canvas that stamps
+    `NivXRay XDR · Investigation Report … Page X of Y` on every
+    page (both cover-on and cover-off).
+  - `_build_cover()` reads only from the existing
+    `report["header"]` + top-level fields — no duplicate model.
+    Cover shows: brand · title · incident id · VERDICT · PRIORITY ·
+    INVESTIGATION STATE · DETECTION · HOST · TENANT · generated
+    timestamp · provenance notice naming all four badges.
+- `routers/report.py` — endpoint now accepts `?cover=true|false`
+  (default `true`).  MISSING incident returns honest one-page PDF
+  regardless of the flag; page footer preserved.
+
+### Verified
+- 10 new R43 tests: cover=True adds exactly one page · cover-only
+  KPIs never leak into cover=False export · four canonical section
+  titles ordered correctly in both modes · every page carries
+  `Page X of Y` in both modes · all four provenance badges preserved
+  in both modes · MISSING incidents get no fabricated cover under
+  either flag · MISSING PDF still page-numbered · default signature
+  is cover-on (backwards-compatible) · **no second report engine
+  symbol leaks into `report_svc`** (`compose_cover`, `render_cover`,
+  `cover_pdf`, `compose_v2`, `render_pdf_v2`, `compose_pdf`,
+  `compose_report_pdf` all absent).
+- Round 39-Step5 suite unchanged: 9/9 green.
+- E2E curl on R35 EDR incident:
+      `?cover=true`  → HTTP 200 · 5 pages · 10 550 bytes · VERDICT
+                            KPI present · page footer present · all badges
+                            present · all four sections in order
+      `?cover=false` → HTTP 200 · 4 pages ·  8 968 bytes · VERDICT
+                            KPI absent · page footer present · all badges
+                            present · all four sections in order
+
+### Cumulative regression
+R21 → R43 · 30 modules · **246/246 green per-module.**
+
+---
+
+
 ## ✅ 2026-09-01 · Round 42 — SHIPPED · Evidence Deep-Links
 
 Owner-locked as a **navigation/deep-linking enhancement only** —

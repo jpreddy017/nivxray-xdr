@@ -18,6 +18,12 @@ Provenance badges are preserved on every block:
     · NivXRay generated
     · Analyst added
     · Analyst edited
+
+Round 43 · Presentation enhancement · optional branded cover page +
+footer page numbers.  The cover is *optional* (``cover=True`` by
+default; ``cover=False`` restores the Step 5 exact export).  The
+cover draws its data from the *existing* ``report["header"]`` — no
+duplicate model.
 """
 from __future__ import annotations
 from io import BytesIO
@@ -27,9 +33,10 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
+from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, KeepTogether,
+    PageBreak, KeepTogether, Flowable,
 )
 
 
@@ -277,13 +284,21 @@ _SECTION_RENDERERS = {
 }
 
 
-def render(report: Dict[str, Any]) -> bytes:
+def render(report: Dict[str, Any], cover: bool = True) -> bytes:
     """Render the four-section report contract to a branded PDF.
 
     Input MUST be the envelope returned by
-    :func:`services.report.service.compose`.  If ``state=MISSING``,
-    a one-page honest error PDF is returned rather than a fabricated
-    report.
+    :func:`services.report.service.compose`.
+
+    Round 43 · ``cover`` (default ``True``) controls whether an
+    optional NivXRay XDR branded cover page is prepended.  Setting
+    ``cover=False`` restores the exact Step 5 export byte-for-byte
+    equivalent (minus the page-number footer, which is now always
+    on — non-configurable).
+
+    MISSING contract: if ``state=MISSING`` a one-page honest error
+    PDF is returned regardless of the ``cover`` flag — we never
+    fabricate a cover page for a missing incident.
     """
     styles = _styles()
     buf = BytesIO()
@@ -297,12 +312,17 @@ def render(report: Dict[str, Any]) -> bytes:
     story: List[Any] = []
 
     if report.get("state") == "MISSING":
+        # Honest MISSING PDF · no cover · no fabricated footer content.
         story.append(Paragraph("NivXRay Investigation Report", styles["h1"]))
         story.append(Paragraph(
             f"Report unavailable: {report.get('reason','incident not found')}.",
             styles["body"]))
-        doc.build(story)
+        doc.build(story, canvasmaker=NumberedCanvas)
         return buf.getvalue()
+
+    if cover:
+        story.extend(_build_cover(report, styles))
+        story.append(PageBreak())
 
     story.extend(_header_row(report, styles))
 
@@ -323,5 +343,126 @@ def render(report: Dict[str, Any]) -> bytes:
           "no fabrication · owner rule §11."),
         styles["muted"]))
 
-    doc.build(story)
+    doc.build(story, canvasmaker=NumberedCanvas)
     return buf.getvalue()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Round 43 · Cover page + numbered footer
+# ─────────────────────────────────────────────────────────────────────
+class NumberedCanvas(Canvas):
+    """Two-pass canvas that stamps ``Page X of Y`` on every page.
+
+    Round 43 · presentation-only.  The report content is unchanged;
+    each page just gets a subtle right-aligned footer.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states: List[Dict[str, Any]] = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        total = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self._draw_page_footer(total)
+            super().showPage()
+        super().save()
+
+    def _draw_page_footer(self, total: int) -> None:
+        self.setFont("Helvetica", 7.5)
+        self.setFillColor(MUTED_INK)
+        page_w, _ = LETTER
+        # Left: standing brand mark.
+        self.drawString(0.6 * inch, 0.35 * inch,
+                              "NivXRay XDR · Investigation Report")
+        # Right: page numbering.
+        self.drawRightString(page_w - 0.6 * inch, 0.35 * inch,
+                                       f"Page {self._pageNumber} of {total}")
+
+
+def _build_cover(report: Dict[str, Any], styles) -> List[Any]:
+    """Build the optional branded cover page.
+
+    Owner rule: data flows from the *existing* ``report["header"]``
+    and top-level fields.  No duplicate contract, no reinterpretation.
+    """
+    hdr = report.get("header") or {}
+    parts: List[Any] = [
+        Spacer(1, 1.4 * inch),
+        Paragraph("<b>NivXRay XDR</b>", ParagraphStyle(
+            "cover_brand", parent=styles["h1"], fontSize=28, leading=32,
+            textColor=BRAND_PURPLE)),
+        Paragraph("Investigation Report", ParagraphStyle(
+            "cover_sub", parent=styles["h1"], fontSize=16, leading=20,
+            textColor=BRAND_INK)),
+        Spacer(1, 0.4 * inch),
+        Table([[""]], colWidths=[6.5 * inch], rowHeights=[1],
+                style=TableStyle([("LINEABOVE", (0, 0), (-1, -1),
+                                          1.2, BRAND_PURPLE)])),
+        Spacer(1, 0.35 * inch),
+        Paragraph(hdr.get("title") or report.get("incident_id") or "",
+                        ParagraphStyle("cover_title", parent=styles["h1"],
+                                             fontSize=22, leading=26,
+                                             textColor=BRAND_INK)),
+        Spacer(1, 0.15 * inch),
+        Paragraph(f"Incident ID · <b>{report.get('incident_id','')}</b>",
+                        styles["body"]),
+        Spacer(1, 0.35 * inch),
+    ]
+
+    # Facts panel · data all from the existing report envelope.
+    verdict = (hdr.get("verdict") or "").upper() or "—"
+    priority = hdr.get("priority") or "—"
+    state    = hdr.get("state") or "—"
+    detection = hdr.get("detection") or "—"
+    host     = hdr.get("host") or "—"
+    tenant   = report.get("tenant_id") or "—"
+
+    def _cell(label: str, value: str, tone_hex: str = "#0f172a"):
+        return Table([
+            [Paragraph(f"<font color='#64748b'>{label}</font>", styles["muted"])],
+            [Paragraph(f"<font color='{tone_hex}'>{_escape(value)}</font>",
+                            ParagraphStyle("cf", parent=styles["body"],
+                                                 fontSize=12, leading=15,
+                                                 fontName="Helvetica-Bold"))],
+        ], colWidths=[3.1 * inch],
+              style=TableStyle([("LEFTPADDING",   (0, 0), (-1, -1), 8),
+                                        ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+                                        ("TOPPADDING",    (0, 0), (-1, -1), 4),
+                                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                                        ("BACKGROUND",    (0, 0), (-1, -1),
+                                          colors.HexColor("#f8fafc")),
+                                        ("LINEBELOW",     (0, 0), (-1, -1),
+                                          0.4, HAIRLINE)]))
+
+    grid = Table([
+        [_cell("VERDICT",  verdict, tone_hex="#7c3aed"),
+          _cell("PRIORITY", priority)],
+        [_cell("INVESTIGATION STATE", state),
+          _cell("DETECTION",           detection)],
+        [_cell("HOST",   host),
+          _cell("TENANT", tenant)],
+    ], colWidths=[3.1 * inch, 3.1 * inch],
+       style=TableStyle([("LEFTPADDING",  (0, 0), (-1, -1), 0),
+                                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                                 ("TOPPADDING",   (0, 0), (-1, -1), 2),
+                                 ("BOTTOMPADDING",(0, 0), (-1, -1), 2)]))
+    parts.append(grid)
+    parts.append(Spacer(1, 0.5 * inch))
+
+    parts.append(Paragraph(
+        (f"<b>Generated at</b> {report.get('generated_at','')}"),
+        styles["muted"]))
+    parts.append(Spacer(1, 0.08 * inch))
+    parts.append(Paragraph(
+        ("Every fact in this report is a projection of the "
+          "NivXRay Investigation Report contract.  Provenance badges "
+          "(EVIDENCE-DERIVED · NIVXRAY GENERATED · ANALYST ADDED · "
+          "ANALYST EDITED) are preserved on every block.  No content "
+          "is fabricated — empty sections render empty."),
+        styles["muted"]))
+    return parts
