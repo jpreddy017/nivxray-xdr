@@ -47,9 +47,11 @@ _GUIDANCE: list[dict] = [
         "required_evidence": ["network.domain"],
         "supported_families": ["C2", "PUA_ADWARE", "MALWARE", "LOADER",
                                        "INFOSTEALER", "BOTNET", "PHISHING"],
-        "action":             "IP_BLOCK",  # closest available adapter
+        "action":             "IP_BLOCK",
         "framework_hint":     "D3-DNSDL",
         "confidence":         "HIGH",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "HIGH",
         "rationale":
             "Domain {entity} observed as outbound target in incident "
             "evidence; blocking at edge is a direct D3FEND-supported "
@@ -65,9 +67,27 @@ _GUIDANCE: list[dict] = [
         "action":             "IP_BLOCK",
         "framework_hint":     "D3-NTF",
         "confidence":         "HIGH",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "HIGH",
         "rationale":
             "Destination IP {entity} observed in incident traffic; edge "
             "block prevents further C2 communication.",
+    },
+    {
+        "id":                "BLOCK_OBSERVED_HASH",
+        "category":          "IMMEDIATE",
+        "target_entity_kind": "hash",
+        "required_evidence": ["file.hash"],
+        "supported_families": ["MALWARE", "RANSOMWARE", "INFOSTEALER",
+                                       "LOADER", "WORM"],
+        "action":             "IOC_ADD_WATCHLIST",
+        "framework_hint":     "D3-EAL",
+        "confidence":         "HIGH",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "HIGH",
+        "rationale":
+            "File hash {entity} observed on affected endpoint; add to "
+            "block-list to prevent execution across environment.",
     },
     {
         "id":                "ENRICH_OBSERVED_IP",
@@ -80,6 +100,8 @@ _GUIDANCE: list[dict] = [
         "action":             "OSINT_ENRICH_IP",
         "framework_hint":     "D3-NTA",
         "confidence":         "HIGH",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "MEDIUM",
         "rationale":
             "Enrich {entity} across public OSINT (Talos · DShield · VT · "
             "AbuseIPDB · URLhaus) before deciding on destructive action.",
@@ -94,6 +116,8 @@ _GUIDANCE: list[dict] = [
         "action":             "COLLECT_FORENSIC_SNAPSHOT",
         "framework_hint":     "D3-EL",
         "confidence":         "HIGH",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "HIGH",
         "rationale":
             "Collect forensic snapshot on {entity} to preserve volatile "
             "artefacts before eradication actions run.",
@@ -108,6 +132,8 @@ _GUIDANCE: list[dict] = [
         "action":             "ENDPOINT_ISOLATE",
         "framework_hint":     "D3-EAL",
         "confidence":         "MEDIUM",
+        "evidence_strength":  "CORROBORATED",
+        "base_priority":      "CRITICAL",
         "rationale":
             "Isolate {entity} from the network to stop active attacker "
             "activity while investigation continues.",
@@ -122,9 +148,107 @@ _GUIDANCE: list[dict] = [
         "action":             "IOC_ADD_WATCHLIST",
         "framework_hint":     "D3-NTA",
         "confidence":         "MEDIUM",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "MEDIUM",
         "rationale":
             "Add {entity} to NivXRay internal watch-list so subsequent "
             "detections cross-reference this observation instantly.",
+    },
+    # ── Round 17 · new candidates (guidance knowledge only) ─────
+    {
+        "id":                "REMOVE_STARTUP_PERSISTENCE",
+        "category":          "REMEDIATION",
+        "target_entity_kind": "startup_entry",
+        "required_evidence": ["persistence.startup"],
+        "supported_families": ["PUA_ADWARE", "MALWARE", "PERSISTENCE",
+                                       "INFOSTEALER", "LOADER"],
+        "action":             "COLLECT_FORENSIC_SNAPSHOT",  # via EDR when wired
+        "framework_hint":     "D3-EL",
+        "confidence":         "HIGH",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "HIGH",
+        "rationale":
+            "Startup persistence entry {entity} observed; remove to prevent "
+            "the associated application from re-launching at boot.",
+    },
+    {
+        "id":                "UNINSTALL_APPLICATION",
+        "category":          "REMEDIATION",
+        "target_entity_kind": "application",
+        "required_evidence": ["application.name"],
+        "supported_families": ["PUA_ADWARE", "SUSPICIOUS_APPLICATION"],
+        "action":             "COLLECT_FORENSIC_SNAPSHOT",
+        "framework_hint":     "D3-EAL",
+        "confidence":         "HIGH",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "HIGH",
+        "rationale":
+            "Uninstall application {entity} — observed on affected "
+            "endpoint and consistent with PUA/adware behaviour.",
+    },
+    {
+        "id":                "TERMINATE_PROCESS",
+        "category":          "IMMEDIATE",
+        "target_entity_kind": "process",
+        "required_evidence": ["process.image"],
+        "supported_families": ["PUA_ADWARE", "MALWARE", "RANSOMWARE",
+                                       "INFOSTEALER", "LOADER", "C2"],
+        "action":             "COLLECT_FORENSIC_SNAPSHOT",
+        "framework_hint":     "D3-EAL",
+        "confidence":         "MEDIUM",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "HIGH",
+        "rationale":
+            "Terminate process {entity} — observed as an associated "
+            "component of the incident.",
+    },
+    {
+        "id":                "REVOKE_CREDENTIAL",
+        "category":          "IMMEDIATE",
+        "target_entity_kind": "user",
+        "required_evidence": ["identity.user"],
+        "supported_families": ["CREDENTIAL_THEFT", "LATERAL_MOVEMENT"],
+        "action":             "COLLECT_FORENSIC_SNAPSHOT",  # IAM adapter TBD
+        "framework_hint":     "D3-EAL",
+        "confidence":         "HIGH",
+        "evidence_strength":  "CORROBORATED",
+        "base_priority":      "CRITICAL",
+        "rationale":
+            "Revoke credential/session for {entity} — credential-theft "
+            "signal detected.",
+    },
+    {
+        "id":                "SEARCH_ENVIRONMENT_FOR_INDICATOR",
+        "category":          "INVESTIGATION",
+        "target_entity_kind": "ipv4",
+        "required_evidence": ["network.src.ip", "network.dst.ip"],
+        "supported_families": ["C2", "MALWARE", "PUA_ADWARE", "RANSOMWARE",
+                                       "INFOSTEALER", "LOADER", "BOTNET",
+                                       "LATERAL_MOVEMENT"],
+        "action":             "IOC_ADD_WATCHLIST",
+        "framework_hint":     "D3-NTA",
+        "confidence":         "MEDIUM",
+        "evidence_strength":  "INFERRED",
+        "base_priority":      "MEDIUM",
+        "rationale":
+            "Search other endpoints/telemetry for indicator {entity} to "
+            "determine whether the incident has spread.",
+    },
+    {
+        "id":                "ENRICH_OBSERVED_DOMAIN",
+        "category":          "INVESTIGATION",
+        "target_entity_kind": "domain",
+        "required_evidence": ["network.domain"],
+        "supported_families": ["C2", "PUA_ADWARE", "MALWARE", "UNKNOWN",
+                                       "PHISHING"],
+        "action":             "OSINT_ENRICH_DOMAIN",
+        "framework_hint":     "D3-DNSAL",
+        "confidence":         "HIGH",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "MEDIUM",
+        "rationale":
+            "Enrich domain {entity} across public OSINT reputation "
+            "sources before deciding on blocking.",
     },
 ]
 
