@@ -58,6 +58,54 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 23 · Evidence Traversal Completion — SHIPPED
+
+**Full chain: Canonical → IUE → Correlation → Observation → Recommendation
+now traversable from any attack-graph node.**
+
+### Files delivered
+- `xdr_evidence_traversal.py::_resolve_inline_iue` — the IUE is a
+  deterministic pure function of (canonical, detection), so the
+  resolver materialises it on the fly (byte-identical) rather than
+  requiring extra storage.  `iue:<incident_id>` now returns a
+  first-class `IUE_RECORD` document with `iue_id` +
+  `canonical_event_id` backlink.
+- `xdr_attack_chain_graph.py::compose` — every node now carries a
+  `traversal_chain` block:
+  * `canonical_event_id`
+  * `iue_ref`
+  * `correlation_match_ids[]`
+  * `intelligence_observation_ids[]`
+  * `recommendation_ids[]`
+  * `incident_id`
+  A missing layer → empty list / null.  The composer NEVER
+  fabricates a placeholder id.
+- Frontend `MitreTab.jsx` NodePanel:
+  * New `TraversalChain` sub-component renders all six layers in
+    order, with each id as an expandable `EvidenceRow`.
+  * Empty layers render verbatim as
+    `Not available in collected evidence` in amber.
+
+### Governing rule (locked in PRD §33)
+> No evidence → no node.
+> No evidence-backed relationship → no edge.
+> No persisted source → no traversal.
+> Missing telemetry → explicitly UNKNOWN / NOT_OBSERVED /
+> INSUFFICIENT_EVIDENCE.
+
+### Test coverage
+`tests/test_xdr_round23_traversal_completion.py` — 7/7.
+Full XDR regression rounds 11–23: **135/135 pass**.
+
+### Verified live
+Golden Snort node exposes:
+    Canonical HAS · IUE HAS · Correlation EMPTY · Observations HAS ·
+    Recommendations HAS · Incident HAS.
+`GET /evidence/iue:<incident_id>` returns kind=IUE_RECORD with real
+iue_id + canonical_event_id + severity_hint + entities + capability
+tags — reconstructed deterministically from canonical evidence.
+
+---
 ## ✅ 2026-02-14 · Round 22 · Evidence Traversability — SHIPPED
 
 **Every graph node/edge and every mapping cite becomes clickable

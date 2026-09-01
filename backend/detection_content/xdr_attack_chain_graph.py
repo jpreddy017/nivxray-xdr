@@ -198,12 +198,28 @@ async def compose(db, incident_id: str) -> dict:
 
     ice_n = int(ctx.get("ice_matches") or 0)
 
-    # ── Live recommendations for the "related recos" fold ────
+    # ── Round 23 · Correlation matches (evidence-backed pointers) ──
+    correlation_match_ids: list[str] = []
+    ice_ids_on_incident = (inc.get("xdr_pipeline") or {}).get("ice_matches") or []
+    async for m in db["xdr_correlation_matches"].find(
+        {"match_id": {"$in": list(ice_ids_on_incident)}}, {"_id": 0, "match_id": 1}
+    ):
+        correlation_match_ids.append(m["match_id"])
+
+    # ── Round 23 · Live recommendations (real ids, not just count) ──
     recos: list[dict] = []
     async for r in db["xdr_recommendations"].find(
         {"incident_id": incident_id}, {"_id": 0}
     ):
         recos.append(r)
+
+    # ── Round 23 · IUE reference (materialised on the fly by the
+    #    traversal resolver — the IUE record is a deterministic pure
+    #    function of the canonical evidence, so we only need to know
+    #    that IUE processing completed on this incident, which is
+    #    provable by the presence of iue_id in xdr_pipeline).
+    iue_present = bool((inc.get("xdr_pipeline") or {}).get("iue_id"))
+    iue_ref     = f"iue:{incident_id}" if iue_present else None
 
     canon_id = (canon or {}).get("event_id")
     telemetry_src = _telemetry_source_of(canon or {})
@@ -229,6 +245,22 @@ async def compose(db, incident_id: str) -> dict:
                                                                              tactic),
             "telemetry_sources": [telemetry_src] if canon_id else [],
             "evidence_ids": ([canon_id] if canon_id else []),
+            # Round 23 · Full traversal chain pointers so the UI can
+            # walk Canonical → IUE → Correlation → Observation →
+            # Recommendation without inventing anything.  When a layer
+            # is missing the list is empty — the UI must render it as
+            # "Not available in collected evidence".
+            "traversal_chain": {
+                "canonical_event_id":       canon_id,
+                "iue_ref":                  iue_ref,
+                "correlation_match_ids":    correlation_match_ids,
+                "intelligence_observation_ids":
+                    [o.get("id") for o in observations if o.get("id")],
+                "recommendation_ids": [r.get("recommendation_id")
+                                                        for r in recos
+                                                        if r.get("recommendation_id")],
+                "incident_id":              incident_id,
+            },
             "related_recommendations": [
                 {"id": r.get("recommendation_id"),
                   "action": r.get("suggested_action"),

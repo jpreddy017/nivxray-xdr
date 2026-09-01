@@ -386,6 +386,11 @@ function NodePanel({ n, onClear }) {
           ))}
         </Section>
       )}
+      {/* Round 23 · Full traversal chain — Canonical → IUE →
+              Correlation → Observation → Recommendation.  Every
+              layer is honestly rendered: empty → "Not available in
+              collected evidence". */}
+      <TraversalChain chain={n.traversal_chain} />
       {n.related_recommendations?.length > 0 && (
         <Section title={`Related recommendations (${n.related_recommendations.length})`}>
           {n.related_recommendations.slice(0, 6).map((r, i) => (
@@ -549,6 +554,46 @@ function KV({ k, v }) {
                         </i>
                     : String(v)}</span>
     </div>
+  );
+}
+
+
+/* Round 23 · Full traversal chain: Canonical → IUE → Correlation →
+   Observation → Recommendation.  Missing layers render as an
+   explicit "Not available in collected evidence" line — never
+   fabricated. */
+function TraversalChain({ chain }) {
+  if (!chain) return null;
+  const layers = [
+    { title: "Canonical Event",     refs: chain.canonical_event_id
+                                              ? [chain.canonical_event_id] : [] },
+    { title: "IUE Record",          refs: chain.iue_ref
+                                              ? [chain.iue_ref] : [] },
+    { title: "Correlation Matches", refs: chain.correlation_match_ids || [] },
+    { title: "Intelligence Observations",
+                                              refs: chain.intelligence_observation_ids || [] },
+    { title: "Recommendations",     refs: chain.recommendation_ids || [] },
+    { title: "Incident",            refs: chain.incident_id
+                                              ? [chain.incident_id] : [] },
+  ];
+  return (
+    <Section title="Evidence Chain">
+      {layers.map((l) => (
+        <div key={l.title} style={{ marginBottom: 4 }}
+                data-testid={`traversal-${l.title.replace(/\s+/g,"-").toLowerCase()}`}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 10,
+                              color: "var(--faint)", fontWeight: 700,
+                              marginBottom: 2 }}>{l.title}</div>
+          {l.refs.length === 0
+            ? <div style={{ fontFamily: "var(--mono)", fontSize: 10,
+                                    color: "var(--amber)", fontStyle: "italic",
+                                    paddingLeft: 8 }}>
+                Not available in collected evidence
+              </div>
+            : l.refs.map((r) => <EvidenceRow key={r} evidenceRef={r} />)}
+        </div>
+      ))}
+    </Section>
   );
 }
 

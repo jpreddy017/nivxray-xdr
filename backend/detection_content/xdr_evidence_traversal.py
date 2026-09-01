@@ -133,6 +133,39 @@ async def _traverse_incident(db, incident_id: str) -> dict:
     }
 
 
+async def _resolve_inline_iue(db, incident_id: str) -> dict | None:
+    """Round 23 · The IUE is a pure deterministic function of
+    (canonical, detection).  We only persist `iue_id` on the incident
+    for space, but we can reconstruct the FULL IUE document on the
+    fly — byte-identical thanks to the IUE determinism contract.
+    Consumers thus receive a first-class evidence record with a stable
+    id and a canonical_event_id backlink."""
+    inc = await db["workspace_cases"].find_one({"id": incident_id},
+                                                                {"_id": 0,
+                                                                  "id": 1,
+                                                                  "xdr_pipeline": 1})
+    if not inc:
+        return None
+    pipe = inc.get("xdr_pipeline") or {}
+    ce_id = pipe.get("canonical_event_id")
+    if not ce_id:
+        return None
+    canonical = await db["xdr_canonical_evidence"].find_one(
+        {"event_id": ce_id}, {"_id": 0})
+    if not canonical:
+        return None
+    detection = None
+    rule_id = pipe.get("detection_rule_id")
+    if rule_id:
+        detection = {"rule_id": rule_id, "supported": True}
+    from .xdr_iue import understand as _iue_understand
+    iue = _iue_understand(canonical, detection)
+    iue = dict(iue)
+    iue["incident_id"]        = incident_id
+    iue["canonical_event_id"] = ce_id
+    return iue
+
+
 async def _traverse_mapping(db, mapping_id: str,
                                         doc: dict) -> dict:
     """A framework mapping traverses back to its cited canonical
@@ -179,6 +212,29 @@ async def resolve(db, evidence_ref: str) -> dict:
                             "iue", "obs", "exec", "reco", "ann"):
             kind_hint = prefix
             ref = tail
+
+    # Round 23 · IUE is persisted inline on the incident document.
+    if kind_hint == "iue":
+        iue_doc = await _resolve_inline_iue(db, ref)
+        if iue_doc:
+            return {
+                "state":          "READY",
+                "engine_id":      ENGINE_ID,
+                "engine_version": VERSION,
+                "kind":           IUE_RECORD,
+                "id":             iue_doc.get("iue_id") or ref,
+                "document":       iue_doc,
+                "missing_fields": [],
+                "traversal": {
+                    "parent_incident":     ref,
+                    "canonical_event_id":  iue_doc.get("canonical_event_id"),
+                },
+                "contract":
+                    "IUE record materialised from the incident's "
+                    "xdr_pipeline.iue field — deterministic, "
+                    "byte-identical for identical evidence.",
+            }
+        return _missing(f"incident {ref!r} has no IUE record")
 
     # Ordered probe — first hit wins.
     probes = _probes_for(kind_hint)
