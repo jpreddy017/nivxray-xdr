@@ -58,6 +58,82 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 25a — SHIPPED · Cortex XDR Vendor Wizard
+
+**Goal:** first typed BYO-EDR onboarding surface.  Real-only —
+never a synthetic demo path.  Every stage renders the vendor's
+actual response.
+
+### Locked stage grammar (owner · Round 25a)
+
+```
+Identity        → OBSERVED   · PALO_ALTO_CORTEX_XDR
+Authentication  → OBSERVED   · CREDENTIALS_SUBMITTED   (else MISSING · AWAITING_CREDENTIALS)
+Connectivity    → real Cortex healthcheck via xdr_cortex_adapter
+                  · pre-submit                   → MISSING     · NO_LIVE_TENANT
+                  · vendor 401/403               → UNAVAILABLE · AUTHENTICATION_FAILED
+                  · DNS/timeout/transport        → UNAVAILABLE · CONNECTION_FAILED
+                  · 2xx                          → OBSERVED    · VENDOR_REACHED
+Capability      → adapter probe of every action
+                  · connect not ok               → SUPPRESSED  · NOT_RUN
+                  · per action AVAILABLE / UNAVAILABLE / FAILED / NOT_SUPPORTED
+Binding         → persist into xdr_integrations
+                  · connect not ok               → cap-standby · LOCKED
+                  · connect ok                   → cap-ingest  · READY_TO_BIND
+                  · saved                        → ACTIONED    · ACTIVE
+```
+
+### Shipped
+
+- **Backend** `/app/backend/routers/xdr_cortex_wizard.py`
+  - `POST /api/xdr/vendor/cortex/probe`       — connect() + capability_probe(); never persists.
+  - `POST /api/xdr/vendor/cortex/connections` — probes first, refuses 400 on connect_failed.
+  - `GET  /api/xdr/vendor/cortex/connections[/{id}]` — redacted list/get.
+  - `DELETE /api/xdr/vendor/cortex/connections/{id}` — tombstones + scrubs credential blob.
+  - Persists to the SAME `xdr_integrations` collection already
+    consumed by `xdr_capability_service` — no parallel model.
+  - Live HTTP connector uses `httpx`; maps status → honest reason
+    codes: `AUTHENTICATION_FAILED`, `CONNECTION_FAILED`,
+    `VENDOR_ERROR`, `UNEXPECTED_STATUS`.
+  - Interim envelope: `Fernet` with key auto-generated to
+    `${XDR_STATE_DIR}/wizard.key` (chmod 600).  Explicit
+    `credentials_todo: replace-with-round25b-envelope` marker in
+    each record — Round 25b vault replaces this in-place.
+- **Frontend** `/app/apps/nivxray-xdr/src/xdr/design/CortexOnboardingWizard.jsx`
+  - 100% Round 24.9 design primitives (`Entity`, `EvidenceState`,
+    `Provenance`, `Action`).
+  - API key held in a `useRef` (never `useState`) — cleared on
+    successful bind.  Field is `type="password"`.  Backend read-
+    path always returns `***`.
+  - Stage track + progressive-disclosure sections.  No "form
+    pages" feel — the wizard reads as one continuous
+    evidence-establishment surface.
+- **Integration Control Center** `IntegrationControlCenter.jsx`
+  - Vendor-typed catalog: `Palo Alto Cortex XDR` is the first tile;
+    picks up the typed wizard.  Other tiles still use the legacy
+    generic REST wizard until their vendor round ships.
+
+### Verified (preview, no live Cortex tenant)
+
+- Wizard opens with correct pre-submit stages:
+  `MISSING · NO_LIVE_TENANT` on connectivity; capability
+  `SUPPRESSED · NOT_RUN`; binding `LOCKED · awaiting successful probe`.
+- Real probe against an unreachable FQDN returns
+  `CONNECTION_FAILED · vendor unreachable` with the verbatim
+  vendor detail rendered in the panel — no fabricated success.
+- `POST /connections` refuses 400 when probe fails — a fake
+  Cortex integration cannot enter `xdr_integrations`.
+- Zero JS console errors.
+
+### Boundary notes
+
+- Round 25b will replace the Fernet envelope with per-tenant DEK
+  + KMS-agnostic wrap, then re-encrypt existing records in-place.
+- Agents surface intentionally still `NOT CONNECTED` — becomes
+  real only after Cortex is genuinely bound + Round 26 ingest
+  projects the endpoint inventory.
+
+---
 ## ✅ 2026-02-14 · Round 24.95 — SHIPPED · Collector Landing (Option C)
 
 **Goal:** turn the honest-but-empty `COLLECTOR NOT DEPLOYED` state

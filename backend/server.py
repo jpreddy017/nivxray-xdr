@@ -428,6 +428,18 @@ api.include_router(static_docs_router)
 # Semantic-Mapping-Preview) deleted.
 
 # ─────────────────────────────────────────────────────────────────────
+# Round 25a · Cortex XDR Vendor Wizard — typed onboarding surface.
+# Runs against the customer's REAL Cortex tenant via xdr_cortex_adapter;
+# never fabricates a probe result.  Persists into xdr_integrations so
+# xdr_capability_service consumes it deterministically.
+try:
+    from routers.xdr_cortex_wizard import router as xdr_cortex_wizard_router
+    app.include_router(xdr_cortex_wizard_router)
+    log.info("[startup] Cortex XDR vendor wizard mounted at /api/xdr/vendor/cortex")
+except Exception as _cwx:                                          # pragma: no cover
+    log.warning("[startup] Cortex wizard mount failed: %s", _cwx)
+
+# ─────────────────────────────────────────────────────────────────────
 # Round 24.95 · Collector Landing — HTTP transports of the standalone
 # NivXRay XDR Collector are landed in this backend under
 # /api/xdr/collector/*.  Standalone process remains deployable for

@@ -38,8 +38,14 @@ import * as C from "@/xdr/admin/collectorApi";
 import Entity from "./Entity";
 import EvidenceState from "./EvidenceState";
 import Action, { ActionGroup } from "./Action";
+import CortexOnboardingWizard from "./CortexOnboardingWizard";
 import "./tokens.css";
 import { ConnectorWizard } from "./_WizardLegacyBridge";
+
+// ── Vendor-typed catalog · Round 25a wires Cortex XDR as the first
+// vendor-typed onboarding path.  Every entry with `vendor` set uses
+// the typed wizard; entries with only `transport` keep the legacy
+// generic REST/webhook/syslog wizard until their vendor round ships.
 
 // ── Legacy runtime → capability-tier mapping ──────────────────
 // Deterministic.  Consumes the collector's real fields; NEVER
@@ -85,8 +91,10 @@ export function deriveCapability(row) {
 
 // ── Catalog · human-first ───────────────────────────────────
 const CATALOG = [
-  { key: "edr",     label: "EDR / Endpoint", transport: "rest",
-    icon: Server,   note: "REST poller — Cortex XDR, CrowdStrike, SentinelOne, Defender" },
+  { key: "cortex",  label: "Palo Alto Cortex XDR",  vendor: "cortex", transport: "typed",
+    icon: Server,   note: "Vendor-typed onboarding · binds to xdr_cortex_adapter · real capability probe" },
+  { key: "edr",     label: "Other EDR / Endpoint",  transport: "rest",
+    icon: Server,   note: "REST poller — CrowdStrike, SentinelOne, Defender (vendor-typed adapters coming next)" },
   { key: "siem",    label: "SIEM",           transport: "syslog",
     icon: Database, note: "Syslog forwarder — Splunk, Sentinel, Chronicle, Elastic" },
   { key: "fw",      label: "Firewall",       transport: "syslog",
@@ -192,14 +200,19 @@ export default function IntegrationControlCenter() {
         />
       )}
       {(wizardCategory || editing) && (
-        <ConnectorWizard
-          category={wizardCategory}
-          editing={editing}
-          onClose={() => { setWizardCategory(null); setEditing(null); }}
-          onCreated={async () => {
-            setWizardCategory(null); setEditing(null); await load();
-          }}
-        />
+        wizardCategory?.vendor === "cortex"
+          ? <CortexOnboardingWizard
+              onClose={() => setWizardCategory(null)}
+              onBound={async () => { setWizardCategory(null); await load(); }}
+            />
+          : <ConnectorWizard
+              category={wizardCategory}
+              editing={editing}
+              onClose={() => { setWizardCategory(null); setEditing(null); }}
+              onCreated={async () => {
+                setWizardCategory(null); setEditing(null); await load();
+              }}
+            />
       )}
     </div>
   );

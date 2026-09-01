@@ -23,6 +23,7 @@ export { default as Action,
          ActionGroup }               from "./Action";
 
 export { default as IntegrationControlCenter } from "./IntegrationControlCenter";
+export { default as CortexOnboardingWizard } from "./CortexOnboardingWizard";
 
 /** Runtime feature-flag lookup — safe to call from any React tree. */
 export function isDesignV2Enabled() {
