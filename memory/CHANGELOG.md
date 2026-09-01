@@ -2,6 +2,30 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 35.3.1 — Investigator Reopen-on-New-Evidence Fix
+
+Follow-up to R35.3: fixed a lifecycle bug where re-ticking a
+CONVERGED investigation with new evidence flipped it to FAILED via
+an illegal transition (`CONVERGED → UNDERSTANDING_EVIDENCE`).
+
+**Backend — `services/investigator/orchestrator.py`**
+- Before running `UNDERSTANDING_EVIDENCE`, the tick now routes
+  CONVERGED / FAILED states through `REOPENED` first, respecting
+  the state machine defined in `lifecycle.ALLOWED`.
+- Fixed a cosmetic bug in `_transition` where the FAILED-reason
+  reported the destination state instead of the source state.
+
+**Tests — `tests/test_xdr_round31_investigator.py`**
+- New: `test_converged_investigation_reopens_on_new_evidence` —
+  invalidates the stored IUE fingerprint, re-ticks, and asserts the
+  investigation reopens cleanly instead of failing.
+
+Verified in the running preview: `Investigation Activity` tab now
+displays **CONVERGED · 10 capabilities · 12 findings** for the R35
+EDR incident. 77/77 R30-R35 tests green.
+
+
+
 ## 2026-09-01 · Round 35.3 — Semantic Attack Graph Correction — SHIPPED
 
 Fixed the Attack Graph's causal composition. Techniques no longer

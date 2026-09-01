@@ -118,6 +118,22 @@ class InvestigatorService:
                 and state.iue_fingerprint == understanding.evidence_fingerprint:
             return state
 
+        # New evidence (fingerprint changed) or the investigation is
+        # in a terminal state — REOPEN before understanding.  The state
+        # machine requires CONVERGED/FAILED → REOPENED first.
+        if state.state in ("CONVERGED", "FAILED"):
+            await cls._transition(db, state, "REOPENED",
+                                      understanding=understanding,
+                                      what="Reopened on new evidence.",
+                                      why=("Evidence fingerprint changed "
+                                              "since last convergence."
+                                              if state.state == "CONVERGED"
+                                              else "Recovering from FAILED "
+                                                    "state on new tick."))
+            if state.state != "REOPENED":
+                # _transition refused → nothing else we can do.
+                return state
+
         await cls._transition(db, state, "UNDERSTANDING_EVIDENCE",
                                   understanding=understanding,
                                   what="Consumed IUE understanding.",
@@ -305,10 +321,11 @@ class InvestigatorService:
             return
         if not can_transition(state.state, target):
             # Illegal transition — record it and abort.
+            from_state = state.state
             state.state = "FAILED"
             state.state_history.append({
                 "state": "FAILED", "at": _now_iso(),
-                "reason": f"illegal transition {state.state}→{target}",
+                "reason": f"illegal transition {from_state}→{target}",
             })
             state.updated_at = _now_iso()
             await cls._persist_state(db, state)
@@ -316,7 +333,7 @@ class InvestigatorService:
                 at=_now_iso(), kind="LIFECYCLE",
                 lifecycle_state="FAILED",
                 what="Illegal state transition.",
-                why=f"Refused {state.state}→{target}",
+                why=f"Refused {from_state}→{target}",
             ))
             return
         state.state = target

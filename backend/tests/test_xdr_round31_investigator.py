@@ -232,3 +232,29 @@ def test_state_read_returns_tenant_scoped_record(loop, db, incident_id):
     for f in findings:
         assert f["tenant_id"] == state.tenant_id
         assert f["incident_id"] == incident_id
+
+
+# ── 14 · Round 35.3 · Reopen on new evidence, no illegal FAILED ─────
+def test_converged_investigation_reopens_on_new_evidence(loop, db, incident_id):
+    """A converged investigation that is ticked again with a new IUE
+    fingerprint must transition CONVERGED → REOPENED → UNDERSTANDING,
+    NOT go straight into FAILED via an illegal transition.
+    """
+    # First tick — converge on the current evidence.
+    _run(loop, InvestigatorService.tick(db, incident_id))
+    st_before = _run(loop, InvestigatorService.get_state(db, incident_id))
+    # Simulate new evidence by invalidating the stored fingerprint.
+    _run(loop, db["xdr_investigations"].update_one(
+        {"incident_id": incident_id},
+        {"$set": {"iue_fingerprint": "stale-fingerprint-for-reopen-test"}}))
+    # Tick again — expect the state machine to reopen cleanly.
+    st_after = _run(loop, InvestigatorService.tick(db, incident_id))
+    assert st_after.state != "FAILED", (
+        f"Reopen on new evidence must not FAIL; got history "
+        f"{[h['state'] for h in st_after.state_history[-6:]]}"
+    )
+    # A REOPENED marker must appear somewhere in the history now.
+    states_seen = {h["state"] for h in st_after.state_history}
+    assert "REOPENED" in states_seen, (
+        f"Expected REOPENED in state history, got {states_seen}"
+    )
