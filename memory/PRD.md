@@ -2,6 +2,60 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 42 — SHIPPED · Evidence Deep-Links
+
+Owner-locked as a **navigation/deep-linking enhancement only** —
+zero backend model change, zero Attack Graph architecture change,
+zero UI redesign.
+
+    Activity Graph Edge
+           │
+           └── evidence_refs[]           ← already exposed
+                   │
+                   ▼
+           Canonical Evidence ID
+                   │
+                   ▼
+        Shared EvidenceInspector        ← Round 38.3 reused
+                   │
+             (governed data)
+
+### Shipped (client only)
+- `AttackGraphTab.jsx` edge inspector: every `evidence_refs[]` entry
+  is rendered as a clickable mono pill (`xdr-ag-evidence-ref-{id}`);
+  every `finding_ids[]` entry as a clickable pill
+  (`xdr-ag-finding-ref-{id}`).  Hint copy: *"(click to inspect
+  canonical event)"*.
+- New client state `deepLink = {kind, refId}`; when active, right
+  column renders the existing shared `<EvidenceInspector>` on the
+  governed evidence object with an **EVIDENCE DEEP-LINK** header
+  and a **← Back** button (`xdr-ag-deeplink-bar` /
+  `xdr-ag-deeplink-back`).
+- Deep link cleared automatically on any fresh node/edge selection,
+  sub-tab switch, or Path Replay step change — never stale.
+- Missing / stale refs surface the inspector's honest MISSING
+  envelope (Round 40 fallback) — no fabrication.
+
+### Verified
+- 6 new R42 regression tests pin: edges expose `evidence_refs[]` ·
+  refs resolve through the shared inspector to governed envelopes ·
+  unknown refs return MISSING · finding refs resolve identically ·
+  `evidence_refs[]` deterministic · **backend has NOT sprouted a
+  `evidence_details` / `edge_evidence` / `deep_link` /
+  `evidence_index` key** (single evidence model preserved).
+- E2E verified in preview: edge#2 → evidence pill →
+  `evt_r35_edr_f9b41f18f87a` inspector opens with SYSMON · canonical
+  signature · provenance · INVESTIGATE actions.
+
+### Cumulative regression
+R21 → R42 · 29 modules · **236/236 tests green per-module.**
+Bulk sweep unchanged pre-existing R25b vault event-loop-closed
+test-isolation quirk (documented at Round 30's finish); every test
+passes standalone.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 41 — SHIPPED · Timeline Replay
 
 Owner-locked as a **pure playback controller** over the existing

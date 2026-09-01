@@ -156,6 +156,12 @@ export default function AttackGraphTab({ incident }) {
   // Activity Graph walkable primary path.  No new data model.
   const [replayIdx, setReplayIdx]         = useState(-1);
   const [replayPlaying, setReplayPlaying] = useState(false);
+  // Round 42 · Evidence deep-link — when the analyst clicks an
+  // `evidence_refs[]` pill on an edge, we don't navigate the graph;
+  // we open the existing shared <EvidenceInspector/> on the governed
+  // canonical evidence object directly.  Stored as {kind, refId}.
+  // Cleared when the analyst picks a new node/edge or presses "back".
+  const [deepLink, setDeepLink] = useState(null);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -227,7 +233,14 @@ export default function AttackGraphTab({ incident }) {
   useEffect(() => {
     setReplayIdx(-1);
     setReplayPlaying(false);
+    setDeepLink(null);  // Round 42 · sub-tab switch clears deep links
   }, [subView, incident?.id]);
+
+  // Round 42 · Any fresh node/edge selection clears an in-flight
+  // deep link so the inspector reflects what the analyst just clicked.
+  useEffect(() => {
+    setDeepLink(null);
+  }, [selId, selKind]);
 
   // Wire the replay step to the shared selection so the SVG focuses
   // the current node and the shared EvidenceInspector opens for it.
@@ -235,6 +248,7 @@ export default function AttackGraphTab({ incident }) {
     if (!replayCurrent) return;
     setSelId(replayCurrent.id);
     setSelKind("node");
+    setDeepLink(null);           // Round 42 · replay clears any deep link
   }, [replayCurrent]);
 
   // Auto-advance while playing.
@@ -775,14 +789,48 @@ export default function AttackGraphTab({ incident }) {
                        borderRadius: 6, fontSize: 12,
                        maxHeight: 820, overflow: "auto" }}
             data-testid="xdr-ag-inspector">
-        {(!selected || selKind === "node") && (
+        {deepLink ? (
+          /* Round 42 · Evidence deep-link projection — the analyst
+             clicked an evidence pill on an edge.  We reuse the exact
+             same shared EvidenceInspector and canonical resolver;
+             we do NOT render a second evidence-detail widget. */
+          <div>
+            <div style={{ padding: "8px 12px",
+                             borderBottom: "1px solid #1e293b",
+                             background: "#111827",
+                             display: "flex", alignItems: "center",
+                             gap: 8, fontSize: 11, color: "#cbd5e1" }}
+                  data-testid="xdr-ag-deeplink-bar">
+              <button
+                data-testid="xdr-ag-deeplink-back"
+                onClick={() => setDeepLink(null)}
+                style={{ ...btnS, background: "#0f172a" }}
+                title="Return to the edge inspector">
+                ← Back
+              </button>
+              <span style={{ color: "#a78bfa", fontWeight: 700,
+                                 letterSpacing: 0.6,
+                                 textTransform: "uppercase",
+                                 fontSize: 10 }}>
+                Evidence Deep-Link
+              </span>
+              <span className="mono" style={{ fontSize: 10, opacity: 0.7 }}>
+                {deepLink.kind}:{deepLink.refId}
+              </span>
+            </div>
+            <EvidenceInspector incidentId={incident?.id}
+                                        embedded
+                                        kind={deepLink.kind}
+                                        refId={deepLink.refId} />
+          </div>
+        ) : (!selected || selKind === "node") && (
           <EvidenceInspector incidentId={incident?.id}
                                        embedded
                                        {...(selected && selKind === "node"
                                              ? nodeToInspectorArgs(selected)
                                              : { kind: null, refId: null })} />
         )}
-        {selected && selKind === "edge" && (
+        {!deepLink && selected && selKind === "edge" && (
           <div style={{ padding: 12, color: "#e2e8f0" }}>
             <div className="mono" style={{ fontSize: 10, opacity: 0.55 }}>{selected.id}</div>
             <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{selected.rel}</div>
@@ -795,19 +843,63 @@ export default function AttackGraphTab({ incident }) {
               <div><b>Source:</b> {selected.source}</div>
             </div>
             {selected.evidence_refs.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                <b>Evidence refs</b>
-                <ul className="mono" style={{ fontSize: 10, paddingLeft: 16 }}>
-                  {selected.evidence_refs.slice(0, 8).map(r => <li key={r}>{r}</li>)}
-                </ul>
+              <div style={{ marginTop: 8 }}
+                    data-testid="xdr-ag-edge-evidence-refs">
+                <b>Evidence refs</b>{" "}
+                <span style={{ opacity: 0.5, fontSize: 10 }}>
+                  (click to inspect canonical event)
+                </span>
+                <div style={{ display: "flex", flexWrap: "wrap",
+                                 gap: 4, marginTop: 4 }}>
+                  {selected.evidence_refs.slice(0, 8).map(r => (
+                    <button key={r}
+                             data-testid={`xdr-ag-evidence-ref-${r}`}
+                             onClick={() => setDeepLink({
+                               kind: "event", refId: r
+                             })}
+                             className="mono"
+                             title={`Open canonical event ${r} in the Evidence Inspector`}
+                             style={{
+                               background: "#0b1220",
+                               border: "1px solid #334155",
+                               color: "#a5b4fc",
+                               padding: "3px 8px", borderRadius: 3,
+                               fontSize: 10, cursor: "pointer",
+                             }}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {selected.finding_ids.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                <b>Findings</b>
-                <ul className="mono" style={{ fontSize: 10, paddingLeft: 16 }}>
-                  {selected.finding_ids.slice(0, 8).map(r => <li key={r}>{r}</li>)}
-                </ul>
+              <div style={{ marginTop: 8 }}
+                    data-testid="xdr-ag-edge-finding-refs">
+                <b>Findings</b>{" "}
+                <span style={{ opacity: 0.5, fontSize: 10 }}>
+                  (click to inspect finding)
+                </span>
+                <div style={{ display: "flex", flexWrap: "wrap",
+                                 gap: 4, marginTop: 4 }}>
+                  {selected.finding_ids.slice(0, 8).map(r => (
+                    <button key={r}
+                             data-testid={`xdr-ag-finding-ref-${r}`}
+                             onClick={() => setDeepLink({
+                               kind: "finding", refId: r
+                             })}
+                             className="mono"
+                             title={`Open finding ${r} in the Evidence Inspector`}
+                             style={{
+                               background: "#0b1220",
+                               border: "1px solid #334155",
+                               color: "#fde68a",
+                               padding: "3px 8px", borderRadius: 3,
+                               fontSize: 10, cursor: "pointer",
+                             }}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             <div style={{ marginTop: 10, borderTop: "1px solid #1e293b",

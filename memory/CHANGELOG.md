@@ -2,6 +2,52 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 42 — Evidence Deep-Links — SHIPPED
+
+Owner-locked as a **navigation/deep-linking enhancement only** —
+zero backend model change, zero Attack Graph architecture change,
+zero UI redesign.
+
+**Frontend — `AttackGraphTab.jsx`**
+- Edge inspector: every `evidence_refs[]` entry rendered as a
+  clickable mono pill (`xdr-ag-evidence-ref-{id}`); every
+  `finding_ids[]` entry as a pill (`xdr-ag-finding-ref-{id}`).
+- New client state `deepLink = {kind, refId}`.  When active, the
+  right column renders the existing shared `<EvidenceInspector>`
+  on the governed evidence object with an **EVIDENCE DEEP-LINK**
+  header and a **← Back** button.
+- Deep link auto-clears on any fresh node/edge selection, sub-tab
+  switch, or Path Replay step change.
+- Missing / stale refs surface the inspector's honest MISSING
+  envelope (Round 40 fallback) — no fabrication.
+
+**Backend — zero changes.**  The deep link reuses the existing
+canonical evidence resolver (`services.evidence_inspector.resolve`).
+
+**Tests — `tests/test_xdr_round42_evidence_deeplinks.py`** (6 tests)
+- Every Activity Graph canonical edge carries `evidence_refs[]`.
+- First evidence ref of any edge resolves through the shared
+  inspector to a governed canonical `event` envelope carrying
+  identity + context + evidence + provenance + INVESTIGATE actions.
+- Unknown / stale refs return honest MISSING state.
+- Finding refs resolve identically (same resolver, no duplicate).
+- `evidence_refs[]` deterministic across runs.
+- **Backend envelope has NOT sprouted `evidence_details` /
+  `edge_evidence` / `deep_link` / `evidence_index` /
+  `edge_inspector` keys** (single evidence model preserved).
+
+**End-to-end verified in preview** on the R35 EDR incident:
+edge#2 → evidence pill `evt_r35_edr_f9b41f18f87a` →
+Deep-Link header + Back button → shared inspector opens with
+SYSMON · timestamp · signature `77777 · Suspicious PS` ·
+provenance `canonical_evidence · Canonical detection event` ·
+INVESTIGATE `Detection Intel`.
+
+**Cumulative regression: 236/236 green per-module across
+R21 → R42 (29 modules).**
+
+
+
 ## 2026-09-01 · Round 41 — Timeline Replay — SHIPPED
 
 Owner-locked as a **pure client playback controller** over the
