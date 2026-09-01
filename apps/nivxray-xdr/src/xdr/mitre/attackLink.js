@@ -71,14 +71,35 @@ export function extractAttackId(node) {
       return m[2] ? `${base}/${m[2]}` : base;
     }
   }
-  // Pass 2 — catalogue-published name.
+  // Pass 2 — catalogue-published name (whole / head:tail /
+  // longest word-boundary prefix).  Only ever matches an EXACT
+  // catalogue name — never a fuzzy substring.
   for (const cand of candidates) {
-    const key = _normalise(cand);
-    if (key && ATTACK_NAME_INDEX[key]) return ATTACK_NAME_INDEX[key];
-    // Strip a leading "Parent: " prefix that some stacks prepend.
-    if (key && key.includes(":")) {
-      const tail = key.split(":", 2)[1].trim();
-      if (tail && ATTACK_NAME_INDEX[tail]) return ATTACK_NAME_INDEX[tail];
+    const hit = _resolveName(cand);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+
+function _resolveName(raw) {
+  const key = _normalise(raw);
+  if (!key) return null;
+  if (ATTACK_NAME_INDEX[key]) return ATTACK_NAME_INDEX[key];
+  // head:tail
+  if (key.includes(":")) {
+    const colon = key.indexOf(":");
+    const head = key.slice(0, colon).trim();
+    const tail = key.slice(colon + 1).trim();
+    if (head && ATTACK_NAME_INDEX[head]) return ATTACK_NAME_INDEX[head];
+    if (tail && ATTACK_NAME_INDEX[tail]) return ATTACK_NAME_INDEX[tail];
+  }
+  // longest word-boundary prefix
+  const words = key.split(" ");
+  for (let i = words.length; i >= 1; i--) {
+    const cand = words.slice(0, i).join(" ").replace(/[\s\-—:]+$/, "");
+    if (cand.length >= 3 && ATTACK_NAME_INDEX[cand]) {
+      return ATTACK_NAME_INDEX[cand];
     }
   }
   return null;

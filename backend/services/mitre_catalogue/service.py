@@ -115,17 +115,38 @@ class MitreCatalogue:
     def resolve_name(self, name: str) -> str | None:
         """Map a technique NAME to its canonical external id, or
         None when the name is not published in the catalogue.
-        Case-insensitive; whitespace-collapsed."""
+
+        Resolution order — safe by construction (only exact
+        catalogue names ever match, never a fuzzy substring):
+
+          1. Whole normalised string.
+          2. Head-of-colon and tail-of-colon parts, in that order
+             (e.g. `"SMB/WINDOWS ADMIN SHARES: UNC-PATH …"` →
+             head `"SMB/WINDOWS ADMIN SHARES"` → T1021.002).
+          3. Longest catalogue-published word-boundary prefix
+             (e.g. `"POWERSHELL -ENCODEDCOMMAND …"` starts with
+             the canonical name `"POWERSHELL"` → T1059.001).
+        """
         if not name:
             return None
         key = " ".join(str(name).split()).upper()
         if key in self._name_to_id:
             return self._name_to_id[key]
-        # Try stripping a leading "Parent: " prefix.
+        # Colon-split (both sides).
         if ":" in key:
-            tail = key.split(":", 1)[1].strip()
+            head, tail = key.split(":", 1)
+            head = head.strip()
+            tail = tail.strip()
+            if head in self._name_to_id:
+                return self._name_to_id[head]
             if tail in self._name_to_id:
                 return self._name_to_id[tail]
+        # Longest word-boundary prefix.
+        words = key.split(" ")
+        for i in range(len(words), 0, -1):
+            cand = " ".join(words[:i]).rstrip(" -—:")
+            if len(cand) >= 3 and cand in self._name_to_id:
+                return self._name_to_id[cand]
         return None
 
 

@@ -1,6 +1,36 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · Rationale-Prefix Resolver
+
+Fix for the user-reported incident MITRE tab where three rows
+read `no attack id`:
+
+- `SMB/WINDOWS ADMIN SHARES: UNC-PATH EXECUTION VIA PUSHD/RUNDLL32`
+- `POWERSHELL -ENCODEDCOMMAND FRAGMENT — LONG BASE64 PAYLOAD`
+- `CMD /C OR /K FRAGMENT CHAINING EXECUTION PRIMITIVES`
+
+These are rationale strings that CONTAIN a canonical ATT&CK name
+as a head-of-colon or leading-word prefix but never match the
+catalogue exactly.
+
+**Fix — same algorithm in backend `MitreCatalogue.resolve_name`
+and frontend `attackLink.js::_resolveName`**:
+1. Whole normalised string.
+2. Head-of-colon, then tail-of-colon (both exact catalogue names).
+3. Longest word-boundary PREFIX that is an exact catalogue name
+   (iterated from longest to shortest, ≥3 chars).
+4. Never a middle-substring / fuzzy match — honesty preserved.
+
+**Verification**: `test_mitre_catalogue.py` grew from 9 → 13
+tests (all pass); frontend script → 4/4 pass including a
+negative test for the "mssp note: they saw powershell" middle-
+substring case which stays `null`.  Live smoke on the user's
+incident URL confirms **8 Open buttons, zero `no attack id`
+pills** across every row that previously read `no attack id`.
+
+
+
 ## ✅ 2026-09-02 · ATT&CK Enterprise Catalogue v16.1 (Coverage capability)
 
 Elevated the MITRE page from a hand-maintained ~199-parent list

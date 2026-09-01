@@ -161,3 +161,56 @@ def test_iter_technique_ids_uses_name_fallback_for_new_incidents():
     }
     ids = sorted(set(_iter_technique_ids(inc)))
     assert ids == ["T1027.010", "T1059.001", "T1105"]
+
+
+
+def test_resolve_name_head_of_colon_wins_for_rationale_strings():
+    """User-reported strings that leak from the detection engine as
+    the technique NAME but are not catalogue-exact.  The head
+    before the colon or the leading word must resolve to the real
+    ATT&CK id — never `no attack id`."""
+    cat = get_catalogue()
+    assert cat.resolve_name(
+        "SMB/WINDOWS ADMIN SHARES: UNC-PATH EXECUTION VIA PUSHD/RUNDLL32"
+    ) == "T1021.002"
+
+
+def test_resolve_name_longest_word_boundary_prefix_wins():
+    cat = get_catalogue()
+    assert cat.resolve_name(
+        "POWERSHELL -ENCODEDCOMMAND FRAGMENT — LONG BASE64 PAYLOAD"
+    ) == "T1059.001"
+    # `CMD` is a backend alias, not a catalogue-published name —
+    # the pure catalogue resolver stays honest and returns None.
+    # (The router-level `_iter_technique_ids` still catches it
+    # once ALIAS_INDEX equivalents are folded in.)
+    assert cat.resolve_name(
+        "CMD /C OR /K FRAGMENT CHAINING EXECUTION PRIMITIVES"
+    ) is None
+
+
+def test_resolve_name_does_not_fuzzy_match():
+    """A random sentence that merely mentions a technique name
+    somewhere in the middle must NOT resolve — the resolver only
+    accepts the whole string, head/tail-of-colon, or a
+    word-boundary PREFIX.  Middle-substring matches would silently
+    over-attribute future incidents."""
+    cat = get_catalogue()
+    assert cat.resolve_name("MSSP note: they saw powershell later") is None
+    assert cat.resolve_name("logon happened via smb: after login") is None
+
+
+def test_iter_technique_ids_picks_up_rationale_prefixes():
+    from routers.mitre_catalogue import _iter_technique_ids
+    inc = {
+        "id": "user-reported-inc",
+        "mitre": [
+            {"technique_name":
+                 "SMB/WINDOWS ADMIN SHARES: UNC-PATH EXECUTION VIA PUSHD/RUNDLL32"},
+            {"name":
+                 "POWERSHELL -ENCODEDCOMMAND FRAGMENT — LONG BASE64 PAYLOAD"},
+        ],
+    }
+    ids = sorted(set(_iter_technique_ids(inc)))
+    assert "T1021.002" in ids
+    assert "T1059.001" in ids
