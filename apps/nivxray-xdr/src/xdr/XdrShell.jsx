@@ -71,16 +71,28 @@ const SIDEBAR = [
     ],
   },
   {
+    // Round 38.3 · Cross-case investigation surfaces — roadmap
+    // placeholders for the Phase 5/6 CROSS-CASE investigation
+    // layer (distinct from the per-incident Investigation
+    // Workspace inside every incident record).
+    //
+    // Hidden from production navigation until at least one
+    // capability ships.  Preserved here as the source-of-truth
+    // roadmap — flip ``hidden`` to ``false`` on activation and
+    // rename "Attack Story" to "Attack Story Rollup" (owner
+    // rule: cross-case names must not collide with per-incident
+    // tab names).
+    hidden: true,
     section: "Investigations",
     items: [
       { key: "investigations", label: "Investigation Workspace", icon: FolderSearch,
-        disabled: true, title: "Native XDR investigation workspace — arrives in Phase 5" },
+        disabled: true, title: "Cross-case investigation workspace — arrives in Phase 5" },
       { key: "evidence-explorer", label: "Evidence Explorer", icon: Search,
         disabled: true, title: "Cross-case Evidence Explorer — arrives in Phase 5" },
       { key: "entity-search", label: "Entity Search", icon: Fingerprint,
         disabled: true, title: "Cross-case entity search — arrives in Phase 6" },
-      { key: "attack-story", label: "Attack Story", icon: Fingerprint,
-        disabled: true, title: "Deterministic attack-story projection — arrives in Phase 5" },
+      { key: "attack-story-rollup", label: "Attack Story Rollup", icon: Fingerprint,
+        disabled: true, title: "Cross-case attack-story rollup — arrives in Phase 5+ (distinct from per-incident Attack Story)" },
     ],
   },
   {
@@ -291,7 +303,7 @@ export default function XdrShell({ children }) {
       {/* ── Body ──────────────────────────────────────────── */}
       <div className="body">
         <aside className="sidebar" data-testid="xdr-sidebar">
-          {SIDEBAR.map((group) => (
+          {SIDEBAR.filter((group) => !group.hidden).map((group) => (
             <div key={group.section}>
               <div className="nav-title">{group.section}</div>
               {group.items.map((item) => {
