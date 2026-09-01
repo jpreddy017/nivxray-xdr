@@ -35,7 +35,12 @@ import AutoInvestigationTab  from "./incidents/record/tabs/AutoInvestigationTab"
 import MitreTab              from "./incidents/record/tabs/MitreTab";
 import AttackStoryTab        from "./incidents/record/tabs/AttackStoryTab";
 import RecommendationsTab    from "./incidents/record/tabs/RecommendationsTab";
-import { RecommendationsTabV2, isDesignV2EnabledFor } from "@/xdr/design";
+import {
+  RecommendationsTabV2,
+  MitreTabV2,
+  RecordHeaderV2,
+  isDesignV2EnabledFor,
+} from "@/xdr/design";
 import NotesTab              from "./incidents/record/tabs/NotesTab";
 import TimelineTab           from "./incidents/record/tabs/TimelineTab";
 import RelatedTab            from "./incidents/record/tabs/RelatedTab";
@@ -117,10 +122,15 @@ export default function XdrIncidentDetailPage() {
         )}
         {!loading && !error && incident && (
           <>
-            <RecordHeader
-              incident={incident}
-              onOpenRespond={() => setDrawer(true)}
-            />
+            {isDesignV2EnabledFor("incident-header")
+              ? <RecordHeaderV2
+                  incident={incident}
+                  onOpenRespond={() => setDrawer(true)}
+                />
+              : <RecordHeader
+                  incident={incident}
+                  onOpenRespond={() => setDrawer(true)}
+                />}
             <LifecycleStrip
               state={incident.state}
               onTransition={handleTransition}
@@ -134,7 +144,9 @@ export default function XdrIncidentDetailPage() {
               {tab === "technical"          && <TechnicalTab         incident={incident} />}
               {tab === "evidence"           && <EvidenceTab          incident={incident} />}
               {tab === "auto_investigation" && <AutoInvestigationTab incident={incident} />}
-              {tab === "mitre"              && <MitreTab             incident={incident} />}
+              {tab === "mitre"              && (isDesignV2EnabledFor("mitre")
+                ? <MitreTabV2 incident={incident} />
+                : <MitreTab   incident={incident} />)}
               {tab === "attack_story"       && <AttackStoryTab       incident={incident} />}
               {tab === "recommendations"    && (isDesignV2EnabledFor("recommendations")
                 ? <RecommendationsTabV2 incident={incident} />

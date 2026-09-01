@@ -1,6 +1,68 @@
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
+
+## 2026-09-01 · Round 29 — Analyst UI Grammar (MITRE Tab + Incident Header) — SHIPPED
+
+Strict UI-only migration. Two remaining incident-record surfaces moved
+onto the Round 24.9 Evidence Operations grammar (`Entity`,
+`EvidenceState`, `Provenance`, `Relationship`, `Action`). No backend
+changes. Legacy surfaces remain intact behind the `?design=v1`
+escape hatch.
+
+### Frontend (`/app/apps/nivxray-xdr`)
+- New `src/xdr/design/MitreTabV2.jsx` — evidence-first ATT&CK
+  projection.
+  - Reads unchanged `/admin/content-supply-chain/incidents/:id/attack-chain-graph`.
+  - Renders only `CONFIRMED / SUPPORTED / INSUFFICIENT_EVIDENCE`
+    techniques as an `<Entity>` + `<EvidenceState>` + `<Provenance>`
+    composition.
+  - Suppressed `NOT_OBSERVED / UNKNOWN` techniques counted honestly,
+    never drawn — no fabricated coverage.
+  - Sub-technique parenthood + backend shared-entity/evidence edges
+    rendered via `<Relationship state="…">`.
+  - Explicit empty state when no evidence-backed mapping exists.
+- New `src/xdr/design/RecordHeaderV2.jsx` — incident identity band.
+  - `<Entity kind="rule">` = incident.
+  - `<EvidenceState>` chips for priority, lifecycle state, verdict
+    (closed enum; NOT_RUN / UNKNOWN render as `missing`).
+  - `<Provenance>` chain: Telemetry → Canonical → Correlation →
+    Mapping (missing layers render `not present`).
+  - `<Relationship>` rows for owner + customer when present.
+  - `<Action>` group: Respond (capability-gated by lifecycle),
+    Generate Report (`cap-standby · PHASE_5`), More
+    (`cap-standby · PHASE_3_PLUS`).
+- `src/xdr/design/index.js` — barrel exports `MitreTabV2`,
+  `RecordHeaderV2`; `MIGRATED_SURFACES` extended with `mitre`,
+  `incident-header`.
+- `src/xdr/pages/XdrIncidentDetailPage.jsx` — surface-aware default
+  flip via `isDesignV2EnabledFor("mitre")` and
+  `isDesignV2EnabledFor("incident-header")`. `?design=v1` renders
+  legacy `MitreTab` + legacy `RecordHeader`.
+
+### Acceptance gates verified
+- MITRE V2 renders by default · legacy renders under `?design=v1`.
+- Incident Header V2 renders by default · legacy renders under
+  `?design=v1`.
+- Unmigrated surfaces (tabs, lifecycle strip, executive/technical/…)
+  unchanged.
+- Empty / no-evidence MITRE path rendered honestly.
+- Incident Header missing-verdict state (`VERDICT_PENDING · NOT_RUN`)
+  rendered honestly.
+- Action disabled-with-reason grammar verified
+  (`PHASE_5`, `PHASE_3_PLUS`).
+- Backend pytest regression: 37/37 XDR round tests
+  (25b/26/26.5/27/28/28.x/28.x.2) green.
+
+### Architectural constraint upheld
+The MITRE tab is a strict PROJECTION of the evidence model
+(`Canonical → Correlation → Mapping`). The Incident Header is a
+strict PROJECTION of authoritative investigation state. Neither
+surface introduces a second source of truth or a new intelligence
+inference path.
+
+---
+
 ## 2026-02-34 · NivXRay Enterprise Visual System v1 — SHIPPED
 
 Product-wide design-system pass.  Every `/xdr/*` route now reads

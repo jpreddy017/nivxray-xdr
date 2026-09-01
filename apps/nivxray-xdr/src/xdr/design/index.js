@@ -25,6 +25,8 @@ export { default as Action,
 export { default as IntegrationControlCenter } from "./IntegrationControlCenter";
 export { default as CortexOnboardingWizard } from "./CortexOnboardingWizard";
 export { default as RecommendationsTabV2 } from "./RecommendationsTabV2";
+export { default as MitreTabV2 }            from "./MitreTabV2";
+export { default as RecordHeaderV2 }        from "./RecordHeaderV2";
 
 /** Surfaces that have been fully migrated onto the Round 24.9
  * grammar.  Adding a surface to this set makes v2 its DEFAULT for
@@ -43,6 +45,8 @@ export { default as RecommendationsTabV2 } from "./RecommendationsTabV2";
 export const MIGRATED_SURFACES = new Set([
   "integrations",
   "recommendations",
+  "mitre",
+  "incident-header",
 ]);
 
 /** Per-surface flag lookup.  Prefer this over `isDesignV2Enabled()`

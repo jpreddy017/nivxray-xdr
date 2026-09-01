@@ -14,6 +14,32 @@ No feature moves to the next phase until the phase it lives in is production-qua
 
 ---
 
+## XDR Operational Fabric — Round Status (updated 2026-09-01)
+
+| Round | Description | Status |
+|-------|-------------|--------|
+| 24.9  | Evidence Operations Design System (tokens + 5 primitives) | ✅ SHIPPED |
+| 24.95 | Collector Landing (HTTP transports → main backend)         | ✅ SHIPPED |
+| 25a   | Cortex Vendor Wizard (generalized framework)               | ✅ SHIPPED |
+| 25b   | Credential Vault (envelope encryption)                      | ✅ SHIPPED |
+| 26    | Cortex Ingest Fabric (webhook, poller, parser)              | ✅ SHIPPED |
+| 26.5  | Incident Promotion Policy + Poller Scheduler                | ✅ SHIPPED |
+| 27    | Response Console + Golden BYO-EDR E2E                       | ✅ SHIPPED |
+| 27 UI | Recommendations tab → v2 default                            | ✅ SHIPPED |
+| 28    | Multi-Vendor Adapter Framework + Stub                       | ✅ SHIPPED |
+| 28.x  | CrowdStrike Falcon Adapter                                  | ✅ SHIPPED |
+| 28.x.2| MDE + SentinelOne Adapters                                  | ✅ SHIPPED |
+| **29**| **Analyst UI Grammar (MITRE Tab + Incident Header v2)**     | **✅ SHIPPED (2026-09-01)** |
+| P1.0  | Intelligence Plane (STIX/TAXII/OSINT enrichment layer)      | ⏳ NEXT   |
+| 30    | Certification (real sandbox E2E + cross-vendor equivalence) | ⏳ QUEUED |
+| P2    | Investigation Report Export (PDF + JSON)                    | 📥 BACKLOG |
+| P2    | Native NivXRay Agent Management Plane                       | 📥 BACKLOG |
+
+**Migrated design-system surfaces (v2 default; `?design=v1` = legacy escape):**
+`integrations`, `recommendations`, `mitre`, `incident-header`.
+
+---
+
 ## Phase 3 · Artifact Intelligence Layer — CLOSED (Feb 2026)
 
 - ✅ **Cycle A** — PE Static Analyzer (`pefile`)
