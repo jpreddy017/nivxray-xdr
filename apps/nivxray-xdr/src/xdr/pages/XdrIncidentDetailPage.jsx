@@ -35,10 +35,8 @@ import AutoInvestigationTab  from "./incidents/record/tabs/AutoInvestigationTab"
 import MitreTab              from "./incidents/record/tabs/MitreTab";
 import AttackStoryTab        from "./incidents/record/tabs/AttackStoryTab";
 import AttackGraphTab        from "./incidents/record/tabs/AttackGraphTab";
-import RecommendationsTab    from "./incidents/record/tabs/RecommendationsTab";
 import ReportTab             from "./incidents/record/tabs/ReportTab";
 import {
-  RecommendationsTabV2,
   MitreTabV2,
   RecordHeaderV2,
   IncidentOverviewV2,

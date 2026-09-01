@@ -2,6 +2,45 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 44 — Cockpit UX Audit + Lock — SHIPPED
+
+Audit + stabilisation.  No feature-development.  Every architectural
+invariant established R21 → R43 is now guarded by a regression test.
+
+**Full audit report:** `/app/memory/COCKPIT_AUDIT_R44.md`
+
+**Verdict:** ✅ COCKPIT LOCKED with 0 BLOCKERS · 1 HIGH deferred ·
+0 MEDIUM · 1 LOW fixed in-place.
+
+**Fixes shipped (in-place):**
+- Removed dead imports (`RecommendationsTab`, `RecommendationsTabV2`)
+  from `XdrIncidentDetailPage.jsx`.  Both source files retained as
+  historical artefacts; neither was rendered by any tab.
+
+**Findings catalogued (deferred):**
+- HIGH · `MitreTab.EvidenceRow` / `EvidenceDetail` inline widget
+  bypasses the shared `<EvidenceInspector>` (R38.3 invariant drift).
+  Recommend inspector consolidation as R45 pre-work.
+
+**Machine guardrails (12 tests):**
+- Cockpit tab order pinned
+- Attack Graph three-view projection preserved
+- Activity Graph excludes `capability` + `finding` kinds
+- Shared inspector resolves every governed kind + MISSING fallback
+- `AttackTechniqueEvidence` SSOT shape stable
+- Report contract retains four canonical sections
+- `render_pdf(cover=True)` default backwards-compatible
+- No parallel report engine symbols in `report_svc`
+- No second evidence / replay / deep-link keys in graph envelope
+- Dead imports stay removed
+- Phase-5 cross-case surfaces stay hidden
+- Intelligence Planes items stay `disabled: true`
+
+**Cumulative regression: 258/258 green per-module across
+R21 → R44 (31 modules).**
+
+
+
 ## 2026-09-01 · Round 43 — Report PDF Cover Art — SHIPPED
 
 Presentation-only enhancement to `/api/incidents/{id}/report/pdf`.

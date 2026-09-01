@@ -2,6 +2,56 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 44 — SHIPPED · Cockpit UX Audit + Lock
+
+Audit + stabilisation round.  No feature-development.  Every
+architectural invariant established between R21 and R43 is now
+guarded by a machine-readable regression test.
+
+**Full audit report:** `/app/memory/COCKPIT_AUDIT_R44.md`
+
+### Verdict
+✅ **COCKPIT LOCKED** with 0 BLOCKERS · 1 HIGH deferred (H-1) ·
+0 MEDIUM · 1 LOW fixed in-place (A-1).
+
+### What was fixed in R44 (small, contained)
+- **A-1 · LOW**  Dead imports removed from
+  `XdrIncidentDetailPage.jsx` (`RecommendationsTab`,
+  `RecommendationsTabV2`).  Neither was rendered by any tab; both
+  are historical artefacts kept as standalone files.
+
+### What was deferred (do NOT redesign now)
+- **H-1 · HIGH**  `MitreTab.EvidenceRow` / `EvidenceDetail` (lines
+  454-560) is a second inline governed-object detail widget that
+  bypasses the shared `<EvidenceInspector>` (R38.3 invariant drift).
+  Non-trivial fix — larger than a lock-round patch.  Recommend
+  **inspector consolidation as R45 pre-work** before Editable
+  Intelligence Layer opens.
+
+### Machine guardrails
+`backend/tests/test_xdr_round44_cockpit_audit_lock.py` · 12 tests
+pinning every invariant:
+- Cockpit tab order (12 canonical tabs)
+- Attack Graph three-view projection preserved
+- Activity Graph excludes `capability` + `finding` node kinds
+- Shared inspector resolves every governed kind
+- MISSING refs return MISSING (never fabricated)
+- `AttackTechniqueEvidence` SSOT shape stable
+- Report contract retains exactly the four canonical sections
+- `render_pdf(cover=True)` default backwards-compatible
+- No parallel report engine symbols leak into `report_svc`
+- No second evidence / replay / deep-link keys leak into the
+  attack-graph envelope
+- Dead imports stay removed
+- Phase-5 cross-case surfaces stay hidden
+- Intelligence Planes items stay honestly disabled
+
+### Cumulative regression
+R21 → R44 · 31 modules · **258/258 tests green per-module.**
+
+---
+
+
 ## ✅ 2026-09-01 · Round 43 — SHIPPED · Report PDF Cover Art
 
 Owner-locked as a **presentation enhancement only**.  Zero
