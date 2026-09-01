@@ -58,6 +58,88 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 24.9 — SHIPPED · Evidence Operations Design System
+
+**Goal (owner-locked):** turn the fragmented CRUD-registry admin
+surfaces into ONE coherent evidence-first product.  Round 24.9
+delivers the grammar layer only — not a repaint.
+
+### Locked decisions
+
+| Axis                        | Choice                                                     |
+|-----------------------------|------------------------------------------------------------|
+| Visual temperament          | Dual-theme, ship high-contrast light first (dark rail kept). |
+| Migration mechanism         | Feature-flag coexist → progressive replacement.            |
+| Migration order             | Integration Control Center → Recommendations → MITRE → Incident header → remaining admin. |
+| Integration primary truth   | Capability tier first · evidence health second.            |
+
+### Prohibitions (locked, verbatim from owner brief)
+
+No gradients · no purple as primary product colour · no generic
+dashboard card grids · no "card → counter → table" template · no
+giant empty white canvases · no decorative charts · no icon-only
+navigation rows · no arbitrary badge colours · no "green = good"
+substituting for evidence · no probability/confidence disguised as
+evidence state · no fabricated telemetry/metrics/timestamps/
+relationships/capabilities · no pill overload · no excessive
+rounded containers · no excessive shadows · no oversized headings
+· no huge empty-state illustrations · no CRUD registry as default
+IA · no developer/API terminology as primary analyst language · no
+mandatory command-line/PowerShell assumptions · no visually
+connecting evidence that does not exist · no collapsing different
+concepts into one generic "Status" · no repeated page structures
+merely because backend endpoints look similar · no copying
+Cisco/CrowdStrike/Microsoft UI.  Monospace ONLY on machine values.
+
+### Shipped
+
+- **`/app/apps/nivxray-xdr/src/xdr/design/tokens.css`** — Evidence
+  Operations token layer.  Adds capability tiers (`cap-full /
+  cap-degraded / cap-ingest / cap-unavailable / cap-standby`),
+  evidence states (`observed / supported / missing / unavailable /
+  suppressed / actioned`), provenance layer tones, and semantic
+  typography roles.  Scoped strictly under `.xdr-console .evops`.
+- **Five semantic primitives** (`@/xdr/design`):
+  - `<Entity kind name id? />`     — one operational object.
+  - `<EvidenceState state reason? />` — closed enum truth-state.
+  - `<Provenance chain />`         — derivation chain; missing
+     layers render as `not present`.
+  - `<Relationship from via to state />` — witnessed edge; state
+     required.
+  - `<Action label capability onRun reason? />` — command bound to
+     capability; disabled state carries honest reason.
+- **`IntegrationControlCenter.jsx`** — reference surface for
+  `/xdr/admin/integrations`.  Capability roster (list, not grid)
+  first, evidence-health strip (key/value, not stat cards)
+  second, catalogue drawer (single-column list, not 12-tile grid).
+  Every value comes from `collectorApi`; nothing fabricated.
+- **`_WizardLegacyBridge.jsx`** — temporary 1:1 wizard reuse so
+  the design cutover ships zero form regressions.  Will be
+  replaced wholesale by the Round 25 5-stage wizard.
+- **Feature flag** — `isDesignV2Enabled()` reads
+  `VITE_XDR_DESIGN_V2=1` or `?design=v2` (`?design=v1` forces
+  legacy in a session).  `XdrAdminPage.jsx` swaps
+  `IntegrationsBody` ↔ `IntegrationControlCenter` at the section
+  boundary.  Legacy body untouched.
+- **README** at `/app/apps/nivxray-xdr/src/xdr/design/README.md`
+  documents grammar rules, prohibitions and migration order.
+
+### Verified
+
+- v2 route renders honest `COLLECTOR NOT DEPLOYED` state — no
+  fabricated adapters, no fake counters.
+- v1 route unchanged — legacy `data-testid="xdr-admin-integrations-body"`
+  still resolves for existing tests.
+- Zero JS console errors (only pre-existing React Router v7 flag
+  warnings).
+
+### NOT in scope (deferred by design)
+
+- Recommendations / MITRE / Incident-header migration → next
+  rounds per locked migration order.
+- Round 25 Credential Vault + full 5-stage wizard.
+
+---
 ## ✅ 2026-02-14 · Rounds 23.6 · 23.7 · 24 — SHIPPED
 
 ### Round 23.6 · MITRE Provenance Fabric
