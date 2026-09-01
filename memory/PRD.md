@@ -3,6 +3,97 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 18 · Mitigation & Exclusion Intelligence — SHIPPED
+
+**Knowledge layer, NOT an engine.** Feeds the existing Round 16
+`xdr_recommendation_synthesis.py`.
+
+**Files delivered:**
+- `backend/detection_content/xdr_mitigation_intelligence.py` — new
+  Exclusion Risk Model with 5 registered exclusion actions
+  (APPLICATION_ALLOW_LIST_ADD · PROCESS_EXCLUSION_ADD ·
+  PATH_EXCLUSION_ADD · WILDCARD_EXCLUSION_ADD · THREAT_EXCLUSION_ADD).
+  Each entry declares Detection Method · Affected Engine · Exclusion
+  Type · Scope · Visibility Impact · Security Risk · Safer
+  Alternative · Approval Policy · Warning Banner.
+- `xdr_recommendation_synthesis.py` — 4 exclusion candidates added
+  to `_GUIDANCE`; synthesizer wraps every candidate with
+  `enrich_recommendation(...)` so `risk_analysis` + `risk_band`
+  attach IFF `suggested_action` is an exclusion.
+- `xdr_action_registry.py` — 4 exclusion actions registered with
+  honest `capability_available=False` until an EDR adapter is wired.
+- `xdr_response_decision.py::build_response_context` — extended to
+  extract `threat_name`, `hash`, `process`, `path` entities so the
+  synthesizer has real evidence-derived targets.
+- `apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/RecommendationsTab.jsx`
+  — inline severity badge (`⚠ HIGH/MEDIUM/LOW/CRITICAL EXCLUSION RISK`)
+  + expandable `ExclusionRiskPanel` with the 8 locked rows +
+  unmistakable warning banner for HIGH/CRITICAL bands.
+
+**Locked architectural guardrails (enforced by tests):**
+1. Risk model activates ONLY when `suggested_action ∈ EXCLUSION_ACTIONS`.
+   Ordinary mitigations (ISOLATE_ENDPOINT, IP_BLOCK,
+   COLLECT_FORENSIC_SNAPSHOT, OSINT_ENRICH_*, IOC_ADD_WATCHLIST) are
+   returned unchanged.
+2. Bands per PRD lock:
+   `APPLICATION_ALLOW_LIST_ADD=MEDIUM · PROCESS=HIGH · PATH=HIGH ·
+    WILDCARD=HIGH · THREAT=CRITICAL`.
+3. HIGH/CRITICAL bands carry unmistakable warning banners.
+4. `THREAT_EXCLUSION_ADD` requires `DUAL_APPROVAL`.
+5. Exclusion candidates are family-scoped to PUA/MALWARE/LOADER/UNKNOWN.
+   C2 incidents (like the Golden Snort event) emit **zero** exclusion
+   candidates — analysts must never be nudged toward allow-listing C2.
+
+**Test coverage:** `tests/test_xdr_round18_exclusion_risk.py` · 13/13
+pass. Regression across Rounds 11-18: **56/56 pass**.
+
+**Verified live:** `POST /api/admin/content-supply-chain/response/
+{inc_id}/recompute` returns 8 ordinary mitigations with zero risk
+blocks for the Snort C2 incident (guardrail proven end-to-end).
+
+---
+## 🔒 2026-02-14 · Architectural rules LOCKED (Cisco MSS + Secure Endpoint alignment)
+
+Recorded now, to be implemented in **Round 18 · Mitigation & Exclusion Intelligence** —
+a knowledge/mapping layer above the existing Recommendation Synthesizer, NOT a new engine.
+
+### Locked incident-detail architecture (four analyst-facing sections)
+Per Cisco MSS methodology + owner ratification:
+1. **Executive Summary** — deterministic, conclusion-led, answers who/what/when/where/why + threat type + outcome. Written prose derived from IUE + VEEE + Threat Family + entities + intelligence. No LLM. Never restates alert data.
+2. **Technical Summary** — machine-derived: detection rule · verdict · score · threat family · entities · evidence counts · MITRE technique. Never manually edited.
+3. **Supporting Evidence** — every claim in the Executive Summary has a backing evidence row with `evidence_id`, `source`, `entity`, `interpretation`. Raw logs are never presented without interpretation.
+4. **Recommended Mitigations** — evidence-derived, entity-bound, per-incident (already shipped in Round 17.5).
+
+### Locked recommendation-card contract (extends Round 16)
+Every card must display: **WHY · TARGET · ACTION · APPLICABILITY · EVIDENCE · CAPABILITY · RISK · VISIBILITY IMPACT · FRAMEWORK · ANALYST DECISION**. The current Round 17.5 card covers all except RISK and VISIBILITY IMPACT — those are Round 18 additions.
+
+### Locked exclusion-risk model (Round 18 scope)
+> Exclusions are NEVER generic "allow this detection." The correct exclusion depends on the detection method and the security engine affected. NivXRay must not present a Threat/Path/Wildcard exclusion as an ordinary recommendation — it must show scope, visibility impact, safer alternatives, and require approval.
+
+Detection method → possible exclusion → scope → visibility impact → risk band:
+- **SHA256 Cloud Lookup** → Application Allow List → single hash → ML+cloud visibility for that hash bypassed → **MEDIUM**
+- **Behavioral Protection** → Process Exclusion → entire process → behavioral visibility reduced → **HIGH** · approval required
+- **Path exclusion** (`C:\Program Files\Vendor\*`) → subtree → all files/subdirs unscanned → **HIGH** · approval required
+- **Threat exclusion** → future true-positive detections of that threat name may also be suppressed → **CRITICAL** · dedicated warning banner + dual approval required · never presented as an ordinary recommendation
+
+### Locked NIST-style closure derivation (Round 18 scope)
+Incident closure classification must be derived from the **furthest confirmed adversary activity** in the investigation, not from the original alert stage. Example: original alert = Delivery, but investigation confirmed C2 → closure classification = Command & Control.
+
+### Absolute locked rule (append to §33)
+> NivXRay must never display a universal "Recommended Mitigations" template for an incident merely because of its incident type, detection type, threat name, or verdict. Recommendations are synthesized from observed evidence + threat family + investigation state + intelligence + asset context + available capabilities + framework context + prior response state. Exclusions carry an explicit visibility-impact + risk assessment and analyst safer-alternative when applicable.
+
+### Round 18 scope (deferred — do NOT execute until explicit prompt)
+- Add `xdr_mitigation_intelligence.py` — knowledge layer feeding existing synthesizer
+- Extend `_GUIDANCE` entries with `risk`, `visibility_impact`, `safer_alternative`, `detection_method_compatibility`
+- Add Threat/Path/Wildcard exclusion candidates with critical-risk banners
+- Executive Summary composer endpoint (deterministic, backend)
+- Furthest-confirmed-activity closure classification
+- Investigation Findings + Framework Context tabs mount their existing panels (parity with Golden Pipeline)
+- OSINT enrichment cache (§7 Round 17 spec)
+
+---
+
+
 ## ✅ 2026-02-14 · Round 17.5 · Per-Incident Recommendation Experience — SHIPPED
 
 Recommended Mitigations now render **inside every incident** at

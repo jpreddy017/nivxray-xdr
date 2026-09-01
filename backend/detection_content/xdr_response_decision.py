@@ -71,9 +71,40 @@ async def build_response_context(db, incident_id: str) -> dict:
         src = (net.get("src") or {}).get("ip")
         dst = (net.get("dst") or {}).get("ip")
         if src:
-            entities.append({"kind": "ipv4", "value": src, "role": "source"})
+            entities.append({"kind": "ipv4", "value": src, "role": "source",
+                                    "origin": "network.src.ip"})
         if dst:
-            entities.append({"kind": "ipv4", "value": dst, "role": "destination"})
+            entities.append({"kind": "ipv4", "value": dst, "role": "destination",
+                                    "origin": "network.dst.ip"})
+        # Round 18 · additional entities for Mitigation Intelligence.
+        # Threat name: taken from the triggering signature name (honest —
+        # derived from evidence, not fabricated).
+        sig = (canonical.get("security") or {}).get("signature") or {}
+        if sig.get("name"):
+            entities.append({"kind":   "threat_name",
+                                    "value":  sig["name"],
+                                    "role":   "trigger",
+                                    "origin": "security.signature.name"})
+        # File hash: only when present in evidence.
+        file_obj = canonical.get("file") or {}
+        fh = file_obj.get("hash") or file_obj.get("sha256")
+        if fh:
+            entities.append({"kind":   "hash",
+                                    "value":  fh,
+                                    "role":   "artifact",
+                                    "origin": "file.hash"})
+        # Process image / path: only when present in evidence.
+        proc = canonical.get("process") or {}
+        if proc.get("image"):
+            entities.append({"kind":   "process",
+                                    "value":  proc["image"],
+                                    "role":   "artifact",
+                                    "origin": "process.image"})
+        if file_obj.get("path"):
+            entities.append({"kind":   "path",
+                                    "value":  file_obj["path"],
+                                    "role":   "artifact",
+                                    "origin": "file.path"})
 
     veee = prov.get("veee") or {}
     return {

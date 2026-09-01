@@ -218,6 +218,87 @@ _ACTIONS: list[dict] = [
             "virustotal", "malwarebazaar", "hybrid-analysis", "threatfox",
         ],
     },
+    # ── Round 18 · Exclusion actions (knowledge only; capability
+    # remains False until an EDR adapter is wired). Their presence is
+    # required so the synthesizer can propose them as candidates AND
+    # so the UI can honestly show CAPABILITY_UNAVAILABLE alongside the
+    # risk warning until the adapter exists.
+    {
+        "action_id":             "APPLICATION_ALLOW_LIST_ADD",
+        "name":                  "Add SHA256 to Application Allow List",
+        "domain":                "endpoint",
+        "required_capability":   "edr.exclusion.allowlist_hash",
+        "required_integration":  "edr",
+        "executor":              "edr.exclusion_allowlist_add",
+        "parameters_schema": {
+            "sha256": {"type": "string", "required": True},
+            "reason": {"type": "string", "required": True},
+        },
+        "risk_level":            RiskLevel.MEDIUM.value,
+        "approval_policy":       ApprovalPolicy.APPROVAL_REQUIRED.value,
+        "supported_targets":     ["hash"],
+        "execution_mode":        ExecutionMode.ADAPTER.value,
+        "timeout":               30,
+        "rollback_action":       "APPLICATION_ALLOW_LIST_REMOVE",
+        "exclusion":             True,
+    },
+    {
+        "action_id":             "PROCESS_EXCLUSION_ADD",
+        "name":                  "Add Process Exclusion",
+        "domain":                "endpoint",
+        "required_capability":   "edr.exclusion.process",
+        "required_integration":  "edr",
+        "executor":              "edr.exclusion_process_add",
+        "parameters_schema": {
+            "process_image": {"type": "string", "required": True},
+            "reason":        {"type": "string", "required": True},
+        },
+        "risk_level":            RiskLevel.HIGH.value,
+        "approval_policy":       ApprovalPolicy.APPROVAL_REQUIRED.value,
+        "supported_targets":     ["process"],
+        "execution_mode":        ExecutionMode.ADAPTER.value,
+        "timeout":               30,
+        "rollback_action":       "PROCESS_EXCLUSION_REMOVE",
+        "exclusion":             True,
+    },
+    {
+        "action_id":             "PATH_EXCLUSION_ADD",
+        "name":                  "Add Path Exclusion",
+        "domain":                "endpoint",
+        "required_capability":   "edr.exclusion.path",
+        "required_integration":  "edr",
+        "executor":              "edr.exclusion_path_add",
+        "parameters_schema": {
+            "path":   {"type": "string", "required": True},
+            "reason": {"type": "string", "required": True},
+        },
+        "risk_level":            RiskLevel.HIGH.value,
+        "approval_policy":       ApprovalPolicy.APPROVAL_REQUIRED.value,
+        "supported_targets":     ["path"],
+        "execution_mode":        ExecutionMode.ADAPTER.value,
+        "timeout":               30,
+        "rollback_action":       "PATH_EXCLUSION_REMOVE",
+        "exclusion":             True,
+    },
+    {
+        "action_id":             "THREAT_EXCLUSION_ADD",
+        "name":                  "Add Threat Name Exclusion",
+        "domain":                "endpoint",
+        "required_capability":   "edr.exclusion.threat_name",
+        "required_integration":  "edr",
+        "executor":              "edr.exclusion_threat_add",
+        "parameters_schema": {
+            "threat_name": {"type": "string", "required": True},
+            "reason":      {"type": "string", "required": True},
+        },
+        "risk_level":            RiskLevel.CRITICAL.value,
+        "approval_policy":       ApprovalPolicy.DUAL_APPROVAL.value,
+        "supported_targets":     ["threat_name"],
+        "execution_mode":        ExecutionMode.ADAPTER.value,
+        "timeout":               30,
+        "rollback_action":       "THREAT_EXCLUSION_REMOVE",
+        "exclusion":             True,
+    },
 ]
 
 

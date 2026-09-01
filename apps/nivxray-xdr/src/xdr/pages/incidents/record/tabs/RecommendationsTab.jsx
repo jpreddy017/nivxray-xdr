@@ -11,7 +11,7 @@
  * synthesizer produces zero candidates, the tab honestly says so.
  */
 import React, { useEffect, useState } from "react";
-import { CheckCircle2, ShieldAlert, Loader2, Radar } from "lucide-react";
+import { CheckCircle2, ShieldAlert, Loader2, Radar, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 
 
@@ -29,6 +29,15 @@ const APP_COLOR = {
   INSUFFICIENT_EVIDENCE:   "var(--faint)",
   NOT_APPLICABLE:          "var(--faint)",
   SUPERSEDED:              "var(--faint)",
+};
+
+// Round 18 · Exclusion risk band colours.
+const RISK_COLOR = {
+  LOW:      "var(--mint)",
+  MEDIUM:   "var(--amber)",
+  HIGH:     "#f87171",
+  CRITICAL: "#dc2626",
+  UNKNOWN:  "var(--faint)",
 };
 
 
@@ -142,10 +151,20 @@ function RecoCard({ r, active }) {
   const cat = CAT_COLOR[r.category] || "var(--faint)";
   const app = APP_COLOR[r.applicability] || "var(--faint)";
   const fw  = r.framework_rationale || {};
+  const risk = r.risk_analysis || null;
+  const riskBand = r.risk_band || null;
+  const [riskOpen, setRiskOpen] = useState(false);
+  // A high-visibility warning border overrides the category border
+  // whenever the exclusion risk band is HIGH or CRITICAL.
+  const borderColor = active
+    ? (riskBand === "CRITICAL" ? RISK_COLOR.CRITICAL
+        : riskBand === "HIGH" ? RISK_COLOR.HIGH
+        : cat)
+    : "var(--border)";
   return (
     <div data-testid={`reco-${r.id}`}
               style={{ padding: 10, marginBottom: 8,
-                              border: `1px solid ${active ? cat : "var(--border)"}`,
+                              border: `1px solid ${borderColor}`,
                               borderRadius: 4, background: "var(--panel2)",
                               opacity: active ? 1 : 0.75 }}>
       <div style={{ display: "flex", gap: 6, alignItems: "center",
@@ -157,6 +176,15 @@ function RecoCard({ r, active }) {
                               fontSize: 11 }}>
           → {r.target_entity?.kind}:{r.target_entity?.value}
         </span>
+        {riskBand && (
+          <span data-testid={`reco-risk-badge-${r.id}`}
+                       style={{ ...pill(RISK_COLOR[riskBand] || RISK_COLOR.UNKNOWN),
+                                    display: "inline-flex", alignItems: "center",
+                                    gap: 3 }}>
+            <AlertTriangle size={9} />
+            {riskBand} EXCLUSION RISK
+          </span>
+        )}
         <span style={{ flex: 1 }} />
         <span style={pill(app)}>{r.applicability}</span>
       </div>
@@ -178,6 +206,10 @@ function RecoCard({ r, active }) {
             : " · not mapped for this incident"}
         </div>
       )}
+      {risk && (
+        <ExclusionRiskPanel r={r} risk={risk} riskBand={riskBand}
+                                        open={riskOpen} setOpen={setRiskOpen} />
+      )}
       {active && (
         <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
           <AnalystButton reco={r} decision="ACCEPTED" label="Accept"
@@ -188,6 +220,86 @@ function RecoCard({ r, active }) {
                                 color="var(--faint)" />
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ── Round 18 · Exclusion Risk Analysis panel ────────────────────
+// Inline severity badge lives on the card header (see RecoCard).
+// This component renders the FULL breakdown when the analyst
+// expands it — Detection Method · Affected Engine · Exclusion Type ·
+// Scope · Visibility Impact · Security Risk · Safer Alternative ·
+// Analyst Decision — plus an unmistakable warning banner when the
+// band is HIGH or CRITICAL.
+function ExclusionRiskPanel({ r, risk, riskBand, open, setOpen }) {
+  const bandColor = RISK_COLOR[riskBand] || RISK_COLOR.UNKNOWN;
+  return (
+    <div data-testid={`reco-risk-panel-${r.id}`}
+              style={{ marginTop: 8,
+                              border: `1px solid ${bandColor}`,
+                              borderRadius: 3,
+                              background: "rgba(0,0,0,0.15)" }}>
+      <button data-testid={`reco-risk-toggle-${r.id}`}
+                    onClick={() => setOpen(!open)}
+                    style={{ width: "100%", padding: "6px 10px",
+                                    display: "flex", alignItems: "center",
+                                    gap: 6, background: "transparent",
+                                    border: "none", cursor: "pointer",
+                                    color: bandColor,
+                                    fontFamily: "var(--mono)", fontSize: 10,
+                                    fontWeight: 700, textAlign: "left" }}>
+        {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+        Exclusion Risk Analysis
+        <span style={{ flex: 1 }} />
+        <span style={{ color: "var(--faint)", fontWeight: 400 }}>
+          {risk.exclusion_type} · {risk.approval_policy}
+        </span>
+      </button>
+      {open && (
+        <div style={{ padding: "0 10px 10px 10px",
+                              fontFamily: "var(--mono)", fontSize: 10.5,
+                              color: "var(--text-dim)", lineHeight: 1.55 }}>
+          {risk.warning_banner && (
+            <div data-testid={`reco-risk-banner-${r.id}`}
+                          style={{ marginBottom: 8, padding: "6px 8px",
+                                          border: `1px solid ${bandColor}`,
+                                          background: "rgba(220,38,38,0.08)",
+                                          color: bandColor, fontWeight: 700,
+                                          borderRadius: 2,
+                                          display: "flex", gap: 6,
+                                          alignItems: "flex-start" }}>
+              <AlertTriangle size={11} style={{ marginTop: 1,
+                                                                flexShrink: 0 }} />
+              {risk.warning_banner}
+            </div>
+          )}
+          <RiskRow k="Detection Method"    v={risk.detection_method} />
+          <RiskRow k="Affected Engine"     v={risk.affected_engine} />
+          <RiskRow k="Exclusion Type"      v={risk.exclusion_type} />
+          <RiskRow k="Scope"               v={risk.scope} />
+          <RiskRow k="Visibility Impact"   v={risk.visibility_impact} />
+          <RiskRow k="Security Risk"       v={risk.security_risk}
+                          valueColor={bandColor} bold />
+          <RiskRow k="Safer Alternative"   v={risk.safer_alternative} />
+          <RiskRow k="Approval Policy"     v={risk.approval_policy} />
+          <RiskRow k="Analyst Decision"
+                          v={risk.analyst_decision || "— not yet decided —"} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RiskRow({ k, v, valueColor, bold }) {
+  return (
+    <div style={{ display: "grid",
+                        gridTemplateColumns: "148px 1fr",
+                        gap: 8, padding: "3px 0",
+                        borderBottom: "1px dashed rgba(255,255,255,0.05)" }}>
+      <span style={{ color: "var(--faint)" }}>{k}</span>
+      <span style={{ color: valueColor || "var(--text-dim)",
+                          fontWeight: bold ? 700 : 400 }}>{v || "—"}</span>
     </div>
   );
 }

@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from .xdr_action_registry import list_actions
+from .xdr_mitigation_intelligence import enrich_recommendation
 
 
 SYNTH_ENGINE_ID = "nivxray::xdr::recommendation_synthesizer"
@@ -250,6 +251,81 @@ _GUIDANCE: list[dict] = [
             "Enrich domain {entity} across public OSINT reputation "
             "sources before deciding on blocking.",
     },
+    # ── Round 18 · Exclusion candidates (knowledge only) ───────
+    # Synthesizer emits these when the analyst may realistically be
+    # asked to whitelist/exclude the sample. The Mitigation Intelligence
+    # knowledge layer attaches the risk model (visibility impact,
+    # security risk, safer alternative) so the analyst sees the
+    # trade-off before accepting.
+    {
+        "id":                "EXCLUDE_APPLICATION_ALLOWLIST",
+        "category":          "PREVENTION",
+        "target_entity_kind": "hash",
+        "required_evidence": ["file.hash"],
+        "supported_families": ["PUA_ADWARE", "SUSPICIOUS_APPLICATION",
+                                       "MALWARE", "LOADER", "UNKNOWN"],
+        "action":             "APPLICATION_ALLOW_LIST_ADD",
+        "framework_hint":     "D3-EAL",
+        "confidence":         "MEDIUM",
+        "evidence_strength":  "DIRECT",
+        "base_priority":      "MEDIUM",
+        "rationale":
+            "Allow-list SHA256 {entity} — narrowest possible exclusion "
+            "(single hash · Cloud IOC visibility only). Verify publisher "
+            "and legitimacy before accepting.",
+    },
+    {
+        "id":                "EXCLUDE_PROCESS",
+        "category":          "PREVENTION",
+        "target_entity_kind": "process",
+        "required_evidence": ["process.image"],
+        "supported_families": ["PUA_ADWARE", "SUSPICIOUS_APPLICATION",
+                                       "MALWARE", "UNKNOWN"],
+        "action":             "PROCESS_EXCLUSION_ADD",
+        "framework_hint":     "D3-EAL",
+        "confidence":         "LOW",
+        "evidence_strength":  "INFERRED",
+        "base_priority":      "MEDIUM",
+        "rationale":
+            "Exclude process {entity} from Behavioural Protection. "
+            "High visibility cost — narrower parent→child scoping is "
+            "strongly preferred.",
+    },
+    {
+        "id":                "EXCLUDE_PATH",
+        "category":          "PREVENTION",
+        "target_entity_kind": "path",
+        "required_evidence": ["file.path"],
+        "supported_families": ["PUA_ADWARE", "SUSPICIOUS_APPLICATION",
+                                       "MALWARE", "UNKNOWN"],
+        "action":             "PATH_EXCLUSION_ADD",
+        "framework_hint":     "D3-EAL",
+        "confidence":         "LOW",
+        "evidence_strength":  "INFERRED",
+        "base_priority":      "MEDIUM",
+        "rationale":
+            "Exclude filesystem path {entity} from on-access scanning. "
+            "Broad subtree exclusion — TETRA + Cloud IOC visibility "
+            "lost across all files beneath the path.",
+    },
+    {
+        "id":                "EXCLUDE_THREAT_NAME",
+        "category":          "PREVENTION",
+        "target_entity_kind": "threat_name",
+        "required_evidence": ["threat.name"],
+        "supported_families": ["PUA_ADWARE", "SUSPICIOUS_APPLICATION",
+                                       "MALWARE", "LOADER", "UNKNOWN"],
+        "action":             "THREAT_EXCLUSION_ADD",
+        "framework_hint":     "D3-EAL",
+        "confidence":         "LOW",
+        "evidence_strength":  "INFERRED",
+        "base_priority":      "LOW",
+        "rationale":
+            "Threat-name exclusion for {entity} — suppresses this "
+            "detection name across ALL endpoints and future incidents. "
+            "Dual approval required · hash allow-list is strongly "
+            "preferred.",
+    },
 ]
 
 
@@ -334,7 +410,7 @@ def synthesize(context: dict,
                                 if m.get("object_id") == fw_hint]
 
             reco_id = f"reco-{cand['id']}-{ent.get('value')}".lower()
-            out.append({
+            reco = {
                 "id":                reco_id,
                 "text":              cand["rationale"].format(
                                             entity=ent.get("value")),
@@ -357,7 +433,11 @@ def synthesize(context: dict,
                 "applicability_reason": app_reason,
                 "threat_family":     fam,
                 "engine_id":         SYNTH_ENGINE_ID,
-            })
+            }
+            # Round 18 · attach Mitigation Intelligence risk model
+            # ONLY when this candidate's action is an exclusion.
+            # Ordinary mitigations return unchanged (guardrail).
+            out.append(enrich_recommendation(reco))
     return out
 
 
