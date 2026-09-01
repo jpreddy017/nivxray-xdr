@@ -428,6 +428,15 @@ api.include_router(static_docs_router)
 # Semantic-Mapping-Preview) deleted.
 
 # ─────────────────────────────────────────────────────────────────────
+# Round 26 · Cortex Ingest Fabric — webhook + poller + audit surface.
+try:
+    from routers.xdr_cortex_ingest_routes import router as xdr_cortex_ingest_router
+    app.include_router(xdr_cortex_ingest_router)
+    log.info("[startup] Cortex ingest fabric mounted at /api/xdr/vendor/cortex")
+except Exception as _cix:                                          # pragma: no cover
+    log.warning("[startup] Cortex ingest mount failed: %s", _cix)
+
+# ─────────────────────────────────────────────────────────────────────
 # Round 25a · Cortex XDR Vendor Wizard — typed onboarding surface.
 # Runs against the customer's REAL Cortex tenant via xdr_cortex_adapter;
 # never fabricates a probe result.  Persists into xdr_integrations so

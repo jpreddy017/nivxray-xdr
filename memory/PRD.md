@@ -58,6 +58,82 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 26 — SHIPPED · Cortex Ingest Fabric
+
+**Boundary preserved:** ingest never touches the vault directly.
+The vault→executor→adapter chain from Round 25b is the only
+sanctioned credential path.  Every canonical row keeps enough
+identity to answer *"exactly which Cortex object produced this
+evidence?"*.
+
+### Shipped
+
+- **`detection_content/xdr_cortex_parser.py`** — pure,
+  deterministic projection of a Cortex incident payload into
+  ``xdr_canonical_evidence`` rows.  Supports the ``{"reply":
+  {"incidents": [...]}}`` envelope Cortex returns, individual
+  incident dicts, and lists.  Preserves the raw vendor object
+  verbatim under ``raw``.
+  Object types projected: ``incident · alert · key_artifact ·
+  host · user``.
+  ``event_id`` = ``cev-cortex-<sha256(integration|type|object_id)[:24]>``
+  → same payload upserts the same row.  MITRE tactic/technique
+  pairs preserved as ``{id, name}``.
+- **`detection_content/xdr_cortex_ingest.py`** — ingest pipeline:
+  parses, upserts on ``event_id``, writes a per-run audit
+  envelope (``xdr_cortex_ingest_audit``), and manages the
+  ``xdr_cortex_ingest_checkpoints`` cursor (Cortex-native
+  ``modification_time`` ms).  ``latest_modification_time(rows)``
+  advances the cursor monotonically.
+- **`routers/xdr_cortex_ingest_routes.py`** — HTTP surface:
+  * `POST /api/xdr/vendor/cortex/webhooks/{id}` — Cortex push
+    channel.  Verifies ``x-xdr-signature`` (HMAC-SHA256 over
+    ``<ts>.<body>`` keyed by the vault-decrypted API key) and
+    the ``x-xdr-timestamp`` freshness (±5-min).  Rejects
+    invalid / stale signatures BEFORE parsing.
+  * `POST /api/xdr/vendor/cortex/connections/{id}/poll` —
+    operator pull.  Consumes
+    ``xdr_cortex_executor.ingest_cortex_alerts`` (single vault
+    path).  Advances the checkpoint deterministically from the
+    batch itself.
+  * `GET  /api/xdr/vendor/cortex/connections/{id}/ingest` — last
+    N runs + checkpoint.
+- **`tests/test_xdr_round26_cortex_ingest.py`** — 6 invariants:
+  1. Parser deterministic + preserves provenance.
+  2. Alert fields + MITRE pair projection matches the Cisco
+     reference summary (cmdline `--id 76758`, both SHA-256s,
+     TA0002/T1219).
+  3. Key-artifact `source_object_id` = ``<type>:<value>``.
+  4. `parse_batch` accepts the Cortex ``{"reply":{"incidents"}}``
+     envelope.
+  5. `event_id` stable across processes.
+  6. `latest_modification_time` picks the max (poller can't
+     roll the cursor backwards).
+
+### Verified end-to-end (mock Cortex on localhost)
+
+Against `POST /api/xdr/vendor/cortex/webhooks/{iid}`:
+- Bad signature       → **401** `signature_mismatch`
+- Timestamp > 5 min   → **401** `replay_rejected`
+- Valid delivery      → **200**  · parsed 5 · inserted 5 · dup 0
+- Same payload replay → **200**  · parsed 5 · inserted 0 · dup 5
+Canonical rows landed with full provenance
+(`vendor=cortex_xdr`, `source_integration_id`, `xdr_incident_id`,
+deterministic `event_id`).  **No incident promoted** — that's
+Round 26.5.
+
+All 17 backend tests green (R24 + R25b + R26).
+
+### Boundary notes for Round 26.5
+
+- Consumer of canonical rows will be a promotion policy in a new
+  module `xdr_cortex_promotion.py`.  It should key off
+  `xdr_incident_id` + host-window clustering + exclusion respect.
+- The ingest fabric already deduplicates at the evidence layer;
+  promotion must NOT re-dedup at that plane, it dedups only at
+  the incident plane.
+
+---
 ## ✅ 2026-02-14 · Round 25b — SHIPPED · Credential Vault
 
 **Boundary invariant (locked · owner):**
