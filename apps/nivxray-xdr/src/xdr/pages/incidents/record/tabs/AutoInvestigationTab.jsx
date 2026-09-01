@@ -1,10 +1,14 @@
 /**
- * AutoInvestigationTab · Layer 3 v2 · light-first status card.
+ * InvestigationActivityTab · Autonomous Investigation Operating Model
+ * (§13, §16, §18, §26).
  *
- * Same honest contract as before: NOT_RUN until Phase 4 wires the
- * xdr_observations + engine_executions collections.  Now presented
- * as a polished light status card with a circular status badge and
- * a placeholder for the per-engine execution table.
+ * NivXRay XDR does not expose an "Auto-Investigate" button.
+ * Investigation is a native operating behavior — this tab
+ * communicates STATE, not activation.  The tab renders the current
+ * lifecycle state (§26) plus a live activity feed when the
+ * Orchestrator writes to `engine_executions`.  Until IUE +
+ * Orchestrator ship (rollout §14 items 2-3), the honest state is
+ * `WAITING FOR EVIDENCE` — never a mocked "COMPLETE".
  */
 import React, { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -36,37 +40,43 @@ export default function AutoInvestigationTab({ incident }) {
   if (loading) return (
     <div className="rl-loading">
       <Loader2 size={12} className="rl-spin" style={{ verticalAlign: "-2px", marginRight: 6 }} />
-      LOADING AUTO-INVESTIGATION STATUS…
+      LOADING INVESTIGATION ACTIVITY…
     </div>
   );
 
-  const status = (ai?.status || "NOT_RUN").toLowerCase();
-  const total  = ai?.engines_total ?? 0;
-  const ok     = ai?.engines_ok ?? 0;
-  const dur    = ai?.duration_ms;
-  const cls    = ["not_run", "complete", "partial", "failed", "running"].includes(status)
-                    ? status : "not_run";
+  const raw   = (ai?.status || "NOT_RUN").toUpperCase();
+  const total = ai?.engines_total ?? 0;
+  const ok    = ai?.engines_ok ?? 0;
+  const dur   = ai?.duration_ms;
+
+  // §26 lifecycle grammar.  Never fabricate a COMPLETE state — an
+  // absent Orchestrator yields `WAITING FOR EVIDENCE` honestly.
+  const lifecycleFor = (s) => ({
+    NOT_RUN:  { key: "waiting",       label: "WAITING FOR EVIDENCE" },
+    RUNNING:  { key: "investigating", label: "INVESTIGATING" },
+    COMPLETE: { key: "converging",    label: "CONVERGED" },
+    PARTIAL:  { key: "converging",    label: "CONVERGED · PARTIAL" },
+    FAILED:   { key: "failed",        label: "FAILED" },
+  }[s] || { key: "waiting", label: "WAITING FOR EVIDENCE" });
+  const state = lifecycleFor(raw);
   const explain = {
-    not_run:  "No auto-investigation orchestration has fired against this incident.",
-    complete: `${ok}/${total} engines succeeded${dur != null ? ` in ${Math.round(dur/100)/10}s` : ""}.`,
-    partial:  `${ok}/${total} engines succeeded — the remainder failed or produced no evidence.`,
-    failed:   "The orchestration failed to complete against this incident.",
-    running:  "Auto-investigation is currently running against this incident.",
-  }[cls];
+    waiting:       "NivXRay XDR is waiting on evidence eligible for autonomous investigation. Investigation will begin automatically as soon as the Orchestrator sees a governed trigger.",
+    investigating: `NivXRay XDR is investigating this incident · ${ok}/${total} engines active.`,
+    converging:    `NivXRay XDR converged the investigation${dur != null ? ` in ${Math.round(dur/100)/10}s` : ""} · ${ok}/${total} engines succeeded.`,
+    failed:        "The autonomous investigation failed to complete against this incident.",
+  }[state.key];
 
   return (
     <div data-testid="xdr-record-auto-investigation">
       {error && <div className="rl-error">{String(error)}</div>}
 
-      <div className={`rl-ai-status ${cls}`}
+      <div className={`rl-ai-status ${state.key}`}
             data-testid="xdr-record-ai-status-card">
         <div className="badge">
-          <span data-testid="xdr-record-ai-status">
-            {(ai?.status || "NOT_RUN").replace("_", " ")}
-          </span>
+          <span data-testid="xdr-record-ai-status">● {state.label}</span>
         </div>
         <div className="txt">
-          <h5>Auto-Investigation status</h5>
+          <h5>Investigation Activity</h5>
           <p>{explain}</p>
         </div>
       </div>
@@ -80,7 +90,7 @@ export default function AutoInvestigationTab({ incident }) {
         <div className={`rl-metric ${total > 0 ? "ok" : "na"}`}>
           <div className="k">Successful</div>
           <div className="v">{total > 0 ? ok : "—"}</div>
-          <div className="sub">completed with evidence</div>
+          <div className="sub">produced evidence</div>
         </div>
         <div className={`rl-metric ${dur != null ? "info" : "na"}`}>
           <div className="k">Duration</div>
@@ -92,10 +102,16 @@ export default function AutoInvestigationTab({ incident }) {
       <div className="rl-section">
         <div className="rl-section-title">Engine executions · provenance</div>
         {(ai?.executions || []).length === 0
-          ? <div className="rl-empty">
-              Auto-investigation has not run for this incident yet.
-              Per-engine execution history and timings will appear here
-              once the investigation is initiated.
+          ? <div className="rl-empty" data-testid="xdr-record-ai-empty">
+              <b>No "Auto-Investigate" button.</b> Per the NivXRay XDR
+              Autonomous Investigation Operating Model, investigation
+              is a native operating behavior — the analyst never
+              starts the machine.  Autonomous investigation activity
+              will surface here as soon as the Orchestrator + IUE +
+              Capability Fabric ship.  Human investigation actions
+              (Investigate Process · Host · User · IP · Domain · File)
+              live in the entity panels on the Related and Attack
+              Story tabs.
             </div>
           : <table className="rl-table">
               <thead><tr>

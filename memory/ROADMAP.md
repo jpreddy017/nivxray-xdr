@@ -33,7 +33,11 @@ No feature moves to the next phase until the phase it lives in is production-qua
 | **29.5**| **NivXRay XDR Visual Language System v1.0 (foundation)** | **✅ SHIPPED (2026-09-01)** |
 | **29.6**| **Visual Language v1.1 · Composition + Flagship Overview** | **✅ SHIPPED (2026-09-01)** |
 | **29.7**| **Populated-state proof · Pipeline → API Projection → Composition** | **✅ SHIPPED (2026-09-01)** |
-| P1.0  | Intelligence Plane (STIX/TAXII/OSINT enrichment layer)      | ⏳ NEXT   |
+| **29.8**| **Autonomous Investigation Operating Model · ratified as platform contract** | **✅ SHIPPED (2026-09-01)** |
+| 30    | IUE service scaffolding (consumes Evidence Plane · emits §5 understanding artifacts) | ⏳ NEXT   |
+| 31    | Investigation Orchestrator scaffolding (writes to engine_executions)              | ⏳ QUEUED |
+| 32    | Investigation Capability Fabric v0 (Detection / Correlation / MITRE plugins)      | ⏳ QUEUED |
+| P1.0  | Intelligence Plane (STIX/TAXII/OSINT enrichment layer)      | ⏳ DEFERRED — after Investigation stack   |
 | 30    | Certification (real sandbox E2E + cross-vendor equivalence) | ⏳ QUEUED |
 | P2    | Investigation Report Export (PDF + JSON)                    | 📥 BACKLOG |
 | P2    | Native NivXRay Agent Management Plane                       | 📥 BACKLOG |

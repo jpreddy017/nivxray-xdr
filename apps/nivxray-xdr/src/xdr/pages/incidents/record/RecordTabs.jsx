@@ -1,7 +1,7 @@
 /**
  * RecordTabs · Layer 3 · 11-tab investigation workspace navigation.
  *
- *   Executive · Technical · Evidence · Auto-Investigation · MITRE ·
+ *   Executive · Technical · Evidence · Investigation Activity · MITRE ·
  *   Attack Story · Recommendations · Notes · Timeline · Related · Closure
  *
  * Every tab is URL-persisted via ?tab= so an analyst can share a
@@ -13,7 +13,7 @@ export const RECORD_TABS = [
   { key: "executive",         label: "Executive"          },
   { key: "technical",         label: "Technical"          },
   { key: "evidence",          label: "Evidence"           },
-  { key: "auto_investigation",label: "Auto-Investigation" },
+  { key: "auto_investigation",label: "Investigation Activity" },
   { key: "mitre",             label: "MITRE"              },
   { key: "attack_story",      label: "Attack Story"       },
   { key: "recommendations",   label: "Recommendations"    },

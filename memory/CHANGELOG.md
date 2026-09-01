@@ -2,6 +2,73 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 29.8 — Autonomous Investigation Operating Model — RATIFIED
+
+Owner-issued 37-section platform contract locked into the repo as a
+first-class architecture artifact — same tier as `ARCHITECTURE.md`,
+`VISUAL_LANGUAGE.md`.
+
+### Ratified in `/app/memory/AUTONOMOUS_INVESTIGATION.md`
+- **§1 fundamental principle**: no "Auto-Investigate" button —
+  investigation is a native operating behavior.
+- **§4 IUE boundary**: IUE understands; Orchestrator decides;
+  Capability Fabric performs; IKG records; Verdict Engine emits the
+  governed verdict. Four boundaries architecturally locked.
+- **§26 lifecycle**: CREATED → ELIGIBLE → QUEUED → INVESTIGATING →
+  EXPANDING → WAITING_FOR_EVIDENCE → REINVESTIGATING → CONVERGING →
+  ANALYST_REVIEW → COMPLETED → REOPENED.
+- **§27 evidence states** (never collapsed): OBSERVED · SUPPORTED ·
+  CORRELATED · INFERRED · HYPOTHESIS · NOT_OBSERVED · UNKNOWN ·
+  CONTRADICTED.
+- **§20 deterministic-first, AI-optional**: AI may assist reasoning,
+  narrative and prioritisation; AI never creates evidence,
+  telemetry, relationships or ATT&CK mappings.
+- **§23-§25 editable, versioned intelligence**: canonical evidence
+  immutable; all generated intelligence (summary, findings, story,
+  recommendations, timeline, ATT&CK) editable with analyst identity,
+  timestamp, reason preserved as versions.
+- **§31 verdict boundary**, **§33 response boundary**, **§13-§14
+  cross-source/cross-incident**, **§17 human investigation controls
+  are entity-scoped, never machine-start**.
+
+### First UI change against the contract
+- Tab renamed **`Auto-Investigation` → `Investigation Activity`**
+  (§16). File: `AutoInvestigationTab.jsx` + `RecordTabs.jsx`.
+- Status label grammar migrated to §26 lifecycle. `NOT_RUN` no
+  longer surfaced; renders as `● WAITING FOR EVIDENCE`.
+  `RUNNING → ● INVESTIGATING`, `COMPLETE → ● CONVERGED`,
+  `PARTIAL → ● CONVERGED · PARTIAL`, `FAILED → ● FAILED`.
+- Copy rewritten to communicate STATE, not activation. Explicit
+  callout: *"No 'Auto-Investigate' button. Per the NivXRay XDR
+  Autonomous Investigation Operating Model, investigation is a
+  native operating behavior — the analyst never starts the
+  machine."*
+- Bottom hint points analysts at the correct human-investigation
+  entry points (entity panels on Related + Attack Story tabs, §17).
+
+### Rollout order queued (rounds ahead)
+1. ✅ Ratify contract + rename tab (this round).
+2. ⏳ IUE service scaffolding — consumes Evidence Plane, emits §5
+   understanding artifacts.
+3. ⏳ Investigation Orchestrator scaffolding — writes to
+   `engine_executions`.
+4. ⏳ Investigation Capability Fabric v0 — Detection / Correlation /
+   MITRE mapping as first plugins.
+5. ⏳ Attack Story v2 + AttackFlow (Visual Language v1.2).
+6. ⏳ Editable / versioned intelligence layer (§23-§25).
+7. ⏳ Cross-incident intelligence (§14).
+8. ⏳ AI-optional narrative layer (§9, §22).
+
+### Acceptance
+- Tab renamed and re-worded per contract · confirmed via screenshot.
+- Empty-state honest: `● WAITING FOR EVIDENCE` (never mocked
+  COMPLETE).
+- 46/46 backend regression green.
+- Command Band still displays real populated incident data from the
+  Round 29.7 projection fix.
+
+---
+
 ## 2026-09-01 · Round 29.7 — Populated-state proof · Pipeline → Projection → Composition — SHIPPED
 
 Owner-directed pivot: stop optimising for empty screenshots; prove
