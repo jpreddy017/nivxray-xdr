@@ -16,6 +16,7 @@ export const RECORD_TABS = [
   { key: "auto_investigation",label: "Investigation Activity" },
   { key: "mitre",             label: "MITRE"              },
   { key: "attack_story",      label: "Attack Story"       },
+  { key: "attack_graph",      label: "Attack Graph"       },
   { key: "recommendations",   label: "Recommendations"    },
   { key: "notes",             label: "Notes"              },
   { key: "timeline",          label: "Timeline"           },
@@ -25,7 +26,7 @@ export const RECORD_TABS = [
 
 // Which tabs render inside the dark investigation canvas.
 export const CANVAS_TABS = new Set([
-  "mitre", "attack_story", "recommendations", "auto_investigation",
+  "mitre", "attack_story", "attack_graph", "recommendations", "auto_investigation",
 ]);
 
 export default function RecordTabs({ current, onChange, counts = {} }) {

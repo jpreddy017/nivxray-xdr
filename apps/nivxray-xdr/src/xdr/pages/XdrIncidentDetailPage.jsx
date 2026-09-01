@@ -34,6 +34,7 @@ import EvidenceTab           from "./incidents/record/tabs/EvidenceTab";
 import AutoInvestigationTab  from "./incidents/record/tabs/AutoInvestigationTab";
 import MitreTab              from "./incidents/record/tabs/MitreTab";
 import AttackStoryTab        from "./incidents/record/tabs/AttackStoryTab";
+import AttackGraphTab        from "./incidents/record/tabs/AttackGraphTab";
 import RecommendationsTab    from "./incidents/record/tabs/RecommendationsTab";
 import {
   RecommendationsTabV2,
@@ -151,6 +152,7 @@ export default function XdrIncidentDetailPage() {
                 ? <MitreTabV2 incident={incident} />
                 : <MitreTab   incident={incident} />)}
               {tab === "attack_story"       && <AttackStoryTab       incident={incident} />}
+              {tab === "attack_graph"       && <AttackGraphTab       incident={incident} />}
               {tab === "recommendations"    && (isDesignV2EnabledFor("recommendations")
                 ? <RecommendationsTabV2 incident={incident} />
                 : <RecommendationsTab   incident={incident} />)}

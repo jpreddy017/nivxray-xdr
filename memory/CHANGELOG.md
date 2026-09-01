@@ -2,6 +2,80 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 35 — Operational Attack Graph — SHIPPED
+
+The NivXRay incident workspace now has a **first-class operational
+MITRE ATT&CK chain graph**, not a table pretending to be a graph.
+
+**Backend**
+- `services/attack_graph/event_intel.py` — Windows Security + Sysmon
+  Event ID intelligence layer (15 events: 4624/4625/4648/4672/4688/
+  4689/4697/4698/4657/4740/4776/1102 + sysmon:1/3/11). Each entry
+  ships fields, capabilities, ATT&CK hints, related-event chain.
+- `services/attack_graph/service.py` — deterministic composer with
+  27 node kinds, 20+ semantic edge relations (SPAWNED, EXECUTED,
+  CONNECTED_TO, TRIGGERED, MAPPED_TO, BELONGS_TO, DETECTED_BY,
+  SUPPORTED_BY, CORRELATED_WITH, PIVOTED_TO…). Stable sha256-based
+  node/edge IDs — no random UUIDs. Reuses `attack_cycle.STAGES`
+  SSOT. Emits `nodes[]`, `edges[]`, `primary_path[]`,
+  `alternative_paths[]`, `attack_stages[]`, `timeline[]`,
+  `metrics{attack_chain_completeness, evidence_coverage,
+  mitre_coverage, telemetry_coverage, unknown_coverage,
+  correlation_strength, temporal_consistency}`, `evidence_summary`,
+  `mitre_summary`, `investigation_gaps`.
+- `routers/attack_graph.py` — `GET /api/incidents/{id}/attack-graph`
+  read-only API.
+
+**Frontend — VISIBLE in the running UI**
+- New `Attack Graph` tab added to the 12-tab incident strip
+  (`/xdr/incidents/{id}?tab=attack_graph`).
+- `AttackGraphTab.jsx` — dark investigation canvas (SVG) with:
+  deterministic left-to-right layered layout (entity → event →
+  process/commandline → finding/capability → technique → stage →
+  gap), 4-state visual grammar (OBSERVED/SUPPORTED/POSSIBLE/
+  NOT_OBSERVED with distinct fills + dashed edges for possible/
+  gap), 7 layer toggles (entities · events · processes · findings
+  · capabilities · mitre · gaps), timeline scrubber that dims
+  edges beyond the selected window, right-side Evidence Inspector
+  panel that reveals full attributes / connections / provenance /
+  evidence refs / finding IDs for the clicked node or edge, live
+  metrics footer.
+
+**Verified in the running UI (Snort-golden pipeline)**
+- 36 nodes · 18/23 edges visible · 0 observed / 0 supported /
+  5 gaps for a network-only Snort alert (honest — no MITRE / no
+  process telemetry means no fabricated observed stages).
+- Node kinds present: incident · event · signature · ip · finding
+  · capability · stage · gap.
+- All 7 layer toggles operational; timeline scrubber operational;
+  Evidence Inspector operational.
+
+**Testing**
+- 12/12 tests in `tests/test_xdr_round35_attack_graph.py` green:
+  envelope shape · deterministic node/edge IDs · every edge
+  evidence-anchored · 14-stage SSOT reuse · 4-state grammar
+  enforcement · Event ID intelligence lookup · EDR-fixture
+  chain reconstruction (WINWORD → PowerShell SPAWNED,
+  commandline node, T1059.001 OBSERVED) · walkable primary path
+  · temporal ordering · bounded metrics · missing incident ·
+  non-fabrication of NOT_OBSERVED stage anchors.
+- Cross-round regression: 184/184 across Rounds 11-35 green
+  (172 + 12 new).
+
+**Boundaries preserved**
+- Deterministic; AI-optional.
+- Verdict Engine untouched.
+- `attack_cycle.STAGES` reused unchanged as SSOT.
+- Zero fabricated nodes / edges — NOT_OBSERVED stages surface only
+  as gaps, never as fake nodes.
+- No "Auto-Investigate" button anywhere.
+- 14-stage AttackFlow table kept intact on Attack Story tab;
+  Attack Graph is the new operational surface alongside it.
+
+---
+
+
+
 ## 2026-09-01 · Round 34 — Threat Model Engine + Executive UI Transformation — SHIPPED
 
 Round 34 turns the backend intelligence from Rounds 30-33 into a

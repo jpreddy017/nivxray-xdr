@@ -39,6 +39,7 @@ No feature moves to the next phase until the phase it lives in is production-qua
 | 32    | **Capability Fabric v1** · 12 real capabilities · evidence-sufficiency selector · reuses existing engines (LOLBAS · smart_decoder · IOC extractor) | **✅ SHIPPED (2026-09-01)** |
 | 33    | **Attack Story + AttackFlow v1** · 14-stage centralised cycle · OBSERVED/SUPPORTED/POSSIBLE/NOT_OBSERVED · evidence-anchored narrative · SUFFICIENT-path EDR fixture | **✅ SHIPPED (2026-09-01)** |
 | 34    | **Threat Model Engine + Executive UI** · 5-dimension assessment · Impact independent axis · Blast Radius · Why-It-Matters · Executive Threat Assessment card | **✅ SHIPPED (2026-09-01)** |
+| 35    | **Operational Attack Graph** · 27 node kinds · 20+ semantic edges · Event ID intelligence · 4-state visual grammar · timeline scrubber · Evidence Inspector · interactive SVG canvas | **✅ SHIPPED (2026-09-01)** |
 | 34.5  | Scenario Library (Phishing · Ransomware · Credential Theft · LOL · Supply Chain matchers on top of Round 34 flow) | ⏳ NEXT |
 | 35    | Editable / versioned intelligence layer (§23-§25) — turns `machine_generated: true` fields into analyst-editable + audited versions | ⏳ QUEUED |
 | P1.0  | Intelligence Plane (STIX/TAXII/OSINT enrichment layer)      | ⏳ DEFERRED — after Investigation stack   |
