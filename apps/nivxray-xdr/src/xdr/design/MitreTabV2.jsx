@@ -358,17 +358,22 @@ function attackHrefFor(node) {
   if (id) return `https://attack.mitre.org/techniques/${id}/`;
   const name = extractAttackName(node);
   if (name) {
-    // Fall back to ATT&CK's search endpoint — always resolves to a
-    // real MITRE ATT&CK page, never a 404.
-    return "https://attack.mitre.org/search/?q="
-              + encodeURIComponent(name);
+    // attack.mitre.org has no public search endpoint (its site
+    // search is client-side JS only) — a direct `/search/?q=…` URL
+    // 404s.  A `site:` Google search is the most reliable public
+    // resolver: the first result is nearly always the correct
+    // ATT&CK technique page, and it degrades gracefully when the
+    // technique name is unusual.
+    return "https://www.google.com/search?q="
+              + encodeURIComponent(`site:attack.mitre.org ${name}`);
   }
   return null;
 }
 function attackLinkTitle(node) {
-  return extractAttackId(node)
-    ? "Open technique on attack.mitre.org"
-    : "Search this technique on attack.mitre.org";
+  if (extractAttackId(node)) return "Open technique on attack.mitre.org";
+  if (extractAttackName(node))
+    return "Find this technique on attack.mitre.org via Google";
+  return "No ATT&CK identifier resolvable for this row";
 }
 
 
@@ -421,7 +426,7 @@ function TechniqueRow({ node }) {
         <EvidenceState state={conf.state} reason={conf.reason}
                         testid={`mitre-v2-row-conf-${node.id}`} />
         {attackHref ? (
-          <Action label={extractAttackId(node) ? "Open" : "Search"}
+          <Action label={extractAttackId(node) ? "Open" : "Find"}
                    icon={ExternalLink}
                    capability="cap-full"
                    onRun={() => window.open(attackHref, "_blank",
@@ -505,7 +510,7 @@ function TechniqueCard({ node, incidentId }) {
           {attackHref ? (
             <Action label={extractAttackId(node)
                                     ? "View technique"
-                                    : "Search technique"}
+                                    : "Find on ATT&CK"}
                      icon={ExternalLink}
                      capability="cap-full"
                      onRun={() => window.open(attackHref, "_blank",
