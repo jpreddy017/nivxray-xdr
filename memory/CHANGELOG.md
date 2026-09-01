@@ -2,6 +2,49 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 40 — Reopen Empty-State Polish — SHIPPED
+
+Small, owner-scoped UI polish for sparse findings persisted on a
+CONVERGED → REOPENED tick.  No architecture changes; no backend
+changes.
+
+**Frontend — `AutoInvestigationTab.jsx`**
+- Findings table renders each row through a three-way empty-state
+  fallback:
+      · empty `summary`     → italic muted `kind · subject_kind:subject_value`
+      · empty `reasoning`   → italic *"reasoning not recorded"*
+      · zero / null `confidence` → `—`
+- Row now exposes `data-empty-summary="true"` when the fallback
+  identity fires (for test + inspection).
+
+**Backend — no changes.**  The Finding model already accepts empty
+summaries; the required fallback identity fields (`kind`,
+`subject_kind`, `subject_value`, `capability`) were already emitted.
+
+**Tests — `tests/test_xdr_round40_reopen_empty_state.py`** (3 tests)
+- Finding model accepts an empty summary.
+- Findings API surfaces the four identity fields required by the
+  polish.
+- R35.3.1 CONVERGED → REOPENED preserved; every reopened finding
+  still carries fallback identity fields.
+
+**Regression reconciliation (owner-requested audit):**
+Previously reported counts (130/130, 105/105, 84/84) were
+*touched-file subsets*, not cumulative.  **No prior tests were
+removed or excluded.**  The full cumulative XDR round suite
+(R21 → R40, 27 test modules including `test_syslog_parser`) now
+runs **224/224 green**.
+
+Cumulative growth trace:
+    Step 1 · R38.1 · 130 tests (cumulative through R38.1)
+    Step 3 · R38.3 · 105 tests (cumulative through R38.3)
+    Step 4 · R39   · +13 tests
+    Step 5 · R39   · + 9 tests
+    Round 40       · + 3 tests
+    Cumulative     · 224/224 green
+
+
+
 ## 2026-09-01 · Round 39 · Step 5 — Investigation Report PDF Export — SHIPPED
 
 The Investigation Report contract now ships as a branded PDF.  The

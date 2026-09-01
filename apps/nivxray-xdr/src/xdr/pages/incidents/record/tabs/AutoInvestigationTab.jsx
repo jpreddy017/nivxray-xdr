@@ -212,19 +212,55 @@ export default function AutoInvestigationTab({ incident }) {
               <th style={{ width: 100 }}>Confidence</th>
             </tr></thead>
             <tbody>
-              {findings.map((f, i) => (
-                <tr key={i} data-testid={`xdr-record-ai-finding-${i}`}>
-                  <td className="mono">{f.capability}</td>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{f.summary}</div>
-                    <div style={{ opacity: 0.6, fontSize: 11, marginTop: 2 }}>
-                      {f.reasoning}
-                    </div>
-                  </td>
-                  <td className="mono">{f.state}</td>
-                  <td className="mono">{f.confidence}</td>
-                </tr>
-              ))}
+              {findings.map((f, i) => {
+                // Round 40 · Sparse-finding empty-state polish.
+                // A CONVERGED→REOPENED tick may persist findings whose
+                // summary is empty because the capability produced a
+                // machine-signal without a natural sentence.  Fall
+                // back to kind · subject so the row is never blank,
+                // never fabricated.
+                const rawSummary = (f.summary || "").trim();
+                const rawReason  = (f.reasoning || "").trim();
+                const subjectId  = f.subject_kind && f.subject_value
+                  ? `${f.subject_kind}:${f.subject_value}` : null;
+                const summaryIsEmpty = !rawSummary;
+                const reasonIsEmpty  = !rawReason;
+                const fallbackTitle = subjectId
+                  ? `${f.kind || "signal"} · ${subjectId}`
+                  : (f.kind || "signal");
+                const confidenceLabel = (f.confidence === null
+                                                    || f.confidence === undefined
+                                                    || f.confidence === 0)
+                  ? "—" : f.confidence;
+                return (
+                  <tr key={f.finding_id || i}
+                       data-testid={`xdr-record-ai-finding-${i}`}
+                       data-empty-summary={summaryIsEmpty || undefined}>
+                    <td className="mono">{f.capability || "—"}</td>
+                    <td>
+                      {summaryIsEmpty ? (
+                        <div style={{ fontWeight: 500, color: "#64748b",
+                                          fontStyle: "italic" }}
+                              data-testid={`xdr-record-ai-finding-empty-${i}`}
+                              title="This finding was persisted without a natural summary sentence; identity derived from kind + subject.">
+                          {fallbackTitle}
+                        </div>
+                      ) : (
+                        <div style={{ fontWeight: 500 }}>{rawSummary}</div>
+                      )}
+                      <div style={{ opacity: 0.6, fontSize: 11, marginTop: 2 }}>
+                        {reasonIsEmpty
+                          ? <span style={{ fontStyle: "italic" }}>
+                              reasoning not recorded
+                            </span>
+                          : rawReason}
+                      </div>
+                    </td>
+                    <td className="mono">{f.state || "—"}</td>
+                    <td className="mono">{confidenceLabel}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

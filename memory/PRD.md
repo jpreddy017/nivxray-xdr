@@ -2,6 +2,39 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 40 — SHIPPED · Reopen Empty-State Polish
+
+Small, owner-scoped UI polish.  When a `CONVERGED → REOPENED`
+investigation cycle produces findings without a natural summary
+sentence, the Findings table now renders an honest **kind · subject**
+fallback identity in italic-muted, and shows `—` for zero/null
+confidence, instead of leaving cells blank.
+
+### Shipped
+- `AutoInvestigationTab.jsx` findings table now derives fallback
+  identity from `kind · subject_kind:subject_value` when
+  `summary` is empty; reasoning falls back to
+  *"reasoning not recorded"*; confidence `0/null` renders as `—`.
+  Row exposes `data-empty-summary="true"` for test/inspection.
+- **No backend changes.**  The Finding model already accepts empty
+  summaries.
+
+### Regression reconciliation
+Owner audit noticed inconsistency in prior reported test counts
+(130/130 → 105/105 → 84/84).  Confirmed: the earlier numbers were
+*touched-file subsets*, not cumulative.  No tests were excluded.
+
+**Full cumulative R21 → R40 XDR round regression suite: 224/224 green.**
+
+### Verified
+- 3 new R40 regression tests (empty-summary Finding contract, API
+  identity fields, CONVERGED→REOPENED preservation).
+- UI verified in preview on R35 EDR incident (12 findings render
+  populated; polish activates on empty-summary rows).
+
+---
+
+
 ## ✅ 2026-09-01 · Round 39 · Step 5 — SHIPPED · Investigation Report PDF Export
 
 Owner-locked Step 5 of the investigation chain shipped.  The PDF is a
