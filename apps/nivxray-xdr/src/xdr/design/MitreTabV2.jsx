@@ -315,10 +315,37 @@ export default function MitreTabV2({ incident }) {
  * Right = tactic + evidence rollup + confidence pill + action.
  * Matches the enterprise SOC "MITRE ATT&CK" panel pattern.
  * ------------------------------------------------------------------ */
+/* --------------------------------------------------------------------
+ * ATT&CK ID resolution.  Backend nodes may put the technique id under
+ * `attack_id`, `technique_id`, `tid`, `object_id`, or `id`, and only
+ * some of those are the canonical T#### / T####.### format.  Build
+ * the attack.mitre.org URL only if we can extract a canonical id;
+ * otherwise render the row without an "Open" affordance rather than
+ * shipping a broken 404 URL (owner rule: never fabricate).
+ * ------------------------------------------------------------------ */
+const ATTACK_ID_RE = /\b(T\d{4})(?:\.(\d{3}))?\b/i;
+function extractAttackId(node) {
+  if (!node) return null;
+  for (const cand of [node.attack_id, node.technique_id, node.tid,
+                                 node.object_id, node.id]) {
+    const m = ATTACK_ID_RE.exec(String(cand || ""));
+    if (m) {
+      const base = m[1].toUpperCase();
+      return m[2] ? `${base}/${m[2]}` : base;
+    }
+  }
+  return null;
+}
+function attackHrefFor(node) {
+  const id = extractAttackId(node);
+  return id ? `https://attack.mitre.org/techniques/${id}/` : null;
+}
+
+
+/* ------------------------------------------------------------------ */
 function TechniqueRow({ node }) {
   const conf = stateForConfidence(node.confidence);
-  const attackHref =
-    `https://attack.mitre.org/techniques/${node.id.replace(".", "/")}/`;
+  const attackHref = attackHrefFor(node);
 
   const buckets = { hosts: [], users: [], files: [] };
   (node.entities || []).forEach((e) => {
@@ -362,11 +389,21 @@ function TechniqueRow({ node }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <EvidenceState state={conf.state} reason={conf.reason}
                         testid={`mitre-v2-row-conf-${node.id}`} />
-        <Action label="Open" icon={ExternalLink}
-                 capability="cap-full"
-                 onRun={() => window.open(attackHref, "_blank",
-                                           "noopener,noreferrer")}
-                 testid={`mitre-v2-row-ext-${node.id}`} />
+        {attackHref ? (
+          <Action label="Open" icon={ExternalLink}
+                   capability="cap-full"
+                   onRun={() => window.open(attackHref, "_blank",
+                                             "noopener,noreferrer")}
+                   testid={`mitre-v2-row-ext-${node.id}`} />
+        ) : (
+          <span className="mono"
+                  data-testid={`mitre-v2-row-noext-${node.id}`}
+                  style={{ fontSize: 10, opacity: 0.55,
+                              padding: "3px 8px" }}
+                  title="No canonical ATT&CK id resolved for this row.">
+            no attack id
+          </span>
+        )}
       </div>
     </div>
   );
@@ -376,8 +413,7 @@ function TechniqueRow({ node }) {
 function TechniqueCard({ node, incidentId }) {
   const conf = stateForConfidence(node.confidence);
   const chain = chainForNode(node);
-  const attackHref =
-    `https://attack.mitre.org/techniques/${node.id.replace(".", "/")}/`;
+  const attackHref = attackHrefFor(node);
 
   // Bucket entities so the analyst gets a per-technique rollup.
   const buckets = { hosts: [], users: [], files: [], other: [] };
@@ -434,11 +470,21 @@ function TechniqueCard({ node, incidentId }) {
         <EvidenceState state={conf.state} reason={conf.reason}
                         testid={`mitre-v2-card-conf-${node.id}`} />
         <ActionGroup>
-          <Action label="View technique" icon={ExternalLink}
-                   capability="cap-full"
-                   onRun={() => window.open(attackHref, "_blank",
-                                             "noopener,noreferrer")}
-                   testid={`mitre-v2-card-ext-${node.id}`} />
+          {attackHref ? (
+            <Action label="View technique" icon={ExternalLink}
+                     capability="cap-full"
+                     onRun={() => window.open(attackHref, "_blank",
+                                               "noopener,noreferrer")}
+                     testid={`mitre-v2-card-ext-${node.id}`} />
+          ) : (
+            <span className="mono"
+                    data-testid={`mitre-v2-card-noext-${node.id}`}
+                    style={{ fontSize: 10, opacity: 0.55,
+                                padding: "4px 10px" }}
+                    title="No canonical ATT&CK id resolved for this technique.">
+              no attack id
+            </span>
+          )}
         </ActionGroup>
       </div>
     </div>
