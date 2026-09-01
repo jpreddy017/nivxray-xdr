@@ -2,6 +2,61 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 38.1 — AttackTechniqueEvidence Canonical SSOT (Step 1/5) — SHIPPED
+
+The single ATT&CK evidence contract that MITRE, Attack Story, Attack
+Graph, and the Report generator MUST consume.  No view is allowed to
+recompute ATT&CK state locally after this round.
+
+**Backend**
+- New service `services/attack_evidence/service.py` with
+  `compose_attack_evidence(db, incident_id)` returning the canonical
+  contract:
+
+      AttackTechniqueEvidence {
+          technique_id · technique_name
+          tactic_id    · tactic_name       (Enterprise TA0001…TA0043)
+          state         ∈ OBSERVED | SUPPORTED | HYPOTHESIZED
+                              | SUPPRESSED | NOT_OBSERVED
+          confidence   · evidence_ids[]   (canonical:…, match:…, finding:…)
+          finding_ids  · event_ids · process_ids
+          provenance[] = [{source, evidence_id, note}]
+          first_observed_at · last_observed_at
+      }
+
+- **State lattice** (deterministic promotion):
+  `NOT_OBSERVED < SUPPRESSED < HYPOTHESIZED < SUPPORTED < OBSERVED`.
+  Detection engine + canonical event ⇒ OBSERVED · correlation match
+  ⇒ SUPPORTED · framework mapping heuristic ⇒ HYPOTHESIZED.
+- **Non-fabrication (owner rule §11)**: an incident with no
+  attributed technique returns an empty list — regression-tested.
+- New router `routers/attack_evidence.py` exposes
+  `GET /api/incidents/{id}/attack-evidence`.
+
+**Tests — `tests/test_xdr_round381_attack_evidence.py`** (7 tests)
+- Envelope shape · state lattice promotion (correlation + detection
+  resolves to OBSERVED preserving both provenance entries) · tactic
+  id/name resolution · technique name fallback · provenance always
+  present · non-fabrication when no evidence · determinism.
+
+**Verified on R35 EDR incident**
+    counts = {total: 2, observed: 2, supported: 0,
+                 hypothesized: 0, suppressed: 0}
+    tactics_present = ['TA0002', 'TA0005']
+    T1059.001 · PowerShell → TA0002 · Execution · OBSERVED · 0.95
+    T1218.011 · Rundll32   → TA0005 · Defense Evasion · OBSERVED · 0.95
+
+**Regression: 130/130 R21–R38.1 tests green.**
+
+Next steps in the SSOT chain (locked order):
+    Step 2 · Attack Story → consume AttackTechniqueEvidence
+    Step 3 · Shared Evidence Inspector across MITRE / Story / Graph
+    Step 4 · Attack Graph cleanup (finding annotations)
+    Step 5 · Report PDF export
+    (blocked-until-stable)
+
+
+
 ## 2026-09-01 · Round 38.0 — Investigation Views SSOT + Attack Graph Simplification
 
 Fixed two long-standing conceptual/data defects called out in the
