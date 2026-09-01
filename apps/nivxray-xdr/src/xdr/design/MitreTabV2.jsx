@@ -269,11 +269,12 @@ export default function MitreTabV2({ incident }) {
             </div>
           )}
 
-          {/* Technique cards */}
+          {/* Technique table — dense one-row-per-technique layout
+              matching enterprise SOC "MITRE ATT&CK" module. */}
           {evidenceBacked.length > 0 && (
-            <div className="evops-section"
-                 data-testid="mitre-v2-cards">
-              <div className="evops-section__head">
+            <div data-testid="mitre-v2-cards">
+              <div className="evops-section__head"
+                   style={{ marginBottom: 8 }}>
                 <span className="evops-section__eyebrow">
                   Evidence-backed techniques
                 </span>
@@ -281,10 +282,11 @@ export default function MitreTabV2({ incident }) {
                   {evidenceBacked.length}
                 </span>
               </div>
-              {evidenceBacked.map((n) => (
-                <TechniqueCard key={n.id} node={n}
-                                incidentId={incident?.id} />
-              ))}
+              <div className="evops-tech-table">
+                {evidenceBacked.map((n) => (
+                  <TechniqueRow key={n.id} node={n} />
+                ))}
+              </div>
             </div>
           )}
 
@@ -303,10 +305,56 @@ export default function MitreTabV2({ incident }) {
 
 
 /* ------------------------------------------------------------------
- * TechniqueCard — dense, one card per evidence-backed technique.
- * Left rail confidence accent, body = id/name/rationale + evidence
- * rollup (hosts, users, evidence refs) + provenance chain + action.
+ * TechniqueRow — table-style, one row per evidence-backed technique.
+ * Left  = technique id + name + rationale.
+ * Right = tactic + evidence rollup + confidence pill + action.
+ * Matches the enterprise SOC "MITRE ATT&CK" panel pattern.
  * ------------------------------------------------------------------ */
+function TechniqueRow({ node }) {
+  const conf = stateForConfidence(node.confidence);
+  const attackHref =
+    `https://attack.mitre.org/techniques/${node.id.replace(".", "/")}/`;
+
+  const buckets = { hosts: [], users: [], files: [] };
+  (node.entities || []).forEach((e) => {
+    const k = String(e.kind || "").toLowerCase();
+    if (k === "host" || k === "endpoint")   buckets.hosts.push(e.value);
+    else if (k === "user" || k === "account") buckets.users.push(e.value);
+    else if (k === "file" || k === "hash")    buckets.files.push(e.value);
+  });
+  const evCount = Array.isArray(node.evidence_ids) ? node.evidence_ids.length : 0;
+
+  return (
+    <div className="evops-tech-row"
+         data-testid={`mitre-v2-row-${node.id}`}>
+      <div className="evops-tech-row__id">{node.id}</div>
+      <div>
+        <div className="evops-tech-row__name">
+          {node.object_name || node.id}
+        </div>
+        {node.why_mapped && (
+          <div className="evops-tech-row__why">{node.why_mapped}</div>
+        )}
+      </div>
+      <div className="evops-tech-row__tactic">{node.tactic || "—"}</div>
+      <div className="evops-tech-row__rollup">
+        <span>{evCount} evidence · {buckets.hosts.length} host
+              · {buckets.users.length} user</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <EvidenceState state={conf.state} reason={conf.reason}
+                        testid={`mitre-v2-row-conf-${node.id}`} />
+        <Action label="Open" icon={ExternalLink}
+                 capability="cap-full"
+                 onRun={() => window.open(attackHref, "_blank",
+                                           "noopener,noreferrer")}
+                 testid={`mitre-v2-row-ext-${node.id}`} />
+      </div>
+    </div>
+  );
+}
+
+
 function TechniqueCard({ node, incidentId }) {
   const conf = stateForConfidence(node.confidence);
   const chain = chainForNode(node);

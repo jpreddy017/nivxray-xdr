@@ -489,183 +489,200 @@
 
 
 /* ============================================================
- * Round 29 · Investigation Command Band + Vitals grid.
+ * Round 29 · Investigation Command Header (LIGHT).
  *
- * A distinctive NivXRay XDR anchor at the top of every incident
- * record.  Not a decorative hero — a dense, deep-navy security
- * console strip that signals "this is an investigation, not an
- * admin surface".
+ * Owner-corrected 2026-09-01: NivXRay XDR is a white/light
+ * enterprise SOC console.  The command header does NOT introduce
+ * a dark navy band; it composes on the same warm-neutral canvas
+ * as every other analyst surface.  Security state provides the
+ * ONLY colour — never a decorative fill.
+ *
+ * Composition:
+ *   [Severity Score] [Title + ID + soft chips + meta] [KPI band] [Actions]
  *
  * Anti-decoration rules (locked):
- *   · No gradients.  Solid navy only.
- *   · No purple accent bar on the band — purple stays scoped to
- *     the primary Action button.
- *   · No large numeric hero counters — vitals live in the compact
- *     grid below the band, not inside it.
+ *   · No gradients, no dark strips, no rounded hero cards.
+ *   · Severity communicated through the score-badge border and a
+ *     thin left rail on the header container — never as a filled
+ *     block.
+ *   · Chips render as `● Label` soft dot chips inside the header;
+ *     the primitive keeps its uppercase-pill styling elsewhere.
  * ============================================================ */
 .xdr-console .evops-cmd {
-  background: #0B1220;
-  color: #E6EBF3;
-  border-top:    4px solid var(--evops-cap-unavail-fg, #991B1B);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  border-radius: 3px;
-  margin-bottom: 0;
-  padding: 14px 18px 12px;
-}
-/* Severity accent — the top rule communicates priority at a
-   glance.  Never faked; if no priority is set the accent
-   collapses to a muted rule. */
-.xdr-console .evops-cmd[data-priority="P1"] { border-top-color: #DC2626; }
-.xdr-console .evops-cmd[data-priority="P2"] { border-top-color: #EA580C; }
-.xdr-console .evops-cmd[data-priority="P3"] { border-top-color: #CA8A04; }
-.xdr-console .evops-cmd[data-priority="P4"] { border-top-color: #4B5563; }
-.xdr-console .evops-cmd[data-priority="P5"] { border-top-color: #4B5563; }
-.xdr-console .evops-cmd[data-priority=""]   { border-top-color: rgba(255,255,255,0.08); }
-
-.xdr-console .evops-cmd__row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.xdr-console .evops-cmd__eyebrow {
-  font: 800 10px/1 var(--evops-face-human);
-  text-transform: uppercase; letter-spacing: 1px;
-  color: rgba(230,235,243,0.55);
-}
-.xdr-console .evops-cmd__id {
-  font: var(--evops-t-machine);
-  color: rgba(230,235,243,0.62);
-  margin-top: 2px;
-}
-.xdr-console .evops-cmd__title {
-  font: 800 21px/1.15 var(--evops-face-human);
-  color: #FFFFFF;
-  letter-spacing: -0.005em;
-  margin-top: 6px;
-  display: flex; align-items: center; gap: 10px;
-  min-width: 0;
-}
-.xdr-console .evops-cmd__title-text {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  min-width: 0;
-}
-.xdr-console .evops-cmd__meta {
-  font: var(--evops-t-machine);
-  color: rgba(230,235,243,0.55);
-  margin-top: 6px;
-  display: flex; gap: 14px; flex-wrap: wrap;
-}
-.xdr-console .evops-cmd__spacer { flex: 1; }
-
-/* The EvidenceState chips inline on the dark band.  Slightly
-   heavier border, no fill — they read as status *tags* not
-   status *cards*. */
-.xdr-console .evops-cmd .evops-state {
-  background: rgba(255,255,255,0.03);
-  border-width: 1px;
-}
-
-/* The action group on the dark band gets a lighter outline so
-   Respond stays legible without shouting.  The primary tone
-   keeps the brand purple. */
-.xdr-console .evops-cmd .evops-action {
-  background: rgba(255,255,255,0.04);
-  border-color: rgba(255,255,255,0.14);
-  color: #E6EBF3;
-}
-.xdr-console .evops-cmd .evops-action:hover:not(:disabled) {
-  background: rgba(255,255,255,0.09);
-  border-color: rgba(255,255,255,0.25);
-  color: #FFFFFF;
-}
-.xdr-console .evops-cmd .evops-action[data-tone="primary"] {
-  background: #6D28D9;
-  border-color: #6D28D9;
-  color: #FFFFFF;
-}
-.xdr-console .evops-cmd .evops-action[data-tone="primary"]:hover:not(:disabled) {
-  background: #5B21B6;
-  border-color: #5B21B6;
-}
-.xdr-console .evops-cmd .evops-action:disabled {
-  background: rgba(255,255,255,0.02);
-  color: rgba(230,235,243,0.35);
-  border-color: rgba(255,255,255,0.06);
-}
-.xdr-console .evops-cmd .evops-action__reason {
-  color: rgba(230,235,243,0.42);
-}
-
-/* Compact identity icon inside the command title (Entity
-   primitive rendered in dark-band styling). */
-.xdr-console .evops-cmd .evops-entity__icon {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.18);
-  color: #E6EBF3;
-  width: 32px; height: 32px; flex-basis: 32px;
-}
-
-/* ============================================================
- * Vitals grid — the dense KPI row directly beneath the band.
- * Eight cells at typical width; wraps gracefully.  Absent
- * values render as `—` in muted italic, NEVER as `0` styled
- * like real evidence.
- * ============================================================ */
-.xdr-console .evops-vitals {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  border: 1px solid var(--nx-divider);
-  border-top: none;
   background: var(--nx-surf-primary);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-divider);
+  border-left: 3px solid var(--nx-divider-strong);
+  border-radius: 4px;
+  padding: 14px 18px;
   margin-bottom: 14px;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 20px;
+  align-items: center;
 }
-.xdr-console .evops-vitals__cell {
-  padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 3px;
-  border-right: 1px solid var(--nx-divider);
-  min-width: 0;
+/* Severity accent — the left rail communicates priority at a
+   glance.  Never faked; without a priority the rail stays neutral. */
+.xdr-console .evops-cmd[data-priority="P1"] { border-left-color: #DC2626; }
+.xdr-console .evops-cmd[data-priority="P2"] { border-left-color: #EA580C; }
+.xdr-console .evops-cmd[data-priority="P3"] { border-left-color: #CA8A04; }
+.xdr-console .evops-cmd[data-priority="P4"] { border-left-color: #6B7280; }
+.xdr-console .evops-cmd[data-priority="P5"] { border-left-color: #9CA3AF; }
+
+/* Severity Score badge — square, priority-coloured border. */
+.xdr-console .evops-cmd__score {
+  width: 72px; height: 72px;
+  border: 2px solid var(--nx-divider-strong);
+  border-radius: 4px;
+  background: var(--nx-surf-inset);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px;
+  flex: 0 0 72px;
 }
-.xdr-console .evops-vitals__cell:last-child { border-right: none; }
-.xdr-console .evops-vitals__label {
-  font: 800 9.5px/1 var(--evops-face-human);
+.xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__score { border-color: #DC2626; }
+.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__score { border-color: #EA580C; }
+.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__score { border-color: #CA8A04; }
+.xdr-console .evops-cmd[data-priority="P4"] .evops-cmd__score,
+.xdr-console .evops-cmd[data-priority="P5"] .evops-cmd__score { border-color: #9CA3AF; }
+.xdr-console .evops-cmd__score-value {
+  font: 800 22px/1 var(--evops-face-human);
+  color: var(--nx-text);
+  letter-spacing: -0.02em;
+}
+.xdr-console .evops-cmd__score-label {
+  font: 800 9px/1 var(--evops-face-human);
   text-transform: uppercase; letter-spacing: 0.9px;
   color: var(--nx-muted);
 }
-.xdr-console .evops-vitals__value {
-  font: 700 18px/1.1 var(--evops-face-human);
+.xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__score-label,
+.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__score-label { color: #B91C1C; }
+.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__score-label { color: #A16207; }
+
+/* Identity column */
+.xdr-console .evops-cmd__ident { min-width: 0; }
+.xdr-console .evops-cmd__title {
+  font: 700 20px/1.2 var(--evops-face-human);
+  color: var(--nx-text);
+  letter-spacing: -0.005em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 640px;
+}
+.xdr-console .evops-cmd__id {
+  font: var(--evops-t-machine);
+  color: var(--nx-faint);
+  margin-top: 2px;
+}
+.xdr-console .evops-cmd__chips {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-top: 8px;
+}
+.xdr-console .evops-cmd__chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 600 12px/1 var(--evops-face-human);
+  color: var(--nx-text-dim);
+}
+.xdr-console .evops-cmd__chip-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--nx-faint);
+  flex: 0 0 8px;
+}
+.xdr-console .evops-cmd__chip[data-tone="critical"] .evops-cmd__chip-dot { background: #DC2626; }
+.xdr-console .evops-cmd__chip[data-tone="critical"]                       { color: #B91C1C; }
+.xdr-console .evops-cmd__chip[data-tone="high"]     .evops-cmd__chip-dot { background: #EA580C; }
+.xdr-console .evops-cmd__chip[data-tone="high"]                          { color: #C2410C; }
+.xdr-console .evops-cmd__chip[data-tone="progress"] .evops-cmd__chip-dot { background: #2563EB; }
+.xdr-console .evops-cmd__chip[data-tone="progress"]                       { color: #1D4ED8; }
+.xdr-console .evops-cmd__chip[data-tone="pending"]  .evops-cmd__chip-dot { background: #CA8A04; }
+.xdr-console .evops-cmd__chip[data-tone="pending"]                        { color: #A16207; }
+.xdr-console .evops-cmd__chip[data-tone="resolved"] .evops-cmd__chip-dot { background: #059669; }
+.xdr-console .evops-cmd__chip[data-tone="resolved"]                       { color: #047857; }
+.xdr-console .evops-cmd__chip[data-tone="benign"]   .evops-cmd__chip-dot { background: #6B7280; }
+.xdr-console .evops-cmd__chip[data-tone="malicious"].evops-cmd__chip-dot { background: #DC2626; }
+.xdr-console .evops-cmd__chip[data-tone="malicious"]                     { color: #B91C1C; }
+.xdr-console .evops-cmd__meta {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  margin-top: 10px;
+  font: var(--evops-t-machine);
+  color: var(--nx-faint);
+}
+.xdr-console .evops-cmd__meta b {
+  color: var(--nx-text-dim);
+  font-weight: 600;
+}
+
+/* Inline KPI band — 5 to 6 compact cells right of the identity */
+.xdr-console .evops-cmd__kpis {
+  display: flex; align-items: stretch;
+  border-left:  1px solid var(--nx-divider);
+  padding-left: 18px;
+  gap: 18px;
+}
+.xdr-console .evops-cmd__kpi {
+  display: flex; flex-direction: column; gap: 3px;
+  min-width: 68px;
+}
+.xdr-console .evops-cmd__kpi-label {
+  font: 800 9.5px/1 var(--evops-face-human);
+  text-transform: uppercase; letter-spacing: 0.9px;
+  color: var(--nx-muted);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.xdr-console .evops-cmd__kpi-count {
+  font: 400 10px/1 var(--evops-face-machine);
+  color: var(--nx-faint);
+}
+.xdr-console .evops-cmd__kpi-value {
+  font: 700 22px/1.05 var(--evops-face-human);
   color: var(--nx-text);
   letter-spacing: -0.01em;
 }
-.xdr-console .evops-vitals__value[data-absent="true"] {
+.xdr-console .evops-cmd__kpi-value[data-absent="true"] {
   color: var(--nx-faint);
   font-style: italic;
   font-weight: 500;
 }
-.xdr-console .evops-vitals__sub {
+.xdr-console .evops-cmd__kpi-sub {
   font: var(--evops-t-machine);
   color: var(--nx-faint);
 }
-@media (max-width: 1400px) {
-  .xdr-console .evops-vitals {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .xdr-console .evops-vitals__cell:nth-child(4n) { border-right: none; }
+
+/* Actions column */
+.xdr-console .evops-cmd__actions {
+  display: flex; flex-direction: column;
+  gap: 6px; align-items: stretch;
+}
+.xdr-console .evops-cmd__actions .evops-action {
+  min-width: 148px;
+  justify-content: flex-start;
+  padding: 7px 12px;
+  font-size: 12px;
 }
 
-/* ============================================================
- * Compact provenance line — the derivation chain, hairline
- * separator above and below.  Renders below the Vitals grid.
- * ============================================================ */
-.xdr-console .evops-provline {
-  display: flex; align-items: center; gap: 14px;
-  padding: 10px 0;
-  border-bottom: var(--evops-rule);
-  flex-wrap: wrap;
+@media (max-width: 1400px) {
+  .xdr-console .evops-cmd {
+    grid-template-columns: auto 1fr auto;
+  }
+  .xdr-console .evops-cmd__actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-end;
+    border-top: 1px dashed var(--nx-divider);
+    padding-top: 10px;
+    margin-top: 2px;
+  }
 }
-.xdr-console .evops-provline__label {
-  font: 800 10px/1 var(--evops-face-human);
-  text-transform: uppercase; letter-spacing: 0.9px;
-  color: var(--nx-muted);
+@media (max-width: 1100px) {
+  .xdr-console .evops-cmd {
+    grid-template-columns: auto 1fr;
+  }
+  .xdr-console .evops-cmd__kpis {
+    grid-column: 1 / -1;
+    border-left: none;
+    border-top: 1px dashed var(--nx-divider);
+    padding-left: 0;
+    padding-top: 12px;
+  }
 }
 
 /* ============================================================
@@ -680,6 +697,8 @@
   border: 1px solid var(--nx-divider);
   background: var(--nx-surf-primary);
   margin-bottom: 18px;
+  border-radius: 4px;
+  overflow: hidden;
 }
 .xdr-console .evops-tactics__cell {
   padding: 10px 12px;
@@ -713,57 +732,46 @@
 }
 
 /* ============================================================
- * Evidence-backed Technique Card — the roster row upgraded to
- * a compact information-dense block.  Left rail carries the
- * confidence accent so the card wall reads as a triage view.
+ * Technique row — table-style, dense, one row per evidence-backed
+ * technique.  Tactic on the right (like MS Defender), confidence
+ * as a compact chip, actions on the far right.
  * ============================================================ */
-.xdr-console .evops-technique {
+.xdr-console .evops-tech-table {
   border: 1px solid var(--nx-divider);
-  border-left: 3px solid var(--nx-divider-strong);
-  padding: 12px 14px;
-  margin-bottom: 10px;
+  border-radius: 4px;
+  overflow: hidden;
   background: var(--nx-surf-primary);
+}
+.xdr-console .evops-tech-row {
   display: grid;
-  grid-template-columns: minmax(280px, 1.4fr) minmax(220px, 1fr) auto;
+  grid-template-columns: 120px minmax(260px, 1fr) minmax(180px, 0.8fr) auto auto;
   gap: 14px;
-  align-items: start;
+  padding: 12px 14px;
+  align-items: center;
+  border-bottom: 1px solid var(--nx-divider);
 }
-.xdr-console .evops-technique[data-conf="observed"]  { border-left-color: var(--evops-ev-observed-fg);  }
-.xdr-console .evops-technique[data-conf="supported"] { border-left-color: var(--evops-ev-supported-fg); }
-.xdr-console .evops-technique[data-conf="missing"]   { border-left-color: var(--evops-ev-missing-fg);
-                                                        border-left-style: dashed; }
-.xdr-console .evops-technique__id {
-  font: var(--evops-t-machine);
-  color: var(--nx-faint);
-  margin-bottom: 2px;
-}
-.xdr-console .evops-technique__name {
-  font: 700 14px/1.3 var(--evops-face-human);
-  color: var(--nx-text);
-}
-.xdr-console .evops-technique__why {
-  font: var(--evops-t-body);
-  color: var(--nx-muted);
-  margin-top: 4px;
-}
-.xdr-console .evops-technique__evidence {
-  display: flex; flex-direction: column; gap: 4px;
+.xdr-console .evops-tech-row:last-child { border-bottom: none; }
+.xdr-console .evops-tech-row:hover { background: var(--nx-surf-hover); }
+.xdr-console .evops-tech-row__id {
   font: var(--evops-t-machine);
   color: var(--nx-text-dim);
+  font-weight: 600;
 }
-.xdr-console .evops-technique__evidence-label {
-  font: 800 9.5px/1 var(--evops-face-human);
-  text-transform: uppercase; letter-spacing: 0.7px;
+.xdr-console .evops-tech-row__name {
+  font: 600 13px/1.35 var(--evops-face-human);
+  color: var(--nx-text);
+}
+.xdr-console .evops-tech-row__why {
+  font: 400 11.5px/1.4 var(--evops-face-human);
   color: var(--nx-muted);
-  margin-bottom: 2px;
+  margin-top: 2px;
 }
-.xdr-console .evops-technique__actions {
-  display: flex; flex-direction: column; align-items: flex-end;
-  gap: 6px;
+.xdr-console .evops-tech-row__tactic {
+  font: 500 12px/1.3 var(--evops-face-human);
+  color: var(--nx-text-dim);
 }
-@media (max-width: 1200px) {
-  .xdr-console .evops-technique {
-    grid-template-columns: 1fr auto;
-  }
-  .xdr-console .evops-technique__evidence { grid-column: 1 / -1; }
+.xdr-console .evops-tech-row__rollup {
+  font: var(--evops-t-machine);
+  color: var(--nx-faint);
+  display: flex; flex-direction: column; gap: 2px;
 }

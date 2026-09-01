@@ -1,37 +1,38 @@
 /**
- * RecordHeaderV2 · Round 29 · Investigation Command Band.
+ * RecordHeaderV2 · Round 29 · Investigation Command Header (LIGHT).
  * ---------------------------------------------------------------
- * A single dense anchor at the top of every incident record.  The
- * information hierarchy the analyst reads in ≤10 seconds:
+ * White/light enterprise SOC command header.  Corrected 2026-09-01
+ * after the dark-navy iteration was rejected: NivXRay XDR is a
+ * WHITE canvas — security state provides the ONLY colour, never
+ * a decorative fill.
  *
- *   1. Priority accent (top rule)  — how urgent is this?
- *   2. Title + entity id           — what am I looking at?
- *   3. Inline state chips           — where in the pipeline is it?
- *   4. Meta line (first/last seen · owner · SLA)
- *   5. Vitals grid                  — the incident's evidence weight
- *      Evidence · Hosts · Users · Processes · Files · Network ·
- *      MITRE · Verdict
- *   6. Compact provenance line     — Telemetry → … → MITRE
+ * Composition (single row on ≥1400px viewport):
  *
- * Rules:
- *   · No fabrication.  MITRE count is gated on evidence_count > 0
- *     because a mapping without upstream evidence cannot be
- *     evidence-backed.
- *   · No RBAC on the primary canvas.  Owner/tenant live in the
- *     command band's meta line — they are metadata, not
- *     investigation state.
- *   · Adaptive collapse: with no telemetry the vitals row still
- *     renders (so the analyst sees the honest zeros) but the
- *     provenance line falls to a single "no telemetry" hint.
+ *   [Severity]  [Title + ID + soft chips + meta]  [KPI band]  [Actions]
+ *
+ *   · Severity   → priority-coloured square score badge.
+ *   · Title      → incident name + machine id.
+ *   · Chips      → `● Priority Px · ● State · ● Verdict`, dot-chip
+ *                  style (NOT the primitive's uppercase pill).
+ *   · Meta       → First seen · Last activity · Created by.
+ *   · KPI band   → Evidence · Assets · Users · MITRE · Correlation
+ *                  Each cell has a big numeric value plus a small
+ *                  sub-label.  Absent values render as `—` in
+ *                  muted italic.  MITRE / Correlation are gated on
+ *                  evidence being present.
+ *   · Actions    → Respond (primary) · Generate Report · More.
+ *
+ * The header is a PROJECTION of authoritative investigation
+ * state — it never introduces a second source of truth.  The
+ * previous `TRUTH STATE / PROVENANCE / RELATIONSHIPS` sections
+ * are DELETED from this surface; those concepts are internal
+ * primitives, not primary page sections.
  */
 import React from "react";
 import { ChevronLeft, Zap, FileText, MoreHorizontal, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import Entity from "@/xdr/design/Entity";
-import EvidenceState from "@/xdr/design/EvidenceState";
-import Provenance from "@/xdr/design/Provenance";
-import Action, { ActionGroup } from "@/xdr/design/Action";
+import Action from "@/xdr/design/Action";
 import "@/xdr/design/tokens.css";
 
 
@@ -42,52 +43,64 @@ function fmtDate(iso) {
 }
 
 
-function stateForPriority(code) {
-  if (!code) return { state: "missing", label: "Priority not set",
-                       reason: "PRIORITY_NOT_SET" };
-  const c = String(code).toUpperCase();
-  switch (c) {
-    case "P1": return { state: "unavailable", label: "P1 · Critical" };
-    case "P2": return { state: "unavailable", label: "P2 · High" };
-    case "P3": return { state: "missing",     label: "P3 · Medium" };
-    case "P4": return { state: "suppressed",  label: "P4 · Low" };
-    case "P5": return { state: "suppressed",  label: "P5 · Info" };
-    default:   return { state: "missing",     label: c,
-                         reason: "PRIORITY_UNKNOWN" };
-  }
+/* ------------------------------------------------------------------
+ * Priority code → score-badge composition.  Score value is the
+ * priority label ("P1", "P2", …) — NEVER a fabricated numeric
+ * risk-score.  A future risk engine can supply an authoritative
+ * integer; until it does, the priority letter is the honest value.
+ * ------------------------------------------------------------------ */
+function scoreForPriority(code, riskScore) {
+  const c = String(code || "").toUpperCase();
+  const severityLabel = c === "P1" ? "CRITICAL"
+                       : c === "P2" ? "HIGH"
+                       : c === "P3" ? "MEDIUM"
+                       : c === "P4" ? "LOW"
+                       : c === "P5" ? "INFO"
+                       : "UNSET";
+  return {
+    value: riskScore != null ? String(riskScore) : (c || "—"),
+    label: severityLabel,
+  };
 }
 
 
-function stateForLifecycle(state) {
-  switch (String(state || "").toLowerCase()) {
-    case "new":         return { state: "missing",    label: "New" };
-    case "in_progress": return { state: "supported",  label: "In progress" };
-    case "on_hold":     return { state: "suppressed", label: "On hold" };
-    case "resolved":    return { state: "actioned",   label: "Resolved" };
-    case "closed":      return { state: "suppressed", label: "Closed" };
-    default:            return { state: "missing",
-                                  label: state ? String(state) : "State unknown",
-                                  reason: state ? null : "STATE_NOT_SET" };
-  }
+function chipsForIncident(incident) {
+  const priCode = String(incident?.priority?.code || "").toUpperCase();
+  const stateRaw = String(incident?.state || "").toLowerCase();
+  const verdictRaw = String(incident?.verdict_stage2?.label
+                              || incident?.verdict || "").toLowerCase();
+
+  const priTone = priCode === "P1" || priCode === "P2"
+    ? "critical" : priCode === "P3" ? "high" : null;
+  const priLabel = priCode
+    ? `Priority ${priCode}`
+    : "Priority not set";
+
+  let stateTone = null;
+  let stateLabel = stateRaw
+    ? stateRaw.replace("_", " ").replace(/\b\w/g, (m) => m.toUpperCase())
+    : "State unknown";
+  if (stateRaw === "in_progress") stateTone = "progress";
+  else if (stateRaw === "on_hold") stateTone = "pending";
+  else if (stateRaw === "resolved" || stateRaw === "closed") stateTone = "resolved";
+  else if (stateRaw === "new")     stateTone = "pending";
+
+  let verdictTone = null;
+  let verdictLabel = "Verdict pending";
+  if (verdictRaw === "malicious")       { verdictTone = "malicious";  verdictLabel = "Malicious"; }
+  else if (verdictRaw === "suspicious") { verdictTone = "high";       verdictLabel = "Suspicious"; }
+  else if (verdictRaw === "benign")     { verdictTone = "benign";     verdictLabel = "Benign"; }
+  else                                    { verdictTone = "pending"; }
+
+  return [
+    { key: "priority", tone: priTone,     label: priLabel },
+    { key: "state",    tone: stateTone,   label: stateLabel },
+    { key: "verdict",  tone: verdictTone, label: verdictLabel },
+  ];
 }
 
 
-function stateForVerdict(incident) {
-  const raw = String(incident?.verdict_stage2?.label
-                        || incident?.verdict || "").toLowerCase();
-  if (!raw || raw === "unknown" || raw === "not_run") {
-    return { state: "missing", label: "Verdict pending",
-              reason: "NOT_RUN", short: "Pending" };
-  }
-  if (raw === "malicious")  return { state: "observed",   label: "Malicious",  short: "Malicious"  };
-  if (raw === "suspicious") return { state: "supported",  label: "Suspicious", short: "Suspicious" };
-  if (raw === "benign")     return { state: "suppressed", label: "Benign",     short: "Benign"     };
-  return { state: "missing", label: raw.toUpperCase(),
-            short: raw.toUpperCase(), reason: "UNRECOGNISED" };
-}
-
-
-function countEntities(incident) {
+function countAssets(incident) {
   const a    = incident?.assets || {};
   const iocs = incident?.iocs   || {};
   const len  = (v) => Array.isArray(v) ? v.length : 0;
@@ -97,51 +110,18 @@ function countEntities(incident) {
     processes: len(a.processes) || len(incident?.processes),
     files:     len(a.files)     || len(iocs.hashes) || len(iocs.files),
     network:   len(a.network)   || len(iocs.ips) + len(iocs.domains)
-                                    + len(iocs.urls),
-  };
-}
-
-
-function buildProvenance(incident, evidenceCount) {
-  const telemetryVal = incident?.source_integration_id
-    || incident?.source
-    || (Array.isArray(incident?.sources) && incident.sources[0])
-    || null;
-  const canonicalVal = (Array.isArray(incident?.canonical_evidence_ids)
-        && incident.canonical_evidence_ids.length
-          ? `${incident.canonical_evidence_ids.length} event(s)`
-          : null)
-    || incident?.canonical_event_id
-    || (evidenceCount > 0
-          ? `${evidenceCount} event${evidenceCount === 1 ? "" : "s"}`
-          : null);
-  const correlateVal = incident?.correlation_rule_id
-    || (Array.isArray(incident?.correlation_match_ids)
-        && incident.correlation_match_ids.length
-        ? `${incident.correlation_match_ids.length} match(es)` : null)
-    || null;
-  const upstreamPresent = !!(telemetryVal || canonicalVal || correlateVal);
-  const techniques = Array.isArray(incident?.mitre) ? incident.mitre : [];
-  const mappingVal = upstreamPresent && techniques.length
-    ? `${techniques.length} technique${techniques.length === 1 ? "" : "s"}`
-    : null;
-  return {
-    chain: [
-      { layer: "telemetry", value: telemetryVal, present: !!telemetryVal },
-      { layer: "canonical", value: canonicalVal, present: !!canonicalVal },
-      { layer: "correlate", value: correlateVal, present: !!correlateVal },
-      { layer: "mapping",   value: mappingVal,   present: !!mappingVal },
-    ],
-    upstreamPresent,
+                                     + len(iocs.urls),
   };
 }
 
 
 export default function RecordHeaderV2({ incident, onOpenRespond }) {
   const priorityCode = String(incident?.priority?.code || "").toUpperCase();
-  const priority     = stateForPriority(priorityCode);
-  const lifecycle    = stateForLifecycle(incident?.state);
-  const verdict      = stateForVerdict(incident);
+  const riskScore    = incident?.risk_score
+                        ?? incident?.verdict_stage2?.risk_score
+                        ?? null;
+  const score = scoreForPriority(priorityCode, riskScore);
+  const chips = chipsForIncident(incident);
 
   const evidenceCount    = Number(incident?.evidence_count || 0);
   const correlationCount =
@@ -149,11 +129,14 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
          ? incident.correlation_match_ids.length : 0;
   const rawMitreCount    = Array.isArray(incident?.mitre)
     ? incident.mitre.length : 0;
-  // MITRE count is derived, not authoritative — gated on evidence.
+  // MITRE count is a DERIVED value: no upstream evidence → no
+  // evidence-backed mapping.  The header must never contradict
+  // its own provenance chain.
   const mitreCount = evidenceCount > 0 ? rawMitreCount : 0;
 
-  const { chain, upstreamPresent } = buildProvenance(incident, evidenceCount);
-  const e = countEntities(incident);
+  const assets = countAssets(incident);
+  const totalAssets = assets.hosts + assets.processes + assets.files
+                        + assets.network;
 
   const stateRaw = String(incident?.state || "").toLowerCase();
   const respondCap = (stateRaw === "closed" || stateRaw === "resolved")
@@ -164,9 +147,8 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
   return (
     <div className="evops evops-canvas"
          data-testid="xdr-record-header-v2"
-         style={{ paddingBottom: 4 }}>
+         style={{ paddingBottom: 2 }}>
 
-      {/* Breadcrumb */}
       <div className="rl-breadcrumb"
            data-testid="xdr-record-breadcrumb"
            style={{ paddingBottom: 6 }}>
@@ -182,160 +164,112 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
         </span>
       </div>
 
-      {/* Command Band — dark navy security-console strip */}
       <div className="evops-cmd"
            data-priority={priorityCode || ""}
-           data-testid="xdr-record-v2-cmd-band">
-        <div className="evops-cmd__row">
-          <div style={{ minWidth: 0, flex: "0 1 auto" }}>
-            <div className="evops-cmd__eyebrow">Incident</div>
-            <div className="evops-cmd__title"
-                 data-testid="xdr-record-v2-title">
-              <span className="evops-entity" data-kind="rule">
-                <span className="evops-entity__icon" aria-hidden>
-                  <ShieldAlert size={16} />
-                </span>
-              </span>
-              <span className="evops-cmd__title-text">
-                {incident?.name || "(unnamed incident)"}
-              </span>
-            </div>
-            <div className="evops-cmd__id"
-                 data-testid="xdr-record-v2-id">
-              {incident?.number || incident?.id}
-            </div>
+           data-testid="xdr-record-v2-cmd">
+        {/* Severity score badge */}
+        <div className="evops-cmd__score"
+             data-testid="xdr-record-v2-score">
+          <ShieldAlert size={14}
+                        style={{ color: priorityCode === "P1"
+                                   ? "#DC2626"
+                                   : priorityCode === "P2"
+                                     ? "#EA580C" : "var(--nx-muted)" }} />
+          <span className="evops-cmd__score-value">{score.value}</span>
+          <span className="evops-cmd__score-label">{score.label}</span>
+        </div>
+
+        {/* Identity + chips + meta */}
+        <div className="evops-cmd__ident">
+          <div className="evops-cmd__title"
+               data-testid="xdr-record-v2-title">
+            {incident?.name || "(unnamed incident)"}
           </div>
-
-          <div className="evops-cmd__spacer" />
-
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap",
-                        justifyContent: "flex-end",
-                        alignSelf: "flex-start" }}
+          <div className="evops-cmd__id"
+               data-testid="xdr-record-v2-id">
+            {incident?.number || incident?.id}
+          </div>
+          <div className="evops-cmd__chips"
                data-testid="xdr-record-v2-chips">
-            <EvidenceState state={priority.state}
-                            label={priority.label}
-                            reason={priority.reason}
-                            testid="xdr-record-v2-priority" />
-            <EvidenceState state={lifecycle.state}
-                            label={lifecycle.label}
-                            reason={lifecycle.reason}
-                            testid="xdr-record-v2-state" />
-            <EvidenceState state={verdict.state}
-                            label={verdict.label}
-                            reason={verdict.reason}
-                            testid="xdr-record-v2-verdict" />
+            {chips.map((c) => (
+              <span key={c.key}
+                    className="evops-cmd__chip"
+                    data-tone={c.tone || ""}
+                    data-testid={`xdr-record-v2-chip-${c.key}`}>
+                <span className="evops-cmd__chip-dot" aria-hidden />
+                <span>{c.label}</span>
+              </span>
+            ))}
+          </div>
+          <div className="evops-cmd__meta"
+               data-testid="xdr-record-v2-meta">
+            <span>First seen&nbsp;<b>{fmtDate(incident?.created_at) || "—"}</b></span>
+            <span>Last activity&nbsp;<b>{fmtDate(incident?.updated_at) || "—"}</b></span>
+            {incident?.assignee && (
+              <span>Owner&nbsp;<b>{incident.assignee}</b></span>
+            )}
+            {incident?.tenant && (
+              <span>Tenant&nbsp;<b>{incident.tenant}</b></span>
+            )}
           </div>
         </div>
 
-        <div className="evops-cmd__meta"
-             data-testid="xdr-record-v2-meta">
-          <span>First seen&nbsp;
-            <b style={{ color: "rgba(230,235,243,0.82)" }}>
-              {fmtDate(incident?.created_at) || "—"}
-            </b>
-          </span>
-          <span>Last activity&nbsp;
-            <b style={{ color: "rgba(230,235,243,0.82)" }}>
-              {fmtDate(incident?.updated_at) || "—"}
-            </b>
-          </span>
-          {incident?.assignee && (
-            <span>Owner&nbsp;
-              <b style={{ color: "rgba(230,235,243,0.82)" }}>
-                {incident.assignee}
-              </b>
-            </span>
-          )}
-          {incident?.tenant && (
-            <span>Tenant&nbsp;
-              <b style={{ color: "rgba(230,235,243,0.82)" }}>
-                {incident.tenant}
-              </b>
-            </span>
-          )}
-          {incident?.sla_due_at && (
-            <span>SLA due&nbsp;
-              <b style={{ color: "rgba(230,235,243,0.82)" }}>
-                {fmtDate(incident.sla_due_at)}
-              </b>
-            </span>
-          )}
-          <span style={{ flex: 1 }} />
-          <ActionGroup testid="xdr-record-v2-actions">
-            <Action label="Respond" icon={Zap} tone="primary"
-                     capability={respondCap} onRun={onOpenRespond}
-                     reason={respondReason}
-                     testid="xdr-record-respond" />
-            <Action label="Generate Report" icon={FileText}
-                     capability="cap-standby" reason="PHASE_5"
-                     testid="xdr-record-report" />
-            <Action label="More" icon={MoreHorizontal}
-                     capability="cap-standby" reason="PHASE_3_PLUS"
-                     testid="xdr-record-more" />
-          </ActionGroup>
-        </div>
-      </div>
-
-      {/* Vitals grid — data-driven investigation KPIs */}
-      <div className="evops-vitals"
-           data-testid="xdr-record-v2-vitals">
-        <Vital label="Evidence"    value={evidenceCount}
+        {/* Inline KPI band */}
+        <div className="evops-cmd__kpis"
+             data-testid="xdr-record-v2-kpis">
+          <Kpi label="Evidence"    value={evidenceCount}
                 sub={evidenceCount === 1 ? "event" : "events"}
-                testid="xdr-record-v2-vital-evidence" />
-        <Vital label="Hosts"       value={e.hosts}
-                testid="xdr-record-v2-vital-hosts" />
-        <Vital label="Users"       value={e.users}
-                testid="xdr-record-v2-vital-users" />
-        <Vital label="Processes"   value={e.processes}
-                testid="xdr-record-v2-vital-processes" />
-        <Vital label="Files"       value={e.files}
-                testid="xdr-record-v2-vital-files" />
-        <Vital label="Network"     value={e.network}
-                sub="ip · dns · url"
-                testid="xdr-record-v2-vital-network" />
-        <Vital label="MITRE"       value={mitreCount}
+                testid="xdr-record-v2-kpi-evidence" />
+          <Kpi label="Assets"      value={totalAssets}
+                sub={totalAssets === 1 ? "asset" : "assets"}
+                testid="xdr-record-v2-kpi-assets"
+                count={`h ${assets.hosts} · p ${assets.processes} · f ${assets.files}`} />
+          <Kpi label="Users"       value={assets.users}
+                sub={assets.users === 1 ? "user" : "users"}
+                testid="xdr-record-v2-kpi-users" />
+          <Kpi label="MITRE"       value={mitreCount}
                 sub={mitreCount === 1 ? "technique" : "techniques"}
-                testid="xdr-record-v2-vital-mitre" />
-        <Vital label="Verdict"     valueOverride={verdict.short}
-                absent={verdict.state === "missing"}
-                testid="xdr-record-v2-vital-verdict" />
-      </div>
+                testid="xdr-record-v2-kpi-mitre" />
+          <Kpi label="Correlation" value={correlationCount}
+                sub={correlationCount === 1 ? "alert" : "alerts"}
+                testid="xdr-record-v2-kpi-correlation" />
+        </div>
 
-      {/* Compact provenance line */}
-      <div className="evops-provline"
-           data-testid="xdr-record-v2-provline">
-        <span className="evops-provline__label">Provenance</span>
-        <Provenance chain={chain}
-                    testid="xdr-record-v2-provenance" />
-        {correlationCount === 0 && evidenceCount === 0 && (
-          <>
-            <span className="evops-band__spacer" />
-            <span className="evops-mono"
-                  data-testid="xdr-record-v2-provline-hint">
-              {upstreamPresent
-                ? "No correlation has fired against this evidence yet."
-                : "No telemetry linked · no evidence-backed investigation available."}
-            </span>
-          </>
-        )}
+        {/* Actions column */}
+        <div className="evops-cmd__actions"
+             data-testid="xdr-record-v2-actions">
+          <Action label="Respond" icon={Zap} tone="primary"
+                   capability={respondCap} onRun={onOpenRespond}
+                   reason={respondReason}
+                   testid="xdr-record-respond" />
+          <Action label="Generate Report" icon={FileText}
+                   capability="cap-standby" reason="PHASE_5"
+                   testid="xdr-record-report" />
+          <Action label="More Actions" icon={MoreHorizontal}
+                   capability="cap-standby" reason="PHASE_3_PLUS"
+                   testid="xdr-record-more" />
+        </div>
       </div>
     </div>
   );
 }
 
 
-function Vital({ label, value, valueOverride, sub, absent, testid }) {
-  const isAbsent = absent != null ? absent : !value;
+function Kpi({ label, value, sub, count, testid }) {
+  const absent = !value;
   return (
-    <div className="evops-vitals__cell" data-testid={testid}>
-      <span className="evops-vitals__label">{label}</span>
-      <span className="evops-vitals__value" data-absent={isAbsent ? "true" : "false"}>
-        {valueOverride != null
-          ? valueOverride
-          : (isAbsent ? "—" : value)}
+    <div className="evops-cmd__kpi" data-testid={testid}>
+      <span className="evops-cmd__kpi-label">
+        {label}
+        {count && !absent && (
+          <span className="evops-cmd__kpi-count">{count}</span>
+        )}
       </span>
-      {sub && !isAbsent && (
-        <span className="evops-vitals__sub">{sub}</span>
+      <span className="evops-cmd__kpi-value" data-absent={absent ? "true" : "false"}>
+        {absent ? "—" : value}
+      </span>
+      {sub && !absent && (
+        <span className="evops-cmd__kpi-sub">{sub}</span>
       )}
     </div>
   );

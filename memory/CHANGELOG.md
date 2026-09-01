@@ -4,87 +4,95 @@ Chronological record of significant releases (newest first).
 
 ## 2026-09-01 · Round 29 — Analyst UI Grammar (MITRE Tab + Incident Header) — SHIPPED
 
-Strict UI-only rebuild. Two remaining incident-record surfaces moved
-onto the Round 24.9 Evidence Operations grammar (`Entity`,
-`EvidenceState`, `Provenance`, `Relationship`, `Action`) AND given a
-distinctive XDR command-console visual identity. No backend changes.
-Legacy surfaces intact behind the `?design=v1` escape hatch.
+Full visual rebuild after the dark-navy iteration was rejected.
+NivXRay XDR remains a WHITE/LIGHT enterprise SOC console — security
+state provides the ONLY colour, never a decorative fill.
 
 ### Frontend (`/app/apps/nivxray-xdr`)
-- New `src/xdr/design/RecordHeaderV2.jsx` — **Investigation Command
-  Band**. Dark navy `#0B1220` strip with a priority-coloured 4px top
-  rule (P1 red, P2 orange, P3 amber, P4/P5 muted). One dense row:
-  entity + severity/state/verdict chips + Respond/Report/More actions.
-  Meta line: First seen · Last activity · Owner · Tenant · SLA due.
-- New **Vitals grid** below the band. 8 cells: Evidence · Hosts ·
-  Users · Processes · Files · Network · MITRE · Verdict. Absent
-  values render as muted italic `—`, never as styled zeros. MITRE
-  count is *gated* on `evidence_count > 0` so the "8 techniques with
-  no telemetry" contradiction is architecturally unrepresentable.
-- New **compact provenance line**. Single horizontal chain with
-  adaptive right-side hint ("No telemetry linked · no evidence-backed
-  investigation available.") when upstream layers are absent.
-- New `src/xdr/design/MitreTabV2.jsx` — **Tactic Coverage strip +
-  Technique Cards**.
-  - 14-tactic coverage grid (Reconnaissance → Impact), evidence-
-    derived counts only; zero-count tactics render as honest gaps.
-  - `<TechniqueCard>` for every evidence-backed technique with a
-    confidence-accent left rail (green observed / blue supported /
-    dashed amber missing). Body: technique id + tactic, name,
-    rationale, `<Provenance>` chain. Right column: per-technique
-    evidence rollup — evidence-refs count, hosts, users. Actions:
-    external attack.mitre.org link.
+- **`RecordHeaderV2.jsx` — Investigation Command Header (light).**
+  Single-row composition on ≥1400px viewport:
+
+  `[Severity Score]  [Title + ID + soft chips + meta]  [KPI band]  [Actions]`
+
+  - **Severity Score badge** — priority-coloured 72×72 square,
+    priority label (P1 / P2 / P3 / P4 / P5) + severity word
+    (CRITICAL / HIGH / MEDIUM / LOW / INFO). Ready to consume an
+    authoritative numeric risk score when the model emits one.
+  - **Soft dot-chips**: `● Priority P1 · ● In Progress ·
+    ● Verdict pending`. Colours mapped through a closed enum
+    (`critical`, `high`, `progress`, `pending`, `resolved`,
+    `benign`, `malicious`).
+  - **Inline KPI band**: 5 compact cells — Evidence · Assets ·
+    Users · MITRE · Correlation. Values large (22px). Absent
+    values render as `—` in muted italic. MITRE / Correlation
+    cells are gated on `evidence_count > 0`, so the header can
+    never contradict its own provenance.
+  - **Actions column**: Respond (primary purple, capability-
+    gated), Generate Report (`cap-standby · PHASE_5`), More
+    Actions (`cap-standby · PHASE_3_PLUS`).
+  - Meta line inline (First seen · Last activity · Owner · Tenant).
+    Owner and tenant live here as *metadata*, never as OWNS /
+    SCOPED_TO relationship rows in the primary canvas.
+  - Wraps gracefully to 2/3 rows on smaller viewports.
+- **Deleted from the header**: the earlier `TRUTH STATE /
+  PROVENANCE / RELATIONSHIPS` sections. Those are internal
+  primitives, not primary page sections.
+- **`MitreTabV2.jsx` — Tactic Coverage strip + Technique table.**
+  - 14-tactic Coverage grid (Reconnaissance → Impact), evidence-
+    derived counts only. Zero-count tactics render honest `—`
+    gaps; observed tactics get a green left rule and highlight.
+  - **`TechniqueRow` table** (one dense row per evidence-backed
+    technique): id · name + rationale · tactic · rollup
+    (`N evidence · N host · N user`) · confidence pill · Open
+    action to attack.mitre.org.
   - Sub-technique + shared-entity/shared-evidence edges rendered
-    inline via `<Relationship state="…">`.
-  - Suppressed (`NOT_OBSERVED / UNKNOWN`) techniques counted
-    honestly, never drawn.
-  - Empty state is compact and appears BELOW the coverage strip so
-    the analyst sees the gap-shape first, then the honesty note.
-- `src/xdr/design/tokens.css` — new classes: `.evops-cmd`,
-  `.evops-cmd__*`, `.evops-vitals`, `.evops-vitals__*`,
-  `.evops-provline`, `.evops-tactics`, `.evops-technique`. All
-  scoped under `.xdr-console .evops`. Priority-coloured accent rules
-  are the only "colour" the design system adds — no gradients, no
-  decorative shadows.
-- `src/xdr/design/index.js` — barrel exports `MitreTabV2`,
-  `RecordHeaderV2`; `MIGRATED_SURFACES` extended with `mitre`,
-  `incident-header`.
-- `src/xdr/pages/XdrIncidentDetailPage.jsx` — surface-aware default
-  flip. `?design=v1` renders untouched legacy `MitreTab` +
-  legacy `RecordHeader`.
+    as `<Relationship state="…">` beneath the table.
+  - Honest empty state below the coverage strip — the analyst
+    reads the gap-shape first, then the reason.
+- **`tokens.css`** — completely reworked Round 29 section:
+  - `.evops-cmd` (light card, priority-coloured left rail)
+  - `.evops-cmd__score`, `.evops-cmd__ident`, `.evops-cmd__chips`,
+    `.evops-cmd__meta`, `.evops-cmd__kpis`, `.evops-cmd__actions`
+  - `.evops-tactics` (14-cell coverage strip)
+  - `.evops-tech-table` + `.evops-tech-row` (MITRE table rows)
+- **`index.js`** — barrel exports `MitreTabV2`, `RecordHeaderV2`;
+  `MIGRATED_SURFACES` set: `integrations`, `recommendations`,
+  `mitre`, `incident-header`.
+- **`XdrIncidentDetailPage.jsx`** — surface-aware default flip via
+  `isDesignV2EnabledFor(...)`. `?design=v1` renders untouched
+  legacy `MitreTab` + legacy `RecordHeader`.
 
 ### Design language established (NivXRay XDR identity)
-- Deep navy security-console band anchors every incident record.
-- Severity communicated as a top-rule accent, never a decorative
-  card colour.
-- Dense compact enterprise density — 8-cell Vitals row + 14-cell
-  Tactic strip fit within an 1800px viewport.
-- Semantic tones: red (unavailable/critical), amber (missing),
-  blue (supported/in-progress), green (observed), grey (suppressed),
-  purple (actioned / primary command).
-- No purple gradients. Purple reserved for the primary Respond
-  button and the `actioned` evidence state only.
-- Analyst read-time target: ≤10 seconds to understand priority,
-  identity, current state, evidence weight, MITRE coverage,
-  provenance completeness, and the next actionable step.
+- White is the foundation. Security state provides the colour.
+  Investigation provides the visual impact.
+- Priority communicated as a coloured left rail on the header +
+  score-badge border — never a filled block or gradient.
+- Dot-chips instead of uppercase pills inside the header — they
+  read as *state*, not as inline data tags.
+- Dense inline KPI band, not a stacked full-width vitals grid.
+- Analyst read target: ≤10 seconds to answer severity, identity,
+  state, evidence weight, MITRE coverage, next action.
 
 ### Acceptance gates verified
 - MITRE V2 renders by default · legacy renders under `?design=v1`.
 - Incident Header V2 renders by default · legacy renders under
   `?design=v1`.
-- Unmigrated surfaces (tabs, lifecycle strip, executive/technical/…)
+- Unmigrated surfaces (tabs, lifecycle strip, executive tab …)
   unchanged.
-- MITRE mapping honestly `not present` when Telemetry / Canonical /
-  Correlation are all absent — the earlier "8 techniques" fabrication
-  is architecturally impossible in the new composition.
-- Vitals MITRE / Correlation cells resolve to `—` when
-  `evidence_count == 0`.
-- Tactic Coverage strip renders 14 cells with honest coverage gaps.
-- Adaptive collapse when no evidence — vitals still render (with
-  `—` values so the analyst sees the honest zero shape), provenance
-  line shows the "no telemetry linked" hint.
+- MITRE / Correlation KPIs resolve to `—` when
+  `evidence_count == 0`; header never fabricates coverage.
+- Tactic Coverage strip renders 14 cells with honest gaps.
 - Backend pytest regression: 37/37 XDR round tests
   (25b/26/26.5/27/28/28.x/28.x.2) green.
+
+### Explicitly NOT in Round 29 (queued for follow-up rounds)
+The reference composition included an Attack Story timeline,
+Investigation Graph, right-side Incident Details rail, and a
+four-panel Overview (Evidence Summary / Top Entities / MITRE
+ATT&CK / Recommendations). These are separate surfaces that
+belong to the **Attack Story tab v2 / Overview tab redesign**
+rounds. Round 29 delivered the Header + MITRE surfaces only, per
+scope.
 
 ---
 
