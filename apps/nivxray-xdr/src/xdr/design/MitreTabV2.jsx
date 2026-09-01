@@ -347,8 +347,12 @@ function TechniqueRow({ node }) {
       </div>
       <div className="evops-tech-row__tactic"
            style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {node.tactic
-          ? <><TacticGlyph size={12} /> <span>{node.tactic}</span></>
+        {node.tactic_id || node.tactic
+          ? <><TacticGlyph size={12} />
+                 <span>
+                   {(node.tactic_id || node.tactic || "").toUpperCase()}
+                   {node.tactic_name ? ` · ${node.tactic_name}` : ""}
+                 </span></>
           : <span>—</span>}
       </div>
       <div className="evops-tech-row__rollup">

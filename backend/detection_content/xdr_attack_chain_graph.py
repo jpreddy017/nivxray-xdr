@@ -69,6 +69,70 @@ TACTIC_ORDER: list[str] = [
 ]
 _TACTIC_INDEX = {t: i for i, t in enumerate(TACTIC_ORDER)}
 
+# Canonical MITRE ATT&CK Enterprise tactic ID → display name.  Owner
+# rule §6: single source of truth for ATT&CK naming.
+_TACTIC_ID_TO_NAME = {
+    "ta0043": "Reconnaissance",
+    "ta0042": "Resource Development",
+    "ta0001": "Initial Access",
+    "ta0002": "Execution",
+    "ta0003": "Persistence",
+    "ta0004": "Privilege Escalation",
+    "ta0005": "Defense Evasion",
+    "ta0006": "Credential Access",
+    "ta0007": "Discovery",
+    "ta0008": "Lateral Movement",
+    "ta0009": "Collection",
+    "ta0011": "Command and Control",
+    "ta0010": "Exfiltration",
+    "ta0040": "Impact",
+}
+_TACTIC_SLUG_TO_ID = {
+    "reconnaissance": "TA0043",
+    "resource-development": "TA0042",
+    "initial-access": "TA0001",
+    "execution": "TA0002",
+    "persistence": "TA0003",
+    "privilege-escalation": "TA0004",
+    "defense-evasion": "TA0005",
+    "credential-access": "TA0006",
+    "discovery": "TA0007",
+    "lateral-movement": "TA0008",
+    "collection": "TA0009",
+    "command-and-control": "TA0011",
+    "exfiltration": "TA0010",
+    "impact": "TA0040",
+}
+
+
+def _resolve_tactic(raw: str) -> tuple[str, str, str]:
+    """Return (slug, tactic_id_upper, tactic_name).
+
+    Accepts a slug ("execution"), a TA id ("ta0002" / "TA0002"), or
+    a friendly name ("Execution").  Never fabricates: unknown inputs
+    return ("unknown", raw, raw).
+    """
+    if not raw:
+        return ("unknown", "", "")
+    lower = raw.lower().replace("_", "-").strip()
+    # TA-id path
+    if lower.startswith("ta") and lower[2:].isdigit():
+        name = _TACTIC_ID_TO_NAME.get(lower, "")
+        # Find the slug by name.
+        slug = next((s for s, tid in _TACTIC_SLUG_TO_ID.items()
+                          if tid.lower() == lower), "unknown")
+        return (slug, lower.upper(), name or raw)
+    # Slug path
+    if lower in _TACTIC_SLUG_TO_ID:
+        tid = _TACTIC_SLUG_TO_ID[lower]
+        return (lower, tid, _TACTIC_ID_TO_NAME.get(tid.lower(), ""))
+    # Friendly-name path
+    name_lower = lower.replace(" ", "-")
+    if name_lower in _TACTIC_SLUG_TO_ID:
+        tid = _TACTIC_SLUG_TO_ID[name_lower]
+        return (name_lower, tid, _TACTIC_ID_TO_NAME.get(tid.lower(), ""))
+    return ("unknown", raw, raw)
+
 
 def _classify_confidence(m: dict, canon_id: str | None,
                                      ice_matches: int,
@@ -250,24 +314,52 @@ async def compose(db, incident_id: str) -> dict:
     telemetry_src = _telemetry_source_of(canon or {})
 
     # ── Compose nodes ────────────────────────────────────────
+    from services.attack_story.attack_cycle import TECHNIQUE_TO_TACTIC
+    # Small technique-name lookup we ship in-tree.  If the incoming
+    # mapping carried an object_name that wins.  Owner rule §6.
+    _TECH_NAME_HINTS = {
+        "T1059.001": "PowerShell",
+        "T1059":     "Command and Scripting Interpreter",
+        "T1218.011": "Signed Binary Proxy Execution: Rundll32",
+        "T1218":     "Signed Binary Proxy Execution",
+        "T1082":     "System Information Discovery",
+        "T1105":     "Ingress Tool Transfer",
+        "T1140":     "Deobfuscate/Decode Files or Information",
+        "T1497":     "Virtualization/Sandbox Evasion",
+        "T1197":     "BITS Jobs",
+    }
     nodes: list[dict] = []
     for m in attack_maps:
         if not m.get("object_id"):
             continue
-        tactic = (m.get("tactic") or "").lower().replace("_", "-")
+        tactic_slug, tactic_id_up, tactic_name = _resolve_tactic(m.get("tactic") or "")
+        # If the mapping didn't carry a tactic, fall back to the
+        # governed TECHNIQUE→TACTIC SSOT.
+        if tactic_slug == "unknown":
+            fallback = (TECHNIQUE_TO_TACTIC.get(m["object_id"]) or [None])[0]
+            if fallback:
+                tactic_slug, tactic_id_up, tactic_name = _resolve_tactic(fallback)
         conf = _classify_confidence(m, canon_id, ice_n, observations)
+        tech_id = str(m["object_id"]).upper()
+        tech_name = (m.get("object_name") if m.get("object_name")
+                            and m.get("object_name") != tech_id
+                            else _TECH_NAME_HINTS.get(tech_id) or tech_id)
         node = {
-            "id":               m["object_id"],
+            "id":               tech_id,
             "kind":             "technique",
-            "tactic":           tactic or "unknown",
-            "tactic_index":     _TACTIC_INDEX.get(tactic, 99),
-            "object_name":      m.get("object_name") or m["object_id"],
+            "tactic":           tactic_slug or "unknown",
+            "tactic_id":        tactic_id_up,
+            "tactic_name":      tactic_name,
+            "tactic_index":     _TACTIC_INDEX.get(tactic_slug, 99),
+            "technique_id":     tech_id,
+            "technique_name":   tech_name,
+            "object_name":      tech_name,
             "confidence":       conf,
             "why_mapped":       m.get("rationale"),
             "mapping_method":   m.get("mapping_method"),
             "source_refs":      list(m.get("source_refs") or []),
             "entities":         _entities_for_technique(all_entities,
-                                                                             tactic),
+                                                                             tactic_slug),
             "telemetry_sources": [telemetry_src] if canon_id else [],
             "evidence_ids": ([canon_id] if canon_id else []),
             # Round 23 · Full traversal chain pointers so the UI can
