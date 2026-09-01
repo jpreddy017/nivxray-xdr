@@ -2,6 +2,39 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 37.0 — SHIPPED · Investigation Report Contract
+
+Four-section structured report with strict ownership rules — same
+evidence SSOT feeds every view; the report never becomes another
+editable copy of canonical evidence.
+
+### Shipped
+- **Executive Summary** — Auto + Analyst editable; analyst can add,
+  edit, and delete blocks.  Every SYSTEM sentence anchored to
+  `evidence_refs[]`.
+- **Technical Summary** 🔒 — 100 % evidence-derived key/value groups
+  (Detection · File · Execution · Network · MITRE · Threat Intel).
+  Analyst writes REFUSED at the service boundary.
+- **Supporting Evidence** — Evidence cards (canonical / match /
+  finding) + analyst notes.  Analyst delete removes from report
+  ONLY.  Regression test enforces canonical SSOT is never touched.
+- **Recommendations** — Auto-generated + analyst-authored,
+  add/edit/delete.
+- Provenance badges: Evidence-derived 🔒 · NivXRay generated ·
+  Analyst added · Analyst edited.
+- Analyst overlay stored in new `xdr_report_blocks` collection with
+  full author/origin/source_evidence_id tracking.
+
+### Verified
+- 10 new R37 regression tests · full R30–R37 regression **97/97** green.
+- Verified in preview on the R35 EDR incident — Report tab renders
+  the header, editable Executive Summary with two NIVXRAY GENERATED
+  blocks + Add note affordance, and the Technical Summary 🔒
+  EVIDENCE-DERIVED · READ-ONLY with structured Detection key/values.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 36.0 — SHIPPED · Attack Graph Semantic Separation
 
 The Attack Graph tab is now three purpose-built visualizations, each

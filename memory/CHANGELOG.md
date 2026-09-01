@@ -2,6 +2,69 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 37.0 — Investigation Report Contract — SHIPPED
+
+Structured four-section report with strict ownership rules and full
+provenance.  The report renders **from** the evidence SSOT — it never
+becomes another editable copy of it.
+
+**Ownership matrix**
+
+    ┌────────────────────┬──────┬────────┬──────────┐
+    │ Section            │ AUTO │ ANALYST│ EDITABLE │
+    ├────────────────────┼──────┼────────┼──────────┤
+    │ Executive Summary  │ ✅   │ ✅     │ ✅        │
+    │ Technical Summary  │ ✅   │ ❌     │ 🔒 R/O    │
+    │ Supporting Evidence│ ✅   │ ✅     │ ✅        │
+    │ Recommendations    │ ✅   │ ✅     │ ✅        │
+    └────────────────────┴──────┴────────┴──────────┘
+
+**Backend**
+- New package `services/report/` with a deterministic composer:
+  * `compose_technical()` — structured Detection · File · Execution ·
+    Network · MITRE · Threat Intel key/value groups from canonical
+    evidence.  Never analyst-writable.
+  * `compose_executive()` — narrative + qualifier blocks anchored to
+    evidence refs.
+  * `compose_supporting_evidence()` — auto cards from canonical
+    events, correlation matches, and investigation findings.
+  * `compose_recommendations()` — projections of the
+    `xdr_recommendations` collection.
+- Analyst overlay collection `xdr_report_blocks`.  Origin, author,
+  provenance, and `source_evidence_ids` are tracked on every block.
+- Owner rule: **`TechnicalSummaryReadOnly` is raised on any analyst
+  write to the Technical Summary section.**
+- New router `routers/report.py` with endpoints:
+  * `GET /api/incidents/{id}/report` — full composed report.
+  * `POST /api/incidents/{id}/report/blocks` — analyst adds a block.
+  * `PATCH /api/incidents/{id}/report/blocks/{id}` — edit own block.
+  * `DELETE /api/incidents/{id}/report/blocks/{id}` — remove from
+    report ONLY.  Canonical SSOT is NEVER touched (regression test
+    `test_analyst_delete_does_not_touch_ssot` enforces this).
+  * `POST /api/incidents/{id}/report/blocks/{id}/suppress` — hide a
+    SYSTEM block from the report without deleting evidence.
+- Registered in `server.py`.
+
+**Frontend**
+- New `pages/incidents/record/tabs/ReportTab.jsx` — renders the
+  four-section report with per-block provenance badges
+  (Evidence-derived 🔒 · NivXRay generated · Analyst added · Analyst
+  edited), structured Technical Summary as key/value tables (not a
+  rich-text editor), and analyst Add/Edit/Delete affordances on the
+  three writable sections.
+- New **Report** tab registered after Recommendations in
+  `RecordTabs.jsx`.
+
+**Tests** — `tests/test_xdr_round37_report.py` (10 tests)
+- Envelope, ownership matrix honesty, Technical Summary read-only
+  refuses analyst writes, analyst add / edit / delete flow, delete
+  never touches SSOT, deterministic SYSTEM composition, header
+  reflects the incident.
+
+**Full R30–R37 regression: 97/97 green.**
+
+
+
 ## 2026-09-01 · Round 36.0 — Attack Graph Semantic Separation — SHIPPED
 
 The Attack Graph is now three purpose-built visualizations powered

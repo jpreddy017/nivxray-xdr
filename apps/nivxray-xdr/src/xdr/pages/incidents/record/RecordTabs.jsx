@@ -18,6 +18,7 @@ export const RECORD_TABS = [
   { key: "attack_story",      label: "Attack Story"       },
   { key: "attack_graph",      label: "Attack Graph"       },
   { key: "recommendations",   label: "Recommendations"    },
+  { key: "report",            label: "Report"             },
   { key: "notes",             label: "Notes"              },
   { key: "timeline",          label: "Timeline"           },
   { key: "related",           label: "Related"            },
