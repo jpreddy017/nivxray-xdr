@@ -3,6 +3,81 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## 🔒 SUPREME INVARIANT · Evidence-First Deterministic Principle (LOCKED 2026-02-14)
+
+Every conclusion, correlation, ATT&CK mapping, attack-chain node/edge,
+finding, recommendation, and response decision MUST be deterministically
+derivable from collected evidence and explicitly traceable to its
+supporting evidence.
+
+**Therefore:**
+- NO fabrication · NO hallucination · NO estimated activity
+- NO assumed activity · NO inferred facts presented as facts
+- NO command-line dependency · NO PowerShell dependency
+- NO malware-name-based assumptions
+- NO ATT&CK technique merely because a rule could indicate it
+- NO attack-chain edge without evidence supporting the relationship
+- NO recommendation without evidence satisfying its applicability predicate
+- NO "probably", "likely", or "appears to" masquerading as confirmed fact
+
+**Confidence is a STATE, not a probability:**
+
+| State                  | Meaning                                                  |
+|------------------------|----------------------------------------------------------|
+| CONFIRMED              | Directly supported by sufficient evidence                |
+| SUPPORTED              | Multiple correlated observations substantiate it         |
+| INSUFFICIENT_EVIDENCE  | Evidence exists, but required proof is missing           |
+| NOT_OBSERVED           | Relevant evidence was examined; activity NOT observed    |
+| UNKNOWN                | Insufficient evidence to determine                       |
+
+**Telemetry-source agnostic:** any telemetry contributes — EDR, NDR,
+DNS, IAM, Sysmon, Cloud audit, Firewall, Proxy, Email, Application
+logs, Windows events, Auth events, File events, Process events.
+Command-line/PowerShell is one possible source, never the foundation.
+
+---
+## ✅ 2026-02-14 · Round 21 · Evidence-First ATT&CK Attack-Chain Graph — SHIPPED
+
+**Deterministic operational graph.** Reuses the existing framework
+mapping fabric (Round 15) + IUE entities + OSINT observations —
+never a separate correlation engine.
+
+### Files delivered
+- `backend/detection_content/xdr_attack_chain_graph.py` —
+  deterministic composer. Nodes = ATT&CK techniques resolved against
+  real evidence; edges = evidence-backed relationships (shared entity
+  OR shared canonical event). Confidence is a locked ENUM
+  (CONFIRMED/SUPPORTED/INSUFFICIENT_EVIDENCE/NOT_OBSERVED/UNKNOWN)
+  never a probability. Includes locked TACTIC_ORDER (14-phase ladder)
+  for deterministic layered layout.
+- Endpoint `GET /api/admin/content-supply-chain/incidents/{id}/attack-chain-graph`.
+- Frontend `apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/MitreTab.jsx`
+  — full rewrite. Replaces the old ATT&CK list with:
+    * Deterministic layered DAG (SVG, no external libs)
+    * Click node → right-side proof panel: Why mapped · Method ·
+      Telemetry sources · Evidence IDs · Source refs · Entities ·
+      Related recommendations · attack.mitre.org link
+    * Click edge → shared-entity/shared-evidence proof
+    * Confidence-state filters (multi-select) · tactic filter
+    * Zoom in/out/fit-to-view controls
+    * Bottom Evidence-First contract banner
+
+### Locked contracts (test-enforced by tests/test_xdr_round21_attack_graph.py · 9/9)
+1. Every node carries confidence STATE (not %).
+2. Every edge carries `proof.reason` (shared_entity OR shared_evidence).
+3. No forbidden probabilistic phrase ("likely", "probably", "estimated")
+   ever appears in node output.
+4. Composer is deterministic — same evidence → byte-identical output.
+5. Snort C2 golden → `T1573.002 · command-and-control · SUPPORTED`.
+
+**Testing:** 9/9 pass. Full XDR regression rounds 11–21: **118/118 pass**.
+
+**Verified live:** Golden Snort incident renders exactly ONE node
+(`T1573.002`, tactic=command-and-control, confidence=SUPPORTED),
+zero fabricated edges — the graph honestly reflects available
+evidence.
+
+---
 ## ✅ 2026-02-14 · Round 20 · Closed-Loop Determinism — SHIPPED
 
 **The golden proof of NivXRay's closed-loop architecture.**

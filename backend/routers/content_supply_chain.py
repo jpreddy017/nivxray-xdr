@@ -70,6 +70,9 @@ from detection_content.xdr_closure_classification import (
 from detection_content.xdr_osint_cache import (
     summary as _osint_cache_summary,
 )
+from detection_content.xdr_attack_chain_graph import (
+    compose as _compose_attack_graph,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -771,6 +774,20 @@ async def osint_cache_summary(user=Depends(require_admin)):
     """Round 20 · Read-only OSINT cache introspection: total + stale
     per provider + configured TTLs."""
     return await _osint_cache_summary(db)
+
+
+@router.get("/incidents/{incident_id}/attack-chain-graph")
+async def incident_attack_chain_graph(incident_id: str,
+                                                user=Depends(require_admin)):
+    """Round 21 · Evidence-First Attack-Chain Graph.
+
+    Nodes  = ATT&CK techniques SUPPORTED BY EVIDENCE from this incident.
+    Edges  = evidence-backed relationships (shared entity or shared
+             canonical evidence reference).
+    Every node carries confidence STATE (CONFIRMED / SUPPORTED /
+    INSUFFICIENT_EVIDENCE / NOT_OBSERVED / UNKNOWN) — NEVER a
+    probability."""
+    return await _compose_attack_graph(db, incident_id)
 
 
 @router.get("/incidents/{incident_id}/executive-summary")
