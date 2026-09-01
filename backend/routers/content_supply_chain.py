@@ -58,6 +58,7 @@ from detection_content.xdr_executive_summary import compose as compose_exec_summ
 from detection_content.xdr_mitigation_intelligence import (
     is_exclusion as _is_exclusion,
 )
+from detection_content import xdr_analyst_annotations as _ann
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -732,9 +733,93 @@ async def incident_executive_summary(incident_id: str,
     Produces conclusion-led prose + a technical block + a supporting
     evidence list + explicit confirmed vs insufficient separation.
 
+    Round 18.6 additive: composer output now also carries any active
+    analyst_annotations grouped by section (executive/technical/
+    supporting_evidence/recommendations).  Annotations are an OVERLAY
+    (origin=ANALYST); they never rewrite deterministic prose.
+
     No LLM. No templates keyed on 'incident type' alone. Same inputs
-    → byte-identical output."""
+    → byte-identical output (annotations aside)."""
     return await compose_exec_summary(db, incident_id)
+
+
+# ── Round 18.6 · Analyst Annotations CRUD ──────────────────────
+# Every section rendered by the incident detail page can carry
+# analyst-authored notes / findings / overrides / custom recos.  The
+# deterministic composer is NEVER edited — annotations sit alongside.
+
+@router.get("/incidents/{incident_id}/annotations")
+async def incident_annotations_list(incident_id: str,
+                                              include_retired: bool = False,
+                                              user=Depends(require_admin)):
+    """Return every analyst annotation for one incident."""
+    return {
+        "incident_id": incident_id,
+        "annotations": await _ann.list_for_incident(
+            db, incident_id, include_retired=include_retired),
+        "honesty_note":
+            "Analyst annotations are an OVERLAY. They never rewrite "
+            "the deterministic composer output or the evidence-derived "
+            "recommendation synthesizer output.",
+    }
+
+
+class _AnnotationCreate(BaseModel):
+    section:  str
+    kind:     str
+    payload:  dict = {}
+    target_id: str | None = None
+
+
+@router.post("/incidents/{incident_id}/annotations")
+async def incident_annotations_create(incident_id: str,
+                                                body: _AnnotationCreate,
+                                                user=Depends(require_admin)):
+    try:
+        doc = await _ann.create(
+            db, incident_id=incident_id,
+            section=body.section, kind=body.kind,
+            payload=body.payload or {},
+            author=(user or {}).get("email") or "analyst",
+            target_id=body.target_id)
+    except ValueError as e:
+        return {"ok": False, "reason": str(e)}
+    return {"ok": True, "annotation": doc}
+
+
+class _AnnotationUpdate(BaseModel):
+    payload: dict
+
+
+@router.patch("/incidents/{incident_id}/annotations/{ann_id}")
+async def incident_annotations_update(incident_id: str, ann_id: str,
+                                                body: _AnnotationUpdate,
+                                                user=Depends(require_admin)):
+    doc = await _ann.update(
+        db, incident_id=incident_id, ann_id=ann_id,
+        payload=body.payload or {},
+        author=(user or {}).get("email") or "analyst")
+    if doc is None:
+        return {"ok": False,
+                    "reason": "annotation not found, retired, or superseded"}
+    return {"ok": True, "annotation": doc}
+
+
+class _AnnotationRetire(BaseModel):
+    reason: str | None = None
+
+
+@router.delete("/incidents/{incident_id}/annotations/{ann_id}")
+async def incident_annotations_retire(incident_id: str, ann_id: str,
+                                                body: _AnnotationRetire | None = None,
+                                                user=Depends(require_admin)):
+    doc = await _ann.retire(
+        db, incident_id=incident_id, ann_id=ann_id,
+        author=(user or {}).get("email") or "analyst",
+        reason=(body.reason if body else None))
+    if doc is None:
+        return {"ok": False, "reason": "annotation not found / already retired"}
+    return {"ok": True, "annotation": doc}
 
 
 @router.get("/dsm/registry")

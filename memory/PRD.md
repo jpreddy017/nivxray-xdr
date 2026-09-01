@@ -3,6 +3,102 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 18.6 · Analyst-Editable Sections (Overlay Fabric) — SHIPPED
+
+**Locked contract: overlay, NEVER replacement.** Deterministic
+composer output + evidence-derived recommendations remain
+authoritative ground truth. Analyst additions sit alongside with
+`origin=ANALYST` badging.
+
+**Files delivered:**
+- `backend/detection_content/xdr_analyst_annotations.py` — new module.
+  Collection `xdr_analyst_annotations`. Sections: `executive` /
+  `technical` / `supporting_evidence` / `recommendations`. Kinds:
+  `note` / `finding` / `override` / `custom_reco`. Soft-delete via
+  `retired_at` — never hard delete. Every update appends prior payload
+  to `history[]`.
+- `routers/content_supply_chain.py` — CRUD endpoints:
+    * `GET  /incidents/{id}/annotations`  (?include_retired=true|false)
+    * `POST /incidents/{id}/annotations`
+    * `PATCH /incidents/{id}/annotations/{ann_id}`
+    * `DELETE /incidents/{id}/annotations/{ann_id}` (soft retire)
+- `xdr_executive_summary.py::compose` — additive overlay in output
+  under `analyst_annotations.{executive|technical|supporting_evidence|
+  recommendations}`. Deterministic prose is UNCHANGED (byte-identical
+  before/after annotation added — test-enforced).
+- Frontend:
+  * `apps/nivxray-xdr/src/xdr/pages/incidents/record/AnnotationsEditor.jsx`
+    — new shared component. Add / edit / retire inline. Every row
+    shows `ANALYST · KIND` badge + author + timestamp + "edited N×".
+  * `ExecutiveTab.jsx` — editor mounted in Executive, Technical
+    (inside `<details>`), and Supporting Evidence sections.
+  * `RecommendationsTab.jsx` — section-level "ANALYST-AUTHORED
+    RECOMMENDATIONS" editor + per-reco note editor (scoped via
+    `target_id = reco.id`).
+
+**Test coverage:** `tests/test_xdr_round18_6_annotations.py` — 9/9.
+Full XDR regression rounds 11–18.6: **76/76 pass**.
+
+**Verified live:** Created executive-section finding on Golden Snort
+incident; composer output showed deterministic prose byte-identical
+to before + the annotation attached under `analyst_annotations.executive`
+with `origin=ANALYST`, author `admin@nivxray.com`, and full timestamps.
+
+---
+## 🔒 Round 19 & Round 20 Master Rules (LOCKED, not yet executed)
+
+### Round 19 — Threat-Family → Response Strategy knowledge layer
+Not "more rules." A dedicated layer sits between Threat Family and the
+existing Candidate Mitigations registry:
+
+```
+Evidence → Investigation → Threat Family → **Response Strategy** →
+Candidate Mitigations → Applicability → Risk Analysis →
+Framework Context → Analyst Decision
+```
+
+**Strategies to author (evidence-derived only, no hardcoded malware-name
+playbooks):**
+- **PUA / PCAppStore**: identify observed application · identify
+  installation/persistence evidence · uninstall observed application ·
+  remove observed persistence · block observed distribution
+  infrastructure · collect additional evidence if removal insufficient
+- **Ransomware**: isolate affected endpoint · preserve forensic
+  evidence · identify encryption activity · identify affected hosts ·
+  contain propagation · protect/verify recovery infrastructure
+- **Credential Theft**: identify affected identity · revoke/reset
+  credentials only when evidence supports · investigate authentication
+  activity · search for credential-access artifacts · increase
+  monitoring
+- **Infostealer**: identify affected endpoint/user · preserve evidence ·
+  assess credential/session exposure · revoke when justified · hunt
+  related indicators
+- **C2**: block observed infrastructure · identify communicating
+  process/device · isolate when warranted · add IOC to watchlist ·
+  enrich infrastructure
+- **Lateral Movement**: identify source/destination entities ·
+  investigate authentication evidence · contain affected endpoints/
+  accounts · search for additional movement
+
+**Absolute rule**: threat family determines *strategy*; observed evidence
+determines which *individual actions* are applicable.
+
+### Round 20 — Full Closed-Loop Validation
+Golden test must prove:
+
+```
+Evidence A → Family=C2 → Recommendation=BLOCK observed IP →
+Analyst ACCEPT → Action executed → New observation →
+Evidence state changes → Investigation recomputes →
+Recommendation state changes → Outcome recorded
+```
+
+Then rerun the same recomputation to prove:
+`same evidence + same state → same result, no duplicate action/
+recommendation`. This is the point NivXRay demonstrates a genuine
+closed-loop system, not a feature collection.
+
+---
 ## ✅ 2026-02-14 · Round 18.5 · Executive Summary Composer + Analyst Decision Persistence — SHIPPED
 
 **Deterministic backend prose composer** — no LLM, no templates.

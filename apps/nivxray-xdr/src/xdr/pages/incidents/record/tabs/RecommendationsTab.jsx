@@ -10,9 +10,10 @@
  * There is NO generic "gap → static verb" fallback here. If the
  * synthesizer produces zero candidates, the tab honestly says so.
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { CheckCircle2, ShieldAlert, Loader2, Radar, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
+import AnnotationsEditor from "../AnnotationsEditor";
 
 
 const CAT_COLOR = {
@@ -43,8 +44,23 @@ const RISK_COLOR = {
 
 export default function RecommendationsTab({ incident }) {
   const [data,    setData]    = useState(null);
+  const [anns,    setAnns]    = useState({});
   const [loading, setLoading] = useState(true);
   const [err,     setErr]     = useState(null);
+  const [reload,  setReload]  = useState(0);
+
+  const refreshAnnotations = useCallback(async () => {
+    if (!incident?.id) return;
+    try {
+      const r = await api.get(
+        `/admin/content-supply-chain/incidents/${incident.id}/annotations`);
+      const grouped = {};
+      (r.data.annotations || []).forEach((a) => {
+        (grouped[a.section] ||= []).push(a);
+      });
+      setAnns(grouped);
+    } catch { /* honest empty state on error */ }
+  }, [incident?.id]);
 
   useEffect(() => {
     if (!incident?.id) return;
@@ -55,6 +71,7 @@ export default function RecommendationsTab({ incident }) {
         const r = await api.post(
           `/admin/content-supply-chain/response/${incident.id}/recompute`);
         if (!cancelled) setData(r.data);
+        await refreshAnnotations();
       } catch (e) {
         if (!cancelled) setErr(e?.response?.data?.detail
                                           || e?.message || "unavailable");
@@ -63,7 +80,7 @@ export default function RecommendationsTab({ incident }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [incident?.id]);
+  }, [incident?.id, reload, refreshAnnotations]);
 
   if (loading) {
     return (
@@ -102,7 +119,10 @@ export default function RecommendationsTab({ incident }) {
       )}
 
       {active.map((r) => (
-        <RecoCard key={r.id} r={r} active={true} />
+        <RecoCard key={r.id} r={r} active={true}
+                        incidentId={incident?.id}
+                        annotations={anns.recommendations || []}
+                        onAnnotationsChanged={refreshAnnotations} />
       ))}
 
       {other.length > 0 && (
@@ -113,9 +133,34 @@ export default function RecommendationsTab({ incident }) {
             Why other candidates did not apply ({other.length})
           </summary>
           <div style={{ marginTop: 8 }}>
-            {other.map((r) => <RecoCard key={r.id} r={r} active={false} />)}
+            {other.map((r) => <RecoCard key={r.id} r={r} active={false}
+                                                        incidentId={incident?.id}
+                                                        annotations={anns.recommendations || []}
+                                                        onAnnotationsChanged={refreshAnnotations} />)}
           </div>
         </details>
+      )}
+
+      {/* Section-level analyst overlay — custom recommendations
+              authored by analyst (never fabricated by engines) */}
+      {incident?.id && (
+        <div style={{ marginTop: 14, padding: 10,
+                            border: "1px dashed #a78bfa",
+                            borderRadius: 4,
+                            background: "rgba(167,139,250,0.04)" }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 10,
+                              color: "#a78bfa", fontWeight: 700,
+                              marginBottom: 6 }}>
+            ANALYST-AUTHORED RECOMMENDATIONS
+          </div>
+          <AnnotationsEditor incidentId={incident.id}
+                                          section="recommendations"
+                                          annotations={(anns.recommendations || [])
+                                                              .filter((a) => !a.target_id)}
+                                          defaultKind="custom_reco"
+                                          allowedKinds={["custom_reco", "note"]}
+                                          onChange={refreshAnnotations} />
+        </div>
       )}
     </div>
   );
@@ -147,7 +192,7 @@ function Header({ threatFamily, confidence, active, total }) {
 }
 
 
-function RecoCard({ r, active }) {
+function RecoCard({ r, active, incidentId, annotations, onAnnotationsChanged }) {
   const cat = CAT_COLOR[r.category] || "var(--faint)";
   const app = APP_COLOR[r.applicability] || "var(--faint)";
   const fw  = r.framework_rationale || {};
@@ -219,6 +264,18 @@ function RecoCard({ r, active }) {
           <AnalystButton reco={r} decision="SUPERSEDED" label="Supersede"
                                 color="var(--faint)" />
         </div>
+      )}
+
+      {/* Per-reco analyst notes — targeted to this reco.id */}
+      {incidentId && (
+        <AnnotationsEditor incidentId={incidentId}
+                                        section="recommendations"
+                                        annotations={annotations || []}
+                                        targetId={r.id}
+                                        defaultKind="note"
+                                        allowedKinds={["note", "finding"]}
+                                        onChange={onAnnotationsChanged}
+                                        compact={true} />
       )}
     </div>
   );

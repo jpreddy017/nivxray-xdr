@@ -368,6 +368,10 @@ async def compose(db, incident_id: str) -> dict:
 
     executive_prose = " ".join([lead, confidence, evidence_p]).strip()
 
+    # ── Round 18.6 · Analyst overlay (never rewrites deterministic output) ──
+    from .xdr_analyst_annotations import group_by_section as _group_ann
+    ann_by_section = await _group_ann(db, incident_id)
+
     return {
         "engine_id":       COMPOSER_ENGINE_ID,
         "engine_version":  COMPOSER_VERSION,
@@ -385,6 +389,12 @@ async def compose(db, incident_id: str) -> dict:
         "supporting_evidence": supports,
         "confirmed_facts":     confirmed,
         "insufficient_evidence": insufficient,
+        "analyst_annotations": {
+            "executive":            ann_by_section.get("executive")           or [],
+            "technical":            ann_by_section.get("technical")           or [],
+            "supporting_evidence":  ann_by_section.get("supporting_evidence") or [],
+            "recommendations":      ann_by_section.get("recommendations")     or [],
+        },
         "provenance": {
             "canonical_event_id": (canon or {}).get("event_id"),
             "iue_id":              iue.get("iue_id"),
@@ -394,5 +404,7 @@ async def compose(db, incident_id: str) -> dict:
             "Executive Summary is deterministic prose. No LLM. Every "
             "assertion cites an evidence row in supporting_evidence. "
             "Missing pieces render as insufficient_evidence — never as "
-            "fabricated confirmations.",
+            "fabricated confirmations.  Analyst annotations (if any) are "
+            "an OVERLAY (origin=ANALYST) — they never overwrite composer "
+            "prose or evidence-derived facts.",
     }

@@ -18,6 +18,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { getIncidentSummary } from "@/lib/incidentsApi";
 import api from "@/lib/api";
+import AnnotationsEditor from "../AnnotationsEditor";
 
 const STATE_BADGE = {
   ok:                    { label: "OK",                    cls: "ok"     },
@@ -37,6 +38,7 @@ export default function ExecutiveTab({ incident }) {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [exec, setExec]       = useState(null);
+  const [reload, setReload]   = useState(0);
   const [, setParams]         = useSearchParams();
 
   useEffect(() => {
@@ -64,7 +66,8 @@ export default function ExecutiveTab({ incident }) {
       } catch { /* honest UI when composer is unavailable */ }
     })();
     return () => { cancelled = true; };
-  }, [incident?.id]);
+  }, [incident?.id, reload]);
+  const refresh = () => setReload((n) => n + 1);
 
   const v = summary?.deterministic_verdict || null;
   const observed = summary?.observed_facts || [];
@@ -92,7 +95,9 @@ export default function ExecutiveTab({ incident }) {
     <div data-testid="xdr-record-executive">
       {/* Round 18.5 · Deterministic Executive Summary composer */}
       {exec && exec.state === "READY" && (
-        <ExecutiveSummaryBlock exec={exec} />
+        <ExecutiveSummaryBlock exec={exec}
+                                          incidentId={incident?.id}
+                                          onAnnotationsChanged={refresh} />
       )}
 
       {/* Verdict block — designed truth state when not produced */}
@@ -296,12 +301,13 @@ function Metric({ k, v, sub, tone = "info" }) {
    composer.  Confirmed facts and insufficient-evidence lines are
    explicitly separated so the analyst reads the truth boundary. */
 
-function ExecutiveSummaryBlock({ exec }) {
+function ExecutiveSummaryBlock({ exec, incidentId, onAnnotationsChanged }) {
   const es      = exec.executive_summary || {};
   const tech    = exec.technical_summary || {};
   const supp    = exec.supporting_evidence || [];
   const conf    = exec.confirmed_facts || [];
   const insuff  = exec.insufficient_evidence || [];
+  const anns    = exec.analyst_annotations || {};
   return (
     <div className="rl-section" data-testid="xdr-record-executive-composer">
       <div className="rl-section-title">
@@ -324,6 +330,15 @@ function ExecutiveSummaryBlock({ exec }) {
           data-testid="xdr-record-executive-evidence-line">
         {es.evidence_line}
       </p>
+
+      {/* Executive · analyst overlay */}
+      {incidentId && (
+        <AnnotationsEditor incidentId={incidentId} section="executive"
+                                        annotations={anns.executive || []}
+                                        defaultKind="finding"
+                                        allowedKinds={["finding", "note"]}
+                                        onChange={onAnnotationsChanged} />
+      )}
 
       <div style={{ display: "grid",
                           gridTemplateColumns: "1fr 1fr",
@@ -401,6 +416,14 @@ function ExecutiveSummaryBlock({ exec }) {
             </div>
           ))}
         </div>
+        {incidentId && (
+          <AnnotationsEditor incidentId={incidentId} section="technical"
+                                          annotations={anns.technical || []}
+                                          defaultKind="override"
+                                          allowedKinds={["override", "note"]}
+                                          onChange={onAnnotationsChanged}
+                                          compact={true} />
+        )}
       </details>
 
       <details style={{ marginTop: 8 }}
@@ -433,6 +456,15 @@ function ExecutiveSummaryBlock({ exec }) {
             </div>
           ))}
         </div>
+        {incidentId && (
+          <AnnotationsEditor incidentId={incidentId}
+                                          section="supporting_evidence"
+                                          annotations={anns.supporting_evidence || []}
+                                          defaultKind="finding"
+                                          allowedKinds={["finding", "note"]}
+                                          onChange={onAnnotationsChanged}
+                                          compact={true} />
+        )}
       </details>
     </div>
   );
