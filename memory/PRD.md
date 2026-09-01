@@ -58,6 +58,44 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 28.x.2 — SHIPPED · MDE + SentinelOne
+
+Two more real vendors, each in ONE file, framework canary
+extended to cover `mde / defender / sentinelone / singularity`.
+
+- **`xdr_mde_vendor_adapter.py`** — Azure-AD OAuth2 (per-tenant
+  token endpoint · `.default` scope) →
+  `api.securitycenter.microsoft.com` alerts + isolate + hash
+  indicator.  `PROCESS_KILL / DISABLE_USER / REVOKE_TOKEN =
+  NOT_SUPPORTED` (honest).
+- **`xdr_sentinelone_vendor_adapter.py`** — static `ApiToken`
+  bearer against a customer mgmt URL.  `/threats` ingest,
+  `/agents/actions/disconnect` isolate, `/restrictions`
+  hash-block.  `PROCESS_KILL = NOT_SUPPORTED`.
+- Registry `_install()` now wires **cortex · falcon · mde ·
+  sentinelone** (production) plus **demo_edr** (internal-test-only).
+- Framework canary extended (regex, case-insensitive) to catch
+  any future leak of the four EDR vendor names into the
+  protected files.
+
+**45/45 backend tests green.** Production catalogue verified in
+preview:
+```
+cortex       PRODUCTION  · Palo Alto Cortex XDR      (caps=5)
+falcon       PRODUCTION  · CrowdStrike Falcon        (caps=5)
+mde          PRODUCTION  · Microsoft Defender EP     (caps=5)
+sentinelone  PRODUCTION  · SentinelOne Singularity   (caps=3)
+```
+
+### Architectural restatement (owner-locked)
+NivXRay is no longer a "multi-vendor BYO-EDR platform" — it is
+**an evidence-first XDR control and investigation plane with a
+vendor-neutral EDR integration fabric**.  Vendor adapters are
+telemetry/control connectors; the durable NivXRay value is
+Evidence → Correlation → Investigation → MITRE → Decision →
+Action → Provenance.
+
+---
 ## ✅ 2026-02-14 · Round 28.x — SHIPPED · CrowdStrike Falcon (first real second vendor)
 
 ### Owner-locked acceptance gate (met)

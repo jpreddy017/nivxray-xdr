@@ -63,9 +63,11 @@ def list_all_vendors(*, include_internal: bool = False) -> list[dict]:
 # ── Register built-in adapters at import time ──────────────
 # Ordering matters only for enumeration; retrieval is O(1).
 def _install():
-    from . import xdr_cortex_vendor_adapter as _cortex   # noqa: F401
-    from . import xdr_falcon_vendor_adapter as _falcon   # noqa: F401
-    from . import xdr_stub_adapter          as _stub     # noqa: F401
+    from . import xdr_cortex_vendor_adapter      as _cortex   # noqa: F401
+    from . import xdr_falcon_vendor_adapter      as _falcon   # noqa: F401
+    from . import xdr_mde_vendor_adapter         as _mde      # noqa: F401
+    from . import xdr_sentinelone_vendor_adapter as _s1       # noqa: F401
+    from . import xdr_stub_adapter               as _stub     # noqa: F401
 
 
 _install()
