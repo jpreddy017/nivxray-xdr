@@ -327,6 +327,65 @@ export default function MitreTabV2({ incident }) {
  * an id nor a name is available, we render "no attack id" and no
  * broken link.
  * ------------------------------------------------------------------ */
+/* --------------------------------------------------------------------
+ * Name → canonical ATT&CK id catalogue.
+ *
+ * Some backend composer paths emit the technique NAME as
+ * `technique_id` / `id` (e.g. `"POWERSHELL"`, `"COMMAND OBFUSCATION:
+ * BASE64/ENCODED COMMAND"`) instead of the canonical `T####` form.
+ * When that happens we can still deep-link to the real ATT&CK page
+ * as long as we recognise the name.  This catalogue is intentionally
+ * small — every entry maps to a real ATT&CK technique published on
+ * attack.mitre.org.  Unknown names fall through to the Google
+ * `site:attack.mitre.org` fallback (never a broken direct URL).
+ * ------------------------------------------------------------------ */
+const ATTACK_NAME_INDEX = {
+  "POWERSHELL":                                                  "T1059/001",
+  "POWERSHELL (HIDDEN)":                                          "T1059/001",
+  "WINDOWS COMMAND SHELL":                                       "T1059/003",
+  "CMD":                                                           "T1059/003",
+  "COMMAND AND SCRIPTING INTERPRETER":                                    "T1059",
+  "OBFUSCATED FILES OR INFORMATION":                              "T1027",
+  "COMMAND OBFUSCATION":                                          "T1027/010",
+  "COMMAND OBFUSCATION: BASE64/ENCODED COMMAND":                   "T1027/010",
+  "STANDALONE LONG BASE64 BLOB (>=200 CHARS) — LIKELY ENCODED PAYLOAD": "T1027/010",
+  "DEOBFUSCATE/DECODE FILES OR INFORMATION":                      "T1140",
+  "SIGNED BINARY PROXY EXECUTION":                                "T1218",
+  "SIGNED BINARY PROXY EXECUTION: RUNDLL32":                      "T1218/011",
+  "RUNDLL32":                                                     "T1218/011",
+  "MSHTA":                                                        "T1218/005",
+  "REGSVR32":                                                     "T1218/010",
+  "BITS JOBS":                                                    "T1197",
+  "SCHEDULED TASK":                                               "T1053/005",
+  "AT (ATSVC)":                                                   "T1053/002",
+  "INGRESS TOOL TRANSFER":                                        "T1105",
+  "APPLICATION LAYER PROTOCOL":                                   "T1071",
+  "WEB PROTOCOLS":                                                "T1071/001",
+  "DNS":                                                          "T1071/004",
+  "PHISHING":                                                     "T1566",
+  "WEB SERVICE":                                                  "T1102",
+  "SANDBOX EVASION":                                              "T1497",
+  "VIRTUALIZATION/SANDBOX EVASION":                                "T1497",
+  "SANDBOX EVASION: TIME BASED EVASION":                           "T1497/003",
+  "TIME BASED EVASION":                                            "T1497/003",
+  "PROCESS INJECTION":                                            "T1055",
+  "SYSTEM INFORMATION DISCOVERY":                                 "T1082",
+  "PROCESS DISCOVERY":                                            "T1057",
+  "REMOTE SERVICES":                                              "T1021",
+  "SMB/WINDOWS ADMIN SHARES":                                      "T1021/002",
+  "RDP":                                                           "T1021/001",
+  "REMOTE DESKTOP PROTOCOL":                                       "T1021/001",
+  "VALID ACCOUNTS":                                                "T1078",
+  "ACCOUNT DISCOVERY":                                             "T1087",
+  "CREDENTIAL DUMPING":                                            "T1003",
+  "OS CREDENTIAL DUMPING":                                         "T1003",
+  "LSASS MEMORY":                                                  "T1003/001",
+  "DATA ENCRYPTED FOR IMPACT":                                     "T1486",
+  "IMPAIR DEFENSES":                                               "T1562",
+  "DISABLE OR MODIFY TOOLS":                                       "T1562/001",
+};
+
+
 const ATTACK_ID_RE = /\b(T\d{4})(?:\.(\d{3}))?\b/i;
 function extractAttackId(node) {
   if (!node) return null;
@@ -337,6 +396,14 @@ function extractAttackId(node) {
       const base = m[1].toUpperCase();
       return m[2] ? `${base}/${m[2]}` : base;
     }
+  }
+  // Fall through to the name catalogue so names emitted in an id
+  // slot still resolve to a real ATT&CK technique.
+  for (const cand of [node.attack_id, node.technique_id, node.tid,
+                                 node.object_id, node.id, node.object_name,
+                                 node.name, node.label]) {
+    const key = String(cand || "").trim().toUpperCase();
+    if (key && ATTACK_NAME_INDEX[key]) return ATTACK_NAME_INDEX[key];
   }
   return null;
 }
