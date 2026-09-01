@@ -2,6 +2,30 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 29.10 — Final operating loop · Loop-integrity invariant · Investigation Activity evolution — RATIFIED
+
+Three final contract additions before Round 30 begins:
+
+- **§19 Final operating loop** — the canonical closed-loop diagram
+  (Telemetry → Evidence → IKG → IUE → Autonomous Investigator →
+  Capability Fabric → new Evidence → IKG → IUE → Attack Flow /
+  Threat Model → Attack Story → Verdict → Response → Analyst).
+- **§20 Rounds 30-34 are ONE system**, not isolated features. Every
+  round is a link in the closed loop with a defined
+  consumes/emits contract. A round that reads from somewhere the
+  loop doesn't define, or writes somewhere the loop doesn't
+  consume, is **out of contract**.
+- **§21 Investigation Activity evolution** — the tab's `● WAITING
+  FOR EVIDENCE` state is architecturally correct for pre-Round 30.
+  Its natural evolution: R30 `● UNDERSTANDING EVIDENCE` → R31
+  `● INVESTIGATING (pivots)` → R32 `● INVESTIGATING (live engines)`.
+  Never adds a start button.
+
+Sequence LOCKED. Round 30 IUE v0 begins next session with zero
+architectural ambiguity remaining.
+
+---
+
 ## 2026-09-01 · Round 29.9 — IUE v0 scope lock · workspace grammar · Threat Model Engine — RATIFIED
 
 Owner-issued addenda to the Autonomous Investigation Operating Model.

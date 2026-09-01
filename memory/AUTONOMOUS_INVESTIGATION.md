@@ -321,3 +321,100 @@ match ≠ confirmed attack.
 The product name is **NivXRay XDR** throughout — architecture,
 UI, documentation, and implementation prompts. Never alternate
 with just "NivXRay" as if they were two products.
+
+---
+
+## 19 · Final operating loop (canonical)
+
+```
+                     NivXRay XDR
+                          │
+        ┌─────────────────┼─────────────────┐
+       SIEM              EDR               NDR
+        │       ITDR · other security       │
+        └─────────────────┼─────────────────┘
+                          ▼
+                   Evidence Plane
+                          ▼
+                         IKG
+                          ▼
+                         IUE
+                          ▼
+                Threat Understanding
+                          ▼
+              Autonomous Investigator
+              ┌───────────┼───────────┐
+             Rules    Playbooks    Engines
+              └───────────┼───────────┘
+                          ▼
+                   New Evidence
+                          ▼
+                        IKG → IUE
+                          ▼
+                ┌─────────┴─────────┐
+             Attack Flow      Threat Model
+                └─────────┬─────────┘
+                          ▼
+                    Attack Story
+                          ▼
+                   Verdict Engine
+              ┌───────────┼───────────┐
+          Executive     Report      Response
+              └───────────┼───────────┘
+                          ▼
+                    Human Analyst
+              (edit · add · reject · approve · investigate)
+```
+
+## 20 · Rounds 30-34 are ONE system, not isolated features
+
+The upcoming rounds are locked as **one coherent operating loop**:
+
+| Round | Component                    | Consumes             | Emits                             |
+|-------|------------------------------|----------------------|-----------------------------------|
+| 30    | IUE v0                       | Evidence · IKG       | 6 understanding artifacts          |
+| 31    | Autonomous Investigator      | IUE                  | investigation pivots · executions |
+| 32    | Capability Fabric            | Orchestrator plan    | new evidence                       |
+| 33    | Attack Story + AttackFlow    | Evidence · IKG · IUE | narrative + flow projection        |
+| 34    | Threat Model Engine          | All of the above     | Attack Path · Coverage · Scenario  |
+
+**Non-negotiable**: no round may deliver a feature that stands alone.
+Every round is a link in the closed loop. A round that reads from
+somewhere the loop does not define, or writes somewhere the loop
+does not consume, is out of contract.
+
+## 21 · Investigation Activity — expected evolution
+
+The tab's current `● WAITING FOR EVIDENCE` state is architecturally
+correct for the pre-Round 30 stage. Its natural evolution across
+Rounds 30-32 is:
+
+```
+Round 29.8 (today) — Contract ratified, honest wait state.
+    ● WAITING FOR EVIDENCE
+
+Round 30 — IUE v0 emits understanding artifacts.
+    ● UNDERSTANDING EVIDENCE
+    ✓ Investigation context established
+    ✓ Relationships mapped
+    ✓ Threat context resolved
+    ✓ Historical context resolved
+    → Reasoning about gaps
+
+Round 31 — Orchestrator plans pivots.
+    ● INVESTIGATING
+    ✓ Correlated PowerShell execution
+    ✓ Reconstructed parent-child chain
+    → Investigating destination IP
+    → Searching related host activity
+
+Round 32 — Capability Fabric fires engines.
+    ● INVESTIGATING
+    Understanding evidence · Correlating activity ·
+    Analyzing process lineage · Evaluating LOLBAS ·
+    Searching related entities · Testing hypotheses ·
+    Expanding attack path
+```
+
+The tab never adds a start button — it only progresses through
+§26 lifecycle states as the underlying capabilities come online.
