@@ -336,6 +336,16 @@ async def process_event_through_pipeline(db, raw_event: dict,
                 engine_id=framework.get("engine_id"),
                 frameworks_active=[fw for fw, c in (framework.get("counts") or {}).items() if c > 0],
                 counts=framework.get("counts") or {})
+
+        # Round 16 · Threat Family classification — deterministic
+        # projection over IUE / ICE / observations / VEEE.
+        from detection_content.xdr_threat_family import classify as _cf
+        family = await _cf(db, incident["incident_id"])
+        _s("threat_family", "EXECUTED",
+                family=family.get("family"),
+                confidence=family.get("confidence"),
+                score=family.get("score"),
+                engine_id=family.get("engine_id"))
     else:
         _s("investigation", "NOT_CREATED",
                 reason="upstream incident not created — no synthetic "

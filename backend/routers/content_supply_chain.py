@@ -49,6 +49,10 @@ from detection_content.xdr_closed_loop   import recompute as closed_loop_recompu
 from detection_content.xdr_framework_mapping import (
     resolve_mappings as framework_resolve, framework_registry,
 )
+from detection_content.xdr_threat_family import classify as classify_threat_family
+from detection_content.xdr_recommendation_synthesis import (
+    filter_playbooks,
+)
 from detection_content.xdr_action_registry import list_actions, registry_summary
 
 
@@ -615,6 +619,23 @@ async def framework_mappings(incident_id: str,
 async def framework_mappings_resolve(incident_id: str,
                                               user=Depends(require_admin)):
     return await framework_resolve(db, incident_id)
+
+
+@router.get("/incidents/{incident_id}/threat-family")
+async def threat_family(incident_id: str,
+                              user=Depends(require_admin)):
+    """P0.7.3 · Threat Family classification for one incident."""
+    return await classify_threat_family(db, incident_id)
+
+
+@router.get("/incidents/{incident_id}/playbooks")
+async def incident_playbooks(incident_id: str,
+                                    user=Depends(require_admin)):
+    """P0.7.3 · Playbook applicability for one incident (§10)."""
+    tf = await classify_threat_family(db, incident_id)
+    return {"incident_id": incident_id,
+                "threat_family": tf.get("family"),
+                "playbooks": filter_playbooks(tf.get("family"))}
 
 
 @router.get("/dsm/registry")

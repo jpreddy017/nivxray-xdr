@@ -300,6 +300,10 @@ async def recompute(db, incident_id: str) -> dict:
     from .xdr_framework_mapping import resolve_mappings as _resolve_fw
     framework = await _resolve_fw(db, incident_id)
 
+    # 3c. Round 16 · Threat Family classification (evidence-derived).
+    from .xdr_threat_family import classify as _classify_family
+    threat_family = await _classify_family(db, incident_id)
+
     # 4. Rebuild Response Context using observations (§4-§6).
     ctx = await build_response_context(db, incident_id)
     if ctx.get("state") == "READY":
@@ -309,14 +313,27 @@ async def recompute(db, incident_id: str) -> dict:
             for o in all_observations
         ]
 
-    recos     = recommend_with_observations(ctx, all_observations)
-    # Round 15 · attach framework rationale to each recommendation
-    # (guidance-level annotation only — never a new reco source).
-    fw_maps = []
+    # Round 16 · Recommendation Synthesis over evidence + family +
+    # framework mappings.  Replaces the earlier observation-only
+    # recommender.
+    fw_maps_active: list[dict] = []
     for fw_list in (framework.get("mappings") or {}).values():
-        fw_maps.extend([m for m in fw_list if m.get("status") == "ACTIVE"])
+        fw_maps_active.extend([m for m in fw_list
+                                          if m.get("status") == "ACTIVE"])
+    from .xdr_recommendation_synthesis import (
+        synthesize as _synth, filter_playbooks as _pb_filter,
+        APPLICABLE,
+    )
+    all_recos = _synth(ctx, threat_family, all_observations,
+                                executions, fw_maps_active)
+    # ACTIVE recommendations (§7) are the APPLICABLE subset — others
+    # remain honestly tagged with their applicability state.
+    recos = [r for r in all_recos if r["applicability"] == APPLICABLE]
+    playbooks = _pb_filter(threat_family.get("family"))
+    # attach framework rationale summary for legacy consumers
     for r in recos:
-        r["framework_rationale"] = _annotate_framework(r, fw_maps)
+        r["framework_rationale_summary"] = _annotate_framework(
+            r, fw_maps_active)
     reco_delta = await _persist_recommendations(
         db, incident_id=incident_id, recos=recos,
         evidence_state_hash=new_hash)
@@ -362,11 +379,15 @@ async def recompute(db, incident_id: str) -> dict:
         "investigation_state":       investigation.get("state"),
         "lanes_ready":               investigation.get("lanes_ready"),
         "framework_counts":          framework.get("counts") or {},
+        "threat_family":             threat_family.get("family"),
+        "threat_family_confidence":  threat_family.get("confidence"),
         "recommendations": {
             "active":     reco_delta["active_now"],
             "created":    reco_delta["created"],
             "superseded": reco_delta["superseded"],
+            "synthesized": [r for r in all_recos],
         },
+        "playbooks":                 playbooks,
         "decision":                  decision.get("decision"),
         "decision_reason":           decision.get("reason"),
         "honesty_note":

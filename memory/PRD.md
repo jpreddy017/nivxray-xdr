@@ -3,6 +3,73 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 16 · P0.7.3 Threat Family + Recommendation Synthesis — SHIPPED
+
+Golden E2E now **executes 17 / 17 stages · verdict: COMPLETE**.
+
+Recommendations are **synthesized**, not templated. Every emitted recommendation
+is bound to a real observed entity, tagged with honest applicability, cites
+framework rationale, and reports capability truthfully.
+
+**New engines (composers, not runtime engines):**
+- `detection_content/xdr_threat_family.py` — deterministic compositional classifier over IUE entities + capability tags + canonical + intelligence observations + ICE + VEEE. Families: `PUA_ADWARE · MALWARE · RANSOMWARE · CREDENTIAL_THEFT · PHISHING · INFOSTEALER · LOADER · C2 · LATERAL_MOVEMENT · PERSISTENCE · EXPLOITATION · DATA_EXFILTRATION · WORM · BOTNET · SUSPICIOUS_APPLICATION · BENIGN_ADMINISTRATIVE · UNKNOWN`
+- `detection_content/xdr_recommendation_synthesis.py` — Guidance Knowledge Registry (6 candidates) + Synthesizer + Applicability Engine (`APPLICABLE / NOT_APPLICABLE / INSUFFICIENT_EVIDENCE / CAPABILITY_UNAVAILABLE / ALREADY_EXECUTED / SUPERSEDED`) + Playbook Applicability Filter
+
+**Owner-locked contracts honored:**
+- §2 · classifier is compositional (score-based) — PCAppStore is a *manifestation* of PUA_ADWARE, never a family of its own
+- §3 · candidates are guidance knowledge (registry entries), not automatic recommendations
+- §4 · applicability engine gates every candidate against evidence/capability/prior execution
+- §6 · every synthesized recommendation binds to a real entity (`target_entity.value`, `target_entity.kind`, `target_entity.role`)
+- §7 · category tags (IMMEDIATE / INVESTIGATION / PREVENTION)
+- §8 · rationale answers WHY THIS · WHY NOW · BASED ON WHAT · WHAT AFFECTS · CAN NIVXRAY EXECUTE · FRAMEWORK CITATION
+- §9 · frameworks *support* recommendations, do not create them — active D3FEND countermeasure is attached as `framework_rationale`
+- §10 · Playbook applicability filter — C2_CONTAINMENT ≠ RANSOMWARE_CONTAINMENT, honestly `NOT_APPLICABLE` when family doesn't match
+- §11 · no hardcoded PCAppStore/malware-name lists — registry entries only match on evidence predicates
+- §13 · closed-loop expanded: Action → Observation → Investigation → Threat Family → Framework → Recommendation Synthesis → Decision → Playbook filter
+
+**Golden E2E result:**
+```
+executed: 17 / 17 · verdict: COMPLETE · blocker: None
+threat_family: C2 · confidence: MEDIUM · score derived from
+  · signature 'ET INFO Observed Discord Domain' (C2 protocol cue)
+  · protocol=TLS + domain observed
+
+Recommendation Synthesis:
+  APPLICABLE                IOC_ADD_WATCHLIST         → 203.0.113.42
+  APPLICABLE                IOC_ADD_WATCHLIST         → 10.1.2.3
+  ALREADY_EXECUTED          OSINT_ENRICH_IP           → 203.0.113.42
+  ALREADY_EXECUTED          OSINT_ENRICH_IP           → 10.1.2.3
+  CAPABILITY_UNAVAILABLE    IP_BLOCK                  → 203.0.113.42
+  CAPABILITY_UNAVAILABLE    IP_BLOCK                  → 10.1.2.3
+
+Playbook Applicability (family=C2):
+  C2_CONTAINMENT              APPLICABLE
+  PUA_CLEANUP                 NOT_APPLICABLE
+  RANSOMWARE_CONTAINMENT      NOT_APPLICABLE
+  CREDENTIAL_INVESTIGATION    NOT_APPLICABLE
+```
+
+**Files:**
+- `+ backend/detection_content/xdr_threat_family.py`
+- `+ backend/detection_content/xdr_recommendation_synthesis.py`
+- `~ backend/detection_content/xdr_closed_loop.py` — synthesize + playbook filter integrated
+- `~ backend/detection_content/xdr_pipeline.py` — `threat_family` stage
+- `~ backend/routers/content_supply_chain.py` — `/incidents/{id}/threat-family`, `/incidents/{id}/playbooks`
+- `+ backend/tests/test_xdr_round16_recommendations.py` — 8 tests (family never forced, PUA/ransomware scoring, entity binding, capability honesty, playbook filter, idempotency)
+- `~ apps/nivxray-xdr/src/xdr/admin/ClosedLoopPanel.jsx` — synthesized recos + playbook applicability rendered
+
+**Tests — 43 / 43 pass (Rounds 11-16 combined).**
+
+**Locked architectural rule (added to PRD):**
+> NivXRay XDR recommendations are synthesized, not templated. Knowledge provides
+> candidates. Evidence determines applicability. NivXRay determines the
+> recommendation. Response Fabric determines execution. No incident receives a
+> predefined recommendation set merely because it matches an incident name,
+> malware family, alert type or detection title.
+
+---
+
+
 ## ✅ 2026-02-14 · Round 15 · P0.7.2 Framework Mapping Fabric — SHIPPED
 
 Golden E2E now **executes 16 / 16 stages · verdict: COMPLETE**.

@@ -72,10 +72,92 @@ export default function ClosedLoopPanel({ incidentId, initial, testid }) {
                 color={changed ? "var(--mint)" : "var(--faint)"} />
         <Kpi label="new_observations" value={state.new_observations ?? 0} />
         <Kpi label="total_observations" value={state.total_observations ?? 0} />
+        <Kpi label="threat_family" value={state.threat_family || "—"}
+                color="#a78bfa" />
+        <Kpi label="family_conf" value={state.threat_family_confidence || "—"} />
         <Kpi label="investigation" value={state.investigation_state} />
         <Kpi label="decision" value={state.decision}
                 color="var(--cyan)" />
       </div>
+
+      {(state.recommendations?.synthesized || []).length > 0 && (
+        <div data-testid="synthesized-recos"
+                  style={{ border: "1px solid var(--border)", borderRadius: 4,
+                                  padding: 10, background: "var(--panel2)",
+                                  marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6,
+                              marginBottom: 6 }}>
+            <b style={{ fontFamily: "var(--mono)", fontSize: 11,
+                              color: "var(--text)" }}>
+              Recommendation Synthesis
+            </b>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 10,
+                                color: "var(--faint)" }}>
+              · {(state.recommendations.synthesized || []).length} candidates
+            </span>
+          </div>
+          {(state.recommendations.synthesized || []).map((r) => (
+            <div key={r.id} style={{ padding: "4px 0",
+                                                    borderBottom: "1px solid var(--border)",
+                                                    fontFamily: "var(--mono)",
+                                                    fontSize: 10.5 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{
+                  padding: "0 6px",
+                  border: `1px solid ${r.applicability === "APPLICABLE"
+                                                        ? "var(--mint)" : "var(--amber)"}`,
+                  color:  r.applicability === "APPLICABLE"
+                              ? "var(--mint)" : "var(--amber)",
+                  borderRadius: 2, fontSize: 9, fontWeight: 700,
+                }}>{r.applicability}</span>
+                <b style={{ color: "var(--cyan)" }}>{r.suggested_action}</b>
+                <span style={{ color: "var(--text-dim)" }}>
+                  → {r.target_entity?.value}
+                </span>
+                <span style={{ flex: 1 }} />
+                <span style={{ color: "var(--faint)", fontSize: 9 }}>
+                  {r.category}
+                </span>
+              </div>
+              <div style={{ marginTop: 2, color: "var(--text-dim)",
+                                    fontSize: 10, fontFamily: "var(--sans)" }}>
+                {r.text}
+              </div>
+              <div style={{ marginTop: 2, color: "var(--faint)",
+                                    fontSize: 9 }}>
+                {r.applicability_reason}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(state.playbooks || []).length > 0 && (
+        <div data-testid="playbook-applicability"
+                  style={{ border: "1px solid var(--border)", borderRadius: 4,
+                                  padding: 10, background: "var(--panel2)",
+                                  marginBottom: 10 }}>
+          <b style={{ fontFamily: "var(--mono)", fontSize: 11,
+                            color: "var(--text)" }}>
+            Playbook Applicability · family={state.threat_family || "—"}
+          </b>
+          <div style={{ marginTop: 4, display: "grid",
+                              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                              gap: 4 }}>
+            {(state.playbooks || []).map((pb) => (
+              <div key={pb.id} style={{ fontFamily: "var(--mono)",
+                                                        fontSize: 10 }}>
+                <span style={{
+                  color: pb.applicability === "APPLICABLE"
+                              ? "var(--mint)" : "var(--faint)",
+                  fontWeight: 700, marginRight: 6,
+                }}>{pb.applicability}</span>
+                {pb.id}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "grid",
                           gridTemplateColumns: "1fr 1fr 1fr",
