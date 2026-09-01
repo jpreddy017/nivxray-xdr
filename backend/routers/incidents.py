@@ -254,10 +254,63 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
     # it; otherwise it is 'unavailable' with a human-readable reason.
     evidence_pointers = _build_evidence_pointers(doc)
 
+    # ── Round 29.6 · Pipeline projection ────────────────────────────
+    # The Overview / Command Band read a flat shape.  Unpack the
+    # authoritative pipeline record from `xdr_pipeline` into
+    # top-level fields WITHOUT fabricating anything — an absent
+    # sub-field yields an absent projection field.
+    pipeline = doc.get("xdr_pipeline") or {}
+    prov     = pipeline.get("source_provenance") or {}
+
+    canonical_event_id = pipeline.get("canonical_event_id")
+    canonical_evidence_ids = [canonical_event_id] if canonical_event_id else []
+
+    ice_matches = pipeline.get("ice_matches") or []
+    correlation_match_ids = [
+        m.get("id") or m.get("match_id") or m.get("rule_id")
+        for m in (ice_matches if isinstance(ice_matches, list) else [])
+        if isinstance(m, dict) and (m.get("id") or m.get("match_id") or m.get("rule_id"))
+    ]
+
+    source_integration_id = prov.get("integration_id")
+
+    # Stage-2 verdict label — if the case has no explicit stage2 doc,
+    # fall back to the closed-loop verdict_card.
+    if not stage2 or not stage2.get("label"):
+        vcard_verdict = (vcard.get("verdict") or "").lower()
+        if vcard_verdict in ("malicious", "suspicious", "benign"):
+            stage2 = dict(stage2)
+            stage2["label"] = vcard_verdict
+            if vcard.get("confidence") is not None:
+                stage2.setdefault("risk_score", vcard.get("confidence"))
+
+    # Human-facing name — `workspace_cases` writes the incident's
+    # display label into `title`; use it when `name` is absent.
+    display_name = doc.get("name") or doc.get("title") or "(unnamed)"
+
+    # Evidence count — the honest lower-bound is
+    #   1 canonical event  +  N correlation matches.
+    evidence_count = (1 if canonical_event_id else 0) + len(correlation_match_ids)
+
+    # Investigative assets — derived only from what the case's iocs +
+    # provenance already contain.  Never fabricated.
+    iocs = doc.get("iocs") or {}
+    def _len(v): return len(v) if isinstance(v, list) else (1 if v else 0)
+    assets = {
+        "hosts":     _len(iocs.get("host") or iocs.get("hosts")),
+        "users":     _len(iocs.get("user") or iocs.get("users")),
+        "processes": _len(iocs.get("process") or iocs.get("processes")),
+        "files":     _len(iocs.get("file") or iocs.get("files")
+                            or iocs.get("hash") or iocs.get("hashes")),
+        "network":   _len(iocs.get("ip") or iocs.get("ips"))
+                       + _len(iocs.get("domain") or iocs.get("domains"))
+                       + _len(iocs.get("url") or iocs.get("urls")),
+    }
+
     return {
         "id":          doc.get("id"),
         "number":      _short_number(doc.get("id")),
-        "name":        doc.get("name") or "(unnamed)",
+        "name":        display_name,
         "priority":    {"code": priority_code, "label": priority_label},
         "severity":    doc.get("incident_severity")
                           or _derive_severity(stage2, vcard),
@@ -279,8 +332,14 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
         "engine":      doc.get("engine"),
         "chain_ids":   doc.get("chain_ids") or [],
         "mitre":       doc.get("mitre") or [],
-        "iocs":        doc.get("iocs") or {},
+        "iocs":        iocs,
         "evidence_pointers": evidence_pointers,
+        # ── Round 29.6 pipeline-derived fields ──────────────────────
+        "evidence_count":         evidence_count,
+        "canonical_evidence_ids": canonical_evidence_ids,
+        "correlation_match_ids":  correlation_match_ids,
+        "source_integration_id":  source_integration_id,
+        "assets":                 assets,
         # ── Owner reference §incident-header + §overview additions ────
         # Every derived block below is evidence-backed only.  If the
         # underlying data is absent, the block is empty and the UI

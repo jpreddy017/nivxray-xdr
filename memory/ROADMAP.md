@@ -32,6 +32,7 @@ No feature moves to the next phase until the phase it lives in is production-qua
 | **29**| **Analyst UI Grammar (MITRE Tab + Incident Header v2)**     | **✅ SHIPPED (2026-09-01)** |
 | **29.5**| **NivXRay XDR Visual Language System v1.0 (foundation)** | **✅ SHIPPED (2026-09-01)** |
 | **29.6**| **Visual Language v1.1 · Composition + Flagship Overview** | **✅ SHIPPED (2026-09-01)** |
+| **29.7**| **Populated-state proof · Pipeline → API Projection → Composition** | **✅ SHIPPED (2026-09-01)** |
 | P1.0  | Intelligence Plane (STIX/TAXII/OSINT enrichment layer)      | ⏳ NEXT   |
 | 30    | Certification (real sandbox E2E + cross-vendor equivalence) | ⏳ QUEUED |
 | P2    | Investigation Report Export (PDF + JSON)                    | 📥 BACKLOG |

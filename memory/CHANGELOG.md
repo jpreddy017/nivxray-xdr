@@ -2,6 +2,81 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 29.7 — Populated-state proof · Pipeline → Projection → Composition — SHIPPED
+
+Owner-directed pivot: stop optimising for empty screenshots; prove
+the composition works against real pipeline output.  Delivered in
+one round without touching the visual language.
+
+### 1 · Populated-state seed harness (existing real pipeline)
+Instead of fabricating a fixture, drove the deterministic
+`POST /api/admin/content-supply-chain/e2e/snort-golden` endpoint.
+It runs the real code path — Suricata golden alert → collector →
+DSM → parser → normaliser → canonical evidence → correlation
+(no match) → incident promotion → MITRE mapping → attack-chain
+graph — producing the real populated incident
+`inc_8886942a92194bb8a3e4` `Suspicious — sig 2027865 → 10.1.2.3`
+(`P3 · Medium`, verdict `suspicious/60`, technique `T1573.002 ·
+Asymmetric Cryptography` in tactic `command-and-control`).
+
+### 2 · API projection fix (`routers/incidents.py::_project_detail`)
+Owner-mapped fields now emitted at the API boundary:
+
+| Owner-declared mapping                                    | Status |
+|-----------------------------------------------------------|--------|
+| `title` → `name` (fallback when name absent / "(unnamed)")| ✅     |
+| `xdr_pipeline.canonical_event_id` → `canonical_evidence_ids` | ✅  |
+| `xdr_pipeline.ice_matches` → `correlation_match_ids`      | ✅     |
+| `xdr_pipeline.source_provenance.integration_id` → `source_integration_id` | ✅ |
+| `verdict_card.verdict` → `verdict_stage2.label` (fallback)| ✅     |
+| Derive `evidence_count` (canonical + correlation)         | ✅     |
+| Derive `assets.hosts / users / processes / files / network` from `iocs` | ✅ |
+
+The frontend now consumes **one** flat shape; no duplicate security
+truth in the UI.  Every projected value traces to the pipeline;
+every absent value is emitted absent, never fabricated.
+
+### 3 · Populated Overview visual proof
+Before → After on `inc_8886942a92194bb8a3e4?tab=executive`:
+- Title `(unnamed)` → **`Suspicious — sig 2027865 → 10.1.2.3`**
+- Verdict chip `● Verdict pending` → **`● Suspicious`**
+- Evidence KPI `—` → **`1`**
+- Evidence column *Canonical events* `No data yet.` → **`1`**
+- Deep-link `see all 1 →` now live
+- Provenance *Telemetry* `not present` → **`integration-snort-ref`**
+- Provenance *Canonical* `not present` → **`1 event(s)`**
+- Attack Story band: real `» COMMAND-AND-CONTROL · Asymmetric
+  Cryptography` with observed-green rail
+- MITRE column: real `T1573.002 · Asymmetric Cryptography` +
+  `see all 1 →`
+- Correlation / MITRE (top-level `mitre[]`) honestly `not present`
+  because Snort golden fires no correlation rule and the case doc
+  carries no top-level `mitre[]` — mapping lives in the graph.
+
+### 4 · Empty state (Suitable incident) still correct
+- `evidence_count: 0` (honest zero, no fabrication)
+- Composition still collapses to the compact one-line hint strip
+  per v1.1 §C2
+- Verdict now correctly surfaces `malicious/90` from `verdict_card`
+  (previously mis-rendered as "Verdict pending" because stage2 was
+  empty)
+
+### 5 · Regression
+- 46/46 backend tests green (adds
+  `test_xdr_round21_attack_graph.py` to the batch).
+- `?design=v1` legacy escape hatch preserved.
+- No frontend visual changes this round — the language is the same;
+  the API is finally speaking it.
+
+### Order confirmed for the next rounds
+1. ✅ Populated-state proof + projection contract (this round)
+2. ⏳ Richer multi-technique golden fixture (stress test)
+3. ⏳ Visual Language v1.2 — AttackFlow primitive
+4. ⏳ Attack Story Tab v2 + Investigation Graph Tab v2
+5. ⏳ VEEE v1.2 automation
+
+---
+
 ## 2026-09-01 · Round 29.6 — Visual Language v1.1 · Composition Language — SHIPPED
 
 Elevated the analyst experience from a component library to a
