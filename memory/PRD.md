@@ -59,6 +59,52 @@ never defaulted.
 
 ---
 
+## ✅ 2026-09-01 · Round 32 — SHIPPED · Capability Fabric v1
+
+**12 specialist capabilities register behind the Autonomous
+Investigator.** Every capability declares category · investigation
+question · evidence requirements, reuses existing NivXRay engines
+rather than duplicating functionality, and is honestly skipped by
+the sufficiency-aware selector when its inputs are absent.
+
+### Capabilities (12, all cap-full)
+- History: `historical_correlation`
+- Correlation: `correlation`
+- MITRE: `mitre_expansion`
+- Detection: `detection_intel`
+- Endpoint: `process_ancestry`, `commandline_decode`, `lolbas_lookup`
+- Network: `network_pivot`, `dns_pivot`
+- Intelligence: `ioc_pivot`
+- Artifact: `file_reputation`
+- Identity: `identity_pivot`
+
+### Enhancements
+- `services/investigator/capabilities/` package (base · registry ·
+  historical · endpoint · network_identity_file).
+- Planner: multi-capability gap map + baseline capabilities that
+  always run per incident.
+- Orchestrator: `check_evidence` called before every execution;
+  `SKIPPED_OUT_OF_SCOPE` recorded with sufficiency provenance.
+- `GET /api/investigator/capabilities` introspection API.
+
+### Verified against real Snort-golden pipeline
+- 12 pivots planned · 5 executed OK · 7 honestly skipped
+  (SKIPPED_OUT_OF_SCOPE + INSUFFICIENT) · 7 findings.
+- Zero fabricated executions or findings.
+- Idempotent + deterministic across ticks.
+
+### Testing
+- 16/16 tests in `tests/test_xdr_round32_capability_fabric.py` green.
+- 151/151 cross-round regression green.
+
+### Round 33 handoff
+Attack Story v2 + AttackFlow can now project a real evidence-backed
+narrative directly from `xdr_investigation_findings` +
+`engine_executions` + Round 30 IUE artifacts.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 31 — SHIPPED · Autonomous Investigator
 
 **The closed autonomous investigation loop is live.** The pipeline

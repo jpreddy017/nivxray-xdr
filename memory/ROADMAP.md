@@ -36,8 +36,9 @@ No feature moves to the next phase until the phase it lives in is production-qua
 | **29.8**| **Autonomous Investigation Operating Model · ratified as platform contract** | **✅ SHIPPED (2026-09-01)** |
 | 30    | **IUE v0** · locked scope · Evidence Plane → Investigation Context / Relationships / Threat / Historical / Known-Unknown / Gaps · **no UI · no AI · no Orchestrator · no external intel · no verdict** | **✅ SHIPPED (2026-09-01)** |
 | 31    | **Autonomous Investigator** · closed loop `IUE → Planner → Selector → Capability → Findings` · auto-kicked by pipeline · **no button, no fabrication** | **✅ SHIPPED (2026-09-01)** |
-| 32    | Investigation Capability Fabric v0 (register real engines for `process_ancestry`, `identity_pivot`, `file_reputation`, `network_pivot`) | ⏳ NEXT |
-| 33    | Attack Story v2 + AttackFlow (Visual Language v1.2)                                  | ⏳ QUEUED |
+| 32    | **Capability Fabric v1** · 12 real capabilities · evidence-sufficiency selector · reuses existing engines (LOLBAS · smart_decoder · IOC extractor) | **✅ SHIPPED (2026-09-01)** |
+| 33    | Attack Story v2 + AttackFlow (Visual Language v1.2) — consumes findings + executions | ⏳ NEXT |
+| 33    | Attack Story v2 + AttackFlow (Visual Language v1.2) — consumes findings + executions | ⏳ NEXT |
 | 34    | Threat Model Engine v0 (14-stage Attack Cycle · Coverage strip · Scenario Library)   | ⏳ QUEUED |
 | 35    | Editable / versioned intelligence layer (§23-§25)                                    | ⏳ QUEUED |
 | P1.0  | Intelligence Plane (STIX/TAXII/OSINT enrichment layer)      | ⏳ DEFERRED — after Investigation stack   |

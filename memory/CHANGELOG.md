@@ -2,6 +2,84 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 32 — Capability Fabric v1 — SHIPPED
+
+Round 32 turns the 4 honest `cap-unavailable` handoff stubs into a
+**12-capability specialist investigation workforce** behind the
+Autonomous Investigator.  Each capability reuses existing NivXRay
+engines (`lolbas.scan_lolbas`, `smart_decoder.smart_decode`,
+`decoders.ioc_extractor._extract_all`) rather than duplicating
+functionality.  Every capability declares its category, its
+investigation question, and its evidence requirements — and the
+selector now honestly skips with `SKIPPED_OUT_OF_SCOPE` when
+requirements are not met, rather than fabricating findings.
+
+**12 capabilities registered (all cap-full)**
+
+| Capability | Category | Reuses |
+|---|---|---|
+| `historical_correlation` | history | `xdr_canonical_evidence` prior-sighting query |
+| `correlation`            | correlation | `xdr_correlation_matches` (ICE) |
+| `mitre_expansion`        | mitre | correlation-side MITRE union |
+| `detection_intel`        | detection | `xdr_pipeline.detection_rule_id` + VEEE |
+| `process_ancestry`       | endpoint | deterministic anomaly patterns (Office → shell, browser → interpreter) |
+| `commandline_decode`     | endpoint | **existing** `smart_decoder.smart_decode` |
+| `lolbas_lookup`          | endpoint | **existing** `lolbas.scan_lolbas` (242 entries) |
+| `network_pivot`          | network | prevalence + cross-incident linkage |
+| `dns_pivot`              | network | domain cross-incident linkage |
+| `ioc_pivot`              | intelligence | **existing** `decoders.ioc_extractor._extract_all` |
+| `file_reputation`        | artifact | cross-incident hash linkage (no external API calls) |
+| `identity_pivot`         | identity | cross-incident user linkage |
+
+**New capability-fabric contract fields**
+- `category`, `investigation_question`, `evidence_requirements`,
+  `version`, `gaps_closed_hint`
+- `check_evidence(incident, canonical) → (SUFFICIENT|PARTIAL|
+  INSUFFICIENT|NOT_APPLICABLE, reason)` — honest sufficiency check
+  called by the selector before every execution.
+- Execution `provenance` now carries `evidence_sufficiency`,
+  `sufficiency_reason`, `capability_category`, `capability_version`.
+
+**Planner upgrades**
+- Multi-capability gap map (`process_lineage.absent` chains to
+  `process_ancestry` → `commandline_decode` → `lolbas_lookup`).
+- Baseline capabilities always run (`detection_intel`,
+  `historical_correlation`, `correlation`, `mitre_expansion`,
+  `ioc_pivot`, `network_pivot`, `dns_pivot`) so every incident
+  receives a minimum investigation baseline regardless of IUE gaps.
+
+**New read API**
+- `GET /api/investigator/capabilities` — returns the full registry
+  descriptor (id · name · engine · category · investigation
+  question · evidence requirements · availability). Used by tests
+  and by the Investigation Activity UI (future) to visualise the
+  Fabric.
+
+**Verified end-to-end against real Snort-golden pipeline**
+- 12 pivots planned · 5 real executions · 7 honest
+  SKIPPED_OUT_OF_SCOPE · 7 findings (mix of OBSERVED · CORRELATED
+  · NOT_OBSERVED).
+- Endpoint capabilities honestly skip on network-only evidence —
+  never fabricate a process-lineage finding.
+- Idempotent: second tick produces zero new OK executions.
+- Deterministic: finding IDs stable across ticks.
+
+**Testing**
+- 16/16 tests in `tests/test_xdr_round32_capability_fabric.py`
+  green.
+- Cross-round regression: 151/151 across Rounds 11-32 green.
+
+**Boundaries preserved**
+- Deterministic-first, AI-optional (§9, §13, §18).
+- Verdict Engine untouched (§10, §31).
+- No fabricated findings (§12, §18).
+- No "Auto-Investigate" button (§1, §16).
+- Capabilities never bypass IUE / IKG / provenance (§19, §23).
+
+---
+
+
+
 ## 2026-09-01 · Round 31 — Autonomous Investigator — SHIPPED
 
 The autonomous investigation loop is now real. NivXRay XDR now

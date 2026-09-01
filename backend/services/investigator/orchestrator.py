@@ -177,6 +177,25 @@ class InvestigatorService:
                     engine_name=cap.engine)
                 continue
 
+            # Round 32 · evidence-sufficiency check — honestly skip
+            # when the capability's declared inputs are missing.
+            pipe_data = incident.get("xdr_pipeline") or {}
+            canonical_id = pipe_data.get("canonical_event_id")
+            canonical_for_check = None
+            if canonical_id:
+                canonical_for_check = await db[CANONICAL_COLLECTION].find_one(
+                    {"event_id": canonical_id}, {"_id": 0})
+            sufficiency, suf_reason = cap.check_evidence(
+                incident, canonical_for_check)
+            if sufficiency in ("INSUFFICIENT", "NOT_APPLICABLE"):
+                await cls._record_skip(
+                    db, state, pivot,
+                    reason=f"evidence {sufficiency.lower()}: {suf_reason}",
+                    status="SKIPPED_OUT_OF_SCOPE",
+                    engine_name=cap.engine,
+                    sufficiency=sufficiency)
+                continue
+
             # Prevent duplicate execution (across ticks).
             already = await db[EXECUTIONS_COLLECTION].find_one(
                 {"pivot_id": pivot.pivot_id,
@@ -343,8 +362,14 @@ class InvestigatorService:
     async def _record_skip(cls, db, state: InvestigationState,
                                 pivot: PivotAction, *,
                                 reason: str, status: str,
-                                engine_name: Optional[str] = None) -> None:
+                                engine_name: Optional[str] = None,
+                                sufficiency: Optional[str] = None) -> None:
         now = _now_iso()
+        provenance = {"gap_key": pivot.gap_key,
+                          "engine_id": ENGINE_ID,
+                          "engine_version": ENGINE_VERSION}
+        if sufficiency:
+            provenance["evidence_sufficiency"] = sufficiency
         exe = EngineExecution(
             execution_id=_execution_id(),
             tenant_id=state.tenant_id,
@@ -365,9 +390,7 @@ class InvestigatorService:
             evidence_ids=[],
             finding_ids=[],
             error=None,
-            provenance={"gap_key": pivot.gap_key,
-                          "engine_id": ENGINE_ID,
-                          "engine_version": ENGINE_VERSION},
+            provenance=provenance,
         )
         await db[EXECUTIONS_COLLECTION].insert_one(exe.model_dump(mode="python"))
         await cls._append_activity(db, state, ActivityEntry(
@@ -389,6 +412,14 @@ class InvestigatorService:
                            understanding: IUEUnderstanding) -> EngineExecution:
         started = _now_iso()
         started_wall = time.perf_counter()
+        # Load canonical for this incident + capture sufficiency.
+        pipe = incident.get("xdr_pipeline") or {}
+        canonical_id = pipe.get("canonical_event_id")
+        canonical = None
+        if canonical_id:
+            canonical = await db[CANONICAL_COLLECTION].find_one(
+                {"event_id": canonical_id}, {"_id": 0})
+        sufficiency, suf_reason = cap.check_evidence(incident, canonical)
         exe = EngineExecution(
             execution_id=_execution_id(),
             tenant_id=state.tenant_id,
@@ -406,17 +437,13 @@ class InvestigatorService:
             provenance={"gap_key": pivot.gap_key,
                           "engine_id": ENGINE_ID,
                           "engine_version": ENGINE_VERSION,
-                          "iue_content_hash": understanding.content_hash},
+                          "iue_content_hash": understanding.content_hash,
+                          "evidence_sufficiency": sufficiency,
+                          "sufficiency_reason":   suf_reason,
+                          "capability_category":  cap.category,
+                          "capability_version":   cap.version},
         )
         await db[EXECUTIONS_COLLECTION].insert_one(exe.model_dump(mode="python"))
-
-        # Load canonical for this incident.
-        pipe = incident.get("xdr_pipeline") or {}
-        canonical_id = pipe.get("canonical_event_id")
-        canonical = None
-        if canonical_id:
-            canonical = await db[CANONICAL_COLLECTION].find_one(
-                {"event_id": canonical_id}, {"_id": 0})
 
         error: Optional[str] = None
         findings: List[Finding] = []

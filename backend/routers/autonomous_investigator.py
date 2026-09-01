@@ -15,6 +15,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from deps import get_current_user_optional, sync_collection
 from services.investigator.orchestrator import InvestigatorService
+from services.investigator.planner import registry_descriptor
 
 router = APIRouter(prefix="/incidents", tags=["investigator"])
 _col = sync_collection("workspace_cases")
@@ -22,6 +23,28 @@ _col = sync_collection("workspace_cases")
 
 def _new_async_client():
     return AsyncIOMotorClient(os.environ["MONGO_URL"])
+
+
+# ── Registry introspection (Round 32) ───────────────────────────────
+_registry_router = APIRouter(prefix="/investigator", tags=["investigator"])
+
+
+@_registry_router.get("/capabilities")
+async def list_capabilities(user=Depends(get_current_user_optional)):
+    """Return the descriptor for every registered capability.
+
+    Read-only.  Used by the Investigation Activity UI + tests to
+    confirm the Capability Fabric surface without hitting an incident.
+    """
+    descs = registry_descriptor()
+    counts: Dict[str, int] = {}
+    for d in descs:
+        counts[d["availability"]] = counts.get(d["availability"], 0) + 1
+    return {
+        "count":         len(descs),
+        "availability":  counts,
+        "capabilities":  descs,
+    }
 
 
 @router.get("/{incident_id}/investigation")

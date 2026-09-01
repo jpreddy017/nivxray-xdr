@@ -24,7 +24,7 @@ from services.investigator import InvestigatorService
 from services.investigator.planner import (
     plan_pivots, select_capability, known_capability_ids,
 )
-from services.investigator.capabilities import (
+from services.investigator.capabilities.historical import (
     HistoricalCorrelationCapability, MitreExpansionCapability,
 )
 from services.iue.service import IUEService
@@ -104,20 +104,19 @@ def test_planner_emits_deterministic_pivots(loop, db, incident_id):
         assert p.capability in known, f"unknown capability {p.capability}"
 
 
-# ── 4 · Selector honestly skips unavailable capabilities ─────────────
-def test_selector_reports_unavailable(loop, db, incident_id):
-    understanding = _run(loop, IUEService.latest_valid(db, incident_id))
-    pivots = plan_pivots(understanding)
-    unavailables = [p for p in pivots
-                       if select_capability(p) is not None
-                       and select_capability(p).availability != "cap-full"]
-    assert len(unavailables) >= 1, (
-        "At least one Round 31 gap must map to a cap-unavailable "
-        "capability (Round 32 will supply the engine).")
-    # Ensure honest reason.
-    for p in unavailables:
-        cap = select_capability(p)
-        assert cap.unavailable_reason
+# ── 4 · Selector honestly skips when evidence is insufficient ───────
+def test_selector_or_evidence_check_honestly_skips(loop, db, incident_id):
+    """Round 32: all built-in capabilities are cap-full.  The honest
+    skip now happens via the evidence-sufficiency check — for the
+    network-only Snort-golden pipeline, endpoint/identity/file
+    capabilities are skipped as SKIPPED_OUT_OF_SCOPE."""
+    execs = _run(loop, InvestigatorService.get_executions(db, incident_id))
+    skipped = [e for e in execs if e["status"].startswith("SKIPPED")]
+    assert len(skipped) >= 1, (
+        "Snort-golden is network-only — endpoint/identity/file "
+        "capabilities must be honestly skipped, not fabricated.")
+    for e in skipped:
+        assert e["reason"], "skipped execution must record its reason"
 
 
 # ── 5 · Real executions are persisted ────────────────────────────────
@@ -184,7 +183,7 @@ def test_capability_registry_exposes_cap_states():
     assert hist.availability == "cap-full"
     assert mitre.availability == "cap-full"
     ids = known_capability_ids()
-    # Round 32 handoff stubs must be registered as cap-unavailable.
+    # Round 32: these capability ids are now real, cap-full engines.
     for expected in ("process_ancestry", "identity_pivot",
                        "file_reputation", "network_pivot"):
         assert expected in ids, f"capability {expected} must be registered"
