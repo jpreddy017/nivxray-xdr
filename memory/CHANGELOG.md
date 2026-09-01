@@ -4,41 +4,69 @@ Chronological record of significant releases (newest first).
 
 ## 2026-09-01 · Round 29 — Analyst UI Grammar (MITRE Tab + Incident Header) — SHIPPED
 
-Strict UI-only migration. Two remaining incident-record surfaces moved
+Strict UI-only rebuild. Two remaining incident-record surfaces moved
 onto the Round 24.9 Evidence Operations grammar (`Entity`,
-`EvidenceState`, `Provenance`, `Relationship`, `Action`). No backend
-changes. Legacy surfaces remain intact behind the `?design=v1`
-escape hatch.
+`EvidenceState`, `Provenance`, `Relationship`, `Action`) AND given a
+distinctive XDR command-console visual identity. No backend changes.
+Legacy surfaces intact behind the `?design=v1` escape hatch.
 
 ### Frontend (`/app/apps/nivxray-xdr`)
-- New `src/xdr/design/MitreTabV2.jsx` — evidence-first ATT&CK
-  projection.
-  - Reads unchanged `/admin/content-supply-chain/incidents/:id/attack-chain-graph`.
-  - Renders only `CONFIRMED / SUPPORTED / INSUFFICIENT_EVIDENCE`
-    techniques as an `<Entity>` + `<EvidenceState>` + `<Provenance>`
-    composition.
-  - Suppressed `NOT_OBSERVED / UNKNOWN` techniques counted honestly,
-    never drawn — no fabricated coverage.
-  - Sub-technique parenthood + backend shared-entity/evidence edges
-    rendered via `<Relationship state="…">`.
-  - Explicit empty state when no evidence-backed mapping exists.
-- New `src/xdr/design/RecordHeaderV2.jsx` — incident identity band.
-  - `<Entity kind="rule">` = incident.
-  - `<EvidenceState>` chips for priority, lifecycle state, verdict
-    (closed enum; NOT_RUN / UNKNOWN render as `missing`).
-  - `<Provenance>` chain: Telemetry → Canonical → Correlation →
-    Mapping (missing layers render `not present`).
-  - `<Relationship>` rows for owner + customer when present.
-  - `<Action>` group: Respond (capability-gated by lifecycle),
-    Generate Report (`cap-standby · PHASE_5`), More
-    (`cap-standby · PHASE_3_PLUS`).
+- New `src/xdr/design/RecordHeaderV2.jsx` — **Investigation Command
+  Band**. Dark navy `#0B1220` strip with a priority-coloured 4px top
+  rule (P1 red, P2 orange, P3 amber, P4/P5 muted). One dense row:
+  entity + severity/state/verdict chips + Respond/Report/More actions.
+  Meta line: First seen · Last activity · Owner · Tenant · SLA due.
+- New **Vitals grid** below the band. 8 cells: Evidence · Hosts ·
+  Users · Processes · Files · Network · MITRE · Verdict. Absent
+  values render as muted italic `—`, never as styled zeros. MITRE
+  count is *gated* on `evidence_count > 0` so the "8 techniques with
+  no telemetry" contradiction is architecturally unrepresentable.
+- New **compact provenance line**. Single horizontal chain with
+  adaptive right-side hint ("No telemetry linked · no evidence-backed
+  investigation available.") when upstream layers are absent.
+- New `src/xdr/design/MitreTabV2.jsx` — **Tactic Coverage strip +
+  Technique Cards**.
+  - 14-tactic coverage grid (Reconnaissance → Impact), evidence-
+    derived counts only; zero-count tactics render as honest gaps.
+  - `<TechniqueCard>` for every evidence-backed technique with a
+    confidence-accent left rail (green observed / blue supported /
+    dashed amber missing). Body: technique id + tactic, name,
+    rationale, `<Provenance>` chain. Right column: per-technique
+    evidence rollup — evidence-refs count, hosts, users. Actions:
+    external attack.mitre.org link.
+  - Sub-technique + shared-entity/shared-evidence edges rendered
+    inline via `<Relationship state="…">`.
+  - Suppressed (`NOT_OBSERVED / UNKNOWN`) techniques counted
+    honestly, never drawn.
+  - Empty state is compact and appears BELOW the coverage strip so
+    the analyst sees the gap-shape first, then the honesty note.
+- `src/xdr/design/tokens.css` — new classes: `.evops-cmd`,
+  `.evops-cmd__*`, `.evops-vitals`, `.evops-vitals__*`,
+  `.evops-provline`, `.evops-tactics`, `.evops-technique`. All
+  scoped under `.xdr-console .evops`. Priority-coloured accent rules
+  are the only "colour" the design system adds — no gradients, no
+  decorative shadows.
 - `src/xdr/design/index.js` — barrel exports `MitreTabV2`,
   `RecordHeaderV2`; `MIGRATED_SURFACES` extended with `mitre`,
   `incident-header`.
 - `src/xdr/pages/XdrIncidentDetailPage.jsx` — surface-aware default
-  flip via `isDesignV2EnabledFor("mitre")` and
-  `isDesignV2EnabledFor("incident-header")`. `?design=v1` renders
-  legacy `MitreTab` + legacy `RecordHeader`.
+  flip. `?design=v1` renders untouched legacy `MitreTab` +
+  legacy `RecordHeader`.
+
+### Design language established (NivXRay XDR identity)
+- Deep navy security-console band anchors every incident record.
+- Severity communicated as a top-rule accent, never a decorative
+  card colour.
+- Dense compact enterprise density — 8-cell Vitals row + 14-cell
+  Tactic strip fit within an 1800px viewport.
+- Semantic tones: red (unavailable/critical), amber (missing),
+  blue (supported/in-progress), green (observed), grey (suppressed),
+  purple (actioned / primary command).
+- No purple gradients. Purple reserved for the primary Respond
+  button and the `actioned` evidence state only.
+- Analyst read-time target: ≤10 seconds to understand priority,
+  identity, current state, evidence weight, MITRE coverage,
+  provenance completeness, and the next actionable step.
 
 ### Acceptance gates verified
 - MITRE V2 renders by default · legacy renders under `?design=v1`.
@@ -46,20 +74,17 @@ escape hatch.
   `?design=v1`.
 - Unmigrated surfaces (tabs, lifecycle strip, executive/technical/…)
   unchanged.
-- Empty / no-evidence MITRE path rendered honestly.
-- Incident Header missing-verdict state (`VERDICT_PENDING · NOT_RUN`)
-  rendered honestly.
-- Action disabled-with-reason grammar verified
-  (`PHASE_5`, `PHASE_3_PLUS`).
+- MITRE mapping honestly `not present` when Telemetry / Canonical /
+  Correlation are all absent — the earlier "8 techniques" fabrication
+  is architecturally impossible in the new composition.
+- Vitals MITRE / Correlation cells resolve to `—` when
+  `evidence_count == 0`.
+- Tactic Coverage strip renders 14 cells with honest coverage gaps.
+- Adaptive collapse when no evidence — vitals still render (with
+  `—` values so the analyst sees the honest zero shape), provenance
+  line shows the "no telemetry linked" hint.
 - Backend pytest regression: 37/37 XDR round tests
   (25b/26/26.5/27/28/28.x/28.x.2) green.
-
-### Architectural constraint upheld
-The MITRE tab is a strict PROJECTION of the evidence model
-(`Canonical → Correlation → Mapping`). The Incident Header is a
-strict PROJECTION of authoritative investigation state. Neither
-surface introduces a second source of truth or a new intelligence
-inference path.
 
 ---
 
