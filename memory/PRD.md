@@ -1,6 +1,74 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · ATT&CK Enterprise Catalogue v16.1 (Coverage capability)
+
+Elevated the MITRE page from a hand-maintained ~199-parent list
+to a real ATT&CK Enterprise coverage surface driven by the
+versioned STIX bundle.  Every future ATT&CK release is a
+`build_catalogue.py` re-run away — no hand edits.
+
+**Catalogue** (`/app/backend/mitre_catalogue/`)
+- Downloaded MITRE STIX bundle at tag `ATT&CK-v16.1`
+  (`enterprise-attack-v16.1.json`, 27 MB, from github.com/mitre/cti).
+- `build_catalogue.py` distils it to `enterprise_v16_1.compact.json`
+  (1.2 MB) with **14 tactics · 203 techniques · 453 sub-techniques**
+  and the parent→child hierarchy wired from STIX
+  `subtechnique-of` relationships.
+- `build_name_index.py` emits `name_index.json` (631 published
+  name → canonical id mappings) AND the auto-generated frontend
+  file `attackNameIndex.generated.js`.
+
+**Backend service + API**
+- `services/mitre_catalogue/` — `MitreCatalogue.load()`,
+  `resolve_coverage(observations)`, `MitreCatalogue.resolve_name()`.
+- `GET /api/mitre/catalogue`          — flat 656-row catalogue.
+- `GET /api/mitre/catalogue/coverage` — tactic → parent → sub with
+  real observation counts joined from `workspace_cases`.  Includes
+  `incident_ids[]` per row so the right-hand "Incidents observed"
+  panel still works.
+- `_iter_technique_ids()` uses **id first, then catalogue name
+  fallback**, so future incidents that emit only a technique NAME
+  still count toward coverage.
+
+**Frontend heatmap** (`XdrMitreHeatmap.jsx`)
+- Full rewrite: fetches `/api/mitre/catalogue/coverage`,
+  renders **tactic → parent → sub-technique** with expand/collapse
+  drawers.  Parent aggregate counts are explicitly labelled `Σ N`
+  and never imply a child is covered.  Sub-technique coverage is
+  independent from parent state.
+- `attackLink.js` now imports `ATTACK_NAME_INDEX` from the
+  generated file (637 entries) — every catalogue-published name
+  resolves to an operational `attack.mitre.org` link.  A tiny
+  alias table remains for non-canonical backend leakages
+  (`CMD`, `POWERSHELL (HIDDEN)`, `SIGNED BINARY PROXY EXECUTION:
+  RUNDLL32`, …).  No Google fallback anywhere; unresolvable rows
+  render an honest `no attack id` pill.
+
+**Honesty rules preserved (owner rule §11)**
+- Catalogue presence ≠ detection coverage.
+- Every unobserved technique/sub-technique renders as
+  `NO_EVIDENCE`; parent OBSERVED never promotes a child.
+- No fabricated counts, confidence or risk scores in this layer.
+- AttackTechniqueEvidence contract, verdict engine, and
+  investigation architecture are untouched.
+
+**Verification**
+- New pytest suite `tests/test_mitre_catalogue.py` — 9/9 pass:
+  catalogue shape (203+453), URL/parent invariants, name
+  resolution (case + whitespace), zero-obs = no-evidence,
+  aggregate-count math, totals honesty, generated name-index
+  consistency, `_iter_technique_ids()` name fallback.
+- `attackLink.js` unit script — 9/9 pass (incl. the previously
+  broken rationale string, catalogue name, sub-technique name,
+  and honest `null` for garbage).
+- `yarn build` — 0 errors.
+- Live smoke: `/xdr/intelligence/mitre` shows 22/203 · 16/453 ·
+  38/656 across 106 incidents, T1059 expands to all 13 subs,
+  T1059.001 selected with 37 obs and 35 real incident cards.
+
+
+
 ## ✅ 2026-09-02 · MITRE Link Consolidation (P0 hotfix)
 
 Problem: On >100 incidents the "Open" MITRE technique link 404'd

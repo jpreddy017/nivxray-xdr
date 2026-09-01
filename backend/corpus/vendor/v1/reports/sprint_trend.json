@@ -854,7 +854,7 @@
         "fixtures": 14,
         "id": "vendor-v1"
       },
-      "duration_ms": 2327,
+      "duration_ms": 1922,
       "per_fixture": {
         "flag_off": [
           {
@@ -1227,7 +1227,7 @@
       },
       "schema_version": "1.0",
       "sprint": "sprint-20260901",
-      "timestamp_utc": "2026-09-01T13:07:12.957558+00:00"
+      "timestamp_utc": "2026-09-01T18:57:52.895767+00:00"
     },
     {
       "aggregate": {
