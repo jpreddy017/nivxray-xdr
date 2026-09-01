@@ -58,6 +58,92 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 25b — SHIPPED · Credential Vault
+
+**Boundary invariant (locked · owner):**
+
+```
+xdr_integrations          (credential_ref only · never plaintext, never ciphertext)
+       │
+       ▼
+xdr_credential_vault      (envelope-encrypted · tenant-DEK · root-wrapped)
+       │  decrypt only at execution boundary
+       ▼
+xdr_cortex_executor       (scoped adapter instance · one-shot plaintext)
+       │
+       ▼
+xdr_cortex_adapter        (never reads xdr_integrations directly)
+       │
+       ▼
+Cortex XDR API
+```
+
+### Shipped
+
+- **`detection_content/xdr_credential_vault.py`** — Envelope
+  vault with:
+  - `RootKeyProvider` ABC + `EnvRootKeyProvider` (`XDR_ROOT_KEY`)
+    + `FileRootKeyProvider` (`${XDR_STATE_DIR}/root.key`, chmod
+    600). KMS-agnostic — a future `KMSRootKeyProvider` drops in
+    without touching callers.
+  - Per-tenant DEK cached in memory only, wrapped per-secret so
+    the DEK itself is never persisted directly.
+  - `mint_secret / access / rotate_secret / revoke / audit_trail`.
+  - `xdr_credential_vault` collection = ciphertext store.
+  - `xdr_vault_audit` collection = append-only op log
+    (`MINT / ACCESS / ROTATE / REVOKE` × `OK / NOT_FOUND /
+    REVOKED_DENY / DECRYPT_FAIL`).
+- **`detection_content/xdr_cortex_executor.py`** — the ONLY
+  sanctioned path a Cortex adapter runs against a persisted
+  integration:
+  - `run_cortex_action(...)` — Round 27 hook.
+  - `ingest_cortex_alerts(...)` — Round 26 hook.
+  - Vault access is per-call, audit-logged, one-shot; plaintext
+    lives only in the local frame.
+- **`routers/xdr_cortex_wizard.py`** migrated:
+  - `POST /connections` — mints via vault first, stores only
+    `credential_ref` on the integration doc.  Legacy
+    `credentials_encrypted / credentials_scheme /
+    credentials_todo` fields are scrubbed on every read via
+    `_redact_record()`.
+  - `POST /connections/{id}/rotate` — probes new key first, then
+    rotates.  Old secret stays active on probe failure.
+  - `GET /connections/{id}/audit` — vault audit trail scoped to
+    the integration.
+  - `DELETE /connections/{id}` — tombstones the integration AND
+    revokes the vault secret so a leaked ref cannot resurrect.
+- **`tests/test_xdr_round25b_vault.py`** — 3 locked invariants:
+  1. mint → access → revoke → access(denied) lifecycle audit.
+  2. Rotate installs `predecessor_ref`, tombstones old, new
+     plaintext accessible under new ref.
+  3. Two integrations same tenant → same DEK version, distinct
+     ciphertext.
+
+### Verified end-to-end (mock Cortex on 127.0.0.1)
+
+- Create returned `credential_ref: vlt-…` on the doc — zero
+  ciphertext on the record; read path returns `api_key: "***"`.
+- Rotate → new `vlt-…`, old ref implicitly tombstoned, only
+  after a fresh probe against the new key succeeds.
+- Audit trail: `MINT → MINT → ROTATE → REVOKE`, each carrying
+  `purpose / principal / outcome / secret_ref`.
+- Delete → `vault_revoked: true`.
+- All 11 tests green (Round 24 adapter contract + Round 25b vault).
+
+### Boundary notes for Round 26/27
+
+- Round 26 ingest MUST call
+  `xdr_cortex_executor.ingest_cortex_alerts(...)`.  Direct
+  adapter instantiation against a persisted integration is
+  banned.
+- Round 27 response console MUST call
+  `xdr_cortex_executor.run_cortex_action(...)`.
+- Both hooks already exist and are audit-wired.
+- Future EDR adapters (CrowdStrike, SentinelOne, Defender) get
+  their own `xdr_<vendor>_executor.py` — same shape, single
+  vault, single trust boundary.
+
+---
 ## ✅ 2026-02-14 · Round 25a — SHIPPED · Cortex XDR Vendor Wizard
 
 **Goal:** first typed BYO-EDR onboarding surface.  Real-only —

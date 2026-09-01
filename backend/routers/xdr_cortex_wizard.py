@@ -7,31 +7,32 @@ endpoint below runs against the customer's REAL Cortex tenant via
 the `xdr_cortex_adapter` reference implementation — no synthetic
 demo path, no fabricated capability.
 
-Owner-locked invariants (Round 25a):
+Owner-locked invariants (Round 25a + 25b):
   • The wizard MUST NEVER represent the integration as connected,
     capable, or active unless the adapter's own connect() +
     capability_probe() succeeds with the operator's credentials.
-  • The API key is accepted once, encrypted at rest via
-    ``XDR_ENCRYPTION_KEY`` (Fernet · rotatable), never rendered
-    back, never logged.  Round 25b replaces this with a proper
-    envelope-encrypted vault.
-  • Probe results write straight into ``xdr_integrations``
-    (schema already consumed by ``xdr_capability_service``).  No
-    parallel record, no drift.
+  • Credentials NEVER live on the `xdr_integrations` document.  They
+    are minted into the `CredentialVault` (Round 25b) and only the
+    opaque `credential_ref` is stored on the integration.
+  • Adapters access credentials via `vault.access(ref, purpose,
+    principal)` — a scoped, audit-logged one-shot decrypt at the
+    execution boundary.  Round 25b prohibits any adapter reading
+    `xdr_integrations.credentials` directly.
 
 Endpoints (all under ``/api/xdr/vendor/cortex``):
 
-  POST /probe                → run connect() + capability_probe();
-                                return the honest result; no persist.
-  POST /connections           → run probe; on success create record.
-  GET  /connections           → list, redacted.
-  GET  /connections/{id}      → one, redacted.
-  DELETE /connections/{id}    → tombstone (active=false); credentials
-                                blob is scrubbed.
+  POST /probe                     → run connect() + capability_probe();
+                                    return the honest result; no persist.
+  POST /connections               → run probe; on success create record
+                                    with credential_ref only (vault-backed).
+  GET  /connections               → list, redacted.
+  GET  /connections/{id}          → one, redacted.
+  DELETE /connections/{id}        → tombstone + revoke vault secret.
+  POST /connections/{id}/rotate   → mint new secret, revoke old, re-probe.
+  GET  /connections/{id}/audit    → vault audit trail scoped to this integration.
 """
 from __future__ import annotations
 
-import base64
 import datetime as _dt
 import logging
 import os
@@ -39,7 +40,6 @@ import uuid
 from typing import Any, Optional
 
 import httpx
-from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
 
@@ -48,48 +48,16 @@ from detection_content.xdr_edr_adapter import (
     AVAILABLE, UNAVAILABLE, FAILED, NOT_SUPPORTED,
 )
 from detection_content.xdr_capability_service import _ACTION_TO_CAPABILITY
+from detection_content.xdr_credential_vault import (
+    CredentialVault, VaultAccessError, get_vault,
+)
 from deps import db
 
 log = logging.getLogger("nivxray.xdr.cortex_wizard")
 
 router = APIRouter(prefix="/api/xdr/vendor/cortex", tags=["xdr-cortex-wizard"])
 COLLECTION = "xdr_integrations"
-
-
-# ── Credential envelope (Round 25a interim · Round 25b vault replaces) ─
-def _fernet() -> Fernet:
-    key = os.environ.get("XDR_ENCRYPTION_KEY")
-    if not key:
-        # Boot-generated key mirrored to XDR_STATE_DIR.  Round 25b will
-        # replace this with a KMS-agnostic envelope; a plain Fernet is a
-        # deliberate short-lived contract, marked TODO in the record.
-        state_dir = os.environ.get("XDR_STATE_DIR", "/app/backend/xdr_state")
-        os.makedirs(state_dir, exist_ok=True)
-        keyfile = os.path.join(state_dir, "wizard.key")
-        if os.path.isfile(keyfile):
-            with open(keyfile, "rb") as f:
-                key = f.read().decode()
-        else:
-            key = Fernet.generate_key().decode()
-            with open(keyfile, "w", encoding="utf-8") as f:
-                f.write(key)
-            try:
-                os.chmod(keyfile, 0o600)
-            except OSError:
-                pass
-        os.environ["XDR_ENCRYPTION_KEY"] = key
-    return Fernet(key.encode())
-
-
-def _encrypt(plaintext: str) -> str:
-    return _fernet().encrypt(plaintext.encode("utf-8")).decode("ascii")
-
-
-def _decrypt(ciphertext: str) -> Optional[str]:
-    try:
-        return _fernet().decrypt(ciphertext.encode("ascii")).decode("utf-8")
-    except InvalidToken:
-        return None
+VENDOR = "palo_alto_cortex_xdr"
 
 
 # ── Live-tenant HTTP connector used by the adapter ────────────
@@ -221,12 +189,19 @@ async def cortex_probe(body: CortexProbeBody,
 # ── Persistence ───────────────────────────────────────────────
 def _redact_record(rec: dict) -> dict:
     out = dict(rec)
+    # Backwards compat: scrub any legacy inline ciphertext that pre-25b
+    # records may still carry.  The vault is the ONLY authoritative
+    # store from Round 25b onward.
     out.pop("credentials_encrypted", None)
+    out.pop("credentials_scheme", None)
+    out.pop("credentials_todo", None)
     out["credentials"] = {
-        "api_key_id": rec.get("api_key_id"),
-        "api_key":    "***",
-        "base_url":   rec.get("base_url"),
-        "tenant":     rec.get("tenant"),
+        "api_key_id":    rec.get("api_key_id"),
+        "api_key":       "***",
+        "base_url":      rec.get("base_url"),
+        "tenant":        rec.get("tenant"),
+        "credential_ref": rec.get("credential_ref"),
+        "vault":         "xdr_credential_vault",
     }
     return out
 
@@ -235,7 +210,12 @@ def _redact_record(rec: dict) -> dict:
 async def cortex_create(body: CortexCreateBody,
                                 x_tenant_id: Optional[str] = Header(default=None)):
     """Probe first, persist only on success.  Refuses to create an
-    integration record that would falsely claim to be connected."""
+    integration record that would falsely claim to be connected.
+
+    Round 25b: the API key is minted into the CredentialVault BEFORE
+    the integration record is written.  The record itself never
+    carries the key — only the opaque `credential_ref`.
+    """
     probe = await _run_probe(body)
     if not probe["connect"]["ok"]:
         raise HTTPException(
@@ -248,20 +228,25 @@ async def cortex_create(body: CortexCreateBody,
     integration_id = f"cortex-{uuid.uuid4().hex[:12]}"
     now = _iso_now()
     tenant_id = x_tenant_id or body.tenant or "default"
+    vault = get_vault(db)
+    credential_ref = await vault.mint_secret(
+        tenant_id      = tenant_id,
+        integration_id = integration_id,
+        purpose        = "cortex_api_key",
+        plaintext      = body.api_key,
+        principal      = "cortex_wizard",
+    )
     doc = {
         "integration_id":  integration_id,
-        "vendor":          "palo_alto_cortex_xdr",
+        "vendor":          VENDOR,
         "label":           body.label,
         "tenant_id":       tenant_id,
         "base_url":        body.base_url,
         "api_key_id":      body.api_key_id,
         "tenant":          body.tenant,
         "advanced_api":    body.advanced_api,
-        # Round 25a interim envelope · Round 25b vault replaces this
-        # field with a KMS-wrapped DEK reference.
-        "credentials_encrypted": _encrypt(body.api_key),
-        "credentials_scheme":    "fernet-v1",
-        "credentials_todo":      "replace-with-round25b-envelope",
+        # Round 25b: credentials live in the vault ONLY.
+        "credential_ref":  credential_ref,
         "connected":       True,
         "connect_detail":  probe["connect"]["detail"],
         "capability_matrix": [
@@ -307,13 +292,106 @@ async def cortex_get(integration_id: str):
 
 @router.delete("/connections/{integration_id}")
 async def cortex_delete(integration_id: str):
-    result = await db[COLLECTION].update_one(
-        {"integration_id": integration_id, "vendor": "palo_alto_cortex_xdr"},
+    """Tombstone the integration AND revoke its vault secret so an
+    accidental leaked reference cannot be re-used post-deletion."""
+    rec = await db[COLLECTION].find_one(
+        {"integration_id": integration_id, "vendor": VENDOR},
+        {"_id": 0, "credential_ref": 1},
+    )
+    if rec is None:
+        raise HTTPException(404, detail={"error": "integration_not_found"})
+    if rec.get("credential_ref"):
+        try:
+            await get_vault(db).revoke(secret_ref=rec["credential_ref"],
+                                             principal="cortex_wizard")
+        except VaultAccessError:
+            pass
+    await db[COLLECTION].update_one(
+        {"integration_id": integration_id, "vendor": VENDOR},
         {"$set": {"active": False, "connected": False,
                      "updated_at": _iso_now()},
-          "$unset": {"credentials_encrypted": ""}},
+          "$unset": {"credential_ref": ""}},
     )
-    if result.matched_count == 0:
-        raise HTTPException(404, detail={"error": "integration_not_found"})
     return {"ok": True, "integration_id": integration_id,
-              "tombstoned": True}
+              "tombstoned": True, "vault_revoked": bool(rec.get("credential_ref"))}
+
+
+class CortexRotateBody(BaseModel):
+    api_key: str = Field(..., description="New Cortex Advanced-API key.")
+
+
+@router.post("/connections/{integration_id}/rotate")
+async def cortex_rotate(integration_id: str, body: CortexRotateBody):
+    """Rotate the API key without breaking the running integration.
+    Runs a fresh probe with the new key; on success rotates the vault
+    secret (old ref tombstoned, new ref installed) and updates the
+    capability_matrix + connect_detail from the fresh probe.
+
+    On probe failure the OLD secret stays active — no partial state.
+    """
+    rec = await db[COLLECTION].find_one(
+        {"integration_id": integration_id, "vendor": VENDOR}, {"_id": 0})
+    if rec is None:
+        raise HTTPException(404, detail={"error": "integration_not_found"})
+    if not rec.get("credential_ref"):
+        raise HTTPException(409, detail={
+            "error": "vault_ref_missing",
+            "reason": "integration predates Round 25b vault · re-onboard first",
+        })
+
+    probe = await _run_probe(CortexProbeBody(
+        base_url    = rec["base_url"],
+        api_key_id  = rec.get("api_key_id") or "",
+        api_key     = body.api_key,
+        tenant      = rec.get("tenant"),
+        advanced_api= bool(rec.get("advanced_api", True)),
+    ))
+    if not probe["connect"]["ok"]:
+        raise HTTPException(400, detail={
+            "error": "rotate_probe_failed",
+            "reason": probe["connect"]["reason"],
+            "vendor_detail": probe["connect"]["detail"],
+            "note": "old credential preserved · rotation aborted",
+        })
+
+    new_ref = await get_vault(db).rotate_secret(
+        secret_ref    = rec["credential_ref"],
+        new_plaintext = body.api_key,
+        principal     = "cortex_wizard",
+    )
+    await db[COLLECTION].update_one(
+        {"integration_id": integration_id, "vendor": VENDOR},
+        {"$set": {
+            "credential_ref":   new_ref,
+            "connect_detail":   probe["connect"]["detail"],
+            "capability_matrix": [
+                {
+                    "action_id":     e["action_id"],
+                    "capability_id": _ACTION_TO_CAPABILITY.get(e["action_id"]),
+                    "state":         e["state"],
+                    "detail":        e.get("detail"),
+                }
+                for e in probe["capabilities"]
+            ],
+            "probed_at":  probe["probed_at"],
+            "updated_at": _iso_now(),
+        }},
+    )
+    return {"ok": True, "integration_id": integration_id,
+              "credential_ref": new_ref, "rotated_at": _iso_now()}
+
+
+@router.get("/connections/{integration_id}/audit")
+async def cortex_audit(integration_id: str, limit: int = 100):
+    """Return the vault audit trail scoped to this integration.  Every
+    MINT / ACCESS / ROTATE / REVOKE is captured."""
+    rec = await db[COLLECTION].find_one(
+        {"integration_id": integration_id, "vendor": VENDOR},
+        {"_id": 0, "integration_id": 1},
+    )
+    if rec is None:
+        raise HTTPException(404, detail={"error": "integration_not_found"})
+    trail = await get_vault(db).audit_trail(
+        integration_id=integration_id, limit=limit)
+    return {"integration_id": integration_id,
+              "audit": trail, "count": len(trail)}
