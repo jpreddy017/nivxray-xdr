@@ -2,6 +2,54 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 41 — Timeline Replay — SHIPPED
+
+Owner-locked as a **pure client playback controller** over the
+existing walkable primary path.  No new data model, no Attack Graph
+architectural change, no scope expansion.
+
+**Frontend — `AttackGraphTab.jsx`**
+- PATH REPLAY control row (Activity Graph subview only):
+  Prev / Play-Pause / Next / Scrubber + step counter
+  (`N / total · KIND`).
+- Step sequence = ordered intersection of `graph.primary_path[]`
+  and Activity Graph projection nodes.  Sparse path elements
+  (technique / stage / capability / finding node kinds) are
+  omitted — never fabricated.
+- Playback state (`replayIdx`, `replayPlaying`) is entirely
+  client-side.  Auto-advance every 1.2 s while playing.
+- Current step gets an animated purple dashed ring on the SVG
+  (`xdr-ag-replay-focus-{id}`).
+- Step change fires the existing selection contract →
+  `<EvidenceInspector>` opens for the current step's node with
+  identity + context + evidence + provenance + investigate actions.
+
+**Backend — zero changes.**  The controller reads only the existing
+`graph.primary_path[]` and Activity Graph projection.
+
+**Tests — `tests/test_xdr_round41_timeline_replay.py`** (6 tests)
+- `primary_path[]` is walkable via real edges.
+- Activity projection yields ≥ 2 replay steps for a rich fixture.
+- Every replay step exposes `kind` + `label` (inspector needs them).
+- Replay sequence is deterministic across runs.
+- Sparse projections drop path elements gracefully — order preserved.
+- **Backend envelope has NOT sprouted `replay` / `timeline_v2` /
+  `playback` / `attack_timeline` keys** (single data model preserved).
+
+**End-to-end verified on R35 EDR fixture in preview:**
+- 6 replay steps; Play advances Incident → IP → EVENT → PROCESS …
+- Purple dashed focus ring animates on the current node.
+- Shared inspector auto-loads per step (SYSMON · CANONICAL · signature
+  · evidence refs · Detection Intel investigate action).
+
+**Cumulative regression: 230/230 green per-module across
+R21 → R41 (28 modules).**  Bulk sweep reports 227/230 due to the
+same pre-existing test-isolation quirk in
+`test_xdr_round25b_vault.py` documented at Round 30's finish — every
+test passes standalone.
+
+
+
 ## 2026-09-01 · Round 40 — Reopen Empty-State Polish — SHIPPED
 
 Small, owner-scoped UI polish for sparse findings persisted on a

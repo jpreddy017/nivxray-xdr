@@ -2,6 +2,60 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 41 — SHIPPED · Timeline Replay
+
+Owner-locked as a **pure playback controller** over the existing
+Activity Graph walkable primary path.  No second timeline model.
+No Attack Graph architecture change.  Every step opens the existing
+shared `<EvidenceInspector>`.
+
+    Canonical Evidence
+           ↓
+    Activity Graph
+           ↓
+    Walkable Primary Path         ← already computed
+           ↓
+    Timeline Controller           ← Round 41 (client only)
+           ↓
+    Current Step
+           ↓
+    Existing Evidence Inspector
+
+### Shipped (client only)
+- `AttackGraphTab.jsx` — new PATH REPLAY row (Activity Graph subview
+  only) with Prev / Play / Next / Scrubber and step counter
+  (`N / total · KIND`).
+- Playback state (`replayIdx`, `replayPlaying`) lives client-side.
+- Step sequence = ordered intersection of `graph.primary_path[]`
+  and Activity Graph projection node ids.  Sparse projections
+  handled by omission — never fabrication.
+- Auto-advance every 1.2 s while playing; stops at last step.
+- Current step highlighted with animated purple dashed ring on the
+  SVG (`xdr-ag-replay-focus-{id}`).
+- Step change fires the existing selection contract → shared
+  `<EvidenceInspector>` opens for the current node.
+
+### Verified
+- 6 new R41 regression tests pin: walkable primary path · Activity
+  projection yields ≥ 2 replay steps · every step carries the
+  inspector fields · deterministic sequence · sparse projections
+  handled gracefully · **backend has NOT sprouted a `replay` /
+  `timeline_v2` / `playback` / `attack_timeline` key** (single
+  data model preserved).
+- End-to-end verified in preview: R35 EDR fixture yields 6 replay
+  steps; Play advances through Incident → IP → EVENT → PROCESS …;
+  each step opens the shared inspector with governed evidence.
+
+### Cumulative regression
+R21 → R41 · 28 modules · **230/230** tests green per-module.
+Bulk-sweep reports 227/230 — same pre-existing test-isolation
+quirk in `test_xdr_round25b_vault.py` documented at Round 30's
+finish (event-loop closed across parallel workers).  Every test
+passes when its module is run standalone.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 40 — SHIPPED · Reopen Empty-State Polish
 
 Small, owner-scoped UI polish.  When a `CONVERGED → REOPENED`

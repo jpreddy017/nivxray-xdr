@@ -152,6 +152,10 @@ export default function AttackGraphTab({ incident }) {
   const [showLegend, setShowLegend] = useState(false);
   const [nodeOverrides, setNodeOverrides] = useState({}); // id → {x,y}
   const [dragState, setDragState] = useState(null); // {nodeId, ox, oy, startX, startY} | {pan:true, ...}
+  // Round 41 · Timeline Replay — playback controller over the existing
+  // Activity Graph walkable primary path.  No new data model.
+  const [replayIdx, setReplayIdx]         = useState(-1);
+  const [replayPlaying, setReplayPlaying] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -198,6 +202,57 @@ export default function AttackGraphTab({ incident }) {
     }
     return graph.edges;
   }, [graph, subView]);
+
+  // Round 41 · Ordered replay sequence.
+  //
+  //   Canonical Evidence → Activity Graph → Walkable Primary Path →
+  //   Timeline Controller → Current Step → Existing Evidence Inspector
+  //
+  // We do NOT build a second timeline model.  The list is the exact
+  // `graph.primary_path[]` produced by the backend walker, filtered
+  // to nodes present in the current projection.  Sparse / missing
+  // path elements are handled by simply omitting them.
+  const replaySteps = useMemo(() => {
+    if (!graph) return [];
+    const path = graph.primary_path || [];
+    const byId = new Map((activeNodes || []).map(n => [n.id, n]));
+    return path.map(id => byId.get(id)).filter(Boolean);
+  }, [graph, activeNodes]);
+
+  const replayCurrent = replayIdx >= 0 && replayIdx < replaySteps.length
+    ? replaySteps[replayIdx] : null;
+
+  // Reset the replay when the active projection changes (e.g. sub-tab
+  // switch).  Keeps state consistent with what is actually rendered.
+  useEffect(() => {
+    setReplayIdx(-1);
+    setReplayPlaying(false);
+  }, [subView, incident?.id]);
+
+  // Wire the replay step to the shared selection so the SVG focuses
+  // the current node and the shared EvidenceInspector opens for it.
+  useEffect(() => {
+    if (!replayCurrent) return;
+    setSelId(replayCurrent.id);
+    setSelKind("node");
+  }, [replayCurrent]);
+
+  // Auto-advance while playing.
+  useEffect(() => {
+    if (!replayPlaying) return undefined;
+    if (replaySteps.length === 0) { setReplayPlaying(false); return undefined; }
+    const t = setInterval(() => {
+      setReplayIdx(i => {
+        const next = i + 1;
+        if (next >= replaySteps.length) {
+          setReplayPlaying(false);
+          return replaySteps.length - 1;
+        }
+        return next;
+      });
+    }, 1200);
+    return () => clearInterval(t);
+  }, [replayPlaying, replaySteps.length]);
 
   // Filter nodes by mode + layers + gap policy.
   const visibleNodes = useMemo(() => {
@@ -447,6 +502,88 @@ export default function AttackGraphTab({ incident }) {
             <span className="mono">{timeMax}% · {timelineWindow ? timelineWindow.size : 0}</span>
           </div>
         )}
+        {/* Round 41 · Timeline Replay — walkable primary-path playback.
+            Pure controller over graph.primary_path[]; no new data model. */}
+        <div style={{ padding: "6px 10px", borderBottom: "1px solid #1e293b",
+                        color: "#e2e8f0", fontSize: 11, display: "flex",
+                        alignItems: "center", gap: 8, background: "#0a0e1a" }}
+              data-testid="xdr-ag-replay">
+          <span style={{ color: "#a78bfa", fontWeight: 700,
+                             letterSpacing: 0.6, textTransform: "uppercase",
+                             fontSize: 10 }}>
+            Path Replay
+          </span>
+          {replaySteps.length === 0 ? (
+            <span style={{ color: "#64748b", fontStyle: "italic" }}
+                    data-testid="xdr-ag-replay-empty">
+              No walkable primary path in this projection.
+            </span>
+          ) : (
+            <>
+              <button
+                data-testid="xdr-ag-replay-prev"
+                style={btnS}
+                disabled={replayIdx <= 0}
+                title="Previous step"
+                onClick={() => {
+                  setReplayPlaying(false);
+                  setReplayIdx(i => Math.max(0, i - 1));
+                }}>
+                <SkipBack size={11} />
+              </button>
+              <button
+                data-testid="xdr-ag-replay-play"
+                style={{ ...btnS,
+                             background: replayPlaying ? "#7c3aed" : "#1e293b",
+                             borderColor: replayPlaying ? "#8b5cf6" : "#334155" }}
+                title={replayPlaying ? "Pause path replay" : "Play path replay"}
+                onClick={() => {
+                  if (replayIdx < 0) setReplayIdx(0);
+                  setReplayPlaying(p => !p);
+                }}>
+                {replayPlaying ? <Pause size={11} /> : <Play size={11} />}
+              </button>
+              <button
+                data-testid="xdr-ag-replay-next"
+                style={btnS}
+                disabled={replayIdx >= replaySteps.length - 1}
+                title="Next step"
+                onClick={() => {
+                  setReplayPlaying(false);
+                  setReplayIdx(i => Math.min(replaySteps.length - 1, i + 1));
+                }}>
+                <SkipForward size={11} />
+              </button>
+              <input type="range"
+                      data-testid="xdr-ag-replay-scrub"
+                      min="0"
+                      max={Math.max(0, replaySteps.length - 1)}
+                      value={Math.max(0, replayIdx)}
+                      onChange={e => {
+                        setReplayPlaying(false);
+                        setReplayIdx(parseInt(e.target.value, 10));
+                      }}
+                      style={{ flex: 1 }} />
+              <span className="mono"
+                      data-testid="xdr-ag-replay-position"
+                      style={{ color: "#cbd5e1" }}>
+                {Math.max(0, replayIdx) + (replayIdx < 0 ? 0 : 1)}
+                {" / "}
+                {replaySteps.length}
+              </span>
+              {replayCurrent && (
+                <span className="mono"
+                        data-testid="xdr-ag-replay-current-kind"
+                        title={replayCurrent.label}
+                        style={{ color: "#a78bfa", fontSize: 10,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.4 }}>
+                  · {replayCurrent.kind}
+                </span>
+              )}
+            </>
+          )}
+        </div>
         {/* Edge semantics legend (toggle) */}
         {showLegend && (
           <div style={{ padding: "8px 10px", borderBottom: "1px solid #1e293b",
@@ -553,6 +690,7 @@ export default function AttackGraphTab({ incident }) {
                 && kindTone ? kindTone.stroke : tone.stroke;
               const isSel = selId === n.id && selKind === "node";
               const isPrim = primaryPath.has(n.id);
+              const isReplayCurrent = replayCurrent && replayCurrent.id === n.id;
               const stroke = isSel ? "#fbbf24" : isPrim ? "#fbbf24" : nodeStroke;
               const findingAnnotations = (n.annotations?.findings) || [];
               const findingCount = findingAnnotations.length;
@@ -574,7 +712,19 @@ export default function AttackGraphTab({ incident }) {
                          fill={nodeFill}
                          stroke={stroke}
                          strokeWidth={isSel || isPrim ? 1.5 : 0.8} />
-                  <text x={p.x + 6} y={p.y + 11}
+                  {isReplayCurrent && (
+                    <rect x={p.x - 4} y={p.y - 4}
+                            width={NODE_W + 8} height={NODE_H + 8} rx={6}
+                            fill="none"
+                            stroke="#a78bfa"
+                            strokeWidth={2}
+                            strokeDasharray="4 3"
+                            data-testid={`xdr-ag-replay-focus-${n.id}`}>
+                      <animate attributeName="stroke-opacity"
+                                    values="0.4;1;0.4" dur="1.4s"
+                                    repeatCount="indefinite" />
+                    </rect>
+                  )}                  <text x={p.x + 6} y={p.y + 11}
                          fontSize={8} fontFamily="ui-monospace, monospace"
                          fill="#e2e8f0" opacity={0.7}>
                     {tone.label} {n.kind.toUpperCase()}
