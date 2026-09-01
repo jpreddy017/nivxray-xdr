@@ -58,6 +58,98 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 27 + 27.x — SHIPPED · Response Console + Golden BYO-EDR E2E
+
+### Owner-locked invariants (Round 27)
+- Never expose / execute an action the adapter reports as
+  `NOT_SUPPORTED / UNAVAILABLE / FAILED`.  UI gates AND backend
+  gates independently — the UI is never the security boundary.
+- Never invoke the adapter directly.  Only
+  `xdr_cortex_executor.run_cortex_action` may cross the vault
+  boundary.
+- Every execution writes three artefacts:
+  1. `xdr_response_actions` row (provenance root, carries
+     `vendor_action_id`, `requested_at`, `completed_at`, full
+     `result`).
+  2. Canonical evidence row (`source_object_type=action_result`)
+     with `promotion_state=ACTIONED` on success, or
+     `EXECUTION_FAILED` on vendor rejection — never a fake
+     ACTIONED.
+  3. Same incident gets the new `event_id` appended to
+     `evidence_event_ids` (deterministic).
+
+### Shipped
+
+- **`routers/xdr_cortex_actions.py`** — `POST /api/xdr/vendor/cortex/actions`
+  * Backend-enforced capability gate — reads
+    `xdr_integrations.capability_matrix` and 409-rejects any
+    action that is not `AVAILABLE`.  Adapter is never even
+    invoked when the gate denies.
+  * Persists action row, writes `ACTIONED` / `EXECUTION_FAILED`
+    canonical evidence, refreshes the incident via `$addToSet`.
+  * `GET /api/xdr/vendor/cortex/actions` — list, scoped by
+    incident or integration.
+- **Recommendations tab migration** — new
+  `xdr/design/RecommendationsTabV2.jsx` ships behind the same
+  `?design=v2` flag as the Round 24.9 primitives (Entity,
+  EvidenceState, Provenance, Action).  Legacy
+  `RecommendationsTab.jsx` remains untouched.  The Execute button
+  is capability-gated in the UI and calls the Round 27
+  `/actions` endpoint; failures render as
+  `EXECUTION_FAILED · vendor detail` inline — no green success on
+  failure.
+- **`isDesignV2Enabled()` now session-sticky** — once
+  `?design=v2` is seen the opt-in is cached in `sessionStorage`
+  so it survives client-side navigation (incident row click,
+  tab switch).  `?design=v1` explicitly clears.
+- **`XdrIncidentDetailPage.jsx`** — the Recommendations tab dispatch
+  swaps V2 ↔ legacy at the section boundary based on the flag.
+- **`tests/test_xdr_round27_golden_byoedr.py`** — the **Golden
+  BYO-EDR E2E proof**.  Walks the entire loop end-to-end in a
+  single test:
+
+  ```
+  Cortex webhook payload
+      → ingest_payload  (parse + upsert + promote)
+      → 5 canonical evidence + 1 promoted incident
+      → capability gate rejects PROCESS_KILL (NOT_SUPPORTED)
+        without ever invoking the adapter
+      → executes ENDPOINT_ISOLATE (AVAILABLE) via a mocked
+        run_cortex_action returning vendor_action_id=CORTEX-ACTION-42
+      → action row persisted; ACTIONED canonical evidence
+        written; same incident now references 6 event_ids
+      → failure path also verified: EXECUTION_FAILED never fakes
+        ACTIONED; evidence stays attributable to the attempt
+      → provenance traversal closes:
+        incident → ACTIONED event → action_row_id →
+        vendor_action_id
+  ```
+
+### Verified
+- Full backend regression **22/22 green**
+  (R24 · R25b · R26 · R26.5 · R27.x).
+- V2 Recommendations tab renders on the Round 24.9 grammar with
+  honest empty state on incidents that have no synthesised
+  recommendations (`data-testid=recommendations-tab-v2` +
+  `reco-empty`).  Legacy tab preserved via `?design=v1`.
+- Cortex Response Console router mounted at startup
+  (`log: [startup] Cortex response console mounted at /api/xdr/vendor/cortex/actions`).
+
+### Boundary notes for next rounds
+- **Round 28 · Multi-vendor adapters**: CrowdStrike Falcon +
+  Microsoft Defender + SentinelOne.  Each gets its own
+  `xdr_<vendor>_executor.py` + `xdr_<vendor>_wizard.py` +
+  `xdr_<vendor>_ingest.py` — same shape, single vault, single
+  design-system UI, single response console.
+- **Round P1.0 · Intelligence Planes**: the deferred CTAs
+  (`Configure Intelligence Source`, `Configure OSINT Sources`)
+  land here.  Sources: VirusTotal, AbuseIPDB, URLScan, OTX,
+  Umbrella, Talos, Hybrid Analysis, Shodan, GreyNoise.
+- **UI migration progression**: MITRE tab + Incident header
+  remain on legacy grammar; they can be moved onto
+  Round 24.9 primitives whenever a backend track blocks.
+
+---
 ## ✅ 2026-02-14 · Round 26.5 — SHIPPED · Incident Promotion + Poller Scheduler
 
 ### Boundary (owner-locked)

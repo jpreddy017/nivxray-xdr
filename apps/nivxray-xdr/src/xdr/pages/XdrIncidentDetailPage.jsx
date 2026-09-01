@@ -35,6 +35,7 @@ import AutoInvestigationTab  from "./incidents/record/tabs/AutoInvestigationTab"
 import MitreTab              from "./incidents/record/tabs/MitreTab";
 import AttackStoryTab        from "./incidents/record/tabs/AttackStoryTab";
 import RecommendationsTab    from "./incidents/record/tabs/RecommendationsTab";
+import { RecommendationsTabV2, isDesignV2Enabled } from "@/xdr/design";
 import NotesTab              from "./incidents/record/tabs/NotesTab";
 import TimelineTab           from "./incidents/record/tabs/TimelineTab";
 import RelatedTab            from "./incidents/record/tabs/RelatedTab";
@@ -135,7 +136,9 @@ export default function XdrIncidentDetailPage() {
               {tab === "auto_investigation" && <AutoInvestigationTab incident={incident} />}
               {tab === "mitre"              && <MitreTab             incident={incident} />}
               {tab === "attack_story"       && <AttackStoryTab       incident={incident} />}
-              {tab === "recommendations"    && <RecommendationsTab   incident={incident} />}
+              {tab === "recommendations"    && (isDesignV2Enabled()
+                ? <RecommendationsTabV2 incident={incident} />
+                : <RecommendationsTab   incident={incident} />)}
               {tab === "notes"              && <NotesTab             incident={incident} />}
               {tab === "timeline"           && <TimelineTab          incident={incident} />}
               {tab === "related"            && <RelatedTab           incident={incident} />}

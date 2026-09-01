@@ -428,6 +428,16 @@ api.include_router(static_docs_router)
 # Semantic-Mapping-Preview) deleted.
 
 # ─────────────────────────────────────────────────────────────────────
+# Round 27 · Cortex Response Console — Execute endpoint that closes
+# the evidence → recommendation → action → ACTIONED evidence loop.
+try:
+    from routers.xdr_cortex_actions import router as xdr_cortex_actions_router
+    app.include_router(xdr_cortex_actions_router)
+    log.info("[startup] Cortex response console mounted at /api/xdr/vendor/cortex/actions")
+except Exception as _cax:                                          # pragma: no cover
+    log.warning("[startup] Cortex response console mount failed: %s", _cax)
+
+# ─────────────────────────────────────────────────────────────────────
 # Round 26.5b · Cortex Poller Scheduler — periodic REST polling with
 # per-integration locks and honest failure-state audit.
 try:

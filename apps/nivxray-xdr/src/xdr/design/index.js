@@ -24,19 +24,38 @@ export { default as Action,
 
 export { default as IntegrationControlCenter } from "./IntegrationControlCenter";
 export { default as CortexOnboardingWizard } from "./CortexOnboardingWizard";
+export { default as RecommendationsTabV2 } from "./RecommendationsTabV2";
 
-/** Runtime feature-flag lookup — safe to call from any React tree. */
+/** Runtime feature-flag lookup — safe to call from any React tree.
+ *
+ * Behaviour (Round 27 refinement):
+ *   1. Env `VITE_XDR_DESIGN_V2` truthy → always v2 for this build.
+ *   2. `?design=v2` on the current URL → v2, and cached in
+ *      sessionStorage so subsequent client-side navigations retain
+ *      the opt-in (the owner-locked "coexist behind flag, migrate
+ *      progressively" contract).
+ *   3. `?design=v1` on the current URL → force legacy for this
+ *      session; also clears any prior sessionStorage v2 opt-in.
+ *   4. Otherwise → whatever sessionStorage remembers, else legacy.
+ */
 export function isDesignV2Enabled() {
-  if (typeof window !== "undefined") {
-    try {
-      const q = new URLSearchParams(window.location.search);
-      const forced = q.get("design");
-      if (forced === "v2") return true;
-      if (forced === "v1") return false;
-    } catch {
-      /* URL parse failure → fall through to env flag */
-    }
-  }
   const env = import.meta?.env?.VITE_XDR_DESIGN_V2;
-  return env === "1" || env === "true";
+  if (env === "1" || env === "true") return true;
+  if (typeof window === "undefined") return false;
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const forced = q.get("design");
+    if (forced === "v2") {
+      try { window.sessionStorage.setItem("xdr-design", "v2"); } catch { /* ignore */ }
+      return true;
+    }
+    if (forced === "v1") {
+      try { window.sessionStorage.setItem("xdr-design", "v1"); } catch { /* ignore */ }
+      return false;
+    }
+    const remembered = window.sessionStorage.getItem("xdr-design");
+    return remembered === "v2";
+  } catch {
+    return false;
+  }
 }
