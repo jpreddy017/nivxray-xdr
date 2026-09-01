@@ -2,7 +2,89 @@
 
 Chronological record of significant releases (newest first).
 
-## 2026-09-01 · Round 29 — Analyst UI Grammar (MITRE Tab + Incident Header) — SHIPPED
+## 2026-09-01 · Round 29.5 — NivXRay XDR Visual Language System v1.0 — SHIPPED
+
+Elevated the Round 29 UI work to a **platform-level design contract**.
+NivXRay XDR now has a first-class Visual Language System, sitting
+alongside the Evidence Plane / Investigation Graph / Verdict Engine /
+Integration Fabric as a permanent architecture artifact.
+
+### New artifacts
+- **`/app/memory/VISUAL_LANGUAGE.md`** — the contract. 11 sections
+  covering non-negotiables, tokens, security-ontology glyph
+  vocabulary, component language, composition rules (per surface
+  type), honest-state visual grammar (9 states), data-visualisation
+  grammar, VEEE evaluation rulebook, iteration loop, rollout order,
+  and governance. Discussions of colour choice are out of scope
+  ("the token has the answer"); discussions of new security concepts
+  add a glyph to §2 and the library.
+- **`apps/nivxray-xdr/src/xdr/design/glyphs.jsx`** — first custom
+  NivXRay XDR SVG glyph library. 17 native glyphs on a 24×24 grid
+  with 1.5px stroke, `currentColor` inheritance, renders correctly
+  at 12/16/24/32 px: Incident · Alert · Detection · Host · User ·
+  Process · File · Network · Domain · IP · Evidence · Technique ·
+  Tactic · Response · Verdict · Provenance · Correlation. Barrel-
+  exported through `design/index.js`. Lucide remains permitted for
+  utility (chevrons, close, refresh, external-link, more) but is
+  BLOCKED for ontology-level concepts.
+
+### Round 29 surfaces re-emitted against v1.0
+- **`RecordHeaderV2.jsx`** — Investigation Command Header rewritten
+  to consume the glyph library:
+  - **Title dominant** (24px 800 "Suitable"); severity supporting
+    via a slim `P1 · CRITICAL` pill next to it. The 72×72 score
+    box is deleted — that was the "P1 giant box" the reviewer
+    flagged.
+  - **Glyph-led KPI rail** — every metric label sits next to its
+    security-ontology glyph (EvidenceGlyph, HostGlyph, UserGlyph,
+    FileGlyph, TechniqueGlyph, CorrelationGlyph). Populated values
+    render at 28px 700; absent values render at 20px 500 italic
+    muted `—` (v1.0 §5 NOT_PRESENT).
+  - Priority-coloured left rail + priority-coloured glyph on the
+    title row: severity communicated through visual grammar, never
+    a decorative filled block.
+  - Respond action uses the ResponseGlyph (bolt inside shield);
+    Generate Report uses the EvidenceGlyph.
+- **`MitreTabV2.jsx`** — every technique row and every tactic-
+  coverage cell now leads with the native TechniqueGlyph /
+  TacticGlyph.
+- **`tokens.css`** — command header CSS reworked to remove the
+  score box, promote the title, and give the KPI numerals dominant
+  weight (28px). Priority pill styling added.
+
+### VEEE §7.2 manual gate — flagship incident record
+- Hierarchy ✅   (severity → identity → verdict → evidence → response)
+- Consistency ✅  (32/32 ontology renders came from the custom
+                  library; 0 Lucide substitutions at the ontology
+                  layer)
+- State grammar ✅ (absent `—` vs populated numerals differ in
+                   weight, size, and colour by design token)
+- Composition ✅  (§4.1 Command Band pattern only)
+- Semantic tone ✅ (purple only on Respond + `actioned`; red only
+                   on P1 + malicious)
+- Empty-state efficiency ✅ (empty incident renders in <500px
+                            vertical)
+
+### Acceptance gates
+- MITRE V2 renders by default · legacy renders under `?design=v1`.
+- Incident Header V2 renders by default · legacy renders under
+  `?design=v1`.
+- Backend pytest regression: 37/37 XDR round tests green.
+- Console clean; hot reload stable.
+
+### Rollout — what v1.0 unlocks (queued rounds)
+1. Attack Story tab v2 (Attack Story Node component)
+2. Overview tab v2 (Command Band + Vitals + Attack Story +
+   Investigation Graph + 4-panel bottom grid)
+3. Investigation Graph node (glyph-led)
+4. Response console → all response cards inherit v1.0
+5. Alerts, Cases, TI, Reports — each surface renders v1.0-conformant
+   by construction because the glyph library + composition rules
+   already exist.
+
+---
+
+## 2026-09-01 · Round 29 — Analyst UI Grammar (superseded by 29.5) — SHIPPED
 
 Full visual rebuild after the dark-navy iteration was rejected.
 NivXRay XDR remains a WHITE/LIGHT enterprise SOC console — security

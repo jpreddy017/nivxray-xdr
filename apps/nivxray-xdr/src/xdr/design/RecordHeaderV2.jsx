@@ -1,38 +1,33 @@
 /**
- * RecordHeaderV2 · Round 29 · Investigation Command Header (LIGHT).
+ * RecordHeaderV2 · Round 29.5 · Investigation Command Header.
  * ---------------------------------------------------------------
- * White/light enterprise SOC command header.  Corrected 2026-09-01
- * after the dark-navy iteration was rejected: NivXRay XDR is a
- * WHITE canvas — security state provides the ONLY colour, never
- * a decorative fill.
+ * First flagship implementation of the NivXRay XDR Visual
+ * Language System v1.0 (see /app/memory/VISUAL_LANGUAGE.md).
  *
- * Composition (single row on ≥1400px viewport):
+ * Composition (v1.0 rule §4.1 Incident record):
  *
- *   [Severity]  [Title + ID + soft chips + meta]  [KPI band]  [Actions]
+ *   [ Command Band  ]  → identity + severity + verdict + response
  *
- *   · Severity   → priority-coloured square score badge.
- *   · Title      → incident name + machine id.
- *   · Chips      → `● Priority Px · ● State · ● Verdict`, dot-chip
- *                  style (NOT the primitive's uppercase pill).
- *   · Meta       → First seen · Last activity · Created by.
- *   · KPI band   → Evidence · Assets · Users · MITRE · Correlation
- *                  Each cell has a big numeric value plus a small
- *                  sub-label.  Absent values render as `—` in
- *                  muted italic.  MITRE / Correlation are gated on
- *                  evidence being present.
- *   · Actions    → Respond (primary) · Generate Report · More.
+ * Visual hierarchy the analyst's eye lands in (v1.0 rule §7.2):
+ *   1. Severity          → left rail + priority pill
+ *   2. Incident title    → 24px 800 dominant
+ *   3. Verdict + status  → soft dot-chips
+ *   4. Evidence weight   → glyph-led KPI rail (28px numerals)
+ *   5. Response          → Respond primary action
  *
- * The header is a PROJECTION of authoritative investigation
- * state — it never introduces a second source of truth.  The
- * previous `TRUTH STATE / PROVENANCE / RELATIONSHIPS` sections
- * are DELETED from this surface; those concepts are internal
- * primitives, not primary page sections.
+ * Never expose primitives as analyst-facing headings (v1.0 §0.5).
+ * Never fabricate metrics (v1.0 §0.2); absent values render as
+ *   `—` italic-muted (v1.0 §5 NOT_PRESENT).
  */
 import React from "react";
-import { ChevronLeft, Zap, FileText, MoreHorizontal, ShieldAlert } from "lucide-react";
+import { ChevronLeft, MoreHorizontal } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import Action from "@/xdr/design/Action";
+import {
+  IncidentGlyph, EvidenceGlyph, HostGlyph, UserGlyph,
+  TechniqueGlyph, CorrelationGlyph, ResponseGlyph, FileGlyph,
+} from "@/xdr/design/glyphs";
 import "@/xdr/design/tokens.css";
 
 
@@ -43,24 +38,14 @@ function fmtDate(iso) {
 }
 
 
-/* ------------------------------------------------------------------
- * Priority code → score-badge composition.  Score value is the
- * priority label ("P1", "P2", …) — NEVER a fabricated numeric
- * risk-score.  A future risk engine can supply an authoritative
- * integer; until it does, the priority letter is the honest value.
- * ------------------------------------------------------------------ */
-function scoreForPriority(code, riskScore) {
+function severityForPriority(code) {
   const c = String(code || "").toUpperCase();
-  const severityLabel = c === "P1" ? "CRITICAL"
-                       : c === "P2" ? "HIGH"
-                       : c === "P3" ? "MEDIUM"
-                       : c === "P4" ? "LOW"
-                       : c === "P5" ? "INFO"
-                       : "UNSET";
-  return {
-    value: riskScore != null ? String(riskScore) : (c || "—"),
-    label: severityLabel,
-  };
+  return c === "P1" ? "CRITICAL"
+       : c === "P2" ? "HIGH"
+       : c === "P3" ? "MEDIUM"
+       : c === "P4" ? "LOW"
+       : c === "P5" ? "INFO"
+       : "UNSET";
 }
 
 
@@ -72,25 +57,23 @@ function chipsForIncident(incident) {
 
   const priTone = priCode === "P1" || priCode === "P2"
     ? "critical" : priCode === "P3" ? "high" : null;
-  const priLabel = priCode
-    ? `Priority ${priCode}`
-    : "Priority not set";
+  const priLabel = priCode ? `Priority ${priCode}` : "Priority not set";
 
   let stateTone = null;
   let stateLabel = stateRaw
     ? stateRaw.replace("_", " ").replace(/\b\w/g, (m) => m.toUpperCase())
     : "State unknown";
-  if (stateRaw === "in_progress") stateTone = "progress";
-  else if (stateRaw === "on_hold") stateTone = "pending";
-  else if (stateRaw === "resolved" || stateRaw === "closed") stateTone = "resolved";
-  else if (stateRaw === "new")     stateTone = "pending";
+  if (stateRaw === "in_progress")             stateTone = "progress";
+  else if (stateRaw === "on_hold")            stateTone = "pending";
+  else if (stateRaw === "resolved"
+           || stateRaw === "closed")          stateTone = "resolved";
+  else if (stateRaw === "new")                stateTone = "pending";
 
-  let verdictTone = null;
+  let verdictTone = "pending";
   let verdictLabel = "Verdict pending";
   if (verdictRaw === "malicious")       { verdictTone = "malicious";  verdictLabel = "Malicious"; }
   else if (verdictRaw === "suspicious") { verdictTone = "high";       verdictLabel = "Suspicious"; }
   else if (verdictRaw === "benign")     { verdictTone = "benign";     verdictLabel = "Benign"; }
-  else                                    { verdictTone = "pending"; }
 
   return [
     { key: "priority", tone: priTone,     label: priLabel },
@@ -117,11 +100,8 @@ function countAssets(incident) {
 
 export default function RecordHeaderV2({ incident, onOpenRespond }) {
   const priorityCode = String(incident?.priority?.code || "").toUpperCase();
-  const riskScore    = incident?.risk_score
-                        ?? incident?.verdict_stage2?.risk_score
-                        ?? null;
-  const score = scoreForPriority(priorityCode, riskScore);
-  const chips = chipsForIncident(incident);
+  const severity     = severityForPriority(priorityCode);
+  const chips        = chipsForIncident(incident);
 
   const evidenceCount    = Number(incident?.evidence_count || 0);
   const correlationCount =
@@ -129,14 +109,9 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
          ? incident.correlation_match_ids.length : 0;
   const rawMitreCount    = Array.isArray(incident?.mitre)
     ? incident.mitre.length : 0;
-  // MITRE count is a DERIVED value: no upstream evidence → no
-  // evidence-backed mapping.  The header must never contradict
-  // its own provenance chain.
   const mitreCount = evidenceCount > 0 ? rawMitreCount : 0;
 
   const assets = countAssets(incident);
-  const totalAssets = assets.hosts + assets.processes + assets.files
-                        + assets.network;
 
   const stateRaw = String(incident?.state || "").toLowerCase();
   const respondCap = (stateRaw === "closed" || stateRaw === "resolved")
@@ -167,28 +142,28 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
       <div className="evops-cmd"
            data-priority={priorityCode || ""}
            data-testid="xdr-record-v2-cmd">
-        {/* Severity score badge */}
-        <div className="evops-cmd__score"
-             data-testid="xdr-record-v2-score">
-          <ShieldAlert size={14}
-                        style={{ color: priorityCode === "P1"
-                                   ? "#DC2626"
-                                   : priorityCode === "P2"
-                                     ? "#EA580C" : "var(--nx-muted)" }} />
-          <span className="evops-cmd__score-value">{score.value}</span>
-          <span className="evops-cmd__score-label">{score.label}</span>
-        </div>
-
-        {/* Identity + chips + meta */}
+        {/* Identity — title dominant, severity supporting */}
         <div className="evops-cmd__ident">
-          <div className="evops-cmd__title"
-               data-testid="xdr-record-v2-title">
-            {incident?.name || "(unnamed incident)"}
+          <div className="evops-cmd__title-row">
+            <span className="evops-cmd__glyph"
+                  data-testid="xdr-record-v2-glyph">
+              <IncidentGlyph size={22} />
+            </span>
+            <span className="evops-cmd__title"
+                  data-testid="xdr-record-v2-title">
+              {incident?.name || "(unnamed incident)"}
+            </span>
+            {priorityCode && (
+              <span className="evops-cmd__sev-pill"
+                    data-testid="xdr-record-v2-sev-pill">
+                {priorityCode}<span>·</span>{severity}
+              </span>
+            )}
           </div>
-          <div className="evops-cmd__id"
-               data-testid="xdr-record-v2-id">
+          <span className="evops-cmd__id"
+                data-testid="xdr-record-v2-id">
             {incident?.number || incident?.id}
-          </div>
+          </span>
           <div className="evops-cmd__chips"
                data-testid="xdr-record-v2-chips">
             {chips.map((c) => (
@@ -214,23 +189,28 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
           </div>
         </div>
 
-        {/* Inline KPI band */}
+        {/* Glyph-led KPI rail */}
         <div className="evops-cmd__kpis"
              data-testid="xdr-record-v2-kpis">
-          <Kpi label="Evidence"    value={evidenceCount}
+          <Kpi glyph={<EvidenceGlyph size={12} />}    label="Evidence"
+                value={evidenceCount}
                 sub={evidenceCount === 1 ? "event" : "events"}
                 testid="xdr-record-v2-kpi-evidence" />
-          <Kpi label="Assets"      value={totalAssets}
-                sub={totalAssets === 1 ? "asset" : "assets"}
-                testid="xdr-record-v2-kpi-assets"
-                count={`h ${assets.hosts} · p ${assets.processes} · f ${assets.files}`} />
-          <Kpi label="Users"       value={assets.users}
-                sub={assets.users === 1 ? "user" : "users"}
+          <Kpi glyph={<HostGlyph size={12} />}        label="Hosts"
+                value={assets.hosts}
+                testid="xdr-record-v2-kpi-hosts" />
+          <Kpi glyph={<UserGlyph size={12} />}        label="Users"
+                value={assets.users}
                 testid="xdr-record-v2-kpi-users" />
-          <Kpi label="MITRE"       value={mitreCount}
+          <Kpi glyph={<FileGlyph size={12} />}        label="Files"
+                value={assets.files}
+                testid="xdr-record-v2-kpi-files" />
+          <Kpi glyph={<TechniqueGlyph size={12} />}   label="MITRE"
+                value={mitreCount}
                 sub={mitreCount === 1 ? "technique" : "techniques"}
                 testid="xdr-record-v2-kpi-mitre" />
-          <Kpi label="Correlation" value={correlationCount}
+          <Kpi glyph={<CorrelationGlyph size={12} />} label="Correlation"
+                value={correlationCount}
                 sub={correlationCount === 1 ? "alert" : "alerts"}
                 testid="xdr-record-v2-kpi-correlation" />
         </div>
@@ -238,14 +218,14 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
         {/* Actions column */}
         <div className="evops-cmd__actions"
              data-testid="xdr-record-v2-actions">
-          <Action label="Respond" icon={Zap} tone="primary"
+          <Action label="Respond"          icon={ResponseGlyph} tone="primary"
                    capability={respondCap} onRun={onOpenRespond}
                    reason={respondReason}
                    testid="xdr-record-respond" />
-          <Action label="Generate Report" icon={FileText}
+          <Action label="Generate Report"  icon={EvidenceGlyph}
                    capability="cap-standby" reason="PHASE_5"
                    testid="xdr-record-report" />
-          <Action label="More Actions" icon={MoreHorizontal}
+          <Action label="More Actions"     icon={MoreHorizontal}
                    capability="cap-standby" reason="PHASE_3_PLUS"
                    testid="xdr-record-more" />
         </div>
@@ -255,15 +235,13 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
 }
 
 
-function Kpi({ label, value, sub, count, testid }) {
+function Kpi({ glyph, label, value, sub, testid }) {
   const absent = !value;
   return (
     <div className="evops-cmd__kpi" data-testid={testid}>
       <span className="evops-cmd__kpi-label">
+        <span className="evops-cmd__kpi-glyph" aria-hidden>{glyph}</span>
         {label}
-        {count && !absent && (
-          <span className="evops-cmd__kpi-count">{count}</span>
-        )}
       </span>
       <span className="evops-cmd__kpi-value" data-absent={absent ? "true" : "false"}>
         {absent ? "—" : value}

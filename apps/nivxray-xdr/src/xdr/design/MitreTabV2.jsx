@@ -34,6 +34,7 @@ import EvidenceState from "@/xdr/design/EvidenceState";
 import Provenance from "@/xdr/design/Provenance";
 import Relationship from "@/xdr/design/Relationship";
 import Action, { ActionGroup } from "@/xdr/design/Action";
+import { TechniqueGlyph, TacticGlyph } from "@/xdr/design/glyphs";
 import "@/xdr/design/tokens.css";
 
 
@@ -233,7 +234,11 @@ export default function MitreTabV2({ incident }) {
                      className="evops-tactics__cell"
                      data-empty={c === 0 ? "true" : "false"}
                      data-testid={`mitre-v2-tactic-${t.id}`}>
-                  <span className="evops-tactics__name">{t.label}</span>
+                  <span className="evops-tactics__name"
+                        style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <TacticGlyph size={10} />
+                    <span>{t.label}</span>
+                  </span>
                   <span className="evops-tactics__count">
                     {c === 0 ? "—" : c}
                   </span>
@@ -327,7 +332,11 @@ function TechniqueRow({ node }) {
   return (
     <div className="evops-tech-row"
          data-testid={`mitre-v2-row-${node.id}`}>
-      <div className="evops-tech-row__id">{node.id}</div>
+      <div className="evops-tech-row__id"
+           style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <TechniqueGlyph size={13} />
+        <span>{node.id}</span>
+      </div>
       <div>
         <div className="evops-tech-row__name">
           {node.object_name || node.id}
@@ -336,7 +345,12 @@ function TechniqueRow({ node }) {
           <div className="evops-tech-row__why">{node.why_mapped}</div>
         )}
       </div>
-      <div className="evops-tech-row__tactic">{node.tactic || "—"}</div>
+      <div className="evops-tech-row__tactic"
+           style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {node.tactic
+          ? <><TacticGlyph size={12} /> <span>{node.tactic}</span></>
+          : <span>—</span>}
+      </div>
       <div className="evops-tech-row__rollup">
         <span>{evCount} evidence · {buckets.hosts.length} host
               · {buckets.users.length} user</span>

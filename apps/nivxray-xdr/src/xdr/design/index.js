@@ -27,6 +27,8 @@ export { default as CortexOnboardingWizard } from "./CortexOnboardingWizard";
 export { default as RecommendationsTabV2 } from "./RecommendationsTabV2";
 export { default as MitreTabV2 }            from "./MitreTabV2";
 export { default as RecordHeaderV2 }        from "./RecordHeaderV2";
+export { default as Glyph }                 from "./glyphs";
+export * from "./glyphs";
 
 /** Surfaces that have been fully migrated onto the Round 24.9
  * grammar.  Adding a surface to this set makes v2 its DEFAULT for

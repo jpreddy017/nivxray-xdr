@@ -489,24 +489,13 @@
 
 
 /* ============================================================
- * Round 29 · Investigation Command Header (LIGHT).
+ * Round 29 · Investigation Command Header (LIGHT · v1.0).
  *
- * Owner-corrected 2026-09-01: NivXRay XDR is a white/light
- * enterprise SOC console.  The command header does NOT introduce
- * a dark navy band; it composes on the same warm-neutral canvas
- * as every other analyst surface.  Security state provides the
- * ONLY colour — never a decorative fill.
- *
- * Composition:
- *   [Severity Score] [Title + ID + soft chips + meta] [KPI band] [Actions]
- *
- * Anti-decoration rules (locked):
- *   · No gradients, no dark strips, no rounded hero cards.
- *   · Severity communicated through the score-badge border and a
- *     thin left rail on the header container — never as a filled
- *     block.
- *   · Chips render as `● Label` soft dot chips inside the header;
- *     the primitive keeps its uppercase-pill styling elsewhere.
+ * Establishes NivXRay XDR Visual Language v1.0.  White canvas,
+ * priority-coloured **slim** anchor (no giant score box), title
+ * dominant, glyph-led metrics rail.  Severity communicated via
+ * the left rail + priority pill next to the title — never as a
+ * hero card.
  * ============================================================ */
 .xdr-console .evops-cmd {
   background: var(--nx-surf-primary);
@@ -514,68 +503,66 @@
   border: 1px solid var(--nx-divider);
   border-left: 3px solid var(--nx-divider-strong);
   border-radius: 4px;
-  padding: 14px 18px;
+  padding: 16px 20px;
   margin-bottom: 14px;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
-  gap: 20px;
+  grid-template-columns: 1fr auto auto;
+  gap: 22px;
   align-items: center;
 }
-/* Severity accent — the left rail communicates priority at a
-   glance.  Never faked; without a priority the rail stays neutral. */
 .xdr-console .evops-cmd[data-priority="P1"] { border-left-color: #DC2626; }
 .xdr-console .evops-cmd[data-priority="P2"] { border-left-color: #EA580C; }
 .xdr-console .evops-cmd[data-priority="P3"] { border-left-color: #CA8A04; }
 .xdr-console .evops-cmd[data-priority="P4"] { border-left-color: #6B7280; }
 .xdr-console .evops-cmd[data-priority="P5"] { border-left-color: #9CA3AF; }
 
-/* Severity Score badge — square, priority-coloured border. */
-.xdr-console .evops-cmd__score {
-  width: 72px; height: 72px;
-  border: 2px solid var(--nx-divider-strong);
-  border-radius: 4px;
-  background: var(--nx-surf-inset);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 2px;
-  flex: 0 0 72px;
-}
-.xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__score { border-color: #DC2626; }
-.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__score { border-color: #EA580C; }
-.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__score { border-color: #CA8A04; }
-.xdr-console .evops-cmd[data-priority="P4"] .evops-cmd__score,
-.xdr-console .evops-cmd[data-priority="P5"] .evops-cmd__score { border-color: #9CA3AF; }
-.xdr-console .evops-cmd__score-value {
-  font: 800 22px/1 var(--evops-face-human);
-  color: var(--nx-text);
-  letter-spacing: -0.02em;
-}
-.xdr-console .evops-cmd__score-label {
-  font: 800 9px/1 var(--evops-face-human);
-  text-transform: uppercase; letter-spacing: 0.9px;
-  color: var(--nx-muted);
-}
-.xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__score-label,
-.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__score-label { color: #B91C1C; }
-.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__score-label { color: #A16207; }
-
 /* Identity column */
 .xdr-console .evops-cmd__ident { min-width: 0; }
-.xdr-console .evops-cmd__title {
-  font: 700 20px/1.2 var(--evops-face-human);
-  color: var(--nx-text);
-  letter-spacing: -0.005em;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  max-width: 640px;
+.xdr-console .evops-cmd__title-row {
+  display: flex; align-items: center; gap: 12px;
+  min-width: 0;
 }
+.xdr-console .evops-cmd__glyph {
+  color: var(--nx-muted);
+  flex: 0 0 auto;
+}
+.xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__glyph,
+.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__glyph { color: #B91C1C; }
+.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__glyph { color: #A16207; }
+
+.xdr-console .evops-cmd__title {
+  font: 800 24px/1.15 var(--evops-face-human);
+  color: var(--nx-text);
+  letter-spacing: -0.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 780px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.xdr-console .evops-cmd__sev-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--nx-divider-strong);
+  border-radius: 999px;
+  font: 800 11px/1 var(--evops-face-human);
+  letter-spacing: 0.6px;
+  color: var(--nx-text-dim);
+  background: var(--nx-surf-inset);
+  flex: 0 0 auto;
+}
+.xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__sev-pill { color: #B91C1C; border-color: #DC2626; background: #FEF2F2; }
+.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__sev-pill { color: #C2410C; border-color: #EA580C; background: #FFF7ED; }
+.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__sev-pill { color: #A16207; border-color: #CA8A04; background: #FEFCE8; }
+
 .xdr-console .evops-cmd__id {
   font: var(--evops-t-machine);
   color: var(--nx-faint);
-  margin-top: 2px;
+  margin-top: 4px;
+  display: block;
 }
 .xdr-console .evops-cmd__chips {
-  display: flex; gap: 14px; flex-wrap: wrap;
-  margin-top: 8px;
+  display: flex; gap: 16px; flex-wrap: wrap;
+  margin-top: 10px;
 }
 .xdr-console .evops-cmd__chip {
   display: inline-flex; align-items: center; gap: 6px;
@@ -611,36 +598,34 @@
   font-weight: 600;
 }
 
-/* Inline KPI band — 5 to 6 compact cells right of the identity */
+/* Glyph-led metrics rail */
 .xdr-console .evops-cmd__kpis {
   display: flex; align-items: stretch;
   border-left:  1px solid var(--nx-divider);
-  padding-left: 18px;
-  gap: 18px;
+  padding-left: 22px;
+  gap: 22px;
 }
 .xdr-console .evops-cmd__kpi {
-  display: flex; flex-direction: column; gap: 3px;
-  min-width: 68px;
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 78px;
 }
 .xdr-console .evops-cmd__kpi-label {
   font: 800 9.5px/1 var(--evops-face-human);
   text-transform: uppercase; letter-spacing: 0.9px;
   color: var(--nx-muted);
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: 5px;
 }
-.xdr-console .evops-cmd__kpi-count {
-  font: 400 10px/1 var(--evops-face-machine);
-  color: var(--nx-faint);
-}
+.xdr-console .evops-cmd__kpi-glyph { color: var(--nx-muted); }
 .xdr-console .evops-cmd__kpi-value {
-  font: 700 22px/1.05 var(--evops-face-human);
+  font: 700 28px/1.05 var(--evops-face-human);
   color: var(--nx-text);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 .xdr-console .evops-cmd__kpi-value[data-absent="true"] {
   color: var(--nx-faint);
   font-style: italic;
   font-weight: 500;
+  font-size: 20px;
 }
 .xdr-console .evops-cmd__kpi-sub {
   font: var(--evops-t-machine);
@@ -653,7 +638,7 @@
   gap: 6px; align-items: stretch;
 }
 .xdr-console .evops-cmd__actions .evops-action {
-  min-width: 148px;
+  min-width: 152px;
   justify-content: flex-start;
   padding: 7px 12px;
   font-size: 12px;
@@ -661,7 +646,7 @@
 
 @media (max-width: 1400px) {
   .xdr-console .evops-cmd {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto;
   }
   .xdr-console .evops-cmd__actions {
     grid-column: 1 / -1;
@@ -673,9 +658,7 @@
   }
 }
 @media (max-width: 1100px) {
-  .xdr-console .evops-cmd {
-    grid-template-columns: auto 1fr;
-  }
+  .xdr-console .evops-cmd { grid-template-columns: 1fr; }
   .xdr-console .evops-cmd__kpis {
     grid-column: 1 / -1;
     border-left: none;
