@@ -2,6 +2,57 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 38.2 — Attack Story SSOT Alignment (Step 2/5) — SHIPPED
+
+Attack Story now consumes the canonical `AttackTechniqueEvidence`
+contract instead of its own independent OBSERVED/SUPPORTED decision
+engine.  MITRE, Attack Story and Attack Graph are provably
+synchronized projections of one investigation truth.
+
+**Backend — `services/attack_story/service.py`**
+- `AttackStoryService.compose()` now fetches
+  `compose_attack_evidence(db, incident_id)` and passes the
+  canonical technique list into the flow builder.
+- `_build_flow()` refactored: the ATT&CK state (OBSERVED /
+  SUPPORTED / HYPOTHESIZED) is projected directly from the SSOT.
+  Stage rule map:
+
+      OBSERVED       (canonical technique)  → stage OBSERVED
+      SUPPORTED      (canonical technique)  → stage SUPPORTED
+      HYPOTHESIZED   (canonical technique)  → stage POSSIBLE
+      SUPPRESSED / NOT_OBSERVED              → ignored
+
+- Findings still contribute at the stage level (capability →
+  stage hints) for stages that no technique attribution reached —
+  they never override the canonical state.
+
+**Tests — `tests/test_xdr_round382_ssot_consistency.py`** (4 tests)
+Cross-view SSOT theorems:
+- Every OBSERVED technique in AttackTechniqueEvidence appears in an
+  OBSERVED stage of Attack Story.
+- Attack Story never surfaces a technique that is NOT in the
+  canonical evidence contract — fabrication guard.
+- Attack Graph technique nodes agree with AttackTechniqueEvidence
+  state.
+- Story `stages_observed ≥ AttackTechniqueEvidence.observed_count`.
+
+**Full R21-R38.2 regression · 134/134 green.**
+
+**Verified in preview** on R35 EDR incident:
+- MITRE           · T1059.001 · TA0002 · OBSERVED
+- Attack Story    · Stage 4 · Execution · OBSERVED · T1059.001
+- Attack Graph    · technique T1059.001 · OBSERVED · BELONGS_TO Execution
+Same technique id, same state, same evidence refs.  No SSOT drift.
+
+Step 2 shipped.  Chain continues:
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment         ✅
+    Step 3  · Shared Evidence Inspector           🔵 NEXT
+    Step 4  · Attack Graph cleanup                🔴
+    Step 5  · Report PDF export                   🔴
+
+
+
 ## 2026-09-01 · Round 38.1 — AttackTechniqueEvidence Canonical SSOT (Step 1/5) — SHIPPED
 
 The single ATT&CK evidence contract that MITRE, Attack Story, Attack

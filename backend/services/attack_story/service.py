@@ -74,8 +74,16 @@ class AttackStoryService:
         findings = await InvestigatorService.get_findings(db, incident_id)
         executions = await InvestigatorService.get_executions(db, incident_id)
 
+        # Round 38.1 · SSOT · AttackTechniqueEvidence is the ONLY source
+        # for ATT&CK state.  Attack Story no longer decides
+        # OBSERVED/SUPPORTED/HYPOTHESIZED itself — it projects the
+        # canonical model onto the 14-stage attack cycle.
+        from services.attack_evidence import compose_attack_evidence
+        atk_ev = await compose_attack_evidence(db, incident_id)
+
         flow = cls._build_flow(
-            incident, canonical, ice_matches, findings, executions)
+            incident, canonical, ice_matches, findings, executions,
+            atk_ev.get("techniques") or [])
         narrative = cls._build_narrative(
             incident, canonical, understanding, findings, flow)
 
@@ -110,17 +118,23 @@ class AttackStoryService:
                         canonical: Optional[Dict[str, Any]],
                         ice_matches: List[Dict[str, Any]],
                         findings: List[Dict[str, Any]],
-                        executions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                        executions: List[Dict[str, Any]],
+                        atk_techniques: Optional[List[Dict[str, Any]]] = None
+                          ) -> List[Dict[str, Any]]:
         """Deterministic 14-stage projection.
 
-        Rules per stage (evaluated in order):
-          1. OBSERVED   — canonical evidence directly maps to a stage
-                          (Detection intel + explicit MITRE mapping).
-          2. SUPPORTED  — one or more CORRELATED / INFERRED findings
-                          reference a technique mapped to the stage.
-          3. POSSIBLE   — technique appears in IKG (ice / mitre) but
-                          no finding has anchored it yet.
-          4. NOT_OBSERVED — honest zero-evidence state (default).
+        Round 38.2 · Attack Story consumes ``AttackTechniqueEvidence``
+        directly — no independent OBSERVED/SUPPORTED decisions on
+        techniques.  Findings still contribute at the stage level
+        (a capability finding without a technique still meaningfully
+        promotes a stage).
+
+        State mapping from AttackTechniqueEvidence.state:
+          OBSERVED     → stage OBSERVED
+          SUPPORTED    → stage SUPPORTED
+          HYPOTHESIZED → stage POSSIBLE
+          SUPPRESSED   → ignored (never surfaced)
+          NOT_OBSERVED → ignored (default)
         """
         # 1. Collect (stage, evidence_ref, source_kind, technique_id)
         observed: Dict[str, List[Dict[str, Any]]] = {s: [] for s in STAGES}
@@ -129,54 +143,33 @@ class AttackStoryService:
 
         canonical_id = (canonical or {}).get("event_id")
 
-        # Incident.mitre — evidence-derived (from detection).
-        for m in (incident.get("mitre") or []):
-            if not isinstance(m, dict):
+        # ── Round 38.2 · Canonical AttackTechniqueEvidence ──────────
+        # This is the SSOT.  Its state governs the stage state.
+        state_to_bucket = {
+            "OBSERVED":     observed,
+            "SUPPORTED":    supported,
+            "HYPOTHESIZED": possible,
+        }
+        for t in (atk_techniques or []):
+            tid = t.get("technique_id")
+            tstate = t.get("state")
+            bucket = state_to_bucket.get(tstate)
+            if not tid or bucket is None:
                 continue
-            tid = m.get("technique_id") or m.get("technique")
-            tactic = m.get("tactic_id") or m.get("tactic")
+            tactic = t.get("tactic_id") or t.get("tactic_name") or ""
             stage = normalize_tactic(tactic) if tactic else None
-            if not stage and tid:
-                stages = stages_for_technique(str(tid))
-                for st in stages:
-                    observed[st].append({
-                        "technique_id": str(tid).upper(),
-                        "evidence_ref": canonical_id,
-                        "source": "incident.mitre",
-                    })
-                continue
-            if stage:
-                observed[stage].append({
-                    "technique_id": str(tid or "").upper() or None,
-                    "evidence_ref": canonical_id,
-                    "source": "incident.mitre",
-                })
-
-        # ice_matches — correlation-derived MITRE.
-        for ice in ice_matches:
-            mid = str(ice.get("match_id") or ice.get("id") or "")
-            for tech in (ice.get("mitre") or []):
-                if isinstance(tech, dict):
-                    tid = tech.get("technique_id") or tech.get("technique")
-                    tactic = tech.get("tactic_id") or tech.get("tactic")
-                else:
-                    tid = str(tech)
-                    tactic = None
-                stage = normalize_tactic(tactic) if tactic else None
-                if not stage and tid:
-                    for st in stages_for_technique(str(tid)):
-                        possible[st].append({
-                            "technique_id": str(tid).upper(),
-                            "evidence_ref": mid,
-                            "source": "correlation_match",
-                        })
+            evidence_ref = (t.get("evidence_ids") or [canonical_id])[0]
+            targets = ([stage] if stage
+                          else stages_for_technique(str(tid)))
+            for st in targets:
+                if not st:
                     continue
-                if stage:
-                    possible[stage].append({
-                        "technique_id": str(tid or "").upper() or None,
-                        "evidence_ref": mid,
-                        "source": "correlation_match",
-                    })
+                bucket[st].append({
+                    "technique_id": tid,
+                    "evidence_ref": evidence_ref,
+                    "source":       "attack_technique_evidence",
+                    "confidence":   t.get("confidence"),
+                })
 
         # Findings — the ledger provides the strongest signal.
         # Rule: a finding with state OBSERVED against a technique-mapped
