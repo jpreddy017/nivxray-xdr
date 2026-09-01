@@ -54,6 +54,10 @@ from detection_content.xdr_recommendation_synthesis import (
     filter_playbooks,
 )
 from detection_content.xdr_action_registry import list_actions, registry_summary
+from detection_content.xdr_executive_summary import compose as compose_exec_summary
+from detection_content.xdr_mitigation_intelligence import (
+    is_exclusion as _is_exclusion,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -642,14 +646,33 @@ async def incident_playbooks(incident_id: str,
 async def recommendation_decision(recommendation_id: str,
                                           payload: dict,
                                           user=Depends(require_admin)):
-    """Round 17.5 · Analyst decision (ACCEPTED / REJECTED /
-    SUPERSEDED) persisted into the existing xdr_recommendations SSOT.
-    Never silently deletes a recommendation."""
+    """Round 17.5 + Round 18.5 · Analyst decision persistence.
+
+    Accepts:
+      decision                  = ACCEPTED / REJECTED / SUPERSEDED  (required)
+      reason                    = free-text audit note              (optional)
+      risk_analysis_snapshot    = the exact risk_analysis block the
+                                  analyst saw when they decided.
+                                  Snapshotted verbatim into the audit
+                                  trail so it is provable, later, that
+                                  the analyst saw the visibility/
+                                  security trade-off.               (optional)
+      safer_alternative_chosen  = 'ORIGINAL_ACTION' or 'SAFER_ALT'.
+                                  Only meaningful for exclusion recos;
+                                  the frontend must present the choice
+                                  before accepting a HIGH/CRITICAL
+                                  exclusion.                        (optional)
+      suggested_action          = the action the reco targeted (used
+                                  purely to classify exclusions in the
+                                  audit record).                    (optional)
+
+    Never silently deletes; every state change appends a full
+    decision_history entry."""
     decision = (payload or {}).get("decision")
     if decision not in ("ACCEPTED", "REJECTED", "SUPERSEDED"):
         return {"ok": False,
                     "reason": f"decision must be one of ACCEPTED/REJECTED/"
-                                "SUPERSEDED · got {decision}"}
+                                f"SUPERSEDED · got {decision}"}
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     doc = await db["xdr_recommendations"].find_one(
@@ -658,20 +681,60 @@ async def recommendation_decision(recommendation_id: str,
         # Analyst decision on a synthesizer-fresh id is still auditable.
         doc = {"recommendation_id": recommendation_id, "state": "ACTIVE"}
     prev_state = doc.get("state") or "ACTIVE"
+
+    # ── Round 18.5 · risk snapshot ─────────────────────────────
+    snapshot = (payload or {}).get("risk_analysis_snapshot")
+    action_id = (payload or {}).get("suggested_action") or \
+                     doc.get("suggested_action")
+    exclusion = bool(action_id and _is_exclusion(action_id))
+    safer_choice = (payload or {}).get("safer_alternative_chosen")
+
+    audit_entry = {
+        "from":                     prev_state,
+        "to":                       decision,
+        "at":                       now,
+        "by":                       (user or {}).get("email") or "analyst",
+        "reason":                   (payload or {}).get("reason"),
+        "was_exclusion":            exclusion,
+        "risk_analysis_snapshot":   snapshot,
+        "safer_alternative_chosen": safer_choice,
+    }
+
     await db["xdr_recommendations"].update_one(
         {"recommendation_id": recommendation_id},
-        {"$set":  {"state": decision,
-                       "decided_at": now,
-                       "decided_by": (user or {}).get("email") or "analyst",
-                       "decision_reason": (payload or {}).get("reason")},
-          "$push": {"decision_history": {
-                          "from": prev_state, "to": decision,
-                          "at": now,
-                          "by": (user or {}).get("email") or "analyst",
-                          "reason": (payload or {}).get("reason")}}},
+        {"$set":  {"state":                     decision,
+                       "decided_at":                now,
+                       "decided_by":                (user or {}).get("email")
+                                                          or "analyst",
+                       "decision_reason":           (payload or {}).get("reason"),
+                       "was_exclusion":             exclusion,
+                       "last_risk_snapshot":        snapshot,
+                       "safer_alternative_chosen":  safer_choice},
+          "$push": {"decision_history": audit_entry}},
         upsert=True)
-    return {"ok": True, "recommendation_id": recommendation_id,
-                "state": decision, "previous_state": prev_state}
+    return {"ok":              True,
+                "recommendation_id": recommendation_id,
+                "state":            decision,
+                "previous_state":   prev_state,
+                "was_exclusion":    exclusion,
+                "risk_analysis_snapshotted": bool(snapshot),
+                "safer_alternative_chosen":  safer_choice,
+                "audit_entry":      audit_entry}
+
+
+@router.get("/incidents/{incident_id}/executive-summary")
+async def incident_executive_summary(incident_id: str,
+                                             user=Depends(require_admin)):
+    """Round 18.5 · Deterministic Executive Summary composer.
+
+    Reads exclusively from persisted evidence (canonical event, IUE,
+    VEEE, framework mappings, threat family, OSINT observations).
+    Produces conclusion-led prose + a technical block + a supporting
+    evidence list + explicit confirmed vs insufficient separation.
+
+    No LLM. No templates keyed on 'incident type' alone. Same inputs
+    → byte-identical output."""
+    return await compose_exec_summary(db, incident_id)
 
 
 @router.get("/dsm/registry")

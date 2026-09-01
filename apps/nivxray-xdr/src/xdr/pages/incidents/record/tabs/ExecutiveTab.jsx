@@ -13,10 +13,11 @@
  *    row carries a substantive claim.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Loader2, ArrowRight, Search, Radio, AlertOctagon } from "lucide-react";
+import { Loader2, ArrowRight, Search, Radio, AlertOctagon, CheckCircle2, XCircle, ShieldAlert } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { getIncidentSummary } from "@/lib/incidentsApi";
+import api from "@/lib/api";
 
 const STATE_BADGE = {
   ok:                    { label: "OK",                    cls: "ok"     },
@@ -35,6 +36,7 @@ export default function ExecutiveTab({ incident }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
+  const [exec, setExec]       = useState(null);
   const [, setParams]         = useSearchParams();
 
   useEffect(() => {
@@ -51,6 +53,15 @@ export default function ExecutiveTab({ incident }) {
       } finally {
         if (!cancelled) setLoading(false);
       }
+    })();
+    // Round 18.5 · pull the deterministic Executive Summary composer.
+    // A separate request keeps the legacy 4-state gap projection intact.
+    (async () => {
+      try {
+        const r = await api.get(
+          `/admin/content-supply-chain/incidents/${incident.id}/executive-summary`);
+        if (!cancelled) setExec(r.data);
+      } catch { /* honest UI when composer is unavailable */ }
     })();
     return () => { cancelled = true; };
   }, [incident?.id]);
@@ -79,6 +90,11 @@ export default function ExecutiveTab({ incident }) {
 
   return (
     <div data-testid="xdr-record-executive">
+      {/* Round 18.5 · Deterministic Executive Summary composer */}
+      {exec && exec.state === "READY" && (
+        <ExecutiveSummaryBlock exec={exec} />
+      )}
+
       {/* Verdict block — designed truth state when not produced */}
       {verdictProduced
         ? <VerdictProducedBlock v={v} />
@@ -272,6 +288,156 @@ function Metric({ k, v, sub, tone = "info" }) {
     </div>
   );
 }
+
+
+/* ── Round 18.5 · Executive Summary block ─────────────────────
+   Renders the deterministic composer output.  Frontend performs
+   ZERO inference — every string comes verbatim from the backend
+   composer.  Confirmed facts and insufficient-evidence lines are
+   explicitly separated so the analyst reads the truth boundary. */
+
+function ExecutiveSummaryBlock({ exec }) {
+  const es      = exec.executive_summary || {};
+  const tech    = exec.technical_summary || {};
+  const supp    = exec.supporting_evidence || [];
+  const conf    = exec.confirmed_facts || [];
+  const insuff  = exec.insufficient_evidence || [];
+  return (
+    <div className="rl-section" data-testid="xdr-record-executive-composer">
+      <div className="rl-section-title">
+        <ShieldAlert size={12} style={{ marginRight: 6,
+                                                        verticalAlign: -1 }} />
+        Executive Summary
+      </div>
+      <p className="rl-exec-lead" data-testid="xdr-record-executive-lead"
+          style={{ fontSize: 13.5, lineHeight: 1.55,
+                        color: "var(--text)", margin: "6px 0 4px" }}>
+        {es.lead}
+      </p>
+      <p style={{ fontSize: 11.5, color: "var(--text-dim)",
+                        margin: "4px 0", fontFamily: "var(--mono)" }}
+          data-testid="xdr-record-executive-confidence">
+        {es.confidence_line}
+      </p>
+      <p style={{ fontSize: 12, color: "var(--text-dim)",
+                        margin: "4px 0", lineHeight: 1.5 }}
+          data-testid="xdr-record-executive-evidence-line">
+        {es.evidence_line}
+      </p>
+
+      <div style={{ display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 12, marginTop: 10 }}>
+        <div data-testid="xdr-record-executive-confirmed"
+                  style={{ border: "1px solid var(--mint)",
+                                  borderRadius: 3, padding: 8,
+                                  background: "rgba(52,211,153,0.06)" }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 10,
+                              color: "var(--mint)", fontWeight: 700,
+                              marginBottom: 6, display: "flex",
+                              alignItems: "center", gap: 4 }}>
+            <CheckCircle2 size={11} /> CONFIRMED FACTS ({conf.length})
+          </div>
+          {conf.length
+            ? <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11.5,
+                                lineHeight: 1.5, color: "var(--text-dim)" }}>
+                {conf.map((c, i) =>
+                  <li key={i}
+                        data-testid={`xdr-record-executive-confirmed-${i}`}>
+                    {c}
+                  </li>)}
+              </ul>
+            : <div style={{ fontSize: 11, color: "var(--faint)" }}>
+                No fact has been confirmed yet.
+              </div>}
+        </div>
+        <div data-testid="xdr-record-executive-insufficient"
+                  style={{ border: "1px solid var(--amber)",
+                                  borderRadius: 3, padding: 8,
+                                  background: "rgba(245,158,11,0.06)" }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 10,
+                              color: "var(--amber)", fontWeight: 700,
+                              marginBottom: 6, display: "flex",
+                              alignItems: "center", gap: 4 }}>
+            <XCircle size={11} /> INSUFFICIENT EVIDENCE ({insuff.length})
+          </div>
+          {insuff.length
+            ? <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11.5,
+                                lineHeight: 1.5, color: "var(--text-dim)" }}>
+                {insuff.map((c, i) =>
+                  <li key={i}
+                        data-testid={`xdr-record-executive-insufficient-${i}`}>
+                    {c}
+                  </li>)}
+              </ul>
+            : <div style={{ fontSize: 11, color: "var(--faint)" }}>
+                No evidence gaps remain.
+              </div>}
+        </div>
+      </div>
+
+      <details style={{ marginTop: 12 }}
+                    data-testid="xdr-record-executive-technical">
+        <summary style={{ cursor: "pointer",
+                                    fontFamily: "var(--mono)", fontSize: 10.5,
+                                    color: "var(--text-dim)" }}>
+          Technical Summary (machine-derived · {Object.keys(tech).length} fields)
+        </summary>
+        <div style={{ marginTop: 6, fontFamily: "var(--mono)",
+                              fontSize: 10.5, color: "var(--text-dim)" }}>
+          {Object.entries(tech).map(([k, v]) => (
+            <div key={k} style={{ display: "grid",
+                                                    gridTemplateColumns: "220px 1fr",
+                                                    gap: 8,
+                                                    padding: "2px 0",
+                                                    borderBottom:
+                                                      "1px dashed rgba(255,255,255,0.05)" }}>
+              <span style={{ color: "var(--faint)" }}>{k}</span>
+              <span>
+                {v == null ? "—"
+                    : typeof v === "object" ? JSON.stringify(v)
+                    : String(v)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </details>
+
+      <details style={{ marginTop: 8 }}
+                    data-testid="xdr-record-executive-support">
+        <summary style={{ cursor: "pointer",
+                                    fontFamily: "var(--mono)", fontSize: 10.5,
+                                    color: "var(--text-dim)" }}>
+          Supporting Evidence ({supp.length})
+        </summary>
+        <div style={{ marginTop: 6 }}>
+          {supp.length === 0 && (
+            <div style={{ fontSize: 11, color: "var(--faint)" }}>
+              No supporting evidence has been captured yet.
+            </div>
+          )}
+          {supp.map((f, i) => (
+            <div key={i}
+                    data-testid={`xdr-record-executive-supp-${i}`}
+                    style={{ padding: "4px 0",
+                                    borderBottom:
+                                      "1px dashed rgba(255,255,255,0.05)" }}>
+              <div style={{ fontSize: 11.5, color: "var(--text)" }}>
+                {f.claim}
+              </div>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10,
+                                    color: "var(--faint)" }}>
+                {f.source}{f.evidence_id ? ` · evidence=${f.evidence_id}` : ""}
+                {f.interpretation ? ` · ${f.interpretation}` : ""}
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
 
 function verdictTone(label) {
   const l = String(label || "").toLowerCase();

@@ -307,15 +307,43 @@ function RiskRow({ k, v, valueColor, bold }) {
 
 function AnalystButton({ reco, decision, label, color }) {
   const [state, setState] = useState("idle");
+  const isExclusion = !!reco.risk_analysis;
+  const highRisk = ["HIGH", "CRITICAL"].includes(reco.risk_band);
+
   const click = async () => {
+    // Round 18.5 · exclusion + high/critical band → require the analyst
+    // to explicitly acknowledge visibility loss and pick between the
+    // ORIGINAL action or the SAFER ALTERNATIVE. This choice is
+    // persisted verbatim into the audit trail.
+    let saferAlternativeChosen = null;
+    if (decision === "ACCEPTED" && isExclusion) {
+      if (highRisk) {
+        const safer = reco.risk_analysis.safer_alternative;
+        const msg =
+          `${reco.risk_band} EXCLUSION RISK\n\n` +
+          `${reco.risk_analysis.warning_banner || ""}\n\n` +
+          `Visibility Impact: ${reco.risk_analysis.visibility_impact}\n\n` +
+          `Safer alternative:\n${safer}\n\n` +
+          `OK  → accept SAFER alternative\n` +
+          `Cancel → accept ORIGINAL action (records that you were warned)`;
+        saferAlternativeChosen = window.confirm(msg)
+          ? "SAFER_ALT" : "ORIGINAL_ACTION";
+      } else {
+        saferAlternativeChosen = "ORIGINAL_ACTION";
+      }
+    }
+
     setState("busy");
     try {
-      // Persist the analyst decision into the existing
-      // xdr_recommendations SSOT via the closed-loop endpoint.
-      // The route accepts additive decision fields.
       await api.post(
         `/admin/content-supply-chain/recommendations/${reco.id}/decision`,
-        {decision, reason: `analyst ${decision.toLowerCase()}`});
+        {
+          decision,
+          reason: `analyst ${decision.toLowerCase()}`,
+          suggested_action: reco.suggested_action,
+          risk_analysis_snapshot: reco.risk_analysis || null,
+          safer_alternative_chosen: saferAlternativeChosen,
+        });
       setState("done");
     } catch {
       setState("err");

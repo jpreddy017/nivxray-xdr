@@ -3,6 +3,56 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 18.5 · Executive Summary Composer + Analyst Decision Persistence — SHIPPED
+
+**Deterministic backend prose composer** — no LLM, no templates.
+
+**Files delivered:**
+- `backend/detection_content/xdr_executive_summary.py` — new composer
+  reads IUE + VEEE + Threat Family + entities + framework mappings +
+  OSINT observations and emits: `executive_summary.{lead,confidence_line,
+  evidence_line,prose}` + `technical_summary` + `supporting_evidence[]`
+  + `confirmed_facts[]` + `insufficient_evidence[]`. Deterministic:
+  same inputs → byte-identical output.
+- `routers/content_supply_chain.py` —
+    * `GET /api/admin/content-supply-chain/incidents/{id}/executive-summary`
+    * `POST .../recommendations/{id}/decision` upgraded to snapshot
+      the full `risk_analysis` verbatim into `decision_history` +
+      persist `was_exclusion`, `last_risk_snapshot`,
+      `safer_alternative_chosen` fields on the SSOT doc.
+- `apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/ExecutiveTab.jsx`
+  — new `ExecutiveSummaryBlock` renders conclusion-first prose,
+  parallel green (CONFIRMED FACTS) / amber (INSUFFICIENT EVIDENCE)
+  columns, expandable Technical Summary key/value pane, and
+  Supporting Evidence list with source + evidence_id per row.
+- `apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/RecommendationsTab.jsx`
+  — Accept button on an exclusion reco with band ≥ HIGH now prompts
+  the analyst to pick between the ORIGINAL action or the SAFER
+  ALTERNATIVE; both the risk snapshot and the chosen path are
+  posted to the persistence endpoint.
+
+**Locked contracts (enforced by tests):**
+1. Composer prose is stitched from actual observed fields; missing
+   fields render as `insufficient_evidence[]` lines, never fabricated.
+2. Confirmed and insufficient sets are always disjoint.
+3. Composer is byte-deterministic for identical inputs.
+4. Analyst decision on an exclusion always snapshots the exact
+   `risk_analysis` the analyst saw. Ordinary mitigations never
+   receive exclusion flags.
+
+**Test coverage:** `tests/test_xdr_round18_5_exec_summary.py` — 11/11.
+Regression across Rounds 11–18.5: **67/67 pass**.
+
+**Verified live:** Golden Snort event returns full prose:
+> "Incident is assessed suspicious: command-and-control traffic
+> (detection: ET INFO Observed Discord Domain ...) between
+> 203.0.113.42 and 10.1.2.3. Basis: verdict score 60/100 · threat-
+> family confidence MEDIUM. Supporting evidence: a signature rule
+> matched … framework context maps to T1573.002 · D3-NTA · NIST
+> DETECTION_AND_ANALYSIS … OSINT observation (consensus) → clean."
+> Confirmed: 4 facts · Insufficient: 3 facts · Supports: 5 pointers.
+
+---
 ## ✅ 2026-02-14 · Round 18 · Mitigation & Exclusion Intelligence — SHIPPED
 
 **Knowledge layer, NOT an engine.** Feeds the existing Round 16
