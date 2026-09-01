@@ -3,6 +3,60 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 19 · Threat-Family → Response Strategy Layer — SHIPPED
+
+**Knowledge layer only.** Sits between Threat Family (Round 16) and
+the Candidate Mitigations registry inside `xdr_recommendation_synthesis`.
+Locked rule: *Threat family determines the response strategy; evidence
+determines which individual actions are applicable.* No hardcoded
+malware-name playbooks.
+
+**Files delivered:**
+- `backend/detection_content/xdr_response_strategy.py` — 14 strategies
+  registered across 5 objectives (Cleanup · Containment · Credential
+  Protection · Eradication · Investigation) and 14 families (PUA_ADWARE,
+  SUSPICIOUS_APPLICATION, RANSOMWARE, CREDENTIAL_THEFT, INFOSTEALER,
+  C2, BOTNET, LOADER, PERSISTENCE, LATERAL_MOVEMENT, PHISHING, WORM,
+  MALWARE, UNKNOWN). Every strategy declares
+  `required_evidence_dims`, `candidate_action_ids`, `allow_exclusions`,
+  `description`, `framework_hint`.
+- `xdr_recommendation_synthesis.py::synthesize` upgraded:
+  * strategy filter — a candidate must be endorsed by ≥1 active
+    strategy for the family
+  * exclusion guardrail — exclusion candidates surface ONLY when the
+    active strategy explicitly permits (PUA/SUSPICIOUS_APP only)
+  * every emitted reco now carries
+    `strategy: {id, objective, description, all_ids}`
+- Endpoints:
+  * `GET /api/admin/content-supply-chain/response-strategies` (registry
+    introspection)
+  * `GET .../response-strategies/{family}` (strategies for a family)
+- Frontend `RecommendationsTab.jsx` groups active recommendations by
+  strategy with a header carrying `STRATEGY · id · Objective · applicable
+  count` + one-line description — analyst reads the response *narrative*,
+  not a flat verb list.
+
+**Locked contracts (test-enforced):**
+1. Every family declares at least one strategy.
+2. PUA_ADWARE + SUSPICIOUS_APPLICATION are the only families that
+   allow exclusions.
+3. C2 / RANSOMWARE / MALWARE / CREDENTIAL_THEFT / LATERAL_MOVEMENT /
+   BOTNET / LOADER / WORM / PHISHING / PERSISTENCE / INFOSTEALER /
+   UNKNOWN all forbid exclusions.
+4. UNKNOWN family only ever surfaces the Investigation objective.
+5. PUA_CLEANUP never surfaces `ENDPOINT_ISOLATE`; ransomware /
+   lateral-movement / worm do.
+6. Strategy is 1:1 with family (no cross-family bleed).
+
+**Test coverage:** `tests/test_xdr_round19_response_strategy.py` — 15/15.
+Full XDR regression rounds 11–19: **91/91 pass**.
+
+**Verified live:** `/response-strategies` returns 14 strategies × 5
+objectives × 14 families. Golden Snort recompute → all 8 recos grouped
+under `C2_CONTAINMENT / Containment` with the analyst-facing description
+attached.
+
+---
 ## ✅ 2026-02-14 · Round 18.6 · Analyst-Editable Sections (Overlay Fabric) — SHIPPED
 
 **Locked contract: overlay, NEVER replacement.** Deterministic

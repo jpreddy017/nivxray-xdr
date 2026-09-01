@@ -225,7 +225,9 @@ def test_exclusions_capability_reports_honest_unavailable():
               "origin": "file.hash"},
         ],
     }
-    recos = synthesize(context, {"family": "MALWARE"}, [], [], [])
+    # Round 19 · exclusion candidates only fire when the active
+    # strategy allows them → PUA_ADWARE is the canonical case.
+    recos = synthesize(context, {"family": "PUA_ADWARE"}, [], [], [])
     hashes = [r for r in recos if r["suggested_action"]
                     == "APPLICATION_ALLOW_LIST_ADD"]
     assert hashes, "hash entity must produce the allow-list candidate"

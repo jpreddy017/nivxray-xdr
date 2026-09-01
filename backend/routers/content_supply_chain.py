@@ -59,6 +59,11 @@ from detection_content.xdr_mitigation_intelligence import (
     is_exclusion as _is_exclusion,
 )
 from detection_content import xdr_analyst_annotations as _ann
+from detection_content.xdr_response_strategy import (
+    all_strategies as _all_strategies,
+    registry_summary as _strategy_summary,
+    strategies_for as _strategies_for,
+)
 
 
 router = APIRouter(prefix="/admin/content-supply-chain",
@@ -721,6 +726,27 @@ async def recommendation_decision(recommendation_id: str,
                 "risk_analysis_snapshotted": bool(snapshot),
                 "safer_alternative_chosen":  safer_choice,
                 "audit_entry":      audit_entry}
+
+
+@router.get("/response-strategies")
+async def response_strategies_summary(user=Depends(require_admin)):
+    """Round 19 · Threat-Family → Response Strategy knowledge layer
+    introspection.  Read-only.  Returns the full strategy registry
+    grouped by objective and family."""
+    return {
+        "summary":    _strategy_summary(),
+        "strategies": _all_strategies(),
+    }
+
+
+@router.get("/response-strategies/{family}")
+async def response_strategies_for_family(family: str,
+                                                  user=Depends(require_admin)):
+    """Round 19 · Return every strategy activated by a given family."""
+    return {
+        "family":     family,
+        "strategies": _strategies_for(family),
+    }
 
 
 @router.get("/incidents/{incident_id}/executive-summary")

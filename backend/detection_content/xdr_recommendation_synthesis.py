@@ -18,7 +18,12 @@ from __future__ import annotations
 from typing import Any
 
 from .xdr_action_registry import list_actions
-from .xdr_mitigation_intelligence import enrich_recommendation
+from .xdr_mitigation_intelligence import (
+    enrich_recommendation, is_exclusion as _is_exclusion,
+)
+from .xdr_response_strategy import (
+    compose_candidate_set as _compose_strategy_set,
+)
 
 
 SYNTH_ENGINE_ID = "nivxray::xdr::recommendation_synthesizer"
@@ -353,18 +358,39 @@ def synthesize(context: dict,
     """
     Deterministic recommendation synthesis.
 
-    Rules:
+    Round 19 · a Response-Strategy knowledge layer sits between family
+    classification and this synthesizer.  For every candidate action:
+
+        * The family activates one or more strategies
+          (xdr_response_strategy).
+        * A candidate is only surfaced when it appears in at least
+          ONE active strategy's candidate_action_ids list.
+        * Exclusion candidates are only surfaced when at least one
+          active strategy sets allow_exclusions=True.
+        * The emitted reco carries `strategy_id` + `objective` so the
+          analyst reads the response NARRATIVE, not a flat list of
+          verbs.
+
+    Rules preserved from Round 17.5:
       * Every emitted recommendation is bound to a real observed
         entity.  No entity → no recommendation.
-      * A recommendation is emitted only when the candidate's
-        `supported_families` includes the current family OR family
-        is UNKNOWN and the candidate lists it explicitly.
-      * `applicability` state is emitted honestly.
+      * `applicability` is emitted honestly.
+      * NO malware-name templates — recommendations emerge from the
+        combination of Family × Strategy × Evidence.
     """
     fam = (threat_family or {}).get("family") or "UNKNOWN"
     entities = _entities_from_context(context)
     if not entities:
         return []
+
+    # ── Round 19 · Strategy layer ─────────────────────────────
+    strategy_set = _compose_strategy_set(fam)
+    active_action_ids: set[str] = set(strategy_set["candidate_action_ids"])
+    strategies_by_action:   dict[str, list[str]] = \
+        strategy_set["provenance_by_action"]
+    strategies_index = {s["id"]: s for s in strategy_set["strategies"]}
+    exclusions_allowed = any(s.get("allow_exclusions")
+                                       for s in strategy_set["strategies"])
 
     # Fast lookup: {action_id: SUCCEEDED}.
     succeeded_actions = {e.get("action_id")
@@ -380,9 +406,19 @@ def synthesize(context: dict,
 
     out: list[dict] = []
     for cand in _GUIDANCE:
-        # Family filter.
+        # Family filter (still enforced independently — a candidate
+        # never surfaces when the family filter excludes it).
         if fam not in cand["supported_families"]:
             continue
+        # Round 19 · Strategy filter.  A candidate must be endorsed
+        # by at least one active strategy for this family.
+        if cand["id"] not in active_action_ids:
+            continue
+        # Round 19 · Exclusion guardrail.  Exclusion candidates only
+        # surface when the active strategy explicitly permits them.
+        if _is_exclusion(cand["action"]) and not exclusions_allowed:
+            continue
+
         for ent in entities:
             if ent.get("kind") != cand["target_entity_kind"] and \
                 not (cand["target_entity_kind"] == "ipv4"
@@ -402,12 +438,16 @@ def synthesize(context: dict,
             else:
                 applicability = APPLICABLE
                 app_reason = "capability available + entity observed + " \
-                                 "family match"
+                                 "family match + strategy endorsed"
 
             # Framework rationale from active mappings.
             fw_hint = cand.get("framework_hint")
             fw_matches = [m for m in framework_maps
                                 if m.get("object_id") == fw_hint]
+
+            # Round 19 · Strategy provenance.
+            strat_ids = strategies_by_action.get(cand["id"], [])
+            primary_strat = strategies_index.get(strat_ids[0]) if strat_ids else None
 
             reco_id = f"reco-{cand['id']}-{ent.get('value')}".lower()
             reco = {
@@ -433,6 +473,12 @@ def synthesize(context: dict,
                 "applicability_reason": app_reason,
                 "threat_family":     fam,
                 "engine_id":         SYNTH_ENGINE_ID,
+                "strategy": {
+                    "id":         (primary_strat or {}).get("id"),
+                    "objective":  (primary_strat or {}).get("objective"),
+                    "description": (primary_strat or {}).get("description"),
+                    "all_ids":    strat_ids,
+                },
             }
             # Round 18 · attach Mitigation Intelligence risk model
             # ONLY when this candidate's action is an exclusion.

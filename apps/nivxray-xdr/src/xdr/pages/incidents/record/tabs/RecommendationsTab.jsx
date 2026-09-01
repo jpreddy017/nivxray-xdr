@@ -118,12 +118,59 @@ export default function RecommendationsTab({ incident }) {
         </div>
       )}
 
-      {active.map((r) => (
-        <RecoCard key={r.id} r={r} active={true}
-                        incidentId={incident?.id}
-                        annotations={anns.recommendations || []}
-                        onAnnotationsChanged={refreshAnnotations} />
-      ))}
+      {/* Round 19 · Group active recos by response strategy so the
+              analyst reads the response NARRATIVE, not a flat verb list. */}
+      {active.length > 0 && (() => {
+        const byStrat = {};
+        active.forEach((r) => {
+          const key = r.strategy?.id || "UNKNOWN_STRATEGY";
+          (byStrat[key] ||= { info: r.strategy, recos: [] }).recos.push(r);
+        });
+        return Object.entries(byStrat).map(([sid, group]) => (
+          <div key={sid} data-testid={`reco-strategy-${sid}`}
+                    style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center",
+                                flexWrap: "wrap", padding: "6px 8px",
+                                background: "rgba(56,189,248,0.06)",
+                                border: "1px solid #38bdf8",
+                                borderRadius: 3, marginBottom: 6 }}>
+              <span style={{ fontFamily: "var(--mono)", fontSize: 9,
+                                  fontWeight: 700, color: "#38bdf8",
+                                  padding: "1px 6px",
+                                  border: "1px solid #38bdf8",
+                                  borderRadius: 2 }}>
+                STRATEGY
+              </span>
+              <b style={{ fontFamily: "var(--mono)", fontSize: 11,
+                                color: "#38bdf8" }}>
+                {group.info?.id || sid}
+              </b>
+              <span style={{ fontFamily: "var(--mono)", fontSize: 10,
+                                    color: "var(--text-dim)" }}>
+                Objective: <b>{group.info?.objective || "—"}</b>
+              </span>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontFamily: "var(--mono)", fontSize: 10,
+                                    color: "var(--faint)" }}>
+                {group.recos.length} applicable
+              </span>
+            </div>
+            {group.info?.description && (
+              <div style={{ fontSize: 11, color: "var(--text-dim)",
+                                    fontStyle: "italic", marginBottom: 6,
+                                    padding: "0 8px", lineHeight: 1.5 }}>
+                {group.info.description}
+              </div>
+            )}
+            {group.recos.map((r) => (
+              <RecoCard key={r.id} r={r} active={true}
+                              incidentId={incident?.id}
+                              annotations={anns.recommendations || []}
+                              onAnnotationsChanged={refreshAnnotations} />
+            ))}
+          </div>
+        ));
+      })()}
 
       {other.length > 0 && (
         <details style={{ marginTop: 14 }} data-testid="reco-why-not">
