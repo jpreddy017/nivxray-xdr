@@ -58,6 +58,83 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 26.5 — SHIPPED · Incident Promotion + Poller Scheduler
+
+### Boundary (owner-locked)
+```
+Cortex XDR
+   │  webhook · scheduled poller
+   ▼
+Cortex Ingest Fabric (Round 26)     ← evidence-plane dedup (event_id)
+   │
+   ▼
+Canonical Evidence
+   │
+   ▼
+Incident Promotion (Round 26.5a)    ← incident-plane dedup (xdr_incident_id
+   │                                    · host+window · exclusions)
+   ▼
+NivXRay Incident
+```
+Evidence dedup ≠ Incident dedup.  Refreshing an incident MUST NOT
+delete evidence.
+
+### Shipped
+
+- **`xdr_cortex_promotion.py`** — consumes canonical rows from an
+  ingest run.  Idempotent on `xdr_incident_id`; deterministic
+  `nivx_incident_id = INC-CORTEX-sha256(integration|xdr_incident_id)[:12]`.
+  Excluded hosts → SUPPRESSED (no incident created; canonical rows
+  carry `promotion_state=SUPPRESSED`).  Existing incidents get
+  their fields refreshed and `evidence_event_ids` unioned in.
+- **`xdr_cortex_ingest.py`** updated — `ingest_payload` now runs
+  promotion at the end of every run and reports
+  `incidents_promoted / refreshed / suppressed` in the audit
+  envelope.
+- **`xdr_cortex_scheduler.py`** — process-wide asyncio scheduler:
+  * per-integration `poll_enabled` / `poll_interval_seconds`
+    (default 300 s, min 30 s)
+  * per-integration `asyncio.Lock` → no overlapping polls
+  * capped exponential backoff on failure (15 s → 15 min)
+  * every tick audited to `xdr_cortex_scheduler_audit` with an
+    honest `OK / DISABLED / SKIPPED / FAILED` outcome
+  * on failure, `_poll_failures` + `_last_poll_error` are set on
+    the integration record — never a green "healthy" state
+- **`server.py`** — startup wires `get_scheduler(db).start()` and
+  shutdown awaits `stop()` for graceful in-flight completion.
+- **OSINT navigation dead-end fixed** —
+  `xdr/pages/XdrReservedPage.jsx`: the
+  `Configure Intelligence Source` / `Configure OSINT Sources`
+  CTAs no longer route to the wrong page.  They render an honest
+  disabled button with `Ships in Round P1.0 · Intelligence
+  Planes` and the reason.  Testid
+  `xdr-cap-{cap}-cta-deferred`.
+
+### Verified end-to-end (mock Cortex on localhost)
+
+- First webhook delivery:
+  `parsed 5 · inserted 5 · promoted 1 · refreshed 0 · suppressed 0`
+  → one `xdr_incidents` row (`INC-CORTEX-…` bound to
+  `xdr_incident_id=INC-777`, evidence_event_ids = 5).
+- Same payload replayed:
+  `parsed 5 · inserted 0 · dup 5 · promoted 0 · refreshed 1 ·
+  suppressed 0` → still one `xdr_incidents` row.
+- **21/21 backend tests green** (Rounds 24 + 25b + 26 + 26.5).
+- Scheduler loop running (`cortex scheduler: loop started` in
+  supervisor logs).
+
+### Boundary notes for Round 27
+
+- The Response Console will consume the exact same shape:
+  `xdr_incidents` row → operator picks a recommendation →
+  `xdr_cortex_executor.run_cortex_action` → writes a new
+  canonical row (`source_object_type=action_result`) → refreshes
+  the incident via the same `promote_from_ingest` pathway.
+- All response actions must respect
+  `xdr_capabilities`/`capability_matrix` on the integration;
+  never expose `Execute` for a `NOT_SUPPORTED` action.
+
+---
 ## ✅ 2026-02-14 · Round 26 — SHIPPED · Cortex Ingest Fabric
 
 **Boundary preserved:** ingest never touches the vault directly.

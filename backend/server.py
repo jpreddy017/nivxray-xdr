@@ -428,6 +428,30 @@ api.include_router(static_docs_router)
 # Semantic-Mapping-Preview) deleted.
 
 # ─────────────────────────────────────────────────────────────────────
+# Round 26.5b · Cortex Poller Scheduler — periodic REST polling with
+# per-integration locks and honest failure-state audit.
+try:
+    from detection_content.xdr_cortex_scheduler import get_scheduler
+    from deps import db as _sched_db
+
+    @app.on_event("startup")
+    async def _cortex_scheduler_startup():
+        try:
+            await get_scheduler(_sched_db).start()
+            log.info("[startup] Cortex poller scheduler started")
+        except Exception as e:                                     # noqa: BLE001
+            log.warning("[startup] Cortex poller scheduler start failed: %s", e)
+
+    @app.on_event("shutdown")
+    async def _cortex_scheduler_shutdown():
+        try:
+            await get_scheduler(_sched_db).stop()
+        except Exception:                                          # noqa: BLE001
+            pass
+except Exception as _cortex_sched_exc:                             # pragma: no cover
+    log.warning("[startup] Cortex scheduler wiring failed: %s", _cortex_sched_exc)
+
+# ─────────────────────────────────────────────────────────────────────
 # Round 26 · Cortex Ingest Fabric — webhook + poller + audit surface.
 try:
     from routers.xdr_cortex_ingest_routes import router as xdr_cortex_ingest_router

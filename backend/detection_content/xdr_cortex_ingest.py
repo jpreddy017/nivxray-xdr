@@ -28,6 +28,7 @@ import logging
 from typing import Any, Optional
 
 from .xdr_cortex_parser import parse_batch
+from .xdr_cortex_promotion import promote_from_ingest
 
 log = logging.getLogger("nivxray.xdr.cortex_ingest")
 
@@ -86,18 +87,25 @@ async def _upsert_rows(db, rows: list[dict]) -> dict:
 
 async def ingest_payload(db, *, integration_id: str, payload: Any,
                               source: str, principal: str) -> dict:
-    """Parse + upsert.  Returns a per-run audit envelope."""
+    """Parse + upsert + PROMOTE.  Returns a per-run audit envelope."""
     rows = parse_batch(payload, integration_id=integration_id)
     stats = await _upsert_rows(db, rows) if rows \
                 else {"inserted": 0, "duplicates": 0, "total": 0}
+    promotion = await promote_from_ingest(
+        db, integration_id=integration_id,
+        canonical_rows=rows, principal=principal,
+    ) if rows else {"promoted": [], "refreshed": [], "suppressed": []}
     envelope = {
-        "integration_id": integration_id,
-        "source":         source,     # "webhook" | "poller"
-        "principal":      principal,
-        "rows_parsed":    len(rows),
-        "rows_inserted":  stats["inserted"],
-        "rows_duplicate": stats["duplicates"],
-        "at":             _iso_now(),
+        "integration_id":  integration_id,
+        "source":          source,     # "webhook" | "poller"
+        "principal":       principal,
+        "rows_parsed":     len(rows),
+        "rows_inserted":   stats["inserted"],
+        "rows_duplicate":  stats["duplicates"],
+        "incidents_promoted":  len(promotion.get("promoted",   [])),
+        "incidents_refreshed": len(promotion.get("refreshed",  [])),
+        "incidents_suppressed":len(promotion.get("suppressed", [])),
+        "at":              _iso_now(),
     }
     await db[INGEST_AUDIT].insert_one(dict(envelope))
     return envelope
