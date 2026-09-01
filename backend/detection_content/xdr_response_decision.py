@@ -24,6 +24,19 @@ from typing import Any
 from .xdr_action_registry import (
     list_actions, action_entry, ApprovalPolicy,
 )
+from .xdr_capability_service import (
+    resolve_capability as _resolve_cap,
+    _ACTION_TO_CAPABILITY as _ADAPTER_ACTIONS,
+)
+
+
+async def _resolve_capability_overrides(db) -> dict[str, dict]:
+    """Round 24 · Pre-resolve every adapter-served action to a live
+    capability state so `synthesize` stays sync + deterministic."""
+    out: dict[str, dict] = {}
+    for aid in _ADAPTER_ACTIONS:
+        out[aid] = await _resolve_cap(db, aid)
+    return out
 
 
 DECISION_ENGINE_ID     = "nivxray::xdr::response_decision"
@@ -137,6 +150,13 @@ async def build_response_context(db, incident_id: str) -> dict:
             "correlation_match_ids":  list(prov.get("ice_matches") or []),
             "incident_id":            incident_id,
         },
+        # Round 24 · Live capability overrides — resolved from
+        # persisted xdr_integrations probe results.  Every adapter-
+        # served action_id gets a deterministic state (AVAILABLE /
+        # UNAVAILABLE / FAILED / NOT_SUPPORTED).  Missing entries
+        # fall through to the static action-registry default (which
+        # is False for every EDR action — honest state).
+        "capability_overrides": await _resolve_capability_overrides(db),
         "honesty_note":
             "Response Context is a projection of persisted evidence. "
             "Missing pieces stay null — no fabrication.",

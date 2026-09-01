@@ -360,6 +360,34 @@ function NodePanel({ n, onClear }) {
       <Row k="Tactic"     v={n.tactic} />
       <Row k="Confidence" v={CONF_LABEL[n.confidence]}
                 color={color} bold />
+      {/* Round 23.6 · Provenance strip — same grammar as recommendations */}
+      <div data-testid={`mitre-provenance-${n.id}`}
+                style={{ marginTop: 6, padding: "4px 6px",
+                                fontFamily: "var(--mono)", fontSize: 10,
+                                color: "var(--text-dim)",
+                                border: "1px dashed rgba(167,139,250,0.4)",
+                                borderRadius: 2,
+                                background: "rgba(167,139,250,0.04)" }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center",
+                            flexWrap: "wrap" }}>
+          <b style={{ color: "#a78bfa" }}>PROVENANCE</b>
+          {["Telemetry", "Canonical", "Correlation", "Mapping",
+            "Attack Graph"].map((step, i, arr) => (
+            <React.Fragment key={step}>
+              <span>{step}</span>
+              {i < arr.length - 1 && (
+                <span style={{ color: "var(--faint)" }}>→</span>
+              )}
+            </React.Fragment>
+          ))}
+          <span style={{ flex: 1 }} />
+          <span style={{ padding: "1px 6px",
+                              border: `1px solid ${color}`, color,
+                              borderRadius: 2, fontSize: 9, fontWeight: 700 }}>
+            EVIDENCE · {CONF_LABEL[n.confidence]}
+          </span>
+        </div>
+      </div>
       <Row k="Why mapped"  v={n.why_mapped || "—"} />
       <Row k="Method"      v={n.mapping_method || "—"} />
       <Row k="Telemetry"   v={(n.telemetry_sources || []).join(", ") || "—"} />
@@ -636,12 +664,23 @@ function EdgePanel({ e, nodes, onClear }) {
       {e.proof?.shared_refs && (
         <Section title="Shared evidence refs">
           {e.proof.shared_refs.map((r, i) => (
-            <div key={i} style={{ fontFamily: "var(--mono)",
-                                              fontSize: 10,
-                                              color: "var(--faint)" }}>{r}</div>
+            <EvidenceRow key={i} evidenceRef={r} />
           ))}
         </Section>
       )}
+      {/* Round 23.7 · Edge-side traversal parity with nodes. */}
+      <Section title="Evidence Chain">
+        {(!e.proof?.shared_refs || e.proof.shared_refs.length === 0)
+          ? <div style={{ fontFamily: "var(--mono)", fontSize: 10,
+                                    color: "var(--amber)", fontStyle: "italic",
+                                    paddingLeft: 8 }}
+                      data-testid={`edge-traversal-empty-${e.id}`}>
+              Not available in collected evidence — this edge is
+              justified by shared entity only (see above).
+            </div>
+          : e.proof.shared_refs.map((r) => (
+              <EvidenceRow key={r} evidenceRef={r} />))}
+      </Section>
     </div>
   );
 }

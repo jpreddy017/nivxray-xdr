@@ -58,6 +58,73 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Rounds 23.6 · 23.7 · 24 — SHIPPED
+
+### Round 23.6 · MITRE Provenance Fabric
+Same `PROVENANCE` strip grammar as `RecoProvenance` now on every MITRE
+node panel. Renders `Telemetry → Canonical → Correlation → Mapping →
+Attack Graph` + colour-coded `EVIDENCE · <state>` band. One fabric,
+one component grammar.
+
+### Round 23.7 · Edge Traversal
+EdgePanel now renders the `Evidence Chain` section with clickable
+`EvidenceRow` per shared_ref. Empty layers render as
+`Not available in collected evidence — this edge is justified by
+shared entity only`.
+
+### Round 24 · EDR Adapter Contract + Cortex XDR reference
+- **`xdr_edr_adapter.py`** — vendor-neutral `EDRAdapter` ABC with
+  locked capability enum `AVAILABLE / UNAVAILABLE / FAILED /
+  NOT_SUPPORTED`. Locked `action_result` + `capability_entry`
+  envelopes.  Adapter MUST NEVER return AVAILABLE from credential
+  presence alone.
+- **`xdr_cortex_adapter.py`** — Palo Alto Cortex XDR reference
+  implementation.  Maps 5 canonical actions to Cortex Advanced API
+  operations, explicitly declares NOT_SUPPORTED for path/threat/
+  wildcard exclusion + IAM/network actions Cortex doesn't own.
+  Credentials never leak (`api_key` always rendered as `***`).  HMAC
+  auth headers computed honestly; connector-injection pattern keeps
+  unit tests hermetic.
+- **`xdr_capability_service.py`** — bridges persisted integration
+  probe results to the synthesizer.  Reads `xdr_integrations`
+  collection, returns deterministic per-action state.  No integration
+  → UNAVAILABLE (Round 23.5 negative scenario preserved).
+- **Synthesizer**: `_capability_of` now consults
+  `context.capability_overrides` first; static registry falls through.
+- **`build_response_context`** pre-resolves capability_overrides for
+  every adapter-served action, keeping `synthesize` sync +
+  deterministic.
+
+### Locked contracts (test-enforced by `test_xdr_round24_edr_adapter.py`)
+1. Cortex adapter with **no credentials** → `connect().ok=False`,
+   probe → UNAVAILABLE for every EDR action, NOT_SUPPORTED for the
+   others.
+2. Cortex adapter with **credentials but no connector** →
+   probe → FAILED (AVAILABLE never inferred from creds).
+3. Cortex adapter with **live connector** → healthcheck ok → probe
+   returns AVAILABLE + `execute_action` returns real vendor
+   request/response ids.
+4. **Credentials never leak** through any adapter method or action
+   result (test scans JSON blob for the secret).
+5. Capability service without integration → UNAVAILABLE.
+6. Capability service with `capability_matrix:[{ENDPOINT_ISOLATE:AVAILABLE}]`
+   → AVAILABLE + provider = integration_id.
+7. **Positive scenario**: reco with `capability_overrides.ENDPOINT_ISOLATE=AVAILABLE`
+   → `applicability=APPLICABLE`.
+8. **Negative scenario**: no overrides → reco stays
+   `CAPABILITY_UNAVAILABLE` (Round 23.5 invariant preserved).
+
+### Testing
+`test_xdr_round24_edr_adapter.py` — 8/8.
+Full XDR regression rounds 11–24: **150/150 pass**.
+
+### NOT YET SHIPPED — Round 25 explicitly deferred
+Credential vault (AES-GCM envelope encryption), integration lifecycle
+wizard UI, integration health page, live Cortex API deployment. See
+"Next Action Items" in the finish summary — these are the immediate
+next round.
+
+---
 ## 🔒 SUPREME INVARIANT · Full Evidence Chain (LOCKED 2026-02-14)
 
 Every arrow in the fabric must have a real, deterministic

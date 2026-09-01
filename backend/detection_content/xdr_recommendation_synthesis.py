@@ -342,7 +342,17 @@ def _entities_from_context(context: dict) -> list[dict]:
     return context.get("entities") or []
 
 
-def _capability_of(action_id: str) -> tuple[bool, str]:
+def _capability_of(action_id: str,
+                            overrides: dict | None = None) -> tuple[bool, str]:
+    """Round 24 · Consult the live capability service first via the
+    optional `overrides` map (populated in `build_response_context`
+    from persisted `xdr_integrations` probe results). Falls back to
+    the static registry when no adapter serves this action."""
+    if overrides and action_id in overrides:
+        entry = overrides[action_id]
+        return (entry.get("state") == "AVAILABLE",
+                    entry.get("detail")
+                        or f"integration state = {entry.get('state')}")
     for a in list_actions():
         if a["action_id"] == action_id:
             return (bool(a.get("capability_available")),
@@ -425,7 +435,9 @@ def synthesize(context: dict,
                         and (ent.get("kind") or "").startswith("ipv")):
                 continue
 
-            cap_ok, cap_reason = _capability_of(cand["action"])
+            cap_ok, cap_reason = _capability_of(
+                cand["action"],
+                overrides=(context.get("capability_overrides") or None))
             already = cand["action"] in succeeded_actions
 
             # Applicability gate.
