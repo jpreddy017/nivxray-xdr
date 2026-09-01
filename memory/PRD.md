@@ -59,6 +59,45 @@ never defaulted.
 
 ---
 
+## ✅ 2026-09-01 · Round 33 — SHIPPED · Attack Story + AttackFlow v1
+
+**The 14-stage evidence-backed attack progression is live.** Round 33
+projects the entire investigation state onto the deterministic Attack
+Cycle with the four-state grammar and produces an evidence-anchored
+narrative.  Round 34 (Threat Model Engine) will consume the same
+SSOT.
+
+### Shipped
+- `services/attack_story/attack_cycle.py` — 14-stage SSOT + tactic
+  and technique mappings for the Enterprise ATT&CK matrix.
+- `services/attack_story/service.py` — `AttackStoryService.compose()`
+  deterministic 4-state projection + executive summary + per-stage
+  evidence-anchored sentences.
+- `GET /api/incidents/{id}/attack-story` — read-only API.
+- Frontend `AttackStoryTab.jsx` — 4 counter tiles + 14-stage flow
+  table + evidence-backed narrative bullets.
+
+### Sufficiency-path validation
+- Planner made all 12 capabilities baseline; the sufficiency check
+  in `Capability.check_evidence` handles honest skipping.
+- Round 33 tests inject a deterministic EDR-style canonical event
+  (WINWORD → PowerShell + encoded command line + user + hash) and
+  confirm the endpoint capabilities now execute successfully,
+  process_ancestry emits a CORRELATED anomaly finding, and Execution
+  + Defense Evasion light up in the AttackFlow.
+
+### Testing
+- 12/12 tests in `tests/test_xdr_round33_attack_story.py` green.
+- 162/162 cross-round regression across Rounds 11-33 green.
+
+### Round 34 handoff
+Threat Model Engine consumes the same `attack_cycle.STAGES` +
+`TACTIC_TO_STAGE` + `TECHNIQUE_TO_TACTIC` module and adds a Scenario
+Library on top.  No duplication of the cycle definition.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 32 — SHIPPED · Capability Fabric v1
 
 **12 specialist capabilities register behind the Autonomous

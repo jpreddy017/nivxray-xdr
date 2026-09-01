@@ -38,17 +38,25 @@ GAP_CAPABILITY_MAP: Dict[str, Tuple[str, ...]] = {
 }
 
 
-# Baseline capabilities run against every incident.  They provide the
-# minimum investigation baseline (detection intel + IOC surface +
-# historical presence + correlation) regardless of IUE gaps.
+# Baseline capabilities run against every incident.  Every capability
+# is invoked once per incident; the sufficiency check inside
+# ``Capability.check_evidence`` honestly skips (SKIPPED_OUT_OF_SCOPE)
+# when the capability's inputs are absent.  The gap-driven map below
+# survives as a documentation surface — Round 30 IUE gaps still name
+# the capability that would close them — but does not gate execution.
 BASELINE_CAPABILITIES: Tuple[str, ...] = (
     "detection_intel",
     "historical_correlation",
     "correlation",
     "mitre_expansion",
-    "ioc_pivot",
+    "process_ancestry",
+    "commandline_decode",
+    "lolbas_lookup",
     "network_pivot",
     "dns_pivot",
+    "identity_pivot",
+    "ioc_pivot",
+    "file_reputation",
 )
 
 

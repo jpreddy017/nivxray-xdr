@@ -2,6 +2,75 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 33 — Attack Story + AttackFlow (evidence-backed) — SHIPPED
+
+Round 33 completes the deterministic autonomous investigation loop by
+projecting the entire investigation state — Round 30 IUE artifacts +
+Round 31 investigation state + Round 32 findings ledger +
+engine_executions + governed MITRE — onto the 14-stage Attack Cycle
+with the four-state grammar OBSERVED / SUPPORTED / POSSIBLE /
+NOT_OBSERVED.
+
+**Owner-locked Round 33 gate met**
+- Attack Cycle is centralised in ``services/attack_story/attack_cycle.py``
+  as the sole source of truth for the 14 stages (Round 34 will
+  consume the same definition, no duplication).
+- Every non-``NOT_OBSERVED`` stage is evidence-linked to at least
+  one finding, canonical event, or correlation match.
+- Attack Story sentences are only emitted for OBSERVED / SUPPORTED /
+  POSSIBLE stages — never for NOT_OBSERVED gaps.
+
+**Shipped**
+- ``services/attack_story/attack_cycle.py`` — 14-stage SSOT +
+  tactic ↔ stage map (all 14 Enterprise tactic IDs) +
+  technique ↔ tactic hints for 18 common ATT&CK techniques.
+- ``services/attack_story/service.py`` — ``AttackStoryService.compose(db, incident_id)``:
+  deterministic 4-state projection + executive summary +
+  per-stage evidence-anchored sentences.
+- ``routers/attack_story.py`` — read-only
+  ``GET /api/incidents/{id}/attack-story`` API surface.
+- Frontend ``apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/AttackStoryTab.jsx``
+  rewritten to consume the API — 4 counter tiles + full 14-stage
+  flow table + evidence-backed narrative bullets.
+
+**Sufficiency-path validation (EDR fixture)**
+- Round 32's endpoint capabilities (`process_ancestry`,
+  `commandline_decode`, `lolbas_lookup`, `identity_pivot`,
+  `file_reputation`) previously honestly skipped for the
+  network-only Snort-golden pipeline. Round 33 test suite injects a
+  deterministic EDR-style canonical event (WINWORD → PowerShell
+  parent-child + encoded PowerShell command line + user identity +
+  hash IOC) and asserts:
+    * All endpoint capabilities transition from SKIPPED_OUT_OF_SCOPE
+      to OK.
+    * `process_ancestry` emits a CORRELATED finding for the
+      WINWORD → PowerShell anomaly.
+    * The resulting AttackFlow lights up `Execution` (T1059.001)
+      and `Defense Evasion` (T1218.011) with evidence anchors.
+    * `Exfiltration` / `Impact` remain honestly NOT_OBSERVED (no
+      supporting evidence).
+- Planner update: all 12 capabilities are now baseline — every one
+  runs against every incident and the sufficiency check inside
+  `Capability.check_evidence` handles honest skipping.  This is the
+  cleaner architecture the Round 33 sufficiency validation exposed.
+
+**Testing**
+- 12/12 tests in `tests/test_xdr_round33_attack_story.py` green
+  (SSOT · determinism · non-fabrication · SUFFICIENT path · EDR
+  fixture · anomaly detection · missing-incident).
+- Cross-round regression: 162/162 across Rounds 11-33 green.
+
+**Boundaries preserved**
+- Attack Story explains evidence; never manufactures it.
+- Verdict Engine untouched.
+- Deterministic-first; AI-optional narrative deferred.
+- No "Auto-Investigate" button anywhere.
+- No fabricated stages.
+
+---
+
+
+
 ## 2026-09-01 · Round 32 — Capability Fabric v1 — SHIPPED
 
 Round 32 turns the 4 honest `cap-unavailable` handoff stubs into a
