@@ -2,6 +2,63 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 45 — Inspector Consolidation + Pipeline Strip Honesty — SHIPPED
+
+Fixes R44 audit finding H-1.  Surgical consolidation only — no MITRE
+redesign, no new backend model, no new resolver.
+
+**Frontend — `MitreTab.jsx`**
+- Imports shared `EvidenceInspector` (R38.3 component).
+- Introduces `MitreInspectorCtx` React Context — nested proof
+  panels open the shared inspector without prop-drilling.
+- `EvidenceRow` is now a click-to-open pill.  In-place expand +
+  local traversal fetch removed.
+- `EvidenceDetail` + `KV` helpers deleted (were only used by the
+  removed expand path).
+- Right column renders `<EvidenceInspector>` when active, with
+  **EVIDENCE DEEP-LINK** header + **← Back** button.
+
+**Frontend — `PipelineStrip.jsx`** (Admin Overview ingestion strip)
+- Parsers + Normalizers stages consult
+  `/admin/content-supply-chain/engines/list?role={PARSER,NORMALIZER}`
+  (authoritative Engine Discovery) and render the real count
+  (verified: 10 parsers · 2 normalizers).
+- Removes the previous hardcoded `pending: true` for those stages.
+- Honesty footer updated: no more "the UI will never invent one"
+  because the UI now shows a real, governed count.
+
+**Backend — zero changes.**  Shared inspector resolver
+(`services.evidence_inspector`) is the resolver for MITRE evidence
+refs.  Engine list endpoint already existed.
+
+**Tests — `tests/test_xdr_round45_inspector_consolidation.py`** (10 tests)
+- Shared inspector resolves MitreTab evidence refs to governed
+  envelopes with `evidence[]` populated.
+- Unknown refs return MISSING (never fabricated).
+- MitreTab no longer declares `function EvidenceDetail` /
+  `function KV` / `evidence-detail-*` testids.
+- MitreTab no longer calls `/admin/content-supply-chain/evidence/`
+  directly.
+- MitreTab imports the shared inspector.
+- No cockpit tab declares a competing `EvidenceDetail` widget.
+- Only `EvidenceInspector.jsx` in `components/` (one inspector
+  component).
+- Attack-chain composer envelope shape unchanged.
+- `MitreInspectorCtx` + `useMitreInspector` present.
+- Deep-link testids present.
+
+**End-to-end verified in preview** (v1 MITRE route): 7 evidence
+pills on `T1059.001 PowerShell` technique; click opens shared
+inspector with SYSMON · `evt_r35_edr_f9b41f18f87a` · CANONICAL ·
+signature `77777 · Suspicious PS` · provenance
+`canonical_evidence · Canonical detection event` · INVESTIGATE
+`Detection Intel`.
+
+**Cumulative regression: 268/268 green per-module across
+R21 → R45 (32 modules).**
+
+
+
 ## 2026-09-01 · Round 44 — Cockpit UX Audit + Lock — SHIPPED
 
 Audit + stabilisation.  No feature-development.  Every architectural

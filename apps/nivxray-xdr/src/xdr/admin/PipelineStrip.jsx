@@ -18,8 +18,8 @@ const STAGES_STATIC = [
   { key: "integrations",  label: "Integrations", icon: Plug,      path: null },
   { key: "data-sources",  label: "Data Sources", icon: HardDrive, path: "/xdr/data-sources" },
   { key: "collectors",    label: "Collectors",   icon: Cpu,       path: "/xdr/collectors" },
-  { key: "parsers",       label: "Parsers",      icon: Filter,    path: null, pending: true },
-  { key: "normalizers",   label: "Normalizers",  icon: Shuffle,   path: null, pending: true },
+  { key: "parsers",       label: "Parsers",      icon: Filter,    path: "/xdr/parsers",       role: "PARSER" },
+  { key: "normalizers",   label: "Normalizers",  icon: Shuffle,   path: "/xdr/normalization", role: "NORMALIZER" },
   { key: "evidence",      label: "Canonical Evidence", icon: Database, path: null, terminal: true },
 ];
 
@@ -43,6 +43,20 @@ export default function PipelineStrip({ testid }) {
         c["collectors"] = r?.data?.data?.count
                                     ?? (r?.data?.data?.collectors || []).length;
       } catch { c["collectors"] = null; }
+      // parsers · authoritative engine registry
+      try {
+        const r = await api.get(
+          "/admin/content-supply-chain/engines/list?role=PARSER");
+        c["parsers"] = r?.data?.count
+                                ?? (r?.data?.items || []).length;
+      } catch { c["parsers"] = null; }
+      // normalizers · authoritative engine registry
+      try {
+        const r = await api.get(
+          "/admin/content-supply-chain/engines/list?role=NORMALIZER");
+        c["normalizers"] = r?.data?.count
+                                        ?? (r?.data?.items || []).length;
+      } catch { c["normalizers"] = null; }
       setCounts(c);
     })().catch((e) =>
       setErr(e?.response?.data?.detail || e?.message || "unavailable"));
@@ -127,9 +141,10 @@ export default function PipelineStrip({ testid }) {
         marginTop: 8, fontSize: 10, color: "var(--faint)",
         fontFamily: "var(--mono)", lineHeight: 1.5,
       }}>
-        Every stage's count is pulled from the authoritative admin API for
-        that resource. `PENDING` stages have no backend service yet — the
-        UI will never invent one.
+        Every stage's count is pulled from the authoritative admin API
+        for that resource — never fabricated.  Parsers and Normalizers
+        surface the count of real Python engines classified by the
+        Engine Discovery service at import-time.
       </div>
     </div>
   );

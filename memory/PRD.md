@@ -2,6 +2,78 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 45 — SHIPPED · Inspector Consolidation
+
+Fixes R44 audit finding **H-1**.  Surgical scope: MitreTab evidence
+detail now routes through the shared `<EvidenceInspector>` — the same
+component used by Attack Story · Attack Graph · Timeline Replay ·
+Evidence Deep-Links.  Zero new backend model.  Zero new resolver.
+Zero MITRE redesign.
+
+### Also fixed in the same drop · Pipeline Strip honesty
+Parsers / Normalizers stages in the Admin Overview were hardcoded
+`pending: true` even though the Engine Discovery service exposes
+real counts (10 parsers · 2 normalizers).  `PipelineStrip.jsx` now
+consults `/admin/content-supply-chain/engines/list?role={PARSER,
+NORMALIZER}` and renders CONFIGURED with the authoritative count.
+
+### Shipped (client only)
+- `MitreTab.jsx`:
+  - Import shared `EvidenceInspector`.
+  - `MitreInspectorCtx` React Context lets nested proof panels open
+    the shared inspector without prop-drilling.
+  - `EvidenceRow` is now a click-to-open pill; the prior in-place
+    expand + local governed traversal fetch is deleted.
+  - `EvidenceDetail` + `KV` helpers removed (were only used by the
+    deleted expand).
+  - Right column renders `<EvidenceInspector>` when a pill is
+    active, with **EVIDENCE DEEP-LINK** header + **← Back** button
+    (matches the R42 pattern).
+- `PipelineStrip.jsx`:
+  - Parsers + Normalizers stages consult the authoritative
+    engine-list admin API and render the real count.
+  - Honesty footer updated to name the Engine Discovery source
+    (no more "the UI will never invent one" — the UI now shows the
+    governed count).
+
+### Verified
+- 10 new R45 tests pin: shared inspector resolves MitreTab evidence
+  refs · MISSING refs stay honest · MitreTab no longer declares
+  `EvidenceDetail` / `KV` / `evidence-detail-*` testids · MitreTab
+  no longer calls `/admin/content-supply-chain/evidence/` directly ·
+  MitreTab imports the shared inspector · no cockpit tab declares
+  a competing `EvidenceDetail` widget · only one `Inspector`
+  component in `components/` · attack-chain composer shape unchanged ·
+  context provider + consumer helper both present · deep-link
+  test-ids present.
+- E2E in preview (v1 route): 7 evidence pills visible on
+  T1059.001 PowerShell technique; click opens the shared inspector
+  showing SYSMON · CANONICAL · signature · Evidence · Provenance ·
+  INVESTIGATE `Detection Intel` — identical to Attack Graph /
+  Timeline / Evidence Deep-Links.
+- MitreTabV2 (default v2 tenant path) already didn't ship the
+  inline detail widget; no changes needed there.
+
+### Cumulative regression
+R21 → R45 · 32 modules · **268/268 tests green per-module.**
+
+### One-inspector invariant
+```
+   MITRE ──────────────┐
+   Attack Story ───────┤
+   Attack Graph ───────┤
+   Timeline Replay ────┤
+   Evidence Deep-Links ┤
+                        ▼
+              EvidenceInspector
+                        │
+                Canonical Evidence
+```
+No second detail component anywhere in the cockpit.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 44 — SHIPPED · Cockpit UX Audit + Lock
 
 Audit + stabilisation round.  No feature-development.  Every

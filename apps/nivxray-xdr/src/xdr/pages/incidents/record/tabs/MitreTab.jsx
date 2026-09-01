@@ -17,10 +17,24 @@
  *   · Filter by confidence / tactic.
  *   · Zoom / pan / fit.
  */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, createContext, useContext } from "react";
 import { Loader2, ShieldCheck, ChevronRight, ZoomIn, ZoomOut,
                 Maximize2, X } from "lucide-react";
 import api from "@/lib/api";
+import EvidenceInspector from "@/xdr/components/EvidenceInspector";
+
+
+// Round 45 · Inspector consolidation.
+//
+// Round 44 audit finding H-1: MitreTab previously shipped its own
+// inline governed-object detail widget (`EvidenceRow` / `EvidenceDetail`).
+// R38.3 established `<EvidenceInspector>` as the SINGLE governed detail
+// surface across MITRE / Attack Story / Attack Graph / Timeline /
+// Evidence Deep-Links.  This context lets the tab's nested proof
+// panels open the shared inspector without threading callbacks
+// through every intermediate component.
+const MitreInspectorCtx = createContext(null);
+function useMitreInspector() { return useContext(MitreInspectorCtx); }
 
 
 const CONF_COLOR = {
@@ -48,6 +62,10 @@ export default function MitreTab({ incident }) {
     ["CONFIRMED", "SUPPORTED", "INSUFFICIENT_EVIDENCE"]));
   const [tacticFilter, setTacticFilter] = useState(null);
   const [zoom, setZoom] = useState(1);
+  // Round 45 · shared-inspector deep-link.  Every evidence pill
+  // rendered inside this tab opens the *shared* EvidenceInspector,
+  // never a local detail widget.
+  const [deepLink, setDeepLink] = useState(null); // { kind, refId } | null
 
   useEffect(() => {
     if (!incident?.id) return;
@@ -91,23 +109,71 @@ export default function MitreTab({ incident }) {
   );
 
   return (
-    <div data-testid="attack-graph-tab">
-      <Header data={data} confFilter={confFilter}
-                    setConfFilter={setConfFilter}
-                    tacticFilter={tacticFilter}
-                    setTacticFilter={setTacticFilter} />
+    <MitreInspectorCtx.Provider
+      value={{
+        open: (kind, refId) => setDeepLink({ kind, refId }),
+        close: () => setDeepLink(null),
+      }}>
+      <div data-testid="attack-graph-tab">
+        <Header data={data} confFilter={confFilter}
+                      setConfFilter={setConfFilter}
+                      tacticFilter={tacticFilter}
+                      setTacticFilter={setTacticFilter} />
 
-      <div style={{ display: "grid",
-                          gridTemplateColumns: "1fr 320px",
-                          gap: 10 }}>
-        <GraphCanvas nodes={filteredNodes} edges={filteredEdges}
-                              zoom={zoom} setZoom={setZoom}
-                              sel={sel} setSel={setSel} />
-        <DetailPanel sel={sel} nodes={data.nodes} edges={data.edges}
-                              onClear={() => setSel(null)} />
+        <div style={{ display: "grid",
+                            gridTemplateColumns: "1fr 320px",
+                            gap: 10 }}>
+          <GraphCanvas nodes={filteredNodes} edges={filteredEdges}
+                                zoom={zoom} setZoom={setZoom}
+                                sel={sel} setSel={setSel} />
+          {deepLink ? (
+            /* Round 45 · shared inspector opened via evidence pill.
+                Same component used by Attack Graph / Timeline /
+                Evidence Deep-Links (R38.3 · R42 invariant). */
+            <div style={{ background: "#0b1220",
+                             border: "1px solid #1e293b",
+                             borderRadius: 4, overflow: "hidden" }}
+                  data-testid="xdr-mitre-inspector">
+              <div style={{ padding: "8px 12px",
+                               borderBottom: "1px solid #1e293b",
+                               background: "#111827",
+                               display: "flex", alignItems: "center",
+                               gap: 8, fontSize: 11, color: "#cbd5e1" }}
+                    data-testid="xdr-mitre-deeplink-bar">
+                <button
+                  data-testid="xdr-mitre-deeplink-back"
+                  onClick={() => setDeepLink(null)}
+                  style={{ background: "#0f172a",
+                                 color: "#e2e8f0",
+                                 border: "1px solid #334155",
+                                 borderRadius: 3,
+                                 padding: "4px 8px", fontSize: 11,
+                                 cursor: "pointer" }}>
+                  ← Back
+                </button>
+                <span style={{ color: "#a78bfa", fontWeight: 700,
+                                   letterSpacing: 0.6,
+                                   textTransform: "uppercase",
+                                   fontSize: 10 }}>
+                  Evidence Deep-Link
+                </span>
+                <span className="mono" style={{ fontSize: 10, opacity: 0.7 }}>
+                  {deepLink.kind}:{deepLink.refId}
+                </span>
+              </div>
+              <EvidenceInspector incidentId={incident?.id}
+                                            embedded
+                                            kind={deepLink.kind}
+                                            refId={deepLink.refId} />
+            </div>
+          ) : (
+            <DetailPanel sel={sel} nodes={data.nodes} edges={data.edges}
+                                  onClear={() => setSel(null)} />
+          )}
+        </div>
+        <Contract note={data.honesty_note} />
       </div>
-      <Contract note={data.honesty_note} />
-    </div>
+    </MitreInspectorCtx.Provider>
   );
 }
 
@@ -448,140 +514,43 @@ function NodePanel({ n, onClear }) {
 }
 
 
-/* Round 22 · Interactive Evidence Traversal.  Clicking an evidence
-   ref opens the actual document + reverse-provenance + honest
-   'not present in source telemetry' list. */
+/* Round 45 · Inspector consolidation.
+   `EvidenceRow` is now a pill that opens the shared
+   `<EvidenceInspector>` via the tab-level context.  The prior
+   in-place expand + local governed traversal fetch (and its
+   `EvidenceDetail` / `KV` helpers) is removed — the shared
+   inspector service resolves every governed reference now. */
 function EvidenceRow({ evidenceRef }) {
-  const [open, setOpen] = useState(false);
-  const [data, setData] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [err,  setErr]  = useState(null);
-
-  const load = async () => {
-    if (data || busy) return;
-    setBusy(true); setErr(null);
-    try {
-      const r = await api.get(
-        `/admin/content-supply-chain/evidence/${encodeURIComponent(evidenceRef)}`);
-      setData(r.data);
-    } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "unavailable");
-    } finally { setBusy(false); }
+  const inspector = useMitreInspector();
+  const onOpen = () => {
+    if (!inspector) return;
+    // MITRE evidence refs may be canonical event ids, prefixed
+    // (`canonical:<id>`), or other governed object ids.  The shared
+    // inspector accepts `kind=event` and normalises the ref; if the
+    // ref is not resolvable it returns MISSING honestly.
+    const ref = String(evidenceRef || "").replace(/^canonical:/, "");
+    inspector.open("event", ref);
   };
-  const toggle = () => { setOpen((o) => !o); if (!open) load(); };
-
   return (
-    <div data-testid={`evidence-row-${evidenceRef}`}
-              style={{ marginBottom: 4,
-                              border: "1px solid var(--border)",
-                              borderRadius: 2 }}>
-      <button onClick={toggle}
-                    data-testid={`evidence-toggle-${evidenceRef}`}
-                    style={{ width: "100%", padding: "3px 6px",
-                                    display: "flex", alignItems: "center",
-                                    gap: 6, background: "transparent",
-                                    border: "none",
-                                    color: "var(--cyan)",
-                                    fontFamily: "var(--mono)",
-                                    fontSize: 10, cursor: "pointer",
-                                    textAlign: "left" }}>
-        {open ? "▾" : "▸"} evidence: {evidenceRef.slice(0, 32)}
-      </button>
-      {open && (
-        <div style={{ padding: 6, background: "rgba(0,0,0,0.15)",
-                            fontFamily: "var(--mono)", fontSize: 10,
-                            color: "var(--text-dim)" }}>
-          {busy && <span>resolving…</span>}
-          {err && <span style={{ color: "var(--amber)" }}>{err}</span>}
-          {data && data.state === "MISSING" && (
-            <div data-testid={`evidence-missing-${evidenceRef}`}
-                      style={{ color: "var(--amber)" }}>
-              MISSING · {data.reason}
-            </div>
-          )}
-          {data && data.state === "READY" && (
-            <EvidenceDetail data={data} />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-function EvidenceDetail({ data }) {
-  const doc = data.document || {};
-  // Render the most useful canonical-event fields when the kind is
-  // CANONICAL_EVENT — never invent absent ones.
-  const isCanonical = data.kind === "CANONICAL_EVENT";
-  return (
-    <div data-testid={`evidence-detail-${data.id}`}>
-      <div style={{ display: "grid",
-                          gridTemplateColumns: "80px 1fr",
-                          gap: 4, marginBottom: 4 }}>
-        <span style={{ color: "var(--faint)" }}>kind</span>
-        <b style={{ color: "var(--cyan)" }}>{data.kind}</b>
-        <span style={{ color: "var(--faint)" }}>id</span>
-        <span>{data.id}</span>
-      </div>
-      {isCanonical && (
-        <div style={{ marginTop: 4 }}>
-          <div style={{ color: "var(--faint)", marginBottom: 2 }}>
-            canonical event
-          </div>
-          <KV k="timestamp"     v={doc["@timestamp"]} />
-          <KV k="event_type"    v={doc.event_type} />
-          <KV k="vendor·product"
-                v={[doc.source?.vendor, doc.source?.product]
-                        .filter(Boolean).join(" · ")} />
-          <KV k="src.ip"    v={doc.network?.src?.ip} />
-          <KV k="dst.ip"    v={doc.network?.dst?.ip} />
-          <KV k="protocol" v={doc.network?.protocol} />
-          <KV k="signature" v={doc.security?.signature?.name} />
-        </div>
-      )}
-      {data.missing_fields?.length > 0 && (
-        <div style={{ marginTop: 6 }}
-                  data-testid={`evidence-missing-fields-${data.id}`}>
-          <div style={{ color: "var(--amber)", marginBottom: 2 }}>
-            not present in source telemetry ({data.missing_fields.length})
-          </div>
-          {data.missing_fields.map((mf) => (
-            <div key={mf.field} style={{ color: "var(--faint)",
-                                                          padding: "1px 0" }}>
-              — {mf.field}
-            </div>
-          ))}
-        </div>
-      )}
-      {data.traversal && Object.keys(data.traversal).length > 0 && (
-        <div style={{ marginTop: 6 }}>
-          <div style={{ color: "var(--faint)", marginBottom: 2 }}>
-            reverse provenance
-          </div>
-          {Object.entries(data.traversal).map(([k, v]) => (
-            <KV key={k} k={k} v={Array.isArray(v) ? `${v.length} refs`
-                                                                    : String(v)} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-function KV({ k, v }) {
-  return (
-    <div style={{ display: "grid",
-                        gridTemplateColumns: "110px 1fr",
-                        gap: 4, padding: "1px 0" }}>
-      <span style={{ color: "var(--faint)" }}>{k}</span>
-      <span>{v == null || v === ""
-                    ? <i style={{ color: "var(--amber)" }}>
-                          not present in source telemetry
-                        </i>
-                    : String(v)}</span>
-    </div>
+    <button
+      type="button"
+      onClick={onOpen}
+      data-testid={`evidence-row-${evidenceRef}`}
+      title={`Open ${evidenceRef} in the shared Evidence Inspector`}
+      style={{
+        width: "100%", display: "flex", alignItems: "center",
+        gap: 6, marginBottom: 4,
+        padding: "3px 6px",
+        border: "1px solid var(--border)",
+        borderRadius: 2,
+        background: "transparent",
+        color: "var(--cyan)",
+        fontFamily: "var(--mono)",
+        fontSize: 10, cursor: "pointer",
+        textAlign: "left",
+      }}>
+      ▸ evidence: {String(evidenceRef).slice(0, 32)}
+    </button>
   );
 }
 
