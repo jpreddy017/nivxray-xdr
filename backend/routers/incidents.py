@@ -796,6 +796,42 @@ async def get_incident(incident_id: str,
     return _project_detail(doc)
 
 
+# ── Round 30 · IUE v0 · Investigation Understanding read API ────────
+@router.get("/{incident_id}/understanding")
+async def get_incident_understanding(incident_id: str,
+                                          user=Depends(get_current_user_optional)):
+    """Return the latest **valid** IUE understanding snapshot for the
+    incident (the one whose ``evidence_fingerprint`` matches the
+    current governed evidence state).  Read-only; deterministic.
+
+    If no snapshot has been persisted yet for the current fingerprint,
+    IUE v0 materialises one on demand (still deterministic — same
+    evidence in, same snapshot out).  This endpoint is the sole
+    consumption contract for Round 31's Autonomous Investigator.
+    """
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from services.iue.service import IUEService
+
+    # Verify incident exists first — sync collection (already imported).
+    doc = _col.find_one({"id": incident_id}, {"_id": 0, "id": 1})
+    if not doc:
+        raise HTTPException(status_code=404,
+                              detail={"error": "incident_not_found",
+                                       "id": incident_id})
+
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    try:
+        async_db = client[os.environ["DB_NAME"]]
+        latest = await IUEService.latest_valid(async_db, incident_id)
+        if latest is None:
+            latest = await IUEService.understand_incident(
+                async_db, incident_id, persist=True)
+        return latest.model_dump(mode="python")
+    finally:
+        client.close()
+
+
 # ── LIFECYCLE ────────────────────────────────────────────────────────
 class LifecyclePatch(BaseModel):
     target_state: str = Field(..., description="new/in_progress/on_hold/resolved/closed")

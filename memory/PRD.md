@@ -58,6 +58,63 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+
+## ✅ 2026-09-01 · Round 30 — SHIPPED · IUE v0 · Investigation Understanding Engine
+
+**First node of the Autonomous Investigation loop.** Deterministic
+backend service that transforms governed evidence + IKG into six
+persisted understanding artifacts. Zero UI · zero AI · zero
+Orchestrator (Round 31 will consume). Scope-locked per
+AUTONOMOUS_INVESTIGATION.md §15.
+
+### Shipped
+- `services/iue/artifacts.py` — Pydantic v2 schemas for six artifacts
+  (`InvestigationContext`, `Relationships`, `ThreatContext`,
+  `HistoricalContext`, `KnownUnknown`, `InvestigationGaps`).
+- `services/iue/service.py` — `IUEService` with seven public methods
+  (`build_context`, `build_relationships`, `build_threat_context`,
+  `build_historical_context`, `build_known_unknown`, `build_gaps`,
+  `understand_incident`) plus `latest_valid` resolver.
+- `xdr_iue_understanding` collection — versioned snapshots keyed by
+  `(tenant_id, incident_id, content_hash)` with `evidence_fingerprint`
+  + `ikg_version`. "Latest" resolves to snapshot matching the
+  **current governed evidence fingerprint**, not merely newest
+  timestamp — so Round 31 never consumes stale understanding.
+- `GET /api/incidents/{id}/understanding` — read-only API surface.
+  Materialises on demand when fingerprint changes; deterministic
+  return otherwise.
+
+### Verified against real pipeline (Snort-golden)
+- Real canonical evidence extracted: 4 entities, 3 relationships,
+  1 signature, verdict `suspicious` (score 60) propagated.
+- 4 OBSERVED + 4 NOT_OBSERVED facts; endpoint absence emitted
+  honestly (host/user/process explicitly NOT_OBSERVED).
+- 5 investigation gaps derived deterministically from known/unknown
+  ledger, each mapped to a Round 32 capability hint.
+- Idempotent: two API calls → same version, same fingerprint,
+  single persisted snapshot.
+
+### Testing
+- 11/11 tests in `tests/test_xdr_round30_iue_v0.py` green.
+- Full pytest sweep: 199 tests across Rounds 11-30 green
+  (pre-existing test-isolation quirk in `test_xdr_round25b_vault.py`
+  when run inside a bulk async sweep is unrelated).
+
+### Round 31 handoff contract
+```
+Evidence Plane + IKG
+        ↓
+IUE v0 (services/iue/service.py)
+        ↓
+xdr_iue_understanding  (versioned, fingerprint-anchored)
+        ↓
+GET /api/incidents/{id}/understanding
+        ↓
+Round 31 Autonomous Investigator
+```
+
+---
+
 ## ✅ 2026-02-14 · Round 28.x.2 — SHIPPED · MDE + SentinelOne
 
 Two more real vendors, each in ONE file, framework canary

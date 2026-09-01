@@ -2,6 +2,61 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 30 — IUE v0 · Investigation Understanding Engine — SHIPPED
+
+The first Autonomous Investigation loop node is now real. Scope-locked
+to §15 of AUTONOMOUS_INVESTIGATION.md: no UI, no Orchestrator, no AI,
+no external intelligence, no verdict replacement — pure deterministic
+understanding derived from governed evidence + IKG.
+
+**Shipped**
+- `services/iue/artifacts.py` — Pydantic v2 schemas for the six
+  understanding artifacts (`InvestigationContext`, `Relationships`,
+  `ThreatContext`, `HistoricalContext`, `KnownUnknown`,
+  `InvestigationGaps`) plus the persisted `IUEUnderstanding`
+  snapshot envelope.
+- `services/iue/service.py` — `IUEService` with seven owner-locked
+  methods:
+    `build_context · build_relationships · build_threat_context ·
+     build_historical_context · build_known_unknown · build_gaps ·
+     understand_incident` (+ `latest_valid` resolver).
+- `xdr_iue_understanding` collection — versioned snapshots keyed by
+  `(tenant_id, incident_id, content_hash)`, with
+  `evidence_fingerprint` + `ikg_version` fields so **"latest"
+  resolves to the snapshot for the current governed evidence
+  state, never merely the newest timestamp.**
+- `GET /api/incidents/{id}/understanding` — read-only API for
+  Round 31's Autonomous Investigator to consume. Materialises a
+  new snapshot on demand when the evidence fingerprint has
+  changed; returns the existing snapshot otherwise (deterministic).
+- Honest state enforced throughout: endpoint facts absent from the
+  network-only Snort-golden pipeline are emitted as `NOT_OBSERVED`,
+  never omitted or fabricated. Gaps are derived deterministically
+  from the known/unknown ledger.
+
+**Testing**
+- `tests/test_xdr_round30_iue_v0.py` — 11 tests, all green.
+  Covers: six-artifact materialisation, entity extraction from
+  real Snort-golden canonical evidence, evidence-anchored
+  relationships, MITRE / signature threat-context projection,
+  honest NOT_OBSERVED emission for endpoint absence, deterministic
+  content hash across two runs, single-snapshot persistence
+  under stable fingerprint, latest_valid resolution,
+  missing-incident error handling.
+- Full regression: 188 pre-existing tests + 11 new = green
+  (per-file). No changes to routers/incidents.py projection or
+  the existing IUE-per-event `detection_content/xdr_iue.py`
+  module (Round 11 boundary preserved).
+
+**Boundary maintained**
+- No UI wiring. No Orchestrator. No AI. Verdict Engine untouched.
+- Round 31 handoff contract: `GET /api/incidents/{id}/understanding`
+  is the sole consumption surface for the Autonomous Investigator.
+
+---
+
+
+
 ## 2026-09-01 · Round 29.10 — Final operating loop · Loop-integrity invariant · Investigation Activity evolution — RATIFIED
 
 Three final contract additions before Round 30 begins:
