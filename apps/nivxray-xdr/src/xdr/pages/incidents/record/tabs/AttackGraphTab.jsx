@@ -1,50 +1,38 @@
 /**
- * AttackGraphTab · Round 35 · Operational MITRE ATT&CK Chain Graph.
+ * AttackGraphTab · Round 35.1 · Operational density rewrite.
  *
- * Consumes `GET /api/incidents/{id}/attack-graph`.  Renders the
- * governed evidence graph as an interactive SVG canvas:
- *
- *   [Entities] → [Events / Event IDs] → [Processes / Commandlines] →
- *   [MITRE Techniques] → [Attack-cycle Stages] → [Gaps]
- *
- * NOT_OBSERVED stages surface as gap markers only, never as fake
- * nodes.  Every click opens the right-side Evidence Inspector with
- * the concrete governed provenance for that node or edge.
+ * Same backend (Round 35 `/api/incidents/{id}/attack-graph`), tighter
+ * visual language.  Defaults:
+ *   - GRAPH MODE = "Attack Chain" (only observed/supported chain
+ *     nodes + their techniques + their observed stages).
+ *   - NOT_OBSERVED stages hidden unless the "gaps" layer is on.
+ *   - Compact 180px column · 38px row · 170×30 nodes.
+ *   - Primary-path nodes ringed in amber; primary-path edges thicker.
+ *   - Edge labels hidden by default; revealed on hover / select.
+ *   - Zoom + Fit + Reset controls + minimap.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ZoomIn, ZoomOut, Maximize2, RotateCcw,
+           Play, Pause, SkipBack, SkipForward } from "lucide-react";
 
 import api from "@/lib/api";
 
 
-// ── State grammar ──────────────────────────────────────────────────
 const STATE_TONE = {
-  OBSERVED:     { fill: "#7c3aed", stroke: "#a78bfa", label: "●" },
-  SUPPORTED:    { fill: "#4c1d95", stroke: "#8b5cf6", label: "◐" },
+  OBSERVED:     { fill: "#7c3aed", stroke: "#c4b5fd", label: "●" },
+  SUPPORTED:    { fill: "#4c1d95", stroke: "#a78bfa", label: "◐" },
   POSSIBLE:     { fill: "#1e293b", stroke: "#94a3b8", label: "○" },
   NOT_OBSERVED: { fill: "#0f172a", stroke: "#334155", label: "—" },
 };
 
-// ── Kind → column (deterministic left-to-right layout) ─────────────
 const KIND_COLUMN = {
-  incident:     0,
-  host:         1,
-  user:         1,
-  event:        2,
-  event_id:     2,
-  signature:    2,
-  process:      3,
-  commandline:  3,
-  ip:           3,
-  hash:         3,
-  finding:      4,
-  capability:   4,
-  technique:    5,
-  stage:        6,
-  gap:          7,
+  incident: 0, host: 1, user: 1, ip: 1, hash: 1,
+  event: 2, event_id: 2, signature: 2,
+  process: 3, commandline: 3,
+  finding: 4, capability: 4,
+  technique: 5, stage: 6, gap: 7,
 };
 
-// ── Kind → default toggle group ────────────────────────────────────
 const KIND_LAYER = {
   incident: "entities",  host: "entities",  user: "entities",
   ip: "entities",        hash: "entities",
@@ -55,104 +43,117 @@ const KIND_LAYER = {
   gap: "gaps",
 };
 
+const COL_W = 180, ROW_H = 38, NODE_W = 170, NODE_H = 30;
 
-function TonedNode({ node, x, y, w = 200, h = 34, onClick, focused, dimmed }) {
-  const tone = STATE_TONE[node.state] || STATE_TONE.NOT_OBSERVED;
-  const stroke = focused ? "#fbbf24" : tone.stroke;
-  return (
-    <g style={{ opacity: dimmed ? 0.25 : 1, cursor: "pointer",
-                  transition: "opacity 220ms ease" }}
-        onClick={onClick}
-        data-testid={`xdr-ag-node-${node.id}`}>
-      <rect x={x} y={y} width={w} height={h} rx={6}
-             fill={tone.fill} stroke={stroke} strokeWidth={focused ? 2 : 1} />
-      <text x={x + 8} y={y + 14} fontSize={9} fontFamily="ui-monospace, monospace"
-             fill="#e2e8f0" opacity={0.7}>
-        {node.kind.toUpperCase()} · {node.state}
-      </text>
-      <text x={x + 8} y={y + 27} fontSize={11} fontFamily="ui-sans-serif"
-             fill="#f8fafc" style={{ fontWeight: 500 }}>
-        {(node.label || "").length > 32
-          ? (node.label || "").slice(0, 30) + "…"
-          : node.label}
-      </text>
-    </g>
-  );
+
+function nodeLabel(n) {
+  const s = n.label || "";
+  return s.length > 26 ? s.slice(0, 24) + "…" : s;
 }
 
 
 export default function AttackGraphTab({ incident }) {
-  const [graph, setGraph] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
-  const [selectedKind, setSelectedKind] = useState(null); // "node" | "edge"
-  const [layers, setLayers] = useState({
+  const [graph, setGraph]         = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+  const [selId, setSelId]         = useState(null);
+  const [selKind, setSelKind]     = useState(null);
+  const [hoveredEdge, setHovered] = useState(null);
+  const [mode, setMode]           = useState("chain"); // chain | evidence | full
+  const [layers, setLayers]       = useState({
     entities: true, events: true, processes: true, findings: true,
     capabilities: true, mitre: true, gaps: false,
   });
-  const [timeMax, setTimeMax] = useState(100); // slider 0-100
+  const [zoom, setZoom]           = useState(1.0);
+  const [timeMax, setTimeMax]     = useState(100);
+  const [playing, setPlaying]     = useState(false);
 
   useEffect(() => {
     if (!incident?.id) return undefined;
-    let cancelled = false;
+    let c = false;
     (async () => {
       setLoading(true); setError(null);
       try {
         const { data } = await api.get(`/incidents/${incident.id}/attack-graph`);
-        if (!cancelled) setGraph(data);
-      } catch (e) {
-        if (!cancelled) setError(e?.message || String(e));
-      } finally { if (!cancelled) setLoading(false); }
+        if (!c) setGraph(data);
+      } catch (e) { if (!c) setError(e?.message || String(e)); }
+      finally { if (!c) setLoading(false); }
     })();
-    return () => { cancelled = true; };
+    return () => { c = true; };
   }, [incident?.id]);
 
-  // Deterministic layered layout.
+  // Timeline playback.
+  useEffect(() => {
+    if (!playing) return undefined;
+    const t = setInterval(() => {
+      setTimeMax(v => v >= 100 ? (setPlaying(false), 100) : v + 2);
+    }, 120);
+    return () => clearInterval(t);
+  }, [playing]);
+
+  const primaryPath = useMemo(
+    () => new Set(graph?.primary_path || []), [graph]);
+
+  // Filter nodes by mode + layers + gap policy.
+  const visibleNodes = useMemo(() => {
+    if (!graph) return [];
+    return graph.nodes.filter(n => {
+      const layer = KIND_LAYER[n.kind] || "entities";
+      if (!layers[layer]) return false;
+      // In Attack Chain mode: hide gaps entirely, and hide
+      // NOT_OBSERVED stages unless the gaps layer is explicitly on.
+      if (mode === "chain") {
+        if (n.kind === "gap") return false;
+        if (n.kind === "stage" && n.state === "NOT_OBSERVED"
+              && !layers.gaps) return false;
+        if (n.kind === "finding" && n.state === "NOT_OBSERVED") return false;
+      }
+      // In Evidence Graph mode: also hide NOT_OBSERVED stages unless gaps on.
+      if (mode === "evidence") {
+        if (n.kind === "stage" && n.state === "NOT_OBSERVED"
+              && !layers.gaps) return false;
+      }
+      return true;
+    });
+  }, [graph, mode, layers]);
+
   const layout = useMemo(() => {
-    if (!graph) return null;
-    const nodes = graph.nodes.filter(n => layers[KIND_LAYER[n.kind] || "entities"]);
+    if (!graph || visibleNodes.length === 0) return null;
     const byCol = new Map();
-    for (const n of nodes) {
+    for (const n of visibleNodes) {
       const c = KIND_COLUMN[n.kind] ?? 3;
       if (!byCol.has(c)) byCol.set(c, []);
       byCol.get(c).push(n);
     }
-    // Deterministic sort within column.
     for (const arr of byCol.values()) {
-      arr.sort((a, b) => (a.state === b.state ? 0
-                                : a.state === "OBSERVED" ? -1
-                                : b.state === "OBSERVED" ? 1
-                                : a.label.localeCompare(b.label)));
-    }
-    // Position.
-    const colWidth = 240, rowHeight = 50, topPad = 20, leftPad = 20;
-    const pos = new Map();
-    for (const [col, arr] of byCol.entries()) {
-      arr.forEach((n, i) => {
-        pos.set(n.id, {
-          x: leftPad + col * colWidth,
-          y: topPad + i * rowHeight,
-        });
+      arr.sort((a, b) => {
+        const rank = s => ({ OBSERVED: 0, SUPPORTED: 1, POSSIBLE: 2, NOT_OBSERVED: 3 }[s] ?? 9);
+        return rank(a.state) - rank(b.state)
+                  || (a.label || "").localeCompare(b.label || "");
       });
     }
-    const maxCol = byCol.size ? Math.max(...byCol.keys()) : 0;
-    const maxRow = byCol.size ? Math.max(...Array.from(byCol.values(),
-                                                                  a => a.length)) : 0;
+    const cols = Array.from(byCol.keys()).sort((a, b) => a - b);
+    const colIndex = new Map(cols.map((c, i) => [c, i]));
+    const pos = new Map();
+    for (const [col, arr] of byCol.entries()) {
+      const ci = colIndex.get(col);
+      arr.forEach((n, i) => {
+        pos.set(n.id, { x: 20 + ci * COL_W, y: 20 + i * ROW_H });
+      });
+    }
+    const maxRow = Math.max(1, ...Array.from(byCol.values(), a => a.length));
     return {
-      nodes, pos,
-      width:  leftPad + (maxCol + 1) * colWidth + 20,
-      height: topPad + Math.max(maxRow, 6) * rowHeight + 40,
+      pos,
+      width:  20 + cols.length * COL_W + 20,
+      height: 20 + maxRow * ROW_H + 20,
     };
-  }, [graph, layers]);
+  }, [visibleNodes, graph]);
 
   const timelineWindow = useMemo(() => {
-    if (!graph || !graph.timeline || graph.timeline.length === 0) return null;
-    const total = graph.timeline.length;
-    const cut = Math.max(1, Math.round(total * timeMax / 100));
+    if (!graph?.timeline?.length) return null;
+    const cut = Math.max(0, Math.round(graph.timeline.length * timeMax / 100));
     return new Set(graph.timeline.slice(0, cut).map(
-      t => `${t.src}|${t.rel}|${t.dst}`
-    ));
+      t => `${t.src}|${t.rel}|${t.dst}`));
   }, [graph, timeMax]);
 
   if (loading) return (
@@ -165,124 +166,216 @@ export default function AttackGraphTab({ incident }) {
   if (!graph) return null;
 
   const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
-  const visibleNodeIds = new Set((layout?.nodes || []).map(n => n.id));
-  const visibleEdges = (graph.edges || []).filter(
-    e => visibleNodeIds.has(e.src) && visibleNodeIds.has(e.dst)
-  );
+  const visibleIds = new Set(visibleNodes.map(n => n.id));
+  const visibleEdges = graph.edges.filter(
+    e => visibleIds.has(e.src) && visibleIds.has(e.dst));
 
-  const selected = selectedId ? (selectedKind === "node"
-    ? nodeMap.get(selectedId)
-    : (graph.edges.find(e => e.id === selectedId))) : null;
+  const selected = selId ? (selKind === "node"
+    ? nodeMap.get(selId)
+    : graph.edges.find(e => e.id === selId)) : null;
+
+  const stepTimeline = (delta) => {
+    if (!graph.timeline.length) return;
+    const step = Math.max(1, Math.round(100 / graph.timeline.length));
+    setTimeMax(v => Math.min(100, Math.max(0, v + delta * step)));
+  };
 
   return (
-    <div data-testid="xdr-record-attack-graph" style={{ display: "grid",
-                                                          gridTemplateColumns: "1fr 340px",
-                                                          gap: 12 }}>
-      {/* ── Canvas ───────────────────────────────────────────── */}
+    <div data-testid="xdr-record-attack-graph"
+          style={{ display: "grid",
+                     gridTemplateColumns: "1fr 320px", gap: 12 }}>
       <div style={{ background: "#0b1220", border: "1px solid #1e293b",
                        borderRadius: 6, overflow: "hidden" }}>
-        {/* Top toolbar */}
-        <div style={{ display: "flex", gap: 12, padding: 10,
+        {/* Toolbar row 1 · counters + mode */}
+        <div style={{ display: "flex", gap: 10, padding: "8px 10px",
                          borderBottom: "1px solid #1e293b", color: "#e2e8f0",
-                         alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ fontSize: 12, fontFamily: "ui-monospace, monospace" }}>
-            <b>{graph.counts.nodes}</b> nodes ·{" "}
-            <b>{visibleEdges.length}</b>/{graph.counts.edges} edges ·{" "}
-            <b>{graph.counts.stages_observed}</b> observed ·{" "}
-            <b>{graph.counts.stages_supported}</b> supported ·{" "}
-            <b>{graph.counts.gaps}</b> gaps
+                         alignItems: "center", flexWrap: "wrap", fontSize: 11 }}>
+          <div className="mono">
+            <b>{visibleNodes.length}</b>/{graph.counts.nodes} nodes ·
+            <b> {visibleEdges.length}</b>/{graph.counts.edges} edges ·
+            <b> {graph.counts.stages_observed}</b> obs ·
+            <b> {graph.counts.stages_supported}</b> sup ·
+            <b> {graph.counts.gaps}</b> gaps
           </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 12,
-                          fontSize: 11 }}>
-            {Object.keys(layers).map(k => (
-              <label key={k} style={{ cursor: "pointer",
-                                          color: layers[k] ? "#a78bfa" : "#64748b" }}
-                      data-testid={`xdr-ag-layer-${k}`}>
-                <input type="checkbox" checked={layers[k]}
-                        onChange={() => setLayers(l => ({ ...l, [k]: !l[k] }))}
-                        style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                {k}
-              </label>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4,
+                          background: "#0f172a", padding: 2, borderRadius: 4 }}
+                data-testid="xdr-ag-mode-switch">
+            {[["chain", "Attack Chain"], ["evidence", "Evidence Graph"], ["full", "Full"]].map(([k, label]) => (
+              <button key={k}
+                        onClick={() => setMode(k)}
+                        style={{ padding: "4px 10px", fontSize: 11,
+                                    border: "none", borderRadius: 3,
+                                    cursor: "pointer",
+                                    background: mode === k ? "#7c3aed" : "transparent",
+                                    color: mode === k ? "#fff" : "#94a3b8" }}
+                        data-testid={`xdr-ag-mode-${k}`}>
+                {label}
+              </button>
             ))}
           </div>
         </div>
-
-        {/* Timeline scrubber */}
+        {/* Toolbar row 2 · layers + zoom */}
+        <div style={{ display: "flex", gap: 12, padding: "6px 10px",
+                         borderBottom: "1px solid #1e293b", color: "#94a3b8",
+                         alignItems: "center", fontSize: 11 }}>
+          {Object.keys(layers).map(k => (
+            <label key={k} style={{ cursor: "pointer",
+                                        color: layers[k] ? "#a78bfa" : "#475569" }}
+                    data-testid={`xdr-ag-layer-${k}`}>
+              <input type="checkbox" checked={layers[k]}
+                      onChange={() => setLayers(l => ({ ...l, [k]: !l[k] }))}
+                      style={{ verticalAlign: "-2px", marginRight: 4 }} />
+              {k}
+            </label>
+          ))}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            <button onClick={() => setZoom(z => Math.min(1.6, z + 0.15))}
+                      title="Zoom in" data-testid="xdr-ag-zoom-in"
+                      style={btnS}><ZoomIn size={12} /></button>
+            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.15))}
+                      title="Zoom out" data-testid="xdr-ag-zoom-out"
+                      style={btnS}><ZoomOut size={12} /></button>
+            <button onClick={() => setZoom(1.0)}
+                      title="Fit" data-testid="xdr-ag-fit"
+                      style={btnS}><Maximize2 size={12} /></button>
+            <button onClick={() => { setZoom(1); setSelId(null); setTimeMax(100); }}
+                      title="Reset" data-testid="xdr-ag-reset"
+                      style={btnS}><RotateCcw size={12} /></button>
+          </div>
+        </div>
+        {/* Timeline row */}
         {graph.timeline.length > 0 && (
-          <div style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b",
+          <div style={{ padding: "6px 10px", borderBottom: "1px solid #1e293b",
                           color: "#94a3b8", fontSize: 11, display: "flex",
-                          alignItems: "center", gap: 12 }}
+                          alignItems: "center", gap: 8 }}
                 data-testid="xdr-ag-timeline">
-            <span>TIMELINE</span>
+            <button onClick={() => stepTimeline(-1)} style={btnS}
+                      data-testid="xdr-ag-tl-prev"><SkipBack size={11} /></button>
+            <button onClick={() => setPlaying(p => !p)} style={btnS}
+                      data-testid="xdr-ag-tl-play">
+              {playing ? <Pause size={11} /> : <Play size={11} />}
+            </button>
+            <button onClick={() => stepTimeline(1)} style={btnS}
+                      data-testid="xdr-ag-tl-next"><SkipForward size={11} /></button>
             <input type="range" min="0" max="100" value={timeMax}
-                    onChange={(e) => setTimeMax(parseInt(e.target.value, 10))}
+                    onChange={e => setTimeMax(parseInt(e.target.value, 10))}
                     style={{ flex: 1 }}
-                    data-testid="xdr-ag-timeline-scrubber" />
-            <span className="mono">{timeMax}% · {timelineWindow ? timelineWindow.size : 0} event(s)</span>
+                    data-testid="xdr-ag-tl-scrub" />
+            <span className="mono">{timeMax}% · {timelineWindow ? timelineWindow.size : 0}</span>
           </div>
         )}
-
-        {/* SVG graph */}
-        <div style={{ overflow: "auto", maxHeight: 720 }}>
-          <svg width={layout?.width || 800}
-                height={layout?.height || 400}
+        {/* SVG canvas */}
+        <div style={{ overflow: "auto", maxHeight: 680, position: "relative" }}>
+          <svg width={(layout?.width || 800) * zoom}
+                height={(layout?.height || 300) * zoom}
+                viewBox={`0 0 ${layout?.width || 800} ${layout?.height || 300}`}
                 data-testid="xdr-ag-svg"
                 style={{ display: "block" }}>
             {/* Edges */}
-            {visibleEdges.map(e => {
+            {layout && visibleEdges.map(e => {
               const s = layout.pos.get(e.src);
               const d = layout.pos.get(e.dst);
               if (!s || !d) return null;
               const dimmed = timelineWindow && e.timestamp
                 && !timelineWindow.has(`${e.src}|${e.rel}|${e.dst}`);
               const tone = STATE_TONE[e.state] || STATE_TONE.NOT_OBSERVED;
+              const isPrimary = primaryPath.has(e.src) && primaryPath.has(e.dst);
+              const isSelected = selId === e.id;
+              const isHovered = hoveredEdge === e.id;
+              const showLabel = isSelected || isHovered;
+              const x1 = s.x + NODE_W, y1 = s.y + NODE_H / 2;
+              const x2 = d.x,           y2 = d.y + NODE_H / 2;
               return (
                 <g key={e.id}
-                    onClick={() => { setSelectedId(e.id); setSelectedKind("edge"); }}
-                    style={{ cursor: "pointer", opacity: dimmed ? 0.15 : 0.7 }}
+                    onClick={() => { setSelId(e.id); setSelKind("edge"); }}
+                    onMouseEnter={() => setHovered(e.id)}
+                    onMouseLeave={() => setHovered(null)}
+                    style={{ cursor: "pointer", opacity: dimmed ? 0.12 : 1 }}
                     data-testid={`xdr-ag-edge-${e.id}`}>
-                  <line x1={s.x + 200} y1={s.y + 17}
-                         x2={d.x} y2={d.y + 17}
-                         stroke={selectedId === e.id ? "#fbbf24" : tone.stroke}
-                         strokeWidth={selectedId === e.id ? 2 : 1}
-                         strokeDasharray={e.state === "POSSIBLE" ? "4 3"
-                                              : e.state === "NOT_OBSERVED" ? "2 3" : "0"} />
-                  <text x={(s.x + 200 + d.x) / 2}
-                         y={(s.y + d.y) / 2 + 14}
-                         fontSize={8} fontFamily="ui-monospace, monospace"
-                         fill="#94a3b8" textAnchor="middle">
-                    {e.rel}
-                  </text>
+                  <path d={`M${x1},${y1} C${x1 + 30},${y1} ${x2 - 30},${y2} ${x2},${y2}`}
+                         fill="none"
+                         stroke={isSelected ? "#fbbf24"
+                                    : isPrimary ? "#c4b5fd" : tone.stroke}
+                         strokeWidth={isSelected ? 2 : isPrimary ? 1.5 : 0.8}
+                         strokeDasharray={e.state === "POSSIBLE" ? "3 3"
+                                              : e.state === "NOT_OBSERVED" ? "1 4" : "0"}
+                         strokeOpacity={isPrimary ? 0.9 : 0.55} />
+                  {showLabel && (
+                    <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 4}
+                           fontSize={8} fontFamily="ui-monospace, monospace"
+                           fill="#fbbf24" textAnchor="middle">
+                      {e.rel}
+                    </text>
+                  )}
                 </g>
               );
             })}
             {/* Nodes */}
-            {(layout?.nodes || []).map(n => {
+            {layout && visibleNodes.map(n => {
               const p = layout.pos.get(n.id);
               if (!p) return null;
+              const tone = STATE_TONE[n.state] || STATE_TONE.NOT_OBSERVED;
+              const isSel = selId === n.id && selKind === "node";
+              const isPrim = primaryPath.has(n.id);
+              const stroke = isSel ? "#fbbf24" : isPrim ? "#fbbf24" : tone.stroke;
               return (
-                <TonedNode key={n.id} node={n} x={p.x} y={p.y}
-                              focused={selectedId === n.id && selectedKind === "node"}
-                              onClick={() => { setSelectedId(n.id); setSelectedKind("node"); }} />
+                <g key={n.id}
+                    onClick={() => { setSelId(n.id); setSelKind("node"); }}
+                    style={{ cursor: "pointer" }}
+                    data-testid={`xdr-ag-node-${n.id}`}>
+                  <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={4}
+                         fill={tone.fill}
+                         stroke={stroke}
+                         strokeWidth={isSel || isPrim ? 1.5 : 0.8} />
+                  <text x={p.x + 6} y={p.y + 11}
+                         fontSize={8} fontFamily="ui-monospace, monospace"
+                         fill="#e2e8f0" opacity={0.7}>
+                    {tone.label} {n.kind.toUpperCase()}
+                  </text>
+                  <text x={p.x + 6} y={p.y + 23}
+                         fontSize={10} fontFamily="ui-sans-serif"
+                         fill="#f8fafc" style={{ fontWeight: 500 }}>
+                    {nodeLabel(n)}
+                  </text>
+                </g>
               );
             })}
           </svg>
+          {/* Minimap */}
+          {layout && (
+            <div style={{ position: "absolute", right: 8, bottom: 8,
+                             width: 130, height: 80, background: "rgba(15,23,42,0.85)",
+                             border: "1px solid #334155", borderRadius: 4,
+                             padding: 4 }}
+                  data-testid="xdr-ag-minimap">
+              <svg width="122" height="72"
+                    viewBox={`0 0 ${layout.width} ${layout.height}`}
+                    preserveAspectRatio="xMidYMid meet">
+                {visibleNodes.map(n => {
+                  const p = layout.pos.get(n.id);
+                  if (!p) return null;
+                  const tone = STATE_TONE[n.state] || STATE_TONE.NOT_OBSERVED;
+                  return <rect key={n.id} x={p.x} y={p.y}
+                                    width={NODE_W} height={NODE_H}
+                                    fill={tone.fill} opacity={0.85} />;
+                })}
+              </svg>
+            </div>
+          )}
         </div>
-
         {/* Metrics footer */}
-        <div style={{ padding: 10, borderTop: "1px solid #1e293b",
-                         color: "#94a3b8", fontSize: 11,
-                         display: "flex", gap: 16, flexWrap: "wrap" }}
+        <div style={{ padding: "6px 10px", borderTop: "1px solid #1e293b",
+                         color: "#94a3b8", fontSize: 10,
+                         display: "flex", gap: 12, flexWrap: "wrap" }}
               data-testid="xdr-ag-metrics">
           {Object.entries(graph.metrics).map(([k, v]) => (
-            <span key={k}>
-              {k.replace(/_/g, " ")}: <b style={{ color: "#e2e8f0" }}>{v}%</b>
+            <span key={k}>{k.replace(/_/g, " ")}:
+              <b style={{ color: "#e2e8f0", marginLeft: 4 }}>{v}%</b>
             </span>
           ))}
         </div>
       </div>
-
-      {/* ── Evidence Inspector ─────────────────────────────── */}
+      {/* Evidence Inspector */}
       <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0",
                        borderRadius: 6, padding: 12, fontSize: 12,
                        maxHeight: 820, overflow: "auto" }}
@@ -296,18 +389,12 @@ export default function AttackGraphTab({ incident }) {
             techniques, findings, and provenance.
           </div>
         )}
-        {selected && selectedKind === "node" && (
+        {selected && selKind === "node" && (
           <div>
-            <div className="mono" style={{ fontSize: 10, opacity: 0.55 }}>
-              {selected.id}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>
-              {selected.label}
-            </div>
+            <div className="mono" style={{ fontSize: 10, opacity: 0.55 }}>{selected.id}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{selected.label}</div>
             <div style={{ marginTop: 4 }}>
-              <span className="mono" style={{ fontSize: 11 }}>
-                {selected.kind}
-              </span>{" · "}
+              <span className="mono" style={{ fontSize: 11 }}>{selected.kind}</span>{" · "}
               <span style={{ color: STATE_TONE[selected.state]?.stroke }}>
                 {STATE_TONE[selected.state]?.label} {selected.state}
               </span>
@@ -320,9 +407,7 @@ export default function AttackGraphTab({ incident }) {
                     {Object.entries(selected.attrs).map(([k, v]) => (
                       <tr key={k}>
                         <td style={{ opacity: 0.6, verticalAlign: "top",
-                                          paddingRight: 8, width: 90 }}>
-                          {k}
-                        </td>
+                                          paddingRight: 8, width: 90 }}>{k}</td>
                         <td className="mono" style={{ wordBreak: "break-all" }}>
                           {typeof v === "object" ? JSON.stringify(v) : String(v)}
                         </td>
@@ -332,20 +417,18 @@ export default function AttackGraphTab({ incident }) {
                 </table>
               </div>
             )}
-            {/* Incoming + outgoing edges */}
             <div style={{ marginTop: 10 }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Connections</div>
               {graph.edges.filter(e => e.src === selected.id || e.dst === selected.id)
-                            .slice(0, 20).map(e => (
+                            .slice(0, 15).map(e => (
                 <div key={e.id} style={{ padding: "4px 0",
                                                 borderBottom: "1px dashed #e2e8f0" }}>
                   <span className="mono" style={{ fontSize: 10, opacity: 0.6 }}>
-                    {e.src === selected.id ? "→" : "←"}
-                  </span>{" "}
+                    {e.src === selected.id ? "→" : "←"}</span>{" "}
                   <b>{e.rel}</b>{" "}
                   <span className="mono" style={{ fontSize: 10 }}>
                     {(nodeMap.get(e.src === selected.id ? e.dst : e.src)?.label
-                        || "").slice(0, 40)}
+                        || "").slice(0, 32)}
                   </span>
                   <div style={{ opacity: 0.55, fontSize: 10 }}>{e.reason}</div>
                 </div>
@@ -353,19 +436,15 @@ export default function AttackGraphTab({ incident }) {
             </div>
           </div>
         )}
-        {selected && selectedKind === "edge" && (
+        {selected && selKind === "edge" && (
           <div>
-            <div className="mono" style={{ fontSize: 10, opacity: 0.55 }}>
-              {selected.id}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>
-              {selected.rel}
-            </div>
+            <div className="mono" style={{ fontSize: 10, opacity: 0.55 }}>{selected.id}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{selected.rel}</div>
             <div style={{ marginTop: 6, fontSize: 11 }}>
               <div><b>State:</b> {selected.state}</div>
               <div><b>Reason:</b> {selected.reason}</div>
-              {selected.timestamp && <div><b>When:</b> {selected.timestamp}</div>}
-              {selected.event_id && <div><b>Event ID:</b> {selected.event_id}</div>}
+              {selected.timestamp   && <div><b>When:</b> {selected.timestamp}</div>}
+              {selected.event_id    && <div><b>Event ID:</b> {selected.event_id}</div>}
               {selected.technique_id && <div><b>Technique:</b> {selected.technique_id}</div>}
               <div><b>Source:</b> {selected.source}</div>
             </div>
@@ -386,12 +465,10 @@ export default function AttackGraphTab({ incident }) {
               </div>
             )}
             <div style={{ marginTop: 10, borderTop: "1px solid #e2e8f0",
-                             paddingTop: 8 }}>
+                             paddingTop: 8, fontSize: 11 }}>
               <div><b>Endpoints</b></div>
-              <div style={{ fontSize: 11, marginTop: 4 }}>
-                <div>src: {nodeMap.get(selected.src)?.label}</div>
-                <div>dst: {nodeMap.get(selected.dst)?.label}</div>
-              </div>
+              <div>src: {nodeMap.get(selected.src)?.label}</div>
+              <div>dst: {nodeMap.get(selected.dst)?.label}</div>
             </div>
           </div>
         )}
@@ -399,3 +476,9 @@ export default function AttackGraphTab({ incident }) {
     </div>
   );
 }
+
+const btnS = {
+  background: "#1e293b", color: "#e2e8f0", border: "1px solid #334155",
+  borderRadius: 3, padding: "4px 6px", cursor: "pointer",
+  display: "inline-flex", alignItems: "center",
+};
