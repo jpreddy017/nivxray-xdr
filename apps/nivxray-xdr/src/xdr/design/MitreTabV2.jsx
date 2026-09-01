@@ -318,10 +318,14 @@ export default function MitreTabV2({ incident }) {
 /* --------------------------------------------------------------------
  * ATT&CK ID resolution.  Backend nodes may put the technique id under
  * `attack_id`, `technique_id`, `tid`, `object_id`, or `id`, and only
- * some of those are the canonical T#### / T####.### format.  Build
- * the attack.mitre.org URL only if we can extract a canonical id;
- * otherwise render the row without an "Open" affordance rather than
- * shipping a broken 404 URL (owner rule: never fabricate).
+ * some of those are the canonical T#### / T####.### format.  When
+ * a canonical id resolves we deep-link directly to the technique
+ * page (attack.mitre.org/techniques/T####/###/).  When the backend
+ * only exposes a technique NAME (never fabricated), we fall back to
+ * ATT&CK's own search endpoint so the analyst still lands on the
+ * right technique in one hop.  Honest final fallback: if neither
+ * an id nor a name is available, we render "no attack id" and no
+ * broken link.
  * ------------------------------------------------------------------ */
 const ATTACK_ID_RE = /\b(T\d{4})(?:\.(\d{3}))?\b/i;
 function extractAttackId(node) {
@@ -336,9 +340,35 @@ function extractAttackId(node) {
   }
   return null;
 }
+function extractAttackName(node) {
+  if (!node) return null;
+  for (const cand of [node.object_name, node.name, node.label,
+                                 node.technique_name, node.id]) {
+    const s = String(cand || "").trim();
+    // Skip NOT_APPLICABLE / obvious non-name placeholders.
+    if (s && s.toUpperCase() !== "NOT_APPLICABLE"
+             && !ATTACK_ID_RE.test(s)) {
+      return s;
+    }
+  }
+  return null;
+}
 function attackHrefFor(node) {
   const id = extractAttackId(node);
-  return id ? `https://attack.mitre.org/techniques/${id}/` : null;
+  if (id) return `https://attack.mitre.org/techniques/${id}/`;
+  const name = extractAttackName(node);
+  if (name) {
+    // Fall back to ATT&CK's search endpoint — always resolves to a
+    // real MITRE ATT&CK page, never a 404.
+    return "https://attack.mitre.org/search/?q="
+              + encodeURIComponent(name);
+  }
+  return null;
+}
+function attackLinkTitle(node) {
+  return extractAttackId(node)
+    ? "Open technique on attack.mitre.org"
+    : "Search this technique on attack.mitre.org";
 }
 
 
@@ -346,6 +376,7 @@ function attackHrefFor(node) {
 function TechniqueRow({ node }) {
   const conf = stateForConfidence(node.confidence);
   const attackHref = attackHrefFor(node);
+  const linkTitle  = attackLinkTitle(node);
 
   const buckets = { hosts: [], users: [], files: [] };
   (node.entities || []).forEach((e) => {
@@ -390,7 +421,8 @@ function TechniqueRow({ node }) {
         <EvidenceState state={conf.state} reason={conf.reason}
                         testid={`mitre-v2-row-conf-${node.id}`} />
         {attackHref ? (
-          <Action label="Open" icon={ExternalLink}
+          <Action label={extractAttackId(node) ? "Open" : "Search"}
+                   icon={ExternalLink}
                    capability="cap-full"
                    onRun={() => window.open(attackHref, "_blank",
                                              "noopener,noreferrer")}
@@ -400,7 +432,7 @@ function TechniqueRow({ node }) {
                   data-testid={`mitre-v2-row-noext-${node.id}`}
                   style={{ fontSize: 10, opacity: 0.55,
                               padding: "3px 8px" }}
-                  title="No canonical ATT&CK id resolved for this row.">
+                  title="No canonical ATT&CK id or name resolved for this row.">
             no attack id
           </span>
         )}
@@ -471,7 +503,10 @@ function TechniqueCard({ node, incidentId }) {
                         testid={`mitre-v2-card-conf-${node.id}`} />
         <ActionGroup>
           {attackHref ? (
-            <Action label="View technique" icon={ExternalLink}
+            <Action label={extractAttackId(node)
+                                    ? "View technique"
+                                    : "Search technique"}
+                     icon={ExternalLink}
                      capability="cap-full"
                      onRun={() => window.open(attackHref, "_blank",
                                                "noopener,noreferrer")}
@@ -481,7 +516,7 @@ function TechniqueCard({ node, incidentId }) {
                     data-testid={`mitre-v2-card-noext-${node.id}`}
                     style={{ fontSize: 10, opacity: 0.55,
                                 padding: "4px 10px" }}
-                    title="No canonical ATT&CK id resolved for this technique.">
+                    title="No canonical ATT&CK id or name resolved for this technique.">
               no attack id
             </span>
           )}
