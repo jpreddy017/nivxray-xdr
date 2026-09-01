@@ -1,26 +1,45 @@
 /**
- * XDR Collector API client · Phase B.5.
+ * XDR Collector API client · Round 24.95 (Collector Landing).
  *
- * Talks to the independently-deployed NivXRay XDR Collector service
- * (see /app/apps/nivxray-xdr-collector).  The base URL comes from
- * `import.meta.env.VITE_XDR_COLLECTOR_URL` — if unset, every call
- * surfaces the honest `COLLECTOR_RUNTIME_NOT_DEPLOYED` state instead
- * of silently failing.  Never fake connector data client-side.
+ * Priority for the collector base URL:
+ *   1. `VITE_XDR_COLLECTOR_URL` (explicit override for a separately
+ *      deployed standalone collector — e.g. an on-prem syslog
+ *      forwarder).  Path suffix `/api/xdr` (legacy standalone shape).
+ *   2. `REACT_APP_BACKEND_URL` (default — the main NivXRay backend
+ *      hosts the HTTP collector under `/api/xdr/collector`).
+ *
+ * Never fabricates data.  If neither URL is set the module surfaces
+ * the honest `COLLECTOR_RUNTIME_NOT_DEPLOYED` state.
  */
 import axios from "axios";
 
-const COLLECTOR_BASE = import.meta.env.VITE_XDR_COLLECTOR_URL || "";
+const CUSTOM_URL   = import.meta.env.VITE_XDR_COLLECTOR_URL || "";
+// vite.config.js exposes REACT_APP_BACKEND_URL via `process.env.*`
+// (bridged from REACT_APP_NIVXRAY_API_URL).  Use that channel so the
+// landed-collector default path resolves the same way every other
+// XDR module resolves the backend base URL.
+const BACKEND_URL  =
+  (typeof process !== "undefined"
+    && process.env
+    && process.env.REACT_APP_BACKEND_URL) || "";
+
+const COLLECTOR_BASE = CUSTOM_URL
+  ? `${CUSTOM_URL.replace(/\/+$/, "")}/api/xdr`
+  : (BACKEND_URL
+      ? `${BACKEND_URL.replace(/\/+$/, "")}/api/xdr/collector`
+      : "");
 
 const client = COLLECTOR_BASE
-  ? axios.create({ baseURL: `${COLLECTOR_BASE.replace(/\/+$/, "")}/api/xdr`,
-                     timeout: 8000 })
+  ? axios.create({ baseURL: COLLECTOR_BASE, timeout: 8000 })
   : null;
 
 function notDeployed() {
   const err = new Error("collector_runtime_not_deployed");
   err.code = "COLLECTOR_RUNTIME_NOT_DEPLOYED";
-  err.note = "Set VITE_XDR_COLLECTOR_URL in the Vercel project settings "
-              + "to point at the deployed NivXRay XDR Collector service.";
+  err.note = "Neither VITE_XDR_COLLECTOR_URL nor REACT_APP_BACKEND_URL is "
+              + "set. Set REACT_APP_BACKEND_URL to use the landed collector, "
+              + "or VITE_XDR_COLLECTOR_URL to point at a separately deployed "
+              + "standalone collector (on-prem syslog forwarder).";
   throw err;
 }
 

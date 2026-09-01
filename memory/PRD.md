@@ -58,6 +58,62 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 24.95 — SHIPPED · Collector Landing (Option C)
+
+**Goal:** turn the honest-but-empty `COLLECTOR NOT DEPLOYED` state
+into a live in-process collector so every subsequent BYO-EDR round
+has a reachable transport plane.  Zero regression to the standalone
+collector — it remains independently deployable as the on-prem
+syslog forwarder.
+
+### Locked decisions
+- **Option C** — HTTP transports (REST poller · webhook receiver ·
+  connector CRUD · outbox · ingest health) land in the main backend
+  under `/api/xdr/collector/*`.  Syslog stays behind on the
+  standalone forwarder.
+- `VITE_XDR_COLLECTOR_URL` becomes an *override* on the frontend, not
+  a *requirement*.  Default falls back to `REACT_APP_BACKEND_URL` +
+  `/api/xdr/collector`.
+- **No code duplication** — landing is a `sys.path` import from
+  `/app/apps/nivxray-xdr-collector`, so the standalone repo remains
+  the single reference implementation.
+
+### Shipped
+- `/app/backend/routers/xdr_collector_landing.py` — `attach_collector_landing(app)`
+  builds `app.state.{registry, store, runtime, instances}`, mounts
+  all seven collector routers under `/api/xdr/collector`, adds a
+  `/landing` liveness receipt, and shuts down cleanly.  Import
+  guarded: a missing standalone dir logs a warning and reverts to
+  the honest "not deployed" surface — never crashes boot.
+- `/app/backend/server.py` — startup hook installs the landing.
+- `/app/apps/nivxray-xdr/src/xdr/admin/collectorApi.js` — priority
+  chain: `VITE_XDR_COLLECTOR_URL` → `process.env.REACT_APP_BACKEND_URL`
+  + `/api/xdr/collector`.  `COLLECTOR_CONFIGURED = !!base`.
+
+### Verified
+- `GET /api/xdr/collector/landing` → `{ landed: true, phase: 24.95, mode: in-process }`.
+- `GET /api/xdr/collector/connectors` → `{ connectors: [], count: 0 }`.
+- `GET /api/xdr/collector/outbox/health` → `{ state: not_configured, ingest.configured: false }`.
+- `GET /api/xdr/collector/source-types` → `[rest, webhook, syslog]`.
+- Frontend `/xdr/admin/integrations?design=v2` now renders the real
+  Capability Roster (`NO INTEGRATIONS CONFIGURED`) + Evidence Health
+  strip (all zeros, honest) + `Add source` + `Preflight ingest`.
+  Legacy `?design=v1` unchanged; `data-testid="evops-not-deployed"`
+  is gone.
+
+### Boundary notes (must not drift)
+- Delivery worker intentionally NOT started here.  The landed
+  collector will deliver evidence to the same process via Round 26's
+  canonical-evidence writer (internal call, not HTTP round-trip).
+- `XDR_STATE_DIR` defaults to `/app/backend/xdr_state` (chmod 600
+  disk mirror inherited from the standalone `ConnectorStore`).
+  Round 25b vault replaces this with envelope encryption.
+- Syslog connector *class* remains registered so `source-types`
+  advertises it; auto-start of a syslog connector inside the pod
+  will fail honestly (no UDP ingress) — that's the intended signal
+  to deploy the standalone forwarder.
+
+---
 ## ✅ 2026-02-14 · Round 24.9 — SHIPPED · Evidence Operations Design System
 
 **Goal (owner-locked):** turn the fragmented CRUD-registry admin

@@ -428,6 +428,20 @@ api.include_router(static_docs_router)
 # Semantic-Mapping-Preview) deleted.
 
 # ─────────────────────────────────────────────────────────────────────
+# Round 24.95 · Collector Landing — HTTP transports of the standalone
+# NivXRay XDR Collector are landed in this backend under
+# /api/xdr/collector/*.  Standalone process remains deployable for
+# on-prem syslog forwarding.  Guarded so a broken/missing standalone
+# repo cannot crash boot.
+try:
+    from routers.xdr_collector_landing import attach_collector_landing
+    _landed = attach_collector_landing(app)
+    log.info("[startup] XDR collector landing: %s",
+             "mounted at /api/xdr/collector" if _landed else "skipped (dir missing)")
+except Exception as _landing_exc:                              # pragma: no cover
+    log.warning("[startup] XDR collector landing failed: %s", _landing_exc)
+
+# ─────────────────────────────────────────────────────────────────────
 # ADR-0005 · NivXForge router mount (READ-ONLY Preview endpoints only).
 # Authorised 2026-02-28. Any write endpoint under /api/nivxforge/*
 # requires a separate ADR.
