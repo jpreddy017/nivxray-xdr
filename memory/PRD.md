@@ -58,6 +58,34 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 27 · UX — Surface-aware default flip
+
+Owner-locked semantics (2026-02-14):
+```
+migrated surface   → v2 default
+unmigrated surface → existing implementation (unaffected)
+?design=v1         → escape hatch on migrated surfaces only
+```
+
+- `isDesignV2EnabledFor(surface)` — new per-surface flag lookup;
+  returns `false` outright for any surface not in the
+  `MIGRATED_SURFACES` set (Round 27: `{integrations,
+  recommendations}`).  Migrated surfaces default to v2; env
+  `VITE_XDR_DESIGN_V2=0` or `?design=v1` are the escape hatches.
+- Call sites migrated: `XdrAdminPage.jsx` (integrations),
+  `XdrIncidentDetailPage.jsx` (recommendations).
+- **No visible v1/v2 toggle in the shell** — owner-locked:
+  design versions are a migration concern, not an analyst
+  workflow surface.
+- Verified: fresh session (no flag, no sessionStorage) →
+  `data-testid="recommendations-tab-v2"` resolves; `?design=v1`
+  → legacy testid resolves.  MITRE / header / other tabs stay
+  on their existing implementation.
+
+Adding a future surface to v2 is one-line: append its key to
+`MIGRATED_SURFACES` in `xdr/design/index.js`.
+
+---
 ## ✅ 2026-02-14 · Round 27 + 27.x — SHIPPED · Response Console + Golden BYO-EDR E2E
 
 ### Owner-locked invariants (Round 27)

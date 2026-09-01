@@ -22,7 +22,7 @@ import { Loader2, RefreshCcw, ArrowRightLeft } from "lucide-react";
 import XdrShell from "@/xdr/XdrShell";
 import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
 import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
-import { IntegrationControlCenter, isDesignV2Enabled } from "@/xdr/design";
+import { IntegrationControlCenter, isDesignV2EnabledFor } from "@/xdr/design";
 import EnginesBody from "@/xdr/admin/EnginesBody";
 import ParsersBody from "@/xdr/admin/ParsersBody";
 import NormalizationBody from "@/xdr/admin/NormalizationBody";
@@ -320,7 +320,7 @@ function AdminBody({ section }) {
               />
             )}
             {section.kind === "integrations"
-              ? (isDesignV2Enabled()
+              ? (isDesignV2EnabledFor("integrations")
                   ? <IntegrationControlCenter />
                   : <IntegrationsBody />)
               : section.kind === "engines"
