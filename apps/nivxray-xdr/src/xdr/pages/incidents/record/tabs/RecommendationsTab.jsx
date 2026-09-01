@@ -1,62 +1,54 @@
 /**
- * RecommendationsTab · Layer 3 v2 · light-first analyst actions.
+ * RecommendationsTab · Round 17.5 · Evidence-derived, entity-bound.
  *
- * Reads response executions from the existing endpoint
- *   /api/xdr/incidents/:id/response-executions
- * and derives light recommendations from evidence gaps + verdict.
- * Never invents recommendations — if no gaps exist and no response
- * is required, the tab renders an honest empty state.
+ * Reads the Round 16 synthesized recommendations from the existing
+ *   POST /api/admin/content-supply-chain/response/:incident_id/recompute
+ * endpoint (idempotent closed-loop recompute).  Every recommendation
+ * is bound to a real observed entity, tagged with honest applicability,
+ * cites framework rationale and reports capability truthfully.
+ *
+ * There is NO generic "gap → static verb" fallback here. If the
+ * synthesizer produces zero candidates, the tab honestly says so.
  */
 import React, { useEffect, useState } from "react";
-import { CheckCircle2, ShieldAlert, Zap, Loader2 } from "lucide-react";
-
-import { getIncidentSummary } from "@/lib/incidentsApi";
+import { CheckCircle2, ShieldAlert, Loader2, Radar } from "lucide-react";
 import api from "@/lib/api";
 
-const PRIO_LABEL = { critical: "CRIT", high: "HIGH", medium: "MED", low: "LOW" };
 
-function classifyGap(g) {
-  // Turn a evidence-gap row into a semantic priority.
-  const s = String(g?.state || "").toLowerCase();
-  if (s === "error")                     return "critical";
-  if (s === "no_matching_evidence")      return "high";
-  if (s === "not_available")             return "medium";
-  return "low";
-}
+const CAT_COLOR = {
+  IMMEDIATE:     "#f87171",
+  INVESTIGATION: "#38bdf8",
+  REMEDIATION:   "var(--amber)",
+  PREVENTION:    "var(--mint)",
+};
 
-function actionForGap(g) {
-  // Map claim → recommended action verb.
-  const c = String(g?.claim || "").toLowerCase();
-  if (c.includes("lateral"))           return "Enumerate lateral-movement telemetry sources and confirm collection is active.";
-  if (c.includes("exfil"))             return "Correlate outbound traffic and DNS beacons to validate no exfiltration occurred.";
-  if (c.includes("rule"))              return "Run the stage-2 rule engine and re-project verdict + risk once evidence lands.";
-  if (c.includes("ndr") || c.includes("network"))  return "Confirm the NDR integration is enrolled for this tenant.";
-  if (c.includes("itdr") || c.includes("identity")) return "Configure the identity threat detection connector to close this gap.";
-  if (c.includes("email"))             return "Enable the email security integration to project delivery-time evidence.";
-  if (c.includes("cloud"))             return "Enable the cloud audit connector for this workload.";
-  return "Investigate and provide evidence to close this gap.";
-}
+const APP_COLOR = {
+  APPLICABLE:              "var(--mint)",
+  ALREADY_EXECUTED:        "var(--faint)",
+  CAPABILITY_UNAVAILABLE:  "var(--amber)",
+  INSUFFICIENT_EVIDENCE:   "var(--faint)",
+  NOT_APPLICABLE:          "var(--faint)",
+  SUPERSEDED:              "var(--faint)",
+};
+
 
 export default function RecommendationsTab({ incident }) {
-  const [summary, setSummary] = useState(null);
-  const [execs, setExecs]     = useState(null);
+  const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
+  const [err,     setErr]     = useState(null);
 
   useEffect(() => {
-    if (!incident?.id) return undefined;
+    if (!incident?.id) return;
     let cancelled = false;
+    setLoading(true); setErr(null);
     (async () => {
-      setLoading(true); setError(null);
       try {
-        const [sum, ex] = await Promise.all([
-          getIncidentSummary(incident.id).catch(() => null),
-          api.get(`/xdr/incidents/${encodeURIComponent(incident.id)}/response-executions`)
-              .then(r => r.data).catch(() => ({ executions: [] })),
-        ]);
-        if (!cancelled) { setSummary(sum); setExecs(ex); }
+        const r = await api.post(
+          `/admin/content-supply-chain/response/${incident.id}/recompute`);
+        if (!cancelled) setData(r.data);
       } catch (e) {
-        if (!cancelled) setError(e?.message || "Failed to load recommendations.");
+        if (!cancelled) setErr(e?.response?.data?.detail
+                                          || e?.message || "unavailable");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -64,114 +56,180 @@ export default function RecommendationsTab({ incident }) {
     return () => { cancelled = true; };
   }, [incident?.id]);
 
-  if (loading) return (
-    <div className="rl-loading">
-      <Loader2 size={12} className="rl-spin" style={{ verticalAlign: "-2px", marginRight: 6 }} />
-      LOADING RECOMMENDATIONS…
-    </div>
-  );
-  if (error) return <div className="rl-error">{String(error)}</div>;
-
-  const gaps = summary?.evidence_gaps || [];
-  const openGaps = gaps.filter(g => String(g.state).toLowerCase() !== "ok");
-  const executions = execs?.executions || [];
-
-  // Build honest, evidence-derived recommendation list.
-  const recos = [];
-  for (const g of openGaps) {
-    recos.push({
-      priority: classifyGap(g),
-      title:    `Close evidence gap · ${g.claim || "Untitled claim"}`,
-      body:     g.reason || "Missing evidence prevents deterministic conclusion.",
-      basis:    `Evidence Gap · ${String(g.state).toUpperCase()} · searched ${(g.searched || []).join(", ") || "—"}`,
-      action:   actionForGap(g),
-    });
+  if (loading) {
+    return (
+      <div data-testid="reco-loading" style={emptyBox}>
+        <Loader2 size={14} className="rl-spin" /> Synthesizing
+        recommendations for this incident…
+      </div>
+    );
+  }
+  if (err || !data) {
+    return (
+      <div data-testid="reco-error" style={{ ...emptyBox,
+                                                              color: "var(--amber)" }}>
+        {err || "no data"}
+      </div>
+    );
   }
 
+  const synth  = (data.recommendations?.synthesized || []);
+  const active = synth.filter((r) => r.applicability === "APPLICABLE");
+  const other  = synth.filter((r) => r.applicability !== "APPLICABLE");
+
   return (
-    <div data-testid="xdr-record-recommendations">
-      <div className="rl-metric-grid" style={{ marginBottom: 12 }}>
-        <div className="rl-metric amber">
-          <div className="k">Open gaps</div>
-          <div className="v">{openGaps.length}</div>
-          <div className="sub">actionable now</div>
-        </div>
-        <div className="rl-metric ok">
-          <div className="k">Response actions</div>
-          <div className="v">{executions.length}</div>
-          <div className="sub">executed against this incident</div>
-        </div>
-        <div className="rl-metric info">
-          <div className="k">Total claims</div>
-          <div className="v">{gaps.length}</div>
-          <div className="sub">evaluated by completeness engine</div>
-        </div>
-      </div>
+    <div data-testid="reco-tab" style={{ padding: "0 4px" }}>
+      <Header threatFamily={data.threat_family}
+                    confidence={data.threat_family_confidence}
+                    active={active.length}
+                    total={synth.length} />
 
-      <div className="rl-section">
-        <div className="rl-section-title">Analyst recommendations</div>
-        {recos.length === 0
-          ? <div className="rl-empty">
-              <CheckCircle2 size={18} style={{ marginBottom: 6, color: "var(--rl-green)" }} />
-              <div>NO OPEN RECOMMENDATIONS — every evaluated claim is
-                    either OK or NOT_CONNECTED (integration-level).</div>
-            </div>
-          : recos.map((r, i) => (
-              <div key={i} className="rl-reco"
-                    data-testid={`xdr-record-reco-${i}`}>
-                <span className={`rl-reco-prio ${r.priority}`}
-                        data-testid={`xdr-record-reco-prio-${i}`}>
-                  {PRIO_LABEL[r.priority]}
-                </span>
-                <div className="rl-reco-body">
-                  <h5>{r.title}</h5>
-                  <p>{r.body}</p>
-                  <p style={{ marginTop: 6 }}>
-                    <ShieldAlert size={11} color="var(--rl-orange)"
-                                    style={{ display: "inline",
-                                             verticalAlign: "-2px",
-                                             marginRight: 4 }} />
-                    <strong>Action:</strong> {r.action}
-                  </p>
-                  <div className="rl-reco-basis">{r.basis}</div>
-                </div>
-                <div className="rl-reco-action">
-                  <button type="button" className="rl-btn"
-                          data-testid={`xdr-record-reco-open-${i}`}
-                          disabled>
-                    <Zap size={11} /> Open playbook
-                  </button>
-                </div>
-              </div>
-            ))}
-      </div>
-
-      {executions.length > 0 && (
-        <div className="rl-section" data-testid="xdr-record-reco-executions">
-          <div className="rl-section-title">Response executions</div>
-          <table className="rl-table">
-            <thead><tr>
-              <th>Playbook</th><th>Status</th><th>Started</th><th>Notes</th>
-            </tr></thead>
-            <tbody>
-              {executions.map((e, i) => (
-                <tr key={i}>
-                  <td className="mono">{e.playbook_id || e.name || "—"}</td>
-                  <td className="mono">{String(e.status || "—").toUpperCase()}</td>
-                  <td className="mono">{(e.started_at || e.created_at || "—").slice(0, 16).replace("T", " ")}</td>
-                  <td>{e.note || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {active.length === 0 && (
+        <div style={emptyBox}>
+          No APPLICABLE recommendation was synthesized for this incident.
+          Every candidate below explains honestly why it was not applied
+          (missing evidence, capability, or already executed).
         </div>
       )}
 
-      <div style={{ marginTop: 10, fontSize: 10.5, color: "var(--rl-faint)",
-                      fontFamily: "var(--rs-mono)", letterSpacing: 0.2 }}>
-        Recommendations derived from evidence gaps + response
-        executions · never fabricated.
-      </div>
+      {active.map((r) => (
+        <RecoCard key={r.id} r={r} active={true} />
+      ))}
+
+      {other.length > 0 && (
+        <details style={{ marginTop: 14 }} data-testid="reco-why-not">
+          <summary style={{ cursor: "pointer",
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 11, color: "var(--faint)" }}>
+            Why other candidates did not apply ({other.length})
+          </summary>
+          <div style={{ marginTop: 8 }}>
+            {other.map((r) => <RecoCard key={r.id} r={r} active={false} />)}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
+
+
+function Header({ threatFamily, confidence, active, total }) {
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "center",
+                        padding: "10px 12px",
+                        border: "1px solid var(--border)",
+                        borderRadius: 4,
+                        background: "var(--panel2)",
+                        marginBottom: 12 }}>
+      <ShieldAlert size={12} style={{ color: "#a78bfa" }} />
+      <b style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
+        Recommended Mitigations
+      </b>
+      <span style={{ flex: 1 }} />
+      <span style={{ fontFamily: "var(--mono)", fontSize: 11,
+                          color: "var(--text-dim)" }}>
+        Threat Family:{" "}
+        <b style={{ color: "#a78bfa" }}>{threatFamily || "—"}</b>
+        {confidence && <> · {confidence}</>}
+        {" "}· {active}/{total} applicable
+      </span>
+    </div>
+  );
+}
+
+
+function RecoCard({ r, active }) {
+  const cat = CAT_COLOR[r.category] || "var(--faint)";
+  const app = APP_COLOR[r.applicability] || "var(--faint)";
+  const fw  = r.framework_rationale || {};
+  return (
+    <div data-testid={`reco-${r.id}`}
+              style={{ padding: 10, marginBottom: 8,
+                              border: `1px solid ${active ? cat : "var(--border)"}`,
+                              borderRadius: 4, background: "var(--panel2)",
+                              opacity: active ? 1 : 0.75 }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center",
+                          flexWrap: "wrap" }}>
+        <span style={pill(cat)}>{r.category}</span>
+        <b style={{ color: "var(--cyan)", fontFamily: "var(--mono)",
+                          fontSize: 12 }}>{r.suggested_action}</b>
+        <span style={{ color: "var(--text-dim)", fontFamily: "var(--mono)",
+                              fontSize: 11 }}>
+          → {r.target_entity?.kind}:{r.target_entity?.value}
+        </span>
+        <span style={{ flex: 1 }} />
+        <span style={pill(app)}>{r.applicability}</span>
+      </div>
+      <div style={{ marginTop: 4, fontFamily: "var(--sans)",
+                          fontSize: 11.5, color: "var(--text-dim)",
+                          lineHeight: 1.5 }}>
+        {r.text}
+      </div>
+      <div style={{ marginTop: 4, fontFamily: "var(--mono)",
+                          fontSize: 10, color: "var(--faint)" }}>
+        {r.applicability_reason}
+      </div>
+      {(fw.hint || fw.matched) && (
+        <div style={{ marginTop: 4, fontFamily: "var(--mono)",
+                            fontSize: 10, color: "var(--faint)" }}>
+          <Radar size={9} style={{ marginRight: 4 }} />
+          Framework: {fw.hint}{fw.matched
+            ? ` · ${fw.detail}`
+            : " · not mapped for this incident"}
+        </div>
+      )}
+      {active && (
+        <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
+          <AnalystButton reco={r} decision="ACCEPTED" label="Accept"
+                                color="var(--mint)" />
+          <AnalystButton reco={r} decision="REJECTED" label="Reject"
+                                color="var(--amber)" />
+          <AnalystButton reco={r} decision="SUPERSEDED" label="Supersede"
+                                color="var(--faint)" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function AnalystButton({ reco, decision, label, color }) {
+  const [state, setState] = useState("idle");
+  const click = async () => {
+    setState("busy");
+    try {
+      // Persist the analyst decision into the existing
+      // xdr_recommendations SSOT via the closed-loop endpoint.
+      // The route accepts additive decision fields.
+      await api.post(
+        `/admin/content-supply-chain/recommendations/${reco.id}/decision`,
+        {decision, reason: `analyst ${decision.toLowerCase()}`});
+      setState("done");
+    } catch {
+      setState("err");
+    }
+  };
+  return (
+    <button data-testid={`reco-${decision.toLowerCase()}-${reco.id}`}
+                onClick={click} disabled={state === "busy"}
+                style={{ padding: "3px 10px", fontSize: 10,
+                                fontFamily: "var(--mono)",
+                                border: `1px solid ${color}`,
+                                color, background: "transparent",
+                                borderRadius: 2, cursor: "pointer" }}>
+      {state === "done" ? "✓ " : ""}{label}
+    </button>
+  );
+}
+
+
+const pill = (color) => ({
+  padding: "1px 6px", border: `1px solid ${color}`, color,
+  borderRadius: 2, fontFamily: "var(--mono)", fontSize: 9,
+  fontWeight: 700,
+});
+const emptyBox = {
+  padding: 14, fontFamily: "var(--mono)", fontSize: 11,
+  color: "var(--faint)", border: "1px dashed var(--border)",
+  borderRadius: 4, background: "var(--panel2)",
+};

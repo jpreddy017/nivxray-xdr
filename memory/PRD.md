@@ -3,6 +3,55 @@
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ---
+## ✅ 2026-02-14 · Round 17.5 · Per-Incident Recommendation Experience — SHIPPED
+
+Recommended Mitigations now render **inside every incident** at
+`/xdr/incidents/:id → Recommendations tab` — no longer only in the
+Golden Pipeline demo panel.
+
+**What changed (bounded UI/wiring round · no new engines):**
+
+- `apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/RecommendationsTab.jsx` — **replaced** the previous gap→static-verb generic recommender.  Now calls `POST /api/admin/content-supply-chain/response/{id}/recompute` and renders the Round 16 synthesized recommendations:
+  - Header: **Threat Family** + confidence + applicable/total count
+  - **Recommended Mitigations** grid — every card is entity-bound (`kind:value`), category-tagged (IMMEDIATE / INVESTIGATION / REMEDIATION / PREVENTION), applicability-pilled (APPLICABLE / CAPABILITY_UNAVAILABLE / ALREADY_EXECUTED / INSUFFICIENT_EVIDENCE / SUPERSEDED / NOT_APPLICABLE), framework-cited, and offers **ACCEPT / REJECT / SUPERSEDE** analyst buttons
+  - `<details>` fold-away for non-applicable candidates with their honest "why not" reasons (auditable but non-noisy)
+- `routers/content_supply_chain.py` — new `POST /recommendations/{id}/decision` endpoint persists analyst decisions into the existing `xdr_recommendations` SSOT with full `decision_history` list (no parallel feedback store)
+
+**Owner-locked contracts honored:**
+- §2 · zero new engines, zero new SSOTs, zero new incident model
+- §11 · no PCAppStore/malware-name templates; recos come from Round 16 evidence-derived synthesizer
+- §14 · every reco names the actual observed entity (`ipv4:203.0.113.42`, never "block malicious IPs")
+- §15 · applicability is always visible; non-applicable candidates fold behind "Why not?"
+- §16 · analyst ACCEPT/REJECT/SUPERSEDE uses existing xdr_recommendations lifecycle; nothing is silently deleted; every state change appended to `decision_history`
+- §32 · zero synchronous external OSINT calls from React — panel consumes cached observations from the closed-loop recompute
+
+**Live verification (`inc_06466b42395a41a6a1cc`):**
+```
+Threat Family: C2 / MEDIUM
+8 synthesized recommendations:
+  CAPABILITY_UNAVAILABLE  IP_BLOCK          → ipv4:203.0.113.42
+  CAPABILITY_UNAVAILABLE  IP_BLOCK          → ipv4:10.1.2.3
+  ALREADY_EXECUTED        OSINT_ENRICH_IP   → ipv4:203.0.113.42
+  ALREADY_EXECUTED        OSINT_ENRICH_IP   → ipv4:10.1.2.3
+  APPLICABLE              IOC_ADD_WATCHLIST → ipv4:203.0.113.42
+  APPLICABLE              IOC_ADD_WATCHLIST → ipv4:10.1.2.3
+  APPLICABLE              SEARCH_ENVIRONMENT_FOR_INDICATOR → ipv4:...
+  APPLICABLE              ENRICH_OBSERVED_IP → ipv4:...
+
+Analyst decision persisted:
+  POST /recommendations/reco-add_ioc_watchlist-203.0.113.42/decision
+    body: {"decision":"ACCEPTED","reason":"…"}
+  → state: ACCEPTED · previous_state: ACTIVE
+```
+
+**Tests · 43/43 pass** (Rounds 11-16 regression preserved); Vite build clean.
+
+**Golden Pipeline** (`/xdr/admin/overview`) remains functional as the
+engineering validation surface with 17/17 stages.
+
+---
+
+
 ## ✅ 2026-02-14 · Round 16 · P0.7.3 Threat Family + Recommendation Synthesis — SHIPPED
 
 Golden E2E now **executes 17 / 17 stages · verdict: COMPLETE**.

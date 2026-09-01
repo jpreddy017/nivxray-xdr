@@ -638,6 +638,42 @@ async def incident_playbooks(incident_id: str,
                 "playbooks": filter_playbooks(tf.get("family"))}
 
 
+@router.post("/recommendations/{recommendation_id}/decision")
+async def recommendation_decision(recommendation_id: str,
+                                          payload: dict,
+                                          user=Depends(require_admin)):
+    """Round 17.5 · Analyst decision (ACCEPTED / REJECTED /
+    SUPERSEDED) persisted into the existing xdr_recommendations SSOT.
+    Never silently deletes a recommendation."""
+    decision = (payload or {}).get("decision")
+    if decision not in ("ACCEPTED", "REJECTED", "SUPERSEDED"):
+        return {"ok": False,
+                    "reason": f"decision must be one of ACCEPTED/REJECTED/"
+                                "SUPERSEDED · got {decision}"}
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    doc = await db["xdr_recommendations"].find_one(
+        {"recommendation_id": recommendation_id}, {"_id": 0})
+    if not doc:
+        # Analyst decision on a synthesizer-fresh id is still auditable.
+        doc = {"recommendation_id": recommendation_id, "state": "ACTIVE"}
+    prev_state = doc.get("state") or "ACTIVE"
+    await db["xdr_recommendations"].update_one(
+        {"recommendation_id": recommendation_id},
+        {"$set":  {"state": decision,
+                       "decided_at": now,
+                       "decided_by": (user or {}).get("email") or "analyst",
+                       "decision_reason": (payload or {}).get("reason")},
+          "$push": {"decision_history": {
+                          "from": prev_state, "to": decision,
+                          "at": now,
+                          "by": (user or {}).get("email") or "analyst",
+                          "reason": (payload or {}).get("reason")}}},
+        upsert=True)
+    return {"ok": True, "recommendation_id": recommendation_id,
+                "state": decision, "previous_state": prev_state}
+
+
 @router.get("/dsm/registry")
 async def dsm_registry_list(user=Depends(require_admin)):
     return {"dsms": DSM_REGISTRY.list()}
