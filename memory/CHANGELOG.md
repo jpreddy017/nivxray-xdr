@@ -2,6 +2,82 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 39 · Step 5 — Investigation Report PDF Export — SHIPPED
+
+The Investigation Report contract now ships as a branded PDF.  The
+renderer is a strict projection of the existing `report_svc.compose()`
+envelope — never a second report engine.
+
+**Backend — `services/report/pdf.py`**
+- `render_pdf(report)` consumes the exact envelope returned by
+  `services.report.service.compose()`.
+- Renders the four owner-locked sections in canonical order:
+      1. Executive Summary
+      2. Technical Summary   🔒 EVIDENCE-DERIVED
+      3. Supporting Evidence
+      4. Recommendations
+- Provenance badges preserved verbatim on every block:
+      · EVIDENCE-DERIVED
+      · NIVXRAY GENERATED
+      · ANALYST ADDED
+      · ANALYST EDITED
+- Empty sections render honestly ("No … blocks composed."); MISSING
+  incident → one-page honest error PDF (no fabrication).
+- Uses `reportlab` (already pinned in requirements).
+
+**Backend — `routers/report.py`**
+- New `GET /api/incidents/{id}/report/pdf`.  Content-Type
+  `application/pdf` · `inline; filename="nivxray-report-{id}.pdf"` ·
+  `Cache-Control: no-store`.
+- Reuses `report_svc.compose()` — the single source of truth.
+
+**Frontend — `ReportTab.jsx`**
+- New **DOWNLOAD PDF** button in the header (`data-testid=
+  xdr-report-download-pdf`).  Opens the endpoint in a new tab via
+  `REACT_APP_BACKEND_URL`.
+
+**Tests — `tests/test_xdr_round39_step5_report_pdf.py`** (9 tests)
+- Valid PDF magic bytes + trailer + non-trivial size.
+- All 4 canonical section titles present (extracted text).
+- Every provenance badge appears (`EVIDENCE-DERIVED`,
+  `NIVXRAY GENERATED`, `ANALYST ADDED`).
+- Brand header + incident id present in the PDF text.
+- MISSING incident returns an honest one-page PDF.
+- Empty sections render honestly, never fabricated.
+- Same input → deterministic byte-size within tolerance.
+
+**End-to-end verified:**
+    curl … /api/incidents/inc_r35_edr_9c8beb0a88a4/report/pdf
+    →  HTTP 200 · Content-Type application/pdf · 4 pages · 8.6 KB
+    →  All 4 section titles + NIVXRAY GENERATED + EVIDENCE-DERIVED
+       badges present in extracted text
+    →  DOWNLOAD PDF button rendered on the Report tab in preview
+
+**Regression: 84/84 across R21–R39 (Steps 1-5) green.**
+
+Investigation chain complete:
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment        ✅
+    Step 3  · Shared Evidence Inspector           ✅
+    Step 4  · Attack Graph cleanup                ✅
+    Step 5  · Report PDF export                   ✅
+
+
+
+## 2026-09-01 · Sidebar Nav · Intelligence Planes items honestly disabled
+
+Turned the four not-yet-shipped Intelligence Planes items —
+**Threat Intelligence · IOC Intelligence · Command Intelligence ·
+Malware Intelligence** — from `reserved` (routed to a broken
+"NOT CONFIGURED · deferred to Round P1.0" placeholder page) into
+`disabled: true`, matching SLA/Aging + Response.  Items render
+grayed-out, non-navigable, with a tooltip stating "arrives in
+Round P1.0 · Intelligence Planes".  MITRE ATT&CK + Knowledge Base
+remain live.  Routes are still mounted for any bookmarked links but
+the primary nav no longer sends analysts to a broken page.
+
+
+
 ## 2026-09-01 · Round 39 — Step 4 · Attack Graph Cleanup — SHIPPED
 
 Owner-locked Step 4 of the SSOT chain: **the shared Evidence Inspector

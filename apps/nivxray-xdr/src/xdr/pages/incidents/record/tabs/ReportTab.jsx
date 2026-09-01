@@ -13,8 +13,10 @@
  */
 import React, { useEffect, useState } from "react";
 import { Loader2, Lock, Sparkles, Pencil, Plus, Trash2, X,
-           FileText, Shield, ClipboardList, ListChecks } from "lucide-react";
+          FileText, Shield, ClipboardList, ListChecks, Download } from "lucide-react";
 import api from "@/lib/api";
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 
 const PROV_ICON = {
   lock:     { Icon: Lock,      color: "#64748b" },
@@ -407,8 +409,27 @@ export default function ReportTab({ incident }) {
             )}
           </div>
         </div>
-        <div style={{ fontSize: 10, color: "#64748b" }}>
-          Generated {new Date(report.generated_at).toLocaleString()}
+        <div style={{ fontSize: 10, color: "#64748b",
+                             display: "flex", flexDirection: "column",
+                             alignItems: "flex-end", gap: 8 }}>
+          <button
+            data-testid="xdr-report-download-pdf"
+            onClick={() => {
+              const url = `${BACKEND_URL}/api/incidents/${incident.id}/report/pdf`;
+              window.open(url, "_blank", "noopener,noreferrer");
+            }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "#7c3aed", color: "#fff", border: 0,
+              borderRadius: 3, padding: "6px 12px", fontSize: 11,
+              fontWeight: 700, letterSpacing: 0.4,
+              textTransform: "uppercase", cursor: "pointer",
+            }}
+            title="Download the four-section Investigation Report as a branded PDF"
+          >
+            <Download size={12} /> Download PDF
+          </button>
+          <span>Generated {new Date(report.generated_at).toLocaleString()}</span>
         </div>
       </div>
 

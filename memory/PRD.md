@@ -2,6 +2,44 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 39 · Step 5 — SHIPPED · Investigation Report PDF Export
+
+Owner-locked Step 5 of the investigation chain shipped.  The PDF is a
+*projection* of the exact `report_svc.compose()` output — never a second
+report-generation engine.  All four owner-locked sections + every
+provenance badge preserved.
+
+### Shipped
+- `services/report/pdf.py` · `render_pdf(report)` — pure projection of
+  the composed report envelope.  Renders 4 sections in canonical order:
+  Executive Summary → Technical Summary → Supporting Evidence →
+  Recommendations.  Provenance badges preserved:
+  `EVIDENCE-DERIVED` · `NIVXRAY GENERATED` · `ANALYST ADDED` · `ANALYST EDITED`.
+  Empty sections render honestly (never fabricated); MISSING incident
+  → one-page honest error PDF.
+- `GET /api/incidents/{id}/report/pdf` returns
+  `application/pdf` · `inline; filename="nivxray-report-{id}.pdf"`.
+- `ReportTab.jsx` — DOWNLOAD PDF button in the header (purple pill)
+  wired to the endpoint via `REACT_APP_BACKEND_URL`.
+
+### Verified
+- **9 new R39-Step5 regression tests** · full R21–R39 chain **84/84 green**.
+- End-to-end via curl: `HTTP 200 · Content-Type application/pdf · 4 pages ·
+  8.6 KB · all 4 section titles + NIVXRAY GENERATED + EVIDENCE-DERIVED
+  badges present in the extracted text.`
+- UI verified in preview: DOWNLOAD PDF renders on the Report tab; button
+  opens the branded PDF in a new tab.
+
+### Investigation chain complete
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment        ✅
+    Step 3  · Shared Evidence Inspector           ✅
+    Step 4  · Attack Graph cleanup                ✅
+    Step 5  · Report PDF export                   ✅
+
+---
+
+
 ## ✅ 2026-09-01 · Round 39 — SHIPPED · Step 4 · Attack Graph Cleanup
 
 Owner-locked Step 4 of the investigation chain shipped.  The shared

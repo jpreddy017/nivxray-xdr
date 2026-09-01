@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Body
+from fastapi.responses import Response
 
 from services import report as report_svc
 from deps import db
@@ -16,6 +17,29 @@ async def get_report(incident_id: str) -> Dict[str, Any]:
     Deterministic SYSTEM composition + persisted ANALYST overlay.
     """
     return await report_svc.compose(db, incident_id)
+
+
+@router.get("/{incident_id}/report/pdf")
+async def get_report_pdf(incident_id: str) -> Response:
+    """Round 39 · Step 5 — branded PDF projection of the report.
+
+    Owner rule: PDF is a *projection* of the exact contract returned
+    by :func:`services.report.service.compose` — never a second
+    report-generation engine.  If the incident is missing, the
+    renderer emits a one-page honest error PDF rather than a
+    fabricated report.
+    """
+    report = await report_svc.compose(db, incident_id)
+    pdf_bytes = report_svc.render_pdf(report)
+    filename = f"nivxray-report-{incident_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.post("/{incident_id}/report/blocks")
