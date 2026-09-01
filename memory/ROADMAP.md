@@ -35,8 +35,8 @@ No feature moves to the next phase until the phase it lives in is production-qua
 | **29.7**| **Populated-state proof · Pipeline → API Projection → Composition** | **✅ SHIPPED (2026-09-01)** |
 | **29.8**| **Autonomous Investigation Operating Model · ratified as platform contract** | **✅ SHIPPED (2026-09-01)** |
 | 30    | **IUE v0** · locked scope · Evidence Plane → Investigation Context / Relationships / Threat / Historical / Known-Unknown / Gaps · **no UI · no AI · no Orchestrator · no external intel · no verdict** | **✅ SHIPPED (2026-09-01)** |
-| 31    | Investigation Orchestrator scaffolding · consumes IUE v0 · writes engine_executions | ⏳ NEXT   |
-| 32    | Investigation Capability Fabric v0 (Detection / Correlation / MITRE plugins)        | ⏳ QUEUED |
+| 31    | **Autonomous Investigator** · closed loop `IUE → Planner → Selector → Capability → Findings` · auto-kicked by pipeline · **no button, no fabrication** | **✅ SHIPPED (2026-09-01)** |
+| 32    | Investigation Capability Fabric v0 (register real engines for `process_ancestry`, `identity_pivot`, `file_reputation`, `network_pivot`) | ⏳ NEXT |
 | 33    | Attack Story v2 + AttackFlow (Visual Language v1.2)                                  | ⏳ QUEUED |
 | 34    | Threat Model Engine v0 (14-stage Attack Cycle · Coverage strip · Scenario Library)   | ⏳ QUEUED |
 | 35    | Editable / versioned intelligence layer (§23-§25)                                    | ⏳ QUEUED |

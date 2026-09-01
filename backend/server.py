@@ -61,6 +61,7 @@ from routers.iue_timeline import router as iue_timeline_router
 from routers.verdict_stage2 import router as verdict_stage2_router
 from routers.activity import router as activity_router
 from routers.incidents import router as incidents_router
+from routers.autonomous_investigator import router as autonomous_investigator_router
 from routers.xdr_dashboard import router as xdr_dashboard_router
 from routers.xdr_mss import router as xdr_mss_router
 from routers.xdr_queue_ops import router as xdr_queue_ops_router
@@ -197,6 +198,7 @@ api.include_router(iue_timeline_router)
 api.include_router(verdict_stage2_router)
 api.include_router(activity_router)
 api.include_router(incidents_router)
+api.include_router(autonomous_investigator_router)
 api.include_router(xdr_dashboard_router)
 api.include_router(xdr_mss_router)
 api.include_router(xdr_queue_ops_router)

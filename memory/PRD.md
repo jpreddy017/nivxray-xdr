@@ -59,6 +59,54 @@ never defaulted.
 
 ---
 
+## ✅ 2026-09-01 · Round 31 — SHIPPED · Autonomous Investigator
+
+**The closed autonomous investigation loop is live.** The pipeline
+auto-kicks the Investigator after incident materialisation; it
+consumes Round 30 IUE understanding, plans pivots from gaps,
+selects registered capabilities, executes real engines, records
+executions + findings, and converges deterministically. Zero UI
+buttons. Zero fabricated data.
+
+### Shipped
+- `services/investigator/` package with `models`, `lifecycle`,
+  `capabilities`, `planner`, `orchestrator` modules.
+- 4 new collections: `xdr_investigations`, `engine_executions`,
+  `xdr_investigation_findings`, `xdr_investigation_activity`.
+- `routers/autonomous_investigator.py` — read-only API surface at
+  `/api/incidents/{id}/investigation` (+ `/executions`, `/findings`).
+- Pipeline `autonomous_investigation` stage auto-kicks after
+  `threat_family`.
+- Frontend `AutoInvestigationTab.jsx` rewritten to consume the
+  real API — lifecycle chip + 4 counters + activity feed +
+  executions table + findings table. No activation control.
+
+### Verified against real pipeline
+- Snort-golden run: 5 planned · 2 executed · 3 honestly skipped
+  (cap-unavailable) · 3 findings · CONVERGED · 4ms duration for
+  the real historical-correlation probe across 41 canonical
+  events.
+- Idempotent: second tick yields zero new OK executions.
+
+### Testing
+- 13/13 tests in `tests/test_xdr_round31_investigator.py` green.
+- Cross-round regression: 135/135 green.
+
+### Round 32 handoff contract
+Register concrete engines for the four `cap-unavailable`
+handoff stubs already wired in the registry:
+  * `process_ancestry`
+  * `identity_pivot`
+  * `file_reputation`
+  * `network_pivot`
+No orchestrator changes required — every new capability just
+registers via `capabilities.register_capability()` and its
+availability transitions to `cap-full`. The feedback loop
+picks it up automatically on the next pipeline event.
+
+---
+
+
 ## ✅ 2026-09-01 · Round 30 — SHIPPED · IUE v0 · Investigation Understanding Engine
 
 **First node of the Autonomous Investigation loop.** Deterministic

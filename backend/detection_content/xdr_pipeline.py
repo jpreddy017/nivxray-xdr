@@ -346,6 +346,26 @@ async def process_event_through_pipeline(db, raw_event: dict,
                 confidence=family.get("confidence"),
                 score=family.get("score"),
                 engine_id=family.get("engine_id"))
+
+        # Round 31 · Autonomous Investigator — kicks the deterministic
+        # investigation loop automatically.  No UI, no button.
+        try:
+            from services.investigator import InvestigatorService
+            inv_state = await InvestigatorService.tick(
+                db, incident["incident_id"])
+            _s("autonomous_investigation", "EXECUTED",
+                    incident_id=incident["incident_id"],
+                    investigation_id=inv_state.investigation_id,
+                    state=inv_state.state,
+                    planned=inv_state.pivots_planned,
+                    executed=inv_state.pivots_executed,
+                    skipped=inv_state.pivots_skipped,
+                    findings=inv_state.findings_count,
+                    engine_id="nivxray::investigator::v0")
+        except Exception as ex:
+            _s("autonomous_investigation", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::investigator::v0")
     else:
         _s("investigation", "NOT_CREATED",
                 reason="upstream incident not created — no synthetic "

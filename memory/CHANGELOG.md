@@ -2,6 +2,85 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 31 — Autonomous Investigator — SHIPPED
+
+The autonomous investigation loop is now real. NivXRay XDR now
+automatically investigates every incident materialised by the
+ingestion pipeline — no button, no HTTP activation, no analyst
+click required. The loop `IUE → Investigator → Capability →
+findings → IUE recompute` is closed and end-to-end deterministic.
+
+**Shipped**
+- `services/investigator/`
+  - `models.py` — Pydantic contracts (`InvestigationState`,
+    `PivotAction`, `EngineExecution`, `Finding`, `ActivityEntry`,
+    lifecycle + status literals).
+  - `lifecycle.py` — §26 state machine with allow-listed
+    transitions. Illegal transitions land in `FAILED` explicitly.
+  - `capabilities.py` — Capability contract + registry. Ships two
+    evidence-safe reference capabilities that read canonical
+    evidence deterministically (`HistoricalCorrelation`,
+    `MitreExpansion`) and four honest `cap-unavailable` handoff
+    stubs for Round 32 (`process_ancestry`, `identity_pivot`,
+    `file_reputation`, `network_pivot`).
+  - `planner.py` — deterministic pivot planner + capability
+    selector. Consumes Round 30 `InvestigationGaps.gaps[]` and
+    emits sorted, dedup-safe `PivotAction` records.
+  - `orchestrator.py` — the `InvestigatorService.tick()` closed
+    loop. Registers `xdr_investigations`, writes
+    `engine_executions`, persists `xdr_investigation_findings`,
+    and streams the §18 activity feed into
+    `xdr_investigation_activity`. Bounded to
+    `MAX_PIVOTS_PER_TICK = 32` for guaranteed termination.
+- `routers/autonomous_investigator.py` — three **read-only** APIs
+  wired at `/api/incidents/{id}/investigation`,
+  `.../investigation/executions`, `.../investigation/findings`.
+  Zero activation endpoints (§13, §16).
+- `detection_content/xdr_pipeline.py` — new
+  `autonomous_investigation` stage auto-kicks the Investigator
+  after `threat_family`. If the Investigator throws, the stage
+  fails honestly instead of crashing the pipeline.
+- Frontend `apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/AutoInvestigationTab.jsx`
+  now consumes `GET /incidents/{id}/investigation` and renders
+  the real lifecycle state, four counter tiles (planned /
+  executed / skipped / findings), the §18 activity feed with
+  WHAT · WHY · EVIDENCE · CAPABILITY · RESULT columns, plus the
+  engine-executions + findings tables. **Still no "Auto-Investigate"
+  button anywhere.**
+
+**Verified end-to-end against real Snort-golden pipeline**
+- Pipeline stage `autonomous_investigation` = EXECUTED.
+- 5 pivots planned · 2 executed · 3 honestly skipped
+  (cap-unavailable, Round 32) · 3 evidence-anchored findings.
+- Findings mix `CORRELATED` (prior sightings across 41 canonical
+  events) and `NOT_OBSERVED` (no additional MITRE beyond
+  signature-derived) — no fabrication.
+- Second tick against same fingerprint = 0 new OK executions
+  (idempotent).
+
+**Testing**
+- 13/13 tests in `tests/test_xdr_round31_investigator.py` green.
+  Covers: auto-start, lifecycle transitions, deterministic
+  planner, honest skip of unavailable capabilities, real
+  execution persistence, provenance-anchored findings,
+  idempotency, activity feed answering §10 questions, capability
+  registry contract, honest negative findings, missing-incident
+  error, Verdict Engine boundary preserved, tenant isolation.
+- Cross-round regression: 135/135 tests across Rounds 11-31
+  green.
+
+**Boundaries preserved**
+- No AI dependency. Deterministic-first (§9, §13).
+- No Verdict Engine replacement (§10, §31).
+- No fabricated executions or findings (§12).
+- No "Auto-Investigate" button (§1, §16).
+- Round 32 handoff contract: register concrete engines for the
+  four `cap-unavailable` capability stubs.
+
+---
+
+
+
 ## 2026-09-01 · Round 30 — IUE v0 · Investigation Understanding Engine — SHIPPED
 
 The first Autonomous Investigation loop node is now real. Scope-locked
