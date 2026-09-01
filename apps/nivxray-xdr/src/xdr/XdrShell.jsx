@@ -42,8 +42,15 @@ import { NxDensityProvider } from "./nx";
 //              (transitional: capability will be built native in a
 //              later slice; currently surfaces an honest state,
 //              never a deep-link back into the base NivXRay UI).
+// Round 38.4 · Two top-level product areas — INVESTIGATOR (analyst
+// runtime) and ADMINISTRATION (platform + engineering + governance).
+// Each item still carries the ``section`` sub-group it belongs to.
+// Rendering (below) walks ``SIDEBAR_AREAS`` and groups items by
+// section within each area.
 const SIDEBAR = [
+  // ── INVESTIGATOR ────────────────────────────────────────────
   {
+    area: "investigator",
     section: "Workspace",
     items: [
       { key: "workspace", label: "Analyst Workspace", icon: LayoutGrid,
@@ -52,6 +59,7 @@ const SIDEBAR = [
     ],
   },
   {
+    area: "investigator",
     section: "Command Center",
     items: [
       { key: "mss-dashboard", label: "MSS Dashboard", icon: LayoutDashboard, to: "/xdr/mss-dashboard",
@@ -59,6 +67,7 @@ const SIDEBAR = [
     ],
   },
   {
+    area: "investigator",
     section: "Operations",
     items: [
       { key: "incidents",  label: "Incidents",  icon: AlertOctagon,   to: "/xdr/incidents",
@@ -71,18 +80,8 @@ const SIDEBAR = [
     ],
   },
   {
-    // Round 38.3 · Cross-case investigation surfaces — roadmap
-    // placeholders for the Phase 5/6 CROSS-CASE investigation
-    // layer (distinct from the per-incident Investigation
-    // Workspace inside every incident record).
-    //
-    // Hidden from production navigation until at least one
-    // capability ships.  Preserved here as the source-of-truth
-    // roadmap — flip ``hidden`` to ``false`` on activation and
-    // rename "Attack Story" to "Attack Story Rollup" (owner
-    // rule: cross-case names must not collide with per-incident
-    // tab names).
     hidden: true,
+    area: "investigator",
     section: "Investigations",
     items: [
       { key: "investigations", label: "Investigation Workspace", icon: FolderSearch,
@@ -96,23 +95,7 @@ const SIDEBAR = [
     ],
   },
   {
-    section: "Detect",
-    items: [
-      { key: "rule-studio", label: "Rule Studio", icon: Layers,
-        to: "/xdr/rule-studio",
-        title: "Authoring: create · edit · test · validate · simulate. 9 lanes · lifecycle · 11-check Regression Gate" },
-      { key: "detection-registry", label: "Detection Registry", icon: Radar,
-        to: "/xdr/admin/detection-registry",
-        title: "AUTHORITATIVE detection-content inventory · single source of truth for every rule NivXRay executes" },
-      { key: "correlation-rules", label: "Correlation Rules", icon: Radar,
-        to: "/xdr/admin/correlation-rules",
-        title: "Stateful event-stream correlation engine · 13 operators · emits evidence, never verdicts" },
-      { key: "detections", label: "Detection Engineering", icon: Radar,
-        to: "/xdr/detections",
-        title: "Engineering / debugging / testing of detection execution" },
-    ],
-  },
-  {
+    area: "investigator",
     section: "Intelligence",
     items: [
       { key: "ti",       label: "Threat Intelligence",  icon: Globe,
@@ -136,33 +119,16 @@ const SIDEBAR = [
     ],
   },
   {
-    section: "Data",
+    area: "investigator",
+    section: "Telemetry",
     items: [
-      { key: "sdl", label: "Security Data Lake", icon: Database, disabled: true,
-        title: "Security Data Lake — arrives in a later slice" },
       { key: "telemetry-studio",  label: "Telemetry Studio",  icon: Sliders,
         to: "/xdr/admin/telemetry-studio",
-        title: "Inspect real telemetry · configure telemetry pipeline" },
-      { key: "telemetry-health",  label: "Telemetry Health",  icon: ActivityIcon,
-        to: "/xdr/admin/telemetry-health",
-        title: "Per-source health — are we receiving the right security telemetry?" },
+        title: "Inspect real telemetry · analyst investigation/query surface" },
     ],
   },
   {
-    section: "Respond",
-    items: [
-      { key: "playbooks", label: "Playbooks", icon: Zap,
-        to: "/xdr/respond/playbooks",
-        title: "Executable response workflows · defines WHAT action is executed" },
-      { key: "automation-rules", label: "Automation Rules", icon: ArrowRightLeft,
-        to: "/xdr/respond/automation-rules",
-        title: "WHEN → THEN rules that trigger playbooks" },
-      { key: "approvals", label: "Approvals Queue", icon: CheckSquare,
-        to: "/xdr/respond/approvals",
-        title: "Peer-approval queue for pending Response Engine executions" },
-    ],
-  },
-  {
+    area: "investigator",
     section: "Exposure",
     items: [
       { key: "assets",          label: "Assets",          icon: Boxes,    disabled: true },
@@ -175,7 +141,30 @@ const SIDEBAR = [
     ],
   },
   {
-    section: "Administration",
+    area: "investigator",
+    section: "Detections",
+    items: [
+      { key: "detection-registry", label: "Detection Registry", icon: Radar,
+        to: "/xdr/admin/detection-registry",
+        title: "AUTHORITATIVE detection-content inventory · single source of truth for every rule NivXRay executes (read-only for analysts)" },
+      { key: "correlation-rules", label: "Correlation Rules", icon: Radar,
+        to: "/xdr/admin/correlation-rules",
+        title: "Stateful event-stream correlation engine · analyst read/trace view" },
+    ],
+  },
+  {
+    area: "investigator",
+    section: "Respond",
+    items: [
+      { key: "approvals", label: "Approvals Queue", icon: CheckSquare,
+        to: "/xdr/respond/approvals",
+        title: "Peer-approval queue for pending Response Engine executions" },
+    ],
+  },
+  // ── ADMINISTRATION ──────────────────────────────────────────
+  {
+    area: "administration",
+    section: "Ingestion & Pipeline",
     items: [
       { key: "integrations",      label: "Integrations",      icon: Plug,          to: "/xdr/admin/integrations" },
       { key: "data-sources",      label: "Data Sources",      icon: HardDrive,     to: "/xdr/admin/data-sources" },
@@ -183,19 +172,58 @@ const SIDEBAR = [
       { key: "agents",            label: "Agents",            icon: Wifi,          to: "/xdr/admin/agents" },
       { key: "parsers",           label: "Parsers",           icon: Filter,        to: "/xdr/admin/parsers" },
       { key: "normalization",     label: "Normalization",     icon: Shuffle,       to: "/xdr/admin/normalization" },
+    ],
+  },
+  {
+    area: "administration",
+    section: "Data Plane",
+    items: [
+      { key: "sdl", label: "Security Data Lake", icon: Database, disabled: true,
+        title: "Security Data Lake — arrives in a later slice" },
+      { key: "telemetry-health",  label: "Telemetry Health",  icon: ActivityIcon,
+        to: "/xdr/admin/telemetry-health",
+        title: "Per-source telemetry health — operational pipeline surface" },
+    ],
+  },
+  {
+    area: "administration",
+    section: "Detection Engineering",
+    items: [
+      { key: "rule-studio", label: "Rule Studio", icon: Layers,
+        to: "/xdr/rule-studio",
+        title: "Authoring · edit · test · validate · simulate · 9 lanes · lifecycle · 11-check Regression Gate" },
+      { key: "detections", label: "Detection Engineering", icon: Radar,
+        to: "/xdr/detections",
+        title: "Engineering / debugging / testing of detection execution" },
       { key: "detection-rules",   label: "Detection Rules",   icon: Zap,           to: "/xdr/admin/detection-rules",
         title: "Governance / configuration inventory of deployed detection rules · lifecycle · ownership · schedules" },
+      { key: "correlation-rules-admin", label: "Correlation Rules", icon: Radar,
+        to: "/xdr/admin/correlation-rules?mode=author",
+        title: "Author / tune correlation rules · 13 operators · emits evidence, never verdicts" },
+    ],
+  },
+  {
+    area: "administration",
+    section: "Response Engineering",
+    items: [
+      { key: "playbooks", label: "Playbooks", icon: Zap,
+        to: "/xdr/respond/playbooks",
+        title: "Executable response workflows · defines WHAT action is executed" },
+      { key: "automation-rules", label: "Automation Rules", icon: ArrowRightLeft,
+        to: "/xdr/respond/automation-rules",
+        title: "WHEN → THEN rules that trigger playbooks" },
       { key: "response-policies", label: "Response Policies", icon: ArrowRightLeft, to: "/xdr/admin/response-policies",
         title: "Defines what response actions are ALLOWED · executed via Respond › Playbooks" },
       { key: "response-strategies", label: "Response Strategies", icon: Layers, to: "/xdr/admin/response-strategies",
         title: "Round 20 · Threat-Family → Response Strategy knowledge (14 families × 5 objectives) · not an engine" },
-      { key: "users-roles",       label: "Users / Roles",     icon: Users,         to: "/xdr/admin/users-roles" },
-      { key: "api-webhooks",      label: "API / Webhooks",    icon: Webhook,       to: "/xdr/admin/api-webhooks" },
     ],
   },
   {
-    section: "System",
+    area: "administration",
+    section: "Platform",
     items: [
+      { key: "users-roles",       label: "Users / Roles",     icon: Users,         to: "/xdr/admin/users-roles" },
+      { key: "api-webhooks",      label: "API / Webhooks",    icon: Webhook,       to: "/xdr/admin/api-webhooks" },
       { key: "platform-health",   label: "Platform Health",   icon: HeartPulse,    to: "/xdr/admin/platform-health",
         title: "Is NivXRay itself operational? · derived from real infrastructure" },
       { key: "docs",     label: "Documentation",        icon: BookOpen,
@@ -203,6 +231,11 @@ const SIDEBAR = [
         title: "How does NivXRay work? · API docs · configuration · architecture" },
     ],
   },
+];
+
+const SIDEBAR_AREAS = [
+  { area: "investigator",   label: "Investigator"    },
+  { area: "administration", label: "Administration" },
 ];
 
 // Determine which sidebar entry is currently active based on location.
@@ -303,27 +336,44 @@ export default function XdrShell({ children }) {
       {/* ── Body ──────────────────────────────────────────── */}
       <div className="body">
         <aside className="sidebar" data-testid="xdr-sidebar">
-          {SIDEBAR.filter((group) => !group.hidden).map((group) => (
-            <div key={group.section}>
-              <div className="nav-title">{group.section}</div>
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.key === activeKey;
-                const testId = `xdr-nav-${item.key}`;
-                if (item.disabled) {
-                  return (
-                    <button
-                      key={item.key}
-                      className="nav-item disabled"
-                      title={item.title || "Not available in this slice"}
-                      disabled
-                      data-testid={testId}
-                    >
-                      <span className="ic"><Icon size={13} /></span>
-                      {item.label}
-                    </button>
-                  );
-                }
+          {SIDEBAR_AREAS.map((area) => {
+            const groupsInArea = SIDEBAR.filter(
+              (g) => !g.hidden && g.area === area.area);
+            if (groupsInArea.length === 0) return null;
+            return (
+              <div key={area.area} data-testid={`xdr-area-${area.area}`}>
+                <div className="nav-area"
+                       style={{
+                         fontSize: 11, fontWeight: 800,
+                         letterSpacing: 1.2, color: "#7c3aed",
+                         textTransform: "uppercase",
+                         padding: "14px 16px 4px",
+                         borderTop: "1px solid rgba(124, 58, 237, 0.15)",
+                         marginTop: 6,
+                       }}>
+                  {area.label}
+                </div>
+                {groupsInArea.map((group) => (
+                  <div key={group.section}>
+                    <div className="nav-title">{group.section}</div>
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = item.key === activeKey;
+                      const testId = `xdr-nav-${item.key}`;
+                      if (item.disabled) {
+                        return (
+                          <button
+                            key={item.key}
+                            className="nav-item disabled"
+                            title={item.title || "Not available in this slice"}
+                            disabled
+                            data-testid={testId}
+                          >
+                            <span className="ic"><Icon size={13} /></span>
+                            {item.label}
+                          </button>
+                        );
+                      }
                 if (item.external) {
                   return (
                     <button
@@ -358,8 +408,11 @@ export default function XdrShell({ children }) {
                   </button>
                 );
               })}
-            </div>
-          ))}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </aside>
         <main className="main" data-testid="xdr-main">
           {children}
