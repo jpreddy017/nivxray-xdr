@@ -16,6 +16,16 @@ import api from "@/lib/api";
 import AnnotationsEditor from "../AnnotationsEditor";
 
 
+// Round 23.5 · Locked evidence-state palette (shared with MitreTab).
+const EV_STATE_COLOR = {
+  CONFIRMED:              "var(--mint)",
+  SUPPORTED:              "#38bdf8",
+  INSUFFICIENT_EVIDENCE:  "var(--amber)",
+  NOT_OBSERVED:           "var(--faint)",
+  UNKNOWN:                "var(--faint)",
+};
+
+
 const CAT_COLOR = {
   IMMEDIATE:     "#f87171",
   INVESTIGATION: "#38bdf8",
@@ -298,6 +308,12 @@ function RecoCard({ r, active, incidentId, annotations, onAnnotationsChanged }) 
             : " · not mapped for this incident"}
         </div>
       )}
+      {/* Round 23.5 · Provenance strip — locked, always visible */}
+      {r.provenance && <RecoProvenance p={r.provenance} />}
+      {/* Round 23.5 · Traversal chain — inline expandable */}
+      {r.traversal_chain && (
+        <RecoTraversalChain chain={r.traversal_chain} recoId={r.id} />
+      )}
       {risk && (
         <ExclusionRiskPanel r={r} risk={risk} riskBand={riskBand}
                                         open={riskOpen} setOpen={setRiskOpen} />
@@ -477,3 +493,107 @@ const emptyBox = {
   color: "var(--faint)", border: "1px dashed var(--border)",
   borderRadius: 4, background: "var(--panel2)",
 };
+
+
+/* Round 23.5 · Provenance strip locked into every recommendation.
+   Renders the deterministic chain Telemetry → Canonical → Correlation →
+   Mapping → Strategy → Recommendation plus the evidence-state badge.
+   The strip is text-only and never adds fabricated adjectives. */
+function RecoProvenance({ p }) {
+  const c = EV_STATE_COLOR[p.evidence_state] || "var(--faint)";
+  return (
+    <div data-testid="reco-provenance"
+              style={{ marginTop: 6, padding: "4px 6px",
+                              fontFamily: "var(--mono)", fontSize: 10,
+                              color: "var(--text-dim)",
+                              border: "1px dashed rgba(167,139,250,0.4)",
+                              borderRadius: 2,
+                              background: "rgba(167,139,250,0.04)" }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center",
+                          flexWrap: "wrap" }}>
+        <b style={{ color: "#a78bfa" }}>PROVENANCE</b>
+        {(p.chain || []).map((step, i, arr) => (
+          <React.Fragment key={step}>
+            <span>{step}</span>
+            {i < arr.length - 1 && (
+              <span style={{ color: "var(--faint)" }}>→</span>
+            )}
+          </React.Fragment>
+        ))}
+        <span style={{ flex: 1 }} />
+        <span style={{ ...pill(c), color: c, borderColor: c,
+                            display: "inline-flex", alignItems: "center",
+                            gap: 3 }}
+                    data-testid={`reco-evidence-state`}>
+          EVIDENCE · {p.evidence_state.replace(/_/g, " ")}
+        </span>
+      </div>
+      <div style={{ marginTop: 3, display: "flex", gap: 10,
+                          flexWrap: "wrap", color: "var(--faint)" }}>
+        <span>family=<b style={{ color: "var(--text-dim)" }}>{p.family}</b></span>
+        <span>strategy=<b style={{ color: "var(--text-dim)" }}>{p.strategy || "—"}</b></span>
+        <span>objective=<b style={{ color: "var(--text-dim)" }}>{p.objective || "—"}</b></span>
+        <span>framework=<b style={{ color: "var(--text-dim)" }}>{p.framework || "—"}</b></span>
+        <span>entity_origin=<b style={{ color: "var(--text-dim)" }}>{p.entity_origin || "—"}</b></span>
+      </div>
+    </div>
+  );
+}
+
+
+/* Round 23.5 · Reco-side traversal chain — same layer set the MITRE
+   graph uses (Canonical / IUE / Correlation / Incident).  Empty
+   layers render as "Not available in collected evidence". */
+function RecoTraversalChain({ chain, recoId }) {
+  const [open, setOpen] = useState(false);
+  const layers = [
+    { title: "Canonical Event",     refs: chain.canonical_event_id
+                                              ? [chain.canonical_event_id] : [] },
+    { title: "IUE Record",          refs: chain.iue_ref
+                                              ? [chain.iue_ref] : [] },
+    { title: "Correlation Matches", refs: chain.correlation_match_ids || [] },
+    { title: "Incident",            refs: chain.incident_id
+                                              ? [chain.incident_id] : [] },
+  ];
+  return (
+    <div style={{ marginTop: 4 }}
+              data-testid={`reco-traversal-${recoId}`}>
+      <button onClick={() => setOpen(!open)}
+                    data-testid={`reco-traversal-toggle-${recoId}`}
+                    style={{ padding: "2px 6px", fontSize: 10,
+                                    fontFamily: "var(--mono)",
+                                    color: "#38bdf8",
+                                    border: "1px solid rgba(56,189,248,0.4)",
+                                    background: "transparent",
+                                    borderRadius: 2, cursor: "pointer" }}>
+        {open ? "▾" : "▸"} Evidence chain ·
+        Canonical · IUE · Correlation · Incident
+      </button>
+      {open && (
+        <div style={{ marginTop: 4, padding: 6,
+                              background: "rgba(0,0,0,0.15)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 2, fontFamily: "var(--mono)",
+                              fontSize: 10, color: "var(--text-dim)" }}>
+          {layers.map((l) => (
+            <div key={l.title} style={{ marginBottom: 4 }}>
+              <div style={{ color: "var(--faint)", fontWeight: 700,
+                                    marginBottom: 2 }}>{l.title}</div>
+              {l.refs.length === 0
+                ? <div style={{ color: "var(--amber)", fontStyle: "italic",
+                                        paddingLeft: 8 }}>
+                    Not available in collected evidence
+                  </div>
+                : l.refs.map((r) => (
+                    <div key={r} style={{ paddingLeft: 8,
+                                                        color: "var(--cyan)" }}>
+                      · {r}
+                    </div>
+                  ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

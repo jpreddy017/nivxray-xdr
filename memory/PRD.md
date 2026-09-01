@@ -58,6 +58,75 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## 🔒 SUPREME INVARIANT · Full Evidence Chain (LOCKED 2026-02-14)
+
+Every arrow in the fabric must have a real, deterministic
+justification:
+
+    Raw Telemetry → Canonical Evidence → IUE / Normalised Evidence
+    → Correlation Matches → Investigation Findings
+    → MITRE / Framework Mapping → Attack-Chain Graph
+    → Threat Family → Response Strategy → Recommendation
+    → Analyst Decision → Response Action → New Telemetry
+    → Recompute → Outcome
+
+No arrow may exist without a persisted reference.  Missing layers
+render verbatim as `Not available in collected evidence` — never
+inferred, never defaulted, never fabricated.
+
+## 🔒 SUPREME INVARIANT · Substantiation, not Illustration (LOCKED)
+
+The MITRE graph, recommendations, findings, and response decisions
+visualise WHAT NIVXRAY CAN CURRENTLY SUBSTANTIATE FOR THIS INCIDENT
+— not everything the system knows.  A graph with 2 techniques ·
+1 entity · 3 evidence records · 0 correlation matches · 1
+recommendation is a stronger result than an artificially filled one.
+
+## 🔒 SUPREME INVARIANT · Provenance & Evidence-State Rendering (LOCKED)
+
+Every node, edge, recommendation, and response decision MUST expose
+two locked bands:
+
+  * `PROVENANCE`: Telemetry → Canonical → Correlation → Mapping →
+    Strategy → Recommendation (or the equivalent for graph
+    nodes/edges).
+  * `EVIDENCE STATE`: CONFIRMED / SUPPORTED / INSUFFICIENT_EVIDENCE
+    / NOT_OBSERVED / UNKNOWN — never a probability.
+
+---
+## ✅ 2026-02-14 · Round 23.5 · Provenance & Evidence-State Lock-in — SHIPPED
+
+Every synthesized recommendation now carries the SAME evidence
+traversal chain the MITRE graph exposes.
+
+### Files delivered
+- `xdr_response_decision.py::build_response_context` → context now
+  emits `traversal_chain: {canonical_event_id, iue_ref,
+  correlation_match_ids[], incident_id}`.
+- `xdr_recommendation_synthesis.py::synthesize` → every reco carries
+  `provenance` (chain + family + strategy + objective +
+  entity_origin + framework + evidence_state) + `traversal_chain`.
+  `evidence_state` is computed deterministically:
+  CONFIRMED when APPLICABLE + framework match; SUPPORTED when
+  APPLICABLE; INSUFFICIENT_EVIDENCE otherwise.
+- Frontend `RecommendationsTab.jsx` renders:
+  * `RecoProvenance` — always-visible chain strip + colour-coded
+    `EVIDENCE · <state>` badge
+  * `RecoTraversalChain` — expandable per-reco evidence chain, with
+    `Not available in collected evidence` for empty layers.
+
+### Test coverage
+`tests/test_xdr_round23_5_provenance_lockin.py` · 7/7.  Full XDR
+regression rounds 11–23.5: **142/142 pass**.
+
+### Verified live
+Golden Snort reco `reco-block_observed_ip-203.0.113.42` returns
+`provenance.chain=[Telemetry,Canonical,Correlation,Mapping,Strategy,
+Recommendation]`, `evidence_state=INSUFFICIENT_EVIDENCE` (honest —
+no D3-NTF mapping active), and full `traversal_chain` with real
+canonical_event_id + iue_ref + empty correlation_match_ids.
+
+---
 ## ✅ 2026-02-14 · Round 23 · Evidence Traversal Completion — SHIPPED
 
 **Full chain: Canonical → IUE → Correlation → Observation → Recommendation

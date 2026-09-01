@@ -450,6 +450,23 @@ def synthesize(context: dict,
             primary_strat = strategies_index.get(strat_ids[0]) if strat_ids else None
 
             reco_id = f"reco-{cand['id']}-{ent.get('value')}".lower()
+            # Round 23.5 · Locked Evidence-First provenance strip.  The
+            # frontend renders these fields verbatim next to every reco
+            # so the analyst reads WHY it was generated.
+            provenance = {
+                "chain": ["Telemetry", "Canonical", "Correlation",
+                                "Mapping", "Strategy", "Recommendation"],
+                "family":       fam,
+                "strategy":     (primary_strat or {}).get("id"),
+                "objective":    (primary_strat or {}).get("objective"),
+                "entity_origin": ent.get("origin"),
+                "framework":    fw_hint,
+                "evidence_state": (
+                    "CONFIRMED" if applicability == APPLICABLE
+                        and fw_matches else
+                    "SUPPORTED"       if applicability == APPLICABLE else
+                    "INSUFFICIENT_EVIDENCE"),
+            }
             reco = {
                 "id":                reco_id,
                 "text":              cand["rationale"].format(
@@ -473,6 +490,8 @@ def synthesize(context: dict,
                 "applicability_reason": app_reason,
                 "threat_family":     fam,
                 "engine_id":         SYNTH_ENGINE_ID,
+                "provenance":        provenance,
+                "traversal_chain":   dict(context.get("traversal_chain") or {}),
                 "strategy": {
                     "id":         (primary_strat or {}).get("id"),
                     "objective":  (primary_strat or {}).get("objective"),

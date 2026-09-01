@@ -125,6 +125,18 @@ async def build_response_context(db, incident_id: str) -> dict:
             "canonical_event_id": canonical_id,
             "iue_id":           prov.get("iue_id"),
         },
+        # Round 23.5 · Provenance & Evidence-State Lock-in.
+        # Every downstream synthesized recommendation inherits this
+        # chain so the analyst can traverse Canonical → IUE →
+        # Correlation → Framework → Recommendation from any reco card
+        # — same shape the attack-graph node exposes.
+        "traversal_chain": {
+            "canonical_event_id":     canonical_id,
+            "iue_ref":                f"iue:{incident_id}"
+                                                if prov.get("iue_id") else None,
+            "correlation_match_ids":  list(prov.get("ice_matches") or []),
+            "incident_id":            incident_id,
+        },
         "honesty_note":
             "Response Context is a projection of persisted evidence. "
             "Missing pieces stay null — no fabrication.",
