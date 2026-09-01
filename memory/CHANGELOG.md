@@ -2,6 +2,48 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 38.0 — Investigation Views SSOT + Attack Graph Simplification
+
+Fixed two long-standing conceptual/data defects called out in the
+architecture spec:
+
+**P0 — MITRE Chain removed from Attack Graph.**
+- `AttackGraphTab.jsx` sub-tab switcher is now `[ PROCESS TREE |
+  ACTIVITY GRAPH ]`; PROCESS TREE is the default.
+- Owner rule: MITRE ATT&CK belongs on the MITRE and Attack Story
+  tabs.  Attack Graph is for investigation relationships only.
+- Unused `MitreChainView` import removed.
+
+**P0 — MITRE tab / Attack Story SSOT unification.**
+Previously the MITRE tab reported `0 evidence-backed techniques` while
+Attack Story reported the same incident's techniques as OBSERVED.
+Root cause: the two views read from different sources.
+- `detection_content/xdr_attack_chain_graph.compose()` now merges
+  `incident.mitre[]` entries into the framework mapping list when
+  the mapping engine has not persisted them.  Deduplicated by
+  technique id.  Every merged entry carries provenance
+  (`mapping_method: detection_content`, source refs pointing at the
+  canonical event id).
+- No fabrication: only techniques already attributed to the
+  incident by the detection engine are surfaced.
+
+**Recommendations tab retired.**  Its content is Section 4 of the new
+Investigation Report tab.  `RECORD_TABS` and `CANVAS_TABS` cleaned
+up in `RecordTabs.jsx`.
+
+**Full R21–R37 regression: 123/123 green** — including R21-R23
+attack-chain-graph tests that guarantee the older contract is
+preserved.
+
+Verified in the preview:
+- MITRE tab shows **2 evidence-backed techniques** (T1059.001 →
+  ta0002, T1218.011 → ta0005), each labelled SUPPORTED with
+  "Technique attributed by detection engine on incident.mitre[]".
+  No more `0/14 tactics` contradiction.
+- Attack Graph shows only Process Tree + Activity Graph.
+
+
+
 ## 2026-09-01 · Round 37.0 — Investigation Report Contract — SHIPPED
 
 Structured four-section report with strict ownership rules and full

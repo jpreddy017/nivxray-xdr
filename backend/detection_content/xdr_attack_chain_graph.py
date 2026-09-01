@@ -183,7 +183,32 @@ async def compose(db, incident_id: str) -> dict:
     # ── Framework mappings — the source of truth for techniques ──
     from .xdr_framework_mapping import resolve_mappings as _resolve_fw
     fw = await _resolve_fw(db, incident_id)
-    attack_maps = (fw.get("mappings") or {}).get("mitre_attack") or []
+    attack_maps = list((fw.get("mappings") or {}).get("mitre_attack") or [])
+
+    # ── Round 38 · SSOT unification ──────────────────────────────
+    # ``incident.mitre[]`` is also authoritative for OBSERVED
+    # techniques (the detection engine writes it directly).  Merge
+    # it into the mapping list so the MITRE tab never disagrees
+    # with the Attack Story / Attack Graph.  Owner rule §16.
+    existing_ids = {(m.get("object_id") or "").upper() for m in attack_maps}
+    for m in (inc.get("mitre") or []):
+        if not isinstance(m, dict):
+            continue
+        tid = (m.get("technique_id") or m.get("technique") or "").upper()
+        if not tid or tid in existing_ids:
+            continue
+        attack_maps.append({
+            "object_id":       tid,
+            "object_name":     m.get("name") or m.get("technique_name") or tid,
+            "tactic":          (m.get("tactic_id") or m.get("tactic")
+                                    or "unknown"),
+            "rationale":       "Technique attributed by detection engine "
+                                   "on incident.mitre[]",
+            "mapping_method":  "detection_content",
+            "source_refs":     ([f"canonical:{canon.get('event_id')}"]
+                                    if canon else []),
+        })
+        existing_ids.add(tid)
 
     # ── Entities & observations ──────────────────────────────
     from .xdr_response_decision import build_response_context

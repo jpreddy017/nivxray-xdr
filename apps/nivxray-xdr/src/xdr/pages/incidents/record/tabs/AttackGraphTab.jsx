@@ -16,7 +16,6 @@ import { Loader2, ZoomIn, ZoomOut, Maximize2, RotateCcw,
            Play, Pause, SkipBack, SkipForward, Maximize, X, HelpCircle } from "lucide-react";
 
 import api from "@/lib/api";
-import { MitreChainView }   from "./attack_graph/MitreChainView";
 import { ProcessTreeView }  from "./attack_graph/ProcessTreeView";
 
 
@@ -101,11 +100,13 @@ export default function AttackGraphTab({ incident }) {
   const [selKind, setSelKind]     = useState(null);
   const [hoveredEdge, setHovered] = useState(null);
   const [mode, setMode]           = useState("chain"); // chain | evidence | full
-  // Round 36 · Sub-tab selector inside the Attack Graph tab.
-  //   mitre    → MITRE Chain view (default)
-  //   process  → Process Tree view
-  //   activity → Activity / Evidence graph (the current SVG canvas)
-  const [subView, setSubView]     = useState("mitre");
+  // Round 36.1 · Sub-tab selector inside the Attack Graph tab.
+  //   process  → Process Tree view (default)
+  //   activity → Activity / Evidence graph (SVG canvas)
+  // MITRE Chain is intentionally NOT part of Attack Graph — MITRE
+  // ATT&CK belongs on the MITRE and Attack Story tabs (owner rule
+  // §13 of Round 38: single source of truth for ATT&CK evidence).
+  const [subView, setSubView]     = useState("process");
   const [layers, setLayers]       = useState({
     entities: true, events: true, processes: true, findings: true,
     capabilities: true, mitre: true, gaps: false,
@@ -268,9 +269,8 @@ export default function AttackGraphTab({ incident }) {
                           borderBottom: "1px solid #1e293b",
                           background: "#0a0e1a" }}
               data-testid="xdr-ag-subview-switch">
-          {[["mitre",   "MITRE Chain",   "How did the attack progress?"],
-            ["process", "Process Tree",  "What executed what?"],
-            ["activity","Activity Graph","What entities are related?"]
+          {[["process", "Process Tree",  "Who spawned whom?"],
+            ["activity","Activity Graph","How are entities connected?"]
           ].map(([k, label, hint]) => (
             <button key={k}
                      onClick={() => setSubView(k)}
@@ -292,19 +292,12 @@ export default function AttackGraphTab({ incident }) {
           <div style={{ marginLeft: "auto", color: "#64748b",
                             fontSize: 10, alignSelf: "center" }}
                 data-testid="xdr-ag-subview-hint">
-            {subView === "mitre"    && "MITRE ATT&CK progression"}
-            {subView === "process"  && "Parent → child execution"}
-            {subView === "activity" && "Entity / event relationships"}
+            {subView === "process"  && "Parent → child execution lineage"}
+            {subView === "activity" && "Investigation entity relationships"}
           </div>
         </div>
 
-        {/* MITRE Chain / Process Tree views (no SVG canvas) */}
-        {subView === "mitre" && (
-          <MitreChainView mitre={graph.views?.mitre_chain}
-                                    onSelectTechnique={(t) => {
-                                      setSelId(t.id); setSelKind("node"); }}
-                                    selectedTid={selected?.attrs?.tid} />
-        )}
+        {/* Process Tree view (no SVG canvas) */}
         {subView === "process" && (
           <ProcessTreeView tree={graph.views?.process_tree}
                                      onSelectProcess={(p) => {
