@@ -2,6 +2,75 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 46 — Analyst Intelligence Overlay (v1) — SHIPPED
+
+Governance layer over machine-derived interpretation.  Canonical
+evidence, detections, ATT&CK mappings, confidence and finding
+identity remain immutable.  Analysts edit only the narrative.
+
+**Backend**
+- New service `services.intelligence_overlay` with immutable audit
+  collection (`xdr_intelligence_overlay_audit`) separate from the
+  overlay row (`xdr_intelligence_overlays`) — no unbounded embedded
+  arrays.
+- `machine_source_hash` (sha256) captured on every write so
+  regenerated machine content surfaces as MACHINE SOURCE UPDATED.
+- Reason mandatory on create / edit / revert.
+- `revert` preserves history via a `reverted` audit event; never
+  hard-deletes.
+- Concurrency: 409 on `expected_version` mismatch with
+  `{stored_version, your_version}` body.
+- REST router mounted at `/api/incidents/{id}/intelligence/…`
+  with `get_current_user` on every write.
+
+**Frontend**
+- `components/IntelligenceOverlayEditor.jsx` — compact inline
+  editor with EDIT / REVERT / HISTORY controls, audit-trail
+  panel, mandatory reason field, and provenance badges
+  (`NIVXRAY GENERATED` · `ANALYST EDITED · v{n}` ·
+  `MACHINE SOURCE UPDATED · v{n}`).
+- `AutoInvestigationTab.jsx` — every finding row now renders a
+  restrained *Analyst Interpretation* panel below the machine
+  summary.  The machine value is always shown alongside as
+  *"NivXRay machine value: …"* so the edited narrative never
+  masquerades as canonical evidence.
+
+**Tests — `test_xdr_round46_intelligence_overlay.py`** (15 tests)
+- Effective value fallback semantics
+- Reason mandatory
+- Analyst identity mandatory
+- Unsupported target / field rejected
+- Finding overlay locked to `summary` only
+- Full governance shape stored (author_id · author_email · reason ·
+  version · machine_source_hash · created_at / updated_at)
+- Effective uses analyst when hash matches
+- Effective falls back to machine when source drifts
+- Presentation badge never claims EVIDENCE-DERIVED / NIVXRAY
+  GENERATED once analyst content exists
+- Edit increments version; audit entry appended to immutable
+  audit collection (not embedded)
+- Machine value never mutated across edits (hard invariant)
+- Version conflict raises 409
+- Revert preserves history and effective returns machine value
+- Revert without active overlay raises 404
+- Report + PDF fully backward-compatible when no overlay exists
+
+**E2E verified on R35 EDR incident (preview):**
+edited detection_intel finding summary · badge flipped to
+`ANALYST EDITED · v1` · audit shows `admin@nivxray.com` + reason ·
+machine value visible below in muted footer · 11 unedited findings
+kept `NIVXRAY GENERATED` badge · 0 spurious drift badges.
+
+**Not yet wired (backlog · next drops):**
+- Executive Summary overlay
+- Attack Story per-step narrative overlay
+- Report composer + PDF renderer effective-value integration
+
+**Cumulative regression: 283/283 green per-module across
+R21 → R46 (33 modules).**
+
+
+
 ## 2026-09-01 · Round 45 — Inspector Consolidation + Pipeline Strip Honesty — SHIPPED
 
 Fixes R44 audit finding H-1.  Surgical consolidation only — no MITRE

@@ -2,6 +2,84 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 46 — SHIPPED · Analyst Intelligence Overlay (v1)
+
+Governance layer over machine-derived interpretation.  Canonical
+evidence, detections, ATT&CK mappings, confidence and finding
+identity remain immutable.  Analysts edit only the narrative.
+
+### Owner-locked architecture
+```
+IMMUTABLE / GOVERNED
+   Canonical Evidence · Detection · Correlation · ATT&CK ·
+   Provenance · Machine-derived Findings
+         ↓
+ANALYST INTELLIGENCE OVERLAY (Round 46 · v1)
+   author_id · author_email · reason · version · updated_at ·
+   machine_source_hash · immutable audit trail
+         ↓
+   effective_value = analyst_value ?? machine_value
+   (falls back to machine value when machine source drifts)
+```
+
+### Shipped
+- **Backend service** — `services/intelligence_overlay/service.py`:
+  - New collections `xdr_intelligence_overlays` + immutable
+    `xdr_intelligence_overlay_audit`
+  - `upsert_overlay` · `revert_overlay` · `get_overlay` ·
+    `list_overlays` · `history` · `effective` · `presentation_badge`
+  - `machine_source_hash` (sha256) captured on every write
+  - `revert` never hard-deletes; emits `reverted` audit event
+  - Reason required on every create / edit / revert
+  - Concurrency: `expected_version` mismatch → `OverlayError(409)`
+- **REST API** — `routers/intelligence_overlay.py`:
+  - `GET  /api/incidents/{id}/intelligence/overlays`
+  - `GET  /api/…/overlays/{target_kind}/{target_id}/{field_key}`
+  - `PUT  /api/…/overlays/{target_kind}/{target_id}/{field_key}`
+  - `DELETE /api/…/overlays/{target_kind}/{target_id}/{field_key}`
+  - `GET  /api/…/overlays/{target_kind}/{target_id}/{field_key}/history`
+  - Every write requires `get_current_user`
+- **Editable surfaces (locked)**:
+  - `exec_summary.content`
+  - `attack_story.narrative`
+  - `finding.summary` (only summary — identity / confidence /
+    evidence refs / ATT&CK mapping remain immutable)
+- **Frontend** — `components/IntelligenceOverlayEditor.jsx`
+  compact inline editor with EDIT / REVERT / HISTORY controls,
+  audit trail panel, mandatory reason field, and provenance badge
+  (`NIVXRAY GENERATED` · `ANALYST EDITED · v{n}` ·
+  `MACHINE SOURCE UPDATED · v{n}`).
+- **Wiring (drop 1)**: findings summary in
+  `AutoInvestigationTab.jsx`.  Every finding row now shows a
+  restrained *Analyst Interpretation* panel below the machine
+  summary; the machine value is always shown alongside as
+  "NivXRay machine value: …" so the analyst can never make an
+  edited narrative look like canonical evidence.
+
+### Verified
+- 15 new R46 backend tests pin every governance gate.
+- HTTP contract verified via curl: empty reason → 422 ·
+  valid PUT → 200 with signed envelope · stale version → 409 with
+  `{code:"conflict", stored_version, your_version}`.
+- E2E in preview on R35 EDR incident: edited a finding summary
+  (`detection_intel` · v1) — badge switched to `ANALYST EDITED`,
+  audit trail shows `admin@nivxray.com` · reason recorded ·
+  machine value visibly preserved beneath the analyst
+  interpretation.
+- 11 unedited findings continue to show `NIVXRAY GENERATED` ·
+  0 drift badges (contract-correct).
+
+### Not yet wired (backlog · next drops)
+- ExecutiveTab summary content overlay
+- AttackStoryTab per-step narrative overlay
+- Report composer + PDF renderer effective-value integration
+
+### Cumulative regression
+R21 → R46 · 33 modules · **283/283 tests green per-module.**
+
+---
+
+
 ## ✅ 2026-09-01 · Round 45 — SHIPPED · Inspector Consolidation
 
 Fixes R44 audit finding **H-1**.  Surgical scope: MitreTab evidence

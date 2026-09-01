@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
+import IntelligenceOverlayEditor from "@/xdr/components/IntelligenceOverlayEditor";
 
 const STATE_STYLE = {
   WAITING_FOR_EVIDENCE:   { key: "waiting",       label: "WAITING FOR EVIDENCE" },
@@ -43,6 +44,12 @@ export default function AutoInvestigationTab({ incident }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Round 46 · overlay index keyed by `finding:{finding_id}:summary`
+  const [overlays, setOverlays] = useState({});
+
+  const overlayKey = (fid) => `finding:${fid}:summary`;
+  const applyOverlayResult = (fid, overlay) =>
+    setOverlays((prev) => ({ ...prev, [overlayKey(fid)]: overlay }));
 
   useEffect(() => {
     if (!incident?.id) return undefined;
@@ -50,8 +57,20 @@ export default function AutoInvestigationTab({ incident }) {
     (async () => {
       setLoading(true); setError(null);
       try {
-        const { data } = await api.get(`/incidents/${incident.id}/investigation`);
-        if (!cancelled) setData(data);
+        const [inv, ovr] = await Promise.all([
+          api.get(`/incidents/${incident.id}/investigation`),
+          api.get(`/incidents/${incident.id}/intelligence/overlays`)
+              .catch(() => ({ data: { overlays: [] } })),
+        ]);
+        if (cancelled) return;
+        setData(inv.data);
+        const idx = {};
+        for (const o of (ovr.data?.overlays || [])) {
+          if (o.target_kind === "finding" && o.field_key === "summary") {
+            idx[overlayKey(o.target_id)] = o;
+          }
+        }
+        setOverlays(idx);
       } catch (e) {
         if (!cancelled) setError(e?.message || String(e));
       } finally { if (!cancelled) setLoading(false); }
@@ -232,13 +251,16 @@ export default function AutoInvestigationTab({ incident }) {
                                                     || f.confidence === undefined
                                                     || f.confidence === 0)
                   ? "—" : f.confidence;
+                const overlay = f.finding_id
+                  ? overlays[overlayKey(f.finding_id)] : null;
+                const effective = overlay?.analyst_value ?? rawSummary;
                 return (
                   <tr key={f.finding_id || i}
                        data-testid={`xdr-record-ai-finding-${i}`}
                        data-empty-summary={summaryIsEmpty || undefined}>
                     <td className="mono">{f.capability || "—"}</td>
                     <td>
-                      {summaryIsEmpty ? (
+                      {summaryIsEmpty && !overlay ? (
                         <div style={{ fontWeight: 500, color: "#64748b",
                                           fontStyle: "italic" }}
                               data-testid={`xdr-record-ai-finding-empty-${i}`}
@@ -246,7 +268,9 @@ export default function AutoInvestigationTab({ incident }) {
                           {fallbackTitle}
                         </div>
                       ) : (
-                        <div style={{ fontWeight: 500 }}>{rawSummary}</div>
+                        <div style={{ fontWeight: 500 }}>
+                          {effective || fallbackTitle}
+                        </div>
                       )}
                       <div style={{ opacity: 0.6, fontSize: 11, marginTop: 2 }}>
                         {reasonIsEmpty
@@ -255,6 +279,23 @@ export default function AutoInvestigationTab({ incident }) {
                             </span>
                           : rawReason}
                       </div>
+                      {/* Round 46 · Analyst Interpretation overlay.
+                          Editable narrative ONLY — the finding's
+                          identity, evidence refs, confidence and
+                          ATT&CK mapping stay immutable. */}
+                      {f.finding_id && (
+                        <IntelligenceOverlayEditor
+                          incidentId={incident.id}
+                          targetKind="finding"
+                          targetId={f.finding_id}
+                          fieldKey="summary"
+                          machineValue={rawSummary || fallbackTitle}
+                          overlay={overlay}
+                          onChange={(o) =>
+                            applyOverlayResult(f.finding_id, o)}
+                          label="Analyst Interpretation"
+                        />
+                      )}
                     </td>
                     <td className="mono">{f.state || "—"}</td>
                     <td className="mono">{confidenceLabel}</td>
