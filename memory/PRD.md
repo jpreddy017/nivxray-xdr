@@ -2,6 +2,39 @@
 
 **Authoritative execution baseline (locked 2026-08-29).**
 
+## ✅ 2026-09-01 · Round 36.0 — SHIPPED · Attack Graph Semantic Separation
+
+The Attack Graph tab is now three purpose-built visualizations, each
+answering a single analytical question, powered by a single evidence
+SSOT.
+
+### Shipped
+- **MITRE Chain** (default) — "How did the attack progress?"  Kill-
+  chain-ordered stages, each with its evidenced techniques and the
+  reverse-walked evidence bundle (detection · correlation · process
+  · commandline · event · finding).
+- **Process Tree** — "What executed what?"  Pure parent → child
+  ancestry via `SPAWNED` edges + attached commandlines via
+  `EXECUTED`.
+- **Activity Graph** — "What entities/events are related?"  Entity-
+  only projection.  Never shows `stage`, `technique`, `detection`,
+  `match`, `capability`, `finding`, or `gap` nodes.
+- New backend module `services/attack_graph/projections.py` with
+  three deterministic projections over the same graph SSOT.
+- New frontend files
+  `attack_graph/MitreChainView.jsx` and
+  `attack_graph/ProcessTreeView.jsx`.
+- Sub-tab switcher inside the existing "Attack Graph" tab; MITRE
+  CHAIN is the default.
+
+### Verified
+- 10 new R36 regression tests · full R30–R36 regression **87/87** green.
+- Three screenshots captured on the PowerShell golden EDR incident —
+  each view is visually distinct and evidence-consistent.
+
+---
+
+
 ---
 ## 🔒 SUPREME INVARIANT · Evidence-First Deterministic Principle (LOCKED 2026-02-14)
 

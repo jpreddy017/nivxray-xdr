@@ -2,6 +2,57 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 36.0 — Attack Graph Semantic Separation — SHIPPED
+
+The Attack Graph is now three purpose-built visualizations powered
+by a single evidence SSOT.  One knowledge graph → three governed
+projections.  No conceptual mixing.
+
+**Backend — `services/attack_graph/projections.py`** (new)
+- `project_mitre_chain()` — stages grouped by kill-chain order, each
+  with its evidenced techniques and a reverse-walked evidence bundle
+  (detection rules, correlation matches, processes, commandlines,
+  events, findings, evidence_refs).  Only stages that carry at least
+  one evidenced technique are surfaced.
+- `project_process_tree()` — pure parent → child ancestry using only
+  `SPAWNED` edges between real `process` nodes.  Each node exposes
+  role, host, and attached commandlines (via `EXECUTED` edges).
+- `project_activity_graph()` — entity/evidence relationship graph.
+  Explicitly EXCLUDES `stage`, `technique`, `detection`, `match`,
+  `gap`, `capability`, and `finding` kinds.
+- Wired into `AttackGraphService.compose()` output under
+  `graph.views.{mitre_chain,process_tree,activity_graph}`.
+- Added `order` attribute to stage nodes for deterministic kill-chain
+  ordering; added `tid` attribute to technique nodes.
+
+**Frontend**
+- New file `attack_graph/MitreChainView.jsx` — vertical numbered
+  stage stack; each technique card is expandable and shows
+  Detection · Correlation · Processes · Commands · Events · Findings.
+- New file `attack_graph/ProcessTreeView.jsx` — collapsible EDR-style
+  ancestry with role badges (`PARENT`), host suffix (`@WKS-R35`),
+  and inline monospaced commandline callouts.
+- `AttackGraphTab.jsx` — sub-tab switcher `[MITRE CHAIN | PROCESS
+  TREE | ACTIVITY GRAPH]` inside the existing Attack Graph tab.
+  MITRE CHAIN is the default.  Activity Graph uses the pre-filtered
+  `views.activity_graph` projection so `capability` and `finding`
+  nodes never appear on that canvas.
+
+**Tests — `tests/test_xdr_round36_graph_projections.py`** (new · 10 tests)
+- Determinism (same inputs → byte-identical projections).
+- MITRE Chain surfaces only evidenced stages; each observed
+  technique has process AND event/detection evidence.
+- Process Tree shows winword.exe → powershell.exe with encoded
+  commandline attached.
+- Activity Graph excludes MITRE + capability + finding kinds; all
+  edges reference kept nodes; no NOT_OBSERVED edges leak through.
+
+**Verified in the running preview** on the PowerShell golden EDR
+incident — three distinct, evidence-consistent projections rendered.
+Full regression: **87/87** R30–R36 tests green.
+
+
+
 ## 2026-09-01 · Round 35.3.1 — Investigator Reopen-on-New-Evidence Fix
 
 Follow-up to R35.3: fixed a lifecycle bug where re-ticking a

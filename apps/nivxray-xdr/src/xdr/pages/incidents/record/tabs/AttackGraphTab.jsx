@@ -16,6 +16,8 @@ import { Loader2, ZoomIn, ZoomOut, Maximize2, RotateCcw,
            Play, Pause, SkipBack, SkipForward, Maximize, X, HelpCircle } from "lucide-react";
 
 import api from "@/lib/api";
+import { MitreChainView }   from "./attack_graph/MitreChainView";
+import { ProcessTreeView }  from "./attack_graph/ProcessTreeView";
 
 
 const STATE_TONE = {
@@ -99,6 +101,11 @@ export default function AttackGraphTab({ incident }) {
   const [selKind, setSelKind]     = useState(null);
   const [hoveredEdge, setHovered] = useState(null);
   const [mode, setMode]           = useState("chain"); // chain | evidence | full
+  // Round 36 · Sub-tab selector inside the Attack Graph tab.
+  //   mitre    → MITRE Chain view (default)
+  //   process  → Process Tree view
+  //   activity → Activity / Evidence graph (the current SVG canvas)
+  const [subView, setSubView]     = useState("mitre");
   const [layers, setLayers]       = useState({
     entities: true, events: true, processes: true, findings: true,
     capabilities: true, mitre: true, gaps: false,
@@ -138,10 +145,29 @@ export default function AttackGraphTab({ incident }) {
   const primaryPath = useMemo(
     () => new Set(graph?.primary_path || []), [graph]);
 
+  // Round 36 · Activity Graph view uses the pre-filtered projection
+  // from the backend.  Other sub-views (MITRE Chain / Process Tree)
+  // do not use the SVG canvas at all.
+  const activeNodes = useMemo(() => {
+    if (!graph) return [];
+    if (subView === "activity" && graph.views?.activity_graph) {
+      return graph.views.activity_graph.nodes;
+    }
+    return graph.nodes;
+  }, [graph, subView]);
+
+  const activeEdges = useMemo(() => {
+    if (!graph) return [];
+    if (subView === "activity" && graph.views?.activity_graph) {
+      return graph.views.activity_graph.edges;
+    }
+    return graph.edges;
+  }, [graph, subView]);
+
   // Filter nodes by mode + layers + gap policy.
   const visibleNodes = useMemo(() => {
     if (!graph) return [];
-    return graph.nodes.filter(n => {
+    return activeNodes.filter(n => {
       const layer = KIND_LAYER[n.kind] || "entities";
       if (!layers[layer]) return false;
       // In Attack Chain mode: hide gaps entirely, and hide
@@ -159,7 +185,7 @@ export default function AttackGraphTab({ incident }) {
       }
       return true;
     });
-  }, [graph, mode, layers]);
+  }, [graph, mode, layers, activeNodes]);
 
   const layout = useMemo(() => {
     if (!graph || visibleNodes.length === 0) return null;
@@ -214,14 +240,14 @@ export default function AttackGraphTab({ incident }) {
   if (error && !graph) return <div className="rl-error">{String(error)}</div>;
   if (!graph) return null;
 
-  const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+  const nodeMap = new Map(activeNodes.map(n => [n.id, n]));
   const visibleIds = new Set(visibleNodes.map(n => n.id));
-  const visibleEdges = graph.edges.filter(
+  const visibleEdges = activeEdges.filter(
     e => visibleIds.has(e.src) && visibleIds.has(e.dst));
 
   const selected = selId ? (selKind === "node"
     ? nodeMap.get(selId)
-    : graph.edges.find(e => e.id === selId)) : null;
+    : activeEdges.find(e => e.id === selId)) : null;
 
   const stepTimeline = (delta) => {
     if (!graph.timeline.length) return;
@@ -237,6 +263,58 @@ export default function AttackGraphTab({ incident }) {
       <div style={{ background: "#0b1220", border: "1px solid #1e293b",
                        borderRadius: 6, overflow: "hidden",
                        display: "flex", flexDirection: "column" }}>
+        {/* Round 36 · Sub-tab switcher (MITRE / Process / Activity) */}
+        <div style={{ display: "flex", gap: 2, padding: "8px 10px",
+                          borderBottom: "1px solid #1e293b",
+                          background: "#0a0e1a" }}
+              data-testid="xdr-ag-subview-switch">
+          {[["mitre",   "MITRE Chain",   "How did the attack progress?"],
+            ["process", "Process Tree",  "What executed what?"],
+            ["activity","Activity Graph","What entities are related?"]
+          ].map(([k, label, hint]) => (
+            <button key={k}
+                     onClick={() => setSubView(k)}
+                     title={hint}
+                     data-testid={`xdr-ag-subview-${k}`}
+                     style={{
+                       padding: "6px 14px", fontSize: 11,
+                       border: "1px solid " + (subView === k ? "#7c3aed" : "#1e293b"),
+                       borderRadius: 3, cursor: "pointer",
+                       background: subView === k ? "#4c1d95" : "transparent",
+                       color: subView === k ? "#f5f3ff" : "#94a3b8",
+                       fontWeight: subView === k ? 700 : 500,
+                       letterSpacing: 0.3,
+                       textTransform: "uppercase",
+                     }}>
+              {label}
+            </button>
+          ))}
+          <div style={{ marginLeft: "auto", color: "#64748b",
+                            fontSize: 10, alignSelf: "center" }}
+                data-testid="xdr-ag-subview-hint">
+            {subView === "mitre"    && "MITRE ATT&CK progression"}
+            {subView === "process"  && "Parent → child execution"}
+            {subView === "activity" && "Entity / event relationships"}
+          </div>
+        </div>
+
+        {/* MITRE Chain / Process Tree views (no SVG canvas) */}
+        {subView === "mitre" && (
+          <MitreChainView mitre={graph.views?.mitre_chain}
+                                    onSelectTechnique={(t) => {
+                                      setSelId(t.id); setSelKind("node"); }}
+                                    selectedTid={selected?.attrs?.tid} />
+        )}
+        {subView === "process" && (
+          <ProcessTreeView tree={graph.views?.process_tree}
+                                     onSelectProcess={(p) => {
+                                       setSelId(p.id); setSelKind("node"); }}
+                                     selectedId={selId} />
+        )}
+
+        {/* Activity Graph canvas · unchanged operational SVG */}
+        {subView === "activity" && (
+        <div style={{ display: "contents" }}>
         {/* Toolbar row 1 · counters + mode */}
         <div style={{ display: "flex", gap: 10, padding: "8px 10px",
                          borderBottom: "1px solid #1e293b", color: "#e2e8f0",
@@ -493,6 +571,7 @@ export default function AttackGraphTab({ incident }) {
             </span>
           ))}
         </div>
+        </div>)}
       </div>
       {/* Evidence Inspector */}
       <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0",

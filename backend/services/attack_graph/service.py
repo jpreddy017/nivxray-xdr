@@ -28,6 +28,9 @@ from services.attack_story.attack_cycle import (
     STAGES, STAGE_INDEX, normalize_tactic, stages_for_technique,
     TECHNIQUE_TO_TACTIC,
 )
+from services.attack_graph.projections import (
+    project_mitre_chain, project_process_tree, project_activity_graph,
+)
 from services.iue.service import IUEService
 from services.investigator.orchestrator import InvestigatorService
 from services.attack_graph.event_intel import get_event_intel, infer_event_id
@@ -146,7 +149,7 @@ class AttackGraphService:
                 "kind":   "stage",
                 "label":  stage,
                 "state":  "NOT_OBSERVED",
-                "attrs":  {"index": idx + 1},
+                "attrs":  {"index": idx + 1, "order": idx + 1},
             })
             stage_by_name[stage] = nid
 
@@ -375,6 +378,7 @@ class AttackGraphService:
                 "id": _nid("technique", tid), "kind": "technique",
                 "label": tid, "state": "OBSERVED",
                 "attrs": {"source": "incident.mitre",
+                             "tid": tid,
                              "tactic_id": m.get("tactic_id") or m.get("tactic"),
                              "name":      m.get("name") or m.get("technique_name")}})
             _add_edge(tech_anchor, "MAPPED_TO", tech_nid,
@@ -436,7 +440,7 @@ class AttackGraphService:
                     _add_node({
                         "id": _nid("technique", tid), "kind": "technique",
                         "label": tid, "state": "SUPPORTED",
-                        "attrs": {"source": "correlation"}})
+                        "attrs": {"source": "correlation", "tid": tid}})
                 tech_nid_here = _nid("technique", tid)
                 _add_edge(match_nid, "MAPPED_TO", tech_nid_here,
                               state="SUPPORTED",
@@ -620,6 +624,16 @@ class AttackGraphService:
             ],
             "timeline":       timeline,
             "metrics":        metrics,
+            # Round 36 · Three deterministic projections over the same
+            # SSOT.  Each answers a single analytical question.
+            "views": {
+                "mitre_chain":    project_mitre_chain(
+                                          list(nodes.values()), edges),
+                "process_tree":   project_process_tree(
+                                          list(nodes.values()), edges),
+                "activity_graph": project_activity_graph(
+                                          list(nodes.values()), edges),
+            },
             "evidence_summary": {
                 "canonical_event_id": (canonical or {}).get("event_id"),
                 "event_id":           event_id_str,
