@@ -58,6 +58,91 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 28 — SHIPPED · Multi-Vendor Adapter Framework
+
+### Boundary (owner-locked · Round 28)
+```
+                VendorAdapter
+                     │
+       ┌─────────────┴─────────────┐
+       ↓                           ↓
+   Cortex (PRODUCTION)     demo_edr (INTERNAL_TEST_ONLY)
+       │                           │
+       └─────────────┬─────────────┘
+                     ↓
+     Same wizard · vault · executor · capability model ·
+     response console · evidence model · promotion.
+     Zero vendor-specific code above the adapter boundary.
+```
+
+### Shipped
+
+- **`detection_content/xdr_vendor_adapter.py`** — `VendorAdapter`
+  ABC with the five owner-locked methods (`metadata`, `connect`,
+  `capabilities`, `ingest_incidents`, `execute_action`) and
+  normalised envelope keys (`ok / reason / detail /
+  vendor_reference / vendor_action_id / http_status`).  Locked
+  enums: `CONNECT_REASONS`, `CAPABILITY_STATES`, `LIFECYCLES ∈
+  {PRODUCTION, INTERNAL_TEST_ONLY}`.
+- **`detection_content/xdr_vendor_registry.py`** — decorator-based
+  registry with `register_vendor / get_vendor_class / has_vendor /
+  list_production_vendors / list_all_vendors`.  Duplicate keys
+  fail loudly.  Registry auto-installs built-in adapters at
+  module import.
+- **`detection_content/xdr_cortex_vendor_adapter.py`** — Cortex
+  facade over the existing Round 25a/26/27 implementation.  Zero
+  behavioural regression — all Round 25b/26/26.5/27 tests still
+  green.  The facade normalizes `connect().reason` into
+  `AVAILABLE / AUTHENTICATION_FAILED / CONNECTION_FAILED /
+  NO_LIVE_TENANT / VENDOR_ERROR`.
+- **`detection_content/xdr_stub_adapter.py`** —
+  `INTERNAL_TEST_ONLY` vendor.  Honestly useless: `connect →
+  NO_LIVE_TENANT`, every action `NOT_SUPPORTED`, execute →
+  `stub_never_executes`.  Cannot ever produce ACTIONED evidence.
+- **`routers/xdr_vendor_wizard.py`** — generalized routes:
+  * `GET  /api/xdr/vendor/_catalog?[include_internal=true]`
+  * `GET  /api/xdr/vendor/{vendor_key}/metadata`
+  * `POST /api/xdr/vendor/{vendor_key}/probe`
+  * `POST /api/xdr/vendor/{vendor_key}/connections`
+  * `GET  /api/xdr/vendor/{vendor_key}/connections`
+  Vendor-specific credential schema comes from
+  `VendorAdapter.metadata()` — the wizard is vendor-agnostic.
+  Legacy `/api/xdr/vendor/cortex/…` routes stay mounted for
+  clients from Round 25a/26/27.
+- **`tests/test_xdr_round28_vendor_framework.py`** — five locked
+  invariants:
+  1. Registry holds cortex + demo_edr; stub NOT in production
+     catalogue.
+  2. Every vendor exposes the same metadata shape.
+  3. Stub is honestly useless (connect NO_LIVE_TENANT, caps
+     NOT_SUPPORTED, execute ok=False).
+  4. Cortex facade normalizes envelope keys — no vendor-specific
+     keys leak upward.
+  5. **Uniform-flow proof** — iterate every registered vendor,
+     call the same five methods with the same argument shape,
+     assert normalised envelope on every call.  A vendor that
+     breaks this loop has leaked vendor-specific requirements
+     above the adapter boundary.
+
+### Guardrails (verified in preview)
+
+- Production `_catalog` returns Cortex ONLY.
+- `_catalog?include_internal=true` returns both, with lifecycle.
+- Stub bind refused with `409 internal_test_only_vendor` unless
+  `credentials._internal_test_ack=true`.
+- Legacy `/api/xdr/vendor/cortex/connections` still resolves.
+- **27/27 backend tests green** (R24 · R25b · R26 · R26.5 · R27.x · R28).
+
+### Boundary notes for Round 28.x
+
+- CrowdStrike Falcon, MDE, SentinelOne each add ONE file:
+  `detection_content/xdr_<vendor>_vendor_adapter.py` implementing
+  `VendorAdapter`.  Zero changes required in the wizard, vault,
+  executor, promotion, or response console.  If a Round 28.x
+  vendor requires a change above the adapter, that change is by
+  definition a framework leak and must be closed first.
+
+---
 ## ✅ 2026-02-14 · Round 27 · UX — Surface-aware default flip
 
 Owner-locked semantics (2026-02-14):

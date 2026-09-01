@@ -428,6 +428,17 @@ api.include_router(static_docs_router)
 # Semantic-Mapping-Preview) deleted.
 
 # ─────────────────────────────────────────────────────────────────────
+# Round 28 · Generalized Vendor Wizard — /api/xdr/vendor/{vendor_key}/...
+# Legacy /api/xdr/vendor/cortex/... routes remain as backwards-compatible
+# aliases (Round 25a).
+try:
+    from routers.xdr_vendor_wizard import router as xdr_vendor_wizard_router
+    app.include_router(xdr_vendor_wizard_router)
+    log.info("[startup] Vendor wizard mounted at /api/xdr/vendor/{vendor_key}")
+except Exception as _vwx:                                          # pragma: no cover
+    log.warning("[startup] Vendor wizard mount failed: %s", _vwx)
+
+# ─────────────────────────────────────────────────────────────────────
 # Round 27 · Cortex Response Console — Execute endpoint that closes
 # the evidence → recommendation → action → ACTIONED evidence loop.
 try:
