@@ -64,6 +64,7 @@ def list_all_vendors(*, include_internal: bool = False) -> list[dict]:
 # Ordering matters only for enumeration; retrieval is O(1).
 def _install():
     from . import xdr_cortex_vendor_adapter as _cortex   # noqa: F401
+    from . import xdr_falcon_vendor_adapter as _falcon   # noqa: F401
     from . import xdr_stub_adapter          as _stub     # noqa: F401
 
 

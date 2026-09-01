@@ -58,6 +58,84 @@ from the source telemetry, render it verbatim as
 never defaulted.
 
 ---
+## ✅ 2026-02-14 · Round 28.x — SHIPPED · CrowdStrike Falcon (first real second vendor)
+
+### Owner-locked acceptance gate (met)
+Ship Falcon WITHOUT modifying any of the protected files above
+the adapter boundary — a hard regression proves it.
+
+Protected files (verified by canary test):
+```
+detection_content/xdr_credential_vault.py
+detection_content/xdr_cortex_executor.py
+detection_content/xdr_capability_service.py
+detection_content/xdr_cortex_ingest.py
+detection_content/xdr_cortex_promotion.py
+detection_content/xdr_vendor_adapter.py
+routers/xdr_vendor_wizard.py
+routers/xdr_cortex_actions.py
+```
+None of them mention `falcon` or `crowdstrike`.  Test:
+`test_protected_files_have_no_falcon_references`.
+
+### Shipped
+
+- **`detection_content/xdr_falcon_vendor_adapter.py`** — one file.
+  * OAuth2 client-credential token minting inside `connect()`,
+    cached per-instance only.
+  * Cloud routing: `us-1 / us-2 / eu-1 / gov-1`.
+  * Capability matrix: `ENDPOINT_ISOLATE / BLOCK_HASH → AVAILABLE`;
+    `PROCESS_KILL / DISABLE_USER / REVOKE_TOKEN → NOT_SUPPORTED`
+    (honest — Falcon has no direct terminate, Identity Protection
+    scope is out of this build).
+  * `ingest_incidents(since_cursor)` calls
+    `/detects/queries/detects/v1` then
+    `/detects/entities/summaries/GET/v1`, then translates each
+    Falcon detection into the **same vendor-neutral incident
+    shape** `CortexParser` already consumes — the parser stays
+    Cortex-agnostic despite its name.
+  * `execute_action` implements `ENDPOINT_ISOLATE` (contain via
+    `/devices/entities/devices-actions/v2`) and `BLOCK_HASH`
+    (`/iocs/entities/indicators/v1`, `sha256/prevent`).  Rejection
+    → honest `EXECUTION_FAILED` envelope; success returns real
+    `vendor_action_id` from Falcon.
+- **`xdr_vendor_registry._install()`** — one line added to register
+  Falcon at import time.  No other framework file changed.
+
+### Tests · 9 locked invariants (all green)
+
+1. Framework-leakage canary — protected files never mention
+   Falcon / CrowdStrike.
+2. Falcon metadata shape (cloud select, client_id, client_secret).
+3. `connect()` returns `AUTHENTICATION_FAILED` on 401.
+4. `connect()` returns `NO_LIVE_TENANT` without credentials.
+5. `connect()` returns `AVAILABLE` on token mint success.
+6. Capabilities matrix honest (`NOT_SUPPORTED` for actions Falcon
+   cannot do).
+7. Falcon detection → vendor-neutral shape → 5 canonical evidence
+   rows through the same `CortexParser` used for Cortex.
+8. `execute_action(ENDPOINT_ISOLATE)` returns real
+   `vendor_action_id` from a mocked Falcon envelope.
+9. `execute_action` never fakes success on vendor rejection.
+
+Combined regression: **36/36 backend tests green** across
+R24 · R25b · R26 · R26.5 · R27.x · R28 · R28.x.  Cortex tests
+run unchanged — the framework carries a second vendor without
+touching a shared file.
+
+### Verified in preview
+- `GET /api/xdr/vendor/_catalog` lists BOTH `cortex` + `falcon`
+  as `PRODUCTION`.
+- `GET /api/xdr/vendor/falcon/metadata` returns the three-field
+  Falcon credential schema.
+- `POST /api/xdr/vendor/falcon/probe` with no cloud URL wired →
+  honest `NO_LIVE_TENANT` (never a synthetic success).
+
+**NivXRay's multi-vendor abstraction has now earned its right to
+exist**: adding a second real vendor took ONE file and ZERO
+changes above the adapter boundary.
+
+---
 ## ✅ 2026-02-14 · Round 28 — SHIPPED · Multi-Vendor Adapter Framework
 
 ### Boundary (owner-locked · Round 28)
