@@ -180,7 +180,7 @@ export default function RecommendationsTabV2({ incident }) {
           <div className="evops-empty__title">No recommendations synthesised</div>
           <div className="evops-empty__reason">
             The synthesizer found no evidence-derived response candidates for
-            this incident.  NivXRay never renders a generic "verb → static
+            this incident.  NivXRay XDR never renders a generic "verb → static
             recommendation" fallback here.
           </div>
         </div>
@@ -241,7 +241,7 @@ export default function RecommendationsTabV2({ incident }) {
             </div>
             <div className="evops-hint" style={{ marginTop: 8 }}>
               {reco.rationale || reco.reason
-                  || "Why NivXRay recommends this: rationale not surfaced by the synthesizer."}
+                  || "Why NivXRay XDR recommends this: rationale not surfaced by the synthesizer."}
             </div>
             <div style={{ marginTop: 10 }}>
               <Provenance chain={chain} testid={`reco-prov-${reco.recommendation_id}`} />

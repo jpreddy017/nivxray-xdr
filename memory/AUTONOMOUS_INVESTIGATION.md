@@ -206,3 +206,118 @@ alerts become **one evolving investigation**, not seven.
 - Autonomous investigation escalating into unapproved remediation.
 - Silent omission of "checked but not found" findings.
 - Read-only summaries.
+
+---
+
+## 15 · IUE v0 · locked scope (Round 30)
+
+Owner-locked for the next implementation cycle. IUE v0 MUST NOT
+exceed these bounds:
+
+```
+Existing Evidence Plane  →  IUE v0  →  Persisted IUE State
+```
+
+**Boundary contract:**
+- **No UI changes.** IUE v0 is a backend service only.
+- **No AI dependency.** Deterministic reasoning only.
+- **No Orchestrator yet** — v0 emits understanding; Round 31 will
+  consume it.
+- **No new external intelligence** (STIX/TAXII/OSINT stay deferred).
+- **No verdict replacement.** The Verdict Engine boundary (§31)
+  is untouched.
+
+**v0 outputs (six understanding artifacts, all persisted):**
+Investigation Context · Relationships · Threat Context ·
+Historical Context · Known/Unknown · Investigation Gaps.
+
+**Acceptance:** an investigation can move from *"Here is the
+evidence"* to *"Here is what the evidence currently means, what is
+connected, what is known, what is unknown, and where investigation
+gaps exist."* Nothing more. Round 31 then decides what to
+investigate next.
+
+---
+
+## 16 · 11-tab workspace grammar (analyst-question contract)
+
+Each tab answers ONE analyst question. All tabs are views over the
+same Investigation State — never independent pages.
+
+| Tab                    | Question                                   |
+|------------------------|--------------------------------------------|
+| Executive              | What is happening?                          |
+| Technical              | What exactly happened?                      |
+| Evidence               | What proves it?                             |
+| Investigation Activity | What is NivXRay XDR investigating/doing?    |
+| MITRE                  | What adversary behaviours are supported?    |
+| Attack Story           | How did the attack progress?                |
+| Recommendations        | What should happen next?                    |
+| Notes                  | What did humans add?                        |
+| Timeline               | When did everything happen?                 |
+| Related                | What else is connected?                     |
+| Closure                | What was ultimately concluded / done?       |
+
+Rules:
+- Analyst workflow (Executive → Attack Story → Evidence → Technical
+  → Investigation Activity → MITRE → Timeline → Related →
+  Recommendations → Notes → Closure) is the reading order.
+- No tab manually assembles the investigation — NivXRay XDR
+  progressively populates all tabs from the shared Investigation
+  State.
+- Every generated block is editable (§23-§25) but never overwrites
+  evidence.
+
+---
+
+## 17 · Threat Model Engine (v1.2 conceptual layer)
+
+Beyond ATT&CK detection: NivXRay XDR continuously constructs and
+investigates an **evidence-backed Threat Model** per incident.
+
+```
+Environment → Attack Surface → Threat Scenario → Attack Path
+     ↓                                                ↓
+  Evidence ← Autonomous Investigation ← IUE ← Threat Model
+     ↓                                                ↓
+  ATT&CK Mapping → Attack Story → Verdict → Response
+```
+
+**Attack Cycle** (14 stages) — evidence-driven, never fabricated
+when unobserved: Reconnaissance · Resource Development · Initial
+Access · Execution · Persistence · Privilege Escalation · Defense
+Evasion · Credential Access · Discovery · Lateral Movement ·
+Collection · Command & Control · Exfiltration · Impact.
+
+**Attack Path state grammar** — three-state closed enum:
+- `○ POSSIBLE`     · path is architecturally reachable
+- `◐ SUPPORTED`    · evidence supports one or more hops
+- `● OBSERVED`     · every hop is evidence-anchored
+- `— NOT OBSERVED` · investigated and negative
+
+**Threat Model Coverage** — 14-stage strip per incident with the
+above states; observed stages get evidence rollups, unobserved
+stages remain honest gaps.
+
+**Threat Scenario Library** — reusable named scenarios (Phishing ·
+Ransomware · Credential Theft · Insider · Living-off-the-Land ·
+Supply Chain · Cloud Account Compromise · Identity Attack · Web
+Application · Malware · C2 · Data Exfiltration · Lateral Movement ·
+Privilege Escalation · Persistence · Defense Evasion). Scenario
+match ≠ confirmed attack.
+
+**UI placement (deferred to visual v1.2, not v0):**
+- Executive tab: compact Threat Model progression strip.
+- Attack Story tab: full interactive attack-cycle visualisation.
+- MITRE tab: detailed ATT&CK mapping (existing v2 tab covers this).
+- Investigation Activity: shows the Orchestrator filling threat-
+  model gaps in real time.
+- Related tab: cross-incident / campaign relationships.
+
+---
+
+## 18 · Branding
+
+The product name is **NivXRay XDR** throughout — architecture,
+UI, documentation, and implementation prompts. Never alternate
+with just "NivXRay" as if they were two products.

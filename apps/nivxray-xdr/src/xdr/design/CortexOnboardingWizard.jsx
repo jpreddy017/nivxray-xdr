@@ -329,7 +329,7 @@ function ConnectivitySection({ probe, credsSupplied, busy, runProbe }) {
       </div>
       <div className="evops-hint" style={{ marginTop: 6 }}>
         Runs <code>connect()</code> against the Cortex Advanced-API
-        healthcheck.  NivXRay renders the vendor's actual response —
+        healthcheck.  NivXRay XDR renders the vendor's actual response —
         never a synthetic success.
       </div>
       {probe && (
@@ -416,7 +416,7 @@ function BindingSection({ probe, busy, saveError, runBind }) {
         />
       </div>
       <div className="evops-hint" style={{ marginTop: 6 }}>
-        On bind, NivXRay writes the integration record into
+        On bind, NivXRay XDR writes the integration record into
         <span className="evops-mono"> xdr_integrations</span> (Round 24
         contract).  The API key is encrypted at rest and never returned
         by any subsequent read.

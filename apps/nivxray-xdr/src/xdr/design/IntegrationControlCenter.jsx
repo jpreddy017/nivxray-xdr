@@ -11,7 +11,7 @@
  *      A list — not a grid — of connected sources.  Each row is
  *      an <Entity> plus a capability <EvidenceState> plus honest
  *      <Action>s.  This is the answer to:
- *        "Can NivXRay actually perform useful operations through
+ *        "Can NivXRay XDR actually perform useful operations through
  *         this integration right now?"
  *
  *   2. EVIDENCE HEALTH (subordinate strip)
@@ -254,7 +254,7 @@ function CapabilityRoster({ rows, onEdit, onDelete, onToggle, onTest, onAdd }) {
         <div className="evops-empty">
           <div className="evops-empty__title">No integrations configured</div>
           <div className="evops-empty__reason">
-            NivXRay has not been wired to any telemetry source yet.  Until an
+            NivXRay XDR has not been wired to any telemetry source yet.  Until an
             adapter reports evidence delivery this tenant has zero operational
             capability — no fabricated readiness is shown.
           </div>

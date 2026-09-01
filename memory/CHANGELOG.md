@@ -2,6 +2,36 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 29.9 — IUE v0 scope lock · workspace grammar · Threat Model Engine — RATIFIED
+
+Owner-issued addenda to the Autonomous Investigation Operating Model.
+
+- **`AUTONOMOUS_INVESTIGATION.md §15`** — IUE v0 locked scope. No UI ·
+  no AI · no Orchestrator · no external intel · no verdict. Six
+  understanding artifacts persisted: Investigation Context ·
+  Relationships · Threat Context · Historical Context · Known/Unknown
+  · Investigation Gaps.
+- **`AUTONOMOUS_INVESTIGATION.md §16`** — 11-tab workspace grammar
+  contract. Each tab answers one analyst question; all tabs are
+  views over one shared Investigation State.
+- **`AUTONOMOUS_INVESTIGATION.md §17`** — Threat Model Engine (v1.2
+  layer). 14-stage Attack Cycle, four-state closed enum for Attack
+  Path (`○ POSSIBLE · ◐ SUPPORTED · ● OBSERVED · — NOT OBSERVED`),
+  reusable Threat Scenario Library, UI placement deferred to v1.2.
+- **`AUTONOMOUS_INVESTIGATION.md §18`** — branding locked as
+  "NivXRay XDR" throughout. Backfilled all user-facing strings in
+  `RecommendationsTabV2.jsx`, `IntegrationControlCenter.jsx`,
+  `CortexOnboardingWizard.jsx` to say "NivXRay XDR", not "NivXRay".
+- Roadmap sequence locked: **Round 30 IUE v0 → 31 Orchestrator → 32
+  Capability Fabric → 33 Attack Story v2 + AttackFlow → 34 Threat
+  Model Engine v0 → 35 Editable/versioned intelligence → P1.0 Intel
+  Plane (deferred)**.
+
+No implementation changes this round — pure contract ratification
+and branding pass. Regression not re-run (no code paths touched).
+
+---
+
 ## 2026-09-01 · Round 29.8 — Autonomous Investigation Operating Model — RATIFIED
 
 Owner-issued 37-section platform contract locked into the repo as a

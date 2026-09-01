@@ -34,9 +34,12 @@ No feature moves to the next phase until the phase it lives in is production-qua
 | **29.6**| **Visual Language v1.1 · Composition + Flagship Overview** | **✅ SHIPPED (2026-09-01)** |
 | **29.7**| **Populated-state proof · Pipeline → API Projection → Composition** | **✅ SHIPPED (2026-09-01)** |
 | **29.8**| **Autonomous Investigation Operating Model · ratified as platform contract** | **✅ SHIPPED (2026-09-01)** |
-| 30    | IUE service scaffolding (consumes Evidence Plane · emits §5 understanding artifacts) | ⏳ NEXT   |
-| 31    | Investigation Orchestrator scaffolding (writes to engine_executions)              | ⏳ QUEUED |
-| 32    | Investigation Capability Fabric v0 (Detection / Correlation / MITRE plugins)      | ⏳ QUEUED |
+| 30    | **IUE v0** · locked scope · Evidence Plane → Investigation Context / Relationships / Threat / Historical / Known-Unknown / Gaps · **no UI · no AI · no Orchestrator · no external intel · no verdict** | ⏳ NEXT   |
+| 31    | Investigation Orchestrator scaffolding · consumes IUE v0 · writes engine_executions | ⏳ QUEUED |
+| 32    | Investigation Capability Fabric v0 (Detection / Correlation / MITRE plugins)        | ⏳ QUEUED |
+| 33    | Attack Story v2 + AttackFlow (Visual Language v1.2)                                  | ⏳ QUEUED |
+| 34    | Threat Model Engine v0 (14-stage Attack Cycle · Coverage strip · Scenario Library)   | ⏳ QUEUED |
+| 35    | Editable / versioned intelligence layer (§23-§25)                                    | ⏳ QUEUED |
 | P1.0  | Intelligence Plane (STIX/TAXII/OSINT enrichment layer)      | ⏳ DEFERRED — after Investigation stack   |
 | 30    | Certification (real sandbox E2E + cross-vendor equivalence) | ⏳ QUEUED |
 | P2    | Investigation Report Export (PDF + JSON)                    | 📥 BACKLOG |
