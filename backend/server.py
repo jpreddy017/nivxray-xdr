@@ -67,6 +67,7 @@ from routers.attack_story import router as attack_story_router
 from routers.incident_threat_model import router as incident_threat_model_router
 from routers.attack_graph import router as attack_graph_router
 from routers.attack_evidence import router as attack_evidence_router
+from routers.evidence_inspector import router as evidence_inspector_router
 from routers.report import router as report_router
 from routers.xdr_dashboard import router as xdr_dashboard_router
 from routers.xdr_mss import router as xdr_mss_router
@@ -210,6 +211,7 @@ api.include_router(attack_story_router)
 api.include_router(incident_threat_model_router)
 api.include_router(attack_graph_router)
 api.include_router(attack_evidence_router)
+api.include_router(evidence_inspector_router)
 api.include_router(report_router)
 api.include_router(xdr_dashboard_router)
 api.include_router(xdr_mss_router)

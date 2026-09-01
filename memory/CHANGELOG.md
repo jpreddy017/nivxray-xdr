@@ -2,6 +2,66 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-01 · Round 38.3 — Shared Evidence Inspector (Step 3/5) — SHIPPED
+
+One resolver, one component.  Every governed object in NivXRay —
+technique, process, event, commandline, finding, host, user, ip,
+signature, capability, correlation match, detection, incident —
+resolves through a single service that returns a uniform envelope.
+
+**Backend — `services/evidence_inspector/service.py`**
+- `resolve(db, incident_id, kind, ref_id)` returns:
+
+      { kind, ref_id, incident_id,
+        identity:     {label, subtitle, badges[]},
+        evidence:     [{id, kind, label, source_ref}],
+        attack:       {techniques[]},        # via AttackTechniqueEvidence
+        context:      {relationships[]},
+        provenance:   [{source, evidence_id, note}],
+        actions:      [{id, label, description}] }
+
+- Reads exclusively from governed stores; a reference that doesn't
+  exist returns `state: MISSING` — owner rule §11 (no fabrication).
+- INVESTIGATE actions (per-kind hints: `commandline_decode`,
+  `process_ancestry`, `file_reputation`, `network_pivot`,
+  `identity_pivot`, `historical_correlation`, `ioc_pivot`,
+  `mitre_expansion`, `lolbas_lookup`) live on the inspector rather
+  than as graph nodes — owner rule §22.
+- New router `routers/evidence_inspector.py` exposes
+  `GET /api/incidents/{id}/inspector/{kind}/{ref_id:path}`.
+
+**Frontend — `xdr/components/EvidenceInspector.jsx`**
+- Single React component consumed by MITRE / Attack Story / Attack
+  Graph.  Callers pass canonical `(kind, refId)` — never
+  display-only payloads.  Renders header + context + evidence refs
+  + ATT&CK + provenance + INVESTIGATE buttons.  Honest MISSING state
+  when the resolver returns no governed record.
+
+**Tests — `tests/test_xdr_round383_inspector.py`** (7 tests)
+- Technique · process · event · commandline · incident resolution.
+- MISSING (non-fabrication) guarantee.
+- Per-kind INVESTIGATE action hints present.
+
+**End-to-end verified** on R35 EDR incident:
+    GET /api/incidents/{id}/inspector/technique/T1059.001
+    →  T1059.001 · PowerShell
+    →  TA0002 · Execution
+    →  badges: OBSERVED · conf 0.95
+    →  evidence: canonical:evt_r35_edr_f9b41f18f87a
+    →  provenance: detection_engine
+    →  actions: mitre_expansion
+
+**Full R21-R38.3 regression · 105/105 tests green.**
+
+Chain now:
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment        ✅
+    Step 3  · Shared Evidence Inspector           ✅
+    Step 4  · Attack Graph cleanup                🔵 NEXT
+    Step 5  · Report PDF export                   🔴
+
+
+
 ## 2026-09-01 · Round 38.2 — Attack Story SSOT Alignment (Step 2/5) — SHIPPED
 
 Attack Story now consumes the canonical `AttackTechniqueEvidence`
