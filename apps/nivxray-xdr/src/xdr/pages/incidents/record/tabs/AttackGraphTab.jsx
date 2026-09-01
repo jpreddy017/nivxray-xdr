@@ -11,9 +11,9 @@
  *   - Edge labels hidden by default; revealed on hover / select.
  *   - Zoom + Fit + Reset controls + minimap.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, ZoomIn, ZoomOut, Maximize2, RotateCcw,
-           Play, Pause, SkipBack, SkipForward } from "lucide-react";
+           Play, Pause, SkipBack, SkipForward, Maximize, X } from "lucide-react";
 
 import api from "@/lib/api";
 
@@ -67,6 +67,10 @@ export default function AttackGraphTab({ incident }) {
   const [zoom, setZoom]           = useState(1.0);
   const [timeMax, setTimeMax]     = useState(100);
   const [playing, setPlaying]     = useState(false);
+  const [popOut, setPopOut]       = useState(false);
+  const [nodeOverrides, setNodeOverrides] = useState({}); // id → {x,y}
+  const [dragState, setDragState] = useState(null); // {nodeId, ox, oy, startX, startY} | {pan:true, ...}
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     if (!incident?.id) return undefined;
@@ -138,16 +142,21 @@ export default function AttackGraphTab({ incident }) {
     for (const [col, arr] of byCol.entries()) {
       const ci = colIndex.get(col);
       arr.forEach((n, i) => {
-        pos.set(n.id, { x: 20 + ci * COL_W, y: 20 + i * ROW_H });
+        const base = { x: 20 + ci * COL_W, y: 20 + i * ROW_H };
+        const ov = nodeOverrides[n.id];
+        pos.set(n.id, ov ? { x: ov.x, y: ov.y } : base);
       });
     }
     const maxRow = Math.max(1, ...Array.from(byCol.values(), a => a.length));
-    return {
-      pos,
-      width:  20 + cols.length * COL_W + 20,
-      height: 20 + maxRow * ROW_H + 20,
-    };
-  }, [visibleNodes, graph]);
+    // Compute canvas bounds including overrides.
+    let maxX = 20 + cols.length * COL_W + 20;
+    let maxY = 20 + maxRow * ROW_H + 20;
+    for (const p of pos.values()) {
+      maxX = Math.max(maxX, p.x + NODE_W + 40);
+      maxY = Math.max(maxY, p.y + NODE_H + 40);
+    }
+    return { pos, width: maxX, height: maxY };
+  }, [visibleNodes, graph, nodeOverrides]);
 
   const timelineWindow = useMemo(() => {
     if (!graph?.timeline?.length) return null;
@@ -180,12 +189,14 @@ export default function AttackGraphTab({ incident }) {
     setTimeMax(v => Math.min(100, Math.max(0, v + delta * step)));
   };
 
-  return (
+  const inner = (
     <div data-testid="xdr-record-attack-graph"
           style={{ display: "grid",
-                     gridTemplateColumns: "1fr 320px", gap: 12 }}>
+                     gridTemplateColumns: popOut ? "1fr 380px" : "1fr 320px", gap: 12,
+                     height: popOut ? "calc(100vh - 40px)" : "auto" }}>
       <div style={{ background: "#0b1220", border: "1px solid #1e293b",
-                       borderRadius: 6, overflow: "hidden" }}>
+                       borderRadius: 6, overflow: "hidden",
+                       display: "flex", flexDirection: "column" }}>
         {/* Toolbar row 1 · counters + mode */}
         <div style={{ display: "flex", gap: 10, padding: "8px 10px",
                          borderBottom: "1px solid #1e293b", color: "#e2e8f0",
@@ -228,19 +239,39 @@ export default function AttackGraphTab({ incident }) {
               {k}
             </label>
           ))}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-            <button onClick={() => setZoom(z => Math.min(1.6, z + 0.15))}
-                      title="Zoom in" data-testid="xdr-ag-zoom-in"
-                      style={btnS}><ZoomIn size={12} /></button>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6,
+                            alignItems: "center" }}>
             <button onClick={() => setZoom(z => Math.max(0.5, z - 0.15))}
                       title="Zoom out" data-testid="xdr-ag-zoom-out"
                       style={btnS}><ZoomOut size={12} /></button>
             <button onClick={() => setZoom(1.0)}
+                      title="Reset zoom to 100%"
+                      data-testid="xdr-ag-zoom-pct"
+                      style={{ ...btnS, minWidth: 44, justifyContent: "center",
+                                  fontVariantNumeric: "tabular-nums", fontSize: 11 }}>
+              {Math.round(zoom * 100)}%
+            </button>
+            <button onClick={() => setZoom(z => Math.min(1.6, z + 0.15))}
+                      title="Zoom in" data-testid="xdr-ag-zoom-in"
+                      style={btnS}><ZoomIn size={12} /></button>
+            <button onClick={() => setZoom(1.0)}
                       title="Fit" data-testid="xdr-ag-fit"
                       style={btnS}><Maximize2 size={12} /></button>
             <button onClick={() => { setZoom(1); setSelId(null); setTimeMax(100); }}
-                      title="Reset" data-testid="xdr-ag-reset"
+                      title="Reset view" data-testid="xdr-ag-reset"
                       style={btnS}><RotateCcw size={12} /></button>
+            <button onClick={() => setNodeOverrides({})}
+                      title="Reset layout (undo manual node moves)"
+                      data-testid="xdr-ag-reset-layout"
+                      style={{ ...btnS, fontSize: 10, padding: "4px 8px" }}>
+              Reset Layout
+            </button>
+            <button onClick={() => setPopOut(true)}
+                      title="Pop out full-screen"
+                      data-testid="xdr-ag-popout"
+                      style={{ ...btnS, background: "#7c3aed", borderColor: "#8b5cf6" }}>
+              <Maximize size={12} /> <span style={{ marginLeft: 4, fontSize: 10 }}>Pop Out</span>
+            </button>
           </div>
         </div>
         {/* Timeline row */}
@@ -264,13 +295,42 @@ export default function AttackGraphTab({ incident }) {
             <span className="mono">{timeMax}% · {timelineWindow ? timelineWindow.size : 0}</span>
           </div>
         )}
-        {/* SVG canvas */}
-        <div style={{ overflow: "auto", maxHeight: 680, position: "relative" }}>
+        {/* SVG canvas with native scrollbars + drag/pan */}
+        <div ref={scrollRef}
+              style={{ overflow: "auto", position: "relative",
+                          maxHeight: popOut ? "calc(100vh - 200px)" : 680 }}
+              onMouseMove={(ev) => {
+                if (!dragState) return;
+                if (dragState.pan) {
+                  const dx = dragState.startX - ev.clientX;
+                  const dy = dragState.startY - ev.clientY;
+                  scrollRef.current.scrollLeft = dragState.scrollLeft + dx;
+                  scrollRef.current.scrollTop  = dragState.scrollTop + dy;
+                } else {
+                  const rect = scrollRef.current.getBoundingClientRect();
+                  const x = (ev.clientX - rect.left + scrollRef.current.scrollLeft) / zoom
+                                 - dragState.grabDx;
+                  const y = (ev.clientY - rect.top  + scrollRef.current.scrollTop) / zoom
+                                 - dragState.grabDy;
+                  setNodeOverrides(o => ({ ...o, [dragState.nodeId]: { x, y } }));
+                }
+              }}
+              onMouseUp={() => setDragState(null)}
+              onMouseLeave={() => setDragState(null)}>
           <svg width={(layout?.width || 800) * zoom}
                 height={(layout?.height || 300) * zoom}
                 viewBox={`0 0 ${layout?.width || 800} ${layout?.height || 300}`}
                 data-testid="xdr-ag-svg"
-                style={{ display: "block" }}>
+                style={{ display: "block", cursor: dragState?.pan ? "grabbing" : "default" }}
+                onMouseDown={(ev) => {
+                  // Empty-canvas drag → pan the scroll container.
+                  if (ev.target === ev.currentTarget) {
+                    setDragState({ pan: true,
+                                       startX: ev.clientX, startY: ev.clientY,
+                                       scrollLeft: scrollRef.current.scrollLeft,
+                                       scrollTop:  scrollRef.current.scrollTop });
+                  }
+                }}>
             {/* Edges */}
             {layout && visibleEdges.map(e => {
               const s = layout.pos.get(e.src);
@@ -320,8 +380,17 @@ export default function AttackGraphTab({ incident }) {
               const stroke = isSel ? "#fbbf24" : isPrim ? "#fbbf24" : tone.stroke;
               return (
                 <g key={n.id}
-                    onClick={() => { setSelId(n.id); setSelKind("node"); }}
-                    style={{ cursor: "pointer" }}
+                    onClick={(ev) => { ev.stopPropagation();
+                                              setSelId(n.id); setSelKind("node"); }}
+                    onMouseDown={(ev) => {
+                      ev.stopPropagation();
+                      const rect = scrollRef.current.getBoundingClientRect();
+                      const px = (ev.clientX - rect.left + scrollRef.current.scrollLeft) / zoom;
+                      const py = (ev.clientY - rect.top  + scrollRef.current.scrollTop) / zoom;
+                      setDragState({ nodeId: n.id,
+                                          grabDx: px - p.x, grabDy: py - p.y });
+                    }}
+                    style={{ cursor: dragState?.nodeId === n.id ? "grabbing" : "grab" }}
                     data-testid={`xdr-ag-node-${n.id}`}>
                   <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={4}
                          fill={tone.fill}
@@ -341,27 +410,6 @@ export default function AttackGraphTab({ incident }) {
               );
             })}
           </svg>
-          {/* Minimap */}
-          {layout && (
-            <div style={{ position: "absolute", right: 8, bottom: 8,
-                             width: 130, height: 80, background: "rgba(15,23,42,0.85)",
-                             border: "1px solid #334155", borderRadius: 4,
-                             padding: 4 }}
-                  data-testid="xdr-ag-minimap">
-              <svg width="122" height="72"
-                    viewBox={`0 0 ${layout.width} ${layout.height}`}
-                    preserveAspectRatio="xMidYMid meet">
-                {visibleNodes.map(n => {
-                  const p = layout.pos.get(n.id);
-                  if (!p) return null;
-                  const tone = STATE_TONE[n.state] || STATE_TONE.NOT_OBSERVED;
-                  return <rect key={n.id} x={p.x} y={p.y}
-                                    width={NODE_W} height={NODE_H}
-                                    fill={tone.fill} opacity={0.85} />;
-                })}
-              </svg>
-            </div>
-          )}
         </div>
         {/* Metrics footer */}
         <div style={{ padding: "6px 10px", borderTop: "1px solid #1e293b",
@@ -475,6 +523,30 @@ export default function AttackGraphTab({ incident }) {
       </div>
     </div>
   );
+
+  if (popOut) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999,
+                       background: "#020617", padding: 16,
+                       display: "flex", flexDirection: "column" }}
+            data-testid="xdr-ag-popout-overlay">
+        <div style={{ display: "flex", alignItems: "center",
+                          marginBottom: 10, color: "#e2e8f0" }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>
+            NivXRay · Attack Graph · Full Investigation Canvas
+          </div>
+          <button onClick={() => setPopOut(false)}
+                    data-testid="xdr-ag-popout-close"
+                    style={{ marginLeft: "auto", ...btnS,
+                                background: "#7c3aed", borderColor: "#8b5cf6" }}>
+            <X size={12} /> <span style={{ marginLeft: 4, fontSize: 11 }}>Exit Pop Out</span>
+          </button>
+        </div>
+        <div style={{ flex: 1, overflow: "hidden" }}>{inner}</div>
+      </div>
+    );
+  }
+  return inner;
 }
 
 const btnS = {
