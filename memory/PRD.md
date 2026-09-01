@@ -1,5 +1,43 @@
 # NivXRay — Master Reminders + Product Requirements
 
+
+## ✅ 2026-09-02 · MITRE Link Consolidation (P0 hotfix)
+
+Problem: On >100 incidents the "Open" MITRE technique link 404'd
+because the backend attack-chain composer sometimes emits a
+technique NAME (or a rationale sentence) in the `id` slot; the
+old resolver blindly interpolated that into
+`https://attack.mitre.org/techniques/…/`.  Later a Google
+`site:attack.mitre.org` fallback was added and rendered as a
+`Find` button, but the search almost always returned zero
+results (e.g. `site:attack.mitre.org CMD /C OR /K FRAGMENT
+CHAINING EXECUTION PRIMITIVES`).
+
+Fix — single source of truth: every MITRE surface routes through
+`src/xdr/mitre/attackLink.js`:
+1. Canonical `T####` / `T####.###` anywhere in the node →
+   direct https://attack.mitre.org/techniques/T####/###/ URL,
+   labelled **Open**.
+2. Known technique NAME (large ATT&CK-derived catalogue) →
+   direct URL, labelled **Open**.
+3. Neither → honest **no attack id** pill.  No Google fallback,
+   no "Find" button, no fabricated link.
+
+Surfaces converted:
+- `src/xdr/design/MitreTabV2.jsx` (also: removed duplicate local
+  `extractAttackId` / `ATTACK_NAME_INDEX` declarations that caused
+  a Babel `Identifier already declared` compile blocker)
+- `src/xdr/pages/incidents/record/tabs/MitreTab.jsx`
+- `src/xdr/pages/XdrMitreHeatmap.jsx`
+- `src/xdr/investigation/EvidenceFirstInvestigationWorkspace.jsx`
+
+Verification:
+- `yarn build` in `/app/apps/nivxray-xdr` completes with 0 errors.
+- Unit assertion on `attackLink.js` (7/7) — including the exact
+  failing string from user's screenshot.
+- Grep confirms zero remaining `"Find"` labels in the app.
+
+
 **Authoritative execution baseline (locked 2026-08-29).**
 
 ## ✅ 2026-09-01 · Round 46 — SHIPPED · Analyst Intelligence Overlay (v1)

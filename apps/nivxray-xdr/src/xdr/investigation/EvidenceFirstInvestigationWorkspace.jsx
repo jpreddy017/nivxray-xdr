@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 
 import { KILL_CHAIN, RULE_TO_TECHNIQUE, TECHNIQUE_INDEX } from "@/xdr/mitre/mitreTactics";
+import { attackHrefFor, attackLinkTitle }
+  from "@/xdr/mitre/attackLink";
 import api from "@/lib/api";
 import { XdrIocEnrichmentPanel, XdrProcessCausalityPanel,
   XdrBehaviorRegistryPanel, fetchCorrelationEdges } from "@/xdr/adopt/consumerPanels";
@@ -1076,11 +1078,29 @@ function EntityInspector({ node, incident, onPivotHighlight, onOpenPivot }) {
             <Row k="Name"       v={TECHNIQUE_INDEX[node.title]?.name} />
             <Row k="Tactic"     v={TECHNIQUE_INDEX[node.title]?.tactic} />
             <div style={{ marginTop: 8 }}>
-              <a href={`https://attack.mitre.org/techniques/${node.title.replace(".", "/")}/`}
-                    target="_blank" rel="noreferrer"
-                    style={{ color: "var(--cyan)", fontSize: 10.5 }}>
-                Open on attack.mitre.org <ExternalLink size={10} />
-              </a>
+              {(() => {
+                const href  = attackHrefFor({ ...node, id: node.title, title: node.title });
+                const title = attackLinkTitle({ ...node, id: node.title, title: node.title });
+                if (!href) {
+                  return (
+                    <span title={title}
+                             data-testid={`efi-workspace-attack-link-${node.title}`}
+                             style={{ color: "var(--faint)", fontSize: 10.5,
+                                         fontFamily: "var(--mono)" }}>
+                      no attack id
+                    </span>
+                  );
+                }
+                return (
+                  <a href={href}
+                        target="_blank" rel="noreferrer"
+                        title={title}
+                        data-testid={`efi-workspace-attack-link-${node.title}`}
+                        style={{ color: "var(--cyan)", fontSize: 10.5 }}>
+                    Open on attack.mitre.org <ExternalLink size={10} />
+                  </a>
+                );
+              })()}
             </div>
           </>
         )}

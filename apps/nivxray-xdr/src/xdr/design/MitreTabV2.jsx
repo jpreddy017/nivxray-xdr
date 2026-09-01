@@ -35,6 +35,8 @@ import Provenance from "@/xdr/design/Provenance";
 import Relationship from "@/xdr/design/Relationship";
 import Action, { ActionGroup } from "@/xdr/design/Action";
 import { TechniqueGlyph, TacticGlyph } from "@/xdr/design/glyphs";
+import { attackHrefFor, attackLinkTitle }
+  from "@/xdr/mitre/attackLink";
 import "@/xdr/design/tokens.css";
 
 
@@ -314,137 +316,14 @@ export default function MitreTabV2({ incident }) {
  * Left  = technique id + name + rationale.
  * Right = tactic + evidence rollup + confidence pill + action.
  * Matches the enterprise SOC "MITRE ATT&CK" panel pattern.
- * ------------------------------------------------------------------ */
-/* --------------------------------------------------------------------
- * ATT&CK ID resolution.  Backend nodes may put the technique id under
- * `attack_id`, `technique_id`, `tid`, `object_id`, or `id`, and only
- * some of those are the canonical T#### / T####.### format.  When
- * a canonical id resolves we deep-link directly to the technique
- * page (attack.mitre.org/techniques/T####/###/).  When the backend
- * only exposes a technique NAME (never fabricated), we fall back to
- * ATT&CK's own search endpoint so the analyst still lands on the
- * right technique in one hop.  Honest final fallback: if neither
- * an id nor a name is available, we render "no attack id" and no
- * broken link.
- * ------------------------------------------------------------------ */
-/* --------------------------------------------------------------------
- * Name → canonical ATT&CK id catalogue.
  *
- * Some backend composer paths emit the technique NAME as
- * `technique_id` / `id` (e.g. `"POWERSHELL"`, `"COMMAND OBFUSCATION:
- * BASE64/ENCODED COMMAND"`) instead of the canonical `T####` form.
- * When that happens we can still deep-link to the real ATT&CK page
- * as long as we recognise the name.  This catalogue is intentionally
- * small — every entry maps to a real ATT&CK technique published on
- * attack.mitre.org.  Unknown names fall through to the Google
- * `site:attack.mitre.org` fallback (never a broken direct URL).
+ * ATT&CK link resolution (attackHrefFor / attackLinkTitle) is
+ * imported from `@/xdr/mitre/attackLink` so every MITRE surface
+ * in the cockpit resolves technique deep-links the same way:
+ * canonical id → name catalogue → honest null.  Rows that
+ * cannot be resolved to a real `T####` render an honest
+ * "no attack id" pill; there is no Google search fallback.
  * ------------------------------------------------------------------ */
-const ATTACK_NAME_INDEX = {
-  "POWERSHELL":                                                  "T1059/001",
-  "POWERSHELL (HIDDEN)":                                          "T1059/001",
-  "WINDOWS COMMAND SHELL":                                       "T1059/003",
-  "CMD":                                                           "T1059/003",
-  "COMMAND AND SCRIPTING INTERPRETER":                                    "T1059",
-  "OBFUSCATED FILES OR INFORMATION":                              "T1027",
-  "COMMAND OBFUSCATION":                                          "T1027/010",
-  "COMMAND OBFUSCATION: BASE64/ENCODED COMMAND":                   "T1027/010",
-  "STANDALONE LONG BASE64 BLOB (>=200 CHARS) — LIKELY ENCODED PAYLOAD": "T1027/010",
-  "DEOBFUSCATE/DECODE FILES OR INFORMATION":                      "T1140",
-  "SIGNED BINARY PROXY EXECUTION":                                "T1218",
-  "SIGNED BINARY PROXY EXECUTION: RUNDLL32":                      "T1218/011",
-  "RUNDLL32":                                                     "T1218/011",
-  "MSHTA":                                                        "T1218/005",
-  "REGSVR32":                                                     "T1218/010",
-  "BITS JOBS":                                                    "T1197",
-  "SCHEDULED TASK":                                               "T1053/005",
-  "AT (ATSVC)":                                                   "T1053/002",
-  "INGRESS TOOL TRANSFER":                                        "T1105",
-  "APPLICATION LAYER PROTOCOL":                                   "T1071",
-  "WEB PROTOCOLS":                                                "T1071/001",
-  "DNS":                                                          "T1071/004",
-  "PHISHING":                                                     "T1566",
-  "WEB SERVICE":                                                  "T1102",
-  "SANDBOX EVASION":                                              "T1497",
-  "VIRTUALIZATION/SANDBOX EVASION":                                "T1497",
-  "SANDBOX EVASION: TIME BASED EVASION":                           "T1497/003",
-  "TIME BASED EVASION":                                            "T1497/003",
-  "PROCESS INJECTION":                                            "T1055",
-  "SYSTEM INFORMATION DISCOVERY":                                 "T1082",
-  "PROCESS DISCOVERY":                                            "T1057",
-  "REMOTE SERVICES":                                              "T1021",
-  "SMB/WINDOWS ADMIN SHARES":                                      "T1021/002",
-  "RDP":                                                           "T1021/001",
-  "REMOTE DESKTOP PROTOCOL":                                       "T1021/001",
-  "VALID ACCOUNTS":                                                "T1078",
-  "ACCOUNT DISCOVERY":                                             "T1087",
-  "CREDENTIAL DUMPING":                                            "T1003",
-  "OS CREDENTIAL DUMPING":                                         "T1003",
-  "LSASS MEMORY":                                                  "T1003/001",
-  "DATA ENCRYPTED FOR IMPACT":                                     "T1486",
-  "IMPAIR DEFENSES":                                               "T1562",
-  "DISABLE OR MODIFY TOOLS":                                       "T1562/001",
-};
-
-
-const ATTACK_ID_RE = /\b(T\d{4})(?:\.(\d{3}))?\b/i;
-function extractAttackId(node) {
-  if (!node) return null;
-  for (const cand of [node.attack_id, node.technique_id, node.tid,
-                                 node.object_id, node.id]) {
-    const m = ATTACK_ID_RE.exec(String(cand || ""));
-    if (m) {
-      const base = m[1].toUpperCase();
-      return m[2] ? `${base}/${m[2]}` : base;
-    }
-  }
-  // Fall through to the name catalogue so names emitted in an id
-  // slot still resolve to a real ATT&CK technique.
-  for (const cand of [node.attack_id, node.technique_id, node.tid,
-                                 node.object_id, node.id, node.object_name,
-                                 node.name, node.label]) {
-    const key = String(cand || "").trim().toUpperCase();
-    if (key && ATTACK_NAME_INDEX[key]) return ATTACK_NAME_INDEX[key];
-  }
-  return null;
-}
-function extractAttackName(node) {
-  if (!node) return null;
-  for (const cand of [node.object_name, node.name, node.label,
-                                 node.technique_name, node.id]) {
-    const s = String(cand || "").trim();
-    // Skip NOT_APPLICABLE / obvious non-name placeholders.
-    if (s && s.toUpperCase() !== "NOT_APPLICABLE"
-             && !ATTACK_ID_RE.test(s)) {
-      return s;
-    }
-  }
-  return null;
-}
-function attackHrefFor(node) {
-  const id = extractAttackId(node);
-  if (id) return `https://attack.mitre.org/techniques/${id}/`;
-  const name = extractAttackName(node);
-  if (name) {
-    // attack.mitre.org has no public search endpoint (its site
-    // search is client-side JS only) — a direct `/search/?q=…` URL
-    // 404s.  A `site:` Google search is the most reliable public
-    // resolver: the first result is nearly always the correct
-    // ATT&CK technique page, and it degrades gracefully when the
-    // technique name is unusual.
-    return "https://www.google.com/search?q="
-              + encodeURIComponent(`site:attack.mitre.org ${name}`);
-  }
-  return null;
-}
-function attackLinkTitle(node) {
-  if (extractAttackId(node)) return "Open technique on attack.mitre.org";
-  if (extractAttackName(node))
-    return "Find this technique on attack.mitre.org via Google";
-  return "No ATT&CK identifier resolvable for this row";
-}
-
-
-/* ------------------------------------------------------------------ */
 function TechniqueRow({ node }) {
   const conf = stateForConfidence(node.confidence);
   const attackHref = attackHrefFor(node);
@@ -493,7 +372,7 @@ function TechniqueRow({ node }) {
         <EvidenceState state={conf.state} reason={conf.reason}
                         testid={`mitre-v2-row-conf-${node.id}`} />
         {attackHref ? (
-          <Action label={extractAttackId(node) ? "Open" : "Find"}
+          <Action label="Open"
                    icon={ExternalLink}
                    capability="cap-full"
                    onRun={() => window.open(attackHref, "_blank",
@@ -575,9 +454,7 @@ function TechniqueCard({ node, incidentId }) {
                         testid={`mitre-v2-card-conf-${node.id}`} />
         <ActionGroup>
           {attackHref ? (
-            <Action label={extractAttackId(node)
-                                    ? "View technique"
-                                    : "Find on ATT&CK"}
+            <Action label="View technique"
                      icon={ExternalLink}
                      capability="cap-full"
                      onRun={() => window.open(attackHref, "_blank",

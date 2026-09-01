@@ -32,6 +32,8 @@ import {
   KILL_CHAIN, TECHNIQUES_BY_TACTIC, TECHNIQUE_INDEX,
   DISTINCT_TECHNIQUE_IDS, RULE_TO_TECHNIQUE,
 } from "@/xdr/mitre/mitreTactics";
+import { attackHrefFor, attackLinkTitle }
+  from "@/xdr/mitre/attackLink";
 
 const AUTO_REFRESH_MS = 30_000;
 
@@ -515,7 +517,8 @@ function TechniqueDetail({ tech, navigate, incidentDocs }) {
       .slice(0, 6);
   }, [tech]);
 
-  const attackUrl = `https://attack.mitre.org/techniques/${tech.id.replace(".", "/")}/`;
+  const attackUrl   = attackHrefFor(tech);
+  const attackTitle = attackLinkTitle(tech);
 
   return (
     <div data-testid="xdr-mitre-detail-body"
@@ -535,12 +538,23 @@ function TechniqueDetail({ tech, navigate, incidentDocs }) {
                           color: "var(--nx-text)", letterSpacing: "-0.01em" }}>
           {tech.name}
         </h2>
-        <a href={attackUrl} target="_blank" rel="noreferrer"
-              style={{ fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600,
-                          color: "var(--nx-purple)", textDecoration: "none",
-                          display: "inline-flex", alignItems: "center", gap: 4 }}>
-          View on attack.mitre.org <ExternalLink size={11} />
-        </a>
+        {attackUrl ? (
+          <a href={attackUrl} target="_blank" rel="noreferrer"
+                title={attackTitle}
+                data-testid={`xdr-mitre-heatmap-attack-link-${tech.id}`}
+                style={{ fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600,
+                            color: "var(--nx-purple)", textDecoration: "none",
+                            display: "inline-flex", alignItems: "center", gap: 4 }}>
+            View on attack.mitre.org <ExternalLink size={11} />
+          </a>
+        ) : (
+          <span title={attackTitle}
+                   data-testid={`xdr-mitre-heatmap-attack-link-${tech.id}`}
+                   style={{ fontFamily: "var(--mono)", fontSize: 11,
+                               color: "var(--nx-text-dim)" }}>
+            no attack id
+          </span>
+        )}
       </div>
 
       {/* Coverage summary */}

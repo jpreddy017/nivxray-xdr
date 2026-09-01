@@ -22,6 +22,8 @@ import { Loader2, ShieldCheck, ChevronRight, ZoomIn, ZoomOut,
                 Maximize2, X } from "lucide-react";
 import api from "@/lib/api";
 import EvidenceInspector from "@/xdr/components/EvidenceInspector";
+import { attackHrefFor, attackLinkTitle }
+  from "@/xdr/mitre/attackLink";
 
 
 // Round 45 · Inspector consolidation.
@@ -502,13 +504,32 @@ function NodePanel({ n, onClear }) {
           ))}
         </Section>
       )}
-      <a href={`https://attack.mitre.org/techniques/${n.id.replace(".", "/")}/`}
-          target="_blank" rel="noreferrer"
-          style={{ display: "inline-flex", alignItems: "center",
-                        gap: 4, marginTop: 8, fontSize: 10,
-                        fontFamily: "var(--mono)", color: "#a78bfa" }}>
-        attack.mitre.org <ChevronRight size={9} />
-      </a>
+      {(() => {
+        const href  = attackHrefFor(n);
+        const title = attackLinkTitle(n);
+        if (!href) {
+          return (
+            <div style={{ marginTop: 8, fontSize: 10,
+                                  fontFamily: "var(--mono)",
+                                  color: "var(--faint)" }}
+                    title={title}
+                    data-testid={`mitre-tab-attack-link-${n.id}`}>
+              no attack id
+            </div>
+          );
+        }
+        return (
+          <a href={href}
+              target="_blank" rel="noreferrer"
+              title={title}
+              data-testid={`mitre-tab-attack-link-${n.id}`}
+              style={{ display: "inline-flex", alignItems: "center",
+                            gap: 4, marginTop: 8, fontSize: 10,
+                            fontFamily: "var(--mono)", color: "#a78bfa" }}>
+            attack.mitre.org <ChevronRight size={9} />
+          </a>
+        );
+      })()}
     </div>
   );
 }
