@@ -344,6 +344,187 @@
   transition: background 100ms ease, color 100ms ease,
               border-color 100ms ease, box-shadow 100ms ease;
 }
+
+/* ============================================================
+ * v1.1 · Overview Composition surfaces.
+ * ============================================================ */
+
+.xdr-console .evops-empty-strip {
+  border: 1px dashed var(--nx-divider-strong);
+  border-radius: 4px;
+  padding: 14px 18px;
+  background: var(--nx-surf-inset);
+  color: var(--nx-muted);
+  font: var(--evops-t-machine);
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.xdr-console .evops-empty-strip__title {
+  font: 800 11px/1 var(--evops-face-human);
+  text-transform: uppercase; letter-spacing: 0.9px;
+  color: var(--nx-text-dim);
+}
+.xdr-console .evops-empty-strip__body {
+  color: var(--nx-muted);
+}
+
+/* Attack Story band — evidence-derived progression */
+.xdr-console .evops-story {
+  border: 1px solid var(--nx-divider);
+  border-radius: 4px;
+  padding: 14px 18px;
+  background: var(--nx-surf-primary);
+  margin-bottom: 14px;
+}
+.xdr-console .evops-story__head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 12px;
+}
+.xdr-console .evops-story__title {
+  font: 700 15px/1.3 var(--evops-face-human);
+  color: var(--nx-text);
+}
+.xdr-console .evops-story__sub {
+  font: var(--evops-t-machine);
+  color: var(--nx-faint);
+}
+.xdr-console .evops-story__chain {
+  display: flex; align-items: stretch; gap: 0;
+  overflow-x: auto;
+}
+.xdr-console .evops-story__node {
+  padding: 8px 14px 8px 12px;
+  border: 1px solid var(--nx-divider);
+  border-right: none;
+  background: var(--nx-surf-primary);
+  display: flex; flex-direction: column;
+  gap: 3px;
+  min-width: 140px;
+}
+.xdr-console .evops-story__node:first-child { border-radius: 3px 0 0 3px; }
+.xdr-console .evops-story__node:last-child  { border-radius: 0 3px 3px 0; border-right: 1px solid var(--nx-divider); }
+.xdr-console .evops-story__node--observed { background: rgba(6,95,70,0.05); border-left: 2px solid var(--evops-ev-observed-fg); }
+.xdr-console .evops-story__node-tactic {
+  font: 800 9.5px/1 var(--evops-face-human);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--nx-muted);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.xdr-console .evops-story__node-title {
+  font: 600 12px/1.3 var(--evops-face-human);
+  color: var(--nx-text);
+}
+.xdr-console .evops-story__node-time {
+  font: var(--evops-t-machine);
+  color: var(--nx-faint);
+}
+
+/* Investigation Graph mini */
+.xdr-console .evops-graph {
+  border: 1px solid var(--nx-divider);
+  border-radius: 4px;
+  padding: 14px 18px;
+  background: var(--nx-surf-primary);
+  margin-bottom: 14px;
+}
+.xdr-console .evops-graph__row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
+}
+.xdr-console .evops-graph__node {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--nx-divider-strong);
+  border-radius: 3px;
+  background: var(--nx-surf-inset);
+  font: 500 12px/1.2 var(--evops-face-human);
+  color: var(--nx-text-dim);
+}
+.xdr-console .evops-graph__link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: var(--evops-t-machine);
+  color: var(--nx-muted);
+}
+
+/* Bottom 4-column cluster */
+.xdr-console .evops-cluster {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.xdr-console .evops-cluster__col {
+  border: 1px solid var(--nx-divider);
+  border-radius: 4px;
+  padding: 12px 14px;
+  background: var(--nx-surf-primary);
+  display: flex; flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.xdr-console .evops-cluster__head {
+  display: flex; align-items: baseline; gap: 8px;
+  border-bottom: 1px solid var(--nx-divider);
+  padding-bottom: 6px;
+}
+.xdr-console .evops-cluster__title {
+  font: 800 10px/1 var(--evops-face-human);
+  text-transform: uppercase; letter-spacing: 0.9px;
+  color: var(--nx-muted);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.xdr-console .evops-cluster__count {
+  font: 700 14px/1 var(--evops-face-human);
+  color: var(--nx-text);
+}
+.xdr-console .evops-cluster__count[data-absent="true"] {
+  font-weight: 500; font-style: italic;
+  color: var(--nx-faint); font-size: 12px;
+}
+.xdr-console .evops-cluster__row {
+  font: 500 12px/1.4 var(--evops-face-human);
+  color: var(--nx-text-dim);
+  display: flex; align-items: center; gap: 7px;
+}
+.xdr-console .evops-cluster__row-count {
+  font: 600 12px/1 var(--evops-face-machine);
+  color: var(--nx-faint);
+  margin-left: auto;
+}
+.xdr-console .evops-cluster__seeall {
+  font: var(--evops-t-machine);
+  color: var(--evops-cap-full-fg);
+  margin-top: auto;
+  cursor: pointer;
+}
+.xdr-console .evops-cluster__seeall:hover { text-decoration: underline; }
+.xdr-console .evops-cluster__empty {
+  font: var(--evops-t-body);
+  color: var(--nx-faint);
+  font-style: italic;
+}
+@media (max-width: 1200px) {
+  .xdr-console .evops-cluster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Provenance compact footer strip (v1.1 C7) */
+.xdr-console .evops-prov-foot {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--nx-divider);
+  border-radius: 4px;
+  background: var(--nx-surf-inset);
+  font: var(--evops-t-machine);
+  color: var(--nx-muted);
+  flex-wrap: wrap;
+}
+.xdr-console .evops-prov-foot__label {
+  font: 800 10px/1 var(--evops-face-human);
+  text-transform: uppercase; letter-spacing: 0.9px;
+  color: var(--nx-text-dim);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+
 .xdr-console .evops-action:hover:not(:disabled) {
   background: var(--nx-surf-hover);
   border-color: var(--nx-text-dim);
@@ -489,13 +670,12 @@
 
 
 /* ============================================================
- * Round 29 · Investigation Command Header (LIGHT · v1.0).
+ * Round 29.5 / v1.1 · Investigation Command Band.
  *
- * Establishes NivXRay XDR Visual Language v1.0.  White canvas,
- * priority-coloured **slim** anchor (no giant score box), title
- * dominant, glyph-led metrics rail.  Severity communicated via
- * the left rail + priority pill next to the title — never as a
- * hero card.
+ * v1.1 correction (C3): the KPI vitals rail lives INSIDE the
+ * Command Band as its last row, not as a separate strip to the
+ * right.  This eliminates the "band → giant empty KPI region →
+ * buttons" waste that VEEE §7.2 flagged.
  * ============================================================ */
 .xdr-console .evops-cmd {
   background: var(--nx-surf-primary);
@@ -503,12 +683,10 @@
   border: 1px solid var(--nx-divider);
   border-left: 3px solid var(--nx-divider-strong);
   border-radius: 4px;
-  padding: 16px 20px;
+  padding: 16px 20px 14px;
   margin-bottom: 14px;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 22px;
-  align-items: center;
+  display: flex; flex-direction: column;
+  gap: 12px;
 }
 .xdr-console .evops-cmd[data-priority="P1"] { border-left-color: #DC2626; }
 .xdr-console .evops-cmd[data-priority="P2"] { border-left-color: #EA580C; }
@@ -516,8 +694,7 @@
 .xdr-console .evops-cmd[data-priority="P4"] { border-left-color: #6B7280; }
 .xdr-console .evops-cmd[data-priority="P5"] { border-left-color: #9CA3AF; }
 
-/* Identity column */
-.xdr-console .evops-cmd__ident { min-width: 0; }
+/* Identity row: glyph · title · sev-pill */
 .xdr-console .evops-cmd__title-row {
   display: flex; align-items: center; gap: 12px;
   min-width: 0;
@@ -535,13 +712,12 @@
   color: var(--nx-text);
   letter-spacing: -0.01em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  max-width: 780px;
   min-width: 0;
   flex: 1 1 auto;
 }
 .xdr-console .evops-cmd__sev-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px 4px 8px;
+  padding: 4px 10px;
   border: 1px solid var(--nx-divider-strong);
   border-radius: 999px;
   font: 800 11px/1 var(--evops-face-human);
@@ -554,15 +730,19 @@
 .xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__sev-pill { color: #C2410C; border-color: #EA580C; background: #FFF7ED; }
 .xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__sev-pill { color: #A16207; border-color: #CA8A04; background: #FEFCE8; }
 
+/* ID + chips row */
+.xdr-console .evops-cmd__id-row {
+  display: flex; align-items: center; gap: 16px;
+  flex-wrap: wrap;
+}
 .xdr-console .evops-cmd__id {
   font: var(--evops-t-machine);
   color: var(--nx-faint);
-  margin-top: 4px;
-  display: block;
+  flex: 0 0 auto;
 }
 .xdr-console .evops-cmd__chips {
-  display: flex; gap: 16px; flex-wrap: wrap;
-  margin-top: 10px;
+  display: flex; gap: 14px; flex-wrap: wrap;
+  flex: 1 1 auto;
 }
 .xdr-console .evops-cmd__chip {
   display: inline-flex; align-items: center; gap: 6px;
@@ -587,9 +767,10 @@
 .xdr-console .evops-cmd__chip[data-tone="benign"]   .evops-cmd__chip-dot { background: #6B7280; }
 .xdr-console .evops-cmd__chip[data-tone="malicious"].evops-cmd__chip-dot { background: #DC2626; }
 .xdr-console .evops-cmd__chip[data-tone="malicious"]                     { color: #B91C1C; }
+
+/* Meta row */
 .xdr-console .evops-cmd__meta {
   display: flex; gap: 18px; flex-wrap: wrap;
-  margin-top: 10px;
   font: var(--evops-t-machine);
   color: var(--nx-faint);
 }
@@ -598,73 +779,72 @@
   font-weight: 600;
 }
 
-/* Glyph-led metrics rail */
+/* Divider between identity block and vitals rail */
+.xdr-console .evops-cmd__rule {
+  height: 1px;
+  background: var(--nx-divider);
+  margin: 2px 0 0;
+}
+
+/* Vitals rail INSIDE the band (v1.1 C3) */
+.xdr-console .evops-cmd__foot {
+  display: flex; align-items: center;
+  gap: 16px;
+}
 .xdr-console .evops-cmd__kpis {
-  display: flex; align-items: stretch;
-  border-left:  1px solid var(--nx-divider);
-  padding-left: 22px;
+  display: flex; align-items: center;
   gap: 22px;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
 }
 .xdr-console .evops-cmd__kpi {
-  display: flex; flex-direction: column; gap: 4px;
-  min-width: 78px;
+  display: inline-flex; align-items: baseline; gap: 6px;
+  min-width: 0;
+}
+.xdr-console .evops-cmd__kpi-glyph {
+  color: var(--nx-muted);
+  align-self: center;
+  display: inline-flex;
 }
 .xdr-console .evops-cmd__kpi-label {
-  font: 800 9.5px/1 var(--evops-face-human);
-  text-transform: uppercase; letter-spacing: 0.9px;
+  font: 800 10px/1 var(--evops-face-human);
+  text-transform: uppercase; letter-spacing: 0.8px;
   color: var(--nx-muted);
-  display: inline-flex; align-items: center; gap: 5px;
 }
-.xdr-console .evops-cmd__kpi-glyph { color: var(--nx-muted); }
 .xdr-console .evops-cmd__kpi-value {
-  font: 700 28px/1.05 var(--evops-face-human);
+  font: 700 18px/1 var(--evops-face-human);
   color: var(--nx-text);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.005em;
 }
 .xdr-console .evops-cmd__kpi-value[data-absent="true"] {
   color: var(--nx-faint);
   font-style: italic;
   font-weight: 500;
-  font-size: 20px;
+  font-size: 14px;
 }
-.xdr-console .evops-cmd__kpi-sub {
-  font: var(--evops-t-machine);
-  color: var(--nx-faint);
+.xdr-console .evops-cmd__kpi-sep {
+  width: 1px; height: 18px;
+  background: var(--nx-divider);
+  align-self: center;
 }
-
-/* Actions column */
 .xdr-console .evops-cmd__actions {
-  display: flex; flex-direction: column;
-  gap: 6px; align-items: stretch;
+  display: flex; align-items: center; gap: 6px;
+  flex: 0 0 auto;
 }
 .xdr-console .evops-cmd__actions .evops-action {
-  min-width: 152px;
-  justify-content: flex-start;
-  padding: 7px 12px;
+  padding: 6px 10px;
   font-size: 12px;
 }
+.xdr-console .evops-cmd__actions .evops-action--icon {
+  padding: 6px;
+}
 
-@media (max-width: 1400px) {
-  .xdr-console .evops-cmd {
-    grid-template-columns: 1fr auto;
+@media (max-width: 1100px) {
+  .xdr-console .evops-cmd__foot {
+    flex-wrap: wrap;
   }
   .xdr-console .evops-cmd__actions {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    justify-content: flex-end;
-    border-top: 1px dashed var(--nx-divider);
-    padding-top: 10px;
-    margin-top: 2px;
-  }
-}
-@media (max-width: 1100px) {
-  .xdr-console .evops-cmd { grid-template-columns: 1fr; }
-  .xdr-console .evops-cmd__kpis {
-    grid-column: 1 / -1;
-    border-left: none;
-    border-top: 1px dashed var(--nx-divider);
-    padding-left: 0;
-    padding-top: 12px;
+    margin-top: 6px;
   }
 }
 

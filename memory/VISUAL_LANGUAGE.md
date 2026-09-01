@@ -336,3 +336,179 @@ should this button be" are out of scope — the answer is always
 "whatever the token says". Discussions of "which glyph should this
 concept use" are in scope; add the glyph to §2 and to
 `glyphs.jsx`._
+
+---
+
+# NivXRay XDR Visual Language · v1.1 — Composition Language
+> _Established 2026-09-01, immediately after v1.0._
+> v1.0 gave the vocabulary. v1.1 is how the vocabulary composes into an
+> XDR investigation workspace. Components are speakers of the language;
+> **compositions are sentences**.
+
+## 12 · Composition primitives (not cards)
+
+Cards are one composition primitive. NivXRay XDR uses a mixture:
+
+| Primitive             | When                                                     |
+|-----------------------|----------------------------------------------------------|
+| **Command Band**      | Identity + severity + verdict + status + response        |
+| **Vitals Rail**       | Glyph-led metrics: Evidence · Alerts · Hosts · Users …   |
+| **Attack Story band** | Evidence-derived attack progression (chevron timeline)   |
+| **Graph mini**        | Entity flow: Host → User → Process → File → Network       |
+| **Entity cluster**    | Group of same-kind entities with count + top instances   |
+| **Timeline**          | Correlated events, source-provenance chip left-aligned   |
+| **Compact list**      | 3-line evidence/recommendation preview + "see all N"     |
+| **Evidence drawer**   | Expandable evidence body, docked to a row                |
+| **Contextual panel**  | Right-side rail with metadata + provenance               |
+| **Inline state chip** | Confidence / verdict / severity dot-chip                  |
+| **Relationship line** | Two entities + verb + state colour                       |
+
+**Rule**: a page MUST use ≥3 different primitives from this list.
+Composing an entire surface out of stacked cards fails VEEE §7.2.
+
+---
+
+## 13 · The flagship — Incident Overview composition blueprint
+
+The Incident record is the composition laboratory. All other analyst
+surfaces inherit from this pattern.
+
+### 13.1 Analyst scan path (first viewport, ≤5s)
+
+```
+    ┌─ Q1 What happened? ─────────────────────────┐
+    │                                              │
+Q3 What is affected? ─── Q2 How severe? ─── Q7 What can I do?
+    │                                              │
+    └─ Q4 Evidence?  Q5 Progression?  Q6 MITRE? ──┘
+```
+
+Concretely — every question maps to a fixed viewport position so an
+analyst learns "the answer to Qn lives here" once and forever.
+
+### 13.2 Wireframe (empty-evidence state)
+
+```
+← Incidents / INC-FE3DD9
+┌──────────────────────────────────────────────────────────────────┐
+│ 🛡  Suspicious PowerShell Activity            P1 · CRITICAL      │
+│    INC-FE3DD9              ● IN PROGRESS      ● VERDICT PENDING  │
+│    First seen …   Last activity …   Owner …   Tenant …           │
+│    ─────────────────────────────────────────────────────────────  │
+│    Ⓔ Evidence — · Ⓐ Alerts — · Ⓗ Hosts — · Ⓤ Users —            │
+│    Ⓕ Files — · Ⓣ MITRE — · Ⓒ Correlation —      [ Respond ] [⋯] │
+└──────────────────────────────────────────────────────────────────┘
+
+──  no telemetry-backed investigation available. ──
+     Attack Story · Investigation Graph · Evidence · Entities ·
+     MITRE · Recommendations will render as evidence is ingested.
+```
+
+Absent state collapses to a **single** compact hint line — NOT six
+"NOT PRESENT" cards. This is the honest-state rule at composition
+level (VEEE §7.2 empty-state efficiency).
+
+### 13.3 Wireframe (populated state)
+
+```
+← Incidents / INC-7A21C9
+┌──────────────────────────────────────────────────────────────────┐
+│ 🛡  Ransomware Impact · MedTech-01           P1 · CRITICAL       │
+│    INC-7A21C9              ● ACTIVE           ● MALICIOUS         │
+│    First seen …   Last activity …   Owner …   Tenant …           │
+│    ─────────────────────────────────────────────────────────────  │
+│    Ⓔ 42  Ⓐ 24  Ⓗ 3  Ⓤ 2  Ⓕ 7  Ⓣ 7  Ⓒ 17        [ Respond ] [⋯]  │
+└──────────────────────────────────────────────────────────────────┘
+
+ATTACK STORY  ─── evidence-derived progression ────────────────────
+[TA0001]───[TA0002]───[TA0003]───[TA0005]───[TA0011]───[TA0040]
+Init.Access  Exec     Persist   Def.Evasion    C2         Impact
+02:14        02:16     02:17     02:19        02:22       02:26
+
+INVESTIGATION GRAPH  ── Host → User → Process → File → Network ────
+   [Host medtech-01] ─owns─ [User svc-adm] ─spawned─ [Process pwsh.exe]
+       │                                              │
+       │                              executed ──── [File a1b2c3.ps1]
+       │
+   contacted ──── [Domain c2.evil.tld] ── [IP 185.10.5.7]
+
+╔ EVIDENCE (42) ═════╦ ENTITIES (12) ═╦ MITRE (7) ═════╦ RECOMMENDATIONS (5) ═╗
+║ 24 EDR events      ║ Ⓗ 3 hosts      ║ TA0002 · T1059 ║ Isolate host          ║
+║ 12 file hashes     ║ Ⓤ 2 users      ║ TA0005 · T1055 ║ Reset user creds      ║
+║  4 network conn.   ║ Ⓟ 5 processes  ║ TA0011 · T1071 ║ Block C2 domain       ║
+║  2 canonical corr. ║ Ⓕ 7 files      ║ …              ║ …                     ║
+║ see all 42 →       ║ see all 12 →   ║ see all 7 →    ║ see all 5 →           ║
+╚════════════════════╩═════════════════╩════════════════╩═══════════════════════╝
+
+PROVENANCE  Ⓟ Ⓟ Ⓟ Ⓟ  Telemetry ── Canonical ── Correlation ── MITRE
+```
+
+Notes:
+- **Bottom row** is four **compact lists** (not cards). Each list
+  answers one question and links to the deep-dive tab.
+- **PROVENANCE** is a compact contextual footer, never a section.
+- **Attack Story** and **Investigation Graph** are the visually
+  loudest elements — they answer Q5 and Q3 simultaneously.
+
+### 13.4 Composition rules (locked)
+
+C1. **Command Band is one card.** Not a card + a KPI card + a chip
+   card + an actions card. One card with an internal rule between
+   identity and vitals rail.
+
+C2. **Empty state compresses.** If the incident has no evidence, the
+   Attack Story / Graph / bottom row all collapse into a single
+   hint line. Never 4+ empty cards.
+
+C3. **Vitals rail lives inside the Command Band** as the last row.
+   It is not a separate strip below the band. (This fixes the
+   "band → giant KPI card → buttons" waste flagged 2026-09-01.)
+
+C4. **Bottom row is a 4-column module cluster**, each column
+   rendered as a compact list (3-6 rows + `see all N →`). No
+   duplicate `See details` links.
+
+C5. **Attack Story chevrons are chronological** and evidence-
+   anchored (timestamp comes from an actual observed event).
+
+C6. **Investigation Graph mini** shows at most one path per line;
+   the full graph lives on the Related tab.
+
+C7. **PROVENANCE** never becomes a headline section on the Overview.
+   It renders as a compact footer strip, one line only.
+
+C8. **Analyst-facing headings only.** `TRUTH STATE`, `RELATIONSHIPS`,
+   `PROVENANCE` (as a section title) are forbidden on the Overview.
+   Use `Vitals`, `Attack Story`, `Investigation Graph`, `Evidence`,
+   `Entities`, `MITRE`, `Recommendations`, `Response`.
+
+### 13.5 VEEE composition-level checks (v1.1 additions)
+
+Beyond v1.0 §7.2, VEEE v1.1 also fails a surface when:
+
+- V-COMP-1: fewer than 3 distinct composition primitives are used.
+- V-COMP-2: absent-state renders more than one card of "NOT PRESENT".
+- V-COMP-3: the KPI rail is rendered outside the Command Band.
+- V-COMP-4: the Overview surface duplicates content from deep-dive
+  tabs (e.g. re-listing every evidence item instead of a 3-row
+  preview + `see all`).
+- V-COMP-5: the analyst scan path (§13.1) is broken — e.g. Response
+  is below Q4 Evidence.
+- V-COMP-6: `PROVENANCE`, `TRUTH STATE`, or `RELATIONSHIPS` appears
+  as a section heading.
+
+---
+
+## 14 · Rollout order for v1.1
+
+1. Incident Overview (flagship — this delivery).
+2. Attack Story tab v2 — inherits the Attack Story band.
+3. Investigation Graph tab v2 — inherits the Graph mini.
+4. Alerts detail — reuse Command Band + Vitals rail with narrower
+   set (Evidence · Host · User · MITRE).
+5. Cases — aggregate of Incident overviews with an additional
+   "related incidents" cluster.
+6. TI record — Command Band + Provenance + Enrichment cluster.
+7. Response console — the bottom row's `Recommendations` cluster
+   promoted to a first-class surface.
+

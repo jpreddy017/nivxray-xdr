@@ -1,23 +1,17 @@
 /**
- * RecordHeaderV2 · Round 29.5 · Investigation Command Header.
+ * RecordHeaderV2 · v1.1 Composition · Investigation Command Band.
  * ---------------------------------------------------------------
- * First flagship implementation of the NivXRay XDR Visual
- * Language System v1.0 (see /app/memory/VISUAL_LANGUAGE.md).
+ * One card, five rows.  KPI rail lives INSIDE the band (v1.1 C3).
  *
- * Composition (v1.0 rule §4.1 Incident record):
+ *   Row 1 · Ⓘ Title …………………………………… P1 · CRITICAL
+ *   Row 2 · INC-… ● IN PROGRESS   ● VERDICT PENDING
+ *   Row 3 · First seen … Last activity … Owner … Tenant …
+ *   ─── hairline ───
+ *   Row 4 · Ⓔ Evidence …  Ⓐ Alerts …  Ⓗ Hosts …          [Respond] [⋯]
+ *                Ⓤ Users …  Ⓕ Files …  Ⓣ MITRE …  Ⓒ Correlation …
  *
- *   [ Command Band  ]  → identity + severity + verdict + response
- *
- * Visual hierarchy the analyst's eye lands in (v1.0 rule §7.2):
- *   1. Severity          → left rail + priority pill
- *   2. Incident title    → 24px 800 dominant
- *   3. Verdict + status  → soft dot-chips
- *   4. Evidence weight   → glyph-led KPI rail (28px numerals)
- *   5. Response          → Respond primary action
- *
- * Never expose primitives as analyst-facing headings (v1.0 §0.5).
- * Never fabricate metrics (v1.0 §0.2); absent values render as
- *   `—` italic-muted (v1.0 §5 NOT_PRESENT).
+ * Analyst-facing headings only (v1.1 C8).  No "TRUTH STATE",
+ * "PROVENANCE", "RELATIONSHIPS" on the primary canvas.
  */
 import React from "react";
 import { ChevronLeft, MoreHorizontal } from "lucide-react";
@@ -27,6 +21,7 @@ import Action from "@/xdr/design/Action";
 import {
   IncidentGlyph, EvidenceGlyph, HostGlyph, UserGlyph,
   TechniqueGlyph, CorrelationGlyph, ResponseGlyph, FileGlyph,
+  AlertGlyph,
 } from "@/xdr/design/glyphs";
 import "@/xdr/design/tokens.css";
 
@@ -50,24 +45,19 @@ function severityForPriority(code) {
 
 
 function chipsForIncident(incident) {
-  const priCode = String(incident?.priority?.code || "").toUpperCase();
-  const stateRaw = String(incident?.state || "").toLowerCase();
+  const stateRaw   = String(incident?.state || "").toLowerCase();
   const verdictRaw = String(incident?.verdict_stage2?.label
                               || incident?.verdict || "").toLowerCase();
 
-  const priTone = priCode === "P1" || priCode === "P2"
-    ? "critical" : priCode === "P3" ? "high" : null;
-  const priLabel = priCode ? `Priority ${priCode}` : "Priority not set";
-
-  let stateTone = null;
+  let stateTone = "pending";
   let stateLabel = stateRaw
     ? stateRaw.replace("_", " ").replace(/\b\w/g, (m) => m.toUpperCase())
     : "State unknown";
-  if (stateRaw === "in_progress")             stateTone = "progress";
-  else if (stateRaw === "on_hold")            stateTone = "pending";
+  if (stateRaw === "in_progress")                  stateTone = "progress";
+  else if (stateRaw === "on_hold")                 stateTone = "pending";
   else if (stateRaw === "resolved"
-           || stateRaw === "closed")          stateTone = "resolved";
-  else if (stateRaw === "new")                stateTone = "pending";
+           || stateRaw === "closed")               stateTone = "resolved";
+  else if (stateRaw === "new")                     stateTone = "pending";
 
   let verdictTone = "pending";
   let verdictLabel = "Verdict pending";
@@ -76,9 +66,8 @@ function chipsForIncident(incident) {
   else if (verdictRaw === "benign")     { verdictTone = "benign";     verdictLabel = "Benign"; }
 
   return [
-    { key: "priority", tone: priTone,     label: priLabel },
-    { key: "state",    tone: stateTone,   label: stateLabel },
-    { key: "verdict",  tone: verdictTone, label: verdictLabel },
+    { key: "state",   tone: stateTone,   label: stateLabel },
+    { key: "verdict", tone: verdictTone, label: verdictLabel },
   ];
 }
 
@@ -92,8 +81,6 @@ function countAssets(incident) {
     users:     len(a.users)     || len(incident?.users),
     processes: len(a.processes) || len(incident?.processes),
     files:     len(a.files)     || len(iocs.hashes) || len(iocs.files),
-    network:   len(a.network)   || len(iocs.ips) + len(iocs.domains)
-                                     + len(iocs.urls),
   };
 }
 
@@ -104,12 +91,14 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
   const chips        = chipsForIncident(incident);
 
   const evidenceCount    = Number(incident?.evidence_count || 0);
+  const alertCount       = Number(incident?.alert_count
+                                  || incident?.alerts?.length || 0);
   const correlationCount =
        Array.isArray(incident?.correlation_match_ids)
          ? incident.correlation_match_ids.length : 0;
-  const rawMitreCount    = Array.isArray(incident?.mitre)
-    ? incident.mitre.length : 0;
-  const mitreCount = evidenceCount > 0 ? rawMitreCount : 0;
+  const mitreCount = evidenceCount > 0
+    ? (Array.isArray(incident?.mitre) ? incident.mitre.length : 0)
+    : 0;
 
   const assets = countAssets(incident);
 
@@ -142,30 +131,32 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
       <div className="evops-cmd"
            data-priority={priorityCode || ""}
            data-testid="xdr-record-v2-cmd">
-        {/* Identity — title dominant, severity supporting */}
-        <div className="evops-cmd__ident">
-          <div className="evops-cmd__title-row">
-            <span className="evops-cmd__glyph"
-                  data-testid="xdr-record-v2-glyph">
-              <IncidentGlyph size={22} />
+        {/* Row 1 · glyph · title · sev pill */}
+        <div className="evops-cmd__title-row">
+          <span className="evops-cmd__glyph"
+                data-testid="xdr-record-v2-glyph">
+            <IncidentGlyph size={22} />
+          </span>
+          <span className="evops-cmd__title"
+                data-testid="xdr-record-v2-title">
+            {incident?.name || "(unnamed incident)"}
+          </span>
+          {priorityCode && (
+            <span className="evops-cmd__sev-pill"
+                  data-testid="xdr-record-v2-sev-pill">
+              {priorityCode} · {severity}
             </span>
-            <span className="evops-cmd__title"
-                  data-testid="xdr-record-v2-title">
-              {incident?.name || "(unnamed incident)"}
-            </span>
-            {priorityCode && (
-              <span className="evops-cmd__sev-pill"
-                    data-testid="xdr-record-v2-sev-pill">
-                {priorityCode}<span>·</span>{severity}
-              </span>
-            )}
-          </div>
+          )}
+        </div>
+
+        {/* Row 2 · id · state chips */}
+        <div className="evops-cmd__id-row">
           <span className="evops-cmd__id"
                 data-testid="xdr-record-v2-id">
             {incident?.number || incident?.id}
           </span>
-          <div className="evops-cmd__chips"
-               data-testid="xdr-record-v2-chips">
+          <span className="evops-cmd__chips"
+                data-testid="xdr-record-v2-chips">
             {chips.map((c) => (
               <span key={c.key}
                     className="evops-cmd__chip"
@@ -175,59 +166,54 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
                 <span>{c.label}</span>
               </span>
             ))}
-          </div>
-          <div className="evops-cmd__meta"
-               data-testid="xdr-record-v2-meta">
-            <span>First seen&nbsp;<b>{fmtDate(incident?.created_at) || "—"}</b></span>
-            <span>Last activity&nbsp;<b>{fmtDate(incident?.updated_at) || "—"}</b></span>
-            {incident?.assignee && (
-              <span>Owner&nbsp;<b>{incident.assignee}</b></span>
-            )}
-            {incident?.tenant && (
-              <span>Tenant&nbsp;<b>{incident.tenant}</b></span>
-            )}
-          </div>
+          </span>
         </div>
 
-        {/* Glyph-led KPI rail */}
-        <div className="evops-cmd__kpis"
-             data-testid="xdr-record-v2-kpis">
-          <Kpi glyph={<EvidenceGlyph size={12} />}    label="Evidence"
-                value={evidenceCount}
-                sub={evidenceCount === 1 ? "event" : "events"}
-                testid="xdr-record-v2-kpi-evidence" />
-          <Kpi glyph={<HostGlyph size={12} />}        label="Hosts"
-                value={assets.hosts}
-                testid="xdr-record-v2-kpi-hosts" />
-          <Kpi glyph={<UserGlyph size={12} />}        label="Users"
-                value={assets.users}
-                testid="xdr-record-v2-kpi-users" />
-          <Kpi glyph={<FileGlyph size={12} />}        label="Files"
-                value={assets.files}
-                testid="xdr-record-v2-kpi-files" />
-          <Kpi glyph={<TechniqueGlyph size={12} />}   label="MITRE"
-                value={mitreCount}
-                sub={mitreCount === 1 ? "technique" : "techniques"}
-                testid="xdr-record-v2-kpi-mitre" />
-          <Kpi glyph={<CorrelationGlyph size={12} />} label="Correlation"
-                value={correlationCount}
-                sub={correlationCount === 1 ? "alert" : "alerts"}
-                testid="xdr-record-v2-kpi-correlation" />
+        {/* Row 3 · meta */}
+        <div className="evops-cmd__meta"
+             data-testid="xdr-record-v2-meta">
+          <span>First seen&nbsp;<b>{fmtDate(incident?.created_at) || "—"}</b></span>
+          <span>Last activity&nbsp;<b>{fmtDate(incident?.updated_at) || "—"}</b></span>
+          {incident?.assignee && (
+            <span>Owner&nbsp;<b>{incident.assignee}</b></span>
+          )}
+          {incident?.tenant && (
+            <span>Tenant&nbsp;<b>{incident.tenant}</b></span>
+          )}
         </div>
 
-        {/* Actions column */}
-        <div className="evops-cmd__actions"
-             data-testid="xdr-record-v2-actions">
-          <Action label="Respond"          icon={ResponseGlyph} tone="primary"
-                   capability={respondCap} onRun={onOpenRespond}
-                   reason={respondReason}
-                   testid="xdr-record-respond" />
-          <Action label="Generate Report"  icon={EvidenceGlyph}
-                   capability="cap-standby" reason="PHASE_5"
-                   testid="xdr-record-report" />
-          <Action label="More Actions"     icon={MoreHorizontal}
-                   capability="cap-standby" reason="PHASE_3_PLUS"
-                   testid="xdr-record-more" />
+        <div className="evops-cmd__rule" aria-hidden />
+
+        {/* Row 4 · vitals rail + actions (v1.1 C3) */}
+        <div className="evops-cmd__foot">
+          <div className="evops-cmd__kpis"
+               data-testid="xdr-record-v2-kpis">
+            <MiniKpi glyph={<EvidenceGlyph size={13} />}    label="Evidence"    value={evidenceCount}
+                     testid="xdr-record-v2-kpi-evidence" />
+            <MiniKpi glyph={<AlertGlyph size={13} />}       label="Alerts"      value={alertCount}
+                     testid="xdr-record-v2-kpi-alerts" />
+            <MiniKpi glyph={<HostGlyph size={13} />}        label="Hosts"       value={assets.hosts}
+                     testid="xdr-record-v2-kpi-hosts" />
+            <MiniKpi glyph={<UserGlyph size={13} />}        label="Users"       value={assets.users}
+                     testid="xdr-record-v2-kpi-users" />
+            <MiniKpi glyph={<FileGlyph size={13} />}        label="Files"       value={assets.files}
+                     testid="xdr-record-v2-kpi-files" />
+            <MiniKpi glyph={<TechniqueGlyph size={13} />}   label="MITRE"       value={mitreCount}
+                     testid="xdr-record-v2-kpi-mitre" />
+            <MiniKpi glyph={<CorrelationGlyph size={13} />} label="Correlation" value={correlationCount}
+                     testid="xdr-record-v2-kpi-correlation" />
+          </div>
+          <div className="evops-cmd__actions"
+               data-testid="xdr-record-v2-actions">
+            <Action label="Respond" icon={ResponseGlyph} tone="primary"
+                     capability={respondCap} onRun={onOpenRespond}
+                     reason={respondReason}
+                     testid="xdr-record-respond" />
+            <Action label="" icon={MoreHorizontal}
+                     capability="cap-standby" reason="PHASE_3_PLUS"
+                     ariaLabel="More actions"
+                     testid="xdr-record-more" />
+          </div>
         </div>
       </div>
     </div>
@@ -235,20 +221,16 @@ export default function RecordHeaderV2({ incident, onOpenRespond }) {
 }
 
 
-function Kpi({ glyph, label, value, sub, testid }) {
+function MiniKpi({ glyph, label, value, testid }) {
   const absent = !value;
   return (
-    <div className="evops-cmd__kpi" data-testid={testid}>
-      <span className="evops-cmd__kpi-label">
-        <span className="evops-cmd__kpi-glyph" aria-hidden>{glyph}</span>
-        {label}
-      </span>
-      <span className="evops-cmd__kpi-value" data-absent={absent ? "true" : "false"}>
+    <span className="evops-cmd__kpi" data-testid={testid}>
+      <span className="evops-cmd__kpi-glyph" aria-hidden>{glyph}</span>
+      <span className="evops-cmd__kpi-label">{label}</span>
+      <span className="evops-cmd__kpi-value"
+             data-absent={absent ? "true" : "false"}>
         {absent ? "—" : value}
       </span>
-      {sub && !absent && (
-        <span className="evops-cmd__kpi-sub">{sub}</span>
-      )}
-    </div>
+    </span>
   );
 }

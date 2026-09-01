@@ -39,6 +39,7 @@ import {
   RecommendationsTabV2,
   MitreTabV2,
   RecordHeaderV2,
+  IncidentOverviewV2,
   isDesignV2EnabledFor,
 } from "@/xdr/design";
 import NotesTab              from "./incidents/record/tabs/NotesTab";
@@ -140,7 +141,9 @@ export default function XdrIncidentDetailPage() {
               className="rl-tabpanel"
               data-testid={`xdr-record-tabpanel-${tab}`}
             >
-              {tab === "executive"          && <ExecutiveTab         incident={incident} />}
+              {tab === "executive"          && (isDesignV2EnabledFor("incident-overview")
+                ? <IncidentOverviewV2 incident={incident} />
+                : <ExecutiveTab       incident={incident} />)}
               {tab === "technical"          && <TechnicalTab         incident={incident} />}
               {tab === "evidence"           && <EvidenceTab          incident={incident} />}
               {tab === "auto_investigation" && <AutoInvestigationTab incident={incident} />}

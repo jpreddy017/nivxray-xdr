@@ -2,7 +2,80 @@
 
 Chronological record of significant releases (newest first).
 
-## 2026-09-01 · Round 29.5 — NivXRay XDR Visual Language System v1.0 — SHIPPED
+## 2026-09-01 · Round 29.6 — Visual Language v1.1 · Composition Language — SHIPPED
+
+Elevated the analyst experience from a component library to a
+**composition language**. v1.0 (vocabulary) defined the words;
+v1.1 defines the sentences. NivXRay XDR now has a formal contract
+for how words compose into an XDR investigation workspace.
+
+### New contract (appended to `/app/memory/VISUAL_LANGUAGE.md`)
+- **§12 Composition primitives (not cards)** — 11 primitives:
+  Command Band · Vitals Rail · Attack Story band · Graph mini ·
+  Entity cluster · Timeline · Compact list · Evidence drawer ·
+  Contextual panel · Inline state chip · Relationship line.
+  A surface MUST use ≥3 distinct primitives (VEEE V-COMP-1).
+- **§13 Flagship Incident Overview composition** — analyst scan
+  path (7 questions map to fixed viewport positions), empty-state
+  wireframe, populated wireframe, 8 composition rules C1–C8.
+- **§13.5 VEEE v1.1 additions** — six composition-level checks
+  (V-COMP-1 … V-COMP-6). A surface FAILS VEEE if it renders more
+  than one "NOT PRESENT" card, if the KPI rail lives outside the
+  Command Band, if the Overview duplicates deep-dive tab content,
+  or if `TRUTH STATE / PROVENANCE / RELATIONSHIPS` appears as a
+  section heading.
+- **§14 Rollout order** — flagship first, then Alerts, Cases, TI,
+  Response inherit the same composition patterns.
+
+### Frontend — flagship implementation
+- **`RecordHeaderV2.jsx` rebuilt** as ONE compact card, five rows
+  (Row 1: glyph + title + sev pill; Row 2: id + soft state chips;
+  Row 3: meta; hairline; Row 4: **vitals rail INSIDE the band**
+  with `Ⓔ Evidence · ⚠ Alerts · Ⓗ Hosts · Ⓤ Users · Ⓕ Files ·
+  Ⓣ MITRE · Ⓒ Correlation`, followed by `[Respond] [⋯]`).
+  Fixes v1.1 C3 — no more "band + separate KPI card + buttons"
+  waste. Total header footprint 218px empty · 240px populated.
+- **`IncidentOverviewV2.jsx` new** — the flagship composition. Wired
+  into the Executive tab via `incident-overview` surface flip.
+  Renders Attack Story band + Investigation Graph mini + 4-column
+  bottom cluster (Evidence · Entities · MITRE · Recommendations) +
+  compact Provenance footer. Adaptive: with zero evidence the
+  entire body collapses to a single hint strip (v1.1 C2). Compact
+  Provenance footer with `ProvenanceGlyph` (v1.1 C7).
+- **`tokens.css`** — five new composition classes: `.evops-cmd`
+  (single card, KPI-inside), `.evops-empty-strip`, `.evops-story`,
+  `.evops-graph`, `.evops-cluster`, `.evops-prov-foot`.
+- **`AlertGlyph`** added to the KPI rail (previously the Alerts
+  metric was missing).
+- **`glyphs.jsx`** unchanged — 17 native glyphs remain the alphabet.
+- **`XdrIncidentDetailPage.jsx`** — surface-flip now covers
+  `incident-overview`; `?design=v1` still renders untouched legacy
+  `ExecutiveTab` + legacy `RecordHeader`.
+
+### VEEE v1.1 pass — flagship empty-evidence run
+- V-COMP-1 ✅  Command Band + Empty Strip + Provenance Footer (3+)
+- V-COMP-2 ✅  Empty state = ONE strip, not four cards
+- V-COMP-3 ✅  KPI rail inside the band
+- V-COMP-4 ✅  No duplicated deep-dive content
+- V-COMP-5 ✅  Scan path preserved (severity → title → verdict →
+             vitals → response)
+- V-COMP-6 ✅  No "PROVENANCE / TRUTH STATE / RELATIONSHIPS" as a
+             section heading — Provenance is a compact footer
+- v1.0 §7.2  ✅  Hierarchy · Consistency · State grammar ·
+             Composition · Semantic tone · Empty-state efficiency
+- **Fabrication regression fixed**: `MITRE 8 technique(s)` in the
+  Provenance line replaced with honest `MITRE not present` (mapping
+  is derived — cannot be present when every upstream layer is).
+
+### Acceptance gates
+- Incident Overview V2 renders by default · legacy under
+  `?design=v1`. Verified.
+- Backend pytest regression: 37/37 XDR round tests green.
+- Console clean; hot reload stable.
+
+---
+
+## 2026-09-01 · Round 29.5 — Visual Language v1.0 · Vocabulary — SHIPPED
 
 Elevated the Round 29 UI work to a **platform-level design contract**.
 NivXRay XDR now has a first-class Visual Language System, sitting

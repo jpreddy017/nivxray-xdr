@@ -27,6 +27,7 @@ export { default as CortexOnboardingWizard } from "./CortexOnboardingWizard";
 export { default as RecommendationsTabV2 } from "./RecommendationsTabV2";
 export { default as MitreTabV2 }            from "./MitreTabV2";
 export { default as RecordHeaderV2 }        from "./RecordHeaderV2";
+export { default as IncidentOverviewV2 }    from "./IncidentOverviewV2";
 export { default as Glyph }                 from "./glyphs";
 export * from "./glyphs";
 
@@ -49,6 +50,7 @@ export const MIGRATED_SURFACES = new Set([
   "recommendations",
   "mitre",
   "incident-header",
+  "incident-overview",
 ]);
 
 /** Per-surface flag lookup.  Prefer this over `isDesignV2Enabled()`
