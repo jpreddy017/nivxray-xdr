@@ -6,8 +6,8 @@
 
 ## Locked sequencing (do NOT reorder)
 
-1. **Intelligence Controls** — SHIPPED · in REVIEW / awaiting formal acceptance
-2. **Attack Chain / Attack Graph redesign** — brief already delivered in-thread
+1. **Intelligence Controls** — ✅ FORMALLY ACCEPTED 2026-09-02 · CLOSED · architecture LOCKED
+2. **Attack Chain / Attack Graph redesign** — ✅ SHIPPED 2026-09-02 · in REVIEW / awaiting formal acceptance (100% frontend green — iter_80)
    (compact investigation-node visual, restrained semantic palette,
    semantic edges + arrowheads, evidence-first hierarchy; reuse
    existing IKG / EvidenceInspector / canvas — NO new engine)

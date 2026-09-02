@@ -53,33 +53,111 @@ function nodeToInspectorArgs(node) {
 }
 
 
+// ─────────────────────────────────────────────────────────────────
+// NivXRay XDR Attack Chain — visual language (redesign 2026-09-02).
+//
+// Design principles (owner-locked):
+//   · Colour represents SEMANTIC STATE, not entity type.
+//   · Kind is carried in a small token above the primary label so
+//     nodes stay visually compact.
+//   · Context entities (incident, user, host, ip, hash) MUST NOT
+//     compete with actual attack activity — they recede.
+//   · The selected/active attack path must be visually dominant.
+//   · Edges must have semantic meaning — causal vs evidence vs
+//     correlation vs gap.  Correlation MUST NOT visually imply
+//     causality.
+//   · Empty / low-evidence states MUST honestly say so.
+// ─────────────────────────────────────────────────────────────────
+
+// State glyph — only.  Colour comes from the role tone below.
 const STATE_TONE = {
-  OBSERVED:     { fill: "#7c3aed", stroke: "#c4b5fd", label: "●" },
-  SUPPORTED:    { fill: "#4c1d95", stroke: "#a78bfa", label: "◐" },
-  POSSIBLE:     { fill: "#1e293b", stroke: "#94a3b8", label: "○" },
-  NOT_OBSERVED: { fill: "#0f172a", stroke: "#334155", label: "—" },
+  OBSERVED:     { label: "●", fill: "#0b1220", stroke: "#94a3b8" },
+  SUPPORTED:    { label: "◐", fill: "#0b1220", stroke: "#94a3b8" },
+  POSSIBLE:     { label: "○", fill: "#0b1220", stroke: "#64748b" },
+  NOT_OBSERVED: { label: "—", fill: "#0a0e1a", stroke: "#334155" },
 };
 
-// Per-kind fill override so the analyst can immediately identify
-// what type of node they are looking at, even in dense chains.
+// Semantic role of a node — drives fill / stroke / accent.
+const NODE_ROLE = {
+  incident:   "context",   host: "context",   user: "context",
+  ip:         "context",   hash: "context",
+  event:      "telemetry", event_id: "telemetry",
+  signature:  "telemetry",
+  process:    "activity",  commandline: "activity",
+  detection:  "finding",   match: "finding",
+  finding:    "finding",   capability: "finding",
+  technique:  "mitre",     stage: "mitre",
+  gap:        "gap",
+};
+
+// Restrained NivXRay XDR palette — fills are near-black surfaces
+// so the graph never becomes a rainbow.  Accents ride on top.
+const ROLE_TONE = {
+  context:   { fill: "#0b1220", stroke: "#243049", accent: "#94a3b8",
+                     label:  "#cbd5e1", faint: "#64748b" },
+  telemetry: { fill: "#0b1a2c", stroke: "#1d3a5f", accent: "#7cb2ea",
+                     label:  "#e0eefc", faint: "#64748b" },
+  activity:  { fill: "#1a1408", stroke: "#4a3013", accent: "#f0b26b",
+                     label:  "#fef3c7", faint: "#a3906a" },
+  finding:   { fill: "#150e26", stroke: "#3a2a52", accent: "#c4a8f5",
+                     label:  "#eee6ff", faint: "#8f7fb8" },
+  mitre:     { fill: "#1a0f2b", stroke: "#4d2a76", accent: "#d8b4fe",
+                     label:  "#f5edff", faint: "#a48fca" },
+  gap:       { fill: "#0a0e1a", stroke: "#1e293b", accent: "#475569",
+                     label:  "#94a3b8", faint: "#475569" },
+};
+
+// Compact kind badge glyph (3-letter mono token).
+const KIND_GLYPH = {
+  incident: "INC", host: "HST", user: "USR",
+  ip:  "NET", hash: "HSH",
+  event: "EVT", event_id: "EVT", signature: "SIG",
+  process: "PRC", commandline: "CMD",
+  finding: "FND", capability: "CAP",
+  detection: "DET", match: "COR",
+  technique: "ATT", stage: "STG", gap: "GAP",
+};
+
+// Kept for API back-compat (legend list + earlier residual code
+// paths).  DO NOT reintroduce as a fill source — the new renderer
+// uses ROLE_TONE.  This map only feeds the legend.
 const KIND_TONE = {
-  incident:    { fill: "#831843", stroke: "#f472b6" },
-  host:        { fill: "#134e4a", stroke: "#5eead4" },
-  user:        { fill: "#134e4a", stroke: "#67e8f9" },
-  ip:          { fill: "#083344", stroke: "#7dd3fc" },
-  hash:        { fill: "#0c4a6e", stroke: "#7dd3fc" },
-  event:       { fill: "#1e3a8a", stroke: "#93c5fd" },
-  event_id:    { fill: "#1e3a8a", stroke: "#93c5fd" },
-  signature:   { fill: "#365314", stroke: "#bef264" },
-  process:     { fill: "#78350f", stroke: "#fdba74" },
-  commandline: { fill: "#7c2d12", stroke: "#fca5a5" },
-  detection:   { fill: "#3b0764", stroke: "#d8b4fe" },
-  match:       { fill: "#4c0519", stroke: "#fda4af" },
-  finding:     { fill: "#4c1d95", stroke: "#c4b5fd" },
-  capability:  { fill: "#312e81", stroke: "#a5b4fc" },
-  technique:   { fill: "#6d28d9", stroke: "#ddd6fe" },
-  stage:       { fill: "#166534", stroke: "#86efac" },
-  gap:         { fill: "#111827", stroke: "#64748b" },
+  incident:    { fill: ROLE_TONE.context.fill,   stroke: ROLE_TONE.context.accent },
+  host:        { fill: ROLE_TONE.context.fill,   stroke: ROLE_TONE.context.accent },
+  user:        { fill: ROLE_TONE.context.fill,   stroke: ROLE_TONE.context.accent },
+  ip:          { fill: ROLE_TONE.context.fill,   stroke: ROLE_TONE.context.accent },
+  hash:        { fill: ROLE_TONE.context.fill,   stroke: ROLE_TONE.context.accent },
+  event:       { fill: ROLE_TONE.telemetry.fill, stroke: ROLE_TONE.telemetry.accent },
+  event_id:    { fill: ROLE_TONE.telemetry.fill, stroke: ROLE_TONE.telemetry.accent },
+  signature:   { fill: ROLE_TONE.telemetry.fill, stroke: ROLE_TONE.telemetry.accent },
+  process:     { fill: ROLE_TONE.activity.fill,  stroke: ROLE_TONE.activity.accent },
+  commandline: { fill: ROLE_TONE.activity.fill,  stroke: ROLE_TONE.activity.accent },
+  detection:   { fill: ROLE_TONE.finding.fill,   stroke: ROLE_TONE.finding.accent },
+  match:       { fill: ROLE_TONE.finding.fill,   stroke: ROLE_TONE.finding.accent },
+  finding:     { fill: ROLE_TONE.finding.fill,   stroke: ROLE_TONE.finding.accent },
+  capability:  { fill: ROLE_TONE.finding.fill,   stroke: ROLE_TONE.finding.accent },
+  technique:   { fill: ROLE_TONE.mitre.fill,     stroke: ROLE_TONE.mitre.accent },
+  stage:       { fill: ROLE_TONE.mitre.fill,     stroke: ROLE_TONE.mitre.accent },
+  gap:         { fill: ROLE_TONE.gap.fill,       stroke: ROLE_TONE.gap.stroke },
+};
+
+// Edge semantic class — controls dash, arrow, opacity, tone.
+const EDGE_CLASS = {
+  SPAWNED: "causal", EXECUTED: "causal", CREATED: "causal",
+  WROTE: "causal", READ: "causal", MODIFIED: "causal",
+  CONNECTED_TO: "causal", AUTHENTICATED_TO: "causal",
+  TRIGGERED: "causal",
+  DETECTED_BY: "evidence", MAPPED_TO: "evidence",
+  BELONGS_TO: "evidence", SUPPORTED_BY: "evidence",
+  OBSERVED_ON: "evidence",
+  CORRELATED_WITH: "correlation",
+  PIVOTED_TO: "gap",
+};
+const EDGE_TONE = {
+  causal:      { stroke: "#f0b26b", dash: "0",   opacity: 0.90, arrow: true  },
+  evidence:    { stroke: "#7cb2ea", dash: "0",   opacity: 0.45, arrow: false },
+  correlation: { stroke: "#c4a8f5", dash: "5 3", opacity: 0.65, arrow: false },
+  gap:         { stroke: "#475569", dash: "2 4", opacity: 0.40, arrow: false },
 };
 
 const KIND_COLUMN = {
@@ -117,12 +195,17 @@ const EDGE_SEMANTICS = [
   ["PIVOTED_TO",      "Investigation pivots toward this gap"],
 ];
 
-const COL_W = 180, ROW_H = 38, NODE_W = 170, NODE_H = 30;
+const COL_W = 190, ROW_H = 60, NODE_W = 156, NODE_H = 46;
 
 
 function nodeLabel(n) {
   const s = n.label || "";
-  return s.length > 26 ? s.slice(0, 24) + "…" : s;
+  // The compact 156-wide node reserves 34px for the kind badge and
+  // ~14px for the finding-count badge zone in the top-right, leaving
+  // ~108px of usable label width at fontSize 11 — that's ~14–15
+  // characters at Inter/system-ui.  Truncate hard here so we never
+  // collide with the annotation badge or overflow the border.
+  return s.length > 15 ? s.slice(0, 13) + "…" : s;
 }
 
 
@@ -598,25 +681,68 @@ export default function AttackGraphTab({ incident }) {
             </>
           )}
         </div>
-        {/* Edge semantics legend (toggle) */}
+        {/* Edge semantics legend (toggle) — grouped by SEMANTIC
+              CLASS, not by relationship name, so the analyst learns
+              the visual language rather than memorising every verb. */}
         {showLegend && (
-          <div style={{ padding: "8px 10px", borderBottom: "1px solid #1e293b",
-                          background: "#0f172a", color: "#cbd5e1",
-                          fontSize: 11, display: "grid",
-                          gridTemplateColumns: "repeat(2, 1fr)", gap: "4px 16px" }}
+          <div style={{ padding: "10px 12px", borderBottom: "1px solid #1e293b",
+                          background: "#0a0e1a", color: "#cbd5e1",
+                          fontSize: 11 }}
                 data-testid="xdr-ag-legend">
-            {EDGE_SEMANTICS.map(([k, desc]) => (
-              <div key={k} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span className="mono" style={{ color: "#a78bfa",
-                                                       fontWeight: 600,
-                                                       minWidth: 130 }}>
-                  → {k}
-                </span>
-                <span style={{ color: "#94a3b8" }}>{desc}</span>
-              </div>
-            ))}
+            <div style={{ display: "grid",
+                                  gridTemplateColumns: "auto 1fr",
+                                  gap: "6px 12px", marginBottom: 8 }}>
+              <LegendSwatch cls="causal"      note="Execution / spawn / created / connected — solid + arrow" />
+              <LegendSwatch cls="evidence"    note="Detected · mapped · supported · observed — subtle, no arrow" />
+              <LegendSwatch cls="correlation" note="Cross-lane correlation — dashed, NEVER implies causality" />
+              <LegendSwatch cls="gap"         note="Pivoted-to / unknown — dotted, low emphasis" />
+            </div>
+            <div style={{ display: "grid",
+                                  gridTemplateColumns: "repeat(2, 1fr)", gap: "4px 16px" }}>
+              {EDGE_SEMANTICS.map(([k, desc]) => {
+                const cls = EDGE_CLASS[k] || "evidence";
+                const tone = EDGE_TONE[cls];
+                return (
+                  <div key={k}
+                            style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span className="mono"
+                                style={{ color: tone.stroke, fontWeight: 600, minWidth: 130 }}>
+                      → {k}
+                    </span>
+                    <span style={{ color: "#94a3b8" }}>{desc}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
+        {/* Attack Progression banner — the graph is a LEFT→RIGHT
+              causal chain.  This banner tells the analyst so before
+              they look at a single node. */}
+        <div style={{ padding: "6px 12px",
+                            borderBottom: "1px solid #1e293b",
+                            background: "#0a0e1a", color: "#a3906a",
+                            fontSize: 10, letterSpacing: 0.6,
+                            textTransform: "uppercase", fontWeight: 700,
+                            display: "flex", alignItems: "center", gap: 8 }}
+              data-testid="xdr-ag-progression-banner">
+          <span style={{ color: "#64748b" }}>Attack Progression</span>
+          <span style={{ color: "#4a3013" }}>›</span>
+          <span style={{ color: "#94a3b8" }}>Context</span>
+          <span style={{ color: "#4a3013" }}>›</span>
+          <span style={{ color: "#7cb2ea" }}>Telemetry</span>
+          <span style={{ color: "#4a3013" }}>›</span>
+          <span style={{ color: "#f0b26b" }}>Activity</span>
+          <span style={{ color: "#4a3013" }}>›</span>
+          <span style={{ color: "#c4a8f5" }}>Finding</span>
+          <span style={{ color: "#4a3013" }}>›</span>
+          <span style={{ color: "#d8b4fe" }}>ATT&amp;CK</span>
+          <span style={{ color: "#64748b", marginLeft: "auto",
+                             fontWeight: 500, textTransform: "none",
+                             letterSpacing: 0.3 }}>
+            Evidence-backed causal chain — correlation NEVER implies causality
+          </span>
+        </div>
         {/* SVG canvas with native scrollbars + drag/pan */}
         <div ref={scrollRef}
               style={{ overflow: "auto", position: "relative",
@@ -653,6 +779,31 @@ export default function AttackGraphTab({ incident }) {
                                        scrollTop:  scrollRef.current.scrollTop });
                   }
                 }}>
+            {/* Arrowhead markers per edge class — enables directional
+                causal edges without cluttering non-causal relationships. */}
+            <defs>
+              <marker id="nx-arrow-causal" viewBox="0 0 10 10"
+                              refX="9" refY="5" markerWidth="6" markerHeight="6"
+                              orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="#f0b26b" opacity="0.9" />
+              </marker>
+              <marker id="nx-arrow-primary" viewBox="0 0 10 10"
+                              refX="9" refY="5" markerWidth="7" markerHeight="7"
+                              orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="#fbbf24" opacity="1" />
+              </marker>
+              {/* Very subtle radial glow for primary-path nodes so
+                    the attack progression is visually dominant without
+                    saturating colour. */}
+              <filter id="nx-primary-glow" x="-20%" y="-20%"
+                            width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2.4" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
             {/* Edges */}
             {layout && visibleEdges.map(e => {
               const s = layout.pos.get(e.src);
@@ -660,32 +811,50 @@ export default function AttackGraphTab({ incident }) {
               if (!s || !d) return null;
               const dimmed = timelineWindow && e.timestamp
                 && !timelineWindow.has(`${e.src}|${e.rel}|${e.dst}`);
-              const tone = STATE_TONE[e.state] || STATE_TONE.NOT_OBSERVED;
+              const cls  = EDGE_CLASS[e.rel] || "evidence";
+              const et   = EDGE_TONE[cls];
               const isPrimary = primaryPath.has(e.src) && primaryPath.has(e.dst);
               const isSelected = selId === e.id;
               const isHovered = hoveredEdge === e.id;
               const showLabel = isSelected || isHovered;
               const x1 = s.x + NODE_W, y1 = s.y + NODE_H / 2;
               const x2 = d.x,           y2 = d.y + NODE_H / 2;
+              // On the primary path, force a causal look + strong
+              // arrow so the attack progression is unmistakable.
+              const stroke = isSelected ? "#fbbf24"
+                                       : isPrimary ? "#fbbf24"
+                                       : et.stroke;
+              const dash = e.state === "NOT_OBSERVED" ? "1 4"
+                                 : (isPrimary ? "0" : et.dash);
+              const opacity = isPrimary ? 0.95 : et.opacity;
+              const wantsArrow = cls === "causal" || isPrimary;
+              const markerEnd = isPrimary
+                ? "url(#nx-arrow-primary)"
+                : (wantsArrow ? "url(#nx-arrow-causal)" : undefined);
+              // Bezier control points — kept flat so the graph reads
+              // as a left→right progression rather than swirls.
+              const dx = Math.max(24, Math.abs(x2 - x1) * 0.35);
               return (
                 <g key={e.id}
                     onClick={() => { setSelId(e.id); setSelKind("edge"); }}
                     onMouseEnter={() => setHovered(e.id)}
                     onMouseLeave={() => setHovered(null)}
-                    style={{ cursor: "pointer", opacity: dimmed ? 0.12 : 1 }}
-                    data-testid={`xdr-ag-edge-${e.id}`}>
-                  <path d={`M${x1},${y1} C${x1 + 30},${y1} ${x2 - 30},${y2} ${x2},${y2}`}
+                    style={{ cursor: "pointer", opacity: dimmed ? 0.10 : 1 }}
+                    data-testid={`xdr-ag-edge-${e.id}`}
+                    data-edge-class={cls}
+                    data-edge-primary={isPrimary ? "true" : "false"}>
+                  <path d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
                          fill="none"
-                         stroke={isSelected ? "#fbbf24"
-                                    : isPrimary ? "#c4b5fd" : tone.stroke}
-                         strokeWidth={isSelected ? 2 : isPrimary ? 1.5 : 0.8}
-                         strokeDasharray={e.state === "POSSIBLE" ? "3 3"
-                                              : e.state === "NOT_OBSERVED" ? "1 4" : "0"}
-                         strokeOpacity={isPrimary ? 0.9 : 0.55} />
+                         stroke={stroke}
+                         strokeWidth={isSelected ? 2 : isPrimary ? 1.8 : 1}
+                         strokeDasharray={dash}
+                         strokeOpacity={opacity}
+                         markerEnd={markerEnd} />
                   {showLabel && (
                     <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 4}
                            fontSize={8} fontFamily="ui-monospace, monospace"
-                           fill="#fbbf24" textAnchor="middle">
+                           fill={isPrimary ? "#fbbf24" : et.stroke}
+                           textAnchor="middle">
                       {e.rel}
                     </text>
                   )}
@@ -696,18 +865,27 @@ export default function AttackGraphTab({ incident }) {
             {layout && visibleNodes.map(n => {
               const p = layout.pos.get(n.id);
               if (!p) return null;
-              const tone = STATE_TONE[n.state] || STATE_TONE.NOT_OBSERVED;
-              const kindTone = KIND_TONE[n.kind];
-              const nodeFill = (n.state === "OBSERVED" || n.state === "SUPPORTED")
-                && kindTone ? kindTone.fill : tone.fill;
-              const nodeStroke = (n.state === "OBSERVED" || n.state === "SUPPORTED")
-                && kindTone ? kindTone.stroke : tone.stroke;
-              const isSel = selId === n.id && selKind === "node";
-              const isPrim = primaryPath.has(n.id);
+              const state    = STATE_TONE[n.state] || STATE_TONE.NOT_OBSERVED;
+              const role     = NODE_ROLE[n.kind]   || "context";
+              const rt       = ROLE_TONE[role];
+              const glyph    = KIND_GLYPH[n.kind] || (n.kind || "").slice(0,3).toUpperCase();
+              const isSel    = selId === n.id && selKind === "node";
+              const isPrim   = primaryPath.has(n.id);
+              const isAnchor = role === "context";
               const isReplayCurrent = replayCurrent && replayCurrent.id === n.id;
-              const stroke = isSel ? "#fbbf24" : isPrim ? "#fbbf24" : nodeStroke;
+              // Context (anchor) entities recede — thinner border, no
+              // fill glow, muted label — so activity/mitre nodes stay
+              // visually dominant.
+              const nodeFill   = rt.fill;
+              const nodeStroke = isSel      ? "#fbbf24"
+                                              : isPrim  ? "#fbbf24"
+                                              : rt.stroke;
+              const borderW    = isSel ? 1.8 : isPrim ? 1.6 : (isAnchor ? 0.8 : 1);
               const findingAnnotations = (n.annotations?.findings) || [];
               const findingCount = findingAnnotations.length;
+              const evidenceCount = (n.annotations?.evidence_ids?.length) || 0
+                                                    || (n.annotations?.evidence_count) || 0;
+              const attckId = n.attrs?.tid;
               return (
                 <g key={n.id}
                     onClick={(ev) => { ev.stopPropagation();
@@ -720,15 +898,76 @@ export default function AttackGraphTab({ incident }) {
                       setDragState({ nodeId: n.id,
                                           grabDx: px - p.x, grabDy: py - p.y });
                     }}
-                    style={{ cursor: dragState?.nodeId === n.id ? "grabbing" : "grab" }}
-                    data-testid={`xdr-ag-node-${n.id}`}>
-                  <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={4}
+                    style={{ cursor: dragState?.nodeId === n.id ? "grabbing" : "grab",
+                                 opacity: isAnchor && !isPrim ? 0.82 : 1 }}
+                    filter={isPrim ? "url(#nx-primary-glow)" : undefined}
+                    data-testid={`xdr-ag-node-${n.id}`}
+                    data-node-role={role}
+                    data-node-primary={isPrim ? "true" : "false"}
+                    data-node-state={n.state || "NOT_OBSERVED"}>
+                  {/* Node body — sharp rectangle, minimal rounding
+                        so the visual reads as forensic, not decorative. */}
+                  <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={3}
                          fill={nodeFill}
-                         stroke={stroke}
-                         strokeWidth={isSel || isPrim ? 1.5 : 0.8} />
+                         stroke={nodeStroke}
+                         strokeWidth={borderW} />
+                  {/* Kind glyph — small mono token in the top-left. */}
+                  <rect x={p.x + 4} y={p.y + 4} width={26} height={11} rx={2}
+                         fill="#000" fillOpacity={0.35}
+                         stroke={rt.accent} strokeOpacity={0.5}
+                         strokeWidth={0.5} />
+                  <text x={p.x + 17} y={p.y + 12}
+                         fontSize={7.5}
+                         fontFamily="ui-monospace, monospace"
+                         fontWeight={700} letterSpacing={0.5}
+                         fill={rt.accent} textAnchor="middle">
+                    {glyph}
+                  </text>
+                  {/* Primary label — the single most-important line
+                        the analyst needs to read. */}
+                  <text x={p.x + 34} y={p.y + 14}
+                         fontSize={11} fontFamily="ui-sans-serif"
+                         fill={rt.label} style={{ fontWeight: 600 }}>
+                    <title>{n.label}</title>
+                    {nodeLabel(n)}
+                  </text>
+                  {/* Footer — state dot + evidence count + ATT&CK pill.
+                        These are secondary indicators; they never
+                        outweigh the primary label. */}
+                  <text x={p.x + 6} y={p.y + NODE_H - 6}
+                         fontSize={8.5}
+                         fontFamily="ui-monospace, monospace"
+                         fill={rt.accent}>
+                    {state.label} {(n.state || "").replace(/_/g, " ")}
+                  </text>
+                  {evidenceCount > 0 && (
+                    <text x={p.x + 74} y={p.y + NODE_H - 6}
+                            fontSize={8.5}
+                            fontFamily="ui-monospace, monospace"
+                            fill={rt.faint}>
+                      · ev {evidenceCount > 99 ? "99+" : evidenceCount}
+                    </text>
+                  )}
+                  {attckId && role === "mitre" && (
+                    <g>
+                      <rect x={p.x + NODE_W - 60} y={p.y + NODE_H - 16}
+                                width={54} height={12} rx={2}
+                                fill="#4d2a76" fillOpacity={0.45}
+                                stroke={ROLE_TONE.mitre.accent}
+                                strokeOpacity={0.5} strokeWidth={0.6} />
+                      <text x={p.x + NODE_W - 33} y={p.y + NODE_H - 6}
+                              fontSize={8.5}
+                              fontFamily="ui-monospace, monospace"
+                              fontWeight={700} letterSpacing={0.4}
+                              fill={ROLE_TONE.mitre.accent}
+                              textAnchor="middle">
+                        {attckId}
+                      </text>
+                    </g>
+                  )}
                   {isReplayCurrent && (
                     <rect x={p.x - 4} y={p.y - 4}
-                            width={NODE_W + 8} height={NODE_H + 8} rx={6}
+                            width={NODE_W + 8} height={NODE_H + 8} rx={5}
                             fill="none"
                             stroke="#a78bfa"
                             strokeWidth={2}
@@ -738,27 +977,18 @@ export default function AttackGraphTab({ incident }) {
                                     values="0.4;1;0.4" dur="1.4s"
                                     repeatCount="indefinite" />
                     </rect>
-                  )}                  <text x={p.x + 6} y={p.y + 11}
-                         fontSize={8} fontFamily="ui-monospace, monospace"
-                         fill="#e2e8f0" opacity={0.7}>
-                    {tone.label} {n.kind.toUpperCase()}
-                  </text>
-                  <text x={p.x + 6} y={p.y + 23}
-                         fontSize={10} fontFamily="ui-sans-serif"
-                         fill="#f8fafc" style={{ fontWeight: 500 }}>
-                    {nodeLabel(n)}
-                  </text>
+                  )}
                   {findingCount > 0 && (
-                    <g data-testid={`xdr-ag-node-annot-${n.id}`}>
+                    <g data-testid={`xdr-ag-finding-badge-${n.id}`}>
                       <title>
                         {findingCount} finding(s) anchored on this entity:
                         {findingAnnotations.slice(0, 5)
                                               .map(f => `\n• [${f.state}] ${f.capability || ""} · ${f.summary || f.finding_id || ""}`)
                                               .join("")}
                       </title>
-                      <circle cx={p.x + NODE_W - 8} cy={p.y + 6} r={6}
+                      <circle cx={p.x + NODE_W - 9} cy={p.y + 9} r={6}
                                 fill="#fbbf24" stroke="#78350f" strokeWidth={0.8} />
-                      <text x={p.x + NODE_W - 8} y={p.y + 9}
+                      <text x={p.x + NODE_W - 9} y={p.y + 12}
                               fontSize={8} fontFamily="ui-monospace, monospace"
                               fill="#78350f" textAnchor="middle"
                               style={{ fontWeight: 700 }}>
@@ -767,6 +997,66 @@ export default function AttackGraphTab({ incident }) {
                     </g>
                   )}
                 </g>
+              );
+            })}
+            {/* Empty-state — honestly say so.  Never fabricate a
+                  chain.  This mirrors the owner rule for the
+                  Cross-Lane Story on the backend.  Guarded on
+                  `visibleNodes.length===0` ONLY — the outer
+                  `layout` memo returns null in this branch, so
+                  guarding on `layout &&` would make this
+                  unreachable. */}
+            {visibleNodes.length === 0 && (
+              <g data-testid="xdr-ag-empty">
+                <rect x={20} y={20}
+                        width={((layout?.width) || 800) - 40}
+                        height={64} rx={4}
+                        fill="#0a0e1a"
+                        stroke="#334155" strokeDasharray="4 4" />
+                <text x={40} y={44}
+                        fontSize={12} fontFamily="ui-monospace, monospace"
+                        fill="#fbbf24" fontWeight={700} letterSpacing={0.6}>
+                  NO EVIDENCE-BACKED ATTACK CHAIN
+                </text>
+                <text x={40} y={68}
+                        fontSize={10} fontFamily="ui-sans-serif"
+                        fill="#94a3b8">
+                  Governed evidence is insufficient to plot a chain.
+                  Turn on the Gaps layer to see UNKNOWN pivots, or
+                  ingest more Endpoint / Identity / Cloud telemetry.
+                </text>
+              </g>
+            )}
+            {/* Top-most transparent edge hit-layer — nodes are
+                  painted BEFORE this so they still visually occlude
+                  edges, but the invisible strokes above give the
+                  analyst a reliable click target even when a causal
+                  path passes under a node rect.  Kept thin (8px)
+                  so it does not shadow node clicks; the underlying
+                  <g> keeps click/hover semantics identical to the
+                  visible edge. */}
+            {layout && visibleEdges.map(e => {
+              const s = layout.pos.get(e.src);
+              const d = layout.pos.get(e.dst);
+              if (!s || !d) return null;
+              const isPrimary = primaryPath.has(e.src) && primaryPath.has(e.dst);
+              const x1 = s.x + NODE_W, y1 = s.y + NODE_H / 2;
+              const x2 = d.x,           y2 = d.y + NODE_H / 2;
+              const dx = Math.max(24, Math.abs(x2 - x1) * 0.35);
+              return (
+                <path key={`hit-${e.id}`}
+                          d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
+                          fill="none"
+                          stroke="transparent"
+                          strokeWidth={8}
+                          style={{ cursor: "pointer",
+                                       pointerEvents: "stroke" }}
+                          onClick={(ev) => { ev.stopPropagation();
+                                                      setSelId(e.id); setSelKind("edge"); }}
+                          onMouseEnter={() => setHovered(e.id)}
+                          onMouseLeave={() => setHovered(null)}
+                          data-testid={`xdr-ag-edge-hit-${e.id}`}
+                          data-edge-primary={isPrimary ? "true" : "false"} />
               );
             })}
           </svg>
@@ -944,3 +1234,42 @@ const btnS = {
   borderRadius: 3, padding: "4px 6px", cursor: "pointer",
   display: "inline-flex", alignItems: "center",
 };
+
+
+// Compact swatch used by the edge-class legend — visualises the
+// dash pattern + arrowhead so the analyst learns the shape rather
+// than the label.
+function LegendSwatch({ cls, note }) {
+  const tone = EDGE_TONE[cls];
+  return (
+    <>
+      <span data-testid={`xdr-ag-legend-swatch-${cls}`}
+                style={{ display: "inline-flex", alignItems: "center",
+                            gap: 6 }}>
+        <svg width={64} height={12}>
+          <defs>
+            <marker id={`nx-legend-arrow-${cls}`} viewBox="0 0 10 10"
+                            refX="9" refY="5" markerWidth="6" markerHeight="6"
+                            orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill={tone.stroke} />
+            </marker>
+          </defs>
+          <line x1="2" y1="6" x2="58" y2="6"
+                     stroke={tone.stroke}
+                     strokeWidth="1.4"
+                     strokeDasharray={tone.dash}
+                     strokeOpacity={tone.opacity}
+                     markerEnd={tone.arrow
+                       ? `url(#nx-legend-arrow-${cls})` : undefined} />
+        </svg>
+        <span className="mono"
+                    style={{ color: tone.stroke, fontWeight: 700,
+                                letterSpacing: 0.4, minWidth: 96,
+                                textTransform: "uppercase" }}>
+          {cls}
+        </span>
+      </span>
+      <span style={{ color: "#94a3b8" }}>{note}</span>
+    </>
+  );
+}

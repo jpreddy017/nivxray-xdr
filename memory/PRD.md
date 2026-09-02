@@ -1,6 +1,66 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · Attack Chain / Attack Graph redesign · SHIPPED
+
+Frontend-only visual redesign of `AttackGraphTab.jsx` per owner's
+strict brief.  Backend / data model / verdict authority / evidence
+semantics UNCHANGED.  Reuses existing IKG, EvidenceInspector,
+Attack Story, ATT&CK mapping, canvas renderer, Path Replay.
+
+**Files changed (ONE product file):**
+- `/app/apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/AttackGraphTab.jsx`
+
+**What changed visually:**
+- Replaced rainbow `KIND_TONE` fills with restrained semantic
+  palette: `NODE_ROLE` classifier → `ROLE_TONE` (context /
+  telemetry / activity / finding / mitre / gap).  Fills restricted
+  to `#0b1220 / #0b1a2c / #1a1408 / #150e26 / #1a0f2b / #0a0e1a`.
+- Compact investigation-node (156 × 46, `rx=3`) with a 3-letter
+  mono kind glyph badge (`INC / HST / USR / NET / HSH / EVT / SIG
+  / PRC / CMD / DET / COR / FND / CAP / ATT / STG / GAP`), a
+  dominant primary label, and a footer row with the state dot +
+  compact evidence count + optional ATT&CK pill (only on mitre
+  role).
+- Anchor entities (`incident / user / host / ip / hash`) receive
+  `opacity=0.82` when not on the primary path — they visually
+  recede so real activity dominates.
+- Primary attack path receives a subtle radial glow
+  (`#nx-primary-glow`), the amber `#fbbf24` ring, and a strong
+  `#nx-arrow-primary` arrowhead.  Non-primary causal edges get a
+  smaller `#nx-arrow-causal`.
+- Semantic edge classes: `causal` (solid + arrow), `evidence`
+  (subtle, no arrow), `correlation` (dashed 5 3, no arrow — never
+  implies causality), `gap` (dotted 2 4, low emphasis).
+- New "Attack Progression" banner above the canvas —
+  `Context › Telemetry › Activity › Finding › ATT&CK` with the
+  rider *"Evidence-backed causal chain — correlation NEVER implies
+  causality"*.
+- New empty state — `NO EVIDENCE-BACKED ATTACK CHAIN` with an
+  honest subtitle explaining coverage gaps.  Guarded on
+  `visibleNodes.length === 0` (empty state was unreachable in the
+  initial cut — fixed in iter_79).
+- Label truncation dropped from 26 → 15 chars so the primary label
+  never collides with the finding-count badge; each label now
+  carries a `<title>` with the full identifier for hover disclosure.
+- Top-most transparent edge hit-layer (`pointerEvents='stroke'`
+  after the nodes block) so causal edges remain clickable even
+  where they pass under an anchor rect — hit reliability now
+  **6/6** up from **2/6** in the initial cut.
+
+**Regression gate:**
+- Frontend build: clean.
+- Testing agent: iter_78 (12/13 invariants) → iter_79 (2 of 3
+  targeted fixes verified, 12/12 regression) → iter_80 (100%
+  frontend, all 3 defects verified fixed, no new bugs).
+- Backend pytest untouched (redesign is frontend-only) — last
+  green count 113/113.
+
+**Explicit hold** — awaiting formal owner acceptance before
+starting the next authorized item (Provider Registry).
+
+
+
 ## ✅ 2026-09-02 · NivXRay XDR Intelligence Controls (FINAL spec, LOCKED)
 
 Hierarchical AI/LLM governance shipped as a first-class product
