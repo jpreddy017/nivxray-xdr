@@ -1,6 +1,64 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.1 · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+All 7 Plane-A codec families migrated into
+`services/decoder/base/*` with **byte-identical parity** against
+both frozen B3.0 snapshots. Uniform 5-step surgical pattern
+applied per family (implement in new home → extract shared
+helpers → thin re-export shim at legacy path → parity re-run →
+regression re-run). Legacy modules (`recursive_decoder.py`,
+`decoders/crypto_symmetric.py`, `decoders/xor_brute.py`) now
+contain **zero unique codec logic** — they are import shims to
+the authoritative implementations.
+
+**Per-family ledger:**
+
+| # | Family | New authoritative home | Parity |
+|--:|---|---|---|
+| 1 | GZIP | `services.decoder.base.compression.decode_gzip_bytes` | Snap #1 ✓ |
+| 2 | Zlib/Deflate | `services.decoder.base.compression.decode_zlib_bytes` | Snap #1 ✓ |
+| 3 | XOR (byte-array loop) | `services.decoder.base.transform.decode_byte_array_xor_loop` | Snap #1 ✓ |
+| 4 | Repeating-key XOR | `services.decoder.base.xor_brute.XorBruteDecoder` | Snap #2 ✓ |
+| 5 | RC4 | `services.decoder.base.crypto.Rc4Decoder` | Snap #2 ✓ |
+| 6 | AES-CBC (+ECB) | `services.decoder.base.crypto.AesCbcDecoder` | Snap #2 ✓ |
+| 7 | UTF-16LE (via PS-EncodedCommand) | `services.decoder.base.powershell_encoded_command` | Snap #1 ✓ |
+
+Shared helpers live in `services.decoder.base._shared` (RAWBYTES
+sentinel, printability floor, shellcode string scan, IOC regexes).
+
+**Byte-identical parity:**
+```
+Snapshot #1 : 12378d11…8bac  (unchanged from B3.0)
+Snapshot #2 : 6427903e…7897  (unchanged from B3.0)
+```
+
+**Regressions:** decoder_harness 32/32 · corpus 76/76 (mal-20
+intentional) · adjacent 32/32 · UAIE plugin adapters load OK
+(`legacy_import is new_import`).
+
+**Latency:** Snapshot #2 (meaningful ms-scale) −1.4 % / −0.3 % / −0.1 %
+across p50/p95/p99. Snapshot #1 (µs-scale) sits inside the run-to-run
+variance envelope (±20 % on p50 across 5 subsequent runs) — no
+real regression, function object is literally identical
+(`legacy_name is new_name` → True).
+
+**Deferred to B3.2:** PE + shellcode analyzer separation into
+`services/analyzers/*`, and DDO signature-based dispatch wiring
+of migrated Plane-A codecs.
+
+**Deferred to B3.3:** static import-graph + runtime dependency
+audit tests (CI-enforced).
+
+**Deferred to B3.4:** full validation gate + median-based latency
+regression check.
+
+**STOPPED for owner acceptance of B3.1 before B3.2 begins.**
+
+
+
+
 ## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.0 · SNAPSHOTS FROZEN (STOPPED FOR ACCEPTANCE)
 
 Owner directive (option **a**) — B3 absorbs BOTH decoder runtime
