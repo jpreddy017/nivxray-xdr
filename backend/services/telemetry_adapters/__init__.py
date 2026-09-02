@@ -11,6 +11,17 @@ from .runner import (
     InMemoryCheckpoint, InMemoryDedup,
 )
 from .correlation import CrossLaneCorrelation, correlate
+from .verdict_bridge import (
+    VerdictInput, EvidenceGraphEdge,
+    build_verdict_inputs, build_evidence_graph_edges,
+    to_dict as bridge_to_dict,
+)
+from .stores import MongoCheckpointStore, MongoDedupStore
+from .pollers import (
+    UnconfiguredPollerError, OktaSystemLogPoller,
+    EntraSignInLogPoller, AwsCloudTrailPoller,
+    poller_configuration_status,
+)
 
 
 def _register_default_adapters() -> None:

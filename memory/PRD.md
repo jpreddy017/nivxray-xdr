@@ -1,6 +1,71 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · Phase 2 · Evidence→Verdict Gap Closure
+
+**Correlation → Verdict inputs bridge (`verdict_bridge.py`)**
+- `build_verdict_inputs()` — emits `VerdictInput` records the
+  existing Verdict Engine can consume.  Fields include lanes,
+  canonical_ids, matching_basis, first/last seen, actor_id,
+  `correlation_confidence`, and an explicit rationale.
+- The dataclass deliberately lacks any verdict-authority field
+  (no `verdict`, `severity`, `maliciousness`, `verdict_confidence`,
+  `attck_promote`).  Verdict Engine remains the sole authority.
+- Endpoint-only groups yield NO `VerdictInput` — endpoint-only
+  incidents behave exactly as before.
+- Rationale text explicitly states "Correlation confidence
+  reflects lane spread and event count, NOT maliciousness".
+
+**Evidence Graph edges (`verdict_bridge.py`)**
+- `build_evidence_graph_edges()` emits `EvidenceGraphEdge` rows
+  citing canonical_ids on both sides.
+- Every edge provenance carries `attck_promotion=False` — a
+  cross-lane hint never promotes an ATT&CK technique to OBSERVED.
+- Uses hub-and-spoke to keep O(n) rather than O(n²) for large
+  groups.  No parallel graph — edges join the existing canonical
+  evidence path.
+
+**Mongo-backed persistence (`stores.py`)**
+- `MongoCheckpointStore` and `MongoDedupStore` implement the
+  existing `CheckpointStore` / `DedupStore` protocols.
+- Atomic upserts (`$setOnInsert`) prevent duplicate emission
+  during restart.  Concurrent runners safe by `_id` document
+  keys.  In-memory implementations retained for tests.
+- Credentials NEVER stored, logged, or returned.
+
+**Vendor pollers (`pollers.py`)**
+- `OktaSystemLogPoller`, `EntraSignInLogPoller`,
+  `AwsCloudTrailPoller` — each reads its own env vars.
+- `UnconfiguredPollerError` raised when required env vars are
+  absent — runner records DEGRADED/FAILED state honestly and
+  never fabricates telemetry.
+- `poller_configuration_status()` reports per-provider
+  configured/unconfigured WITHOUT leaking values.
+
+**HTTP surface additions**
+- `GET  /api/telemetry/pollers/status`         — configured vs unconfigured
+- `POST /api/telemetry/verdict-inputs`         — governed inputs + edges
+
+**Regression gate**
+- Tests: **90/90 pass** across:
+  - 13 Phase-1 gateway
+  - 25 Phase-1.5 integration
+  - 2 R48 PDF migration
+  - 13 MITRE catalogue
+  - 15 Telemetry Adapter Framework
+  - 11 Phase-2 operationalisation
+  - **11 Phase-2 verdict-gap** (new)
+- Live smoke:
+  - `/api/telemetry/pollers/status` — all three providers report
+     `configured: false` (honest, no leaks).
+  - `/api/telemetry/verdict-inputs` — 3-lane same-actor group →
+     1 `VerdictInput` with `correlation_confidence=0.85`,
+     rationale explicitly renouncing verdict authority; 2
+     evidence graph edges with `attck_promotion=false`.
+
+**Explicit hold** — Phase 3 Response Automation not started.
+
+
 ## ✅ 2026-09-02 · Phase 2 · Operationalisation (Ingestion + Correlation + Cognis Cross-Lane)
 
 **Ingestion runner** (`services/telemetry_adapters/runner.py`)

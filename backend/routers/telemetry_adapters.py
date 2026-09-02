@@ -20,7 +20,8 @@ from pydantic import BaseModel, Field
 from deps import get_current_user
 from services.telemetry_adapters import (
     get_registry, IngestionRunner, InMemoryCheckpoint, InMemoryDedup,
-    correlate,
+    correlate, build_verdict_inputs, build_evidence_graph_edges,
+    bridge_to_dict, poller_configuration_status,
 )
 
 
@@ -144,4 +145,50 @@ async def correlate_events(
                 "confidence":    g.confidence,
             } for g in groups
         ],
+    }
+
+
+
+
+@router.get("/telemetry/pollers/status")
+async def pollers_status(user = Depends(get_current_user)):
+    """Report vendor poller configuration status — configured
+    vs unconfigured, per provider — without leaking any values."""
+    return {"pollers": poller_configuration_status()}
+
+
+@router.post("/telemetry/verdict-inputs")
+async def verdict_inputs(payload: dict,
+                                              user = Depends(get_current_user)):
+    """Build governed Verdict-Engine inputs from a batch of
+    CanonicalEvent-shaped records.  The Verdict Engine remains
+    the sole verdict authority; this endpoint just formats the
+    correlation signals it may consume."""
+    from services.telemetry_adapters import (
+        CanonicalEvent, Provenance, SourceKind,
+    )
+    events = []
+    for e in payload.get("events") or []:
+        if not isinstance(e, dict): continue
+        prov = e.get("provenance") or {}
+        events.append(CanonicalEvent(
+            canonical_id  = e.get("canonical_id", ""),
+            source_kind   = SourceKind(e.get("source_kind", "endpoint")),
+            action        = e.get("action", ""),
+            actor         = dict(e.get("actor") or {}),
+            target        = dict(e.get("target") or {}),
+            context       = dict(e.get("context") or {}),
+            outcome       = e.get("outcome"),
+            severity_hint = e.get("severity_hint"),
+            tags          = tuple(e.get("tags") or ()),
+            provenance    = Provenance(**prov) if prov else None,
+        ))
+    groups = correlate(events,
+                                    window_minutes=payload.get("window_minutes") or 30)
+    inputs = build_verdict_inputs(groups)
+    edges  = build_evidence_graph_edges(groups)
+    return {
+        "verdict_inputs": [bridge_to_dict(v) for v in inputs],
+        "evidence_graph_edges": [bridge_to_dict(e) for e in edges],
+        "correlation_group_count": len(groups),
     }
