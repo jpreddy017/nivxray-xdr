@@ -5,6 +5,12 @@ from .framework import (
 from .adapters.okta_system_log import OktaSystemLogAdapter
 from .adapters.entra_signin_log import EntraSignInLogAdapter
 from .adapters.aws_cloudtrail import AwsCloudTrailAdapter
+from .runner import (
+    IngestionJob, IngestionHealth, IngestionRunner,
+    CheckpointStore, DedupStore, SourcePoller,
+    InMemoryCheckpoint, InMemoryDedup,
+)
+from .correlation import CrossLaneCorrelation, correlate
 
 
 def _register_default_adapters() -> None:
@@ -27,4 +33,8 @@ __all__ = [
     "get_registry",
     "OktaSystemLogAdapter", "EntraSignInLogAdapter",
     "AwsCloudTrailAdapter",
+    "IngestionJob", "IngestionHealth", "IngestionRunner",
+    "CheckpointStore", "DedupStore", "SourcePoller",
+    "InMemoryCheckpoint", "InMemoryDedup",
+    "CrossLaneCorrelation", "correlate",
 ]

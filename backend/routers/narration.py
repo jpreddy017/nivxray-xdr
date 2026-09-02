@@ -173,6 +173,27 @@ async def _build_incident_context(incident_id: str) -> NarrationContext:
         if val:
             entities.append(str(val))
 
+    # Phase-2 · Cognis cross-lane extension.  If the incident
+    # carries CanonicalEvent-shaped rows from Identity or Cloud
+    # lanes, feed their canonical_ids as governed evidence.
+    # Cognis then reasons across Endpoint + Identity + Cloud in
+    # one narration.  We NEVER let Cognis promote a technique to
+    # OBSERVED because of a cross-lane hint — the grounding
+    # validator still rejects any technique_id not already in
+    # AttackTechniqueEvidence.
+    cross_lane_ids: list[str] = []
+    lanes_present: set[str] = set()
+    for e in inc.get("canonical_events") or []:
+        if not isinstance(e, dict):
+            continue
+        cid = e.get("canonical_id")
+        sk  = e.get("source_kind")
+        if cid:
+            cross_lane_ids.append(str(cid))
+            ev_ids.append(str(cid))     # allow grounding validator to accept
+        if sk:
+            lanes_present.add(str(sk))
+
     return NarrationContext(
         incident_id    = incident_id,
         evidence_ids   = tuple(dict.fromkeys(ev_ids)),
@@ -188,9 +209,13 @@ async def _build_incident_context(incident_id: str) -> NarrationContext:
                 "field": f"incident:{incident_id}"},
         ),
         composer_input = {
-            "incident_id": incident_id,
-            "name":        inc.get("name"),
-            "number":      inc.get("number"),
+            "incident_id":   incident_id,
+            "name":          inc.get("name"),
+            "number":        inc.get("number"),
+            "cross_lane": {
+                "lanes":            sorted(lanes_present),
+                "cross_lane_ids":   cross_lane_ids,
+            },
         },
     )
 

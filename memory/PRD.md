@@ -1,6 +1,73 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · Phase 2 · Operationalisation (Ingestion + Correlation + Cognis Cross-Lane)
+
+**Ingestion runner** (`services/telemetry_adapters/runner.py`)
+- `IngestionRunner` + `IngestionJob` + `SourcePoller` protocol.
+- Vendor logic strictly behind the adapter boundary — the runner
+  never inspects raw records.
+- `CheckpointStore` + `DedupStore` protocols with `InMemoryCheckpoint`
+  and `InMemoryDedup` reference implementations.  Deterministic
+  dedup on `canonical_id`.  Restart/resume never emits duplicates.
+- Health snapshot: `state (IDLE|RUNNING|OK|DEGRADED|FAILED)`,
+  `last_run_at`, `last_success_at`, `last_error_at`,
+  `last_error_message` (scrubbed), `lag_seconds`,
+  `checkpoint_cursor`, `total_events_in / out / dedup_dropped`,
+  `consecutive_failures`.
+- Credential scrubbing: any error message containing
+  `authorization`, `bearer`, `api-key`, `aws_secret`, etc. is
+  replaced with `[redacted: contained a credential-shaped token]`.
+- HTTP surface: `GET /api/telemetry/runner/health`,
+  `GET /api/telemetry/runner/recent`.
+- **Explicit boundary**: real vendor HTTP pollers (Okta API,
+  Entra Graph, AWS SDK) require customer credentials and live
+  behind the `SourcePoller` protocol.  This delivery ships the
+  interface + reference in-memory poller for tests + docs;
+  operators wire real pollers per environment.
+
+**Cross-Lane Correlation Joiner** (`services/telemetry_adapters/correlation.py`)
+- `correlate(events, window_minutes=30) -> list[CrossLaneCorrelation]`.
+- Groups events across lanes when AND only when there is a
+  shared actor OR shared source IP, within the temporal window.
+- **Timestamp proximity ALONE never counts as correlation.**
+- Every group cites canonical_ids on both sides; no invented
+  edges; verdict semantics untouched; no ATT&CK promotion to
+  OBSERVED from a cross-lane hint.
+- Deterministic confidence: 0.5 + 0.15 × extra-lanes + 0.05 ×
+  extra-events, capped at 0.95.
+- HTTP surface: `POST /api/telemetry/correlate`.
+
+**Cognis cross-lane extension** (`routers/narration.py`)
+- `_build_incident_context()` now folds `incident.canonical_events[]`
+  (post-adapter rows) into the `NarrationContext`.  Their
+  canonical_ids are added to `evidence_ids` so the grounding
+  validator accepts them, and lane names surface in
+  `composer_input.cross_lane`.
+- Cognis can now reason across Endpoint + Identity + Cloud in a
+  single narration WITHOUT the ability to promote a technique to
+  OBSERVED or invent evidence — grounding rules unchanged.
+
+**Verification (STOP FOR REVIEW gate)**
+- `test_phase2_operationalisation.py` adds 11 tests covering:
+  · runner tick + checkpoint + dedup (state = OK, drops = 1)
+  · provider outage → state = FAILED, no events fabricated
+  · credential scrubbing in error messages
+  · correlation POSITIVE: endpoint↔identity, identity↔cloud,
+     endpoint→identity→cloud (0.85 confidence)
+  · correlation NEGATIVE: timestamp-near-but-unrelated,
+     single-lane, outside-window
+  · Cognis grounding accepts cross-lane evidence ids
+- Cumulative backend suite: **79/79 pass**.
+- Live smoke:
+  · `POST /api/telemetry/correlate` — three-lane group formed
+     correctly with real timestamps, 0.85 confidence.
+  · `GET /api/telemetry/runner/health` — empty until jobs
+     registered (honest).
+
+**Explicit hold** — Phase 3 Response Automation not started.
+
+
 ## ✅ 2026-09-02 · Phase 2 · R46 UI wire + R48 PDF migration + Telemetry Adapter Framework
 
 **R46 UI wire (Executive Summary overlay)**
