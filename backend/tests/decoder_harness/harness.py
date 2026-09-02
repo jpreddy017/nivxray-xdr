@@ -238,6 +238,17 @@ SEMANTIC_CASES: list[tuple[str, str, tuple, tuple, str, bool]] = [
      (),
      (),
      "ps-benign", True),
+    # ── Gate 2D · inline base64 fold ──
+    ("sem-ps-b64-01",
+     "$s='aHR0cHM6Ly9ldmlsLmV4YW1wbGUveA=='; [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($s))",
+     ("https://evil.example/x",),
+     ("powershell.variable_indirection", "powershell.base64_string_decode"),
+     "ps-base64-fold", False),
+    ("sem-ps-b64-02",
+     "[Convert]::FromBase64String('SGVsbG8gV29ybGQ=')",
+     ("Hello World",),
+     ("powershell.base64_string_decode",),
+     "ps-base64-fold", False),
 ]
 
 

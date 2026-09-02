@@ -76,8 +76,10 @@ def get_registry() -> CapabilityRegistry:
         # idempotent `register_all(registry)` we invoke here.
         from . import cmd as _cmd
         from . import powershell as _ps
+        from . import base as _base
         _cmd.register_all(_REGISTRY)
         _ps.register_all(_REGISTRY)
+        _base.register_all(_REGISTRY)
     return _REGISTRY
 
 

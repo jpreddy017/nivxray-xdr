@@ -65,4 +65,4 @@ __all__ = [
 ]
 
 # Semantic versioning of the engine. Bumped on every gate.
-ENGINE_VERSION = "0.3.0-gate2c"
+ENGINE_VERSION = "0.4.0-gate2d"

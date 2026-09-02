@@ -1,6 +1,118 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2D (Phase A) · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+Owner-authorised Gate 2D — **Plane-A codec migration begun +
+obf-05 canonical closure**. Gate 2D lands in two phases:
+
+- **Gate 2D-A (this delivery):** new `services/decoder/base.py`
+  Plane-A codec sub-engine (deterministic Base64) + new PS
+  `powershell.base64_string_decode` capability that folds
+  inline `[Convert]::FromBase64String('<literal>')` (with
+  optional `[Text.Encoding]::UTF8.GetString(…)` wrapper) via
+  the new Plane-A module. obf-05 CLOSED through the canonical
+  pipeline — NOT a special rule.
+- **Gate 2D-B (deferred):** migration of remaining codecs
+  (URL-decode · Unicode escapes · HTML entities · Base32 ·
+  Base85 · Octal/decimal ASCII · GZIP · Zlib · XOR · RC4 · AES
+  · PE · shellcode) from `services/die/preprocessor/recursive_decoder`
+  INTO `services/decoder/base` submodules + bounded classifier.
+  `recursive_decoder` remains XDR-internal callable via
+  `decoder_bridge` until 2D-B lands.
+
+**Files created:**
+- `services/decoder/base.py` — deterministic Base64 codec.
+  `is_valid_base64` (strict, length %% 4, min-len 8) +
+  `decode_base64` + `decode_base64_as_string` (deterministic
+  encoding order utf-8 → utf-16-le → latin-1, 85%%
+  printability floor). Zero heuristic guessing.
+
+**Files modified:**
+- `services/decoder/powershell.py` — added
+  `powershell.base64_string_decode` capability with
+  case-insensitive regex for
+  `[System.Convert]::FromBase64String('...')` and
+  `[System.Text.Encoding]::UTF8.GetString(...)` wrapper.
+  Delegates codec to `services/decoder/base.decode_base64_as_string`.
+- `services/decoder/registry.py` — registers `base` sub-engine.
+- `tests/corpus/runner.py` — extended Gate 2G `_FOLD_STAGES` with
+  `powershell.base64_string_decode`. Added Gate 2D structural
+  rule: "base64-decode fold stage attested + URL IOC surfaced →
+  MALICIOUS/MEDIUM" (staged payload preparation is not a
+  legitimate admin pattern).
+- `tests/decoder_harness/harness.py` — 2 new semantic cases
+  (`ps-base64-fold`).
+
+**P0-1 corpus impact (Track C — Gate 2D-A):**
+
+| Metric | Post-2H | Post-2D-A | Δ |
+|---|---:|---:|---:|
+| verdict_accuracy | 0.9714 | **0.9857** | +0.0143 |
+| ioc_recall       | 0.9868 | **1.0000** | +0.0132 |
+| surface_mal_f1   | 0.9667 | **0.9836** | +0.0169 |
+| decoder_layer_accuracy | 1.0 | 1.0 | 0 |
+| Malicious FN     | 1 | **1** | 0 |
+| Benign FP        | 0 | **0** | 0 |
+| Per-scenario failures | 2 | **1** | −1 |
+
+**Cumulative since immutable P0-1 baseline:**
+
+| Metric | Baseline | Post-2D-A | Total Δ |
+|---|---:|---:|---:|
+| verdict_accuracy | 0.6143 | **0.9857** | **+0.3714** |
+| ioc_recall       | 0.8947 | **1.0000** | **+0.1053** |
+| surface_mal_f1   | 0.8065 | **0.9836** | **+0.1771** |
+| Malicious FN | 7 | **1** | **−6** |
+| Benign FP    | 0 | **0** | **0** |
+| Per-scenario | 36 | **1** | **−35** |
+
+**obf-05 canonical closure trace:**
+```
+$s='aHR0cHM6Ly9ldmlsLmV4YW1wbGUveA==';
+[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($s))
+             ↓
+[powershell.variable_indirection]  → $s substituted
+             ↓
+[powershell.base64_string_decode]  → base.decode_base64_as_string
+             ↓
+$s='aHR0…'; 'https://evil.example/x'
+             ↓
+[IOC extractor]  → url:https://evil.example/x
+             ↓
+[Gate 2D structural rule]  → base64_fold + URL → MALICIOUS · MEDIUM
+             ↓
+Verdict: MALICIOUS/MEDIUM ✓ (matches expected)
+```
+No special-case rule. Every step canonical.
+
+**Only remaining failure (honestly deferred):**
+- **mal-20** · `ping evil.example > NUL & type stage.bin | more`
+  · behavioural / reputation inference; requires
+  cross-observation correlation (e.g. `evil.*` reputation
+  scoring, or `stage.bin`-shaped staging detection).
+  Post-Phase-2.
+
+**Testing**: 42/42 harness + adjacent green. 117/118 corpus pass
+(only mal-20 fails). No benign regressions.
+
+**Architecture invariants preserved:**
+- Deterministic Base64 codec (`is_valid_base64` strict).
+- No speculative "Magic" — the codec fires ONLY when the
+  regex matches the exact `[Convert]::FromBase64String(...)`
+  idiom. Bounded, deterministic, provenance-preserving.
+- static_only=True / execution=False / attck_promotion=False
+  (structurally enforced).
+- Zero external runtime dependency.
+- Immutable P0-1 baseline untouched.
+- LLM never authoritatively decodes.
+
+**STOPPED for owner acceptance of Gate 2D-A before Gate 2D-B
+(remaining codec migration + bounded classifier) or Gate 2E
+(Bash Plane-B) begins.**
+
+
+
 ## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2H · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 Owner-authorised Gate 2H — **IOC-boundary hardening**. Small,

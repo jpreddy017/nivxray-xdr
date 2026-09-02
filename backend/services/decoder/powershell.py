@@ -89,7 +89,81 @@ _CAPS: dict[str, Capability] = {
                       "PowerShell) so the actual command becomes the "
                       "canonical payload.",
     ),
+    # ── Gate 2D · inline base64 fold ──
+    "powershell.base64_string_decode": Capability(
+        name        = "powershell.base64_string_decode",
+        kind        = CapabilityKind.DECODER,
+        language    = "powershell",
+        version     = "0.1.0",
+        description = "Decode `[Convert]::FromBase64String('<literal>')` "
+                      "inline; also folds `[Text.Encoding]::UTF8.GetString"
+                      "([Convert]::FromBase64String('<literal>'))` shape. "
+                      "Delegates to `services.decoder.base` for the "
+                      "actual Base64 codec (Plane-A migration begun).",
+    ),
 }
+
+
+# ══════════════════════════════════════════════════════════════════
+# Gate 2D · inline Base64 fold  `[Convert]::FromBase64String('<b64>')`
+# ══════════════════════════════════════════════════════════════════
+# Match `[Convert]::FromBase64String('<literal>')` (single or double
+# quoted; case-insensitive; whitespace tolerant).  When wrapped in
+# `[Text.Encoding]::UTF8.GetString(…)` we still match the inner and
+# leave the wrapper — the decoded literal replaces the whole
+# invocation with a quoted-string result.
+_PS_B64_INLINE_RE = re.compile(
+    r"""(?ix)
+    (?:\[(?:System\.)?Text\.Encoding\]::(?:UTF8|Unicode|ASCII)\.GetString\s*\(\s*)?
+    \[(?:System\.)?Convert\]::FromBase64String
+    \s*\(\s*
+    (?:'([A-Za-z0-9+/=]+)'|"([A-Za-z0-9+/=]+)")
+    \s*\)
+    (?:\s*\))?
+    """
+)
+
+
+def _run_ps_base64(raw: str,
+                   parent_id: str,
+                   layer_index: int) -> Optional[DecodedLayer]:
+    """Fold PowerShell inline `FromBase64String('<literal>')` patterns
+    into the decoded string.  Delegates the actual codec to
+    `services.decoder.base` (Plane-A)."""
+    from .base import decode_base64_as_string
+    subs: list[tuple[str, str]] = []
+    def _fold(match: re.Match) -> str:
+        lit = match.group(1) if match.group(1) is not None else match.group(2)
+        if lit is None:
+            return match.group(0)
+        decoded = decode_base64_as_string(lit)
+        if decoded is None:
+            return match.group(0)
+        quoted = "'" + decoded.replace("'", "''") + "'"
+        subs.append((match.group(0)[:60], quoted[:80]))
+        return quoted
+    new_text = _PS_B64_INLINE_RE.sub(_fold, raw)
+    if not subs or new_text == raw:
+        return None
+    cap = _CAPS["powershell.base64_string_decode"]
+    return DecodedLayer(
+        layer_index    = layer_index,
+        stage          = "powershell.base64_string_decode",
+        language       = "powershell",
+        bytes_in       = len(raw),
+        bytes_out      = len(new_text),
+        input_preview  = raw[:256],
+        output         = new_text,
+        capability     = cap,
+        provenance     = Provenance(
+            decoded_from    = parent_id,
+            capability_name = cap.name,
+            engine_version  = ENGINE_VERSION,
+            recorded_at     = now_iso(),
+        ),
+        confidence     = "HIGH",
+        notes          = f"decoded {len(subs)} inline base64 literal(s)",
+    )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -427,6 +501,7 @@ def register_all(registry: CapabilityRegistry) -> None:
     registry.register(_CAPS["powershell.string_concat"],          _run_string_concat)
     registry.register(_CAPS["powershell.join_split_fold"],        _run_join_split)
     registry.register(_CAPS["powershell.variable_indirection"],   _run_variable_indirection)
+    registry.register(_CAPS["powershell.base64_string_decode"],   _run_ps_base64)
 
 
 def reconstruct(raw: str, parent_id: str) -> ReconstructionResult:
@@ -450,7 +525,8 @@ def reconstruct(raw: str, parent_id: str) -> ReconstructionResult:
         progress = False
         for runner_fn in (_run_char_array, _run_format_string,
                           _run_string_concat, _run_join_split,
-                          _run_variable_indirection):
+                          _run_variable_indirection,
+                          _run_ps_base64):
             layer = runner_fn(current, parent_id, layer_index=len(layers))
             if layer is not None:
                 layers.append(layer)

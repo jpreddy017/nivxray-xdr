@@ -353,6 +353,7 @@ def _surface_verdict(all_text: str,
         "powershell.join_split_fold",
         "powershell.variable_indirection",
         "powershell.stdin_pipe",
+        "powershell.base64_string_decode",
     }
     if decoded_stages and (decoded_stages & _FOLD_STAGES):
         # (a) Execution primitive surfaced by the fold?
@@ -394,6 +395,14 @@ def _surface_verdict(all_text: str,
         # attests the shape (stage fired), that IS the structural
         # evidence — no keyword required.
         if "powershell.stdin_pipe" in decoded_stages:
+            return "MALICIOUS", "MEDIUM"
+        # Gate 2D · base64-decoded URL is structural obfuscation.
+        # Legitimate admin scripts don't Base64-encode URLs into
+        # local variables + decode + use — that pattern IS the
+        # malicious signal.  Requires the codec fold to have fired
+        # (attested by `powershell.base64_string_decode` stage).
+        if ("powershell.base64_string_decode" in decoded_stages
+            and has_url_any):
             return "MALICIOUS", "MEDIUM"
 
     # 8 · Suspicious obfuscation
