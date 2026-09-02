@@ -30,7 +30,7 @@ from .types import (
 from .registry import CapabilityRegistry
 
 
-ENGINE_VERSION = "0.2.0-gate2a"
+ENGINE_VERSION = "0.3.0-gate2c"
 
 
 # ══════════════════════════════════════════════════════════════════

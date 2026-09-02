@@ -24,9 +24,10 @@ import uuid
 from .types import ReconstructionResult, DecodedLayer
 from .registry import get_registry
 from . import cmd as _cmd
+from . import powershell as _ps
 
 
-ENGINE_VERSION = "0.2.0-gate2a"
+ENGINE_VERSION = "0.3.0-gate2c"
 
 
 def _looks_like_cmd(text: str) -> bool:
@@ -46,11 +47,17 @@ def _looks_like_cmd(text: str) -> bool:
 
 def _looks_like_powershell(text: str) -> bool:
     low = text.lower()
-    return any(sig in low for sig in (
+    if any(sig in low for sig in (
         "powershell", "pwsh", "-encodedcommand", " -enc ", " -e ",
         "invoke-expression", "iex(", "iex ", "$env:",
         "new-object", "[system.", "[reflection.",
-    ))
+        "iwr ", "iwr(", "downloadstring", "invoke-webrequest",
+        "frombase64string", "[char]", "-join", "-split",
+        "-replace", "&$", "get-content",
+    )):
+        return True
+    # Format-string function assembly: `'{n}{m}' -f 'a','b'`
+    return "-f '" in text or "-f \"" in text or "'+'" in text or "\"+\"" in text
 
 
 def _looks_like_bash(text: str) -> bool:
@@ -82,18 +89,47 @@ class UniversalDecoderEngine:
                 raw_input="", final="", engine_version=ENGINE_VERSION)
         pid = parent_canonical_id or _new_parent_id()
 
-        # Gate 2A: CMD only.
+        # Gate 2A/2B: CMD path.
+        cmd_result: Optional[ReconstructionResult] = None
         if _looks_like_cmd(text):
-            return _cmd.reconstruct(text, pid)
+            cmd_result = _cmd.reconstruct(text, pid)
 
-        # PowerShell / Bash / codec paths — not wired in Gate 2A.
-        # Return an honest empty result so consumers see NO EVIDENCE
-        # rather than a fabricated pass.
+        # Gate 2C: PowerShell path — run on either the original text
+        # (when no CMD signals) or on the CMD-reconstructed payload
+        # (so nested PS-inside-CMD chains peel completely).
+        ps_input = cmd_result.final if cmd_result else text
+        ps_result: Optional[ReconstructionResult] = None
+        if _looks_like_powershell(ps_input):
+            ps_result = _ps.reconstruct(ps_input, pid)
+
+        if cmd_result or ps_result:
+            layers = []
+            if cmd_result:
+                layers.extend(cmd_result.layers)
+            if ps_result and ps_result.layers:
+                layers.extend(ps_result.layers)
+            final = (ps_result.final if ps_result
+                     else cmd_result.final if cmd_result else text)
+            unresolved: list[str] = []
+            if cmd_result:
+                unresolved.extend(cmd_result.unresolved_reasons)
+            if ps_result:
+                unresolved.extend(ps_result.unresolved_reasons)
+            return ReconstructionResult(
+                raw_input          = text,
+                final              = final,
+                layers             = layers,
+                unresolved_reasons = unresolved,
+                partial            = any([
+                    cmd_result and cmd_result.partial,
+                    ps_result and ps_result.partial,
+                ]),
+                engine_version     = ENGINE_VERSION,
+                static_only_verified = True,
+            )
+
+        # Nothing wired for Bash / Plane-A codec at this gate.
         reasons = []
-        if _looks_like_powershell(text):
-            reasons.append(
-                "powershell surface detected — PS sub-engine not yet "
-                "wired (P0-1B Gate 2C).")
         if _looks_like_bash(text):
             reasons.append(
                 "bash surface detected — Bash sub-engine not yet "

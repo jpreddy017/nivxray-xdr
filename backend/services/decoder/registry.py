@@ -72,10 +72,12 @@ def get_registry() -> CapabilityRegistry:
     global _REGISTRY
     if _REGISTRY is None:
         _REGISTRY = CapabilityRegistry()
-        # Deferred import to break the cycle; sub-engines expose an
+        # Deferred imports to break the cycle; sub-engines expose an
         # idempotent `register_all(registry)` we invoke here.
         from . import cmd as _cmd
+        from . import powershell as _ps
         _cmd.register_all(_REGISTRY)
+        _ps.register_all(_REGISTRY)
     return _REGISTRY
 
 

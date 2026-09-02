@@ -227,13 +227,27 @@ def canonicalize(raw: str,
                     d = l.to_dict()
                     d["source"] = "universal_decoder"
                     decoded_layers.append(d)
-                # If the universal decoder produced a semantic
-                # reconstruction (non-empty & different from current),
-                # promote it as the decoded_final ONLY when the codec
-                # path made no progress — otherwise keep codec's peel.
-                if (not decoded_final or decoded_final == current) \
+                # Promote the universal-decoder final when the codec
+                # bridge produced NO layers (its decoded_final would
+                # then be the original raw, i.e. no progress).  When
+                # the codec bridge DID produce layers, keep its final
+                # (Plane-A peel outranks Plane-B for downstream IOC
+                # projection until Gate 2D absorbs codecs).
+                if not any(l.get("source") != "universal_decoder"
+                           for l in decoded_layers) \
                    and ureq.final and ureq.final != raw:
                     decoded_final = ureq.final
+                    # Re-scan the semantically-reconstructed text so
+                    # IOCs (URLs, IPs, hashes) that only surface post-
+                    # reconstruction are surfaced honestly.  Uses the
+                    # existing DIE extractor — no new IOC logic.
+                    try:
+                        from services.die.ioc_semantic import extract_iocs
+                        for ioc in extract_iocs(ureq.final,
+                                                source="universal_decoder") or []:
+                            decoded_iocs.append(ioc)
+                    except Exception:
+                        pass
         except Exception:      # engine must NEVER break canonicalisation
             pass
 
