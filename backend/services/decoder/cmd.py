@@ -120,6 +120,25 @@ _SET_RE  = re.compile(
 _PERCENT_VAR_RE = re.compile(r"%([A-Za-z_][A-Za-z_0-9]*)%")
 _BANG_VAR_RE    = re.compile(r"!([A-Za-z_][A-Za-z_0-9]*)!")
 
+# Gate 2B · FOR /F semantic reconstruction.
+# Matches: `for /f [<options>] %<var> in (<source>) do <body>`
+# `%<var>` is one letter (e.g. %i); double-percent form `%%i` also
+# accepted for script context.
+_FOR_F_RE = re.compile(
+    r"(?i)\bfor\s+/f\s+"
+    r"(?:\"[^\"]*\"\s+)?"          # optional "usebackq tokens=… delims=…"
+    r"%%?([A-Za-z])\s+in\s+"
+    r"\((?P<source>[^)]*)\)\s*"
+    r"do\s+(?P<body>.+?)"
+    r"(?=(?:\s*(?:&|\|(?!\|)|\r|\n|$)))",
+    re.DOTALL,
+)
+
+# Gate 2B · Wildcard-executable resolution.
+# CMD wildcards: `*` matches any run of chars, `?` matches one.
+# We resolve ONLY to known-safe LOLBAS binaries — never invent.
+_CMD_WILDCARD_TOKEN_RE = re.compile(r"[A-Za-z0-9*?]+\.[A-Za-z0-9*?]+")
+
 # Leading CMD wrapper (`cmd.exe /S /C "..."`, `cmd /v:on /k …`, …).
 # Deterministic peel so downstream SET reassembly + caret stripping
 # operate on the actual payload, not the wrapper.  Accepts optional
@@ -450,7 +469,203 @@ _CAPS: dict[str, Capability] = {
         description = "Substitute !VAR! when /V:ON or SETLOCAL "
                       "EnableDelayedExpansion is present.",
     ),
+    # ── Gate 2B additions ────────────────────────────────────────
+    "cmd.for_f_semantic": Capability(
+        name        = "cmd.for_f_semantic",
+        kind        = CapabilityKind.PARSER,
+        language    = "cmd",
+        version     = "0.2.0",
+        description = "Static semantic reconstruction of `for /f %var "
+                      "in ('cmd') do body`. Records the inner command "
+                      "as evidence; SUBSTITUTES the loop variable in "
+                      "the body only when the inner command is a "
+                      "recognised LOLBin whose typical output is known "
+                      "(e.g. `where c*d.e?e`) — otherwise leaves the "
+                      "loop intact and records unresolved.",
+    ),
+    "cmd.wildcard_exec_resolve": Capability(
+        name        = "cmd.wildcard_exec_resolve",
+        kind        = CapabilityKind.KNOWLEDGE,
+        language    = "cmd",
+        version     = "0.2.0",
+        description = "Resolve CMD wildcard executable specifications "
+                      "(`c*d.e?e`, `p*ell.exe`) against the LOLBAS "
+                      "registry.  Only known-safe binaries are "
+                      "resolved; ambiguous specs stay unresolved.",
+    ),
 }
+
+
+# ══════════════════════════════════════════════════════════════════
+# Gate 2B · wildcard-executable resolution against LOLBAS
+# ══════════════════════════════════════════════════════════════════
+def _wildcard_to_regex(spec: str) -> "re.Pattern":
+    r_parts: list[str] = ["^"]
+    for ch in spec:
+        if ch == "*":
+            r_parts.append(r"[^\\/\s]*")
+        elif ch == "?":
+            r_parts.append(r"[^\\/\s]")
+        else:
+            r_parts.append(re.escape(ch))
+    r_parts.append("$")
+    return re.compile("".join(r_parts), re.IGNORECASE)
+
+
+def _resolve_wildcard_binary(spec: str) -> tuple[Optional[str], list[str]]:
+    """Return `(resolved_name, candidates[])`.  Resolves ONLY when
+    exactly one LOLBAS entry matches — ambiguous specs stay
+    unresolved (candidates list is returned for provenance)."""
+    if "*" not in spec and "?" not in spec:
+        return (None, [])
+    from services.die.lolbas import LOLBAS_REGISTRY
+    pat = _wildcard_to_regex(spec)
+    hits = [name for name in LOLBAS_REGISTRY if pat.match(name)]
+    if len(hits) == 1:
+        return (hits[0], hits)
+    return (None, hits)
+
+
+def _run_wildcard_exec(raw: str,
+                       parent_id: str,
+                       layer_index: int) -> tuple[Optional[DecodedLayer], list[str]]:
+    """Scan `raw` for wildcard-executable tokens; resolve unique hits.
+    Returns `(layer_or_none, unresolved_reasons[])`.
+    """
+    unresolved: list[str] = []
+    substitutions: dict[str, str] = {}
+    for m in _CMD_WILDCARD_TOKEN_RE.finditer(raw):
+        spec = m.group(0)
+        # Skip anything without a wildcard character.
+        if "*" not in spec and "?" not in spec:
+            continue
+        # Skip domain-looking tokens (contain letters + a common TLD)
+        low = spec.lower()
+        if any(low.endswith(tld) for tld in (
+                ".com", ".net", ".org", ".io", ".ai", ".lol", ".xyz")):
+            continue
+        resolved, hits = _resolve_wildcard_binary(spec)
+        if resolved and spec not in substitutions:
+            substitutions[spec] = resolved
+        elif not resolved:
+            unresolved.append(
+                f"{spec} — {len(hits)} LOLBAS candidate(s): "
+                f"{hits[:5] if hits else 'none'}")
+    if not substitutions:
+        return None, unresolved
+    new_text = raw
+    for spec, name in substitutions.items():
+        new_text = new_text.replace(spec, name)
+    cap = _CAPS["cmd.wildcard_exec_resolve"]
+    return DecodedLayer(
+        layer_index    = layer_index,
+        stage          = "cmd.wildcard_exec_resolve",
+        language       = "cmd",
+        bytes_in       = len(raw),
+        bytes_out      = len(new_text),
+        input_preview  = raw[:256],
+        output         = new_text,
+        capability     = cap,
+        provenance     = Provenance(
+            decoded_from    = parent_id,
+            capability_name = cap.name,
+            engine_version  = ENGINE_VERSION,
+            recorded_at     = now_iso(),
+        ),
+        confidence     = "HIGH",
+        notes          = "resolved: " + ", ".join(
+            f"{k}→{v}" for k, v in substitutions.items()),
+    ), unresolved
+
+
+# ══════════════════════════════════════════════════════════════════
+# Gate 2B · FOR /F static semantic reconstruction
+# ══════════════════════════════════════════════════════════════════
+# Known static "where"-style resolutions.  Kept small and
+# conservative — semantic reconstruction requires the inner
+# command's stdout to be deterministically knowable.  `where
+# <lolbin>` deterministically returns the absolute path to that
+# lolbin; for our reconstruction we substitute the LOLBin name so
+# the loop-body semantics are readable to analysts.
+_STATIC_INNER_RESOLVERS: list[tuple[re.Pattern, callable]] = [
+    (
+        re.compile(r"(?i)^\s*where\s+([A-Za-z0-9*?._-]+\.[A-Za-z0-9*?._-]+)\s*$"),
+        lambda m: _resolve_wildcard_binary(m.group(1))[0]
+                  or (m.group(1) if "*" not in m.group(1) and "?" not in m.group(1)
+                      else None),
+    ),
+    (
+        re.compile(r"(?i)^\s*where\s+([A-Za-z0-9._-]+)\s*$"),
+        lambda m: m.group(1) if not any(c in m.group(1)
+                                        for c in "*?") else None,
+    ),
+]
+
+
+def _resolve_for_f_inner(inner: str) -> Optional[str]:
+    """Return the deterministic value the `for /f` loop variable
+    would receive, or None when not statically knowable."""
+    inner = inner.strip().strip("'\"")
+    for pat, fn in _STATIC_INNER_RESOLVERS:
+        m = pat.match(inner)
+        if m:
+            val = fn(m)
+            if val:
+                return val
+    return None
+
+
+def _run_for_f(raw: str,
+               parent_id: str,
+               layer_index: int) -> tuple[list[DecodedLayer], list[str]]:
+    """Rewrite each `for /f %v in (…) do body` where the inner is
+    statically resolvable; leave others as UNRESOLVED honest evidence.
+    """
+    layers: list[DecodedLayer] = []
+    unresolved: list[str] = []
+    substitutions: list[tuple[str, str, str, str]] = []  # (var, resolved, inner, body)
+    new_text = raw
+    for m in list(_FOR_F_RE.finditer(raw)):
+        var    = m.group(1)
+        inner  = m.group("source") or ""
+        body   = m.group("body")   or ""
+        resolved = _resolve_for_f_inner(inner)
+        if resolved is None:
+            unresolved.append(
+                f"for /f %{var} in ({inner.strip()}) — inner not "
+                "statically resolvable (Gate 2B leaves loop intact).")
+            continue
+        # Substitute `%var` (case-insensitive one-letter form) in body
+        body_expanded = re.sub(
+            rf"%{re.escape(var)}\b", resolved, body,
+            flags=re.IGNORECASE)
+        # Replace the whole FOR /F expression with the expanded body.
+        full = m.group(0)
+        new_text = new_text.replace(full, body_expanded, 1)
+        substitutions.append((var, resolved, inner.strip(), body_expanded))
+    if not substitutions:
+        return [], unresolved
+    cap = _CAPS["cmd.for_f_semantic"]
+    layers.append(DecodedLayer(
+        layer_index    = layer_index,
+        stage          = "cmd.for_f_semantic",
+        language       = "cmd",
+        bytes_in       = len(raw),
+        bytes_out      = len(new_text),
+        input_preview  = raw[:256],
+        output         = new_text,
+        capability     = cap,
+        provenance     = Provenance(
+            decoded_from    = parent_id,
+            capability_name = cap.name,
+            engine_version  = ENGINE_VERSION,
+            recorded_at     = now_iso(),
+        ),
+        confidence     = "MEDIUM",
+        notes          = "; ".join(
+            f"%{v} <- {r} (from `{i}`)" for v, r, i, _ in substitutions),
+    ))
+    return layers, unresolved
 
 
 def register_all(registry: CapabilityRegistry) -> None:
@@ -462,6 +677,8 @@ def register_all(registry: CapabilityRegistry) -> None:
     registry.register(_CAPS["cmd.set_reassembly"],    _run_variable_resolution)
     registry.register(_CAPS["cmd.percent_var_resolve"], _run_variable_resolution)
     registry.register(_CAPS["cmd.delayed_expansion"], _run_variable_resolution)
+    registry.register(_CAPS["cmd.for_f_semantic"],    _run_for_f)
+    registry.register(_CAPS["cmd.wildcard_exec_resolve"], _run_wildcard_exec)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -469,7 +686,11 @@ def register_all(registry: CapabilityRegistry) -> None:
 # ══════════════════════════════════════════════════════════════════
 def reconstruct(raw: str, parent_id: str) -> ReconstructionResult:
     """CMD reconstruction pass.  Deterministic ordering:
-       1. wrapper unwrap → 2. caret strip → 3. SET / %VAR% / !VAR!.
+       1. wrapper unwrap →
+       2. caret strip →
+       3. SET / %VAR% / !VAR! resolution →
+       4. FOR /F semantic reconstruction →
+       5. wildcard-executable resolution.
     """
     layers: list[DecodedLayer] = []
     unresolved: list[str] = []
@@ -480,7 +701,6 @@ def reconstruct(raw: str, parent_id: str) -> ReconstructionResult:
     if wrap_layer is not None:
         layers.append(wrap_layer)
         current = wrap_layer.output
-        # Carry /V:ON state through peel.
         if "delayed_expansion=True" in (wrap_layer.notes or ""):
             dexp_hint = True
 
@@ -496,6 +716,25 @@ def reconstruct(raw: str, parent_id: str) -> ReconstructionResult:
     unresolved.extend(var_unresolved)
     if var_layers:
         current = var_layers[-1].output
+
+    # Gate 2B — FOR /F semantic reconstruction (up to two passes so
+    # nested loops can peel).
+    for _pass in range(2):
+        forf_layers, forf_unresolved = _run_for_f(
+            current, parent_id, layer_index=len(layers))
+        unresolved.extend(forf_unresolved)
+        if not forf_layers:
+            break
+        layers.extend(forf_layers)
+        current = forf_layers[-1].output
+
+    # Gate 2B — wildcard-executable resolution against LOLBAS.
+    wild_layer, wild_unresolved = _run_wildcard_exec(
+        current, parent_id, layer_index=len(layers))
+    unresolved.extend(wild_unresolved)
+    if wild_layer is not None:
+        layers.append(wild_layer)
+        current = wild_layer.output
 
     partial = bool(unresolved)
     return ReconstructionResult(

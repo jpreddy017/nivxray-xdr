@@ -31,11 +31,17 @@ ENGINE_VERSION = "0.2.0-gate2a"
 
 def _looks_like_cmd(text: str) -> bool:
     low = text.lower()
-    return any(sig in low for sig in (
+    if any(sig in low for sig in (
         "cmd.exe", "cmd /c", "cmd /k", "cmd /v",
         "set ", "%comspec%", "%systemroot%",
-        "^", " & ", " && ", "| ",  # only very generic
-    )) or "!" in text and any(c in text for c in ("set ", "SET "))
+        "^", " & ", " && ", "| ", "for /f",
+    )):
+        return True
+    # Wildcard-exec pattern (e.g. `c*d.e?e`, `p*ell.exe`) → CMD.
+    import re as _re
+    if _re.search(r"[A-Za-z0-9]*[*?][A-Za-z0-9*?]*\.[A-Za-z0-9*?]+", text):
+        return True
+    return "!" in text and any(c in text for c in ("set ", "SET "))
 
 
 def _looks_like_powershell(text: str) -> bool:

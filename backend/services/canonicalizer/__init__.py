@@ -194,17 +194,12 @@ def canonicalize(raw: str,
     decoded_iocs:   List[Dict[str, Any]] = []
     decoded_final = current
     if with_decoder:
-        # P0-0 plumbing — delegate to the existing recursive engine.
-        # No new codec code is written; we just project each layer
-        # as a canonical CHILD with provenance.decoded_from.
-        #
-        # Run the decoder on the ORIGINAL raw input (not on
-        # ``current``) so the full peel chain is recorded — the
-        # canonicalizer's inline launcher-peel would otherwise steal
-        # the first base64 step and the recursive engine would see
-        # nothing to do.  When both paths agree on the final text,
-        # `decoded_final == payload` and analysts see one auditable
-        # trace instead of two silent ones.
+        # P0-0 plumbing — delegate to the existing recursive engine
+        # for Plane-A codec projection (Base64, GZIP, UTF-16LE, XOR,
+        # RC4, AES, PE detection, …).  This path calls the XDR-owned
+        # `services/die/preprocessor/recursive_decoder` — an internal
+        # module, NOT an external bridge.  Slated to collapse into
+        # `services/decoder/` at Gate 2D.
         try:
             from services.decoder_bridge import (      # noqa: WPS433
                 decode_commandline, project_iocs,
@@ -216,6 +211,31 @@ def canonicalize(raw: str,
             decoded_iocs   = project_iocs(layers)
         except Exception:      # decoder must NEVER break canonicalisation
             decoded_layers, decoded_iocs, decoded_final = [], [], current
+
+        # P0-1B Gate 2A/2B · call the XDR-owned Universal Decoder
+        # Engine for CMD Plane-B semantic reconstruction (caret,
+        # SET reassembly, %VAR%/!VAR!, FOR /F, wildcard-exec).
+        # Runs on the ORIGINAL raw so wrapper unwrap can see the
+        # `cmd.exe /c "..."` shape.  Its layers are appended AFTER
+        # the codec layers so analysts see codec-then-semantic order.
+        try:
+            from services.decoder import decode_universal    # noqa: WPS433
+            pid_b = parent_canonical_id or f"canonical:{abs(hash(raw)) & 0xffffffff:x}"
+            ureq = decode_universal(raw, pid_b)
+            if ureq.layers:
+                for l in ureq.layers:
+                    d = l.to_dict()
+                    d["source"] = "universal_decoder"
+                    decoded_layers.append(d)
+                # If the universal decoder produced a semantic
+                # reconstruction (non-empty & different from current),
+                # promote it as the decoded_final ONLY when the codec
+                # path made no progress — otherwise keep codec's peel.
+                if (not decoded_final or decoded_final == current) \
+                   and ureq.final and ureq.final != raw:
+                    decoded_final = ureq.final
+        except Exception:      # engine must NEVER break canonicalisation
+            pass
 
     return CanonicalCommand(
         raw               = raw,

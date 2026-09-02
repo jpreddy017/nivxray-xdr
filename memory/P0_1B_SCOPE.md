@@ -285,3 +285,33 @@ Phase 2 (implementation, clean-room):
 - **The engine must be tested against the command lines already
   present in NivXRay BEFORE it is allowed to claim capability
   expansion.** Feature progress + product regression = reject.
+
+---
+
+## Architecture rule · `decoder_bridge` disambiguation (locked 2026-09-02)
+
+`decoder_bridge` MUST NOT mean a runtime bridge to:
+- original NivXRay decoder (as a competing runtime path)
+- CyberChef · CMD-DeObfuscator · Invoke-Obfuscation ·
+  Invoke-DOSfuscation · PowerDecode · PSDecode ·
+  batch_deobfuscator · BatchAlchemy
+- any external / third-party decoder
+
+**The ONLY runtime decoder is `services/decoder/`.** If an
+internal adapter/module named `decoder_bridge` is retained purely
+as XDR-to-XDR integration plumbing (e.g. calling the existing
+`services/die/preprocessor/recursive_decoder.py` while codec
+sub-engines migrate INTO `services/decoder/` under later gates),
+it MUST:
+1. Call ONLY XDR-owned internal modules.
+2. Contain ZERO external / third-party runtime dependency.
+3. Be scheduled for collapse into `services/decoder/` once codec
+   sub-engines are wired (Gate 2D).
+
+**Gate 2B integration model:** prefer direct call from
+`services/canonicalizer/canonicalize()` to
+`services.decoder.decode_universal()` for CMD Plane-B
+reconstruction. Do NOT create a second decoder path. The existing
+`services/decoder_bridge/` retains responsibility for Plane-A
+codec projection via `services/die/preprocessor/recursive_decoder`
+until Gate 2D absorbs those capabilities into `services/decoder/`.

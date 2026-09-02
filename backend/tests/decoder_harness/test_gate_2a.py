@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import pytest
 
-from .harness import run_harness, save_report, TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A
+from .harness import (
+    run_harness, save_report,
+    TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A,
+    TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2B,
+)
 from pathlib import Path
 
 
@@ -39,14 +43,28 @@ def test_p0_1_corpus_no_regression(report):
 def test_tommy_aa_gate_2a_partial(report):
     """Gate 2A must land the 4 authorised primitives on tommy-aa.lol.
 
-    Full semantic closure (FOR /F + wildcard-exec) belongs to Gate 2B.
+    Full semantic closure (FOR /F + wildcard-exec) is Gate 2B.
     """
     g = report.tracks["G"]
-    assert set(g["actual_layers"]) >= TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A, \
-        f"Gate 2A layers missing on tommy-aa.lol: {g['layers_missing']}"
-    assert g["substrings_missing"] == [], \
-        f"Gate 2A expected substrings missing: {g['substrings_missing']}"
-    assert g["gate_2a_pass"] is True
+    a = g["gate_2a"]
+    assert set(a["actual_layers"]) >= TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A, \
+        f"Gate 2A layers missing on tommy-aa.lol: {a['substrings_missing']}"
+    assert a["substrings_missing"] == [], \
+        f"Gate 2A expected substrings missing: {a['substrings_missing']}"
+    assert a["pass"] is True
+
+
+def test_tommy_aa_gate_2b_closure(report):
+    """Gate 2B must fully reconstruct tommy-aa.lol semantically:
+       cmd.exe · curl.exe · powershell.exe · https://tommy-aa.lol/f.
+    """
+    g = report.tracks["G"]
+    b = g["gate_2b"]
+    assert set(b["actual_layers"]) >= TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2B, \
+        f"Gate 2B layers missing on tommy-aa.lol: {b['layers_missing']}"
+    assert b["substrings_missing"] == [], \
+        f"Gate 2B expected substrings missing: {b['substrings_missing']}"
+    assert b["pass"] is True
 
 
 def test_semantic_pass_rate(report):

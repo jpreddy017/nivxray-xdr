@@ -155,6 +155,133 @@ _BUILTIN: Dict[str, Dict[str, Any]] = {
         "mitre":    ["T1003.003"],
         "notes":    "NTDS.dit dumping — credential access.",
     },
+    # ── Gate 2B expansion (2026-09-02) · required for wildcard resolution ──
+    "where.exe": {
+        "category": "search-utility",
+        "trust":    "system",
+        "mitre":    [],
+        "notes":    "Search PATH for a binary.  Common in FOR /F discovery loops.",
+    },
+    "esentutl.exe": {
+        "category": "database-utility",
+        "trust":    "admin",
+        "mitre":    ["T1003.002"],
+        "notes":    "ESE database utility — SAM extraction primitive.",
+    },
+    "netstat.exe": {
+        "category": "network-utility",
+        "trust":    "system",
+        "mitre":    ["T1049"],
+        "notes":    "Network connection listing — discovery.",
+    },
+    "tasklist.exe": {
+        "category": "process-utility",
+        "trust":    "system",
+        "mitre":    ["T1057"],
+        "notes":    "Process listing — discovery.",
+    },
+    "taskkill.exe": {
+        "category": "process-utility",
+        "trust":    "system",
+        "mitre":    ["T1489"],
+        "notes":    "Process termination — service stop.",
+    },
+    "nltest.exe": {
+        "category": "domain-utility",
+        "trust":    "system",
+        "mitre":    ["T1482"],
+        "notes":    "Domain-trust enumeration.",
+    },
+    "whoami.exe": {
+        "category": "discovery-utility",
+        "trust":    "system",
+        "mitre":    ["T1033"],
+        "notes":    "Owner/privilege discovery.",
+    },
+    "systeminfo.exe": {
+        "category": "discovery-utility",
+        "trust":    "system",
+        "mitre":    ["T1082"],
+        "notes":    "System information discovery.",
+    },
+    "ipconfig.exe": {
+        "category": "network-utility",
+        "trust":    "system",
+        "mitre":    ["T1016"],
+        "notes":    "Network configuration discovery.",
+    },
+    "hostname.exe": {
+        "category": "discovery-utility",
+        "trust":    "system",
+        "mitre":    ["T1082"],
+        "notes":    "Host name discovery.",
+    },
+    "net.exe": {
+        "category": "shell-utility",
+        "trust":    "system",
+        "mitre":    ["T1087", "T1136.001", "T1098", "T1021.002"],
+        "notes":    "net user / net localgroup / net use — enumeration + lateral.",
+    },
+    "net1.exe": {
+        "category": "shell-utility",
+        "trust":    "system",
+        "mitre":    ["T1087", "T1136.001", "T1098", "T1021.002"],
+        "notes":    "Backing net.exe delegate.",
+    },
+    "wget.exe": {
+        "category": "network-utility",
+        "trust":    "system",
+        "mitre":    ["T1105"],
+        "notes":    "Native wget on Win10+.",
+    },
+    "msbuild.exe": {
+        "category": "signed-binary-proxy",
+        "trust":    "admin",
+        "mitre":    ["T1127.001"],
+        "notes":    ".NET build tool — inline XML task execution vector.",
+    },
+    "cmstp.exe": {
+        "category": "signed-binary-proxy",
+        "trust":    "system",
+        "mitre":    ["T1218.003"],
+        "notes":    "Connection Manager profile installer — code exec proxy.",
+    },
+    "hh.exe": {
+        "category": "signed-binary-proxy",
+        "trust":    "system",
+        "mitre":    ["T1218.001"],
+        "notes":    "Compiled HTML help — HTA/URL execution vector.",
+    },
+    "pwsh.exe": {
+        "category": "script-host",
+        "trust":    "admin",
+        "mitre":    ["T1059.001"],
+        "notes":    "PowerShell 7+ interpreter.",
+    },
+    "conhost.exe": {
+        "category": "shell-host",
+        "trust":    "system",
+        "mitre":    [],
+        "notes":    "Console host — usually benign; rare abuse.",
+    },
+    "sc.exe": {
+        "category": "service-utility",
+        "trust":    "system",
+        "mitre":    ["T1543.003", "T1569.002"],
+        "notes":    "Service control — persistence / lateral execution.",
+    },
+    "psexec.exe": {
+        "category": "remote-execution-utility",
+        "trust":    "admin",
+        "mitre":    ["T1569.002"],
+        "notes":    "SysInternals remote exec — lateral movement.",
+    },
+    "at.exe": {
+        "category": "scheduler-utility",
+        "trust":    "admin",
+        "mitre":    ["T1053.002"],
+        "notes":    "Legacy scheduler — persistence / lateral.",
+    },
 }
 
 _JSON_PATH = Path(__file__).parent / "lolbas_registry.json"
