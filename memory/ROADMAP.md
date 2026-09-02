@@ -75,8 +75,48 @@ Only after that is a jump to composite 78–82 defensible.
 
 ## Locked sequencing (do NOT reorder)
 
-1. **Intelligence Controls** — ✅ FORMALLY ACCEPTED 2026-09-02 · CLOSED · architecture LOCKED
-2. **Attack Chain / Attack Graph redesign** — ✅ SHIPPED 2026-09-02 · in REVIEW / awaiting formal acceptance (100% frontend green — iter_80)
+1. **Intelligence Controls** — ✅ FORMALLY ACCEPTED 2026-09-02 · CLOSED
+2. **Attack Chain redesign** — ✅ SHIPPED 2026-09-02 · in REVIEW
+3. **P0-0 Decoder audit + Decoder-in-Pipeline plumbing** — ✅ SHIPPED 2026-09-02 (bridge SUPERSEDED — see P0-1B below)
+4. **P0-1 Labelled corpus** — ✅ FORMALLY ACCEPTED 2026-09-02 as immutable baseline · 76 scenarios · verdict 0.614 · ATT&CK F1 0.823 · IOC F1 0.881 · decoder-layer 1.000 · malicious F1 0.806 · **0 benign FPs · 7 malware FNs**
+5. **P0-1A Surface Detection Fix Pass** — 🔥 **AUTHORISED · NEXT TURN**
+   - Add explicit `UNCERTAIN` state at command surface
+   - Post-decode IOC re-scan (fixes obf-02 caret URL)
+   - Persistence-cluster promotion (fixes mal-08 / mal-09)
+   - Local-account-creation detection (fixes mal-13)
+   - Lateral-copy detection (fixes mal-18)
+   - Reflective-PE-load detection (fixes obf-13)
+   - Correct E2E incident-verdict measurement at incident scope
+   - **ZERO new decoder implementations · no LLM changes · no fabricated evidence · preserve NO EVIDENCE → NO CLAIM**
+   - After: rerun the immutable 76-scenario corpus, report every changed scenario + TP/FP/FN/TN deltas, then STOP
+6. **P0-1B Universal Command Deobfuscation Engine** — ⏸ QUEUED (supersedes previous "defer" decision)
+   - **XDR-owned engine** — NO bridge · NO runtime dependency on old NivXRay decoder / CyberChef / CMD-DeObfuscator / Invoke-Obfuscation / Invoke-DOSfuscation / PowerDecode / BatchDeobfuscator
+   - External projects are SOURCE / REFERENCE / PARITY CORPUS only
+   - Phase 1: complete source inventory in `UNIVERSAL_DECODER_SOURCE_INVENTORY.md` + `UNIVERSAL_DECODER_COVERAGE_MATRIX.md` + `UNIVERSAL_DECODER_LICENSE_MATRIX.md`
+   - Phase 2: build the UNION (NivXRay + CyberChef + CMD-DeObfuscator + Invoke-DOSfuscation + Invoke-Obfuscation + PowerDecode-static + Batch deobfuscation + Bash/sh)
+   - Classify every discovered op: DECODER / DEOBFUSCATOR / TRANSFORM / PARSER / STATIC-ANALYZER / IOC / DETECTION / TEST-CORPUS / DYNAMIC (reject) / UI (reject) / IRRELEVANT (reject)
+   - Only static-safe A–H capabilities enter the engine
+   - Phase 3: single XDR-owned `UniversalDecoderEngine` under `services/decoder/` with CMD / PowerShell / Bash / Base / Compression / Crypto / Recursive / Extraction sub-engines
+   - **Mandatory regression**: the `where c*d.e?e … h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f` sample must reconstruct semantically (cmd.exe · curl.exe · powershell.exe · https://tommy-aa.lol/f) — never executed
+   - **Absolute invariants**: DECODED ≠ EXECUTED · LLM never authoritatively decodes · no dynamic execution of any language · every layer keeps full provenance with `static_only=true, execution=false, attck_promotion=false`
+   - License hygiene: preserve Apache-2.0 / MIT / GPL obligations; if GPL is incompatible, extract behavioural knowledge + test vectors + write clean-room XDR-native implementation
+7. **P0-2 Real Pollers** (Okta / Entra / CloudTrail) — ⏸ DO NOT START until P0-1A is accepted AND P0-1B command-deobfuscation is materially closed. Sequence: Detection surface → Command semantic reconstruction → Real pollers → Load testing.
+8. **Phase 3 Response Automation** — ⏸ NO
+9. **Any new UI feature work** — ⏸ NO
+
+### Immutable P0-1 baseline (never rewrite)
+- 76 scenarios · 20 benign · 15 suspicious · 20 malware · 15 obfuscation · 6 e2e
+- verdict 0.614 · severity 0.657 · ATT&CK P 0.752 R 0.909 F1 0.823 · IOC P 0.868 R 0.895 F1 0.881
+- decoder-layer 1.000 · decoder-substring 0.974 · malicious-class P 0.926 R 0.714 F1 0.806
+- 0 benign FPs · 7 malware FNs (mal-08/09/13/16/17/18/20) · 6 e2e NOT MEASURABLE at command scope
+- Primary goal for P0-1A: **reduce the 7 malware FNs without introducing benign FPs** — do NOT chase 100% verdict accuracy cosmetically.
+
+### Anti-inflation rules
+- Do NOT rewrite the P0-1 baseline numbers.
+- Do NOT relabel a scenario to make it pass.
+- Do NOT chase composite maturity by adding UI.
+- Do NOT let LLM narration touch decoding authority.
+- Do NOT accept a capability as "implemented" from code presence alone.
    (compact investigation-node visual, restrained semantic palette,
    semantic edges + arrowheads, evidence-first hierarchy; reuse
    existing IKG / EvidenceInspector / canvas — NO new engine)
