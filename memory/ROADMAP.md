@@ -1,3 +1,139 @@
+# NivXRay XDR — Owner-Locked Sequencing (2026-09-02)
+
+> Formal owner directive: Intelligence Controls are in REVIEW.
+> **Do NOT authorize the next task from status alone.** Wait for
+> explicit acceptance before starting item #2.
+
+## Locked sequencing (do NOT reorder)
+
+1. **Intelligence Controls** — SHIPPED · in REVIEW / awaiting formal acceptance
+2. **Attack Chain / Attack Graph redesign** — brief already delivered in-thread
+   (compact investigation-node visual, restrained semantic palette,
+   semantic edges + arrowheads, evidence-first hierarchy; reuse
+   existing IKG / EvidenceInspector / canvas — NO new engine)
+3. **Provider Registry** — abstract Anthropic / OpenAI / Gemini /
+   offline runtimes behind the Model Gateway so Emergent is not a
+   permanent identity; API keys live in Administration only
+4. **Phase 2 final evidence gate re-verify** — confirm Verdict Engine
+   consumes cross-lane inputs · Evidence Graph edges have
+   `attck_promotion=false` · Cross-Lane Story remains grounded
+5. **Phase 3 Response Automation** — only after (1)–(4) formally
+   accepted
+
+## Blocking invariants (never negotiate)
+
+- AI/LLM can **explain** NivXRay XDR's security truth; it cannot
+  **create** that truth.
+- Cognis / Narration Gateway / any registered LLM MUST NOT become
+  a verdict, ATT&CK, evidence, correlation, IKG or audit authority.
+- Deterministic Narration Engine is ALWAYS available regardless of
+  policy, credits, cloud outage, or offline-runtime absence.
+- Master-permission invariant: `online_ai=off` ⇒ `online_llm=off`
+  at BOTH the resolver AND storage layers.
+- Intelligence policy NEVER changes the deterministic security core.
+
+## Deferred hygiene (owner-offered, non-blocking)
+
+- **Role Interceptor** — axios client sends `X-Principal-Role` so
+  policy audit rows stop recording `changed_by_role="unknown"`.
+  Small · isolated · will not touch product architecture.
+  **Awaiting owner OK — do not build unsolicited.**
+
+---
+
+## Backlog · Universal Security Ingestion & Evidence Fabric
+_(Owner analysis captured 2026-09-02 · NOT authorized to build yet)_
+
+**Strategic principle (owner-locked):**
+> Wazuh's model: "Can I decode and detect this event?"
+> NivXRay XDR's model: "Can I turn this telemetry into governed
+> evidence, connect it to other evidence, determine what is actually
+> observed, identify what evidence is missing, and prove why the
+> resulting investigation reached its conclusion?"
+>
+> Wazuh becomes ONE telemetry source among many. NivXRay XDR is
+> the higher-order investigation / correlation / evidence layer.
+
+**Do NOT build (would fracture SSOT):**
+- Separate Wazuh-style decoder engine
+- Separate alert authority
+- Separate correlation engine
+- Separate evidence graph
+- Separate verdict engine
+- Separate ATT&CK engine
+- Separate AI investigation engine
+
+**Target architecture (evolves current pipeline; NO new authorities):**
+```
+Source
+  ↓  Collector / Adapter               (Ingestion Fabric)
+  ↓  Artifact / Event Identification
+  ↓  Parser / Decoder / Normalizer     (Parser Registry)
+  ↓  Canonical Evidence + Provenance
+  ↓  Evidence Classification + State   (RAW → PARTIAL → NORMALIZED → CANONICAL → EVIDENCE_READY)
+  ↓  Evidence Graph / IKG
+  ↓  Correlation / ICE
+  ↓  Existing Verdict Engine           ← sole verdict authority
+  ↓  Incident
+  ↓  IUE (Investigation Understanding Engine)
+  ↓  Cognis (assistive narration only)
+  ↓  Investigation / Response
+```
+
+### P0 (foundational)
+- Universal Ingestion Fabric (endpoint · identity · network · cloud ·
+  SaaS · security-products · applications) — extends existing
+  Telemetry Adapter Framework, no parallel pipeline
+- Adapter Registry (per-source: provider, type, adapter, parser,
+  normalizer, schema, health, last-event, event-rate, error-rate,
+  coverage, provenance)
+- Canonical Event / Evidence transformation contract
+  (source-agnostic PROCESS_EXECUTION / IDENTITY_AUTH / CLOUD_API etc.)
+- Parser / Normalizer Registry with test corpora + versioning
+- Unknown / partial parsing preservation (never silently discard —
+  RAW → PARTIAL → NORMALIZED → CANONICAL → EVIDENCE_READY)
+- Ingestion Health promoted to a security-intelligence surface
+- Evidence provenance (source_id, vendor, adapter, adapter version,
+  raw_ref, ingested_at, source_event_time) — already partly present
+
+### P1 (high value)
+- **Wazuh Adapter** — first-class NivXRay ingestion source;
+  a firing Wazuh rule becomes EVIDENCE, never an automatic verdict
+- Detection Coverage vs Ingestion Coverage split (per source /
+  domain / ATT&CK tactic)
+- Evidence Readiness first-class concept — per incident and per
+  domain, feeds verdict-confidence INTERPRETATION (does NOT change
+  verdict authority)
+- Source Coverage Matrix (Endpoint · Identity · Cloud · Network ·
+  EDR × ingested / normalized / evidence / detection / investigation)
+- Ingestion → IUE evidence-gap loop (IUE names missing evidence;
+  new evidence flows back into correlation, re-evaluation)
+- Parser test-corpus + parser versioning
+
+### P2 (differentiators)
+- Parser / Decoder marketplace
+- Automated parser assistance (Cognis SUGGESTS parsers, never
+  writes canonical evidence)
+- Cross-source schema learning
+- Ingestion quality analytics
+- Evidence-gap-driven live telemetry requests
+
+**Owner rule — Wazuh rule ingestion:**
+```
+Wazuh Rule → Detection Signal → Canonical Evidence →
+NivXRay Correlation → Existing Verdict Engine
+```
+A Wazuh rule firing is EVIDENCE. It is not `MALICIOUS`.
+
+**Owner rule — TI enrichment (VirusTotal / URLHaus / MISP / etc.):**
+Enrichment remains SUPPORTING evidence. It does not manufacture
+maliciousness.
+
+---
+
+_Older M2-era roadmap follows below (2026-02-15 baseline)._
+
+
 # NivXRay · Roadmap · Product Hardening Phase
 _Baseline: M2 Hero build (approved). New capability development frozen._
 
