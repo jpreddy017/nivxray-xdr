@@ -16,6 +16,16 @@ Design decision (owner-locked 2026-02-16): keep the built-in
 seed-registry small enough to review by hand.  Growth happens through
 DKP (Decoder Knowledge Pack) which is intentionally scoped as its own
 milestone after DIE-2 lands.
+
+Gate 2A extension (owner-locked 2026-09-02) — registry ARCHITECTURE
+promoted to versioned + provenance-bearing:
+  · REGISTRY_VERSION       — semver string; bumps on schema/content change.
+  · Every entry carries `provenance` (source · sourced_at · notes).
+  · New helpers `registry_version()`, `registry_provenance()`,
+    `lolbas_meta(binary)` for consumers that need the trace.
+  · Gate 2A adds SCHEMA + provenance ONLY.  Registry completeness
+    (wildcard-resolution readiness) is Gate 2B territory — see
+    `P0_1B_SCOPE.md`.
 """
 from __future__ import annotations
 import json, os
@@ -150,23 +160,96 @@ _BUILTIN: Dict[str, Dict[str, Any]] = {
 _JSON_PATH = Path(__file__).parent / "lolbas_registry.json"
 _REGISTRY_CACHE: Optional[Dict[str, Dict[str, Any]]] = None
 
+# ── Gate 2A · versioning + provenance ─────────────────────────────
+REGISTRY_VERSION = "0.2.0-gate2a"
+_REGISTRY_PROVENANCE: Dict[str, Any] = {
+    "version":    REGISTRY_VERSION,
+    "sources": [
+        {
+            "name":       "LOLBAS Project",
+            "url":        "https://lolbas-project.github.io/",
+            "license":    "CC BY-SA-4.0",
+            "use":        "private-only (no public redistribution — "
+                          "share-alike not triggered)",
+            "sourced_at": "2026-09-02 (initial seed, versioned in Gate 2A)",
+        },
+        {
+            "name":       "MITRE ATT&CK",
+            "url":        "https://attack.mitre.org/",
+            "license":    "Apache-2.0",
+            "use":        "technique tagging per binary",
+            "sourced_at": "2026-09-02",
+        },
+    ],
+    "entry_count_builtin": None,   # filled in by _load_registry()
+    "entry_count_json":    None,
+    "gate":                "2A",
+    "completeness":        "seed — wildcard-resolution readiness "
+                           "gated by Gate 2B; do not claim complete.",
+}
+
+
+def _stamp_provenance(entry: Dict[str, Any],
+                      source: str,
+                      sourced_at: str) -> Dict[str, Any]:
+    """Attach provenance to a registry entry, preserving existing keys."""
+    out = dict(entry)
+    prov = dict(out.get("provenance") or {})
+    prov.setdefault("source",     source)
+    prov.setdefault("sourced_at", sourced_at)
+    prov.setdefault("registry_version", REGISTRY_VERSION)
+    out["provenance"] = prov
+    return out
+
 
 def _load_registry() -> Dict[str, Dict[str, Any]]:
     global _REGISTRY_CACHE
     if _REGISTRY_CACHE is not None:
         return _REGISTRY_CACHE
-    reg = {k.lower(): v for k, v in _BUILTIN.items()}
+    seed_stamp = "2026-09-02"
+    reg = {
+        k.lower(): _stamp_provenance(v, "builtin-seed", seed_stamp)
+        for k, v in _BUILTIN.items()
+    }
+    _REGISTRY_PROVENANCE["entry_count_builtin"] = len(reg)
+    json_count = 0
     if _JSON_PATH.exists():
         try:
             extra = json.loads(_JSON_PATH.read_text(encoding="utf-8"))
             for k, v in (extra or {}).items():
-                reg[k.lower()] = {**reg.get(k.lower(), {}), **v}
+                merged = {**reg.get(k.lower(), {}), **v}
+                reg[k.lower()] = _stamp_provenance(
+                    merged, f"json:{_JSON_PATH.name}", seed_stamp)
+                json_count += 1
         except Exception:
             # A malformed JSON file must not break the engine; fall
             # back to built-ins only.
             pass
+    _REGISTRY_PROVENANCE["entry_count_json"] = json_count
     _REGISTRY_CACHE = reg
     return reg
+
+
+def registry_version() -> str:
+    """Public — expose current registry semver to consumers."""
+    return REGISTRY_VERSION
+
+
+def registry_provenance() -> Dict[str, Any]:
+    """Public — expose sources / license / sourced_at metadata.
+
+    Consumers MUST NOT alter the returned dict.
+    """
+    # Ensure the entry-count fields are populated.
+    _load_registry()
+    return dict(_REGISTRY_PROVENANCE)
+
+
+def lolbas_meta(binary: str) -> Optional[Dict[str, Any]]:
+    """Return the FULL registry entry (including `provenance`) for a
+    binary name, or ``None``.
+    """
+    return lolbas_lookup(binary)
 
 
 # Exposed frozen view for consumers wanting to iterate the full set.

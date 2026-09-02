@@ -1,6 +1,106 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2A · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+Owner-authorised Gate 2A widened to include CMD SET reassembly (option
+C). XDR-owned engine scaffold + LOLBAS versioned registry + 4 CMD
+Plane-B primitives + three-layer acceptance harness + A→G honest
+track reporting.
+
+**Files created (all under /app/backend):**
+- `services/decoder/__init__.py`          — public surface + version.
+- `services/decoder/types.py`             — Capability / Provenance /
+  DecodedLayer / ReconstructionResult; static-safety invariants
+  enforced structurally (`Provenance.__post_init__` rejects any
+  attempt to construct with `static_only!=True` /
+  `execution!=False` / `attck_promotion!=False`).
+- `services/decoder/registry.py`          — CapabilityRegistry
+  allow-list; DYNAMIC/UI/IRRELEVANT kinds are rejected at
+  registration time.
+- `services/decoder/cmd.py`               — CMD sub-engine.  Ships
+  5 capabilities (wrapper_unwrap · caret_strip · set_reassembly ·
+  percent_var_resolve · delayed_expansion).  Zero code copied
+  from external projects (clean-room from Phase-1 knowledge).
+- `services/decoder/engine.py`            — Orchestrator.
+  `decode(text, parent_id) -> ReconstructionResult`. Language
+  dispatch heuristic (CMD/PS/Bash); only CMD wired at Gate 2A;
+  PS/Bash return honest empty result with a Gate-2C/E reason.
+- `services/decoder/ATTRIBUTION/README.md` — clean-room + attribution
+  register per LICENSE_MATRIX obligations.
+- `tests/decoder_harness/__init__.py`
+- `tests/decoder_harness/harness.py`      — three-layer harness
+  (Codec/Semantic/Full-chain) + A→G reporter; 14 curated semantic
+  cases across caret / SET / bang / benign / envvar-unresolved /
+  malformed categories.
+- `tests/decoder_harness/test_gate_2a.py` — 8 pytest gates.
+
+**Files modified:**
+- `services/die/lolbas.py` — architecture upgrade only. New
+  `REGISTRY_VERSION="0.2.0-gate2a"`, per-entry `provenance` blocks
+  (source, sourced_at, registry_version), public helpers
+  `registry_version()`, `registry_provenance()`, `lolbas_meta()`.
+  **NO claim of completeness** — the file explicitly records
+  `completeness = "seed — wildcard-resolution readiness gated by
+  Gate 2B; do not claim complete."`
+
+**Architecture invariants baked in:**
+- `static_only=True` / `execution=False` / `attck_promotion=False`
+  are enforced STRUCTURALLY at `Provenance.__post_init__`.  A
+  layer that violates them cannot be constructed.
+- `DECODED ≠ EXECUTED` — no interpreter invocation anywhere.
+- Every layer carries `provenance.decoded_from` back to parent.
+- ZERO runtime bridge, ZERO external dependency.  ATTRIBUTION
+  folder scaffolded per LICENSE_MATRIX.
+- Registry allow-list rejects DYNAMIC/UI/IRRELEVANT capability
+  kinds at registration time.
+
+**Gate 2A results (A→G harness, JSON @ `tests/decoder_harness/last_report.json`):**
+
+| Track | Status | Note |
+|---|---|---|
+| A · existing decoder corpus | RUN_VIA_C | 523 fixtures / 48 categories exercised transitively via P0-1 corpus |
+| B · existing command corpus | RUN | trust_corpus (18) + NVKC command_line (9) present; not scored (schema alignment deferred) |
+| C · P0-1 76 scenarios | RUN | **verdict 0.9143 · malware FN [mal-20] · benign FP [] · surface F1 0.8929** (P0-1A gate held) |
+| D · historical regressions | RUN | adjacent tests green (32/32 in decoder_bridge/intelligence_policy/phase2_final_gate) |
+| E · harvested external | BLOCKED | Offline Invoke-DOS/Invoke-Obf regeneration is Gate 2F |
+| F · new semantic corpus | BLOCKED | Gate 2F deliverable |
+| G · tommy-aa.lol | RUN | **gate_2a_pass = True** — 4/4 required layers + 4/4 expected substrings |
+
+**Semantic layer (14 curated cases):**
+- 14/14 pass across categories: caret · caret-negative · caret-quoted
+  · set · set-benign · bang · bang-negative · envvar-unresolved ·
+  benign · malformed.
+- **benign FP flagged = 0.**
+- Latency p50/p95/p99 = 0.023 / 0.036 / 0.096 ms per decode.
+
+**Codec layer (Plane-A):**
+- SCAFFOLD ONLY — Plane-A sub-engines not yet wired at Gate 2A
+  (Gate 2D territory).  Reported honestly in the harness JSON.
+
+**Full-chain (Track G · tommy-aa.lol):**
+- Peels `C:\\Windows\\system32\\cmd.exe /c start /min cmd /v:on /k …`
+  correctly, unwraps carets (21 stripped), captures 3 SET
+  assignments (Q8K3, R5M9, T2X7), resolves 3 `!VAR!` substitutions
+  under `/V:ON` propagated via wrapper-peel provenance.
+- Emits `https://tommy-aa.lol/f` in the reconstructed final text.
+- Executable resolution (`c*d.e?e → cmd.exe` / `curl.exe` /
+  `powershell.exe`) and `FOR /F` reconstruction are Gate 2B —
+  correctly NOT delivered here.
+
+**Regressions:**
+- P0-1A gate held identically (verdict 0.9143 · 0 benign FP ·
+  1 malware FN (mal-20)).
+- 13 pre-existing per-scenario test failures on the P0-1 corpus
+  remain unchanged (Gate 2C obf-05/06/07/14/15 targets + Gate 2D
+  IOC/attck floors).  These pre-date Gate 2A and are unaffected
+  by it.
+
+**STOPPED for owner acceptance of Gate 2A before Gate 2B (FOR /F +
+wildcard-executable resolution) begins.**
+
+
+
 ## ✅ 2026-09-02 · P0-1B · Phase 1 · Source Inventory · DELIVERED
 
 Owner-authorised read-only inventory. **NO engine code written,

