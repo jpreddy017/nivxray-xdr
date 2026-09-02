@@ -22,6 +22,7 @@ from .pollers import (
     EntraSignInLogPoller, AwsCloudTrailPoller,
     poller_configuration_status,
 )
+from .verdict_consumer import record_verdict_inputs_for_incident
 
 
 def _register_default_adapters() -> None:

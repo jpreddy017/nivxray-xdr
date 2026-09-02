@@ -14,6 +14,7 @@
 import React, { useEffect, useState } from "react";
 import { RefreshCcw, ShieldCheck, AlertTriangle } from "lucide-react";
 import api from "@/lib/api";
+import { neutralGatewayBadges } from "@/xdr/design/providerLabels";
 
 export default function GatewayNarrationPanel({
   incidentId,
@@ -87,15 +88,22 @@ export default function GatewayNarrationPanel({
 
         {data && (
           <>
+            {(() => {
+              const badges = neutralGatewayBadges(data);
+              return (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap",
                               margin: "4px 0 10px" }}>
               <span className="nx-pill nx-pill-purple"
-                        data-testid={`${testidPrefix}-mode`}>
-                {(data.generation_mode || "").toUpperCase()}
+                        data-testid={`${testidPrefix}-mode`}
+                        data-mode-raw={data.generation_mode || ""}
+                        title={`raw: ${data.generation_mode || "—"}`}>
+                [ {badges.mode} ]
               </span>
               <span className="nx-pill nx-pill-faint"
-                        data-testid={`${testidPrefix}-provider`}>
-                provider: {data.provider}
+                        data-testid={`${testidPrefix}-provider`}
+                        data-provider-raw={badges.providerRaw}
+                        title={`raw: ${badges.providerRaw || "—"}`}>
+                provider: {badges.providerDisplay}
               </span>
               {data.grounded && (
                 <span className="nx-pill nx-pill-benign"
@@ -123,6 +131,8 @@ export default function GatewayNarrationPanel({
                 </span>
               )}
             </div>
+              );
+            })()}
 
             <div data-testid={`${testidPrefix}-body`}
                     style={{ display: "flex", flexDirection: "column",

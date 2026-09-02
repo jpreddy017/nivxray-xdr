@@ -91,6 +91,26 @@ OUTPUT_SCHEMA:
 
 def _build_llm_user_prompt(kind: NarrationKind,
                                        ctx: NarrationContext) -> str:
+    cross_lane = (ctx.composer_input or {}).get("cross_lane") or {}
+    lanes_observed = list(cross_lane.get("lanes") or [])
+    cross_lane_ids = list(cross_lane.get("cross_lane_ids") or [])
+    honesty_rules: list[str] = []
+    if kind is NarrationKind.CROSS_LANE_STORY:
+        if len(lanes_observed) < 2 or not cross_lane_ids:
+            honesty_rules.append(
+                "CROSS_LANE_STORY_HONESTY: No cross-lane correlation is "
+                "present in the governed context (lanes_observed<2 or "
+                "no cross-lane evidence ids). You MUST NOT assert that "
+                "activity spans multiple lanes, was correlated across "
+                "lanes, or shows multi-lane behaviour. State the "
+                "coverage gap honestly.")
+        else:
+            honesty_rules.append(
+                "CROSS_LANE_STORY_HONESTY: You may narrate correlation "
+                "ONLY across the lanes listed in lanes_observed. "
+                "Correlation confidence is NEVER verdict confidence "
+                "and cross-lane correlation NEVER promotes an ATT&CK "
+                "technique to OBSERVED.")
     return json.dumps({
         "task": {
             "kind":        kind.value,
@@ -100,6 +120,15 @@ def _build_llm_user_prompt(kind: NarrationKind,
                     "paragraphs.  Lead with the verdict and severity; then "
                     "explain what was observed with evidence ids; then "
                     "list the affected entities.",
+                NarrationKind.CROSS_LANE_STORY.value:
+                    "Write a Cross-Lane Story in 2–4 short paragraphs "
+                    "describing correlated activity ACROSS Endpoint, "
+                    "Identity and Cloud lanes.  Cite only cross-lane "
+                    "canonical evidence ids from ALLOWED_IDS.evidence. "
+                    "Never promote an ATT&CK technique to OBSERVED and "
+                    "never treat correlation confidence as verdict "
+                    "confidence — the Verdict Engine is the sole "
+                    "verdict authority.",
             }.get(kind.value, "Summarise faithfully."),
         },
         "GOVERNED_TRUTH": {
@@ -115,6 +144,9 @@ def _build_llm_user_prompt(kind: NarrationKind,
         },
         "ALLOWED_ENTITIES": list(ctx.entities or []),
         "COMPOSER_INPUT":  ctx.composer_input,
+        "lanes_observed":  lanes_observed,
+        "cross_lane_evidence_count": len(cross_lane_ids),
+        "HONESTY_RULES":   honesty_rules,
     }, ensure_ascii=False)
 
 
@@ -129,6 +161,7 @@ class CloudLLMProvider:
         NarrationKind.ATTACK_STORY,
         NarrationKind.R46_OVERLAY_SUMMARY,
         NarrationKind.R48_REPORT_NARRATION,
+        NarrationKind.CROSS_LANE_STORY,
     }
 
     def __init__(self, backend_name: str = "emergent-claude"):
@@ -173,6 +206,7 @@ class OfflineLLMProvider:
         NarrationKind.ATTACK_STORY,
         NarrationKind.R46_OVERLAY_SUMMARY,
         NarrationKind.R48_REPORT_NARRATION,
+        NarrationKind.CROSS_LANE_STORY,
     }
 
     async def draft(self, kind, context, session_id):
@@ -245,6 +279,7 @@ class DeterministicProvider:
         NarrationKind.ATTACK_STORY,
         NarrationKind.R46_OVERLAY_SUMMARY,
         NarrationKind.R48_REPORT_NARRATION,
+        NarrationKind.CROSS_LANE_STORY,
     }
 
     async def draft(self, kind, context, session_id):
@@ -259,6 +294,8 @@ class DeterministicProvider:
             return _deterministic_attack_story(context)
         if kind is NarrationKind.R48_REPORT_NARRATION:
             return _deterministic_report_narration(context)
+        if kind is NarrationKind.CROSS_LANE_STORY:
+            return _deterministic_cross_lane_story(context)
         raise GroundingError(
             f"deterministic narrator does not yet support {kind.value}")
 
@@ -394,5 +431,89 @@ def _deterministic_report_narration(ctx: NarrationContext) -> NarrationDraft:
         severity        = ctx.severity,
         confidence      = ctx.confidence,
         entities        = base.entities,
+        generation_mode = GenerationMode.DETERMINISTIC,
+    )
+
+
+def _deterministic_cross_lane_story(
+    ctx: NarrationContext,
+) -> NarrationDraft:
+    """Guaranteed-baseline Cross-Lane Story narration.
+
+    Reads governed cross-lane facts from
+    `ctx.composer_input["cross_lane"]` (lanes + cross_lane_ids)
+    populated by the Phase-2 telemetry adapters.  Narrates the
+    lane spread honestly:
+      · Zero cross-lane evidence  → coverage-gap prose (no
+                                                                fabricated correlation).
+      · Single-lane only          → honest single-lane statement.
+      · ≥2 lanes                  → cross-lane statement citing
+                                                                the shared canonical_ids ONLY.
+
+    Verdict / severity / confidence are ECHOED verbatim from
+    the governed context — this narrator NEVER promotes an
+    ATT&CK technique to OBSERVED and NEVER inflates
+    correlation confidence into verdict confidence."""
+    verdict  = (ctx.verdict or "UNKNOWN").upper()
+    severity = (ctx.severity or "—").upper()
+    cl       = (ctx.composer_input or {}).get("cross_lane") or {}
+    lanes    = sorted({str(l).lower() for l in (cl.get("lanes") or [])})
+    cids     = list(cl.get("cross_lane_ids") or [])
+    tech     = list(ctx.technique_ids or ())
+
+    head_text = (
+        f"Cross-Lane Story · Verdict: {verdict}"
+        + (f" · Severity: {severity}" if severity != "—" else "")
+        + f" · Lanes observed: {len(lanes)} · Cross-lane evidence rows: "
+        + f"{len(cids)}."
+    )
+    paragraphs: list[NarrationParagraph] = [
+        NarrationParagraph(text=head_text),
+    ]
+
+    if not cids:
+        paragraphs.append(NarrationParagraph(
+            text=(
+                "No Identity or Cloud telemetry has been correlated with "
+                "the endpoint activity on this incident. This is a "
+                "coverage gap, not an all-clear — Identity/Cloud pollers "
+                "may be unconfigured or the observed lanes may not "
+                "share an actor or source IP within the correlation "
+                "window."
+            ),
+        ))
+    elif len(lanes) < 2:
+        only = lanes[0] if lanes else "endpoint"
+        paragraphs.append(NarrationParagraph(
+            text=(
+                f"Activity is currently observed in the {only.upper()} "
+                f"lane only. NivXRay XDR has NOT correlated cross-lane "
+                f"movement — cross-lane confidence remains at the "
+                f"single-lane baseline and the Verdict Engine is the "
+                f"sole authority for any promotion of severity."
+            ),
+            evidence_ids=tuple(cids),
+        ))
+    else:
+        paragraphs.append(NarrationParagraph(
+            text=(
+                f"NivXRay XDR observed correlated activity across the "
+                f"{', '.join(l.upper() for l in lanes)} lanes, spanning "
+                f"{len(cids)} canonical evidence "
+                f"{'row' if len(cids) == 1 else 'rows'}. This is a "
+                f"CORRELATION signal — correlation confidence reflects "
+                f"lane spread and event count, NOT maliciousness. The "
+                f"existing Verdict Engine remains authoritative."
+            ),
+            evidence_ids=tuple(cids),
+            technique_ids=tuple(tech),
+        ))
+
+    return NarrationDraft(
+        paragraphs      = paragraphs,
+        verdict         = ctx.verdict,
+        severity        = ctx.severity,
+        confidence      = ctx.confidence,
+        entities        = tuple(list(ctx.entities or ())[:6]),
         generation_mode = GenerationMode.DETERMINISTIC,
     )

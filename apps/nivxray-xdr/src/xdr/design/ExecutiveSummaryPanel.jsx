@@ -12,6 +12,7 @@ import api from "@/lib/api";
 import EvidenceState from "@/xdr/design/EvidenceState";
 import Action from "@/xdr/design/Action";
 import IntelligenceOverlayEditor from "@/xdr/components/IntelligenceOverlayEditor";
+import { neutralGatewayBadges } from "@/xdr/design/providerLabels";
 import "@/xdr/design/tokens.css";
 
 export default function ExecutiveSummaryPanel({ incidentId, onSelectRef }) {
@@ -61,16 +62,30 @@ export default function ExecutiveSummaryPanel({ incidentId, onSelectRef }) {
           <span>Executive Summary · NivXRay XDR Narration Gateway</span>
         </div>
         <div className="evops-narration__meta">
-          {data?.generation_mode && (
-            <span className="evops-narration__badge evops-narration__badge--mode" data-testid="xdr-exec-summary-mode">
-              {data.generation_mode}
-            </span>
-          )}
-          {data?.provider && (
-            <span className="evops-mono" style={{ fontSize: 10, color: "var(--nx-faint)" }} data-testid="xdr-exec-summary-provider">
-              provider: {data.provider}
-            </span>
-          )}
+          {data?.generation_mode && (() => {
+            const badges = neutralGatewayBadges(data);
+            return (
+              <>
+                <span
+                  className="evops-narration__badge evops-narration__badge--mode"
+                  data-testid="xdr-exec-summary-mode"
+                  data-mode-raw={data.generation_mode}
+                  title={`raw: ${data.generation_mode}`}
+                >
+                  [ {badges.mode} ]
+                </span>
+                <span
+                  className="evops-mono"
+                  style={{ fontSize: 10, color: "var(--nx-faint)" }}
+                  data-testid="xdr-exec-summary-provider"
+                  data-provider-raw={badges.providerRaw}
+                  title={`raw: ${badges.providerRaw}`}
+                >
+                  provider: {badges.providerDisplay}
+                </span>
+              </>
+            );
+          })()}
           {data?.grounded !== undefined && (
             <span className="evops-narration__badge evops-narration__badge--grounded" data-testid="xdr-exec-summary-grounded">
               <ShieldCheck size={10} /> GROUNDED

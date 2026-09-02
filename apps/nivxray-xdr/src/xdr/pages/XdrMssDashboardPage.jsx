@@ -24,6 +24,7 @@ import XdrShell from "@/xdr/XdrShell";
 import {
   NxPageShell, NxSurface, NxKpi, NxEmptyBlock as NxEmpty, NxPill, NxHBar, NxDonut,
 } from "@/xdr/nx";
+import IntelligenceControlPanel from "@/xdr/components/IntelligenceControlPanel";
 import {
   getMssKpis, getMssStateDistribution, getMssSocQueue,
   getMssAnalystWorkload, getMssCustomerOperations,
@@ -119,6 +120,11 @@ export default function XdrMssDashboardPage() {
             testid="xdr-mss-dashboard-error"
           />
         )}
+
+        {/* ── NivXRay XDR Intelligence · Global Governance ─────── */}
+        <div style={{ marginBottom: 14 }} data-testid="xdr-mss-intelligence-slot">
+          <IntelligenceControlPanel scope="global" />
+        </div>
 
         {/* ── Attention strip · 6 top operational lenses ──────────── */}
         <div className="nx-attn nx-attn-6" data-testid="xdr-mss-attn">

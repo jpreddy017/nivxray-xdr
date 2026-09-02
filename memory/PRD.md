@@ -1,6 +1,171 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · NivXRay XDR Intelligence Controls (FINAL spec, LOCKED)
+
+Hierarchical AI/LLM governance shipped as a first-class product
+surface — `MSS/Tenant Global → Incident Override → Effective
+Policy → Model Gateway → Provider Selection`.
+
+**Contract (LOCKED)**
+- AI is the umbrella; LLM is a specialised subset of AI.  Cloud
+  LLM providers (Claude, GPT, Gemini) are ONLINE LLM providers,
+  not a separate "AI" category.
+- Online AI is the master permission for Online LLM.  Turning
+  Online AI OFF automatically forces Online LLM OFF, both at
+  the resolver AND at storage-write time (clamp invariant).
+- Offline AI, Offline LLM, NivXRay XDR Narration Engine are
+  ALWAYS ON — no OFF switch.  The UI shows READY /
+  NOT_PROVISIONED health only.
+- Deterministic Narration Engine is the guaranteed baseline and
+  is always available regardless of policy.
+- Global policy is the CEILING.  Incident overrides may only
+  NARROW.  Incidents can never bypass a global restriction.
+- In-flight narration requests complete under their captured
+  `policy_snapshot`.  New requests use the newly-changed policy.
+- AI/LLM policy NEVER affects the deterministic security core
+  (canonical evidence, correlation, verdict engine, ATT&CK
+  evidence, incident, timeline, provenance, audit, response).
+
+**Backend**
+- `services/intelligence_policy/service.py` —
+  `IntelligencePolicy`, `EffectivePolicy`, `PolicySnapshot`,
+  `IntelligencePolicyService`, `resolve_effective()`,
+  `capture_snapshot()`, master-permission clamp on write.
+- Collections `xdr_intelligence_policy_global`,
+  `xdr_intelligence_policy_incident`,
+  `xdr_intelligence_policy_audit` (immutable, append-only).
+- Global audit uses `scope_id="global"` for stable UI queries;
+  `tenant_id` preserves isolation.
+- Router `/api/intelligence/policy/*` with RBAC via
+  `require_permission("intelligence_policy.<read|update|override>")`.
+- New RBAC resource `intelligence_policy` with `read`, `update`,
+  `override` actions; `tenant_admin` gets `*`, `soc_manager`
+  gets all three explicitly.
+- Narration Gateway policy gate — `NarrationRequest.policy_snapshot`
+  captured at request start via `_incident_policy_snapshot()`.
+  Cloud slot is SKIPPED when `snapshot.online_llm == "off"`; every
+  narration then falls to deterministic with an explicit caveat
+  ("<provider> blocked by intelligence policy (online_llm=off)").
+- Health endpoint `/api/intelligence/health` reports
+  `offline_ai`, `offline_llm` (READY vs NOT_PROVISIONED based on
+  env vars — never fabricated) and `nivxray_narration_engine`
+  (ALWAYS ready).
+- History endpoint `GET /api/intelligence/policy/{scope}/{scope_id}/history`.
+
+**Frontend**
+- `IntelligenceControlPanel.jsx` — reusable, scoped panel.
+  Mounted on:
+  - MSS Dashboard (`XdrMssDashboardPage`) at scope="global"
+  - Incident record (`IncidentOverviewV2`) at scope="incident"
+- Split into ONLINE (toggleable Online AI + child Online LLM) +
+  OFFLINE (always-on health readouts) + Intelligence Mode
+  presets (Standard / Online AI Only / Offline Only) + reason
+  input + audit history.
+- Mode badge visible on every incident (`● LOCAL + ONLINE AI + LLM`,
+  `● LOCAL + ONLINE AI · Cloud LLM disabled`, `● OFFLINE ONLY`).
+- Incident presets that would widen beyond the global ceiling
+  render disabled with a lock icon + tooltip *"Restricted by MSS
+  Global policy — would widen beyond ceiling"*.
+- The Online LLM toggle is automatically dimmed + locked when
+  Online AI is OFF.
+
+**Regression gate**
+- Backend pytest: **113/113 pass** (offline) — adds 14 new
+  Intelligence tests to the 99 already green from Phase 2 Final Gate.
+- Live-API pytest: **16/16 pass** (test_intelligence_policy_live.py).
+- Testing agent verdict: 100% backend + 100% frontend after
+  two rounds of iteration:
+  · iter_76 flagged 3 defects (global-history scope_id, storage
+     clamp, preset gating);
+  · iter_77 verified all three fixed with 0 blocking issues.
+
+**Explicit hold** — Phase 3 Response Automation NOT started.
+Two OPTIONAL follow-ups noted (deferred):
+- Axios `X-Principal-Role` interceptor so audit rows do not
+  record `changed_by_role="unknown"` for UI-driven changes.
+- Pre-existing 404 on `/api/intelligence-overlays/` (unrelated).
+
+
+
+## ✅ 2026-09-02 · Phase 2 · FINAL Integration Gate CLOSED
+
+Closes the Evidence → Verdict → Evidence-Graph → Cognis loop.
+
+**Cognis Cross-Lane Story endpoint**
+- New `NarrationKind.CROSS_LANE_STORY = "cross_lane_story"`.
+- Cloud, Offline and Deterministic providers all declare
+  support for it. Deterministic narrator implements three
+  honest coverage states (no cross-lane evidence, single-lane
+  only, ≥2 lanes) that NEVER promote an ATT&CK technique to
+  OBSERVED and NEVER treat correlation confidence as verdict
+  confidence.
+- New endpoint:
+  `GET /api/narration/incident/{id}/cross-lane-story`
+  reusing the existing `_build_incident_context()` which already
+  folds `incident.canonical_events[]` (post-adapter rows) into
+  the governed context.
+- Cloud-LLM prompt now emits an explicit `HONESTY_RULES` block
+  that FORBIDS asserting cross-lane correlation when
+  `lanes_observed<2` or when the cross-lane evidence count is
+  zero — closes a hallucination path caught by the testing agent.
+
+**Verdict Engine persistence bridge**
+- `verdict_consumer.record_verdict_inputs_for_incident(db, id,
+  inputs, edges)` writes governed inputs + evidence-graph edges
+  into two collections:
+  - `xdr_verdict_inputs`         (keyed by incident_id + correlation_key)
+  - `xdr_evidence_graph_edges`   (keyed by incident_id + correlation_key + src + dst)
+- Idempotent via upsert on natural keys — reruns do not
+  fabricate additional docs.
+- `_strip_verdict_authority()` removes any top-level field named
+  `verdict`, `severity`, `maliciousness`, `verdict_confidence`,
+  `attck_promote` before write — defense-in-depth against a
+  future bridge refactor leaking scoring authority.
+- Every persisted edge asserts `provenance.attck_promotion=false`.
+- Wired into `POST /api/telemetry/verdict-inputs`: pass
+  `incident_id` in the payload to trigger persistence; omit it
+  and the endpoint behaves exactly as before (Verdict Engine
+  behaviour for existing incidents is unchanged).
+
+**Provider-neutral UI labels**
+- New helper `apps/nivxray-xdr/src/xdr/design/providerLabels.js`
+  maps Gateway raw slugs to neutral display:
+  - `llm_cloud`     → `[ ONLINE_LLM ]`
+  - `llm_offline`   → `[ OFFLINE_LLM ]`
+  - `deterministic` → `[ DETERMINISTIC ]`
+  - `cloud:emergent-claude` / `cloud:anthropic:*` → `Anthropic · Claude`
+  - `cognis-offline:*` → `Local Model Runtime`
+  - `deterministic` → `NivXRay XDR Narration Engine`
+- Raw slug preserved on `data-mode-raw` and `data-provider-raw`
+  attributes so ops tooling still sees the routing detail.
+- Applied to `GatewayNarrationPanel` (Attack Story, R46 base)
+  and `ExecutiveSummaryPanel`.
+
+**Regression gate**
+- Backend pytest: **99/99 pass** across narration, MITRE,
+  telemetry adapters, Phase 2 operationalisation, verdict gap,
+  and 11 NEW Phase-2 final-gate tests covering:
+  - CROSS_LANE_STORY registered + supported by every provider
+  - Deterministic honesty in all three coverage states
+  - Gateway falls back to deterministic for CROSS_LANE_STORY
+  - Persistence writes both collections + idempotency
+  - Verdict-authority fields stripped defensively
+  - LLM prompt HONESTY_RULES flips correctly on lane count.
+- Testing agent live regression: 9/9 API tests + frontend
+  provider-neutral badges verified on Executive + Attack Story
+  tabs (raw slugs preserved on data-*-raw).
+- Live smoke on incident `36d8cd4d-a6b8-…` (zero canonical
+  cross-lane events) — cloud LLM now correctly opens with
+  "This incident lacks the multi-lane telemetry required…"
+  instead of hallucinating multi-lane correlation.
+
+**Explicit hold** — Phase 3 Response Automation NOT started.
+Ready for owner review of the closed Phase 2 gate before
+Phase 3 kicks off.
+
+
+
 ## ✅ 2026-09-02 · Phase 2 · Evidence→Verdict Gap Closure
 
 **Correlation → Verdict inputs bridge (`verdict_bridge.py`)**

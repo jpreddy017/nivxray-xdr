@@ -17,11 +17,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from deps import get_current_user
+from deps import get_current_user, db
 from services.telemetry_adapters import (
     get_registry, IngestionRunner, InMemoryCheckpoint, InMemoryDedup,
     correlate, build_verdict_inputs, build_evidence_graph_edges,
     bridge_to_dict, poller_configuration_status,
+    record_verdict_inputs_for_incident,
 )
 
 
@@ -163,7 +164,14 @@ async def verdict_inputs(payload: dict,
     """Build governed Verdict-Engine inputs from a batch of
     CanonicalEvent-shaped records.  The Verdict Engine remains
     the sole verdict authority; this endpoint just formats the
-    correlation signals it may consume."""
+    correlation signals it may consume.
+
+    If `incident_id` is supplied in the payload, the resulting
+    VerdictInputs + EvidenceGraphEdges are ALSO persisted so the
+    existing Verdict Engine can consume them on its next
+    scoring pass.  Persistence never promotes ATT&CK to OBSERVED
+    and never assigns a verdict — those remain the Verdict
+    Engine's exclusive authority."""
     from services.telemetry_adapters import (
         CanonicalEvent, Provenance, SourceKind,
     )
@@ -187,8 +195,22 @@ async def verdict_inputs(payload: dict,
                                     window_minutes=payload.get("window_minutes") or 30)
     inputs = build_verdict_inputs(groups)
     edges  = build_evidence_graph_edges(groups)
+
+    # Optional governed persistence — writes into the existing
+    # incident record path so the Verdict Engine sees these
+    # inputs on its next scoring pass.  No verdict authority is
+    # granted here.
+    persistence: dict[str, Any] | None = None
+    incident_id = payload.get("incident_id")
+    if incident_id:
+        persistence = await record_verdict_inputs_for_incident(
+            db, str(incident_id), inputs, edges,
+        )
+
     return {
         "verdict_inputs": [bridge_to_dict(v) for v in inputs],
         "evidence_graph_edges": [bridge_to_dict(e) for e in edges],
         "correlation_group_count": len(groups),
+        "persistence":  persistence,
+        "authority":    "existing-verdict-engine",
     }

@@ -11,10 +11,12 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from deps import get_current_user, db
+from routers.xdr_rbac import _principal
+from services.intelligence_policy import IntelligencePolicyService
 from services.narration import (
     NarrationContext, NarrationKind, NarrationRequest,
     get_gateway,
@@ -223,15 +225,40 @@ async def _build_incident_context(incident_id: str) -> NarrationContext:
 # --------------------------------------------------------------------
 # Phase-1 proof surface — Incident Overview Executive Summary.
 # --------------------------------------------------------------------
+async def _incident_policy_snapshot(request, incident_id: str) -> dict:
+    """Capture the effective NivXRay XDR Intelligence policy for
+    the given incident at the moment this narration request STARTS.
+    The gateway then honours that snapshot for the entire request
+    lifetime, so an administrator toggling policy mid-flight cannot
+    mutate an already-running narration (per FINAL Intelligence
+    Controls spec §2)."""
+    try:
+        ten, _, _ = _principal(request)
+        svc = IntelligencePolicyService(db)
+        eff = await svc.effective_for_incident(ten, incident_id)
+        return {
+            "online_ai":  eff.online_ai,
+            "online_llm": eff.online_llm,
+            "scope":      "incident",
+            "scope_id":   incident_id,
+        }
+    except Exception:      # policy layer must NEVER 500 narration.
+        return {"online_ai": "on", "online_llm": "on",
+                "scope": "fallback", "scope_id": incident_id}
+
+
 @router.get("/narration/incident/{incident_id}/executive-summary")
 async def incident_executive_summary(
     incident_id: str,
+    request: Request,
     user = Depends(get_current_user),
 ):
     ctx = await _build_incident_context(incident_id)
+    snap = await _incident_policy_snapshot(request, incident_id)
     result = await get_gateway().render(NarrationRequest(
         kind    = NarrationKind.EXECUTIVE_SUMMARY,
         context = ctx,
+        policy_snapshot = snap,
     ))
     return _serialise(result)
 
@@ -244,12 +271,15 @@ async def incident_executive_summary(
 @router.get("/narration/incident/{incident_id}/attack-story")
 async def incident_attack_story(
     incident_id: str,
+    request: Request,
     user = Depends(get_current_user),
 ):
-    ctx = await _build_incident_context(incident_id)
+    ctx  = await _build_incident_context(incident_id)
+    snap = await _incident_policy_snapshot(request, incident_id)
     result = await get_gateway().render(NarrationRequest(
         kind    = NarrationKind.ATTACK_STORY,
         context = ctx,
+        policy_snapshot = snap,
     ))
     return _serialise(result)
 
@@ -257,15 +287,18 @@ async def incident_attack_story(
 @router.get("/narration/incident/{incident_id}/r46-overlay-summary")
 async def incident_r46_overlay_summary(
     incident_id: str,
+    request: Request,
     user = Depends(get_current_user),
 ):
     """R46 Analyst Overlay base text.  The overlay layer edits
     *interpretation* on top of this Gateway output; it never
     mutates machine truth."""
-    ctx = await _build_incident_context(incident_id)
+    ctx  = await _build_incident_context(incident_id)
+    snap = await _incident_policy_snapshot(request, incident_id)
     result = await get_gateway().render(NarrationRequest(
         kind    = NarrationKind.R46_OVERLAY_SUMMARY,
         context = ctx,
+        policy_snapshot = snap,
     ))
     return _serialise(result)
 
@@ -273,14 +306,42 @@ async def incident_r46_overlay_summary(
 @router.get("/narration/incident/{incident_id}/report-narration")
 async def incident_report_narration(
     incident_id: str,
+    request: Request,
     user = Depends(get_current_user),
 ):
     """R48 PDF Investigation Report narration.  The PDF composer
     owns layout; this endpoint supplies prose only, so no PDF-
     specific narration logic ever gets built."""
-    ctx = await _build_incident_context(incident_id)
+    ctx  = await _build_incident_context(incident_id)
+    snap = await _incident_policy_snapshot(request, incident_id)
     result = await get_gateway().render(NarrationRequest(
         kind    = NarrationKind.R48_REPORT_NARRATION,
         context = ctx,
+        policy_snapshot = snap,
+    ))
+    return _serialise(result)
+
+
+@router.get("/narration/incident/{incident_id}/cross-lane-story")
+async def incident_cross_lane_story(
+    incident_id: str,
+    request: Request,
+    user = Depends(get_current_user),
+):
+    """Phase-2 Cognis Cross-Lane Story.
+
+    Narrates correlated Endpoint + Identity + Cloud activity
+    from the incident's canonical_events (populated by the
+    Telemetry Adapter Framework).  The Gateway grounding rules
+    still apply: this endpoint never promotes an ATT&CK
+    technique to OBSERVED, never inflates confidence, and
+    honestly narrates the coverage gap when no cross-lane
+    evidence is present."""
+    ctx  = await _build_incident_context(incident_id)
+    snap = await _incident_policy_snapshot(request, incident_id)
+    result = await get_gateway().render(NarrationRequest(
+        kind    = NarrationKind.CROSS_LANE_STORY,
+        context = ctx,
+        policy_snapshot = snap,
     ))
     return _serialise(result)

@@ -96,11 +96,34 @@ class NarrationGateway:
             pref = req.preferred_provider.lower()
             chain = (pref,) + tuple(x for x in self._order if x != pref)
 
+        # Intelligence-policy gating.  A policy snapshot on the
+        # request narrows which slots are allowed.  Deterministic
+        # slot is ALWAYS allowed — it is the guaranteed baseline
+        # per the NivXRay XDR Intelligence contract.
+        snap = req.policy_snapshot or {}
+        allow_cloud   = str(snap.get("online_llm", "on")).lower() != "off"
+        allow_offline = True   # Offline LLM is ALWAYS_ON per contract.
+        if snap:
+            caveats.append(
+                "policy_snapshot: online_llm=" +
+                str(snap.get("online_llm", "on")) +
+                " online_ai=" + str(snap.get("online_ai", "on")))
+
         for slot in chain:
             prov = self._providers.get(slot)
             if prov is None:
                 continue
             if req.kind not in prov.supports:
+                continue
+            # Policy gate — the snapshot may have narrowed the chain.
+            if slot == "cloud" and not allow_cloud:
+                caveats.append(
+                    f"{prov.name} blocked by intelligence policy "
+                    "(online_llm=off)")
+                continue
+            if slot == "offline" and not allow_offline:
+                caveats.append(
+                    f"{prov.name} blocked by intelligence policy")
                 continue
             tried.append(prov.name)
             try:

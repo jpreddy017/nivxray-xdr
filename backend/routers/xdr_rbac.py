@@ -163,6 +163,10 @@ _RESOURCES: dict[str, dict[str, Any]] = {
                                                    "approve"], "group": "Response"},
     "reports":       {"actions": ["read", "create", "export"],
                               "group": "Governance"},
+    "intelligence_policy": {
+        "actions": ["read", "update", "override"],
+        "group":   "Intelligence",
+    },
 }
 
 
@@ -205,7 +209,8 @@ _BUILTIN_ROLES: list[dict] = [
                              "osint_providers.*", "extensions.*", "alerts.*",
                              "incidents.*", "investigations.*", "evidence.*",
                              "threat_hunting.*", "playbooks.*", "response.*",
-                             "reports.*", "audit.read", "engines.read"]},
+                             "reports.*", "intelligence_policy.*",
+                             "audit.read", "engines.read"]},
     {"id": "role_builtin_soc_manager",
      "name": "soc_manager", "display_name": "SOC Manager",
      "tier": "MANAGEMENT", "type": "SYSTEM",
@@ -215,6 +220,9 @@ _BUILTIN_ROLES: list[dict] = [
                              "evidence.read", "reports.read", "reports.create",
                              "response.approve", "response.recommend",
                              "playbooks.read", "playbooks.approve",
+                             "intelligence_policy.read",
+                             "intelligence_policy.update",
+                             "intelligence_policy.override",
                              "audit.read", "users.read", "roles.read"]},
     {"id": "role_builtin_l3_investigator",
      "name": "l3_investigator", "display_name": "L3 / T3 Investigator",

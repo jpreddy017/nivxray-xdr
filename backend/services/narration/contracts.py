@@ -30,6 +30,7 @@ class NarrationKind(str, Enum):
     INVESTIGATION_CTX        = "investigation_context"
     R46_OVERLAY_SUMMARY      = "r46_overlay_summary"
     R48_REPORT_NARRATION     = "r48_report_narration"
+    CROSS_LANE_STORY         = "cross_lane_story"
 
 
 class GenerationMode(str, Enum):
@@ -75,6 +76,13 @@ class NarrationRequest:
     context:            NarrationContext
     preferred_provider: str | None = None    # optional override
     session_id:         str | None = None
+    # Immutable intelligence-policy snapshot captured at request
+    # creation.  If present, the gateway will SKIP any provider
+    # slot forbidden by the effective policy at that instant, so
+    # an administrator toggling policy mid-flight cannot mutate
+    # this specific request.  When None, the gateway allows every
+    # provider slot (back-compat for tests + internal call-sites).
+    policy_snapshot:    dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
