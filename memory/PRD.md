@@ -1,6 +1,69 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1B · Phase 1 · Source Inventory · DELIVERED
+
+Owner-authorised read-only inventory. **NO engine code written,
+NO runtime bridge added, NO decoder implementation.** Three
+markdown artefacts produced under `/app/memory/`:
+
+- `UNIVERSAL_DECODER_SOURCE_INVENTORY.md` — 107 tracked
+  capabilities across two planes (A generic decoding · B
+  command-language semantics). Full NivXRay-native inventory
+  (~40 UAIE plugins + 20 DIE modules + 3 preprocessor modules +
+  1 decoder bridge). Corpora tally: **P0-1 76 scenarios · 523
+  fixture files across 48 categories · 18 trust-corpus scenarios
+  · 9 NVKC command_line seeds · 5 golden-corpus samples · 7
+  canonical stage1 goldens · plus in-test corpora**. External
+  sources catalogued: CyberChef (Apache-2.0), Invoke-Obfuscation
+  + Invoke-DOSfuscation (Apache-2.0), PowerDecode (GPL-3.0),
+  PSDecode (unspecified), CMD-DeObfuscator (BSD-3),
+  batch_deobfuscator (MIT), BatchAlchemy (BSD-3), plus LOLBAS /
+  GTFOBins / LOOBins knowledge bases. A→G validation model
+  populated: tracks A/B/C/D live inside the repo; tracks E/F/G
+  are Phase-2 deliverables. Tommy-aa.lol classified as Plane-B
+  (not Plane-A) — the sample-vs-corpus distinction is preserved
+  in every section.
+
+- `UNIVERSAL_DECODER_COVERAGE_MATRIX.md` — gap analysis with
+  Present/Partial/Missing marks per capability × per source. The
+  headline finding:
+  - **Plane A (41 rows):** 41% full · 15% fixture-only ·
+    (backlog is expansion + a Magic-style auto-classifier).
+  - **Plane B (66 rows):** **8% full · 42% missing** — this is
+    the real gap. Zero of the six CMD-semantic capabilities
+    required by tommy-aa.lol (caret stripping · `!VAR!`
+    delayed-expansion · `SET` reassembly · `FOR /F` semantic
+    reconstruction · wildcard-executable resolution · nested
+    peel) are ✅ in NivXRay today. Adding more codecs will NOT
+    close it. Fourteen ordered Phase-2 priorities are pinned.
+  - **Fixture-vs-runtime mismatch surfaced explicitly:** Base32,
+    Octal ASCII, Decimal ASCII, ROT13, URL-encoding, Unicode
+    escapes have fixture corpora present but **no runtime
+    decoder** — a "capability listed, not delivered" pattern
+    P0-1B must close.
+
+- `UNIVERSAL_DECODER_LICENSE_MATRIX.md` — license tier per
+  source with obligations, ops rules for Phase 2, per-file header
+  template, and attribution-file template. Zero blockers found.
+  PowerDecode (GPL-3.0) is the only Tier-2 source and is
+  non-critical for the tommy-aa.lol path. Runtime-dependency
+  count stays 0 by owner rule.
+
+Additional scope contract captured earlier this turn:
+`/app/memory/P0_1B_SCOPE.md` — owner-locked A→G validation model,
+three-layer acceptance (codec / semantic / full-chain), STATIC-only
+invariants, per-category measurement rule, "tommy-aa.lol is ONE
+regression, not the target."
+
+**Cross-referenced from `ROADMAP.md` line 92 so future forks READ
+the scope contract BEFORE starting Phase 2.**
+
+**Explicit hold — STOPPED for owner acceptance of Phase 1 before
+Phase 2 (Universal Decoder Engine implementation) begins.**
+
+
+
 ## ✅ 2026-09-02 · P0-1A · Surface Detection Fix Pass · SHIPPED
 
 Owner-authorised (option A · P0-1A first · then P0-1B). Seven surgical
