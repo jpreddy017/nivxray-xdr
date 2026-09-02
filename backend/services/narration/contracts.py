@@ -16,18 +16,20 @@ from typing import Any
 class NarrationKind(str, Enum):
     """Every distinct narration surface NivXRay XDR generates.
 
-    Phase 1 only wires EXECUTIVE_SUMMARY end-to-end (that is the
-    proof surface).  The remaining kinds are declared here so
-    downstream consumers can rely on stable enum values, and so
-    the deterministic narrator can advertise its supported set
-    honestly."""
-    EXECUTIVE_SUMMARY = "executive_summary"
-    INCIDENT_SUMMARY  = "incident_summary"
-    ATTACK_STORY      = "attack_story"
-    KEY_FINDINGS      = "key_findings"
-    ATTCK_SUMMARY     = "attck_summary"
-    EVIDENCE_EXPLAIN  = "evidence_explanation"
-    INVESTIGATION_CTX = "investigation_context"
+    Phase-1 shipped `EXECUTIVE_SUMMARY` end-to-end.  Phase-1.5
+    extends the guaranteed-baseline (deterministic) narrator to
+    ATTACK_STORY, R46_OVERLAY_SUMMARY and R48_REPORT_NARRATION so
+    every meaningful narration surface can consume the Gateway
+    with the same NarrationRequest contract."""
+    EXECUTIVE_SUMMARY        = "executive_summary"
+    INCIDENT_SUMMARY         = "incident_summary"
+    ATTACK_STORY             = "attack_story"
+    KEY_FINDINGS             = "key_findings"
+    ATTCK_SUMMARY            = "attck_summary"
+    EVIDENCE_EXPLAIN         = "evidence_explanation"
+    INVESTIGATION_CTX        = "investigation_context"
+    R46_OVERLAY_SUMMARY      = "r46_overlay_summary"
+    R48_REPORT_NARRATION     = "r48_report_narration"
 
 
 class GenerationMode(str, Enum):

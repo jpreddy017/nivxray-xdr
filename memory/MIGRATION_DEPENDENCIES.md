@@ -85,15 +85,18 @@ _Last reviewed: 2026-09-02 (Phase 1 completion)._
 
 ---
 
-## Consumers verified to route through the abstraction (Phase 1)
+## Consumers verified to route through the abstraction (Phase 1.5)
 
-- ✅ `GET /api/narration/incident/{id}/executive-summary` — the
-  Phase-1 proof surface.
-- ⏳ Incident Report composer (`services/report/`) — will migrate
-  in Phase 2.
-- ⏳ Attack Story narrator — will migrate in Phase 2.
-- ⏳ R46 Analyst Overlay (held) — will consume the gateway when
-  Phase 2 wires it in.
+- ✅ `GET /api/narration/incident/{id}/executive-summary` — Phase-1 proof.
+- ✅ `GET /api/narration/incident/{id}/attack-story` — Phase-1.5.
+- ✅ `GET /api/narration/incident/{id}/r46-overlay-summary` — Phase-1.5.
+- ✅ `GET /api/narration/incident/{id}/report-narration` — Phase-1.5 (R48 PDF consumes this; no PDF-specific narration logic).
+- ⏳ Existing per-tab renderers in the cockpit will gradually migrate to these endpoints.  The old paths remain functional to avoid regressions.
+
+## Terminology (owner-locked, Phase 1.5)
+
+- **Provider Priority Chain** — ordered list the gateway tries.
+- **Guaranteed-baseline provider** — the deterministic narrator; not a "fallback" in a pejorative sense, but the honest floor of narration capability that survives credit exhaustion, cloud outage, offline-runtime absence, and legacy NivXRay decommissioning.
 
 ## Consumers still calling LLMs directly (Phase 1 backlog)
 

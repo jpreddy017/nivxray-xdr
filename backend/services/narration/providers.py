@@ -124,7 +124,12 @@ def _build_llm_user_prompt(kind: NarrationKind,
 class CloudLLMProvider:
     name = "cloud-llm"
     kind = "cloud"
-    supports = {NarrationKind.EXECUTIVE_SUMMARY}
+    supports = {
+        NarrationKind.EXECUTIVE_SUMMARY,
+        NarrationKind.ATTACK_STORY,
+        NarrationKind.R46_OVERLAY_SUMMARY,
+        NarrationKind.R48_REPORT_NARRATION,
+    }
 
     def __init__(self, backend_name: str = "emergent-claude"):
         self.name = f"cloud:{backend_name}"
@@ -156,7 +161,12 @@ class CloudLLMProvider:
 class OfflineLLMProvider:
     name = "offline-llm"
     kind = "offline"
-    supports = {NarrationKind.EXECUTIVE_SUMMARY}
+    supports = {
+        NarrationKind.EXECUTIVE_SUMMARY,
+        NarrationKind.ATTACK_STORY,
+        NarrationKind.R46_OVERLAY_SUMMARY,
+        NarrationKind.R48_REPORT_NARRATION,
+    }
 
     async def draft(self, kind, context, session_id):
         from llm_provider import _REGISTRY as _LLM_REG
@@ -213,13 +223,35 @@ def _coerce_llm_payload(payload: dict[str, Any],
 # executive-summary path today.
 # --------------------------------------------------------------------
 class DeterministicProvider:
+    """Guaranteed-baseline narration capability.
+
+    Terminology note (owner rule): the deterministic provider is
+    **not** merely a fallback.  It is the guaranteed baseline —
+    every kind it supports is always available, regardless of
+    LLM credits, network, or legacy runtime state.  The Cloud
+    and Offline providers are *priority* alternatives that may
+    supply richer prose when available."""
     name = "deterministic"
     kind = "deterministic"
-    supports = {NarrationKind.EXECUTIVE_SUMMARY}
+    supports = {
+        NarrationKind.EXECUTIVE_SUMMARY,
+        NarrationKind.ATTACK_STORY,
+        NarrationKind.R46_OVERLAY_SUMMARY,
+        NarrationKind.R48_REPORT_NARRATION,
+    }
 
     async def draft(self, kind, context, session_id):
         if kind is NarrationKind.EXECUTIVE_SUMMARY:
             return _deterministic_executive_summary(context)
+        if kind is NarrationKind.R46_OVERLAY_SUMMARY:
+            # R46 analyst overlay base text = executive summary
+            # produced deterministically.  The analyst overlay
+            # layer edits *interpretation*, never machine truth.
+            return _deterministic_executive_summary(context)
+        if kind is NarrationKind.ATTACK_STORY:
+            return _deterministic_attack_story(context)
+        if kind is NarrationKind.R48_REPORT_NARRATION:
+            return _deterministic_report_narration(context)
         raise GroundingError(
             f"deterministic narrator does not yet support {kind.value}")
 
@@ -294,5 +326,66 @@ def _deterministic_executive_summary(
         severity        = ctx.severity,
         confidence      = ctx.confidence,
         entities        = tuple(ent),
+        generation_mode = GenerationMode.DETERMINISTIC,
+    )
+
+
+
+
+def _deterministic_attack_story(ctx: NarrationContext) -> NarrationDraft:
+    """Guaranteed-baseline Attack Story narration."""
+    verdict  = (ctx.verdict or "UNKNOWN").upper()
+    severity = (ctx.severity or "—").upper()
+    tech     = list(ctx.technique_ids or ())
+
+    paragraphs: list[NarrationParagraph] = [
+        NarrationParagraph(
+            text = (
+                f"Attack Story · Verdict: {verdict}"
+                + (f" · Severity: {severity}" if severity != "—" else "")
+                + f" · Technique count: {len(tech)}."
+            ),
+        ),
+    ]
+    if not tech:
+        paragraphs.append(NarrationParagraph(
+            text = ("No ATT&CK technique has been substantiated for this "
+                            "incident yet. Attack progression cannot be narrated "
+                            "without evidence — this is a coverage gap, not an "
+                            "all-clear."),
+        ))
+    else:
+        for tid in tech:
+            paragraphs.append(NarrationParagraph(
+                text          = (
+                    f"Stage: {tid} — attributed by NivXRay XDR's "
+                    "AttackTechniqueEvidence SSOT to this incident."),
+                technique_ids = (tid,),
+                evidence_ids  = tuple(ctx.evidence_ids or ()),
+            ))
+    return NarrationDraft(
+        paragraphs      = paragraphs,
+        verdict         = ctx.verdict,
+        severity        = ctx.severity,
+        confidence      = ctx.confidence,
+        entities        = tuple(list(ctx.entities or ())[:6]),
+        generation_mode = GenerationMode.DETERMINISTIC,
+    )
+
+
+def _deterministic_report_narration(ctx: NarrationContext) -> NarrationDraft:
+    """Guaranteed-baseline PDF-report narration.  Prose only —
+    the report composer owns layout."""
+    base = _deterministic_executive_summary(ctx)
+    header = NarrationParagraph(
+        text = (f"NivXRay XDR Investigation Report · Incident "
+                     f"{ctx.incident_id}."),
+    )
+    return NarrationDraft(
+        paragraphs      = [header, *base.paragraphs],
+        verdict         = ctx.verdict,
+        severity        = ctx.severity,
+        confidence      = ctx.confidence,
+        entities        = base.entities,
         generation_mode = GenerationMode.DETERMINISTIC,
     )

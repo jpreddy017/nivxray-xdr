@@ -1,6 +1,70 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · Phase 1.5 · Narration Gateway Consumer Migrations
+
+Migrated three additional consumers onto the Gateway.  Every
+governed-truth narration surface in NivXRay XDR now speaks the
+same `NarrationRequest` contract.
+
+**New Gateway kinds** (with guaranteed-baseline deterministic
+support):
+- `NarrationKind.ATTACK_STORY`
+- `NarrationKind.R46_OVERLAY_SUMMARY`
+- `NarrationKind.R48_REPORT_NARRATION`
+
+**New endpoints**
+- `GET /api/narration/incident/{id}/attack-story`
+- `GET /api/narration/incident/{id}/r46-overlay-summary`
+- `GET /api/narration/incident/{id}/report-narration`
+
+**Terminology refinement (owner-locked)**
+- "Fallback chain" → **Provider Priority Chain**.
+- Deterministic provider → **Guaranteed-baseline provider** (not
+  a "fallback", it's the honest floor of narration capability).
+- API responses now include both `provider_priority` (new
+  semantic alias) and `fallback_chain` (legacy alias) for
+  smooth consumer migration.
+
+**Shared incident-context builder**
+- `routers/narration.py::_build_incident_context()` produces a
+  single governed `NarrationContext` reused by all four
+  endpoints — semantic invariance across consumers guaranteed by
+  construction, not by convention.
+
+**Testing**
+- New suite `tests/test_narration_gateway_phase15.py` — **25/25 pass**:
+  · Cloud credit-exhaustion → offline · × 4 kinds
+  · Cloud timeout + offline-runtime-absent → deterministic · × 4 kinds
+  · Cloud malformed / hallucinated id → grounding rejects, falls through · × 4 kinds
+  · Same governed facts across cloud / offline / deterministic · × 4 kinds
+  · Guaranteed-baseline supports every migrated kind · × 4 kinds
+  · Empty-context honesty across every kind · × 4 kinds
+  · Deterministic always appended when operator misconfigures order.
+- Cumulative suite: **51/51 pass** (13 Phase-1 gateway + 25
+  Phase-1.5 integration + 13 catalogue).
+- Live smoke: 4 endpoints × real incident all return
+  `grounded=True`, all with cloud:emergent-claude prose sharing
+  the same 8-technique governed context.
+- Live provider-priority transition verified end-to-end:
+  `preferred_provider=offline` → offline declines honestly →
+  cloud wins; `preferred_provider=deterministic` → baseline
+  wins directly with zero LLM calls.
+
+**Offline provider (Ollama / NivX Cognis)**
+- Slot is fully wired.  Enabling it in a customer environment is
+  a config-only action: set `OLLAMA_HOST` + `OLLAMA_MODEL`.  The
+  provider protocol requires no code change to accept a real
+  local runtime.  Failure transitions are validated by the test
+  suite and by the live smoke.
+
+**Not started (as directed)**
+- Phase 2 · Identity + Cloud Ingestion — held pending review.
+- Phase 3+ · Response Automation, Scenario Library, Cross-Case
+  Rollup, Advanced Copilot — held.
+
+
+
 ## ✅ 2026-09-02 · Phase 1 · NivXRay XDR Narration Gateway + Cockpit Foundation
 
 Directive: NivXRay XDR must eventually own its capabilities

@@ -1,12 +1,25 @@
 """
 Narration Gateway — the single call-site every consumer uses.
 
-Fallback chain (config-driven via `NARRATION_PROVIDER_ORDER`, or
-by default: cloud → offline → deterministic):
+Terminology (owner-locked):
 
-    Cloud LLM  →  Offline LLM  →  Deterministic Narrator
-                                    ↑
-                        MANDATORY.  NEVER FAILS.
+    · **Provider Priority Chain** — the ordered list of providers
+      the gateway tries.  Configurable via
+      `NARRATION_PROVIDER_ORDER`; default `cloud,offline,deterministic`.
+    · **Guaranteed-baseline provider** — the deterministic
+      narrator.  Always present in the chain (appended if the
+      operator forgot).  Not a "fallback" in the pejorative sense —
+      it is the honest floor of the platform's narration
+      capability that survives credit exhaustion, cloud outage,
+      offline-runtime absence, and legacy NivXRay decommissioning.
+
+    NivXRay XDR Narration Gateway
+                 │
+           Provider Resolver
+                 │
+         ┌───────┼────────┐
+         ▼       ▼        ▼
+       Cloud   Offline  Deterministic  (guaranteed baseline)
 """
 from __future__ import annotations
 

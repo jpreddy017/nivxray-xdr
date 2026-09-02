@@ -79,7 +79,8 @@ def _serialise(result) -> dict[str, Any]:
         "provenance":      list(result.provenance),
         "generation_mode": result.generation_mode.value,
         "provider":        result.provider,
-        "fallback_chain":  list(result.fallback_chain),
+        "provider_priority": list(result.fallback_chain),   # semantic alias
+        "fallback_chain":  list(result.fallback_chain),     # legacy alias
         "grounded":        result.grounded,
         "caveats":         list(result.caveats),
     }
@@ -108,25 +109,18 @@ async def render_narration(payload: NarrationRenderIn,
 
 
 # --------------------------------------------------------------------
-# Phase-1 proof surface — Incident Overview Executive Summary.
+# Consumer-shared: build a governed NarrationContext for one
+# incident.  Used by every Gateway-backed endpoint below so all
+# consumers see IDENTICAL governed facts — providers only differ
+# in wording.
 # --------------------------------------------------------------------
-@router.get("/narration/incident/{incident_id}/executive-summary")
-async def incident_executive_summary(
-    incident_id: str,
-    user = Depends(get_current_user),
-):
-    """Build a governed NarrationContext for the incident, then
-    route through the Narration Gateway.  All governed truth is
-    read from `workspace_cases` — the LLM never gets to invent
-    an evidence id, finding id, technique id, entity, verdict,
-    severity or confidence."""
+async def _build_incident_context(incident_id: str) -> NarrationContext:
     inc = await db["workspace_cases"].find_one(
         {"id": incident_id}, {"_id": 0})
     if not inc:
         raise HTTPException(status_code=404,
                             detail=f"incident {incident_id} not found")
 
-    # Extract governed context — deliberately conservative.
     v_raw = inc.get("verdict")
     if isinstance(v_raw, dict):
         verdict = v_raw.get("classification") or v_raw.get("verdict")
@@ -165,7 +159,6 @@ async def incident_executive_summary(
         if eid:
             ev_ids.append(str(eid))
 
-    # Techniques — reuse the canonical ATT&CK evidence composer.
     from services.attack_evidence import compose_attack_evidence
     ae = await compose_attack_evidence(db, incident_id)
     technique_ids = [t.get("technique_id") for t in ae.get("techniques") or []
@@ -180,7 +173,7 @@ async def incident_executive_summary(
         if val:
             entities.append(str(val))
 
-    ctx = NarrationContext(
+    return NarrationContext(
         incident_id    = incident_id,
         evidence_ids   = tuple(dict.fromkeys(ev_ids)),
         finding_ids    = (),
@@ -200,8 +193,69 @@ async def incident_executive_summary(
             "number":      inc.get("number"),
         },
     )
+
+
+# --------------------------------------------------------------------
+# Phase-1 proof surface — Incident Overview Executive Summary.
+# --------------------------------------------------------------------
+@router.get("/narration/incident/{incident_id}/executive-summary")
+async def incident_executive_summary(
+    incident_id: str,
+    user = Depends(get_current_user),
+):
+    ctx = await _build_incident_context(incident_id)
     result = await get_gateway().render(NarrationRequest(
         kind    = NarrationKind.EXECUTIVE_SUMMARY,
+        context = ctx,
+    ))
+    return _serialise(result)
+
+
+# --------------------------------------------------------------------
+# Phase-1.5 consumer migrations — Attack Story, R46 overlay, R48 PDF.
+# All three share `_build_incident_context()` so semantic invariance
+# across consumers and providers is guaranteed by construction.
+# --------------------------------------------------------------------
+@router.get("/narration/incident/{incident_id}/attack-story")
+async def incident_attack_story(
+    incident_id: str,
+    user = Depends(get_current_user),
+):
+    ctx = await _build_incident_context(incident_id)
+    result = await get_gateway().render(NarrationRequest(
+        kind    = NarrationKind.ATTACK_STORY,
+        context = ctx,
+    ))
+    return _serialise(result)
+
+
+@router.get("/narration/incident/{incident_id}/r46-overlay-summary")
+async def incident_r46_overlay_summary(
+    incident_id: str,
+    user = Depends(get_current_user),
+):
+    """R46 Analyst Overlay base text.  The overlay layer edits
+    *interpretation* on top of this Gateway output; it never
+    mutates machine truth."""
+    ctx = await _build_incident_context(incident_id)
+    result = await get_gateway().render(NarrationRequest(
+        kind    = NarrationKind.R46_OVERLAY_SUMMARY,
+        context = ctx,
+    ))
+    return _serialise(result)
+
+
+@router.get("/narration/incident/{incident_id}/report-narration")
+async def incident_report_narration(
+    incident_id: str,
+    user = Depends(get_current_user),
+):
+    """R48 PDF Investigation Report narration.  The PDF composer
+    owns layout; this endpoint supplies prose only, so no PDF-
+    specific narration logic ever gets built."""
+    ctx = await _build_incident_context(incident_id)
+    result = await get_gateway().render(NarrationRequest(
+        kind    = NarrationKind.R48_REPORT_NARRATION,
         context = ctx,
     ))
     return _serialise(result)
