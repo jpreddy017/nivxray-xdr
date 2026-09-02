@@ -1,6 +1,6 @@
 {
   "engine_version": "0.4.0-gate2d",
-  "generated_at": "2026-09-02T11:42:18.724173+00:00",
+  "generated_at": "2026-09-02T11:50:48.616549+00:00",
   "tracks": {
     "A": {
       "status": "RUN_VIA_C",
@@ -117,7 +117,7 @@
         "https://tommy-aa.lol/f"
       ],
       "unresolved": [],
-      "latency_ms": 0.03624596865847707,
+      "latency_ms": 0.035273958928883076,
       "notes": ""
     },
     {
@@ -139,7 +139,7 @@
         "powershell -c calc"
       ],
       "unresolved": [],
-      "latency_ms": 0.03289600135758519,
+      "latency_ms": 0.04239700501784682,
       "notes": ""
     },
     {
@@ -155,7 +155,7 @@
       "unresolved": [
         "no CMD/PS/Bash surface detected by heuristic; Plane-A codec sub-engines not yet wired (P0-1B Gate 2D)."
       ],
-      "latency_ms": 0.00945699866861105,
+      "latency_ms": 0.010208983439952135,
       "notes": ""
     },
     {
@@ -175,7 +175,7 @@
         "\"carets ^ inside quotes ^ are literal\""
       ],
       "unresolved": [],
-      "latency_ms": 0.02559798303991556,
+      "latency_ms": 0.026848982088267803,
       "notes": ""
     },
     {
@@ -199,7 +199,7 @@
         "powershell -c ipconfig"
       ],
       "unresolved": [],
-      "latency_ms": 0.04087400157004595,
+      "latency_ms": 0.043437001295387745,
       "notes": ""
     },
     {
@@ -223,7 +223,7 @@
         "cmd /c dir"
       ],
       "unresolved": [],
-      "latency_ms": 0.03315397771075368,
+      "latency_ms": 0.03447994822636247,
       "notes": ""
     },
     {
@@ -241,7 +241,7 @@
       "substr_actual": "set path=C:\\Users\\alice&dir",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.020384963136166334,
+      "latency_ms": 0.020786013919860125,
       "notes": ""
     },
     {
@@ -265,7 +265,7 @@
         "whoami"
       ],
       "unresolved": [],
-      "latency_ms": 0.07078098133206367,
+      "latency_ms": 0.07223198190331459,
       "notes": ""
     },
     {
@@ -287,7 +287,7 @@
       "unresolved": [
         "!VAR! references found but /V:ON / SETLOCAL EnableDelayedExpansion NOT declared \u2014 cmd.exe would treat these as literal."
       ],
-      "latency_ms": 0.023818982299417257,
+      "latency_ms": 0.024141976609826088,
       "notes": ""
     },
     {
@@ -307,7 +307,7 @@
       "unresolved": [
         "%USERNAME% (system env \u2014 unresolved by design)"
       ],
-      "latency_ms": 0.02010201569646597,
+      "latency_ms": 0.020646024495363235,
       "notes": ""
     },
     {
@@ -325,7 +325,7 @@
       "substr_actual": "ipconfig /all",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.016023986972868443,
+      "latency_ms": 0.016036967281252146,
       "notes": ""
     },
     {
@@ -343,7 +343,7 @@
       "substr_actual": "dir C:\\Users",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.016812991816550493,
+      "latency_ms": 0.016243953723460436,
       "notes": ""
     },
     {
@@ -361,7 +361,7 @@
       "substr_actual": "^",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.015122001059353352,
+      "latency_ms": 0.021494983229786158,
       "notes": ""
     },
     {
@@ -382,7 +382,7 @@
       "substr_actual": "set a=&",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.02706097438931465,
+      "latency_ms": 0.027476984541863203,
       "notes": ""
     },
     {
@@ -404,7 +404,7 @@
         "cmd.exe /c calc"
       ],
       "unresolved": [],
-      "latency_ms": 0.032544019632041454,
+      "latency_ms": 0.032408046536147594,
       "notes": ""
     },
     {
@@ -426,7 +426,7 @@
         "powershell.exe -c whoami"
       ],
       "unresolved": [],
-      "latency_ms": 0.03508199006319046,
+      "latency_ms": 0.03621698124334216,
       "notes": ""
     },
     {
@@ -446,7 +446,7 @@
       "unresolved": [
         "for /f %i in ('unknown-cmd') \u2014 inner not statically resolvable (Gate 2B leaves loop intact)."
       ],
-      "latency_ms": 0.022310996428132057,
+      "latency_ms": 0.0227490090765059,
       "notes": ""
     },
     {
@@ -466,7 +466,7 @@
         "cmd.exe /c calc"
       ],
       "unresolved": [],
-      "latency_ms": 0.08006900316104293,
+      "latency_ms": 0.030304014217108488,
       "notes": ""
     },
     {
@@ -486,7 +486,7 @@
         "powershell.exe -c ipconfig"
       ],
       "unresolved": [],
-      "latency_ms": 0.034908996894955635,
+      "latency_ms": 0.03338902024552226,
       "notes": ""
     },
     {
@@ -506,7 +506,7 @@
       "unresolved": [
         "*.exe \u2014 41 LOLBAS candidate(s): ['powershell.exe', 'cmd.exe', 'wscript.exe', 'cscript.exe', 'mshta.exe']"
       ],
-      "latency_ms": 0.06349798059090972,
+      "latency_ms": 0.06261497037485242,
       "notes": ""
     },
     {
@@ -540,7 +540,7 @@
         "https://tommy-aa.lol/f"
       ],
       "unresolved": [],
-      "latency_ms": 0.1903829979710281,
+      "latency_ms": 0.1779790036380291,
       "notes": ""
     },
     {
@@ -561,7 +561,7 @@
         "'iex'"
       ],
       "unresolved": [],
-      "latency_ms": 0.0488900113850832,
+      "latency_ms": 0.04784198245033622,
       "notes": ""
     },
     {
@@ -581,7 +581,7 @@
         "'iex'"
       ],
       "unresolved": [],
-      "latency_ms": 0.03288703737780452,
+      "latency_ms": 0.032522017136216164,
       "notes": ""
     },
     {
@@ -601,7 +601,7 @@
         "'iex'"
       ],
       "unresolved": [],
-      "latency_ms": 0.0341139966621995,
+      "latency_ms": 0.03334600478410721,
       "notes": ""
     },
     {
@@ -621,7 +621,7 @@
         "Invoke-Expression"
       ],
       "unresolved": [],
-      "latency_ms": 0.026521971449255943,
+      "latency_ms": 0.02602499444037676,
       "notes": ""
     },
     {
@@ -641,7 +641,7 @@
         "'iex'"
       ],
       "unresolved": [],
-      "latency_ms": 0.024263979867100716,
+      "latency_ms": 0.024203036446124315,
       "notes": ""
     },
     {
@@ -661,7 +661,7 @@
         "'iex'"
       ],
       "unresolved": [],
-      "latency_ms": 0.022610998712480068,
+      "latency_ms": 0.03489904338493943,
       "notes": ""
     },
     {
@@ -675,7 +675,7 @@
       "substr_actual": "Get-Service | Where-Object Status -eq 'Running'",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.016876962035894394,
+      "latency_ms": 0.01702498411759734,
       "notes": ""
     },
     {
@@ -689,7 +689,7 @@
       "substr_actual": "Get-Process | Sort-Object CPU -Descending",
       "substr_expected": [],
       "unresolved": [],
-      "latency_ms": 0.015362980775535107,
+      "latency_ms": 0.017573009245097637,
       "notes": ""
     },
     {
@@ -711,7 +711,7 @@
         "https://evil.example/x"
       ],
       "unresolved": [],
-      "latency_ms": 0.059582991525530815,
+      "latency_ms": 0.06036798004060984,
       "notes": ""
     },
     {
@@ -731,7 +731,7 @@
         "Hello World"
       ],
       "unresolved": [],
-      "latency_ms": 0.02992496592923999,
+      "latency_ms": 0.03083300543949008,
       "notes": ""
     }
   ],
@@ -951,9 +951,9 @@
     "benign_cases": 9,
     "benign_fp_flagged": 0,
     "unresolved_cases": 5,
-    "latency_ms_p50": 0.03,
-    "latency_ms_p95": 0.071,
-    "latency_ms_p99": 0.19,
+    "latency_ms_p50": 0.031,
+    "latency_ms_p95": 0.063,
+    "latency_ms_p99": 0.178,
     "codec_layer": "SCAFFOLD_ONLY \u2014 Plane-A sub-engines not yet wired at Gate 2A.",
     "semantic_layer": "RUN",
     "fullchain_layer": "RUN (Track G)"

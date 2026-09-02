@@ -60,6 +60,7 @@ from .base.encoding import (
 )
 from .base._ddo_adapter import (
     ddo_gzip, ddo_zlib, ddo_byte_array_xor_loop, ddo_ps_encoded_command,
+    ddo_xor_brute, ddo_rc4, ddo_aes_cbc,
 )
 
 
@@ -95,6 +96,24 @@ _SIGNATURES: list[tuple[str, re.Pattern]] = [
     # never contain the sentinel.
     ("base.gzip",                 re.compile(r"@@RAWBYTES@@1f8b")),
     ("base.zlib",                 re.compile(r"@@RAWBYTES@@78(?:01|5e|9c|da)", re.IGNORECASE)),
+    # B3.2-A completion — repeating-key XOR / RC4 / AES-CBC.
+    # Signatures require BOTH the algorithm token AND a
+    # sufficiently long base64/hex blob nearby.  The plugin's own
+    # .detect() further gates the actual decode at confidence
+    # ≥ 0.30 (same acceptance floor as the legacy plugin-registry
+    # invocation).  These signatures are intentionally strict to
+    # preserve zero-fire behaviour on benign / analyst-prompt
+    # fixtures where the reference implementations already refuse
+    # to decode (see Snapshot #2).
+    ("base.xor_brute",   re.compile(
+        r"(?is)\b(?:xor|bxor)\b.{0,240}(?:[A-Za-z0-9+/]{40,}={0,2}|[0-9a-fA-F]{80,})"
+    )),
+    ("base.rc4",         re.compile(
+        r"(?is)\b(?:rc4|arc4)\b.{0,240}(?:[A-Za-z0-9+/]{40,}={0,2}|[0-9a-fA-F]{80,})"
+    )),
+    ("base.aes_cbc",     re.compile(
+        r"(?is)\baes(?:-|_)?(?:cbc|ecb|128|192|256)?\b.{0,240}(?:[A-Za-z0-9+/]{40,}={0,2}|[0-9a-fA-F]{80,})"
+    )),
 ]
 
 
@@ -106,6 +125,9 @@ _DECODER_FNS["base.ps_encodedcommand"]   = ddo_ps_encoded_command
 _DECODER_FNS["base.byte_array_xor_loop"] = ddo_byte_array_xor_loop
 _DECODER_FNS["base.gzip"]                = ddo_gzip
 _DECODER_FNS["base.zlib"]                = ddo_zlib
+_DECODER_FNS["base.xor_brute"]           = ddo_xor_brute
+_DECODER_FNS["base.rc4"]                 = ddo_rc4
+_DECODER_FNS["base.aes_cbc"]             = ddo_aes_cbc
 
 
 # Capability descriptors for the migrated Plane-A codecs so
@@ -142,6 +164,30 @@ _BASE_CAPS: dict[str, Capability] = {
         version="0.6.0-gate2d-b3.2",
         description="Zlib/deflate inflate on @@RAWBYTES@@ sentinel "
                     "(migrated in B3.1).",
+    ),
+    "base.xor_brute":           Capability(
+        name="base.xor_brute", kind=CapabilityKind.DECODER,
+        language="generic",
+        version="0.6.1-gate2d-b3.2-A",
+        description="Repeating-key XOR brute-force decoder — "
+                    "authoritative impl at services.decoder.base.xor_brute "
+                    "(migrated in B3.1; DDO adapter added in B3.2-A).",
+    ),
+    "base.rc4":                 Capability(
+        name="base.rc4", kind=CapabilityKind.DECODER,
+        language="generic",
+        version="0.6.1-gate2d-b3.2-A",
+        description="RC4 (ARC4) stream cipher decoder — "
+                    "authoritative impl at services.decoder.base.crypto.Rc4Decoder "
+                    "(migrated in B3.1; DDO adapter added in B3.2-A).",
+    ),
+    "base.aes_cbc":             Capability(
+        name="base.aes_cbc", kind=CapabilityKind.DECODER,
+        language="generic",
+        version="0.6.1-gate2d-b3.2-A",
+        description="AES-CBC / AES-ECB decoder — "
+                    "authoritative impl at services.decoder.base.crypto.AesCbcDecoder "
+                    "(migrated in B3.1; DDO adapter added in B3.2-A).",
     ),
 }
 

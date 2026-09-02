@@ -1,55 +1,77 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
-## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.2 · SHIPPED (STOPPED FOR ACCEPTANCE)
+## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.2 (+B3.2-A) · SHIPPED (STOPPED FOR ACCEPTANCE)
 
-**Analyzer Separation + DDO Codec Wiring.** Migration/separation
-gate only — no feature expansion. mal-20 untouched.
+**Analyzer Separation + DDO Codec Wiring · owner completion
+correction applied.** Migration/separation gate only — no
+feature expansion. mal-20 untouched.
 
-**Delivered:**
+**Wording adopted:** *Frozen-fixture output parity verified using
+SHA-256 content signatures.*
+
+**Delivered (B3.2 initial):**
 - **PE analyzer** authoritative implementation moved to
-  `services.analyzers.pe`; `services.pe_analyzer` is now a
-  re-export shim (identity check: `legacy is new` = True).
+  `services.analyzers.pe`; `services.pe_analyzer` = re-export
+  shim (identity: True).
 - **Shellcode analyzer** authoritative implementation moved to
-  `services.analyzers.shellcode`; `shellcode_analyzer` is a
-  re-export shim (identity check: True).
-- `services/analyzers/__init__.py` exposes analyzer package with
-  `ANALYZER_INVARIANTS` contract (`static_only`, `execution=False`,
-  `network_access=False`, `attck_promotion=False`,
-  `provenance_required=True`).
-- **DDO signature dispatch** extended with 4 migrated Plane-A
-  codec signatures: `base.ps_encodedcommand` /
-  `base.byte_array_xor_loop` / `base.gzip` / `base.zlib`.
-- `services/decoder/base/_ddo_adapter.py` — thin wrappers bridging
-  the codec return-shape to the DDO's simple text-in/text-out
-  contract.
-- DDO engine version bumped to `0.6.0-gate2d-b3.2`.
+  `services.analyzers.shellcode`; `shellcode_analyzer` = re-export
+  shim (identity: True).
+- `services/analyzers/__init__.py` exposes `ANALYZER_INVARIANTS`
+  contract (`static_only`, `execution=False`, `network_access=False`,
+  `attck_promotion=False`, `provenance_required=True`).
+- **DDO signature dispatch** wired for 4 migrated Plane-A codecs.
+- `services/decoder/base/_ddo_adapter.py` — thin invocation-shape
+  bridges.
 
-**Crypto plugins (RC4/AES/xor_brute) — honest status:** these use
-a `BaseDecoder(Fingerprint, AnalysisContext) → PluginResult` shape
-fundamentally different from DDO's text-in/text-out contract.
-Their authoritative implementation already lives at
-`services.decoder.base.{crypto,xor_brute}` (from B3.1); DDO
-integration would require a separate plugin-shape dispatch lane —
-that is feature expansion, explicitly forbidden by B3 scope. They
-remain reachable via `engine.registry.DecoderRegistry` + UAIE
-plugin adapters (unchanged).
+**Delivered (B3.2-A completion correction):**
+- Added DDO adapters for the remaining 3 migrated families:
+  `ddo_xor_brute` / `ddo_rc4` / `ddo_aes_cbc` — plugin-shape
+  bridge that constructs a minimal deterministic Fingerprint +
+  AnalysisContext, calls the authoritative implementations at
+  `services.decoder.base.{xor_brute,crypto}`, and returns only
+  the reconstructed text.  Confidence floor `0.30` mirrors the
+  legacy plugin-registry acceptance floor verbatim.
+- Signatures added to `_SIGNATURES` requiring BOTH the algorithm
+  token AND a base64/hex blob of sufficient length in the same
+  window.
+- **All 7 migrated families now DDO-reachable.**
+- **New invariant test file** `tests/decoder_harness/test_ddo_dispatch_matrix.py`
+  freezes the 7/7 dispatch matrix (10 tests, all pass) — any
+  future regression fails fast.
 
-**Parity (frozen-fixture output parity verified cryptographically):**
+**Final DDO dispatch matrix (7/7 Plane-A + 7 encoding = 14/14):**
+
+```
+DDO
+├── encoding.url_decode   / unicode_escape / html_entities
+├── encoding.base32 / base85 / octal_ascii / decimal_ascii
+├── base.gzip                 → services.decoder.base.compression
+├── base.zlib                 → services.decoder.base.compression
+├── base.byte_array_xor_loop  → services.decoder.base.transform
+├── base.xor_brute            → services.decoder.base.xor_brute       (B3.2-A)
+├── base.rc4                  → services.decoder.base.crypto          (B3.2-A)
+├── base.aes_cbc              → services.decoder.base.crypto          (B3.2-A)
+└── base.ps_encodedcommand    → services.decoder.base.powershell_encoded_command
+```
+
+**Frozen-fixture parity (SHA-256 content signatures):**
 ```
 Snapshot #1 : 12378d11…8bac  (unchanged from B3.0)
 Snapshot #2 : 6427903e…7897  (unchanged from B3.0)
 ```
 
-**Regression:** decoder_harness 32/32 · corpus 76/76 (mal-20
-intentional) · adjacent 32/32 · **140/140 combined**. UAIE plugin
-adapters load OK (`legacy is new` True).
+**Regression:** decoder_harness 42/42 (was 32; +10 dispatch matrix)
+· corpus 76/76 (mal-20 intentional) · adjacent 32/32 ·
+**150/150 combined**.
 
 **Architectural state after B3.2:**
 - `services/decoder/base/*` — 7 authoritative Plane-A codecs.
-- `services/analyzers/{pe,shellcode}.py` — 2 authoritative artifact analyzers.
-- `services/decoder/orchestrator.py` — DDO dispatches 11 codecs (7 encoding + 4 migrated Plane-A).
-- Legacy paths (`recursive_decoder.py`, `decoders/*`, `services/pe_analyzer.py`, `shellcode_analyzer.py`) — thin re-export shims, zero unique logic.
+- `services/analyzers/{pe,shellcode}.py` — 2 authoritative analyzers.
+- `services/decoder/orchestrator.py` — 14/14 DDO dispatch.
+- Legacy paths — thin re-export shims, zero unique logic.
+- UAIE plugin adapters — still functional via shims; reach the
+  SAME authoritative implementations the DDO reaches.
 
 **Deferred to B3.3:** static import-graph + runtime dependency
 audit tests (CI-enforced).
@@ -57,7 +79,7 @@ audit tests (CI-enforced).
 **Deferred to B3.4:** final validation gate + median-based latency
 regression check.
 
-**STOPPED for owner acceptance of B3.2 before B3.3 begins.**
+**STOPPED for owner acceptance of B3.2 (+B3.2-A) before B3.3 begins.**
 
 
 
