@@ -1,6 +1,6 @@
 # Gate 2D-B3.1 · Plane-A Codec Migration · CHECKPOINT REPORT
 
-**Status:** ALL 7 CODEC FAMILIES MIGRATED — BYTE-IDENTICAL PARITY — STOPPED FOR OWNER ACCEPTANCE
+**Status:** ALL 7 CODEC FAMILIES MIGRATED — FROZEN-FIXTURE OUTPUT PARITY — STOPPED FOR OWNER ACCEPTANCE
 **Owner directive:** option (a) — B3 absorbs BOTH decoder runtime surfaces.
 **mal-20:** untouched (still the sole intentional failing test).
 
@@ -39,7 +39,13 @@ The result: `services/decoder/base/*` is now the **single authoritative source l
 
 ---
 
-## Byte-identical parity proof
+## Byte-identical parity proof (frozen-fixture output parity)
+
+Frozen-fixture output parity verified cryptographically; no
+observed behavioral regression within the migration parity corpus.
+SHA-256 identity of the captured signatures proves parity of the
+frozen observed outputs, not universal behavioural equivalence for
+every possible input.
 
 ```
 Snapshot #1 (peel_recursively surface)

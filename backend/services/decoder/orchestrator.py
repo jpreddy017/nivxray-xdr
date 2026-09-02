@@ -58,6 +58,9 @@ from .types import ReconstructionResult, DecodedLayer
 from .base.encoding import (
     _DECODERS as _ENC_DECODERS, _CAPS as _ENC_CAPS,
 )
+from .base._ddo_adapter import (
+    ddo_gzip, ddo_zlib, ddo_byte_array_xor_loop, ddo_ps_encoded_command,
+)
 
 
 MAX_DEPTH = 6
@@ -75,6 +78,23 @@ _SIGNATURES: list[tuple[str, re.Pattern]] = [
     ("encoding.base85",           re.compile(r"^<~[!-uz]+~>$")),
     ("encoding.octal_ascii",      re.compile(r"(?:\\[0-7]{3}){3,}")),
     ("encoding.decimal_ascii",    re.compile(r"(?<![0-9])(?:\d{2,3}[,\s]+){3,}\d{2,3}(?![0-9])")),
+    # Gate 2D-B3.2 · Plane-A codecs migrated from recursive_decoder.
+    # Signatures MUST be specific enough that they never fire on
+    # benign text.  Each corresponds to a codec whose implementation
+    # lives at services/decoder/base/*.
+    ("base.ps_encodedcommand",    re.compile(
+        r"(?ix)(?:^|\s|['\"`])(?:powershell(?:_ise)?(?:\.exe)?|pwsh(?:\.exe)?)"
+        r"(?:\s+\S+)*?\s+-(?:e|en|enc|encode|encoded|encodedcommand|ec)\b\s*[A-Za-z0-9+/]{16,}={0,2}"
+    )),
+    ("base.byte_array_xor_loop",  re.compile(
+        r"(?ix)\[\s*Byte\s*\[\s*\]\s*\]\s*\$\w+\s*=\s*"
+        r"\[\s*(?:System\.)?Convert\s*\]\s*::\s*FromBase64String"
+    )),
+    # GZIP / Zlib fire only on @@RAWBYTES@@ sentinels — those come
+    # from an upstream from_base64_string peel; benign text will
+    # never contain the sentinel.
+    ("base.gzip",                 re.compile(r"@@RAWBYTES@@1f8b")),
+    ("base.zlib",                 re.compile(r"@@RAWBYTES@@78(?:01|5e|9c|da)", re.IGNORECASE)),
 ]
 
 
@@ -82,6 +102,55 @@ _SIGNATURES: list[tuple[str, re.Pattern]] = [
 _DECODER_FNS: dict[str, Callable[[str], Optional[str]]] = {
     name: fn for name, fn in _ENC_DECODERS
 }
+_DECODER_FNS["base.ps_encodedcommand"]   = ddo_ps_encoded_command
+_DECODER_FNS["base.byte_array_xor_loop"] = ddo_byte_array_xor_loop
+_DECODER_FNS["base.gzip"]                = ddo_gzip
+_DECODER_FNS["base.zlib"]                = ddo_zlib
+
+
+# Capability descriptors for the migrated Plane-A codecs so
+# provenance rendering has a name+kind pair without depending on
+# encoding._CAPS.
+from .types import Capability, CapabilityKind     # local import for cycle safety
+
+
+_BASE_CAPS: dict[str, Capability] = {
+    "base.ps_encodedcommand":   Capability(
+        name="base.ps_encodedcommand", kind=CapabilityKind.DECODER,
+        language="powershell",
+        version="0.6.0-gate2d-b3.2",
+        description="PS -EncodedCommand base64 → UTF-16LE decode "
+                    "(migrated from recursive_decoder in B3.1).",
+    ),
+    "base.byte_array_xor_loop": Capability(
+        name="base.byte_array_xor_loop", kind=CapabilityKind.DEOBFUSCATOR,
+        language="powershell",
+        version="0.6.0-gate2d-b3.2",
+        description="Byte-array XOR loop fold (FromBase64String + "
+                    "for-bxor idiom) — migrated in B3.1.",
+    ),
+    "base.gzip":                Capability(
+        name="base.gzip", kind=CapabilityKind.DECODER,
+        language="generic",
+        version="0.6.0-gate2d-b3.2",
+        description="GZip inflate on @@RAWBYTES@@ sentinel "
+                    "(migrated in B3.1).",
+    ),
+    "base.zlib":                Capability(
+        name="base.zlib", kind=CapabilityKind.DECODER,
+        language="generic",
+        version="0.6.0-gate2d-b3.2",
+        description="Zlib/deflate inflate on @@RAWBYTES@@ sentinel "
+                    "(migrated in B3.1).",
+    ),
+}
+
+
+def _cap_for(name: str) -> Capability:
+    """Look up capability by codec name across all registered surfaces."""
+    if name in _ENC_CAPS:
+        return _ENC_CAPS[name]
+    return _BASE_CAPS[name]
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -134,11 +203,11 @@ def orchestrate(text: str,
             if out in seen_texts:
                 reasons.append(f"depth {depth}: {name} produced a cycle")
                 continue
-            cap = _ENC_CAPS[name]
+            cap = _cap_for(name)
             layers.append(DecodedLayer(
                 layer_index    = len(layers),
                 stage          = name,
-                language       = "generic",
+                language       = cap.language if hasattr(cap, "language") else "generic",
                 bytes_in       = len(current),
                 bytes_out      = len(out),
                 input_preview  = current[:64],
@@ -147,7 +216,7 @@ def orchestrate(text: str,
                 provenance     = Provenance(
                     decoded_from    = parent_id,
                     capability_name = name,
-                    engine_version  = "0.5.0-gate2d-b1",
+                    engine_version  = "0.6.0-gate2d-b3.2",
                     recorded_at     = now_iso(),
                 ),
                 confidence     = "HIGH",
