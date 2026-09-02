@@ -1,6 +1,92 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1A · Surface Detection Fix Pass · SHIPPED
+
+Owner-authorised (option A · P0-1A first · then P0-1B). Seven surgical
+fixes to the corpus runner's command-surface detection. **ZERO new
+decoder / deobfuscation implementations** — every rule is a static
+substring predicate over already-observable evidence (raw text +
+canonicalize output). Immutable P0-1 baseline preserved verbatim in
+`backend/tests/corpus/baseline_p0_1.json`.
+
+**Files changed (ONE file):**
+- `backend/tests/corpus/runner.py`
+
+**File added (baseline preservation):**
+- `backend/tests/corpus/baseline_p0_1.json` — immutable P0-1 baseline
+
+**7 authorised fixes shipped:**
+1. Explicit `UNCERTAIN` state at command surface — dual-use recon,
+   dual-use access, standalone `net user … /add`, GitHub tooling
+   download, credential-in-cmdline, Enable-PSRemoting.
+2. Post-decode IOC re-scan — `extract_iocs` now runs against
+   `cc.decoded_final` when it differs from raw input. NO caret
+   stripping (deferred to P0-1B).
+3. Persistence + suspicious-path cluster — `reg add …\Run` or
+   `schtasks /create` combined with `C:\Users\Public`, `%TEMP%`,
+   `%APPDATA%`, `\ProgramData\`, `\Windows\Temp\` → MALICIOUS.
+4. Local-account-creation cluster — `net user … /add` +
+   `net localgroup administrators … /add` → MALICIOUS.
+   Standalone `net user … /add` (no admin promote) → UNCERTAIN.
+5. Lateral-copy — `net use \\host` + `copy \\host` /
+   `xcopy \\host` / `robocopy \\host` → MALICIOUS.
+6. Reflective PE load — `[Reflection.Assembly]::Load` +
+   `FromBase64String` or `MZ`-prefix Base64 (`TVqQAA…`) →
+   MALICIOUS · CRITICAL.
+7. E2E scope correction — `surface_mal_precision / recall / f1`
+   now restrict to `measurable_incident_verdict` scenarios;
+   e2e ground truth (incident-scope) no longer pollutes
+   command-scope metrics.
+
+**Regression against immutable P0-1 baseline (76 scenarios):**
+
+| Metric                       | Baseline | Post-fix | Δ       |
+|------------------------------|---------:|---------:|--------:|
+| verdict_accuracy             |   0.6143 |   0.9143 | +0.3000 |
+| severity_accuracy            |   0.6571 |   0.9286 | +0.2714 |
+| surface_mal_precision        |   0.9259 |   1.0000 | +0.0741 |
+| surface_mal_recall           |   0.7143 |   0.8065 | +0.0922 |
+| surface_mal_f1               |   0.8065 |   0.8929 | +0.0864 |
+| ioc_recall                   |   0.8947 |   0.8947 |    0.00 |
+| attck_recall                 |   0.9088 |   0.9088 |    0.00 |
+| decoder_layer_accuracy       |   1.0000 |   1.0000 |    0.00 |
+| **Malware False Negatives**  |      **7** |      **1** |    **−6** |
+| **Benign  False Positives**  |      **0** |      **0** |     **0** |
+| test_scenario failures       |       36 |       13 |   −23   |
+
+**FN removed (6):** `mal-08, mal-09, mal-13, mal-16, mal-17, mal-18`
+**FN remaining (1):** `mal-20` — `ping evil.example > NUL & type stage.bin | more`.
+Behavioural inference required (no clearly malicious pattern at
+command scope). Would need P0-1B command semantics + reputation.
+**FP new:** none — benign bucket 20/20 preserved.
+
+**Per-bucket verdict pass rate (post-fix):**
+- benign      · 20/20 (100%)
+- suspicious  · 15/15 (100%, UNCERTAIN state now recognised)
+- malware     · 19/20 (95%)
+- obfuscation · 10/15 (66%; 5 misses are command-language
+  semantic reconstruction — obf-05/06/07/14/15 — legitimately
+  deferred to P0-1B Phase 2)
+- e2e         · 6/6 NOT MEASURABLE (correctly excluded, Fix 7)
+
+**Primary owner gate met**: reduce the 7 malware FNs without
+introducing benign FPs → **6 FNs removed · 0 FPs introduced**.
+
+**Explicit boundaries preserved:**
+- No caret-stripping decoder — obf-02 URL stays legitimately
+  unresolved in IOC layer; verdict now correctly SUSPICIOUS on
+  the surface caret pattern (`^t^t^p`).
+- No new decoder plugins.
+- No LLM changes.
+- No fabricated evidence — every rule cites observable raw text.
+- `attck_promotion=false` preserved on decoder bridge output.
+- `NO EVIDENCE → NO CLAIM` invariant intact.
+
+**STOPPED FOR FORMAL P0-1A ACCEPTANCE before starting P0-1B Phase 1.**
+
+
+
 ## ✅ 2026-09-02 · P0-0 Decoder Audit · DONE · Verdict B (partial)
 
 Read-only audit, zero code modified. Full 16-question inventory +

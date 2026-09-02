@@ -1,8 +1,8 @@
 {
   "n_total": 76,
   "n_measurable": 70,
-  "verdict_accuracy": 0.6142857142857143,
-  "severity_accuracy": 0.6571428571428571,
+  "verdict_accuracy": 0.9142857142857143,
+  "severity_accuracy": 0.9285714285714286,
   "ioc_precision": 0.868421052631579,
   "ioc_recall": 0.8947368421052632,
   "ioc_f1": 0.8813825608798115,
@@ -11,17 +11,12 @@
   "attck_f1": 0.8232403510946112,
   "decoder_layer_accuracy": 1.0,
   "decoder_substring_accuracy": 0.9736842105263158,
-  "surface_mal_precision": 0.9259259259259259,
-  "surface_mal_recall": 0.7142857142857143,
-  "surface_mal_f1": 0.8064516129032259,
+  "surface_mal_precision": 1.0,
+  "surface_mal_recall": 0.8064516129032258,
+  "surface_mal_f1": 0.8928571428571428,
+  "surface_mal_scope": "measurable_only (e2e excluded \u2014 P0-1A Fix 7)",
   "false_positives": [],
   "false_negatives": [
-    "mal-08",
-    "mal-09",
-    "mal-13",
-    "mal-16",
-    "mal-17",
-    "mal-18",
     "mal-20"
   ],
   "e2e_not_measurable": [
