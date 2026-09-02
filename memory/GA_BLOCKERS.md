@@ -99,12 +99,30 @@ Every action must go through the existing approval + audit + timeline pipeline (
 > (Okta / Entra ID / Google Workspace org / Auth0). Personal Google login satisfies auth
 > but does NOT satisfy the enterprise SSO acceptance criterion.
 
+> **Owner correction (absolute UI freeze):** P0-C is a BACKEND / AUTH /
+> SECURITY gate only. NO frontend changes of any kind — no SSO button,
+> no login page edit, no `/auth/signed-in` UI, no navigation, no styling,
+> no new frontend dependency. If the OIDC production acceptance test
+> genuinely cannot complete without frontend modification, deliver the
+> backend OIDC capability + API contract, document required UI as
+> backlog, STOP at the integration boundary.
+
+> **Secret handling (owner-locked):**
+> `/app/backend/.env` is acceptable ONLY as the immediate integration-
+> test secret mechanism (must be `.gitignore`-protected, never
+> committed, never pasted in chat). For the eventual production
+> architecture, migrate to a real secret-management mechanism (KMS /
+> Vault / cloud SM) rather than relying permanently on a pod-local
+> `.env`. **This migration is a FUTURE item, NOT part of P0-C.**
+
 **Remaining work:**
-- Add `authlib` (OIDC client) OR wire an enterprise-grade IdP via a validated integration playbook.
-- Add SSO login flow to frontend (`LoginPage.jsx`).
-- Map SSO claims → RBAC role assignments (existing `xdr_user_roles`).
-- Just-in-Time provisioning of `db.users`.
-- **Acceptance:** end-to-end login via a real enterprise IdP tenant. NOT satisfied by a consumer-identity smoke test.
+- Add `authlib` (OIDC client) via the captured playbook.
+- Backend routes: `/api/auth/oidc/login`, `/api/auth/oidc/callback`, `/api/auth/oidc/logout` — feature-flagged off when env vars absent.
+- Shared `issue_app_jwt()` refactor so OIDC + password paths mint identical tokens.
+- JIT provisioning with unique `(oidc_issuer, oidc_subject)` index — no silent account takeover by email.
+- Encrypted refresh-token storage via existing KMS/Fernet helper.
+- Claim / domain / tenant validation via `OIDC_ALLOWED_DOMAINS`.
+- **Acceptance:** end-to-end login via a real enterprise IdP tenant with an assigned workforce test user. NOT satisfied by a consumer-identity smoke test.
 
 **Effort:** **M** (real enterprise OIDC + role-mapping + JIT).
 **Dependencies:** none blocking — can ship in parallel with connectors.
