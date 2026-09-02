@@ -134,6 +134,19 @@ class CanonicalCommand:
     payload:            str        = ""
     unwrap_depth:       int        = 0
     canonicalizer_version: str     = CANONICALIZER_VERSION
+    # P0-0 Decoder-in-Pipeline plumbing (2026-09-02).  Additive
+    # fields — every previous consumer continues to work unchanged.
+    #
+    # `decoded_layers[]` — each layer is a canonical CHILD of this
+    #   command with `provenance.decoded_from` pointing back at the
+    #   parent evidence id (owner invariant: technique claim →
+    #   supporting evidence required).
+    # `decoded_iocs[]`   — IOCs surfaced from decoded layers, each
+    #   stamped with the decoded_layer_id + decoded_from provenance.
+    # `decoded_final`    — fully-peeled payload (single string).
+    decoded_layers:     List[Dict[str, Any]] = field(default_factory=list)
+    decoded_iocs:       List[Dict[str, Any]] = field(default_factory=list)
+    decoded_final:      str                  = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -142,9 +155,25 @@ class CanonicalCommand:
 # ══════════════════════════════════════════════════════════════════
 # Public entry point
 # ══════════════════════════════════════════════════════════════════
-def canonicalize(raw: str) -> CanonicalCommand:
-    """Return a ``CanonicalCommand`` for ``raw``.  Never raises;
-    on any parse error returns a canonical form where
+def canonicalize(raw: str,
+                                 *,
+                                 parent_canonical_id: str | None = None,
+                                 with_decoder: bool = True) -> CanonicalCommand:
+    """Return a ``CanonicalCommand`` for ``raw``.
+
+    When ``with_decoder=True`` (default), the fully-peeled payload
+    is ALSO run through the existing recursive decoder engine via
+    ``services.decoder_bridge.decode_commandline``.  Each decoded
+    layer is attached as a canonical CHILD, and decoded IOCs are
+    projected onto the parent so downstream ATT&CK / Verdict /
+    Narration surfaces can consume them.
+
+    ``parent_canonical_id`` is the id of the raw evidence this
+    canonical command was derived from — becomes the
+    ``provenance.decoded_from`` for every child layer.  When None,
+    a stable synthetic id is used.
+
+    Never raises; on any parse error returns a canonical form where
     ``effective_command == raw`` and ``launcher_chain == []`` so the
     caller can always trust the shape."""
     if not raw or not isinstance(raw, str):
@@ -160,6 +189,34 @@ def canonicalize(raw: str) -> CanonicalCommand:
         current = inner
         depth += 1
     head = _head_of(current)
+
+    decoded_layers: List[Dict[str, Any]] = []
+    decoded_iocs:   List[Dict[str, Any]] = []
+    decoded_final = current
+    if with_decoder:
+        # P0-0 plumbing — delegate to the existing recursive engine.
+        # No new codec code is written; we just project each layer
+        # as a canonical CHILD with provenance.decoded_from.
+        #
+        # Run the decoder on the ORIGINAL raw input (not on
+        # ``current``) so the full peel chain is recorded — the
+        # canonicalizer's inline launcher-peel would otherwise steal
+        # the first base64 step and the recursive engine would see
+        # nothing to do.  When both paths agree on the final text,
+        # `decoded_final == payload` and analysts see one auditable
+        # trace instead of two silent ones.
+        try:
+            from services.decoder_bridge import (      # noqa: WPS433
+                decode_commandline, project_iocs,
+            )
+            pid = parent_canonical_id or f"canonical:{abs(hash(raw)) & 0xffffffff:x}"
+            final_text, layers = decode_commandline(raw, pid)
+            decoded_final  = final_text or current
+            decoded_layers = [l.to_dict() for l in layers]
+            decoded_iocs   = project_iocs(layers)
+        except Exception:      # decoder must NEVER break canonicalisation
+            decoded_layers, decoded_iocs, decoded_final = [], [], current
+
     return CanonicalCommand(
         raw               = raw,
         launcher_chain    = chain,
@@ -167,6 +224,9 @@ def canonicalize(raw: str) -> CanonicalCommand:
         effective_head    = head,
         payload           = current,
         unwrap_depth      = depth,
+        decoded_layers    = decoded_layers,
+        decoded_iocs      = decoded_iocs,
+        decoded_final     = decoded_final,
     )
 
 
