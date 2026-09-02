@@ -111,6 +111,9 @@ B3 MIGRATION PROJECT COMPLETE
 
 ## Statement of completion
 
+> The B3 deterministic decoder migration is complete,
+> parity-validated, dependency-audited, and CI-enforced.
+>
 > `services/decoder/` and `services/analyzers/` form NivXRay
 > XDR's single authoritative deterministic decoding/analysis
 > runtime. The 7 migrated Plane-A codec families are reachable
@@ -121,6 +124,9 @@ B3 MIGRATION PROJECT COMPLETE
 > exist only as thin compatibility shims that re-export from the
 > authoritative implementations; a CI-enforced dependency audit
 > ensures no authoritative code depends on them.
+>
+> This is a statement about the B3 migration project only — NOT
+> a claim that the NivXRay XDR decoder is "100 % complete".
 
 **No B3.5 / B3.6 / B3.7 will be created.**
 

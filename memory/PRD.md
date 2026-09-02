@@ -1,10 +1,86 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
-## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.4 · PASS · **B3 MIGRATION PROJECT COMPLETE**
+## 📋 2026-02 · NivXRay XDR 360° Production & Market-Readiness Audit · COMPLETE
+
+**Mode:** Read-only + smoke-test verification (owner-approved
+mode B + D + E + F). **No code changes made this session.**
+
+**Deliverables:**
+- `/app/memory/NIVXRAY_XDR_360_AUDIT.md` — full audit
+  (12 dimensions, 96 capability rows, reference-product
+  comparison, transparent methodology).
+- `/app/memory/GA_BLOCKERS.md` — the 11-item P0 list ready
+  for engineering execution, with a proposed 4-sprint
+  sequencing to V1 GA.
+
+**Headline (heuristic decision-support indicator, not a
+certification):**
+
+```
+NivXRay XDR V1 GA Readiness (weighted)   ~48 %
+
+Investigation (decoder / evidence / narration)   86 %
+Analyst UX                                        67 %
+Detection (rules / correlations / MITRE)          58 %
+Security posture                                  56 %
+Multi-tenancy + RBAC                              44 %
+Connectors (data sources / collectors)            34 %
+Deployment / upgrade / rollback                   32 %
+Scalability                                       29 %
+Data lifecycle (retention / archive)              26 %
+Response (actions / SOAR / remediation)           22 %
+Reliability + HA                                  21 %
+Observability + operations                        18 %
+```
+
+**The 11 P0 GA blockers (summary — see GA_BLOCKERS.md):**
+A · Real vendor telemetry connectors · Okta / AWS CloudTrail / MDE (L)
+B · Real response actions (isolate / kill / block) — 5 actions (M)
+C · SSO / OIDC login (S using Emergent-managed Google Auth)
+D · Multi-tenant isolation proved with tests (M)
+E · Prometheus `/metrics` + JSON structured logging (S)
+F · Kubernetes / Helm manifest (or docker-compose floor) (S–M)
+G · Data retention + backup + restore (M)
+H · Route consistency + OpenAPI surface exposed (S)
+I · Detection efficacy measurement (precision/recall/F1) (M)
+J · HA / failover baseline (M)
+K · Security pen-test baseline (S–M)
+
+**Total ≈ 1 quarter to V1 GA** with parallelisation.
+
+**Owner explicit constraints honoured in the audit:**
+- Documentation alone was NOT counted as evidence.
+- Stubs were classified `PARTIAL`.
+- Endpoints without real backing sources → `MOCK/STUB`.
+- No new features / no code changes / no decoder work during
+  the audit.
+- No B3.5 / Gate 2E / Gate 2F created.
+
+**Explicitly NOT V1 GA blockers (deferred, per audit):**
+- mal-20 behavioural inference (single-scenario)
+- Additional Plane-A positive corpus (Gate 2F territory)
+- Bash Plane-B semantics
+- Advanced hunting DSL
+- AI-assisted narration expansion
+- MSSP cross-tenant threat intel
+
+**Next engineering conversation:** which P0 blockers to
+sequence first. Recommendation in `GA_BLOCKERS.md` §Rollup.
+
+
+
+
+## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.4 · PASS · **B3 DETERMINISTIC DECODER MIGRATION COMPLETE**
+
+The B3 deterministic decoder migration is complete,
+parity-validated, dependency-audited, and CI-enforced. This is
+NOT a statement that the NivXRay XDR decoder is "100 % complete";
+it is the accurate engineering claim about the B3 migration
+project only.
 
 **Pure validation gate — no new implementation, no repair.**
-mal-20 untouched. Wording adopted: *Frozen-fixture output parity
+mal-20 untouched. Wording: *Frozen-fixture output parity
 verified using SHA-256 content signatures.*
 
 **All 11 acceptance steps PASS:**
