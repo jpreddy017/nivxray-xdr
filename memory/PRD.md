@@ -1,6 +1,59 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · Phase 1.75 · Attack Story UI Migration + Cognis Terminology Fix
+
+**Terminology (owner-locked)**
+- "NivX Cognis" was informally being conflated with the Ollama
+  offline model runtime.  Corrected per user directive:
+  ```
+  NivXRay XDR Cognis        ← native intelligence layer (NivXRay XDR-owned)
+        │
+   Model Gateway            ← execution abstraction
+        │
+   ┌────┴────────┐
+   ▼             ▼
+  Ollama       Cloud LLM    ← model execution providers (interchangeable)
+  ```
+- Offline provider renamed from `offline-llm` to
+  `cognis-offline:ollama` to reflect that Ollama is one runtime
+  under the Cognis intelligence layer, not Cognis itself.
+- Error message updated from "NivX Cognis (Qwen 2.5 7B) not
+  deployed" to "NivXRay XDR Cognis · Offline model runtime not
+  deployed" — makes the layering visible in ops.
+- `MIGRATION_DEPENDENCIES.md §2` rewritten with the Cognis
+  architecture and the explicit non-conflation rule.
+
+**Attack Story UI migration → Narration Gateway**
+- New generic `<GatewayNarrationPanel>` component
+  (`src/xdr/design/GatewayNarrationPanel.jsx`) — accepts an
+  endpoint path, renders governed prose with technique/evidence
+  pills, provider/generation-mode/grounded badges, caveats.
+- Wired into `AttackStoryTab.jsx` at the top of the tab; the
+  existing 14-stage `AttackFlow` rendering (SSOT projection) is
+  preserved verbatim below the Gateway panel.  Semantic
+  invariance verified live: same techniques, different wording.
+- Live smoke on `/xdr/incidents/…?tab=attack-story` shows
+  `LLM_CLOUD · provider: cloud:emergent-claude · GROUNDED ·
+  MALICIOUS` with 5 grounded paragraphs and 8 technique pills
+  drawn only from the governed context.
+
+**R46 Analyst Overlay wiring status**
+- Finding-level overlays: unchanged and green.
+- Incident Executive-Summary overlay: still HELD per prior
+  directive.  The Gateway endpoint
+  `/api/narration/incident/{id}/r46-overlay-summary` exists and
+  returns identical governed facts, so wiring the editor when
+  the hold is lifted is a one-line change (`machineValue={data.text}`).
+
+**Verification**
+- Cumulative suite: **51/51 pass**.
+- `yarn build` → 0 errors.
+- Live smoke on Executive tab AND Attack Story tab — both
+  Gateway-backed, both `grounded=true`, provider chain visible
+  in badges.
+
+
 ## ✅ 2026-09-02 · Phase 1.5 · Narration Gateway Consumer Migrations
 
 Migrated three additional consumers onto the Gateway.  Every

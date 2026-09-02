@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
+import GatewayNarrationPanel from "@/xdr/design/GatewayNarrationPanel";
 
 
 const STATE_MARK = {
@@ -71,6 +72,19 @@ export default function AttackStoryTab({ incident }) {
 
   return (
     <div data-testid="xdr-record-attack-story">
+      {/* Phase 1.5 · Attack Story narration migrated to the
+              NivXRay XDR Narration Gateway.  Governed context
+              (evidence ids, technique ids, verdict, severity,
+              confidence) is inherited verbatim; only wording
+              varies across providers. */}
+      <GatewayNarrationPanel
+        incidentId  = {incident?.id}
+        endpoint    = "/narration/incident/{id}/attack-story"
+        eyebrow     = "NIVXRAY XDR NARRATION GATEWAY · ATTACK STORY"
+        title       = "Evidence-Backed Attack Story Narration"
+        testidPrefix= "xdr-attack-story-narration"
+      />
+
       <div className="rl-ai-status observed"
             data-testid="xdr-record-attack-story-header">
         <div className="badge"><span>ATTACK STORY · 14-STAGE FLOW</span></div>

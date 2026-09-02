@@ -159,7 +159,14 @@ class CloudLLMProvider:
 # then moves on to the deterministic narrator.
 # --------------------------------------------------------------------
 class OfflineLLMProvider:
-    name = "offline-llm"
+    """NivXRay XDR Cognis · Offline/Local Model Provider slot.
+
+    Cognis is the NivXRay XDR-native intelligence layer.  The
+    Model Gateway inside Cognis can be backed by ANY offline
+    model-execution runtime — Ollama is one such runtime and is
+    what NivXRay XDR ships with today.  This class is the
+    protocol adapter, not Cognis itself."""
+    name = "cognis-offline:ollama"
     kind = "offline"
     supports = {
         NarrationKind.EXECUTIVE_SUMMARY,

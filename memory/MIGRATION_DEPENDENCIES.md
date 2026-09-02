@@ -32,15 +32,33 @@ _Last reviewed: 2026-09-02 (Phase 1 completion)._
   and no Emergent key is ever loaded.  The gateway keeps
   functioning because the deterministic narrator is mandatory.
 
-## 2. Offline LLM (Ollama / Qwen 2.5 7B "NivX Cognis")
+## 2. Offline LLM runtime (Ollama) — under NivXRay XDR Cognis
 
-- **Current provider**: `backend/llm_provider.py::OllamaQwenProvider`
+- **Cognis architecture** (owner-locked):
+
+  ```
+  NivXRay XDR Cognis          ← native intelligence layer
+        │
+   Model Gateway              ← execution abstraction
+        │
+   ┌────┴────────┐
+   ▼             ▼
+  Ollama       Cloud LLM      ← model execution providers
+  ```
+
+- **Current runtime**: `backend/llm_provider.py::OllamaQwenProvider`
   (env-gated on `OLLAMA_HOST` + `OLLAMA_MODEL`).
-- **Classification**: 🟢 **PERMANENT_EXTERNAL_PROVIDER** (self-hosted
-  by the customer; NivXRay XDR only speaks the Ollama HTTP
-  protocol).
-- **Exit strategy**: Interface only.  Any Ollama-compatible model
-  runtime can replace it without a code change.
+- **Narration adapter**: `services/narration/providers.py::OfflineLLMProvider`
+  (name `cognis-offline:ollama`).
+- **Classification**: 🟢 **PERMANENT_EXTERNAL_PROVIDER** — the
+  Ollama runtime is customer-hosted; NivXRay XDR only speaks the
+  Ollama HTTP protocol.  Cognis (the intelligence layer) stays
+  native.  Ollama can be replaced by any Ollama-compatible
+  runtime without a code change.
+- **Explicit non-conflation**: "Cognis" ≠ "Ollama".  Cognis is
+  the NivXRay XDR-owned intelligence layer; Ollama is one
+  model-execution option below it.  Documentation and provider
+  names must preserve this distinction.
 
 ## 3. Deterministic narrator wrapper
 

@@ -98,7 +98,12 @@ class OllamaQwenStub:
     kind = "offline"
 
     async def json(self, session_id: str, system: str, user: str, retries: int = 1) -> Dict[str, Any]:
-        raise NotImplementedError("NivX Cognis (Qwen 2.5 7B) not yet deployed — set OLLAMA_HOST / OLLAMA_MODEL")
+        raise NotImplementedError(
+            "NivXRay XDR Cognis · Offline model runtime not deployed. "
+            "Cognis is the NivXRay XDR-owned intelligence layer; Ollama "
+            "is one model-execution option under it. To bring the "
+            "offline provider online, set OLLAMA_HOST and OLLAMA_MODEL "
+            "in the environment.")
 
 
 # --- Registry --------------------------------------------------------- #
