@@ -1,6 +1,64 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.4 · PASS · **B3 MIGRATION PROJECT COMPLETE**
+
+**Pure validation gate — no new implementation, no repair.**
+mal-20 untouched. Wording adopted: *Frozen-fixture output parity
+verified using SHA-256 content signatures.*
+
+**All 11 acceptance steps PASS:**
+
+| # | Step | Result |
+|--:|---|---|
+| 1 | Reproduce Snapshot #1 | ✓ `12378d11…8bac` MATCH |
+| 2 | Reproduce Snapshot #2 | ✓ `6427903e…7897` MATCH |
+| 3 | Parity comparison | ✓ both signatures unchanged |
+| 4 | `tests/decoder_harness/` | ✓ 59/59 |
+| 5 | `tests/corpus/` | ✓ 76 pass + intentional mal-20 fail |
+| 6 | Adjacent regression | ✓ 32/32 |
+| 7 | Full pytest (`tests/`) | ✓ 167/167 |
+| 8 | Latency budget (median-based ≤5 %) | ✓ Snap #2 −1.48/−0.75/−0.38 % |
+| 9 | B3.3 dependency audit re-run | ✓ 17/17 · 0 forbidden edges |
+| 10 | Static-only invariants (DDO + analyzers) | ✓ |
+| 11 | 7 / 7 Plane-A families DDO-reachable | ✓ |
+
+**Runner + machine-readable result:**
+- `tests/decoder_migration/b3_4_validate.py`
+- `tests/decoder_migration/b3_4_final_validation_result.json`
+- `tests/decoder_migration/B3_4_FINAL_VALIDATION_REPORT.md`
+
+**B3 project timeline (COMPLETE):**
+```
+B3.0 · pre-migration parity snapshots       ACCEPTED
+B3.1 · Plane-A codec migration (7 families) ACCEPTED
+B3.2 · analyzer separation + DDO wiring     ACCEPTED (+B3.2-A)
+B3.3 · dependency audit                     ACCEPTED
+B3.4 · final validation                     PASS
+─────────────────────────────────────────────────────
+       B3 MIGRATION PROJECT COMPLETE
+```
+
+**Architectural end-state (locked):**
+- `services/decoder/base/*` — 7 authoritative Plane-A codecs.
+- `services/analyzers/{pe,shellcode}.py` — 2 authoritative analyzers.
+- `services/decoder/orchestrator.py` — DDO dispatches 14 codecs
+  (7 encoding + 7 migrated Plane-A).
+- Legacy paths — thin re-export shims, zero unique logic.
+- CI-enforced dependency audit prevents future
+  `authoritative → legacy` drift.
+
+**No B3.5 / B3.6 / B3.7 will be created.**
+
+**Next cycle:** NivXRay XDR 360° Production &
+Market-Readiness Audit — a product-level evaluation, not a
+decoder engineering cycle.
+
+**STOPPED for owner acceptance of B3.4 · B3 COMPLETE.**
+
+
+
+
 ## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.3 · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 **Dependency Audit · migration-integrity / architectural proof
