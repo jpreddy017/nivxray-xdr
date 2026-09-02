@@ -1,3 +1,72 @@
+# NivXRay XDR — Post-Maturity P0 Gate (locked 2026-09-02)
+
+**Baseline accepted:** Composite 66/100 · Technical Engineering 79 ·
+Evidence Integrity 94 · Detection & Investigation 58 · XDR
+Correlation 55 · Production Readiness 52. **Do NOT start Phase 3.
+Do NOT add cosmetic / UI features.** First close the P0 gates below.
+
+## Locked P0 execution order
+
+| # | Gate | Status |
+|---|---|---|
+| **P0-0** | Decoder / deobfuscation integration verification | ✅ **DONE 2026-09-02** — Verdict **B (partial)**. Engine exists (~20 decoders + ~40 UAIE plugins + recursive multi-stage + 5 live `/api/decode/*` endpoints + ~40 test files); NOT integrated into `attack_evidence` / `attack_story` / `verdict_stage2` / `correlation_engine` / `ice` / `knowledge` / `attack_graph` / `narration` / `routers/incidents.py` / `routers/investigations.py` (0 imports). `canonicalizer` handles only 2 inline base64/UTF-16 rules. See `MATURITY_ASSESSMENT_2026-09-02.md` §Decoder Audit for full evidence. |
+| **P0-1** | 70-scenario labelled ground-truth corpus (20 benign · 15 suspicious · 20 malware · 15 obfuscation · 6 end-to-end chains) with expected verdict + severity + ATT&CK + IOCs + decoded layers per row.  Runs as `pytest tests/corpus --run-metrics` emitting precision, recall, F1, verdict-confidence calibration. | ⏸ **NOT STARTED · awaiting owner GO** |
+| **P0-2** | Real telemetry connectors — live HTTP pollers for Okta System Log, Entra Sign-in, AWS CloudTrail behind the existing `SourcePoller` abstraction. Credentials remain outside the codebase; unconfigured pollers must honestly report `not_provisioned`. | ⏸ **NOT STARTED · awaiting owner GO** |
+| **P0-3** | Performance / load testing — Locust or k6 against top-10 endpoints under 100 concurrent analysts. Publish p50 / p95 / p99 per endpoint. Add narration cache so LLM path drops from ~5.5 s to sub-second on repeats. | ⏸ **NOT STARTED · awaiting owner GO** |
+| **P0-4** | Evidence → detection → correlation → verdict validation — using P0-1 corpus, prove: (1) known input → expected evidence, (2) evidence → expected detections, (3) detections → correlated investigations, (4) investigations → correct verdicts, (5) verdicts are evidence-backed, (6) narration is grounded in that evidence, (7) same input → deterministic result, (8) performance measured at realistic concurrency. Report **PASS/FAIL** per criterion. No marketing language. | ⏸ **NOT STARTED · depends on P0-1 and P0-2** |
+
+## Architecture decision · LOCKED 2026-09-02
+
+**Cloud LLM = optional provider · never a dependency.**
+
+```
+                  NivXRay Evidence
+                         │
+                         ▼
+                Deterministic Core
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+        Verdict / ATT&CK       Evidence Graph
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+                 Local / Offline LLM         ◄─  first-class
+                         │                        requirement
+                         ▼
+                 Grounding Validator
+                         │
+                         ▼
+              Executive Summary · Attack Story ·
+              Investigation Summary · Analyst Explanation
+```
+
+**Invariants:**
+- The LLM **explains** evidence. It does not **create** evidence.
+- The offline LLM path must be exercised as the default in
+  self-contained deployments (no cloud egress required).
+- Cloud LLM is a Model-Gateway *provider*, never a Cognis
+  dependency.
+- Grounding Validator is inserted between LLM output and Final
+  Output — every LLM response is checked against the governed
+  evidence-id whitelist before it leaves the box.
+
+## Detection maturity target
+
+Current: **58/100**.  
+Target after P0-0..P0-4: **70–75/100 with measurable ground truth.**  
+Only after that is a jump to composite 78–82 defensible.
+
+## Anti-drift rules (owner-locked)
+
+- Do NOT chase composite 80/100 by adding features.
+- Do NOT accept a capability as "implemented" from code existence alone.
+- Do NOT let the Cognis / Model Gateway become a security authority.
+- Do NOT proceed to Phase 3 Response Automation until P0-1..P0-4 have
+  measurable PASS results.
+- Do NOT begin any P0 item without explicit owner GO.
+
+
 # NivXRay XDR — Owner-Locked Sequencing (2026-09-02)
 
 > Formal owner directive: Intelligence Controls are in REVIEW.

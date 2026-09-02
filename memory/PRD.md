@@ -1,6 +1,44 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-0 Decoder Audit · DONE · Verdict B (partial)
+
+Read-only audit, zero code modified. Full 16-question inventory +
+18-decoder integration matrix + exact file evidence delivered
+in the conversation. Summary:
+
+- **Engine exists** — `services/uaie/plugins/` ~40 registered
+  plugins (base64/xor/aes-cbc/rc4/gzip/zlib/utf-16 enc/xor-brute/
+  cs-beacon-config/shellcode/family-recognizers/…),
+  `decoders/` ~20 modules (brotli/lzma/zstd/rc4/crypto_symmetric/
+  emotet/remcos/ps_* deobfuscation), recursive multi-stage in
+  `services/die/recursive_decode.py` + `preprocessor/recursive_decoder.py`.
+- **API surface live** — `/api/decode/chain`, `/api/decode/smart`,
+  `/api/decode/magic`, `/api/decode/candidates`, `/api/ai/auto-decode`
+  all return 2xx.
+- **Test surface real** — ~40 dedicated decoder test files;
+  sampled 9 files → 107/111 pass excluding one broken file
+  (`test_rc41_crypto_regression.py` — 100 collection errors from a
+  single import/env fault, not code bugs).
+- **INTEGRATION GAP** — the following contain **zero** imports of
+  the decoder engine: `services/attack_evidence`, `attack_story`,
+  `verdict_stage2`, `correlation_engine.py`, `ice/`, `knowledge/`,
+  `attack_graph/`, `narration/`, `routers/incidents.py`,
+  `routers/investigations.py`. `canonicalizer` handles only 2
+  inline hard-coded base64/UTF-16 rules — it does NOT delegate to
+  the recursive engine or the plugin registry.
+- **Consequences** — IOCs extracted from decoded layers never reach
+  incident evidence; ATT&CK evidence / Verdict Engine / IKG never
+  see multi-stage decode context; Attack Story / Cross-Lane Story
+  cite only raw command lines. The UI's `DECODER CHAIN · NOT_RUN`
+  is therefore honest — the engine is real, the wire is missing.
+
+Locked P0 order and full architecture decision (offline LLM as
+first-class requirement, cloud LLM optional never a dependency)
+are captured in `/app/memory/ROADMAP.md` at the top-most section.
+
+
+
 ## ✅ 2026-09-02 · Attack Chain / Attack Graph redesign · SHIPPED
 
 Frontend-only visual redesign of `AttackGraphTab.jsx` per owner's
