@@ -1,7 +1,7 @@
 {
-  "total": 102,
+  "total": 103,
   "passed": 35,
-  "hit_rate": 0.3431,
+  "hit_rate": 0.3398,
   "threshold": 0.6,
   "results": [
     {
@@ -346,7 +346,7 @@
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "ABC",
+      "output_head": "i",
       "ok": false
     },
     {
@@ -362,7 +362,7 @@
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "python -c 'print(1+1)'",
+      "output_head": "print(1+1)",
       "ok": false
     },
     {
@@ -374,16 +374,16 @@
     },
     {
       "sha1": "d0a44a6f10acaf1cbdf099b429f6ab013d5b0882",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
       "ok": false
     },
     {
       "sha1": "940b661e76ae57f083336270cf9646b56a91c2d7",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE=';    var b=atob(d);    var l=document.createElement('a');    l.download='payload.exe';    l.href=URL",
       "ok": false
     },
     {
@@ -444,9 +444,9 @@
     },
     {
       "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-C",
+      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
       "ok": false
     },
     {
@@ -458,9 +458,9 @@
     },
     {
       "sha1": "dc5969c50b2137c3bcf9e0105f44799198fe1dba",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-C",
+      "output_head": "var d='YmluYXJ5LUM=';            var b=atob(d);            var l=document.createElement('a');            l.download='sta",
       "ok": false
     },
     {
@@ -746,7 +746,7 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
@@ -983,6 +983,13 @@
       "engine": "llm-l3",
       "chain": [],
       "output_head": "TEST_iter63_1786264337 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "08682e2b70354a7096180dadbe85a3f4daf4175f",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1788290124 nivxray unique payload",
       "ok": false
     }
   ]

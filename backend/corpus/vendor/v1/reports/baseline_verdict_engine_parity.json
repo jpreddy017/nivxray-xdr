@@ -143,8 +143,8 @@
         "uaie": {
           "engine": "uaie",
           "mitre_count": 0,
-          "n_artifacts": 1,
-          "n_evidence": 0,
+          "n_artifacts": 2,
+          "n_evidence": 3,
           "n_warnings": 0,
           "verdict_signals": 0
         },
@@ -308,8 +308,8 @@
         "uaie": {
           "engine": "uaie",
           "mitre_count": 0,
-          "n_artifacts": 1,
-          "n_evidence": 0,
+          "n_artifacts": 2,
+          "n_evidence": 6,
           "n_warnings": 0,
           "verdict_signals": 0
         },
@@ -408,8 +408,8 @@
         "uaie": {
           "engine": "uaie",
           "mitre_count": 0,
-          "n_artifacts": 1,
-          "n_evidence": 0,
+          "n_artifacts": 2,
+          "n_evidence": 5,
           "n_warnings": 0,
           "verdict_signals": 0
         },
@@ -508,8 +508,8 @@
         "uaie": {
           "engine": "uaie",
           "mitre_count": 0,
-          "n_artifacts": 1,
-          "n_evidence": 0,
+          "n_artifacts": 2,
+          "n_evidence": 3,
           "n_warnings": 0,
           "verdict_signals": 0
         },
@@ -608,8 +608,8 @@
         "uaie": {
           "engine": "uaie",
           "mitre_count": 0,
-          "n_artifacts": 1,
-          "n_evidence": 0,
+          "n_artifacts": 2,
+          "n_evidence": 4,
           "n_warnings": 0,
           "verdict_signals": 0
         },

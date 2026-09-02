@@ -1,6 +1,80 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · Phase 1 · NivXRay XDR Narration Gateway + Cockpit Foundation
+
+Directive: NivXRay XDR must eventually own its capabilities
+end-to-end.  Legacy NivXRay is a migration bridge, not a
+permanent parent.  Narration must survive expired credits,
+offline environments, cloud outages, and legacy decommissioning.
+
+**Narration Gateway (backend, `services/narration/`)**
+- `contracts.py` — `NarrationKind`, `NarrationContext`,
+  `NarrationRequest`, `NarrationResult`, `NarrationParagraph`,
+  `GenerationMode`, `GroundingError`.
+- `grounding.py` — validates every LLM draft against the
+  governed context on ALL vectors: `evidence_ids`,
+  `finding_ids`, `technique_ids`, `entities`, `verdict`,
+  `severity`, `confidence`.  Rejection triggers fallback; the
+  gateway never surfaces a hallucinated id to consumers.
+- `providers.py` — `CloudLLMProvider`, `OfflineLLMProvider`,
+  `DeterministicProvider` (wraps the existing
+  `xdr_executive_summary` composer).  Provider abstraction is
+  strict; no consumer talks to a specific LLM.
+- `gateway.py` — fallback chain `Cloud → Offline → Deterministic`,
+  configurable via `NARRATION_PROVIDER_ORDER`.  Deterministic is
+  mandatory and always present in the chain.  Machine-truth
+  fields are inherited verbatim from context regardless of
+  which provider produced the prose.
+
+**HTTP surface (`routers/narration.py`)**
+- `GET  /api/narration/providers` — introspection.
+- `POST /api/narration/render` — provider-agnostic render.
+- `GET  /api/narration/incident/{id}/executive-summary` —
+  Phase-1 proof surface.
+
+**Proof surface wired**
+- `IncidentOverviewV2.jsx` and legacy `ExecutiveTab.jsx` now
+  mount `ExecutiveSummaryPanel` at the top of the Executive tab
+  (design-agent component).  Live smoke on
+  `/xdr/incidents/9f7e13…?tab=executive` shows
+  `provider=cloud:emergent-claude · mode=LLM_CLOUD · GROUNDED`
+  with per-paragraph technique-name pills sourced entirely from
+  the governed context.
+
+**Design blueprint (design_agent_full_stack)**
+- Delivered `design_guidelines.json`, `tokens.css` extensions,
+  and 4 exemplar components:
+  `ExecutiveSummaryPanel`, `SharedEvidenceInspector`,
+  `MitreCoverageRow`, `AttackStoryStageCard`.
+- No full cockpit rewrite — scope respected.
+
+**Held (as directed)**
+- R46 Phase 2 UI wiring → will become a Narration Gateway
+  consumer in Phase 2.
+- R48 PDF Overlay integration → will consume the same gateway.
+
+**Migration inventory**
+- `/app/memory/MIGRATION_DEPENDENCIES.md` catalogues every
+  reused NivXRay capability with `TEMPORARY_MIGRATION_DEPENDENCY`
+  / `PERMANENT_EXTERNAL_PROVIDER` classification and an exit
+  strategy per item.
+
+**Verification (`STOP FOR REVIEW` gate passed)**
+- `tests/test_narration_gateway.py` → **13/13 pass** covering:
+  cloud-wins, cloud-fails-then-offline, cloud+offline-fail-then-
+  deterministic, same-facts-across-providers, grounding rejects
+  invented evidence/finding/technique ids, verdict-promotion
+  and confidence-inflation rejection, invented-entity rejection,
+  gateway-falls-back-on-hallucinated-id, deterministic-never-
+  fails, empty-context honesty.
+- Cumulative Phase-1 backend regression: **26/26** (Narration 13
+  + Catalogue 13).
+- `yarn build` → 0 errors.
+
+Stopped as instructed.
+
+
 ## ✅ 2026-09-02 · Rationale-Prefix Resolver
 
 Fix for the user-reported incident MITRE tab where three rows

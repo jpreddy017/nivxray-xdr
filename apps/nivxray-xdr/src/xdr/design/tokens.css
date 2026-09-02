@@ -938,3 +938,145 @@
   color: var(--nx-faint);
   display: flex; flex-direction: column; gap: 2px;
 }
+
+/* ============================================================
+ * Narration Gateway / Executive Summary Panel
+ * ============================================================ */
+.xdr-console .evops-narration {
+  border: 1px solid var(--nx-divider);
+  border-radius: 4px;
+  padding: 16px 18px;
+  background: var(--nx-surf-primary);
+  margin-bottom: 14px;
+}
+.xdr-console .evops-narration__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border-bottom: 1px solid var(--nx-divider);
+  padding-bottom: 10px; margin-bottom: 12px;
+}
+.xdr-console .evops-narration__title {
+  font: 700 15px/1.3 var(--evops-face-human);
+  color: var(--nx-text);
+  display: flex; align-items: center; gap: 8px;
+}
+.xdr-console .evops-narration__meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.xdr-console .evops-narration__badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 2px;
+  font: 800 10px/1 var(--evops-face-human);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  border: 1px solid currentColor;
+}
+.xdr-console .evops-narration__badge--grounded {
+  color: #065F46; border-color: #065F46; background: rgba(6, 95, 70, 0.08);
+}
+.xdr-console .evops-narration__badge--mode {
+  color: #4C1D95; border-color: #4C1D95; background: rgba(76, 29, 149, 0.08);
+}
+.xdr-console .evops-narration__body {
+  font: var(--evops-t-body);
+  color: var(--nx-text);
+  line-height: 1.6;
+}
+.xdr-console .evops-narration__paragraph {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--nx-divider);
+}
+.xdr-console .evops-narration__paragraph:last-child {
+  margin-bottom: 0; padding-bottom: 0; border-bottom: none;
+}
+.xdr-console .evops-narration__provenance-pills {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 6px;
+}
+.xdr-console .evops-narration__pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 6px; border-radius: 2px;
+  font: var(--evops-t-machine); font-size: 10px;
+  background: var(--nx-surf-inset); border: 1px solid var(--nx-divider);
+  color: var(--nx-text-dim); cursor: pointer;
+}
+.xdr-console .evops-narration__pill:hover {
+  border-color: var(--nx-purple); color: var(--nx-purple);
+}
+
+/* ============================================================
+ * Shared Evidence Inspector — Dual Pane
+ * ============================================================ */
+.xdr-console .evops-inspector {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.1fr) minmax(340px, 1.9fr);
+  gap: 16px;
+  border: 1px solid var(--nx-divider);
+  border-radius: 4px;
+  background: var(--nx-surf-primary);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 900px) {
+  .xdr-console .evops-inspector { grid-template-columns: 1fr; }
+}
+.xdr-console .evops-inspector__left {
+  border-right: 1px solid var(--nx-divider);
+  padding-right: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.xdr-console .evops-inspector__right {
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+/* ============================================================
+ * Attack Story Stage Card Template
+ * ============================================================ */
+.xdr-console .evops-stage-card {
+  border: 1px solid var(--nx-divider);
+  border-left: 3px solid var(--evops-prov-canonical);
+  border-radius: 4px;
+  padding: 14px 16px;
+  background: var(--nx-surf-primary);
+  margin-bottom: 12px;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.xdr-console .evops-stage-card:hover {
+  background: var(--nx-surf-hover);
+  border-color: var(--nx-divider-strong);
+}
+.xdr-console .evops-stage-card[data-confidence="CONFIRMED"] {
+  border-left-color: var(--evops-ev-observed-fg);
+}
+.xdr-console .evops-stage-card[data-confidence="SUPPORTED"] {
+  border-left-color: var(--evops-ev-supported-fg);
+}
+.xdr-console .evops-stage-card[data-confidence="HYPOTHESIZED"] {
+  border-left-color: var(--evops-ev-missing-fg);
+}
+.xdr-console .evops-stage-card__header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 8px;
+}
+.xdr-console .evops-stage-card__tactic {
+  font: 800 10px/1 var(--evops-face-human);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--nx-muted);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.xdr-console .evops-stage-card__title {
+  font: 700 14px/1.3 var(--evops-face-human);
+  color: var(--nx-text);
+  margin-bottom: 6px;
+}
+.xdr-console .evops-stage-card__summary {
+  font: var(--evops-t-body);
+  color: var(--nx-text-dim);
+  margin-bottom: 10px;
+}
+.xdr-console .evops-stage-card__footer {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--nx-divider);
+}
+

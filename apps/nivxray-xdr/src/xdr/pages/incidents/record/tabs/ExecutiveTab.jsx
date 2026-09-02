@@ -20,6 +20,7 @@ import { getIncidentSummary } from "@/lib/incidentsApi";
 import api from "@/lib/api";
 import AnnotationsEditor from "../AnnotationsEditor";
 import ThreatAssessmentCard from "../ThreatAssessmentCard";
+import ExecutiveSummaryPanel from "@/xdr/design/ExecutiveSummaryPanel";
 
 const STATE_BADGE = {
   ok:                    { label: "OK",                    cls: "ok"     },
@@ -94,6 +95,11 @@ export default function ExecutiveTab({ incident }) {
 
   return (
     <div data-testid="xdr-record-executive">
+      {/* Phase 1 · NivXRay XDR Narration Gateway proof surface —
+              deterministic today, LLM-upgradable via
+              NARRATION_PROVIDER_ORDER without touching this UI. */}
+      <ExecutiveSummaryPanel incidentId={incident?.id} />
+
       {/* Round 34 · Threat Assessment · deterministic engine on top */}
       <ThreatAssessmentCard incidentId={incident?.id} />
 

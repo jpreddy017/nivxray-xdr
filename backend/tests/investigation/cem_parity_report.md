@@ -201,7 +201,6 @@ Runs: 20  ·  min 38.4%  ·  max 38.4%  ·  latest **38.4%**
 
 | Time (UTC) | git | Fixtures | Parity | Drift | Matches | Lost | Categories | Note |
 |---|---|---|---|---|---|---|---|---|
-| 2026-08-06 06:37:28 | `6732f3c` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-06 12:56:02 | `7d0d4d8` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-06 13:05:33 | `b8805e6` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-07 20:37:55 | `71eb8f6` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
@@ -209,5 +208,6 @@ Runs: 20  ·  min 38.4%  ·  max 38.4%  ·  latest **38.4%**
 | 2026-08-08 06:42:59 | `62fb983` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-08 06:52:04 | `62fb983` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-08 13:15:38 | `1bee915` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
+| 2026-08-09 08:51:11 | `2173061` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 
 *Regenerated on every pytest run of `test_cem_parity.py`. Cut-over decisions require owner review of this report.*

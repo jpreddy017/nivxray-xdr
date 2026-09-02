@@ -19,6 +19,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import api from "@/lib/api";
+import ExecutiveSummaryPanel from "@/xdr/design/ExecutiveSummaryPanel";
 import {
   EvidenceGlyph, HostGlyph, UserGlyph, ProcessGlyph, FileGlyph,
   NetworkGlyph, DomainGlyph, TechniqueGlyph, TacticGlyph,
@@ -91,6 +92,12 @@ export default function IncidentOverviewV2({ incident }) {
 
   return (
     <div className="evops" data-testid="xdr-overview-v2">
+
+      {/* Phase 1 · NivXRay XDR Narration Gateway proof surface.
+              Deterministic today, cloud/offline LLM upgradable via
+              NARRATION_PROVIDER_ORDER — the UI never learns which
+              provider produced the prose. */}
+      <ExecutiveSummaryPanel incidentId={incident?.id} />
 
       {!anyEvidence && (
         <div className="evops-empty-strip"

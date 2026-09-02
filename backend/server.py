@@ -71,6 +71,7 @@ from routers.evidence_inspector import router as evidence_inspector_router
 from routers.report import router as report_router
 from routers.intelligence_overlay import router as intelligence_overlay_router
 from routers.mitre_catalogue import router as mitre_catalogue_router
+from routers.narration import router as narration_router
 from routers.xdr_dashboard import router as xdr_dashboard_router
 from routers.xdr_mss import router as xdr_mss_router
 from routers.xdr_queue_ops import router as xdr_queue_ops_router
@@ -217,6 +218,7 @@ api.include_router(evidence_inspector_router)
 api.include_router(report_router)
 api.include_router(intelligence_overlay_router)
 api.include_router(mitre_catalogue_router)
+api.include_router(narration_router)
 api.include_router(xdr_dashboard_router)
 api.include_router(xdr_mss_router)
 api.include_router(xdr_queue_ops_router)

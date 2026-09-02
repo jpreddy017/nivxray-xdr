@@ -4,7 +4,7 @@
   "replacement": "services.uaie.plugins.transformer_byte_array_xor_loop",
   "capability_id": "ps.byte_array_xor_loop",
   "retired_in": "PhaseA.Slice6",
-  "retired_at": "2026-08-09T08:51:08+00:00",
+  "retired_at": "2026-09-01T19:39:25+00:00",
   "equivalence": {
     "topology": "waived",
     "evidence": "pass",
