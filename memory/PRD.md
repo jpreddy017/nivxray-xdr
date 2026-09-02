@@ -1,6 +1,60 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.0 · SNAPSHOTS FROZEN (STOPPED FOR ACCEPTANCE)
+
+Owner directive (option **a**) — B3 absorbs BOTH decoder runtime
+surfaces. **NO codec migration in this checkpoint** — parity
+baseline only, per authorisation:
+
+> "Do NOT start B3.1 until Snapshot #2 is frozen and independently
+>  reproducible."
+
+**Delivered — 4 machine-readable artefacts + reusable harness:**
+- `tests/decoder_migration/parity_harness.py` — enumerate,
+  snapshot, compare, report I/O; reused across B3.0 → B3.4.
+- `tests/decoder_migration/capture_pre_migration_snapshot.py`
+  → **Snapshot #1** · `services.die.preprocessor.recursive_decoder.peel_recursively`
+- `tests/decoder_migration/capture_pre_migration_snapshot_2.py`
+  → **Snapshot #2** · `decoders.crypto_symmetric.{Rc4,AesCbc}Decoder`
+  + `decoders.xor_brute.XorBruteDecoder` + `services.pe_analyzer.analyze_pe`
+  + `shellcode_analyzer.analyze`
+- `tests/decoder_migration/B3_0_CHECKPOINT_REPORT.md` — full detail.
+
+**Frozen content signatures (deterministic across re-runs):**
+```
+Snapshot #1 : 12378d118ffdc7fd68cbad72547af81b3fe716abe61682652c36b58982308bac
+Snapshot #2 : 6427903eae774599f1c8e710223fb6d603276e5fae1a1fad1f8ecd453b297897
+```
+
+**Snapshot #1 coverage** (257 fixtures probed · 25 peeled · 0 exceptions):
+gzip 6/6 · zlib_deflate 5/5 · utf16le 5/5 · xor 1/12 ·
+repeating-xor 0/6 · rc4 0/5 · aes_cbc 0/5 · pe 0/5 · shellcode 0/5.
+
+**Snapshot #2 coverage** (38 applicable · 0 exceptions):
+xor_brute 5/18 decoded · rc4 0/5 · aes_cbc 0/5 · pe 0/5 · shellcode 0/5.
+
+**Honest finding surfaced** — the 20 RC4/AES/PE/shellcode fixtures
+in the existing corpus are analyst-prompt scaffolding (no
+recoverable key literal, no embedded MZ/shellcode bytes). Parity
+for those codecs proves *no-fire preservation* only.
+Positive-parity validation against real ciphertexts / real
+embedded binaries requires additional fixtures — that is Gate 2F
+territory, **NOT** B3.
+
+**Runtime invariants preserved (this checkpoint):**
+- Zero runtime code changed.
+- `services/decoder/` still has zero runtime import of `recursive_decoder`.
+- Immutable P0-1 baseline untouched.
+- decoder_harness 32/32 · corpus 76/77 (only intentional mal-20 fails).
+- mal-20 untouched.
+
+**STOPPED for owner acceptance of Snapshots #1 + #2 before Gate
+2D-B3.1 (codec-by-codec migration) begins.**
+
+
+
+
 ## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2D-B1 · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 Owner-authorised Gate 2D-B1 — **Plane-A architecture scaffold + 7

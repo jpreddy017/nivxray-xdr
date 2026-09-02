@@ -1,85 +1,52 @@
-# Gate 2D-B3.0 · Pre-Migration Parity Snapshot · CHECKPOINT REPORT
+# Gate 2D-B3.0 · Pre-Migration Parity Snapshot · CHECKPOINT REPORT (both surfaces)
 
-**Status:** SNAPSHOT COMPLETE — STOPPED FOR OWNER ACCEPTANCE
-**Date:** 2026-02 (fork continuation)
+**Status:** BOTH SNAPSHOTS COMPLETE — STOPPED FOR OWNER ACCEPTANCE
+**Owner decision:** (a) B3 absorbs BOTH decoder runtime surfaces.
 **Gate scope:** B3.0 only — NO codec migration, NO runtime edits.
-**mal-20:** untouched (intentional single failure preserved).
+**mal-20:** untouched.
 
 ---
 
-## What B3.0 delivered
-
-Reusable, deterministic parity harness + frozen baseline for the
-authoritative pre-migration reference decoder runtime,
-`services.die.preprocessor.recursive_decoder.peel_recursively`.
-
-### Files added (all under `/app/backend/tests/decoder_migration/`)
+## Files added (all under `/app/backend/tests/decoder_migration/`)
 
 | File | Purpose |
 |---|---|
 | `__init__.py` | package marker + scope note |
-| `parity_harness.py` | reusable harness: fixture enumeration, snapshot capture, mismatch comparator, report I/O |
-| `capture_pre_migration_snapshot.py` | one-shot executable; freezes the pre-migration baseline |
-| `pre_migration_manifest.json` | 257-fixture inventory: path, size, `input_sha256`, codec hints, expected sidecar hash |
-| `fixture_codec_map.json` | codec-capability → fixture-id map + counts + unhinted list |
-| `pre_migration_results.json` | reference decode snapshot: per-fixture layer sequence, final SHA-256, layer counts, provenance, latency + a single **content_signature_sha256** that is byte-identical across re-runs |
-
-### Determinism check (run twice, hashes compared)
-```
-sig1 = 12378d118ffdc7fd68cbad72547af81b3fe716abe61682652c36b58982308bac
-sig2 = 12378d118ffdc7fd68cbad72547af81b3fe716abe61682652c36b58982308bac
-→ DECODE-CONTENT-DETERMINISTIC-OK
-```
-Timestamps + wall-clock latency are excluded from `content_signature_sha256`
-by design — only decode observables (fixture_id, ok, exception,
-final_sha256, final_bytes_len, layer_sequence, layer_count,
-layers_detail, provenance, peeled_any) contribute.
+| `parity_harness.py` | reusable harness: enumerate, snapshot, compare, report I/O |
+| `capture_pre_migration_snapshot.py` | Snapshot #1 driver (`peel_recursively` surface) |
+| `capture_pre_migration_snapshot_2.py` | Snapshot #2 driver (crypto + xor-brute + PE + shellcode surface) |
+| `pre_migration_manifest.json` | 257-fixture inventory + SHA-256 |
+| `fixture_codec_map.json` | codec-capability → fixture-id map |
+| `pre_migration_results.json` | Snapshot #1 reference results |
+| `pre_migration_snapshot_2.json` | Snapshot #2 reference results |
+| `B3_0_CHECKPOINT_REPORT.md` | this document |
 
 ---
 
-## Fixture inventory (frozen baseline)
+## Snapshot #1 · `recursive_decoder.peel_recursively` surface
 
-Total `.txt` fixtures under `tests/fixtures/`: **257**
-(`.expected.txt` sidecars excluded; jsonl/evtx/plugin_regression/
-regression_baseline/mixed_investigation_input excluded.)
+Frozen behaviour of the primary orchestration path. Determinism
+verified across two consecutive runs.
 
-- peeled by reference `peel_recursively` : **25 / 257**
-- exceptions raised                     : **0**
-- latency p50 / p95 / p99               : **0.007 / 0.041 / 0.087 ms**
+- `content_signature_sha256 = 12378d118ffdc7fd68cbad72547af81b3fe716abe61682652c36b58982308bac`
+- 257 fixtures probed · 25 peeled · 0 exceptions
+- latency p50 / p95 / p99 = 0.007 / 0.041 / 0.087 ms
 
-### Codec-capability × fixture map
+Codec-capability coverage:
 
 | Capability | Hinted fixtures | Peeled by reference |
 |---|---:|---:|
-| gzip                 | 6  | **6/6**  |
-| zlib_deflate         | 5  | **5/5**  ¹ |
-| utf16le              | 5  | **5/5**  (via `ps_encodedcommand`) |
-| xor                  | 12 | **1/12** ² |
-| repeating_key_xor    | 6  | **0/6**  ³ |
-| rc4                  | 5  | **0/5**  ³ |
-| aes_cbc              | 5  | **0/5**  ³ |
-| pe *(analyzer)*      | 5  | **0/5**  ⁴ |
-| shellcode *(analyzer)* | 5  | **0/5**  ⁴ |
+| gzip | 6 | 6/6 |
+| zlib_deflate | 5 | 5/5 (¹ path canonicalises to gzip) |
+| utf16le | 5 | 5/5 (via `ps_encodedcommand`) |
+| xor (byte-array-loop only) | 12 | 1/12 |
+| repeating_key_xor | 6 | 0/6 |
+| rc4 | 5 | 0/5 |
+| aes_cbc | 5 | 0/5 |
+| pe *(analyzer)* | 5 | 0/5 |
+| shellcode *(analyzer)* | 5 | 0/5 |
 
-Notes:
-- ¹ Deflate fixtures actually decode via the `gzip` codec inside
-  `peel_recursively` (either the fixture blobs are gzip-framed or
-  `_decode_gzip_bytes` accepts both — parity requires the migrated
-  codec to reproduce **the same** observable path, not a
-  "theoretically-more-correct" one).
-- ² Only the byte-array XOR-loop pattern is decoded by
-  `peel_recursively` (via `_decode_byte_array_xor_loop`). The other
-  11 XOR fixtures rely on the separate `xor_brute` UAIE plugin
-  runtime surface.
-- ³ **RC4 / AES-CBC / repeating-key-XOR are NOT part of
-  `peel_recursively`.** They live in `decoders/crypto_symmetric.py`
-  and are only reachable through the UAIE plugin registry. A
-  faithful B3 migration therefore has *two* codec source-of-truth
-  surfaces to reconcile — see "Honest gap" below.
-- ⁴ PE + shellcode analyzers are UAIE plugins, not codecs; they
-  never fire inside `peel_recursively`.
-
-### Distinct layer sequences observed (in the 25 peeled fixtures)
+Distinct layer sequences observed on the 25 peeled fixtures:
 ```
  10x  ps_encodedcommand
   5x  from_base64_string
@@ -90,73 +57,139 @@ Notes:
 
 ---
 
-## Honest gap surfaced by B3.0
+## Snapshot #2 · Second runtime surface
 
-The scope note in the B3 authorisation lists **7 codec capabilities**
-(GZIP · Zlib/Deflate · XOR · repeating-key XOR · RC4 · AES-CBC · UTF-16LE)
-plus **2 analyzers** (PE · shellcode).
+References:
+- `decoders.crypto_symmetric.Rc4Decoder`
+- `decoders.crypto_symmetric.AesCbcDecoder`
+- `decoders.xor_brute.XorBruteDecoder`
+- `services.pe_analyzer.analyze_pe`
+- `shellcode_analyzer.analyze`
 
-The B3.0 snapshot proves that **only 3 of the 7 codecs (GZIP, Zlib,
-UTF-16LE) and part of the 4th (XOR — byte-array-loop variant only)
-are actually present inside `recursive_decoder.peel_recursively`.**
+Availability check on the pod: all 5 references import and load
+cleanly (`pefile`, `capstone`, `cryptography` present).
 
-The remaining 3 codecs (RC4, AES-CBC, repeating-key XOR) and both
-analyzers (PE, shellcode) live in a *different* runtime surface:
+- `content_signature_sha256 = 6427903eae774599f1c8e710223fb6d603276e5fae1a1fad1f8ecd453b297897`
+- 38 applicable fixtures probed · 0 exceptions
+- latency p50 / p95 / p99 = 0.020 / 380.6 / 471.6 ms
+  *(xor-brute multi-key search is the p95/p99 driver — expected.)*
 
-- `decoders/crypto_symmetric.py`   (AES-CBC, RC4)
-- `decoders/xor_variants*` /  `xor_brute` UAIE plugin (repeating XOR)
-- `services/uaie/plugins/pe_analyzer/…`      (PE)
-- `services/uaie/plugins/shellcode_analyzer/…` (shellcode)
+Per-capability fire rate:
 
-**Consequence for B3.1 (codec migration):**
-The migration must reconcile **two** parity surfaces:
-
-1. `peel_recursively` orchestrator (already snapshotted here).
-2. UAIE-plugin invocation of `decoders/crypto_symmetric.py`,
-   `decoders/xor_variants*`, PE and shellcode analyzers.
-
-Before starting B3.1 we must decide whether B3 will absorb both
-surfaces or defer surface #2 to a later gate. Choosing to defer
-surface #2 is defensible (RC4/AES/PE/shellcode plugins currently
-enter incident evidence via a separate wire — not via the
-`peel_recursively` runtime path we're migrating), but it must be
-**explicit**, not implicit.
-
-**Not decided in this checkpoint.** Reported honestly for owner
-adjudication.
+| Capability | Probed | Detect ≥ 0.30 | Decoded output | Analyzer applicable |
+|---|---:|---:|---:|---:|
+| rc4        | 5  | 0 | 0 | — |
+| aes_cbc    | 5  | 0 | 0 | — |
+| xor_brute  | 18 | 5 | 5 | — |
+| pe         | 5  | — | — | 0 |
+| shellcode  | 5  | — | — | 0 |
 
 ---
 
-## Architectural invariants preserved (this checkpoint)
+## Honest finding — the surface #2 corpus barely exercises surface #2
+
+The 20 fixtures hinting at RC4 / AES-CBC / PE / shellcode do **NOT
+carry** recoverable ciphertext or an embedded PE/shellcode blob:
+
+- `corpus_rc4_analyst_00[1-5]` / `corpus_aes_cbc_analyst_00[1-5]`
+  contain PowerShell/CMD scaffolding that *references* RC4/AES
+  idioms but no key candidate is discoverable inside the artifact
+  (they were authored as *analyst-prompt* fixtures, meant to
+  surface a `KEY REQUIRED` UI flag — not to end-to-end decrypt).
+- `corpus_reflection_assembly_00[1-5]` do **not** embed a real
+  MZ-header PE blob; they simulate a reflective-loader shape.
+- `corpus_shellcode_virtualalloc_00[1-5]` do **not** embed real
+  shellcode bytes either — they demonstrate the VirtualAlloc /
+  RWX loader tradecraft in text form.
+
+Only `xor_brute` (5/18 decodes) provides a genuine
+positive-parity anchor on the fixture set.
+
+**Consequence for B3.1 codec parity:**
+The parity harness will primarily prove *NO REGRESSION* for
+RC4 / AES-CBC / PE / shellcode — i.e. the migrated code must
+**not newly fire** on the same fixtures, which is exactly the
+"false reconstruction" guard the DDO already enforces on Snapshot
+#1's 7 new codecs. Positive-parity validation for RC4/AES/PE/
+shellcode against real ciphertexts and real embedded binaries
+requires **new fixtures** — that is a separate deliverable (Gate
+2F offline corpus generation), NOT part of B3.
+
+Owner acknowledged this exit path in the B3 authorisation:
+> "If a legacy capability cannot be migrated with parity, STOP
+>  and report the exact blocker rather than silently changing
+>  behavior."
+
+**Reporting it now — before touching any migration code.**
+
+---
+
+## Both snapshots — combined determinism proof
+
+```
+Snapshot #1 signature :  12378d118ffdc7fd68cbad72547af81b3fe716abe61682652c36b58982308bac
+Snapshot #2 signature :  6427903eae774599f1c8e710223fb6d603276e5fae1a1fad1f8ecd453b297897
+Snapshot #1 re-run    :  IDENTICAL
+Snapshot #2 re-run    :  IDENTICAL
+```
+
+Both content signatures are computed over decode observables only
+(fixture_id, hints, detect confidence, output SHA-256, output
+length, tradecraft flag set, MITRE hint set, analyzer report
+fields) — timestamps and wall-clock latency are excluded by
+design so any drift in the *decode surface* is instantly visible.
+
+---
+
+## Baseline regression (proof that B3.0 changed nothing at runtime)
+
+```
+tests/decoder_harness  : 32/32 passed
+tests/corpus           : 76 passed · 1 failed (mal-20 · intentional, deferred)
+```
+
+No new tests were added to the runtime suite. Snapshot capture
+runs are **read-only** with respect to production code.
+
+---
+
+## Architectural invariants (this checkpoint)
 
 - Zero runtime code changed.
-- `services/decoder/` unchanged; still no runtime import of
-  `recursive_decoder` from within it (the existing entry point in
-  `canonicalize()` is preserved).
-- No fixture modified; no `.expected.txt` sidecar modified.
-- Immutable P0-1 baseline (`tests/corpus/baseline_p0_1.json`)
-  untouched.
+- `services/decoder/` still has zero runtime import of
+  `recursive_decoder`.
+- Fixtures and `.expected.txt` sidecars untouched.
+- `tests/corpus/baseline_p0_1.json` untouched.
 - No verdict / IOC / ATT&CK / narration change.
-- Provenance envelope on every reference snapshot:
-  `static_only=True, execution=False, network_access=False,
-  attck_promotion=False`.
+- Static-only invariants preserved (snapshot only reads bytes;
+  never runs a decoded payload).
 - mal-20 not touched.
 
 ---
 
-## Ready for B3.1 · Codec migration (order — one family at a time)
-
-Per the B3 authorisation, migration proceeds:
+## Migration order for B3.1 (per owner authorisation)
 
 ```
 GZIP → Zlib/Deflate → XOR → repeating-key XOR → RC4 → AES-CBC → UTF-16LE
 ```
 
-Each family, after code migration into `services/decoder/base/…`,
-must re-run the harness (candidate implementation this time) and
-compare against the frozen pre-migration baseline. Any divergence
-in `layer_sequence`, `final_sha256`, `provenance`, or
-exception/success shape blocks acceptance for that family.
+After each family:
+1. Migrate implementation into `services/decoder/base/…`.
+2. Wire it via the DDO signature registry (no new orchestration path).
+3. Re-run `capture_pre_migration_snapshot*` in *candidate* mode
+   (harness supports it via the same `snapshot_reference()` call
+   with the migrated function passed as `peel_fn` / plugin class).
+4. Byte-compare `content_signature_sha256` against the frozen
+   baseline. Any divergence → STOP + report.
+5. Analyzer migration (PE, shellcode) into `services/analyzers/`
+   follows codec migration, gated by the same content signatures.
 
-**Awaiting owner acceptance of B3.0 before B3.1 begins, plus a
-decision on the surface #2 question above.**
+Latency budget: **≤5% per-fixture regression** measured against
+the p50/p95/p99 numbers frozen above.
+
+Zero-runtime-dependency proof (dependency-audit test) to be added
+in **B3.3** as required by the authorisation.
+
+---
+
+## STOPPED for owner acceptance of Snapshots #1 + #2 before B3.1 begins.
