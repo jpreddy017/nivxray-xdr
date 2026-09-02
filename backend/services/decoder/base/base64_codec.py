@@ -32,11 +32,11 @@ import binascii
 import re
 from typing import Optional
 
-from .types import (
+from ..types import (
     Capability, CapabilityKind, DecodedLayer, Provenance,
     ReconstructionResult, now_iso,
 )
-from .registry import CapabilityRegistry
+from ..registry import CapabilityRegistry
 
 
 ENGINE_VERSION = "0.4.0-gate2d"

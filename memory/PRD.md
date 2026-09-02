@@ -1,6 +1,111 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2D-B1 · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+Owner-authorised Gate 2D-B1 — **Plane-A architecture scaffold + 7
+new encoding capabilities + Deterministic Decode Orchestrator (DDO)
++ false-reconstruction test suite**. Existing recursive_decoder
+codecs (GZIP · Zlib · XOR · RC4 · AES · UTF-16LE · PE · shellcode)
+NOT migrated in B1 — reserved for **Gate 2D-B2**.
+
+**Directory scaffold created (per owner's architectural distinction):**
+```
+services/
+├── decoder/
+│   ├── base/
+│   │   ├── __init__.py       (re-exports · idempotent register_all)
+│   │   ├── base64_codec.py   (Gate 2D-A · moved from base.py)
+│   │   └── encoding.py       (7 NEW codecs)
+│   ├── orchestrator.py       (DDO)
+│   ├── cmd.py · powershell.py · engine.py · registry.py · types.py
+│   └── ATTRIBUTION/
+└── analyzers/                 (NEW · not codecs)
+    ├── __init__.py
+    ├── pe.py                  (Gate 2D-B2 migration target)
+    └── shellcode.py           (Gate 2D-B2 migration target)
+```
+
+**7 NEW encoding capabilities delivered (all previously fixture-only):**
+- `encoding.url_decode`      — %XX (RFC 3986)
+- `encoding.unicode_escape`  — \uXXXX, \xNN, \UXXXXXXXX
+- `encoding.html_entities`   — &amp; &#65; &#x41;
+- `encoding.base32`          — RFC 4648 (min 16 chars + strict alphabet)
+- `encoding.base85`          — Adobe Ascii85 ONLY (`<~ … ~>` wrapper mandatory; bare form rejected as ambiguous)
+- `encoding.octal_ascii`     — `\101\102\103` → `ABC`
+- `encoding.decimal_ascii`   — `65,66,67` / `65 66 67` → `ABC`
+
+**Deterministic Decode Orchestrator (`services/decoder/orchestrator.py`):**
+- Named exactly per owner directive — **not "Magic"**.
+- `MAX_DEPTH = 6` bounded recursion.
+- Signature-driven dispatch: reads lightweight text fingerprints
+  off the input, invokes ONLY codecs whose signature matches.
+- Deterministic ordering fixed by `_SIGNATURES` list — never
+  randomised.
+- Cycle detection via `seen_texts`.
+- INVARIANTS dict (runtime-verifiable):
+  `static_only=True · execution=False · network_access=False ·
+  attck_promotion=False · bounded_depth=True · deterministic_order=True ·
+  provenance_required=True · MAX_DEPTH=6`
+
+**False-reconstruction test suite (`test_gate_2d_b1.py` · 15 tests):**
+- 8 positive tests — each codec produces expected output.
+- **8 false-reconstruction guards** — decoders MUST return None
+  (or unchanged) on ambiguous inputs. Verified: bare English text,
+  padding-only Base32, entities that would decode to non-printable,
+  short Base64 aliases, bare-form Base85 without wrapper — all
+  correctly rejected.
+- 7 DDO invariant tests: bounded_depth, deterministic_order,
+  no-signature-stops-early, provenance-on-every-layer,
+  cycle-detection, benign-FP guard on English text.
+
+**P0-1 corpus regression (Track C):**
+| Metric | Baseline | Post-2D-B1 | Total Δ |
+|---|---:|---:|---:|
+| verdict_accuracy | 0.6143 | **0.9857** | +0.3714 |
+| ioc_recall       | 0.8947 | **1.0000** | +0.1053 |
+| surface_mal_f1   | 0.8065 | **0.9836** | +0.1771 |
+| Malicious FN | 7 | **1** | −6 |
+| Benign FP    | 0 | **0** | 0 |
+| Per-scenario | 36 | **1** | −35 |
+
+No regressions from Gate 2D-B1 — all baseline metrics held; new
+encoding capabilities not triggered by P0-1 scenarios (no
+%XX / \u / &amp; / Base32 / etc. present).
+
+**Registry state (post-B1):** 22 capabilities registered ·
+9 DECODER · 8 DEOBFUSCATOR · 4 PARSER · 1 KNOWLEDGE · 0
+DYNAMIC/UI/IRRELEVANT (allow-list held).
+
+**Testing:** 140/141 pass across corpus + decoder_harness +
+Gate 2D-B1 suite + adjacent (decoder_bridge / intelligence_policy /
+phase2_final_gate). Only mal-20 fails (behavioural inference,
+post-Phase-2).
+
+**Architecture invariants preserved:**
+- DDO NEVER speculative — signature-driven only.
+- False-reconstruction guards on all 7 new codecs (printability
+  floor + strict alphabet + minimum length).
+- Analyzers separated from codecs.
+- No runtime dependency on external projects.
+- No LLM authority.
+- Immutable P0-1 baseline untouched.
+
+**Gate 2D-B2 scope reserved (NOT delivered here):**
+- Migrate GZIP · Zlib · XOR · RC4 · AES-CBC · UTF-16LE from
+  `services/die/preprocessor/recursive_decoder` INTO
+  `services/decoder/base/{compression,crypto,transform}/`.
+- Migrate PE + shellcode into `services/analyzers/`.
+- Parity tests: every existing fixture must produce identical
+  output pre-migration vs post-migration.
+- Static-dependency audit: `grep` verifies zero runtime imports
+  of `recursive_decoder` from `services/decoder/`.
+
+**STOPPED for owner acceptance of Gate 2D-B1 before Gate 2D-B2
+begins.**
+
+
+
 ## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2D (Phase A) · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 Owner-authorised Gate 2D — **Plane-A codec migration begun +
