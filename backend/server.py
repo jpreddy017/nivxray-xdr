@@ -131,12 +131,39 @@ from routers.public_feeds import router as public_feeds_router
 from routers.benchmark import router as benchmark_router
 from routers.multilayer_battery import router as multilayer_battery_router
 from routers.decode_feedback import router as decode_feedback_router
+# P0-H · Route-consistency alias for Response Fabric.
+from routers.response_alias import router as response_alias_router
 from request_hardening import RequestHardeningMiddleware
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+# ── P0-E · Observability foundation ────────────────────────────────────
+# Prometheus counters + histograms + JSON structured logging.
+# Owner-locked closure rule: `/api/metrics` must return real Prometheus
+# scrape output (not 404), and log lines must be a stable JSON envelope
+# with `trace_id`, `tenant_id`, `route`, `method`, `status`, `latency_ms`.
+from observability import (
+    ObservabilityMiddleware, install_json_logging, is_enabled as obs_enabled,
+    metrics_response,
+)
+
+# Install JSON logging BEFORE `basicConfig` runs so the JSON formatter
+# wins on the root logger.
+install_json_logging(level=os.environ.get("LOG_LEVEL", "INFO"))
 log = logging.getLogger("nivxray")
 
-app = FastAPI(title="NivXRay API")
+app = FastAPI(
+    title="NivXRay API",
+    version="1.0.0-rc",
+    # P0-H · owner-locked (2026-02):
+    # Expose OpenAPI + docs UI under the `/api/` prefix so they are
+    # reachable through the Kubernetes ingress (which routes only
+    # `/api/*` to the backend port).  The audit found
+    # `curl /api/openapi.json` returning 404 — this closes that gap.
+    openapi_url="/api/openapi.json",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
+if obs_enabled():
+    app.add_middleware(ObservabilityMiddleware)
 api = APIRouter(prefix="/api")
 
 
@@ -150,6 +177,17 @@ api = APIRouter(prefix="/api")
 @api.get("/health")
 async def health_liveness():
     return {"status": "ok", "service": "nivxray-api"}
+
+
+# ── P0-E · Prometheus scrape endpoint ────────────────────────────
+# Exposes counters + histograms recorded by ObservabilityMiddleware.
+# Locked as a decision-support surface for on-call / SIEM scrape.
+# Body is standard Prometheus text-format; no auth-gated so a
+# scraper can hit it inside the pod network — enterprise deployments
+# scope this via ingress rules / NetworkPolicy.
+@api.get("/metrics")
+async def metrics_endpoint():
+    return metrics_response()
 
 
 @app.get("/health", include_in_schema=False)
@@ -238,6 +276,10 @@ api.include_router(reports_router)
 api.include_router(admin_router)
 api.include_router(admin_aggregations_router)
 api.include_router(content_supply_chain_router)
+# P0-H · alias router mounts response endpoints at the intended
+# `/api/response/*` path.  Both paths remain reachable during the
+# transition.
+api.include_router(response_alias_router)
 api.include_router(telemetry_router)
 api.include_router(threat_intel_router)
 api.include_router(history_router)

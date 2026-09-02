@@ -1,6 +1,94 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## 🔨 2026-02 · Sprint 1 · P0-E / P0-H / P0-F CLOSED · P0-C STOPPED FOR OWNER SCOPE
+
+**Owner-locked closure rule applied:** a P0 closes only when
+CODE + TEST + INTEGRATION + PRODUCTION evidence satisfies the
+acceptance criterion. No P0 was closed on code presence alone.
+Report: `/app/memory/SPRINT_1_CHECKPOINT.md`.
+
+**Sprint 1 audit corrections applied to `GA_BLOCKERS.md`:**
+- P0-C acceptance criterion tightened: personal Google login ≠
+  enterprise OIDC/SSO readiness.
+- P0-A acceptance criterion tightened: CONNECTED-through-
+  investigation loop required, not merely OAuth succeeded.
+- Owner-locked closure rule + Sprint audit cadence banner
+  inserted at the top of the file.
+
+### P0-E · Prometheus /metrics + JSON logging · CLOSED
+- `backend/observability/__init__.py` — middleware + formatter +
+  own registry.
+- `backend/server.py` — middleware mounted + `/api/metrics`
+  endpoint + `install_json_logging()` before any other init.
+- `prometheus_client==0.26.0` pinned.
+- Tests: 8/8 in `tests/observability_tests/test_p0_e_*.py`.
+- Live pod verified: `/api/metrics` returns Prometheus format;
+  every log line is JSON envelope with `trace_id`, `tenant_id`,
+  `route`, `method`, `status`, `latency_ms`.
+
+### P0-H · Route consistency + OpenAPI surface · CLOSED
+- FastAPI reconfigured: `openapi_url="/api/openapi.json"`,
+  `docs_url="/api/docs"`, `redoc_url="/api/redoc"` — was 404 via
+  ingress.
+- `backend/routers/response_alias.py` — parallel alias exposing
+  Response Fabric at the intended `/api/response/*` path.
+- Legacy path `/api/admin/content-supply-chain/response/*`
+  remains reachable during transition (additive fix, no
+  breaking change).
+- Tests: 8/8 in `tests/observability_tests/test_p0_h_*.py`
+  (running through the **public ingress URL**, not TestClient).
+- Live pod verified: `/api/openapi.json` returns real spec;
+  `/api/response/actions` returns 13 actions with honest
+  `capability_available` flags.
+
+### P0-F · Docker Compose production floor · CLOSED
+- `deploy/backend.Dockerfile` — multi-stage, non-root
+  (uid 1001), health-check-ready.
+- `deploy/frontend.Dockerfile` — nginx SPA history-fallback.
+- `deploy/docker-compose.yml` — 3 services, health-checks +
+  dependency ordering, `${ADMIN_PASSWORD:?}` required at
+  parse time.
+- `deploy/.env.example` + `deploy/README.md`.
+- Tests: 12/12 in `tests/observability_tests/test_p0_f_*.py`.
+
+### P0-C · SSO / OIDC · STOPPED FOR OWNER SCOPE
+Owner correction (2026-02) tightened acceptance criterion.
+Three options offered in `SPRINT_1_CHECKPOINT.md`:
+- (a) Emergent-managed Google Auth + strict enterprise hardening
+  (hd=domain, JIT provisioning, role-mapping) — S
+- (b) Real Okta or Entra ID OIDC via `authlib` — M
+- (c) Both — M+
+
+**Awaiting owner pick before P0-C begins.**
+
+### Regression + parity intact
+```
+tests/decoder_harness/       59/59
+tests/corpus/                76/76 (+ mal-20 intentional)
+tests/observability_tests/   28/28   ← Sprint 1 NEW
+adjacent                     32/32
+Combined                    195/195  (excl. mal-20)
+```
+
+B3 frozen snapshots (`12378d11…8bac`, `6427903e…7897`) and B3.3
+dependency invariant (0 forbidden edges) UNCHANGED.
+
+### Updated GA readiness (per-dimension deltas · not a re-audit)
+```
+Observability + operations   18 % → 72 %   +54  (P0-E)
+Deployment / upgrade         32 % → 58 %   +26  (P0-F)
+Response actions             22 % → 28 %    +6  (P0-H exposed honest surface)
+Overall (weighted)           ~48 % → ~54 %  +6
+```
+
+Numbers remain heuristic decision-support, not certification.
+Owner-directed cadence honoured: no full 360° re-audit at this
+sprint — full 360° re-run scheduled for end of Sprint 4.
+
+
+
+
 ## 📋 2026-02 · NivXRay XDR 360° Production & Market-Readiness Audit · COMPLETE
 
 **Mode:** Read-only + smoke-test verification (owner-approved

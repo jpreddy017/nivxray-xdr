@@ -1,5 +1,16 @@
 # NivXRay XDR · V1 GA Blockers · P0 Only
 
+> **Owner-locked closure rule (2026-02):**
+> No P0 is considered CLOSED merely because code exists.
+> A P0 closes only when **CODE + TEST + INTEGRATION + PRODUCTION**
+> evidence satisfies the item's acceptance criterion.
+>
+> **Audit cadence:** Do NOT re-run the entire 360° after every
+> tiny sprint. Instead: `sprint → P0 acceptance evidence →
+> update GA score → continue`. Perform one full 360° GA audit at
+> the end of Sprint 4.
+
+
 **Source:** `NIVXRAY_XDR_360_AUDIT.md` (2026-02, read-only + smoke-test verification)
 **Rule:** an item is on this list **only** if it genuinely prevents V1 GA. Nice-to-haves live in the ROADMAP, not here.
 **Format:** `current maturity → V1 GA target → exact remaining work → effort estimate → dependencies`.
@@ -17,6 +28,21 @@ Framework code (`apps/nivxray-xdr-collector/framework/{syslog,webhook,rest}.py`)
 2. **AWS CloudTrail via S3-notification** (cloud)
 3. **Microsoft Defender for Endpoint or CrowdStrike Falcon** (endpoint)
 
+**Strict acceptance criterion (owner-locked 2026-02):**
+A connector is CLOSED only when the full loop is proved end-to-end:
+
+```
+Real vendor tenant → OAuth/API-key succeeds
+    → CONNECTED gate flips (via /api/xdr/ingest/telemetry)
+    → Canonical ingestion (schema conform)
+    → IKG / correlation surface receives the event
+    → Detection / verdict pipeline fires (or explicitly skips)
+    → Investigation workspace surfaces the event
+    → Analyst can act on it
+```
+
+Not sufficient: OAuth succeeded and a poller row exists.
+
 **Remaining work per vendor (repeatable pattern):**
 - OAuth / API-key handshake stored in `xdr_secrets`.
 - Poller task (delta-cursor + backoff + rate-limit).
@@ -24,6 +50,7 @@ Framework code (`apps/nivxray-xdr-collector/framework/{syslog,webhook,rest}.py`)
 - Evidence CONNECTED transition via `POST /api/xdr/ingest/telemetry`.
 - Health probe surfaced under `/api/xdr/collectors`.
 - Integration test with a recorded vendor response fixture.
+- **End-to-end test** proving the CONNECTED-through-investigation loop above.
 
 **Effort:** **M per vendor** — so 3 vendors ≈ 1 quarter.
 **Dependencies:** Secrets Store (present) · Ingest evidence gate (present · good design) · vendor tenant with test data.
@@ -57,15 +84,21 @@ Every action must go through the existing approval + audit + timeline pipeline (
 
 **Current maturity:** `ABSENT`. Auth is email + password (bcrypt) with per-user records in `db.users`. No `authlib` / `pysaml2` / `python-jose` OIDC beyond own JWT signing.
 
-**V1 GA target:** Enterprise buyers won't accept an XDR without SSO. Minimum: **OIDC** (Okta / Entra / Google Workspace / Auth0). SAML is nice-to-have but harder.
+**V1 GA target:** Enterprise buyers won't accept an XDR without enterprise SSO. Minimum: real **OIDC** integration with at least one enterprise IdP — **Okta**, **Microsoft Entra ID**, **Google Workspace**, or **Auth0**. Personal Google login (or any consumer identity) is **NOT** sufficient for this P0.
+
+> **Owner clarification (2026-02):** Google authentication ≠ enterprise OIDC/SSO readiness.
+> The P0-C blocker closes only when the wired IdP is one an enterprise CISO would accept
+> (Okta / Entra ID / Google Workspace org / Auth0). Personal Google login satisfies auth
+> but does NOT satisfy the enterprise SSO acceptance criterion.
 
 **Remaining work:**
-- Add `authlib` (OIDC client) or integrate Emergent-managed Google Auth playbook (already available on this platform).
+- Add `authlib` (OIDC client) OR wire an enterprise-grade IdP via a validated integration playbook.
 - Add SSO login flow to frontend (`LoginPage.jsx`).
 - Map SSO claims → RBAC role assignments (existing `xdr_user_roles`).
 - Just-in-Time provisioning of `db.users`.
+- **Acceptance:** end-to-end login via a real enterprise IdP tenant. NOT satisfied by a consumer-identity smoke test.
 
-**Effort:** **S** using Emergent-managed Google Auth OR **M** for a custom OIDC + role-mapping.
+**Effort:** **M** (real enterprise OIDC + role-mapping + JIT).
 **Dependencies:** none blocking — can ship in parallel with connectors.
 
 ---
