@@ -90,6 +90,7 @@ Only after that is a jump to composite 78–82 defensible.
    - **ZERO new decoder implementations · no LLM changes · no fabricated evidence · preserve NO EVIDENCE → NO CLAIM**
    - After: rerun the immutable 76-scenario corpus, report every changed scenario + TP/FP/FN/TN deltas, then STOP
 6. **P0-1B Universal Command Deobfuscation Engine** — ⏸ QUEUED (supersedes previous "defer" decision)
+   - 🔒 **SCOPE CONTRACT: `/app/memory/P0_1B_SCOPE.md` (owner-locked 2026-09-02). MUST be read before starting Phase 1 or Phase 2. Headline rule: "tommy-aa.lol proves the specific capability; the complete corpus proves the engine." NEVER optimize for one command.**
    - **XDR-owned engine** — NO bridge · NO runtime dependency on old NivXRay decoder / CyberChef / CMD-DeObfuscator / Invoke-Obfuscation / Invoke-DOSfuscation / PowerDecode / BatchDeobfuscator
    - External projects are SOURCE / REFERENCE / PARITY CORPUS only
    - Phase 1: complete source inventory in `UNIVERSAL_DECODER_SOURCE_INVENTORY.md` + `UNIVERSAL_DECODER_COVERAGE_MATRIX.md` + `UNIVERSAL_DECODER_LICENSE_MATRIX.md`
