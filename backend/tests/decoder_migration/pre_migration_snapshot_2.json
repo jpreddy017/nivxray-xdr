@@ -1,10 +1,10 @@
 {
   "aggregate_latency_ms": {
-    "max": 477.2186930058524,
-    "mean": 51.18570120478245,
-    "p50": 0.02018897794187069,
-    "p95": 378.82215599529445,
-    "p99": 477.2186930058524
+    "max": 478.93197496887296,
+    "mean": 52.44249235961194,
+    "p50": 0.021171988919377327,
+    "p95": 387.4830779968761,
+    "p99": 478.93197496887296
   },
   "availability": {
     "crypto_symmetric": true,
@@ -13,7 +13,7 @@
     "shellcode_analyzer": true,
     "xor_brute": true
   },
-  "captured_at_utc": "2026-09-02T11:50:11.211511+00:00",
+  "captured_at_utc": "2026-09-02T11:58:05.878510+00:00",
   "content_signature_sha256": "6427903eae774599f1c8e710223fb6d603276e5fae1a1fad1f8ecd453b297897",
   "exception_count": 0,
   "gate": "P0-1B · Phase 2 · Gate 2D-B3.0 · Snapshot #2 (surface #2)",
@@ -45,7 +45,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.13350200606510043
+          "latency_ms": 0.14453701442107558
         }
       },
       "size_bytes": 304
@@ -68,7 +68,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.046784000005573034
+          "latency_ms": 0.03108498640358448
         }
       },
       "size_bytes": 270
@@ -91,7 +91,7 @@
           },
           "exception": null,
           "kind": "aes_cbc",
-          "latency_ms": 0.07125595584511757
+          "latency_ms": 0.07075699977576733
         }
       },
       "size_bytes": 205
@@ -114,7 +114,7 @@
           },
           "exception": null,
           "kind": "aes_cbc",
-          "latency_ms": 0.02729799598455429
+          "latency_ms": 0.026360969059169292
         }
       },
       "size_bytes": 205
@@ -137,7 +137,7 @@
           },
           "exception": null,
           "kind": "aes_cbc",
-          "latency_ms": 0.029638002160936594
+          "latency_ms": 0.023017986677587032
         }
       },
       "size_bytes": 205
@@ -160,7 +160,7 @@
           },
           "exception": null,
           "kind": "aes_cbc",
-          "latency_ms": 0.02392899477854371
+          "latency_ms": 0.022554013412445784
         }
       },
       "size_bytes": 205
@@ -183,7 +183,7 @@
           },
           "exception": null,
           "kind": "aes_cbc",
-          "latency_ms": 0.016715959645807743
+          "latency_ms": 0.036187004297971725
         }
       },
       "size_bytes": 204
@@ -212,7 +212,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 378.82215599529445
+          "latency_ms": 387.4830779968761
         }
       },
       "size_bytes": 152
@@ -241,7 +241,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 477.2186930058524
+          "latency_ms": 478.93197496887296
         }
       },
       "size_bytes": 152
@@ -270,7 +270,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 328.4128909581341
+          "latency_ms": 343.8522980432026
         }
       },
       "size_bytes": 152
@@ -299,7 +299,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 365.57862896006554
+          "latency_ms": 367.4699119874276
         }
       },
       "size_bytes": 152
@@ -328,7 +328,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 394.1545590059832
+          "latency_ms": 414.1826860141009
         }
       },
       "size_bytes": 152
@@ -351,7 +351,7 @@
           },
           "exception": null,
           "kind": "rc4",
-          "latency_ms": 0.04950998118147254
+          "latency_ms": 0.050520990043878555
         }
       },
       "size_bytes": 116
@@ -374,7 +374,7 @@
           },
           "exception": null,
           "kind": "rc4",
-          "latency_ms": 0.021743006072938442
+          "latency_ms": 0.022733001969754696
         }
       },
       "size_bytes": 116
@@ -397,7 +397,7 @@
           },
           "exception": null,
           "kind": "rc4",
-          "latency_ms": 0.021426996681839228
+          "latency_ms": 0.029961986001580954
         }
       },
       "size_bytes": 116
@@ -420,7 +420,7 @@
           },
           "exception": null,
           "kind": "rc4",
-          "latency_ms": 0.01945201074704528
+          "latency_ms": 0.019481987692415714
         }
       },
       "size_bytes": 116
@@ -443,7 +443,7 @@
           },
           "exception": null,
           "kind": "rc4",
-          "latency_ms": 0.01737597631290555
+          "latency_ms": 0.018113001715391874
         }
       },
       "size_bytes": 116
@@ -459,7 +459,7 @@
           "available": true,
           "exception": null,
           "kind": "pe",
-          "latency_ms": 0.08809601422399282,
+          "latency_ms": 0.08803699165582657,
           "report": {
             "applicable": false
           }
@@ -478,7 +478,7 @@
           "available": true,
           "exception": null,
           "kind": "pe",
-          "latency_ms": 0.003657012712210417,
+          "latency_ms": 0.00399700365960598,
           "report": {
             "applicable": false
           }
@@ -497,7 +497,7 @@
           "available": true,
           "exception": null,
           "kind": "pe",
-          "latency_ms": 0.002903980202972889,
+          "latency_ms": 0.002943968866020441,
           "report": {
             "applicable": false
           }
@@ -516,7 +516,7 @@
           "available": true,
           "exception": null,
           "kind": "pe",
-          "latency_ms": 0.0032720272429287434,
+          "latency_ms": 0.004190951585769653,
           "report": {
             "applicable": false
           }
@@ -535,7 +535,7 @@
           "available": true,
           "exception": null,
           "kind": "pe",
-          "latency_ms": 0.00292900949716568,
+          "latency_ms": 0.002882967237383127,
           "report": {
             "applicable": false
           }
@@ -554,7 +554,7 @@
           "available": true,
           "exception": null,
           "kind": "shellcode",
-          "latency_ms": 0.005185953341424465,
+          "latency_ms": 0.005283975042402744,
           "report": {
             "applicable": false
           }
@@ -573,7 +573,7 @@
           "available": true,
           "exception": null,
           "kind": "shellcode",
-          "latency_ms": 0.004502944648265839,
+          "latency_ms": 0.004836008884012699,
           "report": {
             "applicable": false
           }
@@ -592,7 +592,7 @@
           "available": true,
           "exception": null,
           "kind": "shellcode",
-          "latency_ms": 0.005830021109431982,
+          "latency_ms": 0.005979964043945074,
           "report": {
             "applicable": false
           }
@@ -611,7 +611,7 @@
           "available": true,
           "exception": null,
           "kind": "shellcode",
-          "latency_ms": 0.004401023034006357,
+          "latency_ms": 0.004725006874650717,
           "report": {
             "applicable": false
           }
@@ -630,7 +630,7 @@
           "available": true,
           "exception": null,
           "kind": "shellcode",
-          "latency_ms": 0.004558009095489979,
+          "latency_ms": 0.004137982614338398,
           "report": {
             "applicable": false
           }
@@ -656,7 +656,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.03171601565554738
+          "latency_ms": 0.029189977794885635
         }
       },
       "size_bytes": 147
@@ -679,7 +679,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.02018897794187069
+          "latency_ms": 0.019764993339776993
         }
       },
       "size_bytes": 222
@@ -702,7 +702,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.027990026865154505
+          "latency_ms": 0.027559988666325808
         }
       },
       "size_bytes": 370
@@ -725,7 +725,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.01832697307690978
+          "latency_ms": 0.01769897062331438
         }
       },
       "size_bytes": 226
@@ -748,7 +748,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.02137600677087903
+          "latency_ms": 0.021171988919377327
         }
       },
       "size_bytes": 261
@@ -771,7 +771,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.007844995707273483
+          "latency_ms": 0.007445982191711664
         }
       },
       "size_bytes": 33
@@ -794,7 +794,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.008237024303525686
+          "latency_ms": 0.007597031071782112
         }
       },
       "size_bytes": 49
@@ -817,7 +817,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.008978007826954126
+          "latency_ms": 0.009203969966620207
         }
       },
       "size_bytes": 69
@@ -840,7 +840,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.009904964827001095
+          "latency_ms": 0.009710027370601892
         }
       },
       "size_bytes": 85
@@ -863,7 +863,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.008912000339478254
+          "latency_ms": 0.008829985745251179
         }
       },
       "size_bytes": 69
@@ -887,7 +887,7 @@
           },
           "exception": null,
           "kind": "xor_brute",
-          "latency_ms": 0.10227598249912262
+          "latency_ms": 0.11426297714933753
         }
       },
       "size_bytes": 2833

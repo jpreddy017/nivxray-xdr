@@ -1,6 +1,74 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.3 · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+**Dependency Audit · migration-integrity / architectural proof
+gate.** No feature expansion. mal-20 untouched.
+
+**Delivered:**
+- **Static direct + transitive dependency audit** — AST-based
+  reachability analysis over 20 authoritative files under
+  `services/decoder/` and `services/analyzers/`. Zero forbidden
+  `authoritative → legacy` edges.
+- **Runtime dependency audit** — fresh subprocess loads the full
+  authoritative surface + exercises the DDO on a real
+  `-EncodedCommand` input. `sys.modules` intersection with the
+  legacy set: **empty**.
+- **Per-module isolated import test** — 12 authoritative modules
+  probed individually in their own subprocesses. Each loads zero
+  legacy modules.
+- **Dependency-direction invariant test** — locks the
+  `legacy → authoritative` direction as documented for future
+  maintainers. Reverse direction fails the test.
+- **Production canonicalize → DDO path test** — end-to-end
+  subprocess exercise producing `decoded_final`.
+- 17 CI-enforceable pytest cases installed at
+  `tests/decoder_harness/test_b3_3_dependency_audit.py`.
+- `tests/decoder_migration/dependency_audit.py` — reusable
+  toolkit (AST parser, transitive graph, forbidden-path finder,
+  runtime snippet builder).
+
+**Toolkit output:**
+```
+Authoritative files audited : 20
+Transitive graph nodes      : 28
+Forbidden dependency paths  : 0
+Legacy shims documented     : 5 (all import authoritative)
+```
+
+**Frozen-fixture parity (SHA-256 content signatures) — unchanged:**
+```
+Snapshot #1 : 12378d11…8bac
+Snapshot #2 : 6427903e…7897
+```
+
+**Regression:** decoder_harness 59/59 (was 42; +17 dependency audit)
+· corpus 76/76 (mal-20 intentional) · adjacent 32/32 · **167/167
+combined**.
+
+**Documented exceptions (honestly recorded):**
+- `services/canonicalizer/`, `pipeline.py`, `decoder_bridge/`,
+  `investigation_results.py`, `analysis_core.py` still call
+  `recursive_decoder.peel_recursively`. Those are **legacy
+  callers of the shim**, not authoritative modules. Direction:
+  `legacy_caller → shim → authoritative` — permitted by the B3
+  invariant. Redirecting these callers is a separate refactor
+  gate, outside B3 scope.
+- UAIE plugin adapters import from `decoders.*` / legacy shim,
+  which now re-exports authoritative. Same permitted direction.
+
+**Deferred to B3.4:** final validation gate (both harnesses +
+full pytest + median-based latency ≤5 %), then STOP.
+
+**After B3.4:** NivXRay XDR 360° Production & Market-Readiness
+Audit.
+
+**STOPPED for owner acceptance of B3.3 before B3.4 begins.**
+
+
+
+
 ## ✅ 2026-02 · P0-1B · Phase 2 · Gate 2D-B3.2 (+B3.2-A) · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 **Analyzer Separation + DDO Codec Wiring · owner completion
