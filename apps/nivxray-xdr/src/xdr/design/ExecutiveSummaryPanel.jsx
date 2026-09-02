@@ -11,19 +11,35 @@ import { Sparkles, ShieldCheck, FileText, AlertTriangle, ExternalLink, RefreshCc
 import api from "@/lib/api";
 import EvidenceState from "@/xdr/design/EvidenceState";
 import Action from "@/xdr/design/Action";
+import IntelligenceOverlayEditor from "@/xdr/components/IntelligenceOverlayEditor";
 import "@/xdr/design/tokens.css";
 
 export default function ExecutiveSummaryPanel({ incidentId, onSelectRef }) {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState(null);
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  // R46 · Analyst overlay for the incident-level Executive Summary.
+  // Machine truth = Gateway `text` at the moment we loaded it.  The
+  // overlay layer edits *interpretation* only; verdict/severity/
+  // confidence/evidence-ids/technique-ids stay strictly immutable.
+  const [overlay, setOverlay]   = useState(null);
 
   const loadSummary = async () => {
     if (!incidentId) return;
     setLoading(true); setError(null);
     try {
-      const res = await api.get(`/narration/incident/${incidentId}/executive-summary`);
-      setData(res.data);
+      // Load Gateway narration and existing analyst overlay in parallel.
+      const [narr, ov] = await Promise.all([
+        api.get(`/narration/incident/${incidentId}/executive-summary`),
+        api.get(
+          `/intelligence-overlays/?incident_id=${encodeURIComponent(incidentId)}` +
+          `&target_kind=exec_summary&target_id=${encodeURIComponent(incidentId)}` +
+          `&field_key=content`,
+        ).catch(() => ({ data: [] })),
+      ]);
+      setData(narr.data);
+      const list = Array.isArray(ov.data) ? ov.data : (ov.data?.overlays || []);
+      setOverlay(list && list[0] ? list[0] : null);
     } catch (e) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load Narration Gateway executive summary.");
     } finally {
@@ -126,6 +142,22 @@ export default function ExecutiveSummaryPanel({ incidentId, onSelectRef }) {
               <span>{data.caveats.join(" · ")}</span>
             </div>
           )}
+
+          {/* R46 · Analyst Interpretation overlay — edits narrative
+                  only; verdict / severity / confidence / evidence_ids /
+                  technique_ids remain strictly immutable. */}
+          <div style={{ marginTop: 14 }} data-testid="xdr-exec-summary-overlay">
+            <IntelligenceOverlayEditor
+              incidentId   ={incidentId}
+              targetKind   ="exec_summary"
+              targetId     ={incidentId}
+              fieldKey     ="content"
+              machineValue ={data.text || ""}
+              overlay      ={overlay}
+              onChange     ={setOverlay}
+              label        ="Analyst Interpretation"
+            />
+          </div>
         </div>
       )}
     </div>

@@ -1,6 +1,84 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · Phase 2 · R46 UI wire + R48 PDF migration + Telemetry Adapter Framework
+
+**R46 UI wire (Executive Summary overlay)**
+- `ExecutiveSummaryPanel` now loads Gateway narration AND the
+  existing R46 analyst overlay in parallel, then renders
+  `IntelligenceOverlayEditor` with `machineValue = data.text`
+  and `target_kind=exec_summary / field_key=content`.
+- All R46 locked rules preserved (immutable machine truth,
+  effective value = analyst-when-present, mandatory reason,
+  audit trail, optimistic concurrency).  No new target_kind was
+  introduced; the existing R46 backend contract is reused.
+
+**R48 PDF composer migration**
+- `services/report/service.py::compose()` now overwrites the
+  Executive-Summary "assessment" block's `content` with the
+  Gateway output for `NarrationKind.R48_REPORT_NARRATION`.  The
+  qualifier block, evidence_refs, block_ids and editable flags
+  are preserved verbatim.  Provenance flips to
+  "NivXRay XDR Narration Gateway · {provider} · {mode}".
+- On any Gateway error the composer falls back to its local
+  deterministic composer output — a PDF NEVER fails because of
+  narration.
+- No PDF-specific narration engine anywhere.
+
+**Phase 2 · Telemetry Adapter Framework (`services/telemetry_adapters/`)**
+- `framework.py` — `SourceKind`, `Provenance`, `CanonicalEvent`,
+  `EvidenceCapability`, `TelemetryAdapter` (Protocol),
+  `TelemetryAdapterRegistry`.  Registration is explicit; no
+  import-time side effects; no auto-discovery.
+- Three worked adapters:
+  · `okta.system-log`     (identity)
+  · `entra.signin-log`    (identity)
+  · `aws.cloudtrail`      (cloud)
+- Each declares its `EvidenceCapability` honestly (`provides`,
+  `does_not_provide`, `caveats`).  Vendor field names never
+  leak past the adapter boundary.  Every emitted event carries a
+  mandatory `Provenance` envelope (source_id, vendor, adapter
+  name+version, raw_ref, ingested_at, source_event_time).
+- HTTP surface:
+  · `GET  /api/telemetry/adapters`
+  · `POST /api/telemetry/adapters/{name}/normalise`
+
+**Cognis boundary preserved**
+- Cognis = native NivXRay XDR intelligence layer.
+- Ollama = one Model Gateway runtime under Cognis.
+- Adapters emit governed evidence only; ATT&CK attribution is a
+  downstream concern.  No adapter alters verdict semantics.
+
+**Not yet built (as directed)**
+- Live tail/ingestion pipeline for the three adapters — the
+  runner + checkpointing layer is a separate delivery, deliberately
+  scoped out of Phase 2 code.  The adapters can be driven today
+  by any pipeline or by the `/normalise` endpoint (dev/QA).
+- Correlation/verdict integration for identity/cloud lanes —
+  future step; canonical shape is stable now so downstream can
+  begin consuming.
+
+**Verification**
+- Cumulative backend suite: **68/68 pass**
+  · 13 Phase-1 gateway
+  · 25 Phase-1.5 integration
+  · 2 R48 PDF migration
+  · 13 MITRE catalogue
+  · 15 Telemetry Adapter Framework.
+- `yarn build` → 0 errors.
+- Live smoke:
+  · `/xdr/incidents/…?tab=executive` — R46 overlay editor
+     mounted under Gateway narration, `NIVXRAY GENERATED` badge
+     visible, EDIT + HISTORY buttons active.
+  · `GET /api/telemetry/adapters` returns 3 adapters with
+     honest capability declarations.
+  · `POST /api/telemetry/adapters/okta.system-log/normalise`
+     transforms a real Okta record into a Canonical Event with
+     full provenance and no vendor field leakage.
+
+STOPPED FOR REVIEW.
+
+
 ## ✅ 2026-09-02 · Phase 1.75 · Attack Story UI Migration + Cognis Terminology Fix
 
 **Terminology (owner-locked)**

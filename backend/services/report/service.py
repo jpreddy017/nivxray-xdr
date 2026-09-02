@@ -476,6 +476,37 @@ async def compose(db, incident_id: str) -> Dict[str, Any]:
     fw = None  # framework mapping loader is lazily used; skipping for now.
 
     exec_blocks   = compose_executive(incident, canonical)
+    # R48 · Route the Executive Summary system block content
+    #        through the NivXRay XDR Narration Gateway so the same
+    #        provider/priority/grounding rules apply to the PDF as to
+    #        the cockpit.  The PDF composer stays responsible for
+    #        layout only; no PDF-specific narration engine.
+    try:
+        from routers.narration import _build_incident_context
+        from services.narration import (
+            NarrationRequest, NarrationKind, get_gateway,
+        )
+        ctx = await _build_incident_context(incident_id)
+        gw  = await get_gateway().render(NarrationRequest(
+            kind    = NarrationKind.R48_REPORT_NARRATION,
+            context = ctx,
+        ))
+        # Overwrite the ASSESSMENT block's `content` (kind="assessment")
+        # with the Gateway prose; keep evidence_refs, block_id,
+        # provenance, editable flags identical so provenance chain
+        # in the PDF and R46 audit trail stays intact.
+        for b in exec_blocks:
+            if b.get("kind") == "assessment" and gw.text:
+                b["content"] = gw.text
+                b["provenance"] = (
+                    f"NivXRay XDR Narration Gateway · "
+                    f"{gw.provider} · {gw.generation_mode.value}"
+                )
+                break
+    except Exception:                                # noqa: BLE001
+        # Never fail the report because of a narration error —
+        # the local deterministic composer output stays.
+        pass
     tech          = compose_technical(incident, canonical, fw)
     evidence_cards = await compose_supporting_evidence(db, incident, canonical)
     recos         = await compose_recommendations(db, incident)
