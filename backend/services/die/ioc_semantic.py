@@ -19,7 +19,13 @@ import ipaddress, re
 from typing import Dict, List, Set, Any
 
 # ── regexes ───────────────────────────────────────────────────────
-_URL_RE      = re.compile(r"\bhttps?://[^\s<>\"'`]+", re.IGNORECASE)
+# Gate 2H · URL boundary hardening (2026-09-02): exclude `)`, `|`,
+# `(`, `[`, `]`, `{`, `}` from URL body so a URL inside a
+# PowerShell/CMD expression like `(iwr http://c2/q).Content` stops
+# at `q` — not `q).content`.  These characters are RFC 3986-invalid
+# in URL bodies and their appearance is always a language-syntax
+# boundary, not part of the URL.
+_URL_RE      = re.compile(r"\bhttps?://[^\s<>\"'`)|(\[\]{}]+", re.IGNORECASE)
 _ONION_RE    = re.compile(r"\b[a-z2-7]{16,56}\.onion(?::\d+)?\b", re.IGNORECASE)
 _DISCORD_RE  = re.compile(r"\bhttps?://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_\-]+", re.IGNORECASE)
 _EMAIL_RE    = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
@@ -107,6 +113,17 @@ def extract_iocs(text: str, source: str = "raw") -> List[Dict[str, Any]]:
             _add("ip", m.group(0), 0.90)
         elif kind == "private-ip":
             _add("private-ip", m.group(0), 0.70)
+        # Gate 2H (2026-09-02) · unified `ipv4` co-kind.  Existing
+        # consumers that key on `"ip"` / `"private-ip"` remain
+        # unaffected.  A `"ipv4"` alias is emitted alongside so
+        # scenarios / SIEM adapters that key on the canonical
+        # network-layer term get the same finding without needing
+        # to know whether the address is RFC 1918 or RFC 5737
+        # documentation.  Confidence mirrors the specific kind
+        # (public: 0.90 · private/reserved: 0.70).
+        if kind in ("ip", "private-ip"):
+            _add("ipv4", m.group(0),
+                 0.90 if kind == "ip" else 0.70)
 
     for m in _IPV6_RE.finditer(scan):
         # Loose regex — validate structurally.

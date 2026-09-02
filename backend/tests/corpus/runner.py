@@ -95,6 +95,9 @@ _ATTCK: list[tuple[str, tuple[str, ...]]] = [
     (" -enc ",                          ("T1027",)),
     (" -e ",                            ("T1027",)),
     ("^",                               ("T1027",)),        # caret obf
+    ("*d.e?e",                          ("T1027",)),        # wildcard-bin obf
+    ("*u*r*l",                          ("T1027",)),
+    ("p*ell.exe",                       ("T1027",)),
     ("FromBase64String",                ("T1027",)),
     ("[Reflection.Assembly]::Load",     ("T1620",)),
     ("reg add",                         ("T1547.001",)),

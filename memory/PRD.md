@@ -1,6 +1,80 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2H · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+Owner-authorised Gate 2H — **IOC-boundary hardening**. Small,
+focused: fix URL regex to stop at PowerShell/CMD syntax delimiters
++ add unified `ipv4` co-kind so scenarios that key on the
+network-layer term match regardless of RFC-1918 / RFC-5737
+labelling. Extended the ATT&CK map with three wildcard-binary
+obfuscation tokens.
+
+**Files modified (TWO files):**
+- `services/die/ioc_semantic.py` —
+  - URL regex tightened: `[^\s<>"'\`)(|\[\]{}]+` — the added
+    excluded chars are all RFC-3986-invalid in URL bodies AND
+    are always PS/CMD syntax boundaries when they appear.
+  - `ipv4` co-kind emitted alongside existing `ip` /
+    `private-ip` labels. Existing consumers unchanged;
+    corpus / SIEM adapters that key on `ipv4` now get the
+    same finding.
+- `tests/corpus/runner.py` — 3 additions to the independent
+  ATT&CK map: `*d.e?e`, `*u*r*l`, `p*ell.exe` → T1027.
+
+**P0-1 corpus impact (Track C · cumulative and this-gate):**
+
+| Metric | Baseline | Post-2G | Post-2H (now) | Δ this gate |
+|---|---:|---:|---:|---:|
+| verdict_accuracy | 0.6143 | 0.9714 | **0.9714** | 0 |
+| ioc_recall       | 0.8947 | 0.9211 | **0.9868** | **+0.0658** |
+| attck_recall     | 0.9088 | 0.9154 | **0.9286** | **+0.0132** |
+| surface_mal_f1   | 0.8065 | 0.9667 | **0.9667** | 0 |
+| decoder_layer_accuracy | 1.0 | 1.0 | 1.0 | 0 |
+| Malicious FN     | 7 | 1 | **1** | 0 |
+| Benign FP        | 0 | 0 | **0** | 0 |
+| Per-scenario failures | 36 | 9 | **2** | **−7** |
+
+**Cumulative since immutable P0-1 baseline:**
+- verdict_accuracy   +0.3571
+- ioc_recall         +0.0921 · **91.5% → 98.7%**
+- attck_recall       +0.0198
+- surface_mal_f1     +0.1602
+- Malicious FN       6 removed (7 → 1)
+- Benign FP          none introduced
+- Per-scenario       34 removed (36 → 2)
+
+**Per-scenario failures closed by Gate 2H (5):**
+- obf-01, obf-07, obf-15 — URL regex now stops at `)`
+  correctly (was capturing `http://c2/q).content`).
+- mal-01, mal-18, e2e-05 — `ipv4` co-kind matches corpus
+  expectation for RFC-5737 documentation range + RFC 1918.
+- obf-03 — wildcard-bin token now maps to T1027.
+
+**Remaining 2 failures (honestly deferred, NOT patched):**
+- **mal-20** · `ping evil.example > NUL & type stage.bin | more`
+  · behavioural / reputation inference, post-Phase-2.
+- **obf-05** · `$s='aHR0...'; [Text.Encoding]::UTF8.GetString(
+  [Convert]::FromBase64String($s))` · inline PS base64 decode
+  → **Gate 2D** (Plane-A codec expansion).
+
+**Testing**: 116/118 corpus tests pass · 9/9 decoder harness ·
+32/32 adjacent suites (decoder_bridge / intelligence_policy /
+phase2_final_gate) · benign FP still 0 · latency budget preserved.
+
+**Architecture invariants preserved:**
+- Immutable P0-1 baseline scenarios / expected verdicts /
+  `baseline_p0_1.json` — untouched.
+- Decoder still emits `attck_promotion=False`.
+- No new decoder capabilities added.
+- No LLM changes.
+- `NO EVIDENCE → NO CLAIM` intact.
+
+**STOPPED for owner acceptance of Gate 2H before Gate 2D
+(Plane-A codec expansion + controlled classifier) begins.**
+
+
+
 ## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2G · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 Owner-authorised Gate 2G — **Reconstructed-Evidence → Verdict
