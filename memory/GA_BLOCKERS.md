@@ -7,8 +7,16 @@
 >
 > **Audit cadence:** Do NOT re-run the entire 360° after every
 > tiny sprint. Instead: `sprint → P0 acceptance evidence →
-> update GA score → continue`. Perform one full 360° GA audit at
-> the end of Sprint 4.
+> continue`. Perform one full 360° GA audit at the end of Sprint 4.
+>
+> **Do NOT optimize the % score as a management target.** It is a
+> directional indicator only. The real GA target is a finite
+> acceptance checklist: security + tenancy + real telemetry +
+> evidence integrity + detection/correlation + response +
+> observability + deployment + reliability + recovery +
+> operational readiness. When every P0 on this file is CLOSED with
+> full CODE + TEST + INTEGRATION + PRODUCTION evidence, that is
+> GA. Not "when the percentage hits 100 %".
 
 
 **Source:** `NIVXRAY_XDR_360_AUDIT.md` (2026-02, read-only + smoke-test verification)
