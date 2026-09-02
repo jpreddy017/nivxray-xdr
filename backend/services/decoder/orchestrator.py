@@ -71,7 +71,7 @@ _SIGNATURES: list[tuple[str, re.Pattern]] = [
     ("encoding.url_decode",       re.compile(r"%[0-9A-Fa-f]{2}")),
     ("encoding.unicode_escape",   re.compile(r"\\u[0-9A-Fa-f]{4}|\\x[0-9A-Fa-f]{2}")),
     ("encoding.html_entities",    re.compile(r"&(?:#[0-9]+|#x[0-9A-Fa-f]+|[A-Za-z]+);")),
-    ("encoding.base32",           re.compile(r"^[A-Z2-7]{16,}={0,6}$")),
+    ("encoding.base32",           re.compile(r"^[A-Z2-7]{8,}={0,6}$")),
     ("encoding.base85",           re.compile(r"^<~[!-uz]+~>$")),
     ("encoding.octal_ascii",      re.compile(r"(?:\\[0-7]{3}){3,}")),
     ("encoding.decimal_ascii",    re.compile(r"(?<![0-9])(?:\d{2,3}[,\s]+){3,}\d{2,3}(?![0-9])")),

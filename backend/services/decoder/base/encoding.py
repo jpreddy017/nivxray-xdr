@@ -4,7 +4,7 @@ Seven NEW deterministic text-encoding decoders, all of which were
 previously fixture-only in the corpus:
 
   · encoding.url_decode         — %XX (RFC 3986)
-  · encoding.unicode_escape     — \\uXXXX, \\xNN, \\UXXXXXXXX
+  · encoding.unicode_escape     — \\uXXXX (4 hex digits), \\xNN (2 hex digits), \\UXXXXXXXX (8 hex digits)
   · encoding.html_entities      — &#65; &amp; &lt; &#x41;
   · encoding.base32             — RFC 4648 Base32 (with padding)
   · encoding.base85             — Ascii85 (btoa) + Z85 (ZeroMQ)
@@ -40,13 +40,41 @@ ENGINE_VERSION = "0.5.0-gate2d-b1"
 
 
 # ══════════════════════════════════════════════════════════════════
-# Shared "printable text" acceptance check
+# Shared acceptance checks
 # ══════════════════════════════════════════════════════════════════
+# Owner rule (2026-09-02): minimum-length filters must not silently
+# discard short but legitimate decoded evidence like `cmd`, `iex`,
+# `MZ`, `http`, `.dll`.  We keep a small allow-list of high-value
+# short tokens; when a decode result MATCHES one of these it is
+# accepted regardless of length floor.
+_SHORT_EVIDENCE_TOKENS = frozenset({
+    "cmd", "iex", "mz", "http", "https", ".dll", ".exe", ".bat",
+    "ftp", "cmd.exe", "curl", "wget", "sh", "bash", "ntdsutil",
+    "reg", "sam", "system", "$env", "ps", "pwsh",
+})
+
+
+def _is_short_high_value(s: str) -> bool:
+    """Accept short decodes that match a well-known security-
+    relevant token — never silently drop `cmd`, `iex`, `MZ`, etc."""
+    if not s:
+        return False
+    return s.strip().lower() in _SHORT_EVIDENCE_TOKENS
+
+
 def _is_printable_text(s: str, floor: float = 0.85) -> bool:
-    """Reject decode results that are mostly non-printable.  This is
-    the primary defence against false reconstruction: an input that
-    is legal Base32 but decodes to random bytes will fail here."""
-    if not s or len(s) < 2:
+    """Reject decode results that are mostly non-printable.  Primary
+    defence against false reconstruction — a legal-Base32 blob that
+    decodes to random bytes fails here.
+
+    Short high-value tokens bypass the length floor (see
+    `_is_short_high_value`) so legitimate short evidence isn't
+    silently discarded."""
+    if not s:
+        return False
+    if _is_short_high_value(s):
+        return True
+    if len(s) < 2:
         return False
     ok = sum(1 for ch in s
              if ch.isprintable() or ch in ("\n", "\r", "\t"))
@@ -134,6 +162,11 @@ _B32_RE = re.compile(r"^[A-Z2-7]+={0,6}$")
 
 def decode_base32(text: str) -> Optional[str]:
     text = text.strip()
+    # RFC 4648 groups Base32 in 8-char blocks. 8 is the minimum
+    # valid non-empty encoding (1 byte + 6 padding).  We don't
+    # apply a longer minimum globally — a short valid decode
+    # (`AA======` → 1 byte) that matches a high-value token
+    # would still be accepted by `_is_printable_text`.
     if len(text) < 8 or (len(text) % 8) != 0:
         return None
     if not _B32_RE.match(text):

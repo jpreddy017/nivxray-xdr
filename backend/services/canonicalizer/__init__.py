@@ -251,6 +251,34 @@ def canonicalize(raw: str,
         except Exception:      # engine must NEVER break canonicalisation
             pass
 
+        # P0-1B Gate 2D-B2 · MANDATORY Deterministic Decode
+        # Orchestrator (DDO) integration.  Runs on the decoded_final
+        # so Plane-A encodings inside a peeled payload also fold.
+        # Signature-driven and bounded — cannot false-reconstruct
+        # plain English text.
+        try:
+            from services.decoder.orchestrator import orchestrate     # noqa: WPS433
+            ddo_input = decoded_final or raw
+            ddo_pid   = f"ddo:{parent_canonical_id or 'root'}"
+            ddo_res   = orchestrate(ddo_input, parent_id=ddo_pid)
+            if ddo_res.layers:
+                for l in ddo_res.layers:
+                    d = l.to_dict()
+                    d["source"] = "ddo"
+                    decoded_layers.append(d)
+                if ddo_res.final and ddo_res.final != ddo_input:
+                    decoded_final = ddo_res.final
+                    try:
+                        from services.die.ioc_semantic import extract_iocs
+                        for ioc in extract_iocs(ddo_res.final,
+                                                source="ddo") or []:
+                            decoded_iocs.append(ioc)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+
     return CanonicalCommand(
         raw               = raw,
         launcher_chain    = chain,
