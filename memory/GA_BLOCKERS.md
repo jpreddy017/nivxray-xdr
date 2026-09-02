@@ -207,18 +207,47 @@ Every action must go through the existing approval + audit + timeline pipeline (
 
 ---
 
-## P0-I · Detection Efficacy Measurement
+## P0-I · Detection Efficacy Measurement · Detection & Correlation Engineering
 
 **Current maturity:** `PARTIAL`. The corpus tests (76/76 + intentional mal-20) measure **decoder** accuracy, not XDR detection efficacy.
 
-**V1 GA target:**
-- Precision / recall / F1 computed over a labelled telemetry replay corpus (not fixture text).
-- Per-technique ATT&CK coverage reported.
-- False-positive rate on a labelled benign-telemetry corpus.
-- Nightly regression report checked in as `tests/detection_efficacy/report_YYYYMMDD.json`.
+> **Owner clarification (2026-02):** P0-I explicitly covers
+> **Detection & Correlation Engineering**. This is NOT a new decoder
+> gate and MUST NOT create B3.5 / Gate 2E / Gate 2F. A separate
+> "correlation rules" micro-gate is rejected. Correlation lives
+> INSIDE P0-I.
 
-**Effort:** **M** (assumes a labelled telemetry corpus exists; if not, add **L** to build one).
-**Dependencies:** P0-A (real telemetry is nice-to-have to seed the corpus).
+**V1 GA target — P0-I must validate:**
+
+- **Deterministic detection rule capability** — event / IOC / entity conditions, AND / OR / NOT, thresholds, compound conditions
+- **Multi-event correlation** — sequence order, time windows, entity correlation across user / device / IP / process / file-hash / identity / session
+- **Rule lifecycle** — definition, versioning, enable/disable, severity, ATT&CK mapping, evidence requirements
+- **Detection testing** — precision / recall / F1 over a labelled multi-event replay corpus; per-technique ATT&CK coverage; false-positive rate on labelled benign corpus
+- **Evidence integrity invariant** — `NO EVIDENCE → NO DETECTION CLAIM`. Every detection MUST point back to canonical evidence. Correlation MUST NEVER manufacture missing events.
+
+**Correlation implementation rule:**
+Do NOT implement a new correlation engine if the existing
+IKG / Verdict Engine v3.1 / Attack Story already provides the
+required primitives. **First inventory + reuse existing
+capabilities.** New rules only if the primitives are proved
+insufficient by an explicit evidence-backed gap analysis.
+
+**Relationship to P0-A (unchanged):**
+P0-A proves the pipeline works end-to-end on real Okta telemetry
+through canonical ingestion → existing IKG / correlation → existing
+detection / verdict → investigation. P0-I then validates whether
+those detection / correlation capabilities are actually **effective**
+against a labelled multi-event corpus.
+
+**Remaining work:**
+- Inventory existing IKG / Verdict Engine correlation primitives — document what exists vs what's missing (evidence-backed gap report).
+- Author labelled multi-event replay corpus (real telemetry from P0-A, tagged with expected detections).
+- Nightly regression: `tests/detection_efficacy/report_YYYYMMDD.json` with precision / recall / F1 / ATT&CK coverage / FP-rate.
+- Rule authoring surface (reuse existing `xdr_rule_studio.py` — 20 routes already exist).
+- Every detection carries canonical-evidence provenance (already the Verdict Engine contract — verify it holds under correlation).
+
+**Effort:** **M** (assumes labelled corpus exists after P0-A produces telemetry; if not, add **L** to build one from scratch).
+**Dependencies:** P0-A (real telemetry feeds the labelled corpus).
 
 ---
 
