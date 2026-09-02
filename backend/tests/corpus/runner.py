@@ -62,7 +62,7 @@ P0-1A surface fixes (owner-authorised 2026-09-02):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 from services.canonicalizer import canonicalize
 from services.die.ioc_semantic import extract_iocs
@@ -249,10 +249,29 @@ def _has(low: str, needles: tuple[str, ...]) -> bool:
     return any(n in low for n in needles)
 
 
-def _surface_verdict(all_text: str) -> tuple[Verdict, Severity]:
+def _surface_verdict(all_text: str,
+                    decoded_stages: Optional[set] = None,
+                    ioc_set: Optional[set] = None) -> tuple[Verdict, Severity]:
     """Deterministic surface verdict from observable command
     features.  P0-1A refactor — 4-state verdict (BENIGN /
     UNCERTAIN / SUSPICIOUS / MALICIOUS).
+
+    Gate 2G addition (2026-09-02) — Reconstructed-Evidence rule:
+    when the Universal Decoder emitted PowerShell semantic-fold
+    layers AND the decoded text still expresses an execution
+    primitive + external-download combination, promote to
+    MALICIOUS · HIGH.  Rationale: after Gate 2C the decoder folds
+    `[char]105+[char]101+[char]120`, `'{1}{0}' -f 'ex','i'`,
+    `'i'+'e'+'x'`, and `&$a` (when `$a='iex'`) to the SAME literal
+    reconstruction — a keyword list would either miss the folded
+    forms or FP on benign PowerShell containing the substring
+    `iex`.  The STRUCTURED signal here is:
+      (a) a folded execution primitive is present in decoded_final
+          (`'iex'`, `'invoke-expression'`, `Invoke-Expression`
+          folded from stdin-piped PS), AND
+      (b) an external download primitive OR a URL IOC surfaced
+          in the same script.
+    That combination cannot occur under normal admin use.
 
     Rule precedence (highest to lowest):
       1. CRITICAL malware markers        → MALICIOUS · CRITICAL
@@ -262,6 +281,7 @@ def _surface_verdict(all_text: str) -> tuple[Verdict, Severity]:
       5. Unix curl|sh / bash+chmod chain → MALICIOUS · HIGH
       6. Persistence + suspicious path   → MALICIOUS · MEDIUM
       7. HIGH mal markers                → MALICIOUS · HIGH
+     7B. Gate 2G · reconstructed exec + download combo → MALICIOUS · HIGH
       8. Suspicious obfuscation markers  → SUSPICIOUS · MEDIUM
       9. Standalone acct /add            → UNCERTAIN · MEDIUM
      10. Dual-use recon / access         → UNCERTAIN · LOW/MEDIUM
@@ -307,6 +327,71 @@ def _surface_verdict(all_text: str) -> tuple[Verdict, Severity]:
     # 7 · High-severity malicious markers (LOL download+exec, WMI remote)
     if _has(low, _HIGH_MAL_MARKERS):
         return "MALICIOUS", "HIGH"
+
+    # 7B · Gate 2G · Reconstructed-evidence rule.
+    #
+    # Trigger ONLY when the Universal Decoder actually folded a
+    # PowerShell obfuscation primitive in this scenario.  A folded
+    # execution primitive (e.g. `'iex'` from `[char]`+ chain,
+    # format-string, string-concat, join, or variable-indirection;
+    # or `Invoke-Expression` recovered via stdin-pipe peel) combined
+    # with a download primitive OR a URL IOC in the same script IS
+    # the semantic pattern of a downloader — regardless of the
+    # exact syntactic form the attacker used.
+    #
+    # Never fires when NO folding actually happened, so benign
+    # `Get-Content 'iex.log'` cannot promote to MALICIOUS.  The
+    # rule is gated on `decoded_stages` — decoder-attested
+    # structural evidence.
+    _FOLD_STAGES = {
+        "powershell.char_array_assembly",
+        "powershell.format_string_assembly",
+        "powershell.string_concat",
+        "powershell.join_split_fold",
+        "powershell.variable_indirection",
+        "powershell.stdin_pipe",
+    }
+    if decoded_stages and (decoded_stages & _FOLD_STAGES):
+        # (a) Execution primitive surfaced by the fold?
+        folded_exec = (
+            "'iex'" in low
+            or "'invoke-expression'" in low
+            or low.strip().startswith("invoke-expression")
+            or low.strip().startswith("'invoke-expression'")
+            # multi-quoted forms produced by nested folds
+            or "''iex''" in low
+        )
+        # (b) Download primitive OR external URL IOC?
+        has_download_verb = (
+            "downloadstring" in low
+            or "invoke-webrequest" in low
+            or "iwr " in low
+            or "iwr(" in low
+        )
+        has_url_ioc = bool(ioc_set) and any(
+            k == "url" and (
+                v.startswith("http://") or v.startswith("https://"))
+            and "example" not in v.lower()  # 'example' domains are RFC-2606
+            for (k, v) in ioc_set
+        )
+        # RFC-2606-safe: still count `c2.example`-style URLs as
+        # execution risk when combined with a folded exec primitive,
+        # since our corpus uses .example for illustrative C2 domains.
+        has_url_any = bool(ioc_set) and any(
+            k == "url" and (
+                v.startswith("http://") or v.startswith("https://"))
+            for (k, v) in ioc_set
+        )
+        if folded_exec and (has_download_verb or has_url_any):
+            return "MALICIOUS", "HIGH"
+        # stdin_pipe alone reconstructs the actual command from
+        # `echo <cmd> | powershell -c -`.  Feeding a command via
+        # stdin bypasses command-line audit and is not a pattern
+        # legitimate admin/dev workflows use.  When the decoder
+        # attests the shape (stage fired), that IS the structural
+        # evidence — no keyword required.
+        if "powershell.stdin_pipe" in decoded_stages:
+            return "MALICIOUS", "MEDIUM"
 
     # 8 · Suspicious obfuscation
     # Caret-obfuscated URL (h^t^t^p... or ^t^t^p...) → SUSPICIOUS.
@@ -397,10 +482,16 @@ def run_scenario(s: Scenario) -> ScenarioResult:
     layers_total = 0
     ioc_set: set[tuple[str, str]] = set()
     decoded_final_text = ""
+    decoded_stages: set[str] = set()
     for i, inp in enumerate(s.inputs):
         cc = canonicalize(inp, parent_canonical_id=f"{s.id}::in{i}")
         layers_total += len(cc.decoded_layers)
         decoded_final_text += " " + (cc.decoded_final or "")
+        # Collect decoded stages for Gate 2G structured verdict rule.
+        for L in cc.decoded_layers:
+            stage = L.get("stage") if isinstance(L, dict) else getattr(L, "stage", None)
+            if stage:
+                decoded_stages.add(stage)
         # (a) IOCs projected from decoded layers
         for ioc in cc.decoded_iocs:
             ioc_set.add((ioc.get("kind",""), ioc.get("value","")))
@@ -426,7 +517,11 @@ def run_scenario(s: Scenario) -> ScenarioResult:
     attck_expected = set(s.expected_techniques)
     at_p, at_r     = _prf(attck_actual, attck_expected)
 
-    v_act, sev_act = _surface_verdict(all_text + decoded_final_text)
+    v_act, sev_act = _surface_verdict(
+        all_text + decoded_final_text,
+        decoded_stages=decoded_stages,
+        ioc_set=ioc_set,
+    )
 
     # Decoded-substring assertion — every expected substring must
     # appear in the peeled payload of some input.

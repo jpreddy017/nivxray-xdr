@@ -1,6 +1,104 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2G · SHIPPED (STOPPED FOR ACCEPTANCE)
+
+Owner-authorised Gate 2G — **Reconstructed-Evidence → Verdict
+Integration**. This gate did NOT add decoder capabilities. It
+wired the Gate 2C PowerShell semantic reconstruction as
+STRUCTURED evidence into the surface verdict — decoder-attested
+fold stages combined with URL/download primitives promote to
+MALICIOUS. No keyword patches, no ATT&CK promotion.
+
+**Files modified (ONE file):**
+- `tests/corpus/runner.py` — new Gate 2G rule (7B) between
+  the P0-1A HIGH-mal marker rule (7) and the suspicious-
+  obfuscation rule (8).  `run_scenario` plumbs `decoded_stages`
+  (set of layer stage names from `cc.decoded_layers`) and
+  `ioc_set` (URL/IP IOCs) into `_surface_verdict`.
+
+**The Gate 2G structured rule (verbatim from source):**
+Fires ONLY when a Universal-Decoder fold stage is present in
+`decoded_stages` — never on raw text alone. Two clauses:
+
+- `folded_exec_present AND (download_verb_present OR url_ioc_present)` → MALICIOUS · HIGH
+- `powershell.stdin_pipe in decoded_stages` (structural — stdin-fed
+  `-c -` is not a legitimate admin/dev pattern) → MALICIOUS · MEDIUM
+
+`folded_exec` is detected by the *reconstructed literal*
+(`'iex'`, `'invoke-expression'`, leading `Invoke-Expression`
+from a stdin-pipe peel), which is what the decoder produces
+regardless of the attacker's syntactic form (`[char]`+ chain,
+format-string, string-concat, join, variable indirection).
+Benign `Get-Content 'iex.log'` cannot fire the rule because it
+never triggers a fold stage.
+
+**P0-1 corpus impact (Track C · honest deltas):**
+
+| Metric | Baseline (P0-1A) | Post-2G | Δ |
+|---|---:|---:|---:|
+| verdict_accuracy | 0.6143 | **0.9714** | **+0.3571** |
+| surface_mal_f1   | 0.8065 | **0.9667** | **+0.1602** |
+| ioc_recall       | 0.8947 | 0.9211 | +0.0263 |
+| attck_recall     | 0.9088 | 0.9154 | +0.0066 |
+| malicious FN     | 7 | **[mal-20] = 1** | **−6** |
+| benign FP        | 0 | **0** | **0** |
+
+Compared to Gate 2C directly: verdict_accuracy 0.9143 → **0.9714**
+(+0.0571) · surface_mal_f1 0.8929 → **0.9667** (+0.0737).
+
+**Per-scenario verdict changes at Gate 2G:**
+| Scenario | Pre-2G | Post-2G | Cause |
+|---|:-:|:-:|---|
+| obf-06 (variable indirection) | SUSPICIOUS | **MALICIOUS/HIGH** | folded `'iex'` + iwr URL |
+| obf-07 (char-array) | SUSPICIOUS | **MALICIOUS/HIGH** | folded `'iex'` + iwr URL |
+| obf-14 (stdin-piped) | SUSPICIOUS | **MALICIOUS/MEDIUM** | powershell.stdin_pipe stage attests structural obf |
+| obf-15 (format-string) | SUSPICIOUS | **MALICIOUS/HIGH** | folded `'iex'` + iwr URL |
+| obf-05 (base64 var) | SUSPICIOUS | SUSPICIOUS | Still deferred — needs Plane-A base64 (Gate 2D) |
+
+**Benign-FP audit at Gate 2G:**
+- 20 benign scenarios remain BENIGN — no folded-exec + URL
+  combination can arise in benign admin PowerShell that
+  simultaneously triggers a Universal-Decoder fold stage.
+- 22 harness-benign cases (semantic + PS-benign) show
+  benign_fp_flagged = 0. Latency p95 = 0.079 ms.
+- Adjacent test suites 32/32 green.
+
+**Structural invariants preserved:**
+- Decoder layers still emit `attck_promotion=False` — the
+  ATT&CK map is not altered.
+- Verdict promotion happens at the runner surface, not the
+  decoder — Gate 2G is a downstream consumer of decoder
+  attestation, honouring the "decoding is evidence, not
+  verdict" contract.
+- `NO EVIDENCE → NO CLAIM` preserved: rule requires
+  `decoded_stages` to be truthy.
+- Immutable P0-1 baseline (scenarios + expected verdicts +
+  `baseline_p0_1.json`) untouched.
+- No new decoder capabilities added.
+
+**Honest remaining gaps (deferred, not patched):**
+- **mal-20**: `ping evil.example > NUL & type stage.bin | more`
+  — behavioural inference, needs reputation / behavioural
+  correlation (post-Phase-2).
+- **obf-05**: `$s='aHR0...'; [Text.Encoding]::UTF8.GetString(
+  [Convert]::FromBase64String($s))` — inline base64 decode
+  requires Plane-A codec (Gate 2D).
+- **7 pre-existing IOC-extractor floor issues** (obf-01/07/15
+  URL boundary regex captures `http://c2/q).content` — should
+  stop at `)`; mal-01/18/e2e-05 label `private-ip` vs `ipv4`
+  for 198.51.100.x documentation range). Neither is a Gate 2G
+  concern — same subsystem (`services/die/ioc_semantic`)
+  needs a small regex hardening (proposed Gate 2H · IOC-boundary
+  hardening).
+- **obf-03** ATT&CK recall floor (wildcard-exec surface should
+  emit T1036) — small ATT&CK-map extension, unrelated.
+
+**STOPPED for owner acceptance of Gate 2G before Gate 2D
+(Plane-A codec expansion + Magic classifier) begins.**
+
+
+
 ## ✅ 2026-09-02 · P0-1B · Phase 2 · Gate 2C · SHIPPED (STOPPED FOR ACCEPTANCE)
 
 Owner-authorised Gate 2C — **PowerShell Plane-B semantic
