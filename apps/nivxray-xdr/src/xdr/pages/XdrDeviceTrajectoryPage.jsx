@@ -481,6 +481,7 @@ export default function XdrDeviceTrajectoryPage() {
                 viewStart={viewStart}
                 viewEnd={viewEnd}
                 onWindowChange={applyView}
+                onSelectEvent={(e) => setSelectedId(e.id)}
               />
               <div style={{ height: 8 }} />
               <TrajectoryTimelineCanvas

@@ -80,6 +80,7 @@ export function searchCorpus(e) {
 export default function TrajectoryNavigator({
   events, matchedIds, query, onQueryChange,
   selectedDay, onSelectDay, viewStart, viewEnd, onWindowChange,
+  onSelectEvent,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [dropping, setDropping] = useState(false);
@@ -137,8 +138,14 @@ export default function TrajectoryNavigator({
       if (!byDay.has(k)) byDay.set(k, { total: 0, compromise: 0, hits: 0 });
       const rec = byDay.get(k);
       rec.total += 1;
+      if (rec.minTs === undefined || t < rec.minTs) rec.minTs = t;
+      if (rec.maxTs === undefined || t > rec.maxTs) rec.maxTs = t;
+      if (!rec.firstEvent || t < new Date(rec.firstEvent.timestamp).getTime()) {
+        rec.firstEvent = e;
+      }
       if (e.kind === "detection" || e.severity === "critical" || e.severity === "high") {
         rec.compromise += 1;
+        if (!rec.firstCompromise) rec.firstCompromise = e;
       }
       if (matchedIds?.has(e.id)) rec.hits += 1;
     }
@@ -210,12 +217,18 @@ export default function TrajectoryNavigator({
       const i = Math.min(BINS - 1, Math.floor(((t - dayStart) / DAY_MS) * BINS));
       const hit = matchedIds?.has(e.id);
       const k = `${i}:${hit ? 1 : 0}`;
-      if (!bins.has(k)) bins.set(k, { i, hit, n: 0, t });
-      bins.get(k).n += 1;
+      if (!bins.has(k)) bins.set(k, { i, hit, n: 0, t, members: [] });
+      const b = bins.get(k);
+      b.n += 1;
+      b.members.push(e);
+      if (t < b.t) b.t = t;
     }
     const max = Math.max(1, ...Array.from(bins.values()).map((b) => b.n));
     return Array.from(bins.values()).map((b) => ({
-      ...b, r: 2 + Math.round((b.n / max) * 4),
+      ...b,
+      r: 2 + Math.round((b.n / max) * 4),
+      primary: b.members.slice().sort(
+        (x, y) => new Date(x.timestamp) - new Date(y.timestamp))[0],
     }));
   }, [hourEvents, dayStart, matchedIds]);
 
@@ -227,6 +240,48 @@ export default function TrajectoryNavigator({
   }, [viewStart, viewEnd, dayStart, dayEnd]);
 
   const compiled = compileQuery(query);
+
+  /** 30-day ribbon click. A compromise day focuses the compromise
+   *  itself; any other day opens the full 24 h. */
+  const onDayClick = useCallback((d) => {
+    onSelectDay(d.ms);
+    if (d.compromise > 0 && d.firstCompromise) {
+      const t = new Date(d.firstCompromise.timestamp).getTime();
+      onWindowChange(t - 30 * 60000, t + 30 * 60000);
+      onSelectEvent?.(d.firstCompromise);
+    } else {
+      // The page owns full-day selection; calling onWindowChange here
+      // would re-clamp it to the observed extent.
+      onSelectDay(d.ms);
+    }
+  }, [onSelectDay, onWindowChange, onSelectEvent]);
+
+  /** Double-click a day → tightest observed window on that day. */
+  const onDayDouble = useCallback((d) => {
+    if (d.minTs === undefined) return;
+    onSelectDay(d.ms);
+    const pad = Math.max(1000, (d.maxTs - d.minTs) * 0.05);
+    onWindowChange(d.minTs - pad, d.maxTs + pad);
+    if (d.firstEvent) onSelectEvent?.(d.firstEvent);
+  }, [onSelectDay, onWindowChange, onSelectEvent]);
+
+  /** 24-hour ribbon dot click → ±15 min bracket + select the cluster's
+   *  primary (earliest) observation, which populates Activity Details. */
+  const onDotClick = useCallback((dot) => {
+    const t = dot.t;
+    onWindowChange(t - 15 * 60000, t + 15 * 60000);
+    if (dot.primary) onSelectEvent?.(dot.primary);
+  }, [onWindowChange, onSelectEvent]);
+
+  const onDotDouble = useCallback((dot) => {
+    if (!dot.members?.length) return;
+    const ts = dot.members.map((m) => new Date(m.timestamp).getTime());
+    const lo = Math.min(...ts);
+    const hi = Math.max(...ts);
+    const pad = Math.max(1000, (hi - lo) * 0.05);
+    onWindowChange(lo - pad, hi + pad);
+    if (dot.primary) onSelectEvent?.(dot.primary);
+  }, [onWindowChange, onSelectEvent]);
 
   return (
     <section className="panel" style={{ padding: 0 }}
@@ -301,8 +356,10 @@ export default function TrajectoryNavigator({
               const has = d.total > 0;
               return (
                 <button key={d.key}
-                          onClick={() => onSelectDay(d.ms)}
-                          title={`${d.key} · ${d.total} observation${d.total === 1 ? "" : "s"}`}
+                          onClick={() => onDayClick(d)}
+                          onDoubleClick={() => onDayDouble(d)}
+                          title={`${d.key} · ${d.total} observation${d.total === 1 ? "" : "s"}`
+                                  + (has ? " · click to focus, double-click to fit" : "")}
                           style={{
                             height: 32, padding: 0, cursor: has ? "pointer" : "default",
                             background: active ? "rgba(60,232,184,0.12)" : "var(--panel2)",
@@ -364,9 +421,8 @@ export default function TrajectoryNavigator({
                   <circle key={`${d.i}-${d.hit}`}
                           cx={PAD + ((d.i + 0.5) / 240) * innerW}
                           cy={d.hit ? 22 : 11} r={d.r}
-                          fill={d.hit ? "#3fc1e8" : "rgba(155,123,240,0.75)"}>
-                    <title>{d.n} observation{d.n === 1 ? "" : "s"}</title>
-                  </circle>
+                          fill={d.hit ? "#3fc1e8" : "rgba(155,123,240,0.75)"}
+                          pointerEvents="none" />
                 ))}
                 <rect x={PAD} y={1} width={Math.max(0, xs - PAD)} height={38}
                       fill="rgba(6,8,12,0.7)" />
@@ -389,6 +445,24 @@ export default function TrajectoryNavigator({
                         textAnchor={h === 0 ? "start" : h === 24 ? "end" : "middle"}>
                     {String(h).padStart(2, "0")}:00
                   </text>
+                ))}
+                {/* Dots render last so they stay clickable above the
+                      selection band and handles. */}
+                {hourDots.map((d) => (
+                  <circle key={`top-${d.i}-${d.hit}`}
+                          cx={PAD + ((d.i + 0.5) / 240) * innerW}
+                          cy={d.hit ? 22 : 11} r={d.r}
+                          fill={d.hit ? "#3fc1e8" : "rgba(155,123,240,0.95)"}
+                          stroke="#0c1017" strokeWidth={0.6}
+                          style={{ cursor: "pointer", pointerEvents: "auto" }}
+                          onClick={() => onDotClick(d)}
+                          onDoubleClick={(ev) => { ev.stopPropagation(); onDotDouble(d); }}
+                          data-testid={`xdr-navigator-hour-dot-${d.i}`}>
+                    <title>
+                      {d.n} observation{d.n === 1 ? "" : "s"} · click to focus ±15 min,
+                      double-click to fit
+                    </title>
+                  </circle>
                 ))}
               </svg>
             </div>

@@ -6546,3 +6546,55 @@ tactics/techniques in Event Details. Search terms AMP scopes to Device
 Trajectory: detection name, SHA-256, filename, file path, URL, remote IP,
 user name, iOS bundle ID — ours covers all except URL and bundle ID, which the
 substrate does not carry.
+
+## 2026-09-05 · Navigator made OPERATIONAL (was visually accurate but inert)
+
+Owner was right: the ribbons rendered correctly but drove nothing. Click
+handlers now bind the Navigator to the canvas window and the Activity Details
+drawer, per the AMP contract.
+
+**30-day ribbon · day cell click** → selects that day and opens the full
+`00:00:00Z → 24:00:00Z`. If the day carries a compromise, it instead snaps a
+±30 min window around the **first compromise event** and selects that event so
+Activity Details opens on it. Double-click a day → tightest observed window on
+that day (with 5% padding) + selects the first event.
+
+**24-hour ribbon · dot click** → ±15 min bracket around the cluster and selects
+the cluster's **primary (earliest) observation**, which populates Activity
+Details. Double-click → collapses to the cluster's own min/max span. Dots now
+render last in the SVG with `pointerEvents: auto` and `cursor: pointer`, so they
+stay clickable above the selection band and handles (the band keeps its
+drag behaviour).
+
+Fixed while wiring: a non-compromise day click was calling both `onSelectDay`
+and `onWindowChange`, and the second re-clamped the full day back to the
+observed extent. The page now owns full-day selection exclusively.
+
+### Verified live on WKS-01 (dev_ad0efe27ff18)
+- Day cell click → `2026-02-25 · 00:00:00Z → 24:00:00Z (full day)`
+- Hour dot click (the 27-observation cluster) → window `13:58:58Z → 14:02:04Z`
+  **and** Activity Details populated with real persisted values:
+  `wininit.exe` · `PROCESS · OBSERVATION` · `2026-02-25 14:00:00Z` ·
+  device `WKS-01` · path `C:\Windows\System32\wininit.exe` · user `CORP\alice` ·
+  command `wininit.exe` · incident `case_golden_clean_workstation_fc1…`
+  The canvas node is simultaneously selected (selection ring visible).
+- Dot double-click → `13:59:56Z → 14:01:05Z` (tightest cluster span)
+
+### Partial — stated, not claimed
+**Canvas → Ribbon reverse binding is only half-satisfied.** Clicking a canvas
+event selects it and populates Activity Details, and because the event is by
+definition inside the current window the bracket already encompasses it — so no
+bracket move is needed. But the corresponding **dot is not highlighted** on the
+24-hour ribbon. That highlight is outstanding.
+
+### Terminology corrected per owner instruction
+Process Ancestry is now recorded everywhere as: **"visualization framework
+implemented; authoritative PID/PPID lineage not currently observed in the
+available substrate."** Never "complete". Branching stays evidence-gated —
+0 of 114 process observations carry resolvable lineage.
+
+### Resequenced backlog (owner's order)
+P1.1 Endpoint Lanes ✅ · P1.2 Navigator/Scrubber ✅ · P1.3 Process Ancestry
+⚠️ evidence-blocked (honest unrooted lifelines retained) · **P1.4 Entity 360 →
+P1.5 Compromise Band → P1.6 Events Ledger → P1.7 Sandbox Bridge (static
+pivot only)** — all four not started.
