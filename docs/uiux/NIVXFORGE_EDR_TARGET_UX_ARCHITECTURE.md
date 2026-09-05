@@ -225,3 +225,55 @@ Two things to copy as *discipline*, not layout:
    `executing as Not Available` rather than an empty field. That is the same
    contract as our `◇ NO EVIDENCE`; keep the glyph but adopt the habit of
    emitting the field label even when the value is absent.
+
+### AMP dark-mode reference notes (owner screenshots, batch 3)
+
+Confirms the ribbon rebuild and adds detail the light-mode shots did not show.
+
+**Navigator (matches our current build, two deltas)**
+- Search field sits LEFT, `Filters ▾` RIGHT (ours has Filters/collapse on the left).
+- Selected day on the 30-day ribbon is an **outlined** cell, not filled, and a
+  **funnel** visually connects it down to the 24-hour ribbon. We render the
+  outline; the funnel is not built.
+- The whole 24-hour ribbon sits inside a **tinted selected-panel** background.
+- Hour cells bordered, labels below (`0:00 1 … 24`) with the date beneath the
+  left edge — ours now matches.
+- Red compromise dots sit in the day cell, top-aligned; days beyond the data
+  range are drawn but empty.
+
+**Timeline gutter**
+- `name [TYPE]` labels: `[PE]`, `[Link]`, and truncated hashes as names
+  (`3a2f7f00…51d64508 [PE]`, `a416a722…d90c1c60 [PE]`).
+- The artefact under investigation is highlighted with a **solid red row
+  background** (`AnyDesk.exe`), not just bold.
+- `System` is a section header row above the artefact rows.
+- Sub-minute columns are labelled vertically (`11:58`, `08:53`, `09:05`) —
+  vertical tick labels are how AMP survives dense clusters.
+- `↩ Return to activity` link returns from a drilled state to the full activity.
+
+**Activity Details is PROSE, not a field table**
+> `anydesk.exe`, AnyDesk 0.0.0.0 (`46accaaf…5dd9c536`)[PE_Executable] was
+> Executed by `explorer.exe`[common filename], Microsoft® Windows® Operating
+> System 10.0.26100.8655 (`ae616daa…f43f21f9`)[PE_Executable].
+> **Unknown disposition. Unknown parent disposition.**
+> File full path: `c:\program files (x86)\anydesk\anydesk.exe`
+
+Two things to adopt:
+1. A generated **sentence** with inline hash/type/signer chips reads faster than
+   a key/value grid for the primary fact. Our `analyst_narrative.py` already
+   generates evidence-gated prose — reuse it here rather than inventing copy.
+2. **"Unknown disposition. Unknown parent disposition."** — the vendor states
+   the unknown explicitly as a sentence. Third independent confirmation of our
+   Honest State rule (after `unknown` actors and `executing as Not Available`).
+
+**Isolation details drawer** (for P1.4 Entity 360): `Isolated` chip, isolation
+timestamp, **Unlock code**, and a vertical event timeline `Starting isolation →
+Isolated` with actor (`By: Leon Cook`) and comment field. Ours must render
+`⊘ RESPONSE DRIVER NOT REGISTERED` in place of all of it.
+
+**File Trajectory search results** (P2 surface): `Computers with matching
+activity` → `File Trajectory: <sha256>` → one row per host as
+`HOSTNAME — N matches — OS — Manage — Device Trajectory — <group> — <policy>`,
+with paging (`7 matches · 10/page`). Note **per-host match counts** and that
+every row links straight into that host's Device Trajectory — that is the
+fleet→host pivot we lack.
