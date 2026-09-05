@@ -172,3 +172,47 @@ P2.x   Attack Traversal & Lifecycle     cross-host causal traversal, lateral
 Task title to use when this is built:
 **“P2.x — Unified Artifact Trajectory & Attack Traversal *Projection*”**
 (never “Engine”).
+
+
+## 11. Navigation contract shipped in P1.8 (no capability)
+
+Fleet File Trajectory carries a DISABLED `⊘ Investigate Attack Traversal` control
+and an Overview block listing the nine future surfaces as `⊘`:
+
+```
+⊘ Trace to Origin        ⊘ Process Chain        ⊘ Attack Lifecycle
+⊘ Trace Forward          ⊘ Network Traversal    ⊘ Blast Radius
+⊘ Host Traversal         ⊘ Identity             ⊘ ATT&CK progression
+```
+
+This fixes the navigation contract now without pretending the capability exists.
+
+## 12. Visual benchmark for P2.x
+
+The owner-supplied attack-flow diagrams (UNC6692 social-engineering → Quick Assist
+→ staging → Edge execution → C2; STAC 6451 execution → tool chain → payload archive
+→ ransomware launcher; ClickFix lure → PowerShell → download → installer → Python →
+shellcode → C2 → payload) are the benchmark — **generated dynamically from
+telemetry, not drawn**. Every node click → evidence. Every edge click → why the
+relationship exists (relationship type, Δt, joined fields, ATT&CK, source event id)
+plus what is still unobserved. Every gap rendered as `? UNKNOWN` / `◇ NO EVIDENCE`.
+
+## 13. "Root" is not one thing
+
+`ATTACK ORIGIN` must decompose, each with its own state
+(`◆ PRESENT` / `? UNKNOWN` / `◇ NOT OBSERVED`):
+
+| Root | Meaning |
+|---|---|
+| Technical root | first observed malicious artifact/process |
+| Attack root | initial access vector |
+| Infrastructure root | attacker-controlled infrastructure / C2 |
+| Vulnerability root | exploited weakness (never inferred from compromise alone) |
+| Human root | social engineering / user interaction |
+| Credential root | compromised identity |
+
+Initial Compromise Vector taxonomy: PHISHING · EXPLOITATION · STOLEN CREDENTIAL ·
+VALID ACCOUNT · REMOTE SERVICE · PUBLIC-FACING APPLICATION · SUPPLY CHAIN ·
+INSIDER/USER ACTION · MALICIOUS DOWNLOAD · DRIVE-BY · CLOUD/SaaS · UNKNOWN.
+`◆ PHISHING` only when email/security telemetry proves it; otherwise
+`? VULNERABILITY EXPLOITATION` stays unknown.

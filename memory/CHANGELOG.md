@@ -6908,3 +6908,24 @@ Attack Traversal & Attack Lifecycle are a SEPARATE planned capability.
   case-reference column capping).
 - Verified by screenshot across all 7 tabs, the cohort notice and the sha256 zero
   state. Backend unchanged since iteration 84 (all 14 acceptance items PASS).
+
+
+## 2026-09-05 (close) · P1.8 CLOSED · future-ready traversal pivot
+
+- Added the navigation contract without the capability: a DISABLED
+  `⊘ Investigate Attack Traversal` control in the Fleet File Trajectory header
+  (`fleet-attack-traversal-pivot`, aria-disabled, reason in the tooltip) plus a
+  dashed `NAVIGATION CONTRACT` block on Overview listing the nine future surfaces
+  as `⊘` — Trace to Origin · Trace Forward · Host Traversal · Process Chain ·
+  Network Traversal · Identity · ATT&CK progression · Attack Lifecycle · Blast
+  Radius. Nothing is navigable and nothing is simulated.
+- **P1.8 CLOSED.** No further expansion. Remaining truth boundary intact:
+  `? PATH/NAME KEYED — CONTENT-BLIND`, `? EARLIEST OBSERVED HOST — ORIGIN NOT
+  ESTABLISHED`, `LATERAL HOPS ◇ NOT ESTABLISHED`, `◇ COHORT ONLY`,
+  `? PARENT NOT OBSERVED`, `? UNKNOWN DISPOSITION`, `⊘ NO RESPONSE DRIVER`.
+- Next operational capabilities (unchanged order): Investigation Export ·
+  Spread Watchlist · Saved Hunts · Sensor Foundation. Then
+  P2.x — Unified Artifact Trajectory & Attack Traversal Projection, whose visual
+  benchmark is the owner-supplied UNC6692 / STAC 6451 / ClickFix attack-flow
+  diagrams, generated dynamically with every node, edge and technique
+  evidence-backed and every gap shown as UNKNOWN.

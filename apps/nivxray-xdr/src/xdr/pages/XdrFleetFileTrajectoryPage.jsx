@@ -26,7 +26,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Loader2, FileSearch, ChevronLeft, RefreshCcw, Radar, Fingerprint,
-  Layers, Network, Terminal, FileStack, ScrollText, Clock,
+  Layers, Network, Terminal, FileStack, ScrollText, Clock, GitBranch,
 } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
@@ -202,6 +202,18 @@ export default function XdrFleetFileTrajectoryPage() {
           {keyType}: {keyValue}
         </span>
         <div style={{ flex: 1 }} />
+        <div style={{ position: "relative" }}>
+          <button className="btn" disabled aria-disabled="true"
+                  style={{ padding: "4px 10px", fontSize: 10.5, opacity: 0.6,
+                           cursor: "not-allowed" }}
+                  title={"⊘ ATTACK TRAVERSAL / LIFECYCLE NOT IMPLEMENTED — "
+                    + "planned as P2.x Unified Artifact Trajectory & Attack Traversal "
+                    + "Projection over IUE/ICE/IKG/VEEE/Security State. Requires the "
+                    + "Sensor Foundation (PID/PPID, file digests, sockets, sessions)."}
+                  data-testid="fleet-attack-traversal-pivot">
+            <GitBranch size={11} /> ⊘ Investigate Attack Traversal
+          </button>
+        </div>
         <button className="btn" style={{ padding: "4px 10px" }} onClick={load}
                 data-testid="fleet-refresh">
           <RefreshCcw size={11} /> Refresh
@@ -439,6 +451,26 @@ export default function XdrFleetFileTrajectoryPage() {
                       <Nope label="◇ DISPOSITION NOT CARRIED BY THE SUBSTRATE" />
                       <Nope ep="capability_unavailable"
                             label="⊘ ATTACK TRAVERSAL / LIFECYCLE NOT IMPLEMENTED" />
+                    </div>
+                    <div style={{ marginTop: 9, padding: 9, background: "#0D1218",
+                                  border: "1px dashed #212B36", borderRadius: 4 }}
+                         data-testid="fleet-traversal-contract">
+                      <div className="mono" style={{ fontSize: 9.5,
+                                                      color: "var(--faint)",
+                                                      fontWeight: 800,
+                                                      marginBottom: 5 }}>
+                        NAVIGATION CONTRACT · ⊘ Investigate Attack Traversal
+                      </div>
+                      <div className="mono" style={{ fontSize: 9.5,
+                                                     color: "#5D6875",
+                                                     lineHeight: 1.8 }}>
+                        {["Trace to Origin", "Trace Forward", "Host Traversal",
+                          "Process Chain", "Network Traversal", "Identity",
+                          "ATT&CK progression", "Attack Lifecycle",
+                          "Blast Radius"].map((s) => (
+                          <div key={s}>⊘ {s}</div>
+                        ))}
+                      </div>
                     </div>
                     <div className="mono" style={{ fontSize: 9.5, color: "var(--faint)",
                                                    marginTop: 8, lineHeight: 1.7 }}>
