@@ -6348,10 +6348,46 @@ Backend 10/10 new + 37/37 regression; frontend 20/20 across 8 surfaces; zero
 console errors; anti-fabrication cross-check against Mongo passed.
 
 **Truth-model correction recorded**: Device Trajectory `IMPLEMENTED` (code only)
-→ `CODE/UX IMPLEMENTED · RUNTIME DATA PATH NOT OPERATIONAL` → **`LIVE`**.
+→ `CODE/UX IMPLEMENTED · RUNTIME DATA PATH NOT OPERATIONAL` → **`LIVE against the currently available persisted v2_shadow_observations substrate; production endpoint-agent telemetry is NOT yet implemented`**.
+The 7 projected devices are a **golden-corpus / validation substrate**, not production
+customer endpoint data. Cross-tenant SOC visibility is permitted ONLY because the
+substrate carries no tenant identity. Tenant binding becomes MANDATORY before any
+real customer telemetry enters a customer-visible production EDR plane.
 Sandbox remains `Static foundation IMPLEMENTED · dynamic NOT IMPLEMENTED · UX
 DESIGN/PROTOTYPE ONLY`.
 
 **Next**: Phase 2 — file/network/registry/services lanes, process ancestry
 causality canvas, Entity 360, timeline scrubber (all projections over IRG kinds
 already persisted). Not started.
+
+## 2026-09-05 · P1 item 1 — Endpoint Lanes (Files / Network / Registry / Services)
+
+`xdr/components/EndpointLanes.jsx`, mounted below the trajectory canvas on
+`/xdr/endpoints/:device/trajectory`. Adds **no data source**: it projects the
+same `/api/edr/device-trajectory` payload the canvas already consumes, so every
+row is a persisted `v2_shadow_observations` document with a live
+`evidence_ref`. Verified on FIN-07: Files 5 · Network 10 · Registry 5 ·
+Services 0 (honest `◇ NO EVIDENCE`). Absent columns render `◇`, never a
+placeholder — e.g. network observations genuinely carry no `raw.user`.
+
+Each row shows its **Source Case**, which makes the golden corpus's repeated
+case copies self-explanatory (the same event is persisted once per case copy —
+real duplication in the corpus, not synthesis, so it is shown rather than
+silently de-duplicated).
+
+Also appended two batches of Cisco Secure Endpoint reference notes to
+`docs/uiux/NIVXFORGE_EDR_TARGET_UX_ARCHITECTURE.md` (Device Trajectory header
+composition, dual-ribbon navigator, process lifelines + compromise time-slice
+band, actor→target Events ledger, File Trajectory, artifact context menu,
+Event Details field order). Two independent validations of our Honest State
+model recorded there: the vendor also prints `unknown` for an unobserved parent,
+and `executing as Not Available` rather than blanking a missing field.
+
+**Roadmap wording corrected as instructed**: Device Trajectory is now recorded
+as "LIVE against the currently available persisted v2_shadow_observations
+substrate; production endpoint-agent telemetry is NOT yet implemented", and the
+7 devices are labelled a golden-corpus / validation substrate with tenant
+binding MANDATORY before customer telemetry.
+
+**Next in the approved order**: Process Ancestry → Entity 360 → Timeline
+Scrubber → EDR end-to-end revalidation → tenant binding.

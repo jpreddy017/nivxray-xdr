@@ -117,7 +117,7 @@ command line and user rendered in the UI was cross-checked against
 
 **Truth-model correction now formally recorded**: Device Trajectory moves from
 `IMPLEMENTED` (the prior AG claim, which was code-existence only) through
-`CODE/UX IMPLEMENTED · RUNTIME DATA PATH NOT OPERATIONAL` to **`LIVE`** —
+`CODE/UX IMPLEMENTED · RUNTIME DATA PATH NOT OPERATIONAL` to **`LIVE against the currently available persisted v2_shadow_observations substrate; production endpoint-agent telemetry is NOT yet implemented`** —
 verified end-to-end from persisted observation → identity → API → UI → evidence.
 
 Test report: `/app/test_reports/iteration_82.json` · backend 10/10 new + 37/37

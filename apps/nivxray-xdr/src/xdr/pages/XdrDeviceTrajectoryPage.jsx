@@ -20,6 +20,7 @@ import {
 
 import XdrShell from "@/xdr/XdrShell";
 import TrajectoryTimelineCanvas from "@/xdr/components/TrajectoryTimelineCanvas";
+import EndpointLanes from "@/xdr/components/EndpointLanes";
 import Pivot from "@/xdr/components/Pivot";
 import { getDeviceTrajectory } from "@/nivxforge/edrApi";
 
@@ -434,6 +435,19 @@ export default function XdrDeviceTrajectoryPage() {
           )}
         </aside>
       </div>
+
+      {/* ── P1 · Endpoint investigation lanes ───────────────────
+            File / Network / Registry / Service grids over the same
+            observation payload the canvas consumes.  Additive: the
+            canvas above is unchanged. */}
+      {!unresolved && (
+        <div style={{ marginTop: 12 }}>
+          <div className="section-title" style={{ marginBottom: 6 }}>
+            Endpoint Lanes
+          </div>
+          <EndpointLanes events={events} onSelect={(e) => setSelectedId(e.id)} />
+        </div>
+      )}
     </XdrShell>
   );
 }

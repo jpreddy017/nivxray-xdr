@@ -108,3 +108,120 @@ When querying `/api/edr/endpoints` or `/api/edr/device-trajectory` in an environ
 - **Never render fake host names** like `workstation-01.local` or `corp-dc-01`.
 - Display exact backend reason (`no_matching_evidence`).
 - Provide an operational bridge to real IRG shadow observations (`v2_shadow_observations` carries 223 device IIDs) to promote true host discovery.
+
+---
+
+## APPENDIX · Cisco Secure Endpoint reference notes (owner screenshots, 2026-09-05)
+
+Captured so the detail is not lost between phases. Patterns only — no
+proprietary UI is copied.
+
+### Device Trajectory page composition (drives P1 item 3 · Entity 360)
+- **Identity table, two columns**: Hostname · Operating System · Connector
+  Version · Install Date · **Connector GUID** (the immutable identity — our
+  `device_iid` equivalent) · Cisco Secure Client ID · Definition Version ·
+  Update Server · Processor ID ‖ Group · Policy · Internal IP (multiple) ·
+  External IP · Last Seen · Definitions Last Updated · Risk Score.
+- **Isolation state is in the header**, not buried in a menu ("Not Isolated ⚠").
+- **Two side-by-side evidence panes**: *Related Compromise Events* and
+  *Vulnerabilities*, each with an explicit negative statement when empty —
+  "No related compromise events observed." / "No known software vulnerabilities
+  observed." This is the same discipline as our `◇ NO EVIDENCE`; adopt the
+  phrasing pattern (state the observation, not a blank pane).
+- **Action shelf**: Take Forensic Snapshot · View Snapshot (disabled until one
+  exists) · Orbital Query · Start Isolation · Scan · Diagnose · Move to Group,
+  plus Events / Diagnostics / View Changes links. Note the *disabled* View
+  Snapshot — capability state is expressed by control state.
+- **Header count of compromise events** ("No compromise events") sits next to
+  the hostname.
+
+### Dual-ribbon navigator (drives P1 item 4 · Timeline Scrubber)
+- Row 1: continuous density sparkline across the full 30-day span.
+- Row 2: day cells (JUL 17 → AUG 15) with per-day event dots — red = compromise,
+  blue = search hit; unavailable days greyed.
+- Row 3: 24-hour strip for the selected day with two draggable bracket handles.
+- A `Filters ▾` dropdown plus `Search Device Trajectory` sit directly above.
+
+### Process lifelines (drives the canvas rewrite, Phase 2)
+- Left gutter lists each process with its artifact type tag (`svchost.exe [PE]`,
+  `v32_16.0.15427.20210.cab [CAB]`) — type is part of the label.
+- Each process is a **horizontal lifeline**; file/network/execution glyphs are
+  anchored along its own line, so causality reads left-to-right on one row.
+- A right-hand **Events** list pairs actor → target (`svchost.exe → pacjsworker.exe`,
+  `services.exe → 192.168.66.210:389`), giving a scannable text mirror of the canvas.
+- Group headers segment the canvas ("System", "Files & Network").
+
+### File Trajectory (fleet-wide · new surface, Phase 3+)
+- Keyed on SHA-256, with `Visibility` (earliest observation, last seen,
+  observation count) and `Entry Point` (patient zero) side by side.
+- `Created by` table: SHA-256 · Filename · Product · **Prevalence**.
+- Collapsed `File Details` / `Network Profile` accordions.
+- Trajectory row **per computer**, with a glyph legend: created · copied · moved ·
+  executed · opened · scanned · advanced/tetra conviction · observed, plus
+  "the file was the source of the event", red = target deemed malicious,
+  green = benign.
+- `Event History` table: Date · Computer · Group · Event · SHA-256 · File ·
+  Product · **Disposition**.
+
+### Artifact context menu (drives our Sandbox bridge, Phase 3)
+- Right-clicking a hash yields: Disposition · Filename · Copy · Search ·
+  VirusTotal score inline (`VirusTotal: (0/74) no detection`) · **File Fetch ▸**
+  (with a live `Status: Able to Fetch` sub-state, then Fetch File / View in File
+  Repository) · **File Analysis ▸** · File Trajectory · Outbreak Control ▸ ·
+  Investigate in Threat Response.
+- `File Analysis` opens a *Select a Computer to Fetch the File from* dialog:
+  Filename · SHA-256 · **Choose a Computer** · **VM image for analysis** · an
+  explicit sharing warning · then `Fetch and Send for Analysis`.
+- The analysis pane states "There are no File Analyses to view" when empty.
+
+**NivXRay translation**: `File Fetch` requires a live sensor we do not have →
+renders `⊘ SENSOR OFFLINE — NO ACQUISITION DRIVER`. `File Analysis` maps to our
+**real** static pipeline (6 analyzers + 59 decoders) and is therefore buildable
+now; the VM-image selector maps to the dynamic engine and stays `DESIGN ONLY`.
+
+### Lifeline canvas — additional detail (owner screenshots, batch 2)
+
+**Compromise time-slice band.** The window containing the compromise is
+highlighted as a **vertical translucent band spanning every lifeline**, with the
+compromise glyph pinned at the top of the band. This is the "haloing" mechanism:
+it scopes attention temporally across all rows at once rather than decorating a
+single node. → NivXRay: drive the band from the incident's evidence timestamps;
+never from a guessed window.
+
+**Artifact type is part of the gutter label.** Every row is
+`name [TYPE]`: `[PE]`, `[ZIP]`, `[GZ]`, `[TXT]`, `[Powershell]`, `[OLE2]`,
+`[Link]`, `[Bin]`, `[CAB]`. Non-executable artifacts get lifelines too — a
+dropped `.tmp [GZ]` or `chrome.update.lnk [Link]` is a row, not just a glyph.
+The row for the artifact under investigation is **bolded** in the gutter.
+→ NivXRay: we already classify artifact type in the static analyzers; reuse that
+vocabulary verbatim so the gutter tag is evidence, not a guess.
+
+**Events list is an actor → target ledger.** Two columns, left = actor,
+right = target, e.g. `svchost.exe → musnotification.exe`,
+`smartscreen.exe → 20.212.96.199:443`, `explorer.exe → chrome.update.lnk`,
+`wscript.exe → 77.91.127.52:443`. Notable:
+- Rows participating in the compromise carry an **amber leading dot**.
+- `Cloud IOC` appears as an *actor* whose target is a timestamp — a
+  non-process evidence source is a first-class row.
+- **`unknown` appears as an actor** when the parent was not observed. This
+  independently validates our `[ROOT / PARENT NOT OBSERVED]` rule — the vendor
+  also refuses to invent an ancestor.
+
+**Event Details drawer field order** (drives the P1 Process/Artifact inspector):
+severity chip (`Medium`) → `Detected <filename> (<hash>)[<type>] as
+<threat-name>` → `Created by <parent> (<parent-hash>)[PE_Executable] executing
+as <user>` → quarantine outcome as a plain sentence ("It was moved, deleted or
+already quarantined") → File full path → File size → Parent file SHA-1 → Parent
+file MD5 → Parent file size → **Parent file age** → parent signer + certificate
+serial + issuing CA + expiry + **trust state** ("The certificate was *trusted*
+by the computer") → Parent cert MD5 / SHA-1 → Parent process id → detecting
+engine ("Detected by the Tetra engines") → MITRE ATT&CK tactics block.
+
+Two things to copy as *discipline*, not layout:
+1. **Provenance of the verdict is stated** — which engine convicted it. We
+   already carry this (VEEE contributor + decoder chain); surface it in the
+   drawer.
+2. **Missing values are named, not blanked** — the vendor prints
+   `executing as Not Available` rather than an empty field. That is the same
+   contract as our `◇ NO EVIDENCE`; keep the glyph but adopt the habit of
+   emitting the field label even when the value is absent.
