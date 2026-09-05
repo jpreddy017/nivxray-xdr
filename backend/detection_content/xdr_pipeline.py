@@ -23,6 +23,7 @@ from .xdr_investigation import project_investigation
 from .xdr_response_fabric import orchestrate as response_orchestrate
 from .xdr_closed_loop import recompute as closed_loop_recompute
 from .xdr_framework_mapping import resolve_mappings as framework_resolve
+from .telemetry.registry import TELEMETRY_DSM_REGISTRY
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -49,29 +50,24 @@ class SnortEveDSM:
 
 
 class DSMRegistry:
-    def __init__(self):
-        self._dsms: list = [SnortEveDSM()]
-        try:
-            from .telemetry import WindowsSecurityDSM, LinuxAuditdDSM, AWSCloudTrailDSM
-            self._dsms.extend([WindowsSecurityDSM(), LinuxAuditdDSM(), AWSCloudTrailDSM()])
-        except Exception:
-            pass
-        try:
-            from .telemetry.sysmon_dsm import SysmonDSM
-            self._dsms.append(SysmonDSM())
-        except Exception:
-            pass
+    """DEPRECATED shim (P0-2, 2026-09-05).
 
-    def resolve(self, ev: dict):
-        for d in self._dsms:
-            if d.supports(ev): return d
-        return None
+    The authoritative registry now lives in
+    `detection_content.telemetry.registry.TELEMETRY_DSM_REGISTRY`.
+    This name is retained only so that `DSMRegistry` remains importable;
+    it returns the single shared registry instance.
+    """
 
-    def list(self):
-        return [d.identity() for d in self._dsms]
+    def __new__(cls):
+        return TELEMETRY_DSM_REGISTRY
 
 
-DSM_REGISTRY = DSMRegistry()
+# ── The ONE authoritative production DSM registry ───────────────────
+# `snort-eve` keeps position 0 (pre-P0-2 production order preserved):
+#   snort-eve, windows-security-evd, linux-auditd, aws-cloudtrail,
+#   microsoft-sysmon
+DSM_REGISTRY = TELEMETRY_DSM_REGISTRY
+DSM_REGISTRY.try_register("snort-eve", SnortEveDSM, first=True)
 
 
 # ── Parser ──────────────────────────────────────────────────────

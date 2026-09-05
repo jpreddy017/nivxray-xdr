@@ -8959,3 +8959,61 @@ A public/sample EVE file may be used **only** for parser/DSM validation. The pro
 ## Status
 
 **NOTHING IMPLEMENTED. NOTHING AUTHORISED.** Zero application code, config, DB, UI or runtime change; `git status` shows Markdown only. Awaiting owner review of P0-1 §8 recommendation and P0-2 §5 unification shape before any change. Not started: UBAE, Sandbox, Stage 4, Gap B, Stage 11, mal-20.
+
+---
+
+# 2026-09-05 · P0-1 + P0-2 IMPLEMENTED · P0-3 DESIGN ONLY · P0-4 NOT STARTED
+
+Owner authorised implementation of items 1 and 2 only. Locked order: **Case Store → DSM Registry → Detection-representation decision → Suricata → Security State UI → Counterfactual Defense Projection.**
+
+## P0-1 · Case store ratified + `doc_type` discriminator · DONE
+
+- `workspace_cases` ratified authoritative. **No store migrated, merged, deleted or re-keyed.**
+- `backend/case_doc_type.py` — deterministic pure-function classifier. R1 `xdr_pipeline`→`xdr_incident` · R2 `ssot`→`analysis_case` · R3 `input`→`analysis_case` · R4 none→`unclassified` (withheld, not guessed)
+- **The 77 unknowns are RESOLVED, not assumed:** key-signature analysis → **76 deterministic `analysis_case`**, **1 ambiguous** (`inc_r381_empty`, a test fixture). That fixture also resolves the old U-3 (199 vs 198 `^inc_` discrepancy)
+- Writers stamp `doc_type`: `xdr_incident.py:74-77`, `routers/cases.py:209-216`. Writer proved via in-memory DB double; `inc_` namespace and the VEEE gate unchanged
+- Backfill `backend/scripts/backfill_case_doc_type.py` — dry-run default, ambiguous untouched unless `--mark-unclassified` (**not used**)
+- **BEFORE → AFTER:** 484 → 484 docs · `doc_type` 0 → 483 · xdr_incident 198 · analysis_case 285 · without doc_type 1 (`inc_r381_empty`) · conflicts 0 · deleted 0 · ids changed 0
+- **Idempotent:** 2nd apply → written 0, skipped_already_correct 483
+- **No regression:** `/api/xdr/mss/kpis` byte-identical (critical 0, high_priority 7), all tiles still `count_source: live`. No reader changed
+
+## P0-2 · DSM registry unified · DONE
+
+- `TELEMETRY_DSM_REGISTRY` is now the single authoritative registry; `xdr_pipeline.DSM_REGISTRY` **is the same object** (`same_object` false→true)
+- Both `except Exception: pass` blocks **deleted**. Per-DSM `try_register()` records `LOAD_FAILED` + logs ERROR. `resolve()` **fails closed** on `supports()` errors and records `SUPPORTS_ERROR`
+- `telemetry/__init__.py` re-exports DSM classes **lazily** (PEP-562) so one broken DSM module can no longer break the whole package import
+- `register_dsm()` was dead code (never called) — now reachable
+- `GET /api/admin/content-supply-chain/dsm/registry` is **additive**: `dsms` unchanged + `load_failures` / `resolve_failures` / `loaded_count` / `honesty_note`
+- **PARITY PROVEN** via new harness `backend/tools/dsm_parity_snapshot.py` (14 fixtures): **every DSM selection identical**, inventory + order identical (`snort-eve, windows-security-evd, linux-auditd, aws-cloudtrail, microsoft-sysmon`). **Priority/order deliberately NOT changed**
+- **Only behavioural delta:** `raising_probe` `RAISED:RuntimeError` → `null` + logged. This empirically proved and then removed C-4 (production crashed where tests silently skipped)
+- **Negative test:** injected broken DSM → loud ERROR + `load_failures` entry, siblings still resolve. S-1 (one `try` disabling three DSMs) eliminated
+- **E2E:** `POST /api/v2/ingestion/golden/clean_workstation` → dsm/parser/normalizer/canonical_evidence/ssot/detection/iue/correlation/verdict all EXECUTED; incident `NOT_CREATED` (`blocker: incident_gate`, correct for a benign dataset)
+- **Tests:** 52 passed / 2 failed — **both failures PRE-EXISTING**, proven by `git stash` baseline re-run
+
+## P0-3 · Detection/verdict representation · DESIGN DECISION ONLY (not implemented)
+
+`docs/truth-contract/edr-review/NIVXRAY_XDR_P0_3_DETECTION_VERDICT_REPRESENTATION_DECISION.md`
+
+- **Impact is wider than first reported:** EVERY incident in `/api/incidents` returns `evidence_count: 0`, `stage2_label: null`, `stage2_confidence: null`, `risk_score: null`, `confidence: null`. **11 non-test modules read `verdict_stage2`; only 3 have a `verdict_card` fallback.** Queue filters `?verdict/confidence/detection_source/technique` match nothing
+- **Recommendation:** `verdict_stage2` is canonical (richer, has `evidence[]`, and `verdict_card` is contract-protected by `verdict_stage2/model.py:18`). Canonical **writer** = the pipeline: keep `verdict_card` AND add a `verdict_stage2` **projection** from the same VEEE output. Projection, not a second engine
+- Migration implications M-1…M-8 documented, incl. M-4/M-5 (queue filters and MSS dashboard numbers will move upward from zero — must be announced) and M-6 (3 provenance tests would be **satisfied**, not broken)
+- Awaiting owner ratification
+
+## New findings recorded (NOT fixed — no authorisation)
+
+| # | Finding | Sev |
+|---|---|---|
+| F-1 | **Analysis cases appear in the incident queue** (`/api/incidents` returns `analysis_case` docs at P5/unknown) — now filterable for the first time via `doc_type`, but the query was NOT changed | P1 |
+| F-2 | An `analysis_case` carries `incident_state: in_progress` — analysis cases can enter the incident lifecycle | P2 |
+| F-3 | `inc_r381_empty` test fixture occupies the `inc_` namespace | P3 |
+| F-4 | `WindowsSecurityNormalizer` writes the full image path into `process.name` (cause of the 2 pre-existing red tests) | P2 |
+| F-5 | **`WindowsSecurityDSM.supports()` accepts ONLY EventID 4688/4768/4769** (`windows_security_dsm.py:299`) — **4624/4625 logon events are NOT supported**, which materially qualifies the CAT-15 identity-telemetry assumption | P1 |
+| F-6 | DSM priority remains a positional accident; `SnortEveDSM.supports()` matches any dict with `event_type`+`src_ip` at index 0. Parity harness now exists to make an explicit-ordering change safe — change deliberately NOT made | P1 |
+
+## P0-4 · Real Suricata · NOT STARTED
+
+Owner will supply a real sensor EVE JSON feed/file. Public/sample data usable **only** for parser/DSM validation, never for the production-proof claim. Required chain with observable evidence at each transition: real Suricata → EVE JSON → transport → unified DSM → parser → normalizer → Canonical Evidence → Detection → Correlation → IUE → ICE → VEEE → Incident → Investigation → Response/Verify.
+
+## Explicitly NOT done
+
+verdict_stage2 implementation · Suricata live source · Security State UI · Counterfactual Defense Projection · telemetry-trust dashboard tile (owner: fix the truth before exposing it) · UBAE · Sandbox · Stage 4 · Gap B · Stage 11 · `mal-20` · DSM priority change · incident-queue `doc_type` filtering.

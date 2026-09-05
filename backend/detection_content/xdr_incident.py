@@ -73,6 +73,9 @@ async def materialise_incident(db, canonical: dict, iue: dict,
     doc = {
         # Core fields consumed by routers/incidents.py projection.
         "id":                incident_id,
+        # P0-1 · explicit document-type discriminator (workspace_cases is
+        # the ratified authoritative store and carries two doc kinds).
+        "doc_type":          "xdr_incident",
         "tenant_id":         tenant_id,
         "created_at":        now_iso,
         "updated_at":        now_iso,

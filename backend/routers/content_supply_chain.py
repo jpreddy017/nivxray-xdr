@@ -904,7 +904,10 @@ async def incident_annotations_retire(incident_id: str, ann_id: str,
 
 @router.get("/dsm/registry")
 async def dsm_registry_list(user=Depends(require_admin)):
-    return {"dsms": DSM_REGISTRY.list()}
+    # P0-2: `dsms` shape is unchanged.  `load_failures` / `resolve_failures`
+    # are additive so an operator can tell "DSM never loaded" apart from
+    # "no DSM supports this event" — previously indistinguishable.
+    return {"dsms": DSM_REGISTRY.list(), **DSM_REGISTRY.health()}
 
 
 @router.get("/canonical-evidence/count")

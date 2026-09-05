@@ -263,9 +263,9 @@ Writers that would populate it | `routers/verdict_stage2.py:114`, `:181` |
 
 | # | Unknown | Why unresolvable read-only |
 |---|---|---|
-| U-1 | Exact nature of the **77** docs with neither `ssot` nor `xdr_pipeline`. They carry `input`/`output`/`verdict`, so they are pre-SSOT analysis cases with MEDIUM confidence — not proven | Would require per-document inspection and history; not a blocker for Option 1 |
+| U-1 | ~~Exact nature of the **77** docs with neither `ssot` nor `xdr_pipeline`~~ **RESOLVED 2026-09-05** by key-signature analysis of all 77: **76 carry `input`+`output`+`engine`+`verdict` → deterministically `analysis_case` (rule R3)**; **1** (`inc_r381_empty`, keys `id, mitre, tenant_id, title, user_email`) has no discriminating field → `unclassified`, classification withheld. See `NIVXRAY_XDR_P0_1_P0_2_DELIVERY_EVIDENCE.md` §A.3 | **CLOSED** |
 | U-2 | Whether the 285 analysis cases are production records or accumulated test/demo data | Not determinable from schema |
-| U-3 | Why 199 docs match `^inc_` but only 198 carry `xdr_pipeline` and 197 carry `incident_priority` | A 1–2 doc discrepancy; likely a manually-created or partially-written incident. **Must be identified before any migration**, irrelevant under Option 1 |
+| U-3 | ~~Why 199 docs match `^inc_` but only 198 carry `xdr_pipeline`~~ **RESOLVED 2026-09-05**: the extra document is **`inc_r381_empty`**, a test fixture occupying the `inc_` namespace with no `xdr_pipeline`, no `ssot` and no `input`. It is the single `unclassified` document and was deliberately left un-backfilled | **CLOSED** |
 | U-4 | Whether `routers/verdict_stage2.py` has ever executed successfully in this environment | `verdict_stage2` on 0 docs suggests no, but a wipe cannot be ruled out |
 | U-5 | Whether the single `xdr_incidents` row is a live promotion or an end-to-end test artifact. `description: "end-to-end"`, `host: legion5`, `user: codex` strongly suggest a **test** — not asserted as fact | — |
 
