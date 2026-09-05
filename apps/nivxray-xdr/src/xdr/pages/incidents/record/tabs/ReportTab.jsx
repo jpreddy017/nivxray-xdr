@@ -19,9 +19,9 @@ import api from "@/lib/api";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 
 const PROV_ICON = {
-  lock:     { Icon: Lock,      color: "#64748b" },
-  sparkle:  { Icon: Sparkles,  color: "#7c3aed" },
-  pencil:   { Icon: Pencil,    color: "#0d9488" },
+  lock:     { Icon: Lock,      color: "var(--nx-faint)" },
+  sparkle:  { Icon: Sparkles,  color: "var(--nx-purple)" },
+  pencil:   { Icon: Pencil,    color: "var(--nx-teal)" },
 };
 
 function ProvBadge({ label, icon, size = 10 }) {
@@ -32,8 +32,8 @@ function ProvBadge({ label, icon, size = 10 }) {
              display: "inline-flex", alignItems: "center", gap: 4,
              fontSize: size, letterSpacing: 0.4,
              color: P.color, textTransform: "uppercase",
-             fontWeight: 600, background: "#f8fafc",
-             border: "1px solid #e2e8f0",
+             fontWeight: 600, background: "var(--nx-surf-inset)",
+             border: "1px solid var(--nx-bd-quiet)",
              borderRadius: 2, padding: "1px 6px",
            }}
            data-testid="xdr-report-prov-badge">
@@ -46,7 +46,7 @@ function SectionHeader({ n, icon: Icon, title, subtitle, badge }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10,
                        marginBottom: 12 }}>
-      <div style={{ background: "#0f172a", color: "#e2e8f0",
+      <div style={{ background: "var(--nx-text)", color: "var(--nx-text)",
                         width: 34, height: 34, borderRadius: 4,
                         display: "flex", alignItems: "center",
                         justifyContent: "center", fontSize: 12,
@@ -54,12 +54,12 @@ function SectionHeader({ n, icon: Icon, title, subtitle, badge }) {
         {String(n).padStart(2, "0")}
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a",
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--nx-text)",
                           textTransform: "uppercase", letterSpacing: 0.4,
                           display: "flex", alignItems: "center", gap: 6 }}>
           {Icon && <Icon size={14} />} {title}
         </div>
-        <div style={{ fontSize: 11, color: "#64748b" }}>{subtitle}</div>
+        <div style={{ fontSize: 11, color: "var(--nx-faint)" }}>{subtitle}</div>
       </div>
       {badge}
     </div>
@@ -70,16 +70,16 @@ function SectionHeader({ n, icon: Icon, title, subtitle, badge }) {
 function SystemBlock({ block, onDelete }) {
   return (
     <div style={{
-            border: "1px solid #e2e8f0", borderRadius: 4,
-            background: "#fff", padding: 10, marginBottom: 8,
+            border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
+            background: "var(--nx-surf-primary)", padding: 10, marginBottom: 8,
           }}
           data-testid={`xdr-report-block-${block.block_id}`}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8,
                           marginBottom: 4 }}>
         {block.title && (
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nx-text)" }}>
             {block.priority && (
-              <span style={{ background: "#7c3aed", color: "#fff",
+              <span style={{ background: "var(--nx-purple)", color: "var(--nx-on-accent)",
                                 fontSize: 10, fontWeight: 700,
                                 padding: "1px 6px", borderRadius: 2,
                                 marginRight: 6 }}>
@@ -94,7 +94,7 @@ function SystemBlock({ block, onDelete }) {
                           icon={block.provenance_icon} />
         </div>
       </div>
-      <div style={{ fontSize: 12, color: "#334155", whiteSpace: "pre-wrap",
+      <div style={{ fontSize: 12, color: "var(--nx-text-dim)", whiteSpace: "pre-wrap",
                         lineHeight: 1.5 }}>
         {block.content}
       </div>
@@ -103,8 +103,8 @@ function SystemBlock({ block, onDelete }) {
                             gap: 4 }}>
           {block.evidence_refs.map(r => (
             <span key={r} className="mono"
-                   style={{ fontSize: 10, color: "#64748b",
-                               background: "#f1f5f9", padding: "1px 5px",
+                   style={{ fontSize: 10, color: "var(--nx-faint)",
+                               background: "var(--nx-surf-inset)", padding: "1px 5px",
                                borderRadius: 2 }}>
               {r}
             </span>
@@ -114,7 +114,7 @@ function SystemBlock({ block, onDelete }) {
       {block.deletable && onDelete && (
         <button onClick={() => onDelete(block)}
                  title="Remove from report (does not touch canonical evidence)"
-                 style={{ marginTop: 6, fontSize: 10, color: "#dc2626",
+                 style={{ marginTop: 6, fontSize: 10, color: "var(--nx-critical)",
                              background: "transparent", border: 0,
                              cursor: "pointer", padding: 0 }}
                  data-testid={`xdr-report-block-remove-${block.block_id}`}>
@@ -132,16 +132,16 @@ function AnalystBlock({ block, onEdit, onDelete }) {
   const [text, setText] = useState(block.content);
   return (
     <div style={{
-            border: "1px solid #14b8a6", borderRadius: 4,
-            background: "#f0fdfa", padding: 10, marginBottom: 8,
+            border: "1px solid var(--nx-teal)", borderRadius: 4,
+            background: "var(--nx-benign-bg)", padding: 10, marginBottom: 8,
           }}
           data-testid={`xdr-report-analyst-block-${block.block_id}`}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8,
                           marginBottom: 4 }}>
         {block.title && (
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nx-text)" }}>
             {block.priority && (
-              <span style={{ background: "#14b8a6", color: "#fff",
+              <span style={{ background: "var(--nx-teal)", color: "var(--nx-on-accent)",
                                 fontSize: 10, fontWeight: 700,
                                 padding: "1px 6px", borderRadius: 2,
                                 marginRight: 6 }}>
@@ -151,7 +151,7 @@ function AnalystBlock({ block, onEdit, onDelete }) {
             {block.title}
           </div>
         )}
-        <span style={{ fontSize: 10, color: "#64748b" }}>
+        <span style={{ fontSize: 10, color: "var(--nx-faint)" }}>
           {block.author_email}
         </span>
         <div style={{ marginLeft: "auto" }}>
@@ -164,25 +164,25 @@ function AnalystBlock({ block, onEdit, onDelete }) {
           <textarea value={text} onChange={e => setText(e.target.value)}
                        style={{ width: "100%", minHeight: 70,
                                    fontSize: 12, padding: 6,
-                                   borderRadius: 3, border: "1px solid #14b8a6",
-                                   background: "#fff",
+                                   borderRadius: 3, border: "1px solid var(--nx-teal)",
+                                   background: "var(--nx-surf-primary)",
                                    fontFamily: "inherit" }} />
           <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
             <button onClick={() => { onEdit(block, text); setEditing(false); }}
-                     style={{ background: "#14b8a6", color: "#fff",
+                     style={{ background: "var(--nx-teal)", color: "var(--nx-on-accent)",
                                  border: 0, padding: "3px 10px", fontSize: 11,
                                  borderRadius: 2, cursor: "pointer" }}>
               Save
             </button>
             <button onClick={() => { setText(block.content); setEditing(false); }}
-                     style={{ background: "transparent", color: "#64748b",
+                     style={{ background: "transparent", color: "var(--nx-faint)",
                                  border: 0, fontSize: 11, cursor: "pointer" }}>
               Cancel
             </button>
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: "#0f172a", whiteSpace: "pre-wrap",
+        <div style={{ fontSize: 12, color: "var(--nx-text)", whiteSpace: "pre-wrap",
                           lineHeight: 1.5 }}>
           {block.content}
         </div>
@@ -192,7 +192,7 @@ function AnalystBlock({ block, onEdit, onDelete }) {
           {block.editable && (
             <button onClick={() => setEditing(true)}
                      style={{ background: "transparent", border: 0,
-                                 color: "#0d9488", cursor: "pointer", padding: 0 }}>
+                                 color: "var(--nx-teal)", cursor: "pointer", padding: 0 }}>
               <Pencil size={10} style={{ verticalAlign: "-1px", marginRight: 3 }} />
               Edit
             </button>
@@ -200,7 +200,7 @@ function AnalystBlock({ block, onEdit, onDelete }) {
           {block.deletable && (
             <button onClick={() => onDelete(block)}
                      style={{ background: "transparent", border: 0,
-                                 color: "#dc2626", cursor: "pointer", padding: 0 }}>
+                                 color: "var(--nx-critical)", cursor: "pointer", padding: 0 }}>
               <Trash2 size={10} style={{ verticalAlign: "-1px", marginRight: 3 }} />
               Delete
             </button>
@@ -219,8 +219,8 @@ function AddBlock({ section, onAdd }) {
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-               style={{ background: "transparent", color: "#7c3aed",
-                           border: "1px dashed #7c3aed", borderRadius: 3,
+               style={{ background: "transparent", color: "var(--nx-purple)",
+                           border: "1px dashed var(--nx-purple)", borderRadius: 3,
                            padding: "5px 10px", fontSize: 11, cursor: "pointer",
                            marginTop: 4 }}
                data-testid={`xdr-report-add-${section}`}>
@@ -232,26 +232,26 @@ function AddBlock({ section, onAdd }) {
     );
   }
   return (
-    <div style={{ border: "1px solid #7c3aed", borderRadius: 4,
-                       padding: 8, marginTop: 6, background: "#faf5ff" }}
+    <div style={{ border: "1px solid var(--nx-purple)", borderRadius: 4,
+                       padding: 8, marginTop: 6, background: "var(--nx-purple-dim)" }}
           data-testid={`xdr-report-add-form-${section}`}>
       <input placeholder="Title (optional)" value={title}
               onChange={e => setTitle(e.target.value)}
               style={{ width: "100%", padding: "4px 6px", fontSize: 12,
-                          border: "1px solid #c4b5fd", borderRadius: 2,
-                          marginBottom: 6, background: "#fff" }} />
+                          border: "1px solid var(--nx-purple-ring)", borderRadius: 2,
+                          marginBottom: 6, background: "var(--nx-surf-primary)" }} />
       <textarea placeholder="Analyst content…"
                     value={content} onChange={e => setContent(e.target.value)}
                     style={{ width: "100%", minHeight: 60, padding: 6,
-                                fontSize: 12, border: "1px solid #c4b5fd",
-                                borderRadius: 2, background: "#fff",
+                                fontSize: 12, border: "1px solid var(--nx-purple-ring)",
+                                borderRadius: 2, background: "var(--nx-surf-primary)",
                                 fontFamily: "inherit" }} />
       <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
         <button onClick={() => { onAdd({ title, content });
                                              setTitle(""); setContent("");
                                              setOpen(false); }}
                  disabled={!content.trim()}
-                 style={{ background: "#7c3aed", color: "#fff",
+                 style={{ background: "var(--nx-purple)", color: "var(--nx-on-accent)",
                              border: 0, padding: "3px 10px", fontSize: 11,
                              borderRadius: 2,
                              cursor: content.trim() ? "pointer" : "not-allowed",
@@ -259,7 +259,7 @@ function AddBlock({ section, onAdd }) {
           Save
         </button>
         <button onClick={() => { setOpen(false); setTitle(""); setContent(""); }}
-                 style={{ background: "transparent", color: "#64748b",
+                 style={{ background: "transparent", color: "var(--nx-faint)",
                              border: 0, fontSize: 11, cursor: "pointer" }}>
           Cancel
         </button>
@@ -273,7 +273,7 @@ function AddBlock({ section, onAdd }) {
 function TechnicalSummary({ tech }) {
   if (!tech || !tech.groups || tech.groups.length === 0) {
     return (
-      <div style={{ padding: 20, textAlign: "center", color: "#64748b",
+      <div style={{ padding: 20, textAlign: "center", color: "var(--nx-faint)",
                         fontSize: 12 }}
             data-testid="xdr-report-technical-empty">
         No evidence-derived technical facts available for this incident.
@@ -282,16 +282,16 @@ function TechnicalSummary({ tech }) {
   }
   return (
     <div style={{
-            background: "#fafbfc", border: "1px solid #e2e8f0",
+            background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
             borderRadius: 4, padding: 12,
           }}
           data-testid="xdr-report-technical">
       {tech.groups.map(g => (
         <div key={g.name} style={{ marginBottom: 12 }}
               data-testid={`xdr-report-tech-group-${g.name.replace(/\s+/g, "-")}`}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a",
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--nx-text)",
                             textTransform: "uppercase", letterSpacing: 0.4,
-                            marginBottom: 4, borderBottom: "1px solid #e2e8f0",
+                            marginBottom: 4, borderBottom: "1px solid var(--nx-bd-quiet)",
                             paddingBottom: 3 }}>
             {g.name}
           </div>
@@ -299,11 +299,11 @@ function TechnicalSummary({ tech }) {
             <tbody>
               {g.rows.map((r, i) => (
                 <tr key={i}>
-                  <td style={{ color: "#64748b", padding: "2px 8px 2px 0",
+                  <td style={{ color: "var(--nx-faint)", padding: "2px 8px 2px 0",
                                     minWidth: 180, verticalAlign: "top" }}>
                     {r.label}
                   </td>
-                  <td className="mono" style={{ color: "#0f172a",
+                  <td className="mono" style={{ color: "var(--nx-text)",
                                                               wordBreak: "break-all",
                                                               padding: "2px 0" }}>
                     {String(r.value)}
@@ -375,19 +375,19 @@ export default function ReportTab({ incident }) {
   const rs = s.recommendations || {};
 
   return (
-    <div style={{ padding: 16, background: "#fff", color: "#0f172a" }}
+    <div style={{ padding: 16, background: "var(--nx-surf-primary)", color: "var(--nx-text)" }}
           data-testid="xdr-record-report">
       {/* Header */}
       <div style={{
               display: "flex", alignItems: "flex-start",
               justifyContent: "space-between",
-              paddingBottom: 12, borderBottom: "2px solid #0f172a",
+              paddingBottom: 12, borderBottom: "2px solid var(--nx-bd-strong)",
               marginBottom: 16,
             }}
             data-testid="xdr-report-header">
         <div>
           <div style={{ fontSize: 11, letterSpacing: 0.6,
-                            color: "#64748b", textTransform: "uppercase",
+                            color: "var(--nx-faint)", textTransform: "uppercase",
                             fontWeight: 600 }}>
             NivXRay Investigation Report
           </div>
@@ -395,7 +395,7 @@ export default function ReportTab({ incident }) {
             {report.header?.title || report.incident_id}
           </div>
           <div style={{ display: "flex", gap: 12, marginTop: 4,
-                             fontSize: 11, color: "#334155" }}>
+                             fontSize: 11, color: "var(--nx-text-dim)" }}>
             <span>Incident · <b>{report.incident_id}</b></span>
             {report.header?.host && <span>Host · <b>{report.header.host}</b></span>}
             {report.header?.detection && (
@@ -409,7 +409,7 @@ export default function ReportTab({ incident }) {
             )}
           </div>
         </div>
-        <div style={{ fontSize: 10, color: "#64748b",
+        <div style={{ fontSize: 10, color: "var(--nx-faint)",
                              display: "flex", flexDirection: "column",
                              alignItems: "flex-end", gap: 8 }}>
           <button
@@ -420,7 +420,7 @@ export default function ReportTab({ incident }) {
             }}
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
-              background: "#7c3aed", color: "#fff", border: 0,
+              background: "var(--nx-purple)", color: "var(--nx-on-accent)", border: 0,
               borderRadius: 3, padding: "6px 12px", fontSize: 11,
               fontWeight: 700, letterSpacing: 0.4,
               textTransform: "uppercase", cursor: "pointer",
@@ -467,7 +467,7 @@ export default function ReportTab({ incident }) {
                               title="Supporting Evidence"
                               subtitle="Evidence cards · Analyst notes"
                               badge={<ProvBadge label="Editable" icon="pencil" />} />
-        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600,
+        <div style={{ fontSize: 11, color: "var(--nx-faint)", fontWeight: 600,
                           textTransform: "uppercase", letterSpacing: 0.3,
                           marginBottom: 6 }}>
           NivXRay Evidence
@@ -476,7 +476,7 @@ export default function ReportTab({ incident }) {
           <SystemBlock key={b.block_id} block={b}
                               onDelete={b.deletable ? deleteBlock : undefined} />
         ))}
-        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600,
+        <div style={{ fontSize: 11, color: "var(--nx-faint)", fontWeight: 600,
                           textTransform: "uppercase", letterSpacing: 0.3,
                           marginTop: 12, marginBottom: 6 }}>
           Analyst Notes
@@ -495,7 +495,7 @@ export default function ReportTab({ incident }) {
                               title="Recommendations"
                               subtitle="Auto-generated + analyst-authored"
                               badge={<ProvBadge label="Editable" icon="pencil" />} />
-        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600,
+        <div style={{ fontSize: 11, color: "var(--nx-faint)", fontWeight: 600,
                           textTransform: "uppercase", letterSpacing: 0.3,
                           marginBottom: 6 }}>
           NivXRay Recommendations
@@ -504,7 +504,7 @@ export default function ReportTab({ incident }) {
           <SystemBlock key={b.block_id} block={b}
                               onDelete={b.deletable ? deleteBlock : undefined} />
         ))}
-        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600,
+        <div style={{ fontSize: 11, color: "var(--nx-faint)", fontWeight: 600,
                           textTransform: "uppercase", letterSpacing: 0.3,
                           marginTop: 12, marginBottom: 6 }}>
           Analyst Recommendations
@@ -518,8 +518,8 @@ export default function ReportTab({ incident }) {
       </div>
 
       {/* Provenance footnote */}
-      <div style={{ fontSize: 10, color: "#64748b", textAlign: "center",
-                        borderTop: "1px solid #e2e8f0", paddingTop: 8 }}>
+      <div style={{ fontSize: 10, color: "var(--nx-faint)", textAlign: "center",
+                        borderTop: "1px solid var(--nx-bd-quiet)", paddingTop: 8 }}>
         NivXRay Report Contract v1 · Analyst edits never modify canonical
         evidence · Technical Summary is 100 % evidence-derived.
       </div>

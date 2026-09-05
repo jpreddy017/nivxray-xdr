@@ -11,44 +11,44 @@
 
 .xdr-queue-l2 {
   /* Light workspace tokens */
-  --ql-bg:            #F5F6F8;
-  --ql-surface:       #FFFFFF;
-  --ql-surface-2:     #FAFBFC;
-  --ql-surface-3:     #F1F3F6;
-  --ql-border:        #E2E5EA;
-  --ql-border-hi:     #CBD0D8;
-  --ql-text:          #1B1F26;
-  --ql-text-dim:      #4B5563;
-  --ql-muted:         #6B7280;
-  --ql-faint:         #9CA3AF;
+  --ql-bg:            var(--nx-surf-canvas);
+  --ql-surface:       var(--nx-surf-primary);
+  --ql-surface-2:     var(--nx-surf-inset);
+  --ql-surface-3:     var(--nx-surf-hover);
+  --ql-border:        var(--nx-bd-quiet);
+  --ql-border-hi:     var(--nx-bd-strong);
+  --ql-text:          var(--nx-text);
+  --ql-text-dim:      var(--nx-text-dim);
+  --ql-muted:         var(--nx-muted);
+  --ql-faint:         var(--nx-faint);
 
   /* NivXRay purple accent */
-  --ql-purple:        #6D4EE0;
-  --ql-purple-dim:    #EDE7FF;
-  --ql-purple-hover:  #5B3ED1;
+  --ql-purple:        var(--nx-purple);
+  --ql-purple-dim:    var(--nx-purple-dim);
+  --ql-purple-hover:  var(--nx-purple-hover);
 
   /* Semantic tones (Defender-parity signal colors) */
-  --ql-red:           #DC2626;
-  --ql-red-bg:        #FEF2F2;
-  --ql-orange:        #EA580C;
-  --ql-orange-bg:     #FFF7ED;
-  --ql-amber:         #D97706;
-  --ql-amber-bg:      #FFFBEB;
-  --ql-green:         #059669;
-  --ql-green-bg:      #ECFDF5;
-  --ql-blue:          #2563EB;
-  --ql-blue-bg:       #EFF6FF;
+  --ql-red:           var(--nx-critical);
+  --ql-red-bg:        var(--nx-critical-bg);
+  --ql-orange:        var(--nx-high);
+  --ql-orange-bg:     var(--nx-suspicious-bg);
+  --ql-amber:         var(--nx-medium);
+  --ql-amber-bg:      var(--nx-medium-bg);
+  --ql-green:         var(--nx-benign);
+  --ql-green-bg:      var(--nx-benign-bg);
+  --ql-blue:          var(--nx-low);
+  --ql-blue-bg:       var(--nx-info-bg);
 
   /* Preview drawer (dark) */
-  --qd-bg:            #0E1017;
-  --qd-panel:         #151823;
-  --qd-panel-2:       #1B1F2D;
-  --qd-border:        #262B3A;
-  --qd-text:          #E7E9EF;
-  --qd-text-dim:      #B4B9C6;
-  --qd-muted:         #78808F;
-  --qd-faint:         #4A5162;
-  --qd-purple:        #A88BFF;
+  --qd-bg:            var(--nx-surf-canvas);
+  --qd-panel:         var(--nx-surf-primary);
+  --qd-panel-2:       var(--nx-surf-raised);
+  --qd-border:        var(--nx-bd-quiet);
+  --qd-text:          var(--nx-text);
+  --qd-text-dim:      var(--nx-text-dim);
+  --qd-muted:         var(--nx-muted);
+  --qd-faint:         var(--nx-faint);
+  --qd-purple:        var(--nx-purple);
 
   --qs-mono: 'IBM Plex Mono','SFMono-Regular',Consolas,ui-monospace,monospace;
   --qs-sans: 'Inter','Segoe UI',system-ui,sans-serif;
@@ -295,7 +295,7 @@
   display: inline-flex; align-items: center; gap: 4px;
   padding: 2px 4px 2px 8px;
   background: var(--ql-purple-dim);
-  border: 1px solid #C7B8F2;
+  border: 1px solid var(--nx-purple-dim);
   border-radius: 4px;
   color: var(--ql-text);
   font-family: var(--qs-mono);
@@ -367,7 +367,7 @@
   background: linear-gradient(0deg, var(--ql-purple-dim), var(--ql-purple-dim));
   border-left: 1px solid var(--ql-border);
   border-right: 1px solid var(--ql-border);
-  border-bottom: 1px solid #C7B8F2;
+  border-bottom: 1px solid var(--nx-purple-dim);
   border-top: 2px solid var(--ql-purple);
   font-family: var(--qs-sans);
   font-size: 12px;
@@ -477,7 +477,7 @@
   padding: 12px 14px;
   color: var(--ql-red);
   background: var(--ql-red-bg);
-  border: 1px solid #FCA5A5;
+  border: 1px solid var(--nx-critical);
   border-radius: 6px;
   margin: 12px 0;
   font-family: var(--qs-mono);
@@ -650,7 +650,7 @@
   background: var(--qd-purple);
   border: none;
   border-radius: 5px;
-  color: #0E1017;
+  color: var(--nx-on-accent);
   font-family: var(--qs-sans);
   font-size: 12.5px;
   font-weight: 700;
@@ -720,7 +720,7 @@
   position: relative;
 }
 .xdr-queue-l2 .ql-table tbody tr:hover {
-  background: #F9FAFB;
+  background: var(--nx-surf-inset);
 }
 .xdr-queue-l2 .ql-table tbody tr.selected {
   background: var(--nx-purple-dim);

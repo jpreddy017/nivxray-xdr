@@ -91,6 +91,43 @@ _ACTIONS_BY_KIND = {
 }
 
 
+# ── ACTION AVAILABILITY · single source of truth ─────────────────
+# Owner review 2026-09-05: the inspector was rendering every action as
+# a clickable button even though NONE of them executed anything.  That
+# is a capability claim the product cannot honour.  An action is now
+# only interactive when it has a REAL destination that exists today;
+# everything else is returned as unavailable and the UI must render it
+# with the locked "CAPABILITY UNAVAILABLE" epistemic state.
+#
+#   pivot  → navigates to an existing, implemented surface
+#   (absent) → declared next step, NOT wired to any engine
+_ACTION_PIVOTS = {
+    "process_ancestry": {"surface": "record_tab", "target": "attack-graph",
+                             "note": "Opens the Process Tree projection of this incident."},
+    "mitre_expansion":  {"surface": "record_tab", "target": "mitre",
+                             "note": "Opens the ATT&CK evidence for this incident."},
+    "detection_intel":  {"surface": "record_tab", "target": "technical",
+                             "note": "Opens the detection / rule evidence for this incident."},
+}
+
+
+def _decorate_action(action: Dict[str, Any]) -> Dict[str, Any]:
+    """Attach honest availability to an INVESTIGATE action hint."""
+    pivot = _ACTION_PIVOTS.get(action["id"])
+    out = dict(action)
+    if pivot:
+        out["available"] = True
+        out["execution"] = "pivot"
+        out["pivot"] = pivot
+    else:
+        out["available"] = False
+        out["execution"] = None
+        out["unavailable_reason"] = (
+            "No execution engine is wired for this action yet. "
+            "NivXRay will not offer a control it cannot honour.")
+    return out
+
+
 async def _load_incident(db, incident_id: str) -> Optional[Dict[str, Any]]:
     return await db["workspace_cases"].find_one({"id": incident_id},
                                                               {"_id": 0})
@@ -126,7 +163,7 @@ async def resolve(db, incident_id: str, kind: str, ref_id: str
     context:     Dict[str, Any] = {"relationships": []}
     provenance:  List[Dict[str, Any]] = []
     attack:      Dict[str, Any] = {"techniques": []}
-    actions      = _ACTIONS_BY_KIND.get(kind, [])
+    actions      = [_decorate_action(a) for a in _ACTIONS_BY_KIND.get(kind, [])]
 
     # ── TECHNIQUE ────────────────────────────────────────────────
     if kind == "technique":

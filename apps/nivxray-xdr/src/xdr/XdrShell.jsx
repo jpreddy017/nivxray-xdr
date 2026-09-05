@@ -30,7 +30,17 @@ import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import "./xdr-console.css";
 import "./nx/nx-epistemic.css";
 import "./nx/nx-tokens.css";
+import "./nx/nx-theme.css";
 import { NxDensityProvider } from "./nx";
+
+// Phase 2 · theme is DARK by default; light is a preserved toggle.
+const NX_THEME_KEY = "nx.theme";
+function readTheme() {
+  try {
+    const v = window.localStorage.getItem(NX_THEME_KEY);
+    return v === "light" ? "light" : "dark";
+  } catch { return "dark"; }
+}
 
 // ── Sidebar tree · owner-locked ────────────────────────────────────
 // key      – unique id (used for active highlighting + data-testid)
@@ -260,6 +270,13 @@ export default function XdrShell({ children }) {
   const navigate  = useNavigate();
   const { pathname } = useLocation();
   const [q, setQ] = useState("");
+  const [theme, setTheme] = useState(readTheme);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    try { window.localStorage.setItem(NX_THEME_KEY, next); } catch { /* non-fatal */ }
+  };
 
   const initials = (user?.email || "?").slice(0, 2).toUpperCase();
   const tenant   = user?.tenant || user?.email || "default";
@@ -276,6 +293,7 @@ export default function XdrShell({ children }) {
   return (
     <NxDensityProvider>
     <div className="xdr-console"
+          data-nx-theme={theme}
           data-testid="xdr-shell">
       {/* ── Top bar (utility only) ────────────────────────── */}
       <div className="topbar">
@@ -298,6 +316,18 @@ export default function XdrShell({ children }) {
           <span className="tier-pill" data-testid="xdr-tenant-pill" title="Active tenant / workspace">
             TENANT · {String(tenant).toUpperCase().slice(0, 24)}
           </span>
+          <button
+            className="nx-theme-toggle"
+            onClick={toggleTheme}
+            title={theme === "dark"
+              ? "Switch to light mode (analytical / print-export)"
+              : "Switch to dark mode (tactical console)"}
+            aria-label="Toggle colour theme"
+            data-testid="xdr-theme-toggle"
+            data-theme-state={theme}
+          >
+            {theme === "dark" ? "◐ DARK" : "◑ LIGHT"}
+          </button>
           <button
             className="btn ghost" style={{ padding: 6 }}
             title="Notifications" data-testid="xdr-notifications"

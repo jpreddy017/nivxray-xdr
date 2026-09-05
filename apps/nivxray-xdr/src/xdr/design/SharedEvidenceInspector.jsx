@@ -22,7 +22,7 @@ const STATE_BADGE = {
   NOT_OBSERVED: { state: "unavailable" },
 };
 
-export default function SharedEvidenceInspector({ incidentId, kind, refId, onClose, embedded = false }) {
+export default function SharedEvidenceInspector({ incidentId, kind, refId, onClose, embedded = false, onAction }) {
   const [env, setEnv]         = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
@@ -184,13 +184,20 @@ export default function SharedEvidenceInspector({ incidentId, kind, refId, onClo
           <div data-testid="xdr-shared-insp-actions" style={{ borderTop: "1px solid var(--nx-divider)", paddingTop: 12, marginTop: "auto" }}>
             <div className="evops-section__eyebrow" style={{ marginBottom: 8 }}>Investigative Actions</div>
             <ActionGroup>
+              {/* Owner review 2026-09-05: an action is interactive ONLY
+                    when the backend declares a real destination.  Everything
+                    else renders as CAPABILITY UNAVAILABLE instead of a
+                    button that silently does nothing. */}
               {actions.map((a) => (
                 <Action
                   key={a.id}
                   label={a.label}
                   icon={Play}
-                  capability="cap-full"
-                  onRun={() => console.log(`Executing ${a.id}`)}
+                  capability={a.available ? "cap-full" : "cap-unavailable"}
+                  title={a.available
+                    ? (a.pivot?.note || a.description)
+                    : (a.unavailable_reason || "Not wired to any engine yet.")}
+                  onRun={a.available && onAction ? () => onAction(a) : undefined}
                   testid={`xdr-shared-insp-action-${a.id}`}
                 />
               ))}

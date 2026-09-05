@@ -1,262 +1,257 @@
 {
-  "project_name": "NivXRay XDR Operational Fabric",
-  "design_system_archetype": "ARCHETYPE 4: SWISS & HIGH-CONTRAST + ARCHETYPE 2: THE PERFORMANCE PRO (Tactical Security Command Console)",
+  "design_system_name": "NivXRay XDR Visual Language: Deterministic Obsidian & Kinetic Amber",
+  "aesthetic_philosophy": "Evidence-First + Causal + Deterministic + Epistemically Explicit. Avoid generic violet SaaS slop, flat black slabs, and misleading glowing arrows. High-density, tactical SOC console aesthetics optimized for long analytical shifts with strict cognitive clarity.",
   "theme_strategy": {
-    "primary_mode": "dark",
-    "theme_toggle": true,
-    "rationale": "SOC analysts operate on 8 to 12-hour monitoring shifts. Deep graphite surfaces (#0A0C0E / #121518) reduce eye fatigue, heighten optical recognition of high-severity alerts (Signal Red, Warning Amber), and create a high-contrast backdrop for honest epistemic states (Cyan/Slate). Light mode is preserved as a high-density analytical printing/export mode."
+    "default_mode": "dark",
+    "toggle_supported": true,
+    "dark_theme_selector": ".xdr-console, [data-nx-theme='dark']",
+    "light_theme_selector": ".xdr-console[data-nx-theme='light'], [data-nx-theme='light']"
   },
-  "colors": {
-    "background": {
-      "dark_primary": "#0A0C0E",
-      "dark_surface": "#121518",
-      "dark_inset": "#060708",
-      "dark_card": "#16191D",
-      "light_primary": "#F4F5F7",
-      "light_surface": "#FFFFFF",
-      "light_inset": "#EAEDF1",
-      "light_card": "#FFFFFF"
-    },
-    "borders": {
-      "subtle": "#1F242B",
-      "strong": "#2D343F",
-      "accent": "#2B8272",
-      "focus": "#38BDF8"
-    },
-    "typography_colors": {
-      "primary": "#E2E8F0",
-      "secondary": "#94A3B8",
-      "muted": "#64748B",
-      "inverse": "#090A0C"
-    },
-    "severity_scale": {
-      "critical": {
-        "hex": "#FF3B30",
-        "bg_dark": "rgba(255, 59, 48, 0.12)",
-        "border_dark": "rgba(255, 59, 48, 0.40)",
-        "label": "P1 · CRITICAL",
-        "apca_contrast": "12.4:1 on #0A0C0E"
+  "color_palette": {
+    "dark_mode": {
+      "layer_0_canvas": "#0B0E14",
+      "layer_1_surface": "#121721",
+      "layer_2_surface_raised": "#1A212D",
+      "layer_3_overlay": "#222B3A",
+      "border_subtle": "rgba(255, 255, 255, 0.08)",
+      "border_default": "rgba(255, 255, 255, 0.14)",
+      "border_focus": "#38BDF8",
+      "text_primary": "#F1F5F9",
+      "text_secondary": "#94A3B8",
+      "text_tertiary": "#64748B",
+      "accent_primary": "#F59E0B",
+      "accent_primary_hover": "#D97706",
+      "accent_cyan": "#06B6D4",
+      "accent_emerald": "#10B981",
+      "severity": {
+        "critical": { "bg": "#451218", "border": "#991B1B", "text": "#FCA5A5", "glyph_fill": "#EF4444" },
+        "high": { "bg": "#3B1E08", "border": "#9A3412", "text": "#FDBA74", "glyph_fill": "#F97316" },
+        "medium": { "bg": "#322D08", "border": "#854D0E", "text": "#FDE047", "glyph_fill": "#EAB308" },
+        "low": { "bg": "#0B2D2B", "border": "#115E59", "text": "#99F6E4", "glyph_fill": "#14B8A6" },
+        "info": { "bg": "#0F2840", "border": "#1E40AF", "text": "#93C5FD", "glyph_fill": "#3B82F6" },
+        "unknown": { "bg": "#1E293B", "border": "#475569", "text": "#CBD5E1", "glyph_fill": "#94A3B8" }
       },
-      "high": {
-        "hex": "#FF9500",
-        "bg_dark": "rgba(255, 149, 0, 0.12)",
-        "border_dark": "rgba(255, 149, 0, 0.40)",
-        "label": "P2 · HIGH",
-        "apca_contrast": "11.8:1 on #0A0C0E"
-      },
-      "medium": {
-        "hex": "#FFCC00",
-        "bg_dark": "rgba(255, 204, 0, 0.10)",
-        "border_dark": "rgba(255, 204, 0, 0.35)",
-        "label": "P3 · MEDIUM",
-        "apca_contrast": "14.2:1 on #0A0C0E"
-      },
-      "low": {
-        "hex": "#34C759",
-        "bg_dark": "rgba(52, 199, 89, 0.10)",
-        "border_dark": "rgba(52, 199, 89, 0.35)",
-        "label": "P4 · LOW",
-        "apca_contrast": "10.6:1 on #0A0C0E"
-      },
-      "info": {
-        "hex": "#38BDF8",
-        "bg_dark": "rgba(56, 189, 248, 0.10)",
-        "border_dark": "rgba(56, 189, 248, 0.35)",
-        "label": "P5 · INFO",
-        "apca_contrast": "11.9:1 on #0A0C0E"
+      "disposition": {
+        "malicious": "#EF4444",
+        "suspicious": "#F97316",
+        "common": "#3B82F6",
+        "unknown": "#94A3B8",
+        "clean": "#10B981"
       }
     },
-    "epistemic_state_scale": {
-      "evidence_present": {
-        "hex": "#10B981",
-        "bg": "rgba(16, 185, 129, 0.12)",
-        "border": "#059669",
-        "symbol": "◆",
-        "label": "EVIDENCE PRESENT",
-        "design_note": "Solid emerald indicator with verified timestamp and hash link. Communicates confirmed, immutable telemetry."
+    "light_mode": {
+      "layer_0_canvas": "#F8FAFC",
+      "layer_1_surface": "#FFFFFF",
+      "layer_2_surface_raised": "#F1F5F9",
+      "layer_3_overlay": "#E2E8F0",
+      "border_subtle": "#E2E8F0",
+      "border_default": "#CBD5E1",
+      "border_focus": "#0284C7",
+      "text_primary": "#0F172A",
+      "text_secondary": "#475569",
+      "text_tertiary": "#64748B",
+      "accent_primary": "#D97706",
+      "accent_primary_hover": "#B45309",
+      "accent_cyan": "#0891B2",
+      "accent_emerald": "#059669",
+      "severity": {
+        "critical": { "bg": "#FEF2F2", "border": "#FECACA", "text": "#991B1B", "glyph_fill": "#DC2626" },
+        "high": { "bg": "#FFEDD5", "border": "#FED7AA", "text": "#9A3412", "glyph_fill": "#EA580C" },
+        "medium": { "bg": "#FEF9C3", "border": "#FEF08A", "text": "#854D0E", "glyph_fill": "#CA8A04" },
+        "low": { "bg": "#CCFBF1", "border": "#99F6E4", "text": "#115E59", "glyph_fill": "#0D9488" },
+        "info": { "bg": "#EFF6FF", "border": "#BFDBFE", "text": "#1E40AF", "glyph_fill": "#2563EB" },
+        "unknown": { "bg": "#F1F5F9", "border": "#E2E8F0", "text": "#334155", "glyph_fill": "#64748B" }
       },
-      "no_evidence": {
-        "hex": "#64748B",
-        "bg": "rgba(100, 116, 139, 0.14)",
-        "border": "#475569",
-        "symbol": "◇",
-        "label": "NO EVIDENCE",
-        "design_note": "Crisp slate outline badge with slash pattern. Explicitly communicates telemetry ran and found zero matches (honest negative)."
-      },
-      "unknown": {
-        "hex": "#F59E0B",
-        "bg": "rgba(245, 158, 11, 0.12)",
-        "border": "#D97706",
-        "symbol": "?",
-        "label": "UNKNOWN / UNEVALUATED",
-        "design_note": "Tactical amber dashed pill. Indicates query capable but state pending execution or unasserted."
-      },
-      "not_run": {
-        "hex": "#8B5CF6",
-        "bg": "rgba(139, 92, 246, 0.12)",
-        "border": "#7C3AED",
-        "symbol": "⊝",
-        "label": "NOT_RUN",
-        "design_note": "Subtle violet chip with double border. Explicitly signifies playbook or rule engine skip condition."
-      },
-      "capability_unavailable": {
-        "hex": "#EF4444",
-        "bg": "rgba(239, 68, 68, 0.10)",
-        "border": "#DC2626",
-        "symbol": "✕",
-        "label": "CAPABILITY UNAVAILABLE",
-        "design_note": "Hatched crimson container. Used when endpoint collector is offline or transport never connected."
+      "disposition": {
+        "malicious": "#DC2626",
+        "suspicious": "#EA580C",
+        "common": "#2563EB",
+        "unknown": "#64748B",
+        "clean": "#059669"
       }
-    },
-    "forbidden_colors": [
-      "#1B93A4",
-      "#7351B7",
-      "#000000"
-    ]
+    }
   },
   "typography": {
-    "font_families": {
-      "headings": "Chivo, -apple-system, BlinkMacSystemFont, sans-serif",
-      "body": "Chivo, system-ui, sans-serif",
-      "telemetry_and_mono": "JetBrains Mono, SFMono-Regular, Consolas, monospace"
-    },
+    "heading_font_family": "'Cabinet Grotesk', 'Outfit', system-ui, -apple-system, sans-serif",
+    "body_font_family": "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    "mono_font_family": "'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace",
     "scale": {
-      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-none",
-      "h2_section": "text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight",
-      "h3_subsection": "text-lg sm:text-xl font-bold tracking-tight",
-      "h4_widget": "text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-400",
-      "body_base": "text-sm leading-relaxed font-normal",
-      "body_dense": "text-xs leading-normal font-normal",
-      "caption_mono": "font-mono text-xs font-medium tracking-wide"
-    },
-    "forbidden_fonts": [
-      "space grotesk",
-      "inter for headlines",
-      "roboto",
-      "open sans"
-    ]
-  },
-  "visual_enhancers": {
-    "grain_overlay": true,
-    "grain_opacity": 0.025,
-    "borders": "1px solid var(--border)",
-    "elevation": {
-      "flat_panel": "border border-slate-800/80 bg-[#121518]",
-      "card_hover": "border border-slate-700/80 bg-[#16191D] shadow-[0_4px_20px_rgba(0,0,0,0.4)] -translate-y-[1px] transition-all duration-150",
-      "drawer_modal": "border border-slate-700 bg-[#0E1013]/95 backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.7)]"
+      "page_title": { "size": "1.5rem (24px)", "weight": "700", "line_height": "1.25", "letter_spacing": "-0.02em" },
+      "section_title": { "size": "1.125rem (18px)", "weight": "600", "line_height": "1.3", "letter_spacing": "-0.01em" },
+      "card_title": { "size": "0.9375rem (15px)", "weight": "600", "line_height": "1.35", "letter_spacing": "0em" },
+      "table_header": { "size": "0.6875rem (11px)", "weight": "700", "line_height": "1.4", "letter_spacing": "0.08em", "transform": "uppercase" },
+      "table_cell": { "size": "0.8125rem (13px)", "weight": "400", "line_height": "1.4", "letter_spacing": "0em" },
+      "technical_value": { "size": "0.75rem (12px)", "weight": "500", "line_height": "1.4", "letter_spacing": "0em", "font": "mono" },
+      "badge": { "size": "0.6875rem (11px)", "weight": "600", "line_height": "1.2", "letter_spacing": "0.04em" },
+      "kpi_number": { "size": "1.75rem (28px)", "weight": "700", "line_height": "1.1", "letter_spacing": "-0.03em", "font": "mono" },
+      "caption": { "size": "0.6875rem (11px)", "weight": "400", "line_height": "1.35", "letter_spacing": "0.01em" }
     }
   },
-  "navigation_architecture": {
-    "sidebar_width": "220px",
-    "groups_count": 12,
-    "total_nav_items": 45,
-    "disabled_items_handling": {
-      "strategy": "Show all 7 legitimately unavailable/unwired features inline with a crisp 'NOT_RUN' or 'UNWIRED' badge and explicit opacity (50%), with a tooltip explaining required collector or licence key.",
-      "reasoning": "Hiding disabled features creates confusion; greying them out without explanation looks broken. Honest tagging reinforces the Honest State philosophy."
+  "spacing_and_density": {
+    "default_mode": "compact_soc",
+    "compact_soc": {
+      "table_row_height": "36px",
+      "cell_padding_y": "6px",
+      "cell_padding_x": "12px",
+      "container_gap": "12px",
+      "panel_padding": "12px 16px"
     },
-    "group_structure": [
-      "INVESTIGATOR",
-      "WORKSPACE",
-      "COMMAND CENTER",
-      "OPERATIONS",
-      "INVESTIGATIONS",
-      "INTELLIGENCE",
-      "TELEMETRY",
-      "EXPOSURE",
-      "DETECT",
-      "RESPOND",
-      "ADMINISTRATION",
-      "SYSTEM"
-    ]
-  },
-  "data_density_patterns": {
-    "kpi_strips": {
-      "provenance_badge": "Every KPI tile carries a live indicator pill: `[LIVE · count_source: real_time]` with last-heartbeat latency.",
-      "layout": "8-tile horizontal grid with 1px slate divider and severity accent left border."
-    },
-    "triage_table": {
-      "density": "Compact (32px row height)",
-      "columns": [
-        "SELECT",
-        "PRIORITY",
-        "SEVERITY",
-        "INCIDENT ID & TITLE",
-        "VERDICT",
-        "EPISTEMIC STATE",
-        "CUSTOMER",
-        "DETECTION SOURCE",
-        "EVIDENCE COUNT",
-        "MITRE ATT&CK",
-        "SLA REMAINING",
-        "OWNER"
-      ],
-      "hover_state": "Row highlighting with left severity border shift and inline quick-action drawer trigger."
-    },
-    "side_drawer": {
-      "type": "Sliding progressive disclosure pane (480px width) for evidence chain, raw payload, and provenance trail without page navigation context loss."
-    },
-    "evidence_traceability": {
-      "pattern": "Hover or click on any metric, IOC or hash opens an inline Epistemic Inspector pill showing Raw Ingestion Event ID, Collector Name, Timestamp (UTC), and cryptographic SHA-256 telemetry fingerprint."
+    "comfortable": {
+      "table_row_height": "44px",
+      "cell_padding_y": "10px",
+      "cell_padding_x": "16px",
+      "container_gap": "20px",
+      "panel_padding": "16px 20px"
     }
   },
-  "attack_graph_language": {
-    "canvas_background": "#07080A with subtle 16px dot grid",
-    "nodes": {
-      "attacker_ip": {
-        "shape": "octagon",
-        "color": "#FF3B30",
-        "border": "2px solid #FF3B30"
-      },
-      "host_endpoint": {
-        "shape": "rounded_rect",
-        "color": "#38BDF8",
-        "border": "1px solid #38BDF8"
-      },
-      "user_identity": {
-        "shape": "circle",
-        "color": "#FF9500",
-        "border": "1px solid #FF9500"
-      },
-      "process_binary": {
-        "shape": "diamond",
-        "color": "#8B5CF6",
-        "border": "1px solid #8B5CF6"
+  "component_specifications": {
+    "severity_indicator": {
+      "description": "Encodes rank using shape glyph + label + color for multi-sensory colorblind accessibility.",
+      "ranks": {
+        "critical": { "glyph": "▲▲▲", "label": "CRITICAL", "blocks": 3 },
+        "high": { "glyph": "▲▲", "label": "HIGH", "blocks": 2 },
+        "medium": { "glyph": "▲", "label": "MEDIUM", "blocks": 1 },
+        "low": { "glyph": "●", "label": "LOW", "blocks": 1 },
+        "info": { "glyph": "ℹ", "label": "INFO", "blocks": 0 },
+        "unknown": { "glyph": "–", "label": "UNKNOWN", "blocks": 0 }
       }
     },
-    "edges": {
-      "confirmed": "Solid 2px emerald line with directional pulse animation",
-      "suspected": "Dashed 1.5px amber line",
-      "no_evidence": "Dotted 1px slate line labeled UNVERIFIED"
+    "epistemic_badges": {
+      "description": "LOCKED product-differentiator vocabulary. Expresses exact truth state without fallback sample data.",
+      "states": {
+        "EVIDENCE_PRESENT": { "symbol": "◆", "label": "EVIDENCE PRESENT", "color_dark": "#38BDF8", "color_light": "#0284C7" },
+        "NO_EVIDENCE": { "symbol": "◇", "label": "NO EVIDENCE", "color_dark": "#94A3B8", "color_light": "#64748B" },
+        "UNKNOWN": { "symbol": "?", "label": "UNKNOWN", "color_dark": "#F59E0B", "color_light": "#D97706" },
+        "NOT_RUN": { "symbol": "○", "label": "NOT RUN", "color_dark": "#64748B", "color_light": "#94A3B8" },
+        "CAPABILITY_UNAVAILABLE": { "symbol": "⊘", "label": "CAPABILITY UNAVAILABLE", "color_dark": "#EF4444", "color_light": "#DC2626" }
+      }
+    },
+    "relationship_grammar": {
+      "description": "Strict edge rendering rules for Evidence Graph and Attack Story. No glowing directional arrows unless backed by evidence.",
+      "grammar": {
+        "OBSERVED": { "stroke": "solid", "width": "2px", "color": "#94A3B8", "marker": "none", "semantic": "Direct telemetry observation" },
+        "SUPPORTED": { "stroke": "solid", "width": "2.5px", "color": "#10B981", "marker": "evidence_badge_icon", "semantic": "Verified by hard evidence artifact" },
+        "INFERRED": { "stroke": "dashed", "width": "2px", "color": "#F59E0B", "marker": "dash_array_6_4", "semantic": "Algorithmically inferred connection" },
+        "POSSIBLE": { "stroke": "dotted", "width": "1.5px", "color": "#06B6D4", "marker": "dot_array_2_4", "semantic": "Hypothetical or potential link" },
+        "UNKNOWN_GAP": { "stroke": "broken_neutral", "width": "1px", "color": "#64748B", "marker": "gap_icon", "semantic": "Telemetry gap or unmonitored hop" },
+        "CONTRADICTED": { "stroke": "line_through", "width": "2px", "color": "#EF4444", "marker": "strike_cross", "semantic": "Explicitly disproved or contradicted link" }
+      }
+    },
+    "graph_node": {
+      "states": {
+        "default": "Dark glass fill (#121721), 1px subtle border, type icon, label, disposition dot.",
+        "aggregate": "Carries count badge (e.g., '9 Processes'), distinct double-ring outline.",
+        "selected": "2px bright border (#38BDF8), glow pulse halo, auto-loads Evidence Inspector.",
+        "hover": "Elevated layer z-index, highlighted connecting edges, tooltip preview.",
+        "gap": "Dashed border (#64748B), 'GAP' status pill, diagnostic recommendation."
+      }
+    },
+    "kpi_lens_tile": {
+      "states": {
+        "default": "Background Layer 1, 1px border, metric value, subtext, indicator dot.",
+        "active": "Border highlight (#F59E0B), subtle accent left rail (3px), active queue filter indicator.",
+        "hover": "Translate Y -1px, shadow elevation, text-primary glow."
+      }
+    },
+    "evidence_inspector_row": {
+      "structure": "2-column layout. Left: Uppercase Monospace Label (35% width, color tertiary). Right: Selectable Monospace Value (65% width, text primary).",
+      "empty_state": "Select any technique, process, event, command, finding, or entity to inspect authoritative evidence."
+    },
+    "not_implemented_block": {
+      "badge": "FUTURE / NOT IMPLEMENTED",
+      "style": "Subtle hatched background pattern, muted text, disabled CTA with explanatory tooltip."
     }
   },
-  "phased_rollout_plan": [
-    {
-      "phase": 1,
-      "title": "Design Token & Epistemic State Scale Standardization",
-      "scope": "Update CSS variables in index.css for epistemic state badges (`EVIDENCE PRESENT`, `NO EVIDENCE`, `UNKNOWN`, `NOT_RUN`, `CAPABILITY UNAVAILABLE`) and severity tokens without altering layout logic."
+  "layout_blueprints": {
+    "1_incident_queue": {
+      "path": "/xdr/incidents",
+      "hierarchy_question_order": [
+        "1. What is the scope and severity of active threats? (KPI Lens Strip: Critical, High, Unassigned, My Queue, SLA Risk)",
+        "2. Which incidents need immediate action? (Filtered Dense Incidents Table with State Counts)",
+        "3. What are the key details without losing context? (Right-side Slide-over Incident Preview Drawer)"
+      ],
+      "layout_structure": {
+        "top": "Header + KPI Lens Strip (5 active count tiles) + Quick Filters Bar (Assignee, Severity, Verdict, Source)",
+        "main": "Full-width Incident Queue Table with custom density toggle, state tabs (All 198 / New 191 / In Progress 7 / On Hold / Resolved / Closed)",
+        "drawer": "Slide-over panel (450px) showing selected incident summary, attack timeline, affected assets, and instant action buttons."
+      }
     },
-    {
-      "phase": 2,
-      "title": "Incidents Queue & Triage Table Refinements",
-      "scope": "Apply compact density styling, live provenance badges on KPI strips, and side-drawer progressive disclosure pane."
+    "2_incident_investigation_record": {
+      "path": "/xdr/incidents/:id",
+      "hierarchy_question_order": [
+        "1. What happened & what is affected? (Header + Lifecycle Rail + Stat Strip: Evidence, Alerts, Hosts, Users, Files, MITRE)",
+        "2. Why is it suspicious? (Verdict Arithmetic Matrix + Key Contributor Findings)",
+        "3. Show evidence & allow response! (Tabbed Workbench with Inspector and Action Toolbar)"
+      ],
+      "tab_reorganization_solution": {
+        "problem": "12 flat tabs carry no counts and overwhelm the analyst.",
+        "solution_4_groups": [
+          { "group": "Narrative & Graph", "tabs": ["Attack Story", "Attack Graph"], "default": "Attack Story" },
+          { "group": "Technical & Evidence", "tabs": ["Technical", "Evidence", "Timeline"], "default_tab": "Technical" },
+          { "group": "Activity & MITRE", "tabs": ["Investigation Activity", "MITRE", "Related"], "default_tab": "Investigation Activity" },
+          { "group": "Management & Report", "tabs": ["Executive", "Report", "Notes", "Closure"], "default_tab": "Executive" }
+        ]
+      }
     },
-    {
-      "phase": 3,
-      "title": "Navigation & Sidebar Restructuring",
-      "scope": "Re-organize sidebar groups into 220px high-contrast dark panel with explicit honest state chips on unwired items."
+    "3_attack_story_and_evidence_graph": {
+      "path": "/xdr/incidents/:id (Tab: Attack Story / Attack Graph)",
+      "hierarchy_question_order": [
+        "1. Chronological narrative (Left Alert Timeline Rail)",
+        "2. Relationship visualization (Center Canvas with explicit Relationship Grammar)",
+        "3. Authoritative evidence inspection (Right Evidence Inspector - zero fabricated data)"
+      ],
+      "layout_columns": "320px Left Alert Timeline Rail | Flexible Center Graph/Story Canvas | 360px Right Evidence Inspector",
+      "diagnostics_bar": "Displays Attack Chain Completeness, Evidence Coverage, MITRE Coverage, Telemetry Coverage, Telemetry Gaps."
     },
-    {
-      "phase": 4,
-      "title": "Investigation Workspace & Attack Graph Visual Upgrade",
-      "scope": "Enhance entity-relationship node visualizers and 8-tab analyst workspace with strict dark surfaces and high-contrast telemetry panels."
+    "4_mss_dashboard": {
+      "path": "/xdr/mss",
+      "hierarchy_question_order": [
+        "1. What is the current threat & posture delta across tenants? (Top KPI Metric Cards)",
+        "2. Which tenant requires immediate SOC intervention? (Customer Operations Grid & SLA Alert Matrix)",
+        "3. How are automated investigations performing? (Detection & Auto-Investigation Overview)"
+      ],
+      "layout_grid": "Top 10 KPI Cards -> 2/3 Customer Tenant Operations Matrix + 1/3 Recent Activity & Threat Feed -> Full-width Detection Overview"
     }
-  ],
-  "instructions_to_main_agent": "Strictly enforce the 'Honest State' paradigm: never fabricate or interpolate empty data. Use explicit epistemic badges (`EVIDENCE PRESENT`, `NO EVIDENCE`, `UNKNOWN`, `NOT_RUN`, `CAPABILITY UNAVAILABLE`) styled with high authority. Apply dark mode (#0A0C0E background, #121518 surface) with crisp 1px borders (#1F242B) and Chivo + JetBrains Mono fonts. Ensure all interactive components include kebab-case data-testid attributes.",
-  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
-    "Never use dark gradients; use solid dark structural tones with sharp 1px borders.",
-    "Do NOT use Space Grotesk font or #1B93A4 / #7351B7 forbidden colors.",
-    "Always specify data-testid attributes on buttons, links, search inputs, badges, and row items.",
-    "Never use AI assistant emojis as UI icons; use lucide-react icons exclusively.",
-    "Always display live provenance indicators on counts and telemetry metrics."
+  },
+  "verdict_arithmetic_visibility": {
+    "concept": "Expose exact contributor-by-contributor score derivation when authoritative backend contributor data exists.",
+    "ui_pattern": "Interactive breakdown box showing Base Score + Contributor Modifiers (e.g. +35 Anomaly Detection, +25 Lateral Movement, +20 Malicious Hash) = Final Severity Score."
+  },
+  "motion_and_interactions": {
+    "hover_transition": "all 150ms cubic-bezier(0.4, 0, 0.2, 1) excluding transforms",
+    "drawer_slide_in": "transform 250ms cubic-bezier(0.16, 1, 0.3, 1)",
+    "graph_node_focus": "stroke-dashoffset 300ms ease, opacity 200ms ease",
+    "reduced_motion": "@media (prefers-reduced-motion: reduce) { transition: none !important; animation: none !important; }"
+  },
+  "accessibility_and_contrast": {
+    "standards_target": "WCAG 2.1 AA / APCA >= 60 Lc for body text, >= 45 Lc for large text/badges.",
+    "focus_ring": "2px solid #38BDF8 (Dark) or #0284C7 (Light), offset 2px.",
+    "colorblind_support": "Every severity, disposition, and epistemic badge uses shape glyphs (▲, ◆, ○, ⊘, ℹ) and text labels alongside color."
+  },
+  "reject_list_anti_patterns": {
+    "forbidden_ui_patterns": [
+      "Flat near-black slab with no border or depth separation",
+      "Generic violet/purple SaaS gradient pills",
+      "ASCII tree glyphs (└──) instead of crisp SVG structural trees or real HTML indentation",
+      "Low-contrast dark grey labels on black background",
+      "All-uppercase monospace text for every label making visual hierarchy impossible",
+      "Uniform row rhythm without metric grouping or progressive disclosure",
+      "Full-bleed inputs with no distinct field background or border affordance",
+      "Glowing directional arrows implying causality where only correlation exists",
+      "Fabricated mock backend data or sample values when real evidence is missing"
+    ]
+  },
+  "image_urls": {
+    "cyber_soc_dark_monitors": "https://images.unsplash.com/photo-1662638600476-d563fffbb072?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "analyst_terminal": "https://images.unsplash.com/photo-1620825937374-87fc7d6bddc2?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "threat_analytics_screen": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "security_status_dashboard": "https://images.unsplash.com/photo-1751448555253-f39c06e29d82?crop=entropy&cs=srgb&fm=jpg&q=85"
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the color tokens and typography scale defined above.",
+    "Ensure all interactive components include data-testid attributes.",
+    "Support both dark (default) and light themes cleanly via the .xdr-console data-nx-theme attribute.",
+    "Never replace missing evidence with fake mock data; render the official epistemic badge (◆ EVIDENCE PRESENT, ◇ NO EVIDENCE, ? UNKNOWN, ○ NOT RUN, ⊘ CAPABILITY UNAVAILABLE).",
+    "Implement the locked relationship grammar on all Evidence Graphs and Attack Stories."
   ]
 }

@@ -48,6 +48,13 @@ const TONE = {
   failed:   { c: "var(--nx-exec-failed)",   bg: "var(--nx-critical-bg)",   bd: "var(--nx-critical-bd)" },
 
   purple:    { c: "var(--nx-purple)", bg: "var(--nx-purple-dim)", bd: "#C7B7FF" },
+
+  // Priority ladder — five distinct hues, never reused elsewhere.
+  "pri-1": { c: "var(--nx-pri-1)", bg: "var(--nx-critical-bg)", bd: "var(--nx-pri-1)" },
+  "pri-2": { c: "var(--nx-pri-2)", bg: "var(--nx-high-bg)",     bd: "var(--nx-pri-2)" },
+  "pri-3": { c: "var(--nx-pri-3)", bg: "var(--nx-medium-bg)",   bd: "var(--nx-pri-3)" },
+  "pri-4": { c: "var(--nx-pri-4)", bg: "var(--nx-low-bg)",      bd: "var(--nx-pri-4)" },
+  "pri-5": { c: "var(--nx-pri-5)", bg: "var(--nx-surf-inset)",  bd: "var(--nx-pri-5)" },
   neutral:   { c: "var(--nx-muted)",  bg: "var(--nx-workspace-alt)", bd: "var(--nx-divider-strong)" },
 };
 

@@ -789,9 +789,9 @@ function IntelBlock({ label, bars }) {
 }
 
 function ExposureTile({ label, value, tone, sub }) {
-  const bgMap = { critical: "#FEF2F2", amber: "#FFFBEB", faint: "var(--nx-surf-inset)" };
+  const bgMap = { critical: "var(--nx-critical-bg)", amber: "var(--nx-medium-bg)", faint: "var(--nx-surf-inset)" };
   const fgMap = { critical: "var(--nx-critical)", amber: "var(--nx-medium)", faint: "var(--nx-muted)" };
-  const bMap  = { critical: "#FCA5A5", amber: "#FCD34D", faint: "var(--nx-bd-quiet)" };
+  const bMap  = { critical: "var(--nx-critical-bd)", amber: "var(--nx-medium-bd)", faint: "var(--nx-bd-quiet)" };
   return (
     <div style={{
       padding: "10px 12px",

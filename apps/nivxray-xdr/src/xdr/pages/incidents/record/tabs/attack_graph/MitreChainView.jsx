@@ -11,10 +11,10 @@ import React, { useState } from "react";
 import { ChevronRight, ChevronDown, ShieldAlert } from "lucide-react";
 
 const STATE_TONE = {
-  OBSERVED:     { bg: "#166534", fg: "#dcfce7", dot: "●", label: "OBSERVED" },
-  SUPPORTED:    { bg: "#1e40af", fg: "#dbeafe", dot: "◐", label: "SUPPORTED" },
-  POSSIBLE:     { bg: "#78350f", fg: "#fef3c7", dot: "○", label: "POSSIBLE" },
-  NOT_OBSERVED: { bg: "#1e293b", fg: "#94a3b8", dot: "—", label: "NOT OBSERVED" },
+  OBSERVED:     { bg: "var(--nx-benign-bg)", fg: "var(--nx-benign)", dot: "●", label: "OBSERVED" },
+  SUPPORTED:    { bg: "var(--nx-info-bg)", fg: "var(--nx-info)", dot: "◐", label: "SUPPORTED" },
+  POSSIBLE:     { bg: "var(--nx-medium-bg)", fg: "var(--nx-medium)", dot: "○", label: "POSSIBLE" },
+  NOT_OBSERVED: { bg: "var(--nx-surf-raised)", fg: "var(--nx-muted)", dot: "—", label: "NOT OBSERVED" },
 };
 
 function EvidenceLine({ label, items, testId }) {
@@ -22,7 +22,7 @@ function EvidenceLine({ label, items, testId }) {
   return (
     <div style={{ display: "flex", gap: 8, marginTop: 6 }}
           data-testid={testId}>
-      <span style={{ color: "#94a3b8", minWidth: 100,
+      <span style={{ color: "var(--nx-muted)", minWidth: 100,
                         fontSize: 11, fontWeight: 500,
                         textTransform: "uppercase", letterSpacing: 0.3 }}>
         {label}
@@ -31,9 +31,9 @@ function EvidenceLine({ label, items, testId }) {
         {items.map((it, i) => (
           <span key={i}
                  className="mono"
-                 style={{ fontSize: 11, color: "#e2e8f0",
-                             background: "#1e293b", padding: "2px 8px",
-                             borderRadius: 3, border: "1px solid #334155" }}>
+                 style={{ fontSize: 11, color: "var(--nx-text)",
+                             background: "var(--nx-surf-raised)", padding: "2px 8px",
+                             borderRadius: 3, border: "1px solid var(--nx-bd-strong)" }}>
             {it}
           </span>
         ))}
@@ -48,8 +48,8 @@ function TechniqueCard({ tech, onSelect, selected }) {
   const ev = tech.evidence || {};
   return (
     <div style={{
-            border: `1px solid ${selected ? "#fbbf24" : "#334155"}`,
-            background: "#0f172a", borderRadius: 4,
+            border: `1px solid ${selected ? "var(--nx-medium)" : "var(--nx-bd-strong)"}`,
+            background: "var(--nx-surf-canvas)", borderRadius: 4,
             padding: 10, marginBottom: 8,
             cursor: "pointer" }}
           onClick={() => onSelect?.(tech)}
@@ -58,18 +58,18 @@ function TechniqueCard({ tech, onSelect, selected }) {
         <button onClick={(e) => { e.stopPropagation();
                                             setExpanded(v => !v); }}
                  style={{ background: "transparent", border: 0,
-                             color: "#94a3b8", padding: 0,
+                             color: "var(--nx-muted)", padding: 0,
                              display: "flex", alignItems: "center" }}
                  data-testid={`xdr-mitre-technique-toggle-${tech.tid}`}>
           {expanded ? <ChevronDown size={14} />
                           : <ChevronRight size={14} />}
         </button>
-        <span className="mono" style={{ color: "#c4b5fd",
+        <span className="mono" style={{ color: "var(--nx-purple-soft)",
                                                   fontSize: 13,
                                                   fontWeight: 700 }}>
           {tech.tid}
         </span>
-        <span style={{ color: "#e2e8f0", fontSize: 13 }}>
+        <span style={{ color: "var(--nx-text)", fontSize: 13 }}>
           {tech.name && tech.name !== tech.tid ? tech.name : ""}
         </span>
         <span style={{
@@ -82,7 +82,7 @@ function TechniqueCard({ tech, onSelect, selected }) {
         </span>
       </div>
       {expanded && (
-        <div style={{ marginTop: 8, paddingLeft: 22, borderLeft: "1px solid #1e293b" }}>
+        <div style={{ marginTop: 8, paddingLeft: 22, borderLeft: "1px solid var(--nx-surf-raised)" }}>
           <EvidenceLine label="Detection"
                                 items={ev.detection_rules?.map(d => d.label)}
                                 testId={`xdr-mitre-ev-detection-${tech.tid}`} />
@@ -104,7 +104,7 @@ function TechniqueCard({ tech, onSelect, selected }) {
           {(!ev.detection_rules?.length && !ev.correlation_matches?.length
             && !ev.processes?.length && !ev.commands?.length
             && !ev.events?.length && !ev.findings?.length) && (
-            <div style={{ color: "#64748b", fontSize: 11, marginTop: 6 }}>
+            <div style={{ color: "var(--nx-faint)", fontSize: 11, marginTop: 6 }}>
               No supporting evidence surfaced.
             </div>
           )}
@@ -120,11 +120,11 @@ export function MitreChainView({ mitre, onSelectTechnique, selectedTid }) {
   if (stages.length === 0) {
     return (
       <div style={{ padding: 32, textAlign: "center",
-                       color: "#94a3b8" }}
+                       color: "var(--nx-muted)" }}
              data-testid="xdr-mitre-empty">
         <ShieldAlert size={20} style={{ margin: "0 auto 8px", display: "block",
-                                                  color: "#475569" }} />
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1" }}>
+                                                  color: "var(--nx-bd-strong)" }} />
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--nx-text-dim)" }}>
           NO EVIDENCE-BACKED ATT&amp;CK MAPPING
         </div>
         <div style={{ fontSize: 11, marginTop: 4 }}>
@@ -137,7 +137,7 @@ export function MitreChainView({ mitre, onSelectTechnique, selectedTid }) {
   return (
     <div style={{ padding: 12 }} data-testid="xdr-mitre-chain-view">
       <div style={{ display: "flex", alignItems: "center", gap: 12,
-                        marginBottom: 12, color: "#94a3b8", fontSize: 11 }}>
+                        marginBottom: 12, color: "var(--nx-muted)", fontSize: 11 }}>
         <span data-testid="xdr-mitre-totals">
           {mitre.totals?.stages_shown ?? 0} stage(s) ·{" "}
           {mitre.totals?.techniques_observed ?? 0} observed technique(s) ·{" "}
@@ -152,7 +152,7 @@ export function MitreChainView({ mitre, onSelectTechnique, selectedTid }) {
             <div style={{ display: "flex", alignItems: "center", gap: 10,
                               marginBottom: 8 }}>
               <div style={{
-                      background: "#4c1d95", color: "#f5f3ff",
+                      background: "var(--nx-purple-dim)", color: "var(--nx-purple-dim)",
                       width: 26, height: 26, borderRadius: 13,
                       display: "flex", alignItems: "center",
                       justifyContent: "center",
@@ -161,11 +161,11 @@ export function MitreChainView({ mitre, onSelectTechnique, selectedTid }) {
               </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700,
-                                    color: "#f8fafc", letterSpacing: 0.3,
+                                    color: "var(--nx-text)", letterSpacing: 0.3,
                                     textTransform: "uppercase" }}>
                   {stage.name}
                 </div>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                <div style={{ fontSize: 11, color: "var(--nx-muted)" }}>
                   ATT&amp;CK tactic · {stage.techniques.length} evidenced
                   technique(s)
                 </div>
@@ -194,7 +194,7 @@ export function MitreChainView({ mitre, onSelectTechnique, selectedTid }) {
         <div style={{ marginTop: 16 }}
               data-testid="xdr-mitre-orphans">
           <div style={{ fontSize: 12, fontWeight: 700,
-                            color: "#94a3b8", marginBottom: 8,
+                            color: "var(--nx-muted)", marginBottom: 8,
                             textTransform: "uppercase" }}>
             Unattributed techniques
           </div>

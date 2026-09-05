@@ -149,6 +149,42 @@ _DISPLAY_NAME_CLAUSE: Dict[str, Any] = {
 }
 
 
+# Roles that operate the MSS/SOC across every onboarded customer tenant.
+# Any other authenticated principal is restricted to its own tenant(s).
+_CROSS_TENANT_ROLES = frozenset({
+    "admin", "platform_admin", "soc_manager", "mssp_operator",
+})
+
+
+def resolve_tenant_scope(email: str | None) -> Dict[str, Any]:
+    """Tenant-authorized visibility for the incident plane.
+
+    P0-2b (owner-authorised 2026-09-05): visibility is a TENANT
+    authorization, never an assignment/ownership gate.  Previously the
+    queue filtered on ``user_email``, which hid 180 of 198 real tenant
+    incidents from the very analysts responsible for them.
+
+    - anonymous          → ``{"authorized": False}`` (honest empty state)
+    - cross-tenant role  → ``{"all_tenants": True}``
+    - everyone else      → ``{"tenant_ids": [...]}``
+    """
+    if not email:
+        return {"authorized": False}
+    from deps import sync_collection
+    user = sync_collection("users").find_one(
+        {"email": email},
+        {"_id": 0, "role": 1, "tenant_id": 1, "tenant_ids": 1},
+    ) or {}
+    role = str(user.get("role") or "").strip().lower()
+    if role in _CROSS_TENANT_ROLES:
+        return {"authorized": True, "all_tenants": True, "role": role}
+    tenants = [t for t in (user.get("tenant_ids") or []) if t]
+    if not tenants:
+        tenants = [str(user.get("tenant_id") or "default")]
+    return {"authorized": True, "all_tenants": False,
+            "tenant_ids": tenants, "role": role}
+
+
 def _scope(q: Dict[str, Any], email: str | None) -> Dict[str, Any]:
     """Attach the analyst's tenant scope.
 
@@ -157,15 +193,21 @@ def _scope(q: Dict[str, Any], email: str | None) -> Dict[str, Any]:
     that analysis cases can no longer appear in the incident queue.  The
     same predicate feeds tiles and queue, preserving the
     tile-count == queue-count invariant.
+
+    P0-2b: the ownership filter is replaced by a tenant-authorization
+    filter (see ``resolve_tenant_scope``).
     """
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        return {"__never_matches__": True}
     q.setdefault("doc_type", "xdr_incident")
     existing_and = q.get("$and")
     if isinstance(existing_and, list):
         existing_and.append(_DISPLAY_NAME_CLAUSE)
     else:
         q["$and"] = [_DISPLAY_NAME_CLAUSE]
-    if email:
-        q["user_email"] = email
+    if not scope.get("all_tenants"):
+        q["tenant_id"] = {"$in": scope["tenant_ids"]}
     return q
 
 

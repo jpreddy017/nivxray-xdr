@@ -692,6 +692,7 @@ async def list_incidents(
     verdict: Optional[str] = None,
     confidence: Optional[str] = None,
     customer: Optional[str] = None,
+    assignment: Optional[str] = None,
     detection_source: Optional[str] = None,
     technique: Optional[str] = None,
     sort: str = "updated_at",
@@ -704,11 +705,18 @@ async def list_incidents(
     READ MODEL — never runs an engine, never fabricates a value.
     """
     from services.dashboard_lenses import (
-        build_predicate, is_never_match, get_lens,
+        build_predicate, is_never_match, get_lens, resolve_tenant_scope,
     )
     # Clear the per-request engine-execution cache.
     _ENGINE_EXEC_CACHE.clear()
     email = (user or {}).get("email")
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        # Honest empty state — visibility is tenant-authorized.
+        return {"incidents": [], "count": 0, "lens": lens,
+                "applied_filters": {},
+                "scope": {"authorized": False},
+                "invariant": "queue == projection · never engine"}
 
     if lens:
         if not get_lens(lens):
@@ -732,14 +740,47 @@ async def list_incidents(
                 {"title": {"$exists": True, "$ne": ""}},
             ]}],
         }
-        if email:
-            q["user_email"] = email
+        # P0-2b: tenant authorization, NOT ownership.  `user_email`
+        # (who saved the case) is never a visibility gate.
+        if not scope.get("all_tenants"):
+            q["tenant_id"] = {"$in": scope["tenant_ids"]}
 
     applied: Dict[str, Any] = {}
+    if assignment:
+        unassigned_clause = [
+            {"incident_assignee": {"$exists": False}},
+            {"incident_assignee": None},
+            {"incident_assignee": ""},
+        ]
+        if assignment == "unassigned":
+            clause: Dict[str, Any] = {"$or": unassigned_clause}
+        elif assignment == "mine":
+            if not email:
+                return {"incidents": [], "count": 0, "lens": lens,
+                        "applied_filters": {"assignment": "mine"},
+                        "invariant": "queue == projection · never engine"}
+            clause = {"incident_assignee": email}
+        elif assignment == "team":
+            clause = {"incident_assignee": {"$nin": [None, "", email]}}
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "unknown_assignment", "assignment": assignment,
+                        "allowed": ["unassigned", "mine", "team"]})
+        q = {"$and": [q, clause]}
+        applied["assignment"] = assignment
     if state:            q["incident_state"]    = state;     applied["state"] = state
     if priority:         q["incident_priority"] = priority;  applied["priority"] = priority
     if severity:         q["incident_severity"] = severity;  applied["severity"] = severity
-    if customer:         q["tenant_id"]         = customer;  applied["customer"] = customer
+    if customer:
+        if not scope.get("all_tenants") and customer not in scope.get("tenant_ids", []):
+            # Cross-tenant read attempt — deny, never leak.
+            return {"incidents": [], "count": 0, "lens": lens,
+                    "applied_filters": {"customer": customer},
+                    "scope": {"authorized": True, "cross_tenant_denied": True},
+                    "invariant": "queue == projection · never engine"}
+        q["tenant_id"] = customer
+        applied["customer"] = customer
     if verdict:
         q["verdict_stage2.label"] = verdict
         applied["verdict"] = verdict

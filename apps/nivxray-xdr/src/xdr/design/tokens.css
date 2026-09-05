@@ -42,31 +42,31 @@
   /* ---------- Capability tiers (Integration Control Center) ---------- */
   /* Semantic ONLY.  No generic "green good".  A tier declares what
      NivXRay can actually do RIGHT NOW through this adapter. */
-  --evops-cap-full-fg:      #065F46;
-  --evops-cap-full-bd:      #065F46;
-  --evops-cap-degraded-fg:  #B45309;
-  --evops-cap-degraded-bd:  #B45309;
-  --evops-cap-ingest-fg:    #1E40AF;
-  --evops-cap-ingest-bd:    #1E40AF;
-  --evops-cap-unavail-fg:   #991B1B;
-  --evops-cap-unavail-bd:   #991B1B;
-  --evops-cap-standby-fg:   #4B5563;
-  --evops-cap-standby-bd:   #9CA3AF;
+  --evops-cap-full-fg:      var(--nx-benign);
+  --evops-cap-full-bd:      var(--nx-benign);
+  --evops-cap-degraded-fg:  var(--nx-medium);
+  --evops-cap-degraded-bd:  var(--nx-medium);
+  --evops-cap-ingest-fg:    var(--nx-low);
+  --evops-cap-ingest-bd:    var(--nx-low);
+  --evops-cap-unavail-fg:   var(--nx-critical);
+  --evops-cap-unavail-bd:   var(--nx-critical);
+  --evops-cap-standby-fg:   var(--nx-text-dim);
+  --evops-cap-standby-bd:   var(--nx-faint);
 
   /* ---------- Evidence states (facts, mappings, edges) ---------- */
-  --evops-ev-observed-fg:    #065F46;
-  --evops-ev-supported-fg:   #1E40AF;
-  --evops-ev-missing-fg:     #B45309;
-  --evops-ev-unavail-fg:     #991B1B;
-  --evops-ev-suppressed-fg:  #4B5563;
-  --evops-ev-actioned-fg:    #4C1D95;
+  --evops-ev-observed-fg:    var(--nx-benign);
+  --evops-ev-supported-fg:   var(--nx-low);
+  --evops-ev-missing-fg:     var(--nx-medium);
+  --evops-ev-unavail-fg:     var(--nx-critical);
+  --evops-ev-suppressed-fg:  var(--nx-text-dim);
+  --evops-ev-actioned-fg:    var(--nx-purple-dim);
 
   /* ---------- Provenance layers ---------- */
-  --evops-prov-telemetry:  #4B5563;
-  --evops-prov-canonical:  #1E40AF;
-  --evops-prov-correlate:  #4C1D95;
-  --evops-prov-mapping:    #B45309;
-  --evops-prov-graph:      #065F46;
+  --evops-prov-telemetry:  var(--nx-text-dim);
+  --evops-prov-canonical:  var(--nx-low);
+  --evops-prov-correlate:  var(--nx-purple-dim);
+  --evops-prov-mapping:    var(--nx-medium);
+  --evops-prov-graph:      var(--nx-benign);
 
   /* ---------- Rhythm ---------- */
   --evops-rule:      1px solid var(--nx-divider);
@@ -688,11 +688,11 @@
   display: flex; flex-direction: column;
   gap: 12px;
 }
-.xdr-console .evops-cmd[data-priority="P1"] { border-left-color: #DC2626; }
-.xdr-console .evops-cmd[data-priority="P2"] { border-left-color: #EA580C; }
-.xdr-console .evops-cmd[data-priority="P3"] { border-left-color: #CA8A04; }
-.xdr-console .evops-cmd[data-priority="P4"] { border-left-color: #6B7280; }
-.xdr-console .evops-cmd[data-priority="P5"] { border-left-color: #9CA3AF; }
+.xdr-console .evops-cmd[data-priority="P1"] { border-left-color: var(--nx-critical); }
+.xdr-console .evops-cmd[data-priority="P2"] { border-left-color: var(--nx-high); }
+.xdr-console .evops-cmd[data-priority="P3"] { border-left-color: var(--nx-medium); }
+.xdr-console .evops-cmd[data-priority="P4"] { border-left-color: var(--nx-muted); }
+.xdr-console .evops-cmd[data-priority="P5"] { border-left-color: var(--nx-faint); }
 
 /* Identity row: glyph · title · sev-pill */
 .xdr-console .evops-cmd__title-row {
@@ -704,8 +704,8 @@
   flex: 0 0 auto;
 }
 .xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__glyph,
-.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__glyph { color: #B91C1C; }
-.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__glyph { color: #A16207; }
+.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__glyph { color: var(--nx-critical); }
+.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__glyph { color: var(--nx-medium); }
 
 .xdr-console .evops-cmd__title {
   font: 800 24px/1.15 var(--evops-face-human);
@@ -726,9 +726,9 @@
   background: var(--nx-surf-inset);
   flex: 0 0 auto;
 }
-.xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__sev-pill { color: #B91C1C; border-color: #DC2626; background: #FEF2F2; }
-.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__sev-pill { color: #C2410C; border-color: #EA580C; background: #FFF7ED; }
-.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__sev-pill { color: #A16207; border-color: #CA8A04; background: #FEFCE8; }
+.xdr-console .evops-cmd[data-priority="P1"] .evops-cmd__sev-pill { color: var(--nx-critical); border-color: var(--nx-critical); background: var(--nx-critical-bg); }
+.xdr-console .evops-cmd[data-priority="P2"] .evops-cmd__sev-pill { color: var(--nx-high); border-color: var(--nx-high); background: var(--nx-suspicious-bg); }
+.xdr-console .evops-cmd[data-priority="P3"] .evops-cmd__sev-pill { color: var(--nx-medium); border-color: var(--nx-medium); background: var(--nx-medium-bg); }
 
 /* ID + chips row */
 .xdr-console .evops-cmd__id-row {
@@ -754,19 +754,19 @@
   background: var(--nx-faint);
   flex: 0 0 8px;
 }
-.xdr-console .evops-cmd__chip[data-tone="critical"] .evops-cmd__chip-dot { background: #DC2626; }
-.xdr-console .evops-cmd__chip[data-tone="critical"]                       { color: #B91C1C; }
-.xdr-console .evops-cmd__chip[data-tone="high"]     .evops-cmd__chip-dot { background: #EA580C; }
-.xdr-console .evops-cmd__chip[data-tone="high"]                          { color: #C2410C; }
-.xdr-console .evops-cmd__chip[data-tone="progress"] .evops-cmd__chip-dot { background: #2563EB; }
-.xdr-console .evops-cmd__chip[data-tone="progress"]                       { color: #1D4ED8; }
-.xdr-console .evops-cmd__chip[data-tone="pending"]  .evops-cmd__chip-dot { background: #CA8A04; }
-.xdr-console .evops-cmd__chip[data-tone="pending"]                        { color: #A16207; }
-.xdr-console .evops-cmd__chip[data-tone="resolved"] .evops-cmd__chip-dot { background: #059669; }
-.xdr-console .evops-cmd__chip[data-tone="resolved"]                       { color: #047857; }
-.xdr-console .evops-cmd__chip[data-tone="benign"]   .evops-cmd__chip-dot { background: #6B7280; }
-.xdr-console .evops-cmd__chip[data-tone="malicious"].evops-cmd__chip-dot { background: #DC2626; }
-.xdr-console .evops-cmd__chip[data-tone="malicious"]                     { color: #B91C1C; }
+.xdr-console .evops-cmd__chip[data-tone="critical"] .evops-cmd__chip-dot { background: var(--nx-critical); }
+.xdr-console .evops-cmd__chip[data-tone="critical"]                       { color: var(--nx-critical); }
+.xdr-console .evops-cmd__chip[data-tone="high"]     .evops-cmd__chip-dot { background: var(--nx-high); }
+.xdr-console .evops-cmd__chip[data-tone="high"]                          { color: var(--nx-high); }
+.xdr-console .evops-cmd__chip[data-tone="progress"] .evops-cmd__chip-dot { background: var(--nx-low); }
+.xdr-console .evops-cmd__chip[data-tone="progress"]                       { color: var(--nx-low); }
+.xdr-console .evops-cmd__chip[data-tone="pending"]  .evops-cmd__chip-dot { background: var(--nx-medium); }
+.xdr-console .evops-cmd__chip[data-tone="pending"]                        { color: var(--nx-medium); }
+.xdr-console .evops-cmd__chip[data-tone="resolved"] .evops-cmd__chip-dot { background: var(--nx-benign); }
+.xdr-console .evops-cmd__chip[data-tone="resolved"]                       { color: var(--nx-benign); }
+.xdr-console .evops-cmd__chip[data-tone="benign"]   .evops-cmd__chip-dot { background: var(--nx-muted); }
+.xdr-console .evops-cmd__chip[data-tone="malicious"].evops-cmd__chip-dot { background: var(--nx-critical); }
+.xdr-console .evops-cmd__chip[data-tone="malicious"]                     { color: var(--nx-critical); }
 
 /* Meta row */
 .xdr-console .evops-cmd__meta {
@@ -970,10 +970,10 @@
   border: 1px solid currentColor;
 }
 .xdr-console .evops-narration__badge--grounded {
-  color: #065F46; border-color: #065F46; background: rgba(6, 95, 70, 0.08);
+  color: var(--nx-benign); border-color: var(--nx-benign); background: rgba(6, 95, 70, 0.08);
 }
 .xdr-console .evops-narration__badge--mode {
-  color: #4C1D95; border-color: #4C1D95; background: rgba(76, 29, 149, 0.08);
+  color: var(--nx-purple-dim); border-color: var(--nx-purple-dim); background: rgba(76, 29, 149, 0.08);
 }
 .xdr-console .evops-narration__body {
   font: var(--evops-t-body);

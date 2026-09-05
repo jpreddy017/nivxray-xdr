@@ -151,7 +151,7 @@ export default function XdrIncidentDetailPage() {
                 ? <MitreTabV2 incident={incident} />
                 : <MitreTab   incident={incident} />)}
               {tab === "attack_story"       && <AttackStoryTab       incident={incident} />}
-              {tab === "attack_graph"       && <AttackGraphTab       incident={incident} />}
+              {tab === "attack_graph"       && <AttackGraphTab       incident={incident} onNavigateTab={setTab} />}
               {tab === "report"             && <ReportTab            incident={incident} />}
               {tab === "notes"              && <NotesTab             incident={incident} />}
               {tab === "timeline"           && <TimelineTab          incident={incident} />}

@@ -9135,3 +9135,64 @@ A tokens+legend & diagnostics demotion (LOW) · B Evidence Inspector (LOW-MED, h
 
 ## Sequence
 Phase 1-a ✅ → verdict backfill ✅ → **investigation redesign spec ✅ (STOP for review)** → F-7 ownership scoping (P0, gates visibility of the 180 evidence-bearing incidents) → real Suricata EVE → Phase 2 UI/dark surface → UBAE/EDR sensor/Sandbox.
+
+---
+
+# 2026-09-05 · BATCH: 4688 fix · tenant-scoped queue · Phase A+B foundation · PHASE 2 UI REDESIGN
+
+Owner authorised the batch, then **expanded the boundary mid-run**: "OWNER DECISION — EXPAND UI
+REDESIGN NOW … Do not stop between A and B." Design system produced by the design agent and
+recorded at `/app/design_guidelines.json`; token spec + delivery record at
+`docs/truth-contract/edr-review/NIVXRAY_XDR_PHASE2_UI_REDESIGN_TOKEN_SPEC.md`.
+
+## Shipped
+1. **Windows 4688 normalizer (P0, backend)** — root cause: `os.path.basename` is POSIX on Linux
+   and does not split backslashes, so a full Windows image path was written into `process.name`.
+   New `_windows_basename()` splits on both separators. `process.name` = `powershell.exe`,
+   `process.executable_path` = the full path. Also applied to the 4624/4625 logon-process branch.
+   34/34 telemetry tests green.
+2. **Tenant-scoped incident queue (P0, backend, security-sensitive)** — `resolve_tenant_scope()`
+   in `services/dashboard_lenses.py` replaces the `user_email` ownership gate. Anonymous →
+   honest empty (`scope.authorized false`) instead of the previous **full-database read**.
+   Cross-tenant roles (admin, platform_admin, soc_manager, mssp_operator) → all tenants;
+   everyone else → own tenant only. `?customer=` cross-tenant read is denied, never leaked.
+   Admin now sees **198** incidents (was 18). Assignment is a **filter**
+   (`?assignment=unassigned|mine|team`, 400 on unknown), never a visibility gate.
+3. **Evidence Inspector action honesty** — the INVESTIGATE controls were clickable buttons with
+   **no handler at all**. `_ACTION_PIVOTS` + `_decorate_action()` now return `available` per
+   action; only `process_ancestry`, `mitre_expansion` and `detection_intel` are live (they
+   navigate to real surfaces). Everything else renders disabled with `⊘ CAPABILITY UNAVAILABLE`.
+4. **Relationship grammar (Phase A)** — class derived from API backing (`state`,
+   `evidence_refs`, `finding_ids`, `timestamp`), not from the relationship NAME. The forced
+   glowing-amber primary-path arrow is gone; primary-path membership changes emphasis only.
+   Arrowheads only where an ordering fact exists.
+5. **Phase 2 UI redesign** — "Deterministic Obsidian & Kinetic Amber": dark default + working
+   light toggle as ONE token system (`nx/nx-theme.css`), Outfit / IBM Plex Sans / JetBrains Mono,
+   4 real elevations, amber signal accent (not SaaS violet). Every hard-coded colour in the
+   in-scope surfaces migrated to tokens — CSS hexes now exist ONLY in the three token files.
+   Graph: circular evidence nodes (type token, epistemic ring, disposition dot, finding-count
+   badge), 3-column layout with a real **attack narrative rail** from `graph.timeline`,
+   coverage diagnostics demoted to a drawer, and a real **camera** (drag-pan, nav cluster,
+   keyboard; wheel-zoom removed on owner request).
+6. **Priority ladder** — P1 red / P2 orange / P3 amber / P4 teal / P5 slate + rank glyph
+   (▰▰▰▰ … ▱▱▱▱). Fixed the owner defect where P1 and P2 both rendered red.
+7. **Accessibility** — every text/surface pair measured; three tokens changed *because* they
+   failed (dark `--nx-faint` 3.77→5.13, light accent 3.19→5.02, per-rank chip foreground).
+
+## Verification
+`test_reports/iteration_81.json` — backend + frontend acceptance: **no critical or minor issues**,
+frontend 100% on 14 acceptance items (grammar cross-checked against the API, camera, wheel-zoom
+absence, action availability, both themes). Local pytest: queue 17/17, dashboard 20/20, MSS 12/12
+(19 of these were failing before this batch), telemetry 34/34.
+
+## NOT delivered (explicit)
+Record 12-tab regrouping with counts · verdict arithmetic matrix · MSS Dashboard and
+Investigation Workspace **layout** restructure (they are theme-correct only) · aggregate
+count-badge node collapsing (no aggregate data from the projection — no fabricated density) ·
+IKG write path **and its design doc** (owner deferred: judge presentation first) ·
+per-screen design review of the non-scope surfaces (admin/telemetry/intelligence inherited the
+token migration but their hierarchy is unchanged). Report tab narration takes ~8.8s.
+
+## Next
+P1 record IA regrouping + verdict arithmetic · P1 MSS Dashboard / Investigation Workspace layout ·
+P0 Suricata real EVE feed · then IKG write-path decision.

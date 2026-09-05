@@ -36,6 +36,19 @@ from .models import (
 # (P0-3 telemetry coverage correction) — authentication/logon evidence.
 SUPPORTED_EVENT_IDS = (4688, 4768, 4769, 4624, 4625)
 
+def _windows_basename(path_value: str) -> str:
+    """Executable name from a Windows path.
+
+    `os.path.basename` is POSIX on Linux and does NOT split backslashes, so a
+    Windows image path was being written verbatim into `process.name`.  The
+    full path stays in `process.executable_path`; `process.name` is strictly
+    the executable name.
+    """
+    if not path_value:
+        return ""
+    return re.split(r"[\\/]", path_value.strip().rstrip("\\/"))[-1]
+
+
 _LOGON_TYPE_LABELS = {
     2: "interactive", 3: "network", 4: "batch", 5: "service",
     7: "unlock", 8: "network_cleartext", 9: "new_credentials",
@@ -170,8 +183,8 @@ class WindowsSecurityNormalizer:
             logon_id = str(_get_ci(data, "TargetLogonId", "SubjectLogonId") or "")
             elevation = str(_get_ci(data, "TokenElevationType") or "")
 
-            proc_basename = os.path.basename(new_proc) if new_proc else ""
-            parent_basename = os.path.basename(parent_proc) if parent_proc else ""
+            proc_basename = _windows_basename(new_proc)
+            parent_basename = _windows_basename(parent_proc)
 
             process = ProcessEntity(
                 name=proc_basename or new_proc,
@@ -304,7 +317,7 @@ class WindowsSecurityNormalizer:
 
             if proc_name:
                 process = ProcessEntity(
-                    name=os.path.basename(proc_name),
+                    name=_windows_basename(proc_name),
                     executable_path=proc_name,
                 )
 
