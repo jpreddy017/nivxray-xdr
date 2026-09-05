@@ -340,7 +340,7 @@ export default function XdrIncidentsPage() {
   // Backed by PATCH /api/incidents/{id}/assignee (a real endpoint).
   // Assignment is work management only — it NEVER changes who can SEE
   // the incident (that is tenant authorization).
-  const [ctx, setCtx] = useState(null);   // { row, at:{x,y} }
+  const [ctx, setCtx] = useState(null);   // { row, at:{x,y}, col }
 
   const [ctxToast, setCtxToast] = useState(null);
 
@@ -636,17 +636,22 @@ export default function XdrIncidentsPage() {
           order={urlOrder}
           onSort={onSort}
           loading={loading}
-          onContextMenu={(row, at) => setCtx({ row, at })}
+          onContextMenu={(row, at, col) => setCtx({ row, at, col })}
         />
 
         {ctx && (
           <QueueContextMenu
             row={ctx.row}
             at={ctx.at}
+            col={ctx.col}
             currentUser={user?.email}
             onClose={() => setCtx(null)}
             onOpen={(r) => navigate(`/xdr/incidents/${r.id}`)}
             onOpenNewTab={(r) => window.open(`/xdr/incidents/${r.id}`, "_blank", "noopener")}
+            onOpenNewWindow={(r) => window.open(
+              `/xdr/incidents/${r.id}`, `nivxray-${r.id}`,
+              "noopener,width=1480,height=940")}
+            onShowMatching={(param, value) => setParam(param, value)}
             onPreview={(r) => setPrevId(r.id)}
             onAssignToMe={(r) => patchAssignee(r, user?.email)}
             onUnassign={(r) => patchAssignee(r, "")}

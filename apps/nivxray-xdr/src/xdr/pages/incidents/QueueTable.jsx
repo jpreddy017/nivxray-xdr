@@ -239,7 +239,11 @@ export default function QueueTable({
                 onContextMenu={(e) => {
                   if (!onContextMenu) return;
                   e.preventDefault();
-                  onContextMenu(r, { x: e.clientX, y: e.clientY });
+                  // The menu is CELL-AWARE: the column you right-click
+                  // decides which actions are offered.
+                  const td = e.target.closest?.("td");
+                  const col = td?.getAttribute("data-col") || null;
+                  onContextMenu(r, { x: e.clientX, y: e.clientY }, col);
                 }}
                 data-testid={`ql-row-${r.id}`}
               >
@@ -258,6 +262,7 @@ export default function QueueTable({
                         key={c.id}
                         className="ql-td-name"
                         style={{ maxWidth: c.w }}
+                        data-col="name"
                         onClick={e => { e.stopPropagation(); onNameClick(r); }}
                         title={r.name}
                         data-testid={`ql-cell-name-${r.id}`}
@@ -269,6 +274,7 @@ export default function QueueTable({
                   return (
                     <td
                       key={c.id}
+                      data-col={c.id}
                       data-testid={`ql-cell-${c.id}-${r.id}`}
                     >
                       {renderCell(c.id, r, onCellDrill)}

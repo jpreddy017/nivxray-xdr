@@ -9222,3 +9222,24 @@ action menu with "Assign to me".
 - Verified end-to-end in the UI: assign → row appears under `assignment=mine` → release →
   owner reverts to `? UNKNOWN`, with a toast confirming each write. Backend suites still green
   (queue 17/17, dashboard 20/20, MSS 12/12).
+
+## 2026-09-05 · addendum 2: CELL-AWARE context menu
+
+Owner: *"options should be based on the item that we click"* + *"open in new window"*.
+
+- The queue context menu is now **cell-aware** (`data-ctx-col` on the menu). Right-clicking a
+  **value** cell (owner · customer · detection source · priority · severity · verdict · MITRE)
+  puts `Show matching <field> · <value>` and `Copy <field>` at the TOP; right-clicking the
+  **Number** cell shows navigation + ownership only.
+- Navigation set: Open · Open in new tab · **Open in new window** (named 1480×940 window) ·
+  Preview in side panel. Ownership: Assign to me (always) · Release. Copies: incident number ·
+  authoritative id · **Copy URL to clipboard**.
+- `Show matching` writes the real API query param (`customer`, `detection_source`, `priority`,
+  `severity`, `verdict`, `technique`), and for the owner cell it maps to the work-management
+  filter (`assignment=mine|team`) — never to visibility.
+- **`Filter Out` is deliberately NOT offered**: the API has no negation predicate, and a control
+  we cannot honour would violate the Honest State rule. Add `?exclude_<field>=` support to the
+  incidents router and it becomes a one-line menu addition.
+- Verified in the UI: number-cell menu = 9 items (no filter actions); customer-cell menu = 11
+  items led by `Show matching customer · default`; clicking it navigates to
+  `?customer=default` and re-queries.
