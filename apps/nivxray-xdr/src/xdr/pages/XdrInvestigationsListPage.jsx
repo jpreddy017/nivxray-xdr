@@ -79,7 +79,7 @@ export default function XdrInvestigationsListPage() {
 
       if (casesList.length === 0) {
         try {
-          const resInc = await api.get("/incidents?limit=100");
+          const resInc = await api.get("/incidents?limit=500");
           const incs = resInc?.data?.incidents || resInc?.data || [];
           if (Array.isArray(incs)) {
             casesList = incs.map((inc) => {

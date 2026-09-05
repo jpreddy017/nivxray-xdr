@@ -33,16 +33,22 @@ ADR, not a scoped parity fix.
 | 0013 | Partial | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | 0014 | Suspicious | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | 0015 | decode_error | — | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| 0016 | Suspicious | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| 0017 | Suspicious | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| 0018 | Suspicious | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| 0019 | Runtime Dependent | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| 0020 | Suspicious | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| 0021 | Partial | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
 
 ## Summary
 
-- **Cases evaluated:** 14
-- **CIM_STRUCTURE parity:** 13/14  ← RELEASE GATE
-- **Verdict label parity:** 0/14
-- **Evidence-type parity:** 0/14
-- **Stages parity:** 0/14
-- **Decode-output parity:** 14/14
-- **Overall 5-dim PASS:** 0/14
+- **Cases evaluated:** 20
+- **CIM_STRUCTURE parity:** 19/20  ← RELEASE GATE
+- **Verdict label parity:** 0/20
+- **Evidence-type parity:** 0/20
+- **Stages parity:** 0/20
+- **Decode-output parity:** 20/20
+- **Overall 5-dim PASS:** 0/20
 
 ## Dimension details
 
@@ -143,3 +149,45 @@ ADR, not a scoped parity fix.
 - **EVIDENCE_TYPES** · FAIL · smart=[] auto=['decoder.layer']
 - **STAGES** · FAIL · smart=[] auto=['decode']
 - **DECODE** · PASS · len_smart=0 len_auto=0
+
+### Case 0016
+- **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys
+- **VERDICT** · FAIL · labels=False ΔC=55 exp_shape=True
+- **EVIDENCE_TYPES** · FAIL · smart=['decoder.layer', 'ioc.domain', 'mitre.technique'] auto=['decoder.layer']
+- **STAGES** · FAIL · smart=['ioc_extract', 'mitre_map', 'reasoning'] auto=['decode']
+- **DECODE** · PASS · len_smart=505 len_auto=0
+
+### Case 0017
+- **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys
+- **VERDICT** · FAIL · labels=False ΔC=40 exp_shape=True
+- **EVIDENCE_TYPES** · FAIL · smart=['decoder.layer', 'mitre.technique'] auto=['decoder.layer']
+- **STAGES** · FAIL · smart=['decode', 'mitre_map', 'reasoning'] auto=['decode']
+- **DECODE** · PASS · len_smart=528 len_auto=0
+
+### Case 0018
+- **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys
+- **VERDICT** · FAIL · labels=False ΔC=80 exp_shape=True
+- **EVIDENCE_TYPES** · FAIL · smart=['decoder.layer', 'mitre.technique'] auto=['decoder.layer']
+- **STAGES** · FAIL · smart=['decode', 'mitre_map', 'reasoning'] auto=['decode']
+- **DECODE** · PASS · len_smart=2000 len_auto=0
+
+### Case 0019
+- **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys
+- **VERDICT** · FAIL · labels=False ΔC=55 exp_shape=True
+- **EVIDENCE_TYPES** · FAIL · smart=['decoder.layer', 'ioc.ip', 'ioc.url', 'mitre.technique'] auto=['decoder.layer', 'ioc.ip', 'ioc.url']
+- **STAGES** · FAIL · smart=['decode', 'ioc_extract', 'mitre_map', 'reasoning'] auto=['ioc_extract']
+- **DECODE** · PASS · len_smart=1400 len_auto=0
+
+### Case 0020
+- **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys
+- **VERDICT** · FAIL · labels=False ΔC=50 exp_shape=True
+- **EVIDENCE_TYPES** · FAIL · smart=['decoder.layer', 'mitre.technique'] auto=['decoder.layer']
+- **STAGES** · FAIL · smart=['decode', 'mitre_map', 'reasoning'] auto=['decode']
+- **DECODE** · PASS · len_smart=1255 len_auto=0
+
+### Case 0021
+- **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys
+- **VERDICT** · FAIL · labels=False ΔC=25 exp_shape=True
+- **EVIDENCE_TYPES** · FAIL · smart=['decoder.layer', 'mitre.technique'] auto=['decoder.layer']
+- **STAGES** · FAIL · smart=['decode', 'mitre_map', 'reasoning'] auto=['decode']
+- **DECODE** · PASS · len_smart=1143 len_auto=0
