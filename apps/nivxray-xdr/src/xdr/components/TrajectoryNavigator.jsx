@@ -1,0 +1,341 @@
+/**
+ * TrajectoryNavigator · Cisco Secure Endpoint (AMP) navigator paradigm.
+ *
+ * ALL temporal navigation for the Device Trajectory happens here — not
+ * on the canvas.  There is no wheel zoom, no pan shortcut and no
+ * double-click reset anywhere in this surface, by design: in a dense
+ * SOC portal those hijack viewport scroll and create accidental zoom
+ * states.
+ *
+ * Structure (top → bottom):
+ *   1. Filters + scoped search  (regex /foo/gim · CIDR · SHA-256 · name)
+ *   2. Activity sparkline       (per-day event volume)
+ *   3. 30-day ribbon            (day cells · red = compromise, blue = search hit)
+ *   4. 24-hour ribbon           (selected day · dual-handle sliding window)
+ *
+ * Honest-state contract: day cells, dots and bars are counts of
+ * persisted observations.  Days with no observations render empty —
+ * never interpolated.
+ */
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Search } from "lucide-react";
+
+const DAYS = 30;
+const DAY_MS = 86400000;
+const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
+const startOfDayUTC = (ms) => Date.UTC(
+  new Date(ms).getUTCFullYear(), new Date(ms).getUTCMonth(), new Date(ms).getUTCDate());
+
+/** Compile the navigator query into a predicate. Never throws. */
+export function compileQuery(q) {
+  const raw = (q || "").trim();
+  if (!raw) return null;
+
+  // /pattern/flags
+  const rx = raw.match(/^\/(.*)\/([gimsuy]*)$/);
+  if (rx) {
+    try {
+      const re = new RegExp(rx[1], rx[2].replace("g", ""));
+      return { kind: "regex", test: (s) => re.test(s) };
+    } catch { return { kind: "invalid", test: () => false }; }
+  }
+
+  // IPv4 CIDR
+  const cidr = raw.match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+  if (cidr) {
+    const bits = Number(cidr[2]);
+    if (bits >= 0 && bits <= 32) {
+      const toInt = (ip) => ip.split(".").reduce((a, o) => (a << 8) + Number(o), 0) >>> 0;
+      const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+      const net = (toInt(cidr[1]) & mask) >>> 0;
+      return {
+        kind: "cidr",
+        test: (s) => {
+          const found = String(s).match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
+          return found.some((ip) => ((toInt(ip) & mask) >>> 0) === net);
+        },
+      };
+    }
+  }
+
+  // SHA-256
+  if (/^[a-f0-9]{64}$/i.test(raw)) {
+    const needle = raw.toLowerCase();
+    return { kind: "sha256", test: (s) => s.toLowerCase().includes(needle) };
+  }
+
+  const needle = raw.toLowerCase();
+  return { kind: "text", test: (s) => s.toLowerCase().includes(needle) };
+}
+
+/** Fields the navigator search is scoped to — all persisted. */
+export function searchCorpus(e) {
+  return [e.title, e.process, e.file, e.path, e.command_line, e.user,
+          e.sha256, e.observation_kind, e.incident_id]
+    .filter(Boolean).join(" ");
+}
+
+export default function TrajectoryNavigator({
+  events, matchedIds, query, onQueryChange,
+  selectedDay, onSelectDay, viewStart, viewEnd, onWindowChange,
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const dayRef = useRef(null);
+  const hourRef = useRef(null);
+  const [hourW, setHourW] = useState(700);
+  const [drag, setDrag] = useState(null);
+
+  useEffect(() => {
+    if (!hourRef.current) return;
+    const ro = new ResizeObserver((en) => {
+      const w = en[0]?.contentRect?.width;
+      if (w) setHourW(Math.max(320, Math.floor(w)));
+    });
+    ro.observe(hourRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // ── 30-day model, anchored on the latest observed day ─────────────
+  const days = useMemo(() => {
+    const ts = events.map((e) => new Date(e.timestamp).getTime())
+                      .filter(Number.isFinite);
+    const anchor = ts.length ? startOfDayUTC(Math.max(...ts))
+                              : startOfDayUTC(Date.now());
+    const byDay = new Map();
+    for (const e of events) {
+      const t = new Date(e.timestamp).getTime();
+      if (!Number.isFinite(t)) continue;
+      const k = dayKey(t);
+      if (!byDay.has(k)) byDay.set(k, { total: 0, compromise: 0, hits: 0 });
+      const rec = byDay.get(k);
+      rec.total += 1;
+      if (e.kind === "detection" || e.severity === "critical" || e.severity === "high") {
+        rec.compromise += 1;
+      }
+      if (matchedIds?.has(e.id)) rec.hits += 1;
+    }
+    const out = [];
+    for (let i = DAYS - 1; i >= 0; i--) {
+      const ms = anchor - i * DAY_MS;
+      const k = dayKey(ms);
+      const rec = byDay.get(k) || { total: 0, compromise: 0, hits: 0 };
+      out.push({ ms, key: k, ...rec, d: new Date(ms) });
+    }
+    return out;
+  }, [events, matchedIds]);
+
+  const maxTotal = Math.max(1, ...days.map((d) => d.total));
+  const dayStart = selectedDay ?? days[days.length - 1]?.ms ?? startOfDayUTC(Date.now());
+  const dayEnd = dayStart + DAY_MS;
+
+  // ── 24-hour ribbon geometry ───────────────────────────────────────
+  const PAD = 6;
+  const innerW = Math.max(1, hourW - PAD * 2);
+  const xOfHour = useCallback(
+    (t) => PAD + ((Math.min(Math.max(t, dayStart), dayEnd) - dayStart) / DAY_MS) * innerW,
+    [dayStart, dayEnd, innerW]);
+  const tOfX = useCallback(
+    (x) => dayStart + ((Math.min(Math.max(x, PAD), PAD + innerW) - PAD) / innerW) * DAY_MS,
+    [dayStart, innerW]);
+
+  const xs = xOfHour(viewStart);
+  const xe = xOfHour(viewEnd);
+
+  const down = (mode) => (e) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setDrag({ mode, px: e.clientX, vs: viewStart, ve: viewEnd });
+  };
+  const move = (e) => {
+    if (!drag) return;
+    const rect = hourRef.current.getBoundingClientRect();
+    const lx = e.clientX - rect.left;
+    if (drag.mode === "left") {
+      onWindowChange(Math.min(tOfX(lx), drag.ve - 60000), drag.ve);
+    } else if (drag.mode === "right") {
+      onWindowChange(drag.vs, Math.max(tOfX(lx), drag.vs + 60000));
+    } else {
+      const dMs = ((e.clientX - drag.px) / innerW) * DAY_MS;
+      const dur = drag.ve - drag.vs;
+      let s = Math.min(Math.max(drag.vs + dMs, dayStart), dayEnd - dur);
+      onWindowChange(s, s + dur);
+    }
+  };
+  const up = () => setDrag(null);
+
+  const hourEvents = useMemo(() => events.filter((e) => {
+    const t = new Date(e.timestamp).getTime();
+    return t >= dayStart && t < dayEnd;
+  }), [events, dayStart, dayEnd]);
+
+  const compiled = compileQuery(query);
+
+  return (
+    <section className="panel" style={{ padding: 0 }}
+              data-testid="xdr-trajectory-navigator">
+      {/* 1 · Filters + scoped search */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8,
+                      padding: "7px 9px",
+                      borderBottom: "1px solid var(--border)" }}>
+        <button className="btn" style={{ padding: "3px 7px", fontSize: 10 }}
+                  onClick={() => setCollapsed((v) => !v)}
+                  data-testid="xdr-navigator-collapse">
+          <ChevronDown size={11}
+                        style={{ transform: collapsed ? "rotate(-90deg)" : "none" }} />
+        </button>
+        <span className="section-title" style={{ margin: 0 }}>Navigator</span>
+        <div style={{ position: "relative", flex: 1 }}>
+          <Search size={11} style={{ position: "absolute", left: 8, top: 7,
+                                          color: "var(--faint)" }} />
+          <input
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Search Device Trajectory — /regex/gim · 10.0.0.0/24 · SHA-256 · file or process name"
+            className="mono"
+            style={{ width: "100%", padding: "4px 8px 4px 24px", fontSize: 10.5,
+                      background: "var(--panel2)", color: "var(--text)",
+                      border: "1px solid var(--border)", borderRadius: 4 }}
+            data-testid="xdr-navigator-search"
+          />
+        </div>
+        {query && (
+          <span className="mono" style={{ fontSize: 10,
+                    color: compiled?.kind === "invalid" ? "#ff9494" : "var(--cyan)" }}
+                  data-testid="xdr-navigator-search-status">
+            {compiled?.kind === "invalid"
+              ? "invalid regex"
+              : `${matchedIds?.size || 0} match${(matchedIds?.size || 0) === 1 ? "" : "es"} · ${compiled?.kind}`}
+          </span>
+        )}
+      </div>
+
+      {!collapsed && (
+        <div style={{ padding: "8px 9px 10px" }}>
+          {/* 2 · Activity sparkline */}
+          <svg width="100%" height={22} style={{ display: "block" }}
+                data-testid="xdr-navigator-sparkline" preserveAspectRatio="none"
+                viewBox={`0 0 ${DAYS} 22`}>
+            <polyline
+              points={days.map((d, i) => `${i + 0.5},${21 - (d.total / maxTotal) * 19}`).join(" ")}
+              fill="none" stroke="#9b7bf0" strokeWidth={0.4}
+              vectorEffect="non-scaling-stroke" />
+          </svg>
+
+          {/* 3 · 30-day ribbon */}
+          <div ref={dayRef}
+                style={{ display: "grid",
+                          gridTemplateColumns: `repeat(${DAYS}, 1fr)`, gap: 1 }}
+                data-testid="xdr-navigator-day-ribbon">
+            {days.map((d) => {
+              const active = d.ms === dayStart;
+              const has = d.total > 0;
+              return (
+                <button key={d.key}
+                          onClick={() => onSelectDay(d.ms)}
+                          title={`${d.key} · ${d.total} observation${d.total === 1 ? "" : "s"}`}
+                          style={{
+                            height: 32, padding: 0, cursor: has ? "pointer" : "default",
+                            background: active ? "rgba(60,232,184,0.12)" : "var(--panel2)",
+                            border: `1px solid ${active ? "var(--mint)" : "var(--border)"}`,
+                            display: "flex", flexDirection: "column",
+                            alignItems: "center", justifyContent: "center", gap: 2,
+                            opacity: has ? 1 : 0.45,
+                          }}
+                          data-testid={`xdr-navigator-day-${d.key}`}>
+                  {d.compromise > 0 && (
+                    <span style={{ width: 5, height: 5, borderRadius: "50%",
+                                    background: "#ff5b5b" }} />
+                  )}
+                  {d.hits > 0 && (
+                    <span style={{ width: 5, height: 5, borderRadius: "50%",
+                                    background: "#3fc1e8" }}
+                           data-testid={`xdr-navigator-hit-${d.key}`} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${DAYS}, 1fr)`,
+                          gap: 1, marginTop: 2 }}>
+            {days.map((d) => (
+              <div key={d.key} className="mono"
+                    style={{ fontSize: 8, textAlign: "center",
+                              color: d.ms === dayStart ? "var(--mint)" : "var(--faint)" }}>
+                {d.d.getUTCDate()}
+              </div>
+            ))}
+          </div>
+          <div className="mono" style={{ fontSize: 8.5, color: "var(--faint)",
+                                              marginTop: 1 }}>
+            {MONTHS[days[0].d.getUTCMonth()]}
+            {days[0].d.getUTCMonth() !== days[DAYS - 1].d.getUTCMonth() &&
+              ` → ${MONTHS[days[DAYS - 1].d.getUTCMonth()]}`}
+          </div>
+
+          {/* 4 · 24-hour ribbon for the selected day */}
+          <div style={{ marginTop: 10 }}>
+            <div className="mono" style={{ fontSize: 9.5, color: "var(--cyan)",
+                                                marginBottom: 3 }}
+                  data-testid="xdr-navigator-window-label">
+              {dayKey(dayStart)} · {new Date(viewStart).toISOString().slice(11, 19)}Z
+              {" → "}{new Date(viewEnd).toISOString().slice(11, 19)}Z
+            </div>
+            <div ref={hourRef} style={{ width: "100%" }}>
+              <svg width={hourW} height={40}
+                    style={{ display: "block", touchAction: "none" }}
+                    onPointerMove={move} onPointerUp={up} onPointerLeave={up}
+                    data-testid="xdr-navigator-hour-ribbon">
+                <rect x={0} y={0} width={hourW} height={40} rx={3}
+                      fill="var(--panel2)" stroke="var(--border)" />
+                {hourEvents.map((e) => {
+                  const t = new Date(e.timestamp).getTime();
+                  const hit = matchedIds?.has(e.id);
+                  return (
+                    <circle key={e.id} cx={xOfHour(t)} cy={hit ? 14 : 8} r={2.2}
+                            fill={hit ? "#3fc1e8" : "rgba(155,123,240,0.75)"} />
+                  );
+                })}
+                <rect x={PAD} y={1} width={Math.max(0, xs - PAD)} height={38}
+                      fill="rgba(6,8,12,0.7)" />
+                <rect x={xe} y={1} width={Math.max(0, PAD + innerW - xe)} height={38}
+                      fill="rgba(6,8,12,0.7)" />
+                <rect x={xs} y={1} width={Math.max(2, xe - xs)} height={38}
+                      fill="rgba(60,232,184,0.10)" stroke="#3ce8b8"
+                      style={{ cursor: "grab" }} onPointerDown={down("band")}
+                      data-testid="xdr-navigator-band" />
+                <rect x={xs - 4} y={1} width={8} height={38} rx={2} fill="#3ce8b8"
+                      style={{ cursor: "ew-resize" }} onPointerDown={down("left")}
+                      data-testid="xdr-navigator-handle-left" />
+                <rect x={xe - 4} y={1} width={8} height={38} rx={2} fill="#3ce8b8"
+                      style={{ cursor: "ew-resize" }} onPointerDown={down("right")}
+                      data-testid="xdr-navigator-handle-right" />
+                {[0, 4, 8, 12, 16, 20, 24].map((h) => (
+                  <text key={h} x={PAD + (h / 24) * innerW} y={37}
+                        fill="#4a5162" fontSize={7.5}
+                        fontFamily="'IBM Plex Mono', monospace"
+                        textAnchor={h === 0 ? "start" : h === 24 ? "end" : "middle"}>
+                    {String(h).padStart(2, "0")}:00
+                  </text>
+                ))}
+              </svg>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 5 }}>
+              <button className="btn" style={{ padding: "2px 7px", fontSize: 9.5 }}
+                        onClick={() => onWindowChange(dayStart, dayEnd)}
+                        data-testid="xdr-navigator-full-day">
+                Full day
+              </button>
+              <span className="mono" style={{ fontSize: 9,
+                                                  color: "var(--faint)",
+                                                  alignSelf: "center" }}>
+                {hourEvents.length} observation{hourEvents.length === 1 ? "" : "s"} on this day
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

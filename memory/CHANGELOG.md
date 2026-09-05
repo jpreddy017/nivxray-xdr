@@ -6391,3 +6391,121 @@ binding MANDATORY before customer telemetry.
 
 **Next in the approved order**: Process Ancestry → Entity 360 → Timeline
 Scrubber → EDR end-to-end revalidation → tenant binding.
+
+## 2026-09-05 · P1.5 Timeline Scrubber (delivered early, on direct instruction) + P1.2 Process Ancestry
+
+### P1.5 — Cisco AMP-style brushing engine · DONE
+`xdr/components/TimelineRibbon.jsx` (dual-handle brush over the observed extent,
+density bins, compromise pins) + interaction layer inside
+`TrajectoryTimelineCanvas.jsx`. All five interactions verified live on FIN-07:
+in-canvas **brush-zoom** (45 → 20 events), **wheel zoom anchored at cursor**
+(13:59:30–14:00:51 → 13:59:41–14:00:23), **shift+drag pan**
+(→ 13:59:54–14:00:35), **double-click reset**, **ribbon handle/band drag**.
+Axis label precision now follows zoom (seconds under 5 min, hours under 36 h,
+date above). `onTimeWindowChange` equivalent is implemented as a single lifted
+`view` state, so canvas + Endpoint Lanes + Process Ancestry all filter from one
+window; the lanes header prints the active window. New honest state
+`◇ NO OBSERVATIONS IN SELECTED WINDOW` with a Reset-to-All action, distinct
+from "nothing ever observed".
+
+Sequenced ahead of P1.3/P1.4 because the owner issued the scrubber contract as a
+direct standalone instruction. P1.3 (Entity 360) and P1.4 (Compromise Band)
+remain **unstarted**, per the gating rule.
+
+### P1.2 — Process Ancestry · DONE, with a substrate finding
+`xdr/lib/processAncestry.js` + `xdr/components/ProcessAncestryTree.jsx`.
+Implements the deterministic contract (2A direct `parent_iid`, 2B PPID temporal
+match, 2C zero-fabrication anchor, PID-reuse → `? UNCERTAIN_RELATIONSHIP`).
+
+**SUBSTRATE FINDING — the specified algorithm cannot fully execute on this data.**
+Verified across all 7 devices / 114 process observations:
+- `raw.pid` and `raw.ppid` exist in **0** documents. There are no PIDs at all.
+- Lineage is expressed only as `process.parent_iid → process.iid`.
+- **0 of 114** `parent_iid` values resolve to an observed process — on every
+  device (WKS-01 21 obs, FIN-07 25, ENG-42 40, SRV-DC01 10, FILE-SRV-01 10,
+  WKS-07 6, HR-11 2 — all `resolved_edges=0`).
+
+So the honest ancestry today is a **flat forest**: FIN-07 renders 5 observed
+processes under 5 separate `[ROOT / PARENT NOT OBSERVED · proc_…]` anchors.
+Branches 2B and 2C-by-PPID are implemented to contract but are **unreachable**
+until PID-bearing telemetry exists; they are not simulated. The anchor is keyed
+on the identity the child actually recorded (`parent_iid`), not a guessed PPID.
+
+`parent_name` (e.g. "explorer.exe") IS persisted — but on the **child's**
+record. It is the child's claim about its parent, not an observation of it, so
+it renders as `claimed "explorer.exe" ◇ INFERRED FROM CHILD RECORD` and is
+never promoted into an observed node label.
+
+Acceptance against the 6 scenarios:
+- A (direct lineage) · **NOT TESTABLE** — no resolvable edge exists in the substrate
+- B (forked lineage) · **NOT TESTABLE** — same cause
+- C (unobserved parent) · **PASS** — 5 dashed anchors, no fabricated binary names
+- D (missing command line) · implemented; not exercised (all 114 obs carry one).
+  The same mechanism is visible via `◇ PID/PPID NOT CAPTURED IN OBSERVATION`
+- E (provenance) · **PASS** — side-sheet shows `evt_36157ee27adf0d64`,
+  `proc_62f9a3754e89`, `parent_iid proc_cddeafea638f`, `dev_baaa72285d27`,
+  `CORP\alice`, real path + SHA-256, all 5 source cases, zero console errors
+- F (14:00Z burst scrubbing) · **PASS** — brush/wheel/pan de-cluster the burst
+
+Inline command decode is marked `⊘ INLINE DECODE NOT WIRED` — the 59-decoder
+runtime is operational but has no per-process decode endpoint, so no
+placeholder plaintext is shown.
+
+**Anti-fabrication**: every rendered process name, path, user, hash, IID and
+case was cross-checked against the persisted document.
+
+## 2026-09-05 · CORRECTION — removed invented chart interactions, built the AMP Navigator
+
+**Owner rejected my P1.5 implementation. Correct call — I invented web-chart
+gimmicks that AMP does not have and that trap the SOC viewport.**
+
+### Removed
+- Mouse-wheel zoom (native `wheel` listener with `preventDefault`) — deleted.
+  `grep -c wheel TrajectoryTimelineCanvas.jsx` = **0**.
+- `shift+drag` pan, in-canvas drag brush, double-click reset, the whole
+  interaction backdrop rect and the live brush rect.
+- The instruction banner "drag = zoom · shift+drag = pan · wheel = zoom at
+  cursor · dbl-click = reset" and the "Reset to All" button on the canvas header.
+- `xdr/components/TimelineRibbon.jsx` deleted entirely.
+
+The canvas is now a pure render surface again: clicks select an event, nothing
+else. No canvas gesture changes time.
+
+### Built · `xdr/components/TrajectoryNavigator.jsx`
+All temporal navigation now lives in one collapsible Navigator, AMP structure
+top-to-bottom:
+1. **Filters + scoped search** — `/regex/gim`, IPv4 CIDR, SHA-256, file/process
+   name. Compiles safely (never throws); invalid regex reports `invalid regex`.
+2. **Activity sparkline** — per-day event volume across the 30 days.
+3. **30-day ribbon** — day cells anchored on the latest observed day.
+   **Red dot** = compromise/high-severity day. **Blue dot** = search-hit day.
+   Days with no observations render dimmed, never interpolated. Click a day to
+   load it.
+4. **24-hour ribbon** — the selected day with a dual-handle sliding window
+   (left handle → start, right handle → end, band → shift preserving duration),
+   hour ticks, per-observation dots (blue when matched), and a `Full day` reset.
+
+One lifted `view` state still drives canvas + Endpoint Lanes + Process Ancestry,
+so a Navigator drag filters everything at once.
+
+### Verified live on FIN-07
+- **No wheel hijack**: wheel over the canvas scrolls the viewport
+  (`scrollY 0 → 600`) and the window label is byte-identical before and after.
+- Navigator present, 30 day cells, window label `2026-02-25 · 13:59:30Z → 14:00:51Z`.
+- Search: `/powershell|certutil/i` → 25 matches + blue day dot;
+  `185.220.0.0/16` → 0 matches (honest — no such address in the substrate);
+  SHA-256 `5168c4ae…` → 5 matches; `/[unclosed/` → `invalid regex`.
+- Dual-handle drag → `13:59:30Z → 14:02:12Z`; `Full day` → `13:58:09Z → 14:02:12Z`.
+
+### NOT done — directive item 3
+**Process lifelines are not built.** The canvas still renders categorical
+swimlanes (SYSTEM/PROCESS/FILE/NETWORK/REGISTRY) with event glyphs, not
+per-process/per-file horizontal lifelines with causal branching and semantic
+glyphs (`+` created, `▷` executed, `→` moved, `•` scanned, red/yellow/green
+fills). That is the next task and I am not claiming it.
+
+Worth flagging for that work: AMP's lifelines require parent→child causality,
+and this substrate has **0 resolvable lineage edges and no PIDs** (see the P1.2
+entry). Lifelines will therefore render as independent per-artifact rows with no
+branching until lineage-complete telemetry exists — the rows are honest, the
+branches cannot be drawn without fabrication.

@@ -21,6 +21,9 @@ import {
 import XdrShell from "@/xdr/XdrShell";
 import TrajectoryTimelineCanvas from "@/xdr/components/TrajectoryTimelineCanvas";
 import EndpointLanes from "@/xdr/components/EndpointLanes";
+import TrajectoryNavigator, { compileQuery, searchCorpus }
+  from "@/xdr/components/TrajectoryNavigator";
+import ProcessAncestryTree from "@/xdr/components/ProcessAncestryTree";
 import Pivot from "@/xdr/components/Pivot";
 import { getDeviceTrajectory } from "@/nivxforge/edrApi";
 
@@ -99,6 +102,72 @@ export default function XdrDeviceTrajectoryPage() {
   const incidents  = data?.incidents || [];
   const identity   = data?.identity || null;
   const unresolved = data && identity && identity.resolved === false;
+
+  // ── Shared time view (ribbon ↔ canvas ↔ lane grids) ──────────────
+  // The extent is the actual observed span of the payload, never a
+  // synthetic range.
+  const extent = useMemo(() => {
+    const ts = events
+      .map((e) => new Date(e.timestamp).getTime())
+      .filter((n) => Number.isFinite(n));
+    if (ts.length) {
+      const lo = Math.min(...ts);
+      const hi = Math.max(...ts);
+      // Pad a degenerate (single-instant) extent so the axis is usable.
+      return hi - lo < 60000 ? [lo - 30000, hi + 30000] : [lo, hi];
+    }
+    const ws = new Date(data?.window_start || Date.now()).getTime();
+    const we = new Date(data?.window_end || Date.now()).getTime();
+    return [ws, we];
+  }, [events, data?.window_start, data?.window_end]);
+
+  const [view, setView] = useState(null);
+  useEffect(() => { setView(extent); }, [extent[0], extent[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const viewStart = view ? view[0] : extent[0];
+  const viewEnd   = view ? view[1] : extent[1];
+
+  const applyView = useCallback((s, e) => {
+    let a = Math.min(s, e);
+    let b = Math.max(s, e);
+    if (b - a < 1000) b = a + 1000;                    // 1s floor
+    a = Math.max(a, extent[0] - (extent[1] - extent[0]));
+    b = Math.min(b, extent[1] + (extent[1] - extent[0]));
+    setView([a, b]);
+  }, [extent]);
+
+  const resetView = useCallback(() => setView(extent), [extent]);
+
+  // ── Navigator state · day selection + scoped search ──────────────
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [query, setQuery] = useState("");
+
+  const matchedIds = useMemo(() => {
+    const c = compileQuery(query);
+    if (!c || c.kind === "invalid") return new Set();
+    const s = new Set();
+    for (const e of events) if (c.test(searchCorpus(e))) s.add(e.id);
+    return s;
+  }, [query, events]);
+
+  const eventsInView = useMemo(() => events.filter((e) => {
+    const t = new Date(e.timestamp).getTime();
+    return Number.isFinite(t) && t >= viewStart && t <= viewEnd;
+  }), [events, viewStart, viewEnd]);
+
+  const viewLaneCounts = useMemo(() => {
+    const c = {};
+    for (const e of eventsInView) c[e.lane] = (c[e.lane] || 0) + 1;
+    return c;
+  }, [eventsInView]);
+
+  // A search narrows what the canvas and grids show; an empty or
+  // invalid query narrows nothing.
+  const canvasEvents = useMemo(() => (
+    query && matchedIds.size > 0
+      ? eventsInView.filter((e) => matchedIds.has(e.id))
+      : eventsInView
+  ), [query, matchedIds, eventsInView]);
 
   const selectedEvent = useMemo(
     () => events.find((e) => e.id === selectedId) || null,
@@ -372,6 +441,8 @@ export default function XdrDeviceTrajectoryPage() {
             <div style={{ flex: 1 }} />
             <span className="mono" style={{ color: "var(--faint)", fontSize: 10.5 }}
                    data-testid="xdr-trajectory-event-count">
+              {eventsInView.filter((e) => activeLanes.has(e.lane)).length}
+              {" / "}
               {events.filter((e) => activeLanes.has(e.lane)).length} events
             </span>
           </div>
@@ -400,16 +471,38 @@ export default function XdrDeviceTrajectoryPage() {
           )}
           {!loading && !error && data && events.length > 0 && (
             <div style={{ padding: 8 }}>
-              <TrajectoryTimelineCanvas
+              <TrajectoryNavigator
                 events={events}
+                matchedIds={matchedIds}
+                query={query}
+                onQueryChange={setQuery}
+                selectedDay={selectedDay}
+                onSelectDay={(ms) => { setSelectedDay(ms); setView([ms, ms + 86400000]); }}
+                viewStart={viewStart}
+                viewEnd={viewEnd}
+                onWindowChange={applyView}
+              />
+              <div style={{ height: 8 }} />
+              <TrajectoryTimelineCanvas
+                events={canvasEvents}
                 lanes={lanes}
-                laneCounts={laneCounts}
-                windowStart={data.window_start}
-                windowEnd={data.window_end}
+                laneCounts={viewLaneCounts}
+                windowStart={new Date(viewStart).toISOString()}
+                windowEnd={new Date(viewEnd).toISOString()}
                 activeLanes={activeLanes}
                 selectedId={selectedId}
                 onSelect={(evt) => setSelectedId(evt.id)}
               />
+              {canvasEvents.length === 0 && (
+                <div className="x-empty" data-testid="xdr-trajectory-view-empty">
+                  <b>◇ NO OBSERVATIONS IN SELECTED WINDOW</b>
+                  <div style={{ marginTop: 4 }}>
+                    {events.length} observations are available across the full
+                    observed timeline. Use the Navigator above to select a day
+                    with activity, or widen the window.
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -443,9 +536,24 @@ export default function XdrDeviceTrajectoryPage() {
       {!unresolved && (
         <div style={{ marginTop: 12 }}>
           <div className="section-title" style={{ marginBottom: 6 }}>
-            Endpoint Lanes
+            Process Ancestry
           </div>
-          <EndpointLanes events={events} onSelect={(e) => setSelectedId(e.id)} />
+          <ProcessAncestryTree events={eventsInView} />
+
+          <div className="section-title" style={{ margin: "12px 0 6px",
+                                                      display: "flex", gap: 8,
+                                                      alignItems: "baseline" }}>
+            Endpoint Lanes
+            <span className="mono" style={{ color: "var(--faint)", fontSize: 9.5,
+                                                textTransform: "none",
+                                                letterSpacing: 0 }}
+                    data-testid="xdr-trajectory-lanes-window">
+              synced to canvas window · {fmtTs(new Date(viewStart).toISOString())}
+              {" → "}{fmtTs(new Date(viewEnd).toISOString())}
+            </span>
+          </div>
+          <EndpointLanes events={eventsInView}
+                          onSelect={(e) => setSelectedId(e.id)} />
         </div>
       )}
     </XdrShell>
