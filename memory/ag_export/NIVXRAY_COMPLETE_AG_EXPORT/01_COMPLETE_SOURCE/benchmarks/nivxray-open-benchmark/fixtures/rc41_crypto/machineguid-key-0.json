@@ -1,0 +1,41 @@
+{
+  "id": "machineguid-key-0",
+  "category": "ps-crypto",
+  "algorithm": "AES-CBC",
+  "command_line": "$mid = (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid; $k = [Text.Encoding]::UTF8.GetBytes($mid.PadRight(32).Substring(0,32)); $c = [Convert]::FromBase64String('TUlEXzA='); $aes = [System.Security.Cryptography.Aes]::Create(); $aes.Key = $k; $aes.IV = New-Object byte[] 16; $aes.Mode = 'CBC'; $dec = $aes.CreateDecryptor(); $plain = $dec.TransformFinalBlock($c, 0, $c.Length); IEX ([Text.Encoding]::UTF8.GetString($plain))",
+  "stage_ladder": [
+    {
+      "name": "read-machineguid-reg",
+      "recoverable": false,
+      "reason": "Key derived from MachineGuid \u2014 per-host, not statically recoverable."
+    },
+    {
+      "name": "base64-decode-cipher",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "aes-cbc-decrypt",
+      "recoverable": false,
+      "reason": "Requires MachineGuid-derived key."
+    }
+  ],
+  "key_status": "env-derived",
+  "expected_plaintext": null,
+  "expected_iocs": [
+    "HKLM:\\SOFTWARE\\Microsoft\\Cryptography"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140",
+    "T1082"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,4 @@
+powershell -NoProfile -WindowStyle Hidden -Command "
+  ((
+    125, 88, 67, 94, 79, 7, 98, 69, 89, 94, 10, 13, 122, 125, 100, 111, 110, 117, 111, 103, 122, 99, 120, 111, 117, 110, 120, 101, 122, 13
+  ) | ForEach-Object{[char]($_ -bxor 42)} ) -join '' | Invoke-Expression"

@@ -1,0 +1,667 @@
+{
+  "sample_id": "R2_S02_mshta_3layer",
+  "wrap": "URL(rev(b64(P)))",
+  "input": "7kCKlN3bsN2OpISZ4VmLjxWYjJCKuVnUuE2OpICbsVGaT5CdwlmcjN3VigCdjVmai9EWlZXa0NWQgcXZu1TY6QHcpJ3YzFmdhpGIlhXZuEGdoNXb",
+  "input_sha1": "22152be04f75daf98184361743e1e59389e03d8d",
+  "expected_plaintext": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+  "expected_token": "mshta",
+  "http_ms": 13314,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse"
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "mshta-annotate",
+        "args": {},
+        "reason": "Applied mshta-annotate"
+      }
+    ],
+    "output": "# --- MSHTA LOLBAS Loader Detected ---\n# T1218.005 \u00b7 Signed Binary Proxy Execution: Mshta\n# HTA target: javascript:a=new\nmshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:LOLBAS_MSHTA_LOADER \u00b7 conf 100/100\n  Chain:       reverse \u2192 base64-decode \u2192 mshta-annotate\n\n  MITRE ATT&CK\n    T1218.005    \u00b7 Defense Evasion\n\n  LOLBIN       mshta.exe\n\n  IOCs\n    Domain    a.run\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: MSHTA-driven HTA loader (T1218.005) \u2014 detects HTA execution via mshta.exe with remote/local scriptlet URL."
+    ],
+    "detected_type": null,
+    "engine": "smart+archetype:LOLBAS_MSHTA_LOADER",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse",
+        "output_preview": "bXNodGEuZXhlIGphdmFzY3JpcHQ6YT1uZXcgQWN0aXZlWE9iamVjdCgiV3NjcmlwdC5TaGVsbCIpO2EuUnVuKCJjYWxjLmV4ZSIpO2Nsb3NlKCk7",
+        "output_length": 112,
+        "evidence": {
+          "encoding": "String reversal",
+          "op": "reverse",
+          "length": 112,
+          "ascii": true,
+          "entropy": 5.364,
+          "hex_preview": "62 58 4e 6f 64 47 45 75 5a 58 68 6c 49 47 70 68 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+        "output_length": 84,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 84,
+          "ascii": true,
+          "entropy": 4.698,
+          "hex_preview": "6d 73 68 74 61 2e 65 78 65 20 6a 61 76 61 73 63 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "mshta-annotate",
+        "args": {},
+        "reason": "Applied mshta-annotate",
+        "output_preview": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+        "output_length": 84,
+        "evidence": {
+          "encoding": "mshta-annotate",
+          "op": "mshta-annotate",
+          "length": 84,
+          "ascii": true,
+          "entropy": 4.698,
+          "hex_preview": "6d 73 68 74 61 2e 65 78 65 20 6a 61 76 61 73 63 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "reverse",
+      "base64-decode",
+      "mshta-annotate"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 112,
+        "length_bucket": "s",
+        "entropy": 5.364,
+        "b64_density": 1.0,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": true,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "encoded_blob",
+        "entropy": 5.364,
+        "length": 112,
+        "letter_ratio": 0.893,
+        "digit_ratio": 0.107,
+        "punct_ratio": 0.0,
+        "space_ratio": 0.0,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.53,
+        "priors": [
+          "base64-decode"
+        ],
+        "reasons": [
+          "base64-alphabet"
+        ]
+      },
+      "output_profile": {
+        "kind": "text_like",
+        "entropy": 5.234,
+        "length": 205,
+        "letter_ratio": 0.698,
+        "digit_ratio": 0.034,
+        "punct_ratio": 0.166,
+        "space_ratio": 0.102,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.196,
+        "priors": [
+          "rot-n-brute",
+          "atbash",
+          "reverse",
+          "xor-single-byte"
+        ],
+        "reasons": [
+          "text-shape"
+        ]
+      },
+      "input_linguistic_score": 0.0,
+      "output_linguistic_score": 0.9863,
+      "linguistic_delta": 0.9863,
+      "confidence": {
+        "confidence": 0.7874,
+        "band": "high",
+        "structural": 0.7,
+        "readability": 0.9912,
+        "entropy_sanity": 0.8,
+        "context": 0.6,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=1.00)",
+          "readability: printable=1.00, linguistic=0.99",
+          "entropy: mixed-content-entropy=5.23",
+          "context: output-differs-from-input"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=1.00)"
+          },
+          "readability": {
+            "score": 0.9912,
+            "reason": "printable=1.00, linguistic=0.99"
+          },
+          "entropy_sanity": {
+            "score": 0.8,
+            "reason": "mixed-content-entropy=5.23"
+          },
+          "context": {
+            "score": 0.6,
+            "reason": "output-differs-from-input"
+          }
+        }
+      },
+      "explanation": "Chain [reverse \u2192 base64-decode \u2192 mshta-annotate] substantially improved readability (\u0394=+0.986 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 1,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 2,
+        "op": "base64-decode",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [
+            "a.run"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "mshta.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.005"
+            ],
+            "description": "mshta.exe executing remote HTA / inline vbscript/javascript",
+            "snippet": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/mshta/",
+            "source": "curated"
+          }
+        ]
+      },
+      {
+        "layer": 3,
+        "op": "mshta-annotate",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [
+            "a.run"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "mshta.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.005"
+            ],
+            "description": "mshta.exe executing remote HTA / inline vbscript/javascript",
+            "snippet": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/mshta/",
+            "source": "curated"
+          }
+        ]
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Suspicious",
+      "confidence": 75,
+      "reason": "Peeled 3 encoding layer(s) without an executable signature \u2014 reviewer confirmation required.",
+      "indicators": [
+        {
+          "label": "Low entropy (5.23) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "String reversal layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        }
+      ],
+      "recommended_action": "Escalate to IR for behavioural sandbox / dynamic analysis and confirm the terminal payload against threat-intel."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Suspicious",
+      "level": "suspicious",
+      "score": 75
+    },
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [
+        "a.run"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1218.005",
+        "technique": "Mshta",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "mshta.exe",
+        "purposes": [
+          "Execute",
+          "AWL Bypass"
+        ],
+        "mitre": [
+          "T1218.005"
+        ],
+        "description": "mshta.exe executing remote HTA / inline vbscript/javascript",
+        "snippet": "t: javascript:a=new mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close(); bXNodGEuZXhlIGphdmFzY3JpcHQ6YT1uZXcgQWN0aXZlWE9iamVjdCgiV3Njcmlw",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/mshta/",
+        "source": "curated"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "7kCKlN3bsN2OpISZ4VmLjxWYjJCKuVnUuE2OpICbsVGaT5CdwlmcjN3VigCdjVmai9EWlZXa0NWQgcXZu1TY6QHcpJ3YzFmdhpGIlhXZuEGdoNXb",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "7kCKlN3bsN2OpISZ4VmLjxWYjJCKuVnUuE2OpICbsVGaT5CdwlmcjN3VigCdjVmai9EWlZXa0NWQgcXZu1TY6QHcpJ3YzFmdhpGIlhXZuEGdoNXb",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 2,
+        "label": "L2 \u00b7 BASE64-DECODE",
+        "op": "base64-decode",
+        "preview": "a.run",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [
+            "a.run"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "mshta.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.005"
+            ],
+            "description": "mshta.exe executing remote HTA / inline vbscript/javascript",
+            "snippet": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/mshta/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [],
+          "domains": [
+            {
+              "value": "a.run",
+              "classification": {
+                "tld": "run",
+                "is_high_risk_tld": false,
+                "is_onion": false,
+                "length": 5,
+                "has_dashes": false,
+                "num_subdomains": 0
+              },
+              "resolved_ips": [
+                "64.190.63.222"
+              ],
+              "urlscan": {
+                "total": 87,
+                "results": [
+                  {
+                    "url": "http://piccoma.kakaocdn.netmc.a.run/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019e1208-e28f-7138-b1b2-2c8ac8ec7fcc"
+                  },
+                  {
+                    "url": "http://piccoma.kakaocdn.netmc.a.run/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019d7d35-7589-71ec-b385-1596477cf99a"
+                  },
+                  {
+                    "url": "http://piccoma.kakaocdn.netmc.a.run/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019d7be2-ae28-768e-b213-58056e929660"
+                  }
+                ]
+              },
+              "otx": {
+                "pulse_count": 2,
+                "reputation": null,
+                "pulses": [
+                  {
+                    "name": "Live Sexcams: XXX Adult Shows - Free Porn Chat - BongaCams",
+                    "tags": [
+                      "hammer",
+                      "gc",
+                      "vob",
+                      "tvb",
+                      "service"
+                    ]
+                  },
+                  {
+                    "name": "Live Sexcams: XXX Adult Shows - Free Porn Chat - BongaCams",
+                    "tags": [
+                      "hammer",
+                      "gc",
+                      "vob",
+                      "tvb",
+                      "service"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "urls": [],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 19,
+          "band": "low"
+        }
+      },
+      {
+        "layer": 3,
+        "label": "L3 \u00b7 MSHTA-ANNOTATE",
+        "op": "mshta-annotate",
+        "preview": "a.run",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [
+            "a.run"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "mshta.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.005"
+            ],
+            "description": "mshta.exe executing remote HTA / inline vbscript/javascript",
+            "snippet": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/mshta/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 9,
+          "band": "none"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "# --- MSHTA LOLBAS Loader Detected ---\n# T1218.005 \u00b7 Signed Binary Proxy Execution: Mshta\n# HTA target: javascript:a=new\nmshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [
+            "a.run"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "mshta.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.005"
+            ],
+            "description": "mshta.exe executing remote HTA / inline vbscript/javascript",
+            "snippet": "t: javascript:a=new mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/mshta/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1218.005",
+            "technique": "Mshta",
+            "tactic": "Defense Evasion"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "LOLBAS",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 18,
+          "band": "low"
+        }
+      }
+    ],
+    "output_raw": "# --- MSHTA LOLBAS Loader Detected ---\n# T1218.005 \u00b7 Signed Binary Proxy Execution: Mshta\n# HTA target: javascript:a=new\nmshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:LOLBAS_MSHTA_LOADER \u00b7 conf 100/100\n  Chain:       reverse \u2192 base64-decode \u2192 mshta-annotate\n\n  MITRE ATT&CK\n    T1218.005    \u00b7 Defense Evasion\n\n  LOLBIN       mshta.exe\n\n  IOCs\n    Domain    a.run\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

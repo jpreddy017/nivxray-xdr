@@ -1,0 +1,842 @@
+{
+  "summary": {
+    "overall": {
+      "total_samples": 31,
+      "chain_complete": "22/31",
+      "chain_complete_pct": 71.0,
+      "final_readable": "24/31",
+      "verdict_precise": "13/31",
+      "false_positive_iocs": 0,
+      "avg_time_ms": 283
+    },
+    "by_category": [
+      {
+        "category": "Base64",
+        "total": 2,
+        "chain_complete": "2/2",
+        "chain_complete_pct": 100.0,
+        "final_readable": "2/2",
+        "verdict_precise": "2/2",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 8
+      },
+      {
+        "category": "Benign",
+        "total": 3,
+        "chain_complete": "3/3",
+        "chain_complete_pct": 100.0,
+        "final_readable": "3/3",
+        "verdict_precise": "3/3",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 0
+      },
+      {
+        "category": "CMD",
+        "total": 3,
+        "chain_complete": "2/3",
+        "chain_complete_pct": 66.7,
+        "final_readable": "3/3",
+        "verdict_precise": "0/3",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 0
+      },
+      {
+        "category": "Compression",
+        "total": 1,
+        "chain_complete": "1/1",
+        "chain_complete_pct": 100.0,
+        "final_readable": "1/1",
+        "verdict_precise": "1/1",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 1
+      },
+      {
+        "category": "JavaScript",
+        "total": 3,
+        "chain_complete": "1/3",
+        "chain_complete_pct": 33.3,
+        "final_readable": "1/3",
+        "verdict_precise": "0/3",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 19
+      },
+      {
+        "category": "LOLBAS",
+        "total": 3,
+        "chain_complete": "3/3",
+        "chain_complete_pct": 100.0,
+        "final_readable": "3/3",
+        "verdict_precise": "1/3",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 0
+      },
+      {
+        "category": "Multi-Stage",
+        "total": 1,
+        "chain_complete": "1/1",
+        "chain_complete_pct": 100.0,
+        "final_readable": "1/1",
+        "verdict_precise": "1/1",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 74
+      },
+      {
+        "category": "Phishing",
+        "total": 1,
+        "chain_complete": "1/1",
+        "chain_complete_pct": 100.0,
+        "final_readable": "1/1",
+        "verdict_precise": "0/1",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 0
+      },
+      {
+        "category": "PowerShell",
+        "total": 6,
+        "chain_complete": "3/6",
+        "chain_complete_pct": 50.0,
+        "final_readable": "4/6",
+        "verdict_precise": "3/6",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 0
+      },
+      {
+        "category": "Regression",
+        "total": 2,
+        "chain_complete": "2/2",
+        "chain_complete_pct": 100.0,
+        "final_readable": "1/2",
+        "verdict_precise": "1/2",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 351
+      },
+      {
+        "category": "VBScript",
+        "total": 2,
+        "chain_complete": "0/2",
+        "chain_complete_pct": 0.0,
+        "final_readable": "1/2",
+        "verdict_precise": "0/2",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 0
+      },
+      {
+        "category": "XOR",
+        "total": 4,
+        "chain_complete": "3/4",
+        "chain_complete_pct": 75.0,
+        "final_readable": "3/4",
+        "verdict_precise": "1/4",
+        "false_positive_iocs": 0,
+        "avg_time_ms": 1984
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "b64-single-cmd",
+      "category": "Base64",
+      "decode_depth": 2,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "3/3",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 2 layer(s); no plugin claims further transform.",
+      "confidence": 12,
+      "verdict": "needs_review",
+      "expected_verdict": "needs_review",
+      "time_ms": 15,
+      "chain": [
+        "base64-decode",
+        "extract-wrapper"
+      ],
+      "notes": "single-layer base64"
+    },
+    {
+      "id": "b64-double-ps",
+      "category": "Base64",
+      "decode_depth": 4,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "3/3",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 3 layer(s); no plugin claims further transform.",
+      "confidence": 82,
+      "verdict": "malicious",
+      "expected_verdict": "malicious",
+      "time_ms": 1,
+      "chain": [
+        "base64-decode",
+        "base64-decode",
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "double-nested base64 with LOLBAS + URL"
+    },
+    {
+      "id": "b64-utf16le-ps-encodedcommand",
+      "category": "PowerShell",
+      "decode_depth": 4,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "3/3",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 3 layer(s); no plugin claims further transform.",
+      "confidence": 82,
+      "verdict": "malicious",
+      "expected_verdict": "malicious",
+      "time_ms": 1,
+      "chain": [
+        "base64-decode",
+        "utf16-decode",
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "canonical -EncodedCommand pattern (base64 of UTF-16LE)"
+    },
+    {
+      "id": "xor-1byte-b64",
+      "category": "XOR",
+      "decode_depth": 4,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "3/3",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 3 layer(s); no plugin claims further transform.",
+      "confidence": 59,
+      "verdict": "suspicious",
+      "expected_verdict": "malicious",
+      "time_ms": 288,
+      "chain": [
+        "base64-decode",
+        "xor-brute",
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "single-byte XOR after base64 \u2014 canonical Meterpreter tail"
+    },
+    {
+      "id": "xor-5byte-b64",
+      "category": "XOR",
+      "decode_depth": 4,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 3 layer(s); no plugin claims further transform.",
+      "confidence": 100,
+      "verdict": "malicious",
+      "expected_verdict": "malicious",
+      "time_ms": 959,
+      "chain": [
+        "base64-decode",
+        "xor-brute",
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "5-byte repeating XOR key"
+    },
+    {
+      "id": "xor-7byte-b64",
+      "category": "XOR",
+      "decode_depth": 6,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 5 layer(s); no plugin claims further transform.",
+      "confidence": 63,
+      "verdict": "suspicious",
+      "expected_verdict": "malicious",
+      "time_ms": 784,
+      "chain": [
+        "base64-decode",
+        "xor-brute",
+        "extract-wrapper",
+        "extract-wrapper",
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "7-byte repeating XOR key"
+    },
+    {
+      "id": "xor-11byte-b64",
+      "category": "XOR",
+      "decode_depth": 7,
+      "chain_complete": false,
+      "final_readable": false,
+      "terms_hit": "0/2",
+      "terms_missing": [
+        "powershell",
+        "downloadstring"
+      ],
+      "iocs_missing": [
+        "urls:http://c2.evil.net/stage2.ps1"
+      ],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 7 layer(s); no further transform improved the score. Considered at final layer: xor-brute(0.10). Final english_d",
+      "confidence": 57,
+      "verdict": "suspicious",
+      "expected_verdict": "malicious",
+      "time_ms": 5906,
+      "chain": [
+        "base64-decode",
+        "xor-brute",
+        "ps-reconstruct",
+        "xor-brute",
+        "ps-reconstruct",
+        "xor-brute",
+        "ps-reconstruct"
+      ],
+      "notes": "11-byte repeating XOR \u2014 currently likely to fail (>8 byte)"
+    },
+    {
+      "id": "gzip-b64-loader",
+      "category": "Compression",
+      "decode_depth": 4,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "3/3",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 3 layer(s); no plugin claims further transform.",
+      "confidence": 82,
+      "verdict": "malicious",
+      "expected_verdict": "malicious",
+      "time_ms": 1,
+      "chain": [
+        "base64-decode",
+        "gzip-decompress",
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "base64(gzip(script)) \u2014 Empire framework pattern"
+    },
+    {
+      "id": "gzip-b64-xor-tail",
+      "category": "Multi-Stage",
+      "decode_depth": 5,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 4 layer(s); no plugin claims further transform.",
+      "confidence": 82,
+      "verdict": "malicious",
+      "expected_verdict": "malicious",
+      "time_ms": 74,
+      "chain": [
+        "base64-decode",
+        "xor-brute",
+        "gzip-decompress",
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "base64(xor(gzip(cmd))) \u2014 3-layer chain"
+    },
+    {
+      "id": "ps-char-decimal",
+      "category": "PowerShell",
+      "decode_depth": 2,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no further transform improved the score. Considered at final layer: ascii85-decode(0.05). Final engl",
+      "confidence": 35,
+      "verdict": "needs_review",
+      "expected_verdict": "suspicious",
+      "time_ms": 1,
+      "chain": [
+        "ps-reconstruct",
+        "ioc-extractor"
+      ],
+      "notes": "[char] decimal reconstruction \u2014 needs Phase A6"
+    },
+    {
+      "id": "ps-char-hex",
+      "category": "PowerShell",
+      "decode_depth": 2,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [
+        "urls:http://drop.example.net/p.ps1"
+      ],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no plugin claims further transform.",
+      "confidence": 35,
+      "verdict": "needs_review",
+      "expected_verdict": "suspicious",
+      "time_ms": 0,
+      "chain": [
+        "ps-reconstruct",
+        "ioc-extractor"
+      ],
+      "notes": "[char]0xNN hex reconstruction"
+    },
+    {
+      "id": "ps-join-obfuscation",
+      "category": "PowerShell",
+      "decode_depth": 2,
+      "chain_complete": false,
+      "final_readable": true,
+      "terms_hit": "1/2",
+      "terms_missing": [
+        "iex"
+      ],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no further transform improved the score. Considered at final layer: ascii85-decode(0.05). Final engl",
+      "confidence": 82,
+      "verdict": "malicious",
+      "expected_verdict": "suspicious",
+      "time_ms": 0,
+      "chain": [
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "-join '' reconstruction"
+    },
+    {
+      "id": "ps-format-operator",
+      "category": "PowerShell",
+      "decode_depth": 0,
+      "chain_complete": false,
+      "final_readable": false,
+      "terms_hit": "0/1",
+      "terms_missing": [
+        "iex"
+      ],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (30 plugins considered).",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "unknown",
+      "time_ms": 0,
+      "chain": [],
+      "notes": "-f format operator reconstruction"
+    },
+    {
+      "id": "ps-replace-obfuscation",
+      "category": "PowerShell",
+      "decode_depth": 0,
+      "chain_complete": false,
+      "final_readable": false,
+      "terms_hit": "0/1",
+      "terms_missing": [
+        "iex"
+      ],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No plugin produced a useful transform on the raw input. Considered: ascii85-decode(0.35).",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "unknown",
+      "time_ms": 0,
+      "chain": [],
+      "notes": ".Replace() call"
+    },
+    {
+      "id": "cmd-env-var",
+      "category": "CMD",
+      "decode_depth": 1,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "english",
+      "stopped_detail": "english_density=0.71 \u2265 0.7",
+      "confidence": 12,
+      "verdict": "needs_review",
+      "expected_verdict": "malicious",
+      "time_ms": 0,
+      "chain": [
+        "ioc-extractor"
+      ],
+      "notes": "%VAR% expansion"
+    },
+    {
+      "id": "cmd-set-and-call",
+      "category": "CMD",
+      "decode_depth": 1,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "3/3",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (30 plugins considered).",
+      "confidence": 12,
+      "verdict": "needs_review",
+      "expected_verdict": "suspicious",
+      "time_ms": 0,
+      "chain": [
+        "ioc-extractor"
+      ],
+      "notes": "SET then %VAR% reference \u2014 CMD reconstruction needed"
+    },
+    {
+      "id": "cmd-delayed-expansion",
+      "category": "CMD",
+      "decode_depth": 1,
+      "chain_complete": false,
+      "final_readable": true,
+      "terms_hit": "1/2",
+      "terms_missing": [
+        "certutil"
+      ],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (30 plugins considered).",
+      "confidence": 12,
+      "verdict": "needs_review",
+      "expected_verdict": "malicious",
+      "time_ms": 0,
+      "chain": [
+        "ioc-extractor"
+      ],
+      "notes": "!DELAYED! expansion"
+    },
+    {
+      "id": "lolbas-certutil-download",
+      "category": "LOLBAS",
+      "decode_depth": 2,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no plugin claims further transform.",
+      "confidence": 39,
+      "verdict": "needs_review",
+      "expected_verdict": "malicious",
+      "time_ms": 0,
+      "chain": [
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "plaintext certutil download"
+    },
+    {
+      "id": "lolbas-mshta-remote",
+      "category": "LOLBAS",
+      "decode_depth": 2,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no plugin claims further transform.",
+      "confidence": 74,
+      "verdict": "malicious",
+      "expected_verdict": "malicious",
+      "time_ms": 0,
+      "chain": [
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "mshta remote HTA execution"
+    },
+    {
+      "id": "lolbas-regsvr32-remote",
+      "category": "LOLBAS",
+      "decode_depth": 1,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (30 plugins considered).",
+      "confidence": 12,
+      "verdict": "needs_review",
+      "expected_verdict": "malicious",
+      "time_ms": 0,
+      "chain": [
+        "ioc-extractor"
+      ],
+      "notes": "Squiblydoo \u2014 regsvr32 scrobj.dll pattern"
+    },
+    {
+      "id": "phish-onenote-lure",
+      "category": "Phishing",
+      "decode_depth": 2,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no plugin claims further transform.",
+      "confidence": 39,
+      "verdict": "needs_review",
+      "expected_verdict": "suspicious",
+      "time_ms": 0,
+      "chain": [
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "phishing \u2192 download \u2192 open lure PDF"
+    },
+    {
+      "id": "benign-whoami",
+      "category": "Benign",
+      "decode_depth": 0,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "1/1",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (30 plugins considered).",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "unknown",
+      "time_ms": 0,
+      "chain": [],
+      "notes": "benign admin \u2014 must NOT be flagged malicious"
+    },
+    {
+      "id": "benign-git-status",
+      "category": "Benign",
+      "decode_depth": 0,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No plugin produced a useful transform on the raw input. Considered: ascii85-decode(0.35), base64-decode(0.05).",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "unknown",
+      "time_ms": 0,
+      "chain": [],
+      "notes": "benign devops"
+    },
+    {
+      "id": "benign-scheduled-task-list",
+      "category": "Benign",
+      "decode_depth": 0,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "1/1",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No plugin produced a useful transform on the raw input. Considered: base64-decode(0.15).",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "unknown",
+      "time_ms": 0,
+      "chain": [],
+      "notes": "benign task listing"
+    },
+    {
+      "id": "regression-meterpreter-tail-garbage",
+      "category": "Regression",
+      "decode_depth": 4,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "2/2",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 3 layer(s); no plugin claims further transform.",
+      "confidence": 98,
+      "verdict": "malicious",
+      "expected_verdict": "malicious",
+      "time_ms": 703,
+      "chain": [
+        "base64-decode",
+        "xor-brute",
+        "extract-wrapper",
+        "ioc-extractor"
+      ],
+      "notes": "residual binary tail \u2014 tests tail-trim + normalizer"
+    },
+    {
+      "id": "regression-nested-b64-nulls",
+      "category": "Regression",
+      "decode_depth": 3,
+      "chain_complete": true,
+      "final_readable": false,
+      "terms_hit": "3/3",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 3 layer(s); no plugin claims further transform.",
+      "confidence": 12,
+      "verdict": "needs_review",
+      "expected_verdict": "unknown",
+      "time_ms": 0,
+      "chain": [
+        "base64-decode",
+        "base64-decode",
+        "extract-wrapper"
+      ],
+      "notes": "nested base64 with trailing nulls \u2014 tests normalization re-loop"
+    },
+    {
+      "id": "js-fromcharcode",
+      "category": "JavaScript",
+      "decode_depth": 1,
+      "chain_complete": false,
+      "final_readable": false,
+      "terms_hit": "0/2",
+      "terms_missing": [
+        "alert",
+        "xss"
+      ],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no plugin claims further transform.",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "suspicious",
+      "time_ms": 59,
+      "chain": [
+        "xor-brute"
+      ],
+      "notes": "String.fromCharCode -> eval \u2014 Phase B target"
+    },
+    {
+      "id": "js-atob",
+      "category": "JavaScript",
+      "decode_depth": 0,
+      "chain_complete": false,
+      "final_readable": false,
+      "terms_hit": "0/2",
+      "terms_missing": [
+        "alert",
+        "pwned"
+      ],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (30 plugins considered).",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "suspicious",
+      "time_ms": 0,
+      "chain": [],
+      "notes": "atob() base64 wrapper \u2014 Phase B"
+    },
+    {
+      "id": "js-unescape",
+      "category": "JavaScript",
+      "decode_depth": 1,
+      "chain_complete": true,
+      "final_readable": true,
+      "terms_hit": "1/1",
+      "terms_missing": [],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no plugin claims further transform.",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "suspicious",
+      "time_ms": 0,
+      "chain": [
+        "url-decode"
+      ],
+      "notes": "unescape() URL-hex \u2014 Phase B"
+    },
+    {
+      "id": "vbs-chr",
+      "category": "VBScript",
+      "decode_depth": 0,
+      "chain_complete": false,
+      "final_readable": true,
+      "terms_hit": "1/2",
+      "terms_missing": [
+        "msgbox"
+      ],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "no-candidate",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (30 plugins considered).",
+      "confidence": 0,
+      "verdict": "unknown",
+      "expected_verdict": "suspicious",
+      "time_ms": 0,
+      "chain": [],
+      "notes": "Chr() + Execute \u2014 Phase B"
+    },
+    {
+      "id": "vbs-createobject",
+      "category": "VBScript",
+      "decode_depth": 1,
+      "chain_complete": false,
+      "final_readable": false,
+      "terms_hit": "0/2",
+      "terms_missing": [
+        "wscript.shell",
+        "cmd.exe"
+      ],
+      "iocs_missing": [],
+      "false_positive_iocs": [],
+      "stop_reason": "complete",
+      "stopped_detail": "Decoded 1 layer(s); no plugin claims further transform.",
+      "confidence": 12,
+      "verdict": "needs_review",
+      "expected_verdict": "suspicious",
+      "time_ms": 0,
+      "chain": [
+        "extract-wrapper"
+      ],
+      "notes": "CreateObject + Run \u2014 Phase B"
+    }
+  ]
+}

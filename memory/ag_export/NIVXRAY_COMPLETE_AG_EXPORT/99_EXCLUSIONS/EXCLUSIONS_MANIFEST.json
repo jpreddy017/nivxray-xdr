@@ -1,0 +1,2709 @@
+{
+  "summary": {
+    "total_cache_files_excluded": 536,
+    "total_cache_bytes": 6209977,
+    "documented_but_not_present_count": 3
+  },
+  "documented_but_not_present": [
+    {
+      "capability": "Phase 1 Kernel-Level EDR Sensor Agent & Driver",
+      "status": "DOCUMENTED_BUT_NOT_PRESENT",
+      "roadmap_phase": "Phase 1",
+      "reason": "Specification and architectural contracts complete; physical driver implementation pending Phase 1 approval."
+    },
+    {
+      "capability": "Phase 4 Native Dynamic Sandbox MicroVM Hypervisor Runner",
+      "status": "DOCUMENTED_BUT_NOT_PRESENT",
+      "roadmap_phase": "Phase 4",
+      "reason": "Detonation boundary architecture complete; hypervisor runtime implementation pending Phase 4."
+    },
+    {
+      "capability": "Local Git Repository (.git)",
+      "status": "DOCUMENTED_BUT_NOT_PRESENT",
+      "roadmap_phase": "N/A",
+      "reason": "Host lacks git.exe and local .git working directory; tracked via cryptographic file manifests."
+    }
+  ],
+  "excluded_caches": [
+    {
+      "path": ".pytest_cache/.gitignore",
+      "size_bytes": 37,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": ".pytest_cache/CACHEDIR.TAG",
+      "size_bytes": 191,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": ".pytest_cache/README.md",
+      "size_bytes": 302,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": ".pytest_cache/v/cache/nodeids",
+      "size_bytes": 2,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/.pytest_cache/.gitignore",
+      "size_bytes": 37,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/.pytest_cache/CACHEDIR.TAG",
+      "size_bytes": 191,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/.pytest_cache/README.md",
+      "size_bytes": 302,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/.pytest_cache/v/cache/lastfailed",
+      "size_bytes": 791,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/.pytest_cache/v/cache/nodeids",
+      "size_bytes": 2,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/agenttesla.cpython-314.pyc",
+      "size_bytes": 2768,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/asyncrat.cpython-314.pyc",
+      "size_bytes": 2528,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/cobalt_strike.cpython-314.pyc",
+      "size_bytes": 2866,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/darkgate.cpython-314.pyc",
+      "size_bytes": 2383,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/emotet.cpython-314.pyc",
+      "size_bytes": 4759,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/formbook.cpython-314.pyc",
+      "size_bytes": 3942,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/lumma.cpython-314.pyc",
+      "size_bytes": 2586,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/meterpreter.cpython-314.pyc",
+      "size_bytes": 2849,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/njrat.cpython-314.pyc",
+      "size_bytes": 3827,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/quasarrat.cpython-314.pyc",
+      "size_bytes": 2452,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/redline.cpython-314.pyc",
+      "size_bytes": 4543,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/remcos.cpython-314.pyc",
+      "size_bytes": 2362,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/snake_keylogger.cpython-314.pyc",
+      "size_bytes": 2648,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/xworm.cpython-314.pyc",
+      "size_bytes": 4733,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/_base.cpython-314.pyc",
+      "size_bytes": 11308,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/families/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 812,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ascii85.cpython-314.pyc",
+      "size_bytes": 5216,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/base32.cpython-314.pyc",
+      "size_bytes": 4557,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/base58.cpython-314.pyc",
+      "size_bytes": 5496,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/base64.cpython-314.pyc",
+      "size_bytes": 6989,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/base91.cpython-314.pyc",
+      "size_bytes": 6558,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/batch_envvar_substitute.cpython-314.pyc",
+      "size_bytes": 8589,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/brotli_stream.cpython-314.pyc",
+      "size_bytes": 5202,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/caesar.cpython-314.pyc",
+      "size_bytes": 5540,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/charcode_decoders.cpython-314.pyc",
+      "size_bytes": 9761,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/cmd_reconstruct.cpython-314.pyc",
+      "size_bytes": 12322,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/cmd_runtime_reconstruct.cpython-314.pyc",
+      "size_bytes": 44707,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/cobaltstrike_beacon_config.cpython-314.pyc",
+      "size_bytes": 11635,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/crypto_api_annotator.cpython-314.pyc",
+      "size_bytes": 7344,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/crypto_symmetric.cpython-314.pyc",
+      "size_bytes": 661,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/custom_hex_slash.cpython-314.pyc",
+      "size_bytes": 6347,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/data_uri.cpython-314.pyc",
+      "size_bytes": 4396,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/extract_wrapper.cpython-314.pyc",
+      "size_bytes": 13776,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/gzip_stream.cpython-314.pyc",
+      "size_bytes": 3741,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/hex.cpython-314.pyc",
+      "size_bytes": 4611,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/html_unicode_escape.cpython-314.pyc",
+      "size_bytes": 8504,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ioc_extractor.cpython-314.pyc",
+      "size_bytes": 11719,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/js_reconstruct.cpython-314.pyc",
+      "size_bytes": 12180,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/jwt.cpython-314.pyc",
+      "size_bytes": 5460,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/lzma_stream.cpython-314.pyc",
+      "size_bytes": 5602,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/nibble_swap.cpython-314.pyc",
+      "size_bytes": 6218,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_alias_normalizer.cpython-314.pyc",
+      "size_bytes": 13304,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_backtick_normalizer.cpython-314.pyc",
+      "size_bytes": 9304,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_encodedcommand_multilayer.cpython-314.pyc",
+      "size_bytes": 8615,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_hex_escape.cpython-314.pyc",
+      "size_bytes": 6987,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_inline_eval.cpython-314.pyc",
+      "size_bytes": 9891,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_normalizer.cpython-314.pyc",
+      "size_bytes": 14453,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_reconstruct.cpython-314.pyc",
+      "size_bytes": 26391,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_reverse_swap.cpython-314.pyc",
+      "size_bytes": 4838,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/ps_semantic_mini.cpython-314.pyc",
+      "size_bytes": 5243,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/rc40_orchestrator_plugins.cpython-314.pyc",
+      "size_bytes": 20699,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/rc4_inline_decrypt.cpython-314.pyc",
+      "size_bytes": 5888,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/reverse_string.cpython-314.pyc",
+      "size_bytes": 7414,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/rot13.cpython-314.pyc",
+      "size_bytes": 3804,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/rot47.cpython-314.pyc",
+      "size_bytes": 3567,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/url.cpython-314.pyc",
+      "size_bytes": 3626,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/utf16.cpython-314.pyc",
+      "size_bytes": 5819,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/vbs_reconstruct.cpython-314.pyc",
+      "size_bytes": 8543,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/xor_brute.cpython-314.pyc",
+      "size_bytes": 802,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/zlib_deflate.cpython-314.pyc",
+      "size_bytes": 4948,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/zstd_stream.cpython-314.pyc",
+      "size_bytes": 4087,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/decoders/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 454,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/canonical_ir/__pycache__/evaluator.cpython-314.pyc",
+      "size_bytes": 4118,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/canonical_ir/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 7204,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/canonical_ir/__pycache__/nodes.cpython-314.pyc",
+      "size_bytes": 17417,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/canonical_ir/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 815,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/adversarial_corpus.cpython-314.pyc",
+      "size_bytes": 11956,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/behavioral_correlation_corpus.cpython-314.pyc",
+      "size_bytes": 11893,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/eql_corpus.cpython-314.pyc",
+      "size_bytes": 8263,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/hunting_anomaly_corpus.cpython-314.pyc",
+      "size_bytes": 13483,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/ioc_threat_intel_corpus.cpython-314.pyc",
+      "size_bytes": 10377,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/mapping_response_corpus.cpython-314.pyc",
+      "size_bytes": 15305,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/ot_ics_rmm_corpus.cpython-314.pyc",
+      "size_bytes": 9513,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/sigma_corpus.cpython-314.pyc",
+      "size_bytes": 35248,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/spl_kql_corpus.cpython-314.pyc",
+      "size_bytes": 13270,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/yara_corpus.cpython-314.pyc",
+      "size_bytes": 14399,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/corpus/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 3823,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/deduplication/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 9766,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/deduplication/__pycache__/fingerprint.cpython-314.pyc",
+      "size_bytes": 6161,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/deduplication/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 463,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/library/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 4874,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/library/__pycache__/registry.cpython-314.pyc",
+      "size_bytes": 6366,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/library/__pycache__/rules_enterprise.cpython-314.pyc",
+      "size_bytes": 47490,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/library/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 593,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/telemetry/__pycache__/aws_cloudtrail_dsm.cpython-314.pyc",
+      "size_bytes": 11127,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/telemetry/__pycache__/linux_auditd_dsm.cpython-314.pyc",
+      "size_bytes": 13410,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/telemetry/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 8051,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/telemetry/__pycache__/registry.cpython-314.pyc",
+      "size_bytes": 2576,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/telemetry/__pycache__/windows_security_dsm.cpython-314.pyc",
+      "size_bytes": 16260,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/telemetry/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1091,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/anomaly_translator.cpython-314.pyc",
+      "size_bytes": 5138,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/base.cpython-314.pyc",
+      "size_bytes": 3627,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/behavioral_translator.cpython-314.pyc",
+      "size_bytes": 6343,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/correlation_translator.cpython-314.pyc",
+      "size_bytes": 5586,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/eql_translator.cpython-314.pyc",
+      "size_bytes": 15513,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/hunting_translator.cpython-314.pyc",
+      "size_bytes": 4494,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/ioc_translator.cpython-314.pyc",
+      "size_bytes": 6350,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/kql_translator.cpython-314.pyc",
+      "size_bytes": 12948,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/manager.cpython-314.pyc",
+      "size_bytes": 7330,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/mapping_translator.cpython-314.pyc",
+      "size_bytes": 4973,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/sigma_translator.cpython-314.pyc",
+      "size_bytes": 18298,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/spl_translator.cpython-314.pyc",
+      "size_bytes": 13537,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/yara_translator.cpython-314.pyc",
+      "size_bytes": 5805,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/translation/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 669,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/validation_framework/__pycache__/binding_bridge.cpython-314.pyc",
+      "size_bytes": 9695,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/validation_framework/__pycache__/gates.cpython-314.pyc",
+      "size_bytes": 21957,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/validation_framework/__pycache__/lifecycle.cpython-314.pyc",
+      "size_bytes": 8376,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/validation_framework/__pycache__/tiers.cpython-314.pyc",
+      "size_bytes": 7791,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/validation_framework/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 897,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/artifact_router.cpython-314.pyc",
+      "size_bytes": 14344,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/canonical_content_model.cpython-314.pyc",
+      "size_bytes": 16891,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/capability_contract.cpython-314.pyc",
+      "size_bytes": 6726,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/contract_registry.cpython-314.pyc",
+      "size_bytes": 7406,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/corpus_expansion.cpython-314.pyc",
+      "size_bytes": 20781,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/correlation_library.cpython-314.pyc",
+      "size_bytes": 4376,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/engine_fabric_contracts.cpython-314.pyc",
+      "size_bytes": 21158,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/engine_registry.cpython-314.pyc",
+      "size_bytes": 1672,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/nivxray_native_sigma.cpython-314.pyc",
+      "size_bytes": 12917,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/rmm_model.cpython-314.pyc",
+      "size_bytes": 13107,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/rule_binding.cpython-314.pyc",
+      "size_bytes": 9906,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/sigma_strict.cpython-314.pyc",
+      "size_bytes": 12658,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_action_registry.cpython-314.pyc",
+      "size_bytes": 13005,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_capability_service.cpython-314.pyc",
+      "size_bytes": 4361,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_closed_loop.cpython-314.pyc",
+      "size_bytes": 22090,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_edr_adapter.cpython-314.pyc",
+      "size_bytes": 6767,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_framework_mapping.cpython-314.pyc",
+      "size_bytes": 18662,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_ice.cpython-314.pyc",
+      "size_bytes": 11886,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_incident.cpython-314.pyc",
+      "size_bytes": 6160,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_investigation.cpython-314.pyc",
+      "size_bytes": 19036,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_iue.cpython-314.pyc",
+      "size_bytes": 11454,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_pipeline.cpython-314.pyc",
+      "size_bytes": 20526,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_response_decision.cpython-314.pyc",
+      "size_bytes": 15892,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_response_executor.cpython-314.pyc",
+      "size_bytes": 12378,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_response_fabric.cpython-314.pyc",
+      "size_bytes": 8483,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/xdr_veee.cpython-314.pyc",
+      "size_bytes": 4923,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/yara_engine.cpython-314.pyc",
+      "size_bytes": 19442,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/detection_content/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 230,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/engine/__pycache__/config.cpython-314.pyc",
+      "size_bytes": 2672,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/engine/__pycache__/decoder_base.cpython-314.pyc",
+      "size_bytes": 4293,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/engine/__pycache__/entity_classifier.cpython-314.pyc",
+      "size_bytes": 14326,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/engine/__pycache__/fingerprint_util.cpython-314.pyc",
+      "size_bytes": 6724,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/engine/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 18830,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/engine/__pycache__/orchestrator.cpython-314.pyc",
+      "size_bytes": 69007,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/engine/__pycache__/registry.cpython-314.pyc",
+      "size_bytes": 8609,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/engine/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 2870,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/cim/__pycache__/fact_substrate.cpython-314.pyc",
+      "size_bytes": 23366,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/cim/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 11206,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/cim/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 807,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/investigation/__pycache__/builder.cpython-314.pyc",
+      "size_bytes": 23960,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/investigation/__pycache__/graph.cpython-314.pyc",
+      "size_bytes": 7715,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/investigation/__pycache__/ingress_gate.cpython-314.pyc",
+      "size_bytes": 9480,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/investigation/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 5433,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/investigation/__pycache__/validators.cpython-314.pyc",
+      "size_bytes": 10265,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/investigation/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1436,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/nivxforge/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1191,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/candidate_engine.cpython-314.pyc",
+      "size_bytes": 35527,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/characterize.cpython-314.pyc",
+      "size_bytes": 11275,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/confidence_engine.cpython-314.pyc",
+      "size_bytes": 14186,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 9261,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/explainer.cpython-314.pyc",
+      "size_bytes": 9378,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/llm_tiebreaker.cpython-314.pyc",
+      "size_bytes": 17175,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/moe_panel.cpython-314.pyc",
+      "size_bytes": 59359,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/plugin_contract.cpython-314.pyc",
+      "size_bytes": 9915,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/scorer.cpython-314.pyc",
+      "size_bytes": 12348,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/text_candidates.cpython-314.pyc",
+      "size_bytes": 9727,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/reasoning/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 2071,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/adapters/__pycache__/ssot_adapter.cpython-314.pyc",
+      "size_bytes": 7563,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/adapters/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 298,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/attack_state/__pycache__/machine.cpython-314.pyc",
+      "size_bytes": 9963,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/attack_state/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 315,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/capability/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 20862,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/capability/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 402,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/causal/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 30040,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/causal/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 391,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/counterfactual/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 21437,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/counterfactual/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 357,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/hydration/__pycache__/case_hydrator.cpython-314.pyc",
+      "size_bytes": 16684,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/hydration/__pycache__/provenance.cpython-314.pyc",
+      "size_bytes": 8607,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/hydration/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 431,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/impact/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 10172,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/impact/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 320,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/intervention/__pycache__/optimizer.cpython-314.pyc",
+      "size_bytes": 7998,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/intervention/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 343,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/ledger/__pycache__/ledger.cpython-314.pyc",
+      "size_bytes": 5938,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/ledger/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 293,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/model/__pycache__/security_state.cpython-314.pyc",
+      "size_bytes": 9254,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/model/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 398,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/orchestration/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 9596,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/orchestration/__pycache__/library.cpython-314.pyc",
+      "size_bytes": 17103,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/orchestration/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 6739,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/orchestration/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 743,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/persistence/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 4704,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/persistence/__pycache__/repository.cpython-314.pyc",
+      "size_bytes": 27668,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/persistence/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 420,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/progression/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 33061,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/progression/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 339,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/reachability/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 27703,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/reachability/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 389,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/response_safety/__pycache__/safety_gate.cpython-314.pyc",
+      "size_bytes": 6006,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/response_safety/__pycache__/verification.cpython-314.pyc",
+      "size_bytes": 7695,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/response_safety/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 440,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/routers/__pycache__/router.cpython-314.pyc",
+      "size_bytes": 25182,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/routers/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 303,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/simulation/__pycache__/simulator.cpython-314.pyc",
+      "size_bytes": 7543,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/simulation/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 345,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/state_engine/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 22150,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/state_engine/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 273,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/adapter.cpython-314.pyc",
+      "size_bytes": 21447,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/auth.cpython-314.pyc",
+      "size_bytes": 10913,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/coalescer.cpython-314.pyc",
+      "size_bytes": 7989,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/dedup.cpython-314.pyc",
+      "size_bytes": 10474,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/dlq.cpython-314.pyc",
+      "size_bytes": 11048,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/fingerprint.cpython-314.pyc",
+      "size_bytes": 5552,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 13884,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/replay.cpython-314.pyc",
+      "size_bytes": 10666,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/watermark.cpython-314.pyc",
+      "size_bytes": 4700,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/streaming/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1063,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase2c_real_replay_runner.cpython-314.pyc",
+      "size_bytes": 17575,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase3b_distributed_runner.cpython-314.pyc",
+      "size_bytes": 15410,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase3_persistence_runner.cpython-314.pyc",
+      "size_bytes": 13656,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase4c1_adversarial_runner.cpython-314.pyc",
+      "size_bytes": 3551,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase4c1_adversarial_tests.cpython-314.pyc",
+      "size_bytes": 28709,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase4c_streaming_runner.cpython-314.pyc",
+      "size_bytes": 10318,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase4c_streaming_tests.cpython-314.pyc",
+      "size_bytes": 23921,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase5_shadow_runner.cpython-314.pyc",
+      "size_bytes": 4121,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase5_shadow_tests.cpython-314.pyc",
+      "size_bytes": 18826,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase6b_causal_rules_runner.cpython-314.pyc",
+      "size_bytes": 4742,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase6b_causal_rules_tests.cpython-314.pyc",
+      "size_bytes": 19690,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase7_enterprise_intelligence_runner.cpython-314.pyc",
+      "size_bytes": 4335,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase7_enterprise_intelligence_tests.cpython-314.pyc",
+      "size_bytes": 26016,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase8_counterfactual_reachability_runner.cpython-314.pyc",
+      "size_bytes": 4378,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/phase8_counterfactual_reachability_tests.cpython-314.pyc",
+      "size_bytes": 34830,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/test_security_state_suite.cpython-314.pyc",
+      "size_bytes": 14239,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/tests/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 199,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/transitions/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 5531,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/transitions/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 312,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/validation/__pycache__/corpus.cpython-314.pyc",
+      "size_bytes": 6075,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/validation/__pycache__/runner.cpython-314.pyc",
+      "size_bytes": 6170,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/validation/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 329,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/__pycache__/contracts.cpython-314.pyc",
+      "size_bytes": 27738,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/__pycache__/detection_bridge.cpython-314.pyc",
+      "size_bytes": 8891,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/security_state/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 462,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/analyzers/__pycache__/pe.cpython-314.pyc",
+      "size_bytes": 28000,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/analyzers/__pycache__/security_controls.cpython-314.pyc",
+      "size_bytes": 4892,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/analyzers/__pycache__/shellcode.cpython-314.pyc",
+      "size_bytes": 40431,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/analyzers/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1443,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/artifact_intelligence/analyzers/__pycache__/archive.cpython-314.pyc",
+      "size_bytes": 6331,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/artifact_intelligence/analyzers/__pycache__/elf.cpython-314.pyc",
+      "size_bytes": 16218,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/artifact_intelligence/analyzers/__pycache__/office.cpython-314.pyc",
+      "size_bytes": 22074,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/artifact_intelligence/analyzers/__pycache__/pdf.cpython-314.pyc",
+      "size_bytes": 24759,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/artifact_intelligence/analyzers/__pycache__/pe.cpython-314.pyc",
+      "size_bytes": 2922,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/artifact_intelligence/analyzers/__pycache__/shellcode.cpython-314.pyc",
+      "size_bytes": 2295,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/artifact_intelligence/analyzers/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 971,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/artifact_intelligence/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 10189,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/canonicalizer/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 21193,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/base64_codec.cpython-314.pyc",
+      "size_bytes": 6630,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/compression.cpython-314.pyc",
+      "size_bytes": 5891,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/crypto.cpython-314.pyc",
+      "size_bytes": 25546,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/encoding.cpython-314.pyc",
+      "size_bytes": 14992,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/powershell_encoded_command.cpython-314.pyc",
+      "size_bytes": 6498,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/transform.cpython-314.pyc",
+      "size_bytes": 4858,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/xor_brute.cpython-314.pyc",
+      "size_bytes": 22089,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/_ddo_adapter.cpython-314.pyc",
+      "size_bytes": 7994,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/_shared.cpython-314.pyc",
+      "size_bytes": 5604,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/base/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1750,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/__pycache__/cmd.cpython-314.pyc",
+      "size_bytes": 30669,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 8872,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/__pycache__/orchestrator.cpython-314.pyc",
+      "size_bytes": 10309,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/__pycache__/powershell.cpython-314.pyc",
+      "size_bytes": 21817,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/__pycache__/registry.cpython-314.pyc",
+      "size_bytes": 6871,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/__pycache__/types.cpython-314.pyc",
+      "size_bytes": 9031,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 3135,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/decoder_bridge/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 13232,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/dkp/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 16005,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/dkp/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 5156,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/dkp/__pycache__/seed_patterns.cpython-314.pyc",
+      "size_bytes": 15810,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/dkp/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1266,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/artifact_extractor.cpython-314.pyc",
+      "size_bytes": 16773,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/artifact_router.cpython-314.pyc",
+      "size_bytes": 3746,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/command_normalizer.cpython-314.pyc",
+      "size_bytes": 8201,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/decode_telemetry.cpython-314.pyc",
+      "size_bytes": 5750,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/family_recognizer.cpython-314.pyc",
+      "size_bytes": 10811,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/input_normalizer.cpython-314.pyc",
+      "size_bytes": 9002,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 8457,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/pipeline.cpython-314.pyc",
+      "size_bytes": 7432,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/process_relations.cpython-314.pyc",
+      "size_bytes": 5388,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/recursive_decoder.cpython-314.pyc",
+      "size_bytes": 20424,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/stage_builder.cpython-314.pyc",
+      "size_bytes": 21735,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/preprocessor/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1860,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/api.cpython-314.pyc",
+      "size_bytes": 28508,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/archive_recovery.cpython-314.pyc",
+      "size_bytes": 17011,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/bash_ast.cpython-314.pyc",
+      "size_bytes": 6414,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/chain.cpython-314.pyc",
+      "size_bytes": 17318,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/cmd_ast.cpython-314.pyc",
+      "size_bytes": 10737,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/input_understanding.cpython-314.pyc",
+      "size_bytes": 40249,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/intent.cpython-314.pyc",
+      "size_bytes": 11985,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/ioc_semantic.cpython-314.pyc",
+      "size_bytes": 9061,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/javascript_ast.cpython-314.pyc",
+      "size_bytes": 8058,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/lolbas.cpython-314.pyc",
+      "size_bytes": 13141,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/powershell_ast.cpython-314.pyc",
+      "size_bytes": 24307,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/python_ast.cpython-314.pyc",
+      "size_bytes": 6062,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/recursive_decode.cpython-314.pyc",
+      "size_bytes": 13031,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/vbscript_ast.cpython-314.pyc",
+      "size_bytes": 8221,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/die/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 2091,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/ice/__pycache__/correlate.cpython-314.pyc",
+      "size_bytes": 61415,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/ice/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 386,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/knowledge/__pycache__/behavior_registry.cpython-314.pyc",
+      "size_bytes": 24249,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/knowledge/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 238,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/narration/__pycache__/contracts.cpython-314.pyc",
+      "size_bytes": 5291,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/narration/__pycache__/gateway.cpython-314.pyc",
+      "size_bytes": 11883,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/narration/__pycache__/grounding.cpython-314.pyc",
+      "size_bytes": 6653,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/narration/__pycache__/providers.cpython-314.pyc",
+      "size_bytes": 24451,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/narration/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1559,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/normalization/__pycache__/artifact_classifier.cpython-314.pyc",
+      "size_bytes": 8498,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/normalization/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 153,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/adapters/__pycache__/aws_cloudtrail.cpython-314.pyc",
+      "size_bytes": 6997,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/adapters/__pycache__/entra_signin_log.cpython-314.pyc",
+      "size_bytes": 6329,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/adapters/__pycache__/okta_system_log.cpython-314.pyc",
+      "size_bytes": 8298,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/adapters/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 311,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/__pycache__/correlation.cpython-314.pyc",
+      "size_bytes": 10282,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/__pycache__/framework.cpython-314.pyc",
+      "size_bytes": 8786,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/__pycache__/runner.cpython-314.pyc",
+      "size_bytes": 14606,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/__pycache__/stores.cpython-314.pyc",
+      "size_bytes": 4918,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/__pycache__/verdict_bridge.cpython-314.pyc",
+      "size_bytes": 6132,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/telemetry_adapters/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 2162,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/base64_bare/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 5954,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/base64_frombase64string/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 5608,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/cs_beacon_config_parser/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 10283,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/gzip_inflate/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 4643,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/pe_analyzer/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 7105,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/powershell_encoded_command/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 3083,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/shellcode_analyzer/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 8204,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/shellcode_string_scan/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 4724,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/zlib_inflate/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 4459,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/__pycache__/_shared.cpython-314.pyc",
+      "size_bytes": 4137,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/plugins/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 5173,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/artifact.cpython-314.pyc",
+      "size_bytes": 4112,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/capability.cpython-314.pyc",
+      "size_bytes": 5657,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/evidence.cpython-314.pyc",
+      "size_bytes": 2961,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/ledger.cpython-314.pyc",
+      "size_bytes": 6627,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/lifecycle.cpython-314.pyc",
+      "size_bytes": 8164,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/orchestrator.cpython-314.pyc",
+      "size_bytes": 45720,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/qa.cpython-314.pyc",
+      "size_bytes": 14925,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/recognizer.cpython-314.pyc",
+      "size_bytes": 2272,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/termination.cpython-314.pyc",
+      "size_bytes": 5693,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/uaie/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1775,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/__pycache__/canonical_evidence_recovery.cpython-314.pyc",
+      "size_bytes": 41165,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/__pycache__/interpreter_identifier.cpython-314.pyc",
+      "size_bytes": 31769,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/__pycache__/pe_analyzer.cpython-314.pyc",
+      "size_bytes": 574,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/__pycache__/python_dashc_evaluator.cpython-314.pyc",
+      "size_bytes": 24849,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/__pycache__/recipe_planner.cpython-314.pyc",
+      "size_bytes": 33495,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/__pycache__/technique_detector.cpython-314.pyc",
+      "size_bytes": 38652,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/services/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 406,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_content_truth_audit.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 36593,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_decoder_analyst_visibility.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 57395,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_decoder_bridge.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 26248,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_enterprise_security_content_e2e.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 60191,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_ice_correlate.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 35065,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_input_understanding.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 24795,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_deduplication_adversarial.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 18451,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_engine_binding_adversarial.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 20072,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_field_normalization_adversarial.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 20229,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_license_policy.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 16284,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_lifecycle_adversarial.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 18552,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_scale_microbenchmark.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 15004,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_security_state_boundary.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 16760,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_semantic_equivalence.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 21921,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_tenant_isolation.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 15310,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_1_translation_adversarial.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 58986,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_canonical_ir.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 13883,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_deduplication.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 11133,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_engine_binding.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 9779,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_final_gate.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 38829,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_lifecycle.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 21804,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_live_diagnostics.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 22055,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_operationalisation.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 30235,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_telemetry_normalization.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 27536,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_translation.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 27156,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_validation_framework.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 17222,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_phase2_verdict_gap.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 22040,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_pr212_canonical_evidence_recovery.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 24317,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_rule_binding.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 12743,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_rule_detection_playbook_expansion.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 41512,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_sigma_generator.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 6784,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_sigma_generator.cpython-314-pytest-9.1.1.pyc.22260",
+      "size_bytes": 6784,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_sigma_strict.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 17978,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tests/__pycache__/test_universal_content_analysis.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 47548,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tools/__pycache__/seed_golden_case.cpython-314.pyc",
+      "size_bytes": 5737,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/tools/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 136,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/adapters/__pycache__/base.cpython-314.pyc",
+      "size_bytes": 4053,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/adapters/__pycache__/command_line.cpython-314.pyc",
+      "size_bytes": 6254,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/adapters/__pycache__/registry.cpython-314.pyc",
+      "size_bytes": 3189,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/adapters/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 445,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/case_engine/__pycache__/schema.cpython-314.pyc",
+      "size_bytes": 4015,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/case_engine/__pycache__/store.cpython-314.pyc",
+      "size_bytes": 2417,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/case_engine/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 690,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/cem/v1/__pycache__/schema.cpython-314.pyc",
+      "size_bytes": 7963,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/cem/v1/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 447,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/cem/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 364,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/ikb/__pycache__/entries.cpython-314.pyc",
+      "size_bytes": 15915,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/ikb/__pycache__/schema.cpython-314.pyc",
+      "size_bytes": 1852,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/ikb/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1778,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/analyst_report/__pycache__/builder.cpython-314.pyc",
+      "size_bytes": 26048,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/analyst_report/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 5242,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/analyst_report/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 828,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/behavior/__pycache__/builder.cpython-314.pyc",
+      "size_bytes": 15010,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/behavior/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 11994,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/behavior/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1612,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/cmd.cpython-314.pyc",
+      "size_bytes": 3290,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/pcalua.cpython-314.pyc",
+      "size_bytes": 2734,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/powershell.cpython-314.pyc",
+      "size_bytes": 5296,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/runas.cpython-314.pyc",
+      "size_bytes": 3131,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/schtasks.cpython-314.pyc",
+      "size_bytes": 2634,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/start.cpython-314.pyc",
+      "size_bytes": 3285,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/wmic.cpython-314.pyc",
+      "size_bytes": 2660,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/_quoting.cpython-314.pyc",
+      "size_bytes": 5767,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/wrappers/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 2784,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 6178,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 7504,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/cre/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1574,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/graph/__pycache__/builder.cpython-314.pyc",
+      "size_bytes": 7254,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/graph/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 4315,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/graph/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 608,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/credential_access.cpython-314.pyc",
+      "size_bytes": 3541,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/defense_evasion.cpython-314.pyc",
+      "size_bytes": 5852,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/discovery.cpython-314.pyc",
+      "size_bytes": 4928,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/lateral_admin.cpython-314.pyc",
+      "size_bytes": 11850,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/persistence.cpython-314.pyc",
+      "size_bytes": 3723,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/remote_execution.cpython-314.pyc",
+      "size_bytes": 6857,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/runtime_dependent.cpython-314.pyc",
+      "size_bytes": 4136,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/staging.cpython-314.pyc",
+      "size_bytes": 4733,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/_chain.cpython-314.pyc",
+      "size_bytes": 7175,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/_util.cpython-314.pyc",
+      "size_bytes": 2278,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/rules/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 2677,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 6035,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 6225,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/intent/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 815,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/detectors/__pycache__/bash.cpython-314.pyc",
+      "size_bytes": 2041,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/detectors/__pycache__/command_line.cpython-314.pyc",
+      "size_bytes": 2518,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/detectors/__pycache__/javascript.cpython-314.pyc",
+      "size_bytes": 2398,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/detectors/__pycache__/powershell_script.cpython-314.pyc",
+      "size_bytes": 2563,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/detectors/__pycache__/python.cpython-314.pyc",
+      "size_bytes": 2075,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/detectors/__pycache__/vbscript.cpython-314.pyc",
+      "size_bytes": 2426,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/detectors/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 2172,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 4903,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 4920,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/iu/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 795,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/base64_bytes.cpython-314.pyc",
+      "size_bytes": 5740,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/base64_utf16le.cpython-314.pyc",
+      "size_bytes": 4478,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/base64_utf8.cpython-314.pyc",
+      "size_bytes": 4322,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/gzip_stream.cpython-314.pyc",
+      "size_bytes": 3803,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/hex_string.cpython-314.pyc",
+      "size_bytes": 3841,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/ps_char_array.cpython-314.pyc",
+      "size_bytes": 3048,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/ps_encoded_command.cpython-314.pyc",
+      "size_bytes": 4499,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/ps_format.cpython-314.pyc",
+      "size_bytes": 2902,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/ps_iex_peel.cpython-314.pyc",
+      "size_bytes": 3074,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/ps_static_base64.cpython-314.pyc",
+      "size_bytes": 3663,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/zlib_stream.cpython-314.pyc",
+      "size_bytes": 4307,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/_util.cpython-314.pyc",
+      "size_bytes": 3547,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/transformations/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 3797,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 13877,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/__pycache__/models.cpython-314.pyc",
+      "size_bytes": 8781,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/rte/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 908,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/verdict/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 12215,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/attack_mapping.cpython-314.pyc",
+      "size_bytes": 7064,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/attack_story.cpython-314.pyc",
+      "size_bytes": 17371,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/builder.cpython-314.pyc",
+      "size_bytes": 14789,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/evidence.cpython-314.pyc",
+      "size_bytes": 3247,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/explainability.cpython-314.pyc",
+      "size_bytes": 9196,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/ikg.cpython-314.pyc",
+      "size_bytes": 11354,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/normalizers.cpython-314.pyc",
+      "size_bytes": 20076,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/pipeline.cpython-314.pyc",
+      "size_bytes": 13174,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/shadow_hook.cpython-314.pyc",
+      "size_bytes": 4248,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/investigation/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 688,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/mdr/__pycache__/incident_parser.cpython-314.pyc",
+      "size_bytes": 28449,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/normalization/__pycache__/base.cpython-314.pyc",
+      "size_bytes": 1406,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/normalization/__pycache__/command_line_normalizer.cpython-314.pyc",
+      "size_bytes": 6428,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/normalization/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 276,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/parser/__pycache__/base.cpython-314.pyc",
+      "size_bytes": 2191,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/parser/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 286,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/semantic/__pycache__/parser.cpython-314.pyc",
+      "size_bytes": 5324,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/semantic/__pycache__/ps_recovery.cpython-314.pyc",
+      "size_bytes": 26393,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/semantic/__pycache__/rules.cpython-314.pyc",
+      "size_bytes": 6245,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/semantic/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 614,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/shadow/__pycache__/irg.cpython-314.pyc",
+      "size_bytes": 14372,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/shadow/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 4794,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/verdict/__pycache__/correlation.cpython-314.pyc",
+      "size_bytes": 34528,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/verdict/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 6746,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/verdict/__pycache__/profiles.cpython-314.pyc",
+      "size_bytes": 6290,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/verdict/__pycache__/progressions.cpython-314.pyc",
+      "size_bytes": 9027,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/verdict/__pycache__/signals.cpython-314.pyc",
+      "size_bytes": 19751,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/verdict/__pycache__/weights.cpython-314.pyc",
+      "size_bytes": 4041,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/verdict/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1281,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/__pycache__/flags.cpython-314.pyc",
+      "size_bytes": 7148,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/v2/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 611,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/artifact.cpython-314.pyc",
+      "size_bytes": 4004,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/certificate.cpython-314.pyc",
+      "size_bytes": 5378,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/content.cpython-314.pyc",
+      "size_bytes": 20016,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/decoder.cpython-314.pyc",
+      "size_bytes": 19619,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/engine.cpython-314.pyc",
+      "size_bytes": 6606,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/provenance.cpython-314.pyc",
+      "size_bytes": 3927,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/selector.cpython-314.pyc",
+      "size_bytes": 8465,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/semantic.cpython-314.pyc",
+      "size_bytes": 17902,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/structural.cpython-314.pyc",
+      "size_bytes": 17986,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/transformation.cpython-314.pyc",
+      "size_bytes": 3132,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/convergence/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 1438,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/workspace/__pycache__/__init__.cpython-314.pyc",
+      "size_bytes": 883,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/analysis_core.cpython-314.pyc",
+      "size_bytes": 78976,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/conftest.cpython-314-pytest-9.1.1.pyc",
+      "size_bytes": 3612,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/crypto_hints.cpython-314.pyc",
+      "size_bytes": 13184,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/deps.cpython-314.pyc",
+      "size_bytes": 27608,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/llm_decoder.cpython-314.pyc",
+      "size_bytes": 14400,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/lolbas.cpython-314.pyc",
+      "size_bytes": 23215,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/magic_decoder.cpython-314.pyc",
+      "size_bytes": 50578,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/operations.cpython-314.pyc",
+      "size_bytes": 215963,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/osint.cpython-314.pyc",
+      "size_bytes": 28543,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/payload_sanitizer.cpython-314.pyc",
+      "size_bytes": 9846,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/ps_normalize.cpython-314.pyc",
+      "size_bytes": 12119,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/rc22_adapter.cpython-314.pyc",
+      "size_bytes": 15130,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/run_content_truth_audit.cpython-314.pyc",
+      "size_bytes": 36657,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/run_enterprise_content_pipeline.cpython-314.pyc",
+      "size_bytes": 13493,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/scratch_generate_corpora.cpython-314.pyc",
+      "size_bytes": 57629,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/shellcode_analyzer.cpython-314.pyc",
+      "size_bytes": 731,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/sigma_generator.cpython-314.pyc",
+      "size_bytes": 17666,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/smart_decoder.cpython-314.pyc",
+      "size_bytes": 27798,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/wrapper_archetypes.cpython-314.pyc",
+      "size_bytes": 229378,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    },
+    {
+      "path": "backend/__pycache__/wrapper_archetypes_learned.cpython-314.pyc",
+      "size_bytes": 1205,
+      "reason": "EPHEMERAL_PYTHON_BYTECODE_OR_TEST_CACHE"
+    }
+  ]
+}

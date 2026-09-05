@@ -1,0 +1,11 @@
+{
+  "id": "ps-encoded-6",
+  "category": "ps-encoded",
+  "command_line": "powershell.exe -NoProfile -EncodedCommand cwBjAGgAdABhAHMAawBzACAALwBjAHIAZQBhAHQAZQAgAC8AdABuACAAYgBlAGEAYwBvAG4AIAAvAHQAcgAgAGMAYQBsAGMALgBlAHgAZQAgAC8AcwBjACAAbwBuAGwAbwBnAG8AbgA=",
+  "expected_keywords": [
+    "schtasks",
+    "calc.exe"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

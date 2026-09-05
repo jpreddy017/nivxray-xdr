@@ -1,0 +1,65 @@
+{
+  "summary": "Pre-prod smoke sweep for NivXRay (v1.3.x). Verified login, nav tabs, dropdowns, /battery page contents, PREDICT TREE (no 502 in first run), workspace primary buttons. Discovered two P0 issues: (1) backend event-loop hang caused by L3 LLM dispatcher blocking pattern in llm_decoder.py, (2) /battery route missing top Header - users lose global navigation once on that route. Backend became unresponsive twice during the test run and required supervisor restart to recover.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "ALL (localhost:8001)", "issue": "Event loop appears to hang after prolonged use. `curl /api/health` times out (HTTP=000). netstat shows Recv-Q accumulating on port 8001. Coincides with repeating log line `L3: dispatch failed:` (empty exception). Requires `sudo supervisorctl restart backend` to recover. Root cause in /app/backend/llm_decoder.py:119-122 — `asyncio.run_coroutine_threadsafe(..., loop).result(timeout=..)` blocks a worker thread on the same running event loop; under sustained decode traffic, the default FastAPI threadpool (~40 workers) all end up blocked waiting on futures whose coroutines can't be scheduled → deadlock. The empty exception is likely a TimeoutError with no message. Reproduced twice.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "L3 background dispatcher", "issue": "log.warning('L3: dispatch failed: %s', e) with empty str(e) — unhelpful for debugging. Should log repr(e) or traceback."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "MultiLayerBatteryPage (/battery)", "issue": "Page does NOT import or render <Header />. Users navigating to /battery lose the top-nav completely (WORKSPACE / BATCH / HEATMAP / BENCHMARK / BATTERY / TOOLS / LEARN / ADMIN tabs all disappear). Cannot navigate away without editing URL. Confirmed via source (`grep -n Header /app/frontend/src/pages/MultiLayerBatteryPage.jsx` → no match) and via runtime check (`[data-testid=nav-workspace]` absent on /battery).", "selector": "/battery route", "priority": "HIGH"},
+      {"component": "ThreatIntelAdminPanel", "issue": "React key-prop warning: 'Each child in a list should have a unique key prop' — check render method of ThreatIntelAdminPanel.", "selector": "n/a", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "AUTO INVESTIGATE end-to-end (multi-layer sample)", "issue": "Could not verify due to backend hang mid-run. Sample fills, click succeeds, but backend did not respond within 40s window on the failed run. First-attempt run confirmed the button is wired and produces network activity but AI response was not returned in time (may need >30s cold-path). Retest after backend fix required.", "affected_selectors": ["[data-testid=btn-auto-investigate]", "[data-testid=ti-shield-panel]", "[data-testid^=ti-shield-layer-]"]}
+    ],
+    "design_issues": [
+      {"screen": "Workspace", "issues": ["btn-smart-decode / btn-ai-decode / btn-magic-decode not visible until an advanced toggle (btn-advanced-toggle) is expanded — acceptable UX but review_request listed them as top-level primary buttons; if intent is 'always visible', they need to be surfaced. Currently they are behind a collapsed panel."]}
+    ]
+  },
+  "verification_results": {
+    "run1_before_backend_hang": {
+      "login": "OK",
+      "nav_tabs_top_level": "WORKSPACE / BATCH / HEATMAP / BENCHMARK / BATTERY all navigate cleanly, 0 new console errors",
+      "battery_page": "12 sample rows rendered, KPI 'pass rate' visible, row expand → sample-detail-* rendered, Re-run button present",
+      "predict_tree": "clicked, 0 new 5xx responses in 15s window (no 502 detected)",
+      "workspace_buttons_visible": {
+        "btn-ai-describe": "visible",
+        "btn-copy-output": "visible",
+        "btn-report-bad-decode": "visible",
+        "btn-analyze": "visible",
+        "btn-enrich-iocs": "visible but disabled (expected, no output yet)",
+        "btn-smart-decode / btn-ai-decode / btn-magic-decode": "NOT FOUND at top level — behind advanced toggle"
+      }
+    },
+    "run3_after_backend_restart": {
+      "login": "OK (25s wait)",
+      "dropdown_tabs": {"nav-tools → /analyze": "OK", "nav-learn → /lab": "OK", "nav-admin-menu → /admin": "OK"},
+      "backend_hung_again_mid_run": true
+    }
+  },
+  "test_report_links": [],
+  "action_items": [
+    "P0: Fix /app/backend/llm_decoder.py L3 dispatch — replace `run_coroutine_threadsafe(...).result()` blocking pattern. If called from an async request path, `await _call_claude(...)` directly with `asyncio.wait_for`. If called from sync path (threadpool), keep as-is but ensure worker thread count is not exhausted by decode traffic (or move L3 to a fully-async path).",
+    "P0: Log `repr(e)` in the `L3: dispatch failed` warning so future debugging is possible.",
+    "P0: Add `<Header />` to /app/frontend/src/pages/MultiLayerBatteryPage.jsx so /battery keeps global navigation.",
+    "P2: Fix React key-prop warning in ThreatIntelAdminPanel.",
+    "P2: Consider making SMART/AI/MAGIC DECODE primary buttons visible without requiring advanced toggle (review_request treats them as top-level actions)."
+  ],
+  "critical_code_review_comments": [
+    "llm_decoder.py:119-122 — `asyncio.run_coroutine_threadsafe(coro, loop).result(timeout=…)` from inside a coroutine that runs on the SAME loop is a classic deadlock recipe. If `deterministic_best_decode` is EVER invoked from the main event-loop thread (not a threadpool worker), it will block the loop entirely.",
+    "MultiLayerBatteryPage.jsx renders zero navigation chrome — either wrap it in a layout that includes <Header /> or import Header directly like WorkspacePage / BenchmarkPage do.",
+    "review_request v1.3.x asked for TEXT / HEX / B64 / DIFF output view toggles — I found no such toggle in WorkspacePage.jsx (grep for HEX/B64/DIFF returned only placeholder text). Either the feature is missing or the testids are undocumented."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "0% end-to-end verifiable (backend hung twice mid-test)", "frontend": "~70% verified (routes render, buttons present) — full AUTO INVESTIGATE flow could not be validated due to backend hang"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK — WORKS (verified with direct curl and UI login)",
+  "seed_data_creation": "None. Battery page consumes pre-seeded /api/benchmark/multilayer report.",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Backend HANGS under repeated decode/L3 traffic — restart backend BEFORE starting any test loop (`sudo supervisorctl restart backend`). Symptom: curl to /api/health returns HTTP=000, netstat shows Recv-Q>0 on :8001, backend.err.log spams `L3: dispatch failed:` every 12s. Root cause is llm_decoder.py:119-122 threadpool deadlock. Fix that first, then re-run the full sweep. /battery has no Header — needs fix separately. AUTO INVESTIGATE end-to-end (TI Shield L0/L-FINAL cards, escalation trace) needs re-verification after both fixes.",
+  "rca_of_the_issue": "Backend deadlock RCA: /app/backend/llm_decoder.py L3 helper detects a running event loop (line 116), then submits the Claude coroutine to that loop via `asyncio.run_coroutine_threadsafe` and BLOCKS on `.result(timeout=_TIMEOUT_S+2)`. When this helper is called from a coroutine running on that same loop, the submitted coroutine cannot progress until the caller yields, but the caller is blocked on `.result()` — hard deadlock, only broken by the timeout. Even from threadpool workers, under sustained decode traffic every worker ends up parked on `.result()` and the pool exhausts, so all subsequent sync-path requests (including /api/health, which itself is fast) queue behind Starlette's threadpool. netstat Recv-Q>0 confirms the accepted connections are never being read. Empty `str(e)` in the log line = TimeoutError. Mitigation: (1) if called from async context, `await asyncio.wait_for(_call_claude(...), timeout=_TIMEOUT_S)` instead of round-tripping through the loop; (2) if a sync entrypoint is truly required, run the coroutine on a DIFFERENT (dedicated) event loop in its own thread, not the request loop."
+}

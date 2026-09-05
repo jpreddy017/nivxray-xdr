@@ -1,0 +1,682 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ Fonts ============ */
+@import url("https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
+
+/* ============ Design tokens ============ */
+:root {
+  /* Oxidized Copper on Graphite palette */
+  --bg: #101112;
+  --surface: #18191b;
+  --inset: #0a0a0c;
+  --border: #2d3135;
+  --border-strong: #3b4046;
+  --text: #e5e7eb;
+  --text-dim: #8b949e;
+  --text-mute: #6b7075;
+  --accent: #4aa890; /* oxidized copper */
+  --accent-hover: #3b8b75;
+  --accent-dim: #4aa89033;
+  --warn: #e27e5d; /* phosphor rust */
+  --high: #d96c6c;
+  --medium: #e27e5d;
+  --low: #c0ca33;
+  --safe: #4aa890;
+
+  /* shadcn variables mapped to the palette */
+  --background: 220 4% 7%;
+  --foreground: 220 8% 90%;
+  --card: 210 4% 10%;
+  --card-foreground: 220 8% 90%;
+  --popover: 210 5% 8%;
+  --popover-foreground: 220 8% 90%;
+  --primary: 165 40% 47%;
+  --primary-foreground: 220 8% 8%;
+  --secondary: 210 4% 15%;
+  --secondary-foreground: 220 8% 90%;
+  --muted: 210 4% 12%;
+  --muted-foreground: 215 8% 60%;
+  --accent-hsl: 165 40% 47%;
+  --accent-foreground: 220 8% 8%;
+  --destructive: 0 60% 60%;
+  --destructive-foreground: 220 8% 95%;
+  --border-hsl: 213 6% 19%;
+  --input: 213 6% 19%;
+  --ring: 165 40% 47%;
+  --radius: 0;
+}
+
+/* ============ Base ============ */
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Chivo", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+code,
+pre,
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, "Menlo", "Monaco", monospace;
+}
+
+::selection {
+  background: var(--accent);
+  color: #0a0a0c;
+}
+
+/* ============ Grain / noise ============ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* ============ Scrollbars ============ */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--inset);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid var(--inset);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ============ Utility classes ============ */
+.brut-border {
+  border: 1px solid var(--border);
+}
+.brut-border-strong {
+  border: 1px solid var(--border-strong);
+}
+.brut-inset {
+  background: var(--inset);
+  border: 1px solid var(--border);
+}
+.brut-surface {
+  background: var(--surface);
+}
+.brut-hover:hover {
+  background: var(--border);
+}
+
+/* Tick / crosshair marker in headings */
+.tick::before {
+  content: "▸";
+  color: var(--accent);
+  margin-right: 8px;
+}
+
+/* Category header */
+.cat-head {
+  font-family: "Chivo", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 12px 12px 6px 12px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--inset);
+}
+
+/* Op row */
+.op-row {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: background-color 120ms ease-out, border-left-color 120ms ease-out;
+  border-left: 2px solid transparent;
+}
+.op-row:hover {
+  background: #14161a;
+  border-left-color: var(--accent);
+}
+.op-row .op-add {
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  color: var(--accent);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 14px;
+}
+.op-row:hover .op-add {
+  opacity: 1;
+}
+
+/* Primary button */
+.nvx-btn {
+  /* Feb-2026 · match the DetectFlow active-tab treatment: glass fill,
+     glowing accent border, uppercase JetBrains Mono, and a subtle
+     glow underline that turns solid on hover. */
+  position: relative;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  border: 1px solid rgba(74, 168, 144, 0.55);
+  background: linear-gradient(160deg,
+    rgba(74, 168, 144, 0.14),
+    rgba(74, 168, 144, 0.02));
+  color: var(--accent);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  box-shadow: 0 0 12px rgba(74, 168, 144, 0.20),
+              inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 160ms ease, background 200ms ease,
+              border-color 200ms ease, box-shadow 200ms ease,
+              color 160ms ease;
+}
+.nvx-btn::after {
+  /* Glowing underline seen on the active WORKSPACE tab. */
+  content: "";
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  opacity: 0.85;
+  transition: opacity 200ms ease, left 200ms ease, right 200ms ease;
+  pointer-events: none;
+}
+.nvx-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  color: #d5f5e8;
+  background: linear-gradient(160deg,
+    rgba(74, 168, 144, 0.24),
+    rgba(74, 168, 144, 0.04));
+  box-shadow: 0 0 20px rgba(74, 168, 144, 0.35),
+              inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.nvx-btn:hover::after {
+  left: 10%;
+  right: 10%;
+  opacity: 1;
+}
+.nvx-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.nvx-btn:disabled::after { opacity: 0.15; }
+
+/* ── Busy / in-progress state ────────────────────────────────────────
+   Applied whenever an action is running (AUTO INVESTIGATE, DECODE,
+   ANALYZE).  Makes the visual state loud so the analyst KNOWS work
+   is in flight and can wait without re-clicking.
+*/
+.nvx-btn.busy,
+.nvx-btn.busy:disabled {
+  opacity: 1;
+  cursor: progress;
+  background: linear-gradient(120deg,
+    rgba(226, 194, 93, 0.28) 0%,
+    rgba(226, 194, 93, 0.12) 40%,
+    rgba(226, 126, 93, 0.20) 100%);
+  border-color: rgba(226, 194, 93, 0.75);
+  color: #f4d67a;
+  box-shadow:
+    0 0 14px rgba(226, 194, 93, 0.55),
+    inset 0 0 10px rgba(226, 194, 93, 0.15);
+  animation: nvx-busy-pulse 1.4s ease-in-out infinite;
+}
+.nvx-btn.busy::before {
+  content: "";
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 6px;
+  border: 2px solid rgba(244, 214, 122, 0.35);
+  border-top-color: #f4d67a;
+  border-radius: 50%;
+  animation: nvx-spin 0.85s linear infinite;
+  vertical-align: -1px;
+}
+.nvx-btn.busy > svg { display: none; }
+@keyframes nvx-busy-pulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(226, 194, 93, 0.55),
+                          inset 0 0 10px rgba(226, 194, 93, 0.15); }
+  50%      { box-shadow: 0 0 22px rgba(226, 194, 93, 0.85),
+                          inset 0 0 14px rgba(226, 194, 93, 0.30); }
+}
+@keyframes nvx-spin { to { transform: rotate(360deg); } }
+
+/* Solid teal variant — kept for confirm / submit actions */
+.nvx-btn.primary {
+  background: var(--accent);
+  color: #0a0a0c;
+  border-color: var(--accent);
+  box-shadow: 0 0 14px rgba(74, 168, 144, 0.45);
+}
+.nvx-btn.primary:hover {
+  background: var(--accent-hover);
+  color: #0a0a0c;
+  border-color: var(--accent-hover);
+}
+.nvx-btn.primary::after {
+  background: #0a0a0c;
+  box-shadow: 0 0 8px rgba(10, 10, 12, 0.6);
+}
+
+/* Warn variant */
+.nvx-btn.warn {
+  border-color: rgba(226, 126, 93, 0.55);
+  color: var(--warn);
+  background: linear-gradient(160deg,
+    rgba(226, 126, 93, 0.14),
+    rgba(226, 126, 93, 0.02));
+  box-shadow: 0 0 12px rgba(226, 126, 93, 0.22);
+}
+.nvx-btn.warn:hover {
+  background: var(--warn);
+  color: #0a0a0c;
+  border-color: var(--warn);
+}
+.nvx-btn.warn::after { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+
+/* Ghost — invisible until hover, then adopts the accent glow.        */
+.nvx-btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-dim);
+  box-shadow: none;
+}
+.nvx-btn.ghost::after { opacity: 0; }
+.nvx-btn.ghost:hover {
+  color: var(--accent);
+  border-color: rgba(74, 168, 144, 0.35);
+  background: rgba(74, 168, 144, 0.06);
+  box-shadow: 0 0 12px rgba(74, 168, 144, 0.18);
+}
+.nvx-btn.ghost:hover::after { opacity: 0.6; left: 20%; right: 20%; }
+
+.nvx-btn.sm { padding: 5px 10px; font-size: 10px; }
+.nvx-btn.xs { padding: 3px 7px;  font-size: 9px; gap: 4px; }
+
+/* Input */
+.nvx-input {
+  background: var(--inset);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  border-radius: 0;
+  outline: none;
+  width: 100%;
+  transition: border-color 120ms;
+}
+.nvx-input:focus {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-dim);
+}
+
+.nvx-textarea {
+  background: var(--inset);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  width: 100%;
+  outline: none;
+  border-radius: 0;
+}
+.nvx-textarea:focus {
+  border-color: var(--accent);
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  border: 1px solid var(--border-strong);
+  background: rgba(74, 168, 144, 0.08);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 0;
+}
+.badge.warn {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: rgba(226, 126, 93, 0.1);
+}
+.badge.high {
+  color: var(--high);
+  border-color: var(--high);
+  background: rgba(217, 108, 108, 0.1);
+}
+.badge.medium {
+  color: var(--medium);
+  border-color: var(--medium);
+  background: rgba(226, 126, 93, 0.1);
+}
+.badge.low {
+  color: var(--low);
+  border-color: var(--low);
+  background: rgba(192, 202, 51, 0.1);
+}
+.badge.safe {
+  color: var(--safe);
+  border-color: var(--safe);
+  background: rgba(74, 168, 144, 0.1);
+}
+.badge.neutral {
+  color: var(--text-dim);
+  border-color: var(--border-strong);
+  background: transparent;
+}
+
+/* Tab */
+.nvx-tab {
+  padding: 10px 14px;
+  font-family: "Chivo", sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 120ms, border-color 120ms;
+}
+.nvx-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.nvx-tab:hover {
+  color: var(--text);
+}
+
+/* Recipe step chip */
+.recipe-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  position: relative;
+}
+.recipe-step + .recipe-step {
+  margin-top: 8px;
+}
+.recipe-step .step-idx {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Pulse animation for detection banner */
+@keyframes nvxPulse {
+  0%, 100% { box-shadow: inset 0 0 0 1px var(--accent-dim); }
+  50%      { box-shadow: inset 0 0 0 2px var(--accent); }
+}
+.detect-banner {
+  animation: nvxPulse 2.4s ease-in-out infinite;
+}
+
+/* Blinking cursor */
+@keyframes nvxCursor {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.blink {
+  animation: nvxCursor 1.05s steps(1) infinite;
+}
+
+/* Fade-in slide */
+@keyframes nvxFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: nvxFade 220ms ease-out both;
+}
+.stagger > * { animation: nvxFade 260ms ease-out both; }
+.stagger > *:nth-child(1) { animation-delay: 20ms; }
+.stagger > *:nth-child(2) { animation-delay: 60ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 140ms; }
+.stagger > *:nth-child(5) { animation-delay: 180ms; }
+.stagger > *:nth-child(6) { animation-delay: 220ms; }
+.stagger > *:nth-child(7) { animation-delay: 260ms; }
+.stagger > *:nth-child(8) { animation-delay: 300ms; }
+
+/* Focus rings */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+/* Dashed connector between recipe steps */
+.recipe-connector {
+  margin-left: 22px;
+  border-left: 1px dashed var(--border-strong);
+  height: 8px;
+}
+
+/* ============ Responsive ============ */
+.nvx-workspace-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr 380px;
+  flex: 1;
+  min-height: 0;
+}
+.nvx-toolbar {
+  padding: 10px 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.nvx-examples {
+  padding: 8px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nvx-mobile-toggle {
+  display: none;
+}
+.nvx-output-textarea {
+  height: 180px !important;
+  min-height: 180px !important;
+  max-height: 180px !important;
+  resize: none !important;
+  overflow-y: auto !important;
+}
+
+/* Tablet */
+@media (max-width: 1180px) {
+  .nvx-workspace-grid {
+    grid-template-columns: 240px 1fr 320px;
+  }
+}
+
+/* Small tablet / large phone */
+@media (max-width: 960px) {
+  .nvx-workspace-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  .nvx-workspace-grid > aside.ops-panel,
+  .nvx-workspace-grid > aside.threat-panel {
+    max-height: 60vh;
+    border-left: none !important;
+    border-right: none !important;
+    border-top: 1px solid var(--border) !important;
+  }
+  .nvx-workspace-grid > aside.ops-panel.collapsed,
+  .nvx-workspace-grid > aside.threat-panel.collapsed {
+    max-height: 44px;
+    overflow: hidden;
+  }
+  .nvx-mobile-toggle {
+    display: inline-flex;
+  }
+  .nvx-output-textarea {
+    height: 140px !important;
+    min-height: 140px !important;
+    max-height: 140px !important;
+  }
+  .nvx-toolbar .nvx-btn {
+    font-size: 10px;
+    padding: 8px 10px;
+  }
+}
+
+/* Phone */
+@media (max-width: 640px) {
+  .nvx-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+  .nvx-toolbar { padding: 8px 10px; gap: 6px; }
+  .nvx-examples { padding: 8px 10px; gap: 6px; }
+  .nvx-output-textarea { min-height: 100px; max-height: 200px; }
+  .nvx-textarea { font-size: 12px; padding: 8px; }
+  .nvx-btn { padding: 8px 10px; font-size: 10px; }
+  .nvx-btn.sm { padding: 4px 8px; font-size: 9px; }
+  /* Login page responsive */
+  .nvx-login-grid { grid-template-columns: 1fr !important; }
+  .nvx-login-aside { display: none !important; }
+  /* Admin & Threat-Intel — collapse columns */
+  table th, table td { padding: 6px 8px !important; font-size: 10px !important; }
+  /* Header nav truncation */
+  header nav .nvx-btn { padding: 4px 8px; font-size: 10px; }
+  /* Toast/share */
+  [data-testid="share-toast"] { left: 8px !important; right: 8px !important; max-width: unset !important; bottom: 8px !important; }
+}
+
+/* ============ Card style for center column sections ============ */
+.nvx-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  margin: 12px;
+  padding: 0;
+}
+.nvx-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nvx-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Chivo", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.nvx-card-title .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.nvx-card-title .count {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--text-mute);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  margin-left: 6px;
+}
+.nvx-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nvx-card-body {
+  padding: 0 14px 14px;
+}
+.nvx-card .nvx-textarea {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* ── Guidance-driven button pulse (Feb 2026) ─────────────────────
+   Applied inline via `getGuidanceGlowStyle()` when the input
+   classifier flags a button as the primary recommendation. */
+@keyframes nvx-recommend-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px #22c55e, 0 0 12px rgba(34, 197, 94, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 2px #22c55e, 0 0 22px rgba(34, 197, 94, 0.85);
+  }
+}

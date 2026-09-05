@@ -1,0 +1,905 @@
+{
+  "aggregate_latency_ms": {
+    "max": 471.6983050457202,
+    "mean": 50.9344107397881,
+    "p50": 0.01962797250598669,
+    "p95": 378.22343700099736,
+    "p99": 471.6983050457202
+  },
+  "availability": {
+    "crypto_symmetric": true,
+    "engine_models": true,
+    "pe_analyzer": true,
+    "shellcode_analyzer": true,
+    "xor_brute": true
+  },
+  "captured_at_utc": "2026-09-02T12:11:21.169936+00:00",
+  "content_signature_sha256": "6427903eae774599f1c8e710223fb6d603276e5fae1a1fad1f8ecd453b297897",
+  "exception_count": 0,
+  "gate": "P0-1B · Phase 2 · Gate 2D-B3.0 · Snapshot #2 (surface #2)",
+  "platform": "Linux-6.12.85+-aarch64-with-glibc2.36",
+  "python": "3.11.16",
+  "reference_impls": {
+    "aes_cbc": "decoders.crypto_symmetric.AesCbcDecoder",
+    "pe": "services.pe_analyzer.analyze_pe",
+    "rc4": "decoders.crypto_symmetric.Rc4Decoder",
+    "shellcode": "shellcode_analyzer.analyze",
+    "xor_brute": "decoders.xor_brute.XorBruteDecoder"
+  },
+  "snapshots": [
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "ascii_decimal_xor_hancitor",
+      "input_sha256": "73ab8078fc50e1cc6e48448dea3b4a78cf777a170456702d51c38b9abe725a25",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.1702519948594272
+        }
+      },
+      "size_bytes": 304
+    },
+    {
+      "codec_hints": [
+        "repeating_key_xor"
+      ],
+      "fixture_id": "ascii_decimal_xor_multiline_empire",
+      "input_sha256": "651886d53e5fed579e82e9bd5a51716c4745349d51a9a17592dc1674fc8c654d",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.044670014176517725
+        }
+      },
+      "size_bytes": 270
+    },
+    {
+      "codec_hints": [
+        "aes_cbc"
+      ],
+      "fixture_id": "corpus_aes_cbc_analyst_001",
+      "input_sha256": "97992b1a5c1001c69decf2b54964015cff4ba6b9f21ff5d9e5ae973358f3748a",
+      "results": {
+        "aes_cbc": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy -0.00 < 5.5 — not AES-shaped"
+          },
+          "exception": null,
+          "kind": "aes_cbc",
+          "latency_ms": 0.08355302270501852
+        }
+      },
+      "size_bytes": 205
+    },
+    {
+      "codec_hints": [
+        "aes_cbc"
+      ],
+      "fixture_id": "corpus_aes_cbc_analyst_002",
+      "input_sha256": "e2f049936a79acd4168c5c649f37ceaedba89860b89a4951c18ecbb2e80b862f",
+      "results": {
+        "aes_cbc": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy 1.58 < 5.5 — not AES-shaped"
+          },
+          "exception": null,
+          "kind": "aes_cbc",
+          "latency_ms": 0.028492009732872248
+        }
+      },
+      "size_bytes": 205
+    },
+    {
+      "codec_hints": [
+        "aes_cbc"
+      ],
+      "fixture_id": "corpus_aes_cbc_analyst_003",
+      "input_sha256": "34808454bb4ee7c7176841c869b3bae3c90276b09e7ab8771b4bec5c679a0636",
+      "results": {
+        "aes_cbc": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy 1.58 < 5.5 — not AES-shaped"
+          },
+          "exception": null,
+          "kind": "aes_cbc",
+          "latency_ms": 0.02558703999966383
+        }
+      },
+      "size_bytes": 205
+    },
+    {
+      "codec_hints": [
+        "aes_cbc"
+      ],
+      "fixture_id": "corpus_aes_cbc_analyst_004",
+      "input_sha256": "186b64443a98b9d761abd0546fa672678a7fb91a915a83e244ce9f8f5543257e",
+      "results": {
+        "aes_cbc": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy 1.58 < 5.5 — not AES-shaped"
+          },
+          "exception": null,
+          "kind": "aes_cbc",
+          "latency_ms": 0.023084983695298433
+        }
+      },
+      "size_bytes": 205
+    },
+    {
+      "codec_hints": [
+        "aes_cbc"
+      ],
+      "fixture_id": "corpus_aes_cbc_analyst_005",
+      "input_sha256": "5f4180d682a73f39303f9a1c7a584de7aa607fd2a92d6fbfb7db1b19caf95c34",
+      "results": {
+        "aes_cbc": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "AES needs ≥32B, block-aligned ciphertext (got 31B)"
+          },
+          "exception": null,
+          "kind": "aes_cbc",
+          "latency_ms": 0.017112994100898504
+        }
+      },
+      "size_bytes": 204
+    },
+    {
+      "codec_hints": [
+        "repeating_key_xor"
+      ],
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_001",
+      "input_sha256": "2c6ace0d83e950af279ca8dade648fa52cc613a3c045db0a109bc266d37448bb",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "explanation_sha256": null,
+            "mitre_hints": [],
+            "notes_count": 2,
+            "output_len": 146,
+            "output_sha256": "ba7d26ef0e39ab20540e9d88a6f136113b6272eea424ae331bd13dce098cffb4",
+            "present": true,
+            "tradecraft": []
+          },
+          "detect": {
+            "confidence": 0.45,
+            "why": "High-entropy printable payload (146B, entropy 5.74, repeating byte 13× hint)"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 378.22343700099736
+        }
+      },
+      "size_bytes": 152
+    },
+    {
+      "codec_hints": [
+        "repeating_key_xor"
+      ],
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_002",
+      "input_sha256": "ee08c5bdc3ed6aca9c329d9d337a5f86e8ff6c1eb2dcd40b7473964caf83711c",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "explanation_sha256": null,
+            "mitre_hints": [],
+            "notes_count": 2,
+            "output_len": 146,
+            "output_sha256": "3aa74753128b2802dd5099cd4ef390d5efbda6f0899bc06225a6763be5c8f1c9",
+            "present": true,
+            "tradecraft": []
+          },
+          "detect": {
+            "confidence": 0.45,
+            "why": "High-entropy printable payload (146B, entropy 5.69, repeating byte 13× hint)"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 471.6983050457202
+        }
+      },
+      "size_bytes": 152
+    },
+    {
+      "codec_hints": [
+        "repeating_key_xor"
+      ],
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_003",
+      "input_sha256": "be86f852afa73bcea12ff86d6fadd171370fbf4a894cce6666b6b212c8df588a",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "explanation_sha256": null,
+            "mitre_hints": [],
+            "notes_count": 2,
+            "output_len": 146,
+            "output_sha256": "60a3388035f3c5e8bc9842f92f962ed27ea18df4361807246dc35fe8f7de052a",
+            "present": true,
+            "tradecraft": []
+          },
+          "detect": {
+            "confidence": 0.45,
+            "why": "High-entropy printable payload (146B, entropy 5.67, repeating byte 13× hint)"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 328.16481502959505
+        }
+      },
+      "size_bytes": 152
+    },
+    {
+      "codec_hints": [
+        "repeating_key_xor"
+      ],
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_004",
+      "input_sha256": "fb7660e16c23ed69dbacbd530a7a85495abe4791315d91200b417462fb5f4e98",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "explanation_sha256": null,
+            "mitre_hints": [],
+            "notes_count": 2,
+            "output_len": 146,
+            "output_sha256": "63bcfd3f560abe7e2b8674393816ed8dca3147aced19f65845ffda0676af4304",
+            "present": true,
+            "tradecraft": []
+          },
+          "detect": {
+            "confidence": 0.45,
+            "why": "High-entropy printable payload (146B, entropy 5.73, repeating byte 13× hint)"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 365.1862840051763
+        }
+      },
+      "size_bytes": 152
+    },
+    {
+      "codec_hints": [
+        "repeating_key_xor"
+      ],
+      "fixture_id": "corpus_multi_stage_b64_gz_xor_005",
+      "input_sha256": "1bae2ffd3e58271fcbedad9fb8c79b2d5f26fe3d7e923c29e4d83beb8a1e92e0",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "explanation_sha256": null,
+            "mitre_hints": [],
+            "notes_count": 2,
+            "output_len": 146,
+            "output_sha256": "35a19021f2309b19a58ab1c6feccbb26202adbe1b47dfe001b3126965822f628",
+            "present": true,
+            "tradecraft": []
+          },
+          "detect": {
+            "confidence": 0.45,
+            "why": "High-entropy printable payload (146B, entropy 5.69, repeating byte 13× hint)"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 391.3304840098135
+        }
+      },
+      "size_bytes": 152
+    },
+    {
+      "codec_hints": [
+        "rc4"
+      ],
+      "fixture_id": "corpus_rc4_analyst_001",
+      "input_sha256": "1ae58f0320f19ca6b2b15a0b9eb0537c564c5e390e5845f42ebbf065530e4d23",
+      "results": {
+        "rc4": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy 5.32 < 5.5 — not RC4-shaped"
+          },
+          "exception": null,
+          "kind": "rc4",
+          "latency_ms": 0.04973204340785742
+        }
+      },
+      "size_bytes": 116
+    },
+    {
+      "codec_hints": [
+        "rc4"
+      ],
+      "fixture_id": "corpus_rc4_analyst_002",
+      "input_sha256": "515e18c656dc4ce64c6415a2c82f5b6d4c487f48121cc50fd5c1bfb52380c0ab",
+      "results": {
+        "rc4": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy 5.24 < 5.5 — not RC4-shaped"
+          },
+          "exception": null,
+          "kind": "rc4",
+          "latency_ms": 0.021232001017779112
+        }
+      },
+      "size_bytes": 116
+    },
+    {
+      "codec_hints": [
+        "rc4"
+      ],
+      "fixture_id": "corpus_rc4_analyst_003",
+      "input_sha256": "c2be63dd5aa2b8cecdce078072ab60853c3db62821749dd45e9b8f48d267cc16",
+      "results": {
+        "rc4": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy 5.32 < 5.5 — not RC4-shaped"
+          },
+          "exception": null,
+          "kind": "rc4",
+          "latency_ms": 0.021936953999102116
+        }
+      },
+      "size_bytes": 116
+    },
+    {
+      "codec_hints": [
+        "rc4"
+      ],
+      "fixture_id": "corpus_rc4_analyst_004",
+      "input_sha256": "110af151e206027ad8c2204c7487c3315b1d05daf27de7ccfcacadf4124f9290",
+      "results": {
+        "rc4": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy 5.29 < 5.5 — not RC4-shaped"
+          },
+          "exception": null,
+          "kind": "rc4",
+          "latency_ms": 0.018505961634218693
+        }
+      },
+      "size_bytes": 116
+    },
+    {
+      "codec_hints": [
+        "rc4"
+      ],
+      "fixture_id": "corpus_rc4_analyst_005",
+      "input_sha256": "2c6a7deea825656adae35f86c0407316ff3df1ea4244efbd8071131f77cf2780",
+      "results": {
+        "rc4": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Ciphertext-blob entropy 5.32 < 5.5 — not RC4-shaped"
+          },
+          "exception": null,
+          "kind": "rc4",
+          "latency_ms": 0.01664104638621211
+        }
+      },
+      "size_bytes": 116
+    },
+    {
+      "codec_hints": [
+        "pe"
+      ],
+      "fixture_id": "corpus_reflection_assembly_load_001",
+      "input_sha256": "16efa0ef798503bde30f53914ed9c16a346d0ef4ba72631c5b1837e27b3906a4",
+      "results": {
+        "pe": {
+          "available": true,
+          "exception": null,
+          "kind": "pe",
+          "latency_ms": 0.08823198731988668,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 151
+    },
+    {
+      "codec_hints": [
+        "pe"
+      ],
+      "fixture_id": "corpus_reflection_assembly_load_002",
+      "input_sha256": "3eaaaefd75012a9dba210f64b80915ad08706c3781fbef0faa686fe7e18ceaa8",
+      "results": {
+        "pe": {
+          "available": true,
+          "exception": null,
+          "kind": "pe",
+          "latency_ms": 0.0038549769669771194,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 151
+    },
+    {
+      "codec_hints": [
+        "pe"
+      ],
+      "fixture_id": "corpus_reflection_assembly_load_003",
+      "input_sha256": "3b24959b25f516e641618b7ee4c6a0c3d70c2a28fe66fd285149ad7504a6f368",
+      "results": {
+        "pe": {
+          "available": true,
+          "exception": null,
+          "kind": "pe",
+          "latency_ms": 0.0033829710446298122,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 151
+    },
+    {
+      "codec_hints": [
+        "pe"
+      ],
+      "fixture_id": "corpus_reflection_assembly_load_004",
+      "input_sha256": "846a574573d5accf2135caba5063f4f2cacf15ddb801cd2a7a7fd003e2740333",
+      "results": {
+        "pe": {
+          "available": true,
+          "exception": null,
+          "kind": "pe",
+          "latency_ms": 0.0029760412871837616,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 151
+    },
+    {
+      "codec_hints": [
+        "pe"
+      ],
+      "fixture_id": "corpus_reflection_assembly_load_005",
+      "input_sha256": "25b28635ff6103bbb9dd364ad8b5f42c0e756729d5bd7b1ba8c530abd69cf5d9",
+      "results": {
+        "pe": {
+          "available": true,
+          "exception": null,
+          "kind": "pe",
+          "latency_ms": 0.0028420472517609596,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 151
+    },
+    {
+      "codec_hints": [
+        "shellcode"
+      ],
+      "fixture_id": "corpus_shellcode_virtualalloc_001",
+      "input_sha256": "7f54907b9e07f3f001498276e6331863da8927d292d093cee702a550b9735a54",
+      "results": {
+        "shellcode": {
+          "available": true,
+          "exception": null,
+          "kind": "shellcode",
+          "latency_ms": 0.005129026249051094,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 252
+    },
+    {
+      "codec_hints": [
+        "shellcode"
+      ],
+      "fixture_id": "corpus_shellcode_virtualalloc_002",
+      "input_sha256": "4b13f0c7cd7f95303e3f46adc1f24e654d82a0e87373a0b3f9ff7a3148bdca13",
+      "results": {
+        "shellcode": {
+          "available": true,
+          "exception": null,
+          "kind": "shellcode",
+          "latency_ms": 0.0048140063881874084,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 252
+    },
+    {
+      "codec_hints": [
+        "shellcode"
+      ],
+      "fixture_id": "corpus_shellcode_virtualalloc_003",
+      "input_sha256": "a7989b6f55d0267221e8d3750c55402eb79c337d88626b134e05a3999e46efe0",
+      "results": {
+        "shellcode": {
+          "available": true,
+          "exception": null,
+          "kind": "shellcode",
+          "latency_ms": 0.0061219907365739346,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 252
+    },
+    {
+      "codec_hints": [
+        "shellcode"
+      ],
+      "fixture_id": "corpus_shellcode_virtualalloc_004",
+      "input_sha256": "d8a02562e1a921aa137c054ebac94c126f67a7cde39b9ff125ce30cad5ab1c40",
+      "results": {
+        "shellcode": {
+          "available": true,
+          "exception": null,
+          "kind": "shellcode",
+          "latency_ms": 0.004820001777261496,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 252
+    },
+    {
+      "codec_hints": [
+        "shellcode"
+      ],
+      "fixture_id": "corpus_shellcode_virtualalloc_005",
+      "input_sha256": "0ccb8a74ad67eacc5a9953ba14d05cd64dbd0ceca1aca7cd4bf74642aa63fe9f",
+      "results": {
+        "shellcode": {
+          "available": true,
+          "exception": null,
+          "kind": "shellcode",
+          "latency_ms": 0.004430010449141264,
+          "report": {
+            "applicable": false
+          }
+        }
+      },
+      "size_bytes": 252
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_ascii_decimal_iex_001",
+      "input_sha256": "608c0b5780fbef7d9a82d55d61f942969b0579b33f6bb2065870b337b972864c",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.0269029987975955
+        }
+      },
+      "size_bytes": 147
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_ascii_decimal_iex_002",
+      "input_sha256": "bc640a56318f083e613aa3adbcbed3c56ebebe6432acceecb5a04fb91a6b1eff",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.01962797250598669
+        }
+      },
+      "size_bytes": 222
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_ascii_decimal_iex_003",
+      "input_sha256": "7f44b6217ce605d5a686795d3e337cc353df36f5d43b920ac09a0c6137419941",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.028401962481439114
+        }
+      },
+      "size_bytes": 370
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_ascii_decimal_iex_004",
+      "input_sha256": "b4d48e04b78994c491262a63d90653310d090f7719dea935fb8346480dd9052d",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.018625985831022263
+        }
+      },
+      "size_bytes": 226
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_ascii_decimal_iex_005",
+      "input_sha256": "c9376a68ec58dcadac1457e01cd6ffcfed41789a5ae280920ec20b6a8658e1de",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.02120295539498329
+        }
+      },
+      "size_bytes": 261
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_base64_001",
+      "input_sha256": "13f9d83e3dc1b37295a68b8bdd6a291ef564f771b6b8ea78a5580d81c142e860",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.007433001883327961
+        }
+      },
+      "size_bytes": 33
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_base64_002",
+      "input_sha256": "93815b379e81dcb329a91d8bc8925a9acb94075eea3968e17fcc4f2e91c03ac1",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.008100992999970913
+        }
+      },
+      "size_bytes": 49
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_base64_003",
+      "input_sha256": "2cb162c5f874171946e1d4601ef48143b6d68b5293611b3bdf522a964df51704",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.009170034900307655
+        }
+      },
+      "size_bytes": 69
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_base64_004",
+      "input_sha256": "ca4e595461f06bc41a541169266b8f29005defb25a3cf9fba522c75126105bf9",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.009834999218583107
+        }
+      },
+      "size_bytes": 85
+    },
+    {
+      "codec_hints": [
+        "xor"
+      ],
+      "fixture_id": "corpus_xor_base64_005",
+      "input_sha256": "346d5fc46ee45e91513d267b86b11b8b67de259506f7e3336546dbd5fdb8439d",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.00948301749303937
+        }
+      },
+      "size_bytes": 69
+    },
+    {
+      "codec_hints": [
+        "gzip",
+        "xor"
+      ],
+      "fixture_id": "meterpreter_gzip_xor_stager",
+      "input_sha256": "8478d069934fb05b769cf33b8be890f2069ca192ee4ed6c981e04d778754dbb1",
+      "results": {
+        "xor_brute": {
+          "available": true,
+          "decode": {
+            "present": false
+          },
+          "detect": {
+            "confidence": 0.0,
+            "why": "Structured plaintext (contains whitespace/newlines) — not XOR ciphertext"
+          },
+          "exception": null,
+          "kind": "xor_brute",
+          "latency_ms": 0.0980959739536047
+        }
+      },
+      "size_bytes": 2833
+    }
+  ],
+  "surface_2_hints": [
+    "aes_cbc",
+    "pe",
+    "rc4",
+    "repeating_key_xor",
+    "shellcode",
+    "xor"
+  ],
+  "total_fixtures_probed": 38
+}

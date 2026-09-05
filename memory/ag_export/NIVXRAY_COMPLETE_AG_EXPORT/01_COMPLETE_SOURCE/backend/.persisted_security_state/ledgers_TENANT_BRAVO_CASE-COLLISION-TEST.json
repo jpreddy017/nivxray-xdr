@@ -1,0 +1,19 @@
+[
+  {
+    "tenant_id": "TENANT_BRAVO",
+    "case_id": "CASE-COLLISION-TEST",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-bravo",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "7c5ea2f288e3b1523c3fecb42d18c0416fc417a8e6427d3e74d510c20b373065",
+    "payload": {
+      "state_hash": "f0243dc8f82bf9c8cbd7c2ae23eb96bf97d3f10793e01537da96e03d0c96e592",
+      "version": 1
+    },
+    "timestamp": "2026-09-03T20:52:15.290675+00:00",
+    "verified": true
+  }
+]

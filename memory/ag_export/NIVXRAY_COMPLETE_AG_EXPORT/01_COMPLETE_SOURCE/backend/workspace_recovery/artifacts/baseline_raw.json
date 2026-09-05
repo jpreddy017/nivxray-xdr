@@ -1,0 +1,7 @@
+{
+  "tree": "baseline_v1.5.6",
+  "fatal": true,
+  "stderr": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/app/backend/workspace_recovery/tree_worker.py\", line 180, in <module>\n    sys.exit(main())\n             ^^^^^^\n  File \"/app/backend/workspace_recovery/tree_worker.py\", line 116, in main\n    os.chdir(backend_dir)\nFileNotFoundError: [Errno 2] No such file or directory: '/tmp/workspace-v1.5.6/backend'\n",
+  "stdout": "",
+  "returncode": 1
+}

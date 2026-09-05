@@ -1,0 +1,8 @@
+{
+  "id": "ps-reverse-2-mut4",
+  "category": "ps-reverse",
+  "expected_keywords": [
+    "cmd.ex"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

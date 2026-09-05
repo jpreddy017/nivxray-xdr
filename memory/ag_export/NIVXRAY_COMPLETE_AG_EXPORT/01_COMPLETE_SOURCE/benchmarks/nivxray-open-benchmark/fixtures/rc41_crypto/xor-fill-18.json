@@ -1,0 +1,44 @@
+{
+  "id": "xor-fill-18",
+  "category": "ps-crypto",
+  "algorithm": "XOR-multi",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('secret1'); $c=[byte[]](3,10,20,23,23,7,89,22,9,15,82,72,23,17,81,36,7,22,72,55,94,29,17,6,28,17,84,114,73,57,54,1,0,6,66,47,53,22,16,9,29,82,47,11,12,6,0,7,31,7,29,23,82,66,17,73,21,12,15,95,1,21,69,18,66,65); $o=[byte[]]::new($c.Length); for($i=0;$i -lt $c.Length;$i++){$o[$i]=$c[$i] -bxor $k[$i%$k.Length]}; IEX ([Text.Encoding]::UTF8.GetString($o))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "byte-array-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "powershell -c \"Add-Content C:\\Users\\Public\\notes.txt 'exfil-data'\"",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,2 @@
+@set v=payload-exe-name-z8z8
+@call echo %v:~0,7%

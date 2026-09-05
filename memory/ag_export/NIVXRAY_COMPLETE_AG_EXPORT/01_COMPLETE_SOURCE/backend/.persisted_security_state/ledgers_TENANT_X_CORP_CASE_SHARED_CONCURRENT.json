@@ -1,0 +1,19 @@
+[
+  {
+    "tenant_id": "TENANT_X_CORP",
+    "case_id": "CASE_SHARED_CONCURRENT",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-x",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "1bfc32bd3a826791640888bc95f02e712cb04f93d6e3199e90e44dbf20270ec9",
+    "payload": {
+      "state_hash": "5941828c5f11e915b16a6d9096fdaed7a7777cc5b93fddd8a5163dc619828af4",
+      "version": 1
+    },
+    "timestamp": "2026-09-04T01:50:12.328982+00:00",
+    "verified": true
+  }
+]

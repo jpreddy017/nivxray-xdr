@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NivXRay · Device Trajectory · M2 Mockups (12 scenes)</title>
+<style>
+  :root {
+    --bg: #FAFBFD;
+    --paper: #FFFFFF;
+    --ink: #0F172A;
+    --ink-dim: #475569;
+    --ink-mute: #64748B;
+    --ink-faint: #94A3B8;
+    --line: #E2E8F0;
+    --line-strong: #CBD5E1;
+    --band: #F1F5F9;
+    --red: #DC2626;
+    --amber: #B7791F;
+    --blue: #2563EB;
+    --green: #059669;
+    --hover: #F1F5F9;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+               margin: 0; padding: 0; }
+  body { padding: 48px 32px 96px; max-width: 1720px; margin: 0 auto; }
+  h1 { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.5px; }
+  .lede { color: var(--ink-dim); font-size: 14px; max-width: 720px; line-height: 1.55; margin-bottom: 48px; }
+  h2 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-mute);
+       font-weight: 700; margin: 48px 0 8px; }
+  .scene { background: var(--paper); border: 1px solid var(--line);
+           border-radius: 8px; overflow: hidden; margin-bottom: 32px;
+           box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+  .scene-header { display: flex; align-items: baseline; gap: 12px; padding: 14px 20px 12px;
+                  border-bottom: 1px solid var(--line); }
+  .scene-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .scene-caption { font-size: 12px; color: var(--ink-dim); }
+  .scene-tag { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+               background: #EEF2FF; color: var(--blue);
+               padding: 2px 8px; border-radius: 3px; font-weight: 700; }
+  svg { display: block; width: 100%; height: auto; }
+  code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .grid-2 .scene { margin-bottom: 0; }
+  .rationale { font-size: 13px; color: var(--ink-dim); line-height: 1.6;
+               padding: 12px 20px 18px; border-top: 1px dashed var(--line);
+               background: #FAFBFD; }
+  .rationale b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>NivXRay · Device Trajectory · M2 Mockups</h1>
+<div class="lede">
+  Twelve static scenes exploring the redesigned investigation timeline. Every scene renders
+  the same seeded Bumblebee → AdaptixC2 → Akira ransomware case so you can compare states
+  directly. Scenes are hand-drawn SVG — nothing here is React, Konva, or production code.
+  Focus on the <b>investigation methodology</b> — spacing, order, density, ancestry, contrast
+  budget — not the hex values.
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────
+     SVG TEMPLATE HELPERS (inlined per-scene for readability)
+     ──────────────────────────────────────────────────────────────── -->
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 01 · Landing state · Full case</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Land</span>
+    <span class="scene-title">First view. The analyst sees a story in 3 seconds.</span>
+    <span class="scene-caption">DFS-ancestry order · thin lifelines · red events dominate</span>
+  </div>
+  <svg viewBox="0 0 1600 620" xmlns="http://www.w3.org/2000/svg">
+    <!-- Page bg -->
+    <rect width="1600" height="620" fill="#FAFBFD"/>
+
+    <!-- Header · 36 -->
+    <rect x="0" y="0" width="1600" height="36" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="16" y="10" width="16" height="16" rx="3" fill="#2563EB22" stroke="#2563EB55"/>
+    <text x="42" y="16" font-size="9" letter-spacing="2" fill="#64748B" font-weight="700">NIVXRAY</text>
+    <text x="42" y="27" font-size="12" fill="#0F172A" font-weight="600">Device Trajectory</text>
+    <text x="200" y="23" font-size="11" fill="#0F172A" font-family="IBM Plex Mono, monospace">
+      case_dfir_bumblebee_akira_2026
+    </text>
+    <text x="470" y="23" font-size="10" letter-spacing="1" fill="#64748B">EVENTS 53 · PROCS 20 · MITRE 12</text>
+    <rect x="960" y="8" width="240" height="20" rx="4" fill="#F1F5F9" stroke="#E2E8F0"/>
+    <text x="972" y="22" font-size="11" fill="#94A3B8">Search / (Cmd+K)</text>
+    <text x="1240" y="23" font-size="10" letter-spacing="1" fill="#64748B" font-weight="600">FIT · 100%</text>
+
+    <!-- Time axis · 40 -->
+    <rect x="0" y="36" width="1600" height="40" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <!-- density sparkline overlay -->
+    <polyline fill="#2563EB18" stroke="#2563EB88" stroke-width="1"
+              points="180,72 220,60 260,55 300,50 340,58 380,45 420,42 460,38 500,52
+                     540,48 580,44 620,58 660,50 700,62 740,55 780,45 820,42 860,50
+                     900,55 940,45 980,40 1020,52 1060,48 1100,42 1140,44 1180,38
+                     1220,42 1260,52 1300,45 1340,38 1380,42 1420,48 1460,55 1500,62"/>
+    <!-- axis ticks (relative-seconds since case span is compressed) -->
+    <g font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">
+      <text x="180" y="72">T+0.0s</text>
+      <text x="360" y="72">T+0.1s</text>
+      <text x="540" y="72">T+0.2s</text>
+      <text x="720" y="72">T+0.3s</text>
+      <text x="900" y="72">T+0.4s</text>
+      <text x="1080" y="72">T+0.5s</text>
+      <text x="1260" y="72">T+0.6s</text>
+      <text x="1440" y="72">T+0.7s</text>
+    </g>
+    <line x1="0" y1="76" x2="1600" y2="76" stroke="#E2E8F0"/>
+
+    <!-- Entity gutter · sticky column · 180 wide -->
+    <rect x="0" y="76" width="180" height="522" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- Band: PROCESS -->
+    <text x="10" y="94" font-size="9" letter-spacing="1.8" fill="#64748B" font-weight="700">PROCESS ANCESTRY</text>
+    <line x1="0" y1="100" x2="1600" y2="100" stroke="#E2E8F0" stroke-width="0.5"/>
+
+    <!-- Rows helper macro: name in gutter + lifeline right + events on line -->
+    <!-- Row 1: msiexec.exe (root) -->
+    <text x="14" y="120" font-size="11" fill="#0F172A" font-weight="600">msiexec.exe</text>
+    <text x="140" y="120" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">1</text>
+    <line x1="184" y1="117" x2="1584" y2="117" stroke="#94A3B8" stroke-width="1" opacity="0.6"/>
+    <circle cx="200" cy="117" r="4" fill="#94A3B8"/>
+
+    <!-- Row 2: cmd.exe (child of msiexec) -->
+    <text x="30" y="140" font-size="11" fill="#0F172A" font-weight="500">├─ cmd.exe</text>
+    <text x="140" y="140" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">15</text>
+    <line x1="184" y1="137" x2="1584" y2="137" stroke="#94A3B8" stroke-width="1" opacity="0.6"/>
+    <!-- ancestry L-connector msiexec -> cmd -->
+    <path d="M 200 121 L 200 137" stroke="#CBD5E1" stroke-width="1"/>
+    <!-- events on cmd.exe -->
+    <g fill="#64748B">
+      <circle cx="220" cy="137" r="3"/><circle cx="260" cy="137" r="3"/>
+      <circle cx="300" cy="137" r="3"/><circle cx="340" cy="137" r="3"/>
+      <circle cx="380" cy="137" r="3"/><circle cx="420" cy="137" r="3"/>
+      <circle cx="460" cy="137" r="3"/><circle cx="500" cy="137" r="3"/>
+      <circle cx="540" cy="137" r="3"/><circle cx="580" cy="137" r="3"/>
+      <circle cx="620" cy="137" r="3"/><circle cx="660" cy="137" r="3"/>
+      <circle cx="700" cy="137" r="3"/><circle cx="740" cy="137" r="3"/>
+    </g>
+
+    <!-- Row 3: net.exe -->
+    <text x="46" y="158" font-size="11" fill="#0F172A" font-weight="500">│  ├─ net.exe</text>
+    <text x="140" y="158" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">3</text>
+    <line x1="184" y1="155" x2="1584" y2="155" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <path d="M 260 141 L 260 155" stroke="#CBD5E1" stroke-width="1"/>
+    <g fill="#64748B">
+      <circle cx="264" cy="155" r="3"/><circle cx="284" cy="155" r="3"/>
+      <circle cx="304" cy="155" r="3"/>
+    </g>
+
+    <!-- Row 4: reg.exe (registry mutation via cmd) -->
+    <text x="46" y="176" font-size="11" fill="#0F172A" font-weight="500">│  ├─ reg.exe</text>
+    <text x="140" y="176" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">2</text>
+    <line x1="184" y1="173" x2="1584" y2="173" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <path d="M 320 141 L 320 173" stroke="#CBD5E1" stroke-width="1"/>
+    <g fill="#64748B">
+      <rect x="316" y="170" width="7" height="7" fill="none" stroke="#64748B" stroke-width="1"/>
+      <rect x="380" y="170" width="7" height="7" fill="none" stroke="#64748B" stroke-width="1"/>
+    </g>
+
+    <!-- Row 5: rundll32.exe (SUSPICIOUS - amber triangle) -->
+    <text x="46" y="194" font-size="11" fill="#B7791F" font-weight="500">│  ├─ rundll32.exe</text>
+    <text x="140" y="194" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">4</text>
+    <line x1="184" y1="191" x2="1584" y2="191" stroke="#94A3B8" stroke-width="1" opacity="0.6"/>
+    <path d="M 400 141 L 400 191" stroke="#CBD5E1" stroke-width="1"/>
+    <g fill="#B7791F">
+      <polygon points="400,187 400,195 407,191"/>
+      <polygon points="440,187 440,195 447,191"/>
+      <polygon points="480,187 480,195 487,191"/>
+      <polygon points="520,187 520,195 527,191"/>
+    </g>
+
+    <!-- Row 6: powershell.exe (MALICIOUS - red dots) -->
+    <text x="46" y="212" font-size="11" fill="#DC2626" font-weight="600">│  └─ powershell.exe</text>
+    <text x="140" y="212" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">5</text>
+    <line x1="184" y1="209" x2="1584" y2="209" stroke="#94A3B8" stroke-width="1" opacity="0.6"/>
+    <path d="M 500 141 L 500 209" stroke="#CBD5E1" stroke-width="1"/>
+    <g>
+      <circle cx="504" cy="209" r="6" fill="#DC262622"/>
+      <circle cx="504" cy="209" r="4" fill="#DC2626"/>
+      <circle cx="544" cy="209" r="6" fill="#DC262622"/>
+      <circle cx="544" cy="209" r="4" fill="#DC2626"/>
+      <circle cx="584" cy="209" r="4" fill="#DC2626"/>
+      <circle cx="624" cy="209" r="6" fill="#DC262622"/>
+      <circle cx="624" cy="209" r="4" fill="#DC2626"/>
+      <circle cx="664" cy="209" r="4" fill="#DC2626"/>
+    </g>
+
+    <!-- Row 7: RustDesk.exe (lateral movement) -->
+    <text x="30" y="230" font-size="11" fill="#0F172A" font-weight="500">├─ RustDesk.exe</text>
+    <text x="140" y="230" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">6</text>
+    <line x1="184" y1="227" x2="1584" y2="227" stroke="#94A3B8" stroke-width="1" opacity="0.6"/>
+    <path d="M 200 121 L 200 227" stroke="#CBD5E1" stroke-width="1"/>
+    <g fill="#64748B">
+      <circle cx="700" cy="227" r="3"/><circle cx="740" cy="227" r="3"/>
+      <circle cx="780" cy="227" r="3"/><circle cx="820" cy="227" r="3"/>
+      <circle cx="860" cy="227" r="3"/><circle cx="900" cy="227" r="3"/>
+    </g>
+
+    <!-- Row 8: ssh.exe (via RustDesk) -->
+    <text x="46" y="248" font-size="11" fill="#0F172A" font-weight="500">│  └─ ssh.exe</text>
+    <text x="140" y="248" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">1</text>
+    <line x1="184" y1="245" x2="1584" y2="245" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <path d="M 780 231 L 780 245" stroke="#CBD5E1" stroke-width="1"/>
+    <circle cx="784" cy="245" r="3" fill="#64748B"/>
+
+    <!-- Row 9: psql.exe (data staging) -->
+    <text x="30" y="266" font-size="11" fill="#0F172A" font-weight="500">├─ psql.exe</text>
+    <text x="140" y="266" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">3</text>
+    <line x1="184" y1="263" x2="1584" y2="263" stroke="#94A3B8" stroke-width="1" opacity="0.6"/>
+    <path d="M 200 121 L 200 263" stroke="#CBD5E1" stroke-width="1"/>
+    <g fill="#64748B">
+      <circle cx="900" cy="263" r="3"/><circle cx="940" cy="263" r="3"/>
+      <circle cx="980" cy="263" r="3"/>
+    </g>
+
+    <!-- Row 10: wbadmin.exe (SUSPICIOUS - backup deletion) -->
+    <text x="30" y="284" font-size="11" fill="#B7791F" font-weight="500">├─ wbadmin.exe</text>
+    <text x="140" y="284" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">2</text>
+    <line x1="184" y1="281" x2="1584" y2="281" stroke="#94A3B8" stroke-width="1" opacity="0.6"/>
+    <path d="M 200 121 L 200 281" stroke="#CBD5E1" stroke-width="1"/>
+    <g fill="#B7791F">
+      <polygon points="1000,277 1000,285 1007,281"/>
+      <polygon points="1040,277 1040,285 1047,281"/>
+    </g>
+
+    <!-- Row 11: locker.exe (CRITICAL - ransomware) -->
+    <text x="30" y="302" font-size="11" fill="#DC2626" font-weight="700">└─ locker.exe</text>
+    <text x="140" y="302" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">3</text>
+    <line x1="184" y1="299" x2="1584" y2="299" stroke="#DC2626" stroke-width="1.5" opacity="0.6"/>
+    <path d="M 200 121 L 200 299" stroke="#CBD5E1" stroke-width="1"/>
+    <g>
+      <circle cx="1100" cy="299" r="6" fill="#DC262622"/>
+      <circle cx="1100" cy="299" r="5" fill="#DC2626"/>
+      <circle cx="1140" cy="299" r="6" fill="#DC262622"/>
+      <circle cx="1140" cy="299" r="5" fill="#DC2626"/>
+      <circle cx="1180" cy="299" r="6" fill="#DC262622"/>
+      <circle cx="1180" cy="299" r="5" fill="#DC2626"/>
+    </g>
+    <!-- Compromise marker text -->
+    <text x="1100" y="315" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace" font-weight="700">RANSOMWARE ACTIVATION · T1486</text>
+
+    <!-- Band: FILE -->
+    <text x="10" y="340" font-size="9" letter-spacing="1.8" fill="#64748B" font-weight="700">FILE ACTIVITY</text>
+    <line x1="0" y1="346" x2="1600" y2="346" stroke="#E2E8F0" stroke-width="0.5"/>
+
+    <text x="14" y="366" font-size="11" fill="#0F172A" font-weight="500">ManageEngine-OpMngr.msi</text>
+    <text x="140" y="366" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">1</text>
+    <line x1="184" y1="363" x2="1584" y2="363" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <g fill="#059669"><line x1="196" y1="360" x2="204" y2="360" stroke="#059669" stroke-width="1.5"/>
+       <line x1="200" y1="356" x2="200" y2="364" stroke="#059669" stroke-width="1.5"/></g>
+
+    <text x="14" y="384" font-size="11" fill="#0F172A" font-weight="500">*.locked (7 files)</text>
+    <text x="140" y="384" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">7</text>
+    <line x1="184" y1="381" x2="1584" y2="381" stroke="#DC2626" stroke-width="1" opacity="0.5"/>
+    <g fill="#DC2626">
+      <circle cx="1100" cy="381" r="3"/><circle cx="1120" cy="381" r="3"/>
+      <circle cx="1140" cy="381" r="3"/><circle cx="1160" cy="381" r="3"/>
+      <circle cx="1180" cy="381" r="3"/><circle cx="1200" cy="381" r="3"/>
+      <circle cx="1220" cy="381" r="3"/>
+    </g>
+
+    <text x="14" y="402" font-size="11" fill="#0F172A" font-weight="500">ntds.dit</text>
+    <text x="140" y="402" font-size="9" fill="#B7791F" font-family="IBM Plex Mono, monospace">1</text>
+    <line x1="184" y1="399" x2="1584" y2="399" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <polygon points="900,395 900,403 907,399" fill="#B7791F"/>
+
+    <!-- Band: NETWORK -->
+    <text x="10" y="430" font-size="9" letter-spacing="1.8" fill="#64748B" font-weight="700">NETWORK</text>
+    <line x1="0" y1="436" x2="1600" y2="436" stroke="#E2E8F0" stroke-width="0.5"/>
+
+    <text x="14" y="456" font-size="11" fill="#0F172A" font-weight="500">45.147.230.15:443</text>
+    <text x="140" y="456" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">3</text>
+    <line x1="184" y1="453" x2="1584" y2="453" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <g stroke="#64748B" fill="none" stroke-width="1">
+      <polyline points="480,449 490,449 488,447 490,449 488,451"/>
+      <polyline points="600,449 610,449 608,447 610,449 608,451"/>
+      <polyline points="720,449 730,449 728,447 730,449 728,451"/>
+    </g>
+
+    <text x="14" y="474" font-size="11" fill="#DC2626" font-weight="600">185.220.101.42:80 (TOR)</text>
+    <text x="140" y="474" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">2</text>
+    <line x1="184" y1="471" x2="1584" y2="471" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <g fill="#DC2626">
+      <circle cx="620" cy="471" r="4"/><circle cx="660" cy="471" r="4"/>
+    </g>
+
+    <!-- Band: REGISTRY -->
+    <text x="10" y="504" font-size="9" letter-spacing="1.8" fill="#64748B" font-weight="700">REGISTRY</text>
+    <line x1="0" y1="510" x2="1600" y2="510" stroke="#E2E8F0" stroke-width="0.5"/>
+
+    <text x="14" y="528" font-size="11" fill="#0F172A" font-weight="500">HKLM\...\Run\Update</text>
+    <text x="140" y="528" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">1</text>
+    <line x1="184" y1="525" x2="1584" y2="525" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <rect x="316" y="522" width="7" height="7" fill="none" stroke="#64748B" stroke-width="1"/>
+
+    <text x="14" y="546" font-size="11" fill="#0F172A" font-weight="500">HKLM\...\Winlogon\Shell</text>
+    <text x="140" y="546" font-size="9" fill="#B7791F" font-family="IBM Plex Mono, monospace">1</text>
+    <line x1="184" y1="543" x2="1584" y2="543" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <rect x="380" y="540" width="7" height="7" fill="none" stroke="#B7791F" stroke-width="1"/>
+
+    <!-- Status bar · 22 -->
+    <line x1="0" y1="598" x2="1600" y2="598" stroke="#E2E8F0"/>
+    <rect x="0" y="598" width="1600" height="22" fill="#F8FAFC"/>
+    <text x="16" y="613" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">
+      WINDOW · FIT   2026-07-22 13:04:54.35 → 13:04:54.98   Δ 0.63s
+    </text>
+    <text x="1400" y="613" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">
+      53 events · 20 procs · 100%
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> The row is now a <b>thin 1-px line</b>, not a pill. Names live in a
+    fixed 180-px left gutter. Ancestry is expressed by <b>indentation glyphs</b> (<code>├─ └─ │</code>)
+    and thin L-connectors that drop from parent lifeline to child lifeline at the exact spawn
+    tick. The only loud colour on the canvas is red — 8 red dots on powershell.exe and locker.exe
+    plus the "RANSOMWARE ACTIVATION · T1486" label pull the eye straight to the moment of
+    compromise. Amber sits at half the visual weight of red. Everything else is monochrome. <b>The
+    canvas is legible without opening the right panel.</b>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 02 · Event hover · tooltip card</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Orient</span>
+    <span class="scene-title">Hovering the ransomware event surfaces evidence context.</span>
+    <span class="scene-caption">300 ms delay · verdict pill · MITRE chips · timestamp</span>
+  </div>
+  <svg viewBox="0 0 1600 340" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="340" fill="#FAFBFD"/>
+    <!-- Only rows around the hovered event, cropped -->
+    <rect x="0" y="0" width="180" height="340" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <text x="14" y="30" font-size="11" fill="#0F172A" font-weight="500">├─ cmd.exe</text>
+    <line x1="184" y1="27" x2="1584" y2="27" stroke="#94A3B8" opacity="0.5"/>
+
+    <text x="30" y="52" font-size="11" fill="#DC2626" font-weight="600">│  └─ powershell.exe</text>
+    <!-- Row highlighted (hovered) -->
+    <rect x="184" y="42" width="1400" height="20" fill="#F1F5F9"/>
+    <line x1="184" y1="52" x2="1584" y2="52" stroke="#0F172A" stroke-width="1.4"/>
+
+    <!-- The event, scaled up 1.4x -->
+    <circle cx="620" cy="52" r="9" fill="#DC262633"/>
+    <circle cx="620" cy="52" r="6" fill="#DC2626"/>
+    <circle cx="620" cy="52" r="8" fill="none" stroke="#2563EB" stroke-width="1.5"/>
+
+    <!-- Tooltip anchored to cursor -->
+    <g transform="translate(640, 60)">
+      <rect x="0" y="0" width="380" height="150" rx="6" fill="#FFFFFF" stroke="#E2E8F0"
+            filter="url(#tt-shadow)"/>
+      <rect x="0" y="0" width="380" height="150" rx="6" fill="none" stroke="#E2E8F0"/>
+      <rect x="12" y="12" width="70" height="18" rx="3" fill="#FEE2E2"/>
+      <text x="20" y="25" font-size="9" letter-spacing="1.5" fill="#DC2626" font-weight="700">MALICIOUS</text>
+      <text x="92" y="25" font-size="10" letter-spacing="1.5" fill="#64748B" font-weight="700">EXECUTE</text>
+
+      <text x="12" y="52" font-size="13" fill="#0F172A" font-weight="600">
+        Invoke-Expression &amp; encoded reflective loader
+      </text>
+      <text x="12" y="70" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">
+        2026-07-22 13:04:54.612 UTC · T+0.257s
+      </text>
+
+      <g font-family="IBM Plex Mono, monospace" font-weight="600">
+        <rect x="12"  y="86" width="50" height="16" rx="2" fill="#FEE2E2"/>
+        <text x="18"  y="97" font-size="9" fill="#DC2626">T1059.001</text>
+        <rect x="70"  y="86" width="46" height="16" rx="2" fill="#FEE2E2"/>
+        <text x="76"  y="97" font-size="9" fill="#DC2626">T1027</text>
+        <rect x="124" y="86" width="42" height="16" rx="2" fill="#FEE2E2"/>
+        <text x="130" y="97" font-size="9" fill="#DC2626">T1620</text>
+      </g>
+
+      <text x="12" y="126" font-size="10" fill="#94A3B8">Parent</text>
+      <text x="60" y="126" font-size="10" fill="#0F172A" font-family="IBM Plex Mono, monospace">cmd.exe</text>
+      <text x="140" y="126" font-size="10" fill="#94A3B8">SHA-256</text>
+      <text x="192" y="126" font-size="10" fill="#0F172A" font-family="IBM Plex Mono, monospace">a5c21f01…dcf1</text>
+    </g>
+    <defs>
+      <filter id="tt-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.16"/>
+      </filter>
+    </defs>
+
+    <!-- Playhead (co-occurring) -->
+    <line x1="620" y1="0" x2="620" y2="340" stroke="#2563EB" stroke-width="1" opacity="0.4" stroke-dasharray="4 3"/>
+
+    <text x="30" y="80" font-size="11" fill="#0F172A" font-weight="500">├─ RustDesk.exe</text>
+    <line x1="184" y1="77" x2="1584" y2="77" stroke="#94A3B8" opacity="0.5"/>
+    <circle cx="620" cy="77" r="3" fill="#64748B"/>
+    <circle cx="620" cy="77" r="5" fill="none" stroke="#2563EB" stroke-width="1" opacity="0.7"/>
+
+    <text x="14" y="108" font-size="11" fill="#DC2626" font-weight="700">└─ locker.exe</text>
+    <line x1="184" y1="105" x2="1584" y2="105" stroke="#DC2626" opacity="0.6"/>
+
+    <text x="14" y="140" font-size="11" fill="#0F172A" font-weight="500">185.220.101.42:80</text>
+    <line x1="184" y1="137" x2="1584" y2="137" stroke="#94A3B8" opacity="0.5"/>
+    <circle cx="620" cy="137" r="4" fill="#DC2626"/>
+    <circle cx="620" cy="137" r="7" fill="none" stroke="#2563EB" stroke-width="1" opacity="0.7"/>
+
+    <text x="1200" y="290" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace" font-style="italic">
+      hover · dashed playhead · 3 co-occurring events highlighted in blue
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Hover a malicious event → tooltip appears after 300 ms with verdict
+    pill, MITRE chips (deterministic, taken from the event, not invented), parent, SHA-256 excerpt.
+    Simultaneously a <b>dashed playhead</b> drops through all rows at the event's timestamp so the
+    analyst sees <i>what else was happening at that instant</i>. Three co-occurring events on other
+    rows get a blue outline — this is how Cisco makes cross-row correlation feel instant.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 03 · Selected event · playhead lock</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Attribute</span>
+    <span class="scene-title">Click the event · playhead locks · right panel opens to Evidence.</span>
+  </div>
+  <svg viewBox="0 0 1600 340" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="340" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="340" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="1240" y="0" width="360" height="340" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- Playhead solid -->
+    <line x1="620" y1="0" x2="620" y2="340" stroke="#2563EB" stroke-width="1" opacity="0.55"/>
+
+    <text x="14" y="26" font-size="11" fill="#0F172A" font-weight="500">├─ cmd.exe</text>
+    <line x1="184" y1="23" x2="1240" y2="23" stroke="#94A3B8" opacity="0.5"/>
+
+    <text x="30" y="50" font-size="11" fill="#DC2626" font-weight="600">│  └─ powershell.exe</text>
+    <line x1="184" y1="47" x2="1240" y2="47" stroke="#0F172A" stroke-width="1.4"/>
+    <circle cx="620" cy="47" r="7" fill="#DC262622"/>
+    <circle cx="620" cy="47" r="4.5" fill="#DC2626"/>
+    <circle cx="620" cy="47" r="8" fill="none" stroke="#2563EB" stroke-width="2"/>
+
+    <text x="30" y="76" font-size="11" fill="#0F172A" font-weight="500">├─ RustDesk.exe</text>
+    <line x1="184" y1="73" x2="1240" y2="73" stroke="#94A3B8" opacity="0.5"/>
+
+    <text x="14" y="102" font-size="11" fill="#DC2626" font-weight="700">└─ locker.exe</text>
+    <line x1="184" y1="99" x2="1240" y2="99" stroke="#DC2626" opacity="0.6"/>
+    <circle cx="1100" cy="99" r="5" fill="#DC2626"/>
+
+    <!-- Right Panel -->
+    <text x="1256" y="24" font-size="9" letter-spacing="1.8" fill="#0F172A" font-weight="700">EVIDENCE</text>
+    <line x1="1256" y1="30" x2="1298" y2="30" stroke="#2563EB" stroke-width="2"/>
+    <text x="1316" y="24" font-size="9" letter-spacing="1.8" fill="#94A3B8" font-weight="700">ENTITY</text>
+    <text x="1370" y="24" font-size="9" letter-spacing="1.8" fill="#94A3B8" font-weight="700">MITRE</text>
+    <text x="1430" y="24" font-size="9" letter-spacing="1.8" fill="#94A3B8" font-weight="700">HISTORY</text>
+
+    <rect x="1256" y="50" width="40" height="14" rx="2" fill="#FEE2E2"/>
+    <text x="1262" y="60" font-size="8" fill="#DC2626" font-weight="700" letter-spacing="1">MALICIOUS</text>
+    <text x="1256" y="88" font-size="14" fill="#0F172A" font-weight="700">
+      powershell.exe -encoded &lt;IEX&gt;
+    </text>
+
+    <text x="1256" y="112" font-size="10" fill="#64748B" font-weight="600">COMMAND LINE</text>
+    <rect x="1256" y="118" width="328" height="42" rx="2" fill="#F8FAFC"/>
+    <text x="1264" y="132" font-size="9.5" fill="#0F172A" font-family="IBM Plex Mono, monospace">powershell.exe -NoP -W hidden</text>
+    <text x="1264" y="144" font-size="9.5" fill="#0F172A" font-family="IBM Plex Mono, monospace">-Enc SUVYIChjb...</text>
+    <text x="1264" y="156" font-size="9.5" fill="#0F172A" font-family="IBM Plex Mono, monospace">RGV2ZWxvcGVyKQ==</text>
+
+    <text x="1256" y="180" font-size="10" fill="#64748B" font-weight="600">SHA-256</text>
+    <text x="1256" y="195" font-size="9.5" fill="#0F172A" font-family="IBM Plex Mono, monospace">a5c21f017b3ff89e4ac7c7e04a4cceb5</text>
+    <text x="1256" y="207" font-size="9.5" fill="#0F172A" font-family="IBM Plex Mono, monospace">7d881019eab7f83dee186bb855f6dcf1</text>
+
+    <text x="1256" y="232" font-size="10" fill="#64748B" font-weight="600">PARENT</text>
+    <text x="1256" y="247" font-size="10" fill="#0F172A" font-family="IBM Plex Mono, monospace">cmd.exe (proc_shadow_7a55…)</text>
+
+    <text x="1256" y="272" font-size="10" fill="#64748B" font-weight="600">MITRE ATT&amp;CK</text>
+    <g font-family="IBM Plex Mono, monospace" font-weight="600">
+      <rect x="1256" y="278" width="66" height="16" rx="2" fill="#FEE2E2"/>
+      <text x="1264" y="289" font-size="9" fill="#DC2626">T1059.001</text>
+      <rect x="1328" y="278" width="46" height="16" rx="2" fill="#FEE2E2"/>
+      <text x="1336" y="289" font-size="9" fill="#DC2626">T1027</text>
+      <rect x="1380" y="278" width="46" height="16" rx="2" fill="#FEE2E2"/>
+      <text x="1386" y="289" font-size="9" fill="#DC2626">T1620</text>
+    </g>
+
+    <text x="1256" y="320" font-size="10" fill="#64748B" font-weight="600">DETECTION</text>
+    <text x="1256" y="334" font-size="10" fill="#0F172A">R-DE-REFLECTION · confidence 92</text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> One click gives the analyst the whole story: <b>playhead locks</b>
+    (solid blue line, not dashed), event gets a 2 px selection ring, right panel jumps to Evidence
+    tab and is fully populated with verdict / command line / SHA / parent / MITRE / detection
+    rule. The Evidence tab structure is the same for every event kind — one predictable place to
+    read.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 04 · Ancestry focus mode</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Descend</span>
+    <span class="scene-title">Cmd+click on powershell.exe row: only ancestors + descendants remain visible.</span>
+  </div>
+  <svg viewBox="0 0 1600 240" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="240" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="240" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <text x="14" y="28" font-size="11" fill="#0F172A" font-weight="600">msiexec.exe</text>
+    <line x1="184" y1="25" x2="1584" y2="25" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+    <circle cx="200" cy="25" r="4" fill="#94A3B8"/>
+
+    <text x="30" y="50" font-size="11" fill="#0F172A" font-weight="600">├─ cmd.exe</text>
+    <line x1="184" y1="47" x2="1584" y2="47" stroke="#94A3B8" stroke-width="1" opacity="0.6"/>
+    <path d="M 200 29 L 200 47" stroke="#CBD5E1"/>
+    <g fill="#64748B">
+      <circle cx="220" cy="47" r="3"/><circle cx="260" cy="47" r="3"/>
+      <circle cx="300" cy="47" r="3"/><circle cx="340" cy="47" r="3"/>
+      <circle cx="380" cy="47" r="3"/>
+    </g>
+
+    <!-- FOCUS: powershell.exe -->
+    <rect x="184" y="60" width="1400" height="24" fill="#DBEAFE33"/>
+    <text x="46" y="76" font-size="11" fill="#DC2626" font-weight="700">│  └─ powershell.exe ★</text>
+    <line x1="184" y1="73" x2="1584" y2="73" stroke="#DC2626" stroke-width="1.5"/>
+    <path d="M 260 51 L 260 73" stroke="#2563EB" stroke-width="1.5"/>
+    <g>
+      <circle cx="504" cy="73" r="4" fill="#DC2626"/>
+      <circle cx="544" cy="73" r="4" fill="#DC2626"/>
+      <circle cx="584" cy="73" r="4" fill="#DC2626"/>
+      <circle cx="624" cy="73" r="4" fill="#DC2626"/>
+      <circle cx="664" cy="73" r="4" fill="#DC2626"/>
+    </g>
+
+    <text x="62" y="102" font-size="11" fill="#DC2626" font-weight="700">│     └─ locker.exe</text>
+    <line x1="184" y1="99" x2="1584" y2="99" stroke="#DC2626" stroke-width="1.2" opacity="0.7"/>
+    <path d="M 584 77 L 584 99" stroke="#2563EB" stroke-width="1.5"/>
+    <g>
+      <circle cx="1100" cy="99" r="5" fill="#DC2626"/>
+      <circle cx="1140" cy="99" r="5" fill="#DC2626"/>
+      <circle cx="1180" cy="99" r="5" fill="#DC2626"/>
+    </g>
+
+    <text x="14" y="130" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">
+      ✎ Ancestry mode · 16 non-related rows hidden · press Esc to exit
+    </text>
+
+    <!-- Hidden rows placeholder -->
+    <g opacity="0.15">
+      <text x="30" y="158" font-size="10" fill="#94A3B8">net.exe (hidden)</text>
+      <text x="30" y="176" font-size="10" fill="#94A3B8">rundll32.exe (hidden)</text>
+      <text x="30" y="194" font-size="10" fill="#94A3B8">RustDesk.exe (hidden)</text>
+      <text x="30" y="212" font-size="10" fill="#94A3B8">…14 more hidden</text>
+    </g>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> The <b>ancestry focus</b> mode is the workflow analysts want when
+    saying "just show me the chain." Cmd+click any row → only ancestors + descendants remain,
+    everything else collapses. The ancestry L-connectors become <b>solid blue</b> (versus
+    <code>#CBD5E1</code> when idle) to accentuate the chain. Twelve red dots pop unmistakably.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 05 · Filter drawer · Network only</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Widen</span>
+    <span class="scene-title">Slide-out filters · "Network only" collapses rows to ultra-dense view.</span>
+  </div>
+  <svg viewBox="0 0 1600 260" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="260" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="260" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- Filter drawer -->
+    <rect x="180" y="0" width="280" height="260" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="196" y="26" font-size="10" letter-spacing="2" fill="#0F172A" font-weight="700">FILTERS</text>
+    <text x="420" y="26" font-size="10" fill="#94A3B8">✕</text>
+
+    <text x="196" y="52" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">ACTIVITY</text>
+    <rect x="196" y="60" width="60" height="20" rx="10" fill="#F1F5F9"/>
+    <text x="212" y="74" font-size="10" fill="#64748B">Create</text>
+    <rect x="262" y="60" width="60" height="20" rx="10" fill="#F1F5F9"/>
+    <text x="278" y="74" font-size="10" fill="#64748B">Execute</text>
+    <rect x="328" y="60" width="60" height="20" rx="10" fill="#DBEAFE"/>
+    <text x="344" y="74" font-size="10" fill="#2563EB" font-weight="600">Network</text>
+    <rect x="196" y="86" width="60" height="20" rx="10" fill="#F1F5F9"/>
+    <text x="212" y="100" font-size="10" fill="#64748B">Registry</text>
+    <rect x="262" y="86" width="60" height="20" rx="10" fill="#F1F5F9"/>
+    <text x="284" y="100" font-size="10" fill="#64748B">File</text>
+    <rect x="322" y="86" width="60" height="20" rx="10" fill="#F1F5F9"/>
+    <text x="338" y="100" font-size="10" fill="#64748B">Delete</text>
+
+    <text x="196" y="126" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">DISPOSITION</text>
+    <rect x="196" y="134" width="60" height="20" rx="10" fill="#F1F5F9"/>
+    <text x="212" y="148" font-size="10" fill="#64748B">Benign</text>
+    <rect x="262" y="134" width="70" height="20" rx="10" fill="#FEF3C7"/>
+    <text x="278" y="148" font-size="10" fill="#B7791F" font-weight="600">Suspicious</text>
+    <rect x="338" y="134" width="70" height="20" rx="10" fill="#FEE2E2"/>
+    <text x="356" y="148" font-size="10" fill="#DC2626" font-weight="600">Malicious</text>
+
+    <text x="196" y="180" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">TIME RANGE</text>
+    <rect x="196" y="188" width="212" height="20" rx="3" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="204" y="202" font-size="10" fill="#0F172A" font-family="IBM Plex Mono, monospace">
+      T+0.0s → T+0.7s
+    </text>
+
+    <text x="196" y="232" font-size="10" fill="#64748B">2 filters active</text>
+    <text x="396" y="232" font-size="10" fill="#2563EB" font-weight="600">Clear</text>
+
+    <!-- Collapsed canvas -->
+    <text x="470" y="26" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">NETWORK · MALICIOUS</text>
+    <line x1="470" y1="34" x2="1584" y2="34" stroke="#E2E8F0" stroke-width="0.5"/>
+
+    <text x="472" y="56" font-size="11" fill="#0F172A" font-weight="500">45.147.230.15:443</text>
+    <text x="616" y="56" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">3</text>
+    <line x1="656" y1="53" x2="1584" y2="53" stroke="#94A3B8" opacity="0.5"/>
+    <g stroke="#64748B" fill="none" stroke-width="1">
+      <polyline points="740,49 750,49 748,47 750,49 748,51"/>
+      <polyline points="860,49 870,49 868,47 870,49 868,51"/>
+      <polyline points="980,49 990,49 988,47 990,49 988,51"/>
+    </g>
+
+    <text x="472" y="74" font-size="11" fill="#DC2626" font-weight="600">185.220.101.42:80 (TOR)</text>
+    <text x="616" y="74" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">2</text>
+    <line x1="656" y1="71" x2="1584" y2="71" stroke="#94A3B8" opacity="0.5"/>
+    <circle cx="880" cy="71" r="4" fill="#DC2626"/>
+    <circle cx="920" cy="71" r="4" fill="#DC2626"/>
+
+    <text x="472" y="92" font-size="11" fill="#DC2626" font-weight="600">51.89.239.101:6667 (IRC)</text>
+    <text x="616" y="92" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">1</text>
+    <line x1="656" y1="89" x2="1584" y2="89" stroke="#94A3B8" opacity="0.5"/>
+    <circle cx="1000" cy="89" r="4" fill="#DC2626"/>
+
+    <text x="472" y="110" font-size="11" fill="#0F172A" font-weight="500">10.0.0.15:445 (SMB)</text>
+    <text x="616" y="110" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">4</text>
+    <line x1="656" y1="107" x2="1584" y2="107" stroke="#94A3B8" opacity="0.5"/>
+    <g stroke="#64748B" fill="none" stroke-width="1">
+      <polyline points="740,103 750,103 748,101 750,103 748,105"/>
+      <polyline points="780,103 790,103 788,101 790,103 788,105"/>
+      <polyline points="820,103 830,103 828,101 830,103 828,105"/>
+      <polyline points="860,103 870,103 868,101 870,103 868,105"/>
+    </g>
+
+    <text x="472" y="128" font-size="11" fill="#B7791F" font-weight="500">104.244.42.65:443 (Twitter)</text>
+    <text x="616" y="128" font-size="9" fill="#94A3B8" font-family="IBM Plex Mono, monospace">1</text>
+    <line x1="656" y1="125" x2="1584" y2="125" stroke="#94A3B8" opacity="0.5"/>
+    <polygon points="900,121 900,129 907,125" fill="#B7791F"/>
+
+    <text x="470" y="240" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace" font-style="italic">
+      15 rows hidden by filter · 5 network rows dense · 11 network events
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Filters live in a slide-out drawer opened via <code>\</code>, not as
+    a permanent row eating vertical real estate. When "Network" is selected, <b>rows that don't
+    match collapse entirely</b> — no empty greyed-out rows. Density is preserved. The two red TOR
+    and IRC destinations pop immediately. That is the "widen" step from the investigation
+    workflow.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 06 · Missing-ancestry empty state</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Honest</span>
+    <span class="scene-title">When adapters ship no <code>parent.iid</code>, the canvas says so.</span>
+  </div>
+  <svg viewBox="0 0 1600 220" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="220" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="220" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- Banner -->
+    <rect x="200" y="12" width="1384" height="42" rx="4" fill="#FEF3C7" stroke="#F5C142"/>
+    <circle cx="220" cy="33" r="8" fill="#B7791F"/>
+    <text x="216" y="37" font-size="12" fill="#FFFFFF" font-weight="700">i</text>
+    <text x="240" y="30" font-size="12" fill="#0F172A" font-weight="600">
+      Parent process IIDs are not present in the current adapter output.
+    </text>
+    <text x="240" y="46" font-size="11" fill="#B7791F">
+      Rendering rows as siblings under &lt;unknown parent&gt; · sorted by first-seen time · L-connectors suppressed
+    </text>
+    <text x="1500" y="38" font-size="10" fill="#2563EB" font-weight="600">Change sort ▾</text>
+
+    <!-- Rows without indentation -->
+    <text x="14" y="90" font-size="11" fill="#0F172A" font-weight="500">msiexec.exe</text>
+    <line x1="184" y1="87" x2="1584" y2="87" stroke="#94A3B8" opacity="0.5"/>
+    <circle cx="200" cy="87" r="3" fill="#64748B"/>
+
+    <text x="14" y="108" font-size="11" fill="#0F172A" font-weight="500">cmd.exe</text>
+    <line x1="184" y1="105" x2="1584" y2="105" stroke="#94A3B8" opacity="0.5"/>
+    <g fill="#64748B"><circle cx="220" cy="105" r="3"/><circle cx="260" cy="105" r="3"/>
+      <circle cx="300" cy="105" r="3"/><circle cx="340" cy="105" r="3"/></g>
+
+    <text x="14" y="126" font-size="11" fill="#DC2626" font-weight="600">powershell.exe</text>
+    <line x1="184" y1="123" x2="1584" y2="123" stroke="#94A3B8" opacity="0.5"/>
+    <g fill="#DC2626">
+      <circle cx="504" cy="123" r="4"/><circle cx="544" cy="123" r="4"/>
+      <circle cx="584" cy="123" r="4"/>
+    </g>
+
+    <text x="14" y="144" font-size="11" fill="#DC2626" font-weight="700">locker.exe</text>
+    <line x1="184" y1="141" x2="1584" y2="141" stroke="#DC2626" opacity="0.7"/>
+    <circle cx="1100" cy="141" r="5" fill="#DC2626"/>
+
+    <text x="14" y="188" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace" font-style="italic">
+      Adapter contract: emit `parent.iid` on every event to enable ancestry rendering.
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Rather than silently render a broken tree, the canvas <b>tells the
+    truth</b> when adapter data is incomplete. The amber banner is honest: "we don't have parent
+    IIDs, so ancestry connectors are suppressed." Rows still render, still sort by time, still
+    show verdict colour. The banner links to the sort menu so the analyst can pick a fallback
+    order. This is the guardrail against silently misleading the analyst.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 07 · Zoom to compressed sub-second span</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Adapt</span>
+    <span class="scene-title">Adaptive axis · relative-seconds mode when case span &lt; 10s.</span>
+  </div>
+  <svg viewBox="0 0 1600 160" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="160" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="1600" height="40" fill="#F8FAFC"/>
+
+    <!-- Density sparkline -->
+    <polyline fill="#2563EB18" stroke="#2563EB88" stroke-width="1"
+              points="180,36 300,28 420,24 540,20 660,26 780,22 900,20 1020,24 1140,18 1260,22 1380,26 1500,28"/>
+
+    <!-- Axis ticks -->
+    <g font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">
+      <text x="180" y="36">T+0.000s</text>
+      <text x="360" y="36">T+0.100s</text>
+      <text x="540" y="36">T+0.200s</text>
+      <text x="720" y="36">T+0.300s</text>
+      <text x="900" y="36">T+0.400s</text>
+      <text x="1080" y="36">T+0.500s</text>
+      <text x="1260" y="36">T+0.600s</text>
+      <text x="1440" y="36">T+0.700s</text>
+    </g>
+    <line x1="0" y1="40" x2="1600" y2="40" stroke="#E2E8F0"/>
+
+    <!-- Second axis strip - when zoomed OUT, same axis reads HH:MM -->
+    <rect x="0" y="80" width="1600" height="40" fill="#F8FAFC"/>
+    <g font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">
+      <text x="180" y="116">13:04:54</text>
+      <text x="360" y="116">13:05:00</text>
+      <text x="540" y="116">13:05:06</text>
+      <text x="720" y="116">13:05:12</text>
+      <text x="900" y="116">13:05:18</text>
+      <text x="1080" y="116">13:05:24</text>
+      <text x="1260" y="116">13:05:30</text>
+      <text x="1440" y="116">13:05:36</text>
+    </g>
+    <line x1="0" y1="120" x2="1600" y2="120" stroke="#E2E8F0"/>
+
+    <text x="16" y="24" font-size="10" letter-spacing="1.5" fill="#0F172A" font-weight="700">SPAN &lt; 10s · RELATIVE</text>
+    <text x="16" y="104" font-size="10" letter-spacing="1.5" fill="#0F172A" font-weight="700">SPAN 10s–24h · CLOCK</text>
+    <text x="16" y="150" font-size="10" fill="#64748B">The axis chooses its unit deterministically from the case span.</text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> The current implementation reads "13:04:54 13:04:54 13:04:54" ×12
+    when the case is sub-second — communicating "time is broken" instead of "time is compressed."
+    The adaptive axis picks its unit from the actual span: <code>T+0.0s</code> for sub-10-second
+    cases, <code>HH:MM:SS</code> for sub-10-minute, <code>HH:MM</code> for sub-day, <code>MMM-DD</code>
+    for anything larger. Deterministic. No guessing.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 08 · Dense enterprise case · 42 rows, 480 events</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Stress test</span>
+    <span class="scene-title">The layout has to survive a real SOC-scale case.</span>
+  </div>
+  <svg viewBox="0 0 1600 620" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="620" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="620" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- generate 42 rows programmatically-ish -->
+    <g font-size="9.5" font-family="Inter">
+      <!-- Root -->
+      <text x="14" y="22" fill="#0F172A" font-weight="600">explorer.exe</text>
+      <line x1="184" y1="19" x2="1584" y2="19" stroke="#94A3B8" opacity="0.5"/>
+    </g>
+    <script/>
+    <!-- Manually enumerate 42 rows for realism -->
+    <g font-family="Inter">
+      <!-- Row indexing i=0..41 -->
+      <!-- Each row Y = 22 + i*14 -->
+      <g fill="#0F172A" font-size="9.5">
+        <text x="30" y="36" font-weight="500">├─ svchost.exe</text>
+        <text x="46" y="50" font-weight="500">│  ├─ WmiPrvSE.exe</text>
+        <text x="46" y="64" font-weight="500">│  ├─ TaskEng.exe</text>
+        <text x="30" y="78" font-weight="500">├─ msiexec.exe</text>
+        <text x="46" y="92" font-weight="500">│  ├─ msi7c9f.tmp</text>
+        <text x="46" y="106" font-weight="500">│  └─ install.bat</text>
+        <text x="30" y="120" font-weight="500">├─ cmd.exe</text>
+        <text x="46" y="134" font-weight="500">│  ├─ net.exe</text>
+        <text x="46" y="148" font-weight="500">│  ├─ reg.exe</text>
+        <text x="46" y="162" font-weight="500">│  ├─ tasklist.exe</text>
+        <text x="46" y="176" font-weight="500">│  ├─ whoami.exe</text>
+        <text x="46" y="190" font-weight="500">│  ├─ nltest.exe</text>
+        <text x="46" y="204" font-weight="600" fill="#B7791F">│  ├─ rundll32.exe</text>
+        <text x="46" y="218" font-weight="700" fill="#DC2626">│  └─ powershell.exe</text>
+        <text x="62" y="232" font-weight="500" fill="#DC2626">│     ├─ mshta.exe</text>
+        <text x="62" y="246" font-weight="500" fill="#DC2626">│     ├─ Invoke-Mimikatz</text>
+        <text x="62" y="260" font-weight="500" fill="#DC2626">│     ├─ certutil.exe</text>
+        <text x="62" y="274" font-weight="500" fill="#DC2626">│     └─ bitsadmin.exe</text>
+        <text x="30" y="288" font-weight="500">├─ RustDesk.exe</text>
+        <text x="46" y="302" font-weight="500">│  └─ ssh.exe</text>
+        <text x="30" y="316" font-weight="500">├─ RDPClip.exe</text>
+        <text x="30" y="330" font-weight="500">├─ psql.exe</text>
+        <text x="30" y="344" font-weight="500">├─ mssqld.exe</text>
+        <text x="30" y="358" font-weight="600" fill="#B7791F">├─ wbadmin.exe</text>
+        <text x="30" y="372" font-weight="600" fill="#B7791F">├─ vssadmin.exe</text>
+        <text x="30" y="386" font-weight="700" fill="#DC2626">├─ locker.exe</text>
+        <text x="46" y="400" font-weight="700" fill="#DC2626">│  └─ note.txt</text>
+        <text x="30" y="414" font-weight="500">├─ consent.exe</text>
+        <text x="30" y="428" font-weight="500">├─ AdgNsy.exe</text>
+        <text x="30" y="442" font-weight="500">├─ svc_agent.exe</text>
+        <text x="30" y="456" font-weight="500">├─ conhost.exe</text>
+        <text x="30" y="470" font-weight="500">├─ splwow64.exe</text>
+        <text x="30" y="484" font-weight="500">├─ dllhost.exe</text>
+        <text x="30" y="498" font-weight="500">├─ chrome.exe</text>
+        <text x="30" y="512" font-weight="500">├─ Teams.exe</text>
+        <text x="30" y="526" font-weight="500">├─ OneDrive.exe</text>
+        <text x="30" y="540" font-weight="500">├─ Outlook.exe</text>
+        <text x="30" y="554" font-weight="500">├─ notepad.exe</text>
+        <text x="30" y="568" font-weight="500">├─ mmc.exe</text>
+        <text x="30" y="582" font-weight="500">├─ ollydbg.exe</text>
+        <text x="14" y="596" font-weight="500">└─ System</text>
+      </g>
+    </g>
+
+    <!-- Lifelines (42 lines, thin) -->
+    <g stroke="#94A3B8" stroke-width="1" opacity="0.35">
+      <line x1="184" y1="19"  x2="1584" y2="19"/>
+      <line x1="184" y1="33"  x2="1584" y2="33"/>
+      <line x1="184" y1="47"  x2="1584" y2="47"/>
+      <line x1="184" y1="61"  x2="1584" y2="61"/>
+      <line x1="184" y1="75"  x2="1584" y2="75"/>
+      <line x1="184" y1="89"  x2="1584" y2="89"/>
+      <line x1="184" y1="103" x2="1584" y2="103"/>
+      <line x1="184" y1="117" x2="1584" y2="117"/>
+      <line x1="184" y1="131" x2="1584" y2="131"/>
+      <line x1="184" y1="145" x2="1584" y2="145"/>
+      <line x1="184" y1="159" x2="1584" y2="159"/>
+      <line x1="184" y1="173" x2="1584" y2="173"/>
+      <line x1="184" y1="187" x2="1584" y2="187"/>
+      <line x1="184" y1="201" x2="1584" y2="201"/>
+      <line x1="184" y1="215" x2="1584" y2="215"/>
+      <line x1="184" y1="229" x2="1584" y2="229"/>
+      <line x1="184" y1="243" x2="1584" y2="243"/>
+      <line x1="184" y1="257" x2="1584" y2="257"/>
+      <line x1="184" y1="271" x2="1584" y2="271"/>
+      <line x1="184" y1="285" x2="1584" y2="285"/>
+      <line x1="184" y1="299" x2="1584" y2="299"/>
+      <line x1="184" y1="313" x2="1584" y2="313"/>
+      <line x1="184" y1="327" x2="1584" y2="327"/>
+      <line x1="184" y1="341" x2="1584" y2="341"/>
+      <line x1="184" y1="355" x2="1584" y2="355"/>
+      <line x1="184" y1="369" x2="1584" y2="369"/>
+      <line x1="184" y1="383" x2="1584" y2="383"/>
+      <line x1="184" y1="397" x2="1584" y2="397"/>
+      <line x1="184" y1="411" x2="1584" y2="411"/>
+      <line x1="184" y1="425" x2="1584" y2="425"/>
+      <line x1="184" y1="439" x2="1584" y2="439"/>
+      <line x1="184" y1="453" x2="1584" y2="453"/>
+      <line x1="184" y1="467" x2="1584" y2="467"/>
+      <line x1="184" y1="481" x2="1584" y2="481"/>
+      <line x1="184" y1="495" x2="1584" y2="495"/>
+      <line x1="184" y1="509" x2="1584" y2="509"/>
+      <line x1="184" y1="523" x2="1584" y2="523"/>
+      <line x1="184" y1="537" x2="1584" y2="537"/>
+      <line x1="184" y1="551" x2="1584" y2="551"/>
+      <line x1="184" y1="565" x2="1584" y2="565"/>
+      <line x1="184" y1="579" x2="1584" y2="579"/>
+      <line x1="184" y1="593" x2="1584" y2="593"/>
+    </g>
+
+    <!-- Big red cluster around powershell descendants (rows y=215,229,243,257,271) -->
+    <g fill="#DC2626">
+      <circle cx="500" cy="215" r="4"/><circle cx="540" cy="215" r="4"/>
+      <circle cx="580" cy="215" r="4"/><circle cx="620" cy="215" r="4"/>
+      <circle cx="660" cy="215" r="4"/><circle cx="700" cy="215" r="4"/>
+      <circle cx="520" cy="229" r="3"/><circle cx="560" cy="229" r="3"/>
+      <circle cx="600" cy="229" r="3"/><circle cx="640" cy="229" r="3"/>
+      <circle cx="580" cy="243" r="4"/><circle cx="620" cy="243" r="4"/>
+      <circle cx="700" cy="243" r="4"/>
+      <circle cx="800" cy="257" r="3"/><circle cx="840" cy="257" r="3"/>
+      <circle cx="880" cy="257" r="3"/>
+      <circle cx="900" cy="271" r="4"/><circle cx="940" cy="271" r="4"/>
+      <!-- ransomware -->
+      <circle cx="1100" cy="383" r="5"/><circle cx="1140" cy="383" r="5"/>
+      <circle cx="1180" cy="383" r="5"/><circle cx="1220" cy="383" r="5"/>
+      <circle cx="1260" cy="383" r="5"/>
+      <circle cx="1100" cy="397" r="3"/><circle cx="1140" cy="397" r="3"/>
+      <circle cx="1180" cy="397" r="3"/>
+    </g>
+
+    <!-- Amber cluster -->
+    <g fill="#B7791F">
+      <polygon points="400,201 400,209 407,205"/>
+      <polygon points="440,201 440,209 447,205"/>
+      <polygon points="480,201 480,209 487,205"/>
+      <polygon points="1000,355 1000,363 1007,359"/>
+      <polygon points="1040,355 1040,363 1047,359"/>
+      <polygon points="1000,369 1000,377 1007,373"/>
+    </g>
+
+    <!-- Benign dots scattered -->
+    <g fill="#64748B">
+      <!-- svchost -->
+      <circle cx="200" cy="33" r="3"/><circle cx="240" cy="33" r="3"/>
+      <circle cx="280" cy="33" r="3"/>
+      <!-- wmi -->
+      <circle cx="240" cy="47" r="3"/><circle cx="280" cy="47" r="3"/>
+      <!-- msi rows -->
+      <circle cx="200" cy="75" r="3"/><circle cx="240" cy="75" r="3"/>
+      <circle cx="220" cy="89" r="3"/><circle cx="240" cy="103" r="3"/>
+      <!-- cmd children -->
+      <circle cx="260" cy="117" r="3"/><circle cx="300" cy="117" r="3"/>
+      <circle cx="340" cy="117" r="3"/><circle cx="380" cy="117" r="3"/>
+      <circle cx="264" cy="131" r="3"/><circle cx="304" cy="131" r="3"/>
+      <circle cx="330" cy="145" r="3"/><circle cx="370" cy="145" r="3"/>
+      <circle cx="360" cy="159" r="3"/>
+      <circle cx="380" cy="173" r="3"/>
+      <circle cx="400" cy="187" r="3"/>
+      <!-- rustdesk / ssh / rdpclip / db -->
+      <circle cx="720" cy="285" r="3"/><circle cx="760" cy="285" r="3"/>
+      <circle cx="820" cy="285" r="3"/>
+      <circle cx="840" cy="299" r="3"/>
+      <circle cx="880" cy="313" r="3"/><circle cx="920" cy="313" r="3"/>
+      <circle cx="900" cy="327" r="3"/><circle cx="940" cy="327" r="3"/>
+      <circle cx="960" cy="341" r="3"/>
+      <!-- misc app rows scattered -->
+      <circle cx="1300" cy="425" r="3"/>
+      <circle cx="1340" cy="439" r="3"/>
+      <circle cx="1400" cy="497" r="3"/>
+    </g>
+
+    <!-- Big obvious playhead at ransomware start -->
+    <line x1="1100" y1="10" x2="1100" y2="612" stroke="#2563EB" stroke-width="1" opacity="0.5" stroke-dasharray="4 3"/>
+    <text x="1108" y="612" font-size="9" fill="#2563EB" font-family="IBM Plex Mono, monospace" font-weight="600">
+      T+0.512s · ransomware start
+    </text>
+
+    <!-- Attack summary annotation -->
+    <text x="880" y="612" font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace" font-style="italic">
+      42 rows · 480 events · 3 red clusters · story reads top-to-bottom
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> The layout must survive a real SOC-scale case. 42 rows fit in
+    620 px vertical (versus 20 rows in 640 px today). The eye instantly finds two red clusters —
+    powershell subtree, then locker.exe subtree — even in a busy scene. Amber wbadmin/vssadmin
+    events tell the "backup deletion before encryption" story without a caption. This is the
+    density Cisco delivers and we currently don't.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 09 · Landing card · pre-load state</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Empty</span>
+    <span class="scene-title">Before data loads, the workspace explains what it is.</span>
+  </div>
+  <svg viewBox="0 0 1600 340" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="340" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="340" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="16" y="24" font-size="10" letter-spacing="2" fill="#64748B" font-weight="700">CASES</text>
+    <g fill="#94A3B8" font-size="11">
+      <text x="16" y="52">case_dfir_bumblebee_akira</text>
+      <text x="16" y="72">case_conti_may_2026</text>
+      <text x="16" y="92">case_blackcat_apr_2026</text>
+      <text x="16" y="112">case_lockbit_mar_2026</text>
+    </g>
+
+    <!-- Big centered empty state card -->
+    <g transform="translate(720, 90)">
+      <rect x="0" y="0" width="440" height="180" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <circle cx="220" cy="52" r="24" fill="none" stroke="#2563EB" stroke-width="1"/>
+      <circle cx="220" cy="52" r="10" fill="#2563EB"/>
+      <text x="220" y="106" font-size="16" fill="#0F172A" font-weight="700" text-anchor="middle">
+        Pick a case to begin the investigation
+      </text>
+      <text x="220" y="128" font-size="12" fill="#64748B" text-anchor="middle">
+        Device Trajectory shows the executable chain,
+      </text>
+      <text x="220" y="144" font-size="12" fill="#64748B" text-anchor="middle">
+        the files, network calls, and registry mutations
+      </text>
+      <text x="220" y="160" font-size="12" fill="#64748B" text-anchor="middle">
+        that produced the outcome you're looking at.
+      </text>
+    </g>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> The empty state <b>teaches</b> the tool. Instead of blank grey, the
+    landing card explains the product in three lines. No lorem ipsum, no fake data. The moment
+    the analyst picks a case, we transition to Scene 01.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 10 · Sub-canvas: registry drill-down popover</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Descend</span>
+    <span class="scene-title">Cmd+click a registry glyph → inline popover expands the touched keys.</span>
+  </div>
+  <svg viewBox="0 0 1600 320" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="320" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="320" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <text x="14" y="26" font-size="11" fill="#0F172A" font-weight="600">└─ powershell.exe</text>
+    <line x1="184" y1="23" x2="1584" y2="23" stroke="#94A3B8"/>
+    <rect x="316" y="20" width="7" height="7" fill="none" stroke="#64748B" stroke-width="1"/>
+    <rect x="316" y="20" width="7" height="7" fill="none" stroke="#2563EB" stroke-width="1.5" transform="translate(0,-1) scale(1.4) translate(0,1)" transform-origin="319 23"/>
+
+    <!-- Popover -->
+    <g transform="translate(340, 30)">
+      <rect x="0" y="0" width="500" height="240" rx="6" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#pop-shadow)"/>
+      <text x="16" y="24" font-size="10" letter-spacing="1.8" fill="#0F172A" font-weight="700">REGISTRY MUTATION · 4 KEYS</text>
+      <line x1="0" y1="34" x2="500" y2="34" stroke="#E2E8F0"/>
+
+      <text x="16" y="56" font-size="10" fill="#94A3B8">SET</text>
+      <text x="52" y="56" font-size="11" fill="#0F172A" font-family="IBM Plex Mono, monospace">HKLM\...\Run\Update</text>
+      <text x="52" y="70" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">= C:\ProgramData\upd.exe</text>
+      <rect x="452" y="46" width="36" height="16" rx="2" fill="#FEE2E2"/>
+      <text x="458" y="57" font-size="9" fill="#DC2626" font-weight="700">T1547</text>
+
+      <line x1="16" y1="82" x2="484" y2="82" stroke="#E2E8F0" stroke-dasharray="2 2"/>
+
+      <text x="16" y="102" font-size="10" fill="#94A3B8">DEL</text>
+      <text x="52" y="102" font-size="11" fill="#0F172A" font-family="IBM Plex Mono, monospace">HKLM\...\Winlogon\Shell</text>
+      <text x="52" y="116" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">(default) → explorer.exe (was)</text>
+      <rect x="452" y="92" width="36" height="16" rx="2" fill="#FEF3C7"/>
+      <text x="458" y="103" font-size="9" fill="#B7791F" font-weight="700">T1112</text>
+
+      <line x1="16" y1="128" x2="484" y2="128" stroke="#E2E8F0" stroke-dasharray="2 2"/>
+
+      <text x="16" y="148" font-size="10" fill="#94A3B8">SET</text>
+      <text x="52" y="148" font-size="11" fill="#0F172A" font-family="IBM Plex Mono, monospace">HKLM\...\IFEO\notepad.exe</text>
+      <text x="52" y="162" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">Debugger = C:\...\backdoor.exe</text>
+      <rect x="452" y="138" width="36" height="16" rx="2" fill="#FEE2E2"/>
+      <text x="458" y="149" font-size="9" fill="#DC2626" font-weight="700">T1546</text>
+
+      <line x1="16" y1="174" x2="484" y2="174" stroke="#E2E8F0" stroke-dasharray="2 2"/>
+
+      <text x="16" y="194" font-size="10" fill="#94A3B8">SET</text>
+      <text x="52" y="194" font-size="11" fill="#0F172A" font-family="IBM Plex Mono, monospace">HKCU\...\Explorer\Advanced</text>
+      <text x="52" y="208" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">HideFileExt = 1</text>
+
+      <text x="16" y="230" font-size="10" fill="#2563EB" font-weight="600">Open ancestry · Copy path · Open in report</text>
+    </g>
+    <defs>
+      <filter id="pop-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0F172A" flood-opacity="0.20"/>
+      </filter>
+    </defs>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> A registry event can represent 1–N key mutations. Rather than
+    inflate the canvas with N rows per mutation, we drill down into an <b>inline popover</b>
+    that lists the touched keys in the order they were touched. Each mutation carries its own
+    MITRE technique. This mirrors the "expand" affordance Cisco uses for grouped events without
+    consuming permanent screen space.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 11 · Comparison strip · before / after</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Delta</span>
+    <span class="scene-title">Current M1 versus proposed M2. Same data, same viewport.</span>
+  </div>
+  <svg viewBox="0 0 1600 400" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="400" fill="#FAFBFD"/>
+
+    <text x="16" y="24" font-size="10" letter-spacing="1.8" fill="#DC2626" font-weight="700">BEFORE · today's canvas</text>
+    <text x="810" y="24" font-size="10" letter-spacing="1.8" fill="#059669" font-weight="700">AFTER · this spec</text>
+
+    <!-- BEFORE (left half) - pill approach -->
+    <g transform="translate(16, 36)">
+      <rect x="0" y="0" width="770" height="340" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <!-- big fat pills -->
+      <g>
+        <text x="10" y="30" font-size="10" fill="#0F172A" font-weight="600">msiexec.exe</text>
+        <rect x="80" y="18" width="22" height="16" rx="8" fill="#EEF2F7" stroke="#94A3B8"/>
+        <circle cx="91" cy="26" r="4" fill="#059669"/>
+
+        <text x="140" y="60" font-size="10" fill="#0F172A" font-weight="600">cmd.exe</text>
+        <rect x="200" y="48" width="380" height="16" rx="8" fill="#EEF2F7" stroke="#94A3B8"/>
+        <g fill="#059669">
+          <circle cx="220" cy="56" r="4"/><circle cx="260" cy="56" r="4"/>
+          <circle cx="300" cy="56" r="4"/><circle cx="340" cy="56" r="4"/>
+          <circle cx="380" cy="56" r="4"/><circle cx="420" cy="56" r="4"/>
+          <circle cx="460" cy="56" r="4"/><circle cx="500" cy="56" r="4"/>
+        </g>
+
+        <text x="150" y="94" font-size="10" fill="#B7791F" font-weight="600">rundll32.exe</text>
+        <rect x="220" y="82" width="80" height="16" rx="8" fill="#FEF3C7" stroke="#B7791F"/>
+        <polygon points="234,88 234,96 241,92" fill="#B7791F"/>
+
+        <text x="140" y="126" font-size="10" fill="#DC2626" font-weight="600">powershell.exe</text>
+        <rect x="220" y="114" width="180" height="16" rx="8" fill="#FEE2E2" stroke="#DC2626"/>
+        <g fill="#DC2626">
+          <circle cx="240" cy="122" r="4"/><circle cx="280" cy="122" r="4"/>
+          <circle cx="320" cy="122" r="4"/><circle cx="360" cy="122" r="4"/>
+        </g>
+
+        <text x="150" y="158" font-size="10" fill="#DC2626" font-weight="700">locker.exe</text>
+        <rect x="220" y="146" width="120" height="16" rx="8" fill="#FEE2E2" stroke="#DC2626"/>
+      </g>
+
+      <text x="10" y="320" font-size="10" fill="#64748B" font-style="italic">
+        pills dominate · events drown · 5 rows in 340 px · story requires effort
+      </text>
+    </g>
+
+    <!-- AFTER (right half) - thin lifelines -->
+    <g transform="translate(810, 36)">
+      <rect x="0" y="0" width="770" height="340" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <rect x="0" y="0" width="160" height="340" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+      <text x="8" y="20" font-size="10" fill="#0F172A" font-weight="600">msiexec.exe</text>
+      <line x1="164" y1="17" x2="756" y2="17" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+      <circle cx="180" cy="17" r="3" fill="#64748B"/>
+
+      <text x="18" y="38" font-size="10" fill="#0F172A" font-weight="500">├─ cmd.exe</text>
+      <line x1="164" y1="35" x2="756" y2="35" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+      <path d="M 180 20 L 180 35" stroke="#CBD5E1"/>
+      <g fill="#64748B">
+        <circle cx="200" cy="35" r="3"/><circle cx="240" cy="35" r="3"/>
+        <circle cx="280" cy="35" r="3"/><circle cx="320" cy="35" r="3"/>
+        <circle cx="360" cy="35" r="3"/><circle cx="400" cy="35" r="3"/>
+        <circle cx="440" cy="35" r="3"/><circle cx="480" cy="35" r="3"/>
+      </g>
+
+      <text x="28" y="56" font-size="10" fill="#0F172A" font-weight="500">│  ├─ net.exe</text>
+      <line x1="164" y1="53" x2="756" y2="53" stroke="#94A3B8" opacity="0.5"/>
+      <path d="M 240 39 L 240 53" stroke="#CBD5E1"/>
+      <g fill="#64748B"><circle cx="244" cy="53" r="3"/><circle cx="264" cy="53" r="3"/></g>
+
+      <text x="28" y="74" font-size="10" fill="#0F172A" font-weight="500">│  ├─ reg.exe</text>
+      <line x1="164" y1="71" x2="756" y2="71" stroke="#94A3B8" opacity="0.5"/>
+      <path d="M 300 39 L 300 71" stroke="#CBD5E1"/>
+      <rect x="296" y="68" width="7" height="7" fill="none" stroke="#64748B"/>
+
+      <text x="28" y="92" font-size="10" fill="#B7791F" font-weight="500">│  ├─ rundll32.exe</text>
+      <line x1="164" y1="89" x2="756" y2="89" stroke="#94A3B8" opacity="0.6"/>
+      <path d="M 360 39 L 360 89" stroke="#CBD5E1"/>
+      <polygon points="360,85 360,93 367,89" fill="#B7791F"/>
+
+      <text x="28" y="110" font-size="10" fill="#DC2626" font-weight="700">│  └─ powershell.exe</text>
+      <line x1="164" y1="107" x2="756" y2="107" stroke="#94A3B8" opacity="0.6"/>
+      <path d="M 420 39 L 420 107" stroke="#CBD5E1"/>
+      <g fill="#DC2626">
+        <circle cx="424" cy="107" r="4"/><circle cx="464" cy="107" r="4"/>
+        <circle cx="504" cy="107" r="4"/><circle cx="544" cy="107" r="4"/>
+        <circle cx="584" cy="107" r="4"/>
+      </g>
+
+      <text x="18" y="128" font-size="10" fill="#0F172A" font-weight="500">├─ RustDesk.exe</text>
+      <line x1="164" y1="125" x2="756" y2="125" stroke="#94A3B8" opacity="0.5"/>
+      <path d="M 180 20 L 180 125" stroke="#CBD5E1"/>
+      <g fill="#64748B">
+        <circle cx="600" cy="125" r="3"/><circle cx="640" cy="125" r="3"/>
+        <circle cx="680" cy="125" r="3"/>
+      </g>
+
+      <text x="28" y="146" font-size="10" fill="#0F172A" font-weight="500">│  └─ ssh.exe</text>
+      <line x1="164" y1="143" x2="756" y2="143" stroke="#94A3B8" opacity="0.5"/>
+      <path d="M 680 129 L 680 143" stroke="#CBD5E1"/>
+      <circle cx="684" cy="143" r="3" fill="#64748B"/>
+
+      <text x="18" y="164" font-size="10" fill="#0F172A" font-weight="500">├─ psql.exe</text>
+      <line x1="164" y1="161" x2="756" y2="161" stroke="#94A3B8" opacity="0.5"/>
+
+      <text x="18" y="182" font-size="10" fill="#B7791F" font-weight="500">├─ wbadmin.exe</text>
+      <line x1="164" y1="179" x2="756" y2="179" stroke="#94A3B8" opacity="0.6"/>
+      <polygon points="620,175 620,183 627,179" fill="#B7791F"/>
+
+      <text x="8" y="200" font-size="10" fill="#DC2626" font-weight="700">└─ locker.exe</text>
+      <line x1="164" y1="197" x2="756" y2="197" stroke="#DC2626" stroke-width="1.2" opacity="0.6"/>
+      <path d="M 180 20 L 180 197" stroke="#CBD5E1"/>
+      <g fill="#DC2626">
+        <circle cx="620" cy="197" r="5"/>
+        <circle cx="660" cy="197" r="5"/>
+        <circle cx="700" cy="197" r="5"/>
+      </g>
+
+      <!-- more rows compressed -->
+      <g fill="#64748B" font-size="10">
+        <text x="18" y="220">├─ consent.exe</text>
+        <text x="18" y="238">├─ AdgNsy.exe</text>
+        <text x="18" y="256">├─ svc_agent.exe</text>
+        <text x="18" y="274">├─ chrome.exe</text>
+        <text x="18" y="292">├─ Teams.exe</text>
+        <text x="18" y="310">└─ Outlook.exe</text>
+      </g>
+      <g stroke="#94A3B8" stroke-width="1" opacity="0.5">
+        <line x1="164" y1="217" x2="756" y2="217"/>
+        <line x1="164" y1="235" x2="756" y2="235"/>
+        <line x1="164" y1="253" x2="756" y2="253"/>
+        <line x1="164" y1="271" x2="756" y2="271"/>
+        <line x1="164" y1="289" x2="756" y2="289"/>
+        <line x1="164" y1="307" x2="756" y2="307"/>
+      </g>
+
+      <text x="10" y="330" font-size="10" fill="#059669" font-style="italic">
+        thin lines · red pops · 17 rows in 340 px · story reads top-to-bottom
+      </text>
+    </g>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Same case, same viewport, side-by-side. On the left, 5 rows fit
+    and the pills scream. On the right, 17 rows fit, the red dots on powershell.exe → locker.exe
+    are the only loud thing, and the tree structure is legible without labels. That's the delta
+    we're proposing.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<h2>Scene 12 · Header + minimap · full chrome</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Chrome</span>
+    <span class="scene-title">One-row header · zoom / fit / filter chips · minimap in the corner.</span>
+  </div>
+  <svg viewBox="0 0 1600 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="200" fill="#FAFBFD"/>
+
+    <!-- Header · single row · 36 -->
+    <rect x="0" y="0" width="1600" height="36" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="16" y="10" width="16" height="16" rx="3" fill="#2563EB22" stroke="#2563EB55"/>
+    <text x="42" y="16" font-size="9" letter-spacing="2" fill="#64748B" font-weight="700">NIVXRAY</text>
+    <text x="42" y="27" font-size="12" fill="#0F172A" font-weight="600">Device Trajectory</text>
+    <text x="220" y="23" font-size="11" fill="#0F172A" font-family="IBM Plex Mono, monospace">case_dfir_bumblebee_akira_2026 ▾</text>
+    <text x="540" y="23" font-size="10" letter-spacing="1" fill="#64748B">53 events · 20 procs · 12 MITRE</text>
+    <!-- filter chip strip -->
+    <g>
+      <rect x="800" y="9" width="60" height="18" rx="9" fill="#F1F5F9"/>
+      <text x="816" y="21" font-size="10" fill="#64748B">Create</text>
+      <rect x="866" y="9" width="60" height="18" rx="9" fill="#F1F5F9"/>
+      <text x="882" y="21" font-size="10" fill="#64748B">Execute</text>
+      <rect x="932" y="9" width="60" height="18" rx="9" fill="#F1F5F9"/>
+      <text x="948" y="21" font-size="10" fill="#64748B">Network</text>
+      <rect x="998" y="9" width="60" height="18" rx="9" fill="#F1F5F9"/>
+      <text x="1014" y="21" font-size="10" fill="#64748B">Registry</text>
+      <rect x="1064" y="9" width="70" height="18" rx="9" fill="#FEE2E2"/>
+      <text x="1080" y="21" font-size="10" fill="#DC2626" font-weight="600">Malicious</text>
+    </g>
+    <rect x="1240" y="8" width="200" height="20" rx="4" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="1252" y="22" font-size="11" fill="#94A3B8">Cmd+K to search</text>
+    <text x="1460" y="23" font-size="10" letter-spacing="1" fill="#64748B">−  FIT  +  100%</text>
+
+    <!-- Canvas area (compressed for scene) -->
+    <rect x="0" y="36" width="1600" height="160" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- Minimap · bottom right -->
+    <g transform="translate(1400, 50)">
+      <rect x="0" y="0" width="180" height="120" rx="4" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="6" y="14" font-size="9" letter-spacing="1.5" fill="#0F172A" font-weight="700">MINIMAP</text>
+      <!-- dot cluster -->
+      <g fill="#94A3B8" opacity="0.7">
+        <circle cx="20" cy="30" r="1"/><circle cx="30" cy="30" r="1"/>
+        <circle cx="40" cy="35" r="1"/><circle cx="50" cy="40" r="1"/>
+        <circle cx="60" cy="45" r="1"/><circle cx="70" cy="50" r="1"/>
+        <circle cx="80" cy="55" r="1"/><circle cx="90" cy="60" r="1"/>
+        <circle cx="100" cy="65" r="1"/><circle cx="110" cy="70" r="1"/>
+      </g>
+      <g fill="#DC2626">
+        <circle cx="60" cy="80" r="1.5"/><circle cx="70" cy="80" r="1.5"/>
+        <circle cx="80" cy="80" r="1.5"/><circle cx="90" cy="80" r="1.5"/>
+        <circle cx="120" cy="95" r="1.5"/><circle cx="130" cy="95" r="1.5"/>
+        <circle cx="140" cy="95" r="1.5"/>
+      </g>
+      <rect x="52" y="20" width="76" height="72" fill="none" stroke="#2563EB" stroke-width="1.2"/>
+    </g>
+
+    <!-- Sample canvas lines -->
+    <g stroke="#94A3B8" stroke-width="1" opacity="0.4">
+      <line x1="180" y1="62" x2="1380" y2="62"/>
+      <line x1="180" y1="80" x2="1380" y2="80"/>
+      <line x1="180" y1="98" x2="1380" y2="98"/>
+      <line x1="180" y1="116" x2="1380" y2="116"/>
+      <line x1="180" y1="134" x2="1380" y2="134"/>
+      <line x1="180" y1="152" x2="1380" y2="152"/>
+    </g>
+    <g fill="#0F172A" font-size="10">
+      <text x="14" y="65">msiexec.exe</text>
+      <text x="30" y="83">├─ cmd.exe</text>
+      <text x="46" y="101">│  └─ powershell.exe</text>
+      <text x="14" y="119">└─ locker.exe</text>
+    </g>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> The chrome collapses to <b>one row · 36 px</b>. Case picker, event
+    counts, filter chips, search, and zoom all live in one strip. The minimap sits in the
+    bottom-right of the canvas (out of the way but always reachable), showing the whole case as
+    a dot field with the current viewport rectangle overlaid. This is the entire non-canvas UI —
+    everything else the user needs is <b>inside</b> the canvas.
+  </div>
+</div>
+
+<!-- ─── FOOTER ─── -->
+<h2>Next 8–15 scenes (only if this direction is approved)</h2>
+<p style="font-size:13px;color:var(--ink-dim);line-height:1.6;max-width:920px;">
+  Once you approve this direction, the next batch covers:
+  keyboard traversal (13), context menu (14), Case Library picker (15), MITRE-side view (16),
+  Playback / scrub-through-time (17), Detection rule side card (18), Compromise marker + IOC
+  chip (19), Multi-select bulk actions (20), Report export mode (21), Analyst annotation pin
+  (22), Dark mode (23), Print / PDF layout (24), Loading state (25), Error state (26),
+  Comparison-of-two-cases layout (27). Each will follow the same "SVG scene + rationale" format
+  as above, no code, no React.
+</p>
+
+<p style="font-size:13px;color:var(--ink);font-weight:600;margin-top:32px;max-width:920px;line-height:1.6;">
+  Approval request:
+  <br>1. Does the thin-lifeline abstraction feel right?
+  <br>2. Are the entity-gutter labels + indentation the correct ancestry model?
+  <br>3. Should we hard-limit the palette to gray / amber / red / blue?
+  <br>4. Should ancestry <b>replace</b> the current band model (System / Files & Network / …) or coexist with it?
+  <br>5. Is the acceptance criteria list in <code>M2_DESIGN_SPEC.md</code> the right bar to hold implementation to?
+</p>
+
+</body>
+</html>

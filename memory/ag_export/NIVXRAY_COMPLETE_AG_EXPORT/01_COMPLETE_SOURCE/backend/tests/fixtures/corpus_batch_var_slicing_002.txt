@@ -1,0 +1,2 @@
+@set v=attacker_command_line_string
+@call echo %v:~9,7%

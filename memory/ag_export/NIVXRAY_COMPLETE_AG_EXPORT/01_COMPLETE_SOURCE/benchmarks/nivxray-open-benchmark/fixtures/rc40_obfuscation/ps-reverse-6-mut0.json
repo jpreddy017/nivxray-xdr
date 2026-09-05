@@ -1,0 +1,10 @@
+{
+  "id": "ps-reverse-6-mut0",
+  "category": "ps-reverse",
+  "command_line": "$s = 'exe.23lldnur';    $x = -join ($s[-1..-12]);    Invoke-Expression $x",
+  "expected_keywords": [
+    "rundll"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

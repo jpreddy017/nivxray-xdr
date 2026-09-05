@@ -1,0 +1,54 @@
+{
+  "summary": "Phase 3 · Cycle A · Artifact Intelligence Layer + PDF Analyzer certified. Backend registry/dispatcher, /api/artifacts/{capabilities,analyze}, PDF routing via _ARTIFACT_MAGIC in recipe_planner, and IEDDE integration all verified. Frontend PDFAnalysisPanel dispatch through ArtifactAnalysisPanel confirmed live against a real 462-byte PDF.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "backend_test_results": {
+    "test_artifact_intelligence.py": "8/8 PASS",
+    "test_pe_analyzer.py": "7/7 PASS",
+    "test_binary_terminal_state.py": "4/4 PASS",
+    "test_iedde_ssot_wiring.py": "7/7 PASS",
+    "test_iedde_endpoint.py": "8/8 PASS",
+    "test_broken_payload_diagnostics.py": "6/6 PASS",
+    "test_pr212_canonical_evidence_recovery.py": "12/12 PASS",
+    "test_artifacts_api.py": "7/7 PASS (new — public API-level tests via REACT_APP_BACKEND_URL)",
+    "combined_regression": "52/52 PASS in 17.99s"
+  },
+  "api_verification": {
+    "GET /api/artifacts/capabilities": "returns {analyzers:[pe,pdf]} both available=true",
+    "POST /api/artifacts/analyze (PE bytes_b64)": "artifact_type=pe, confidence=99, sections non-empty, findings sorted by severity",
+    "POST /api/artifacts/analyze (PDF bytes_b64)": "artifact_type=pdf, confidence=99, overview.page_count=1, overview.producer='nivx-test'",
+    "POST /api/artifacts/analyze (plain text)": "artifact_type=unknown, confidence=0, fallback_reason='no_analyzer_claimed_the_payload'",
+    "POST /api/artifacts/analyze (canonical_output PDF)": "identical PDF analysis via latin-1 path",
+    "Determinism (Rule 21)": "two calls with identical PE bytes → byte-identical to_dict()",
+    "POST /api/decode/smart (raw PDF)": "iedde.terminal_state='binary_artifact_recovered', binary_artifact.kind='PDF', binary_artifact.routed_analysis.artifact_type='pdf', capability_available=true"
+  },
+  "frontend_verification": {
+    "login": "admin@nivxray.com login OK",
+    "workspace_pdf_flow": "Pasted /tmp/test.pdf (462 B) as latin-1 into [data-testid=input-textarea], clicked [data-testid=btn-nivxray-decode]",
+    "ribbon-terminal-state-badge": "'Binary Artifact Recovered'",
+    "pdf-analysis-panel": "visible",
+    "pdf-overview": "visible",
+    "pdf-version": "'v1.3 · 1 page(s)'",
+    "hash_rows_MD5_SHA1_SHA256": "all present in overview",
+    "existing_panels_undisturbed": "screenshot confirms Investigation Summary, Operations, Threat Analysis, Input, Report/SOC brief, JSON/STIX exports all render unchanged"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_artifact_intelligence.py",
+    "/app/backend/tests/test_artifacts_api.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Registry pattern is clean and mirrors the Technique Detector plugin registry — new analyzers plug in via one register() call.",
+    "PEAnalyzer.magic_matcher includes a printable-ratio guard against 'MZ ...' sentence false-positives — correct.",
+    "PDFAnalyzer has proper graceful degradation: capability-missing card, parse-error fallback with raw URL scan, and never-raises contract enforced by _build_report try/except at the analyze() boundary.",
+    "AnalysisResult.to_dict is deterministic and JSON-serializable — Rule 21 verified.",
+    "ArtifactAnalysisPanel legacy PE compat path (legacyPE prop) preserved — no visual regression risk."
+  ],
+  "updated_files": ["/app/backend/tests/test_artifacts_api.py (new)"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used /tmp/test.pdf (462 B, pypdf-produced) + /root/.venv/.../t32.exe for PE",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 3 Cycle A shipped clean. YARA / Saved Collections / Case Templates / ELF / Office / Mach-O are explicitly deferred to later cycles per problem statement — do NOT test those. When testing future analyzer plugins, use the same api_test pattern in test_artifacts_api.py."
+}

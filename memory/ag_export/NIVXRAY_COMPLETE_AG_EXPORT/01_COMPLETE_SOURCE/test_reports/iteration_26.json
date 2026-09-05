@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration-26 RC4.4/RC4.5 backend verification. 10/12 new tests PASSED. P0-FEAT-6 LOLBIN fix VERIFIED (T1218 promoted to top-level mitre, RC4.4 banner present, verdict=malicious, category=lolbin-execution). P0-REG-10 confirmed 61 plugins loaded. RC4.5 alias normalizer fully green (both API tests + literal-preservation). RC4.5 backtick normalizer PARTIAL: main IEX/IEX obfuscation case passes, but 2 of 3 backtick sub-tests FAIL — line-continuation router hook gate is too strict (only fires on `<alnum>, not on `+newline), and the 'preserves escape' case produces a bare status message in output_raw rather than the reconstructed/original input. All prior RC2.3/RC4.0/RC4.1/RC4.2/RC4.3/RC4.4 regression checks (base64, powershell-normalize comma-sep, honesty_linter partial, calc.exe reconstruction, operations registry) PASSED.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/decode/smart",
+        "issue": "P1-FEAT-9 (line-continuation): router RC4.5 backtick hook in /app/backend/routers/ops.py L~1310 gates on regex `[A-Za-z0-9_] which excludes the `\\r?\\n line-continuation pattern. The ps_backtick_normalizer module DOES support _RX_LINE_CONT (r'`[ \\t]*\\r?\\n[ \\t]*') but the router never invokes it for pure line-continuation inputs. Input `powershell `\\n  -NoProfile `\\n  -Command 'x'` is handed to RC4.3 which leaves the backtick+newline untouched. Fix: change the guard to `if '`' in src and (_re.search(r'`[A-Za-z0-9_]', src) or _re.search(r'`[ \\t]*\\r?\\n', src)):`",
+        "priority": "P1"
+      },
+      {
+        "endpoint": "/api/decode/smart",
+        "issue": "P1-FEAT-9 (escape preservation): for input `\"line1`n line2\"` the whole output_raw response body becomes ONLY the module's status line '(powershell-backtick-normalize · no backtick obfuscation found)' — original input / reconstructed form is lost. The router correctly skips replacement when the module reports no-change, but some upstream code path is setting output_raw to that status string. Test asserts `n survives — it does functionally (module never touched it), but output_raw doesn't expose it. Investigate whether the standalone `powershell-backtick-normalize` operation is being invoked as the sole pipeline step and its no-op message is being echoed as final output_raw.",
+        "priority": "P2"
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_rc45_iteration26.py",
+    "/app/backend/tests/test_rc4_verification.py",
+    "/app/test_reports/pytest/iter26_results.xml"
+  ],
+  "action_items": [
+    "Loosen /app/backend/routers/ops.py backtick-hook regex to also match `+\\r?\\n line-continuation (see minor issue #1). This will unlock P1-FEAT-9 line-continuation case.",
+    "Investigate why smart-decode output_raw collapses to the backtick module's 'no obfuscation found' status string when the module makes no changes (P1-FEAT-9 escape-preservation case).",
+    "Both fixes are 1-3 line changes; retest with existing /app/backend/tests/test_rc45_iteration26.py (2 tests will flip green)."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/routers/ops.py — RC4.5 backtick router gate at L~1310 is too narrow; excludes the very line-continuation pattern the module was designed to collapse. Symptom: LC test fails even though ps_backtick_normalizer._RX_LINE_CONT is well-defined.",
+    "output_raw substitution when a decoder produces only a no-op status line needs sentinel handling — otherwise the original input can be masked by a module's diagnostic string.",
+    "Positive: top-level mitre now correctly aggregates cmd_runtime_reconstruct.mitre (T1218 confirmed via API for LOLBIN certutil input). RC4.4 banner and verdict schema stable."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rc45_iteration26.py (new — 12 tests, 10 pass)"
+  ],
+  "success_rate": {"backend": "83% (10/12 new tests)", "frontend": "N/A (backend-only per request)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration-26 confirmed P0-FEAT-6 (LOLBIN top-level mitre + banner), RC4.5 alias normalizer (both cases), and 61-plugin registry. RC4.5 backtick has 2 gaps: (a) router hook regex misses `+newline line-continuation — fix in /app/backend/routers/ops.py ~L1310; (b) no-op status line leaks into output_raw. Regression suite (10 tests) is green. Re-run /app/backend/tests/test_rc45_iteration26.py after main agent's fix. Note: preview URL had a transient Cloudflare 502 during first run — retry once if you see 502.",
+  "rca_of_the_issue": "P1-FEAT-9 line-continuation failure — router hook boolean gate `_re.search(r'`[A-Za-z0-9_]', src)` requires a backtick to be followed by an alnum/underscore. Payload `powershell `<LF>  -NoProfile ...` places `<space><LF> after the backtick, so the gate returns None and the RC4.5 backtick module is never called. Then RC4.3 runs and reconstructs the command verbatim including the literal backtick+newline. Reproduction: POST /api/decode/smart {'input': \"powershell `\\n  -NoProfile `\\n  -Command 'x'\"}. Fix: extend guard to also accept `+\\r?\\n. Mitigation: 1-line regex OR-expansion."
+}

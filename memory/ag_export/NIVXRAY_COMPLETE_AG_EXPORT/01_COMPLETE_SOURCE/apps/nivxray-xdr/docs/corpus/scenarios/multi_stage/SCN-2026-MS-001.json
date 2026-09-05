@@ -1,0 +1,78 @@
+{
+  "id": "SCN-2026-MS-001",
+  "category": "multi_stage",
+  "title": "Phishing → OAuth token theft → lateral movement → data staging",
+  "description": "Full multi-stage attack: phishing email → OAuth token abuse against M365 → lateral movement via PsExec to a file server → data staging in a hidden archive. Engine must correlate events across time, identities and hosts.",
+  "raw_events": [
+    { "kind": "email", "ts": "2026-02-10T08:02:00Z",
+      "recipient": "jennifer.tucker", "subject": "Please review Q1 report",
+      "attachment_sha256": "1111...phish" },
+    { "kind": "oauth_grant", "ts": "2026-02-10T08:05:00Z",
+      "user": "jennifer.tucker", "app": "unknown-shared-viewer",
+      "scopes": ["Mail.Read", "Files.Read.All"] },
+    { "kind": "process_create", "ts": "2026-02-10T10:31:00Z",
+      "image": "PsExec.exe", "parent_image": "cmd.exe",
+      "user": "jennifer.tucker", "host": "WKS-42",
+      "command_line": "PsExec.exe \\\\FS-01 -s cmd.exe" },
+    { "kind": "file_create", "ts": "2026-02-10T10:45:00Z",
+      "host": "FS-01", "path": "C:\\Windows\\Temp\\a.7z", "size_bytes": 481203712 }
+  ],
+  "normalized_evidence": [
+    { "type": "email", "sha256": "1111...phish", "recipient": "jennifer.tucker" },
+    { "type": "oauth_grant", "user": "jennifer.tucker", "app": "unknown-shared-viewer" },
+    { "type": "process", "image": "PsExec.exe", "user": "jennifer.tucker",
+      "host": "WKS-42", "target_host": "FS-01" },
+    { "type": "file", "path": "C:\\Windows\\Temp\\a.7z", "host": "FS-01" }
+  ],
+  "expected_entities": {
+    "hosts": ["WKS-42", "FS-01"], "users": ["jennifer.tucker"],
+    "processes": ["PsExec.exe"],
+    "iocs": ["unknown-shared-viewer"]
+  },
+  "expected_correlations": [
+    { "rule_id": "oauth_suspicious_grant", "technique_id": "T1528", "weight": 0.5 },
+    { "rule_id": "remote_admin_tool",       "technique_id": "T1021.002", "weight": 0.5 },
+    { "rule_id": "data_staging",            "technique_id": "T1074.001", "weight": 0.4 }
+  ],
+  "expected_rules_matched": [
+    { "rule_id": "oauth_suspicious_grant", "match": "matched",
+      "fields": { "app": "unknown-shared-viewer" }, "technique": "T1528" },
+    { "rule_id": "remote_admin_tool",       "match": "matched",
+      "fields": { "image": "PsExec.exe", "target_host": "FS-01" },
+      "technique": "T1021.002" }
+  ],
+  "expected_mitre": ["T1566.001", "T1528", "T1021.002", "T1074.001"],
+  "expected_attack_story": [
+    "jennifer.tucker received a phishing email carrying a malicious attachment.",
+    "An OAuth token grant to an unknown viewer app followed.",
+    "PsExec launched from WKS-42 against FS-01 under the same identity.",
+    "A ~460 MB archive was staged in C:\\Windows\\Temp\\a.7z on FS-01."
+  ],
+  "expected_verdict": {
+    "verdict": "malicious", "confidence": 0.93, "severity": "critical",
+    "reason": "Multi-stage chain: phishing → OAuth abuse → lateral movement → staging"
+  },
+  "expected_severity": "critical",
+  "expected_recommendations": [
+    { "kind": "respond",     "action": "revoke_oauth_grant",          "priority": "critical" },
+    { "kind": "respond",     "action": "isolate_endpoint",             "priority": "critical" },
+    { "kind": "respond",     "action": "block_ioc",                    "priority": "high" },
+    { "kind": "collect",     "action": "collect_endpoint_evidence",    "priority": "high" },
+    { "kind": "hunt",        "action": "hunt_related_hosts",           "priority": "high" }
+  ],
+  "expected_playbook": "multi_stage_containment_v1",
+  "expected_response_outcome": {
+    "state": "SUCCEEDED",
+    "evidence_ref": "expected — multi-action chain writes evidence_ref for each step"
+  },
+  "expected_report_sections": ["executive_summary", "detection_summary",
+                                                 "investigation_scope", "timeline",
+                                                 "affected_assets", "affected_identities",
+                                                 "process_analysis", "network_analysis",
+                                                 "email_analysis", "threat_intelligence",
+                                                 "evidence", "attack_story", "mitre_attack",
+                                                 "root_cause", "blast_radius",
+                                                 "tp_fp_determination", "severity_confidence",
+                                                 "response_actions", "remediation",
+                                                 "final_conclusion"]
+}

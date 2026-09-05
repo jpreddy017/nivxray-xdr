@@ -1,0 +1,39 @@
+{
+  "summary": "Iter-62 · Phase 4 P1 (Cross-Artifact Correlation / Investigations) — full backend + frontend validation. Backend: 19/19 E2E pytest cases green against preview URL against /api/correlations/* (list, unauth-rejection, create, idempotent-create, get, patch, get-404, chain w/ monotonic depth, graph nodes+edges, timeline, summary, scan, list-suggestions, unlink-root-refused-400, link/unlink second case with correlation_id write-back verified via /api/history, delete-detaches-not-deletes-root, plus regression on /api/history, /api/investigations event log, /api/artifacts/capabilities all 4 analyzers). Engine unit-suite tests/test_correlation_engine.py: 9/9 green (evidence-graph-based; note request said 20/20 but only 9 test cases exist in file — verified with -v). Deterministic scoring inspected: shared SHA-256 → score 60 (>= SUGGESTION_MIN_SCORE=50); fully disjoint cases → score 0 (below threshold). SEC-003 user-scoping enforced by user_email filter on every DB query (verified via code inspection). Frontend UI smoke: admin login → INVESTIGATIONS tab (data-testid nav-investigations) present as peer to HISTORY. /investigations page renders title 'INVESTIGATIONS · 1 correlated', search bar, REFRESH button, and one card 'Test P1 Investigation' with verdict dot, '2 cases', '2 nodes · 1 edges', and updated_at timestamp. Detail page /investigations/6a72169b3d98eb14810c9506 renders InvestigationThreatSummaryCard (SUSPICIOUS · RISK 55, 4 stat tiles: CASES 2 / MITRE 3 / IOCS 0 / ARTIFACTS 1 PE, MITRE chips T1027/T1059.001/T1140), Attack Chain tab (default) with ROOT/MANUAL source chips + PE artifact chip + depth-based indentation + open button, tab toggles present for Evidence Graph and Timeline, Auto-Correlation Suggestions panel with friendly empty-state copy, Metadata sidebar (Cases/Nodes/Edges/Dismissed/Created/Updated), DELETE button top-right.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/investigations/:id (Attack Chain view)", "issues": ["Auto-Correlation Suggestions right-panel empty-state description text visually overlaps the attack-chain node card on the left (see screenshot). Text bleed-through at ~1200px width column. Not blocking, but visually distracting. Suggest z-index or margin-right fix on the chain column."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter62_correlations_e2e.py",
+    "/app/test_reports/pytest/iter62_correlations.xml",
+    "/app/backend/tests/test_correlation_engine.py"
+  ],
+  "action_items": [
+    "Optional: fix right-panel overlap on Investigation detail Attack Chain view (design-only, no functional impact).",
+    "Optional: reconcile the 'tests/test_correlation_engine.py already 20/20 green locally' claim in the task brief — the file at HEAD only contains 9 test functions (all pass). Either add the additional 11 or update the docstring."
+  ],
+  "critical_code_review_comments": [
+    "correlations.py — proper `_serialize()` strips Mongo _id everywhere before returning; _load_correlation keeps ObjectId only for internal mutation and is never leaked (confirmed by inspecting every endpoint).",
+    "delete_correlation detaches all member cases via update_many + $unset correlation_id — cases are preserved (verified by test_delete_correlation_detaches_root).",
+    "unlink refuses to detach the root case with 400 (verified).",
+    "link idempotency handled — returns {already_linked: true} without re-appending.",
+    "SEC-003 — every read/write is scoped by user_email; a second user could not observe another user's correlations. Verified via code inspection; a two-user acceptance test would tighten this but requires a second seeded account.",
+    "Deterministic scoring — engine returns 60 for a shared sha256 only (above 50 threshold) and 0 for fully disjoint sigs. Consider raising the per-sha256 weight if the product intent is '≥70 = strong' since a single hash overlap is arguably the strongest possible signal.",
+    "Backend was previously observed as idle-timeout-prone on the preview URL (iter-61 note); a single supervisorctl restart backend recovered it and all 19 tests then passed cleanly in 2.7s."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter62_correlations_e2e.py (new)"
+  ],
+  "success_rate": {"backend": "100% (19/19 E2E + 9/9 engine unit)", "frontend": "100% (all P1 UI elements verified visually and via testids)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "Reused existing seed correlation 6a72169b3d98eb14810c9506 for detail-view verification. Test suite creates & deletes its own TEST_iter62_investigation each run (using first available history case as root), so DB stays clean.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iter62_correlations_e2e.py is safe as a regression suite — it self-creates and self-cleans (delete at end). Uses first history case it finds as the seed. If backend times out, `sudo supervisorctl restart backend && sleep 12` recovers it (documented idle-sleep behaviour of preview URL from iter-61). Frontend nav-investigations tab is data-testid stable. If you need to exercise Confirm/Dismiss suggestions from UI, note that the current preview DB has no cross-case suggestion overlap for the seeded pair, so the suggestions panel is intentionally empty — either seed additional cases sharing a SHA-256/URL/domain with the seed cases, or programmatically POST /api/correlations/scan to inspect the deterministic scorer's output.",
+  "rca of the issue": "N/A — no functional issues found in the P1 correlation surface. Only minor visual overlap on the detail page and a docstring/count discrepancy in the engine unit-test file worth reconciling."
+}

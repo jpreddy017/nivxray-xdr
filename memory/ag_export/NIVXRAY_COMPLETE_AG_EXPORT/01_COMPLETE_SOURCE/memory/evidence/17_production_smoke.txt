@@ -1,0 +1,87 @@
+=== NIVXRAY RC2.0 · PRODUCTION AUTHENTICATED SMOKE TEST ===
+URL: https://nivxray.nivxforge.com
+Timestamp: 2026-07-19T06:59:30Z
+
+--- [1] POST /api/auth/login ---
+{"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbkBuaXZ4cmF5LmNvbSIsImlhdCI6MTc4NDQ0NDM3MiwiZXhwIjoxNzg0NTMwNzcyfQ.Nw9dWH6jcIUjOo9eK_vwyIoeID-FE1Wv7Rqih1drbgE","token_type":"bearer","email":"admin@nivxray.com"}
+HTTP:200
+TOKEN_LEN=163
+
+--- [2] GET /api/v2/plugins ---
+{"count":12,"plugins":[{"id":"rot13-decode","name":"ROT13","category":"cipher","cost":1,"tags":["rot13","caesar"],"schema_version":"1.0"},{"id":"rot47-decode","name":"ROT47","category":"cipher","cost":1,"tags":["rot47","printable"],"schema_version":"1.0"},{"id":"xor-brute","name":"XOR Brute-Force (single + short repeating key)","category":"cipher","cost":4,"tags":["xor","meterpreter","obfuscation"],"schema_version":"1.0"},{"id":"gzip-decompress","name":"Gzip Decompress","category":"compression","cost":2,"tags":["gzip","compression"],"schema_version":"1.0"},{"id":"zlib-deflate-decompress","name":"Zlib / Deflate Decompress","category":"compression","cost":2,"tags":["zlib","deflate","compression"],"schema_version":"1.0"},{"id":"base32-decode","name":"Base32 Decode","category":"encoding","cost":1,"tags":["base32","text-to-bytes"],"schema_version":"1.0"},{"id":"base64-decode","name":"Base64 Decode","category":"encoding","cost":1,"tags":["base64","text-to-bytes"],"schema_version":"1.0"},{"id":"hex-decode","name":"Hex Decode","category":"encoding","cost":1,"tags":["hex","text-to-bytes"],"schema_version":"1.0"},{"id":"url-decode","name":"URL / Percent-Decode","category":"encoding","cost":1,"tags":["url","percent"],"schema_version":"1.0"},{"id":"ascii85-decode","name":"Ascii85 / Base85 Decode","category":"encoding","cost":2,"tags":["ascii85","base85","adobe"],"schema_version":"1.0"},{"id":"base91-decode","name":"basE91 Decode","category":"encoding","cost":3,"tags":["base91","encoding"],"schema_version":"1.0"},{"id":"extract-wrapper","name":"PowerShell / CMD Wrapper Extract","category":"reconstruct","cost":1,"tags":["powershell","cmd","mshta","hta","wrapper","unwrap"],"schema_version":"1.0"}]}
+HTTP:200
+PLUGIN_COUNT=12
+
+--- [3] POST /api/v2/analyze (Meterpreter payload) ---
+{"report":{"output":"üè\u0000\u0000\u0000`å1ÀdP0R\fR\u0014r(\u000f·J&1ÿ¬<a|\u0002, ÁÏ\r\u0001ÇâòRWR\u0010J<L\u0011xãH\u0001ÑQY \u0001ÓI\u0018ã:I4\u0001Ö1ÿ¬ÁÏ\r\u0001Ç8àuö\u0003}ø;}$uäXX$\u0001Óf\fKX\u001c\u0001Ó\u0004\u0001ÐD$$[[aYZQÿà__Z\u0012ë]h32\u0000\u0000hws2_ThLw&\u0007èÿÐ¸\u0001\u0000\u0000)ÄTPh)k\u0000ÿÕj\nhÀ¨\u0001\u0005h\u0002\u0000\u0001ææPPPP@P@Phê\u000fßàÿÕj\u0010VWh¥taÿÕÀt\nÿN\buìèg\u0000\u0000\u0000j\u0000j\u0004VWh\u0002ÙÈ_ÿÕø\u0000~66j@h\u0000\u0000\u0000h\u0000\u0010\u0000\u0000Vj\u0000hX¤DSÿÕSj\u0000V¶\u0001VSh\u0002XEÿÕø\u0000}\"Xh\u0000@\u0000\u0000j\u0005Ph\u000b/\u000f0ÿÕWhvw¡bÿÕÆÿ\u0003\u0000\u0000þzuÅè\u0000\u0000\u...
+
+TERMINAL: None
+VERDICT: None
+RISK: None
+FAMILY: None None
+CHAIN: []
+IOC.ips: None
+MITRE: []
+--- [3] POST /api/v2/analyze (Meterpreter) — PARSED ---
+TERMINAL : None
+VERDICT  : None
+RISK     : None
+FAMILY   : None (None%)
+CHAIN    : []
+IOC.ips  : None
+MITRE    : []
+LOLBAS   : []
+LAYERS   : None
+RUNTIME  : None ms
+
+ASSERT verdict=malicious : False
+ASSERT risk>=80          : False
+ASSERT family=Meterpreter: False
+ALL_PASS : False
+--- [3] POST /api/v2/analyze (Meterpreter PS wrapper) — PARSED ---
+ENGINE   : orchestrator-v1
+TERMINAL : family-identified
+STOPPED  : Family 'Meterpreter/MSFvenom stager' identified with 85% confidence — stopping recursion at terminal state.
+ELAPSED  : 1086 ms
+VERDICT  : malicious
+RISK     : 95
+FAMILY   : Meterpreter/MSFvenom stager (0.85%)
+CHAIN    : ['extract-wrapper', 'base64-decode', 'xor-brute']
+IOC.ips  : ['149.28.81.19']
+IOC.doms : []
+MITRE    : []
+LOLBAS   : [None]
+ASSERT_OK: True
+
+--- [4] Export format validation ---
+[md] HTTP:200 SIZE:4584 CT:text/markdown; charset=utf-8  saved=prod_report.md
+[json] HTTP:200 SIZE:11391 CT:application/json  saved=prod_report.json
+[txt] HTTP:200 SIZE:4320 CT:text/plain; charset=utf-8  saved=prod_report.txt
+[pdf] HTTP:200 SIZE:8695 CT:application/pdf  saved=prod_report.pdf
+
+--- File signatures ---
+prod_report.md : 0000000 # N i v X R a y A n a l y s
+prod_report.json : 0000000 { \n " o u t p u t " : " 303
+prod_report.txt : 0000000 N i v X R a y A n a l y s t 
+prod_report.pdf : 0000000 % P D F - 1 . 4 \n % 223 214 213 236 R
+
+--- PDF assertions ---
+PDF_PAGES=3
+PDF_TEXT_LEN=3836
+MISSING_SECTIONS=[]
+PDF_HAS_METERPRETER=True
+PDF_HAS_C2_IP=True
+PDF_HAS_MALICIOUS=True
+ASSERT_PDF_OK=True
+
+--- JSON schema check ---
+KEYS: ['confidence_breakdown', 'elapsed_ms', 'engine', 'executive_summary', 'findings', 'fingerprint_history', 'investigation_steps', 'output', 'plugin_report', 'sigma_rules', 'stopped_reason', 'terminal', 'trace', 'yara_rules']
+HAS_FINDINGS: True
+HAS_TRACE: True
+HAS_EXEC_SUMMARY: True
+VERDICT: malicious
+FAMILY: Meterpreter/MSFvenom stager
+
+--- MD/TXT content check ---
+prod_report.md: len=4235, has_family=True, has_ip=True, has_malicious=True
+prod_report.txt: len=3971, has_family=True, has_ip=True, has_malicious=True

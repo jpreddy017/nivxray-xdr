@@ -1,0 +1,19 @@
+id: T06_amsi_bypass_reflective
+title: Malicious — reflective AMSI bypass
+provenance: public red-team scripts · MITRE T1562.001
+input: '[Ref].Assembly.GetType("System.Management.Automation.AmsiUtils").GetField("amsiInitFailed","NonPublic,Static").SetValue($null,$true)'
+expected_verdict: malicious
+must_fire_intents:
+  - defense_evasion
+must_not_fire:
+  - staging
+  - credential_access
+forbidden_words_in_verdict:
+  - campaign
+  - APT
+must_admit_unknown: false
+notes: >
+  Canonical reflective AmsiUtils tamper. Verdict may not fire
+  malicious solely on this in isolation, but combined with the
+  reflective-assembly runtime_dependent signal it should surface as
+  malicious. If not malicious, at minimum defense_evasion must fire.

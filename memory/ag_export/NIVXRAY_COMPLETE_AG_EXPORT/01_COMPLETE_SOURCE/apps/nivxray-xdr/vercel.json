@@ -1,0 +1,15 @@
+{
+  "installCommand": "yarn install --production=false --frozen-lockfile",
+  "buildCommand": "yarn run vercel-build",
+  "outputDirectory": "dist",
+  "framework": null,
+  "build": {
+    "env": {
+      "NPM_CONFIG_PRODUCTION": "false",
+      "YARN_PRODUCTION": "false"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

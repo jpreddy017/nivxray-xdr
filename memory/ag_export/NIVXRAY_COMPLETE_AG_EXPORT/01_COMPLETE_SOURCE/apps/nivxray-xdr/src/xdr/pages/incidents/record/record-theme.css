@@ -1,0 +1,1095 @@
+/**
+ * NivXRay · Layer 3 · Incident Record — theme (extends L2 tokens).
+ *
+ * Same hybrid model as Layer 2: light Defender-parity workspace for
+ * the header · lifecycle · tabs · executive / technical / evidence /
+ * notes / timeline / related / closure surfaces, and a dark analyst
+ * canvas surface for the deep investigation panels (which retain
+ * the existing engine-fabric visual language).
+ *
+ * Scoped under `.xdr-record-l3`.  Reuses `.xdr-queue-l2` chip / button
+ * classes wherever it makes sense so we ship one visual language, not
+ * two.
+ */
+
+.xdr-record-l3 {
+  /* Light workspace tokens (Defender-parity) */
+  --rl-bg:            #F5F6F8;
+  --rl-surface:       #FFFFFF;
+  --rl-surface-2:     #FAFBFC;
+  --rl-surface-3:     #F1F3F6;
+  --rl-border:        #E2E5EA;
+  --rl-border-hi:     #CBD0D8;
+  --rl-text:          #1B1F26;
+  --rl-text-dim:      #4B5563;
+  --rl-muted:         #6B7280;
+  --rl-faint:         #9CA3AF;
+
+  /* Accent + semantic */
+  --rl-purple:        #6D4EE0;
+  --rl-purple-dim:    #EDE7FF;
+  --rl-purple-hover:  #5B3ED1;
+  --rl-red:           #DC2626;
+  --rl-orange:        #EA580C;
+  --rl-amber:         #D97706;
+  --rl-green:         #059669;
+  --rl-blue:          #2563EB;
+
+  /* Dark analyst canvas tokens */
+  --rd-bg:            #0E1017;
+  --rd-panel:         #151823;
+  --rd-panel-2:       #1B1F2D;
+  --rd-border:        #262B3A;
+  --rd-text:          #E7E9EF;
+  --rd-text-dim:      #B4B9C6;
+  --rd-muted:         #78808F;
+  --rd-faint:         #4A5162;
+  --rd-purple:        #A88BFF;
+
+  --rs-mono: 'IBM Plex Mono','SFMono-Regular',Consolas,ui-monospace,monospace;
+  --rs-sans: 'Inter','Segoe UI',system-ui,sans-serif;
+
+  background: var(--rl-bg);
+  color: var(--rl-text);
+  font-family: var(--rs-sans);
+  min-height: 100%;
+  margin: -18px -22px -32px;
+  padding: 20px 24px 40px;
+}
+
+/* ── Breadcrumb + top actions ─────────────────────────────────── */
+.xdr-record-l3 .rl-breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--rl-muted);
+  margin-bottom: 10px;
+}
+.xdr-record-l3 .rl-breadcrumb a {
+  color: var(--rl-purple);
+  text-decoration: none;
+  font-weight: 600;
+}
+.xdr-record-l3 .rl-breadcrumb a:hover { text-decoration: underline; }
+.xdr-record-l3 .rl-breadcrumb .sep { color: var(--rl-faint); }
+
+/* ── Record header (light) ────────────────────────────────────── */
+.xdr-record-l3 .rl-header {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(15,20,30,0.03);
+}
+.xdr-record-l3 .rl-header-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap;
+}
+.xdr-record-l3 .rl-header-id {
+  font-family: var(--rs-mono);
+  font-size: 11px; color: var(--rl-muted);
+  margin-bottom: 4px;
+}
+.xdr-record-l3 .rl-header-id .sep {
+  color: var(--rl-faint); margin: 0 6px;
+}
+.xdr-record-l3 .rl-header-title {
+  font-size: 22px; font-weight: 700;
+  color: var(--rl-text); margin: 0 0 10px;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.xdr-record-l3 .rl-header-chips {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; margin-bottom: 8px;
+}
+.xdr-record-l3 .rl-header-actions {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+
+/* ── Meta strip (header key/value grid) ───────────────────────── */
+.xdr-record-l3 .rl-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 24px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rl-border);
+}
+.xdr-record-l3 .rl-meta .m .k {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--rl-muted);
+  margin-bottom: 3px;
+}
+.xdr-record-l3 .rl-meta .m .v {
+  font-family: var(--rs-mono);
+  font-size: 12px;
+  color: var(--rl-text);
+  word-break: break-word;
+}
+.xdr-record-l3 .rl-meta .m .v.dash { color: var(--rl-faint); }
+.xdr-record-l3 .rl-meta .m .v.warn { color: var(--rl-amber); }
+
+/* ── Lifecycle strip ──────────────────────────────────────────── */
+.xdr-record-l3 .rl-lifecycle {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  display: flex; align-items: center;
+  overflow-x: auto;
+  box-shadow: 0 1px 2px rgba(15,20,30,0.03);
+}
+.xdr-record-l3 .rl-step {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; min-width: 96px;
+  background: transparent; border: none; padding: 0;
+  cursor: default;
+}
+.xdr-record-l3 .rl-step .dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--rl-surface-3);
+  border: 2px solid var(--rl-border-hi);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--rs-mono);
+  font-size: 10.5px; font-weight: 800;
+  color: var(--rl-muted);
+  transition: all 120ms ease;
+}
+.xdr-record-l3 .rl-step .lbl {
+  font-size: 10.5px;
+  color: var(--rl-muted);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-align: center;
+}
+.xdr-record-l3 .rl-step.done .dot {
+  background: var(--rl-green);
+  border-color: var(--rl-green);
+  color: #fff;
+}
+.xdr-record-l3 .rl-step.done .lbl { color: var(--rl-green); }
+.xdr-record-l3 .rl-step.active .dot {
+  background: var(--rl-purple);
+  border-color: var(--rl-purple);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--rl-purple-dim);
+}
+.xdr-record-l3 .rl-step.active .lbl {
+  color: var(--rl-purple);
+  font-weight: 700;
+}
+.xdr-record-l3 .rl-step.actionable { cursor: pointer; }
+.xdr-record-l3 .rl-step.actionable:hover .dot {
+  border-color: var(--rl-purple);
+  color: var(--rl-purple);
+}
+.xdr-record-l3 .rl-step.actionable:hover .lbl { color: var(--rl-purple); }
+.xdr-record-l3 .rl-step-arrow {
+  flex: 1; height: 2px; min-width: 20px;
+  background: var(--rl-border-hi);
+  margin: 0 3px; position: relative; top: -18px;
+}
+.xdr-record-l3 .rl-step.done + .rl-step-arrow,
+.xdr-record-l3 .rl-step-arrow.done { background: var(--rl-green); }
+
+.xdr-record-l3 .rl-lifecycle-error {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  color: var(--rl-red);
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 4px;
+  font-family: var(--rs-mono);
+  font-size: 11px;
+}
+
+/* ── Tab bar ──────────────────────────────────────────────────── */
+.xdr-record-l3 .rl-tabs {
+  display: flex; gap: 0; overflow-x: auto;
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0 6px;
+}
+.xdr-record-l3 .rl-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 12px 16px;
+  background: transparent; border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--rl-muted);
+  font-family: var(--rs-sans);
+  font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.xdr-record-l3 .rl-tab:hover { color: var(--rl-text-dim); }
+.xdr-record-l3 .rl-tab.active {
+  color: var(--rl-purple);
+  border-bottom-color: var(--rl-purple);
+}
+.xdr-record-l3 .rl-tab .count {
+  background: var(--rl-surface-3);
+  color: var(--rl-muted);
+  padding: 0 6px; border-radius: 999px;
+  font-family: var(--rs-mono);
+  font-size: 10px;
+}
+.xdr-record-l3 .rl-tab.active .count {
+  background: var(--rl-purple-dim);
+  color: var(--rl-purple);
+}
+
+.xdr-record-l3 .rl-tabpanel {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 18px;
+  min-height: 340px;
+  box-shadow: 0 1px 2px rgba(15,20,30,0.03);
+}
+
+/* Dark analyst-canvas variant · DEPRECATED (Layer 3 v2).
+   Layer 3 is fully light-first now.  Kept as an alias so any
+   .canvas class name still renders as the normal light tab panel. */
+.xdr-record-l3 .rl-tabpanel.canvas {
+  background: var(--rl-surface);
+  color: var(--rl-text);
+  border-color: var(--rl-border);
+  padding: 18px;
+}
+.xdr-record-l3 .rl-tabpanel.canvas .canvas-inner {
+  padding: 0;
+  background: transparent;
+  color: var(--rl-text);
+}
+
+/* ── Content blocks (light) ───────────────────────────────────── */
+.xdr-record-l3 .rl-section {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.xdr-record-l3 .rl-section:last-child { margin-bottom: 0; }
+.xdr-record-l3 .rl-section-title {
+  font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--rl-muted);
+  margin: 0 0 8px;
+}
+.xdr-record-l3 .rl-section-body { font-size: 12.5px; line-height: 1.55; color: var(--rl-text); }
+.xdr-record-l3 .rl-kv {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) 1fr;
+  gap: 6px 16px;
+  font-size: 12.5px;
+}
+.xdr-record-l3 .rl-kv .k {
+  color: var(--rl-muted);
+  font-family: var(--rs-mono);
+  font-size: 10.5px;
+  padding-top: 2px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.xdr-record-l3 .rl-kv .v { color: var(--rl-text); }
+.xdr-record-l3 .rl-kv .v.mono { font-family: var(--rs-mono); font-size: 11.5px; color: var(--rl-text-dim); }
+.xdr-record-l3 .rl-kv .v.dash { color: var(--rl-faint); font-family: var(--rs-mono); }
+
+.xdr-record-l3 .rl-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.xdr-record-l3 .rl-metric {
+  background: var(--rl-surface-2);
+  border: 1px solid var(--rl-border);
+  border-left: 3px solid var(--rl-border);
+  border-radius: 5px;
+  padding: 10px 12px;
+}
+.xdr-record-l3 .rl-metric.crit  { border-left-color: var(--rl-red); }
+.xdr-record-l3 .rl-metric.high  { border-left-color: var(--rl-orange); }
+.xdr-record-l3 .rl-metric.amber { border-left-color: var(--rl-amber); }
+.xdr-record-l3 .rl-metric.info  { border-left-color: var(--rl-blue); }
+.xdr-record-l3 .rl-metric.ok    { border-left-color: var(--rl-green); }
+.xdr-record-l3 .rl-metric.na    { border-left-color: var(--rl-border); opacity: 0.9; }
+.xdr-record-l3 .rl-metric .k {
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--rl-muted);
+}
+.xdr-record-l3 .rl-metric .v {
+  font-family: var(--rs-mono);
+  font-size: 20px; font-weight: 800;
+  color: var(--rl-text);
+  margin-top: 4px;
+}
+.xdr-record-l3 .rl-metric.crit .v  { color: var(--rl-red); }
+.xdr-record-l3 .rl-metric.high .v  { color: var(--rl-orange); }
+.xdr-record-l3 .rl-metric.amber .v { color: var(--rl-amber); }
+.xdr-record-l3 .rl-metric.info .v  { color: var(--rl-blue); }
+.xdr-record-l3 .rl-metric.ok .v    { color: var(--rl-green); }
+.xdr-record-l3 .rl-metric.na .v    { color: var(--rl-faint); font-size: 13px; }
+.xdr-record-l3 .rl-metric .sub {
+  margin-top: 3px; font-size: 10.5px;
+  color: var(--rl-muted);
+  font-family: var(--rs-mono);
+}
+
+/* ── State badges (four Slice-2 states) ───────────────────────── */
+.xdr-record-l3 .rl-state {
+  display: inline-block;
+  padding: 2px 8px; border-radius: 3px;
+  border: 1px solid var(--rl-border-hi);
+  font-family: var(--rs-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--rl-muted);
+  background: var(--rl-surface-2);
+}
+.xdr-record-l3 .rl-state.ok      { color: var(--rl-green);  border-color: var(--rl-green);  background: #ECFDF5; }
+.xdr-record-l3 .rl-state.miss    { color: var(--rl-amber);  border-color: var(--rl-amber);  background: #FFFBEB; }
+.xdr-record-l3 .rl-state.discon  { color: var(--rl-muted);  }
+.xdr-record-l3 .rl-state.na      { color: var(--rl-faint);  }
+.xdr-record-l3 .rl-state.err     { color: var(--rl-red);    border-color: var(--rl-red);    background: #FEF2F2; }
+
+/* ── Table helpers (light) ────────────────────────────────────── */
+.xdr-record-l3 .rl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--rs-sans);
+  font-size: 12.5px;
+}
+.xdr-record-l3 .rl-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--rl-muted);
+  background: var(--rl-surface-2);
+  border-bottom: 1px solid var(--rl-border);
+}
+.xdr-record-l3 .rl-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rl-border);
+  color: var(--rl-text);
+  vertical-align: top;
+}
+.xdr-record-l3 .rl-table tr:last-child td { border-bottom: none; }
+.xdr-record-l3 .rl-table .mono {
+  font-family: var(--rs-mono);
+  color: var(--rl-text-dim);
+  font-size: 11.5px;
+}
+
+/* ── Bulleted lists ───────────────────────────────────────────── */
+.xdr-record-l3 .rl-list {
+  margin: 0; padding-left: 18px;
+  font-size: 12.5px; line-height: 1.6;
+  color: var(--rl-text);
+}
+.xdr-record-l3 .rl-list li { margin-bottom: 4px; }
+.xdr-record-l3 .rl-list .prov {
+  color: var(--rl-faint);
+  font-family: var(--rs-mono);
+  font-size: 10.5px;
+  margin-left: 6px;
+}
+
+/* ── Empty / error / loading ──────────────────────────────────── */
+.xdr-record-l3 .rl-empty {
+  padding: 32px 18px;
+  text-align: center;
+  color: var(--rl-muted);
+  font-size: 12.5px;
+  background: var(--rl-surface-2);
+  border: 1px dashed var(--rl-border-hi);
+  border-radius: 6px;
+}
+.xdr-record-l3 .rl-empty .kbd {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--rs-mono);
+  font-size: 10.5px;
+  color: var(--rl-faint);
+}
+.xdr-record-l3 .rl-error {
+  padding: 10px 14px;
+  color: var(--rl-red);
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 6px;
+  font-family: var(--rs-mono);
+  font-size: 11.5px;
+}
+.xdr-record-l3 .rl-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--rl-muted);
+  font-family: var(--rs-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+/* ── Notes composer ───────────────────────────────────────────── */
+.xdr-record-l3 .rl-note-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  background: var(--rl-surface-2);
+  color: var(--rl-text);
+  font-family: var(--rs-sans);
+  font-size: 12.5px;
+  resize: vertical;
+  outline: none;
+}
+.xdr-record-l3 .rl-note-input:focus {
+  border-color: var(--rl-purple);
+  box-shadow: 0 0 0 3px var(--rl-purple-dim);
+}
+
+/* ── Buttons (reused from L2 but scoped) ──────────────────────── */
+.xdr-record-l3 .rl-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 5px;
+  color: var(--rl-text-dim);
+  font-family: var(--rs-sans);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.xdr-record-l3 .rl-btn:hover {
+  background: var(--rl-surface-3);
+  color: var(--rl-text);
+  border-color: var(--rl-border-hi);
+}
+.xdr-record-l3 .rl-btn.primary {
+  background: var(--rl-purple);
+  border-color: var(--rl-purple);
+  color: #fff;
+}
+.xdr-record-l3 .rl-btn.primary:hover {
+  background: var(--rl-purple-hover);
+  border-color: var(--rl-purple-hover);
+}
+.xdr-record-l3 .rl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Layer 3 v2 · light-first tab components (Feb 34)
+   Replaces the old dark analyst-canvas visual language.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Domain cards (Evidence tab) */
+.xdr-record-l3 .rl-domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+.xdr-record-l3 .rl-domain-card {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.xdr-record-l3 .rl-domain-card:hover {
+  border-color: var(--rl-border-hi);
+  box-shadow: 0 2px 8px rgba(15,20,30,0.06);
+}
+.xdr-record-l3 .rl-domain-card.related       { border-left: 3px solid var(--rl-green); }
+.xdr-record-l3 .rl-domain-card.searched      { border-left: 3px solid var(--rl-blue); }
+.xdr-record-l3 .rl-domain-card.no_evidence   { border-left: 3px solid var(--rl-amber); }
+.xdr-record-l3 .rl-domain-card.not_connected { border-left: 3px solid var(--rl-border-hi); opacity: 0.85; }
+.xdr-record-l3 .rl-domain-head { display: flex; align-items: center; gap: 8px; }
+.xdr-record-l3 .rl-domain-icon {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--rl-purple-dim); color: var(--rl-purple);
+  border-radius: 6px;
+}
+.xdr-record-l3 .rl-domain-name  { font-size: 13px; font-weight: 700; color: var(--rl-text); flex: 1; }
+.xdr-record-l3 .rl-domain-status {
+  font-family: var(--rs-mono);
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 2px 7px; border-radius: 3px;
+  text-transform: uppercase;
+}
+.xdr-record-l3 .rl-domain-status.related       { background: #ECFDF5; color: var(--rl-green); }
+.xdr-record-l3 .rl-domain-status.searched      { background: #EFF6FF; color: var(--rl-blue); }
+.xdr-record-l3 .rl-domain-status.no_evidence   { background: #FFFBEB; color: var(--rl-amber); }
+.xdr-record-l3 .rl-domain-status.not_connected { background: var(--rl-surface-3); color: var(--rl-muted); }
+.xdr-record-l3 .rl-domain-sub   { font-family: var(--rs-mono); font-size: 11px; color: var(--rl-text-dim); line-height: 1.5; }
+.xdr-record-l3 .rl-domain-count { font-family: var(--rs-mono); font-size: 22px; font-weight: 800; color: var(--rl-text); line-height: 1; }
+.xdr-record-l3 .rl-domain-count.dim { color: var(--rl-faint); font-size: 14px; }
+.xdr-record-l3 .rl-domain-actions {
+  display: flex; gap: 6px; margin-top: 4px;
+  padding-top: 8px; border-top: 1px solid var(--rl-border);
+}
+.xdr-record-l3 .rl-domain-link {
+  font-size: 11.5px; font-weight: 600;
+  color: var(--rl-purple); text-decoration: none;
+  cursor: pointer; background: transparent; border: none;
+  padding: 0; display: inline-flex; align-items: center; gap: 3px;
+}
+.xdr-record-l3 .rl-domain-link:hover { text-decoration: underline; }
+
+/* MITRE tactic groups */
+.xdr-record-l3 .rl-tactic-group {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.xdr-record-l3 .rl-tactic-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.xdr-record-l3 .rl-tactic-badge {
+  padding: 2px 8px; border-radius: 3px;
+  background: var(--rl-purple-dim); color: var(--rl-purple);
+  font-family: var(--rs-mono);
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.4px; text-transform: uppercase;
+}
+.xdr-record-l3 .rl-tactic-name  { font-size: 13px; font-weight: 700; color: var(--rl-text); flex: 1; }
+.xdr-record-l3 .rl-tactic-count { font-family: var(--rs-mono); font-size: 11px; color: var(--rl-muted); }
+.xdr-record-l3 .rl-technique-row {
+  display: grid; grid-template-columns: 90px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 6px 4px;
+  border-top: 1px solid var(--rl-border);
+  font-size: 12px;
+}
+.xdr-record-l3 .rl-technique-row:first-of-type { border-top: none; }
+.xdr-record-l3 .rl-technique-id   { font-family: var(--rs-mono); font-size: 11.5px; font-weight: 700; color: var(--rl-purple); }
+.xdr-record-l3 .rl-technique-name { color: var(--rl-text); overflow: hidden; text-overflow: ellipsis; }
+.xdr-record-l3 .rl-technique-conf {
+  font-family: var(--rs-mono);
+  font-size: 10px; font-weight: 800;
+  padding: 1px 6px; border-radius: 3px;
+  letter-spacing: 0.3px; text-transform: uppercase;
+}
+.xdr-record-l3 .rl-technique-conf.high   { background: #ECFDF5; color: var(--rl-green); }
+.xdr-record-l3 .rl-technique-conf.medium { background: #FFFBEB; color: var(--rl-amber); }
+.xdr-record-l3 .rl-technique-conf.low    { background: var(--rl-surface-3); color: var(--rl-muted); }
+
+/* Attack story timeline */
+.xdr-record-l3 .rl-timeline { position: relative; padding-left: 26px; }
+.xdr-record-l3 .rl-timeline::before {
+  content: ""; position: absolute;
+  left: 10px; top: 6px; bottom: 6px;
+  width: 2px; background: var(--rl-border);
+}
+.xdr-record-l3 .rl-timeline-event {
+  position: relative;
+  padding: 10px 14px;
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+.xdr-record-l3 .rl-timeline-event::before {
+  content: ""; position: absolute;
+  left: -21px; top: 14px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--rl-purple);
+  border: 3px solid var(--rl-surface);
+  box-shadow: 0 0 0 1px var(--rl-purple);
+}
+.xdr-record-l3 .rl-timeline-event.reconn::before  { background: var(--rl-blue);   box-shadow: 0 0 0 1px var(--rl-blue); }
+.xdr-record-l3 .rl-timeline-event.exec::before    { background: var(--rl-red);    box-shadow: 0 0 0 1px var(--rl-red); }
+.xdr-record-l3 .rl-timeline-event.persist::before { background: var(--rl-orange); box-shadow: 0 0 0 1px var(--rl-orange); }
+.xdr-record-l3 .rl-timeline-event.impact::before  { background: var(--rl-red);    box-shadow: 0 0 0 1px var(--rl-red); }
+.xdr-record-l3 .rl-timeline-head  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.xdr-record-l3 .rl-timeline-time  { font-family: var(--rs-mono); font-size: 10.5px; color: var(--rl-muted); }
+.xdr-record-l3 .rl-timeline-title { font-size: 12.5px; font-weight: 700; color: var(--rl-text); }
+.xdr-record-l3 .rl-timeline-body  { font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; font-family: var(--rs-mono); }
+
+/* Recommendations */
+.xdr-record-l3 .rl-reco {
+  background: var(--rl-surface);
+  border: 1px solid var(--rl-border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: 76px 1fr auto;
+  gap: 12px; align-items: start;
+}
+.xdr-record-l3 .rl-reco-prio {
+  padding: 2px 7px; border-radius: 3px;
+  font-family: var(--rs-mono);
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.4px;
+  text-align: center; text-transform: uppercase;
+  align-self: flex-start;
+}
+.xdr-record-l3 .rl-reco-prio.critical { background: #FEF2F2; color: var(--rl-red);    border: 1px solid #FCA5A5; }
+.xdr-record-l3 .rl-reco-prio.high     { background: #FFF7ED; color: var(--rl-orange); border: 1px solid #FDBA74; }
+.xdr-record-l3 .rl-reco-prio.medium   { background: #FFFBEB; color: var(--rl-amber);  border: 1px solid #FCD34D; }
+.xdr-record-l3 .rl-reco-prio.low      { background: #EFF6FF; color: var(--rl-blue);   border: 1px solid #93C5FD; }
+.xdr-record-l3 .rl-reco-body h5   { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--rl-text); }
+.xdr-record-l3 .rl-reco-body p    { margin: 0; font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; }
+.xdr-record-l3 .rl-reco-basis     { margin-top: 6px; font-family: var(--rs-mono); font-size: 10.5px; color: var(--rl-faint); }
+
+/* Auto-Investigation status card */
+.xdr-record-l3 .rl-ai-status {
+  border: 1px solid var(--rl-border);
+  background: var(--rl-surface);
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 20px; align-items: center;
+  margin-bottom: 12px;
+}
+.xdr-record-l3 .rl-ai-status .badge {
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--rs-mono);
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 0.5px; text-align: center;
+}
+.xdr-record-l3 .rl-ai-status.not_run  .badge { background: var(--rl-surface-3); color: var(--rl-muted); border: 3px solid var(--rl-border-hi); }
+.xdr-record-l3 .rl-ai-status.complete .badge { background: #ECFDF5;             color: var(--rl-green); border: 3px solid var(--rl-green); }
+.xdr-record-l3 .rl-ai-status.partial  .badge { background: #FFFBEB;             color: var(--rl-amber); border: 3px solid var(--rl-amber); }
+.xdr-record-l3 .rl-ai-status.failed   .badge { background: #FEF2F2;             color: var(--rl-red);   border: 3px solid var(--rl-red); }
+.xdr-record-l3 .rl-ai-status.running  .badge { background: #EFF6FF;             color: var(--rl-blue);  border: 3px solid var(--rl-blue); }
+.xdr-record-l3 .rl-ai-status .txt h5 { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--rl-text); }
+.xdr-record-l3 .rl-ai-status .txt p  { margin: 0; font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Visual Maturity · Record composition
+   Canvas → (subordinate) Lifecycle + Tabs bar → (focal) Tab panel.
+   The tab panel is the visual focal point of the Record page.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 1 · Canvas the page — no more full-page grey card feel */
+.xdr-record-l3 {
+  background: var(--nx-surf-canvas);
+}
+
+/* 2 · Hide the old white-on-grey header card — replaced by
+       NxHeroHeader sitting on canvas.                          */
+.xdr-record-l3 .rl-header {
+  display: none !important;
+}
+
+/* 3 · Breadcrumb sits on canvas · human sans, monospace only
+       for the incident number chip.                            */
+.xdr-record-l3 .rl-breadcrumb {
+  margin: -4px 0 8px;
+  font-family: var(--rs-sans);
+}
+.xdr-record-l3 .rl-crumb-id {
+  font-family: var(--rs-mono);
+  color: var(--rl-text-dim);
+}
+
+/* 4 · NxHeroHeader — sits directly on canvas, not a card.
+       Border-bottom already provided by NxHeroHeader itself.   */
+.xdr-record-l3 .nx-hero {
+  padding: 20px 4px 18px !important;
+  border-bottom: 1px solid var(--nx-bd-quiet) !important;
+  background: transparent;
+}
+.xdr-record-l3 .nx-hero .nx-t-h1 {
+  font-size: 22px !important;
+  letter-spacing: -0.01em;
+}
+
+/* Hero sub-description — human sans with mono technical bits. */
+.xdr-record-l3 .rl-hero-sub {
+  display: inline-flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--rs-sans);
+  font-size: 12.5px;
+  color: var(--rl-text-dim);
+}
+.xdr-record-l3 .rl-hero-mono {
+  font-family: var(--rs-mono);
+  color: var(--rl-text);
+  font-size: 11.5px;
+}
+.xdr-record-l3 .rl-hero-sep {
+  color: var(--rl-faint);
+  margin: 0 2px;
+}
+
+/* Hero chips row — attention chips first, then owner/customer
+   micro-labels (human sans) with mono identifiers.             */
+.xdr-record-l3 .rl-hero-chips {
+  display: inline-flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+}
+.xdr-record-l3 .rl-hero-owner {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid var(--nx-bd-quiet);
+  background: var(--nx-surf-inset);
+  border-radius: 4px;
+  font-family: var(--rs-sans);
+  font-size: 11.5px;
+  color: var(--rl-text-dim);
+}
+.xdr-record-l3 .rl-hero-owner-label {
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--rl-muted);
+}
+.xdr-record-l3 .rl-hero-owner.unassigned {
+  color: var(--rl-amber);
+  border-color: #FCD34D;
+  background: #FFFBEB;
+  font-family: var(--rs-mono);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+}
+.xdr-record-l3 .rl-hero-owner.unassigned .rl-hero-owner-label {
+  color: var(--rl-amber);
+}
+
+/* Hero metric row is denser here than on Queue */
+.xdr-record-l3 .nx-hero > div:first-child > div:nth-child(4),
+.xdr-record-l3 .nx-hero > div:first-child > div:nth-child(5) {
+  gap: 24px;
+}
+
+/* 5 · Lifecycle strip → inset control surface, subordinate to
+       the tab panel below.                                     */
+.xdr-record-l3 .rl-lifecycle {
+  background: var(--nx-surf-inset) !important;
+  border: 1px solid var(--nx-bd-quiet) !important;
+  border-radius: var(--nx-r-card) var(--nx-r-card) 0 0;
+  padding: 10px 16px !important;
+  margin: 14px 0 0 !important;
+  box-shadow: none !important;
+}
+.xdr-record-l3 .rl-lifecycle + .rl-tabs {
+  border-top: none;
+  border-radius: 0;
+}
+.xdr-record-l3 .rl-step { min-width: 84px !important; }
+.xdr-record-l3 .rl-step .dot {
+  width: 22px !important; height: 22px !important;
+  border-width: 2px !important;
+  font-size: 9.5px !important;
+}
+.xdr-record-l3 .rl-step .lbl { font-size: 9.5px !important; }
+.xdr-record-l3 .rl-step-arrow { top: -14px !important; }
+.xdr-record-l3 .rl-step.active .dot {
+  box-shadow: 0 0 0 3px var(--rl-purple-dim) !important;
+}
+
+/* 6 · Tabs bar → inset control surface, docked flush with
+       lifecycle above and the primary panel below.             */
+.xdr-record-l3 .rl-tabs {
+  background: var(--nx-surf-inset) !important;
+  border: 1px solid var(--nx-bd-quiet) !important;
+  border-top: 1px solid var(--nx-bd-quiet) !important;
+  border-radius: 0 !important;
+  padding: 0 8px !important;
+}
+.xdr-record-l3 .rl-tab {
+  padding: 11px 14px !important;
+  font-size: 12px !important;
+}
+
+/* 7 · Tab panel → PRIMARY focal surface (§16.2 focal point).
+       Elevated, crisp, sits on canvas.                         */
+.xdr-record-l3 .rl-tabpanel {
+  background: var(--nx-surf-primary) !important;
+  border: 1px solid var(--nx-bd-strong) !important;
+  border-top: 1px solid var(--nx-bd-quiet) !important;
+  border-radius: 0 0 var(--nx-r-card) var(--nx-r-card) !important;
+  box-shadow: var(--nx-shadow-1) !important;
+  padding: 20px 20px !important;
+}
+
+/* 8 · Sections inside the tab panel → INSET (no white-on-white).
+       Only the outer tab panel is primary; sections are inset.  */
+.xdr-record-l3 .rl-tabpanel .rl-section {
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  box-shadow: none;
+}
+
+/* 9 · §16.4 · Kill mono on human labels.
+       kv-key labels are human sans, not mono.                   */
+.xdr-record-l3 .rl-kv .k {
+  font-family: var(--rs-sans);
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+  color: var(--rl-muted);
+}
+/* State chip label uses micro sans, not mono (grammar §3 · §5). */
+.xdr-record-l3 .rl-state {
+  font-family: var(--rs-sans);
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+}
+/* Timeline body is prose, not code. */
+.xdr-record-l3 .rl-timeline-body {
+  font-family: var(--rs-sans);
+}
+/* Section title label is human sans (already is; strengthen the
+   contract by explicitly restating it). */
+.xdr-record-l3 .rl-section-title,
+.xdr-record-l3 .rl-metric .k,
+.xdr-record-l3 .rl-tab .count {
+  font-family: var(--rs-sans);
+}
+/* Note composer is prose. */
+.xdr-record-l3 .rl-note-input { font-family: var(--rs-sans); }
+
+/* 10 · Empty / error states stay honest but tonal, not shouty. */
+.xdr-record-l3 .rl-empty {
+  background: var(--nx-surf-inset);
+  border-color: var(--nx-bd-quiet);
+}
+
+/* 11 · The compat `.canvas` variant is now the same PRIMARY
+        surface — override its cosmetic border to match.        */
+.xdr-record-l3 .rl-tabpanel.canvas {
+  background: var(--nx-surf-primary) !important;
+  border-color: var(--nx-bd-strong) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Record composition · v2 overrides
+   Single dominant attention statement replaces the KPI wall.
+   Lifecycle strip compressed to a subordinate control pill.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Attention line — priority + state chip + operational headline. */
+.xdr-record-l3 .rl-attn {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0 4px;
+}
+.xdr-record-l3 .rl-attn-headline {
+  font-family: var(--rs-sans);
+  font-size: 15px; font-weight: 700;
+  color: var(--rl-text);
+  letter-spacing: -0.01em;
+}
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-critical { color: var(--rl-red); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-high     { color: var(--rl-orange); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-medium   { color: var(--rl-amber); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-low      { color: var(--rl-blue); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-benign   { color: var(--rl-green); }
+.xdr-record-l3 .rl-attn-headline.rl-attn-tone-purple   { color: var(--rl-purple); }
+
+.xdr-record-l3 .rl-attn-sub {
+  font-family: var(--rs-sans);
+  font-size: 12.5px;
+  color: var(--rl-text-dim);
+  font-weight: 500;
+}
+
+/* Hero context row (provenance slot) — quiet inline meta. */
+.xdr-record-l3 .rl-hero-context {
+  display: inline-flex; flex-wrap: wrap; align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  font-family: var(--rs-sans);
+  font-size: 11.5px;
+  color: var(--rl-text-dim);
+}
+.xdr-record-l3 .rl-hero-owner-inline {
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.xdr-record-l3 .rl-hero-context-label {
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--rl-muted);
+}
+.xdr-record-l3 .rl-hero-unassigned {
+  color: var(--rl-amber);
+  font-family: var(--rs-sans);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* Kill the mono `Source · ...` provenance prefix on Record hero
+   because we're already labelling the context inline.           */
+.xdr-record-l3 .nx-hero .nx-prov::before {
+  content: "";
+}
+.xdr-record-l3 .nx-hero .nx-prov {
+  font-family: var(--rs-sans);
+  color: var(--rl-text-dim);
+  padding: 0;
+  margin-top: 8px;
+  font-size: 11.5px;
+}
+
+/* Lifecycle → single compact pill trail, tightly subordinate. */
+.xdr-record-l3 .rl-lifecycle {
+  padding: 6px 12px !important;
+  gap: 0;
+  margin-top: 12px !important;
+}
+.xdr-record-l3 .rl-step {
+  min-width: auto !important;
+  flex-direction: row !important;
+  gap: 6px !important;
+  padding: 3px 8px !important;
+}
+.xdr-record-l3 .rl-step .dot {
+  width: 16px !important; height: 16px !important;
+  border-width: 1.5px !important;
+  font-size: 8.5px !important;
+}
+.xdr-record-l3 .rl-step .lbl {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+}
+.xdr-record-l3 .rl-step.active .lbl { font-weight: 700 !important; }
+.xdr-record-l3 .rl-step.active .dot {
+  box-shadow: 0 0 0 2px var(--rl-purple-dim) !important;
+}
+.xdr-record-l3 .rl-step-arrow {
+  top: 0 !important;
+  min-width: 12px !important; height: 1px !important;
+  margin: 0 6px !important;
+  align-self: center;
+}
+
+/* Section boundary between chips and hero-context.
+   Chips currently sit ABOVE the metric row, so no metric row
+   means chips flow straight into the context — tighten spacing. */
+.xdr-record-l3 .nx-hero > div:first-child > div[data-testid="nx-hero-chips"] {
+  margin-bottom: 4px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Designed truth-state blocks (Executive tab)
+   Replaces mechanical "NOT_RUN · — · UNKNOWN · —" KPI walls.
+   ═══════════════════════════════════════════════════════════════ */
+
+.xdr-record-l3 .rl-verdict-pending {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-left: 3px solid var(--rl-purple);
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+.xdr-record-l3 .rl-verdict-pending-icon {
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--rl-purple-dim);
+  color: var(--rl-purple);
+  border-radius: 8px;
+}
+.xdr-record-l3 .rl-verdict-pending-title {
+  margin: 0 0 4px;
+  font-family: var(--rs-sans);
+  font-size: 14px; font-weight: 700;
+  color: var(--rl-text);
+}
+.xdr-record-l3 .rl-verdict-pending-copy {
+  margin: 0 0 12px;
+  font-family: var(--rs-sans);
+  font-size: 12.5px; line-height: 1.55;
+  color: var(--rl-text-dim);
+  max-width: 620px;
+}
+.xdr-record-l3 .rl-verdict-pending-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+/* Gap summary block (grouped honest absence) */
+.xdr-record-l3 .rl-gap-summary {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.xdr-record-l3 .rl-gap-summary-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 6px;
+}
+.xdr-record-l3 .rl-gap-summary-row.not_connected      { border-left: 3px solid var(--rl-border-hi); }
+.xdr-record-l3 .rl-gap-summary-row.not_available      { border-left: 3px solid var(--rl-amber); }
+.xdr-record-l3 .rl-gap-summary-row.no_matching_evidence { border-left: 3px solid var(--rl-blue); }
+.xdr-record-l3 .rl-gap-summary-icon {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--nx-elevated);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 6px;
+  color: var(--rl-muted);
+}
+.xdr-record-l3 .rl-gap-summary-row.not_available .rl-gap-summary-icon { color: var(--rl-amber); }
+.xdr-record-l3 .rl-gap-summary-row.no_matching_evidence .rl-gap-summary-icon { color: var(--rl-blue); }
+.xdr-record-l3 .rl-gap-summary-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--rs-sans);
+  font-size: 12.5px; font-weight: 700;
+  color: var(--rl-text);
+  margin-bottom: 2px;
+}
+.xdr-record-l3 .rl-gap-summary-count {
+  font-family: var(--rs-mono);
+  font-size: 10.5px; font-weight: 800;
+  padding: 1px 7px;
+  background: var(--nx-elevated);
+  border: 1px solid var(--nx-bd-quiet);
+  color: var(--rl-text-dim);
+  border-radius: 999px;
+}
+.xdr-record-l3 .rl-gap-summary-copy {
+  font-family: var(--rs-sans);
+  font-size: 12px; line-height: 1.5;
+  color: var(--rl-text-dim);
+}
+
+/* Quiet empty (used inside Observed facts when zero facts) */
+.xdr-record-l3 .rl-empty-quiet {
+  background: transparent;
+  border-color: var(--nx-bd-quiet);
+  border-style: dashed;
+  text-align: left;
+  padding: 14px 16px;
+  color: var(--rl-text-dim);
+  font-family: var(--rs-sans);
+}
+.xdr-record-l3 .rl-empty-quiet .kbd {
+  color: var(--rl-muted);
+  font-family: var(--rs-sans);
+  font-size: 11.5px;
+}

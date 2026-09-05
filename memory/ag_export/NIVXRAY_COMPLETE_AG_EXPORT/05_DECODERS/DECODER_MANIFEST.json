@@ -1,0 +1,1225 @@
+{
+  "category": "05_DECODERS",
+  "title": "Universal Decoder, DDO Orchestrator & Deobfuscation Pipeline",
+  "description": "Deterministic Multi-Layer Deobfuscation, Command Reconstruction Engine (CRE), and Central Codec Registry.",
+  "file_count": 135,
+  "total_bytes": 1262753,
+  "total_lines": 29779,
+  "files": [
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/llm_decoder.py",
+      "size_bytes": 13163,
+      "sha256": "ea6d165f6796bb248ad786eb17169301555867c4a1fca33281cb86ea1a6aba0f",
+      "lines_of_code": 319,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/magic_decoder.py",
+      "size_bytes": 63148,
+      "sha256": "4ddc0bb48f2a3f27f665606d5966d5b580c0b7f3c440a60caa16ed1d15d7adb0",
+      "lines_of_code": 1177,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/smart_decoder.py",
+      "size_bytes": 26387,
+      "sha256": "ddb76f7c3b9646515532ee7104d283b7239333159e3107d97292ae62e272528c",
+      "lines_of_code": 590,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/verify_decoder_truth_e2e.py",
+      "size_bytes": 10429,
+      "sha256": "557897b0e4a7defe3b33639898567589a1c1a45cc8d2aa3f048d84746a3be388",
+      "lines_of_code": 232,
+      "last_modified": "2026-09-04 21:12:34",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ascii85.py",
+      "size_bytes": 3267,
+      "sha256": "ce3b588d6fa034a5190853a7b0fbf1ba21324c65e0a964577939f2e18719e884",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/base32.py",
+      "size_bytes": 2639,
+      "sha256": "1d8e5a5658b574eedfa6511ebcc0321ca034b923fb9b75bb7f2a1673e2dac963",
+      "lines_of_code": 63,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/base58.py",
+      "size_bytes": 3137,
+      "sha256": "4c4ce62fbdc47f88b924a0381cbfa0872dae63cb84415b608049767ed02a0ce8",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/base64.py",
+      "size_bytes": 6116,
+      "sha256": "681e01f5f19c3ee294734e997279bb18d419b5a00425f40103f593b7a83c1405",
+      "lines_of_code": 142,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/base91.py",
+      "size_bytes": 4321,
+      "sha256": "1771c21ba0c1eb5b439c552fd0cbb02483eadd7218988a658fb5eb8580cdc7d5",
+      "lines_of_code": 116,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/batch_envvar_substitute.py",
+      "size_bytes": 6550,
+      "sha256": "3ebb8642b0b0fbff91bc594c4fd360f1b11cdaa66ea98319fbba1fd5e05a4fc5",
+      "lines_of_code": 164,
+      "last_modified": "2026-09-04 19:09:15",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/brotli_stream.py",
+      "size_bytes": 2946,
+      "sha256": "c8d44e4851a3d05cf25e72539b2aef3aefa2e8b8dc88a9b3a94037f50b64f897",
+      "lines_of_code": 70,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/caesar.py",
+      "size_bytes": 3460,
+      "sha256": "f1fe1b90f481c1a83d2ecba3b4a8f3e02511fea74b7b8043102257823155ecda",
+      "lines_of_code": 89,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/charcode_decoders.py",
+      "size_bytes": 7695,
+      "sha256": "1f22f5a434140f8ab785cb6d987b98559c084700092100f60bdea5f3c7abc983",
+      "lines_of_code": 193,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/cmd_reconstruct.py",
+      "size_bytes": 10228,
+      "sha256": "6f314ca6ce30b50279789a79eda244068c9a0f6a71be82d67d50b7f5e2f61078",
+      "lines_of_code": 269,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/cmd_runtime_reconstruct.py",
+      "size_bytes": 36608,
+      "sha256": "79ab28b00dd9b675c3026e352fb2fdb44560a5241ab034b91bd11a2cc29e6ca1",
+      "lines_of_code": 842,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/cobaltstrike_beacon_config.py",
+      "size_bytes": 9911,
+      "sha256": "de7a35576142af266b042daada48961582e3a76092fbfcf89b4e32ba0913d198",
+      "lines_of_code": 240,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/crypto_api_annotator.py",
+      "size_bytes": 7413,
+      "sha256": "b143335fd45c0117143774107b9e33ff7a1018e09691d1ea5b63ef544188126e",
+      "lines_of_code": 117,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/crypto_symmetric.py",
+      "size_bytes": 565,
+      "sha256": "60b431006ce3a87d0d455ff1b4e3398187d9ef7c23483e12ce913e9ac6865745",
+      "lines_of_code": 14,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/custom_hex_slash.py",
+      "size_bytes": 6020,
+      "sha256": "4a2ac85b0b76ce2fe7b9683f2c8822af06768a61bc693493464ed0765a11bde7",
+      "lines_of_code": 152,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/data_uri.py",
+      "size_bytes": 3037,
+      "sha256": "b2551ae99b588c0319bf94c1ffa318611912202a04ed7e8ef32c256c554b2467",
+      "lines_of_code": 87,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/extract_wrapper.py",
+      "size_bytes": 14267,
+      "sha256": "fc688bc94254e4f9f70643f429c31d0b43ff4d770760edbeb0a2d3189edb23b9",
+      "lines_of_code": 329,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/gzip_stream.py",
+      "size_bytes": 1807,
+      "sha256": "f70b91fa5a82fc1d437519ee0f6a544037481b56184821443179c23aa5db7a7b",
+      "lines_of_code": 49,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/hex.py",
+      "size_bytes": 2695,
+      "sha256": "6533b38c565b46c682974dddd7896da09db82cd55ad94ce2f7095156b2115548",
+      "lines_of_code": 66,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/html_unicode_escape.py",
+      "size_bytes": 6148,
+      "sha256": "738b6e9470729401293432446b60feaff3defc3bf2dc5d8c30132c3a863f8873",
+      "lines_of_code": 163,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ioc_extractor.py",
+      "size_bytes": 8826,
+      "sha256": "a67fbbee5edb3b1dba17d3376cc7ba2da4608320a3dadb1f2957eb81894a3375",
+      "lines_of_code": 213,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/js_reconstruct.py",
+      "size_bytes": 7777,
+      "sha256": "073f6cbfd042050ed4df03e96ea3a9d86e9dcb630bddfe89452980075401ffd0",
+      "lines_of_code": 232,
+      "last_modified": "2026-09-04 19:09:37",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/jwt.py",
+      "size_bytes": 3385,
+      "sha256": "aa295b4505a87562b52fa9aa8b735692f4093ac27083b050c1306eabac05bc1a",
+      "lines_of_code": 99,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/lzma_stream.py",
+      "size_bytes": 3183,
+      "sha256": "0eeae71f7d3f46cacdaf560df2597ec142a9d4fb451dd5df5d748fe021a0962a",
+      "lines_of_code": 79,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/nibble_swap.py",
+      "size_bytes": 4366,
+      "sha256": "15b919a9d42125a9147d33d0e7a0c325833c9e5f765cb24e968a7268f3a2d0f0",
+      "lines_of_code": 117,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_alias_normalizer.py",
+      "size_bytes": 11294,
+      "sha256": "a9e023aa9c04165302ce39a7bb3211882fe58caa3dde0ca049e5c4a5b88623fa",
+      "lines_of_code": 302,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_backtick_normalizer.py",
+      "size_bytes": 8934,
+      "sha256": "8464033982ea3f58a073c9663546b693bdb8c32066305314970fcab009dde6ad",
+      "lines_of_code": 225,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_encodedcommand_multilayer.py",
+      "size_bytes": 6071,
+      "sha256": "d3093521837c1f60c0287b2d109ddbd7a0115a0ffd871d0927601800297591c2",
+      "lines_of_code": 151,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_hex_escape.py",
+      "size_bytes": 5571,
+      "sha256": "ada6dc63d1638f283dd5b4ae749ea78d3b02962dc87fc0abf9c54f79a7adcc29",
+      "lines_of_code": 142,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_inline_eval.py",
+      "size_bytes": 7454,
+      "sha256": "64199488644989f62c5e66b6b2c0f9be4f27fa1446c1bda5cce125a58f4e4b3d",
+      "lines_of_code": 171,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_normalizer.py",
+      "size_bytes": 13542,
+      "sha256": "6d222d2089a5a1f1b1a674b0d177339ead2fa5c5d84feb5c6a460e4884466928",
+      "lines_of_code": 324,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_reconstruct.py",
+      "size_bytes": 19750,
+      "sha256": "29ad91a2e63de5408264f45b3c07c10ed2332707e490fc2ed1ab36f81dbdaf7c",
+      "lines_of_code": 534,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_reverse_swap.py",
+      "size_bytes": 3944,
+      "sha256": "47bb720556225a1dd5245398e2d36f13beb765bba1726fbb3510f945d1cd3fae",
+      "lines_of_code": 99,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/ps_semantic_mini.py",
+      "size_bytes": 4243,
+      "sha256": "9c42c0023cd83921664af0b3387e14761ae7a96060482e93500bcfdb838630bd",
+      "lines_of_code": 105,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/rc40_orchestrator_plugins.py",
+      "size_bytes": 17690,
+      "sha256": "1e327dde9650283feaab2a782e7c8d2272dfb33915e3d7d80ea1cc927d849762",
+      "lines_of_code": 353,
+      "last_modified": "2026-09-04 19:21:37",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/rc4_inline_decrypt.py",
+      "size_bytes": 4234,
+      "sha256": "3710f0fd16f1e733fbe6f5428c2170e626816ca2c45ffa953a3d95655ce7ddc3",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/reverse_string.py",
+      "size_bytes": 6033,
+      "sha256": "430a26c10fcc994103a43a930e4d8f0cd7e7a899b41f9c7ec6c904d394c731bb",
+      "lines_of_code": 144,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/rot13.py",
+      "size_bytes": 2204,
+      "sha256": "0648842967b4d924fae953e5bf865cecf6ce8a5e16a50ee44d502f505855965c",
+      "lines_of_code": 55,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/rot47.py",
+      "size_bytes": 1954,
+      "sha256": "679807ff011f5b73f7c5df359fddda882984b92c515ad39b6f384a23cac5f402",
+      "lines_of_code": 55,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/url.py",
+      "size_bytes": 2311,
+      "sha256": "52cfd37f1f4a40ed176ab57da88e578487cf25fef176a32f0038a05305ac7412",
+      "lines_of_code": 59,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/utf16.py",
+      "size_bytes": 3770,
+      "sha256": "d462f277cb8926830c3dbdb1fd3da63c1a4d9b1cf4ec9bf5598d956c066310fe",
+      "lines_of_code": 104,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/vbs_reconstruct.py",
+      "size_bytes": 6707,
+      "sha256": "d07c4202c4e7569f988f4a5e1c055c984191e72b886e6277bacd4c8e04af51ea",
+      "lines_of_code": 180,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/xor_brute.py",
+      "size_bytes": 704,
+      "sha256": "b55ecf6c3b32a8ffe5bc79613669e3e9383f36ccffb98e877440846edf7c9048",
+      "lines_of_code": 17,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/zlib_deflate.py",
+      "size_bytes": 2802,
+      "sha256": "5bb445661910f9de8ddfaed8964a63b0360a790bd4fda84fcb421dd9ce8dc47d",
+      "lines_of_code": 71,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/zstd_stream.py",
+      "size_bytes": 2205,
+      "sha256": "4f58b94bacad6ca6bd9072dd996294ec6eab32f577d75d37330f5b830d4c419b",
+      "lines_of_code": 59,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/__init__.py",
+      "size_bytes": 302,
+      "sha256": "f0c311901618202985e370c78095bae6de92a7d53448e43dfd9171177608d631",
+      "lines_of_code": 7,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/agenttesla.py",
+      "size_bytes": 3071,
+      "sha256": "c7b7690d8d0723b812ae8cd0de31d5acc3788466c5c774024243515987dbeeba",
+      "lines_of_code": 71,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/asyncrat.py",
+      "size_bytes": 2552,
+      "sha256": "d0fadfacde6ac808565edf771101c06adf240906c2dab12f1f90de98dfd30dc7",
+      "lines_of_code": 60,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/cobalt_strike.py",
+      "size_bytes": 3197,
+      "sha256": "f6632ab2aaf4b7c64b0938fe9c61aaf14e1dca8d3bcb7367de4eea84d69f3d2f",
+      "lines_of_code": 74,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/darkgate.py",
+      "size_bytes": 2485,
+      "sha256": "d0d08332ee1871a1981c8c4b68b7d3e26ec8b27f6232d581295d706de7099f4c",
+      "lines_of_code": 58,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/emotet.py",
+      "size_bytes": 5495,
+      "sha256": "d1440b3df7260d9c427eb15314c3066f60c6d6221fda4164e1c664852381899a",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/formbook.py",
+      "size_bytes": 4457,
+      "sha256": "f677748d0d1d4632ac38a0103f4a4eb333f932c8d9034c894d9140bf7f5c130a",
+      "lines_of_code": 95,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/lumma.py",
+      "size_bytes": 2713,
+      "sha256": "cf908bff7cece01ae7e86f95b0873af41db1ea9a56eab335cffab05eb4b03a9e",
+      "lines_of_code": 62,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/meterpreter.py",
+      "size_bytes": 3112,
+      "sha256": "c9ea1d45ede955fad1c9d719bfec8fcd9b990d3253bd745a3c24a4df98a78889",
+      "lines_of_code": 68,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/njrat.py",
+      "size_bytes": 4114,
+      "sha256": "266223b22fb77f76af9767f5e6aee59539fea1110b0480da157491ece4a1a98c",
+      "lines_of_code": 90,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/quasarrat.py",
+      "size_bytes": 2611,
+      "sha256": "b21a2d64b4a95c65ac54542f976a49bf2344cd532e7c3425057ad2133fd83a0c",
+      "lines_of_code": 63,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/redline.py",
+      "size_bytes": 4917,
+      "sha256": "714460093c056558bdd5d9c3cba1a6df14557a9b84535444ab06a3ae332137ee",
+      "lines_of_code": 101,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/remcos.py",
+      "size_bytes": 2466,
+      "sha256": "f4ef335c5eb8c8190cb562395d9d3b4eb1de44bb6238bcd0ea198d925d040492",
+      "lines_of_code": 61,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/snake_keylogger.py",
+      "size_bytes": 3059,
+      "sha256": "951787c9ce088df03b031685669e7d9261b0636c98b019816ee3dc1341e75966",
+      "lines_of_code": 71,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/xworm.py",
+      "size_bytes": 6223,
+      "sha256": "d29566ad96cd430999b21eed616757068ef072f838e2481a897b0bd5f961a603",
+      "lines_of_code": 124,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/_base.py",
+      "size_bytes": 7501,
+      "sha256": "449ac382af617c4d50e455591abcfdf9f64805531be16ffcf55d428e2928c1b1",
+      "lines_of_code": 181,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/decoders/families/__init__.py",
+      "size_bytes": 637,
+      "sha256": "1e8f77fdde8544f1e94361fa43b96f6361980521a064bd0b409d0d901c78976b",
+      "lines_of_code": 16,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/engine/decoder_base.py",
+      "size_bytes": 2730,
+      "sha256": "e3ff2ce23d97b86513ff805a3c6eb4f2fcbd882f37629687f28b0dc1834ae9f8",
+      "lines_of_code": 77,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/engine/registry.py",
+      "size_bytes": 4741,
+      "sha256": "539b40eebea7dbabd95bf8e85c4e060350affa5686cba9c2954f41f3011cb2c2",
+      "lines_of_code": 130,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/recursive_decoder.py",
+      "size_bytes": 4308,
+      "sha256": "649325b8abc4a1313b9c2aef0ec03cb11a5345ee660a6b15b497ba5df4ef9dfb",
+      "lines_of_code": 146,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/cmd.py",
+      "size_bytes": 30988,
+      "sha256": "22f3f35329dc1258c0005328890ab1549ce23104c73da5e42e6d72f35adaaad3",
+      "lines_of_code": 759,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/engine.py",
+      "size_bytes": 6006,
+      "sha256": "5e41b16509a5af20cce12f3c28c0266f8256a222a26db10f53265937c6955a55",
+      "lines_of_code": 170,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/orchestrator.py",
+      "size_bytes": 12218,
+      "sha256": "62362e4ffec7c29b9e0f976c5fce8c7be2ae2fe518c968d018af2c62625e47f7",
+      "lines_of_code": 300,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/powershell.py",
+      "size_bytes": 23430,
+      "sha256": "aef5a8053f4571201d6427267815289b225863dd3d9bf6f35bc0bfa721f65bb1",
+      "lines_of_code": 549,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/registry.py",
+      "size_bytes": 2978,
+      "sha256": "d672eb145df1f963be53781bc797d5c458860fe7e36b191993e7ef77b3d5e39a",
+      "lines_of_code": 86,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/types.py",
+      "size_bytes": 6654,
+      "sha256": "5290ce845fadd5bce5ff34a960546d5c442898286575f73751afbea18aa8b4a1",
+      "lines_of_code": 186,
+      "last_modified": "2026-09-04 07:58:57",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/__init__.py",
+      "size_bytes": 3116,
+      "sha256": "135c961778cf25a3c75667d77d1616a983a42e214f4d1263bbd1bb58b2a23e99",
+      "lines_of_code": 68,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/ATTRIBUTION/README.md",
+      "size_bytes": 1668,
+      "sha256": "5bc221f2a547bdf73556426ac279cddcfee2ace5fb5303e6c41fd27ed62fe9ad",
+      "lines_of_code": 29,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/base64_codec.py",
+      "size_bytes": 5735,
+      "sha256": "3562afdf2f9a75263aaaf193569cb643b384a51425c7d54898ec8dbeaf5cdfdd",
+      "lines_of_code": 152,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/compression.py",
+      "size_bytes": 4908,
+      "sha256": "56c78fa9e0ffcc0d769e4ff92db8d5d76916b4cef955730a7115f9cea513cf31",
+      "lines_of_code": 134,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/crypto.py",
+      "size_bytes": 23910,
+      "sha256": "09e9eb611caa433e1096ce47c055caf19d7d853d34fe7b339ebca10be9237486",
+      "lines_of_code": 519,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/encoding.py",
+      "size_bytes": 14511,
+      "sha256": "715e5276a77be25ac05e10e2cf9930cfe97d6d74fd250d57c024df5424073b9b",
+      "lines_of_code": 345,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/powershell_encoded_command.py",
+      "size_bytes": 5028,
+      "sha256": "8b9d7c5c37daf08c43ad64e4c3289c9a33aa5e129b6b38c69a3026e19efc5cd4",
+      "lines_of_code": 143,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/transform.py",
+      "size_bytes": 3883,
+      "sha256": "add4577a703566041a59c2af43486f01ee3caaedbc6232d5a82abd6ad4c44ef4",
+      "lines_of_code": 119,
+      "last_modified": "2026-09-04 18:50:53",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/xor_brute.py",
+      "size_bytes": 19715,
+      "sha256": "40e740ee9d72226d57534632235edba08642b5ef1ed306703b962bf8b87be4e7",
+      "lines_of_code": 451,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/_ddo_adapter.py",
+      "size_bytes": 6113,
+      "sha256": "158022065f4e25d492480c5b11be5b776d066b8deaac2d8be95753e810d97980",
+      "lines_of_code": 181,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/_shared.py",
+      "size_bytes": 3787,
+      "sha256": "84ac67b48988d35052cf26659dcb51fb03fae6b71bb35210631aca2d3557de41",
+      "lines_of_code": 102,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder/base/__init__.py",
+      "size_bytes": 1469,
+      "sha256": "fdd9931cbea52d2e2b0450a6c062396a0b2320f4d7b4595e2ef237962825303f",
+      "lines_of_code": 42,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/decoder_bridge/__init__.py",
+      "size_bytes": 8668,
+      "sha256": "2ebe2e763ac685e16924bcac942e01fc923106d03dd144c9faff0e203e18c16f",
+      "lines_of_code": 217,
+      "last_modified": "2026-09-04 19:09:08",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/die/preprocessor/recursive_decoder.py",
+      "size_bytes": 21951,
+      "sha256": "c06aeec6c45be4962b2aa495a180d1f3e16b12999b3af52ac83471f308b4c142",
+      "lines_of_code": 469,
+      "last_modified": "2026-09-04 19:21:15",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/DECODER_BASELINE.md",
+      "size_bytes": 2553,
+      "sha256": "cc84097a7f0113c0fa32eee013a47219f5dc3864dc3d8c9c3af3ab69a6891154",
+      "lines_of_code": 52,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test_documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_realworld_validation.py",
+      "size_bytes": 10386,
+      "sha256": "02179e82840e00f0a6ffe03fc13b7fc79a35253d04a8eb491d44b0846a40ca0c",
+      "lines_of_code": 231,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_bash_echo_b64_pipe_decoder.py",
+      "size_bytes": 5975,
+      "sha256": "02acd8db256abba343f4dfc20685e8644f144921eba573e4beb39ea1593d284f",
+      "lines_of_code": 147,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_canonicalizer_decoder_plumbing.py",
+      "size_bytes": 3384,
+      "sha256": "d57ed0867f391411759bf27e62f211d7cf56f01668eafec982c175cf0aedba3a",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_decoder_analyst_visibility.py",
+      "size_bytes": 11532,
+      "sha256": "e8d2f3c1b57810856dd05a40c15372d2acc4a7413296b53a846fe0c73788ca63",
+      "lines_of_code": 281,
+      "last_modified": "2026-09-04 18:59:57",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_decoder_bridge.py",
+      "size_bytes": 5796,
+      "sha256": "c8e25c73b9c9f8a5bdcdb0971dccf3a15a6618e1b7f3d7acebacb9d599624a71",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_decoder_convergence_v150.py",
+      "size_bytes": 33373,
+      "sha256": "5f40241f585205b95126c5f5fda1688665cc44a592c104888cf805000d10aa16",
+      "lines_of_code": 732,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_decoder_pass.py",
+      "size_bytes": 10354,
+      "sha256": "33ef53a5ee8454fa7bdc6689da60adc3adadfb0db313900135fd7a67b1f72a1e",
+      "lines_of_code": 256,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_javascript_decoder_pass.py",
+      "size_bytes": 4240,
+      "sha256": "22fc51cbfeef49e486586e4ebe5006ed043904c90af258cb27851f4647c93121",
+      "lines_of_code": 134,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_ps_env_reassembly_decoder.py",
+      "size_bytes": 2662,
+      "sha256": "a793105111e158adc7163cb7dc2b18f5ae1e3505406dd530ebcab3c0ed6611b6",
+      "lines_of_code": 67,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_rc22_decoder_pack.py",
+      "size_bytes": 8015,
+      "sha256": "26727a2f132b3cb989984d2e19a5e0e93b77256a767bd69f15bed744b802e10a",
+      "lines_of_code": 202,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_harness/harness.py",
+      "size_bytes": 22046,
+      "sha256": "41e14a525f754bb2a998d68503509f1bd218b717f860bdade7e6092c60f26615",
+      "lines_of_code": 512,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_harness/last_report.json",
+      "size_bytes": 23787,
+      "sha256": "90ad9efa0272c8a644059686f1361de9df03f1f4d54583ba5eee2c2b020e51a0",
+      "lines_of_code": 961,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "generated_artifact",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_harness/test_b3_3_dependency_audit.py",
+      "size_bytes": 9239,
+      "sha256": "70c94b8e8e19dbe2a1b84f3e60fb661851a376b43c212ef9f585499c0c9bb15e",
+      "lines_of_code": 240,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_harness/test_ddo_dispatch_matrix.py",
+      "size_bytes": 3474,
+      "sha256": "6ee41e2b2daa07385b7e13f4b8051e5211f54c78aadeaa0ee537f5f331153801",
+      "lines_of_code": 87,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_harness/test_gate_2a.py",
+      "size_bytes": 3543,
+      "sha256": "62942a497568c1d3d26c00dc9f43eae28b07590111e2aebabfb7eeca4c47d293",
+      "lines_of_code": 95,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_harness/test_gate_2d_b1.py",
+      "size_bytes": 5966,
+      "sha256": "d691fb13fb81c19a44432b4df68e6016f9a693af5f84c578c7750f749f15a61f",
+      "lines_of_code": 127,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_harness/__init__.py",
+      "size_bytes": 51,
+      "sha256": "8c18938bd3b95282a6fbce61fef9e696facc3bfaee28466d704110db7a93d9f5",
+      "lines_of_code": 1,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/B3_0_CHECKPOINT_REPORT.md",
+      "size_bytes": 7149,
+      "sha256": "f1e8941cd9e51bf72ec53448d384872392594be2ed7045261be6c7d06e400a57",
+      "lines_of_code": 195,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test_documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/B3_1_CHECKPOINT_REPORT.md",
+      "size_bytes": 7655,
+      "sha256": "b5aaf86b8137fd83eaad250d7657e13165e3df4252ca05c7cef3a3d637cb9457",
+      "lines_of_code": 147,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test_documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/B3_2_CHECKPOINT_REPORT.md",
+      "size_bytes": 7498,
+      "sha256": "bf7a2e25b3453ab5fe339b7103d093cf9bf335dfc52e7fbebeb3b3a2dbd1a38a",
+      "lines_of_code": 150,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test_documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/B3_3_DEPENDENCY_AUDIT_REPORT.md",
+      "size_bytes": 8344,
+      "sha256": "0fa41f4d77e2d9646321f864721702368d0987d2f9d22736f95aac81c810c2cf",
+      "lines_of_code": 209,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test_documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/B3_4_FINAL_VALIDATION_REPORT.md",
+      "size_bytes": 6379,
+      "sha256": "cbca4f7172120084c0c4f5c5da646bf9ab1eb667443d2720b1c419e1e9e20c68",
+      "lines_of_code": 139,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test_documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/b3_4_final_validation_result.json",
+      "size_bytes": 4371,
+      "sha256": "503c8e3f3f7f9029511a53c8f3821b5e54ecdcfadf2da698f2043396e9587740",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "generated_artifact",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/b3_4_validate.py",
+      "size_bytes": 12962,
+      "sha256": "49db97a40f508af860b5667881909fbec850f20a676165dacbfd083b3ffdf59d",
+      "lines_of_code": 328,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/capture_pre_migration_snapshot.py",
+      "size_bytes": 7554,
+      "sha256": "33f42adbc3204224a0bcd47fa799d95bab4ca123de93a83b3b9aba78a42e65c0",
+      "lines_of_code": 195,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/capture_pre_migration_snapshot_2.py",
+      "size_bytes": 16341,
+      "sha256": "c6350a459b93a237c78eaf04600ab4a0ef1684d29df7659cf5a7a2cfe56e35ed",
+      "lines_of_code": 436,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/dependency_audit.py",
+      "size_bytes": 10211,
+      "sha256": "e4e41fe8e494b51059956f19aea765e46a695f270ae26e69d27e6893b0bce3b7",
+      "lines_of_code": 272,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/fixture_codec_map.json",
+      "size_bytes": 9262,
+      "sha256": "0ccd1c88279d12eb6bf61ab46b62e5a38342c329b3fc13977a3bb9baeb20bcd3",
+      "lines_of_code": 298,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "fixture",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/parity_harness.py",
+      "size_bytes": 12774,
+      "sha256": "38dee2f37a6c4e7d4148633ad6bd8e6826201842018285e4c1beccb54f206048",
+      "lines_of_code": 333,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/pre_migration_manifest.json",
+      "size_bytes": 97707,
+      "sha256": "dde8e24663ae63ceab4e5e3661c7e0d989eba76dfaee49436c2cc4bee23fdb9d",
+      "lines_of_code": 2444,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/pre_migration_snapshot_2.json",
+      "size_bytes": 25191,
+      "sha256": "a779f625242d32d7784bb703d89c61aa6eee144b6497ba125d8fc302f2577535",
+      "lines_of_code": 905,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/decoder_migration/__init__.py",
+      "size_bytes": 566,
+      "sha256": "3d87c2a6a05ddd2fe6ec33d3c7360c5fe3afaa869d4882e000234271bbd600c9",
+      "lines_of_code": 14,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/investigation/test_artifact_and_decoder.py",
+      "size_bytes": 3277,
+      "sha256": "331b287d9c34fae2df34d512de681c7f3d3e35e8946dffa79d77263600561542",
+      "lines_of_code": 83,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/workspace/convergence/decoder.py",
+      "size_bytes": 17986,
+      "sha256": "9fd8e42bd3c55851ce57adada90713776575c578b9552a8b7422b312ccc091a8",
+      "lines_of_code": 496,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_BROWSER_E2E_PROOF.md",
+      "size_bytes": 10672,
+      "sha256": "f25c49c45adef1696148d1e3bfe91ab2c4773ea2c0333198831ae85ecf883aab",
+      "lines_of_code": 210,
+      "last_modified": "2026-09-04 19:41:54",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_COVERAGE_MATRIX.md",
+      "size_bytes": 10490,
+      "sha256": "eed3e0012e9ba19c04c84a0d0f42444e04c57ad624903e77dccefc764c4977de",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-04 08:12:20",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_FINAL_TRUTH_MATRIX.md",
+      "size_bytes": 19166,
+      "sha256": "84dfddf3a4b5500e2ee0ebcc42b1803836d97be05820a8f34ba41dc97dc21864",
+      "lines_of_code": 289,
+      "last_modified": "2026-09-04 19:42:21",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_RUNTIME_UI_VERIFICATION.md",
+      "size_bytes": 21027,
+      "sha256": "5b8ace13a7d0ccbf426a591019d139401c874189d7065ffbdf4d4aeb14796f69",
+      "lines_of_code": 369,
+      "last_modified": "2026-09-04 19:42:36",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_TRUTH_AUDIT.md",
+      "size_bytes": 11635,
+      "sha256": "0621ebd60e337876fba24ed72cd15ca06a467b8e22cf06f9ce07832cb9ef5b3d",
+      "lines_of_code": 110,
+      "last_modified": "2026-09-04 08:11:55",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_VALIDATION_REPORT.md",
+      "size_bytes": 5338,
+      "sha256": "c0e3046bb7e540878c5c3e2e4c404cba9970569513dd889edb3fc671d13c7a78",
+      "lines_of_code": 59,
+      "last_modified": "2026-09-04 08:40:38",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/DECODER_VISIBILITY_IMPLEMENTATION.md",
+      "size_bytes": 8952,
+      "sha256": "be176a48bdfdc7404a73e5dab5d074489cec439fb2ef26e9631df11c281c9cb3",
+      "lines_of_code": 155,
+      "last_modified": "2026-09-04 08:12:07",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UNIVERSAL_DECODER_COVERAGE_MATRIX.md",
+      "size_bytes": 11018,
+      "sha256": "5782c00a74b9b384c03aae7d42ffeb3e398368c7e8ca7817b5c29c32b20fdf98",
+      "lines_of_code": 109,
+      "last_modified": "2026-09-04 08:40:03",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/UNIVERSAL_DECODER_COVERAGE_MATRIX.md",
+      "size_bytes": 17952,
+      "sha256": "1171a5db1351da28aad519503ef919d5402c824dfbd42d2fdaf8d9888333aa61",
+      "lines_of_code": 279,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/UNIVERSAL_DECODER_LICENSE_MATRIX.md",
+      "size_bytes": 11397,
+      "sha256": "c72594291def0fa762e414385ad6d0aa93a99edca8897e250e6bcd4158d8f923",
+      "lines_of_code": 226,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/UNIVERSAL_DECODER_SOURCE_INVENTORY.md",
+      "size_bytes": 25165,
+      "sha256": "f9f601c906e272170344702a52dab94af0e1d97aac18e8d42050801f1759ff31",
+      "lines_of_code": 433,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    }
+  ]
+}

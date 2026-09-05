@@ -1,0 +1,4 @@
+commit a0b9bebcdd0f39f6960cbb43bb2063ac24a537d4
+author emergent-agent-e1 <github@emergent.sh>
+date   Sun Aug 30 04:13:33 2026 +0000
+subject fix(nav): reserved items dead-click + intelligence highlight + admin-overview mis-highlight + domain NOT_CONNECTED destination

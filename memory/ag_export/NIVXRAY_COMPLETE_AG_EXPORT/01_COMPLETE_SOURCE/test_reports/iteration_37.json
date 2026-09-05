@@ -1,0 +1,39 @@
+{
+  "summary": "R1.1 Device Trajectory backend + frontend fully tested. All 8 backend endpoint tests pass; all 15 frontend flows verified end-to-end. One seed-data gap fixed inline (v2_cases row for the seeded DFIR case was missing).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "seed script /app/backend/v2/seed/__init__.py", "issue": "Seed script inserts 53 observations into v2_shadow_observations but never creates the parent case document in v2_cases. As a result GET /api/v2/cases returned [] and POST /api/v2/cases/{id}/observations returned 404 'case not found' on a fresh DB. Testing agent inserted the v2_cases row manually so all endpoints pass. Main agent should update seed to upsert the case doc."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v2_r11_endpoints.py",
+    "/app/test_reports/pytest/r11_results.xml",
+    "/app/test_reports/screenshots/r11_trajectory.png"
+  ],
+  "action_items": [
+    "Update /app/backend/v2/seed/__init__.py to also upsert a document into v2_cases (id=case_dfir_bumblebee_akira_2026, name/tags/status/created_at) so a clean DB seed produces a listable case and enables the /observations ingest path.",
+    "Optional: intermittent preview-URL 502s / 30-60s latency observed during load; backend was busy with claude-sonnet-4-5 LiteLLM completions from another workflow. Not caused by R1.1 code."
+  ],
+  "critical_code_review_comments": [
+    "seed/__init__.py only writes observations; a parent case row is required by CaseCreate/CaseOut contract and by /observations 404 guard.",
+    "GET /api/v2/cases/{id}/mitre/coverage: technique→tactic map is hardcoded (26 entries). Any new detector tech will fall to 'unmapped'. Acceptable for R1.1 per docstring but flag for future refactor.",
+    "trajectory router: no _guard() for CASE_ENGINE, only TRAJECTORY_ENGINE. Consistent with intent (trajectory only reads observations) — OK."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_v2_r11_endpoints.py (new)",
+    "MongoDB v2_cases collection: inserted case_dfir_bumblebee_akira_2026 seed row (data fix)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (15/15 flows)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "Inserted v2_cases document {_id: case_dfir_bumblebee_akira_2026, name: DFIR · Bumblebee → AdaptixC2 → Akira (June 2026), status: open, event_count: 53} because seed script only writes observations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "R1.1 endpoints proven: /api/v2/cases/{id}/trajectory/device returns 55 frames across 5 lanes; /api/v2/cases/{id}/mitre/coverage returns 39 events_with_mitre, 17+ techniques, 7 tactics for seeded DFIR case; /api/v2/cases lists case; /api/v2/cases/{id}/observations still ingests; /api/rc5/parse (uses {input:...} body, returns verdict_v2) still 200. All 12 required frontend testids render. Filter chips filter 55→39 on suspicious; case selector opens, glyph legend popover opens, provenance card appears on glyph hover, evidence panel with verdict+confidence badges opens on glyph click, keyboard '/' focuses trajectory-search, activity tab shows feed with 55 items, zoom presets clickable. If preview URL 502s, wait ~60s for backend LLM workload to drain then retry.",
+  "rca of the issue": "GET /api/v2/cases returned [] and observations POST 404'd because /app/backend/v2/seed/__init__.py only calls persist() on observations and never inserts a parent doc into v2_cases (COLLECTIONS['cases']). Reproduce: drop v2_cases → run seed → hit /api/v2/cases → empty list. Fix: after clearing prior obs, upsert {_id: CASE_ID, name, tags, status:'open', created_at, created_by:'seed'} into v2_cases before iterating COMMANDS."
+}

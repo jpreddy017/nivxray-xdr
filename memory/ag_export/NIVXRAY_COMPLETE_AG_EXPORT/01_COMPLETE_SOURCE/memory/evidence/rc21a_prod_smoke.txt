@@ -1,0 +1,41 @@
+=== RC2.1a PRODUCTION SMOKE TEST ===
+UTC=2026-07-19T09:04:18Z
+
+=== [4] Meterpreter analyze ===
+terminal      : family-identified
+verdict       : malicious
+risk_score    : 100
+family        : Meterpreter/MSFvenom stager  (100%)
+chain         : ['extract-wrapper', 'base64-decode', 'xor-brute', 'family-meterpreter']
+iocs.ips      : ['149.28.81.19']
+evidence      : 2 items
+yara          : APT_Meterpreter_MSFvenom_Stager
+atomic_red    : T1055.012#T1055.012-1
+mitre_family  : ['T1055.012', 'T1059.001', 'T1027', 'T1071.001']
+ASSERT_METERPRETER: T1055.012#T1055.012-1
+=== [5] AsyncRAT analyze ===
+terminal      : family-identified
+verdict       : malicious
+risk_score    : 87
+family        : AsyncRAT  (100%)
+chain         : ['family-asyncrat']
+evidence      : 7 items
+yara          : MAL_AsyncRAT_Client
+atomic_red    : T1219
+ASSERT_ASYNCRAT: True
+=== [6] Export formats (Meterpreter) ===
+  [md] HTTP:200 SIZE:6064 CT:text/markdown; charset=utf-8
+  [json] HTTP:200 SIZE:21041 CT:application/json
+  [txt] HTTP:200 SIZE:5744 CT:text/plain; charset=utf-8
+  [pdf] HTTP:200 SIZE:9584 CT:application/pdf
+
+=== [7] Format signatures + RC2.1a fields ===
+JSON: family=Meterpreter/MSFvenom stager  yara=APT_Meterpreter_MSFvenom_Stager
+      evidence_items=2
+      mitre_techniques=4
+      atomic_red_hint=T1055.012#T1055.012-1
+MD: len=5709  has_family=True  has_c2=True
+TXT: len=5389  has_family=True  has_c2=True
+PDF: pages=3  len=5084  missing=[]
+     has_family=True  has_c2=True  has_malicious=True
+ALL_EXPORTS_OK: True

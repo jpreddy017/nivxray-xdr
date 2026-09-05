@@ -1,0 +1,10 @@
+{
+  "id": "ps-reverse-7-mut1",
+  "category": "ps-reverse",
+  "command_line": "$s = 'exe.nimdastib'; $x = -join ($s[-1..-13]); Invoke-Expression $x\n# comment-1",
+  "expected_keywords": [
+    "bitsad"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

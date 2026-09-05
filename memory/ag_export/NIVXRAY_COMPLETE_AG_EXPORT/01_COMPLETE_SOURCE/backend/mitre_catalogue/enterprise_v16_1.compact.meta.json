@@ -1,0 +1,12 @@
+{
+  "catalogue": "mitre-attack-enterprise",
+  "version": "16.1",
+  "generated_at": "2026-09-01T18:57:18.326667+00:00",
+  "source": "https://github.com/mitre/cti/tree/ATT%26CK-v16.1",
+  "stats": {
+    "tactic_count": 14,
+    "technique_count": 203,
+    "sub_technique_count": 453,
+    "total_row_count": 656
+  }
+}

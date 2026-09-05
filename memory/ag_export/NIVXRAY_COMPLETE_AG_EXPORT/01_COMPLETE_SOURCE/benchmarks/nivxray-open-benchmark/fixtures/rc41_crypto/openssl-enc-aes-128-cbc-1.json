@@ -1,0 +1,34 @@
+{
+  "id": "openssl-enc-aes-128-cbc-1",
+  "category": "cmd-crypto",
+  "algorithm": "OpenSSL:AES-CBC",
+  "command_line": "openssl enc -aes-128-cbc -d -in enc.dat -out plain.dat -k SECRET",
+  "stage_ladder": [
+    {
+      "name": "openssl-cli-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "aes-cbc-decrypt",
+      "recoverable": false,
+      "reason": "OpenSSL runtime primitive \u2014 key + algorithm surfaced but not executed."
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": null,
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "openssl.exe",
+    "openssl"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140"
+  ],
+  "expected_verdict": "suspicious",
+  "expected_confidence_min": 0.6,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

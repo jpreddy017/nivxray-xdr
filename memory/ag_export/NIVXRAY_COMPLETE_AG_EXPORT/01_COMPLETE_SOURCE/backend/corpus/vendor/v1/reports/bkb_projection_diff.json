@@ -1,0 +1,266 @@
+{
+  "aggregate": {
+    "added_total": 2,
+    "labels_affected": [
+      "MSHTA execution",
+      "Regsvr32 execution"
+    ],
+    "removed_total": 0,
+    "unchanged_total": 16,
+    "unknown_labels": [
+      "Command execution"
+    ]
+  },
+  "fixtures": {
+    "elastic.001": {
+      "Certutil download / decode": {
+        "added": [],
+        "new": [
+          "T1105",
+          "T1140"
+        ],
+        "old": [
+          "T1105",
+          "T1140"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1105",
+          "T1140"
+        ]
+      }
+    },
+    "elastic.002": {
+      "Registry modification": {
+        "added": [],
+        "new": [
+          "T1112"
+        ],
+        "old": [
+          "T1112"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1112"
+        ]
+      },
+      "Regsvr32 execution": {
+        "added": [
+          "T1218.010"
+        ],
+        "new": [
+          "T1218.010"
+        ],
+        "old": [],
+        "removed": [],
+        "unchanged": []
+      }
+    },
+    "huntress.001": {
+      "Command execution": {
+        "added": [],
+        "new": [],
+        "old": [],
+        "removed": [],
+        "unchanged": []
+      }
+    },
+    "huntress.002": {
+      "BITSAdmin download": {
+        "added": [],
+        "new": [
+          "T1105",
+          "T1197"
+        ],
+        "old": [
+          "T1105",
+          "T1197"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1105",
+          "T1197"
+        ]
+      }
+    },
+    "mandiant.001": {
+      "Download from remote resource": {
+        "added": [],
+        "new": [
+          "T1105"
+        ],
+        "old": [
+          "T1105"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1105"
+        ]
+      }
+    },
+    "mandiant.002": {},
+    "microsoft.001": {
+      "PowerShell execution": {
+        "added": [],
+        "new": [
+          "T1059.001"
+        ],
+        "old": [
+          "T1059.001"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1059.001"
+        ]
+      }
+    },
+    "microsoft.002": {},
+    "securelist.001": {
+      "Command execution": {
+        "added": [],
+        "new": [],
+        "old": [],
+        "removed": [],
+        "unchanged": []
+      },
+      "Registry modification": {
+        "added": [],
+        "new": [
+          "T1112"
+        ],
+        "old": [
+          "T1112"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1112"
+        ]
+      }
+    },
+    "securelist.002": {
+      "MSHTA execution": {
+        "added": [
+          "T1218.005"
+        ],
+        "new": [
+          "T1218.005"
+        ],
+        "old": [],
+        "removed": [],
+        "unchanged": []
+      }
+    },
+    "securelist.003": {
+      "Registry Run-key persistence": {
+        "added": [],
+        "new": [
+          "T1547.001"
+        ],
+        "old": [
+          "T1547.001"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1547.001"
+        ]
+      },
+      "Scheduled-task persistence": {
+        "added": [],
+        "new": [
+          "T1053.005"
+        ],
+        "old": [
+          "T1053.005"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1053.005"
+        ]
+      }
+    },
+    "talos.001": {
+      "Command execution": {
+        "added": [],
+        "new": [],
+        "old": [],
+        "removed": [],
+        "unchanged": []
+      },
+      "Registry modification": {
+        "added": [],
+        "new": [
+          "T1112"
+        ],
+        "old": [
+          "T1112"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1112"
+        ]
+      }
+    },
+    "talos.002": {
+      "Certutil download / decode": {
+        "added": [],
+        "new": [
+          "T1105",
+          "T1140"
+        ],
+        "old": [
+          "T1105",
+          "T1140"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1105",
+          "T1140"
+        ]
+      },
+      "PowerShell execution": {
+        "added": [],
+        "new": [
+          "T1059.001"
+        ],
+        "old": [
+          "T1059.001"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1059.001"
+        ]
+      },
+      "Scheduled-task persistence": {
+        "added": [],
+        "new": [
+          "T1053.005"
+        ],
+        "old": [
+          "T1053.005"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1053.005"
+        ]
+      }
+    },
+    "talos.003": {
+      "Shadow copy deletion": {
+        "added": [],
+        "new": [
+          "T1490"
+        ],
+        "old": [
+          "T1490"
+        ],
+        "removed": [],
+        "unchanged": [
+          "T1490"
+        ]
+      }
+    }
+  },
+  "schema_version": "1.0",
+  "sprint": "sprint-20260809",
+  "timestamp_utc": "2026-08-09T05:17:36.808135+00:00"
+}

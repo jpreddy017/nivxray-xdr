@@ -1,0 +1,10 @@
+{
+  "id": "ps-regex-swap-2-mut0",
+  "category": "ps-regex-swap",
+  "command_line": "$s = 'exe.cmd' -replace '(\\w+)\\.(\\w+)','$2.$1';    Start-Process $s",
+  "expected_keywords": [
+    "cmd.ex"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

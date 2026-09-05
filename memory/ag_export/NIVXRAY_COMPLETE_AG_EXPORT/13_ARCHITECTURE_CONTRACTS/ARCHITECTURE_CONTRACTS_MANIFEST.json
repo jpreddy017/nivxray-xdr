@@ -1,0 +1,2035 @@
+{
+  "category": "13_ARCHITECTURE_CONTRACTS",
+  "title": "Architectural Decision Records (ADRs) & Integration Contracts",
+  "description": "Formal design specifications, ADRs, interface definitions, and security tenancy contracts.",
+  "file_count": 225,
+  "total_bytes": 2947495,
+  "total_lines": 53721,
+  "files": [
+    {
+      "source_path": "01_COMPLETE_SOURCE/ARCHITECTURE.md",
+      "size_bytes": 22924,
+      "sha256": "d63a646da4f0b1d98199dfb6948fc568f56af29a3f4a2963066516b32bc6bccb",
+      "lines_of_code": 413,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/docs/NIVXRAY_XDR_SHARED_ENGINE_ARCHITECTURE.md",
+      "size_bytes": 4906,
+      "sha256": "34bae9164148fa14fe94af81b5f0c1d7b1e432992bed319d0c73f640fc8bb20b",
+      "lines_of_code": 83,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/docs/RESPONSE_CONTRACT.md",
+      "size_bytes": 5698,
+      "sha256": "3b1c0c6e99756a0cd319151726a1fd51365ecd85b65567a23e9e8b202b14f5ce",
+      "lines_of_code": 136,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/xdr/extensions/extensionContract.js",
+      "size_bytes": 6764,
+      "sha256": "f4293a4a7a082810b98dab0b1e9ac86480199e7f1f028f28594ce8200bfc5d72",
+      "lines_of_code": 166,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr-collector/INGEST_CONTRACT.md",
+      "size_bytes": 6603,
+      "sha256": "8197c77ecd2d8431079149ca5a8750469118da5d31eec1be757703a02066309d",
+      "lines_of_code": 165,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr-response/RESPONSE_INGEST_CONTRACT.md",
+      "size_bytes": 5428,
+      "sha256": "fa04b64a0932b3041d4f7ae8b3f8e6c48ea9bdd7a4922437f61be6e81fa7f627",
+      "lines_of_code": 138,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/baselines/public_interface_contract.json",
+      "size_bytes": 5337,
+      "sha256": "9de833686ee28964a170037150e8c28027f5385475aaec64e49a27aebd375b04",
+      "lines_of_code": 97,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/baselines/public_interface_contract_v2.json",
+      "size_bytes": 2426,
+      "sha256": "b136835a28bf4ce597636edc724a00a263392386fba08ad8fa45cae3b6048f30",
+      "lines_of_code": 38,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/architecture_audit.py",
+      "size_bytes": 9506,
+      "sha256": "a4a8760ada2c65ada7c509976b39b710ab55da7082dee7e902b0415a227be532",
+      "lines_of_code": 228,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/capability_contract.py",
+      "size_bytes": 8427,
+      "sha256": "109aee664eadc79a51029361cd792a46d6ef1ec84cb057d70554f202085f6225",
+      "lines_of_code": 242,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/contract_registry.py",
+      "size_bytes": 6235,
+      "sha256": "868e6fc9a2632df3dc35978696d016c519baa679b2ec025d463450fc78df0714",
+      "lines_of_code": 177,
+      "last_modified": "2026-09-04 07:38:14",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/engine_fabric_contracts.py",
+      "size_bytes": 22408,
+      "sha256": "afbe709ff1f0387f422f311bc61bd431e32114046ae0fd565833bd0e839c84d2",
+      "lines_of_code": 447,
+      "last_modified": "2026-09-04 22:03:36",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/l1_evidence/ARCHITECTURE_COMPLIANCE.md",
+      "size_bytes": 5628,
+      "sha256": "3ace2e7c3abf23004d87677ef0e86185df401a438b72e5c7c211d76e94c67238",
+      "lines_of_code": 92,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/l2_investigation/ARCHITECTURE_COMPLIANCE.md",
+      "size_bytes": 4354,
+      "sha256": "59a2157e35ef3b61b840a0ef7319083d3d7305914936a519744524876aa60e30",
+      "lines_of_code": 89,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/contract_check.py",
+      "size_bytes": 7736,
+      "sha256": "bd368a5d4924aff062f870ec848f1eaf83d17dd69071b5058b672a6bbfca498c",
+      "lines_of_code": 238,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_cio.py",
+      "size_bytes": 9594,
+      "sha256": "4b5b8bda19b8f3a413ca391c3fa639bd2d844bcfe3377e6bc4cef5a553ab2dad",
+      "lines_of_code": 238,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_evidence_priority.py",
+      "size_bytes": 2656,
+      "sha256": "1bab5a6e5151770bd201caf708230d7324ecb928a0f142a5eb2dea21577cace9",
+      "lines_of_code": 72,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_graph.py",
+      "size_bytes": 2956,
+      "sha256": "48d1af8105c1c0d6faa500df18793e60384df608592ee0a7d236fd28c92a3adc",
+      "lines_of_code": 76,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_ingress_gate.py",
+      "size_bytes": 7353,
+      "sha256": "d69661b877f08a5ea4e856ba4fde59b23e3977deffc3a0f0703d4e28d617e1f5",
+      "lines_of_code": 176,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_ioc_classifier.py",
+      "size_bytes": 3926,
+      "sha256": "42dbe28b94116c1fbadae550c4f4c81b089da2944433cad9cd7d14a3e0bad2d3",
+      "lines_of_code": 110,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_reasoning_steps.py",
+      "size_bytes": 7231,
+      "sha256": "ae62caf6180755b9e6544ec9a58c19b24d31bb67e43b848db0623fb7f75be673",
+      "lines_of_code": 181,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_summary_composer.py",
+      "size_bytes": 8065,
+      "sha256": "2f507f887c5397ece2fa2fb723c57ebf46702b6c9d07cff93521c97059c63f95",
+      "lines_of_code": 218,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_verdict_engine.py",
+      "size_bytes": 4943,
+      "sha256": "587f2c0a94f0dc6c18a38cdb312c3fbc11605c9699130dc8cb10aefa4375dea5",
+      "lines_of_code": 131,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/reasoning/plugin_contract.py",
+      "size_bytes": 5681,
+      "sha256": "00e31269d0cb72d35aa946949aa72ae36bc9942872ee09bf1069804efa7dba69",
+      "lines_of_code": 154,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/security_state/contracts.py",
+      "size_bytes": 23206,
+      "sha256": "9d084a1d8d76cbe0559f8979af30f26ad2249e0081b73169755cb3387340def5",
+      "lines_of_code": 502,
+      "last_modified": "2026-09-04 20:18:59",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/xdr_observation_contract.py",
+      "size_bytes": 3972,
+      "sha256": "1daa09f735dab8163a18c68e23698d83cd9ab441f85fd900b34f2fc0980f58a7",
+      "lines_of_code": 91,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/narration/contracts.py",
+      "size_bytes": 4684,
+      "sha256": "4b53816a3368f63209ebd75e906457e7154825c26776ceb6df80520f996eb961",
+      "lines_of_code": 118,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/uaie/contract.py",
+      "size_bytes": 14126,
+      "sha256": "7e53117d4d2508d1ae3e8326ae9d04d528c1dab54c8227e351dbb9e0d3d0dfde",
+      "lines_of_code": 291,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/static_docs/adr_004_canonical_ledger.html",
+      "size_bytes": 32406,
+      "sha256": "13d4c2e84a78d13b60534abbe8efe76786ca4226c95bc83931e1c32f35b7fd11",
+      "lines_of_code": 729,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/static_docs/adr_004_canonical_ledger.md",
+      "size_bytes": 22411,
+      "sha256": "c187d20f879d48412842cd6cf72a3c72f6c68ae3d87bda80f9916e536b8aa2dc",
+      "lines_of_code": 327,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_adr0007_verdict_evidence_gating.py",
+      "size_bytes": 13658,
+      "sha256": "c0f64565de5764142281161b5608f39c99912e5f6c4c58aeff5cb33191f835a9",
+      "lines_of_code": 319,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_adr0008_ioc_extraction_validation.py",
+      "size_bytes": 8061,
+      "sha256": "39de36c2e3a058d99ed8c4688ad93622d3b52daa345730e65baa5dc5e9d75191",
+      "lines_of_code": 185,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_adr0009_cim.py",
+      "size_bytes": 15332,
+      "sha256": "f7a6a3debc7c40e8ae7fb91317d11bd3660bdca125ce72c5047e201e5645d43a",
+      "lines_of_code": 357,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_adr0012_progressive_partial_recovery.py",
+      "size_bytes": 7635,
+      "sha256": "ac694ea684e82c8f906e2df0db0dbec9ce69ba6660e7b82cb3571449cdc1bd0a",
+      "lines_of_code": 197,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_adr0014_endpoints.py",
+      "size_bytes": 6524,
+      "sha256": "8c3a689d4eb98fe990edec3e3acea0062d549571bb3a07d3001b38b89597f93f",
+      "lines_of_code": 180,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_capability_contract.py",
+      "size_bytes": 11210,
+      "sha256": "1db473b5a2d6756d86a867fd22aaf896bd5f1113ccdbcb24f783cc180e159142",
+      "lines_of_code": 248,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_capability_contracts.py",
+      "size_bytes": 3733,
+      "sha256": "2103e1afee1994db56ab8c00bdf7e3bc2bc9da96c7ef34ef132b0b31df95174c",
+      "lines_of_code": 102,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_e2e_decode_smart_http_contract.py",
+      "size_bytes": 17072,
+      "sha256": "d0b99eed26927b87c9e6fb5d096be055be15b678a52b5cf845ecbcf053f2b3a3",
+      "lines_of_code": 369,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_iep_contract.py",
+      "size_bytes": 11497,
+      "sha256": "07ea1ae96344b1a5073413df7bf573b041286a15ac051cbb9e8460d297d0bfb1",
+      "lines_of_code": 289,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_iter43_decode_api_contract.py",
+      "size_bytes": 4565,
+      "sha256": "2a602458f3b050170f7a217ac11d7f9177961d628e0dc5342f8aa132a84d8903",
+      "lines_of_code": 121,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_phase94_api_contract.py",
+      "size_bytes": 5937,
+      "sha256": "6389986c69ec15d1ecd9bb81e01dbc7d233479f3d5260f1568a8315cc94d5216",
+      "lines_of_code": 136,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_pr211_canonical_response_contract.py",
+      "size_bytes": 5642,
+      "sha256": "246227baf61054878a4bb03b56fe0a2836dea4851781daf2bfba1dc882b75cf9",
+      "lines_of_code": 153,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_ps_decode_error_contract.py",
+      "size_bytes": 9523,
+      "sha256": "dc661c91b69053ba7626ba3f8bd870cdb3c0842ed1c28fb3be4f62127c3ad667",
+      "lines_of_code": 207,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_qa_layer_contracts.py",
+      "size_bytes": 5609,
+      "sha256": "bb9fedb0f12da9e6042464b3e676aa818e050c1d5ade4fa603d542ac11b6ce54",
+      "lines_of_code": 128,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_s4_architecture_freeze.py",
+      "size_bytes": 8732,
+      "sha256": "507b782efa3f1b601c53a4e6969c9965a386eadfad1b918920c0f05abc732e82",
+      "lines_of_code": 177,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_uaie_phase1_contracts.py",
+      "size_bytes": 6332,
+      "sha256": "a4e09c2f0828245df0481d8f8bf12322766a7ba7d1c332b4afdf86f631a7ec1a",
+      "lines_of_code": 141,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/activity/test_activity_projector_contract.py",
+      "size_bytes": 11373,
+      "sha256": "e193ff3b29ea25382000811a198bc1af911baaad016bc64f16ddbeb66d2ee108",
+      "lines_of_code": 243,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/api/test_iue_lane_a_ui_contract.py",
+      "size_bytes": 7249,
+      "sha256": "2bc525e2d22ee6eac7c961fe442f52a6c45faf13dc8313ef58328375aa8a5ddb",
+      "lines_of_code": 171,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/api/test_p2_slice2_extended_contract.py",
+      "size_bytes": 13117,
+      "sha256": "61a65139ef39905dd3415108fd7a61c96ba03c9f0d48025e13c8685c0aba9ca1",
+      "lines_of_code": 301,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/iue/test_composer_contract.py",
+      "size_bytes": 3504,
+      "sha256": "69343aa741f7486b9048aeac880fa63bb3e7052617bce7c85190571fbeb0ab19",
+      "lines_of_code": 105,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/iue/test_m0a_iue_contract_freeze.py",
+      "size_bytes": 10004,
+      "sha256": "10c2f9025cb5e3f480a2f7aa2a00f23fd7e03204cd7d78a485b40ec9a3b96556",
+      "lines_of_code": 230,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/iue/lane_a/test_iue_contracts.py",
+      "size_bytes": 7247,
+      "sha256": "79ffb649338a16ec780c0b6e80e61e87b664076d6c0480bd696bf79eedd97600",
+      "lines_of_code": 176,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/iue/lane_b/test_lane_b_contract.py",
+      "size_bytes": 11866,
+      "sha256": "e2907a6f8cc9ce8194ec4aabbb09bb44a4b1254ef4e4b90e9e250a4b09de3273",
+      "lines_of_code": 285,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/iue/lane_c/test_lane_c_contract.py",
+      "size_bytes": 18660,
+      "sha256": "766c44e48d655d8266428860eb2b932975ce77e4cd443ae7b0e9ad557deb5679",
+      "lines_of_code": 392,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/ssot/test_ssot_contract.py",
+      "size_bytes": 3330,
+      "sha256": "1ef62652aad13678e7dca8789a416a57d47155df1f03f6138adef8afb1247a2d",
+      "lines_of_code": 92,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/stage1_goldens/test_t2_lane_a_wire_contract.py",
+      "size_bytes": 5546,
+      "sha256": "4178cd8b3e7b0c661068f0a6a3a4f06cafd043396d0db618e87e46d60b1ab53e",
+      "lines_of_code": 109,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/stage1_goldens/goldens/t2_lane_a_wire_contract.json",
+      "size_bytes": 16845,
+      "sha256": "52efee8a588ff0f2cd79d3891386bf918beb5bf461974cdb46668c63d88dff43",
+      "lines_of_code": 584,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/verdict_stage2/test_stage2_engine_contract.py",
+      "size_bytes": 14774,
+      "sha256": "3fa19b6431b31118bd2e4baf847b4a7b764b56f62993585dd9908426d18cb4f2",
+      "lines_of_code": 318,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/investigation/test_narrative_contract.py",
+      "size_bytes": 15930,
+      "sha256": "7f81851a504a8b4e5e2dd2298f3ab9d0e86664cceea8a911981a24ab62784cca",
+      "lines_of_code": 410,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/l2_investigation/test_service_contracts.py",
+      "size_bytes": 2925,
+      "sha256": "f3507f86a2534b673c92897dd151fa486b049424e91349738424a4de5ef0650d",
+      "lines_of_code": 84,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/ADR-001-semantic-contracts.md",
+      "size_bytes": 6004,
+      "sha256": "a139387630206fb892d416394f4e06e156328b5dba06e37b8c6032bc09932ed5",
+      "lines_of_code": 128,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/ADR-002-visual-evidence-extraction-engine.md",
+      "size_bytes": 8698,
+      "sha256": "60241d017b435b4d2e0e6c3f0543de209e6dbb05e7a4b50004d88bfb0be1c86b",
+      "lines_of_code": 203,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/ARCHITECTURE_INTEGRATIONS.md",
+      "size_bytes": 22857,
+      "sha256": "980a970c7b1d69d336f2540ad112112fc70e7e7d0aabd33ad5c932fdf5cf7e12",
+      "lines_of_code": 424,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/P0.15C-RELEASE-CONTRACT.md",
+      "size_bytes": 15319,
+      "sha256": "b86505c06a1fda69e9fb78d094f05415f43225bb3bb0f7578177e9565308ede6",
+      "lines_of_code": 493,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/adr/ADR-2026-08-01_addendum_A_phase1_contract_freeze.md",
+      "size_bytes": 4699,
+      "sha256": "0f8f939aaf48558732a4529d7f4421260d838f70caedc8d7c4167bd499059f69",
+      "lines_of_code": 131,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/adr/ADR-2026-08-01_addendum_B_revised_pipeline.md",
+      "size_bytes": 3869,
+      "sha256": "0166664bcfd0acfb0f095953ee288a7a302d6107e14f16f76e46975340e0a504",
+      "lines_of_code": 110,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/adr/ADR-2026-08-01_investigation_architecture.md",
+      "size_bytes": 6243,
+      "sha256": "0f78cccf3234d825e73bcc5d46066ccf4fbb74fe3948663b6d16a6a688045c09",
+      "lines_of_code": 201,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/architecture/00_PRODUCT_VISION.md",
+      "size_bytes": 1607,
+      "sha256": "77753d3d60b0065f9e5bcd76bea409f6db5de88adf62ebf9001bfd6e59d691ae",
+      "lines_of_code": 28,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/architecture/01_XLAB_CONSTITUTION.md",
+      "size_bytes": 1812,
+      "sha256": "ddaff78add84d2e5c6a18c2b76458ee45893efebca6d277ffeaf727ddd16a65d",
+      "lines_of_code": 39,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/architecture/04_INVESTIGATION_CONSTITUTION.md",
+      "size_bytes": 24415,
+      "sha256": "480572e0767f8668e0ece9bf26f9da245d0aadff3b8ff700ed1b8809f88792c0",
+      "lines_of_code": 600,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/architecture/INVESTIGATION_ENGINE_CONTRACT.md",
+      "size_bytes": 6878,
+      "sha256": "dc27f3de1bb9055aa18bd129cdf69ee67175bdfd104957ecb364b6297ef0c5f4",
+      "lines_of_code": 233,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/architecture/NIVXRAY_ARCHITECTURE_VISION.md",
+      "size_bytes": 18072,
+      "sha256": "ff28a36f29f614f3e16169ea546a0a41845c1cccffd0e2ba53b10f2c8f824e6f",
+      "lines_of_code": 450,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/architecture/README.md",
+      "size_bytes": 4805,
+      "sha256": "34e1655929e4333a52ec6bd123797faacb07a85bda9d790cd9ba0777f9e946c7",
+      "lines_of_code": 87,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/architecture/REGISTRY_GOVERNANCE.md",
+      "size_bytes": 5545,
+      "sha256": "aef0609b0e8061d828e145aace2244da1a7fed3a6948daaf57f770c2cbda13b8",
+      "lines_of_code": 170,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/01_TRUTH_CONTRACT/NIVXRAY_CURRENT_STATE.json",
+      "size_bytes": 22465,
+      "sha256": "295d1e7003e775b24c229f3fd87c586011e9ccc69872f07f6f6bc56bf2dcec32",
+      "lines_of_code": 459,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "configuration",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/01_TRUTH_CONTRACT/NIVXRAY_CURRENT_STATE_TRUTH.md",
+      "size_bytes": 50970,
+      "sha256": "061fd851f954f84c22f3e30b486e8222eac64f81f4dad7855961ece6439403dc",
+      "lines_of_code": 442,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/01_TRUTH_CONTRACT/README.md",
+      "size_bytes": 1505,
+      "sha256": "9a73864637b0894dc184523f3a264166a38f0f3030306813a1cecb73cc9e24d4",
+      "lines_of_code": 34,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/03_EDR_ARCHITECTURE/NIVXFORGE_EDR_SANDBOX_INDUSTRY_BENCHMARK.md",
+      "size_bytes": 22729,
+      "sha256": "58437909953f9a112fb15145c8ef7b51297a7922520d4b3d87e0c586ddcecdbc",
+      "lines_of_code": 278,
+      "last_modified": "2026-09-05 00:22:07",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/03_EDR_ARCHITECTURE/NIVXFORGE_EDR_TARGET_ARCHITECTURE_AND_IMPLEMENTATION_PLAN.md",
+      "size_bytes": 37535,
+      "sha256": "6a5d5e1eede259730394e33de83bdca1d5add9bc2fda35e61e03745667786de1",
+      "lines_of_code": 474,
+      "last_modified": "2026-09-05 00:23:39",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/04_EDR_UIUX/NIVXFORGE_EDR_INFORMATION_ARCHITECTURE.md",
+      "size_bytes": 28900,
+      "sha256": "14055e27975db07fc05e478ab2bc7d4c54933b049fa99cb8f309c80e02e63c99",
+      "lines_of_code": 375,
+      "last_modified": "2026-09-05 09:45:45",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_ATTACK_CHAIN_IMPLEMENTATION_MAP.md",
+      "size_bytes": 8386,
+      "sha256": "4b6a874f48d7fcbdcc5c8389f0063907f1bcfb46eeec08bb9f29d9d41dfc95a0",
+      "lines_of_code": 132,
+      "last_modified": "2026-09-05 09:52:41",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_CANONICAL_EVIDENCE_CONTRACT.md",
+      "size_bytes": 8422,
+      "sha256": "72f79e44b839268cbd4eaae5eb690a8d37c1f8a41a7de2c97298f82848350cac",
+      "lines_of_code": 227,
+      "last_modified": "2026-09-05 09:52:15",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_CODE_CAPABILITY_MAP.md",
+      "size_bytes": 8740,
+      "sha256": "6f9f3e0bffe6011481e785500ec01bdf80d9ed75fddb6308acea3d526bcdce1a",
+      "lines_of_code": 51,
+      "last_modified": "2026-09-05 09:51:52",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_EMERGENT_HANDOFF.md",
+      "size_bytes": 18560,
+      "sha256": "9715dacd30c456b1546937cc12d171fda1ad59333dc095a735d8eb3938c3f61a",
+      "lines_of_code": 307,
+      "last_modified": "2026-09-05 09:51:39",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_INTEGRATION_CONTRACT.md",
+      "size_bytes": 13689,
+      "sha256": "b8fa17d724dce307e727ad80e629c5ccf7c94bca60241459896823bc592c75c8",
+      "lines_of_code": 220,
+      "last_modified": "2026-09-05 09:52:04",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_RESPONSE_INTEGRATION_CONTRACT.md",
+      "size_bytes": 6644,
+      "sha256": "1906ee332afb726a42502361f380daaf02a97e3237e628b6b9bef1b4f0472f20",
+      "lines_of_code": 139,
+      "last_modified": "2026-09-05 09:53:04",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_SECURITY_TENANCY_CONTRACT.md",
+      "size_bytes": 6862,
+      "sha256": "9949fad71fe816077ff0a4f1603ad024c4bf191e2acfd5e30e9d1dc0cb60ce90",
+      "lines_of_code": 126,
+      "last_modified": "2026-09-05 09:52:55",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_UI_INTEGRATION_MAP.md",
+      "size_bytes": 11065,
+      "sha256": "44034a788b050d3bf010cc93ef0c68ac779dadc9f5f23b88baab9accb42dd2c0",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-05 09:52:30",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_CANONICAL_EVIDENCE_CONTRACT.md",
+      "size_bytes": 8422,
+      "sha256": "72f79e44b839268cbd4eaae5eb690a8d37c1f8a41a7de2c97298f82848350cac",
+      "lines_of_code": 227,
+      "last_modified": "2026-09-05 09:52:15",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_INTEGRATION_CONTRACT.md",
+      "size_bytes": 13689,
+      "sha256": "b8fa17d724dce307e727ad80e629c5ccf7c94bca60241459896823bc592c75c8",
+      "lines_of_code": 220,
+      "last_modified": "2026-09-05 09:52:04",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_RESPONSE_INTEGRATION_CONTRACT.md",
+      "size_bytes": 6644,
+      "sha256": "1906ee332afb726a42502361f380daaf02a97e3237e628b6b9bef1b4f0472f20",
+      "lines_of_code": 139,
+      "last_modified": "2026-09-05 09:53:04",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_SECURITY_TENANCY_CONTRACT.md",
+      "size_bytes": 6862,
+      "sha256": "9949fad71fe816077ff0a4f1603ad024c4bf191e2acfd5e30e9d1dc0cb60ce90",
+      "lines_of_code": 126,
+      "last_modified": "2026-09-05 09:52:55",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ARCHITECTURE_DELTA.md",
+      "size_bytes": 7637,
+      "sha256": "52c59c561e45c66d215338403e2fe3a16953f1445b66541b0a98449cb28072fb",
+      "lines_of_code": 88,
+      "last_modified": "2026-09-04 01:16:21",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_ACQUISITION_ARCHITECTURE.md",
+      "size_bytes": 12004,
+      "sha256": "77582e37f6ef9b47581e48ea3b555810e68d19f6cfdca6ee77068c67e4c149c5",
+      "lines_of_code": 224,
+      "last_modified": "2026-09-04 19:48:39",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CONTENT_TRANSLATION_ARCHITECTURE.md",
+      "size_bytes": 4655,
+      "sha256": "d1ee12a23a81320d362ed7faff58a75a1880cc09fc118128b1af03e6495ba46c",
+      "lines_of_code": 90,
+      "last_modified": "2026-09-04 21:50:53",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/CORRELATION_CONTENT_ARCHITECTURE.md",
+      "size_bytes": 5144,
+      "sha256": "36390c8d6558a6155a97447b6613a607580ed9430e4e1df95ac29e16cd04c9a8",
+      "lines_of_code": 71,
+      "last_modified": "2026-09-04 07:45:34",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_CONTENT_ACQUISITION_ARCHITECTURE.md",
+      "size_bytes": 8671,
+      "sha256": "e3d67e5e2b62dbb596fd2598a1003dee1bccad413a75bb9d412e081ca97d735e",
+      "lines_of_code": 140,
+      "last_modified": "2026-09-04 21:50:20",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/INTEGRATION_CONTRACTS.md",
+      "size_bytes": 6862,
+      "sha256": "84ffe5757468667330500620167743d78a1722470285eab852c2824456c8716a",
+      "lines_of_code": 170,
+      "last_modified": "2026-09-04 01:16:40",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_INFORMATION_ARCHITECTURE.md",
+      "size_bytes": 28900,
+      "sha256": "14055e27975db07fc05e478ab2bc7d4c54933b049fa99cb8f309c80e02e63c99",
+      "lines_of_code": 375,
+      "last_modified": "2026-09-05 09:45:45",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_TARGET_ARCHITECTURE_AND_IMPLEMENTATION_PLAN.md",
+      "size_bytes": 37535,
+      "sha256": "6a5d5e1eede259730394e33de83bdca1d5add9bc2fda35e61e03745667786de1",
+      "lines_of_code": 474,
+      "last_modified": "2026-09-05 00:23:39",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXRAY_SECURITY_STATE_ARCHITECTURE.md",
+      "size_bytes": 18313,
+      "sha256": "1e4fca06beb5f85b165bd50d8a9d8d1a134abe57a6bef4fa6de2d45cb8e767d6",
+      "lines_of_code": 206,
+      "last_modified": "2026-09-04 01:16:13",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXRAY_XDR_SECURITY_STATE_ARCHITECTURE_DIAGRAMS.md",
+      "size_bytes": 18706,
+      "sha256": "7edf16bdf0b79c4a1e963f8a84d6cfe957b655447327fa68a29830548fd48f69",
+      "lines_of_code": 352,
+      "last_modified": "2026-09-04 07:32:29",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4B_CONTRACT_REVIEW.md",
+      "size_bytes": 18457,
+      "sha256": "369da525a19b06fd7a9981d18aa08c3869d8939d15698434220098d591e5a7a5",
+      "lines_of_code": 289,
+      "last_modified": "2026-09-04 02:27:47",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4_STREAMING_ARCHITECTURE.md",
+      "size_bytes": 18153,
+      "sha256": "b69180b35fc6f1f6c0f310e855b3881ad43759d81c6226b405e3fdfcc39c24f5",
+      "lines_of_code": 228,
+      "last_modified": "2026-09-04 02:25:38",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE4_STREAMING_CONTRACT.md",
+      "size_bytes": 10494,
+      "sha256": "4c20918d593f275faeab4fd24140d227bdc5f7d9a09710d89e782678c621d4bf",
+      "lines_of_code": 315,
+      "last_modified": "2026-09-04 02:25:53",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_ARCHITECTURE.md",
+      "size_bytes": 43010,
+      "sha256": "be56035c3ab47717c8d61e5c1979c93720ede2384dd21265f8b03799867503ed",
+      "lines_of_code": 819,
+      "last_modified": "2026-09-04 07:20:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PHASE8_ARCHITECTURE_DECISIONS.md",
+      "size_bytes": 17165,
+      "sha256": "32b4178d83a25416037aaaa549f62f51c1cc67b25c87bdb5c9709d709a4f4bb3",
+      "lines_of_code": 261,
+      "last_modified": "2026-09-04 07:21:01",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/PLAYBOOK_ORCHESTRATION_ARCHITECTURE.md",
+      "size_bytes": 7606,
+      "sha256": "f77ad492e15df95c0d587770dbb491aea09d2a645bc7d4f5f0b3d41eefe3baf2",
+      "lines_of_code": 91,
+      "last_modified": "2026-09-04 07:45:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/SHELLCODE_ANALYSIS_ARCHITECTURE.md",
+      "size_bytes": 6754,
+      "sha256": "dae7bc63fd51d5e69c314249971e9eca43196c899785881ed39aac10abb21f1c",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 08:39:41",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UNIVERSAL_CONTENT_ANALYSIS_ARCHITECTURE.md",
+      "size_bytes": 7809,
+      "sha256": "6ee15045f8a06469b1959b826f2a43f10013f50363aa5b12253cf65e8af75da8",
+      "lines_of_code": 120,
+      "last_modified": "2026-09-04 08:39:30",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/UNIVERSAL_CONTENT_INTELLIGENCE_ARCHITECTURE.md",
+      "size_bytes": 6382,
+      "sha256": "9ad39795c1e9aa139d9f684b019808731df59bb9b999d3b41d495d6e8de9d368",
+      "lines_of_code": 102,
+      "last_modified": "2026-09-04 18:30:56",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/YARA_CONTENT_ARCHITECTURE.md",
+      "size_bytes": 3920,
+      "sha256": "ffe22f21878ef51f7c3eab7a83555cbf4a198b52ae79213f8a4b2d919b523f21",
+      "lines_of_code": 106,
+      "last_modified": "2026-09-04 21:51:08",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/truth-contract/NIVXRAY_CURRENT_STATE.json",
+      "size_bytes": 22465,
+      "sha256": "295d1e7003e775b24c229f3fd87c586011e9ccc69872f07f6f6bc56bf2dcec32",
+      "lines_of_code": 459,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/truth-contract/NIVXRAY_CURRENT_STATE_TRUTH.md",
+      "size_bytes": 50970,
+      "sha256": "061fd851f954f84c22f3e30b486e8222eac64f81f4dad7855961ece6439403dc",
+      "lines_of_code": 442,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/truth-contract/README.md",
+      "size_bytes": 1505,
+      "sha256": "9a73864637b0894dc184523f3a264166a38f0f3030306813a1cecb73cc9e24d4",
+      "lines_of_code": 34,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/uiux/NIVXFORGE_EDR_INFORMATION_ARCHITECTURE.md",
+      "size_bytes": 28900,
+      "sha256": "14055e27975db07fc05e478ab2bc7d4c54933b049fa99cb8f309c80e02e63c99",
+      "lines_of_code": 375,
+      "last_modified": "2026-09-05 09:45:45",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/ANALYST_OPERATIONS_ARCHITECTURE.md",
+      "size_bytes": 28146,
+      "sha256": "703d7b1fd3444db757cc0e552c4eb53bf7dc0a1921493a8238919bad6c8412f7",
+      "lines_of_code": 451,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/ARCHITECTURE.legacy-v1.md",
+      "size_bytes": 20427,
+      "sha256": "1ede852b49f01805393117bd3a98216984970236c9204adbef359d96269a7634",
+      "lines_of_code": 404,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/ARCHITECTURE.md",
+      "size_bytes": 16004,
+      "sha256": "a95203fa87a20f1070c34a62042daff75cbf6ef337c1656b44181cc1d072c93c",
+      "lines_of_code": 397,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/ARCHITECTURE_v2.md",
+      "size_bytes": 36221,
+      "sha256": "97bff5f0e5529a750ea121724477637dab1e1af2cb9b2f14025089cc83c388fb",
+      "lines_of_code": 828,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/BEE_ARCHITECTURE.md",
+      "size_bytes": 4969,
+      "sha256": "a8d93cc39666aa1b0834331e013d2149a3f748dbd55eed0097b5c1b0b925b9e6",
+      "lines_of_code": 138,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/IDA_ARCHITECTURE.md",
+      "size_bytes": 15467,
+      "sha256": "340490202c8c33a1f3e8bf99c1ebc86e4a7bbe8738d5ded04329084ae68fb02e",
+      "lines_of_code": 380,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/IR_REPORT_CONTRACT.md",
+      "size_bytes": 6218,
+      "sha256": "d62ed3acb9a1843565e23d710c762e1be969a6f953775b21990f49873aedfc0f",
+      "lines_of_code": 95,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/IUE_ARCHITECTURE_TRACE.md",
+      "size_bytes": 27817,
+      "sha256": "623912c620ba9158525d85240654840f3770d72ff7ff1f2d0580130adcc330ca",
+      "lines_of_code": 587,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/IUE_ARCHITECTURE_V2.md",
+      "size_bytes": 7825,
+      "sha256": "c6c3e4db4e6fd0c51e53a19ebd92c0061a06b53f516e8837b18e9cfae782eea0",
+      "lines_of_code": 188,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/IVE_ARCHITECTURE.md",
+      "size_bytes": 4702,
+      "sha256": "1986d3d5c0acb510fd0540bafef4ab235db07926adffe4612638bf78f36a39f3",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/lab-2.0-api-contract.md",
+      "size_bytes": 12646,
+      "sha256": "ace808f9973805b93d58b3dadbd7e48729d57f6d3a69465d661b3f711b7a6754",
+      "lines_of_code": 209,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/LAYER2_FINAL_EXECUTION_CONTRACT.md",
+      "size_bytes": 6133,
+      "sha256": "2a3ab1688a9910b95441b369c0226acfe11389552c58faf59cdbd2bda4aea026",
+      "lines_of_code": 144,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/NivXRay_360_Architecture.md",
+      "size_bytes": 19280,
+      "sha256": "ab3367e8dd5d4e12caf6aee4eab15722cbbcf97df98472a6f9a53ec62699a29c",
+      "lines_of_code": 284,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/NIVXRAY_ARCHITECTURE_V1.md",
+      "size_bytes": 55046,
+      "sha256": "c1b90d8700fd536549e1e23533b89e245d0950acf91ad052729ed5949fe9d5ab",
+      "lines_of_code": 1186,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/NivXRay_Stage1_STEP1_Architecture_Audit.md",
+      "size_bytes": 19093,
+      "sha256": "66c5db49c004dd156055b808cf22c79f800fd455556fdee9146484f2da9222c3",
+      "lines_of_code": 256,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/RC4.5_ARCHITECTURE_AUDIT.md",
+      "size_bytes": 40774,
+      "sha256": "ba06d738ec900ae77bb298ffc77d1591b86eb45244496c9dbc5d007487a7fb7f",
+      "lines_of_code": 729,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/WORKSPACE_ARCHITECTURE_RULES.md",
+      "size_bytes": 3970,
+      "sha256": "3b11b042116440130b607872e6cf8c25220f2748d4bf38d6eb538ac4f11ccdc8",
+      "lines_of_code": 85,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0001-command-obfuscation-deobfuscation-coverage.md",
+      "size_bytes": 7947,
+      "sha256": "31d2f24603fc44e8e2838198feb4b35c27c4204be0daaa7f81d09f80126c9e7c",
+      "lines_of_code": 174,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0004-mitre-attribution-accuracy-powershell-xor.md",
+      "size_bytes": 8707,
+      "sha256": "6fa63e14d2bb90dd953d2ae28487ce36248a1aa4e65420b7c2202d4027bef71b",
+      "lines_of_code": 199,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-a4.2-sample1-refresh-report.md",
+      "size_bytes": 3321,
+      "sha256": "bdc840442b9def0a17ef4d4bba7d65aefe90651203a1b199a1251e153b0ac00b",
+      "lines_of_code": 65,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-canonical-investigation-architecture.md",
+      "size_bytes": 28682,
+      "sha256": "5f9ff8e54cfee685719a1c4de3639cf6d989a12818b950a2ef9d7384b8cc7e1d",
+      "lines_of_code": 437,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-capability-gaps.md",
+      "size_bytes": 2645,
+      "sha256": "1cda2d1b9345ad6bb6b9baadbfbe9ecd1ef871da53bda931afbc7819cb7034a1",
+      "lines_of_code": 33,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-capability-reality-audit.md",
+      "size_bytes": 24198,
+      "sha256": "b1e3125e578fc8e828a4315ec772bf6ca7510b848fbdca6f455762f4dc7ff084",
+      "lines_of_code": 212,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-implementation-sequence.md",
+      "size_bytes": 47884,
+      "sha256": "63de30ed0e371587affec4fcd947d87d5ad015443339fc93cd3e19b3c893adf3",
+      "lines_of_code": 744,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-load-and-resource-audit.md",
+      "size_bytes": 16169,
+      "sha256": "e7e15b63d3b6ea1b7f60a5863fe90aa9e72c57c1b5475e82383fbf6f84feeee2",
+      "lines_of_code": 365,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-migration-map.md",
+      "size_bytes": 34768,
+      "sha256": "1ba8f337866726ca82ef0c22f97f2e465f4443aaa6624317c6ffe81662f305e1",
+      "lines_of_code": 326,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-owner-decision-matrix.md",
+      "size_bytes": 42572,
+      "sha256": "e471fc8f504173133c864355cc6b2f6190040e425ee3861f00cc207afbd116ad",
+      "lines_of_code": 599,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase1-report.md",
+      "size_bytes": 11517,
+      "sha256": "34e71b14efd198055bc11088d5e43d56c64e75bc21510cafc42dc1d232612ef0",
+      "lines_of_code": 186,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase1-signoff.md",
+      "size_bytes": 1487,
+      "sha256": "1b11d6948accded82a4cd5249f79e4cb08fcc00697163e45d14da990bbea52e4",
+      "lines_of_code": 29,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase1-spec.md",
+      "size_bytes": 8908,
+      "sha256": "b32a61aaaaa1ba82e76161a092106b95bc15a761bec616cb26970ce73d485fc8",
+      "lines_of_code": 166,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase2-report.md",
+      "size_bytes": 10988,
+      "sha256": "8cb05128878c4a1dd4600b8cdd72ae7f303ac9cb77a82ba9e2d85b5bbc701e3e",
+      "lines_of_code": 197,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase2-signoff.md",
+      "size_bytes": 1457,
+      "sha256": "31c57a382244e28e418a06b902128c65f6a2e2c02c51ec3e3e9600a7c0a2e47a",
+      "lines_of_code": 27,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase2-spec.md",
+      "size_bytes": 6972,
+      "sha256": "50c538b12b258773c0be160005d374a2094b345cab29554d495e163dbdd503df",
+      "lines_of_code": 95,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase3-a3.1-verification.md",
+      "size_bytes": 7557,
+      "sha256": "4b3a931c2f385c3ae63613ddcd4b92de012695a4e5866e82e1f1f2b2a508e693",
+      "lines_of_code": 128,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase3-report.md",
+      "size_bytes": 8712,
+      "sha256": "711b6d1236da12647164c54ccfe87fdcb09e492b0da46abaa6633d496ee94660",
+      "lines_of_code": 168,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase3-signoff.md",
+      "size_bytes": 1741,
+      "sha256": "a6f49ab57f396adb8c24ea78065ac248ad085df9d1c379b591cae72f6c708ebf",
+      "lines_of_code": 25,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase3-spec.md",
+      "size_bytes": 5406,
+      "sha256": "e6ffbe838b7d68e3691c2882fc1ac071044792c909876813e988aa5f4704eee6",
+      "lines_of_code": 78,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase3x-text-extract-from-archive-report.md",
+      "size_bytes": 8559,
+      "sha256": "495be0b8215527eb91dabbb69b85c2764fb3f2369d862ce1a46e8a05c1d8c7d8",
+      "lines_of_code": 150,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase3y-narrative-mitre-report.md",
+      "size_bytes": 10519,
+      "sha256": "1ef0338471e06f0bcc795bcc9253eff0aa32a1f79785191d27faea4c82c964e1",
+      "lines_of_code": 137,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase4-allowed-diffs.md",
+      "size_bytes": 3711,
+      "sha256": "4ba0815a212f6debe0d41777261a1f8d71cde1802af3005977990cb2fbd5e3fb",
+      "lines_of_code": 68,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase4-projection-acceptance.md",
+      "size_bytes": 5206,
+      "sha256": "fcabb0962790ffa10c197fad5c93d3356fbffa790af5194602a097d962936307",
+      "lines_of_code": 68,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase4-report.md",
+      "size_bytes": 4303,
+      "sha256": "2e0cbb7846d149d709b319014c646dc9c21175927b333b006a29d8386c2fa4c8",
+      "lines_of_code": 83,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase4-spec.md",
+      "size_bytes": 8421,
+      "sha256": "55ad7e997539421cfb4f9df0db7adeae61fa10a6ed704ef6e124c9c2052b7ee0",
+      "lines_of_code": 119,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase5.1-report.md",
+      "size_bytes": 3667,
+      "sha256": "1b11259512d606d29e993a25e39073198a2362048ad98f2a74d6cb5ad965eb3b",
+      "lines_of_code": 59,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-phase5.1-spec.md",
+      "size_bytes": 6019,
+      "sha256": "cb78bbae370934b3df7e4c85666a0bd927fdf72c5f6c8ea9b02455fcf6abde28",
+      "lines_of_code": 108,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-pre-phase5-acceptance-report.md",
+      "size_bytes": 8202,
+      "sha256": "2bbf886450762dc8a5c79937e8c529da2df8f15ac46339548091f69b5ab86db0",
+      "lines_of_code": 122,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-router-mount-for-preview.md",
+      "size_bytes": 2496,
+      "sha256": "2f15456431c1f7d798d493dea62413a6548f0ca5c64f5884faf71a1903439143",
+      "lines_of_code": 54,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0005-xlab-removal-impact-audit.md",
+      "size_bytes": 14928,
+      "sha256": "39dd7a22de09c721d864eb3cef441415c3ad2495fa6a95b2c6646a7c07f841dc",
+      "lines_of_code": 225,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0006-nivxforge-first-class-analyst-platform.md",
+      "size_bytes": 6472,
+      "sha256": "a42551c59e61becd10fc757a859d7b39b3186cb38171f7c6fdfc262c397742e8",
+      "lines_of_code": 130,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0007-current-state-master-snapshot.md",
+      "size_bytes": 68019,
+      "sha256": "1b6e1aaab45d973dd9ea69d6f2dae10164dc1ff580a44c45a32dd2ecd5f88e2e",
+      "lines_of_code": 990,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0007-verdict-evidence-gating.md",
+      "size_bytes": 8963,
+      "sha256": "1aba3ba2da599a0b45f59418648c4dca34e0741fd6eb1fb6f0b5bdd7b16ee80c",
+      "lines_of_code": 171,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0008-execution-plan-from-audit.md",
+      "size_bytes": 18250,
+      "sha256": "b46754379b15ebc7fc656dac4ff0bb40151e13277642f6dda8b17e907223ccff",
+      "lines_of_code": 337,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0008-ioc-extraction-validation.md",
+      "size_bytes": 9789,
+      "sha256": "1b7f44ab7eb3f1eab44b6a2e6236ab2fa70be88705b7c4a784e1790be24f8763",
+      "lines_of_code": 174,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0009-canonical-investigation-model.md",
+      "size_bytes": 26575,
+      "sha256": "1fd7c1c3904b26e80c05d5dfa9262ae6160a67abb9a19d38d29fd1ac409bf916",
+      "lines_of_code": 442,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0009-canonical-investigation-view-model.md",
+      "size_bytes": 641,
+      "sha256": "04e6082f62be377510ed57854e6c4df0539a4c4295fbc3ad0e308a0075bddf2d",
+      "lines_of_code": 12,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0009-route-classification.md",
+      "size_bytes": 20344,
+      "sha256": "164f327863e24c98faa2e46038b1b7e4dcfe546bdc8be5690499d0e7d24da493",
+      "lines_of_code": 314,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010-nivxray-product-blueprint.md",
+      "size_bytes": 88729,
+      "sha256": "e61813d67a1bdc1c1cbc7d2606fd3e927e773bb82527ce0dd5a26f8e22a30c46",
+      "lines_of_code": 1815,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010b-security-hardening-gate.md",
+      "size_bytes": 15094,
+      "sha256": "73035b02c1d7080240bdf7c36796c11a3fb6b2ef7f1e8653f68e2ef30687f536",
+      "lines_of_code": 303,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010c-server-side-file-mode.md",
+      "size_bytes": 13087,
+      "sha256": "9337773ebac850ddd948a8b99db705ed01ea538b8cd32be9ac9bcc397bc828f4",
+      "lines_of_code": 237,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010d-p11-close-the-bridge.md",
+      "size_bytes": 7572,
+      "sha256": "7da4aa1b1e5a2183a239dfdbc88d6417794a8fc88583dfb88291c2efef8aab57",
+      "lines_of_code": 177,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010e-real-investigation-proof.md",
+      "size_bytes": 14986,
+      "sha256": "f2f55d58c7b3cd31cfb3e8dc26733b85bdbce566dfe4cc8c916dd62d0b3381a8",
+      "lines_of_code": 191,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010f-remediation-item-1-risk-score-recalibration.md",
+      "size_bytes": 7646,
+      "sha256": "374d07758890fc1af1f5dfc1cefc25f61aa65c56f1041bb40a403e89ac033a86",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010g-remediation-item-2-deterministic-narrative.md",
+      "size_bytes": 6248,
+      "sha256": "d0a0eddcad2b189a6b2167f1cd076f4fd298259b8c4d5a6ece76ad893974b92d",
+      "lines_of_code": 76,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010h-remediation-item-3-recursive-decode.md",
+      "size_bytes": 6962,
+      "sha256": "7efb5a2a1728cbe8c92159b86f588f3cc1d53e68a8a69f11ccf64b14ee7c1df4",
+      "lines_of_code": 89,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010i-ui-def-01-attack-chain-correction.md",
+      "size_bytes": 7397,
+      "sha256": "07d98dde57834db3c453e88e1f48078709b494b0f323f79cc9dfc030654ffa8c",
+      "lines_of_code": 82,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010j-preview-prod-panel-divergence-diagnostic.md",
+      "size_bytes": 5118,
+      "sha256": "c18bcaa43d71923747ef62785e48451f3aa84928acfb208b59e196244e562021",
+      "lines_of_code": 89,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010k-remediation-item-4-t1562-004-signature.md",
+      "size_bytes": 4071,
+      "sha256": "ffa21a2e46861f655f29563a8ab460c84d4eda85dc52dfc2bd85c5a3eb5ac65d",
+      "lines_of_code": 69,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010l-remediation-item-5-ti-latency-bound.md",
+      "size_bytes": 11345,
+      "sha256": "1adebadb01f9e002d4b7d6510da0362b3845121a5dcc0c85d472acb051256a6f",
+      "lines_of_code": 169,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010m-ui-def-02-attack-chain-design-note.md",
+      "size_bytes": 6121,
+      "sha256": "ba9c2969359f68e154f9f649790b149016f856454c795e211c3387edb8012b3d",
+      "lines_of_code": 141,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010n-final-12-case-regression-gate.md",
+      "size_bytes": 8113,
+      "sha256": "68b715b5999ac5d5e5550d97b448b980cc862b7536b5433ed5896f4888589e11",
+      "lines_of_code": 130,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010o-ui-def-02-regression-stop-and-report.md",
+      "size_bytes": 10692,
+      "sha256": "0908393a7706154b69c84cf1369a08046fefad0eff4bf35085dd84d6403a92eb",
+      "lines_of_code": 142,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010p-ui-def-02-option-b-lolbas-extension.md",
+      "size_bytes": 10660,
+      "sha256": "6eac2fea2e86aa72fd5833d3476fe916d2de4ea3f5474fd5e68546cfaa74975e",
+      "lines_of_code": 162,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010q-p2-slice-1-blueprint.md",
+      "size_bytes": 8141,
+      "sha256": "a092c64a03f64e304e1fe0fa40e4f408ceccaa3a645ce555033de418027f17fb",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010r-p2-slice-2-sysmon-event3.md",
+      "size_bytes": 9845,
+      "sha256": "8f5c26b997e4717729db85ce54a0c92ccee0ae596689345c11d6fa147c40cd7e",
+      "lines_of_code": 194,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010s-p2-slice-3-evtx-transport.md",
+      "size_bytes": 7791,
+      "sha256": "cd2ef95cea9d705c8ecbae173eaf124102bcbc6d2cdf4eed8e61ed8f9c8a1121",
+      "lines_of_code": 155,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010t-p2-ui-slice-behavioral-timeline.md",
+      "size_bytes": 4797,
+      "sha256": "6625da3f611c97115fa1cf7016c6ff86e14a97d54372233d8b18af74b09a4ec1",
+      "lines_of_code": 93,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010u-attack-chain-evidence-bidirectional.md",
+      "size_bytes": 4516,
+      "sha256": "a7ac27898c380ddef994165ac729b4f98f23c72599fc1f30cdb3f640e240a8f2",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010v-p2-uislice3-timeline-persistence.md",
+      "size_bytes": 8436,
+      "sha256": "00137092c0c5a82a5f8a253c825ab2157273582b0acfcfa477206e3f869d94d9",
+      "lines_of_code": 181,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0010w-p2-slice3-real-evtx-fixture.md",
+      "size_bytes": 9775,
+      "sha256": "ddaf7ae2bd5128f87e95f21b842116522d08ae80010cec035b52bc4ae2fb78cc",
+      "lines_of_code": 147,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0011-investigation-engine-unification.md",
+      "size_bytes": 8956,
+      "sha256": "d454712b1112efb7e0002a503e7d76b115f6d321b9c4bde5acfdb4da916df4f1",
+      "lines_of_code": 174,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0011-tweetfeed-evaluation.md",
+      "size_bytes": 10545,
+      "sha256": "9f01a35a450b72290215fb9f4c65341b0813ca5780190d448818c7698b1973bb",
+      "lines_of_code": 175,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0012-progressive-partial-recovery.md",
+      "size_bytes": 8052,
+      "sha256": "ceb814dd22452558e7f55e92564b5caa100bcb12cbfd108a173549fc66910e6a",
+      "lines_of_code": 170,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0012-workspace-360-audit.md",
+      "size_bytes": 78570,
+      "sha256": "35c56dc2991d4d47dd21e5ae6f25f452c4360dcff552c15ce271e3264a0e9124",
+      "lines_of_code": 982,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0012a-partial-pending-skipped-dead.md",
+      "size_bytes": 21334,
+      "sha256": "dfd7f94a10a740634ef380c1c91f5682a164653bd341a8922627302f5af119d7",
+      "lines_of_code": 372,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0013-iue-workspace-input-architecture-audit.md",
+      "size_bytes": 65901,
+      "sha256": "588d50ae6dbebb910012a98bd9f7c4aa946f0e683098954e3f7a52f4839b9112",
+      "lines_of_code": 980,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0013-unified-investigation-ui.md",
+      "size_bytes": 5166,
+      "sha256": "a2546e47f391f2454dfbcf7c0aab3412f91c3f71d4e437d0adc2cf02c5af7dec",
+      "lines_of_code": 126,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014-canonical-investigation-object.md",
+      "size_bytes": 13656,
+      "sha256": "93c71397187eb5d5fd4c42466bc0a775e9b068e537567d6ec3ccedfe5c1742e7",
+      "lines_of_code": 281,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014-single-iue-convergence-design.md",
+      "size_bytes": 49696,
+      "sha256": "9989c40bbec0b53ccf0284d883e42d75151264507b0dab2dd611f96338132413",
+      "lines_of_code": 875,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014a-m0c-provenance-schema.md",
+      "size_bytes": 10787,
+      "sha256": "9eaa7b86cdbf3115530d2fbf14d967eefe5887e6410dd7f7c5e4502dd6798d84",
+      "lines_of_code": 179,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014b-m0d-execution-router.md",
+      "size_bytes": 16800,
+      "sha256": "8529435c99722015426f769aa85dcc1292792e125e577ea4488fb5ff9a382ccd",
+      "lines_of_code": 227,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014c-m0e-iue-v3-execution-contract.md",
+      "size_bytes": 14504,
+      "sha256": "85a85ad0dd8952edecdadc4304d4ce0f7a0cfc5751184b4fcc82833867fab81c",
+      "lines_of_code": 254,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014d-m0b-extension.md",
+      "size_bytes": 11328,
+      "sha256": "863594b453768cbb118b68524358e1f07014a77a6e21221dd282dd04184b323e",
+      "lines_of_code": 205,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014e-equivalence-harness.md",
+      "size_bytes": 16384,
+      "sha256": "e57a4e50f61dc23085408140640ecf4127a3e5d5a1c42a6fed9b59a68a3c12e3",
+      "lines_of_code": 229,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014f-m0d-async-extension.md",
+      "size_bytes": 9312,
+      "sha256": "9df04ed2123c26507ed22af4539d06c4897ba1d9cb13ca50abbe8d88efdb1c14",
+      "lines_of_code": 162,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014g-p0-paste-evidence-projection.md",
+      "size_bytes": 9981,
+      "sha256": "89d88a2fb6dccd681996352a2ae3f86171bfe2a099d128fa81adc340e7f67578",
+      "lines_of_code": 180,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0014h-p0c-a-lift-body-artifacts.md",
+      "size_bytes": 5531,
+      "sha256": "de5e309f9d59da7929ef021e2a12c1763e3854bf6c4151ed6e774330758709d3",
+      "lines_of_code": 102,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0015-workspace-architecture.md",
+      "size_bytes": 2133,
+      "sha256": "5e43eef38bcbb670922eccadd073969a7c504a734b4a189e3fdf98f90496a122",
+      "lines_of_code": 37,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0016-state-management.md",
+      "size_bytes": 1917,
+      "sha256": "25d20751710b0f23509696c95fd0fa38d8adcfacd1c154a0f7b02e2ac233d487",
+      "lines_of_code": 42,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0017-routing.md",
+      "size_bytes": 1641,
+      "sha256": "9d506c26298b1611989ebfd564e85fabbe5061b4acf2cb9627bb6424ac937811",
+      "lines_of_code": 36,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0018-design-tokens.md",
+      "size_bytes": 1989,
+      "sha256": "15afa90a33d4ef8f7a369f1dec1973ab521c55ce826a9f5c62ea9fb3d2d98ac2",
+      "lines_of_code": 52,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0019-component-hierarchy.md",
+      "size_bytes": 2004,
+      "sha256": "1915bd2d5ac2f08444e56fa14f48eb1ec46c387a0851a35708a324e14b047b04",
+      "lines_of_code": 42,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0020-cio-consumption-rules.md",
+      "size_bytes": 2940,
+      "sha256": "2d7c21be7a4d5c66a53db6ca8e488e305bf05e2012e8b48cbf176d40d601897e",
+      "lines_of_code": 63,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0022-final-lab2-architecture-locked.md",
+      "size_bytes": 7798,
+      "sha256": "1f0b347da0344e3f1297b7076243f727d6ebf9a9eb863d15ba77b04ece5b989a",
+      "lines_of_code": 345,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0023-p2-behavioral-evidence-ingestion.md",
+      "size_bytes": 19045,
+      "sha256": "ea9292cf185416b17fd2400fe2c1e941090d236bafc8f4a9f663f16ae23fc4c1",
+      "lines_of_code": 361,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/ADR-004-canonical-implementation-ledger.md",
+      "size_bytes": 22418,
+      "sha256": "c3ea42815ec34dcb289f46c0a866daa40dba53b58291006b6ff2de137a3d30cf",
+      "lines_of_code": 327,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/README.md",
+      "size_bytes": 3111,
+      "sha256": "456288daf0326e24fb2ce1c68746f11f1cc89d124b3f74dabc7ebdbe13e93523",
+      "lines_of_code": 96,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/design/CANVAS_ENGINE_ARCHITECTURE.md",
+      "size_bytes": 34887,
+      "sha256": "052a82744d2c90a6cfc6c2702710ea01e8832d22d6b2fb5d99c13b7315d77782",
+      "lines_of_code": 752,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/evidence/adr_0010_navigation_ia_candidate.md",
+      "size_bytes": 2794,
+      "sha256": "b3882a49a9231f276c3821917959fd5bc49eeeca991d7beb09270f105c62fad7",
+      "lines_of_code": 56,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/evidence/adr_0011_investigation_engine_unification_candidate.md",
+      "size_bytes": 3762,
+      "sha256": "06ffb610996da62c4b31e6aee74ba68ee5539486335f2cbcee62e263ec1fcf4f",
+      "lines_of_code": 86,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    }
+  ]
+}
