@@ -8863,3 +8863,53 @@ Neither is silent — both require a real capability contract + execution test h
 6. **P0.3 — Collector Fabric with real lifecycle** (turn 110 collector records into runtime state)
 7. **P0.4 — End-to-end replay acceptance test**
 8. **P0.5 — Platform Health becomes mathematical**
+
+---
+
+# 2026-09-05 · PRE-AG BASELINE + INDUSTRY XDR CAPABILITY AUDIT · DELIVERED (STRICT READ-ONLY)
+
+Owner-authorised full 17-category audit. **Zero application code, config, DB state, UI, engine, detection-content, decoder, Security-State or production behaviour modified.** `git status` after delivery showed only new Markdown artifacts.
+
+## Deliverables
+
+| Artifact | Contents |
+|---|---|
+| `docs/truth-contract/edr-review/NIVXRAY_XDR_PRE_AG_BASELINE_AND_INDUSTRY_AUDIT_FRAMEWORK.md` | Master consolidated audit · sections A-L (boundary proof, 17-cat matrix, PRE-AG/AG separation, end-to-end truth matrix, industry parity, architecture comparison, deviations, missing inventory, P0/P1/P2 roadmap, UNKNOWN list, limitations) |
+| `docs/truth-contract/edr-review/categories/CAT-01 … CAT-17_*.md` | 17 per-category evidence deep-dives |
+| `docs/truth-contract/edr-review/categories/README.md` | Category index + reading orders |
+
+## Proven Pre-AG boundary (confidence HIGH)
+
+- **PRE-AG baseline:** `5d67934e4cfb879c8cc69d42ab48878040cf793d` (2026-09-05T06:48:11Z, "UI Review Gate · PASS WITH CHANGES")
+- **AG import:** `95b1c82a9aaeb0024814fd08cc509818d77367d1` (2026-09-05T07:32:44Z) — 367 files, +94,326/-215, of which **196 product-code files (172 A / 24 M)**
+- AG *export* reference material landed separately at `975223dc` into `memory/ag_export/` (4,712 files) — **not** the product boundary
+- `06b56144` and `5d67934e` have **byte-identical non-Markdown trees** → no prior PRE-AG claim invalidated
+
+## Corrections issued to prior published claims
+
+1. "9 net-new routers came from AG" → **FALSE.** Zero router files added/removed in `backend/routers/`. AG's only new router module is `backend/security_state/routers/router.py` (14 endpoints, mounted `server.py:352-353`).
+2. "335 imports + 51 conflict-resolutions = 386 files" → **not reproducible from git.** Measured: 367 files total, 196 product code.
+
+## Headline honest findings
+
+- **AG contributed breadth; PRE-AG NivXRay owned the reasoning spine.** Pipeline / IUE / ICE / VEEE / incident / investigation / MSS / RBAC / audit / vault / response fabric / TI are all PRE-AG. VEEE was never touched by AG.
+- **100% AG:** `backend/security_state/` (81 files — reachability, counterfactual, impact, intervention, causal, progression, capability, ledger, orchestration, hydration, response-safety, verification, attack-state), 10 detection corpora, 13 translators, canonical IR, validation framework, deduplication, enterprise rule library, 3 telemetry DSMs, YARA runtime.
+- **End-to-end path stages 3→12 are runtime-proven on synthetic/golden data.** Stages 1-2 (source, collector) are the hard break: `/api/xdr/data-sources` → `count: 0`; all transports `never_connected`.
+- **No alert object exists** — 0 of 733 live API paths match `alert`. Detection → incident directly.
+- **No hunting query plane** — 1 path, case-scoped, advisory only.
+- **No Entity-360 plane** — 1 entity-typed path; `v2_case_entities` = 0 docs.
+- **Above industry parity:** threat intelligence depth (11,196 LOLBAS primitives, 1,094 framework mappings, 1,894 TI sync runs), detection-content lifecycle governance, deterministic published verdict maths, verifiable audit trail (33,004 + 6,465 records + `/audit-log/verify`), post-response verification engine, and **Security State — a capability class no benchmarked vendor ships**.
+
+## Critical architectural deviations recorded
+
+DEV-1 no alert tier (P0) · DEV-2 two competing DSM registries with silent `except: pass` (P0) · DEV-3 three parallel case stores 484/35/1 (P0) · DEV-4 no IKG write path in the canonical pipeline (P1) · DEV-5 empty v2 case sub-collections (P1) · DEV-6 `threat_hunting` RBAC permission with no route (P2) · DEV-7 8/13 response actions have no capability (P1, honest).
+
+## Audit-recommended priority order (NOT yet authorised for implementation)
+
+- **P0:** unify DSM registry + fail loud · connect ONE real telemetry source end-to-end · decide the authoritative case store
+- **P1:** introduce an alert tier · IKG write path in the pipeline · Entity-360 read projection · playbook-execution + approvals API
+- **P2:** hunting plane (blocked on retention decision) · UBAE (blocked on real telemetry) · Sandbox (infra-gated) · retire duplicate Analyst Workspace · surface Security State in the active XDR console
+
+## Standing exclusions honoured
+
+`mal-20` untouched · Truth Contract v1 unamended · no engine rebuilt · no IKG writer created · no UBAE · no Sandbox · no Stage-4 / Gap-B / Stage-11 implementation · 615-content and decoder counts NOT manufactured (recorded as UNKNOWN U-1, U-2).
