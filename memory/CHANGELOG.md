@@ -6863,3 +6863,48 @@ Backend `services/edr/file_trajectory.py` (`fleet_trajectory`, `spread_index`) +
   defects. Per-endpoint unique counts sum to 14 == authoritative total, never 58.
 - Post-test UI fixes: ledger Provenance/Response column overlap resolved, Pivot column
   no longer clipped at 1920px.
+
+
+## 2026-09-05 (later) · P1.8 scope lock + 7-tab restructure + forensic terminology
+
+Owner directive: P1.8 is "Fleet File Trajectory — Evidence-First Cross-Endpoint
+File/Artifact Investigation" and must NOT grow into a second correlation engine.
+Attack Traversal & Attack Lifecycle are a SEPARATE planned capability.
+
+- Restructured the fleet page into the mandated tabs: **Overview · Fleet Activity ·
+  Timeline · Processes · Network · Artifacts · Evidence** (all populated from the
+  same deduped event set; no new backend calls).
+  - Processes: actor rollup (endpoints, unique events, event kinds, users, DECLARED
+    parents marked `? PARENT NOT OBSERVED`, ATT&CK) — counts only, never lineage.
+  - Network: observed network events; port/protocol `◇ NOT CAPTURED`; no host-to-host
+    traversal inferred; `◇ NO NETWORK OBSERVATIONS` zero state.
+  - Artifacts: recorded target objects with per-target endpoint counts and
+    `◇ NOT OBSERVED` content digest.
+  - Evidence: **Match basis** (which persisted fields joined, plus
+    `? TEMPORAL RELATIONSHIP NOT USED AS A JOIN`,
+    `? SHARED IDENTITY NOT USED AS A JOIN`) + per-event provenance ledger.
+- Forensic terminology corrections (no "patient zero", no invented objective):
+  - `EARLIEST OBSERVED HOST` replaces "entry point", with
+    `? EARLIEST OBSERVED HOST — ORIGIN NOT ESTABLISHED` / tie notice and the reason.
+  - `OBSERVED WINDOW` + `? TRUE ATTACK START UNKNOWN` / `? TRUE ATTACK END UNKNOWN`
+    (telemetry may begin after compromise).
+  - `LATERAL HOPS ◇ NOT ESTABLISHED` metric — cross-host causality is out of scope.
+  - Fleet Activity carries `◇ COHORT ONLY — LATERAL RELATIONSHIP NOT ESTABLISHED`
+    whenever a name/path appears on >1 endpoint: a cohort is never an edge.
+  - New `What this view does NOT establish` panel: objective, initial access,
+    cross-host causality, lateral movement, process lineage, file content identity,
+    disposition, and `⊘ ATTACK TRAVERSAL / LIFECYCLE NOT IMPLEMENTED`.
+- Locked architecture recorded in
+  `docs/uiux/NIVXRAY_ATTACK_TRAVERSAL_AND_LIFECYCLE.md`: typed `artifactRef`
+  (sha256 | path_name | artifact_id | process | command | other) with an epistemic
+  state so SHA-256 is not a hard requirement; per-stage lifecycle epistemics; hop
+  explanation + traversal status (`◆ CONFIRMED` / `? INFERRED` / `◇ COHORT ONLY` /
+  `⊘ UNAVAILABLE`) and traversal basis (filename alone can never create an edge);
+  the 7-W matrix plus `UNKNOWN?`; and the rule that it must be a PROJECTION over
+  IUE/ICE/IKG/VEEE/Security State — never `AttackLifecycleEngine`. Sequence locked:
+  P1.8 ✅ → P1.8a Spread Watchlist → P1.9 Investigation Export → P2 Sensor
+  Foundation → P2.x Attack Traversal & Lifecycle.
+- Sidebar focus mode extended to the fleet route; layout fixes (badge wrapping,
+  case-reference column capping).
+- Verified by screenshot across all 7 tabs, the cohort notice and the sha256 zero
+  state. Backend unchanged since iteration 84 (all 14 acceptance items PASS).

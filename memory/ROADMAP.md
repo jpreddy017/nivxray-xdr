@@ -1391,6 +1391,11 @@ P0-C2 ACDE Phase 1 → Phase 6                      ← incremental architectura
   keyed; content-digest keyed impossible until file digests are captured).
 - P1.9: Investigation Export (scoped trajectory window → forensic timeline report).
 - P1.10: Saved Hunts (persist a filter + search and re-run it on any endpoint).
+- P2.x: **Attack Traversal & Attack Lifecycle** — cross-host causal reconstruction
+  (lateral movement, defense evasion, identity, network, ATT&CK progression, blast
+  radius, lifecycle). Architecture LOCKED in
+  docs/uiux/NIVXRAY_ATTACK_TRAVERSAL_AND_LIFECYCLE.md. Must be a PROJECTION over
+  IUE/ICE/IKG/VEEE/Security State — never a new engine. Blocked on Sensor Foundation.
 - P2: Dynamic sandbox detonation hypervisor runtime — must NOT be faked.
 - P2: In-guest monitoring agents & hooking engine; remote evidence collection;
   memory/volatile evidence.
