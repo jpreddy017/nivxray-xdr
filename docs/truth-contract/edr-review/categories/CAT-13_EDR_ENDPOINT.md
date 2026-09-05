@@ -103,7 +103,7 @@ And `edr.py:29-45` `_extract_host()` — *"Returns None when the case has no end
 | No live-response shell | P2 | CrowdStrike RTR is the benchmark; requires an agent. Out of scope while agentless |
 | No sandbox / detonation | **P2** | infrastructure-gated; standing owner position. Recorded, not recommended |
 | Endpoint telemetry not flowing | **P0 (inherited)** | CAT-12 — `edr_stream` + `sysmon_wef` + `windows_event_fwd` kinds declared, 0 configured |
-| `/api/edr/detections` projects from `verdict_stage2`, not from detections | P1 | Self-documented at `edr.py:3-8`. Will be resolved by CAT-02's alert record, not by EDR work |
+| `/api/edr/detections` projects from `verdict_stage2`, not from detections — **and is structurally always empty** | **P1 (upgraded)** | Self-documented at `edr.py:3-8`. **CORRECTION 2026-09-05:** `verdict_stage2` is present on **0 of 484** `workspace_cases` documents (live `count_documents`), so this endpoint returns nothing regardless of input. Pipeline incidents write `verdict_card` instead (`xdr_incident.py:88-93`, *"compatible with verdict_stage2 shape"*). Recorded as master **DEV-8**; see `../NIVXRAY_XDR_P0_1_CASE_STORE_RECONCILIATION.md` §5 |
 
 ## 6 · Honest positive
 

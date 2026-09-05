@@ -96,7 +96,9 @@
 
 | Gap | Severity | NivXRay evidence |
 |---|---|---|
-| **Three parallel case stores** (`workspace_cases` 484 / `v2_cases` 35 / `xdr_incidents` 1) | **P0** | Master §G DEV-3. Every incident KPI is unfalsifiable until one store is authoritative |
+| ~~**Three parallel case stores**~~ → **One authoritative store, three undiscriminated shapes** | ~~P0~~ **P1** | **CORRECTED 2026-09-05** (`../NIVXRAY_XDR_P0_1_CASE_STORE_RECONCILIATION.md`). The canonical pipeline writes incidents into **`workspace_cases`** (`detection_content/xdr_incident.py:26,114`), already declared authoritative in three source files. Census: **198** pipeline incidents (`xdr_pipeline`) + **209** analysis/SSOT cases (`ssot`) + **77** neither, **0 overlap**, with no explicit `doc_type` discriminator across 48 reader modules. `xdr_incidents` (1 doc, 2 readers) is a **Cortex vendor mirror**; `v2_cases` (35) is **deliberately isolated**. No migration required |
+| **`verdict_stage2` read but never written** | **P1** | **NEW 2026-09-05.** `verdict_stage2` present on **0 of 484** docs, yet `routers/edr.py:3-8` and `/api/incidents/{id}/summary` project from `workspace_cases.verdict_stage2.evidence[]`. Pipeline incidents write `verdict_card` instead (`xdr_incident.py:88-93`) |
+| No `xdr_incidents ↔ workspace_cases` link | P2 | A Cortex-promoted vendor incident cannot be joined to a native pipeline incident; the join is derivable only through shared `xdr_canonical_evidence` event IDs and is not materialised |
 | Case sub-collections empty | **P1** | `v2_case_events`, `v2_case_entities`, `v2_case_behaviors`, `v2_case_relationships`, `v2_case_reports`, `v2_audit_log` = **all 0 docs** |
 | No alert→incident aggregation | **P0** (inherited) | CAT-02 |
 | No SLA / aging plane | P1 | `XdrShell.jsx:76` `sla-aging … disabled: true` |

@@ -8913,3 +8913,49 @@ DEV-1 no alert tier (P0) · DEV-2 two competing DSM registries with silent `exce
 ## Standing exclusions honoured
 
 `mal-20` untouched · Truth Contract v1 unamended · no engine rebuilt · no IKG writer created · no UBAE · no Sandbox · no Stage-4 / Gap-B / Stage-11 implementation · 615-content and decoder counts NOT manufactured (recorded as UNKNOWN U-1, U-2).
+
+---
+
+# 2026-09-05 · P0-1 + P0-2 READ-ONLY ARTIFACTS · DELIVERED · IMPLEMENTATION NOT AUTHORISED
+
+Owner-locked execution order: **Case Store → DSM Registry → Real Telemetry (Suricata) → Security State UI → Counterfactual Defense Projection.**
+Owner choices: 1-a, 2-b, 3-a, 4-a, 5-a. Owner instruction: **produce both read-only artifacts first; do NOT change anything until reviewed.**
+
+## Artifacts delivered (read-only)
+
+| Artifact | Purpose |
+|---|---|
+| `docs/truth-contract/edr-review/NIVXRAY_XDR_P0_1_CASE_STORE_RECONCILIATION.md` | Exhaustive writer/reader trace, document-shape census, identity map, evidence-backed recommendation |
+| `docs/truth-contract/edr-review/NIVXRAY_XDR_P0_2_DSM_REGISTRY_OWNERSHIP_CONFLICT_MAP.md` | Registry ownership map, 6-item conflict matrix, exhaustive silent-failure inventory, preservation invariants, unification scoping |
+
+## P0-1 · Case store — SELF-CORRECTION of the earlier audit
+
+Master-audit **DEV-3 was WRONG and is withdrawn.** `xdr_incidents` is NOT the canonical pipeline output. The pipeline writes incidents into **`workspace_cases`** (`detection_content/xdr_incident.py:26,114`), already declared authoritative in three independent source files (`xdr_incident.py:5-7`, `routers/incidents.py:1-7`, `v2/case_engine/schema.py:8`).
+
+- `workspace_cases` **484** = 198 pipeline incidents (`xdr_pipeline`) + 209 analysis/SSOT cases (`ssot`) + 77 neither · **0 overlap**
+- `xdr_incidents` **1** = Cortex/BYO-EDR vendor mirror · 3 writers, 2 readers, separate ID namespace (`INC-CORTEX-…`)
+- `v2_cases` **35** = deliberately isolated v2 Case Engine · isolation actively defended by `phase5_shadow_tests.py:399`
+- Writers: 9 paths to `workspace_cases`, **exactly one** creates XDR incidents (gated: VEEE label ∈ {MALICIOUS,SUSPICIOUS} **and** score ≥ `INCIDENT_MIN_SCORE`, default 55)
+- Readers: **48 non-test modules**, 107 reference sites
+
+**Corrected deviations:** **DEV-3′** (P1) one authoritative store, three undiscriminated document shapes, no `doc_type` field, type inferred implicitly by 48 readers. **DEV-8** (P1, NEW) `verdict_stage2` is present on **0 of 484** docs yet three projections read it — `/api/edr/detections` is structurally always empty; pipeline incidents write `verdict_card` instead.
+
+**Recommendation (owner retains decision): Option 1 — ratify `workspace_cases`, add a `doc_type` discriminator, migrate NOTHING.** Risk LOW, effort XS. Options 2/3 would each require rewriting 48 readers and would contradict existing source declarations and an installed test guard.
+
+## P0-2 · DSM registry — the AG "unified" registry is dead in production
+
+- Production registry: `DSM_REGISTRY` (`xdr_pipeline.py:74`) — consumed at `:237` and `routers/content_supply_chain.py:907`. 5 DSMs: snort-eve (PRE-AG), windows_security / linux_auditd / aws_cloudtrail (AG), sysmon (POST-AG-EMERGENT)
+- Dead registry: `TELEMETRY_DSM_REGISTRY` (`telemetry/registry.py:39`) — **zero production consumers** (tests only), **omits `SysmonDSM`**, and `register_dsm()` (`:22-24`) is **never called anywhere**. Both registries are instantiated in every process
+- **Conflict matrix:** C-1 two registries/one used (P0) · C-2 Sysmon invisible to Registry B (P1) · C-3 `register_dsm()` dead code (P1) · C-4 **asymmetric `resolve()`** — production `:66-67` does NOT guard `supports()`, test-path `:28-32` does, so tests are more forgiving than production (P0) · C-5 priority order is positional accident; broad `SnortEveDSM.supports()` sits first and will shadow future DSMs — **directly relevant to Suricata P0-3** (P1) · C-6 DSM inventory API reports what loaded, never what failed (P0)
+- **Silent-failure inventory:** S-1 `xdr_pipeline.py:57-58` (one shared `try` — **one broken file silently disables three DSMs**) · S-2 `:62-63` (**sole** Sysmon load path) · S-3 `registry.py:31-32` · S-4 `:193-196` golden-rule swallow → silent false negative (adjacent to `mal-20`, recorded NOT investigated) · S-5 collector shutdown handlers (assessed BENIGN, no change recommended). Correctly-handled: H-1…H-5
+- **Owner's concern CONFIRMED with mechanism:** a source can appear configured while its DSM never loaded, because `dsm: BLOCKED "no DSM in registry supports this event"` is **indistinguishable** from an import-time DSM crash, and `DSM_REGISTRY.list()` can only enumerate DSMs that loaded
+- **8 preservation invariants** documented for the implementation turn (P-1…P-8), incl. "Snort must remain first in priority"
+- **Sequencing warning:** making DSM priority explicit changes which DSM claims Suricata EVE. Must be parity-checked against EVE fixtures **before** P0-3 begins, or the two changes confound each other
+
+## P0-3 · Suricata constraint recorded (owner directive)
+
+A public/sample EVE file may be used **only** for parser/DSM validation. The production-proof claim requires a **real Suricata EVE feed/file from an owner-supplied sensor or a genuinely live feed endpoint**. Required proof chain with observable evidence at every transition: real Suricata → EVE JSON → transport → unified DSM → parser → normalizer → Canonical Evidence → Detection → Correlation → IUE → ICE → VEEE → Incident → Investigation → Response/Verification.
+
+## Status
+
+**NOTHING IMPLEMENTED. NOTHING AUTHORISED.** Zero application code, config, DB, UI or runtime change; `git status` shows Markdown only. Awaiting owner review of P0-1 §8 recommendation and P0-2 §5 unification shape before any change. Not started: UBAE, Sandbox, Stage 4, Gap B, Stage 11, mal-20.
