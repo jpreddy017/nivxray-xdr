@@ -9105,3 +9105,33 @@ So `EVIDENCE = ◇ NO EVIDENCE` on screen is **correct and honest**, but the bac
 5. Later: UBAE · EDR sensor · Sandbox engine
 
 Untouched: 615-content corpus · decoder registry · IUE · ICE · Security State · Sandbox · UBAE · Stage 4 · Gap B · Stage 11 · `mal-20` · DSM priority order (F-6) · F-4.
+
+---
+
+# 2026-09-05 · ATTACK CHAIN UI REJECTED BY OWNER · REDESIGN SPEC DELIVERED · STOP FOR REVIEW
+
+Owner rejected the current Activity Graph / Attack Chain presentation. UX-layer redesign only — backend/IKG/correlation/canonical evidence unchanged. **Specification produced; NO production UI modified.**
+
+`docs/truth-contract/edr-review/NIVXRAY_XDR_INVESTIGATION_PRESENTATION_REDESIGN_SPEC.md`
+
+## Accepted diagnosis
+Reads as a developer/debug graph (internal IKG classes `INC/USR/EVT/PRC/SIG/CMD/HST` leaking to analysts) · **glowing arrows imply confirmed causality while the caption denies it — the visual language contradicts the product's own epistemic contract** · empty right inspector · graph diagnostics leading the view · no hierarchy between Attack Story / Attack Chain / Evidence Graph. Root cause: the graph is primary; every benchmarked vendor makes progressive disclosure primary and the graph secondary.
+
+## Specified
+- **IA:** Incident → Summary · **Attack Story (DEFAULT)** · Evidence Graph · Device Trajectory · Process Ancestry · Security State · Artifacts & Hashes · Verdict & Explainability · ATT&CK. Persistent right-hand Evidence Inspector across all modes.
+- **LOCKED relationship grammar** (extends Phase 1-a epistemic tokens): OBSERVED solid · SUPPORTED solid+◆ · INFERRED dashed+◇ · POSSIBLE dotted+? · UNKNOWN/GAP broken · CONTRADICTED struck+⊘. Hard rules: only OBSERVED/SUPPORTED may render as a continuous directional arrow; direction only where an ordering fact exists, else undirected; **no edge without a citation**; the disclaimer banner becomes a legend so the grammar carries the caveat.
+- **Mode ① Attack Story:** stage-numbered chronological progression, 3-5 facts per stage, **gaps rendered as explicit `? UNKNOWN` stages** (an honest gap is a finding), header verdict from the backfilled `verdict_stage2` with the arithmetic available.
+- **Mode ② Evidence Graph:** human entity labels (never `PRC`/`HST`), semantic edge labels, disposition and epistemic scales kept separate, aggregates dashed, **only existing relationships rendered**.
+- **Mode ③ Device Trajectory:** swimlanes SYSTEM/PROCESS/FILE/NETWORK/REGISTRY/**AUTHENTICATION** (enabled by the new 4624/4625 coverage); empty lanes labelled `◇ NO EVIDENCE`.
+- **Evidence Inspector** on the **already-existing** `/api/incidents/{id}/inspector/{kind}/{ref_id}` — no new endpoint. Sections omitted entirely when unbacked; includes Verdict Contribution (`+45 detection`, `+15 iue.severity_hint`) and Pivots, with unavailable planes rendering `⊘ CAPABILITY UNAVAILABLE` (e.g. Hunting).
+- **Diagnostics demoted** (node/edge counts, 7.1% completeness, correlation strength) into a collapsed Graph Diagnostics drawer — reachable, not leading.
+- **Traceability:** a UI element that cannot cite canonical evidence/IKG must not render.
+
+## Phased build order (awaiting approval)
+A tokens+legend & diagnostics demotion (LOW) · B Evidence Inspector (LOW-MED, highest value/risk) · C Attack Story as default (MED) · D graph relabel/relayout (MED) · E trajectory swimlanes (MED). **Recommended start A+B** — fixes the two defects the owner called most serious without changing any default view.
+
+## Constraint the redesign must survive honestly
+`xdr_evidence_graph_edges` = **10 rows** and the canonical pipeline has **no IKG write path** (DEV-4). The design must look deliberate on a SPARSE graph; designing for a dense graph would push the UI toward implying relationships to fill space — the exact failure being corrected.
+
+## Sequence
+Phase 1-a ✅ → verdict backfill ✅ → **investigation redesign spec ✅ (STOP for review)** → F-7 ownership scoping (P0, gates visibility of the 180 evidence-bearing incidents) → real Suricata EVE → Phase 2 UI/dark surface → UBAE/EDR sensor/Sandbox.
