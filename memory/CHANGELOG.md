@@ -6309,3 +6309,49 @@ per `nx-theme.css:132-136`; the proposed `#14B8A6` teal was rejected.
 4. Phases 4–6 — forensics/live-query/memory, dynamic sandbox, agent plane.
 
 **Deferred unchanged**: queue bulk actions, saved searches, number deep links.
+
+## 2026-09-05 · NivXForge EDR runtime activation — Phase 1 (P0) · SHIPPED & VERIFIED
+
+Executed the audit's Phase 1 exactly: routing correction → identity rebinding →
+end-to-end runtime proof. No EDR agent built, no telemetry manufactured.
+
+**Root cause 1 — dead route.** `/edr/trajectory` was never registered in
+`App.jsx`; 7 call sites fell through `<Route path="*">` to the Incident Queue.
+Fixed with a **resolver** (`xdr/pages/EdrTrajectoryResolver.jsx`) that redirects
+into the single authoritative canvas `/xdr/endpoints/:device/trajectory` — no
+third trajectory implementation. `incident_id` survives the redirect. Nothing
+resolvable → `⊘ CAPABILITY UNAVAILABLE — NO ENDPOINT ENTITY`, never a silent
+bounce.
+
+**Root cause 2 — wrong substrate.** The endpoint plane read
+`ssot.investigation_object.host` (empty in 484/484 cases). New
+`backend/services/edr/device_identity.py` (DIR) projects the pre-existing
+`v2_shadow_observations` IRG substrate: `event.device_iid` → AUTHORITATIVE,
+`event.raw.computer` → INFERRED, neither → not a device. `GET /api/edr/endpoints`
+went from `count:0` to **7 real devices** (WKS-01, FILE-SRV-01, SRV-DC01, FIN-07,
+ENG-42, HR-11, WKS-07). Hostname matching is case-insensitive; `dev_*` IIDs and
+hostnames both resolve to the same identity.
+
+**Also fixed**: `/api/edr/*` now shares `resolve_tenant_scope()` with the
+incident queue instead of a raw `user_email` ownership filter (the IRG substrate
+carries no `tenant_id`, so it is exposed to cross-tenant SOC roles only —
+stricter, never looser). `/xdr/endpoints` is a real page again instead of a
+redirect to the queue. Trajectory gained an `All` window (`all_time=true`)
+because the observations are dated 2026-02-25, and the empty state now
+distinguishes "nothing in this window (45 observations exist)" from "nothing
+ever observed" from "identity unresolved".
+
+**Verified end-to-end** (`/app/test_reports/iteration_82.json`): FIN-07 renders
+45 real observations across process/file/network/registry with real paths, users
+and command lines, each carrying `evidence_ref.type=v2_shadow_observation`.
+Backend 10/10 new + 37/37 regression; frontend 20/20 across 8 surfaces; zero
+console errors; anti-fabrication cross-check against Mongo passed.
+
+**Truth-model correction recorded**: Device Trajectory `IMPLEMENTED` (code only)
+→ `CODE/UX IMPLEMENTED · RUNTIME DATA PATH NOT OPERATIONAL` → **`LIVE`**.
+Sandbox remains `Static foundation IMPLEMENTED · dynamic NOT IMPLEMENTED · UX
+DESIGN/PROTOTYPE ONLY`.
+
+**Next**: Phase 2 — file/network/registry/services lanes, process ancestry
+causality canvas, Entity 360, timeline scrubber (all projections over IRG kinds
+already persisted). Not started.

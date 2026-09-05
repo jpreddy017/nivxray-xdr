@@ -99,10 +99,17 @@ export default function XdrIncidentDomainPage() {
           <DomainBody incident={incident}
                         meta={meta}
                         onOpenTrajectory={() => {
+                          // P0 · 2026-09-05: the SSOT host field is empty
+                          // in every persisted case, so we no longer
+                          // derive a device from it.  We hand the
+                          // incident to the resolver, which resolves an
+                          // authoritative endpoint entity or renders an
+                          // explicit ⊘ CAPABILITY UNAVAILABLE state.
                           const inv = incident?.ssot?.investigation_object || {};
                           const host = inv.host || (inv.device && inv.device.hostname);
-                          if (!host) return;
-                          navigate(`/xdr/endpoints/${encodeURIComponent(host)}/trajectory`);
+                          const qs = new URLSearchParams({ incident_id: String(id) });
+                          if (host) qs.set("device", host);
+                          navigate(`/edr/trajectory?${qs.toString()}`);
                         }} />
         </>
       )}
@@ -179,55 +186,45 @@ function DomainBody({ incident, meta, onOpenTrajectory }) {
           Forge EDR · process · file · registry · trajectory.  Backed by the
           existing NivXRay Activity Inventory and Stage-2 Verdict evidence.
         </div>
-        {host ? (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 10, padding: 12,
-            border: "1px solid var(--border)", borderRadius: 5,
-            background: "var(--panel2)",
-          }}>
-            <Info size={13} style={{ color: "var(--cyan)" }} />
-            <div style={{ flex: 1, fontSize: 11.5, color: "var(--text-dim)" }}>
-              <b style={{ color: "var(--text)" }}>Device Trajectory Canvas</b>
-              {" — "}temporal investigation surface for{" "}
-              <span className="mono" style={{ color: "var(--mint)" }}>{host}</span>.
-              The canvas is currently reachable at its incident-anchored path
-              below.  A rewrite to entity-per-row + tri-directional pane sync
-              (Slice 8) lands next.
-            </div>
-            {/* Owner review 2026-09-05: this used to swallow the click
-                  (`if (!host) return`) whenever no endpoint entity was
-                  projected — a silently dead control.  It is now either a
-                  real navigation or an explicit unavailable state. */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, padding: 12,
+          border: "1px solid var(--border)", borderRadius: 5,
+          background: "var(--panel2)",
+        }}>
+          <Info size={13} style={{ color: "var(--cyan)" }} />
+          <div style={{ flex: 1, fontSize: 11.5, color: "var(--text-dim)" }}>
+            <b style={{ color: "var(--text)" }}>Device Trajectory Canvas</b>
+            {" — "}temporal investigation surface.
             {host ? (
-              <button
-                className="btn primary" style={{ padding: "5px 10px" }}
-                onClick={onOpenTrajectory}
-                title={`Open the Device Trajectory canvas for ${host}`}
-                data-testid="xdr-domain-endpoints-open-trajectory"
-              >
-                <Radar size={11} /> Open Device Trajectory
-              </button>
+              <>
+                {" Incident-projected host "}
+                <span className="mono" style={{ color: "var(--mint)" }}>{host}</span>.
+              </>
             ) : (
-              <span className="nx-ep nx-ep--nocap"
-                     title="No endpoint entity is projected for this incident, so there is no trajectory to open."
-                     data-testid="xdr-domain-endpoints-trajectory-unavailable">
-                ⊘ NO ENDPOINT ENTITY
-              </span>
+              <>
+                {" This incident's SSOT carries no endpoint host, so the "}
+                endpoint entity is resolved from the observation substrate
+                {" ("}<span className="mono">v2_shadow_observations</span>{"). "}
+                If nothing resolves, the resolver states that explicitly
+                instead of opening an empty canvas.
+              </>
             )}
           </div>
-        ) : (
-          <div style={{ padding: 12,
-                            border: "1px dashed var(--border)", borderRadius: 5,
-                            background: "var(--panel2)",
-                            color: "var(--text-dim)", fontSize: 11.5 }}>
-            <StateBadge state="not_available" />
-            <div style={{ marginTop: 6 }}>
-              This incident's SSOT does not carry an authoritative endpoint
-              host.  Trajectory cannot be opened without one — we do not
-              synthesise a device identity.
-            </div>
-          </div>
-        )}
+          {/* Owner review 2026-09-05: this control used to swallow the
+                click whenever `ssot.investigation_object.host` was absent
+                — which is every persisted case.  It now always routes
+                through `/edr/trajectory`, which either resolves an
+                authoritative endpoint entity or renders
+                ⊘ CAPABILITY UNAVAILABLE. */}
+          <button
+            className="btn primary" style={{ padding: "5px 10px" }}
+            onClick={onOpenTrajectory}
+            title="Resolve this incident's endpoint entity and open the Device Trajectory canvas"
+            data-testid="xdr-domain-endpoints-open-trajectory"
+          >
+            <Radar size={11} /> Open Device Trajectory
+          </button>
+        </div>
       </section>
     );
   }

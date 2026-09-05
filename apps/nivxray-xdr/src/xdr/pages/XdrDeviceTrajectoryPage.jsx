@@ -30,6 +30,7 @@ const WINDOWS = [
   { key: 24,  label: "24h" },
   { key: 72,  label: "3d"  },
   { key: 168, label: "7d"  },
+  { key: 0,   label: "All" },
 ];
 
 const LANE_ICONS = {
@@ -95,6 +96,8 @@ export default function XdrDeviceTrajectoryPage() {
   const laneCounts = data?.lane_counts || {};
   const events     = data?.events || [];
   const incidents  = data?.incidents || [];
+  const identity   = data?.identity || null;
+  const unresolved = data && identity && identity.resolved === false;
 
   const selectedEvent = useMemo(
     () => events.find((e) => e.id === selectedId) || null,
@@ -146,8 +149,25 @@ export default function XdrDeviceTrajectoryPage() {
           <HardDrive size={14} style={{ color: "var(--mint)",
                                               verticalAlign: "middle",
                                               marginRight: 8 }} />
-          {decoded}
+          {identity?.hostname || decoded}
         </h1>
+        {identity?.resolved && (
+          <span
+            className="nx-ep"
+            data-ep={identity.identity_confidence === "authoritative"
+                      ? "evidence_present" : "unknown"}
+            data-known={identity.identity_confidence === "authoritative"
+                      ? "true" : "false"}
+            title={identity.identity_confidence === "authoritative"
+                    ? `Authoritative endpoint entity · device_iid=${identity.device_iid}`
+                    : "Hostname string with no bound endpoint entity IID — identity is INFERRED"}
+            data-testid="xdr-trajectory-identity-badge"
+          >
+            {identity.identity_confidence === "authoritative"
+              ? `◆ AUTHORITATIVE · ${identity.device_iid}`
+              : "◇ INFERRED IDENTITY (NO IID)"}
+          </span>
+        )}
         <span className="mono" style={{ color: "var(--faint)" }}>
           · Device Trajectory
         </span>
@@ -179,10 +199,41 @@ export default function XdrDeviceTrajectoryPage() {
       <div className="page-sub" data-testid="xdr-trajectory-subtitle">
         Native XDR canvas · aggregated from{" "}
         <span style={{ color: "var(--cyan)" }}>
-          workspace_cases.verdict_stage2.evidence[] · ActivityInventory
+          v2_shadow_observations · verdict_stage2.evidence[] · ActivityInventory
         </span>{" "}
-        · window <b>Last {WINDOWS.find((w)=>w.key===hours)?.label || `${hours}h`}</b>
+        · window{" "}
+        <b>{hours === 0 ? "All observed time"
+                        : `Last ${WINDOWS.find((w)=>w.key===hours)?.label || `${hours}h`}`}</b>
+        {identity?.resolved && identity.observed_last_seen && (
+          <>
+            {" · last observed "}
+            <span className="mono">{fmtTs(identity.observed_last_seen)}</span>
+            {" · "}
+            <span className="mono">{identity.observation_count} observations</span>
+          </>
+        )}
       </div>
+
+      {unresolved && (
+        <section className="panel" style={{ padding: 16, marginBottom: 10 }}
+                  data-testid="xdr-trajectory-identity-unresolved">
+          <div className="nx-ep" data-ep="capability_unavailable" data-known="true"
+                style={{ marginBottom: 8 }}>
+            ⊘ ENDPOINT IDENTITY UNRESOLVED
+          </div>
+          <div style={{ color: "var(--text-dim)", fontSize: 11.5, lineHeight: 1.7 }}>
+            No authoritative endpoint entity or observed hostname matches{" "}
+            <span className="mono" style={{ color: "var(--text)" }}>{decoded}</span>.
+            The trajectory canvas is not rendered against a synthesised device.
+            <div style={{ marginTop: 6 }}>
+              <Link to="/xdr/endpoints" style={{ color: "var(--cyan)" }}
+                      data-testid="xdr-trajectory-unresolved-inventory">
+                Open Endpoint Inventory →
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Body: 3-pane layout ────────────────────────────── */}
       <div
@@ -336,9 +387,13 @@ export default function XdrDeviceTrajectoryPage() {
           )}
           {!loading && !error && data && events.length === 0 && (
             <div className="x-empty" data-testid="xdr-trajectory-empty">
-              <b>NO MATCHING EVIDENCE</b>
+              <b>{unresolved ? "⊘ ENDPOINT IDENTITY UNRESOLVED" : "◇ NO EVIDENCE"}</b>
               <div style={{ marginTop: 4 }}>
-                No detections or activity for {decoded} in the selected window.
+                {unresolved
+                  ? `No endpoint entity resolves for ${decoded}.`
+                  : identity?.observation_count
+                    ? `${identity.observation_count} observations exist for this device, but none fall inside the selected window. Switch the window to "All".`
+                    : `No detections or observations for ${identity?.hostname || decoded} in the selected window.`}
               </div>
             </div>
           )}

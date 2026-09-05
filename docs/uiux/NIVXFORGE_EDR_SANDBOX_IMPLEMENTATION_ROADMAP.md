@@ -97,3 +97,31 @@ This is what converts the whole EDR plane from projection to live telemetry.
 Queue bulk row actions, saved searches, and number deep links remain deferred.
 Counterfactual defence projection, UBAE, and the `mal-20` false-negative fix
 remain P2 backlog items.
+
+---
+
+## PHASE 1 · EXECUTION RECORD — 2026-09-05 · **COMPLETE & VERIFIED**
+
+| # | Work item | Status | Runtime evidence |
+|---|---|---|---|
+| 1.1 | `/edr/trajectory` resolver route | **DONE** | 6/6 routing scenarios verified; none bounce to `/xdr/incidents`. `?device=` / `?device_iid=` / hostname (any case) redirect to `/xdr/endpoints/:device_ref/trajectory`; no-params and unknown-host render `⊘ CAPABILITY UNAVAILABLE — NO ENDPOINT ENTITY` |
+| 1.2 | Device Identity Resolution service | **DONE** | `services/edr/device_identity.py`; 7 authoritative devices projected from `v2_shadow_observations` |
+| 1.3 | `GET /api/edr/endpoints` re-bound | **DONE** | `count: 0` → `count: 7`; every row `identity_confidence=authoritative` with a `dev_*` IID and non-zero `observation_count` (WKS-01=27, FILE-SRV-01=52, SRV-DC01=10, FIN-07=45, ENG-42=64, HR-11=14, WKS-07=11) |
+| 1.4 | Trajectory canvas re-bound to `device_iid` | **DONE** | `/xdr/endpoints/dev_baaa72285d27/trajectory` renders FIN-07 with 45 real observations across process/file/network/registry; inspector shows real timestamps, paths, users and command lines |
+| 1.5 | Tenant scoping correction | **DONE** | `/api/edr/*` now uses `resolve_tenant_scope()`; unauth → 401/403; `tests/edr/` 25/25 pass |
+| 1.6 | Honest zero/unresolved states | **DONE** | `identity_unresolved` (unknown ref), `◇ NO EVIDENCE` + "45 observations exist outside this window" (empty window), `⊘ ENDPOINT IDENTITY UNRESOLVED` (canvas) |
+
+**Anti-fabrication check passed**: every device IID, hostname, process name,
+command line and user rendered in the UI was cross-checked against
+`v2_shadow_observations`. Nothing is synthesised.
+
+**Truth-model correction now formally recorded**: Device Trajectory moves from
+`IMPLEMENTED` (the prior AG claim, which was code-existence only) through
+`CODE/UX IMPLEMENTED · RUNTIME DATA PATH NOT OPERATIONAL` to **`LIVE`** —
+verified end-to-end from persisted observation → identity → API → UI → evidence.
+
+Test report: `/app/test_reports/iteration_82.json` · backend 10/10 new + 37/37
+regression · frontend 20/20 acceptance items · zero console errors.
+
+**Not started (deliberately)**: Phase 2 lane surfaces, Entity 360, causality
+canvas, timeline scrubber. Phase 3+ unchanged.

@@ -20,10 +20,36 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from deps import get_current_user, sync_collection
 from services.activity.projector import build_inventory
+from services.dashboard_lenses import resolve_tenant_scope
+from services.edr import device_identity as dir_svc
 
 router = APIRouter(prefix="/edr", tags=["edr"])
 
 _col = sync_collection("workspace_cases")
+
+
+def _case_scope(user) -> Optional[Dict[str, Any]]:
+    """Tenant-authorised case filter for the EDR projections.
+
+    P0 · 2026-09-05: the EDR routes previously filtered on
+    ``user_email``, which is an ownership gate, not an authorisation
+    gate — the same defect that hid 180 of 198 incidents from the queue.
+    They now share ``resolve_tenant_scope()`` with the incident plane.
+
+    Returns ``None`` when the caller is not authorised (honest empty).
+    """
+    scope = resolve_tenant_scope((user or {}).get("email"))
+    if not scope.get("authorized"):
+        return None
+    q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
+    if not scope.get("all_tenants"):
+        q["tenant_id"] = {"$in": scope["tenant_ids"]}
+    return q
+
+
+def _is_cross_tenant(user) -> bool:
+    scope = resolve_tenant_scope((user or {}).get("email"))
+    return bool(scope.get("authorized") and scope.get("all_tenants"))
 
 
 def _extract_host(doc: Dict[str, Any]) -> Optional[str]:
@@ -202,10 +228,12 @@ async def get_process_tree(incident_id: str,
 # points back into the existing incident record.
 @router.get("/endpoints")
 async def list_endpoints(user=Depends(get_current_user)):
-    email = (user or {}).get("email")
-    q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
-    if email:
-        q["user_email"] = email
+    q = _case_scope(user)
+    if q is None:
+        return {"endpoints": [], "count": 0,
+                "source": "v2_shadow_observations · workspace_cases",
+                "reason": "not_authorized",
+                "note": "no_matching_evidence"}
     projection = {
         "_id": 0, "id": 1, "name": 1, "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "ssot": 1,
@@ -253,13 +281,55 @@ async def list_endpoints(user=Depends(get_current_user)):
         if isinstance(risk, (int, float)) and risk > (row["worst_risk"] or 0):
             row["worst_risk"] = risk
 
-    rows = sorted(by_host.values(), key=lambda r: r.get("last_seen") or "",
-                    reverse=True)
+    # Case-derived rows carry no device IID — they are hostname strings,
+    # so their identity is INFERRED by contract.
+    rows: List[Dict[str, Any]] = []
+    for host, row in by_host.items():
+        row["device_ref"] = host
+        row["device_iid"] = None
+        row["hostname"] = host
+        row["identity_confidence"] = dir_svc.INFERRED
+        row["observation_count"] = 0
+        row["source"] = "workspace_cases.ssot.investigation_object"
+        rows.append(row)
+
+    # ── IRG substrate projection (authoritative device identity) ─────
+    # See services/edr/device_identity.py.  This is the substrate that
+    # actually carries `device_iid`; the SSOT host field is empty in
+    # every persisted case.
+    for dev in dir_svc.list_devices(_is_cross_tenant(user)):
+        rows.append({
+            "host":                dev.get("hostname") or dev.get("device_iid"),
+            "device_ref":          dev.get("device_ref"),
+            "device_iid":          dev.get("device_iid"),
+            "hostname":            dev.get("hostname"),
+            "identity_confidence": dev.get("identity_confidence"),
+            "observation_count":   dev.get("observation_count"),
+            "lane_counts":         dev.get("lane_counts"),
+            "incident_count":      len(dev.get("case_ids") or []),
+            "detection_count":     0,
+            "first_seen":          dev.get("first_seen"),
+            "last_seen":           dev.get("last_seen"),
+            "worst_label":         "unknown",
+            "worst_risk":          None,
+            "latest_incident_id":  (dev.get("case_ids") or [None])[0],
+            "tenant":              None,
+            "engine":              None,
+            "users":               dev.get("users"),
+            "provenance":          dev.get("provenance"),
+            "source":              "v2_shadow_observations",
+        })
+
+    rows.sort(key=lambda r: r.get("last_seen") or "", reverse=True)
     return {
         "endpoints": rows,
         "count":     len(rows),
-        "source":    "workspace_cases.ssot.investigation_object",
-        "note":      "Read-only projection · endpoints are extracted from saved cases."
+        "source":    "v2_shadow_observations · workspace_cases.ssot.investigation_object",
+        "identity_contract": {
+            "authoritative": "event.device_iid",
+            "inferred":      "hostname string with no bound IID",
+        },
+        "note":      "Read-only projection · a device exists here only because an observation exists."
                         if rows else "no_matching_evidence",
     }
 
@@ -301,40 +371,58 @@ def _iso_ok(ts: Optional[str]) -> Optional[str]:
 async def get_device_trajectory(
     device: str,
     hours: int = 24,
+    all_time: bool = False,
     user=Depends(get_current_user),
 ):
     """Return a device-scoped trajectory aggregation for the XDR
-    3-pane canvas.  Aggregates:
+    3-pane canvas.  Aggregates, in this order of authority:
 
-      - Detection markers derived from Stage-2 evidence (per incident).
-      - Activity nodes derived from the canonical ActivityInventory.
+      1. IRG observations resolved via ``event.device_iid`` (the only
+         substrate that carries a real device identity).
+      2. Detection markers derived from Stage-2 evidence (per incident).
+      3. Activity nodes derived from the canonical ActivityInventory.
 
-    Both are timestamped, tagged with the source incident, and mapped
-    to a UI lane (system / process / file / network / registry).
+    ``device`` accepts an authoritative ``device_iid`` or a hostname;
+    hostname matching is case-insensitive and the resolved identity is
+    reported back so the UI can mark it INFERRED.
     """
     if not device:
         raise HTTPException(status_code=400,
                               detail={"error": "device_required"})
-    if hours <= 0 or hours > 24 * 30:
+    if hours <= 0 or hours > 24 * 365:
         hours = 24
-    email = (user or {}).get("email")
     now = datetime.now(timezone.utc)
     since = now - timedelta(hours=hours)
-    since_iso = since.isoformat()
+    since_iso = None if all_time else since.isoformat()
 
-    q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
-    if email:
-        q["user_email"] = email
-
-    docs: List[Dict[str, Any]] = []
-    for d in _col.find(q, {"_id": 0}):
-        if _extract_host(d) == device:
-            docs.append(d)
+    cross_tenant = _is_cross_tenant(user)
+    identity = dir_svc.resolve(device, cross_tenant)
 
     events: List[Dict[str, Any]] = []
     lane_counts: Dict[str, int] = {k: 0 for k in _LANE_ORDER}
     incident_index: Dict[str, Dict[str, Any]] = {}
 
+    # 1) IRG observations — authoritative device identity.
+    for obs in dir_svc.observations(device, cross_tenant, since_iso,
+                                     identity=identity):
+        lane_counts[obs["lane"]] = lane_counts.get(obs["lane"], 0) + 1
+        events.append(obs)
+        cid = obs.get("incident_id")
+        if cid and cid not in incident_index:
+            incident_index[cid] = {"incident_id": cid, "name": cid,
+                                    "verdict": "unknown", "risk": None,
+                                    "source": "v2_shadow_observations"}
+
+    # 2/3) Case-derived detections + activity, matched on hostname.
+    q = _case_scope(user)
+    docs: List[Dict[str, Any]] = []
+    if q is not None:
+        host_needle = (identity or {}).get("hostname") or device
+        host_needle = str(host_needle).strip().lower()
+        for d in _col.find(q, {"_id": 0}):
+            h = _extract_host(d)
+            if h and h.strip().lower() == host_needle:
+                docs.append(d)
     for d in docs:
         case_id = d.get("id")
         incident_index[case_id] = {
@@ -348,7 +436,7 @@ async def get_device_trajectory(
         # 1) Detection markers (from Stage-2 evidence)
         for det in _project_detections(d):
             ts = det.get("timestamp")
-            if not ts or ts < since_iso:
+            if not ts or (since_iso and ts < since_iso):
                 continue
             lane = _map_lane_from_rule(det.get("rule_id") or "")
             lane_counts[lane] = lane_counts.get(lane, 0) + 1
@@ -387,7 +475,7 @@ async def get_device_trajectory(
             lane = _map_lane_from_entity(kind)
             for ent in entities:
                 first = ent.get("first_seen")
-                if not first or first < since_iso:
+                if not first or (since_iso and first < since_iso):
                     continue
                 lane_counts[lane] = lane_counts.get(lane, 0) + 1
                 events.append({
@@ -411,24 +499,45 @@ async def get_device_trajectory(
                     "incident_id":  case_id,
                 })
 
-    events.sort(key=lambda e: e.get("timestamp") or "")
+    events.sort(key=lambda e: str(e.get("timestamp") or ""))
 
-    if not events:
+    if identity is None and not docs:
+        reason = "identity_unresolved"
+    elif not events:
         reason = "no_matching_evidence"
     else:
         reason = "ok"
 
+    # Honest window hint: the analyst must be able to tell "nothing
+    # happened in this window" apart from "nothing was ever observed".
+    observed_first = (identity or {}).get("first_seen")
+    observed_last = (identity or {}).get("last_seen")
+
     return {
         "device":       device,
-        "window_hours": hours,
-        "window_start": since_iso,
+        "identity": {
+            "resolved":            identity is not None,
+            "device_iid":          (identity or {}).get("device_iid"),
+            "hostname":            (identity or {}).get("hostname"),
+            "identity_confidence": (identity or {}).get("identity_confidence"),
+            "observation_count":   (identity or {}).get("observation_count", 0),
+            "observed_first_seen": observed_first,
+            "observed_last_seen":  observed_last,
+        },
+        "window_hours": None if all_time else hours,
+        "all_time":     all_time,
+        "window_start": (since_iso if not all_time
+                          else (str(events[0].get("timestamp")) if events else None)),
         "window_end":   now.isoformat(),
         "events":       events,
         "lane_counts":  lane_counts,
         "lanes":        list(_LANE_ORDER),
         "incidents":    list(incident_index.values()),
         "reason":       reason,
-        "source":       "workspace_cases.verdict_stage2.evidence[] · services.activity.ActivityInventory",
+        "source":       "v2_shadow_observations · workspace_cases.verdict_stage2.evidence[] · services.activity.ActivityInventory",
         "note":         "Read-only aggregation. No native trajectory store."
-                            if events else "No trajectory evidence for this device in the selected window.",
+                            if events else
+                        ("No endpoint identity could be resolved for this reference."
+                         if identity is None
+                         else "No observations for this device in the selected window."),
     }

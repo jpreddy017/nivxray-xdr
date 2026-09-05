@@ -37,6 +37,8 @@ const XdrRuleStudioPage       = lazy(() => import("@/xdr/pages/XdrRuleStudioPage
 const XdrInvestigationsListPage   = lazy(() => import("@/xdr/pages/XdrInvestigationsListPage"));
 const XdrInvestigationWorkspacePage = lazy(() => import("@/xdr/pages/XdrInvestigationWorkspacePage"));
 const XdrEvidenceExplorerPage     = lazy(() => import("@/xdr/pages/XdrEvidenceExplorerPage"));
+const EdrTrajectoryResolver       = lazy(() => import("@/xdr/pages/EdrTrajectoryResolver"));
+const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -114,7 +116,10 @@ export default function App() {
             path.  The old global `/xdr/endpoints` route is retired
             per §5 of the implementation prompt — Endpoints is a
             domain reached from Incident Overview, not a global peer. */}
-        <Route path="/xdr/endpoints"       element={<Navigate to="/xdr/incidents" replace />} />
+        {/* P0 · 2026-09-05 — the inventory now resolves real endpoint
+            entities from v2_shadow_observations, so it is a real page
+            again instead of a redirect to the incident queue. */}
+        <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
         <Route path="/xdr/endpoints/:device/trajectory"
                                             element={<Protected><XdrDeviceTrajectoryPage /></Protected>} />
 
@@ -156,6 +161,11 @@ export default function App() {
             ORIGINAL NivXRay app via a new browser tab (never
             duplicated inside this bundle). */}
         <Route path="/edr"               element={<Protected><EdrOverviewPage /></Protected>} />
+        {/* P0 · 2026-09-05 — `/edr/trajectory` was linked from 7 call
+            sites but never registered, so every click fell through
+            `<Route path="*">` to the Incident Queue.  It is now a
+            resolver into the single authoritative canvas. */}
+        <Route path="/edr/trajectory"    element={<Protected><EdrTrajectoryResolver /></Protected>} />
         <Route path="/edr/detections"    element={<Protected><EdrDetectionsPage /></Protected>} />
         <Route path="/edr/process-tree"  element={<Protected><EdrProcessTreePage /></Protected>} />
         <Route path="/edr/files"         element={<Protected><EdrFilesPage /></Protected>} />

@@ -23,7 +23,9 @@ export async function listEndpoints() {
 }
 
 export async function getDeviceTrajectory(device, hours = 24) {
-  const { data } = await api.get("/edr/device-trajectory",
-                                    { params: { device, hours }});
+  const params = hours === 0
+    ? { device, all_time: true }
+    : { device, hours };
+  const { data } = await api.get("/edr/device-trajectory", { params });
   return data;
 }
