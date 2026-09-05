@@ -56,6 +56,11 @@ class DSMRegistry:
             self._dsms.extend([WindowsSecurityDSM(), LinuxAuditdDSM(), AWSCloudTrailDSM()])
         except Exception:
             pass
+        try:
+            from .telemetry.sysmon_dsm import SysmonDSM
+            self._dsms.append(SysmonDSM())
+        except Exception:
+            pass
 
     def resolve(self, ev: dict):
         for d in self._dsms:
