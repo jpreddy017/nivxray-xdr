@@ -1,257 +1,134 @@
 {
-  "design_system_name": "NivXRay XDR Visual Language: Deterministic Obsidian & Kinetic Amber",
-  "aesthetic_philosophy": "Evidence-First + Causal + Deterministic + Epistemically Explicit. Avoid generic violet SaaS slop, flat black slabs, and misleading glowing arrows. High-density, tactical SOC console aesthetics optimized for long analytical shifts with strict cognitive clarity.",
-  "theme_strategy": {
+  "theme_architecture": {
     "default_mode": "dark",
-    "toggle_supported": true,
-    "dark_theme_selector": ".xdr-console, [data-nx-theme='dark']",
-    "light_theme_selector": ".xdr-console[data-nx-theme='light'], [data-nx-theme='light']"
+    "supported_modes": ["dark", "light"],
+    "theme_attribute": "data-nx-theme",
+    "theme_switch_persistence_key": "nx.theme",
+    "surfaces": {
+      "canvas": { "dark": "#0B0E14", "light": "#F8FAFC", "description": "Application ground canvas" },
+      "primary": { "dark": "#121721", "light": "#FFFFFF", "description": "Dominant work surface" },
+      "inset": { "dark": "#0E131C", "light": "#F1F5F9", "description": "Controls, wells, sub-sections" },
+      "raised": { "dark": "#1A212D", "light": "#FFFFFF", "description": "Popovers, drawers, graph nodes" },
+      "hover": { "dark": "#222B3A", "light": "#E2E8F0", "description": "Row and control hover" },
+      "graph_bg": { "dark": "#090C12", "light": "#FBFBF9", "description": "Graph and trajectory canvas background" }
+    }
   },
-  "color_palette": {
-    "dark_mode": {
-      "layer_0_canvas": "#0B0E14",
-      "layer_1_surface": "#121721",
-      "layer_2_surface_raised": "#1A212D",
-      "layer_3_overlay": "#222B3A",
-      "border_subtle": "rgba(255, 255, 255, 0.08)",
-      "border_default": "rgba(255, 255, 255, 0.14)",
-      "border_focus": "#38BDF8",
-      "text_primary": "#F1F5F9",
-      "text_secondary": "#94A3B8",
-      "text_tertiary": "#64748B",
-      "accent_primary": "#F59E0B",
-      "accent_primary_hover": "#D97706",
-      "accent_cyan": "#06B6D4",
-      "accent_emerald": "#10B981",
-      "severity": {
-        "critical": { "bg": "#451218", "border": "#991B1B", "text": "#FCA5A5", "glyph_fill": "#EF4444" },
-        "high": { "bg": "#3B1E08", "border": "#9A3412", "text": "#FDBA74", "glyph_fill": "#F97316" },
-        "medium": { "bg": "#322D08", "border": "#854D0E", "text": "#FDE047", "glyph_fill": "#EAB308" },
-        "low": { "bg": "#0B2D2B", "border": "#115E59", "text": "#99F6E4", "glyph_fill": "#14B8A6" },
-        "info": { "bg": "#0F2840", "border": "#1E40AF", "text": "#93C5FD", "glyph_fill": "#3B82F6" },
-        "unknown": { "bg": "#1E293B", "border": "#475569", "text": "#CBD5E1", "glyph_fill": "#94A3B8" }
-      },
-      "disposition": {
-        "malicious": "#EF4444",
-        "suspicious": "#F97316",
-        "common": "#3B82F6",
-        "unknown": "#94A3B8",
-        "clean": "#10B981"
-      }
+  "colors": {
+    "brand_signal": { "dark": "#F59E0B", "light": "#B45309", "name": "Kinetic Amber" },
+    "secondary_signals": {
+      "cyan": "#06B6D4",
+      "mint": "#10B981",
+      "purple": "#A855F7"
     },
-    "light_mode": {
-      "layer_0_canvas": "#F8FAFC",
-      "layer_1_surface": "#FFFFFF",
-      "layer_2_surface_raised": "#F1F5F9",
-      "layer_3_overlay": "#E2E8F0",
-      "border_subtle": "#E2E8F0",
-      "border_default": "#CBD5E1",
-      "border_focus": "#0284C7",
-      "text_primary": "#0F172A",
-      "text_secondary": "#475569",
-      "text_tertiary": "#64748B",
-      "accent_primary": "#D97706",
-      "accent_primary_hover": "#B45309",
-      "accent_cyan": "#0891B2",
-      "accent_emerald": "#059669",
-      "severity": {
-        "critical": { "bg": "#FEF2F2", "border": "#FECACA", "text": "#991B1B", "glyph_fill": "#DC2626" },
-        "high": { "bg": "#FFEDD5", "border": "#FED7AA", "text": "#9A3412", "glyph_fill": "#EA580C" },
-        "medium": { "bg": "#FEF9C3", "border": "#FEF08A", "text": "#854D0E", "glyph_fill": "#CA8A04" },
-        "low": { "bg": "#CCFBF1", "border": "#99F6E4", "text": "#115E59", "glyph_fill": "#0D9488" },
-        "info": { "bg": "#EFF6FF", "border": "#BFDBFE", "text": "#1E40AF", "glyph_fill": "#2563EB" },
-        "unknown": { "bg": "#F1F5F9", "border": "#E2E8F0", "text": "#334155", "glyph_fill": "#64748B" }
-      },
-      "disposition": {
-        "malicious": "#DC2626",
-        "suspicious": "#EA580C",
-        "common": "#2563EB",
-        "unknown": "#64748B",
-        "clean": "#059669"
-      }
+    "forbidden_colors": [
+      "#7351B7",
+      "#1B93A4"
+    ],
+    "priority_ladder": {
+      "P1": { "rank": 1, "name": "CRITICAL", "fill_dark": "#EF4444", "fill_light": "#DC2626", "glyph": "▰▰▰▰" },
+      "P2": { "rank": 2, "name": "HIGH", "fill_dark": "#F97316", "fill_light": "#EA580C", "glyph": "▰▰▰▱" },
+      "P3": { "rank": 3, "name": "MEDIUM", "fill_dark": "#EAB308", "fill_light": "#CA8A04", "glyph": "▰▰▱▱" },
+      "P4": { "rank": 4, "name": "LOW", "fill_dark": "#14B8A6", "fill_light": "#0D9488", "glyph": "▰▱▱▱" },
+      "P5": { "rank": 5, "name": "INFO", "fill_dark": "#94A3B8", "fill_light": "#64748B", "glyph": "▱▱▱▱" }
+    },
+    "epistemic_vocabulary": {
+      "EVIDENCE_PRESENT": { "glyph": "◆", "token": "--nx-ep-present", "color": "#10B981", "border": "solid 1px" },
+      "NO_EVIDENCE": { "glyph": "◇", "token": "--nx-ep-none", "color": "#94A3B8", "border": "dashed 1px" },
+      "UNKNOWN": { "glyph": "?", "token": "--nx-ep-unknown", "color": "#EAB308", "border": "dotted 1px" },
+      "NOT_RUN": { "glyph": "○", "token": "--nx-ep-notrun", "color": "#64748B", "border": "dashed 1px" },
+      "CAPABILITY_UNAVAILABLE": { "glyph": "⊘", "token": "--nx-ep-nocap", "color": "#F87171", "border": "solid 1px" }
     }
   },
   "typography": {
-    "heading_font_family": "'Cabinet Grotesk', 'Outfit', system-ui, -apple-system, sans-serif",
-    "body_font_family": "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    "mono_font_family": "'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace",
-    "scale": {
-      "page_title": { "size": "1.5rem (24px)", "weight": "700", "line_height": "1.25", "letter_spacing": "-0.02em" },
-      "section_title": { "size": "1.125rem (18px)", "weight": "600", "line_height": "1.3", "letter_spacing": "-0.01em" },
-      "card_title": { "size": "0.9375rem (15px)", "weight": "600", "line_height": "1.35", "letter_spacing": "0em" },
-      "table_header": { "size": "0.6875rem (11px)", "weight": "700", "line_height": "1.4", "letter_spacing": "0.08em", "transform": "uppercase" },
-      "table_cell": { "size": "0.8125rem (13px)", "weight": "400", "line_height": "1.4", "letter_spacing": "0em" },
-      "technical_value": { "size": "0.75rem (12px)", "weight": "500", "line_height": "1.4", "letter_spacing": "0em", "font": "mono" },
-      "badge": { "size": "0.6875rem (11px)", "weight": "600", "line_height": "1.2", "letter_spacing": "0.04em" },
-      "kpi_number": { "size": "1.75rem (28px)", "weight": "700", "line_height": "1.1", "letter_spacing": "-0.03em", "font": "mono" },
-      "caption": { "size": "0.6875rem (11px)", "weight": "400", "line_height": "1.35", "letter_spacing": "0.01em" }
+    "display": "Outfit, sans-serif",
+    "body": "IBM Plex Sans, sans-serif",
+    "technical": "JetBrains Mono, monospace",
+    "forbidden_fonts": ["Inter", "Roboto", "Open Sans", "Space Grotesk"],
+    "hierarchy": {
+      "h1": "text-2xl font-bold tracking-tight",
+      "h2": "text-xl font-semibold tracking-tight",
+      "h3": "text-lg font-medium",
+      "body": "text-xs font-normal leading-relaxed",
+      "machine_fact": "font-mono text-xs tracking-wide"
     }
   },
-  "spacing_and_density": {
-    "default_mode": "compact_soc",
-    "compact_soc": {
-      "table_row_height": "36px",
-      "cell_padding_y": "6px",
-      "cell_padding_x": "12px",
-      "container_gap": "12px",
-      "panel_padding": "12px 16px"
+  "layouts": {
+    "investigation_canvas": {
+      "structure": "3-pane high-density grid",
+      "grid_template_columns": "260px 1fr 340px",
+      "left_pane": "Device Activity Inventory & Lane Filters",
+      "center_pane": "Interactive Multi-lane Timeline Canvas (System, Process, File, Network, Registry)",
+      "right_pane": "Activity Details & Context-Preserving Pivots"
     },
-    "comfortable": {
-      "table_row_height": "44px",
-      "cell_padding_y": "10px",
-      "cell_padding_x": "16px",
-      "container_gap": "20px",
-      "panel_padding": "16px 20px"
+    "zero_device_state": {
+      "rendering_rule": "First-class screen state displaying exact backend status (no_matching_evidence)",
+      "action_bridge": "Provide operational link to IRG shadow observations (v2_shadow_observations)"
     }
   },
-  "component_specifications": {
-    "severity_indicator": {
-      "description": "Encodes rank using shape glyph + label + color for multi-sensory colorblind accessibility.",
-      "ranks": {
-        "critical": { "glyph": "▲▲▲", "label": "CRITICAL", "blocks": 3 },
-        "high": { "glyph": "▲▲", "label": "HIGH", "blocks": 2 },
-        "medium": { "glyph": "▲", "label": "MEDIUM", "blocks": 1 },
-        "low": { "glyph": "●", "label": "LOW", "blocks": 1 },
-        "info": { "glyph": "ℹ", "label": "INFO", "blocks": 0 },
-        "unknown": { "glyph": "–", "label": "UNKNOWN", "blocks": 0 }
-      }
-    },
-    "epistemic_badges": {
-      "description": "LOCKED product-differentiator vocabulary. Expresses exact truth state without fallback sample data.",
-      "states": {
-        "EVIDENCE_PRESENT": { "symbol": "◆", "label": "EVIDENCE PRESENT", "color_dark": "#38BDF8", "color_light": "#0284C7" },
-        "NO_EVIDENCE": { "symbol": "◇", "label": "NO EVIDENCE", "color_dark": "#94A3B8", "color_light": "#64748B" },
-        "UNKNOWN": { "symbol": "?", "label": "UNKNOWN", "color_dark": "#F59E0B", "color_light": "#D97706" },
-        "NOT_RUN": { "symbol": "○", "label": "NOT RUN", "color_dark": "#64748B", "color_light": "#94A3B8" },
-        "CAPABILITY_UNAVAILABLE": { "symbol": "⊘", "label": "CAPABILITY UNAVAILABLE", "color_dark": "#EF4444", "color_light": "#DC2626" }
-      }
-    },
-    "relationship_grammar": {
-      "description": "Strict edge rendering rules for Evidence Graph and Attack Story. No glowing directional arrows unless backed by evidence.",
-      "grammar": {
-        "OBSERVED": { "stroke": "solid", "width": "2px", "color": "#94A3B8", "marker": "none", "semantic": "Direct telemetry observation" },
-        "SUPPORTED": { "stroke": "solid", "width": "2.5px", "color": "#10B981", "marker": "evidence_badge_icon", "semantic": "Verified by hard evidence artifact" },
-        "INFERRED": { "stroke": "dashed", "width": "2px", "color": "#F59E0B", "marker": "dash_array_6_4", "semantic": "Algorithmically inferred connection" },
-        "POSSIBLE": { "stroke": "dotted", "width": "1.5px", "color": "#06B6D4", "marker": "dot_array_2_4", "semantic": "Hypothetical or potential link" },
-        "UNKNOWN_GAP": { "stroke": "broken_neutral", "width": "1px", "color": "#64748B", "marker": "gap_icon", "semantic": "Telemetry gap or unmonitored hop" },
-        "CONTRADICTED": { "stroke": "line_through", "width": "2px", "color": "#EF4444", "marker": "strike_cross", "semantic": "Explicitly disproved or contradicted link" }
-      }
-    },
-    "graph_node": {
-      "states": {
-        "default": "Dark glass fill (#121721), 1px subtle border, type icon, label, disposition dot.",
-        "aggregate": "Carries count badge (e.g., '9 Processes'), distinct double-ring outline.",
-        "selected": "2px bright border (#38BDF8), glow pulse halo, auto-loads Evidence Inspector.",
-        "hover": "Elevated layer z-index, highlighted connecting edges, tooltip preview.",
-        "gap": "Dashed border (#64748B), 'GAP' status pill, diagnostic recommendation."
-      }
-    },
-    "kpi_lens_tile": {
-      "states": {
-        "default": "Background Layer 1, 1px border, metric value, subtext, indicator dot.",
-        "active": "Border highlight (#F59E0B), subtle accent left rail (3px), active queue filter indicator.",
-        "hover": "Translate Y -1px, shadow elevation, text-primary glow."
-      }
-    },
-    "evidence_inspector_row": {
-      "structure": "2-column layout. Left: Uppercase Monospace Label (35% width, color tertiary). Right: Selectable Monospace Value (65% width, text primary).",
-      "empty_state": "Select any technique, process, event, command, finding, or entity to inspect authoritative evidence."
-    },
-    "not_implemented_block": {
-      "badge": "FUTURE / NOT IMPLEMENTED",
-      "style": "Subtle hatched background pattern, muted text, disabled CTA with explanatory tooltip."
-    }
+  "grids": {
+    "dashboard_mode": "High Density Grid (MODE B)",
+    "columns": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
+    "gap": "gap-3"
   },
-  "layout_blueprints": {
-    "1_incident_queue": {
-      "path": "/xdr/incidents",
-      "hierarchy_question_order": [
-        "1. What is the scope and severity of active threats? (KPI Lens Strip: Critical, High, Unassigned, My Queue, SLA Risk)",
-        "2. Which incidents need immediate action? (Filtered Dense Incidents Table with State Counts)",
-        "3. What are the key details without losing context? (Right-side Slide-over Incident Preview Drawer)"
-      ],
-      "layout_structure": {
-        "top": "Header + KPI Lens Strip (5 active count tiles) + Quick Filters Bar (Assignee, Severity, Verdict, Source)",
-        "main": "Full-width Incident Queue Table with custom density toggle, state tabs (All 198 / New 191 / In Progress 7 / On Hold / Resolved / Closed)",
-        "drawer": "Slide-over panel (450px) showing selected incident summary, attack timeline, affected assets, and instant action buttons."
-      }
-    },
-    "2_incident_investigation_record": {
-      "path": "/xdr/incidents/:id",
-      "hierarchy_question_order": [
-        "1. What happened & what is affected? (Header + Lifecycle Rail + Stat Strip: Evidence, Alerts, Hosts, Users, Files, MITRE)",
-        "2. Why is it suspicious? (Verdict Arithmetic Matrix + Key Contributor Findings)",
-        "3. Show evidence & allow response! (Tabbed Workbench with Inspector and Action Toolbar)"
-      ],
-      "tab_reorganization_solution": {
-        "problem": "12 flat tabs carry no counts and overwhelm the analyst.",
-        "solution_4_groups": [
-          { "group": "Narrative & Graph", "tabs": ["Attack Story", "Attack Graph"], "default": "Attack Story" },
-          { "group": "Technical & Evidence", "tabs": ["Technical", "Evidence", "Timeline"], "default_tab": "Technical" },
-          { "group": "Activity & MITRE", "tabs": ["Investigation Activity", "MITRE", "Related"], "default_tab": "Investigation Activity" },
-          { "group": "Management & Report", "tabs": ["Executive", "Report", "Notes", "Closure"], "default_tab": "Executive" }
-        ]
-      }
-    },
-    "3_attack_story_and_evidence_graph": {
-      "path": "/xdr/incidents/:id (Tab: Attack Story / Attack Graph)",
-      "hierarchy_question_order": [
-        "1. Chronological narrative (Left Alert Timeline Rail)",
-        "2. Relationship visualization (Center Canvas with explicit Relationship Grammar)",
-        "3. Authoritative evidence inspection (Right Evidence Inspector - zero fabricated data)"
-      ],
-      "layout_columns": "320px Left Alert Timeline Rail | Flexible Center Graph/Story Canvas | 360px Right Evidence Inspector",
-      "diagnostics_bar": "Displays Attack Chain Completeness, Evidence Coverage, MITRE Coverage, Telemetry Coverage, Telemetry Gaps."
-    },
-    "4_mss_dashboard": {
-      "path": "/xdr/mss",
-      "hierarchy_question_order": [
-        "1. What is the current threat & posture delta across tenants? (Top KPI Metric Cards)",
-        "2. Which tenant requires immediate SOC intervention? (Customer Operations Grid & SLA Alert Matrix)",
-        "3. How are automated investigations performing? (Detection & Auto-Investigation Overview)"
-      ],
-      "layout_grid": "Top 10 KPI Cards -> 2/3 Customer Tenant Operations Matrix + 1/3 Recent Activity & Threat Feed -> Full-width Detection Overview"
-    }
+  "visual_enhancers": {
+    "borders": "1px solid rgba(255, 255, 255, 0.08) in dark mode, #E2E8F0 in light mode",
+    "elevation": "Subtle ambient shadows; no dark color gradients",
+    "glassmorphism": "backdrop-blur-md bg-[#121721]/80 border-white/10"
   },
-  "verdict_arithmetic_visibility": {
-    "concept": "Expose exact contributor-by-contributor score derivation when authoritative backend contributor data exists.",
-    "ui_pattern": "Interactive breakdown box showing Base Score + Contributor Modifiers (e.g. +35 Anomaly Detection, +25 Lateral Movement, +20 Malicious Hash) = Final Severity Score."
+  "motion": {
+    "transitions": "transition-colors duration-150 ease-in-out, transition-opacity duration-150 ease-in-out",
+    "forbidden_transitions": "transition: all",
+    "prefers_reduced_motion": "Respect user prefers-reduced-motion media query"
   },
-  "motion_and_interactions": {
-    "hover_transition": "all 150ms cubic-bezier(0.4, 0, 0.2, 1) excluding transforms",
-    "drawer_slide_in": "transform 250ms cubic-bezier(0.16, 1, 0.3, 1)",
-    "graph_node_focus": "stroke-dashoffset 300ms ease, opacity 200ms ease",
-    "reduced_motion": "@media (prefers-reduced-motion: reduce) { transition: none !important; animation: none !important; }"
+  "accessibility": {
+    "apca_contrast": "Minimum 4.5:1 for normal text, 3:1 for large/interactive elements",
+    "epistemic_redundancy": "Glyph + text label + color contrast; never rely on color alone",
+    "keyboard_navigation": "Full arrow key, tab, and shortcut navigation on canvas and queue"
   },
-  "accessibility_and_contrast": {
-    "standards_target": "WCAG 2.1 AA / APCA >= 60 Lc for body text, >= 45 Lc for large text/badges.",
-    "focus_ring": "2px solid #38BDF8 (Dark) or #0284C7 (Light), offset 2px.",
-    "colorblind_support": "Every severity, disposition, and epistemic badge uses shape glyphs (▲, ◆, ○, ⊘, ℹ) and text labels alongside color."
+  "media": {
+    "icons": "Lucide React & Phosphor Icons",
+    "image_constraints": "max-h-[80vh] md:max-h-none on responsive views"
   },
-  "reject_list_anti_patterns": {
-    "forbidden_ui_patterns": [
-      "Flat near-black slab with no border or depth separation",
-      "Generic violet/purple SaaS gradient pills",
-      "ASCII tree glyphs (└──) instead of crisp SVG structural trees or real HTML indentation",
-      "Low-contrast dark grey labels on black background",
-      "All-uppercase monospace text for every label making visual hierarchy impossible",
-      "Uniform row rhythm without metric grouping or progressive disclosure",
-      "Full-bleed inputs with no distinct field background or border affordance",
-      "Glowing directional arrows implying causality where only correlation exists",
-      "Fabricated mock backend data or sample values when real evidence is missing"
-    ]
+  "3d_libraries": {
+    "r3f": "React Three Fiber / Drei for 3D attack topology visualization where applicable",
+    "canvas": "2D HTML5 Canvas / SVG for microsecond timeline replay"
   },
+  "component_name": "NivXForge EDR & Dynamic Sandbox Console",
   "image_urls": {
-    "cyber_soc_dark_monitors": "https://images.unsplash.com/photo-1662638600476-d563fffbb072?crop=entropy&cs=srgb&fm=jpg&q=85",
-    "analyst_terminal": "https://images.unsplash.com/photo-1620825937374-87fc7d6bddc2?crop=entropy&cs=srgb&fm=jpg&q=85",
-    "threat_analytics_screen": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=srgb&fm=jpg&q=85",
-    "security_status_dashboard": "https://images.unsplash.com/photo-1751448555253-f39c06e29d82?crop=entropy&cs=srgb&fm=jpg&q=85"
+    "brand_logo": { "category": "branding", "description": "NivXRay XDR / NivXForge EDR logo mark" }
   },
-  "instructions_to_main_agent": [
-    "Strictly follow the color tokens and typography scale defined above.",
-    "Ensure all interactive components include data-testid attributes.",
-    "Support both dark (default) and light themes cleanly via the .xdr-console data-nx-theme attribute.",
-    "Never replace missing evidence with fake mock data; render the official epistemic badge (◆ EVIDENCE PRESENT, ◇ NO EVIDENCE, ? UNKNOWN, ○ NOT RUN, ⊘ CAPABILITY UNAVAILABLE).",
-    "Implement the locked relationship grammar on all Evidence Graphs and Attack Stories."
+  "data_testid_convention": "kebab-case role-based attributes (e.g. data-testid=\"xdr-trajectory-lane-process\")",
+  "edr_target_ux_architecture": {
+    "navigation_spine": "Incident -> Endpoint Entity -> NivXForge EDR -> Device Trajectory",
+    "trajectory_resolver": "/edr/trajectory redirects to /xdr/endpoints/:device/trajectory with resolved device_iid or INFERRED hostname",
+    "availability_tiers": {
+      "live_now": ["EDR Overview", "Endpoint Fleet", "Detections Queue", "Detection Detail", "Incidents", "Device Trajectory", "Process Tree", "Vulnerabilities & Exposure", "Threat Intelligence", "Detection Engineering", "MITRE Matrix", "Attack Story", "Evidence Vault", "Investigation Pivots"],
+      "design_ready": ["Entity 360", "Device Timeline", "Process Detail", "Files", "File Detail", "Network", "DNS", "Registry", "Services", "Users & Sessions", "Persistence", "Threat Hunting", "Live Query", "Forensics", "Memory", "Response Command Center", "Host Isolation", "Quarantine Vault", "Remote Terminal"],
+      "future": ["Agent Management", "Telemetry Health", "Policies & Config", "UEBA / UBAE Context"]
+    }
+  },
+  "sandbox_target_ux_architecture": {
+    "staging_model": "Static Analysis & 59 Decoders = LIVE NOW; Hypervisor Detonation = DESIGN ONLY",
+    "demarcation_banner": "⚠️ REPRESENTATIVE / PROTOTYPE DATA — Operational UI/UX Contract for Sandbox Implementation",
+    "honest_rendering": "Do not emit synthetic syscalls or mock process trees in dynamic tabs"
+  },
+  "design_decisions": {
+    "visual_identity": "Deterministic Obsidian & Kinetic Amber token system",
+    "vendor_synthesis": "Microsoft information density + Cisco progressive disclosure + CrowdStrike process tree + Cortex XDR causality + SentinelOne operations clarity + ANY.RUN interactive analysis",
+    "anti_patterns_rejected": "No fake telemetry, no duplicate trajectory surfaces, no second reasoning engine, no color collapse on priority chips"
+  },
+  "implementation_sequencing": [
+    "Phase 1: Register /edr/trajectory as Resolver Route pointing to /xdr/endpoints/:device/trajectory and render Zero-Device honest state.",
+    "Phase 2: Enhance Device Trajectory 3-pane canvas with device_iid vs INFERRED hostname badge and IRG shadow observation linking.",
+    "Phase 3: Connect Sandbox Static Analysis report to operational 59-Decoder Feedback loop while maintaining DESIGN-ONLY banners on VM tabs."
+  ],
+  "instructions_to_main_agent": "Strictly follow the dual-theme token system in nx-theme.css. Ensure all 37 EDR surfaces render appropriate availability tiers (LIVE NOW or ⊘ CAPABILITY UNAVAILABLE). Do not fabricate endpoints, telemetry, or sandbox executions. Every interactive element must carry a data-testid attribute.",
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Do not use dark color gradients.",
+    "Never use Inter or Space Grotesk for headings.",
+    "Do not center-align app containers.",
+    "Every machine-emitted fact must use monospaced font.",
+    "Ensure all interactive elements have data-testid attributes.",
+    "Never create mock endpoint devices or mock telemetry when none exist in backend."
   ]
 }

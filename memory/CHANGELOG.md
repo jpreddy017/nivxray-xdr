@@ -6248,3 +6248,64 @@ Contract §5 out-of-scope discipline held.
 **Next slice · P0.15C-3** — Jump-to-Source overlay
 (click command → open image → highlight
 `provenance.bounding_box`).  Bbox data already emitted by VEEE.
+
+---
+
+## 2026-09-05 · NivXForge EDR + Sandbox Existing-Asset Reconciliation (audit + design only, NO code changes)
+
+**Owner instruction**: reconcile what already exists in the AG export / project
+BEFORE fixing the Device Trajectory routing defect or resuming the Investigation
+UI redesign. No premature implementation, no mock telemetry, no fabricated
+endpoint or sandbox data.
+
+### Evidence-backed findings
+- **AG export == this repository.** `01_COMPLETE_SOURCE/` diffs clean against
+  live `/app` apart from this session's own edits. Every EDR/Sandbox *code* file
+  in `07_EDR/EDR_MANIFEST.json` (199) and `08_SANDBOX/SANDBOX_MANIFEST.json` (17)
+  is `PRE_EXISTING`; every `AG_CREATED` file is documentation or the single-file
+  HTML prototype. **There was no hidden EDR/Sandbox codebase to merge.**
+- **EDR is runtime-empty.** `GET /api/edr/endpoints` → `count:0`,
+  `note:"no_matching_evidence"`. Mongo: 484 `workspace_cases`, 209 with
+  `ssot.investigation_object`, **0** with `.host`, **0** with `.device.hostname`.
+  `_extract_host()` therefore returns `None` for every document → the Device
+  Trajectory canvas has never had a device to render. The prior AG truth audit's
+  `IMPLEMENTED` status for Device Trajectory / Process Tree is **code-existence
+  only** and is superseded on that point.
+- **The real device substrate is elsewhere.** `v2_shadow_observations`: 639 docs
+  / 36 cases, `process_iid` 639/639, **`event.device_iid` 223/639**, with kinds
+  covering process / file / registry / network / service / memory / kernel. The
+  endpoint plane is reading the wrong substrate.
+- **Sandbox = DESIGN + PROTOTYPE ONLY.** No sandbox router, VM orchestrator or
+  detonation service exists anywhere in `/app/backend`. What is real: the 6
+  static analyzers (`artifact_intelligence/analyzers/`), the 59-decoder chain,
+  IOC + ATT&CK mapping.
+- **Device Trajectory defect is two defects.** (1) `/edr/trajectory` is not
+  registered in `App.jsx` → falls through `<Route path="*">` → `/xdr/incidents`;
+  7 call sites dead-end there. (2) Even the live canvas path cannot resolve a
+  device because the UI binds to the empty SSOT host field instead of
+  `device_iid`. → Correction first (routing + identity binding), extension second.
+- `/api/edr/*` scopes by `user_email` only, not the `resolve_tenant_scope()`
+  helper used by the fixed incident queue.
+
+### Deliverables written (`/app/docs/uiux/`)
+- `NIVXFORGE_EDR_SANDBOX_CURRENT_STATE_AND_INDUSTRY_PARITY.md`
+- `NIVXFORGE_EDR_SANDBOX_CAPABILITY_GAP_MATRIX.md`
+- `NIVXFORGE_EDR_SANDBOX_IMPLEMENTATION_ROADMAP.md`
+- `NIVXFORGE_EDR_TARGET_UX_ARCHITECTURE.md` (design agent · 37-surface availability tiers)
+- `NIVXFORGE_SANDBOX_TARGET_UX_ARCHITECTURE.md` (design agent · staged DESIGN-ONLY shell)
+- `NIVXFORGE_EDR_SANDBOX_DESIGN_DECISIONS.md` (design agent · reuse/extend/reject log)
+
+Design-agent P4 colour error corrected in place: priority ladder is fixed by
+owner mandate at P1 `#EF4444` / P2 `#F97316` / P3 `#EAB308` / P4 `#3B82F6` **blue**
+per `nx-theme.css:132-136`; the proposed `#14B8A6` teal was rejected.
+
+### Agreed sequencing (not yet implemented)
+1. **Phase 1** — resolver route + Device Identity Resolution over the existing
+   223 `device_iid`s + tenant-scope correction + first-class zero-device state.
+2. **Phase 2** — file / network / registry / services lanes + causality canvas +
+   Entity 360 + trajectory scrubber (all projections over IRG kinds already persisted).
+3. **Phase 3** — event search, response execution truth pass, and the Sandbox
+   "Static Detonation Report" (real static half shipped; dynamic tabs render ⊘).
+4. Phases 4–6 — forensics/live-query/memory, dynamic sandbox, agent plane.
+
+**Deferred unchanged**: queue bulk actions, saved searches, number deep links.
