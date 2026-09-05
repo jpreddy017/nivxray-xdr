@@ -6643,3 +6643,41 @@ clamps to the **day**, not the extent.
 Still open: the ribbon-dot highlight when an event is clicked on the canvas
 (the second half of the two-way binding), and P1.4 Entity 360 → P1.5 Compromise
 Band → P1.6 Events Ledger → P1.7 Sandbox Bridge.
+
+## 2026-09-05 · Removed the caliper widget — it was my invention, not AMP
+
+Owner: "that green bounding box with dual-end triangle calipers is an arbitrary
+custom canvas-brush widget. It does not exist in Cisco Secure Endpoint."
+Correct. I had been iterating on my own scrubber metaphor instead of AMP's.
+
+**Removed**
+- The mint outline bounding box around the active window.
+- The top/bottom triangle calipers (▲▼) at both window edges — 0 `<polygon>`
+  elements remain in the hour ribbon (asserted).
+- The `2026-02-25 · 00:00:00Z → 24:00:00Z (full day)` label line and its now-dead
+  `windowLabel` memo.
+
+**Replaced with the AMP model**
+- Unselected span is masked with **diagonal hatching** (SVG `<pattern>`,
+  45°, over a dark fill). The active window is simply left **clear** — no
+  outline, no fill, no border.
+- A single **vertical cursor line** marks the active timestamp, driven by the
+  selected event (`cursorTs`, derived from `selectedId`), rendered only when
+  that timestamp falls inside the displayed day.
+- Selected day on the 30-day ribbon is now a **solid dark-blue fill**
+  (`#1d3557` / `#2e5d8f` border) instead of a mint outline; its date label
+  brightens rather than turning mint.
+- Drag remains available but **unpainted**: transparent 10px edge targets for
+  resize and a transparent band target for shift. The interaction survives;
+  the widget chrome does not.
+
+**Verified on WKS-01**: label element count 0 · caliper polygons 0 · hatch
+pattern present · cursor line present after a dot click · `27 / 27 events` ·
+right-edge drag still changes the window. Activity Details still populated with
+persisted values (`wininit.exe` · `C:\Windows\System32\wininit.exe` ·
+`CORP\alice` · `case_golden_clean_workstation_fc1…`).
+
+**Outstanding from this directive** (not built, not claimed): process lifelines
+with semantic glyphs stemming from horizontal process lines, the Events Ledger
+actor→target mirror, and the yellow compromise band. Lifelines remain gated on
+absent PID/PPID lineage; the Ledger and band are not gated and are next.

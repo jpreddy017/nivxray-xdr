@@ -80,7 +80,7 @@ export function searchCorpus(e) {
 export default function TrajectoryNavigator({
   events, matchedIds, query, onQueryChange,
   selectedDay, onSelectDay, viewStart, viewEnd, onWindowChange,
-  onSelectEvent,
+  onSelectEvent, cursorTs,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [dropping, setDropping] = useState(false);
@@ -232,12 +232,6 @@ export default function TrajectoryNavigator({
     }));
   }, [hourEvents, dayStart, matchedIds]);
 
-  /** Full-day windows must not print "00:00:00Z → 00:00:00Z". */
-  const windowLabel = useMemo(() => {
-    const iso = (ms) => new Date(ms).toISOString().slice(11, 19);
-    if (viewStart <= dayStart && viewEnd >= dayEnd) return "00:00:00Z → 24:00:00Z (full day)";
-    return `${iso(viewStart)}Z → ${viewEnd >= dayEnd ? "24:00:00" : iso(viewEnd)}Z`;
-  }, [viewStart, viewEnd, dayStart, dayEnd]);
 
   const compiled = compileQuery(query);
 
@@ -362,8 +356,8 @@ export default function TrajectoryNavigator({
                                   + (has ? " · click to focus, double-click to fit" : "")}
                           style={{
                             height: 30, padding: 0, cursor: has ? "pointer" : "default",
-                            background: active ? "rgba(60,232,184,0.07)" : "transparent",
-                            border: `1px solid ${active ? "var(--mint)" : "#1c222e"}`,
+                            background: active ? "#1d3557" : "transparent",
+                            border: `1px solid ${active ? "#2e5d8f" : "#1c222e"}`,
                             display: "flex", flexDirection: "column",
                             alignItems: "center", justifyContent: "center", gap: 2,
                           }}
@@ -390,7 +384,7 @@ export default function TrajectoryNavigator({
             {days.map((d) => (
               <div key={d.key} className="mono"
                     style={{ fontSize: 8, textAlign: "center",
-                              color: d.ms === dayStart ? "var(--mint)" : "var(--faint)" }}>
+                              color: d.ms === dayStart ? "#cfd6e2" : "var(--faint)" }}>
                 {d.d.getUTCDate()}
               </div>
             ))}
@@ -404,11 +398,6 @@ export default function TrajectoryNavigator({
 
           {/* 4 · 24-hour ribbon for the selected day */}
           <div style={{ marginTop: 10 }}>
-            <div className="mono" style={{ fontSize: 9.5, color: "var(--cyan)",
-                                                marginBottom: 3 }}
-                  data-testid="xdr-navigator-window-label">
-              {dayKey(dayStart)} · {windowLabel}
-            </div>
             <div ref={hourRef} style={{ width: "100%" }}>
               <svg width={hourW} height={34}
                     style={{ display: "block", touchAction: "none" }}
@@ -430,31 +419,41 @@ export default function TrajectoryNavigator({
                           pointerEvents="none" />
                 ))}
 
-                {/* The UNSELECTED span is greyed; the selection stays clear. */}
+                {/* The UNSELECTED span is masked with diagonal hatching;
+                      the active window is simply left clear.  No outline,
+                      no calipers. */}
+                <defs>
+                  <pattern id="nx-nav-hatch" width="6" height="6"
+                            patternUnits="userSpaceOnUse"
+                            patternTransform="rotate(45)">
+                    <rect width="6" height="6" fill="rgba(10,13,19,0.82)" />
+                    <line x1="0" y1="0" x2="0" y2="6"
+                          stroke="rgba(120,132,150,0.30)" strokeWidth="1.4" />
+                  </pattern>
+                </defs>
                 <rect x={PAD} y={6} width={Math.max(0, xs - PAD)} height={26}
-                      fill="rgba(12,16,23,0.78)" pointerEvents="none" />
+                      fill="url(#nx-nav-hatch)" pointerEvents="none" />
                 <rect x={xe} y={6} width={Math.max(0, PAD + innerW - xe)} height={26}
-                      fill="rgba(12,16,23,0.78)" pointerEvents="none" />
+                      fill="url(#nx-nav-hatch)" pointerEvents="none" />
 
-                {/* Band drag target — 1px edges only, no fill slab. */}
+                {/* Invisible drag targets: band shifts, edges resize. */}
                 <rect x={xs} y={6} width={Math.max(1, xe - xs)} height={26}
-                      fill="transparent" stroke="var(--mint)" strokeWidth={0.8}
+                      fill="transparent"
                       style={{ cursor: "grab" }} onPointerDown={down("band")}
                       data-testid="xdr-navigator-band" />
-
-                {/* Triangle handles above and below, as in AMP. */}
                 {[["left", xs], ["right", xe]].map(([side, x]) => (
-                  <g key={side}>
-                    <polygon points={`${x - 4.5},0 ${x + 4.5},0 ${x},6`}
-                              fill="var(--mint)" />
-                    <polygon points={`${x - 4.5},34 ${x + 4.5},34 ${x},28`}
-                              fill="var(--mint)" />
-                    <rect x={x - 5} y={0} width={10} height={34}
-                          fill="transparent" style={{ cursor: "ew-resize" }}
-                          onPointerDown={down(side)}
-                          data-testid={`xdr-navigator-handle-${side}`} />
-                  </g>
+                  <rect key={side} x={x - 5} y={0} width={10} height={34}
+                        fill="transparent" style={{ cursor: "ew-resize" }}
+                        onPointerDown={down(side)}
+                        data-testid={`xdr-navigator-handle-${side}`} />
                 ))}
+
+                {/* Active-timestamp cursor line. */}
+                {cursorTs != null && cursorTs >= dayStart && cursorTs < dayEnd && (
+                  <line x1={xOfHour(cursorTs)} y1={2} x2={xOfHour(cursorTs)} y2={32}
+                        stroke="#cfd6e2" strokeWidth={1.2} pointerEvents="none"
+                        data-testid="xdr-navigator-cursor" />
+                )}
 
                 {/* Clickable dot targets on top. */}
                 {hourDots.map((d) => (

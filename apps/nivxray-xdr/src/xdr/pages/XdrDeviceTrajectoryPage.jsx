@@ -174,6 +174,12 @@ export default function XdrDeviceTrajectoryPage() {
 
   // A search narrows what the canvas and grids show; an empty or
   // invalid query narrows nothing.
+  const cursorTs = useMemo(() => {
+    const sel = events.find((e) => e.id === selectedId);
+    const t = sel ? new Date(sel.timestamp).getTime() : NaN;
+    return Number.isFinite(t) ? t : null;
+  }, [events, selectedId]);
+
   const canvasEvents = useMemo(() => (
     query && matchedIds.size > 0
       ? eventsInView.filter((e) => matchedIds.has(e.id))
@@ -493,6 +499,7 @@ export default function XdrDeviceTrajectoryPage() {
                 viewEnd={viewEnd}
                 onWindowChange={applyView}
                 onSelectEvent={(e) => setSelectedId(e.id)}
+                cursorTs={cursorTs}
               />
               <div style={{ height: 8 }} />
               <TrajectoryTimelineCanvas
