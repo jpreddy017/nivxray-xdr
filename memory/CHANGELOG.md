@@ -6509,3 +6509,40 @@ and this substrate has **0 resolvable lineage edges and no PIDs** (see the P1.2
 entry). Lifelines will therefore render as independent per-artifact rows with no
 branching until lineage-complete telemetry exists — the rows are honest, the
 branches cannot be drawn without fabrication.
+
+## 2026-09-05 · Navigator fixes from owner screenshot + AMP doc details
+
+**Bug the owner caught**: selecting a day rendered the window label as
+`00:00:00Z → 00:00:00Z`, because the end of a full day is midnight of the NEXT
+day and I sliced both to `HH:mm:ss`. Now prints
+`00:00:00Z → 24:00:00Z (full day)`. Verified on WKS-01.
+
+**Dot sizing (AMP doc: "the size of the dots are relative to the number of
+events per day")** — previously every dot was a fixed 5px, so 27 observations
+inside one minute rendered as a single small dot indistinguishable from one
+event. Now:
+- 30-day ribbon: compromise and search-hit dot diameters scale with their
+  per-day counts, each with a count tooltip.
+- 24-hour ribbon: observations are binned at 6-minute resolution and collapse
+  into one dot whose radius scales with the bin count. Verified: WKS-01's
+  cluster renders `r=6` with tooltip `27 observations` instead of a lone 2.2px dot.
+
+**Drag-and-drop SHA-256 (AMP doc feature I had missed)** — dropping a file on
+the search field computes its SHA-256 with `crypto.subtle` **locally** and
+inserts the digest as the query. The file is never uploaded; only the digest is
+used. Falls back to `⊘ SHA-256 unavailable — requires a secure context` rather
+than failing silently.
+
+**Honest relabel**: the `Full day` button actually snapped to the day's
+*observed* extent (13:58:58Z → 14:02:04Z), not 00:00→24:00, because the view
+clamps to the observed span. Renamed to **`Fit to observations`** so the label
+matches the behaviour. Clicking a day cell still gives the true full day.
+
+Also recorded from the AMP documentation for the upcoming lifelines work:
+IoC event series are highlighted **yellow** in the trajectory with a separate
+compromise event describing the type; clicking that compromise event highlights
+the individual triggering events with a **blue halo** and shows the indicator +
+tactics/techniques in Event Details. Search terms AMP scopes to Device
+Trajectory: detection name, SHA-256, filename, file path, URL, remote IP,
+user name, iOS bundle ID — ours covers all except URL and bundle ID, which the
+substrate does not carry.

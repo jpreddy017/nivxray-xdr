@@ -82,6 +82,32 @@ export default function TrajectoryNavigator({
   selectedDay, onSelectDay, viewStart, viewEnd, onWindowChange,
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [dropping, setDropping] = useState(false);
+  const [dropError, setDropError] = useState(null);
+
+  /** Drop a file → compute its SHA-256 locally and search for it.
+   *  The file is never uploaded; only the digest is used. */
+  const onDrop = useCallback(async (e) => {
+    e.preventDefault();
+    setDropping(false);
+    setDropError(null);
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    if (!window.crypto?.subtle) {
+      setDropError("⊘ SHA-256 unavailable — requires a secure context");
+      return;
+    }
+    try {
+      const buf = await file.arrayBuffer();
+      const digest = await window.crypto.subtle.digest("SHA-256", buf);
+      const hex = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, "0")).join("");
+      onQueryChange(hex);
+    } catch {
+      setDropError("⊘ Could not read the dropped file");
+    }
+  }, [onQueryChange]);
+
   const dayRef = useRef(null);
   const hourRef = useRef(null);
   const [hourW, setHourW] = useState(700);
@@ -127,6 +153,8 @@ export default function TrajectoryNavigator({
   }, [events, matchedIds]);
 
   const maxTotal = Math.max(1, ...days.map((d) => d.total));
+  const maxCompromise = Math.max(1, ...days.map((d) => d.compromise));
+  const maxHits = Math.max(1, ...days.map((d) => d.hits));
   const dayStart = selectedDay ?? days[days.length - 1]?.ms ?? startOfDayUTC(Date.now());
   const dayEnd = dayStart + DAY_MS;
 
@@ -170,6 +198,34 @@ export default function TrajectoryNavigator({
     return t >= dayStart && t < dayEnd;
   }), [events, dayStart, dayEnd]);
 
+  /** Bin the day's observations so overlapping dots become ONE dot
+   *  whose radius scales with the count — AMP sizes dots relative to
+   *  the number of events, and 27 observations inside one minute must
+   *  not read as a single event. */
+  const hourDots = useMemo(() => {
+    const BINS = 240;                     // 6-minute resolution
+    const bins = new Map();
+    for (const e of hourEvents) {
+      const t = new Date(e.timestamp).getTime();
+      const i = Math.min(BINS - 1, Math.floor(((t - dayStart) / DAY_MS) * BINS));
+      const hit = matchedIds?.has(e.id);
+      const k = `${i}:${hit ? 1 : 0}`;
+      if (!bins.has(k)) bins.set(k, { i, hit, n: 0, t });
+      bins.get(k).n += 1;
+    }
+    const max = Math.max(1, ...Array.from(bins.values()).map((b) => b.n));
+    return Array.from(bins.values()).map((b) => ({
+      ...b, r: 2 + Math.round((b.n / max) * 4),
+    }));
+  }, [hourEvents, dayStart, matchedIds]);
+
+  /** Full-day windows must not print "00:00:00Z → 00:00:00Z". */
+  const windowLabel = useMemo(() => {
+    const iso = (ms) => new Date(ms).toISOString().slice(11, 19);
+    if (viewStart <= dayStart && viewEnd >= dayEnd) return "00:00:00Z → 24:00:00Z (full day)";
+    return `${iso(viewStart)}Z → ${viewEnd >= dayEnd ? "24:00:00" : iso(viewEnd)}Z`;
+  }, [viewStart, viewEnd, dayStart, dayEnd]);
+
   const compiled = compileQuery(query);
 
   return (
@@ -186,20 +242,32 @@ export default function TrajectoryNavigator({
                         style={{ transform: collapsed ? "rotate(-90deg)" : "none" }} />
         </button>
         <span className="section-title" style={{ margin: 0 }}>Navigator</span>
-        <div style={{ position: "relative", flex: 1 }}>
+        <div style={{ position: "relative", flex: 1 }}
+              onDragOver={(e) => { e.preventDefault(); setDropping(true); }}
+              onDragLeave={() => setDropping(false)}
+              onDrop={onDrop}
+              data-testid="xdr-navigator-dropzone">
           <Search size={11} style={{ position: "absolute", left: 8, top: 7,
                                           color: "var(--faint)" }} />
           <input
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search Device Trajectory — /regex/gim · 10.0.0.0/24 · SHA-256 · file or process name"
+            placeholder={dropping
+              ? "Drop a file to compute its SHA-256 …"
+              : "Search Device Trajectory — /regex/gim · 10.0.0.0/24 · SHA-256 · file or process name · drop a file"}
             className="mono"
             style={{ width: "100%", padding: "4px 8px 4px 24px", fontSize: 10.5,
-                      background: "var(--panel2)", color: "var(--text)",
-                      border: "1px solid var(--border)", borderRadius: 4 }}
+                      background: dropping ? "rgba(60,232,184,0.10)" : "var(--panel2)",
+                      color: "var(--text)",
+                      border: `1px solid ${dropping ? "var(--mint)" : "var(--border)"}`,
+                      borderRadius: 4 }}
             data-testid="xdr-navigator-search"
           />
         </div>
+        {dropError && (
+          <span className="mono" style={{ fontSize: 10, color: "#ff9494" }}
+                  data-testid="xdr-navigator-drop-error">{dropError}</span>
+        )}
         {query && (
           <span className="mono" style={{ fontSize: 10,
                     color: compiled?.kind === "invalid" ? "#ff9494" : "var(--cyan)" }}
@@ -245,12 +313,16 @@ export default function TrajectoryNavigator({
                           }}
                           data-testid={`xdr-navigator-day-${d.key}`}>
                   {d.compromise > 0 && (
-                    <span style={{ width: 5, height: 5, borderRadius: "50%",
-                                    background: "#ff5b5b" }} />
+                    <span title={`${d.compromise} compromise event${d.compromise === 1 ? "" : "s"}`}
+                           style={{ width: 4 + Math.round((d.compromise / maxCompromise) * 5),
+                                    height: 4 + Math.round((d.compromise / maxCompromise) * 5),
+                                    borderRadius: "50%", background: "#ff5b5b" }} />
                   )}
                   {d.hits > 0 && (
-                    <span style={{ width: 5, height: 5, borderRadius: "50%",
-                                    background: "#3fc1e8" }}
+                    <span title={`${d.hits} search match${d.hits === 1 ? "" : "es"}`}
+                           style={{ width: 4 + Math.round((d.hits / maxHits) * 5),
+                                    height: 4 + Math.round((d.hits / maxHits) * 5),
+                                    borderRadius: "50%", background: "#3fc1e8" }}
                            data-testid={`xdr-navigator-hit-${d.key}`} />
                   )}
                 </button>
@@ -279,8 +351,7 @@ export default function TrajectoryNavigator({
             <div className="mono" style={{ fontSize: 9.5, color: "var(--cyan)",
                                                 marginBottom: 3 }}
                   data-testid="xdr-navigator-window-label">
-              {dayKey(dayStart)} · {new Date(viewStart).toISOString().slice(11, 19)}Z
-              {" → "}{new Date(viewEnd).toISOString().slice(11, 19)}Z
+              {dayKey(dayStart)} · {windowLabel}
             </div>
             <div ref={hourRef} style={{ width: "100%" }}>
               <svg width={hourW} height={40}
@@ -289,14 +360,14 @@ export default function TrajectoryNavigator({
                     data-testid="xdr-navigator-hour-ribbon">
                 <rect x={0} y={0} width={hourW} height={40} rx={3}
                       fill="var(--panel2)" stroke="var(--border)" />
-                {hourEvents.map((e) => {
-                  const t = new Date(e.timestamp).getTime();
-                  const hit = matchedIds?.has(e.id);
-                  return (
-                    <circle key={e.id} cx={xOfHour(t)} cy={hit ? 14 : 8} r={2.2}
-                            fill={hit ? "#3fc1e8" : "rgba(155,123,240,0.75)"} />
-                  );
-                })}
+                {hourDots.map((d) => (
+                  <circle key={`${d.i}-${d.hit}`}
+                          cx={PAD + ((d.i + 0.5) / 240) * innerW}
+                          cy={d.hit ? 22 : 11} r={d.r}
+                          fill={d.hit ? "#3fc1e8" : "rgba(155,123,240,0.75)"}>
+                    <title>{d.n} observation{d.n === 1 ? "" : "s"}</title>
+                  </circle>
+                ))}
                 <rect x={PAD} y={1} width={Math.max(0, xs - PAD)} height={38}
                       fill="rgba(6,8,12,0.7)" />
                 <rect x={xe} y={1} width={Math.max(0, PAD + innerW - xe)} height={38}
@@ -324,8 +395,9 @@ export default function TrajectoryNavigator({
             <div style={{ display: "flex", gap: 8, marginTop: 5 }}>
               <button className="btn" style={{ padding: "2px 7px", fontSize: 9.5 }}
                         onClick={() => onWindowChange(dayStart, dayEnd)}
+                        title="Snap the window to this day's observed activity"
                         data-testid="xdr-navigator-full-day">
-                Full day
+                Fit to observations
               </button>
               <span className="mono" style={{ fontSize: 9,
                                                   color: "var(--faint)",
