@@ -22,11 +22,15 @@ const BAND_COLORS = {
   low:           { fg: "#d4c069", bg: "rgba(212, 192, 105, 0.15)", border: "rgba(212, 192, 105, 0.35)" },
   informational: { fg: "#38bdf8", bg: "rgba(56, 189, 248, 0.15)",  border: "rgba(56, 189, 248, 0.35)" },
   benign:        { fg: "#4ade80", bg: "rgba(74, 222, 128, 0.15)",  border: "rgba(74, 222, 128, 0.35)" },
+  // Honest empty state — no fabricated verdict.
+  unknown:       { fg: "#6b7280", bg: "rgba(107, 114, 128, 0.12)", border: "rgba(107, 114, 128, 0.30)" },
 };
 
-function VerdictBadge({ band = "benign" }) {
-  const norm = String(band).toLowerCase();
-  const c = BAND_COLORS[norm] || BAND_COLORS.suspicious;
+function VerdictBadge({ band = "unknown" }) {
+  // Never render "[object Object]" — coerce non-string values to unknown honestly.
+  const norm = typeof band === "string" ? band.toLowerCase() : "unknown";
+  const c = BAND_COLORS[norm] || BAND_COLORS.unknown;
+  const label = norm === "unknown" ? "NO EVIDENCE" : norm.toUpperCase();
   return (
     <span
       data-testid={`verdict-badge-${norm}`}
@@ -46,7 +50,7 @@ function VerdictBadge({ band = "benign" }) {
       }}
     >
       <span style={{ width: 6, height: 6, borderRadius: "50%", background: c.fg }} />
-      {norm.toUpperCase()}
+      {label}
     </span>
   );
 }
@@ -78,20 +82,29 @@ export default function XdrInvestigationsListPage() {
           const resInc = await api.get("/incidents?limit=100");
           const incs = resInc?.data?.incidents || resInc?.data || [];
           if (Array.isArray(incs)) {
-            casesList = incs.map((inc) => ({
-              id: inc.id || inc.case_id,
-              case_id: inc.id || inc.case_id,
-              title: inc.name || inc.title || `Investigation ${inc.id}`,
-              verdict_band: inc.verdict_stage2?.label || inc.verdict || "suspicious",
-              device_score: inc.device_score ?? 75,
-              incident_score: inc.incident_score ?? 80,
-              event_count: inc.evidence_count || inc.event_count || 12,
-              process_count: inc.process_count || 4,
-              ikg_nodes: inc.ikg_nodes || 18,
-              ikg_edges: inc.ikg_edges || 24,
-              updated_at: inc.updated_at || inc.created_at || new Date().toISOString(),
-              source: "incidents",
-            }));
+            casesList = incs.map((inc) => {
+              // Honest coercion: verdict may be a string, an object with .label,
+              // or absent. Never render "[object Object]" or fabricate a label.
+              let bandRaw = inc.verdict_stage2?.label ?? inc.verdict;
+              if (bandRaw && typeof bandRaw === "object") {
+                bandRaw = bandRaw.label ?? bandRaw.verdict ?? null;
+              }
+              return {
+                id: inc.id || inc.case_id,
+                case_id: inc.id || inc.case_id,
+                title: inc.name || inc.title || `Investigation ${inc.id}`,
+                // §22 NO EVIDENCE → NO CLAIM: preserve null instead of fabricating.
+                verdict_band: (typeof bandRaw === "string" && bandRaw) ? bandRaw : null,
+                device_score: inc.device_score ?? null,
+                incident_score: inc.incident_score ?? null,
+                event_count: inc.evidence_count ?? inc.event_count ?? null,
+                process_count: inc.process_count ?? null,
+                ikg_nodes: inc.ikg_nodes ?? null,
+                ikg_edges: inc.ikg_edges ?? null,
+                updated_at: inc.updated_at || inc.created_at || null,
+                source: "incidents",
+              };
+            });
           }
         } catch {
           // Both failed
@@ -114,7 +127,9 @@ export default function XdrInvestigationsListPage() {
     return cases.filter((c) => {
       const id = String(c.id || c.case_id || "").toLowerCase();
       const title = String(c.title || c.name || "").toLowerCase();
-      const band = String(c.verdict_band || c.verdict || "benign").toLowerCase();
+      // Honest: preserve null (unknown) instead of coercing to "benign".
+      const bandRaw = typeof c.verdict_band === "string" ? c.verdict_band : null;
+      const band = bandRaw ? bandRaw.toLowerCase() : "unknown";
 
       const matchesQuery = !filterQuery || id.includes(filterQuery.toLowerCase()) || title.includes(filterQuery.toLowerCase());
       const matchesBand = selectedBand === "all" || band === selectedBand;
@@ -124,7 +139,10 @@ export default function XdrInvestigationsListPage() {
 
   const stats = useMemo(() => {
     const total = cases.length;
-    const critical = cases.filter(c => ["critical", "malicious"].includes(String(c.verdict_band || c.verdict || "").toLowerCase())).length;
+    const critical = cases.filter(c => {
+      const b = typeof c.verdict_band === "string" ? c.verdict_band.toLowerCase() : "";
+      return b === "critical" || b === "malicious";
+    }).length;
     const totalEvents = cases.reduce((acc, c) => acc + (c.event_count || 0), 0);
     const totalNodes = cases.reduce((acc, c) => acc + (c.ikg_nodes || 0), 0);
     return { total, critical, totalEvents, totalNodes };
@@ -348,7 +366,9 @@ export default function XdrInvestigationsListPage() {
               <tbody>
                 {filteredCases.map((c) => {
                   const caseId = c.case_id || c.id;
-                  const band = c.verdict_band || c.verdict || "benign";
+                  // Honest coercion: only accept string bands, never fabricate.
+                  const bandRaw = typeof c.verdict_band === "string" ? c.verdict_band : null;
+                  const band = bandRaw || "unknown";
                   return (
                     <tr
                       key={caseId}
