@@ -11,7 +11,7 @@
  * which is a READ-ONLY aggregation over existing workspace_cases.
  * No fake events.  Empty windows are surfaced honestly.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Loader2, HardDrive, ChevronLeft, RefreshCcw,
@@ -131,8 +131,17 @@ export default function XdrDeviceTrajectoryPage() {
     let a = Math.min(s, e);
     let b = Math.max(s, e);
     if (b - a < 1000) b = a + 1000;                    // 1s floor
-    a = Math.max(a, extent[0] - (extent[1] - extent[0]));
-    b = Math.min(b, extent[1] + (extent[1] - extent[0]));
+    // When a day is selected the Navigator owns a full 24h domain, so
+    // clamp to that day — clamping to the observed extent made the
+    // handles feel dead once the window already touched the extent.
+    if (selectedDayRef.current != null) {
+      const d0 = selectedDayRef.current;
+      a = Math.max(a, d0);
+      b = Math.min(b, d0 + 86400000);
+    } else {
+      a = Math.max(a, extent[0] - (extent[1] - extent[0]));
+      b = Math.min(b, extent[1] + (extent[1] - extent[0]));
+    }
     setView([a, b]);
   }, [extent]);
 
@@ -140,6 +149,8 @@ export default function XdrDeviceTrajectoryPage() {
 
   // ── Navigator state · day selection + scoped search ──────────────
   const [selectedDay, setSelectedDay] = useState(null);
+  const selectedDayRef = useRef(null);
+  useEffect(() => { selectedDayRef.current = selectedDay; }, [selectedDay]);
   const [query, setQuery] = useState("");
 
   const matchedIds = useMemo(() => {

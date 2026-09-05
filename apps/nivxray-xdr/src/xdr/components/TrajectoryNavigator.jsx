@@ -361,12 +361,11 @@ export default function TrajectoryNavigator({
                           title={`${d.key} · ${d.total} observation${d.total === 1 ? "" : "s"}`
                                   + (has ? " · click to focus, double-click to fit" : "")}
                           style={{
-                            height: 32, padding: 0, cursor: has ? "pointer" : "default",
-                            background: active ? "rgba(60,232,184,0.12)" : "var(--panel2)",
-                            border: `1px solid ${active ? "var(--mint)" : "var(--border)"}`,
+                            height: 30, padding: 0, cursor: has ? "pointer" : "default",
+                            background: active ? "rgba(60,232,184,0.07)" : "transparent",
+                            border: `1px solid ${active ? "var(--mint)" : "#1c222e"}`,
                             display: "flex", flexDirection: "column",
                             alignItems: "center", justifyContent: "center", gap: 2,
-                            opacity: has ? 1 : 0.45,
                           }}
                           data-testid={`xdr-navigator-day-${d.key}`}>
                   {d.compromise > 0 && (
@@ -411,62 +410,58 @@ export default function TrajectoryNavigator({
               {dayKey(dayStart)} · {windowLabel}
             </div>
             <div ref={hourRef} style={{ width: "100%" }}>
-              <svg width={hourW} height={40}
+              <svg width={hourW} height={34}
                     style={{ display: "block", touchAction: "none" }}
                     onPointerMove={move} onPointerUp={up} onPointerLeave={up}
                     data-testid="xdr-navigator-hour-ribbon">
-                <rect x={0} y={0} width={hourW} height={40} rx={3}
-                      fill="var(--panel2)" stroke="var(--border)" />
+                {/* 24 bordered hour cells, matching the 30-day grid. */}
+                {Array.from({ length: 24 }, (_, h) => (
+                  <rect key={h} x={PAD + (h / 24) * innerW} y={6}
+                        width={innerW / 24} height={26}
+                        fill="transparent" stroke="#1c222e" strokeWidth={0.8} />
+                ))}
+
+                {/* Observation dots, stacked red-over-blue inside the cells. */}
                 {hourDots.map((d) => (
                   <circle key={`${d.i}-${d.hit}`}
                           cx={PAD + ((d.i + 0.5) / 240) * innerW}
-                          cy={d.hit ? 22 : 11} r={d.r}
-                          fill={d.hit ? "#3fc1e8" : "rgba(155,123,240,0.75)"}
+                          cy={d.hit ? 24 : 14} r={d.r}
+                          fill={d.hit ? "#3fc1e8" : "rgba(155,123,240,0.8)"}
                           pointerEvents="none" />
                 ))}
-                <rect x={PAD} y={1} width={Math.max(0, xs - PAD)} height={38}
-                      fill="rgba(6,8,12,0.7)" />
-                <rect x={xe} y={1} width={Math.max(0, PAD + innerW - xe)} height={38}
-                      fill="rgba(6,8,12,0.7)" />
-                <rect x={xs} y={1} width={Math.max(2, xe - xs)} height={38}
-                      fill="rgba(60,232,184,0.10)" stroke="#3ce8b8"
-                      strokeWidth={0.8}
+
+                {/* The UNSELECTED span is greyed; the selection stays clear. */}
+                <rect x={PAD} y={6} width={Math.max(0, xs - PAD)} height={26}
+                      fill="rgba(12,16,23,0.78)" pointerEvents="none" />
+                <rect x={xe} y={6} width={Math.max(0, PAD + innerW - xe)} height={26}
+                      fill="rgba(12,16,23,0.78)" pointerEvents="none" />
+
+                {/* Band drag target — 1px edges only, no fill slab. */}
+                <rect x={xs} y={6} width={Math.max(1, xe - xs)} height={26}
+                      fill="transparent" stroke="var(--mint)" strokeWidth={0.8}
                       style={{ cursor: "grab" }} onPointerDown={down("band")}
                       data-testid="xdr-navigator-band" />
-                {/* AMP-style edge markers: a thin edge line plus small
-                      triangles above and below.  The wide transparent rect
-                      is the drag target only — it is never painted, so a
-                      narrow window no longer collapses into a solid slab. */}
+
+                {/* Triangle handles above and below, as in AMP. */}
                 {[["left", xs], ["right", xe]].map(([side, x]) => (
                   <g key={side}>
-                    <line x1={x} y1={1} x2={x} y2={39}
-                          stroke="#3ce8b8" strokeWidth={1} />
-                    <polygon points={`${x - 4},1 ${x + 4},1 ${x},6`}
-                              fill="#3ce8b8" />
-                    <polygon points={`${x - 4},39 ${x + 4},39 ${x},34`}
-                              fill="#3ce8b8" />
-                    <rect x={x - 5} y={0} width={10} height={40}
+                    <polygon points={`${x - 4.5},0 ${x + 4.5},0 ${x},6`}
+                              fill="var(--mint)" />
+                    <polygon points={`${x - 4.5},34 ${x + 4.5},34 ${x},28`}
+                              fill="var(--mint)" />
+                    <rect x={x - 5} y={0} width={10} height={34}
                           fill="transparent" style={{ cursor: "ew-resize" }}
                           onPointerDown={down(side)}
                           data-testid={`xdr-navigator-handle-${side}`} />
                   </g>
                 ))}
-                {[0, 4, 8, 12, 16, 20, 24].map((h) => (
-                  <text key={h} x={PAD + (h / 24) * innerW} y={37}
-                        fill="#4a5162" fontSize={7.5}
-                        fontFamily="'IBM Plex Mono', monospace"
-                        textAnchor={h === 0 ? "start" : h === 24 ? "end" : "middle"}>
-                    {String(h).padStart(2, "0")}:00
-                  </text>
-                ))}
-                {/* Dots render last so they stay clickable above the
-                      selection band and handles. */}
+
+                {/* Clickable dot targets on top. */}
                 {hourDots.map((d) => (
-                  <circle key={`top-${d.i}-${d.hit}`}
+                  <circle key={`hit-${d.i}-${d.hit}`}
                           cx={PAD + ((d.i + 0.5) / 240) * innerW}
-                          cy={d.hit ? 22 : 11} r={d.r}
-                          fill={d.hit ? "#3fc1e8" : "rgba(155,123,240,0.95)"}
-                          stroke="#0c1017" strokeWidth={0.6}
+                          cy={d.hit ? 24 : 14} r={Math.max(5, d.r + 2)}
+                          fill="transparent"
                           style={{ cursor: "pointer", pointerEvents: "auto" }}
                           onClick={() => onDotClick(d)}
                           onDoubleClick={(ev) => { ev.stopPropagation(); onDotDouble(d); }}
@@ -478,6 +473,24 @@ export default function TrajectoryNavigator({
                   </circle>
                 ))}
               </svg>
+              {/* Hour labels BELOW the ribbon, with the date under the left
+                    edge — the AMP layout. */}
+              <div style={{ display: "grid",
+                              gridTemplateColumns: `repeat(24, 1fr)`,
+                              marginTop: 1, padding: `0 ${PAD}px` }}>
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div key={h} className="mono"
+                        style={{ fontSize: 8, color: "var(--faint)",
+                                  textAlign: "left" }}>
+                    {h === 0 ? "0:00" : h}
+                  </div>
+                ))}
+              </div>
+              <div className="mono" style={{ fontSize: 8.5, color: "var(--faint)",
+                                                  marginTop: 1 }}>
+                {MONTHS[new Date(dayStart).getUTCMonth()]}{" "}
+                {new Date(dayStart).getUTCDate()}
+              </div>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 5 }}>
               <button className="btn" style={{ padding: "2px 7px", fontSize: 9.5 }}

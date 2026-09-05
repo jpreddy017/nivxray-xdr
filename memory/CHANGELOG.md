@@ -6613,3 +6613,33 @@ window renders as two thin markers instead of a slab.
 Verified on WKS-01: full day → `00:00:00Z → 24:00:00Z`; narrowed to
 `13:59:56Z → 14:01:05Z` (the case that produced the slab) now shows thin
 triangle markers; right-handle drag still works → `13:59:56Z → 14:02:04Z`.
+
+## 2026-09-05 · 24-hour ribbon rebuilt to the AMP layout (owner: "make it same as Cisco AMP")
+
+Structural differences from AMP that I had wrong, now corrected:
+
+| | Before (mine) | Now (AMP) |
+|---|---|---|
+| Ribbon body | one continuous dark strip | **24 bordered hour cells**, matching the 30-day grid |
+| Hour labels | drawn *inside* the strip | **below** the ribbon (`0:00 1 2 … 23`) with the date (`FEB 25`) beneath the left edge |
+| Shading | painted the *selected* band, dimmed outside with near-black | **greys the UNSELECTED span**, selection stays clear |
+| Handles | full-height solid mint rects (the green slab) | 1px selection outline + **small triangles above and below**; drag target is a transparent 10px rect |
+| Day cells | filled mint block when selected | transparent cell with a thin mint border; inactive cells no longer dimmed |
+
+**Second defect found and fixed while verifying**: the left handle appeared
+dead. Cause was mine — `applyView` clamped to the *observed extent*
+(13:58:58–14:02:04), so once the window touched that edge the handle could not
+move. When a day is selected the Navigator now owns the full 24h domain and
+clamps to the **day**, not the extent.
+
+### Verified on WKS-01
+- Day cell click → `00:00:00Z → 24:00:00Z (full day)`
+- Right handle drag → `00:00:00Z → 15:12:59Z`
+- Left handle drag → `06:03:42Z → 15:12:59Z`  (both handles now traverse the day)
+- Hour dot click → `13:58:58Z → 14:02:04Z` + Activity Details populated
+- Selection renders as a thin outlined box with triangle markers — no slab at
+  any window width
+
+Still open: the ribbon-dot highlight when an event is clicked on the canvas
+(the second half of the two-way binding), and P1.4 Entity 360 → P1.5 Compromise
+Band → P1.6 Events Ledger → P1.7 Sandbox Bridge.
