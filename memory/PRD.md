@@ -9056,3 +9056,52 @@ A dark surface/typography token layer plus a persisted light/dark toggle were bu
 4. Phase 2 (incl. the deferred dark-first theme) → Phases 3-4
 
 Still untouched: UBAE · Sandbox engine · Stage 4 · Gap B · Stage 11 · `mal-20` · DSM priority order (F-6) · `user_email` scoping (F-7, only 18 of 198 incidents reach the queue) · F-4 Windows `process.name` full-path defect.
+
+---
+
+# 2026-09-05 · DETERMINISTIC 198-INCIDENT VERDICT BACKFILL · DELIVERED · STOP FOR VERIFICATION
+
+Owner-authorised. Phase 1-a accepted/closed. Telemetry Health explicitly NOT added.
+
+## Implementation
+
+`backend/scripts/backfill_verdict_stage2.py` (new — the ONLY file changed). Projection produced by the **same** `detection_content.xdr_incident._stage2_from_veee` the live pipeline writer uses → **no second verdict engine, nothing re-scored, re-run or re-interpreted.**
+
+Deterministic source precedence, persisted data only:
+
+| Tier | Source | Docs |
+|---|---|---|
+S1 | `xdr_pipeline.veee` **with** `contributors[]` → full projection + evidence rows | **180** |
+S2 | `xdr_pipeline.veee` without contributors → label/score, `evidence: []` | **4** |
+S3 | `verdict_card` (engine = VEEE) → label/score, `evidence: []` | **13** |
+S4 | none → **SKIPPED**, stays epistemically unknown | **1** (`inc_r381_promote`) |
+
+## Acceptance evidence
+
+- **198/198 authoritative incidents examined**; scope strictly `doc_type == "xdr_incident"` (`no_non_incident_touched: true`).
+- **197 projected**, **1 skipped** for genuine absence of authoritative data — nothing manufactured.
+- **180 carry real evidence rows**; 17 honest-empty. Labels: 196 suspicious, 1 malicious.
+- BEFORE `with_verdict_stage2: 0` → AFTER **197**, `still_without: 1`, `with_non_empty_evidence: 180`. Total docs 484 → **484**.
+- Only the additive `verdict_stage2` field written. `id`, evidence ids, provenance, timestamps, `tenant_id` never touched.
+- **Idempotent:** 2nd `--apply` → `projected: 0`, `skipped_already_present: 197`, AFTER identical.
+- **Queue/API:** verdict now populated — `stage2_label` 16 suspicious + 1 malicious + 1 null; `risk_score` set on 17/18. **Filters that previously matched nothing now work:** `?verdict=suspicious` → 16 (was 0), `?technique=T1059.001` → 18.
+- **UI verified:** VERDICT column shows SUSPICIOUS ×16 / MALICIOUS ×1 (was 100% UNKNOWN); `NOT_RUN` badges 18 → **1**.
+- **MSS ↔ Queue consistent:** tiles CRITICAL 2 / HIGH 16 / UNASSIGNED 18; state-distribution `total 18` (new 11 + in_progress 7; P1 2 · P2 14 · P3 1 · unset 1).
+- **Tests: 113 passed / 0 failed** incl. `test_phase2_1_tenant_isolation.py`, `tests/edr/test_security_state_isolation.py` (P0-D cross-tenant **green**), `canonical/incidents`, `canonical/edr`, `canonical/ssot`, and the 20 P0-3 logon fixtures. The 2 long-standing F-4 failures (`4688` `process.name` full path) remain unchanged — pre-existing, untouched, not in scope.
+- **Git diff limited to** `backend/scripts/backfill_verdict_stage2.py`.
+
+## CRITICAL FINDING · F-7 now blocks the value from landing
+
+All **180** incidents that received **real evidence rows have NO `user_email`** and are therefore **invisible in the queue**. The **18 visible** incidents are exactly the thin tiers (S2 ×4 / S3 ×13 / skipped ×1) whose `evidence` is legitimately empty.
+
+So `EVIDENCE = ◇ NO EVIDENCE` on screen is **correct and honest**, but the backfill's main benefit (180 evidence-bearing incidents) cannot be seen until the ownership-scoping decision is made: `_scope` applies `q["user_email"] = email` while the pipeline writes `tenant_id`, not `user_email`. **F-7 is upgraded to P0 for the next step.**
+
+## NEXT (sequence unchanged, awaiting authorisation)
+
+1. **STOP — owner verification of the backfill** ← current gate
+2. **F-7 ownership-scoping decision** (tenant vs per-analyst) — now the gate on seeing the 180 evidence-bearing incidents
+3. Real **Suricata EVE** from an owner-supplied sensor
+4. Phase 2 UI (incl. deferred dark-first surface/typography migration; Telemetry Health epistemic reuse)
+5. Later: UBAE · EDR sensor · Sandbox engine
+
+Untouched: 615-content corpus · decoder registry · IUE · ICE · Security State · Sandbox · UBAE · Stage 4 · Gap B · Stage 11 · `mal-20` · DSM priority order (F-6) · F-4.
