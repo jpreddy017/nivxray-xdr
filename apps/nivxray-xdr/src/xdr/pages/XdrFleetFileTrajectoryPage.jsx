@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
+import { useAuth } from "@/lib/auth";
+import ExportMenu from "@/xdr/components/ExportMenu";
 import { getFileTrajectory, getFleetSpreadIndex } from "@/nivxforge/edrApi";
 import { fmtUtc, TELEMETRY_CYAN } from "@/xdr/lib/trajectoryModel";
 
@@ -77,6 +79,7 @@ const Panel = ({ title, children, testid, note }) => (
 );
 
 export default function XdrFleetFileTrajectoryPage() {
+  const { user } = useAuth();
   const { key: rawKey } = useParams();
   const navigate = useNavigate();
   const decoded = decodeURIComponent(rawKey || "");
@@ -214,6 +217,45 @@ export default function XdrFleetFileTrajectoryPage() {
             <GitBranch size={11} /> ⊘ Investigate Attack Traversal
           </button>
         </div>
+        {data && data.unique_events > 0 && (
+          <ExportMenu
+            testid="fleet-export"
+            basename={`fleet-${keyType}-${keyValue}`}
+            build={() => ({
+              surface: "fleet_file_trajectory",
+              exportedBy: user?.email || null,
+              scope: {
+                key_type: keyType,
+                key: keyValue,
+                correlation: keyType === "sha256"
+                  ? (ds.content_digests_available
+                      ? "content_digest_keyed" : "content_digests_unavailable")
+                  : "path_name_keyed_content_blind",
+                matched_on: Object.keys(data.matched_on || {}),
+                observed_window_start_utc: data.first_observed,
+                observed_window_end_utc: data.last_observed,
+                active_tab: tab,
+                endpoint_filter: filter || null,
+              },
+              events,
+              endpoints: rows,
+              counts: {
+                unique_events: data.unique_events,
+                raw_observations: data.raw_observations,
+                affected_endpoints: data.affected_endpoints,
+                case_references: rows.reduce((n, r) => n + (r.case_refs || []).length, 0),
+              },
+              notes: [
+                data.correlation_caveat,
+                ds.note,
+                ds.integrity_note,
+                data.tenant_boundary,
+                "EARLIEST OBSERVED HOST only — initial access and patient zero are NOT established.",
+                "LATERAL HOPS NOT ESTABLISHED — the same name/path on several endpoints is a cohort, not a transfer.",
+              ],
+            })}
+          />
+        )}
         <button className="btn" style={{ padding: "4px 10px" }} onClick={load}
                 data-testid="fleet-refresh">
           <RefreshCcw size={11} /> Refresh

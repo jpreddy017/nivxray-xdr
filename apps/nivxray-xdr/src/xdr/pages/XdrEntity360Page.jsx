@@ -23,10 +23,12 @@ import {
 } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
+import { useAuth } from "@/lib/auth";
 import EndpointLanes from "@/xdr/components/EndpointLanes";
 import ProcessAncestryTree from "@/xdr/components/ProcessAncestryTree";
 import TrajectoryWorkspace from "@/xdr/components/TrajectoryWorkspace";
 import ArtifactContextMenu from "@/xdr/components/ArtifactContextMenu";
+import ExportMenu from "@/xdr/components/ExportMenu";
 import StaticAnalysisBridge from "@/xdr/components/StaticAnalysisBridge";
 import { compileQuery, searchCorpus } from "@/xdr/components/TrajectoryNavigator";
 import TrajectoryFiltersModal, { applyFilters }
@@ -69,6 +71,7 @@ const Nope = ({ label, ep = "no_evidence" }) => (
 );
 
 export default function XdrEntity360Page({ initialTab = "overview" }) {
+  const { user } = useAuth();
   const { device } = useParams();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -306,6 +309,41 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
             </button>
           ))}
         </div>
+        <ExportMenu
+          testid="entity360-export"
+          basename={`device-${identity?.hostname || deviceRef}`}
+          build={() => ({
+            surface: "device_trajectory",
+            exportedBy: user?.email || null,
+            scope: {
+              device_ref: deviceRef,
+              device_iid: identity?.device_iid || null,
+              hostname: identity?.hostname || null,
+              identity_confidence: identity?.identity_confidence || null,
+              window_selector: hours === 0 ? "all_observed_time" : `last_${hours}h`,
+              window_start_utc: new Date(viewStart).toISOString(),
+              window_end_utc: new Date(viewEnd).toISOString(),
+              active_filters: Array.from(filters),
+              search_query: query || null,
+              selected_compromise_window: selectedSpanId || null,
+              active_tab: tab,
+            },
+            events: eventsInView,
+            counts: {
+              unique_events: events.length,
+              raw_observations: rawCount,
+              unique_events_in_window: eventsInView.length,
+              search_matches: matchedIds.size,
+              compromise_windows_in_scope: spans.length,
+              case_references: caseRows.length,
+            },
+            notes: [
+              "Rows are the observations inside the stated window after the stated filters and search.",
+              `${rawCount} raw records collapse to ${events.length} distinct observations (same event.iid replayed across case references); mitre/labels are unioned across copies so no attribution is lost.`,
+              "Ordering is chronological only and implies no causality.",
+            ],
+          })}
+        />
         <button className="btn" style={{ padding: "4px 10px" }} onClick={load}
                 data-testid="xdr-trajectory-refresh">
           <RefreshCcw size={11} /> Refresh

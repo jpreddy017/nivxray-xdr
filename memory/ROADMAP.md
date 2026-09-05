@@ -1389,7 +1389,13 @@ P0-C2 ACDE Phase 1 → Phase 6                      ← incremental architectura
 ## 2026-09-05 · NivXForge EDR remaining backlog
 - ~~P1.8: Multi-endpoint (fleet-wide) File Trajectory~~ — DONE 2026-09-05 (name/path
   keyed; content-digest keyed impossible until file digests are captured).
-- P1.9: Investigation Export (scoped trajectory window → forensic timeline report).
+- ~~P1.9: Investigation Export~~ — DONE 2026-09-05 (JSON + Markdown + CSV,
+  client-side, self-contained SHA-256, evidence-only).
+- P1.10: Spread Watchlist — flag artifacts whose endpoint count grows.
+- P1.11: Saved Hunts — persist a filter + search pair and re-run it fleet-wide.
+- P1.12: Sensor Foundation — the unlock for P2.x Attack Traversal Projection.
+- FUTURE: External Handover / Sanitised Export — deterministic redaction and
+  pseudonymisation of forensic fields; server-recorded attested exports.
 - P1.10: Saved Hunts (persist a filter + search and re-run it on any endpoint).
 - P2.x: **Attack Traversal & Attack Lifecycle** — cross-host causal reconstruction
   (lateral movement, defense evasion, identity, network, ATT&CK progression, blast

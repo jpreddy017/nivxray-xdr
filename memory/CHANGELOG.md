@@ -6929,3 +6929,39 @@ Attack Traversal & Attack Lifecycle are a SEPARATE planned capability.
   benchmark is the owner-supplied UNC6692 / STAC 6451 / ClickFix attack-flow
   diagrams, generated dynamically with every node, edge and technique
   evidence-backed and every gap shown as UNKNOWN.
+
+
+## 2026-09-05 · P1.9 Investigation Export (client-side, evidence-first)
+
+Decisions as locked by the owner: JSON + Markdown + CSV; client-side download only;
+self-contained SHA-256 only; evidence-only (no canvas rendering). NO server-side
+persistence, NO object storage, NO export-event collection, NO new endpoints.
+
+- `xdr/lib/investigationExport.js` — builds an EVIDENCE MANIFEST, not a narrative:
+  contract + mode, the exact scope predicate, count reconciliation, evidence rows
+  under a fixed 24-field allowlist, the honest-state limitations verbatim (14
+  statements), the contract exclusion list (9 classes), and a self-contained
+  SHA-256 over a sorted-key canonicalisation of the payload.
+- `xdr/components/ExportMenu.jsx` — Export control with the three formats and a
+  post-export receipt (rows exported · digest prefix · redaction count).
+- Wired into BOTH surfaces:
+  - Device Trajectory / Entity 360 → scope = device_ref, device_iid, hostname,
+    identity_confidence, window selector, window start/end UTC, active filters,
+    search query, selected compromise window, active tab.
+  - Fleet File Trajectory → scope = key_type, key, correlation mode, matched_on
+    fields, observed window, active tab, endpoint filter; also exports the
+    per-endpoint rollup.
+- Mode `SOC / INTERNAL FORENSIC EXPORT`: forensic fields (user, hostname, path,
+  command line, IPs) are PRESERVED. Secrets are not: high-confidence credential
+  patterns (password/secret/apikey/token assignments, URL userinfo, PRIVATE KEY
+  blocks) are replaced with `[REDACTED:SECRET]` / `[REDACTED:PRIVATE_KEY]` and the
+  count is reported in the manifest. Deterministic external sanitisation remains a
+  future capability.
+- `observation_record_digest` is exported as a named forensic digest with the
+  statement that it digests the ingested record, not a file.
+- Verified by downloading and parsing the real files: Entity 360 JSON (9 rows == 9
+  unique events, 45 raw reported not exported, 24 allowlisted fields, 14
+  limitations, digest bc8d2ecf…), Entity 360 Markdown (scope table, evidence table
+  with `? UNKNOWN` disposition, per-event detail, limitations section, exported_by
+  admin@nivxray.com), Fleet CSV (14 rows, scope + digest + reconciliation in the
+  header comments) and the on-screen receipt. Backend untouched.
