@@ -1,7 +1,7 @@
 {
-  "total": 103,
+  "total": 105,
   "passed": 35,
-  "hit_rate": 0.3398,
+  "hit_rate": 0.3333,
   "threshold": 0.6,
   "results": [
     {
@@ -344,9 +344,9 @@
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "i",
+      "output_head": "powershell -e ABC",
       "ok": false
     },
     {
@@ -746,7 +746,7 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
@@ -990,6 +990,20 @@
       "engine": "llm-l3",
       "chain": [],
       "output_head": "TEST_iter63_1788290124 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "be71a74a9c7c2eadf35d9b61315d182427b3e41e",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1788592860 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "7e334f39879ebb7df0341179ff26d17f8b31bd81",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1788593456 nivxray unique payload",
       "ok": false
     }
   ]

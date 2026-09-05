@@ -159,7 +159,7 @@
     "shellcode_recall_pct": 100.0,
     "no_over_promotion_pct": 100.0,
     "determinism_pct": 100.0,
-    "e2e_latency_p95_ms": 3.971505007939413
+    "e2e_latency_p95_ms": 3.961088979849592
   },
   "thresholds": {
     "label_agreement_pct": 80.0,
