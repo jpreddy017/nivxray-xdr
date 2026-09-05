@@ -138,10 +138,32 @@ def _pred_recently_updated(email: str | None) -> Dict[str, Any]:
     return _scope({"updated_at": {"$gte": since}}, email)
 
 
+_DISPLAY_NAME_CLAUSE: Dict[str, Any] = {
+    # A surfaced record must carry a persisted display name.  Pipeline
+    # incidents persist `title`; analysis cases persist `name`.  Gating on
+    # `name` alone hid 191 of 198 real incidents from the queue.
+    "$or": [
+        {"name":  {"$exists": True, "$ne": ""}},
+        {"title": {"$exists": True, "$ne": ""}},
+    ]
+}
+
+
 def _scope(q: Dict[str, Any], email: str | None) -> Dict[str, Any]:
-    """Attach the analyst's tenant scope.  Only saved cases (with a
-    persisted name) are surfaced — matches list_incidents contract."""
-    q.setdefault("name", {"$exists": True, "$ne": ""})
+    """Attach the analyst's tenant scope.
+
+    P0-2 (owner-authorised 2026-09-05): the incident queue and the
+    dashboard tiles are restricted to ``doc_type == "xdr_incident"`` so
+    that analysis cases can no longer appear in the incident queue.  The
+    same predicate feeds tiles and queue, preserving the
+    tile-count == queue-count invariant.
+    """
+    q.setdefault("doc_type", "xdr_incident")
+    existing_and = q.get("$and")
+    if isinstance(existing_and, list):
+        existing_and.append(_DISPLAY_NAME_CLAUSE)
+    else:
+        q["$and"] = [_DISPLAY_NAME_CLAUSE]
     if email:
         q["user_email"] = email
     return q

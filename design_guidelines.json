@@ -1,261 +1,262 @@
 {
-  "design_system_name": "NivX Machines SOC Enterprise Design System",
-  "version": "1.0.0",
-  "brand_identity": {
-    "name": "NivX Machines",
-    "product": "NivXRay XDR",
-    "theme_posture": "Dark Enterprise SOC Console",
-    "brand_colors": {
-      "mint_gradient_start": "#5cc0a5",
-      "mint_gradient_end": "#3b8b75",
-      "orange_spark_accent": "#e27e5d"
+  "project_name": "NivXRay XDR Operational Fabric",
+  "design_system_archetype": "ARCHETYPE 4: SWISS & HIGH-CONTRAST + ARCHETYPE 2: THE PERFORMANCE PRO (Tactical Security Command Console)",
+  "theme_strategy": {
+    "primary_mode": "dark",
+    "theme_toggle": true,
+    "rationale": "SOC analysts operate on 8 to 12-hour monitoring shifts. Deep graphite surfaces (#0A0C0E / #121518) reduce eye fatigue, heighten optical recognition of high-severity alerts (Signal Red, Warning Amber), and create a high-contrast backdrop for honest epistemic states (Cyan/Slate). Light mode is preserved as a high-density analytical printing/export mode."
+  },
+  "colors": {
+    "background": {
+      "dark_primary": "#0A0C0E",
+      "dark_surface": "#121518",
+      "dark_inset": "#060708",
+      "dark_card": "#16191D",
+      "light_primary": "#F4F5F7",
+      "light_surface": "#FFFFFF",
+      "light_inset": "#EAEDF1",
+      "light_card": "#FFFFFF"
     },
-    "mark_svg_spec": "<svg viewBox='0 0 24 24' fill='none'><path d='M4 4h4.5l7 11.5V4H20v16h-4.5l-7-11.5V20H4V4z' fill='url(#nivx-grad)'/><path d='M16.5 4.5l3.5 3.5' stroke='#e27e5d' strokeWidth='2' strokeLinecap='round'/><defs><linearGradient id='nivx-grad' x1='4' y1='4' x2='20' y2='20'><stop offset='0%' stopColor='#5cc0a5'/><stop offset='100%' stopColor='#3b8b75'/></linearGradient></defs></svg>"
+    "borders": {
+      "subtle": "#1F242B",
+      "strong": "#2D343F",
+      "accent": "#2B8272",
+      "focus": "#38BDF8"
+    },
+    "typography_colors": {
+      "primary": "#E2E8F0",
+      "secondary": "#94A3B8",
+      "muted": "#64748B",
+      "inverse": "#090A0C"
+    },
+    "severity_scale": {
+      "critical": {
+        "hex": "#FF3B30",
+        "bg_dark": "rgba(255, 59, 48, 0.12)",
+        "border_dark": "rgba(255, 59, 48, 0.40)",
+        "label": "P1 · CRITICAL",
+        "apca_contrast": "12.4:1 on #0A0C0E"
+      },
+      "high": {
+        "hex": "#FF9500",
+        "bg_dark": "rgba(255, 149, 0, 0.12)",
+        "border_dark": "rgba(255, 149, 0, 0.40)",
+        "label": "P2 · HIGH",
+        "apca_contrast": "11.8:1 on #0A0C0E"
+      },
+      "medium": {
+        "hex": "#FFCC00",
+        "bg_dark": "rgba(255, 204, 0, 0.10)",
+        "border_dark": "rgba(255, 204, 0, 0.35)",
+        "label": "P3 · MEDIUM",
+        "apca_contrast": "14.2:1 on #0A0C0E"
+      },
+      "low": {
+        "hex": "#34C759",
+        "bg_dark": "rgba(52, 199, 89, 0.10)",
+        "border_dark": "rgba(52, 199, 89, 0.35)",
+        "label": "P4 · LOW",
+        "apca_contrast": "10.6:1 on #0A0C0E"
+      },
+      "info": {
+        "hex": "#38BDF8",
+        "bg_dark": "rgba(56, 189, 248, 0.10)",
+        "border_dark": "rgba(56, 189, 248, 0.35)",
+        "label": "P5 · INFO",
+        "apca_contrast": "11.9:1 on #0A0C0E"
+      }
+    },
+    "epistemic_state_scale": {
+      "evidence_present": {
+        "hex": "#10B981",
+        "bg": "rgba(16, 185, 129, 0.12)",
+        "border": "#059669",
+        "symbol": "◆",
+        "label": "EVIDENCE PRESENT",
+        "design_note": "Solid emerald indicator with verified timestamp and hash link. Communicates confirmed, immutable telemetry."
+      },
+      "no_evidence": {
+        "hex": "#64748B",
+        "bg": "rgba(100, 116, 139, 0.14)",
+        "border": "#475569",
+        "symbol": "◇",
+        "label": "NO EVIDENCE",
+        "design_note": "Crisp slate outline badge with slash pattern. Explicitly communicates telemetry ran and found zero matches (honest negative)."
+      },
+      "unknown": {
+        "hex": "#F59E0B",
+        "bg": "rgba(245, 158, 11, 0.12)",
+        "border": "#D97706",
+        "symbol": "?",
+        "label": "UNKNOWN / UNEVALUATED",
+        "design_note": "Tactical amber dashed pill. Indicates query capable but state pending execution or unasserted."
+      },
+      "not_run": {
+        "hex": "#8B5CF6",
+        "bg": "rgba(139, 92, 246, 0.12)",
+        "border": "#7C3AED",
+        "symbol": "⊝",
+        "label": "NOT_RUN",
+        "design_note": "Subtle violet chip with double border. Explicitly signifies playbook or rule engine skip condition."
+      },
+      "capability_unavailable": {
+        "hex": "#EF4444",
+        "bg": "rgba(239, 68, 68, 0.10)",
+        "border": "#DC2626",
+        "symbol": "✕",
+        "label": "CAPABILITY UNAVAILABLE",
+        "design_note": "Hatched crimson container. Used when endpoint collector is offline or transport never connected."
+      }
+    },
+    "forbidden_colors": [
+      "#1B93A4",
+      "#7351B7",
+      "#000000"
+    ]
   },
   "typography": {
-    "font_family_pairings": {
-      "ui_display_and_body": "Geist, 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      "code_data_and_mono": "'JetBrains Mono', 'IBM Plex Mono', 'Berkeley Mono', monospace"
+    "font_families": {
+      "headings": "Chivo, -apple-system, BlinkMacSystemFont, sans-serif",
+      "body": "Chivo, system-ui, sans-serif",
+      "telemetry_and_mono": "JetBrains Mono, SFMono-Regular, Consolas, monospace"
     },
     "scale": {
-      "text-xs": "11px / 16px (0.6875rem)",
-      "text-sm": "12px / 18px (0.75rem)",
-      "text-base": "13px / 20px (0.8125rem)",
-      "text-md": "14px / 22px (0.875rem)",
-      "text-lg": "16px / 24px (1rem)",
-      "text-xl": "18px / 28px (1.125rem)",
-      "text-2xl": "22px / 32px (1.375rem)",
-      "text-3xl": "28px / 38px (1.75rem)"
+      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-none",
+      "h2_section": "text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight",
+      "h3_subsection": "text-lg sm:text-xl font-bold tracking-tight",
+      "h4_widget": "text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-400",
+      "body_base": "text-sm leading-relaxed font-normal",
+      "body_dense": "text-xs leading-normal font-normal",
+      "caption_mono": "font-mono text-xs font-medium tracking-wide"
     },
-    "font_weights": {
-      "regular": 400,
-      "medium": 500,
-      "semibold": 600,
-      "bold": 700
-    },
-    "letter_spacing": {
-      "tight": "-0.015em",
-      "normal": "0em",
-      "mono_data": "-0.02em",
-      "uppercase_label": "0.08em"
+    "forbidden_fonts": [
+      "space grotesk",
+      "inter for headlines",
+      "roboto",
+      "open sans"
+    ]
+  },
+  "visual_enhancers": {
+    "grain_overlay": true,
+    "grain_opacity": 0.025,
+    "borders": "1px solid var(--border)",
+    "elevation": {
+      "flat_panel": "border border-slate-800/80 bg-[#121518]",
+      "card_hover": "border border-slate-700/80 bg-[#16191D] shadow-[0_4px_20px_rgba(0,0,0,0.4)] -translate-y-[1px] transition-all duration-150",
+      "drawer_modal": "border border-slate-700 bg-[#0E1013]/95 backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.7)]"
     }
   },
-  "design_tokens": {
-    "colors": {
-      "background_canvas": "#07090e",
-      "background_panel_primary": "#0d1117",
-      "background_panel_secondary": "#131822",
-      "background_panel_hover": "#1a2130",
-      "background_panel_active": "#222c3d",
-      "border_faint": "rgba(255, 255, 255, 0.06)",
-      "border_subtle": "#1e2638",
-      "border_medium": "#2d384e",
-      "border_strong": "#3f4d68",
-      "text_primary": "#e6edf3",
-      "text_secondary": "#9198a1",
-      "text_muted": "#656d76",
-      "text_faint": "#484f58",
-      "accent_mint": "#5cc0a5",
-      "accent_mint_dim": "#3b8b75",
-      "accent_orange": "#e27e5d",
-      "accent_cyan": "#38bdf8",
-      "accent_purple": "#a855f7"
+  "navigation_architecture": {
+    "sidebar_width": "220px",
+    "groups_count": 12,
+    "total_nav_items": 45,
+    "disabled_items_handling": {
+      "strategy": "Show all 7 legitimately unavailable/unwired features inline with a crisp 'NOT_RUN' or 'UNWIRED' badge and explicit opacity (50%), with a tooltip explaining required collector or licence key.",
+      "reasoning": "Hiding disabled features creates confusion; greying them out without explanation looks broken. Honest tagging reinforces the Honest State philosophy."
     },
-    "severity_tokens": {
-      "CRITICAL": {
-        "text": "#ff6b6b",
-        "bg": "rgba(239, 68, 68, 0.15)",
-        "border": "rgba(239, 68, 68, 0.35)",
-        "glyph": "OctagonAlert"
+    "group_structure": [
+      "INVESTIGATOR",
+      "WORKSPACE",
+      "COMMAND CENTER",
+      "OPERATIONS",
+      "INVESTIGATIONS",
+      "INTELLIGENCE",
+      "TELEMETRY",
+      "EXPOSURE",
+      "DETECT",
+      "RESPOND",
+      "ADMINISTRATION",
+      "SYSTEM"
+    ]
+  },
+  "data_density_patterns": {
+    "kpi_strips": {
+      "provenance_badge": "Every KPI tile carries a live indicator pill: `[LIVE · count_source: real_time]` with last-heartbeat latency.",
+      "layout": "8-tile horizontal grid with 1px slate divider and severity accent left border."
+    },
+    "triage_table": {
+      "density": "Compact (32px row height)",
+      "columns": [
+        "SELECT",
+        "PRIORITY",
+        "SEVERITY",
+        "INCIDENT ID & TITLE",
+        "VERDICT",
+        "EPISTEMIC STATE",
+        "CUSTOMER",
+        "DETECTION SOURCE",
+        "EVIDENCE COUNT",
+        "MITRE ATT&CK",
+        "SLA REMAINING",
+        "OWNER"
+      ],
+      "hover_state": "Row highlighting with left severity border shift and inline quick-action drawer trigger."
+    },
+    "side_drawer": {
+      "type": "Sliding progressive disclosure pane (480px width) for evidence chain, raw payload, and provenance trail without page navigation context loss."
+    },
+    "evidence_traceability": {
+      "pattern": "Hover or click on any metric, IOC or hash opens an inline Epistemic Inspector pill showing Raw Ingestion Event ID, Collector Name, Timestamp (UTC), and cryptographic SHA-256 telemetry fingerprint."
+    }
+  },
+  "attack_graph_language": {
+    "canvas_background": "#07080A with subtle 16px dot grid",
+    "nodes": {
+      "attacker_ip": {
+        "shape": "octagon",
+        "color": "#FF3B30",
+        "border": "2px solid #FF3B30"
       },
-      "HIGH": {
-        "text": "#f97316",
-        "bg": "rgba(249, 115, 22, 0.15)",
-        "border": "rgba(249, 115, 22, 0.35)",
-        "glyph": "TriangleAlert"
+      "host_endpoint": {
+        "shape": "rounded_rect",
+        "color": "#38BDF8",
+        "border": "1px solid #38BDF8"
       },
-      "MEDIUM": {
-        "text": "#facc15",
-        "bg": "rgba(250, 204, 21, 0.12)",
-        "border": "rgba(250, 204, 21, 0.3)",
-        "glyph": "AlertCircle"
+      "user_identity": {
+        "shape": "circle",
+        "color": "#FF9500",
+        "border": "1px solid #FF9500"
       },
-      "LOW": {
-        "text": "#38bdf8",
-        "bg": "rgba(56, 189, 248, 0.12)",
-        "border": "rgba(56, 189, 248, 0.28)",
-        "glyph": "Info"
-      },
-      "INFORMATIONAL": {
-        "text": "#9198a1",
-        "bg": "rgba(145, 152, 161, 0.12)",
-        "border": "rgba(145, 152, 161, 0.25)",
-        "glyph": "HelpCircle"
+      "process_binary": {
+        "shape": "diamond",
+        "color": "#8B5CF6",
+        "border": "1px solid #8B5CF6"
       }
     },
-    "verdict_tokens": {
-      "MALICIOUS": {
-        "color": "#ef4444",
-        "bg": "rgba(239, 68, 68, 0.18)",
-        "border": "#dc2626"
-      },
-      "SUSPICIOUS": {
-        "color": "#f97316",
-        "bg": "rgba(249, 115, 22, 0.18)",
-        "border": "#ea580c"
-      },
-      "BENIGN": {
-        "color": "#10b981",
-        "bg": "rgba(16, 185, 129, 0.15)",
-        "border": "#059669"
-      },
-      "UNKNOWN": {
-        "color": "#94a3b8",
-        "bg": "rgba(148, 163, 184, 0.15)",
-        "border": "#64748b"
-      }
-    },
-    "honest_state_grammar": {
-      "NOT_OBSERVED": {
-        "badge_bg": "rgba(100, 116, 139, 0.1)",
-        "border": "#334155",
-        "text": "#94a3b8",
-        "icon": "EyeOff",
-        "hatch_pattern": "repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(148, 163, 184, 0.05) 6px, rgba(148, 163, 184, 0.05) 12px)",
-        "description": "Telemetry source actively scanned; zero telemetry matching filter recorded in requested window."
-      },
-      "NOT_ESTABLISHED": {
-        "badge_bg": "rgba(234, 179, 8, 0.1)",
-        "border": "rgba(234, 179, 8, 0.3)",
-        "text": "#eab308",
-        "icon": "Clock",
-        "hatch_pattern": "dotted-border",
-        "description": "Telemetry pipeline initializing or pending sync handshake from tenant edge sensor."
-      },
-      "NOT_AVAILABLE": {
-        "badge_bg": "rgba(168, 85, 247, 0.1)",
-        "border": "rgba(168, 85, 247, 0.3)",
-        "text": "#a855f7",
-        "icon": "ShieldAlert",
-        "hatch_pattern": "none",
-        "description": "Capability requires elevated tenant license tier or explicitly disabled by security policy."
-      },
-      "NOT_CONNECTED": {
-        "badge_bg": "rgba(239, 68, 68, 0.1)",
-        "border": "rgba(239, 68, 68, 0.3)",
-        "text": "#f87171",
-        "icon": "Unplug",
-        "hatch_pattern": "dashed-border",
-        "description": "Telemetry integration unconfigured or API credentials expired."
-      },
-      "NO_MATCHING_EVIDENCE": {
-        "badge_bg": "rgba(56, 189, 248, 0.08)",
-        "border": "rgba(56, 189, 248, 0.25)",
-        "text": "#38bdf8",
-        "icon": "SearchX",
-        "hatch_pattern": "none",
-        "description": "Investigation executed deterministically across all connected telemetry nodes with zero positive IOC matches."
-      },
-      "ERROR": {
-        "badge_bg": "rgba(239, 68, 68, 0.2)",
-        "border": "#ef4444",
-        "text": "#ef4444",
-        "icon": "AlertTriangle",
-        "hatch_pattern": "solid-alert",
-        "description": "Backend execution fault or authoritative API transport timeout."
-      }
-    },
-    "elevation_and_shadows": {
-      "flat": "none",
-      "card": "0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
-      "popover": "0 8px 24px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
-      "modal": "0 20px 48px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08)"
-    },
-    "spacing_scale": {
-      "xs": "4px",
-      "sm": "8px",
-      "md": "12px",
-      "lg": "16px",
-      "xl": "20px",
-      "2xl": "24px",
-      "3xl": "32px"
-    },
-    "border_radii": {
-      "sharp": "0px",
-      "subtle": "2px",
-      "standard": "4px",
-      "rounded": "6px",
-      "pill": "9999px"
-    },
-    "z_index_scale": {
-      "base": 0,
-      "panel": 10,
-      "sticky_header": 20,
-      "popover_dropdown": 30,
-      "drawer_slideover": 40,
-      "modal_overlay": 50,
-      "toast_notification": 60,
-      "tooltip": 70
+    "edges": {
+      "confirmed": "Solid 2px emerald line with directional pulse animation",
+      "suspected": "Dashed 1.5px amber line",
+      "no_evidence": "Dotted 1px slate line labeled UNVERIFIED"
     }
   },
-  "icon_system": {
-    "library": "lucide-react",
-    "stroke_width": 1.5,
-    "size_scale": {
-      "micro": "12px",
-      "sm": "14px",
-      "md": "16px",
-      "lg": "20px",
-      "xl": "24px"
+  "phased_rollout_plan": [
+    {
+      "phase": 1,
+      "title": "Design Token & Epistemic State Scale Standardization",
+      "scope": "Update CSS variables in index.css for epistemic state badges (`EVIDENCE PRESENT`, `NO EVIDENCE`, `UNKNOWN`, `NOT_RUN`, `CAPABILITY UNAVAILABLE`) and severity tokens without altering layout logic."
     },
-    "sidebar_section_icons": {
-      "Workspace": "LayoutGrid",
-      "Operations": "Activity",
-      "Investigations": "ShieldAlert",
-      "Intelligence": "Globe",
-      "Exposure": "Radar",
-      "Data": "Database",
-      "Administration": "Settings"
+    {
+      "phase": 2,
+      "title": "Incidents Queue & Triage Table Refinements",
+      "scope": "Apply compact density styling, live provenance badges on KPI strips, and side-drawer progressive disclosure pane."
+    },
+    {
+      "phase": 3,
+      "title": "Navigation & Sidebar Restructuring",
+      "scope": "Re-organize sidebar groups into 220px high-contrast dark panel with explicit honest state chips on unwired items."
+    },
+    {
+      "phase": 4,
+      "title": "Investigation Workspace & Attack Graph Visual Upgrade",
+      "scope": "Enhance entity-relationship node visualizers and 8-tab analyst workspace with strict dark surfaces and high-contrast telemetry panels."
     }
-  },
-  "component_primitives": {
-    "Button": {
-      "variants": ["primary", "secondary", "ghost", "destructive", "outline"],
-      "sizes": ["xs (24px)", "sm (28px)", "md (32px)", "lg (40px)"],
-      "states": ["default", "hover", "active", "focus-visible", "disabled", "loading"],
-      "rule": "Every button must have a subtle focus-visible ring (`ring-1 ring-[#5cc0a5]`) and active scale transition (`active:scale-[0.98]`). Mandatory data-testid."
-    },
-    "Table": {
-      "style": "Dense Enterprise Data Grid",
-      "header_height": "32px",
-      "row_height": "32px",
-      "font_family": "Monospace for hashes/IPs/timestamps, Geist for labels",
-      "features": ["sticky header", "column resize handles", "checkbox bulk select", "sort indicators", "row action menu"]
-    },
-    "DeviceTrajectoryCanvas": {
-      "panes": ["Left inventory (240px)", "Center Canvas + SVG timeline", "Right Activity Details (320px)"],
-      "render_mode": "Canvas for grid + SVG for interactive process nodes and curved edges"
-    }
-  },
-  "layout_system": {
-    "sidebar_width_expanded": "240px",
-    "sidebar_width_collapsed": "56px",
-    "topbar_height": "48px",
-    "gutter": "16px",
-    "content_max_width": "none (full viewport width utilization)"
-  },
-  "instructions_to_main_agent": [
-    "Step 1: Create `src/styles/tokens.css` with exact root CSS variables matching design_tokens.",
-    "Step 2: Create reusable component primitives in `src/components/ui/` (Button, Tag, Badge, Table, Modal, Tooltip, Input, Select, honest state containers).",
-    "Step 3: Refactor `XdrShell.jsx` topbar and left navigation using new design system tokens and icons.",
-    "Step 4: Upgrade `XdrIncidentsPage.jsx` and `XdrIncidentDetailPage.jsx` to enterprise data density tables and multi-tab layouts.",
-    "Step 5: Apply honest-state visual grammar (Not Connected / No Matching Evidence / Not Observed) across all 6 domain pages and integrations.",
-    "Step 6: Upgrade Device Trajectory 3-pane canvas and Admin pages."
   ],
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "Dark SOC Console Aesthetic ONLY. Do not introduce light mode or colorful consumer gradients.",
-    "All interactive and key informational elements MUST include `data-testid` attribute (e.g. `data-testid='incidents-table-row-0'`).",
-    "Never show generic empty states. Always render an authoritative honest state from the grammar.",
-    "Monospace fonts ('JetBrains Mono' / 'IBM Plex Mono') MUST be used for IP addresses, hashes, command lines, timestamps, and process IDs."
+  "instructions_to_main_agent": "Strictly enforce the 'Honest State' paradigm: never fabricate or interpolate empty data. Use explicit epistemic badges (`EVIDENCE PRESENT`, `NO EVIDENCE`, `UNKNOWN`, `NOT_RUN`, `CAPABILITY UNAVAILABLE`) styled with high authority. Apply dark mode (#0A0C0E background, #121518 surface) with crisp 1px borders (#1F242B) and Chivo + JetBrains Mono fonts. Ensure all interactive components include kebab-case data-testid attributes.",
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Never use dark gradients; use solid dark structural tones with sharp 1px borders.",
+    "Do NOT use Space Grotesk font or #1B93A4 / #7351B7 forbidden colors.",
+    "Always specify data-testid attributes on buttons, links, search inputs, badges, and row items.",
+    "Never use AI assistant emojis as UI icons; use lucide-react icons exclusively.",
+    "Always display live provenance indicators on counts and telemetry metrics."
   ]
 }

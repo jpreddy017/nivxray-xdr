@@ -28,6 +28,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import "./xdr-console.css";
+import "./nx/nx-epistemic.css";
 import "./nx/nx-tokens.css";
 import { NxDensityProvider } from "./nx";
 

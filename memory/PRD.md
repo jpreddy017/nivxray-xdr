@@ -9017,3 +9017,42 @@ Owner will supply a real sensor EVE JSON feed/file. Public/sample data usable **
 ## Explicitly NOT done
 
 verdict_stage2 implementation · Suricata live source · Security State UI · Counterfactual Defense Projection · telemetry-trust dashboard tile (owner: fix the truth before exposing it) · UBAE · Sandbox · Stage 4 · Gap B · Stage 11 · `mal-20` · DSM priority change · incident-queue `doc_type` filtering.
+
+---
+
+# 2026-09-05 · PHASE 1-a UI (tokens + epistemic badges) · DELIVERED · STOP FOR OWNER REVIEW
+
+Owner selections: 1-a, 2-a, 3-a, 4-b, 5-a. Approved scope: **design tokens + epistemic-state badges ONLY**. No sidebar / Incident Queue / MSS Dashboard / Investigation Workspace restructuring. Vendor consoles used as UX benchmarks only — no visual identity copied.
+
+## Delivered
+
+- `apps/nivxray-xdr/src/xdr/nx/nx-epistemic.css` (new) — **epistemic-state scale** as first-class design tokens: `evidence_present` ◆ emerald · `no_evidence` ◇ slate · `unknown` ? amber · `not_run` ○ violet · `capability_unavailable` ⊘ · `not_connected` · plus a `--nx-provenance` marker token. **Locked border grammar: solid = we KNOW, dashed = we do NOT (yet) know.** Glyph carries meaning so it never depends on colour alone. `prefers-reduced-motion` respected.
+- `apps/nivxray-xdr/src/xdr/nx/NxChip.jsx` — `NxHonestyChip` rewritten to the epistemic grammar: glyph + label + `data-ep` + `data-known` + `data-testid="nx-epistemic-<state>"` + explanatory tooltips (e.g. NO EVIDENCE = *"the query ran and returned zero matches — an honest negative result, not missing data"*). Added `evidence_present` and `capability_unavailable` states.
+- `XdrShell.jsx` — single line: imports the token file. Nothing else changed.
+
+## Verified (live, authenticated)
+
+36 epistemic badges render on the Incidents queue: **18 `no_evidence` + 18 `not_run`**. Layout, navigation and all counts unchanged (18 ALL · CRITICAL 2 · HIGH 16 · UNASSIGNED 18 · NEW 17 · UPDATED 17). Heading contrast intact. No regression.
+
+## Dark-first theme · IMPLEMENTED THEN WITHDRAWN (honest disclosure)
+
+A dark surface/typography token layer plus a persisted light/dark toggle were built and verified working at the state level (`data-nx-theme` flipped dark↔light, toggle functional). **They were then withdrawn from this change**: the badges themed correctly but the surface tokens did not fully apply and light mode regressed (headings lost contrast). Shipping a half-applied theme would have been exactly the "looks done, isn't" state the Honest State rule forbids.
+
+**Dark-first therefore moves to Phase 2**, where surface + typography tokens can be migrated and verified as one deliberate unit. Rationale recorded in `nx-epistemic.css`. Files removed cleanly: `useNxTheme.js` deleted, `XdrShell.jsx` reverted to its pre-theme state, toggle CSS removed. **Owner decision 2-a (dark-first + light toggle) remains approved and outstanding — it is deferred, not rejected.**
+
+## Sandbox · design artifact only (decision 4-b)
+
+`docs/truth-contract/edr-review/NIVXRAY_XDR_SANDBOX_FUTURE_CAPABILITY_DESIGN.md` — hard boundary table (no simulated detonation / fake process tree / fake network activity / fake verdict), the `⊘ FUTURE CAPABILITY · NOT IMPLEMENTED` treatment, entity-centric entry from a HASH node, 5 prerequisites, and the critical constraint that a future sandbox verdict must enter as **one more VEEE contributor**, never a second verdict engine. **No nav item, no API, no product surface created.**
+
+## Also fixed this session (queue-purity leak found via the MSS screenshot)
+
+`routers/xdr_mss.py` had its **own duplicated `_base_scope`** that bypassed the shared predicate — the same duplication class as the DSM registry bug. MSS KPI tiles read 18 while Incident Distribution read 129 and the queue panel showed `(unnamed)` rows. Fixed by delegating to the single authoritative `services.dashboard_lenses._scope`, plus `title` fallback in the soc-queue and recent-activity projections. Now: distribution `total 18` (11 new + 7 in_progress; P1 2 + P2 14 + P3 1 + unset 1), soc-queue 10 rows / **0 unnamed**. Tiles, queue and all MSS panels agree.
+
+## NEXT (owner-sequenced, awaiting authorisation)
+
+1. **STOP — owner review of Phase 1-a** ← current gate
+2. Deterministic **198-incident verdict backfill** from `xdr_pipeline.veee.contributors[]` (projection only, no second engine)
+3. **Real Suricata EVE** telemetry from an owner-supplied sensor (public/sample data for parser validation only, never for the production-proof claim)
+4. Phase 2 (incl. the deferred dark-first theme) → Phases 3-4
+
+Still untouched: UBAE · Sandbox engine · Stage 4 · Gap B · Stage 11 · `mal-20` · DSM priority order (F-6) · `user_email` scoping (F-7, only 18 of 198 incidents reach the queue) · F-4 Windows `process.name` full-path defect.

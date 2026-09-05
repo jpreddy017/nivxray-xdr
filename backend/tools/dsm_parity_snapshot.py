@@ -19,8 +19,8 @@ FIXTURES: dict[str, dict] = {
         "event_type": "flow", "src_ip": "10.1.2.3", "dest_ip": "10.4.5.6",
         "timestamp": "2026-09-05T00:00:00Z",
     },
-    # Windows-Security DSM supports ONLY EventID 4688/4768/4769
-    # (windows_security_dsm.py:299) — 4624 logon is NOT supported.
+    # Windows-Security DSM supported ONLY 4688/4768/4769 before P0-3.
+    # 4624/4625 logon coverage added 2026-09-05 (owner-authorised).
     "windows_security_4688": {
         "EventID": 4688, "Channel": "Security",
         "Computer": "WORKSTATION-01.corp.local",
@@ -32,7 +32,7 @@ FIXTURES: dict[str, dict] = {
             "SubjectUserName": "admin_jp", "SubjectDomainName": "CORP",
         },
     },
-    "windows_security_4624_unsupported": {
+    "windows_security_4624_logon": {
         "EventID": 4624, "Channel": "Security", "Computer": "WIN-1",
         "TimeCreated": "2026-09-05T00:00:00Z",
         "EventData": {"TargetUserName": "alice", "LogonType": "3"},

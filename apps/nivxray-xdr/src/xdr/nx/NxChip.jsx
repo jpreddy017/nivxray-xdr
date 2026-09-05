@@ -99,29 +99,42 @@ export default NxChip;
 
 /** Convenience wrapper for the honesty grammar — always dashed. */
 export const NxHonestyChip = ({ state = "unknown", ...rest }) => {
-  const toneByState = {
-    unknown:       "neutral",
-    not_run:       "not_run",
-    no_evidence:   "no_evidence",
-    not_connected: "not_connected",
-    not_available: "neutral",
-  };
-  const labelByState = {
-    unknown:       "UNKNOWN",
-    not_run:       "NOT_RUN",
-    no_evidence:   "NO EVIDENCE",
-    not_connected: "NOT CONNECTED",
-    not_available: "NOT AVAILABLE",
-  };
+  // Phase 1-a · epistemic-state grammar.  The glyph carries the meaning so
+  // it never depends on colour alone; the border grammar is locked:
+  //   solid border  = we KNOW      dashed border = we do NOT (yet) know.
   const key = String(state || "unknown").toLowerCase();
+  const SPEC = {
+    evidence_present:       { glyph: "\u25C6", label: "EVIDENCE PRESENT",       known: true  },
+    no_evidence:            { glyph: "\u25C7", label: "NO EVIDENCE",            known: true  },
+    unknown:                { glyph: "?",      label: "UNKNOWN",                known: false },
+    not_run:                { glyph: "\u25CB", label: "NOT_RUN",                known: false },
+    capability_unavailable: { glyph: "\u2298", label: "CAPABILITY UNAVAILABLE", known: false },
+    not_connected:          { glyph: "\u2298", label: "NOT CONNECTED",          known: false },
+    not_available:          { glyph: "\u2298", label: "NOT AVAILABLE",          known: false },
+  };
+  const spec = SPEC[key] || {
+    glyph: "?", label: String(state).toUpperCase(), known: false,
+  };
+  const TITLE = {
+    // NO EVIDENCE is an honest NEGATIVE RESULT, not missing data.
+    no_evidence: "The query ran and returned zero matches — an honest negative result, not missing data.",
+    evidence_present: "Confirmed, citable telemetry backs this value.",
+    unknown: "Evaluable, but no verdict has been asserted yet.",
+    not_run: "The engine exists and has not executed for this record.",
+    capability_unavailable: "Registered capability with no configured integration.",
+    not_connected: "Transport was never established for this source.",
+  };
   return (
-    <NxChip
-      variant="dashed"
-      tone={toneByState[key] || "neutral"}
-      size="sm"
+    <span
+      className="nx-ep"
+      data-ep={key}
+      data-known={spec.known ? "true" : "false"}
+      data-testid={`nx-epistemic-${key}`}
+      title={TITLE[key] || spec.label}
       {...rest}
     >
-      {labelByState[key] || String(state).toUpperCase()}
-    </NxChip>
+      <span className="nx-ep__glyph" aria-hidden="true">{spec.glyph}</span>
+      {spec.label}
+    </span>
   );
 };

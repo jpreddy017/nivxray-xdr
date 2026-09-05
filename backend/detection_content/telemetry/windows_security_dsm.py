@@ -4,6 +4,13 @@ Provides native support for high-fidelity Windows Security Events:
 - Event ID 4688: Process Creation with full Command Line and Parent
 - Event ID 4768: Kerberos Authentication Ticket Request (TGT / AS-REP Roasting telemetry)
 - Event ID 4769: Kerberos Service Ticket Request (Kerberoasting telemetry)
+- Event ID 4624: Successful account logon (authentication evidence)
+- Event ID 4625: Failed account logon (authentication evidence)
+
+P0-3 (owner-authorised 2026-09-05): 4624/4625 added as a TELEMETRY COVERAGE
+correction.  They are normalized as authentication/logon evidence onto the
+existing AuthEntity/IdentityEntity canonical model.  No identity engine, no
+UBAE, no behavioural baselining is introduced here.
 """
 from __future__ import annotations
 
@@ -22,6 +29,18 @@ from .models import (
     ProcessEntity,
     ProvenanceEnvelope,
 )
+
+
+
+# Event IDs this DSM parses and normalizes.  4624/4625 added 2026-09-05
+# (P0-3 telemetry coverage correction) — authentication/logon evidence.
+SUPPORTED_EVENT_IDS = (4688, 4768, 4769, 4624, 4625)
+
+_LOGON_TYPE_LABELS = {
+    2: "interactive", 3: "network", 4: "batch", 5: "service",
+    7: "unlock", 8: "network_cleartext", 9: "new_credentials",
+    10: "remote_interactive", 11: "cached_interactive",
+}
 
 
 class WindowsSecurityParserError(Exception):
@@ -66,7 +85,7 @@ class WindowsSecurityParser:
         except Exception:
             raise WindowsSecurityParserError("INVALID_EVENT_ID", f"EventID '{event_id}' is not an integer")
 
-        if eid_int not in (4688, 4768, 4769):
+        if eid_int not in SUPPORTED_EVENT_IDS:
             raise WindowsSecurityParserError("UNSUPPORTED_EID", f"EventID {eid_int} not supported by this DSM")
 
         # Extract system header info
@@ -251,6 +270,82 @@ class WindowsSecurityNormalizer:
             additional["service_name"] = service_name
             additional["encryption_type"] = enc_type
 
+        elif eid in (4624, 4625):
+            # P0-3 · authentication / logon evidence.  Normalized onto the
+            # existing AuthEntity + IdentityEntity model.  No identity
+            # engine, no UBAE, no baselining.
+            succeeded = (eid == 4624)
+            event_type = "logon_success" if succeeded else "logon_failure"
+            user_name = str(_get_ci(data, "TargetUserName") or "")
+            domain = str(_get_ci(data, "TargetDomainName") or "")
+            user_sid = str(_get_ci(data, "TargetUserSid") or "")
+            logon_id = str(_get_ci(data, "TargetLogonId") or "")
+            logon_type_raw = str(_get_ci(data, "LogonType") or "")
+            workstation = str(_get_ci(data, "WorkstationName") or "")
+            logon_process = str(_get_ci(data, "LogonProcessName") or "")
+            auth_package = str(_get_ci(data, "AuthenticationPackageName") or "")
+            proc_name = str(_get_ci(data, "ProcessName") or "")
+            ip = str(_get_ci(data, "IpAddress") or "").replace("::ffff:", "")
+            port_str = str(_get_ci(data, "IpPort") or "")
+
+            logon_type: Optional[int] = None
+            if logon_type_raw.strip().lstrip("-").isdigit():
+                logon_type = int(logon_type_raw.strip())
+
+            principal = f"{domain}\\{user_name}" if domain and user_name else user_name
+            identity = IdentityEntity(
+                principal_id=principal,
+                username=user_name,
+                domain=domain,
+                user_sid=user_sid,
+                logon_id=logon_id,
+                is_privileged=("admin" in user_name.lower()),
+            )
+
+            if proc_name:
+                process = ProcessEntity(
+                    name=os.path.basename(proc_name),
+                    executable_path=proc_name,
+                )
+
+            port: Optional[int] = None
+            if port_str.isdigit():
+                port = int(port_str)
+            if ip or port is not None:
+                network = NetworkEntity(
+                    src_ip=ip,
+                    src_port=port,
+                    direction="inbound",
+                )
+
+            # 4625 carries Status/SubStatus; 4624 has no failure reason.
+            status_code = str(_get_ci(data, "Status") or "")
+            sub_status = str(_get_ci(data, "SubStatus") or "")
+            auth = AuthEntity(
+                auth_type=(auth_package.lower() or "windows_logon"),
+                logon_type=logon_type,
+                status="SUCCESS" if succeeded else "FAILURE",
+                failure_reason=("" if succeeded
+                                else (sub_status or status_code)),
+            )
+
+            # Only record what the event actually carried (rule #13).
+            if logon_type is not None:
+                additional["logon_type"] = logon_type
+                label = _LOGON_TYPE_LABELS.get(logon_type)
+                if label:
+                    additional["logon_type_label"] = label
+            if workstation:
+                additional["workstation_name"] = workstation
+            if logon_process:
+                additional["logon_process"] = logon_process
+            if auth_package:
+                additional["authentication_package"] = auth_package
+            if not succeeded and status_code:
+                additional["status"] = status_code
+            if not succeeded and sub_status:
+                additional["sub_status"] = sub_status
+
         provenance = ProvenanceEnvelope(
             trace_id=trace_id,
             collector_id=collector_id,
@@ -292,11 +387,11 @@ class WindowsSecurityDSM:
     def supports(self, ev: Dict[str, Any]) -> bool:
         if not isinstance(ev, dict):
             return False
-        # Matches if EventID is 4688, 4768, 4769
+        # Matches if EventID is 4688, 4768, 4769, 4624 or 4625
         sys_block = ev.get("System") or ev.get("system") or {}
         eid = _get_ci(ev, "EventID", "event_id", "eventid") or _get_ci(sys_block, "EventID", "event_id", "eventid")
         try:
-            return int(eid) in (4688, 4768, 4769)
+            return int(eid) in SUPPORTED_EVENT_IDS
         except Exception:
             return False
 

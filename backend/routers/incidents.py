@@ -137,7 +137,7 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "id":          doc.get("id"),
         "number":      _short_number(doc.get("id")),
-        "name":        doc.get("name") or "(unnamed)",
+        "name":        doc.get("name") or doc.get("title") or "(unnamed)",
         # ── Investigation-aware queue columns (15) ──────────────────
         "priority":    {"code": priority_code, "label": priority_label},
         "severity":    doc.get("incident_severity")
@@ -720,7 +720,18 @@ async def list_incidents(
                     "applied_filters": {},
                     "invariant": "queue == projection · never engine"}
     else:
-        q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
+        q: Dict[str, Any] = {
+            # P0-2 · queue purity (owner-authorised 2026-09-05): the
+            # incident queue surfaces incidents only.  Analysis cases live
+            # in the same ratified store but are a different doc_type.
+            "doc_type": "xdr_incident",
+            # Pipeline incidents persist `title`; analysis cases persist
+            # `name`.  Gating on `name` alone hid 191 of 198 incidents.
+            "$and": [{"$or": [
+                {"name":  {"$exists": True, "$ne": ""}},
+                {"title": {"$exists": True, "$ne": ""}},
+            ]}],
+        }
         if email:
             q["user_email"] = email
 
@@ -757,7 +768,8 @@ async def list_incidents(
         applied["technique"] = t
 
     projection = {
-        "_id": 0, "id": 1, "name": 1, "user_email": 1, "tenant_id": 1,
+        "_id": 0, "id": 1, "name": 1, "title": 1, "doc_type": 1,
+        "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "verdict_stage2": 1,
         "verdict_card": 1, "incident_state": 1, "incident_assignee": 1,
         "incident_priority": 1, "incident_severity": 1,
