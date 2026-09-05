@@ -9298,3 +9298,28 @@ state. All green, plus queue 17/17, dashboard 20/20, MSS 12/12, telemetry 5/5.
 
 ### Deferred by owner
 Bulk row actions (after filtering/search stabilises).
+
+## 2026-09-05 · Investigation IA + colour-scale separation
+
+**Record Tab Regrouping — done, as IA not tab-shuffling.** `RECORD_TAB_GROUPS` groups the 12
+tabs by the ANALYST'S QUESTION, never by backend engine, and reading the strip left→right IS
+the investigation:
+  WHAT HAPPENED (Attack Story ▸ primary · Summary · Timeline) →
+  WHY WE BELIEVE IT (Verdict & Technical · ATT&CK) →
+  WHAT PROVES IT (Evidence · Evidence Graph · Related) →
+  WHAT NEXT (Investigation · Response & Closure · Notes · Report).
+Each group carries its question as the label + tooltip; tabs keep live counts. **The record now
+opens on Attack Story** (`DEFAULT_TAB`), not the executive block. Device Trajectory stays the
+endpoint forensic view; the Evidence Graph is explicitly secondary.
+
+**Three separate colour scales (owner spec) — implemented and verified in the DOM:**
+- Priority ACCENT ladder: P1 `#EF4444` · P2 `#F97316` · P3 `#EAB308` · P4 `#3B82F6` (blue, was
+  teal) · P5 slate. Rendered as **12% tint + 55% coloured border + full-colour text** — never a
+  filled block, and table rows are never tinted as a whole.
+- Verdict: malicious red · suspicious orange · benign green · unknown neutral.
+- Epistemic: ◆ present green · ◇ none slate · ? unknown amber · ○ not-run violet ·
+  ⊘ unavailable slate. No scale borrows another's colours.
+
+**NOT done in this cycle (next):** deeper Attack Story redesign, Evidence Graph presentation
+pass 2, Evidence Inspector rework, and **Verdict Arithmetic from authoritative VEEE
+contributors** — the IA slot ("Why we believe it") now exists for it.

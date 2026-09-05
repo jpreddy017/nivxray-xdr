@@ -132,7 +132,7 @@
   --nx-pri-1: #EF4444;   /* P1 · CRITICAL      · red    */
   --nx-pri-2: #F97316;   /* P2 · HIGH          · orange */
   --nx-pri-3: #EAB308;   /* P3 · MEDIUM        · amber  */
-  --nx-pri-4: #14B8A6;   /* P4 · LOW           · teal   */
+  --nx-pri-4: #3B82F6;   /* P4 · LOW           · blue   */
   --nx-pri-5: #94A3B8;   /* P5 · INFORMATIONAL · slate  */
   --nx-graph-bg:   #090C12;
   --nx-graph-grid: rgba(255, 255, 255, 0.035);
@@ -213,7 +213,7 @@
   --nx-pri-1: #DC2626;
   --nx-pri-2: #EA580C;
   --nx-pri-3: #CA8A04;
-  --nx-pri-4: #0D9488;
+  --nx-pri-4: #2563EB;
   --nx-pri-5: #64748B;
   --nx-graph-bg:   #FBFBF9;
   --nx-graph-grid: rgba(15, 23, 42, 0.05);
@@ -345,12 +345,27 @@
   .nx-theme-toggle, .nx-drawer__toggle { transition: none; }
 }
 
-/* Priority chips carry their own fill ladder.  The foreground is the
-   ink that actually passes contrast against each saturated fill:
-   near-black in BOTH themes (white text fails on amber and teal). */
-.xdr-console .nx-chip--filled[data-priority-rank] { color: #0B0E14; }
-/* Light mode needs a per-rank foreground: dark ink passes on orange /
-   amber / teal, but red and slate need white to clear 4.5:1. */
-.xdr-console[data-nx-theme="light"] .nx-chip--filled[data-priority-rank] { color: #10151F; }
-.xdr-console[data-nx-theme="light"] .nx-chip--filled[data-priority-rank="P1"],
-.xdr-console[data-nx-theme="light"] .nx-chip--filled[data-priority-rank="P5"] { color: #FFFFFF; }
+/* ── Priority ladder rendering (owner spec 2026-09-05) ─────────────
+ * Priority is an ACCENT, never a large filled block:
+ *   text / icon → full colour
+ *   badge       → very low-opacity tint + coloured border
+ *   table row   → never tinted as a whole
+ * Priority (red/orange/amber/BLUE), verdict (red/orange/GREEN/neutral)
+ * and epistemic state (green/slate/amber/violet) are three separate
+ * scales and must never borrow each other's colours. */
+.xdr-console [data-priority-rank] {
+  background: color-mix(in srgb, var(--nx-tone) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nx-tone) 55%, transparent);
+  color: var(--nx-tone);
+  font-weight: 700;
+}
+.xdr-console [data-priority-rank="P1"] { --nx-tone: var(--nx-pri-1); }
+.xdr-console [data-priority-rank="P2"] { --nx-tone: var(--nx-pri-2); }
+.xdr-console [data-priority-rank="P3"] { --nx-tone: var(--nx-pri-3); }
+.xdr-console [data-priority-rank="P4"] { --nx-tone: var(--nx-pri-4); }
+.xdr-console [data-priority-rank="P5"] { --nx-tone: var(--nx-pri-5); }
+/* Light mode keeps the same grammar — tint + border + coloured text —
+   so a screenshot of either theme reads identically. */
+.xdr-console[data-nx-theme="light"] [data-priority-rank] {
+  background: color-mix(in srgb, var(--nx-tone) 10%, #FFFFFF);
+}

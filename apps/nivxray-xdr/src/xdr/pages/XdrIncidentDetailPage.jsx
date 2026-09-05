@@ -51,7 +51,10 @@ import "./incidents/queue-theme.css";
 import "./incidents/record/record-theme.css";
 
 
-const DEFAULT_TAB = "executive";
+// Owner-approved default journey (2026-09-05): the record OPENS on the
+// narrative — "what happened" — not on an executive block.  Attack
+// Story is the primary analyst surface.
+const DEFAULT_TAB = "attack_story";
 const TAB_KEYS = new Set(RECORD_TABS.map(t => t.key));
 
 
