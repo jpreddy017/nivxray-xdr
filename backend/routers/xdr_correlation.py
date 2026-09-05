@@ -618,10 +618,14 @@ _BUNDLED_RULES: list[dict] = [
      {"id": "N", "operator": "EVENT_MATCH",
       "match": {"event_kind": "detection.execution"}},
    ],
-   "operators": {"type": "NEGATIVE_EVIDENCE", "window_seconds": 900},
-   "group_by":            ["host_id"],
-   "attack_techniques":   ["T1566.001"]},
+    "operators": {"type": "NEGATIVE_EVIDENCE", "window_seconds": 900},
+    "group_by":            ["host_id"],
+    "attack_techniques":   ["T1566.001"]},
 ]
+
+# Incorporate the 5 enterprise multi-stage correlation scenarios
+from detection_content.correlation_library import ENTERPRISE_CORRELATION_SCENARIOS
+_BUNDLED_RULES.extend(ENTERPRISE_CORRELATION_SCENARIOS)
 
 
 def _seed_bundled_rules() -> int:

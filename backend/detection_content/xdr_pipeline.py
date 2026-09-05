@@ -51,6 +51,11 @@ class SnortEveDSM:
 class DSMRegistry:
     def __init__(self):
         self._dsms: list = [SnortEveDSM()]
+        try:
+            from .telemetry import WindowsSecurityDSM, LinuxAuditdDSM, AWSCloudTrailDSM
+            self._dsms.extend([WindowsSecurityDSM(), LinuxAuditdDSM(), AWSCloudTrailDSM()])
+        except Exception:
+            pass
 
     def resolve(self, ev: dict):
         for d in self._dsms:
@@ -168,28 +173,41 @@ detection:
 
 def evaluate_detection(canonical: dict) -> dict:
     """
-    Run the golden rule against the canonical evidence.  Uses the same
-    Sigma evaluator proven in Round 6 (P0.2e).
+    Run detection evaluation against canonical evidence using both the
+    authoritative Sigma evaluator and the expanded Enterprise Detection Library.
+    Preserves exact golden-rule contract and surfaces all matching detections.
     """
+    from .library import REGISTRY as DETECTION_REGISTRY
+
+    # 1. Golden rule check (maintains strict regression contract)
+    golden_matched = False
     parsed = strict_parse(_GOLDEN_RULE)
-    if parsed.status != "PARSED":
-        return {"status": "EXECUTION_FAILED",
-                    "error": parsed.error_message}
-    # Flatten the canonical fields the rule references
-    sec = (canonical.get("security") or {}).get("signature") or {}
-    ev_flat = {"security_signature_id": sec.get("id")}
-    try:
-        matched = bool(nx_evaluate(parsed.rule, ev_flat))
-    except Exception as e:
-        return {"status": "EXECUTION_FAILED",
-                    "error_type": type(e).__name__,
-                    "error": str(e)}
+    if parsed.status == "PARSED":
+        sec = (canonical.get("security") or {}).get("signature") or {}
+        ev_flat = {"security_signature_id": sec.get("id")}
+        try:
+            golden_matched = bool(nx_evaluate(parsed.rule, ev_flat))
+        except Exception:
+            golden_matched = False
+
+    # 2. Enterprise Detection Library evaluation
+    library_matches = DETECTION_REGISTRY.evaluate_event(canonical)
+
+    matched = golden_matched or bool(library_matches)
+    if golden_matched:
+        primary_rule_id = "00000000-0000-0000-0000-9999abcdef99"
+    elif library_matches:
+        primary_rule_id = library_matches[0]["rule_id"]
+    else:
+        primary_rule_id = "00000000-0000-0000-0000-9999abcdef99"
+
     return {
         "status":       "RULE_MATCH" if matched else "RULE_NO_MATCH",
-        "rule_id":      "00000000-0000-0000-0000-9999abcdef99",
+        "rule_id":      primary_rule_id,
         "engine_id":    "nivxray::detection_content::nivxray_native_sigma",
         "matched":      matched,
         "execution_id": str(uuid.uuid4()),
+        "detections":   library_matches,
     }
 
 

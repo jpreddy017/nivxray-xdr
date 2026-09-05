@@ -381,27 +381,335 @@ def extract_iocs(data: bytes) -> Dict[str, List[str]]:
 
 
 # ---------------------------------------------------------------------------
-# One-shot analyzer
+# API Hashing Dictionary & Recognition
+# ---------------------------------------------------------------------------
+
+_API_HASH_TABLE_ROR13 = {
+    0xec0e4e8e: "LoadLibraryA",
+    0x7c0dfcaa: "GetProcAddress",
+    0x0e8afe98: "VirtualAlloc",
+    0x91afca54: "VirtualAllocEx",
+    0x160d6838: "CreateProcessA",
+    0xe73a0336: "WinExec",
+    0x76da08d2: "URLDownloadToFileA",
+    0xa779563a: "InternetOpenA",
+    0xc69f8957: "InternetConnectA",
+    0x3b2e55eb: "HttpOpenRequestA",
+    0x7b18062d: "HttpSendRequestA",
+    0x384a4e20: "WSAStartup",
+    0xadf509d9: "WSASocketA",
+    0x5b38e10a: "connect",
+    0x6b80297f: "closesocket",
+    0x348019b8: "ExitProcess",
+    0x7946c61b: "NtAllocateVirtualMemory",
+    0x50e182e7: "NtProtectVirtualMemory",
+    0x3711d9f4: "NtWriteVirtualMemory",
+}
+
+_API_HASH_TABLE_DJB2 = {
+    0x5e376042: "LoadLibraryA",
+    0x241d7d0a: "GetProcAddress",
+    0x1bb89063: "VirtualAlloc",
+}
+
+
+def detect_api_hashing(data: bytes, arch: str = "x86_64") -> Dict[str, Any]:
+    """Scan for common Windows API export hashes (ROR13 / DJB2)."""
+    if not data or len(data) < 4:
+        return {"detected": False, "has_hash_loop": False, "resolved_apis": [], "api_count": 0}
+
+    resolved: List[Dict[str, Any]] = []
+    seen = set()
+
+    for i in range(0, min(len(data) - 3, 4096)):
+        val = int.from_bytes(data[i:i + 4], "little")
+        if val in _API_HASH_TABLE_ROR13 and val not in seen:
+            seen.add(val)
+            resolved.append({
+                "hash": f"0x{val:08x}",
+                "algorithm": "ROR13",
+                "api": _API_HASH_TABLE_ROR13[val],
+                "status": "API_NAME_RESOLVED",
+                "offset": i,
+            })
+        elif val in _API_HASH_TABLE_DJB2 and val not in seen:
+            seen.add(val)
+            resolved.append({
+                "hash": f"0x{val:08x}",
+                "algorithm": "DJB2",
+                "api": _API_HASH_TABLE_DJB2[val],
+                "status": "API_NAME_RESOLVED",
+                "offset": i,
+            })
+
+    has_hash_loop = False
+    try:
+        if _CS_OK:
+            for insn in disassemble(data[:512], arch, max_insns=60):
+                op = insn.get("op", "")
+                args = insn.get("args", "")
+                if op == "ror" and ("13" in args or "0xd" in args):
+                    has_hash_loop = True
+                    break
+    except Exception:
+        pass
+
+    return {
+        "detected": bool(resolved or has_hash_loop),
+        "has_hash_loop": has_hash_loop,
+        "resolved_apis": resolved,
+        "api_count": len(resolved),
+    }
+
+
+# ---------------------------------------------------------------------------
+# PEB / TEB Access Detection
+# ---------------------------------------------------------------------------
+
+def detect_peb_teb_access(data: bytes, arch: str = "x86_64") -> bool:
+    """Detect in-memory PEB/TEB lookups used for stealth API resolution."""
+    if not data or len(data) < 4:
+        return False
+    if b"\x64\xa1\x30\x00\x00\x00" in data or b"\x64\x8b" in data or b"\x65\x48\x8b" in data:
+        return True
+    if _CS_OK:
+        try:
+            for insn in disassemble(data[:256], arch, max_insns=40):
+                op_str = insn.get("args", "").lower()
+                if "fs:" in op_str or "gs:" in op_str:
+                    return True
+        except Exception:
+            pass
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Static Shellcode Deobfuscation (Zero-Execution)
+# ---------------------------------------------------------------------------
+
+def deobfuscate_shellcode(data: bytes, max_layers: int = 3) -> Dict[str, Any]:
+    """Static-first shellcode deobfuscator (zero code execution).
+
+    Identifies and peels single-byte XOR, rolling-key XOR, and bitwise NOT transforms.
+    Each transformation produces SHA-256 in/out hashes, execution metrics, and bounded previews.
+    """
+    import hashlib
+    if not data or len(data) < 16:
+        return {
+            "success": False,
+            "stages": [],
+            "final_bytes": data,
+            "stop_reason": "payload_too_short",
+        }
+
+    current = bytearray(data)
+    stages: List[Dict[str, Any]] = []
+    stop_reason = "no_transformation_identified"
+
+    for depth in range(max_layers):
+        in_hash = hashlib.sha256(current).hexdigest()
+        stage_applied = False
+
+        # If current buffer is already clean shellcode or PE, halt honestly
+        if starts_with_known_prologue(current) or _is_valid_pe(current):
+            stop_reason = "terminal_payload_reached"
+            break
+
+        # Single-Byte XOR brute force
+        best_xor_key = None
+        best_buf = None
+        for key in range(1, 256):
+            xored = bytes(b ^ key for b in current)
+            if starts_with_known_prologue(xored) or _is_valid_pe(xored):
+                best_xor_key = key
+                best_buf = xored
+                break
+
+        if best_xor_key is not None and best_buf is not None:
+            out_hash = hashlib.sha256(best_buf).hexdigest()
+            stages.append({
+                "stage_index": depth,
+                "decoder": "shellcode-xor-single",
+                "op": "shellcode-xor-single",
+                "input_hash": in_hash,
+                "output_hash": out_hash,
+                "input_length": len(current),
+                "output_length": len(best_buf),
+                "why_selected": f"Single-byte XOR with key 0x{best_xor_key:02x} revealed valid executable prologue",
+                "confidence": 0.95,
+                "status": "success",
+                "preview": best_buf[:64].hex(" "),
+                "output_payload": best_buf[:65536].hex(" "),
+                "key": f"0x{best_xor_key:02x}",
+            })
+            current = bytearray(best_buf)
+            stage_applied = True
+            stop_reason = "terminal_payload_reached"
+
+        # Rolling XOR with seed incrementing per byte
+        if not stage_applied:
+            for seed in range(1, 256):
+                rolling_buf = bytes(current[i] ^ ((seed + i) & 0xFF) for i in range(len(current)))
+                if starts_with_known_prologue(rolling_buf) or _is_valid_pe(rolling_buf):
+                    out_hash = hashlib.sha256(rolling_buf).hexdigest()
+                    stages.append({
+                        "stage_index": depth,
+                        "decoder": "shellcode-rolling-xor",
+                        "op": "shellcode-rolling-xor",
+                        "input_hash": in_hash,
+                        "output_hash": out_hash,
+                        "input_length": len(current),
+                        "output_length": len(rolling_buf),
+                        "why_selected": f"Rolling XOR with seed 0x{seed:02x} revealed valid executable prologue",
+                        "confidence": 0.90,
+                        "status": "success",
+                        "preview": rolling_buf[:64].hex(" "),
+                        "output_payload": rolling_buf[:65536].hex(" "),
+                        "seed": f"0x{seed:02x}",
+                    })
+                    current = bytearray(rolling_buf)
+                    stage_applied = True
+                    stop_reason = "terminal_payload_reached"
+                    break
+
+        # Bitwise NOT inversion
+        if not stage_applied:
+            not_buf = bytes(b ^ 0xFF for b in current)
+            if starts_with_known_prologue(not_buf) or _is_valid_pe(not_buf):
+                out_hash = hashlib.sha256(not_buf).hexdigest()
+                stages.append({
+                    "stage_index": depth,
+                    "decoder": "shellcode-bitwise-not",
+                    "op": "shellcode-bitwise-not",
+                    "input_hash": in_hash,
+                    "output_hash": out_hash,
+                    "input_length": len(current),
+                    "output_length": len(not_buf),
+                    "why_selected": "Bitwise NOT inversion revealed valid executable prologue",
+                    "confidence": 0.90,
+                    "status": "success",
+                    "preview": not_buf[:64].hex(" "),
+                    "output_payload": not_buf[:65536].hex(" "),
+                })
+                current = bytearray(not_buf)
+                stage_applied = True
+                stop_reason = "terminal_payload_reached"
+
+        if not stage_applied:
+            break
+
+    return {
+        "success": bool(stages),
+        "stages": stages,
+        "final_bytes": bytes(current),
+        "stop_reason": stop_reason,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Embedded Artifact Carving & Recursion
+# ---------------------------------------------------------------------------
+
+def carve_embedded_artifacts(data: bytes) -> List[Dict[str, Any]]:
+    """Scan raw/deobfuscated buffer for embedded executables and archives."""
+    import hashlib
+    if not data or len(data) < 64:
+        return []
+    carved: List[Dict[str, Any]] = []
+
+    # 1. Carve embedded Windows PE (Reflective Loader payload)
+    idx = 0
+    while idx < len(data) - 64 and len(carved) < 5:
+        pos = data.find(b"MZ", idx)
+        if pos == -1:
+            break
+        candidate = data[pos:]
+        if _is_valid_pe(candidate):
+            sha = hashlib.sha256(candidate).hexdigest()
+            pe_analysis = None
+            try:
+                from services.analyzers.pe import analyze as analyze_pe
+                pe_analysis = analyze_pe(candidate)
+            except Exception:
+                try:
+                    from services.pe_analyzer import analyze_pe
+                    pe_analysis = analyze_pe(candidate)
+                except Exception:
+                    pass
+
+            carved.append({
+                "child_id": f"pe:{sha[:16]}",
+                "artifact_type": "pe",
+                "offset": pos,
+                "size": len(candidate),
+                "sha256": sha,
+                "relationship": "carved_from_shellcode",
+                "pe_analysis": pe_analysis,
+            })
+            idx = pos + 64
+        else:
+            idx = pos + 1
+
+    # 2. Carve embedded ZIP archives
+    zpos = data.find(b"PK\x03\x04")
+    if zpos != -1 and len(carved) < 5:
+        zip_candidate = data[zpos:]
+        zsha = hashlib.sha256(zip_candidate).hexdigest()
+        carved.append({
+            "child_id": f"zip:{zsha[:16]}",
+            "artifact_type": "archive",
+            "offset": zpos,
+            "size": len(zip_candidate),
+            "sha256": zsha,
+            "relationship": "carved_from_shellcode",
+        })
+
+    return carved
+
+
+# ---------------------------------------------------------------------------
+# One-shot analyzer (Enriched with Deobfuscation, Carving & API Hashing)
 # ---------------------------------------------------------------------------
 
 def analyze(data: bytes, arch: Optional[str] = None, max_insns: int = 300) -> Dict[str, Any]:
-    """Bundle entropy + arch + disassembly + IOCs into a single dict."""
+    """Bundle entropy + arch + disassembly + IOCs + deobfuscation + carving."""
     if not data:
         return {
             "size": 0, "entropy": 0.0, "is_shellcode": False,
             "arch": None, "disassembly": [], "iocs": {}, "hex_preview": "",
+            "deobfuscation": {"success": False, "stages": []},
+            "api_hashes": {"detected": False, "resolved_apis": []},
+            "peb_teb_access": False,
+            "carved_artifacts": [],
+            "has_embedded_pe": False,
         }
-    detected_arch = detect_arch(data, hint=arch)
+
+    # Static deobfuscation pass
+    deob = deobfuscate_shellcode(data)
+    effective_data = deob["final_bytes"] if deob["success"] else data
+
+    detected_arch = detect_arch(effective_data, hint=arch)
+    disasm = disassemble(effective_data, detected_arch, max_insns=max_insns)
+    iocs = extract_iocs(effective_data)
+    api_hashes = detect_api_hashing(effective_data, detected_arch)
+    peb_access = detect_peb_teb_access(effective_data, detected_arch)
+    carved = carve_embedded_artifacts(effective_data)
+
     return {
-        "size":         len(data),
-        "entropy":      round(shannon_entropy(data), 3),
+        "size": len(data),
+        "entropy": round(shannon_entropy(data), 3),
         "is_shellcode": is_shellcode(data),
-        "arch":         detected_arch,
-        "arch_hint":    arch or None,
-        "disassembly":  disassemble(data, detected_arch, max_insns=max_insns),
-        "iocs":         extract_iocs(data),
-        "hex_preview":  data[:64].hex(" "),
+        "arch": detected_arch,
+        "arch_hint": arch or None,
+        "disassembly": disasm,
+        "iocs": iocs,
+        "hex_preview": data[:64].hex(" "),
         "capstone_available": _CS_OK,
+        "deobfuscation": deob,
+        "api_hashes": api_hashes,
+        "peb_teb_access": peb_access,
+        "carved_artifacts": carved,
+        "has_embedded_pe": any(c["artifact_type"] == "pe" for c in carved),
     }
 
 

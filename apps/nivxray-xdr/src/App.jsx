@@ -34,6 +34,9 @@ const XdrKbPage               = lazy(() => import("@/xdr/pages/XdrKbPage"));
 const XdrDocsPage             = lazy(() => import("@/xdr/pages/XdrDocsPage"));
 const XdrExposurePage         = lazy(() => import("@/xdr/pages/XdrExposurePage"));
 const XdrRuleStudioPage       = lazy(() => import("@/xdr/pages/XdrRuleStudioPage"));
+const XdrInvestigationsListPage   = lazy(() => import("@/xdr/pages/XdrInvestigationsListPage"));
+const XdrInvestigationWorkspacePage = lazy(() => import("@/xdr/pages/XdrInvestigationWorkspacePage"));
+const XdrEvidenceExplorerPage     = lazy(() => import("@/xdr/pages/XdrEvidenceExplorerPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -101,6 +104,11 @@ export default function App() {
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
         <Route path="/xdr/incidents/:id/domain/:domainKey"
                                             element={<Protected><XdrIncidentDomainPage /></Protected>} />
+
+        {/* P0 · Flagship Causal Investigation Workspace & Evidence Explorer */}
+        <Route path="/xdr/investigations"          element={<Protected><XdrInvestigationsListPage /></Protected>} />
+        <Route path="/xdr/investigations/:caseId"  element={<Protected><XdrInvestigationWorkspacePage /></Protected>} />
+        <Route path="/xdr/evidence-explorer"       element={<Protected><XdrEvidenceExplorerPage /></Protected>} />
 
         {/* Slice 6 canvas remains reachable at the incident-scoped
             path.  The old global `/xdr/endpoints` route is retired

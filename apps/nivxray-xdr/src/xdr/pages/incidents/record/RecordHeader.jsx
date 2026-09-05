@@ -19,7 +19,7 @@
  * technical tab, not on the identity band.
  */
 import React from "react";
-import { ChevronLeft, Zap, FileText, MoreHorizontal, Clock } from "lucide-react";
+import { ChevronLeft, Zap, FileText, MoreHorizontal, Clock, FolderSearch } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { NxHeroHeader } from "@/xdr/nx";
@@ -199,6 +199,15 @@ export default function RecordHeader({ incident, onOpenRespond }) {
           metrics={[]}
           action={
             <>
+              <Link
+                to={`/xdr/investigations/${encodeURIComponent(incident.id || incident.case_id || "")}`}
+                className="rl-btn"
+                title="Open full IKG Causal Investigation Workspace"
+                data-testid="xdr-record-open-investigation"
+                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5, color: "#5cc0a5", border: "1px solid rgba(92,192,165,0.35)", background: "rgba(92,192,165,0.08)" }}
+              >
+                <FolderSearch size={13} /> Full Investigation ↗
+              </Link>
               <button
                 type="button"
                 className="rl-btn primary"

@@ -56,6 +56,11 @@ _RX_UNESCAPE = re.compile(
     re.IGNORECASE,
 )
 
+# 4) `"str" + "ing"` — JavaScript string concatenation.
+_RX_CONCAT = re.compile(
+    r"""(['"])([^'"\r\n]*?)\1\s*\+\s*(['"])([^'"\r\n]*?)\3"""
+)
+
 
 def _int_from_token(tok: str) -> int:
     tok = tok.strip()
@@ -119,12 +124,27 @@ def _apply_unescape(text: str) -> Tuple[str, int]:
     return _RX_UNESCAPE.sub(_sub, text), hits
 
 
+def _apply_concat(text: str) -> Tuple[str, int]:
+    hits = 0
+    cur = text
+    prev = None
+    while cur != prev:
+        prev = cur
+        def _sub(m: re.Match) -> str:
+            nonlocal hits
+            hits += 1
+            quote = m.group(1)
+            return quote + m.group(2) + m.group(4) + quote
+        cur = _RX_CONCAT.sub(_sub, cur)
+    return cur, hits
+
+
 class JavaScriptReconstructDecoder(BaseDecoder):
     id = "js-reconstruct"
     name = "JavaScript String Reconstruct"
     category = "reconstruct"
     cost = 2
-    tags = ("javascript", "reconstruct", "deobfuscate", "atob", "fromcharcode", "unescape")
+    tags = ("javascript", "reconstruct", "deobfuscate", "atob", "fromcharcode", "unescape", "concat")
     schema_version = "1.0"
 
     def detect(self, payload: str, fp: Fingerprint, ctx: AnalysisContext) -> DetectResult:
@@ -137,6 +157,8 @@ class JavaScriptReconstructDecoder(BaseDecoder):
             signals.append("js-atob")
         if _RX_UNESCAPE.search(payload):
             signals.append("js-unescape")
+        if _RX_CONCAT.search(payload):
+            signals.append("js-concat")
         if not signals:
             return DetectResult(confidence=0.0, why="No JS reconstruction pattern")
         # High confidence — these primitives are unambiguous, they beat
@@ -167,6 +189,11 @@ class JavaScriptReconstructDecoder(BaseDecoder):
         if n:
             total_hits += n
             notes.append(f"Decoded {n} unescape(%hex) literal(s)")
+
+        text, n = _apply_concat(text)
+        if n:
+            total_hits += n
+            notes.append(f"Concatenated {n} string literal(s)")
 
         if total_hits == 0:
             return PluginResult(output=payload, notes=["js-reconstruct: no changes"])

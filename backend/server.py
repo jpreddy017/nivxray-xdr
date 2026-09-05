@@ -344,6 +344,13 @@ app.include_router(xdr_detection_content_router)
 # manufacturing a canonical 615 / 59 integer. Owner-approved AD-05.
 from routers.truth_inventory import router as truth_inventory_router
 app.include_router(truth_inventory_router)
+# AG Baseline Integration · Security State & Causal Intelligence Core.
+# 14 endpoints backed by the full AG security_state package (attack-state
+# machine, causal engine, capability abuse, reachability, counterfactual,
+# impact, intervention optimizer, response safety, verification, ledger).
+# Router already carries its own /api/v2/security-state prefix — attach to app.
+from security_state.routers.router import router as security_state_router
+app.include_router(security_state_router)
 from routers.xdr_cve import router as xdr_cve_router
 app.include_router(xdr_cve_router)
 from routers.xdr_rule_studio import router as xdr_rule_studio_router

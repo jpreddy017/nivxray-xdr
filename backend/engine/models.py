@@ -159,6 +159,34 @@ class TraceStep(BaseModel):
     family_hints: List[FamilyHint] = Field(default_factory=list)
     lolbas_hits: List[LolbasHit] = Field(default_factory=list)
     tradecraft: List[TradecraftFlag] = Field(default_factory=list)
+    # Universal aliases for analyst UI and pipeline compatibility
+    op: str = ""
+    reason: str = ""
+    why_selected: str = ""
+    output_preview: str = ""
+    output_payload: str = ""
+    input_length: int = 0
+    output_length: int = 0
+    duration_ms: int = 0
+    status: str = "success"
+    stop_reason: str = ""
+
+    def __init__(self, **data: Any):
+        if "op" not in data and "decoder" in data:
+            data["op"] = data["decoder"]
+        if "reason" not in data and "why" in data:
+            data["reason"] = data["why"]
+        if "why_selected" not in data and "why" in data:
+            data["why_selected"] = data["why"]
+        if "output_preview" not in data and "preview" in data:
+            data["output_preview"] = data["preview"]
+        if "input_length" not in data and "in_len" in data:
+            data["input_length"] = data["in_len"]
+        if "output_length" not in data and "out_len" in data:
+            data["output_length"] = data["out_len"]
+        if "duration_ms" not in data and "exec_ms" in data:
+            data["duration_ms"] = data["exec_ms"]
+        super().__init__(**data)
 
 
 # ---------------------------------------------------------------------------

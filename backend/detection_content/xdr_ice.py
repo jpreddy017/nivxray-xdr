@@ -90,7 +90,32 @@ def _signal_from_canonical(canonical: dict, iue: dict) -> dict:
     net = canonical.get("network") or {}
     src = net.get("src") or {}
     dst = net.get("dst") or {}
+    intel = canonical.get("decoded_intelligence") or {}
+    iocs = intel.get("iocs") or {}
     sig = (canonical.get("security") or {}).get("signature") or {}
+    fields = {
+        "signature_id":   sig.get("id"),
+        "signature_name": sig.get("name"),
+        "protocol":       net.get("protocol"),
+        "severity_hint":  iue.get("severity_hint"),
+        "src_ip":         src.get("ip"),
+        "dst_ip":         dst.get("ip"),
+    }
+    if isinstance(iocs, dict):
+        ips = iocs.get("ips") or []
+        if ips:
+            fields["decoded_c2_ip"] = str(ips[0])
+            fields["decoded_c2_ips"] = [str(ip) for ip in ips]
+        urls = iocs.get("urls") or []
+        if urls:
+            fields["decoded_url"] = str(urls[0])
+            fields["decoded_urls"] = [str(u) for u in urls]
+    if intel.get("effective_payload"):
+        fields["effective_command"] = intel["effective_payload"]
+    sec_ctrl = intel.get("security_controls") or {}
+    if sec_ctrl.get("tampering_detected"):
+        fields["defense_evasion_tampering"] = True
+
     return {
         "signal_id":      f"sig_{canonical.get('event_id', '')}",
         "signal_kind":    "detection",
@@ -100,14 +125,7 @@ def _signal_from_canonical(canonical: dict, iue: dict) -> dict:
         "dst_ip":         dst.get("ip"),
         "source_event_id": canonical.get("event_id"),
         "detection_id":   sig.get("id"),
-        "fields": {
-            "signature_id":   sig.get("id"),
-            "signature_name": sig.get("name"),
-            "protocol":       net.get("protocol"),
-            "severity_hint":  iue.get("severity_hint"),
-            "src_ip":         src.get("ip"),
-            "dst_ip":         dst.get("ip"),
-        },
+        "fields":         fields,
     }
 
 

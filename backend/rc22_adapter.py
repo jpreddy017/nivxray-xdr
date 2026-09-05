@@ -278,19 +278,38 @@ def try_orchestrator_first(
     for st in result.trace:
         legacy_op = _LEGACY_OP_ALIAS.get(st.decoder, st.decoder)
         args = getattr(st, "args", None) or {}
-        preview = getattr(st, "notes", None)
-        why = ""
-        if isinstance(preview, list) and preview:
-            why = preview[0]
-        elif isinstance(preview, str):
-            why = preview
+        why = getattr(st, "why", "") or ""
+        if not why:
+            notes = getattr(st, "notes", None)
+            if isinstance(notes, list) and notes:
+                why = notes[0]
+            elif isinstance(notes, str):
+                why = notes
+        preview = getattr(st, "preview", "") or ""
+        if not preview and hasattr(st, "output") and st.output:
+            preview = st.output[:200]
+        out_len = getattr(st, "out_len", 0) or (len(preview) if preview else 0)
+        if not out_len and hasattr(st, "output") and st.output:
+            out_len = len(st.output)
+        in_len = getattr(st, "in_len", 0)
+
         steps.append({
-            "op":            legacy_op,
-            "args":          args if isinstance(args, dict) else {},
-            "reason":        f"orchestrator: {st.decoder}"
-                             + (f" — {why}" if why else ""),
-            "output_preview": (st.output or "")[:200] if hasattr(st, "output") else "",
-            "output_length":  len(st.output) if hasattr(st, "output") and st.output else 0,
+            "op":             legacy_op,
+            "decoder":        st.decoder,
+            "layer":          getattr(st, "layer", len(steps)),
+            "sequence":       getattr(st, "layer", len(steps)),
+            "args":           args if isinstance(args, dict) else {},
+            "reason":         why or f"orchestrator: {st.decoder}",
+            "why":            why or f"orchestrator: {st.decoder}",
+            "why_selected":   why or f"orchestrator: {st.decoder}",
+            "output_preview": preview,
+            "preview":        preview,
+            "output_length":  out_len,
+            "in_len":         in_len,
+            "out_len":        out_len,
+            "confidence":     getattr(st, "confidence", 1.0),
+            "exec_ms":        getattr(st, "exec_ms", 0),
+            "status":         "success",
         })
 
     findings = result.findings
@@ -304,18 +323,18 @@ def try_orchestrator_first(
             "sha256": list(findings.iocs.sha256),
         },
         "emails":  list(findings.iocs.emails),
-        "file_paths": list(findings.iocs.file_paths),
-        "bitcoin_addresses": list(getattr(findings.iocs, "bitcoin_addresses", [])),
+        "files":   list(findings.iocs.file_paths),
     }
     mitre = [
-        {"id": m.id, "technique": m.technique, "tactic": getattr(m, "tactic", ""),
+        {"technique": m.technique, "tactic": m.tactic,
+         "technique_id": m.id, "source": getattr(m, "source", "heuristic"),
          "evidence": getattr(m, "evidence", "")}
         for m in findings.mitre_techniques
     ]
     lolbas = [
-        {"binary": h.binary, "technique_id": getattr(h, "technique_id", ""),
-         "evidence": getattr(h, "evidence", "")}
-        for h in findings.lolbas
+        {"binary": b.binary, "technique_id": getattr(b, "technique_id", ""),
+         "evidence": getattr(b, "evidence", "")}
+        for b in findings.lolbas
     ]
     tradecraft = [
         {"flag": t.flag, "severity": getattr(t, "severity", "low"),
@@ -335,6 +354,10 @@ def try_orchestrator_first(
         tradecraft_list=tradecraft,
     )
 
+    stop_reason = getattr(result, "stopped_reason", "") or (
+        f"Terminal reached: {terminal}" if terminal else "No further deterministic transformation identified"
+    )
+
     return {
         "output":            result.output or "",
         "detected_type":     result.output_type if hasattr(result, "output_type") else "text",
@@ -343,6 +366,8 @@ def try_orchestrator_first(
         "trace":             steps,           # ops.py sometimes reads either key
         "reached_shellcode": _shellcode_reached(result.output or ""),
         "terminal":          terminal,
+        "stop_reason":       stop_reason,
+        "stopped_reason":    stop_reason,
         # Bonus intelligence surfaced for the Workspace panels (MITRE / LOLBAS / IOCs / RULES / SIGNALS)
         "iocs":              ioc_bundle,
         "mitre":             mitre,
@@ -366,4 +391,20 @@ def try_orchestrator_first(
             f"({len(steps)} layer(s), terminal={terminal}, "
             f"verdict={_capped_verdict}, risk={_capped_risk})"
         ),
+        "decoded_intelligence": {
+            "raw_command": payload,
+            "effective_payload": result.output or "",
+            "stages": steps,
+            "stop_reason": stop_reason,
+            "iocs": ioc_bundle,
+            "semantic_understanding": {
+                "verdict": _capped_verdict,
+                "risk_score": _capped_risk,
+                "verdict_reason": findings.verdict_reason or "",
+                "mitre_techniques": mitre,
+                "lolbas": lolbas,
+                "tradecraft": tradecraft,
+                "family": findings.family.family if findings.family else None,
+            },
+        },
     }

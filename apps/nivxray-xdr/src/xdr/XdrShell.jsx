@@ -80,14 +80,15 @@ const SIDEBAR = [
     ],
   },
   {
-    hidden: true,
     area: "investigator",
     section: "Investigations",
     items: [
       { key: "investigations", label: "Investigation Workspace", icon: FolderSearch,
-        disabled: true, title: "Cross-case investigation workspace — arrives in Phase 5" },
+        to: "/xdr/investigations",
+        title: "Cross-case investigation workspace · IKG-driven causal investigation canvas" },
       { key: "evidence-explorer", label: "Evidence Explorer", icon: Search,
-        disabled: true, title: "Cross-case Evidence Explorer — arrives in Phase 5" },
+        to: "/xdr/evidence-explorer",
+        title: "Cross-case evidence explorer · extracted artifacts · hash chains · decoded payloads" },
       { key: "entity-search", label: "Entity Search", icon: Fingerprint,
         disabled: true, title: "Cross-case entity search — arrives in Phase 6" },
       { key: "attack-story-rollup", label: "Attack Story Rollup", icon: Fingerprint,
@@ -226,6 +227,7 @@ function useActiveKey() {
   const { pathname, search } = useLocation();
   return useMemo(() => {
     if (pathname === "/xdr")                     return "incidents";
+    if (pathname.startsWith("/xdr/mss-dashboard")) return "mss-dashboard";
     if (pathname.startsWith("/xdr/incidents")) {
       return search.includes("mine=1") ? "my-queue" : "incidents";
     }
@@ -238,6 +240,8 @@ function useActiveKey() {
       const key = pathname.split("/")[3];
       return key || null;
     }
+    if (pathname.startsWith("/xdr/investigations")) return "investigations";
+    if (pathname.startsWith("/xdr/evidence-explorer")) return "evidence-explorer";
     if (pathname.startsWith("/xdr/intelligence/")) {
       const key = pathname.split("/")[3];
       // Sidebar keys are authoritative — URL keys map back to them.

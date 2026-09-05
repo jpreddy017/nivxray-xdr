@@ -50,7 +50,7 @@ def op_batch_envvar_substitute(data: str, args: Dict[str, Any] | None = None) ->
     for m in _SET_RE.finditer(src):
         env[m.group(1).lower()] = m.group(2).strip().strip('"').strip("'")
 
-    if not env or not _SUB_RE.search(src):
+    if not env or not (_SUB_RE.search(src) or re.search(r"%\w+%", src)):
         return "(batch-envvar-substitute · no set-var + %VAR:from=to% pattern)"
 
     def _resolve_sub(match: re.Match) -> str:

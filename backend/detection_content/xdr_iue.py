@@ -88,6 +88,43 @@ def _extract_entities(canonical: dict) -> list[dict]:
             "role":       "trigger",
             "origin":     "security.signature.id",
         })
+
+    # ── Derived Content Intelligence Entities (from decoded payloads) ──
+    intel = canonical.get("decoded_intelligence") or {}
+    iocs = intel.get("iocs") or {}
+    if isinstance(iocs, dict):
+        for ip in iocs.get("ips") or []:
+            ents.append({
+                "kind":       "ipv4" if "." in str(ip) else "ipv6",
+                "value":      str(ip),
+                "role":       "c2_indicator",
+                "origin":     "decoded_intelligence.iocs.ips",
+            })
+        for url in iocs.get("urls") or []:
+            ents.append({
+                "kind":       "url",
+                "value":      str(url),
+                "role":       "download_cradle",
+                "origin":     "decoded_intelligence.iocs.urls",
+            })
+        for dom in iocs.get("domains") or []:
+            ents.append({
+                "kind":       "domain",
+                "value":      str(dom),
+                "role":       "c2_domain",
+                "origin":     "decoded_intelligence.iocs.domains",
+            })
+    sem = intel.get("semantic_understanding") or {}
+    for lb in sem.get("lolbins") or []:
+        lb_name = lb.get("name") if isinstance(lb, dict) else str(lb)
+        if lb_name:
+            ents.append({
+                "kind":       "lolbas",
+                "value":      lb_name,
+                "role":       "execution_tool",
+                "origin":     "decoded_intelligence.semantic_understanding.lolbins",
+            })
+
     return ents
 
 
@@ -104,6 +141,13 @@ def _capability_tags(canonical: dict, detection: dict | None) -> list[str]:
         tags.append("VERDICT_INPUT:RULE_MATCH")
     if (canonical.get("security") or {}).get("category"):
         tags.append("ATTACK_CATEGORY_PRESENT")
+    if canonical.get("decoded_intelligence"):
+        tags.append("DERIVED_EVIDENCE:DECODED_CONTENT")
+        intel = canonical["decoded_intelligence"]
+        if (intel.get("iocs") or {}).get("ips") or (intel.get("iocs") or {}).get("urls"):
+            tags.append("CORRELATION_CANDIDATE:DECODED_NETWORK_IOC")
+        if (intel.get("security_controls") or {}).get("tampering_detected"):
+            tags.append("VERDICT_INPUT:DEFENSE_EVASION_TAMPERING")
     return tags
 
 

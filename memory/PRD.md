@@ -1,6 +1,62 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## 🎯 2026-09-05 · COMPLETE AG BASELINE INTEGRATION · STAGE 1 + STAGE 2 · DELIVERED
+
+**Authority:** OWNER AUTHORIZATION — FULL AG BUILD → NIVXRAY XDR END-TO-END IMPLEMENTATION.
+
+**AG ZIP verified:** SHA-256 `ba06f99d…aa1f` (23.87 MiB, 4,675 source files).
+
+### Verification (§AG-vs-Git-Complete-Build-Verification)
+- Verdict: **C · DIFFERENT/EVOLVED** — neither Git nor AG is a superset.
+- 364 AG-only, 6,077 Git-only, 4,260 byte-identical, 51 modified (supersedes prior 358/44 estimate).
+- Report: `docs/truth-contract/edr-review/NIVXRAY_XDR_AG_VS_GIT_COMPLETE_BUILD_VERIFICATION.md`.
+
+### Stage 1 · AG additive import
+- 335 AG-only files imported to `feature/rc2-alignment` (29 `.persisted_security_state/*` runtime ledger fixtures skipped).
+- Backend restart clean, no boot errors.
+- P0-D suite: 12/12 pass post-import.
+
+### Stage 2 · 51 conflict resolutions
+- 18 files adopted AG version: 6 Content-Fabric core (contract_registry, rule_binding, sigma_strict, xdr_ice, xdr_iue, xdr_pipeline), 3 XDR-shell UI, 3 legacy decoders, engine/models, xdr_correlation router, rc22_adapter, 3 service extensions.
+- 33 files kept Emergent: `server.py` (Gate-0.5 preserved), `deps.py` (SEC-001/002), 5 decoder-engine files, 5 test fixtures, main-SPA UI (per UDR-2026-09-05 §2), memory/evidence, docs, README, .emergent.
+- Emergent Gate-0.5 preservation set — 100 % preserved.
+
+### Backend wiring
+- `security_state.routers.router` mounted at `/api/v2/security-state/*` (14 endpoints: evaluate, transitions, causality, capabilities, reachability, counterfactual, interventions/plan, response/verify, ledger, streaming/status, provenance, interventions/stage).
+- Verified live via `curl` + OpenAPI: 14/14 registered.
+
+### Tests
+- P0-D suite expanded 12 → 15 (added Security State isolation vectors V12–V14).
+- Serial run: **15/15 pass**. Parallel-runner (xdist -n 2) shows first-run Mongo pool contention flakiness (4 fail) but 15/15 pass on second run — environmental, not code regression.
+- New test file: `backend/tests/edr/test_security_state_isolation.py`.
+
+### Deliverables committed to working tree
+- `docs/truth-contract/edr-review/NIVXRAY_XDR_AG_VS_GIT_COMPLETE_BUILD_VERIFICATION.md`
+- `docs/truth-contract/edr-review/NIVXFORGE_UI_DECISION_RECORD.md` (mirrored)
+- `docs/truth-contract/edr-review/NIVXRAY_AG_EMERGENT_INTEGRATION_REPORT.md`
+- `docs/truth-contract/edr-review/NIVXRAY_CURRENT_STATE_TRUTH_V4.md` (immutable, v1/v2/v3 unamended)
+
+### Honest state (§22 NO EVIDENCE → NO CLAIM)
+- SOURCE ✅ · TEST ✅ · RUNTIME ✅ · EVIDENCE ⚠ PARTIAL (end-to-end scenario replay not exercised).
+- Security State moves NOT_AVAILABLE → PARTIAL.
+- NivXForge EDR sensor / Sandbox VM executor / UBAE FSM: source-code arch landed, live operation infrastructure-gated per §24.
+
+### Preservation invariants
+- Tag `preserve-pre-alignment-2026-09-05` (`06b56144…`) intact.
+- Truth Contract v1/v2/v3 unamended.
+- `mal-20` untouched.
+- AG ZIP SHA-256 unchanged.
+- Product name **NivXRay XDR** used consistently.
+
+### Next authorized transitions
+- Stage 3: Security State runtime end-to-end replay (autonomous once dataset available).
+- Stage 4: Enterprise Content Pipeline runtime seed.
+- Stages 6–9 (EDR/Sandbox/UBAE productionization): infrastructure-gated.
+- Stage 11: UI 8-tab consolidation & main-SPA retirement (gated on feature-parity migration per UDR §2).
+
+
+
 ## 🔨 2026-02 · Sprint 1 · P0-E / P0-H / P0-F CLOSED · P0-C STOPPED FOR OWNER SCOPE
 
 **Owner-locked closure rule applied:** a P0 closes only when

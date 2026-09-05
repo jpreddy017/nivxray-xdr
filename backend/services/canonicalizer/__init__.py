@@ -146,7 +146,8 @@ class CanonicalCommand:
     # `decoded_final`    — fully-peeled payload (single string).
     decoded_layers:     List[Dict[str, Any]] = field(default_factory=list)
     decoded_iocs:       List[Dict[str, Any]] = field(default_factory=list)
-    decoded_final:      str                  = ""
+    decoded_final:        str                  = ""
+    decoded_intelligence: Dict[str, Any]       = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -278,17 +279,139 @@ def canonicalize(raw: str,
         except Exception:
             pass
 
+    # Build authoritative decoded_intelligence bundle
+    if not decoded_layers:
+        stop_reason = "already_plaintext"
+    else:
+        stop_reason = "terminal_plaintext_reached"
+        for lyr in reversed(decoded_layers):
+            if isinstance(lyr, dict):
+                r = lyr.get("stop_reason") or (lyr.get("meta") or {}).get("stop_reason")
+                if r:
+                    stop_reason = r
+                    break
+
+    valid_stop_tokens = {
+        "already_plaintext",
+        "no_transformation_identified",
+        "terminal_plaintext_reached",
+        "no_further_transformation",
+        "max_depth_reached",
+        "size_limit_exceeded",
+    }
+    if stop_reason not in valid_stop_tokens:
+        if not decoded_layers:
+            stop_reason = "already_plaintext"
+        elif decoded_final and decoded_final != raw:
+            stop_reason = "terminal_plaintext_reached"
+        else:
+            stop_reason = "no_further_transformation"
+
+    semantic_understanding: Dict[str, Any] = {}
+    security_controls: Dict[str, Any] = {"tampering_detected": False, "findings": [], "mitre_techniques": []}
+    try:
+        from services.analyzers.security_controls import analyze_security_controls
+        security_controls = analyze_security_controls(decoded_final or raw)
+    except Exception:
+        pass
+
+    if with_decoder and decoded_final and decoded_final != raw:
+        try:
+            from services.die.api import analyze as die_analyze
+            sem = die_analyze(decoded_final)
+            techniques = list(sem.get("techniques", []))
+            for t in security_controls.get("mitre_techniques", []):
+                if t not in techniques:
+                    techniques.append(t)
+
+            semantic_understanding = {
+                "language": sem.get("language", "unknown"),
+                "techniques": techniques,
+                "lolbins": sem.get("lolbins", []),
+                "attack_intent": sem.get("attack_intent", {}),
+                "summary": (
+                    f"Decoded {sem.get('language', 'command')} payload"
+                    + (f" utilizing LOLBAS: {', '.join(b.get('name', '') for b in sem.get('lolbins', []))}" if sem.get('lolbins') else "")
+                ),
+            }
+        except Exception:
+            pass
+
+    # Build authoritative structured IOC bundle matching downstream contract
+    ioc_bundle: Dict[str, Any] = {
+        "ips": [],
+        "urls": [],
+        "domains": [],
+        "hashes": {"md5": [], "sha1": [], "sha256": []},
+        "emails": [],
+        "files": [],
+        "raw_iocs": decoded_iocs,
+    }
+
+    all_extracted_iocs = list(decoded_iocs)
+    if decoded_final and decoded_final != raw:
+        try:
+            from services.die.ioc_semantic import extract_iocs
+            final_extracted = extract_iocs(decoded_final, source="decoded_final") or []
+            for item in final_extracted:
+                if not any(d.get("value") == item.get("value") for d in all_extracted_iocs):
+                    all_extracted_iocs.append(item)
+        except Exception:
+            pass
+
+    import re as _re_canon
+    for ioc in all_extracted_iocs:
+        if not isinstance(ioc, dict):
+            continue
+        val = str(ioc.get("value") or "").strip()
+        if not val:
+            continue
+        kind = str(ioc.get("kind") or ioc.get("type") or "").lower()
+        if kind in ("ip", "ipv4", "ipv6") or (not kind and _re_canon.match(r"^(?:\d{1,3}\.){3}\d{1,3}$", val)):
+            if val not in ioc_bundle["ips"]:
+                ioc_bundle["ips"].append(val)
+        elif kind == "url" or (not kind and val.startswith(("http://", "https://"))):
+            if val not in ioc_bundle["urls"]:
+                ioc_bundle["urls"].append(val)
+        elif kind == "domain":
+            if val not in ioc_bundle["domains"]:
+                ioc_bundle["domains"].append(val)
+        elif kind == "email":
+            if val not in ioc_bundle["emails"]:
+                ioc_bundle["emails"].append(val)
+        elif kind in ("md5", "sha1", "sha256"):
+            if val not in ioc_bundle["hashes"].get(kind, []):
+                ioc_bundle["hashes"][kind].append(val)
+        else:
+            if _re_canon.match(r"^(?:\d{1,3}\.){3}\d{1,3}$", val):
+                if val not in ioc_bundle["ips"]:
+                    ioc_bundle["ips"].append(val)
+            elif val.startswith(("http://", "https://")):
+                if val not in ioc_bundle["urls"]:
+                    ioc_bundle["urls"].append(val)
+
+    decoded_intel = {
+        "raw_command": raw,
+        "effective_payload": decoded_final or current,
+        "stages": decoded_layers,
+        "stage_count": len(decoded_layers),
+        "stop_reason": stop_reason,
+        "iocs": ioc_bundle,
+        "semantic_understanding": semantic_understanding,
+        "security_controls": security_controls,
+    }
 
     return CanonicalCommand(
-        raw               = raw,
-        launcher_chain    = chain,
-        effective_command = _canonical_name(head),
-        effective_head    = head,
-        payload           = current,
-        unwrap_depth      = depth,
-        decoded_layers    = decoded_layers,
-        decoded_iocs      = decoded_iocs,
-        decoded_final     = decoded_final,
+        raw                  = raw,
+        launcher_chain       = chain,
+        effective_command    = _canonical_name(head),
+        effective_head       = head,
+        payload              = current,
+        unwrap_depth         = depth,
+        decoded_layers       = decoded_layers,
+        decoded_iocs         = decoded_iocs,
+        decoded_final        = decoded_final,
+        decoded_intelligence = decoded_intel,
     )
 
 
