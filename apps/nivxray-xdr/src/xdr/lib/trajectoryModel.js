@@ -128,7 +128,8 @@ export function dedupeObservations(events) {
     const rank = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
     if ((rank[e.severity] ?? 0) > (rank[seen.severity] ?? 0)) seen.severity = e.severity;
     if (!seen.command_line && e.command_line) seen.command_line = e.command_line;
-    if (!seen.sha256 && e.sha256) seen.sha256 = e.sha256;
+    if (!seen.file_sha256 && e.file_sha256) seen.file_sha256 = e.file_sha256;
+    if (!seen.input_digest && e.input_digest) seen.input_digest = e.input_digest;
   }
   return out;
 }

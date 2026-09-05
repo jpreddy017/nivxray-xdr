@@ -30,6 +30,18 @@ export async function getDeviceTrajectory(device, hours = 24) {
   return data;
 }
 
+/** P1.8 · Fleet (multi-endpoint) artifact trajectory. */
+export async function getFileTrajectory(key, keyType = "name") {
+  const { data } = await api.get("/edr/file-trajectory",
+                                 { params: { key, key_type: keyType } });
+  return data;
+}
+
+export async function getFleetSpreadIndex() {
+  const { data } = await api.get("/edr/fleet-spread-index");
+  return data;
+}
+
 /** Evidence-gated prose for one persisted observation. */
 export async function getObservationNarrative(device, eventIid) {
   const { data } = await api.get("/edr/observation-narrative",

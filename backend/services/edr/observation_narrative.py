@@ -63,7 +63,10 @@ def compose(doc: Dict[str, Any]) -> Dict[str, Any]:
     kind = ev.get("kind") or doc.get("kind") or ""
     name = proc.get("name") or raw.get("entity")
     image = proc.get("image")
-    sha = raw.get("sha256")
+    sha = next((f.get("sha256") for f in (
+                   (ev.get("artefacts") or {}).get("file") or [])
+                   if isinstance(f, dict) and f.get("sha256")), None)
+    input_digest = raw.get("sha256") or doc.get("input_sha256")
     user = raw.get("user")
     host = raw.get("computer") or raw.get("hostname")
     device_iid = ev.get("device_iid")
@@ -139,9 +142,15 @@ def compose(doc: Dict[str, Any]) -> Dict[str, Any]:
         src_bits.append(f"adapter {prov.get('adapter') or ev.get('adapter')}")
     if src_bits:
         sentences.append("Source: " + " · ".join(src_bits) + ".")
+    if input_digest:
+        sentences.append(
+            f"Evidence integrity: the ingested observation record digests to "
+            f"`{_short(input_digest)}` — that is the record's digest, not the "
+            f"digest of any file it describes.")
 
-    if not raw.get("sha256"):
-        unknowns.append("No SHA-256 was captured for the subject of this event.")
+    if not sha:
+        unknowns.append("No file content digest was captured: "
+                        "artefacts.file[].sha256 is empty on this record.")
 
     return {
         "sentences": sentences,

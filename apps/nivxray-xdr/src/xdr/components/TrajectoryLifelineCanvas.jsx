@@ -452,7 +452,7 @@ export default function TrajectoryLifelineCanvas({
                    + `${it.role === "actor" ? "actor lifeline" : "target lifeline"}\n`
                    + `${evt.process || "◇ no actor recorded"}`
                    + (evt.file ? ` → ${evt.file}` : "")
-                   + (evt.sha256 ? `\nsha256 ${shortHash(evt.sha256)}` : "")
+                   + (evt.file_sha256 ? `\nfile sha256 ${shortHash(evt.file_sha256)}` : "")
                    + (evt.mitre?.length ? `\nATT&CK ${evt.mitre.join(", ")}` : "")
                    + (evt.occurrences > 1 ? `\n${evt.occurrences} case references` : "")
                    + (it.renderX - it.trueX >= 1.5

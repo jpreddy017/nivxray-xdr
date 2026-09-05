@@ -105,9 +105,9 @@ export default function EventsLedger({
                         title={targetOf(e) || ""}>
                       {targetOf(e) || <span className="nx-ep" data-ep="no_evidence"
                                             data-known="true">◇ NONE RECORDED</span>}
-                      {e.sha256 && (
+                      {e.file_sha256 && (
                         <span style={{ color: "var(--faint)" }}>
-                          {" "}({shortHash(e.sha256)})
+                          {" "}({shortHash(e.file_sha256)})
                         </span>
                       )}
                     </td>

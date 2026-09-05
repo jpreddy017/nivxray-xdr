@@ -18,6 +18,8 @@ const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
 const XdrEntity360Page        = lazy(() => import("@/xdr/pages/XdrEntity360Page"));
+const XdrFleetFileTrajectoryPage =
+  lazy(() => import("@/xdr/pages/XdrFleetFileTrajectoryPage"));
 const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomainPage"));
 const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
 const XdrAdminPage            = lazy(() => import("@/xdr/pages/XdrAdminPage"));
@@ -126,6 +128,9 @@ export default function App() {
                                             element={<Protected><XdrEntity360Page /></Protected>} />
         <Route path="/xdr/endpoints/:device/trajectory"
                                             element={<Protected><XdrDeviceTrajectoryPage /></Protected>} />
+        {/* P1.8 · Fleet File Trajectory (multi-endpoint artifact spread). */}
+        <Route path="/xdr/intelligence/files/:key"
+                                            element={<Protected><XdrFleetFileTrajectoryPage /></Protected>} />
 
         {/* Reserved native XDR capabilities — transitional placeholders
             for surfaces that WILL be built native in later slices.

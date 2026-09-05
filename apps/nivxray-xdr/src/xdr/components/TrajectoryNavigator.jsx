@@ -84,7 +84,7 @@ export function compileQuery(q) {
 /** Fields the navigator search is scoped to — all persisted. */
 export function searchCorpus(e) {
   return [e.title, e.process, e.file, e.path, e.command_line, e.user,
-          e.sha256, e.observation_kind, e.incident_id]
+          e.file_sha256, e.input_digest, e.observation_kind, e.incident_id]
     .filter(Boolean).join(" ");
 }
 

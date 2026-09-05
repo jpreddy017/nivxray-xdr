@@ -9,7 +9,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, ShieldAlert, GitBranch, FlaskConical } from "lucide-react";
+import { Loader2, ShieldAlert, GitBranch, FlaskConical, FileSearch } from "lucide-react";
 
 import Pivot from "@/xdr/components/Pivot";
 import { getObservationNarrative } from "@/nivxforge/edrApi";
@@ -84,6 +84,10 @@ export default function ActivityDetailsPanel({
     (incidents || []).filter((i) => i.source !== "v2_shadow_observations")
                      .map((i) => i.incident_id));
   const ctx = { incident_id: event.incident_id };
+  const fleetLeaf = String(event.file || event.process || event.title || "")
+    .split(/[\\/]/).pop();
+  const fleetKey = event.file_sha256 ? `sha256:${event.file_sha256}`
+                 : fleetLeaf ? `name:${fleetLeaf}` : null;
 
   return (
     <div data-testid={`edr-activity-details-${event.id}`}
@@ -189,12 +193,23 @@ export default function ActivityDetailsPanel({
                                                             wordBreak: "break-all" }}>
                              {event.file}</span>
                          : <Absent label="◇ NONE RECORDED" />} />
-      <Row k="SHA-256"
-           v={event.sha256
+      <Row k="File SHA-256"
+           v={event.file_sha256
                ? <span className="mono" style={{ fontSize: 10, wordBreak: "break-all" }}>
-                   {event.sha256}
+                   {event.file_sha256}
                  </span>
-               : <Absent label="◇ NO DIGEST RECORDED" />} />
+               : <Absent label="◇ NO FILE CONTENT DIGEST OBSERVED · artefacts.file[].sha256 IS EMPTY" />} />
+      <Row k="Evidence digest"
+           v={event.input_digest
+               ? <span className="mono" style={{ fontSize: 10, wordBreak: "break-all",
+                                                 color: "var(--faint)" }}
+                       title="Digest of the ingested observation record (== input_sha256). This is an evidence-integrity digest, NOT a file hash.">
+                   {event.input_digest}{" "}
+                   <span className="nx-ep" data-ep="unknown" data-known="true">
+                     ? RECORD DIGEST · NOT A FILE HASH
+                   </span>
+                 </span>
+               : <Absent label="◇" />} />
       <Row k="User"
            v={event.user ? <span className="mono">{event.user}</span>
                          : <Absent label="◇ NOT CAPTURED" />} />
@@ -251,6 +266,16 @@ export default function ActivityDetailsPanel({
                 data-testid="edr-details-static-analysis">
           <FlaskConical size={11} /> File Analysis (static)
         </button>
+        {fleetKey && (
+          <Link className="btn" style={{ padding: "4px 8px", fontSize: 10 }}
+                to={`/xdr/intelligence/files/${encodeURIComponent(fleetKey)}`}
+                title={event.file_sha256
+                  ? "Fleet spread keyed on the observed content digest"
+                  : "Fleet spread keyed on the observed name — names do not prove contents"}
+                data-testid="edr-details-fleet-trajectory">
+            <FileSearch size={11} /> Fleet File Trajectory
+          </Link>
+        )}
         <span className="nx-ep" data-ep="capability_unavailable" data-known="true">
           ⊘ RESPONSE DRIVER NOT REGISTERED
         </span>

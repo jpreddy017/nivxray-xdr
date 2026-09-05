@@ -5,6 +5,7 @@
  * rendered disabled with the reason, never as a live button.
  */
 import React, { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { shortHash } from "@/xdr/lib/trajectoryModel";
 
@@ -34,6 +35,7 @@ export default function ArtifactContextMenu({
   evt, at, onClose, onSearch, onStaticAnalysis, onSelect,
 }) {
   const ref = useRef(null);
+  const navigate = useNavigate();
   useEffect(() => {
     const away = (e) => { if (!ref.current?.contains(e.target)) onClose(); };
     const esc = (e) => { if (e.key === "Escape") onClose(); };
@@ -46,8 +48,10 @@ export default function ArtifactContextMenu({
   }, [onClose]);
 
   if (!evt) return null;
-  const sha = evt.sha256 || null;
+  const sha = evt.file_sha256 || null;
   const name = evt.file || evt.process || evt.title || null;
+  const fleetKey = sha ? `sha256:${sha}`
+                  : name ? `name:${String(name).split(/[\\/]/).pop()}` : null;
 
   return (
     <div ref={ref}
@@ -78,7 +82,7 @@ export default function ArtifactContextMenu({
             testid="edr-ctx-details" />
       <Item label="Copy SHA-256"
             disabled={!sha}
-            hint={sha ? undefined : "no digest on this observation"}
+            hint={sha ? undefined : "no file content digest on this observation"}
             onClick={() => { navigator.clipboard?.writeText(sha); onClose(); }}
             testid="edr-ctx-copy-sha" />
       <Item label="Search this device trajectory"
@@ -96,9 +100,14 @@ export default function ArtifactContextMenu({
             hint="SENSOR OFFLINE — NO ACQUISITION DRIVER"
             disabled
             testid="edr-ctx-file-fetch" />
-      <Item label="⊘ File Trajectory (fleet-wide)"
-            hint="MULTI-ENDPOINT FILE TRAJECTORY NOT IMPLEMENTED"
-            disabled
+      <Item label="Fleet File Trajectory (all endpoints)"
+            hint={sha ? "keyed on the observed content digest"
+                      : "keyed on the observed name — names do not prove contents"}
+            disabled={!fleetKey}
+            onClick={() => {
+              navigate(`/xdr/intelligence/files/${encodeURIComponent(fleetKey)}`);
+              onClose();
+            }}
             testid="edr-ctx-file-trajectory" />
       <Item label="⊘ Outbreak Control"
             hint="RESPONSE DRIVER NOT REGISTERED"

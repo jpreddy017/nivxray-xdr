@@ -6812,3 +6812,54 @@ benchmark; implementation NivXForge-native, strict Honest State (zero fabricatio
 ### Still NOT IMPLEMENTED (deliberately)
 - Production endpoint-agent telemetry, response drivers, dynamic sandbox detonation
   (hypervisor runtime / in-guest hooking / PCAP), fleet-wide File Trajectory (P2).
+
+
+## 2026-09-05 · P1.8 Fleet File Trajectory (multi-endpoint artifact spread)
+
+Route `/xdr/intelligence/files/:key` — key is `sha256:<hex>` | `name:<leaf>` | `path:<path>`.
+Backend `services/edr/file_trajectory.py` (`fleet_trajectory`, `spread_index`) +
+`GET /api/edr/file-trajectory`, `GET /api/edr/fleet-spread-index`.
+
+- Counting per owner correction: `event.iid` deduplicated FIRST, provenance unioned.
+  `UNIQUE EVIDENCE EVENTS` is authoritative (14 for powershell.exe); `RAW OBSERVATIONS`
+  (58) is explicitly labelled raw. Per-endpoint match counts are unique events.
+- Fleet metrics: affected endpoints (distinct authoritative `device_iid` = 3),
+  first/last observed, entry point with ALL ties surfaced
+  (`? 2 ENDPOINTS TIE ON THE EARLIEST TIMESTAMP — NO SINGLE ENTRY POINT IS CLAIMED`),
+  `Created by` only where a `file_create`/`file_write` with an observed actor exists
+  (else `◇ PARENT CREATOR NOT OBSERVED`).
+- `Computers with matching activity` ledger: hostname INFERRED badge + `device_iid`,
+  unique/raw counts, `◇ NOT REPORTED` OS, provenance case refs each
+  `◇ CASE RECORD NOT PERSISTED`, `⊘ NO RESPONSE DRIVER`, filter box, 10/25/50
+  pagination, and `Trajectory →` pivot to
+  `/xdr/endpoints/:device/trajectory?focus=<key>`.
+- Fleet event history (chronological, per-endpoint links) + Fleet spread index
+  (49 observable artifacts ranked by endpoint spread; powershell.exe 3, winword.exe 2).
+- Bidirectional pivots: Device Trajectory context menu (`edr-ctx-file-trajectory`, no
+  longer disabled) and Activity Details (`edr-details-fleet-trajectory`) → fleet view;
+  `?focus=` return pivot pre-fills the navigator search and auto-selects that host's
+  earliest matching observation.
+- Sidebar focus mode extended to the fleet route (full-width canvas, ☰ overlay drawer,
+  breadcrumb `Investigator › Endpoints › Fleet File Trajectory`).
+
+### CORRECTION shipped with P1.8 — digest semantics (was a false claim)
+- `event.raw.sha256` is IDENTICAL to the document's `input_sha256` on all 639 records:
+  it digests the ingested observation, NOT a file. `artefacts.file[].sha256` is empty
+  on all 53 file artefacts, so the substrate holds ZERO file content digests.
+- Projection now emits `file_sha256` (content digest, currently always null),
+  `input_digest` (record digest) and `file_paths`; the legacy `sha256` field is
+  hard-nulled. Activity Details shows
+  `FILE SHA-256 · ◇ NO FILE CONTENT DIGEST OBSERVED` and a separate
+  `EVIDENCE DIGEST · ? RECORD DIGEST · NOT A FILE HASH`. The narrative composer adds
+  the evidence-integrity sentence. Static Analysis Bridge now runs THREE lookups
+  (content digest · command-line digest · observation record digest).
+- Consequently the fleet view is labelled `? PATH/NAME KEYED — CONTENT-BLIND` and a
+  `sha256:` lookup answers an honest zero state.
+- Tenant boundary restated on the page: `v2_shadow_observations` carries no
+  `tenant_id`; validation / golden-corpus visibility only, no invented tenant.
+
+### Verification
+- Testing agent iteration 84: all 14 acceptance items PASS (backend + frontend), zero
+  defects. Per-endpoint unique counts sum to 14 == authoritative total, never 58.
+- Post-test UI fixes: ledger Provenance/Response column overlap resolved, Pivot column
+  no longer clipped at 1920px.

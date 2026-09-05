@@ -72,7 +72,7 @@ export const FILTER_GROUPS = [
     key: "modifiers", title: "Modifiers",
     items: [
       { key: "command_line", label: "Command line present", field: "command_line" },
-      { key: "sha256",       label: "SHA-256 present",      field: "sha256" },
+      { key: "sha256",       label: "File SHA-256 present", field: "file_sha256" },
       { key: "no_flag",      label: "No flag (benign telemetry)", tier: 0 },
       { key: "audit",        label: "Audit only",           kinds: null,
         reason: "no audit-mode policy exists" },

@@ -201,6 +201,22 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
   const onSelect = useCallback((e) => setSelectedId(e ? e.id : null), []);
   const onContextMenu = useCallback((evt, at) => setCtxMenu({ evt, at }), []);
 
+  /** Return pivot from Fleet File Trajectory: `?focus=<name|hash>` scopes
+   *  the search and selects this device's earliest interaction. */
+  const focusParam = params.get("focus");
+  const focusApplied = useRef(false);
+  useEffect(() => {
+    if (!focusParam || focusApplied.current || events.length === 0) return;
+    focusApplied.current = true;
+    setQuery(focusParam);
+    setTab("trajectory");
+    const needle = focusParam.toLowerCase();
+    const hit = events
+      .filter((e) => searchCorpus(e).toLowerCase().includes(needle))
+      .sort((a, b) => (tsOf(a) || 0) - (tsOf(b) || 0))[0];
+    if (hit) setSelectedId(hit.id);
+  }, [focusParam, events]);
+
   const laneCounts = useMemo(() => {
     const c = {};
     for (const e of eventsInView) c[e.lane] = (c[e.lane] || 0) + 1;

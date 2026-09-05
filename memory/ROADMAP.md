@@ -1387,9 +1387,10 @@ P0-C2 ACDE Phase 1 → Phase 6                      ← incremental architectura
 
 
 ## 2026-09-05 · NivXForge EDR remaining backlog
-- P1: Multi-endpoint (fleet-wide) File Trajectory — SHA-256 keyed, per-host match
-  counts, `Computers with matching activity` table pivoting into each host's
-  Device Trajectory. (Only surface from the AMP spec not yet built.)
+- ~~P1.8: Multi-endpoint (fleet-wide) File Trajectory~~ — DONE 2026-09-05 (name/path
+  keyed; content-digest keyed impossible until file digests are captured).
+- P1.9: Investigation Export (scoped trajectory window → forensic timeline report).
+- P1.10: Saved Hunts (persist a filter + search and re-run it on any endpoint).
 - P2: Dynamic sandbox detonation hypervisor runtime — must NOT be faked.
 - P2: In-guest monitoring agents & hooking engine; remote evidence collection;
   memory/volatile evidence.

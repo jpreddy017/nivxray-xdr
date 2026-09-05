@@ -226,7 +226,14 @@ def observations(device_ref: str, cross_tenant: bool,
             "actor_iid":     ev.get("actor_iid"),
             "mitre":         ev.get("mitre") or [],
             "labels":        ev.get("labels") or [],
-            "sha256":        raw.get("sha256"),
+            "sha256":        None,   # deprecated: never a file digest here
+            "input_digest":  raw.get("sha256"),
+            "file_sha256":   next((f.get("sha256") for f in (
+                                 (ev.get("artefacts") or {}).get("file") or [])
+                                 if isinstance(f, dict) and f.get("sha256")), None),
+            "file_paths":    [f.get("path") for f in (
+                                 (ev.get("artefacts") or {}).get("file") or [])
+                                 if isinstance(f, dict) and f.get("path")],
             "provider":      raw.get("provider"),
             "event_id":      raw.get("event_id"),
             "rule_label":    raw.get("rule_label"),

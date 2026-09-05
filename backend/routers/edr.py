@@ -23,6 +23,7 @@ from services.activity.projector import build_inventory
 from services.dashboard_lenses import resolve_tenant_scope
 from services.edr import device_identity as dir_svc
 from services.edr import observation_narrative as narrative_svc
+from services.edr import file_trajectory as file_traj_svc
 
 router = APIRouter(prefix="/edr", tags=["edr"])
 
@@ -238,6 +239,26 @@ async def observation_narrative(device: str, event_iid: str,
                         "this device. No narrative is composed."}
     return {"resolved": True, "device": device, "event_iid": event_iid,
             **narrative_svc.compose(doc)}
+
+
+@router.get("/file-trajectory")
+async def file_trajectory(key: str, key_type: str = "name",
+                          user=Depends(get_current_user)):
+    """P1.8 · Fleet (multi-endpoint) artifact trajectory.
+
+    `key_type` is one of `sha256` (content digest over
+    `artefacts.file[].sha256`), `name` (process name / file-path leaf) or
+    `path` (exact image or file path).  The response always states which
+    fields were matched and why a content-digest correlation may be
+    impossible on this substrate.
+    """
+    return file_traj_svc.fleet_trajectory(key_type, key)
+
+
+@router.get("/fleet-spread-index")
+async def fleet_spread_index(user=Depends(get_current_user)):
+    """Every observable artifact and the number of endpoints it appears on."""
+    return file_traj_svc.spread_index()
 
 
 # ── XDR Endpoints projection (Slice 6 · read-only) ───────────────────

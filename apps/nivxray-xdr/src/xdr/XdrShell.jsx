@@ -284,6 +284,7 @@ export default function XdrShell({ children }) {
   /** Focus mode: the Device Trajectory workspace is a full-width
    *  investigation console, so the product nav leaves the layout. */
   const focusMode = /^\/xdr\/endpoints\/[^/]+/.test(pathname)
+                    || pathname.startsWith("/xdr/intelligence/files/")
                     || pathname.startsWith("/edr/trajectory");
   const [navOverlay, setNavOverlay] = useState(false);
   useEffect(() => { setNavOverlay(false); }, [pathname]);

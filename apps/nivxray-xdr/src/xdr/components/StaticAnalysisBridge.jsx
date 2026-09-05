@@ -241,9 +241,9 @@ export default function StaticAnalysisBridge({ event, onClose }) {
         <div style={{ height: 10 }} />
 
         <HashLookup
-          title="1 · File digest"
-          sha256={event.sha256}
-          keyNote="event.raw.sha256 as recorded by the sensor"
+          title="1 · File content digest"
+          sha256={event.file_sha256}
+          keyNote="artefacts.file[].sha256 — the only content-digest field in the observation contract"
           storeSize={store?.total_artifacts}
           testid="edr-static-lookup-file" />
 
@@ -257,6 +257,13 @@ export default function StaticAnalysisBridge({ event, onClose }) {
               : "◇ no command line was captured on this observation"}
           storeSize={store?.total_artifacts}
           testid="edr-static-lookup-cmdline" />
+
+        <HashLookup
+          title="3 · Observation record digest"
+          sha256={event.input_digest}
+          keyNote="event.raw.sha256 (== input_sha256) — digests the ingested observation record, NOT a file"
+          storeSize={store?.total_artifacts}
+          testid="edr-static-lookup-input" />
 
         <div style={{ padding: 10, background: "#11161D",
                       border: "1px solid #212B36", borderRadius: 4 }}>
