@@ -17,6 +17,7 @@ operational Incident record consumed by ``/incidents`` and
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -136,7 +137,10 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "id":          doc.get("id"),
-        "number":      _short_number(doc.get("id")),
+        # Persisted human-facing number is authoritative for display;
+        # the id-derived short form remains only as a pre-backfill
+        # fallback so an un-numbered document never renders blank.
+        "number":      doc.get("incident_number") or _short_number(doc.get("id")),
         "name":        doc.get("name") or doc.get("title") or "(unnamed)",
         # ── Investigation-aware queue columns (15) ──────────────────
         "priority":    {"code": priority_code, "label": priority_label},
@@ -161,6 +165,8 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
         # work — falling back to it made 17 incidents display a
         # phantom owner that no assignment filter could ever match.
         "assignee":    doc.get("incident_assignee"),
+        # Human-facing number; `id` stays the authoritative identity.
+        "incident_number": doc.get("incident_number"),
         "state":       doc.get("incident_state") or "new",
         "last_activity": updated,
         # Auto-Investigation state · reads engine_executions, else NOT_RUN.
@@ -313,7 +319,10 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "id":          doc.get("id"),
-        "number":      _short_number(doc.get("id")),
+        # Persisted human-facing number is authoritative for display;
+        # the id-derived short form remains only as a pre-backfill
+        # fallback so an un-numbered document never renders blank.
+        "number":      doc.get("incident_number") or _short_number(doc.get("id")),
         "name":        display_name,
         "priority":    {"code": priority_code, "label": priority_label},
         "severity":    doc.get("incident_severity")
@@ -326,6 +335,8 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
         # work — falling back to it made 17 incidents display a
         # phantom owner that no assignment filter could ever match.
         "assignee":    doc.get("incident_assignee"),
+        # Human-facing number; `id` stays the authoritative identity.
+        "incident_number": doc.get("incident_number"),
         "state":       doc.get("incident_state") or "new",
         "state_history": history,
         # ── Phase-1 operational extensions ──────────────────────────
@@ -702,6 +713,22 @@ async def list_incidents(
     customer: Optional[str] = None,
     assignment: Optional[str] = None,
     detection_source: Optional[str] = None,
+    # ── Column search (owner-approved 2026-09-05) · server-side, never
+    # a filter over the currently loaded page ─────────────────────────
+    number: Optional[str] = None,
+    name: Optional[str] = None,
+    assignee: Optional[str] = None,
+    # ── Negative predicates · explicit allow-list, NOT dynamic ───────
+    # These are applied strictly INSIDE the tenant authorization scope:
+    #   tenant authorization → positive → negative → assignment.
+    # An exclusion can never widen what a principal may see.
+    exclude_customer: Optional[str] = None,
+    exclude_assignee: Optional[str] = None,
+    exclude_detection_source: Optional[str] = None,
+    exclude_priority: Optional[str] = None,
+    exclude_severity: Optional[str] = None,
+    exclude_verdict: Optional[str] = None,
+    exclude_mitre: Optional[str] = None,
     technique: Optional[str] = None,
     sort: str = "updated_at",
     order: str = "desc",
@@ -814,10 +841,82 @@ async def list_incidents(
             q = {"$and": [q, {"$or": clauses}]}
         else:
             q["$or"] = clauses
-        applied["technique"] = t
+    if technique:
+        applied["technique"] = technique.upper()
+
+    # ── COLUMN SEARCH · server-side, case-insensitive, anchored where
+    # anchoring is meaningful (numbers) and contains elsewhere. ───────
+    def _and(clause: Dict[str, Any]) -> None:
+        nonlocal q
+        q = {"$and": [q, clause]}
+
+    if number:
+        # Accept "137", "INC137", "inc000000137" or a raw authoritative id.
+        raw = number.strip()
+        opts = [{"incident_number": {"$regex": re.escape(raw), "$options": "i"}},
+                {"id": {"$regex": re.escape(raw), "$options": "i"}}]
+        digits = re.sub(r"\D", "", raw)
+        if digits:
+            from services.incident_numbering import format_incident_number
+            opts.append({"incident_number": format_incident_number(int(digits))})
+        _and({"$or": opts})
+        applied["number"] = raw
+    if name:
+        rx = {"$regex": re.escape(name.strip()), "$options": "i"}
+        _and({"$or": [{"title": rx}, {"name": rx}]})
+        applied["name"] = name.strip()
+    if assignee:
+        _and({"incident_assignee": {"$regex": re.escape(assignee.strip()),
+                                        "$options": "i"}})
+        applied["assignee"] = assignee.strip()
+
+    # ── NEGATIVE PREDICATES · allow-listed fields only ──────────────
+    def _csv(v):
+        return [x.strip() for x in str(v).split(",") if x.strip()]
+
+    if exclude_customer:
+        # Exclusion NEVER touches the tenant authorization clause that
+        # `_scope`/`resolve_tenant_scope` already applied — it can only
+        # ever remove rows from an already-authorized set.
+        _and({"tenant_id": {"$nin": _csv(exclude_customer)}})
+        applied["exclude_customer"] = exclude_customer
+    if exclude_assignee:
+        vals = _csv(exclude_assignee)
+        if "__unassigned__" in vals:
+            _and({"incident_assignee": {"$nin": [None, ""],
+                                            "$exists": True}})
+        else:
+            _and({"incident_assignee": {"$nin": vals}})
+        applied["exclude_assignee"] = exclude_assignee
+    if exclude_detection_source:
+        vals = _csv(exclude_detection_source)
+        _and({"$and": [{"verdict_stage2.engine": {"$nin": vals}},
+                          {"engine": {"$nin": vals}}]})
+        applied["exclude_detection_source"] = exclude_detection_source
+    if exclude_priority:
+        _and({"incident_priority": {"$nin": _csv(exclude_priority)}})
+        applied["exclude_priority"] = exclude_priority
+    if exclude_severity:
+        _and({"incident_severity": {"$nin": _csv(exclude_severity)}})
+        applied["exclude_severity"] = exclude_severity
+    if exclude_verdict:
+        # `verdict_stage2.label` is persisted lower-case; the UI shows it
+        # upper-case, so compare on a normalised value.
+        vals = _csv(exclude_verdict)
+        _and({"verdict_stage2.label":
+                  {"$nin": [v.lower() for v in vals] + [v.upper() for v in vals]}})
+        applied["exclude_verdict"] = exclude_verdict
+    if exclude_mitre:
+        vals = [v.upper() for v in _csv(exclude_mitre)]
+        _and({"$and": [
+            {"verdict_stage2.evidence.technique_id": {"$nin": vals}},
+            {"mitre.technique_id": {"$nin": vals}},
+            {"techniques": {"$nin": vals}},
+        ]})
+        applied["exclude_mitre"] = exclude_mitre
 
     projection = {
-        "_id": 0, "id": 1, "name": 1, "title": 1, "doc_type": 1,
+        "_id": 0, "id": 1, "incident_number": 1, "name": 1, "title": 1, "doc_type": 1,
         "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "verdict_stage2": 1,
         "verdict_card": 1, "incident_state": 1, "incident_assignee": 1,

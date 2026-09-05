@@ -10,13 +10,14 @@
  * Honest-state rule: every item is backed by something that EXISTS —
  * the audited assign endpoint, a real query parameter the API honours,
  * or a pure client capability (open / new tab / new window / copy).
- * "Filter out" is deliberately ABSENT: the API has no negation
- * predicate yet, and NivXRay does not offer a control it cannot honour.
+ * "Filter out" is now backed by explicit, allow-listed negative
+ * predicates on the incidents API (owner-approved 2026-09-05) and runs
+ * strictly inside tenant authorization.
  */
 import React, { useEffect, useRef } from "react";
 import {
   ExternalLink, Copy, UserCheck, UserMinus, Link2, Eye,
-  Filter, AppWindow,
+  Filter, FilterX, AppWindow,
 } from "lucide-react";
 import { incidentNumber } from "./QueueTable";
 
@@ -47,7 +48,7 @@ function cellValue(row, col) {
 export default function QueueContextMenu({
   row, at, col, currentUser, onClose,
   onOpen, onOpenNewTab, onOpenNewWindow, onPreview,
-  onAssignToMe, onUnassign, onShowMatching, onToast,
+  onAssignToMe, onUnassign, onShowMatching, onFilterOut, onToast,
 }) {
   const ref = useRef(null);
 
@@ -96,6 +97,20 @@ export default function QueueContextMenu({
       },
     });
     items.push({
+      id: "filter-out",
+      label: `Filter out ${filt.label} · ${String(value).slice(0, 28)}`,
+      Icon: FilterX,
+      run: () => {
+        // Negative predicates are explicit, allow-listed API params and
+        // run INSIDE tenant authorization — they can only remove rows
+        // from an already-authorized set.
+        const v = filt.param === "assignment" ? row.assignee : value;
+        onFilterOut(`exclude_${filt.param === "assignment"
+          ? "assignee" : filt.param}`, v);
+        onClose();
+      },
+    });
+    items.push({
       id: "copy-value",
       label: `Copy ${filt.label}`,
       Icon: Copy,
@@ -137,7 +152,7 @@ export default function QueueContextMenu({
   items.push(
     { sep: true },
     { id: "copy-number", label: "Copy incident number", Icon: Copy,
-      run: () => copy(incidentNumber(row.id), "Incident number") },
+      run: () => copy(incidentNumber(row), "Incident number") },
     { id: "copy-id",     label: "Copy authoritative id", Icon: Copy,
       run: () => copy(row.id, "Incident id") },
     { id: "copy-link",   label: "Copy URL to clipboard",  Icon: Link2,
@@ -155,7 +170,7 @@ export default function QueueContextMenu({
     <div ref={ref} className="ql-ctx" style={style}
           role="menu" data-testid="ql-context-menu" data-ctx-col={col || "row"}>
       <div className="ql-ctx__head">
-        <span className="ql-ctx__num">{incidentNumber(row.id)}</span>
+        <span className="ql-ctx__num">{incidentNumber(row)}</span>
         <span className="ql-ctx__owner">
           {filt && value
             ? `${filt.label.toUpperCase()} · ${String(value).slice(0, 30)}`

@@ -9,6 +9,7 @@ export async function listIncidents({
   verdict = null, confidence = null, customer = null,
   detection_source = null, technique = null, assignment = null,
   sort = "updated_at", order = "desc",
+  ...rest
 } = {}) {
   const params = { limit, sort, order };
   if (lens) params.lens = lens;
@@ -23,6 +24,14 @@ export async function listIncidents({
   // Assignment is WORK MANAGEMENT, not visibility (P0-2b):
   // unassigned | mine | team.
   if (assignment) params.assignment = assignment;
+  // Column search + allow-listed negative predicates.
+  for (const k of ["number", "name", "assignee",
+                       "exclude_customer", "exclude_assignee",
+                       "exclude_detection_source", "exclude_priority",
+                       "exclude_severity", "exclude_verdict",
+                       "exclude_mitre"]) {
+    if (rest?.[k]) params[k] = rest[k];
+  }
   const { data } = await api.get("/incidents", { params });
   return data;
 }

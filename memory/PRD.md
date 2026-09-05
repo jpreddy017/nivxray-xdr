@@ -9243,3 +9243,58 @@ Owner: *"options should be based on the item that we click"* + *"open in new win
 - Verified in the UI: number-cell menu = 9 items (no filter actions); customer-cell menu = 11
   items led by `Show matching customer · default`; clicking it navigates to
   `?customer=default` and re-queries.
+
+## 2026-09-05 · BATCH: sequential INC numbers → Filter Out → Column Search
+
+Owner-approved order (sequential numbers first, then negatives, then search), then STOP.
+
+### 1 · Persisted sequential incident numbers
+- `services/incident_numbering.py` — **policy documented in the module**: uniqueness is
+  **GLOBAL** (MSS/MSSP console: a number is quoted in tickets and customer reports that cross
+  tenant boundaries, so `INC000000137` must identify exactly one incident). A compound
+  `(tenant_id, incident_number)` index is created as well for tenant-scoped lookups.
+  Format `INC` + 9 digits. Allocation is atomic (`find_one_and_update($inc)` on a single
+  `counters` doc), so concurrent pipeline runs cannot collide.
+- Unique index `uniq_incident_number` with `partialFilterExpression` (string only), so analysis
+  cases — which never receive a number — cannot collide on `null`.
+- `scripts/backfill_incident_numbers.py` — deterministic (`created_at`, then `id`), idempotent
+  (`$exists: False` guard in the write), parks the counter at the max in use.
+  **198/198 numbered · 0 non-incidents numbered · second run wrote 0.**
+- Creation path (`detection_content/xdr_incident.py`) allocates a number on every new incident.
+  The authoritative `id` (`inc_<hex>`) is untouched and is never derived from the number; no
+  incident is ever renumbered.
+- Surfaced in the queue projection (`number` + `incident_number`), the queue column, the
+  right-click "Copy incident number", and searchable via `?number=`.
+
+### 2 · Filter Out (negative predicates)
+- Explicit **allow-list** on `GET /api/incidents`: `exclude_customer`, `exclude_assignee`,
+  `exclude_detection_source`, `exclude_priority`, `exclude_severity`, `exclude_verdict`,
+  `exclude_mitre`. No dynamic `exclude_<anything>`. Comma lists supported.
+- Order of application is enforced: **tenant authorization → positive → negative → assignment**.
+  An exclusion is an extra `$and` clause; it never touches the tenant clause, so it can only
+  remove rows from an already-authorized set.
+- Wired to the right-click `Filter out <field> · <value>` action.
+
+### 3 · Inline column search
+- Owner moved it out of the table header (it fought the column widths): it is now a
+  right-aligned **Column search** cluster above the table line, with column-appropriate
+  controls — Number / Title / Owner / MITRE as text, Priority / Severity / Verdict / Customer /
+  Source as selectors (customer + source options are facets of the rows the API returned, never
+  a hard-coded list).
+- All controls write URL params the API honours → **server-side**, shareable, and reusing the
+  existing filter semantics rather than duplicating query logic. Debounced 350ms.
+
+### 4 · Also fixed
+- "Open Device Trajectory" swallowed the click when no endpoint entity was projected
+  (`if (!host) return`) — a silently dead control. It is now either a real navigation or an
+  explicit `⊘ NO ENDPOINT ENTITY` state. (The destination route `/xdr/endpoints/:device/
+  trajectory` exists; its page content was NOT re-verified in this run.)
+
+### Verification
+`tests/test_incident_numbering_and_filters.py` (new, 9 tests) covers number format/uniqueness,
+number-never-replaces-id, server-side search, negatives, **negatives inside tenant scope**
+(a tenant-restricted principal cannot use an exclusion to escape) and the anonymous honest-empty
+state. All green, plus queue 17/17, dashboard 20/20, MSS 12/12, telemetry 5/5.
+
+### Deferred by owner
+Bulk row actions (after filtering/search stabilises).

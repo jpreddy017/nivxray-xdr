@@ -167,12 +167,19 @@ async def materialise_incident(db, canonical: dict, iue: dict,
         }
 
     incident_id = f"inc_{uuid.uuid4().hex[:20]}"
+    # Human-facing sequential number (owner-authorised 2026-09-05).
+    # Allocated ATOMICALLY, so concurrent pipeline runs cannot collide.
+    # The authoritative identity remains `incident_id` — the number is
+    # never used to derive it, and an incident is never renumbered.
+    from services.incident_numbering import allocate_incident_number
+    incident_number = await allocate_incident_number(db)
     now_iso = datetime.now(timezone.utc).isoformat()
     priority_code, priority_label = _priority(verdict)
 
     doc = {
         # Core fields consumed by routers/incidents.py projection.
         "id":                incident_id,
+        "incident_number":   incident_number,
         # P0-1 · explicit document-type discriminator (workspace_cases is
         # the ratified authoritative store and carries two doc kinds).
         "doc_type":          "xdr_incident",

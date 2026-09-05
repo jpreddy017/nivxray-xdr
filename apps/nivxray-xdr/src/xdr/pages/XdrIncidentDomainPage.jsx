@@ -194,13 +194,26 @@ function DomainBody({ incident, meta, onOpenTrajectory }) {
               below.  A rewrite to entity-per-row + tri-directional pane sync
               (Slice 8) lands next.
             </div>
-            <button
-              className="btn primary" style={{ padding: "5px 10px" }}
-              onClick={onOpenTrajectory}
-              data-testid="xdr-domain-endpoints-open-trajectory"
-            >
-              <Radar size={11} /> Open Device Trajectory
-            </button>
+            {/* Owner review 2026-09-05: this used to swallow the click
+                  (`if (!host) return`) whenever no endpoint entity was
+                  projected — a silently dead control.  It is now either a
+                  real navigation or an explicit unavailable state. */}
+            {host ? (
+              <button
+                className="btn primary" style={{ padding: "5px 10px" }}
+                onClick={onOpenTrajectory}
+                title={`Open the Device Trajectory canvas for ${host}`}
+                data-testid="xdr-domain-endpoints-open-trajectory"
+              >
+                <Radar size={11} /> Open Device Trajectory
+              </button>
+            ) : (
+              <span className="nx-ep nx-ep--nocap"
+                     title="No endpoint entity is projected for this incident, so there is no trajectory to open."
+                     data-testid="xdr-domain-endpoints-trajectory-unavailable">
+                ⊘ NO ENDPOINT ENTITY
+              </span>
+            )}
           </div>
         ) : (
           <div style={{ padding: 12,

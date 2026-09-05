@@ -65,10 +65,16 @@ const notRun = <NxHonestyChip state="not_run" />;
 const naChip = <NxHonestyChip state="not_available" />;
 const noEv   = <NxHonestyChip state="no_evidence" />;
 
-// INC-<uppercased id tail> — reversible to the real id, so it can be
-// copied, searched and pasted.  Never a synthetic ticket number.
-export function incidentNumber(id) {
-  const tail = String(id || "").replace(/^inc[_-]?/i, "").toUpperCase();
+// Persisted human-facing number (INC000000137) is authoritative for
+// display.  The id-derived short form survives only as a pre-backfill
+// fallback so an un-numbered document never renders blank.
+export function incidentNumber(rowOrId) {
+  if (rowOrId && typeof rowOrId === "object") {
+    if (rowOrId.incident_number) return rowOrId.incident_number;
+    if (rowOrId.number) return rowOrId.number;
+    return incidentNumber(rowOrId.id);
+  }
+  const tail = String(rowOrId || "").replace(/^inc[_-]?/i, "").toUpperCase();
   return tail ? `INC-${tail}` : "—";
 }
 
@@ -77,8 +83,8 @@ function renderCell(colId, r, onDrill) {
     case "number":
       return (
         <span className="ql-td-mono ql-td-number"
-                 title={`${incidentNumber(r.id)}\nAuthoritative id: ${r.id}\nRight-click for actions`}>
-          {incidentNumber(r.id)}
+                 title={`${incidentNumber(r)}\nAuthoritative id: ${r.id}\nRight-click for actions`}>
+          {incidentNumber(r)}
         </span>
       );
     case "priority":
