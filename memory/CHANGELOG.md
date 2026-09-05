@@ -6598,3 +6598,18 @@ P1.1 Endpoint Lanes ✅ · P1.2 Navigator/Scrubber ✅ · P1.3 Process Ancestry
 ⚠️ evidence-blocked (honest unrooted lifelines retained) · **P1.4 Entity 360 →
 P1.5 Compromise Band → P1.6 Events Ledger → P1.7 Sandbox Bridge (static
 pivot only)** — all four not started.
+
+## 2026-09-05 · Navigator handle affordance corrected (owner: "not there in Cisco AMP")
+
+The 24-hour ribbon handles were 8px full-height solid mint rects. When the
+window narrowed, the band collapsed and the two handles merged into one solid
+green slab — an artefact of my own invention, not an AMP affordance.
+
+Replaced with the AMP edge-marker pattern: a 1px edge line plus a small
+triangle above and below each edge. The 10px drag target is now a
+**transparent** rect, so nothing is painted for the hit area and a narrow
+window renders as two thin markers instead of a slab.
+
+Verified on WKS-01: full day → `00:00:00Z → 24:00:00Z`; narrowed to
+`13:59:56Z → 14:01:05Z` (the case that produced the slab) now shows thin
+triangle markers; right-handle drag still works → `13:59:56Z → 14:02:04Z`.

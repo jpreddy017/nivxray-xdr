@@ -430,14 +430,27 @@ export default function TrajectoryNavigator({
                       fill="rgba(6,8,12,0.7)" />
                 <rect x={xs} y={1} width={Math.max(2, xe - xs)} height={38}
                       fill="rgba(60,232,184,0.10)" stroke="#3ce8b8"
+                      strokeWidth={0.8}
                       style={{ cursor: "grab" }} onPointerDown={down("band")}
                       data-testid="xdr-navigator-band" />
-                <rect x={xs - 4} y={1} width={8} height={38} rx={2} fill="#3ce8b8"
-                      style={{ cursor: "ew-resize" }} onPointerDown={down("left")}
-                      data-testid="xdr-navigator-handle-left" />
-                <rect x={xe - 4} y={1} width={8} height={38} rx={2} fill="#3ce8b8"
-                      style={{ cursor: "ew-resize" }} onPointerDown={down("right")}
-                      data-testid="xdr-navigator-handle-right" />
+                {/* AMP-style edge markers: a thin edge line plus small
+                      triangles above and below.  The wide transparent rect
+                      is the drag target only — it is never painted, so a
+                      narrow window no longer collapses into a solid slab. */}
+                {[["left", xs], ["right", xe]].map(([side, x]) => (
+                  <g key={side}>
+                    <line x1={x} y1={1} x2={x} y2={39}
+                          stroke="#3ce8b8" strokeWidth={1} />
+                    <polygon points={`${x - 4},1 ${x + 4},1 ${x},6`}
+                              fill="#3ce8b8" />
+                    <polygon points={`${x - 4},39 ${x + 4},39 ${x},34`}
+                              fill="#3ce8b8" />
+                    <rect x={x - 5} y={0} width={10} height={40}
+                          fill="transparent" style={{ cursor: "ew-resize" }}
+                          onPointerDown={down(side)}
+                          data-testid={`xdr-navigator-handle-${side}`} />
+                  </g>
+                ))}
                 {[0, 4, 8, 12, 16, 20, 24].map((h) => (
                   <text key={h} x={PAD + (h / 24) * innerW} y={37}
                         fill="#4a5162" fontSize={7.5}
