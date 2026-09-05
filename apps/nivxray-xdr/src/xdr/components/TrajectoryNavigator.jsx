@@ -20,6 +20,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 
+import {
+  severityTier, TIER_MALICIOUS, TIER_ATTRIBUTED, TIER_COLOR, TELEMETRY_CYAN, IOC_RED,
+} from "@/xdr/lib/trajectoryModel";
+
+/** Log-scaled dot radius — a day with 40 events must not read the same
+ *  as a day with 2, and a linear scale flattens both. */
+const dotR = (n, max) => {
+  if (!n) return 0;
+  return 3 + Math.round((Math.log1p(n) / Math.log1p(Math.max(1, max))) * 4);
+};
+
 const DAYS = 30;
 const DAY_MS = 86400000;
 const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -80,7 +91,7 @@ export function searchCorpus(e) {
 export default function TrajectoryNavigator({
   events, matchedIds, query, onQueryChange,
   selectedDay, onSelectDay, viewStart, viewEnd, onWindowChange,
-  onSelectEvent, cursorTs,
+  onSelectEvent, cursorTs, filterCount = 0, onOpenFilters,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [dropping, setDropping] = useState(false);
@@ -135,7 +146,7 @@ export default function TrajectoryNavigator({
       const t = new Date(e.timestamp).getTime();
       if (!Number.isFinite(t)) continue;
       const k = dayKey(t);
-      if (!byDay.has(k)) byDay.set(k, { total: 0, compromise: 0, hits: 0 });
+      if (!byDay.has(k)) byDay.set(k, { total: 0, compromise: 0, attributed: 0, hits: 0 });
       const rec = byDay.get(k);
       rec.total += 1;
       if (rec.minTs === undefined || t < rec.minTs) rec.minTs = t;
@@ -143,8 +154,12 @@ export default function TrajectoryNavigator({
       if (!rec.firstEvent || t < new Date(rec.firstEvent.timestamp).getTime()) {
         rec.firstEvent = e;
       }
-      if (e.kind === "detection" || e.severity === "critical" || e.severity === "high") {
+      const tier = severityTier(e);
+      if (tier === TIER_MALICIOUS) {
         rec.compromise += 1;
+        if (!rec.firstCompromise) rec.firstCompromise = e;
+      } else if (tier === TIER_ATTRIBUTED) {
+        rec.attributed += 1;
         if (!rec.firstCompromise) rec.firstCompromise = e;
       }
       if (matchedIds?.has(e.id)) rec.hits += 1;
@@ -153,7 +168,7 @@ export default function TrajectoryNavigator({
     for (let i = DAYS - 1; i >= 0; i--) {
       const ms = anchor - i * DAY_MS;
       const k = dayKey(ms);
-      const rec = byDay.get(k) || { total: 0, compromise: 0, hits: 0 };
+      const rec = byDay.get(k) || { total: 0, compromise: 0, attributed: 0, hits: 0 };
       out.push({ ms, key: k, ...rec, d: new Date(ms) });
     }
     return out;
@@ -161,6 +176,7 @@ export default function TrajectoryNavigator({
 
   const maxTotal = Math.max(1, ...days.map((d) => d.total));
   const maxCompromise = Math.max(1, ...days.map((d) => d.compromise));
+  const maxAttributed = Math.max(1, ...days.map((d) => d.attributed));
   const maxHits = Math.max(1, ...days.map((d) => d.hits));
   const dayStart = selectedDay ?? days[days.length - 1]?.ms ?? startOfDayUTC(Date.now());
   const dayEnd = dayStart + DAY_MS;
@@ -217,10 +233,11 @@ export default function TrajectoryNavigator({
       const i = Math.min(BINS - 1, Math.floor(((t - dayStart) / DAY_MS) * BINS));
       const hit = matchedIds?.has(e.id);
       const k = `${i}:${hit ? 1 : 0}`;
-      if (!bins.has(k)) bins.set(k, { i, hit, n: 0, t, members: [] });
+      if (!bins.has(k)) bins.set(k, { i, hit, n: 0, t, members: [], tier: 0 });
       const b = bins.get(k);
       b.n += 1;
       b.members.push(e);
+      b.tier = Math.max(b.tier, severityTier(e));
       if (t < b.t) b.t = t;
     }
     const max = Math.max(1, ...Array.from(bins.values()).map((b) => b.n));
@@ -326,6 +343,15 @@ export default function TrajectoryNavigator({
               : `${matchedIds?.size || 0} match${(matchedIds?.size || 0) === 1 ? "" : "es"} · ${compiled?.kind}`}
           </span>
         )}
+        <button className="btn"
+                style={{ padding: "3px 9px", fontSize: 10,
+                         borderColor: filterCount ? "var(--cyan)" : undefined,
+                         color: filterCount ? "var(--cyan)" : undefined }}
+                onClick={onOpenFilters}
+                title="Cisco Secure Endpoint filter matrix"
+                data-testid="xdr-navigator-filters">
+          Filters {filterCount ? `(${filterCount})` : ""} <ChevronDown size={10} />
+        </button>
       </div>
 
       {!collapsed && (
@@ -336,7 +362,7 @@ export default function TrajectoryNavigator({
                 viewBox={`0 0 ${DAYS} 22`}>
             <polyline
               points={days.map((d, i) => `${i + 0.5},${21 - (d.total / maxTotal) * 19}`).join(" ")}
-              fill="none" stroke="#9b7bf0" strokeWidth={0.4}
+              fill="none" stroke={TELEMETRY_CYAN} strokeWidth={0.9}
               vectorEffect="non-scaling-stroke" />
           </svg>
 
@@ -356,23 +382,31 @@ export default function TrajectoryNavigator({
                                   + (has ? " · click to focus, double-click to fit" : "")}
                           style={{
                             height: 30, padding: 0, cursor: has ? "pointer" : "default",
-                            background: active ? "#1d3557" : "transparent",
-                            border: `1px solid ${active ? "#2e5d8f" : "#1c222e"}`,
+                            background: active ? "#152131" : has ? "#0F151C" : "#0A0E13",
+                            border: `1px solid ${active ? "#3A6B9E" : "#212B36"}`,
                             display: "flex", flexDirection: "column",
                             alignItems: "center", justifyContent: "center", gap: 2,
                           }}
                           data-testid={`xdr-navigator-day-${d.key}`}>
                   {d.compromise > 0 && (
                     <span title={`${d.compromise} compromise event${d.compromise === 1 ? "" : "s"}`}
-                           style={{ width: 4 + Math.round((d.compromise / maxCompromise) * 5),
-                                    height: 4 + Math.round((d.compromise / maxCompromise) * 5),
-                                    borderRadius: "50%", background: "#ff5b5b" }} />
+                           style={{ width: dotR(d.compromise, maxCompromise) * 2,
+                                    height: dotR(d.compromise, maxCompromise) * 2,
+                                    borderRadius: "50%", background: IOC_RED }} />
+                  )}
+                  {d.attributed > 0 && (
+                    <span title={`${d.attributed} technique-attributed observation${d.attributed === 1 ? "" : "s"}`}
+                           style={{ width: dotR(d.attributed, maxAttributed) * 2,
+                                    height: dotR(d.attributed, maxAttributed) * 2,
+                                    borderRadius: "50%",
+                                    background: TIER_COLOR[TIER_ATTRIBUTED] }}
+                           data-testid={`xdr-navigator-attributed-${d.key}`} />
                   )}
                   {d.hits > 0 && (
                     <span title={`${d.hits} search match${d.hits === 1 ? "" : "es"}`}
-                           style={{ width: 4 + Math.round((d.hits / maxHits) * 5),
-                                    height: 4 + Math.round((d.hits / maxHits) * 5),
-                                    borderRadius: "50%", background: "#3fc1e8" }}
+                           style={{ width: dotR(d.hits, maxHits) * 2,
+                                    height: dotR(d.hits, maxHits) * 2,
+                                    borderRadius: "50%", background: TELEMETRY_CYAN }}
                            data-testid={`xdr-navigator-hit-${d.key}`} />
                   )}
                 </button>
@@ -407,7 +441,7 @@ export default function TrajectoryNavigator({
                 {Array.from({ length: 24 }, (_, h) => (
                   <rect key={h} x={PAD + (h / 24) * innerW} y={6}
                         width={innerW / 24} height={26}
-                        fill="transparent" stroke="#1c222e" strokeWidth={0.8} />
+                        fill="#0F151C" stroke="#212B36" strokeWidth={0.8} />
                 ))}
 
                 {/* Observation dots, stacked red-over-blue inside the cells. */}
@@ -415,7 +449,7 @@ export default function TrajectoryNavigator({
                   <circle key={`${d.i}-${d.hit}`}
                           cx={PAD + ((d.i + 0.5) / 240) * innerW}
                           cy={d.hit ? 24 : 14} r={d.r}
-                          fill={d.hit ? "#3fc1e8" : "rgba(155,123,240,0.8)"}
+                          fill={d.hit ? TELEMETRY_CYAN : TIER_COLOR[d.tier]}
                           pointerEvents="none" />
                 ))}
 

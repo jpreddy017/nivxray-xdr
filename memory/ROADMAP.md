@@ -1384,3 +1384,16 @@ P0-C2 ACDE Phase 1 → Phase 6                      ← incremental architectura
 ```
 
 **No item may jump the queue.** Rule 20 anchors this sequence.
+
+
+## 2026-09-05 · NivXForge EDR remaining backlog
+- P1: Multi-endpoint (fleet-wide) File Trajectory — SHA-256 keyed, per-host match
+  counts, `Computers with matching activity` table pivoting into each host's
+  Device Trajectory. (Only surface from the AMP spec not yet built.)
+- P2: Dynamic sandbox detonation hypervisor runtime — must NOT be faked.
+- P2: In-guest monitoring agents & hooking engine; remote evidence collection;
+  memory/volatile evidence.
+- P2: Response driver plane (isolation / quarantine / process termination) — until it
+  exists the controls stay disabled under ⊘ RESPONSE DRIVER NOT REGISTERED.
+- P3: PID/PPID capture in the observation contract — would make process→process
+  lineage resolvable and light up the orthogonal lineage links already implemented.

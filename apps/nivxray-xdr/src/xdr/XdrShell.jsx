@@ -13,7 +13,7 @@
  *   • `/analyst` remains untouched — the Workspace entry deep-links
  *     to it as an external tab.
  */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutGrid, LayoutDashboard, AlertOctagon, User as UserIcon, ArrowRightLeft,
@@ -281,6 +281,13 @@ export default function XdrShell({ children }) {
   const initials = (user?.email || "?").slice(0, 2).toUpperCase();
   const tenant   = user?.tenant || user?.email || "default";
 
+  /** Focus mode: the Device Trajectory workspace is a full-width
+   *  investigation console, so the product nav leaves the layout. */
+  const focusMode = /^\/xdr\/endpoints\/[^/]+/.test(pathname)
+                    || pathname.startsWith("/edr/trajectory");
+  const [navOverlay, setNavOverlay] = useState(false);
+  useEffect(() => { setNavOverlay(false); }, [pathname]);
+
   const handleSearch = (e) => {
     e.preventDefault();
     const term = q.trim();
@@ -297,6 +304,19 @@ export default function XdrShell({ children }) {
           data-testid="xdr-shell">
       {/* ── Top bar (utility only) ────────────────────────── */}
       <div className="topbar">
+        {focusMode && (
+          <button
+            onClick={() => setNavOverlay((v) => !v)}
+            title={navOverlay ? "Hide navigation" : "Show navigation (overlay)"}
+            aria-label="Toggle product navigation"
+            style={{ background: "transparent", border: "none",
+                     color: "var(--nav-text-dim)", cursor: "pointer",
+                     fontSize: 15, padding: "0 10px 0 0" }}
+            data-testid="xdr-sidebar-toggle"
+          >
+            ☰
+          </button>
+        )}
         <Link to="/xdr" className="brand" data-testid="xdr-brand">
           <NivxrayMark size={26} boxed={false} />
           NIVXRAY <span className="accent">XDR</span>
@@ -353,7 +373,14 @@ export default function XdrShell({ children }) {
 
       {/* ── Body ──────────────────────────────────────────── */}
       <div className="body">
-        <aside className="sidebar" data-testid="xdr-sidebar">
+        {focusMode && navOverlay && (
+          <div className="nav-scrim" onClick={() => setNavOverlay(false)}
+               data-testid="xdr-sidebar-scrim" />
+        )}
+        <aside className={`sidebar${focusMode
+                  ? (navOverlay ? " nav-overlay" : " nav-hidden") : ""}`}
+               data-testid="xdr-sidebar"
+               aria-hidden={focusMode && !navOverlay ? "true" : "false"}>
           {SIDEBAR_AREAS.map((area) => {
             const groupsInArea = SIDEBAR.filter(
               (g) => !g.hidden && g.area === area.area);

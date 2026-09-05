@@ -22,6 +22,7 @@ from deps import get_current_user, sync_collection
 from services.activity.projector import build_inventory
 from services.dashboard_lenses import resolve_tenant_scope
 from services.edr import device_identity as dir_svc
+from services.edr import observation_narrative as narrative_svc
 
 router = APIRouter(prefix="/edr", tags=["edr"])
 
@@ -219,6 +220,24 @@ async def get_process_tree(incident_id: str,
                               user=Depends(get_current_user)):
     doc = _load(incident_id)
     return _project_process_tree(doc)
+
+
+@router.get("/observation-narrative")
+async def observation_narrative(device: str, event_iid: str,
+                                user=Depends(get_current_user)):
+    """Evidence-gated prose for a single persisted observation.
+
+    Returns ``resolved: false`` rather than an invented sentence when the
+    device reference or the ``event.iid`` does not resolve.
+    """
+    doc = dir_svc.find_observation(device, event_iid, _is_cross_tenant(user))
+    if not doc:
+        return {"resolved": False, "device": device, "event_iid": event_iid,
+                "reason": "observation_unresolved",
+                "note": "No persisted observation matches this event_iid on "
+                        "this device. No narrative is composed."}
+    return {"resolved": True, "device": device, "event_iid": event_iid,
+            **narrative_svc.compose(doc)}
 
 
 # ── XDR Endpoints projection (Slice 6 · read-only) ───────────────────

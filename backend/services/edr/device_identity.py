@@ -227,6 +227,11 @@ def observations(device_ref: str, cross_tenant: bool,
             "mitre":         ev.get("mitre") or [],
             "labels":        ev.get("labels") or [],
             "sha256":        raw.get("sha256"),
+            "provider":      raw.get("provider"),
+            "event_id":      raw.get("event_id"),
+            "rule_label":    raw.get("rule_label"),
+            "parent_image":  raw.get("parent_image"),
+            "artefact_iids": ev.get("artefacts_iids") or doc.get("artefacts_iids") or [],
             "incident_id":   doc.get("case_id"),
             "adapter":       ev.get("adapter") or doc.get("adapter"),
             "evidence_ref": {
@@ -238,3 +243,23 @@ def observations(device_ref: str, cross_tenant: bool,
         })
     out.sort(key=lambda e: str(e.get("timestamp") or ""))
     return out
+
+
+def find_observation(device_ref: str, event_iid: str,
+                     cross_tenant: bool) -> Optional[Dict[str, Any]]:
+    """Return the raw persisted observation for one ``event.iid`` on a
+    resolved device.  ``None`` when the reference does not resolve —
+    the caller renders an explicit unresolved state."""
+    identity = resolve(device_ref, cross_tenant)
+    if not identity or not event_iid:
+        return None
+    iid = (identity.get("device_iid") or "").lower()
+    host = (identity.get("hostname") or "").lower()
+    for doc in _obs.find({"event.iid": event_iid}, {"_id": 0}):
+        ev = _event_of(doc)
+        if iid:
+            if (ev.get("device_iid") or "").lower() == iid:
+                return doc
+        elif host and (_hostname(ev) or "").lower() == host:
+            return doc
+    return None

@@ -17,6 +17,7 @@ const XdrMssDashboardPage     = lazy(() => import("@/xdr/pages/XdrMssDashboardPa
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
+const XdrEntity360Page        = lazy(() => import("@/xdr/pages/XdrEntity360Page"));
 const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomainPage"));
 const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
 const XdrAdminPage            = lazy(() => import("@/xdr/pages/XdrAdminPage"));
@@ -120,6 +121,9 @@ export default function App() {
             entities from v2_shadow_observations, so it is a real page
             again instead of a redirect to the incident queue. */}
         <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
+        {/* P1.4 · Endpoint Entity 360 workspace (master-detail). */}
+        <Route path="/xdr/endpoints/:device"
+                                            element={<Protected><XdrEntity360Page /></Protected>} />
         <Route path="/xdr/endpoints/:device/trajectory"
                                             element={<Protected><XdrDeviceTrajectoryPage /></Protected>} />
 

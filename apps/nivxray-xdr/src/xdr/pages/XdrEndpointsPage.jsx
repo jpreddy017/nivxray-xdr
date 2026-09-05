@@ -61,6 +61,8 @@ export default function XdrEndpointsPage() {
     );
   }, [rows, q]);
 
+  const openEntity360 = (row) =>
+    navigate(`/xdr/endpoints/${encodeURIComponent(row.device_ref || row.host)}`);
   const openTrajectory = (row) =>
     navigate(`/xdr/endpoints/${encodeURIComponent(row.device_ref || row.host)}/trajectory`);
 
@@ -127,7 +129,7 @@ export default function XdrEndpointsPage() {
                 return (
                   <tr key={r.device_ref || r.host}
                         className="rowlink"
-                        onClick={() => openTrajectory(r)}
+                        onClick={() => openEntity360(r)}
                         data-testid={`xdr-endpoints-row-${r.device_ref || r.host}`}>
                     <td style={{ color: "var(--text)", fontWeight: 700 }}>
                       <HardDrive size={11}
@@ -175,7 +177,16 @@ export default function XdrEndpointsPage() {
                     <td className="mono" style={{ color: "var(--muted)" }}>
                       {fmtDate(r.last_seen)}
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <button
+                        className="btn"
+                        style={{ padding: "3px 8px", marginRight: 5 }}
+                        onClick={(e) => { e.stopPropagation(); openEntity360(r); }}
+                        data-testid={`xdr-endpoints-view-360-${r.device_ref || r.host}`}
+                        title="Open the Endpoint Entity 360 workspace"
+                      >
+                        <HardDrive size={11} /> Entity 360
+                      </button>
                       <button
                         className="btn primary"
                         style={{ padding: "3px 8px" }}

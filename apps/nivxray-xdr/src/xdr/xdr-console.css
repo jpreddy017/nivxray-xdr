@@ -177,6 +177,26 @@
   background: var(--bg);
 }
 
+/* ── Focus mode (Device Trajectory) ────────────────────────────
+   The trajectory canvas is a full-width investigation console, so the
+   product nav collapses out of the layout entirely and returns as a
+   floating overlay drawer on demand — it never squeezes the canvas. */
+.xdr-console .sidebar.nav-hidden {
+  width: 0; flex: 0 0 0; padding: 0;
+  overflow: hidden; border-right: none;
+}
+.xdr-console .sidebar.nav-overlay {
+  position: fixed; top: 50px; left: 0; bottom: 0;
+  width: 240px; flex: 0 0 240px; z-index: 1000;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+}
+.xdr-console .nav-scrim {
+  position: fixed; inset: 50px 0 0 0; z-index: 999;
+  background: rgba(4, 6, 10, 0.45);
+  backdrop-filter: blur(2px);
+}
+
 /* ── Sidebar (deep navy · product nav) ─────────────────────────── */
 .xdr-console .sidebar {
   width: 220px; flex: 0 0 220px;

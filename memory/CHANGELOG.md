@@ -6681,3 +6681,134 @@ persisted values (`wininit.exe` · `C:\Windows\System32\wininit.exe` ·
 with semantic glyphs stemming from horizontal process lines, the Events Ledger
 actor→target mirror, and the yellow compromise band. Lifelines remain gated on
 absent PID/PPID lineage; the Ledger and band are not gated and are next.
+
+## 2026-09-05 · NEXT SESSION START HERE — full AMP clone spec received (NOT STARTED)
+
+Owner supplied a complete engineering spec: "clone Cisco AMP UI/UX with the
+current colour tone". Approved scope, nothing built yet.
+
+**Colour mapping is fixed by the owner** (use verbatim, do not re-derive):
+canvas `#0B0F14` · panel `#11161D` · sub-panel `#161C24` · borders `#212B36` /
+gridlines `#1A222C` · malicious `#FF3838` (tint `rgba(255,56,56,.18)`) ·
+telemetry/search `#00D2D3` · IOC band `rgba(243,156,18,.12)` border `#F39C12` ·
+halo `0 0 0 3px rgba(0,210,211,.7)` · text `#E6EDF3`/`#8B949E`/`#484F58` ·
+mono `JetBrains Mono`.
+
+**Build order (owner's, and dependency-correct)**
+1. **Process lifelines canvas** — replace the 5 categorical swimlanes with one
+   row per observed process/file, gutter label `name [PE]/[Link]/[GZ]`, the IOC
+   row label on solid `#FF3838`, orthogonal step connectors
+   (`M x1 y1 H x2 V y2`), node glyphs `[PE]` `[File]` `[Net]` `[IOC]`, vertical
+   sub-minute tick labels. **Connectors stay unlinked** — 0 of 114 process
+   observations have resolvable lineage and there are no PIDs. Rows are honest;
+   stems are evidence-gated.
+2. **Events Ledger** — actor→target text mirror right of the canvas. NOT gated,
+   our lane data already carries both sides. Cheapest real win.
+3. **IOC amber band + cyan halo** — band across the triggering span, halo on
+   contributing markers. Needs a case→event mapping; `incidents_in_window`
+   already links cases.
+4. **Prose Activity Details** — replace the key/value grid with a generated
+   sentence via `analyst_narrative.py`, ending in explicit
+   "Unknown disposition. Unknown parent disposition." lines.
+5. **Entity 360** + Isolation drawer (unlock code / actor / timeline all
+   `⊘ RESPONSE DRIVER NOT REGISTERED`).
+6. **File Trajectory** (multi-host) — `Computers with matching activity`, per-host
+   match counts, Entry Point, Created By, Network Profile. P2; needs a
+   hash→host projection we do not have yet.
+
+**Do NOT**: install D3 (the spec suggests it; our canvas is already plain
+SVG/Canvas and works — do not add a dep for this), fabricate PIDs/lineage,
+or claim lifelines "complete" while stems are absent.
+
+Current state is good: Navigator (30-day + 24-hour, hatch mask, cursor line,
+dot click → ±15 min + Activity Details), Endpoint Lanes, Process Ancestry with
+honest unrooted roots, 7 real devices, 0 fabricated values.
+
+
+## 2026-09-05 · NivXForge EDR — 360° Device Trajectory Engine + Endpoint Entity 360 (Phases A–D)
+
+Owner-approved sequence A → B → C → D. Cisco Secure Endpoint (AMP) as the UX
+benchmark; implementation NivXForge-native, strict Honest State (zero fabrication).
+
+### Phase A · D3 lifeline canvas (`xdr/components/TrajectoryLifelineCanvas.jsx` — NEW)
+- Replaced the old disconnected-dot canvas. d3-scale/d3-brush/d3-time-format own the
+  temporal scale, ticks (vertical labels) and the brush; React owns state and nodes.
+- Per-process swimlanes (`PROCESSES`) + per-target swimlanes (`ARTIFACTS & NETWORK`),
+  28px rows, 220px sticky gutter, `name [TYPE]` labels (type = literal observed
+  extension, never an inferred `[PE]`).
+- Continuous execution tracks: quiet `#30363D` line across the whole visible window,
+  observed span overdrawn brighter — no zero-width lifelines.
+- Overlap discipline: 14px horizontal jitter per lifeline + drop-tick at the true
+  instant, severity z-ordering (malicious > attributed > benign), double-click a
+  cluster to zoom the shared window to its exact ms span.
+- Orthogonal actor→target connectors (both endpoints from ONE observation record).
+- Process→process lineage: 0 of 5 declared `parent_iid` resolve to an observed
+  `process_iid`, so NO edge is drawn — a dashed ghost-root marker + tooltip replaces
+  the previous repeated `[ROOT / PARENT NOT OBSERVED]` text clutter.
+- Amber IOC correlation bands (`rgba(243,156,18,0.12)`); cyan `#00D2D3` halo on the
+  selected compromise window with the rest dimmed (never removed).
+- Auto-fit viewport: domain = observed min/max ± max(5%, 60s).
+
+### Phase B · Entity 360 (`xdr/pages/XdrEntity360Page.jsx` — NEW, route `/xdr/endpoints/:device`)
+- Master-detail: identity rail (hostname + INFERRED badge, authoritative `device_iid`,
+  observation count, first/last seen, observed users, telemetry providers) + tabbed
+  workspace (Overview · Device Trajectory · Endpoint Lanes · Process Ancestry).
+- Owns ALL shared temporal state — navigator, canvas, compromise band, ledger and the
+  lane/ancestry tabs can never disagree about the window.
+- Fail-honest response shelf: 7 actions rendered DISABLED under
+  `⊘ RESPONSE DRIVER NOT REGISTERED` (aria-describedby + per-button reason).
+- Sensor/OS/IP/policy/health and vulnerabilities render explicit epistemic tokens.
+- `/xdr/endpoints/:device/trajectory` preserved as a thin wrapper opening the
+  trajectory tab. Breadcrumb `Investigator › Endpoints › Host › <tab>`.
+- Focus mode in `XdrShell`: on any `/xdr/endpoints/:device*` route the product nav
+  leaves the layout (width 0) and returns as a floating overlay drawer (☰ toggle +
+  scrim) so the canvas gets full width; restored to 220px elsewhere.
+
+### Phase C · Compromise Band + Events Ledger + prose inspector
+- `CompromiseBand.jsx`: IOC windows derived from the observations' own timestamps;
+  click = halo, double-click = scope window. Case-reference table marks every row
+  `◇ CASE RECORD NOT PERSISTED` (0/36 shadow case_ids exist in workspace_cases) and
+  collapses N identical unpersisted references into one expandable line.
+- `EventsLedger.jsx`: `[Timestamp UTC ms][Actor][Glyph][Target][ATT&CK][Disposition]`,
+  bidirectional hover with the canvas, row click centres the canvas, per-row kebab
+  (`edr-ledger-row-actions-*`) for keyboard-accessible pivots. Disposition is always
+  `? UNKNOWN DISPOSITION` — the substrate has no disposition field.
+- `ActivityDetailsPanel.jsx` + backend `services/edr/observation_narrative.py` and
+  `GET /api/edr/observation-narrative`: deterministic, evidence-gated PROSE (no LLM).
+  Documented why `compose_analyst_narrative(cio)` could NOT be reused (its input is a
+  CIO; wrapping one observation in a fake CIO would be fabrication).
+- Dedup honesty: the same `event.iid` replayed across case references collapses to one
+  observation (45→9 on FIN-07, 64→8 on ENG-42) and mitre/labels are UNIONED across
+  copies so merging never discards evidence.
+
+### Phase D · Static Analysis Bridge (verified contract, no mocks)
+- `StaticAnalysisBridge.jsx` + `ArtifactContextMenu.jsx`. Contract verified from code:
+  `GET /api/v2/decoded-artifacts/{sha256}` (+ `/stats/summary`, 169 artifacts).
+- TWO lookups: (1) sensor-recorded file digest, (2) sha256 of the observed command
+  line — verified to be the store's own key scheme (`sha256(command_line) == artifact.sha256`).
+- Always banners `STATIC MALWARE ANALYSIS ONLY · DYNAMIC DETONATION RUNTIME NOT CONFIGURED`.
+  404 → `◇ NO STATIC ANALYSIS RECORD` (evidence), transport failure →
+  `⊘ CAPABILITY UNAVAILABLE — STATIC ANALYSIS API CONTRACT NOT VERIFIED`.
+  No submit path: `⊘ SENSOR OFFLINE — NO ACQUISITION DRIVER`.
+
+### Filter matrix
+- `TrajectoryFiltersModal.jsx`: the complete Cisco filter taxonomy (Activity /
+  Lifecycle / Disposition / Modifiers). Criteria with a real backing signal are live;
+  the rest are shown DISABLED with the reason (no prevention engine, no quarantine
+  vault, no policy plane, no disposition field …) so nothing silently filters to zero.
+
+### Backend
+- `services/edr/device_identity.py`: projection now also emits `provider`, `event_id`,
+  `rule_label`, `parent_image`, `artefact_iids`; added `find_observation()`.
+- `routers/edr.py`: `GET /api/edr/observation-narrative?device=&event_iid=`.
+
+### Verification
+- Testing agent iteration 83: 13/13 flows PASS, zero bugs; all four review notes
+  addressed afterwards (404 no longer thrown, kebab pivots, per-button aria, collapsed
+  case block). Honest states verified on `does-not-exist-host` (⊘ identity unresolved)
+  and FIN-07 @ 1h (◇ no evidence).
+- Dependency added: `d3` (apps/nivxray-xdr).
+
+### Still NOT IMPLEMENTED (deliberately)
+- Production endpoint-agent telemetry, response drivers, dynamic sandbox detonation
+  (hypervisor runtime / in-guest hooking / PCAP), fleet-wide File Trajectory (P2).
