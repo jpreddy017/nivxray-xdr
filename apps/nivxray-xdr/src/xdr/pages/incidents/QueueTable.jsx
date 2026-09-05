@@ -16,6 +16,11 @@ import { NxHonestyChip, NxChip, NxLink } from "@/xdr/nx";
 // to the backend projection; visible/hidden and ordering is
 // controlled by the toolbar's Customize Columns dropdown.
 export const ALL_COLUMNS = [
+  // Owner request 2026-09-05 (ServiceNow/Cisco MSS parity): the queue
+  // must lead with a readable, copyable incident NUMBER.  It is a
+  // formatting of the AUTHORITATIVE incident id — NivXRay does not mint
+  // a second, parallel numbering scheme it cannot resolve.
+  { id: "number",            label: "Number",            sort: null,           w: 190 },
   { id: "priority",          label: "Priority",          sort: "priority",     w:  84 },
   { id: "severity",          label: "Severity",          sort: "severity",     w: 100 },
   { id: "name",              label: "Incident",          sort: null,           w: 260 },
@@ -60,8 +65,22 @@ const notRun = <NxHonestyChip state="not_run" />;
 const naChip = <NxHonestyChip state="not_available" />;
 const noEv   = <NxHonestyChip state="no_evidence" />;
 
+// INC-<uppercased id tail> — reversible to the real id, so it can be
+// copied, searched and pasted.  Never a synthetic ticket number.
+export function incidentNumber(id) {
+  const tail = String(id || "").replace(/^inc[_-]?/i, "").toUpperCase();
+  return tail ? `INC-${tail}` : "—";
+}
+
 function renderCell(colId, r, onDrill) {
   switch (colId) {
+    case "number":
+      return (
+        <span className="ql-td-mono ql-td-number"
+                 title={`${incidentNumber(r.id)}\nAuthoritative id: ${r.id}\nRight-click for actions`}>
+          {incidentNumber(r.id)}
+        </span>
+      );
     case "priority":
       return r.priority?.code
         ? <PriorityChip code={r.priority.code} /> : dash;
@@ -152,7 +171,7 @@ export default function QueueTable({
   visibleColumns,          // array of column meta in display order
   selected, onToggleSelect, onSelectAll, allSelected,
   previewId,
-  onRowClick, onNameClick, onCellDrill,
+  onRowClick, onNameClick, onCellDrill, onContextMenu,
   sort, order, onSort,
   loading,
   emptyMessage = "NO INCIDENTS MATCH THIS FILTER — honest empty state.",
@@ -217,6 +236,11 @@ export default function QueueTable({
                 key={r.id}
                 className={`${isSel ? "selected" : ""} ${isPreview ? "previewed" : ""}`}
                 onClick={() => onRowClick(r)}
+                onContextMenu={(e) => {
+                  if (!onContextMenu) return;
+                  e.preventDefault();
+                  onContextMenu(r, { x: e.clientX, y: e.clientY });
+                }}
                 data-testid={`ql-row-${r.id}`}
               >
                 <td className="ql-td-checkbox" onClick={e => e.stopPropagation()}>

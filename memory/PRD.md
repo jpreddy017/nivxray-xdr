@@ -9196,3 +9196,29 @@ token migration but their hierarchy is unchanged). Report tab narration takes ~8
 ## Next
 P1 record IA regrouping + verdict arithmetic · P1 MSS Dashboard / Investigation Workspace layout ·
 P0 Suricata real EVE feed · then IKG write-path decision.
+
+## 2026-09-05 · addendum: incident NUMBER column + row context menu
+
+Owner request (ServiceNow / Cisco MSS parity): a visible incident number, and a right-click
+action menu with "Assign to me".
+
+- **NUMBER is now the leading queue column**, rendered as `INC-<uppercased id tail>` — a
+  *formatting of the authoritative incident id*, reversible and copyable. NivXRay deliberately
+  does **not** mint a second sequential ticket number it cannot resolve. **Open question for the
+  owner:** if a true monotonic `INC0000001234` is wanted, that is a persisted data-model addition
+  (backfill 198 + assign on create) and needs authorisation.
+- **Right-click context menu** (`pages/incidents/QueueContextMenu.jsx`): Open · Open in new tab ·
+  Preview in side panel · **Assign to me** (always offered, idempotent) · Release (when an owner
+  exists) · Copy incident number / authoritative id / deep link. Every item is backed by a real
+  endpoint or a pure client capability — no stubs. Writes go through the **audited**
+  `POST /api/xdr/incidents/bulk/assign`, so a single-row assignment is audited like a bulk one.
+- **Bug found and fixed while testing:** `_project_row` / `_project_detail` fell back to
+  `doc.get("user_email")` for the `assignee` field — the very ownership conflation this batch
+  removed. 17 incidents displayed a phantom owner that no assignment filter could match
+  (`?assignment=unassigned` returned 196 rows of which 17 showed an owner). `assignee` now reads
+  `incident_assignee` ONLY. Verified: all 198 · unassigned 196 · mine 2 · owners 2.
+- **Frontend now sends the `assignment` filter** (it was backend-only, so the URL param was
+  silently ignored); it is a first-class filter chip.
+- Verified end-to-end in the UI: assign → row appears under `assignment=mine` → release →
+  owner reverts to `? UNKNOWN`, with a toast confirming each write. Backend suites still green
+  (queue 17/17, dashboard 20/20, MSS 12/12).

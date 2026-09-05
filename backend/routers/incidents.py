@@ -156,7 +156,11 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
         "sla_due_at":       doc.get("sla_due_at"),
         # aging = now - created_at, expressed in ISO seconds
         "aging_seconds":    _aging_seconds(doc.get("created_at")),
-        "assignee":    doc.get("incident_assignee") or doc.get("user_email"),
+        # P0-2b (owner review 2026-09-05): ASSIGNMENT ONLY.
+        # `user_email` records who saved the case, not who owns the
+        # work — falling back to it made 17 incidents display a
+        # phantom owner that no assignment filter could ever match.
+        "assignee":    doc.get("incident_assignee"),
         "state":       doc.get("incident_state") or "new",
         "last_activity": updated,
         # Auto-Investigation state · reads engine_executions, else NOT_RUN.
@@ -317,7 +321,11 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
         "verdict_stage2": stage2 or None,
         "verdict_card":   vcard or None,
         "tenant":      doc.get("tenant_id") or doc.get("user_email") or "default",
-        "assignee":    doc.get("incident_assignee") or doc.get("user_email"),
+        # P0-2b (owner review 2026-09-05): ASSIGNMENT ONLY.
+        # `user_email` records who saved the case, not who owns the
+        # work — falling back to it made 17 incidents display a
+        # phantom owner that no assignment filter could ever match.
+        "assignee":    doc.get("incident_assignee"),
         "state":       doc.get("incident_state") or "new",
         "state_history": history,
         # ── Phase-1 operational extensions ──────────────────────────

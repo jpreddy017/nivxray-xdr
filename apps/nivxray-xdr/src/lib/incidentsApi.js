@@ -7,7 +7,7 @@ import api from "@/lib/api";
 export async function listIncidents({
   limit = 100, lens = null, state = null, priority = null, severity = null,
   verdict = null, confidence = null, customer = null,
-  detection_source = null, technique = null,
+  detection_source = null, technique = null, assignment = null,
   sort = "updated_at", order = "desc",
 } = {}) {
   const params = { limit, sort, order };
@@ -20,6 +20,9 @@ export async function listIncidents({
   if (customer) params.customer = customer;
   if (detection_source) params.detection_source = detection_source;
   if (technique) params.technique = technique;
+  // Assignment is WORK MANAGEMENT, not visibility (P0-2b):
+  // unassigned | mine | team.
+  if (assignment) params.assignment = assignment;
   const { data } = await api.get("/incidents", { params });
   return data;
 }
