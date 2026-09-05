@@ -339,6 +339,11 @@ app.include_router(xdr_ingest_router)
 # 10-stage sync pipeline · never fabricates · bundled snapshot fallback.
 from routers.xdr_detection_content import router as xdr_detection_content_router
 app.include_router(xdr_detection_content_router)
+# Gate 0.5 · Truth-verification introspection endpoints (READ-ONLY, additive).
+# Reports live Content Fabric + Decoder registry inventories without
+# manufacturing a canonical 615 / 59 integer. Owner-approved AD-05.
+from routers.truth_inventory import router as truth_inventory_router
+app.include_router(truth_inventory_router)
 from routers.xdr_cve import router as xdr_cve_router
 app.include_router(xdr_cve_router)
 from routers.xdr_rule_studio import router as xdr_rule_studio_router
