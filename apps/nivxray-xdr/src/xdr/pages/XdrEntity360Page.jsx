@@ -151,13 +151,21 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
   const viewStart = view ? view[0] : extent[0];
   const viewEnd   = view ? view[1] : extent[1];
 
-  const onWindowChange = useCallback((s, e) => {
+  const onWindowChange = useCallback((s, e, mayLeaveDay = false) => {
     let a = Math.min(s, e), b = Math.max(s, e);
     if (b - a < 1000) b = a + 1000;
     if (selectedDayRef.current != null) {
       const d0 = selectedDayRef.current;
-      a = Math.max(a, d0);
-      b = Math.min(b, d0 + 86400000);
+      if (mayLeaveDay && (a < d0 || b > d0 + 86400000)) {
+        // Explicit navigation out of the selected day releases the day
+        // rather than silently clamping the window back into it — a
+        // control that appears not to work is worse than no control.
+        selectedDayRef.current = null;
+        setSelectedDay(null);
+      } else {
+        a = Math.max(a, d0);
+        b = Math.min(b, d0 + 86400000);
+      }
     }
     setView([a, b]);
   }, []);

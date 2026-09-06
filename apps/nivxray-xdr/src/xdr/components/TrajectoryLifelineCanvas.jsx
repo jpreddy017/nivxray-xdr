@@ -20,6 +20,12 @@
  *   4. Double-click a cluster → the shared window zooms to the exact
  *      millisecond span of that cluster.
  *
+ * Cursor navigation (AMP parity, added deliberately narrowly): the wheel
+ * zooms about the pointer and dragging pans, but ONLY while the pointer
+ * is inside the plot rectangle, and both can be switched off from the
+ * banner — so viewport scroll is never hijacked and no accidental zoom
+ * state can be reached from outside the canvas.
+ *
  * Connectors are drawn ONLY between the actor and the target of the
  * SAME observation document — that is evidence, not inference.  Process
  * → process lineage is drawn only for a `parent_iid` that resolves to an
@@ -188,6 +194,86 @@ export default function TrajectoryLifelineCanvas({
 
   const haloActive = haloIds && haloIds.size > 0;
 
+  /**
+   * Cursor navigation over the plot — AMP's "move around the timeline"
+   * behaviour, added deliberately narrowly:
+   *   • the wheel zooms about the pointer ONLY inside the plot area, and
+   *     only while the pointer is over it, so page scroll is never
+   *     hijacked outside this rectangle;
+   *   • dragging the empty track pans; a drag under 4 px is treated as a
+   *     click so selecting a glyph and double-click-to-zoom still work.
+   * Both are off-by-switch via `navEnabled`.
+   */
+  const [navEnabled, setNavEnabled] = useState(true);
+  const [panning, setPanning] = useState(false);
+  const panRef = useRef(null);
+  const scrollRef = useRef(null);
+
+  const clampWindow = (a, b) => {
+    const s = Math.min(a, b);
+    const e = Math.max(s + 1000, Math.max(a, b));
+    onWindowChange?.(s, e, true);   // explicit navigation may leave the day
+  };
+
+  useEffect(() => {
+    const node = wrapRef.current;
+    if (!node || !navEnabled) return;
+    const onWheel = (ev) => {
+      // The wheel is NOT a zoom. It scrolls the lifelines vertically like
+      // any other list; zooming is done by dragging, by the Navigator
+      // controls, or by holding a modifier here for the rare occasion an
+      // analyst wants it.
+      if (!(ev.ctrlKey || ev.metaKey)) return;
+      const r = node.getBoundingClientRect();
+      const px = ev.clientX - r.left;
+      if (px < GUTTER || px > GUTTER + plotW) return;
+      ev.preventDefault();
+      const anchor = x.invert(px).getTime();
+      const factor = ev.deltaY > 0 ? 1.25 : 0.8;
+      const newSpan = Math.max(1000, (viewEnd - viewStart) * factor);
+      const ratio = (anchor - viewStart) / Math.max(1, viewEnd - viewStart);
+      clampWindow(anchor - newSpan * ratio,
+                  anchor - newSpan * ratio + newSpan);
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, [navEnabled, plotW, x, viewStart, viewEnd]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const startPan = (ev) => {
+    if (!navEnabled || ev.button !== 0) return;
+    const r = wrapRef.current.getBoundingClientRect();
+    const px = ev.clientX - r.left;
+    if (px < GUTTER) return;
+    panRef.current = { x0: ev.clientX, y0: ev.clientY, s0: viewStart,
+                       e0: viewEnd,
+                       top0: scrollRef.current ? scrollRef.current.scrollTop
+                                               : 0,
+                       moved: false };
+    const onMove = (e2) => {
+      const p = panRef.current;
+      if (!p) return;
+      const dx = e2.clientX - p.x0;
+      const dy = e2.clientY - p.y0;
+      if (!p.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      p.moved = true;
+      setPanning(true);
+      // Vertical drag moves the lane viewport, horizontal drag moves time.
+      if (scrollRef.current) scrollRef.current.scrollTop = p.top0 - dy;
+      if (Math.abs(dx) >= 4) {
+        const dt = -(dx / Math.max(1, plotW)) * (p.e0 - p.s0);
+        clampWindow(p.s0 + dt, p.e0 + dt);
+      }
+    };
+    const onUp = () => {
+      panRef.current = null;
+      setPanning(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
   /** Double-click → zoom the shared window to this cluster's real span. */
   const zoomCluster = (item) => {
     const siblings = (placement.byRow.get(item.rowKey) || [])
@@ -231,14 +317,32 @@ export default function TrajectoryLifelineCanvas({
             && " → those lifelines carry a dashed ghost-root marker instead of an invented ancestor"}
         </span>
         <div style={{ flex: 1 }} />
+        <label className="mono" data-testid="edr-lifeline-nav-toggle"
+               style={{ fontSize: 9.3, color: "var(--faint)",
+                        cursor: "pointer" }}>
+          <input type="checkbox" checked={navEnabled}
+                 onChange={(e) => setNavEnabled(e.target.checked)}
+                 style={{ marginRight: 5, verticalAlign: -1 }} />
+          cursor navigation
+        </label>
         <span className="mono" style={{ fontSize: 9.8, color: TELEMETRY_CYAN }}>
           {anchors.length} observation{anchors.length === 1 ? "" : "s"} ·{" "}
-          {processRows.length + artifactRows.length} lifelines · 14px jitter ·
-          dbl-click a cluster to zoom
+          {processRows.length + artifactRows.length} lifelines ·{" "}
+          {navEnabled
+            ? "drag ← → to move through time · drag ↑ ↓ to move through "
+              + "lifelines · dbl-click a cluster to zoom · wheel scrolls"
+            : "cursor navigation off · use the Navigator controls"}
         </span>
       </div>
 
-      <svg width={width} height={height} style={{ display: "block", background: "#0B0F14" }}
+      <div ref={scrollRef} data-testid="edr-lifeline-viewport"
+           style={{ maxHeight: "58vh", overflowY: "auto",
+                    overflowX: "hidden", border: "1px solid #161C24",
+                    borderRadius: 3 }}>
+      <svg width={width} height={height} onMouseDown={startPan}
+           style={{ display: "block", background: "#0B0F14",
+                    cursor: panning ? "grabbing"
+                            : navEnabled ? "grab" : "default" }}
            data-testid="edr-lifeline-svg">
         <defs>
           <clipPath id="edr-plot-clip">
@@ -498,6 +602,7 @@ export default function TrajectoryLifelineCanvas({
           <g ref={brushRef} data-testid="edr-lifeline-brush" />
         </g>
       </svg>
+      </div>
     </div>
   );
 }

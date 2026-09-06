@@ -18,10 +18,12 @@
  * never interpolated.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Maximize2,
+         Search, SkipBack, SkipForward, ZoomIn, ZoomOut } from "lucide-react";
 
 import {
-  severityTier, TIER_MALICIOUS, TIER_ATTRIBUTED, TIER_COLOR, TELEMETRY_CYAN, IOC_RED,
+  severityTier, tsOf as tsOfEvent, TIER_MALICIOUS, TIER_ATTRIBUTED,
+  TIER_COLOR, TELEMETRY_CYAN, IOC_RED,
 } from "@/xdr/lib/trajectoryModel";
 
 /** Log-scaled dot radius — a day with 40 events must not read the same
@@ -86,6 +88,172 @@ export function searchCorpus(e) {
   return [e.title, e.process, e.file, e.path, e.command_line, e.user,
           e.file_sha256, e.input_digest, e.observation_kind, e.incident_id]
     .filter(Boolean).join(" ");
+}
+
+const fmtSpan = (ms) => {
+  if (ms < 1000) return `${Math.max(1, Math.round(ms))} ms`;
+  if (ms < 90 * 1000) return `${(ms / 1000).toFixed(1)} s`;
+  if (ms < 90 * 60 * 1000) return `${(ms / 60000).toFixed(1)} min`;
+  if (ms < 48 * 3600 * 1000) return `${(ms / 3600000).toFixed(1)} h`;
+  return `${(ms / 86400000).toFixed(1)} d`;
+};
+
+const NavBtn = ({ onClick, title, testid, children, disabled }) => (
+  <button className="btn" onClick={onClick} title={title} disabled={disabled}
+          data-testid={testid}
+          style={{ padding: "3px 6px", fontSize: 10, lineHeight: 1,
+                   opacity: disabled ? 0.4 : 1 }}>
+    {children}
+  </button>
+);
+
+/**
+ * Continuous zoom / pan over the shared temporal window.
+ *
+ * Two things it deliberately does that the ribbons cannot:
+ *   • zoom BELOW a minute, so a burst of executions two seconds apart is
+ *     inspectable instead of being one vertical slice;
+ *   • leave the selected day when the analyst zooms out, rather than
+ *     silently clamping the window to a day boundary.
+ *
+ * Observations pushed outside the window are COUNTED and offered as a
+ * jump: narrowing a window must never hide evidence quietly.
+ */
+function ZoomBar({ events, viewStart, viewEnd, selectedDay, onSelectDay,
+                   onWindowChange }) {
+  const MIN_SPAN = 1000;
+  const stamps = useMemo(
+    () => (events || []).map(tsOfEvent).filter((t) => t !== null),
+    [events]);
+  const first = stamps.length ? Math.min(...stamps) : null;
+  const last = stamps.length ? Math.max(...stamps) : null;
+  const span = Math.max(MIN_SPAN, viewEnd - viewStart);
+
+  const outside = useMemo(() => {
+    let before = 0, after = 0;
+    for (const t of stamps) {
+      if (t < viewStart) before += 1;
+      else if (t > viewEnd) after += 1;
+    }
+    return { before, after };
+  }, [stamps, viewStart, viewEnd]);
+
+  /** Any move wider than the selected day must release the day, or the
+   *  page would clamp it back and the control would appear broken. */
+  const move = (s, e) => {
+    const a = Math.min(s, e);
+    const b = Math.max(a + MIN_SPAN, Math.max(s, e));
+    onWindowChange(a, b, true);   // may leave the selected day
+  };
+  /** Zoom about the nearest OBSERVED instant to the current centre.
+   *  Zooming about a bare midpoint walks straight into empty time when
+   *  activity is clustered — every step would show less and less of the
+   *  same nothing. The anchor is always a real timestamp, never a
+   *  synthesised one. */
+  const zoom = (factor) => {
+    const mid = (viewStart + viewEnd) / 2;
+    let c = mid;
+    if (stamps.length) {
+      let best = null, bestD = Infinity;
+      for (const t of stamps) {
+        const d = Math.abs(t - mid);
+        if (d < bestD) { bestD = d; best = t; }
+      }
+      if (best != null) c = best;
+    }
+    const s = Math.max(MIN_SPAN, span * factor);
+    move(c - s / 2, c + s / 2);
+  };
+  const pan = (frac) => move(viewStart + span * frac, viewEnd + span * frac);
+  const centre = (t) => move(t - span / 2, t + span / 2);
+  const fitAll = () => {
+    if (first == null) return;
+    const pad = Math.max((last - first) * 0.04, 1000);
+    move(first - pad, last + pad);
+  };
+  /** Tightest window that still holds every observation in view. */
+  const fitVisible = () => {
+    const inView = stamps.filter((t) => t >= viewStart && t <= viewEnd);
+    if (!inView.length) return;
+    const lo = Math.min(...inView), hi = Math.max(...inView);
+    const pad = Math.max((hi - lo) * 0.06, 500);
+    move(lo - pad, hi + pad);
+  };
+
+  const onKey = (e) => {
+    const k = e.key;
+    if (k === "ArrowRight") pan(0.5);
+    else if (k === "ArrowLeft") pan(-0.5);
+    else if (k === "+" || k === "=") zoom(0.5);
+    else if (k === "-" || k === "_") zoom(2);
+    else if (k === "0") fitAll();
+    else return;
+    e.preventDefault();
+  };
+
+  return (
+    <div tabIndex={0} onKeyDown={onKey} data-testid="xdr-navigator-zoombar"
+         style={{ display: "flex", gap: 6, alignItems: "center",
+                  flexWrap: "wrap", padding: "6px 9px",
+                  borderBottom: "1px solid var(--border)",
+                  outline: "none" }}>
+      <span className="mono" style={{ fontSize: 9, fontWeight: 800,
+                                      letterSpacing: ".5px",
+                                      color: "var(--faint)" }}>
+        NAVIGATE
+      </span>
+      <NavBtn onClick={() => zoom(0.5)} title="Zoom in (+)"
+              testid="xdr-nav-zoom-in"><ZoomIn size={11} /></NavBtn>
+      <NavBtn onClick={() => zoom(2)} title="Zoom out (−)"
+              testid="xdr-nav-zoom-out"><ZoomOut size={11} /></NavBtn>
+      <NavBtn onClick={() => pan(-0.5)} title="Step back (←)"
+              testid="xdr-nav-step-back"><ChevronLeft size={11} /></NavBtn>
+      <NavBtn onClick={() => pan(0.5)} title="Step forward (→)"
+              testid="xdr-nav-step-fwd"><ChevronRight size={11} /></NavBtn>
+      <NavBtn onClick={fitVisible} disabled={!stamps.length}
+              title="Tighten the window onto the observations in view"
+              testid="xdr-nav-fit-visible"><Crosshair size={11} /></NavBtn>
+      <NavBtn onClick={fitAll} disabled={first == null}
+              title="Fit all observed time (0)" testid="xdr-nav-fit-all">
+        <Maximize2 size={11} />
+      </NavBtn>
+      <NavBtn onClick={() => first != null && centre(first)}
+              disabled={first == null} title="Jump to the first observation"
+              testid="xdr-nav-first"><SkipBack size={11} /></NavBtn>
+      <NavBtn onClick={() => last != null && centre(last)}
+              disabled={last == null} title="Jump to the last observation"
+              testid="xdr-nav-last"><SkipForward size={11} /></NavBtn>
+      <span className="mono" data-testid="xdr-nav-span"
+            style={{ fontSize: 9.5, color: "var(--cyan)" }}>
+        window {fmtSpan(span)}
+        {first != null
+          ? ` of ${fmtSpan(Math.max(1000, last - first))} observed` : ""}
+      </span>
+      <div style={{ flex: 1 }} />
+      <span className="mono" data-testid="xdr-nav-outside"
+            style={{ fontSize: 9.3, color: outside.before + outside.after
+              ? "#FFB454" : "var(--faint)" }}>
+        {stamps.length === 0
+          ? "no timestamped observations"
+          : outside.before + outside.after === 0
+            ? "every observation is inside this window"
+            : `${outside.before} before · ${outside.after} after — hidden `
+              + "by the window, not absent"}
+      </span>
+      {outside.before > 0 && (
+        <NavBtn onClick={() => centre(Math.max(...stamps.filter(
+          (t) => t < viewStart)))}
+                title="Centre on the nearest hidden observation before this window"
+                testid="xdr-nav-jump-before">◀ earlier</NavBtn>
+      )}
+      {outside.after > 0 && (
+        <NavBtn onClick={() => centre(Math.min(...stamps.filter(
+          (t) => t > viewEnd)))}
+                title="Centre on the nearest hidden observation after this window"
+                testid="xdr-nav-jump-after">later ▶</NavBtn>
+      )}
+    </div>
+  );
 }
 
 export default function TrajectoryNavigator({
@@ -204,9 +372,9 @@ export default function TrajectoryNavigator({
     const rect = hourRef.current.getBoundingClientRect();
     const lx = e.clientX - rect.left;
     if (drag.mode === "left") {
-      onWindowChange(Math.min(tOfX(lx), drag.ve - 60000), drag.ve);
+      onWindowChange(Math.min(tOfX(lx), drag.ve - 1000), drag.ve);
     } else if (drag.mode === "right") {
-      onWindowChange(drag.vs, Math.max(tOfX(lx), drag.vs + 60000));
+      onWindowChange(drag.vs, Math.max(tOfX(lx), drag.vs + 1000));
     } else {
       const dMs = ((e.clientX - drag.px) / innerW) * DAY_MS;
       const dur = drag.ve - drag.vs;
@@ -297,6 +465,13 @@ export default function TrajectoryNavigator({
   return (
     <section className="panel" style={{ padding: 0 }}
               data-testid="xdr-trajectory-navigator">
+      {/* 1b · Zoom / pan controls (AMP's continuous navigation). The
+          window is a real time span, so it can be zoomed to the second
+          — a burst that happens inside one minute must be openable. */}
+      <ZoomBar events={events} viewStart={viewStart} viewEnd={viewEnd}
+               selectedDay={selectedDay} onSelectDay={onSelectDay}
+               onWindowChange={onWindowChange} />
+
       {/* 1 · Filters + scoped search */}
       <div style={{ display: "flex", alignItems: "center", gap: 8,
                       padding: "7px 9px",

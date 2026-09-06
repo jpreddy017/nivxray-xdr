@@ -1,6 +1,40 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · **DEVICE TRAJECTORY · AMP-STYLE NAVIGATION** · PASS (iteration_95 · frontend 100%)
+
+Owner report: markers crammed against the right edge, unreadable, and "it
+should be movable/navigable like Cisco AMP Device Trajectory" — then, decisively:
+**"Vertical, horizontal drag should be there without mouse wheel zoom in zoom
+out."**
+
+### What was missing versus AMP, and what was added
+| AMP behaviour | Before | Now |
+|---|---|---|
+| Drag to move through time | brush-only, had to be re-dragged each time | **horizontal drag pans** the shared window (`startPan`, 4 px threshold so clicks/dbl-clicks survive) |
+| Move down the lane list | page-level scroll only | **vertical drag pans a real lane viewport** (`edr-lifeline-viewport`, 58 vh) |
+| Continuous zoom / step / fit | none — span could only be changed by dragging ribbon handles inside one day | **NAVIGATE bar**: zoom ±, step ±50 %, fit-to-observations-in-view, fit-all, jump first/last, live span readout |
+| Wheel | (previously excluded by design) | **wheel does NOT zoom** — it scrolls the lanes; zoom-at-cursor only with Ctrl/Cmd, and all cursor navigation can be switched off (`edr-lifeline-nav-toggle`) |
+| Inspecting a burst | hour-ribbon handles floored at **60 s** | floor lowered to **1 s**, so executions two seconds apart separate |
+| Evidence outside the window | silent | **counted** ("N before · M after — hidden by the window, not absent") with earlier/later jumps |
+
+### Two honesty fixes found while doing it
+- **Zoom anchors on the nearest OBSERVED instant**, not the bare window
+  midpoint. Zooming about a midpoint walked into empty time (activity is
+  clustered at the end of a 97-day extent) and each step showed less of the
+  same nothing. The anchor is always a real timestamp.
+- Explicit navigation out of the selected day now **releases the day**
+  (`onWindowChange(s, e, mayLeaveDay)`) instead of silently clamping the window
+  back into it — a control that appears not to work is worse than no control.
+
+Verified: zoom-in ×6 keeps 6 334 observations on screen (57 lifelines readable,
+358 lineage edges, detections visible); wheel leaves the span unchanged while
+scrolling 0→400; vertical drag 0→300 of 1 096 scrollable px; regression clean on
+the pre-existing Navigator (search · filters · sparkline · 30-day + 24-hour
+ribbons · ledger · range buttons), `/xdr/admin/edr-response` and
+`/edr/campaign-story`. Backend untouched this iteration.
+
+
 ## ✅ 2026-06 · **P0-F.7 CAMPAIGN STORY** · PASS (iteration_94 · 100%/100%) · 30/30 runtime proof
 
 One intrusion, told once, from the authoritative records.
