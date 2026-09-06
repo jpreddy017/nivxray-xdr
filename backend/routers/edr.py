@@ -415,6 +415,26 @@ async def get_process_tree(incident_id: str | None = None,
     return _project_process_tree(doc)
 
 
+@router.get("/campaign-story")
+async def campaign_story(incident_id: str, user=Depends(get_current_user)):
+    """P0-F.7 · one intrusion, told once, from the authoritative records.
+
+    A read model: endpoint → process activity → detection → evidence →
+    verdict → incident → response → response verification, with the
+    provenance chain preserved on every step and every missing link named
+    as a gap rather than filled in.
+    """
+    from deps import db as _db
+    from edr_plane.campaign_story import build_story
+    story = await build_story(
+        _db, tenant_id=(user.get("tenant_id") or "default"),
+        incident_id=incident_id)
+    if story.get("error"):
+        raise HTTPException(status_code=404, detail=story)
+    return story
+
+
+
 @router.get("/observation-narrative")
 async def observation_narrative(device: str, event_iid: str,
                                 user=Depends(get_current_user)):

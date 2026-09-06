@@ -46,6 +46,7 @@ const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsP
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
 const EdrProcessTreePage     = lazy(() => import("@/nivxforge/pages/EdrProcessTreePage"));
+const EdrCampaignStoryPage   = lazy(() => import("@/nivxforge/pages/EdrCampaignStoryPage"));
 
 const EdrReserved = lazy(() =>
   import("@/nivxforge/pages/EdrReservedPages").then((m) => ({ default: m })),
@@ -177,6 +178,7 @@ export default function App() {
         <Route path="/edr/trajectory"    element={<Protected><EdrTrajectoryResolver /></Protected>} />
         <Route path="/edr/detections"    element={<Protected><EdrDetectionsPage /></Protected>} />
         <Route path="/edr/process-tree"  element={<Protected><EdrProcessTreePage /></Protected>} />
+        <Route path="/edr/campaign-story" element={<Protected><EdrCampaignStoryPage /></Protected>} />
         <Route path="/edr/files"         element={<Protected><EdrFilesPage /></Protected>} />
         <Route path="/edr/network"       element={<Protected><EdrNetworkPage /></Protected>} />
         <Route path="/edr/hunting"       element={<Protected><EdrHuntingPage /></Protected>} />

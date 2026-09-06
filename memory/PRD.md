@@ -1,6 +1,56 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · **P0-F.7 CAMPAIGN STORY** · PASS (iteration_94 · 100%/100%) · 30/30 runtime proof
+
+One intrusion, told once, from the authoritative records.
+`/edr/campaign-story?incident_id=…` → `EdrCampaignStoryPage.jsx` →
+`GET /api/edr/campaign-story` → `edr_plane/campaign_story.py`.
+
+**A projection, never a second source of truth.** It writes nothing and grades
+nothing; it reads `workspace_cases.endpoint_campaign`,
+`workspace_cases.xdr_pipeline` (IUE · ICE · VEEE verbatim), `edr_raw_events`
+(+derivations), `v2_shadow_observations`, `edr_endpoints` and
+`edr_response_commands` (reusing `response.proof_of`). No new detection,
+verdict, incident, response or evidence store.
+
+### Proven chain (scripts/p0_f7_campaign_story_proof.py · 30/30 · INC000000231)
+`raw_f58e793a0dd70af63aa55d24 → cev_f58e793a0dd70af63aa55d24_0 →
+proc_2dad8f203024 → EDR-LNX-002 → SUSPICIOUS → iue_… → VEEE 80 MALICIOUS →
+INC000000231 → cmd_… → post-action /proc probe`. 15/15 activities resolved on
+every link: raw retained, process identity in the evidence plane, and each
+identity bound to the SAME raw event.
+
+### Honesty properties held
+- Six-state vocabulary per field (OBSERVED · NOT_OBSERVED · NOT_COLLECTED ·
+  NOT_SUPPORTED · PARSER_FAILED · UNKNOWN) plus the evidence plane's own
+  `epistemic_state` carried verbatim. `process_exit` and `file_writer` are
+  always NOT_SUPPORTED — the sensor polls `/proc`.
+- Responses are **endpoint-scoped, not incident-keyed**: correlated by endpoint
+  + campaign window (+30 min) and labelled
+  `CORRELATED_BY_ENDPOINT_AND_TIME_NOT_INCIDENT_KEYED`, with
+  `response_to_incident_binding` listed as a gap.
+- No response is shown as proven without a probe; AUTHORIZED / EXECUTED /
+  CAPABILITY_UNAVAILABLE never read as success.
+- **Found in passing and disclosed as a gap** (`canonical_id_scheme_divergence`):
+  the incident records `cev_raw_<hex>_pl` while the evidence plane holds
+  `cev_<hex>_0` for the same raw event. The link is resolved exactly via
+  `event.provenance.ingest_job_id`, and both ids are shown side by side rather
+  than hiding the divergence. **Real defect, not fixed here.**
+- No endpoint campaign → `404 NOT_AN_ENDPOINT_CAMPAIGN` ("Nothing is invented
+  to fill the page"); unknown id → `404 INCIDENT_NOT_FOUND`; tenant-scoped.
+
+`tests/edr` **307 → 321 pass** (9 new unit + 14 live-API added by the testing
+agent). New sidebar tab "Campaign Story" preserves the OPENED FROM INCIDENT
+banner; pivots to Process Tree · Device Trajectory · Detections · Incident ·
+Response Verification all resolve.
+
+### Not started (owner sequencing)
+Response From Incident · hash-integrity defect (`v2/ingestion/canonical.py:326`)
+· canonical id scheme divergence · P0-F.8 Live Attack Replay · privileged-host
+isolation sign-off.
+
+
 ## 🔒 2026-06 · **CAPABILITY REGISTRY CORRECTED · ISOLATION CAPPED AT BACKEND_IMPLEMENTED**
 
 Owner instruction: *"Do not let the dashboard/capability registry say

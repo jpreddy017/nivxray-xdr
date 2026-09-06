@@ -18,6 +18,7 @@ import {
   LayoutGrid, ShieldAlert, Radar, GitBranch, FileText, Wifi,
   Search, Camera, Terminal, ArrowRightLeft,
   ArrowLeft,
+  BookOpen,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -29,6 +30,7 @@ const TABS = [
   { key: "detections",     label: "Detections",       icon: ShieldAlert,     to: "/edr/detections" },
   { key: "trajectory",     label: "Device Trajectory", icon: Radar,           to: "/edr/trajectory" },
   { key: "process-tree",   label: "Process Tree",     icon: GitBranch,       to: "/edr/process-tree" },
+  { key: "campaign-story", label: "Campaign Story",   icon: BookOpen,        to: "/edr/campaign-story" },
   { key: "files",          label: "Files",            icon: FileText,        to: "/edr/files" },
   { key: "network",        label: "Network",          icon: Wifi,            to: "/edr/network" },
   { key: "hunting",        label: "Threat Hunting",   icon: Search,          to: "/edr/hunting" },
