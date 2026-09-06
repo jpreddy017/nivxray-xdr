@@ -242,6 +242,13 @@ def collect_processes(seen: set[str], hash_exe: bool = True) -> list[dict]:
                 "start_time": (datetime.fromtimestamp(
                     boot + start_ticks / hz, timezone.utc).isoformat()
                     if boot else None),
+                # The kernel's own start-time counter (field 22 of
+                # /proc/<pid>/stat). This — NOT the wall-clock string — is
+                # the process start IDENTITY: it is exact, it is what can
+                # be re-read later, and it is the only thing that
+                # distinguishes this process from a future process that
+                # reuses the same pid. Response targeting depends on it.
+                "start_ticks": start_ticks,
                 "pid": pid, "ppid": ppid,
                 "image": (exe.rsplit("/", 1)[-1] if exe
                           else stat[stat.index("(") + 1:rparen]),
@@ -509,32 +516,34 @@ def _get(api: str, path: str, bearer: str) -> dict:
         raise RuntimeError(f"{e.code} {e.read().decode()[:300]}") from None
 
 
-def _proc_alive(pid: int, start_ticks: str | None = None) -> bool:
-    """Is THAT process still there? Identity, not just a pid.
+def _proc_identity(pid: int) -> dict:
+    """What is at this pid RIGHT NOW, read from /proc. Never inferred.
 
-    When a start time is known it must match, otherwise a reused pid would
-    make a successful kill look like a failure (or worse, a failed kill
-    look successful).
+    Returns the CURRENT start-time ticks so a caller can compare process
+    IDENTITY, not just pid occupancy. A bare pid is not a process: Linux
+    reuses pids within minutes, so acting on a pid alone is how a response
+    plane terminates the wrong process.
+
+    A zombie (state Z) has ALREADY terminated — /proc holds the entry only
+    until its parent reaps it. Counting that as "still running" would
+    report a successful kill as a failure.
     """
     try:
         stat = Path(f"/proc/{pid}/stat").read_text()
     except OSError:
-        return False
-    # A zombie (state Z) has ALREADY terminated — /proc still holds the
-    # entry only until its parent reaps it. Counting that as "still
-    # running" would report a successful kill as a failure.
+        return {"present": False, "state": None, "start_ticks": None,
+                "reason": "NO_PROC_ENTRY"}
     try:
-        if stat[stat.rindex(")") + 2:].split()[0] == "Z":
-            return False
+        tail = stat[stat.rindex(")") + 2:].split()
+        state, ticks = tail[0], int(tail[19])
     except (ValueError, IndexError):
-        pass
-    if not start_ticks:
-        return True
-    try:
-        return str(int(stat[stat.rindex(")") + 2:].split()[19])) == \
-            str(start_ticks)
-    except (ValueError, IndexError):
-        return True
+        return {"present": False, "state": None, "start_ticks": None,
+                "reason": "PROC_STAT_UNPARSEABLE"}
+    if state == "Z":
+        return {"present": False, "state": "Z", "start_ticks": ticks,
+                "reason": "ZOMBIE_ALREADY_TERMINATED"}
+    return {"present": True, "state": state, "start_ticks": ticks,
+            "reason": "RUNNING"}
 
 
 def _execute_command(cmd: dict) -> tuple[str, str, dict]:
@@ -542,12 +551,35 @@ def _execute_command(cmd: dict) -> tuple[str, str, dict]:
     action, target = cmd.get("action"), cmd.get("target") or {}
     if action == "KILL_PROCESS":
         pid = target.get("pid")
+        want = target.get("observed_start_ticks")
         if not isinstance(pid, int) or pid <= 1:
             return "FAILED", "no valid pid in the command target", {}
-        if not _proc_alive(pid, target.get("observed_start_time")):
+        if not isinstance(want, int):
+            # The one refusal that matters most. Killing on a pid the
+            # platform never bound to a start time is unsafe by design,
+            # and this sensor will not do it silently or at all.
             return ("FAILED",
-                    f"pid {pid} is not present on this endpoint now — "
-                    f"nothing was killed", {"pre_state": "absent"})
+                    "TARGET_IDENTITY_UNVERIFIED: this command carries no "
+                    "observed process start identity. A bare pid is not a "
+                    "process — Linux reuses pids — so nothing was killed.",
+                    {"pre_state": "IDENTITY_ABSENT"})
+        cur = _proc_identity(pid)
+        if not cur["present"]:
+            return ("FAILED",
+                    f"pid {pid} is not present on this endpoint now "
+                    f"({cur['reason']}) — nothing was killed",
+                    {"pre_state": cur["reason"], "proc_state": cur["state"]})
+        if cur["start_ticks"] != want:
+            return ("FAILED",
+                    f"TARGET_IDENTITY_MISMATCH_PID_REUSE: pid {pid} now holds "
+                    f"a process started at {cur['start_ticks']} ticks, not "
+                    f"the observed {want}. That is a DIFFERENT process; this "
+                    f"sensor refuses to kill something the platform never "
+                    f"observed.",
+                    {"pre_state": "PID_REUSED",
+                     "observed_start_ticks": want,
+                     "current_start_ticks": cur["start_ticks"],
+                     "proc_state": cur["state"]})
         try:
             os.kill(pid, signal.SIGKILL)
         except PermissionError:
@@ -556,8 +588,12 @@ def _execute_command(cmd: dict) -> tuple[str, str, dict]:
         except OSError as e:
             return "FAILED", f"kill failed: {e}", {}
         time.sleep(0.4)
-        return ("EXECUTED", f"SIGKILL delivered to pid {pid}",
-                {"signal": "SIGKILL", "pid": pid})
+        return ("EXECUTED",
+                f"SIGKILL delivered to pid {pid} "
+                f"(start identity {want} ticks confirmed before signalling)",
+                {"signal": "SIGKILL", "pid": pid,
+                 "observed_start_ticks": want,
+                 "identity_confirmed_before_signal": True})
     if action in ("ISOLATE_ENDPOINT", "RELEASE_ISOLATION"):
         # Honest capability probe. Claiming isolation without the kernel
         # privilege to enforce it would be the worst lie this product
@@ -580,21 +616,42 @@ def _execute_command(cmd: dict) -> tuple[str, str, dict]:
 
 
 def _verify_command(cmd: dict, result: tuple) -> dict:
-    """Evidence gathered AFTER the action, independent of the action."""
+    """Evidence gathered AFTER the action, independent of the action.
+
+    Identity-aware on purpose: "the pid is free" is NOT proof that the
+    observed process is gone, and a pid re-occupied by a new process is
+    not proof that the kill failed. Both facts are reported.
+    """
     target = cmd.get("target") or {}
     if cmd.get("action") == "KILL_PROCESS":
         pid = target.get("pid")
-        present = _proc_alive(pid) if isinstance(pid, int) else False
-        try:
-            stat = Path(f"/proc/{pid}/stat").read_text()
-            state = stat[stat.rindex(")") + 2:].split()[0]
-        except (OSError, ValueError, IndexError):
-            state = None
+        want = target.get("observed_start_ticks")
+        cur = (_proc_identity(pid) if isinstance(pid, int)
+               else {"present": False, "state": None, "start_ticks": None,
+                     "reason": "NO_VALID_PID"})
+        same_identity = cur["start_ticks"] == want
+        reoccupied = bool(cur["present"] and not same_identity)
+        present = bool(cur["present"] and same_identity)
+        if present:
+            detail = (f"/proc/{pid} still holds the OBSERVED process "
+                      f"(start {cur['start_ticks']} ticks, state "
+                      f"{cur['state']})")
+        elif reoccupied:
+            detail = (f"the observed process (start {want} ticks) is gone; "
+                      f"pid {pid} is now held by a DIFFERENT process "
+                      f"started at {cur['start_ticks']} ticks")
+        else:
+            detail = (f"/proc/{pid} {cur['reason']}"
+                      + (f" (state {cur['state']})" if cur["state"] else ""))
         return {"method": "post_action_proc_read",
-                "process_present": present, "pid": pid,
-                "proc_state": state,
-                "detail": (f"/proc/{pid} state={state}" if state
-                           else f"/proc/{pid} no longer exists")}
+                "identity_basis": "start_ticks",
+                "observed_start_ticks": want,
+                "current_start_ticks": cur["start_ticks"],
+                "pid_reoccupied": reoccupied,
+                "process_present": present,
+                "pid": pid, "proc_state": cur["state"],
+                "proc_reason": cur["reason"],
+                "detail": detail}
     return {"method": "post_action_probe", "effect_confirmed": False,
             "detail": "no verification method exists for this action yet"}
 

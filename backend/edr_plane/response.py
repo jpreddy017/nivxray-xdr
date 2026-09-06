@@ -18,6 +18,7 @@ State machine (forward only, every transition stamped):
 """
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -46,6 +47,70 @@ async def ensure_indexes(db) -> None:
                                       name="cmd_id_unique")
 
 
+async def _resolve_kill_target(db, *, tenant_id: str, endpoint_id: str,
+                               pid: int, target: Dict[str, Any]
+                               ) -> Dict[str, Any]:
+    """Bind the command to ONE exact observed process, from the immutable
+    raw sensor evidence.
+
+    Endpoint + pid + process START IDENTITY is what names a process. A
+    bare pid does not: Linux reuses pids within minutes, so a stale pid
+    can refer to a completely different process by the time a command
+    reaches the endpoint. This function therefore REFUSES rather than
+    degrade to pid-only targeting.
+    """
+    found = None
+    cur = db["edr_raw_events"].find(
+        {"tenant_id": tenant_id, "endpoint_ref": endpoint_id,
+         "payload": {"$regex": f'"pid": ?{pid}[,}}]'}},
+        {"payload": 1, "raw_id": 1, "derivations": 1}).sort("_id", -1).limit(
+            400)
+    async for doc in cur:
+        try:
+            ev = json.loads(doc.get("payload") or "")
+        except (ValueError, TypeError):
+            continue
+        if ev.get("activity") != "PROCESS" or ev.get("pid") != pid:
+            continue
+        found = (doc, ev)
+        break
+    if not found:
+        raise ResponseError(
+            "TARGET_NOT_OBSERVED",
+            f"pid {pid} has not been observed on {endpoint_id}; the "
+            f"platform refuses to act on a process it never saw")
+
+    doc, ev = found
+    ticks = ev.get("start_ticks")
+    if not isinstance(ticks, int):
+        raise ResponseError(
+            "TARGET_IDENTITY_UNVERIFIED",
+            f"pid {pid} was observed on {endpoint_id} but its process START "
+            f"IDENTITY was never captured, so this pid cannot be bound to "
+            f"one exact process. Linux reuses pids, so acting on the pid "
+            f"alone could terminate a different process than the one "
+            f"observed. The platform refuses rather than fall back to "
+            f"pid-only targeting.")
+
+    cev = next((d.get("event_id") for d in reversed(doc.get("derivations")
+                                                    or []) if d.get("event_id")
+                ), None)
+    obs = (await db["v2_shadow_observations"].find_one(
+        {"tenant_id": tenant_id, "canonical_event_id": cev},
+        {"event.process.iid": 1}) if cev else None) or {}
+    return {**target,
+            "observed_start_ticks": ticks,
+            "observed_start_time": ev.get("start_time"),
+            "observed_command_line": ev.get("command_line"),
+            "observed_image_path": ev.get("image_path"),
+            "observed_user": ev.get("user"),
+            "identity_basis": "endpoint_id + pid + start_ticks",
+            "evidence_raw_id": doc.get("raw_id"),
+            "evidence_canonical_event_id": cev,
+            "process_iid": (((obs.get("event") or {}).get("process") or {})
+                            .get("iid"))}
+
+
 async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
                          target: Dict[str, Any], requested_by: str,
                          reason: str) -> Dict[str, Any]:
@@ -71,31 +136,9 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
         if not isinstance(pid, int) or pid <= 1:
             raise ResponseError("TARGET_IDENTITY_UNPROVEN",
                                 "a kill requires a real observed pid (>1)")
-        # The observation plane keys on device_iid / hostname; the response
-        # plane speaks endpoint_id. Resolve across all three so a real
-        # observation is never missed and a kill never proceeds without one.
-        needles = [v for v in (endpoint_id, ep.get("hostname"),
-                               ep.get("device_iid")) if v]
-        obs = await db["v2_shadow_observations"].find_one(
-            {"$or": [{"collector_id": endpoint_id},
-                     {"device_iid": {"$in": needles}},
-                     {"event.computer": {"$in": needles}}],
-             # CES stringifies identifiers, so accept both forms rather
-             # than silently failing to find real evidence.
-             "event.raw.pid": {"$in": [pid, str(pid)]}},
-            sort=[("_id", -1)])
-        if not obs:
-            raise ResponseError(
-                "TARGET_NOT_OBSERVED",
-                f"pid {pid} has not been observed on {endpoint_id}; the "
-                f"platform refuses to act on a process it never saw")
-        raw = ((obs.get("event") or {}).get("raw") or {})
-        target = {**target,
-                  "observed_command_line": raw.get("command_line"),
-                  "observed_image_path": raw.get("image_path"),
-                  "observed_start_time": raw.get("start_time"),
-                  "process_iid": ((obs.get("event") or {}).get("process")
-                                  or {}).get("iid")}
+        target = await _resolve_kill_target(
+            db, tenant_id=tenant_id, endpoint_id=endpoint_id, pid=pid,
+            target=target)
 
     doc = {
         "command_id": f"cmd_{uuid.uuid4().hex[:20]}",
@@ -184,12 +227,31 @@ async def verify(db, *, tenant_id: str, endpoint_id: str, command_id: str,
             f"verification only follows a claimed execution")
 
     if doc["action"] == "KILL_PROCESS":
-        still = bool(probe.get("process_present"))
-        ok = not still
-        finding = ("the target pid is no longer present in /proc"
-                   if ok else
-                   "THE TARGET PROCESS IS STILL RUNNING — the kill did not "
-                   "take effect")
+        # The probe must prove the OBSERVED process is gone, not merely
+        # that the pid is unoccupied. A pid can be free because the
+        # process died on its own, and it can be occupied by an unrelated
+        # new process — neither is evidence about the target.
+        expected = (doc.get("target") or {}).get("observed_start_ticks")
+        if (probe.get("identity_basis") != "start_ticks"
+                or probe.get("observed_start_ticks") != expected):
+            ok = False
+            finding = ("VERIFICATION_IDENTITY_UNPROVEN — the probe did not "
+                       "carry the process start identity this command was "
+                       "bound to, so it proves only something about the "
+                       "pid, not about the target process")
+        else:
+            still = bool(probe.get("process_present"))
+            ok = not still
+            if still:
+                finding = ("THE TARGET PROCESS IS STILL RUNNING — the kill "
+                           "did not take effect")
+            elif probe.get("pid_reoccupied"):
+                finding = ("the target process is gone (its start identity "
+                           "is no longer at that pid); the pid is now held "
+                           "by a DIFFERENT, later process")
+            else:
+                finding = ("the target process is no longer present in "
+                           "/proc under its observed start identity")
     else:
         ok = bool(probe.get("effect_confirmed"))
         finding = str(probe.get("detail") or

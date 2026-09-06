@@ -123,6 +123,13 @@ def parse(line: str) -> dict[str, Any]:
             "parent_executable_path": ev.get("parent_image_path"),
         }
         canonical["identity"] = {"username": ev.get("user")}
+        # The process START IDENTITY travels with the evidence. Without it
+        # a consumer holds a pid, and a pid alone is not a process — it is
+        # reused. Response targeting binds to this.
+        canonical["additional_fields"]["process_start_ticks"] = ev.get(
+            "start_ticks")
+        canonical["additional_fields"]["process_start_time"] = ev.get(
+            "start_time")
         # Lineage is evidence-based: a parent we actually resolved in /proc
         # is a real relationship; PID 0 is the kernel boundary, not an
         # invented root; and a pid we could not attribute stays

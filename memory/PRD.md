@@ -1,8 +1,73 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
-## 🔎 2026-06 · **P0-F.5 DIAGNOSIS ONLY · NO CODE CHANGED · AWAITING OWNER APPROVAL**
+## ✅ 2026-06 · **P0-F.5 ENDPOINT RESPONSE · REAL RUNTIME VERIFIED** · 25/25
 
+Real Linux process killed from the console and proven dead by independent
+post-action evidence. Chain:
+`analyst → command → authenticated endpoint → sensor → SIGKILL → /proc re-read → VERIFIED`.
+
+### The diagnosis that came first (owner required proof before any change)
+The single failing check was the **assertion**, not the kill. The victim was a
+child of the proof script, so after SIGKILL it was an unreaped **zombie** and
+`/proc/<pid>` persisted until `wait()`. The sensor probe had recorded
+`proc_state: "Z"` — already terminated — and the state machine was already
+`REQUESTED → DISPATCHED → EXECUTED → VERIFIED`.
+
+### The real defect the diagnosis exposed — PID-REUSE UNSAFETY (now closed)
+`observed_start_time` was **null** on every kill target, so the sensor's identity
+guard fell through to **pid-only** targeting. Worse, `_proc_alive()` compared
+`/proc` start **ticks** against an **ISO wall-clock string**, so the guard could
+never have matched even when populated. A stale pid could therefore have killed
+an unrelated process.
+
+Closed in TWO independent places, because either alone leaks:
+- **Sensor** now emits `start_ticks` (field 22 of `/proc/<pid>/stat`) as the
+  process START IDENTITY, and `_proc_identity()` returns the CURRENT ticks.
+- **Platform** (`edr_plane/response.py::_resolve_kill_target`) binds the command
+  to one exact process from the **immutable `edr_raw_events`** payload —
+  `endpoint_id + pid + start_ticks` — and refuses
+  **`TARGET_IDENTITY_UNVERIFIED`** rather than degrade to pid-only. A pid never
+  observed is still `TARGET_NOT_OBSERVED`.
+- **Sensor at execution** re-reads `/proc` and refuses
+  **`TARGET_IDENTITY_MISMATCH_PID_REUSE`** when the ticks differ — nothing is
+  signalled.
+- **Verification** now requires the probe to carry the bound identity
+  (`identity_basis: start_ticks`) or it becomes `VERIFICATION_FAILED`
+  (`VERIFICATION_IDENTITY_UNPROVEN`): "the pid is free" is not evidence about the
+  target. `pid_reoccupied` is reported separately, so a pid taken by a later
+  process is not read as a failed kill.
+- Start identity now travels with canonical evidence
+  (`additional_fields.process_start_ticks/_time`).
+
+### Proof · `scripts/p0_f5_response_proof.py` · **25/25 PASS**
+- Child victim: `VERIFIED`, `proc_state=Z` before reap, **waitstatus `-9`**
+  (terminated by signal 9, not a self-exit), `/proc` gone after reap.
+- **Non-child (`setsid`, ppid 1) victim**: `VERIFIED`, probe
+  `proc_reason=NO_PROC_ENTRY`, `/proc/<pid>` unambiguously gone.
+- **PID-reuse refusal**: bystander pid whose bound identity no longer matches →
+  `FAILED / TARGET_IDENTITY_MISMATCH_PID_REUSE`, the bystander **still alive**,
+  never `VERIFIED`.
+- Negatives unchanged: never-observed pid, isolation `CAPABILITY_UNAVAILABLE`
+  (no iptables — refused, never faked), revoked endpoint `ENDPOINT_REVOKED`.
+
+`tests/edr` **266 pass** (was 256) incl. new
+`tests/edr/test_p0_f5_response_identity.py` (10). `tests/live` + ingestion 30
+pass. Pre-existing and reproduced on a clean tree (unrelated): canonical
+sample1 fingerprint guards, `rc5` diag import errors,
+`test_anti_hallucination_fake_pe` (`_is_valid_pe` missing from
+`shellcode_analyzer`), `test_xdr_audit_log::test_chain_tamper_detection`.
+
+### Honest limits
+- Isolation/release remain **CAPABILITY_UNAVAILABLE** (no NET_ADMIN, no driver).
+- No console UI for the action record yet — that is **P0-F.6**, not started,
+  gated on owner acceptance.
+- `raw.sha256` in the CES projection (`v2/ingestion/canonical.py:326`) is a
+  digest of the event key, **not** a file hash — a naming honesty issue found in
+  passing, reported, NOT fixed.
+
+
+### Appendix · the diagnosis run, verbatim (no code changed at that point)
 Owner instruction: reproduce first, change nothing. Done — `scripts/p0_f5_response_proof.py`
 re-run verbatim: **19/20 PASS, 1 FAIL = `['the REAL process is actually gone']`**.
 
