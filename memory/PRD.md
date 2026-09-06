@@ -1,6 +1,61 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · **P0-F.6 RESPONSE VERIFICATION UI** · PASS (iteration_92 · 100% / 100%)
+
+The console surface for endpoint response is an **evidence surface, not a
+success indicator**: `/xdr/admin/edr-response` → `EdrResponseBody.jsx`.
+
+**No second engine, no duplicated state machine.** The panel is a read-only
+projection of the authoritative `edr_response_commands` records P0-F.5 already
+produces, plus two read routes: `GET /api/edr/response/actions` and the new
+`GET /api/edr/response/actions/{command_id}`.
+
+### The grading lives in ONE place, in the backend
+`edr_plane/response.py::proof_of()` answers "what does this record PROVE?" —
+`PROOF_STATES` + `success_claimed` + `integrity_alarm` + a plain-English
+`meaning`. The UI renders that verdict and computes no status of its own, so
+`EXECUTED` cannot be painted as completion anywhere in the product:
+- `EXECUTED` → `SENSOR_CLAIM_ONLY_NOT_VERIFIED` (amber, "this is a CLAIM")
+- `VERIFIED` **with** a probe → `VERIFIED_BY_POST_ACTION_EVIDENCE` (the only
+  green state)
+- `VERIFIED` **without** a probe → `CLAIMED_VERIFIED_WITHOUT_EVIDENCE`,
+  `integrity_alarm: true` — surfaced as a fault, never as success.
+
+### The record renders the full chain
+Requested by → Approved by → Policy → Reason → target process identity
+(endpoint, pid, **start_ticks**, identity basis, start time, image, command
+line, user, process_iid, raw + canonical evidence ids) → lifecycle timeline
+with actor and timestamp per transition → sensor claim (labelled NOT proof) →
+independent verification (method, finding, every probe field) → final result.
+- **Approved by** and **Policy** render `⊘` with the reason (no approval step
+  and no response policy exist in this plane yet) — never blank, never invented.
+- A non-process action renders `⊘ NOT A PROCESS ACTION` instead of an empty
+  identity block.
+- A probe field that is genuinely null renders
+  `∅ nothing at that pid to read`, not `not reported`.
+- `truncated` + `total_count` are exposed and banner-disclosed so a >100-record
+  tenant can never read as evidence loss.
+
+### Verified against the REAL P0-F.5 records
+11 real records (5 VERIFIED · 1 VERIFICATION_FAILED · 1 FAILED · 4
+CAPABILITY_UNAVAILABLE · 0 integrity alarms). `cmd_62b6dae6d45f4efeb6f9` — the
+non-child `setsid` kill — displays pid 6351, start_ticks 1171231, probe
+`NO_PROC_ENTRY`, finding "the target process is no longer present in /proc
+under its observed start identity". iteration_92: **zero issues, zero action
+items**; 0 non-VERIFIED rows carry evidence-present styling. `tests/edr`
+**269 → 277 pass** (new `test_p0_f6_response_ui_backend.py`, 8).
+
+### Still honest / next
+Isolation + release remain `CAPABILITY_UNAVAILABLE` (no NET_ADMIN, no driver) —
+the response plane is NOT complete. Tracked separately (do NOT fold into a
+response milestone): the **synthetic `raw.sha256`** in the CES projection
+(`v2/ingestion/canonical.py:326`) is a digest of the event key, not a file
+hash — an evidence-integrity defect. Then P0-F.7 Campaign Story View,
+P0-F.8 Live Attack Replay, P0-F.9 Rule Health Panel, and the 52
+content-incomplete store rules.
+
+
 ## ✅ 2026-06 · **P0-F.5 ENDPOINT RESPONSE · REAL RUNTIME VERIFIED** · 25/25
 
 Real Linux process killed from the console and proven dead by independent

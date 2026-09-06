@@ -255,3 +255,45 @@ def test_proc_identity_treats_a_zombie_as_terminated():
     assert ident["reason"] == "ZOMBIE_ALREADY_TERMINATED"
     assert victim.wait(timeout=5) == -9
     assert mod._proc_identity(victim.pid)["reason"] == "NO_PROC_ENTRY"
+
+
+# ─── P0-F.6 · what the record PROVES, computed by the backend ────────────
+
+def test_proof_never_calls_a_sensor_claim_a_success():
+    p = resp.proof_of({"state": "EXECUTED"})
+    assert p["proof"] == "SENSOR_CLAIM_ONLY_NOT_VERIFIED"
+    assert p["success_claimed"] is False
+    for s in ("REQUESTED", "DISPATCHED", "VERIFICATION_FAILED", "FAILED",
+              "CAPABILITY_UNAVAILABLE", "REFUSED"):
+        assert resp.proof_of({"state": s})["success_claimed"] is False, s
+
+
+def test_proof_flags_verified_without_evidence_as_an_integrity_fault():
+    p = resp.proof_of({"state": "VERIFIED", "verification": None})
+    assert p["integrity_alarm"] is True
+    assert p["success_claimed"] is False
+    ok = resp.proof_of({"state": "VERIFIED",
+                        "verification": {"probe": {"process_present": False}}})
+    assert ok["success_claimed"] is True and ok["integrity_alarm"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_command_and_list_carry_the_proof_verdict():
+    async with _Scope() as s:
+        await s.observe(pid=4247, start_ticks=444)
+        cmd = await resp.request_action(
+            s.db, tenant_id=s.tenant, endpoint_id=s.endpoint,
+            action="KILL_PROCESS", target={"pid": 4247},
+            requested_by="analyst", reason="test")
+        one = await resp.get_command(s.db, tenant_id=s.tenant,
+                                     command_id=cmd["command_id"])
+        assert one["proof"]["proof"] == "NOTHING_HAS_HAPPENED_YET"
+        listed = await resp.list_commands(s.db, tenant_id=s.tenant,
+                                          endpoint_id=s.endpoint)
+        assert listed["verified_count"] == 0
+        assert listed["integrity_alarms"] == 0
+        assert listed["commands"][0]["proof"]["success_claimed"] is False
+        with pytest.raises(resp.ResponseError) as e:
+            await resp.get_command(s.db, tenant_id=s.tenant,
+                                   command_id="cmd_does_not_exist")
+        assert e.value.code == "COMMAND_NOT_FOUND"

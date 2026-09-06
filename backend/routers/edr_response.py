@@ -68,6 +68,19 @@ async def list_actions(endpoint_id: Optional[str] = None,
         endpoint_id=endpoint_id)
 
 
+@router.get("/actions/{command_id}")
+async def get_action(command_id: str,
+                     user: dict = Depends(get_current_user)) -> dict:
+    """The full action record for one command — the audit surface the
+    console renders. Read-only; this route never mutates state."""
+    try:
+        return await resp.get_command(
+            _db, tenant_id=user.get("tenant_id") or "default",
+            command_id=command_id)
+    except resp.ResponseError as e:
+        _fail(e)
+
+
 @agent.get("/commands")
 async def poll_commands(who: AuthenticatedEndpoint = Depends(
         get_authenticated_endpoint)) -> dict:

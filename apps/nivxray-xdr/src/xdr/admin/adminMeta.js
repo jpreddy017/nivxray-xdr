@@ -13,7 +13,8 @@
 import {
   LayoutGrid, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, ArrowRightLeft, Users, Webhook, HeartPulse,
-  Boxes, FolderTree, Radar, PlusCircle, ShieldCheck, KeyRound, Package,
+  Boxes, FolderTree, Radar, PlusCircle, ShieldCheck, ShieldOff, KeyRound,
+  Package,
 } from "lucide-react";
 
 export const ADMIN_SECTIONS = [
@@ -47,6 +48,13 @@ export const ADMIN_SECTIONS = [
     icon: KeyRound,
     subtitle: "P0-A.2 · one-time enrolment tokens, durable per-agent credentials, rotation, revocation and the rejected-sensor alarm. Enrolment, sensor identity and telemetry authentication are one atomic boundary: every raw event records which authenticated endpoint produced it.",
     api: "/api/edr/enrollment/endpoints", kind: "edr_enrollment",
+    connected: true, authoritative: true,
+  },
+  {
+    key: "edr-response", label: "NivXForge EDR · Response Verification",
+    icon: ShieldOff,
+    subtitle: "P0-F.6 · the action record as an EVIDENCE surface, not a success indicator. Requested by → target process identity (pid + start_ticks) → dispatch → sensor claim → independent post-action verification → final result. Only a record whose probe re-read the target on the endpoint is shown as verified; EXECUTED is a sensor claim and is never displayed as completion.",
+    api: "/api/edr/response/actions", kind: "edr_response",
     connected: true, authoritative: true,
   },
   {

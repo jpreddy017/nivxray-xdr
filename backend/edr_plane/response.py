@@ -273,6 +273,70 @@ async def verify(db, *, tenant_id: str, endpoint_id: str, command_id: str,
                              "inferred from the command succeeding.")}
 
 
+#: What a record PROVES — computed from the record, never from intent.
+#: The console renders THIS, so an EXECUTED command cannot be painted as a
+#: completed one anywhere in the product.
+PROOF_STATES = {
+    "REQUESTED": ("NOTHING_HAS_HAPPENED_YET", False,
+                  "Recorded only. The command has not reached the endpoint."),
+    "DISPATCHED": ("CLAIMED_BY_ENDPOINT_NO_RESULT", False,
+                   "The endpoint has claimed the command. No result has "
+                   "come back, so nothing is proven — and a command stuck "
+                   "here is visibly stuck, not silently lost."),
+    "EXECUTED": ("SENSOR_CLAIM_ONLY_NOT_VERIFIED", False,
+                 "The sensor's own report that it acted. This is a CLAIM. "
+                 "It is not success and must never be displayed as one."),
+    "VERIFIED": ("VERIFIED_BY_POST_ACTION_EVIDENCE", True,
+                 "Evidence gathered from the endpoint AFTER the action "
+                 "proves the effect."),
+    "VERIFICATION_FAILED": ("EFFECT_NOT_PROVEN", False,
+                            "Post-action evidence did NOT prove the effect. "
+                            "Treat the target as still live."),
+    "FAILED": ("NO_EFFECT_CLAIMED", False,
+               "The action did not take place. Nothing was changed on the "
+               "endpoint."),
+    "CAPABILITY_UNAVAILABLE": ("CAPABILITY_NOT_PRESENT", False,
+                               "This endpoint cannot perform the action. It "
+                               "is reported as unavailable rather than "
+                               "faked."),
+    "REFUSED": ("REFUSED_BEFORE_DISPATCH", False,
+                "Authorisation or target identity could not be proven, so "
+                "the command was never sent."),
+}
+
+
+def proof_of(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """The single authoritative answer to "what does this record prove?".
+
+    The one case that must never be smoothed over: a row marked VERIFIED
+    that carries no verification probe. That is an integrity fault in the
+    record itself, and it is surfaced as an alarm rather than rendered as
+    a success.
+    """
+    state = str(doc.get("state"))
+    if state == "VERIFIED" and not ((doc.get("verification") or {})
+                                    .get("probe")):
+        return {"proof": "CLAIMED_VERIFIED_WITHOUT_EVIDENCE",
+                "success_claimed": False, "integrity_alarm": True,
+                "meaning": ("This record claims VERIFIED but carries no "
+                            "post-action evidence. It is shown as an "
+                            "integrity fault, never as a success.")}
+    label, ok, meaning = PROOF_STATES.get(
+        state, ("UNKNOWN_STATE", False,
+                "This state is not part of the response lifecycle."))
+    return {"proof": label, "success_claimed": ok,
+            "integrity_alarm": False, "meaning": meaning}
+
+
+async def get_command(db, *, tenant_id: str,
+                      command_id: str) -> Dict[str, Any]:
+    doc = await db[COLLECTION].find_one(
+        {"tenant_id": tenant_id, "command_id": command_id}, {"_id": 0})
+    if not doc:
+        raise ResponseError("COMMAND_NOT_FOUND", "no such command", 404)
+    return {**doc, "proof": proof_of(doc)}
+
+
 async def list_commands(db, *, tenant_id: str,
                         endpoint_id: Optional[str] = None) -> Dict[str, Any]:
     q: Dict[str, Any] = {"tenant_id": tenant_id}
@@ -280,9 +344,16 @@ async def list_commands(db, *, tenant_id: str,
         q["endpoint_id"] = endpoint_id
     rows = [d async for d in db[COLLECTION].find(q, {"_id": 0}).sort(
         "requested_at", -1).limit(100)]
+    total = await db[COLLECTION].count_documents(q)
     by_state: Dict[str, int] = {}
     for r in rows:
+        r["proof"] = proof_of(r)
         by_state[r["state"]] = by_state.get(r["state"], 0) + 1
-    return {"commands": rows, "count": len(rows), "by_state": by_state,
+    return {"commands": rows, "count": len(rows), "total_count": total,
+            "truncated": total > len(rows), "by_state": by_state,
+            "verified_count": sum(1 for r in rows
+                                  if r["proof"]["success_claimed"]),
+            "integrity_alarms": sum(1 for r in rows
+                                    if r["proof"]["integrity_alarm"]),
             "note": ("REQUESTED/DISPATCHED means nothing is proven yet. "
                      "Only VERIFIED is backed by post-action evidence.")}
