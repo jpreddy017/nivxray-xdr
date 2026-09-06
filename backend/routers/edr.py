@@ -561,7 +561,21 @@ async def get_device_trajectory(
     events.sort(key=lambda e: str(e.get("timestamp") or ""))
 
     if identity is None and not docs:
+        # Distinguish the three ways a reference can fail to resolve. An
+        # operator seeing an empty canvas must be able to tell "we have
+        # never heard from this endpoint" from "this endpoint is revoked"
+        # from "that reference is not an endpoint at all".
         reason = "identity_unresolved"
+        if str(device).startswith("ep_"):
+            row = sync_collection("edr_endpoints").find_one(
+                {"endpoint_id": str(device).strip()},
+                {"_id": 0, "enrollment_state": 1}) or {}
+            if not row:
+                reason = "identity_unresolved_endpoint_not_enrolled"
+            elif row.get("enrollment_state") == "REVOKED":
+                reason = "identity_unresolved_endpoint_enrolment_revoked"
+            else:
+                reason = "identity_unresolved_endpoint_never_reported"
     elif not events:
         reason = "no_matching_evidence"
     else:
@@ -579,6 +593,10 @@ async def get_device_trajectory(
             "device_iid":          (identity or {}).get("device_iid"),
             "hostname":            (identity or {}).get("hostname"),
             "identity_confidence": (identity or {}).get("identity_confidence"),
+            # Which reference actually resolved, and the authoritative
+            # platform-minted endpoint_id when the pivot came from it.
+            "resolved_via":        (identity or {}).get("resolved_via"),
+            "endpoint_id":         (identity or {}).get("endpoint_id"),
             "observation_count":   (identity or {}).get("observation_count", 0),
             "observed_first_seen": observed_first,
             "observed_last_seen":  observed_last,

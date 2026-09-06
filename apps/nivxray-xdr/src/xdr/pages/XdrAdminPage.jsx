@@ -169,6 +169,9 @@ function AdminBody({ section }) {
   const [state, setState] = useState("loading");
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
+  // Client-side panels fetch their own data, so the header Refresh has to
+  // tell them to re-read rather than only re-running this loader.
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const load = useCallback(async () => {
     if (section.kind === "integrations") {
@@ -248,7 +251,7 @@ function AdminBody({ section }) {
         {section.api && (
           <button
             className="btn" style={{ padding: "4px 10px" }}
-            onClick={load}
+            onClick={() => { setRefreshNonce((n) => n + 1); load(); }}
             data-testid={`xdr-admin-refresh-${section.key}`}
           >
             <RefreshCcw size={11} /> Refresh
@@ -340,7 +343,7 @@ function AdminBody({ section }) {
               : section.kind === "edr_capability_truth"
               ? <EdrCapabilityTruthBody />
               : section.kind === "edr_enrollment"
-              ? <EdrEnrollmentBody />
+              ? <EdrEnrollmentBody refreshNonce={refreshNonce} />
               : (section.kind === "detection_content"
                   || section.kind === "deprecated_detection_content")
               ? <DetectionContentBody />

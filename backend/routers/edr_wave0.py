@@ -82,10 +82,12 @@ async def list_sensors(user: dict = Depends(get_current_user)
     return {
         "sensors": [s.model_dump() for s in SENSOR_REGISTRY],
         "count": len(SENSOR_REGISTRY),
-        "note": ("Zero registered sensors is the honest state: no NivXForge "
-                 "agent is installed on any endpoint. Every endpoint field "
-                 "therefore resolves NOT_SUPPORTED or NOT_COLLECTED, never "
-                 "NOT_OBSERVED."),
+        "note": ("A field absent from a sensor's fields_supported resolves "
+                 "NOT_SUPPORTED, never NOT_OBSERVED — the difference "
+                 "between 'this sensor cannot tell us' and 'it told us "
+                 "nothing happened'. A sensor with an empty "
+                 "response_actions list means every response action on "
+                 "that endpoint reads ⊘ DRIVER NOT REGISTERED."),
     }
 
 

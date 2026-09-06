@@ -1,6 +1,110 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · NivXForge EDR · **P0-B REAL LINUX SENSOR + P0-D CANONICAL BRIDGE** · CLOSED (iteration_91)
+
+The milestone that turns this from an architecture into an actual EDR:
+**real Linux activity → real sensor → authenticated telemetry → immutable
+raw event → canonical evidence → real Device Trajectory.** Owner
+instruction honoured verbatim: the sensor was NOT closed because tests
+pass; it was closed because real host activity was proven end to end.
+
+```
+one-time token → sensor enrols → durable credential 0600 on disk
+  → session → real /proc collection → local durable queue
+  → POST /api/edr/agent/telemetry (authenticated)
+  → immutable edr_raw_events (stamped with endpoint+credential+session)
+  → canonical_bridge → v2_shadow_observations (CES/CEM, the EXISTING path)
+  → GET /api/edr/device-trajectory?device=ep_… → the canvas
+```
+
+### Acceptance proof · `python3 /app/scripts/p0_b_sensor_proof.py` · 20/20
+
+Repeatable, uses nothing seeded. It starts a REAL marker process, writes a
+REAL file, and then requires the platform to report those exact facts
+back. Independently re-run by the testing agent against the preview URL:
+**iteration_91 100% backend / 100% frontend, zero issues, zero action
+items.** `tests/edr/` **209 pass** (was 202).
+
+### Four real defects found by the proof and fixed — none were visible to the unit tests
+
+1. **The platform-minted `endpoint_id` was not a trajectory pivot.**
+   `/api/edr/device-trajectory?device=ep_…` returned
+   `identity_unresolved`, so the authoritative EDR identity was the one
+   reference that could NOT be used to look at its own evidence.
+   `device_identity._endpoint_id_aliases()` now translates through
+   `edr_endpoints` — a **LOOKUP, not an inference**. The response reports
+   `resolved_via` so the UI knows which reference actually resolved, and
+   an unresolved `ep_` now says WHICH failure it was:
+   `..._endpoint_not_enrolled` / `..._enrolment_revoked` /
+   `..._never_reported`. Adversarially confirmed: a bogus and a revoked
+   `ep_` both return `resolved=false` with zero events; no evidence bleeds.
+2. **Real PPID was DROPPED at the CES projection, so no process tree could
+   ever link.** The sensor reported `ppid` and `canonical_to_ces()` never
+   set `parent_process_id`/`parent_image`. Now: the sensor resolves the
+   parent in `/proc` and **refuses to attribute it** when the parent is
+   gone (`PARENT_NOT_PRESENT`) or when its start time is AFTER the child's
+   (`PID_REUSED_PARENT_NOT_ATTRIBUTABLE`) — a bare ppid is not ancestry,
+   because Linux reuses pids. PID 0 is `KERNEL_BOUNDARY`, not an invented
+   root. Proven: the child's `parent_iid` equals the parent's own
+   `process_iid`, so the tree genuinely links.
+3. **A sensor restart re-reported the whole running process table**, so
+   ONE real process was held as up to TEN evidence rows and read as ten
+   starts that never happened. Two fixes, because either alone leaks:
+   durable sensor state (`observed.json`, keyed `pid:start_ticks`) and a
+   platform-side `activity_identity()` guard at the bridge. The second
+   delivery is recorded as a
+   `DUPLICATE_OBSERVATION_OF_KNOWN_ACTIVITY` derivation — the raw bytes
+   are still retained immutably, the activity is simply not counted twice.
+   167 historical duplicate rows were collapsed by an auditable script
+   (`scripts/p0_d_sensor_evidence_dedupe.py`, dry-run by default, prints
+   every deletion) and `activity_identity` was backfilled onto 1861 rows.
+4. **The file baseline was re-taken on every run**, so the first real file
+   created in a watched directory was swallowed as if it had always been
+   there. The baseline is now recorded EXPLICITLY (`baselined_dirs`).
+
+### Registry updated from verified runtime evidence only
+
+127 → **132 rows**. `agent.linux.{process,file,network}` and
+`agent.enrollment` moved to `REAL_ENDPOINT_VALIDATED` because a real
+sensor on a real host produced the evidence — not because code exists.
+`backend.service.device_trajectory` → `REAL_ENDPOINT_VALIDATED`; new row
+`backend.activity_identity`. `downgraded_claims` still **0**;
+`sensors_registered` 0 → **1**.
+
+`backend.service.process_tree` was deliberately left at
+`BACKEND_IMPLEMENTED`: real lineage now reaches canonical evidence and
+links, but the `/api/edr/process-tree` ROUTE has not been re-proven
+against sensor evidence, so it is not claimed.
+
+### Console addition (owner request, same session)
+
+`/xdr/admin/edr-enrollment` gained a **master drill-down/up** plus
+per-section and per-endpoint-row expansion. The row drawer adds no new
+claim — every field is copied from the enrolment record and anything the
+endpoint has not reported renders `◇ not reported` rather than a blank
+that could read as a zero. Each row pivots straight to its device
+trajectory (which works because of fix 1). The duplicate in-panel refresh
+icon was removed; the ONE header Refresh is now genuinely operational
+(the client-side admin panels previously ignored it) and the panel prints
+`read at <timestamp>` so a stale view is obvious.
+
+### Honest limits of P0-B/P0-D (NOT claimed)
+
+- **The sensor is manual/on-demand by owner decision.** It is NOT under
+  supervisor, so the console is not continuously fed. Making it a managed
+  service is a separate Sensor Operational Persistence phase.
+- **No eBPF**: process EXIT is never observed (polling cannot tell exit
+  from a missed scan), the file WRITER is never attributed, and anything
+  that starts and exits inside one poll interval is missed entirely — a
+  VISIBILITY GAP, declared, not an absence of activity.
+- Registry, USB, memory, services and persistence telemetry do not exist
+  on Linux yet; DNS is not collected.
+- Detection over this real evidence is **P0-F and is next** — canonical
+  evidence exists, but nothing yet asks whether it is malicious.
+- Windows agent remains `NOT_IMPLEMENTED` (P0-I).
+
+
 ## ✅ 2026-06 · NivXForge EDR · **P0-A.2 · ENROLMENT + SENSOR IDENTITY + TELEMETRY AUTH** · DELIVERED (iteration_90)
 
 Owner authorised this immediately after accepting Wave 0, with the

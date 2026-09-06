@@ -56,20 +56,43 @@ _AGENT_MATRIX = {
 _CONTRACTED = {"process", "file", "network", "registry", "user_session",
                "persistence", "usb", "service"}
 
+#: P0-B · domains the REAL Linux sensor collects from live /proc today.
+#: These are the only agent rows in the whole matrix that are not
+#: aspirational.
+_LINUX_REAL = {"process", "file", "network"}
+
 AGENT_CAPABILITIES: list[Capability] = [
     _cap(f"agent.{plat.lower()}.{dom}", Plane.AGENT, f"{plat} sensor",
          f"{plat} {dom.replace('_', ' ')} telemetry",
          f"Endpoint-resident collection of {dom.replace('_', ' ')} events "
          f"on {plat}.",
-         state=(FS.CONTRACT_DEFINED if dom in _CONTRACTED
+         state=(FS.REAL_ENDPOINT_VALIDATED
+                if (plat == "LINUX" and dom in _LINUX_REAL)
+                else FS.CONTRACT_DEFINED if dom in _CONTRACTED
                 else FS.NOT_IMPLEMENTED),
-         gap=GC.TELEMETRY_MISSING,
+         gap=(GC.NONE if (plat == "LINUX" and dom in _LINUX_REAL)
+              else GC.TELEMETRY_MISSING),
          contract=(_P if dom in _CONTRACTED else _A),
-         ev=("backend/edr_plane/contracts/telemetry.py"
+         backend=(_P if (plat == "LINUX" and dom in _LINUX_REAL) else _A),
+         telemetry=(_P if (plat == "LINUX" and dom in _LINUX_REAL) else _A),
+         test=(_P if (plat == "LINUX" and dom in _LINUX_REAL) else _A),
+         e2e=(_P if (plat == "LINUX" and dom in _LINUX_REAL) else _A),
+         ev=("agents/nivxforge-linux/nivxforge_sensor.py · "
+             "tests/edr/test_p0_b_linux_sensor.py"
+             if (plat == "LINUX" and dom in _LINUX_REAL)
+             else "backend/edr_plane/contracts/telemetry.py"
              if dom in _CONTRACTED else None),
-         note="No NivXForge agent is installed on any endpoint. The "
-              "canonical shape is contracted; nothing produces it yet.",
-         wave="P0-B" if plat == "LINUX" else "P0-I")
+         note=("REAL: collected from live /proc on an enrolled endpoint and "
+               "proven end-to-end into Device Trajectory. Honest limits — "
+               "process EXIT is not observed (polling cannot distinguish "
+               "exit from a missed scan), the file WRITER is not observed, "
+               "and processes living inside one poll interval are missed "
+               "entirely."
+               if (plat == "LINUX" and dom in _LINUX_REAL)
+               else "No NivXForge agent is installed on this platform. The "
+                    "canonical shape is contracted; nothing produces it."),
+         wave=("P0-B · DONE" if (plat == "LINUX" and dom in _LINUX_REAL)
+               else "P0-B" if plat == "LINUX" else "P0-I"))
     for plat, doms in _AGENT_MATRIX.items() for dom in doms
 ] + [
     _cap("agent.identity", Plane.AGENT, "agent core",
@@ -83,31 +106,46 @@ AGENT_CAPABILITIES: list[Capability] = [
          "Agent-side enrolment",
          "Agent presents a one-time bootstrap token and stores the issued "
          "durable per-agent credential.",
-         gap=GC.TELEMETRY_MISSING,
-         state=FS.CONTRACT_DEFINED, contract=_P,
+         contract=_P,
          ev="backend/edr_plane/enrollment/store.py::enroll · "
-            "POST /api/edr/agent/enroll",
-         note="The PLATFORM side is delivered and proven end-to-end. The "
-              "AGENT side does not exist: no software on any endpoint "
-              "presents a token. That is P0-B.",
-         wave="P0-B"),
+            "POST /api/edr/agent/enroll · "
+            "agents/nivxforge-linux/nivxforge_sensor.py::enrol",
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, telemetry=_P,
+         test=_P, e2e=_P, gap=GC.NONE,
+         note="The real Linux sensor enrols with a one-time token and "
+              "stores its durable credential 0600 on disk. Proven on this "
+              "container: endpoint_id is minted by the PLATFORM from "
+              "durable machine attributes; the sensor never proposes one.",
+         wave="P0-B · DONE"),
     _cap("agent.durable_queue", Plane.AGENT, "agent core",
          "Local durable queue / buffer",
          "On-endpoint append-only buffer so a connectivity loss replays "
          "instead of silently losing evidence.",
-         gap=GC.TELEMETRY_MISSING,
-         note="Directive §2 requires no silent evidence loss. The collector "
-              "service has a durable outbox, but that is off-endpoint and is "
-              "not the same guarantee.",
-         wave="P0-C"),
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, telemetry=_P,
+         test=_P, e2e=_P, gap=GC.NONE, contract=_P,
+         ev="agents/nivxforge-linux/nivxforge_sensor.py::_drain · _enqueue",
+         note="ON-ENDPOINT append-only JSONL outbox with an fsync and a "
+              "byte-exact offset advanced only after a confirmed accept. "
+              "Proven: with the platform unreachable 149 events were HELD "
+              "(offset frozen, queue grown) and replayed in full on "
+              "recovery. A defect found and fixed during that proof: "
+              "text-mode readline()+tell() over-advanced the offset and "
+              "re-sent the queue — now binary reads with an accumulated "
+              "offset.",
+         wave="P0-C · DONE"),
     _cap("agent.secure_transport", Plane.AGENT, "agent core",
          "Secure telemetry transport",
          "Authenticated, pluggable transport from agent to ingestion "
          "gateway; mTLS must drop in without touching identity or envelope.",
-         gap=GC.TELEMETRY_MISSING,
-         note="Today only unauthenticated syslog/UDP 5514 and HTTP ingest "
-              "with a tenant header exist.",
-         wave="P0-C"),
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, telemetry=_P,
+         test=_P, e2e=_P, gap=GC.NONE, contract=_P,
+         ev="backend/edr_plane/enrollment/transport.py · "
+            "POST /api/edr/agent/telemetry",
+         note="The sensor authenticates with a short-lived scoped session "
+              "and re-opens it automatically on 401/403 without dropping "
+              "queued evidence. mTLS remains a reserved, honestly "
+              "unregistered transport.",
+         wave="P0-C · DONE"),
     _cap("agent.heartbeat", Plane.AGENT, "agent core",
          "Agent heartbeat / lifecycle reporting",
          "Agent reports lifecycle state so agent_lifecycle is evidence "
@@ -180,12 +218,36 @@ PIPELINE_CAPABILITIES: list[Capability] = [
          "Canonical endpoint evidence",
          "The single shape the detection, reasoning and console layers "
          "consume.",
-         state=FS.CONTRACT_DEFINED, backend=_N, contract=_P, test=_P,
-         ev="backend/edr_plane/contracts/telemetry.py::EndpointEvidence",
-         note="Contract is executable and epistemically enforced. No "
-              "producer emits it yet; live telemetry still lands as "
-              "v2_shadow_observations.",
-         wave="Wave 0"),
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, contract=_P, test=_P,
+         telemetry=_P, e2e=_P,
+         ev="backend/edr_plane/canonical_bridge.py · "
+            "tests/edr/test_p0_b_linux_sensor.py",
+         note="P0-D: the sensor DSM produces the same canonical shape the "
+              "CEF/LEEF DSM produces and hands off to the EXISTING "
+              "telemetry_bridge — no parallel evidence model and no second "
+              "reasoning engine. A parse failure appends a PARSER_FAILED "
+              "derivation and leaves the raw bytes replayable.",
+         wave="Wave 0 · P0-D"),
+    _cap("backend.activity_identity", Plane.BACKEND, "pipeline",
+         "One real activity → one piece of evidence",
+         "A re-observation of the same process, connection or file state is "
+         "linked to the evidence that already represents it instead of "
+         "creating a second row.",
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, contract=_P, test=_P,
+         telemetry=_P, e2e=_P, gap=GC.NONE,
+         ev="backend/edr_plane/canonical_bridge.py::activity_identity · "
+            "tests/edr/test_p0_b_linux_sensor.py::"
+            "test_a_re_observed_process_does_not_become_second_evidence · "
+            "scripts/p0_b_sensor_proof.py",
+         note="Found and fixed during the P0-B/P0-D acceptance proof: a "
+              "sensor restart re-reported the running process table, so ONE "
+              "real process was held as up to ten evidence rows and read as "
+              "ten starts that never happened. The raw bytes of every "
+              "delivery are still retained immutably and the duplicate is "
+              "recorded as a DUPLICATE_OBSERVATION_OF_KNOWN_ACTIVITY "
+              "derivation — nothing is discarded, it is simply not counted "
+              "twice.",
+         wave="P0-D · DONE"),
     _cap("backend.evidence_store", Plane.BACKEND, "pipeline",
          "Endpoint / evidence store",
          "Durable persistence of observations and canonical evidence.",
@@ -491,22 +553,34 @@ SERVICE_CAPABILITIES: list[Capability] = [
          "Device trajectory projection",
          "Time-ordered per-endpoint activity across system, process, file, "
          "network and registry lanes.",
-         state=FS.GOLDEN_CORPUS_VALIDATED, backend=_P, ui=_P, telemetry=_N,
-         test=_P, e2e=_P, contract=_P,
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, ui=_P, telemetry=_P,
+         test=_P, e2e=_P, contract=_P, gap=GC.NONE,
          ev="GET /api/edr/device-trajectory · "
-            "tests/edr/test_p1_10b_process_evidence_honesty.py",
-         note="Gates `process` on real process evidence and emits "
-              "process_state OBSERVED|UNKNOWN — an IP can no longer be "
-              "rendered as a process lifeline."),
+            "tests/edr/test_p1_10b_process_evidence_honesty.py · "
+            "scripts/p0_b_sensor_proof.py",
+         note="P0-D: renders REAL evidence from the enrolled Linux sensor "
+              "on this host, and the platform-minted endpoint_id is now a "
+              "valid pivot (resolved_via=endpoint_id). Gates `process` on "
+              "real process evidence and emits process_state "
+              "OBSERVED|UNKNOWN — an IP can no longer be rendered as a "
+              "process lifeline. One real activity yields exactly one "
+              "evidence row; a re-observation is linked, never re-counted."),
     _cap("backend.service.process_tree", Plane.BACKEND, "investigation",
          "Process tree / ancestry",
          "Root-first ancestry with honest ghost roots.",
-         state=FS.BACKEND_IMPLEMENTED, backend=_P, ui=_P, telemetry=_A,
-         test=_N, contract=_P, gap=GC.TELEMETRY_MISSING,
-         ev="GET /api/edr/process-tree",
-         note="Derived from ActivityInventory. No real PID/PPID lineage "
-              "exists — CEF/LEEF carry no parent-process field in either "
-              "specification, so ppid is permanently UNKNOWN today."),
+         state=FS.BACKEND_IMPLEMENTED, backend=_P, ui=_P, telemetry=_P,
+         test=_P, contract=_P, gap=GC.NONE,
+         ev="GET /api/edr/process-tree · "
+            "tests/edr/test_p0_b_linux_sensor.py::"
+            "test_lineage_reaches_ces_so_a_process_tree_can_actually_link",
+         note="REAL PID/PPID lineage now exists: the Linux sensor resolves "
+              "the parent in /proc and refuses to attribute one when the "
+              "pid may have been reused, and the child's parent_iid equals "
+              "the parent's own process_iid so the tree links. NOT yet "
+              "claimed: the /api/edr/process-tree ROUTE itself has not been "
+              "re-proven against sensor evidence — it still projects "
+              "ActivityInventory. CEF/LEEF remain parentless by "
+              "specification."),
     _cap("backend.service.endpoint_inventory", Plane.BACKEND, "investigation",
          "Endpoint inventory",
          "The fleet list with identity confidence and health.",
@@ -735,9 +809,29 @@ INVENTORY: list[Capability] = (
     + EXPERIENCE_CAPABILITIES
 )
 
-#: Zero sensors are registered. That is the honest state: no NivXForge
-#: agent exists on any platform, so no sensor can attest to any capability.
-SENSOR_REGISTRY: list[SensorCapability] = []
+#: P0-B · the Linux sensor is REAL and registered. `fields_supported`
+#: is the sensor's own attested list, so anything absent from it resolves
+#: NOT_SUPPORTED rather than NOT_OBSERVED — the difference between "this
+#: sensor cannot tell us" and "it told us nothing happened".
+SENSOR_REGISTRY: list[SensorCapability] = [
+    SensorCapability(
+        sensor_id="nivxforge-linux", platform="LINUX",
+        sensor_version="0.1.0",
+        collects=["PROCESS", "FILE", "NETWORK"],
+        fields_supported=[
+            "process.pid", "process.ppid", "process.image",
+            "process.image_path", "process.sha256", "process.command_line",
+            "process.user", "process.start_time",
+            "file.path", "file.filename", "file.size", "file.sha256",
+            "file.operation",
+            "network.protocol", "network.local_ip", "network.local_port",
+            "network.remote_ip", "network.remote_port", "network.direction",
+        ],
+        response_actions=[],   # no driver: every action is ⊘ NOT REGISTERED
+        attested_at="2026-06-01",
+        attested_by="tests/edr/test_p0_b_linux_sensor.py — collection "
+                    "verified against live /proc, not a fixture"),
+]
 
 
 def summary() -> dict:

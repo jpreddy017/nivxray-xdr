@@ -837,6 +837,11 @@ async def _startup():
             ensure_indexes as _ensure_rej)
         await _ensure_enr(_raw_db)
         await _ensure_rej(_raw_db)
+        # P0-D · the activity-identity lookup that keeps a re-observation
+        # from becoming a second piece of evidence.
+        await _raw_db["v2_shadow_observations"].create_index(
+            [("tenant_id", 1), ("activity_identity", 1)],
+            name="tenant_activity_identity", sparse=True)
         log.info("[startup] edr_raw_events + enrollment indexes ensured "
                  "(append-only)")
     except Exception as e:  # noqa: BLE001

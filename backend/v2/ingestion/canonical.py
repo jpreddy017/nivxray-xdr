@@ -183,6 +183,17 @@ def _resolve_kind(ces: CanonicalEventRecord) -> str:
         return "registry_value_set"
     if ces.file_path and ces.image:
         return "file_write"
+    if ces.file_path:
+        # A file event with NO observed actor is still a file event. Some
+        # collection methods (inotify, mtime polling, and any sensor
+        # without syscall-level fidelity) can see that a path changed but
+        # genuinely cannot see WHICH process changed it. Requiring an
+        # actor here silently reclassified those to "detection", which hid
+        # real file activity from the file lane — a visibility gap created
+        # by the classifier rather than by the telemetry. The missing
+        # actor is reported separately as NOT_OBSERVED and is never
+        # attributed to a guess.
+        return "file_write"
     if ces.image and ces.command_line:
         return "process_create"
     return "detection"

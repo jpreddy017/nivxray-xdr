@@ -62,6 +62,11 @@ def canonical_to_ces(canonical: dict[str, Any], *,
         process_id=_s(proc.get("pid")),
         image=_s(proc.get("executable_path")) or _s(proc.get("name")),
         command_line=_s(proc.get("command_line")),
+        # Real parent evidence only. A source that carries no parent field
+        # (CEF/LEEF do not) leaves these empty, so no ancestry is invented.
+        parent_process_id=_s(proc.get("parent_pid")),
+        parent_image=_s(proc.get("parent_executable_path"))
+        or _s(proc.get("parent_name")),
         file_path=_s(fil.get("path")),
         file_hash_md5=_s(hashes.get("md5")),
         file_hash_sha1=_s(hashes.get("sha1")),
@@ -105,6 +110,11 @@ def observation_doc(canonical: dict[str, Any], *, envelope: dict[str, Any],
         "collector_id": envelope.get("collector_id"),
         "connector_id": envelope.get("connector_id"),
         "epistemic_state": extra.get("epistemic_state") or {},
+        "lineage_state": extra.get("lineage_state"),
+        # Identity of the ACTIVITY, not of the delivery — set by the source
+        # that can compute it. It is what keeps a re-observation from
+        # becoming a second piece of evidence.
+        "activity_identity": extra.get("activity_identity"),
         "ingest_job_id": (canonical.get("provenance") or {}).get("trace_id"),
     }
 

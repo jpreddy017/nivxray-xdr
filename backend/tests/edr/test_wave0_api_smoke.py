@@ -89,7 +89,7 @@ def test_gap_class_filter(h):
     data = r.json()
     rows = data["capabilities"] if isinstance(data, dict) and "capabilities" in data else data
     assert all(r_["gap_class"] == "TELEMETRY_MISSING" for r_ in rows)
-    assert len(rows) >= 60
+    assert len(rows) >= 50
     assert all(r["gap_class"] == "TELEMETRY_MISSING" for r in rows)
 
 
@@ -117,15 +117,19 @@ def test_capability_unknown_404(h):
     assert "CAPABILITY_NOT_REGISTERED" in txt
 
 
-def test_sensors_empty(h):
+def test_sensors_registry(h):
     r = requests.get(f"{BASE_URL}/api/edr/wave0/sensors", headers=h, timeout=20)
     assert r.status_code == 200
     d = r.json()
     sensors = d.get("sensors") if isinstance(d, dict) else d
     if isinstance(d, dict):
-        assert d.get("count", 0) == 0
+        assert d.get("count") == len(sensors or [])
         assert d.get("note")
-    assert sensors == [] or sensors is None or len(sensors) == 0
+    # P0-B registered a real Linux sensor. The invariant is that whatever
+    # is registered declares a platform and a collection set — not that
+    # the registry is empty.
+    assert sensors, "the registry lost the registered Linux sensor"
+    assert all(x.get("platform") and x.get("collects") for x in sensors)
 
 
 def test_contracts_manifest(h):

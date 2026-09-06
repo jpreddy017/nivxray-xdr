@@ -151,6 +151,24 @@ def list_devices(cross_tenant: bool) -> List[Dict[str, Any]]:
                   key=lambda r: r.get("last_seen") or "", reverse=True)
 
 
+def _endpoint_id_aliases(needle: str) -> List[str]:
+    """A platform-minted `endpoint_id` is the authoritative EDR identity,
+    so it must be a usable trajectory pivot.
+
+    The IRG observation plane keys on `device_iid` / hostname, so we
+    translate through the enrolment record. This is a LOOKUP, not an
+    inference: if the endpoint is not enrolled, nothing is returned and the
+    caller renders the honest unresolved state.
+    """
+    if not needle.startswith("ep_"):
+        return []
+    row = sync_collection("edr_endpoints").find_one(
+        {"endpoint_id": needle},
+        {"hostname": 1, "device_iid": 1, "_id": 0}) or {}
+    return [str(v).lower() for v in (row.get("device_iid"),
+                                     row.get("hostname")) if v]
+
+
 def resolve(device_ref: str, cross_tenant: bool) -> Optional[Dict[str, Any]]:
     """Resolve a URL device reference to a projected identity.
 
@@ -162,11 +180,20 @@ def resolve(device_ref: str, cross_tenant: bool) -> Optional[Dict[str, Any]]:
     if not device_ref:
         return None
     needle = device_ref.strip().lower()
+    aliases = _endpoint_id_aliases(device_ref.strip())
+    needles = {needle} | set(aliases)
+    via_endpoint = bool(aliases)
     for row in list_devices(cross_tenant):
-        if (row.get("device_iid") or "").lower() == needle:
-            return row
-        if (row.get("hostname") or "").lower() == needle:
-            return row
+        if (row.get("device_iid") or "").lower() in needles:
+            return {**row, "resolved_via": ("endpoint_id" if via_endpoint
+                                            else "device_iid"),
+                    "endpoint_id": (device_ref.strip() if via_endpoint
+                                    else None)}
+        if (row.get("hostname") or "").lower() in needles:
+            return {**row, "resolved_via": ("endpoint_id" if via_endpoint
+                                            else "hostname"),
+                    "endpoint_id": (device_ref.strip() if via_endpoint
+                                    else None)}
     return None
 
 

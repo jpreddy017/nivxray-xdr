@@ -15,7 +15,8 @@
  *      look like a healthy, reporting sensor.
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Copy, KeyRound, RefreshCw, ShieldOff } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, ChevronsDown,
+         ChevronsUp, Copy, KeyRound, ShieldOff } from "lucide-react";
 import api from "@/lib/api";
 
 const epOf = (s) =>
@@ -24,7 +25,7 @@ const epOf = (s) =>
   : s === "ENROLLED_NEVER_REPORTED" || s === "SILENT" ? "unknown"
   : "no_evidence";
 
-export default function EdrEnrollmentBody() {
+export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
   const [endpoints, setEndpoints] = useState(null);
   const [tokens, setTokens] = useState([]);
   const [rejections, setRejections] = useState(null);
@@ -33,9 +34,32 @@ export default function EdrEnrollmentBody() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadedAt, setLoadedAt] = useState(null);
+  const [open, setOpen] = useState({});          // endpoint_id → expanded
+  const [sections, setSections] = useState({    // section → expanded
+    endpoints: true, tokens: true, rejections: true });
+  const toggleSection = (k) =>
+    setSections((s) => ({ ...s, [k]: !s[k] }));
+
+  // One master control for the whole surface: every section AND every
+  // endpoint row, drilled down or drilled up together.
+  const anyOpen = Object.values(sections).some(Boolean)
+                  || Object.values(open).some(Boolean);
+  const masterToggle = () => {
+    if (anyOpen) {
+      setSections({ endpoints: false, tokens: false, rejections: false });
+      setOpen({});
+    } else {
+      setSections({ endpoints: true, tokens: true, rejections: true });
+      setOpen(Object.fromEntries(
+        (endpoints || []).map((e) => [e.endpoint_id, true])));
+    }
+  };
 
   const load = useCallback(() => {
-    Promise.all([
+    setLoading(true);
+    return Promise.all([
       api.get("/edr/enrollment/endpoints"),
       api.get("/edr/enrollment/tokens"),
       api.get("/edr/enrollment/rejections?limit=20"),
@@ -43,11 +67,17 @@ export default function EdrEnrollmentBody() {
       setEndpoints(e.data.endpoints || []);
       setTokens(t.data.tokens || []);
       setRejections(r.data);
+      setErr(null);
+      setLoadedAt(new Date().toISOString());
     }).catch((x) => setErr(x?.response?.data?.detail?.reason
-                           || x?.message || String(x)));
+                           || x?.message || String(x)))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  // The page header's Refresh bumps this, so that button reloads the live
+  // enrolment state instead of doing nothing.
+  useEffect(() => { if (refreshNonce) load(); }, [refreshNonce, load]);
 
   const mint = async () => {
     setBusy(true); setErr(null); setCopied(false);
@@ -100,11 +130,23 @@ export default function EdrEnrollmentBody() {
           <KeyRound size={11} style={{ marginRight: 5, verticalAlign: -1 }} />
           Generate one-time token
         </button>
-        <button className="btn ghost" onClick={load} disabled={busy}
-                data-testid="edr-enrollment-refresh-btn"
-                style={{ fontSize: 10.5, padding: "5px 9px" }}>
-          <RefreshCw size={11} />
+        <button className="btn ghost" onClick={masterToggle}
+                data-testid="edr-enrollment-master-toggle"
+                data-state={anyOpen ? "expanded" : "collapsed"}
+                title="Drill the whole surface down or up — every section and every endpoint row"
+                style={{ fontSize: 10, padding: "4px 9px" }}>
+          {anyOpen
+            ? <ChevronsUp size={11} style={{ marginRight: 5,
+                                             verticalAlign: -1 }} />
+            : <ChevronsDown size={11} style={{ marginRight: 5,
+                                               verticalAlign: -1 }} />}
+          {anyOpen ? "Drill up (collapse all)" : "Drill down (expand all)"}
         </button>
+        <span className="mono" data-testid="edr-enrollment-loaded-at"
+              style={{ fontSize: 9, color: "var(--faint)" }}>
+          {loading ? "reloading …"
+           : loadedAt ? `read at ${loadedAt}` : "not yet read"}
+        </span>
       </div>
 
       {minted && (
@@ -162,9 +204,22 @@ export default function EdrEnrollmentBody() {
       )}
 
       {/* ── enrolled endpoints ─────────────────────────────── */}
-      <Section title="Enrolled endpoints"
-               count={endpoints ? endpoints.length : null} />
-      {endpoints && endpoints.length === 0 && (
+      <Section title="Enrolled endpoints" id="endpoints"
+               open={sections.endpoints} onToggle={toggleSection}
+               count={endpoints ? endpoints.length : null}
+               right={endpoints && endpoints.length > 0 && (
+                 <button className="btn ghost"
+                         data-testid="edr-enrollment-expand-all-btn"
+                         style={{ fontSize: 9, padding: "2px 8px" }}
+                         onClick={() => setOpen(
+                           Object.keys(open).some((k) => open[k])
+                             ? {}
+                             : Object.fromEntries(endpoints.map(
+                                 (e) => [e.endpoint_id, true])))}>
+                   {Object.keys(open).some((k) => open[k])
+                     ? "Collapse all" : "Expand all"}
+                 </button>)} />
+      {sections.endpoints && endpoints && endpoints.length === 0 && (
         <div style={{ fontSize: 10.5, color: "var(--faint)", padding: "6px 0",
                       lineHeight: 1.7, maxWidth: 700 }}
              data-testid="edr-enrollment-empty">
@@ -178,7 +233,7 @@ export default function EdrEnrollmentBody() {
           </div>
         </div>
       )}
-      {endpoints && endpoints.length > 0 && (
+      {sections.endpoints && endpoints && endpoints.length > 0 && (
         <table className="mono" style={{ width: "100%", borderCollapse:
                 "collapse", fontSize: 10, marginBottom: 16 }}>
           <thead>
@@ -194,18 +249,45 @@ export default function EdrEnrollmentBody() {
           </thead>
           <tbody>
             {endpoints.map((e) => (
-              <tr key={e.endpoint_id} style={{ borderBottom: "1px solid #161D24" }}
-                  data-testid={`edr-enrollment-row-${e.endpoint_id}`}>
+              <React.Fragment key={e.endpoint_id}>
+              <tr style={{ borderBottom: open[e.endpoint_id]
+                             ? "none" : "1px solid #161D24",
+                           cursor: "pointer" }}
+                  onClick={() => setOpen((o) => ({ ...o,
+                    [e.endpoint_id]: !o[e.endpoint_id] }))}
+                  data-testid={`edr-enrollment-row-${e.endpoint_id}`}
+                  data-expanded={open[e.endpoint_id] ? "true" : "false"}>
                 <td style={{ padding: "5px 7px" }}>
-                  <div style={{ color: "var(--text)" }}>
-                    {e.hostname || (
-                      <span className="nx-ep" data-ep="no_evidence"
-                            data-known="true" style={{ fontSize: 8.5 }}>
-                        ◇ NO HOSTNAME REPORTED
-                      </span>)}
-                  </div>
-                  <div style={{ color: "var(--faint)", fontSize: 9 }}>
-                    {e.endpoint_id} · {e.platform || "◇ platform unknown"}
+                  <div style={{ display: "flex", gap: 6,
+                                alignItems: "flex-start" }}>
+                    <button className="btn ghost"
+                            aria-expanded={!!open[e.endpoint_id]}
+                            title={open[e.endpoint_id]
+                                   ? "Collapse" : "Expand"}
+                            data-testid={`edr-enrollment-toggle-${e.endpoint_id}`}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setOpen((o) => ({ ...o,
+                                [e.endpoint_id]: !o[e.endpoint_id] }));
+                            }}
+                            style={{ padding: "0 2px", lineHeight: 1,
+                                     border: "none", background: "none" }}>
+                      {open[e.endpoint_id]
+                        ? <ChevronDown size={11} />
+                        : <ChevronRight size={11} />}
+                    </button>
+                    <div>
+                      <div style={{ color: "var(--text)" }}>
+                        {e.hostname || (
+                          <span className="nx-ep" data-ep="no_evidence"
+                                data-known="true" style={{ fontSize: 8.5 }}>
+                            ◇ NO HOSTNAME REPORTED
+                          </span>)}
+                      </div>
+                      <div style={{ color: "var(--faint)", fontSize: 9 }}>
+                        {e.endpoint_id} · {e.platform || "◇ platform unknown"}
+                      </div>
+                    </div>
                   </div>
                 </td>
                 {["enrollment_state", "credential_state", "sensor_state"]
@@ -239,27 +321,37 @@ export default function EdrEnrollmentBody() {
                 </td>
                 <td style={{ padding: "5px 7px", whiteSpace: "nowrap" }}>
                   <button className="btn ghost" disabled={busy}
-                          style={{ fontSize: 9, padding: "2px 7px", marginRight: 4 }}
-                          onClick={() => act(e.endpoint_id, "rotate")}
+                          style={{ fontSize: 9, padding: "2px 7px",
+                                   marginRight: 4 }}
+                          onClick={(ev) => { ev.stopPropagation();
+                                             act(e.endpoint_id, "rotate"); }}
                           data-testid={`edr-enrollment-rotate-${e.endpoint_id}`}>
                     Rotate
                   </button>
                   <button className="btn ghost" disabled={busy}
                           style={{ fontSize: 9, padding: "2px 7px",
                                    color: "#D08A8A" }}
-                          onClick={() => act(e.endpoint_id, "revoke")}
+                          onClick={(ev) => { ev.stopPropagation();
+                                             act(e.endpoint_id, "revoke"); }}
                           data-testid={`edr-enrollment-revoke-${e.endpoint_id}`}>
                     Revoke
                   </button>
                 </td>
-              </tr>))}
+              </tr>
+              {open[e.endpoint_id] && (
+                <tr style={{ borderBottom: "1px solid #161D24" }}>
+                  <EndpointDetail e={e} />
+                </tr>
+              )}
+              </React.Fragment>))}
           </tbody>
         </table>
       )}
 
       {/* ── tokens ─────────────────────────────────────────── */}
-      <Section title="Enrolment tokens" count={tokens.length} />
-      {tokens.length === 0 ? (
+      <Section title="Enrolment tokens" id="tokens" open={sections.tokens}
+               onToggle={toggleSection} count={tokens.length} />
+      {!sections.tokens ? null : tokens.length === 0 ? (
         <div style={{ fontSize: 10.5, color: "var(--faint)", padding: "4px 0" }}
              data-testid="edr-enrollment-tokens-empty">
           No token has been minted.
@@ -318,9 +410,10 @@ export default function EdrEnrollmentBody() {
       )}
 
       {/* ── rejected sensor alarm ──────────────────────────── */}
-      <Section title="Rejected sensor alarm"
+      <Section title="Rejected sensor alarm" id="rejections"
+               open={sections.rejections} onToggle={toggleSection}
                count={rejections?.summary?.total_rejections ?? null} />
-      {rejections && (
+      {sections.rejections && rejections && (
         <>
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start",
                         border: "1px solid #4A3A16", background: "#1A1508",
@@ -412,11 +505,26 @@ export default function EdrEnrollmentBody() {
   );
 }
 
-const Section = ({ title, count }) => (
+const Section = ({ title, count, right = null, id = null, open = true,
+                   onToggle = null }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 8,
                 margin: "14px 0 6px" }}>
-    <div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: ".5px",
-                  textTransform: "uppercase", color: "var(--text-dim)" }}>
+    {onToggle && (
+      <button className="btn ghost" aria-expanded={open}
+              title={open ? "Collapse section" : "Expand section"}
+              data-testid={`edr-enrollment-section-toggle-${id}`}
+              onClick={() => onToggle(id)}
+              style={{ padding: "0 2px", lineHeight: 1, border: "none",
+                       background: "none" }}>
+        {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+      </button>
+    )}
+    <div data-testid={id ? `edr-enrollment-section-${id}` : undefined}
+         data-expanded={open ? "true" : "false"}
+         onClick={onToggle ? () => onToggle(id) : undefined}
+         style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: ".5px",
+                  textTransform: "uppercase", color: "var(--text-dim)",
+                  cursor: onToggle ? "pointer" : "default" }}>
       {title}
     </div>
     {count !== null && count !== undefined && (
@@ -425,5 +533,68 @@ const Section = ({ title, count }) => (
       </div>
     )}
     <div style={{ flex: 1, height: 1, background: "#1A222B" }} />
+    {right}
   </div>
+);
+
+const Field = ({ k, v, mono = true, testid }) => (
+  <div>
+    <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: ".4px",
+                  textTransform: "uppercase", color: "var(--faint)" }}>
+      {k}
+    </div>
+    <div className={mono ? "mono" : undefined} data-testid={testid}
+         style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2,
+                  wordBreak: "break-all", lineHeight: 1.5 }}>
+      {v === null || v === undefined || v === ""
+        ? <span style={{ color: "var(--faint)" }}>◇ not reported</span>
+        : String(v)}
+    </div>
+  </div>
+);
+
+/**
+ * The drill-down. It adds NO new claim: every field is copied from the
+ * enrolment record, and anything the endpoint has not reported renders
+ * `◇ not reported` rather than a blank that could read as a zero.
+ */
+const EndpointDetail = ({ e }) => (
+  <td colSpan={8} style={{ padding: "2px 7px 12px 30px",
+                           background: "#0A0E13" }}
+      data-testid={`edr-enrollment-detail-${e.endpoint_id}`}>
+    <div style={{ display: "grid", gap: "12px 22px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                  border: "1px solid #161D24", borderRadius: 4,
+                  padding: "10px 12px", maxWidth: 1100 }}>
+      <Field k="Endpoint id (platform-minted)" v={e.endpoint_id}
+             testid={`edr-enrollment-detail-id-${e.endpoint_id}`} />
+      <Field k="Hostname (reported by agent)" v={e.hostname} />
+      <Field k="Device iid" v={e.device_iid} />
+      <Field k="Platform" v={e.platform} />
+      <Field k="Sensor version" v={e.sensor_version} />
+      <Field k="Credential id" v={e.credential_id} />
+      <Field k="Enrolled at" v={e.enrolled_at} />
+      <Field k="Revoked at" v={e.revoked_at} />
+      <Field k="Last seen" v={e.last_seen} />
+      <Field k="Last telemetry at" v={e.last_telemetry_at} />
+      <Field k="Raw events attributed" v={e.event_count} />
+      <Field k="Tenant" v={e.tenant_id} />
+    </div>
+    <div style={{ display: "flex", gap: 14, flexWrap: "wrap",
+                  marginTop: 8, alignItems: "center" }}>
+      <a className="btn ghost" href={`/xdr/endpoints/${e.endpoint_id}`}
+         data-testid={`edr-enrollment-pivot-${e.endpoint_id}`}
+         style={{ fontSize: 9, padding: "2px 8px",
+                  textDecoration: "none" }}>
+        Open device trajectory
+      </a>
+      <span style={{ fontSize: 9.5, color: "var(--faint)", lineHeight: 1.6,
+                     maxWidth: 720 }}>
+        Trust is the three lifecycles read together — {e.trust?.reason}.
+        Enrolment is not evidence of visibility: an endpoint can be
+        trusted to send and have sent nothing. No secret is retrievable
+        here; a credential is shown once, at the moment it is issued.
+      </span>
+    </div>
+  </td>
 );

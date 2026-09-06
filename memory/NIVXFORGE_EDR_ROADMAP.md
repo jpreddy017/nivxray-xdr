@@ -86,30 +86,48 @@ First CONSUMER of the Wave 0 `EndpointIdentity` contract. Owner-locked:
   authoritative identity, and be revoked deterministically — with **no
   ambiguity about trust state**.
 
-### ▶ P0-B · Real Linux NivXForge Agent · NEXT
-The platform side of enrolment is done and proven; nothing on any
-endpoint presents a token yet. This is the first REAL sensor: it enrols
-with a one-time token, stores its durable credential, opens sessions and
-streams authenticated telemetry.
-Genuinely executable, runs in this container. Real PID/PPID/ancestry,
-SHA-256, command lines, file and network events. No simulated values.
+### ✅ P0-B · Real Linux NivXForge Agent · DONE (2026-06, iteration_91)
+`agents/nivxforge-linux/nivxforge_sensor.py` — a genuinely executable
+sensor. It enrols with a one-time token, stores its durable credential
+0600, opens sessions, collects REAL process / file / network activity from
+`/proc`, buffers to a local durable queue (offset advanced only after a
+confirmed accept) and streams authenticated telemetry. Real
+PID/PPID/ancestry, SHA-256, command lines and users. Nothing simulated.
+Durable observed-state means a restart does not re-report the process
+table. Honest limits declared in the sensor's own capability block: no
+eBPF, process EXIT never observed, file WRITER never attributed,
+sub-poll-interval processes missed.
+**By owner decision the sensor is MANUAL/on-demand — not under
+supervisor.**
 
-### P0-C · Real telemetry pipeline
-Local durable on-endpoint queue (replay after connectivity loss, no
-silent evidence loss) + authenticated pluggable transport.
+### ✅ P0-C · On-endpoint durable queue + authenticated transport · DONE
+Delivered as part of P0-B (`_enqueue`/`_drain`) and P0-A.2
+(`transport.py`, mTLS reserved as an honest 501).
 
-### P0-D · Process / File / Network telemetry
-A new **sensor DSM** on the same pattern as `cef-leef`, feeding the
-EXISTING `process_event_through_pipeline`. No new reasoning engine.
+### ✅ P0-D · Process / File / Network telemetry → canonical · DONE (2026-06)
+`edr_plane/canonical_bridge.py` — a sensor DSM on the same pattern as
+`cef-leef`, feeding the EXISTING `telemetry_bridge` / CES / CEM path. No
+new reasoning engine. Adds two guarantees the proof forced into existence:
+real parent lineage survives into CES so a process tree links, and
+`activity_identity()` means one real activity is exactly ONE piece of
+evidence (a re-observation is linked, never re-counted).
 
-### P0-E · Real Device Trajectory + Process Tree + File Trajectory
-Activate the eight starved capabilities with real endpoint evidence.
-Includes the exact event → trajectory pivot.
+### ✅ P0-E · Device Trajectory on real sensor evidence · PARTIAL, honestly
+Device Trajectory now renders real sensor evidence and accepts the
+platform-minted `endpoint_id` as a pivot. **Not claimed**: the
+`/api/edr/process-tree` route and File Trajectory have NOT been re-proven
+against sensor evidence, and the exact-event pivot is still open.
 
-### P0-F · EDR Detection
-### P0-G · EDR Hunting / Forensics / Live Query
-### P0-H · Real response drivers (unlocks the whole §10 loop)
-### P0-I · Windows NivXForge Agent
+### ▶ P0-F · EDR Detection · NEXT (owner-selected)
+The question P0-F exists to answer: *can NivXForge actually detect
+malicious or suspicious behaviour from the real endpoint evidence it now
+holds?* Behavioural + IOC rules over canonical EDR evidence, using the
+existing detection / IUE / ICE / VEEE chain — no new engine.
+
+### P0-G EDR Hunting / Forensics / Live Query
+### P0-H Real response drivers (unlocks the whole §10 loop)
+### P0-I Windows NivXForge Agent
+### Sensor Operational Persistence — run the sensor as a managed service
 
 ---
 

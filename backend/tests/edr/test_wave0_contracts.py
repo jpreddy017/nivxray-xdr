@@ -339,8 +339,23 @@ def test_every_non_absent_status_row_cites_evidence():
     assert not offenders, offenders
 
 
-def test_no_sensor_is_registered_because_no_agent_exists():
-    assert SENSOR_REGISTRY == []
+def test_the_real_linux_sensor_is_registered_with_honest_limits():
+    """Was 'no sensor is registered' at Wave 0 — correct then. P0-B
+    delivered a real Linux sensor, so the invariant is now that whatever
+    IS registered declares its limits truthfully."""
+    assert len(SENSOR_REGISTRY) == 1
+    s = SENSOR_REGISTRY[0]
+    assert s.platform == "LINUX"
+    assert set(s.collects) == {"PROCESS", "FILE", "NETWORK"}
+    assert s.attested_by and "live /proc" in s.attested_by
+    # No response driver, so every action must read ⊘ NOT REGISTERED.
+    assert s.response_actions == []
+    # The fields it genuinely cannot produce resolve NOT_SUPPORTED, never
+    # NOT_OBSERVED.
+    for absent_field in ("process.exit_time", "process.signer",
+                         "file.actor_process", "registry.key"):
+        assert s.epistemic_for(absent_field) == "NOT_SUPPORTED"
+    assert s.epistemic_for("process.ppid") == "OBSERVED"
 
 
 def test_sensor_capability_reports_not_supported_for_unknown_fields():

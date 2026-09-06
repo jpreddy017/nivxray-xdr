@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from deps import db as _db, get_current_user
 from edr_plane import raw_events as raw
+from edr_plane.canonical_bridge import bridge
 from edr_plane.contracts.identity import EndpointIdentity
 from edr_plane.enrollment import store
 from edr_plane.enrollment.identity import AuthenticatedEndpoint
@@ -241,14 +242,29 @@ async def ingest(body: TelemetryBody, request: Request,
     await store.mark_reported(_db, tenant_id=who.tenant_id,
                               endpoint_id=who.endpoint_id,
                               at=ev.ingest_time)
+
+    # P0-D · canonical bridge. Only for a NEW event: re-canonicalising a
+    # byte-identical duplicate would double-count the same activity.
+    canonical = {"canonicalized": False, "reason": "duplicate payload; the "
+                 "original event was already canonicalised"}
+    if result.get("stored"):
+        ep = await store.get_endpoint(_db, tenant_id=who.tenant_id,
+                                      endpoint_id=who.endpoint_id) or {}
+        canonical = await bridge(
+            _db, raw_id=ev.raw_id, tenant_id=who.tenant_id,
+            payload=body.payload, endpoint_id=who.endpoint_id,
+            hostname=ep.get("hostname"), authentication=who.provenance())
+
     return {
         **result,
         "endpoint_id": who.endpoint_id,
         "authenticated": True,
         "auth_method": who.auth_method,
-        "note": ("Raw bytes preserved immutably. No canonical evidence has "
-                 "been derived yet — a parser/normalizer derivation is "
-                 "appended separately and never overwrites this record."),
+        "canonical": canonical,
+        "note": ("Raw bytes preserved immutably. The parse outcome is "
+                 "APPENDED as a derivation and never overwrites the "
+                 "original — a parser failure leaves a retained, replayable "
+                 "event."),
     }
 
 
