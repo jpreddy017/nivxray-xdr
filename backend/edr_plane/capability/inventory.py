@@ -228,6 +228,28 @@ PIPELINE_CAPABILITIES: list[Capability] = [
               "reasoning engine. A parse failure appends a PARSER_FAILED "
               "derivation and leaves the raw bytes replayable.",
          wave="Wave 0 · P0-D"),
+    _cap("backend.rule_store_binding", Plane.BACKEND, "detection",
+         "Authored rule store bound to the runtime evaluator",
+         "Every rule in xdr_detection_rules is classified store → "
+         "binding → evaluator, and BOUND rules are evaluated by the "
+         "EXISTING Sigma evaluator.",
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, contract=_P, test=_P,
+         telemetry=_P, e2e=_P, ui=_A, gap=GC.BACKEND_ONLY,
+         ev="detection_content/rule_store_binding.py · "
+            "GET /api/edr/wave0/detection-rule-bindings · "
+            "tests/edr/test_p0_f3_rule_store_binding.py · "
+            "scripts/p0_f3_binding_proof.py",
+         note="P0-F.3 closed the authoring/runtime split WITHOUT a second "
+              "engine: a store-authored Linux rule was proven to fire on "
+              "REAL sensor evidence through the same evaluator as the "
+              "in-code library. THE HONEST NUMBER: of the 98 authored "
+              "rules, 0 can fire today — 23 LICENSE_BLOCKED, 52 "
+              "STORE_CONTENT_INCOMPLETE (39 declare no logsource, 13 no "
+              "detection block), 22 NO_TELEMETRY (Windows/proxy content "
+              "we collect nothing for), 1 UNSUPPORTED_BY_EVALUATOR. The "
+              "binding is real; the STORE CONTENT is the gap. No UI "
+              "surface for this report yet.",
+         wave="P0-F.3 · DONE"),
     _cap("backend.endpoint_detection", Plane.BACKEND, "detection",
          "Endpoint detection via the authoritative XDR fabric",
          "Real endpoint evidence is evaluated by the SAME detection "

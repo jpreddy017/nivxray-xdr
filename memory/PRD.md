@@ -1,6 +1,49 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · **P0-F.3 RULE STORE → RUNTIME BINDING** · PASS (with an honest, uncomfortable number)
+
+The authoring/runtime split is closed **without a second engine**:
+`detection_content/rule_store_binding.py` parses each stored rule with the
+existing `sigma_strict.strict_parse` and evaluates it with the existing
+`nivxray_native_sigma.evaluate`. A test asserts the module defines no
+evaluator of its own.
+
+### The number you asked for: of 98 authored rules, **0 can fire today**
+| Binding state | n | Why |
+|---|---|---|
+| LICENSE_BLOCKED | 23 | licence policy forbids runtime use |
+| STORE_CONTENT_INCOMPLETE | 52 | 39 declare NO logsource, 13 carry NO detection block |
+| NO_TELEMETRY | 22 | Windows/proxy content — we collect nothing for it |
+| UNSUPPORTED_BY_EVALUATOR | 1 | keyword-style selection without a field |
+| BOUND | 0 | — |
+
+**The binding is real; the STORE CONTENT is the gap.** Every rule states
+WHY, and only BOUND rules ever claim a runtime evaluator (asserted).
+Inventing a logsource for the 39 was refused: it would let a rule judge
+telemetry it was never written for.
+
+### Binding mechanism PROVEN on real evidence · `scripts/p0_f3_binding_proof.py` · 12/12
+A Linux rule authored THROUGH the store bound (`BOUND`, stable uuid5
+Sigma identity derived from the store id) and **fired on real endpoint
+behaviour** — `raw_6fb712dab1df38e1b950c88d → cev_…_0`, rule_ids
+`["EDR-LNX-004", "det_p0f3_proof_linux"]`, same engine id as the in-code
+content, verdict MALICIOUS — then was withdrawn and the store returned to
+98. Store matches use the SAME shape as library matches, so IUE/VEEE
+cannot tell the two content origins apart. Windows rules are gated at
+BOTH bind and evaluation time.
+
+`GET /api/edr/wave0/detection-rule-bindings` exposes the full
+per-rule traceability. `tests/edr` **252 pass**; 100 detection/ingestion/
+round11-13 tests pass; `tests/live` 9 pass. Registry 134 rows.
+
+### Remaining after P0-F.3
+No UI for the binding report. Fixing the 52 incomplete store rules is a
+CONTENT task (out of scope here). Next per owner: Process Tree re-key,
+Campaign Story View, Live Attack Replay, then endpoint response.
+
+
+
 ## ✅ 2026-06 · **P0-F.2 ENDPOINT INCIDENT CONSOLIDATION + IDENTITY** · PASS
 
 ### Root cause

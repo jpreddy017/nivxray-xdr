@@ -129,6 +129,21 @@ async def filter_taxonomy(user: dict = Depends(get_current_user)
     return taxonomy.status()
 
 
+@router.get("/detection-rule-bindings")
+async def detection_rule_bindings(refresh: bool = False,
+                                  user=Depends(get_current_user)):
+    """P0-F.3 · store → binding → runtime evaluator, per authored rule.
+
+    Answers the only question that matters about a rule library: which
+    authored rules can ACTUALLY fire, and for every one that cannot, why.
+    """
+    from detection_content.rule_store_binding import (binding_report,
+                                                      load_bindings)
+    if refresh:
+        load_bindings(force=True)
+    return binding_report()
+
+
 @router.get("/raw-events/stats")
 async def raw_event_stats(user: dict = Depends(get_current_user)
                           ) -> dict[str, Any]:

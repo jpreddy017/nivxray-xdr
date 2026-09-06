@@ -139,9 +139,15 @@ open. All contributing evidence retained; escalate-only; titles derived
 from the rule that actually fired plus hostname. Proven on the real
 sensor: 6 detections → 1 incident (INC000000230).
 
-**Next (owner sequencing):** P0-F.3 rule-store→runtime binding (98
-authored Mongo rules), P0-F.4 Live Attack Replay, then Process Tree
-re-key and endpoint response.
+### ✅ P0-F.3 · Rule store → runtime binding · DONE (2026-06)
+No second engine. All 98 authored rules classified store → binding →
+evaluator; 0 can fire today (23 licence-blocked, 52 content-incomplete,
+22 no telemetry, 1 unsupported) — the binding is real, the store content
+is the gap. A store-authored Linux rule was proven to fire on real sensor
+evidence and then withdrawn.
+
+**Next (owner sequencing):** Process Tree re-key, Campaign Story View,
+P0-F.4 Live Attack Replay, then endpoint response.
 
 ### ▶ P0-F · superseded section below (kept for history)
 The question P0-F exists to answer: *can NivXForge actually detect

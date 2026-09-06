@@ -201,6 +201,18 @@ def evaluate_detection(canonical: dict) -> dict:
     # 2. Enterprise Detection Library evaluation
     library_matches = DETECTION_REGISTRY.evaluate_event(canonical)
 
+    # 3. P0-F.3 · the AUTHORED rule store, bound to this SAME evaluator.
+    # Same evaluator, same match shape, two content origins — a rule that
+    # an analyst authored is not second-class to one compiled in.
+    try:
+        from .rule_store_binding import evaluate_store_rules
+        store_matches = evaluate_store_rules(canonical)
+    except Exception:                                          # noqa: BLE001
+        store_matches = []
+    seen = {m.get("rule_id") for m in library_matches}
+    library_matches = library_matches + [m for m in store_matches
+                                         if m.get("rule_id") not in seen]
+
     matched = golden_matched or bool(library_matches)
     if golden_matched:
         primary_rule_id = "00000000-0000-0000-0000-9999abcdef99"
