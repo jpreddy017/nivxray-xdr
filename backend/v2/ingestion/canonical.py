@@ -317,6 +317,12 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
             "target":        ces.file_path or ces.dns_query or ces.dst_ip or ces.registry_key or ces.url,
             "command_line":  ces.command_line,
             "parent_image":  _basename(ces.parent_image),
+            # Real observed identifiers. They were being dropped here, so
+            # ancestry could be linked but never shown: an analyst could
+            # see the tree without seeing which pid was which.
+            "pid":           ces.process_id or None,
+            "ppid":          ces.parent_process_id or None,
+            "image_path":    ces.image or None,
             "sha256":        hashlib.sha256(evt_key.encode()).hexdigest(),
         },
         "process": {

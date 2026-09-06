@@ -146,8 +146,14 @@ evaluator; 0 can fire today (23 licence-blocked, 52 content-incomplete,
 is the gap. A store-authored Linux rule was proven to fire on real sensor
 evidence and then withdrawn.
 
-**Next (owner sequencing):** Process Tree re-key, Campaign Story View,
-P0-F.4 Live Attack Replay, then endpoint response.
+### ✅ P0-F.4 · Process Tree re-key · DONE (2026-06)
+Endpoint-keyed ancestry from real sensor evidence, honest ghost roots,
+pid/ppid restored to the CEM projection.
+
+**Next (owner sequencing):** ENDPOINT RESPONSE (the biggest remaining
+capability — real isolate/kill + verification), then Campaign Story View,
+Live Attack Replay, Rule Health Panel, and separately the detection
+CONTENT authoring work (52 incomplete store rules).
 
 ### ▶ P0-F · superseded section below (kept for history)
 The question P0-F exists to answer: *can NivXForge actually detect

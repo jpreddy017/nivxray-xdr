@@ -1,6 +1,33 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · **P0-F.4 PROCESS TREE RE-KEY** · PASS
+
+`/api/edr/process-tree` was incident-keyed and case-derived, so it could
+never show sensor data. It now accepts **`endpoint_id`** and builds
+ancestry from REAL canonical sensor evidence
+(`routers/edr.py::_project_endpoint_process_tree`). The incident-keyed
+pivot is unchanged; a request with NEITHER pivot returns 422
+`pivot_required` rather than an invented tree.
+
+- **327 observed processes, 251 real parent→child links, 66 roots** on
+  the proof endpoint, rendered in the console at
+  `/edr/process-tree?endpoint_id=…`.
+- Links are canonical `process_iid`/`parent_iid` identities, **never pid
+  alone** — Linux reuses pids.
+- A parent referenced but never observed becomes an explicit **GHOST
+  root**: kept (never silently reparented) and empty (no name, command
+  line or user), labelled in the UI as a visibility gap.
+- **Evidence-loss bug found and fixed:** `v2/ingestion/canonical.py` was
+  dropping `pid`, `ppid` and `image_path` from the CEM projection, so
+  ancestry could be linked but never *shown* — an analyst could see the
+  tree without knowing which pid was which.
+
+`tests/edr` **256 pass**. Registry 134 rows;
+`backend.service.process_tree` → REAL_ENDPOINT_VALIDATED.
+
+
+
 ## ✅ 2026-06 · **P0-F.3 RULE STORE → RUNTIME BINDING** · PASS (with an honest, uncomfortable number)
 
 The authoring/runtime split is closed **without a second engine**:

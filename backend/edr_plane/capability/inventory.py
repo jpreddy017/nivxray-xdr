@@ -615,19 +615,20 @@ SERVICE_CAPABILITIES: list[Capability] = [
     _cap("backend.service.process_tree", Plane.BACKEND, "investigation",
          "Process tree / ancestry",
          "Root-first ancestry with honest ghost roots.",
-         state=FS.BACKEND_IMPLEMENTED, backend=_P, ui=_P, telemetry=_P,
-         test=_P, contract=_P, gap=GC.NONE,
-         ev="GET /api/edr/process-tree · "
-            "tests/edr/test_p0_b_linux_sensor.py::"
-            "test_lineage_reaches_ces_so_a_process_tree_can_actually_link",
-         note="REAL PID/PPID lineage now exists: the Linux sensor resolves "
-              "the parent in /proc and refuses to attribute one when the "
-              "pid may have been reused, and the child's parent_iid equals "
-              "the parent's own process_iid so the tree links. NOT yet "
-              "claimed: the /api/edr/process-tree ROUTE itself has not been "
-              "re-proven against sensor evidence — it still projects "
-              "ActivityInventory. CEF/LEEF remain parentless by "
-              "specification."),
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, ui=_P, telemetry=_P,
+         test=_P, e2e=_P, contract=_P, gap=GC.NONE,
+         ev="GET /api/edr/process-tree?endpoint_id= · "
+            "routers/edr.py::_project_endpoint_process_tree · "
+            "tests/edr/test_p0_f4_endpoint_process_tree.py",
+         note="P0-F.4: the route is now ENDPOINT-keyed and builds ancestry "
+              "from real sensor evidence — 327 observed processes and 251 "
+              "real parent→child links on the proof endpoint, rendered in "
+              "the console. Links use canonical process identities, never "
+              "pid alone (Linux reuses pids). A parent referenced but never "
+              "observed becomes an explicit GHOST root carrying no name or "
+              "command line: a visibility gap, not an absent process. The "
+              "incident-keyed pivot is unchanged, and CEF/LEEF remain "
+              "parentless by specification."),
     _cap("backend.service.endpoint_inventory", Plane.BACKEND, "investigation",
          "Endpoint inventory",
          "The fleet list with identity confidence and health.",

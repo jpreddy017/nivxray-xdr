@@ -28,6 +28,17 @@ export async function getEdrProcessTree(incidentId) {
   return data;
 }
 
+/**
+ * P0-F.4 · endpoint-keyed ancestry from REAL sensor evidence. Links are
+ * canonical process identities, never pid alone.
+ */
+export async function getEndpointProcessTree(endpointId, hours = 24) {
+  const { data } = await api.get("/edr/process-tree",
+                                    { params: { endpoint_id: endpointId,
+                                                hours }});
+  return data;
+}
+
 // ── Slice 6 ────────────────────────────────────────────────────────
 export async function listEndpoints() {
   const { data } = await api.get("/edr/endpoints");

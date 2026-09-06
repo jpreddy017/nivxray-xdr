@@ -193,6 +193,112 @@ def _project_process_tree(doc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _project_endpoint_process_tree(endpoint_id: str,
+                                   hours: int) -> Dict[str, Any]:
+    """Build ancestry from the REAL sensor evidence for one endpoint.
+
+    Every node is one observed process. Links are the canonical
+    `process_iid` / `parent_iid` identities minted by the existing
+    canonical layer — nothing is inferred from pid alone, because Linux
+    reuses pids.
+
+    A parent that was referenced but never observed becomes an explicit
+    GHOST root: it is NOT dropped (that would silently reparent a child
+    to the wrong place) and it is NOT invented (it carries no name,
+    command line or user). `lineage_state` on each node says exactly
+    which case it is.
+    """
+    identity = dir_svc.resolve(endpoint_id, cross_tenant=True)
+    since = (datetime.now(timezone.utc)
+             - timedelta(hours=max(1, min(hours, 24 * 30)))).isoformat()
+    needles = {endpoint_id}
+    if identity:
+        needles |= {v for v in (identity.get("device_iid"),
+                                identity.get("hostname")) if v}
+    docs = list(sync_collection("v2_shadow_observations").find(
+        {"kind": {"$regex": "process"},
+         "$or": [{"device_iid": {"$in": list(needles)}},
+                 {"event.computer": {"$in": list(needles)}},
+                 {"collector_id": endpoint_id}],
+         "captured_at": {"$gte": since}},
+        {"_id": 0, "event": 1, "captured_at": 1, "adapter": 1}))
+
+    nodes: Dict[str, Dict[str, Any]] = {}
+    for d in docs:
+        ev = d.get("event") or {}
+        proc = ev.get("process") or {}
+        iid = (proc.get("iid") or proc.get("process_iid")
+               or ev.get("process_iid"))
+        if not iid:
+            continue
+        raw = ev.get("raw") or {}
+        node = nodes.setdefault(iid, {
+            "process_iid": iid, "parent_iid": proc.get("parent_iid") or None,
+            "process": proc.get("name") or proc.get("image"),
+            "path": raw.get("image_path") or proc.get("image"),
+            "pid": raw.get("pid"),
+            "ppid": raw.get("ppid"),
+            "command_line": raw.get("command_line"),
+            "user": raw.get("user"), "sha256": raw.get("sha256"),
+            "first_seen": d.get("captured_at"),
+            "last_seen": d.get("captured_at"),
+            "observed": True, "child_ids": [],
+            "lineage_state": (raw.get("parent_lookup_state")
+                              or ev.get("lineage_state")
+                              or "PARENT_NOT_OBSERVED"),
+            "event_iids": [],
+            "detections": sorted({r for r in (ev.get("rule_ids") or [])}),
+        })
+        node["last_seen"] = max(str(node["last_seen"] or ""),
+                                str(d.get("captured_at") or ""))
+        if ev.get("iid"):
+            node["event_iids"].append(ev["iid"])
+
+    ghosts = 0
+    for node in list(nodes.values()):
+        pid_iid = node["parent_iid"]
+        if pid_iid and pid_iid not in nodes:
+            ghosts += 1
+            nodes[pid_iid] = {
+                "process_iid": pid_iid, "parent_iid": None,
+                "process": None, "path": None, "pid": node.get("ppid"),
+                "ppid": None, "command_line": None, "user": None,
+                "sha256": None, "first_seen": None, "last_seen": None,
+                "observed": False, "child_ids": [], "event_iids": [],
+                "detections": [],
+                "lineage_state": "GHOST_PARENT_NOT_OBSERVED",
+                "note": ("Referenced as a parent by observed evidence but "
+                         "never observed itself. Nothing about it is "
+                         "claimed."),
+            }
+    for node in nodes.values():
+        if node["parent_iid"] in nodes:
+            nodes[node["parent_iid"]]["child_ids"].append(node["process_iid"])
+
+    roots = sorted(n["process_iid"] for n in nodes.values()
+                   if not n["parent_iid"])
+    return {
+        "endpoint_id": endpoint_id,
+        "identity": {"resolved": identity is not None,
+                     "hostname": (identity or {}).get("hostname"),
+                     "device_iid": (identity or {}).get("device_iid"),
+                     "resolved_via": (identity or {}).get("resolved_via")},
+        "window_hours": hours,
+        "nodes": sorted(nodes.values(),
+                        key=lambda n: (str(n.get("first_seen") or ""),
+                                       n["process_iid"])),
+        "roots": roots,
+        "counts": {"observed": sum(1 for n in nodes.values()
+                                   if n["observed"]),
+                   "ghost_parents": ghosts, "roots": len(roots)},
+        "reason": "ok" if nodes else "no_matching_evidence",
+        "source": "v2_shadow_observations · canonical process_iid/parent_iid",
+        "note": ("Links are canonical process identities, never pid alone — "
+                 "Linux reuses pids. A ghost root is a real gap in "
+                 "visibility, not a process that did not exist."),
+    }
+
+
 # ── HTTP surfaces ────────────────────────────────────────────────────
 def _load(incident_id: str) -> Dict[str, Any]:
     doc = _col.find_one({"id": incident_id})
@@ -285,8 +391,26 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
 
 
 @router.get("/process-tree")
-async def get_process_tree(incident_id: str,
-                              user=Depends(get_current_user)):
+async def get_process_tree(incident_id: str | None = None,
+                           endpoint_id: str | None = None,
+                           hours: int = 24,
+                           user=Depends(get_current_user)):
+    """Root-first process ancestry.
+
+    Two pivots, one projection contract:
+      * `incident_id` — the original case-derived tree (unchanged).
+      * `endpoint_id` — REAL sensor lineage from canonical evidence
+        (P0-F.4). This is the pivot an analyst actually has after a
+        detection fires on an endpoint.
+    """
+    if endpoint_id:
+        return _project_endpoint_process_tree(endpoint_id, hours)
+    if not incident_id:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "pivot_required",
+                    "reason": "supply either endpoint_id or incident_id",
+                    "note": "No tree is invented without a pivot."})
     doc = _load(incident_id)
     return _project_process_tree(doc)
 
