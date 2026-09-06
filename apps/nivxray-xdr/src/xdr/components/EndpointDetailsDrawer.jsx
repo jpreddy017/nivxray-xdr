@@ -57,7 +57,13 @@ function Section({ id, title, badge, children, defaultOpen = true }) {
 export const EndpointDetailsDrawer = ({
   hostname, deviceRef, identity, authoritative,
   observedUsers = [], observedProviders = [], onClose,
-}) => (
+}) => {
+  const health = identity?.health || null;
+  const life = health?.agent_lifecycle;
+  const tele = health?.telemetry_health;
+  const vis = health?.visibility;
+  const NO_AGENT = life?.state === "NO_AGENT";
+  return (
   <aside className="panel"
          style={{ padding: 11, alignSelf: "start", position: "sticky", top: 8,
                   maxHeight: "calc(100vh - 90px)", overflowY: "auto" }}
@@ -83,8 +89,8 @@ export const EndpointDetailsDrawer = ({
              v={identity?.hostname
                  ? <>{identity.hostname}{" "}
                      <span className="nx-ep" data-ep="unknown" data-known="false"
-                           title="Hostname is a string carried on the observation record.">
-                       INFERRED
+                           title="The device identity is authoritative; this hostname STRING is carried on the observation record and is not independently attested.">
+                       OBSERVATION-DERIVED
                      </span></>
                  : <Nope label="◇ NO HOSTNAME OBSERVED" />} />
       <Field k="Device IID (authoritative)"
@@ -106,10 +112,66 @@ export const EndpointDetailsDrawer = ({
                                          : <Nope label="◇ NONE RECORDED" />} />
     </Section>
 
+    <Section id="health" title="Health"
+             badge={tele ? (
+               <span className="nx-ep"
+                     data-ep={tele.state === "ONLINE" ? "evidence_present"
+                                                       : "unknown"}
+                     data-known="true" style={{ fontSize: 8.5 }}>
+                 {tele.state}
+               </span>) : null}>
+      {/* Two INDEPENDENT dimensions. Never collapsed into one status:
+          a CONNECTED agent can be NO_TELEMETRY, and that is precisely
+          the case a single field would hide. */}
+      <Field k="Agent link (lifecycle)"
+             v={life
+                 ? <>{life.state}
+                     <div style={{ color: "var(--faint)", fontSize: 9.5,
+                                   marginTop: 2 }}>{life.reason}</div></>
+                 : <Nope label="? NOT RESOLVED" ep="unknown" />}
+             title="Operational state of the agent link." />
+      <Field k="Telemetry health (evidence)"
+             v={tele
+                 ? <>{tele.state}
+                     <div style={{ color: "var(--faint)", fontSize: 9.5,
+                                   marginTop: 2 }}>{tele.reason}</div></>
+                 : <Nope label="? NOT RESOLVED" ep="unknown" />}
+             title="What we actually know about this endpoint's evidence." />
+      <Field k="Evidence sufficiency"
+             v={tele?.evidence_sufficiency || "?"} />
+      <Field k="Parser failures / dropped"
+             v={`${tele?.parser_failures ?? 0} / ${tele?.dropped_events ?? 0}`} />
+      {vis ? (
+        <div className="nx-ep"
+             data-ep={vis.state === "FULL" ? "evidence_present"
+                                            : "capability_unavailable"}
+             data-known="true"
+             style={{ display: "block", whiteSpace: "normal",
+                      wordBreak: "break-word", lineHeight: 1.5,
+                      marginTop: 4 }}
+             data-testid="endpoint-drawer-visibility">
+          VISIBILITY {vis.state}
+        </div>
+      ) : null}
+      {vis?.statement ? (
+        <div style={{ fontSize: 9.5, color: "var(--faint)", lineHeight: 1.6,
+                      marginTop: 5 }}>
+          {vis.statement}
+        </div>
+      ) : null}
+      {tele?.note ? (
+        <div style={{ fontSize: 9.5, color: "#E8B931", lineHeight: 1.6,
+                      marginTop: 5 }}
+             data-testid="endpoint-drawer-health-note">
+          {tele.note}
+        </div>
+      ) : null}
+    </Section>
+
     <Section id="sensor" title="Sensor &amp; Platform"
              badge={<span className="nx-ep" data-ep="capability_unavailable"
                           data-known="true" style={{ fontSize: 8.5 }}>
-                      ⊘ NOT ENROLLED
+                      {NO_AGENT ? "⊘ NO AGENT" : life?.state || "⊘"}
                     </span>}>
       <Field k="Operating system"
              v={<Nope label="◇ NOT REPORTED — NO SENSOR ENROLMENT" />} />
@@ -124,8 +186,12 @@ export const EndpointDetailsDrawer = ({
       <Field k="Host firewall"
              v={<Nope label="⊘ NO POLICY PLANE BOUND" ep="capability_unavailable" />} />
       <Field k="Connector health"
-             v={<Nope label="⊘ NO HEARTBEAT — TELEMETRY IS HISTORIC ONLY"
-                      ep="capability_unavailable" />} />
+             v={life
+                 ? <>{life.state}
+                     <div style={{ color: "var(--faint)", fontSize: 9.5,
+                                   marginTop: 2 }}>{life.reason}</div></>
+                 : <Nope label="⊘ NO HEARTBEAT — TELEMETRY IS HISTORIC ONLY"
+                          ep="capability_unavailable" />} />
       <Field k="Live query"
              v={<Nope label="⊘ NO LIVE-QUERY DRIVER REGISTERED"
                       ep="capability_unavailable" />} />
@@ -167,6 +233,7 @@ export const EndpointDetailsDrawer = ({
       </div>
     </Section>
   </aside>
-);
+  );
+};
 
 export default EndpointDetailsDrawer;

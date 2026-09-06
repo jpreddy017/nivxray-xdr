@@ -24,6 +24,7 @@ from services.dashboard_lenses import resolve_tenant_scope
 from services.edr import device_identity as dir_svc
 from services.edr import observation_narrative as narrative_svc
 from services.edr import file_trajectory as file_traj_svc
+from services.edr.endpoint_health import resolve_endpoint_health
 
 router = APIRouter(prefix="/edr", tags=["edr"])
 
@@ -357,6 +358,14 @@ async def list_endpoints(user=Depends(get_current_user)):
             "engine":              None,
             "users":               dev.get("users"),
             "provenance":          dev.get("provenance"),
+            # P0-A.1 · both health dimensions, never collapsed. There is no
+            # agent plane yet, so `agent=None` yields NO_AGENT /
+            # NEVER_ENROLLED honestly rather than defaulting to OFFLINE.
+            "health":              resolve_endpoint_health(
+                                       agent=None,
+                                       last_telemetry_at=dev.get("last_seen"),
+                                       observation_count=int(
+                                           dev.get("observation_count") or 0)),
             "source":              "v2_shadow_observations",
         })
 
@@ -581,6 +590,12 @@ async def get_device_trajectory(
             "latest_incident_id":  ((identity or {}).get("case_ids") or [None])[0],
             "users":               list((identity or {}).get("users") or []),
             "provenance":          list((identity or {}).get("provenance") or []),
+            "health":              resolve_endpoint_health(
+                                       agent=None,
+                                       last_telemetry_at=observed_last,
+                                       observation_count=int(
+                                           (identity or {}).get(
+                                               "observation_count") or 0)),
         },
         "window_hours": None if all_time else hours,
         "all_time":     all_time,

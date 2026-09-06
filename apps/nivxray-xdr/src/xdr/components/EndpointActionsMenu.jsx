@@ -30,7 +30,8 @@ function Item({ item, onClose }) {
               onClick={() => { onClose(); item.run(); }}
               style={{ width: "100%", justifyContent: "flex-start",
                        padding: "5px 10px", fontSize: 10.5, borderRadius: 0 }}
-              data-testid={`endpoint-action-${item.id}`}>
+              data-testid={`endpoint-action-${item.id}`}
+              data-state="available">
         {item.label}
         {item.external ? (
           <ExternalLink size={9} style={{ marginLeft: 5, opacity: 0.6 }} />

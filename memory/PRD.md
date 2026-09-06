@@ -1,6 +1,147 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## 🔒 2026-06 · SCOPE FROZEN TO **NivXForge EDR** · XDR IS OUT OF THIS TRACK
+
+Owner directive: "we keep XDR aside and focus exclusively on NivXForge EDR."
+The question this programme answers is: *can NivXForge EDR independently
+protect, monitor, investigate and respond to an endpoint like a serious
+enterprise EDR?*
+
+**We ARE building**: an endpoint-resident agent on every protected device
+(processes with real PID/PPID/ancestry/command lines/hashes, file CRUD,
+network, DNS, users/sessions, services, persistence, Windows registry,
+PowerShell, security events, endpoint state) · durable endpoint identity ·
+the honest 2-D health model · continuous telemetry with a LOCAL DURABLE
+QUEUE so a connectivity loss replays instead of silently losing evidence ·
+the Cisco-style endpoint console (Show Details drawer + Actions menu) ·
+EDR detection · EDR investigation (Device Trajectory · Process Tree · File
+Trajectory · Network/DNS hunting · Forensics · Live Query) · real EDR
+response with the full Requested-by / Approved-by / Timestamp / Target /
+Action / Status / Result / Evidence record on every action.
+
+**Explicitly NOT in this phase**: XDR incident orchestration, SIEM, NDR,
+ITDR, email security, cloud security, UEBA/UBAE, SOAR/XSOAR, external
+threat-intel aggregation, cross-product XDR correlation. They integrate
+later.
+
+**Do not rebuild what exists.** The audit proved File Trajectory, fleet
+propagation and cross-endpoint spread are BUILT and STARVED. We put the
+real endpoint substrate underneath and ACTIVATE them.
+
+**"Why is this empty?" is a first-class UI requirement.** A missing field
+renders `⊘ Not collected` + the reason (e.g. "current telemetry source does
+not provide file-content hashing for this observation"). No fake values.
+
+**Frozen P0 sequence**
+```
+P0-A  Endpoint Enrollment + Identity + Health
+P0-B  Real Linux NivXForge Agent
+P0-C  Real Telemetry Pipeline
+P0-D  Process / File / Network Telemetry
+P0-E  Real Device Trajectory + Process Tree + File Trajectory
+P0-F  EDR Detection
+P0-G  EDR Hunting / Forensics / Live Query
+P0-H  Real Response Drivers
+P0-I  Windows NivXForge Agent
+        → Enterprise EDR
+```
+
+### ✅ P0-A.1 · ENDPOINT HEALTH · CLOSED (iteration_88) · STOPPED FOR ACCEPTANCE
+
+Two INDEPENDENT dimensions, **never collapsed into one status** — because a
+single field cannot distinguish an offline agent from a connected-but-silent
+agent from telemetry that arrived and failed to parse. Collapsing them would
+let a visibility gap read as an all-clear.
+
+- `backend/services/edr/endpoint_health.py` — `resolve_agent_lifecycle()`
+  (12 states incl. the NivXRay addition `NO_AGENT`, which is deliberately
+  NOT `OFFLINE`: "offline" would claim an agent exists and is unreachable,
+  a stronger claim than the evidence supports) and
+  `resolve_telemetry_health()` (9 states, strict precedence
+  NEVER_ENROLLED > UNENROLLED > ISOLATED > AGENT_ERROR > PARSER_ERROR(no
+  obs) > NO_TELEMETRY > PARSER_ERROR > STALE > DEGRADED > ONLINE).
+  Thresholds are stated as data, not hidden in behaviour: heartbeat grace
+  300s · offline 1800s · telemetry degraded 900s · telemetry stale 3600s.
+  Every non-ONLINE state carries `NEVER_MEANS_BENIGN` verbatim.
+- `routers/edr.py` — `health` attached to every row of
+  `GET /api/edr/endpoints` (line 364) and to the identity payload of
+  `GET /api/edr/device-trajectory` (line 593).
+- `EndpointDetailsDrawer.jsx` — HEALTH section renders both dimensions as
+  separate rows with reasons, plus Evidence sufficiency, parser
+  failures/dropped, `VISIBILITY <state>` and the epistemic-honesty note.
+
+**Live truth right now**: all 12 endpoints resolve
+`NO_AGENT` × `STALE` × visibility `DEGRADED` × sufficiency `PARTIAL`.
+That is CORRECT and intended — there is no agent until P0-A.2/P0-B.
+
+**Testing** — 13/13 backend tests (`test_p0_a1_endpoint_health.py`) and
+iteration_88 **100% frontend, zero issues, zero action items** across 13
+checks: both health rows never collapsed, no green all-clear anywhere,
+`⊘ NO AGENT` sensor badge, every sensor field explicit, isolation genuinely
+UNKNOWN (never defaulted to "Not isolated"), section defaults, drawer
+persistence across tabs, actions menu grouping/tooltips/ESC+outside-click,
+the no-hostname endpoint `dev_c52108804b98` falling back to the device ref
+instead of rendering `null`, 1-obs vs 64-obs consistency (more data does
+NOT mean "healthy"), zero horizontal overflow at 1920x950, zero console
+errors.
+
+**Two review nits fixed and re-verified**: the enabled branch of
+`EndpointActionsMenu` now emits `data-state="available"` (9 items measured);
+the drawer hostname badge changed `INFERRED` → `OBSERVATION-DERIVED`,
+because showing `◆ AUTHORITATIVE` identity confidence next to an
+`INFERRED` hostname was ambiguous — the device identity IS authoritative,
+it is the hostname STRING that is observation-derived.
+
+### ⏭ P0-A.2 · ENROLMENT + IDENTITY + AUTH · DECISIONS LOCKED, NOT STARTED
+
+Owner-locked, to be built next (`integration_expert` MUST be called before
+any auth code is written):
+
+1. **Enrolment model — one-time token.** Admin generates → short TTL →
+   single use → agent presents → server verifies → endpoint identity
+   created → per-agent credential issued → token immediately invalidated.
+   Reusable fleet tokens are explicitly REJECTED as the P0 bootstrap
+   primitive (blast radius if leaked). Controlled group enrolment can come
+   later.
+2. **Credential model — hashed durable secret at rest + short-lived
+   endpoint-scoped session token.** The durable per-agent credential is
+   **opaque, NOT a JWT** (this keeps future mTLS insertion clean). It must
+   be unique per endpoint, high entropy, scoped to exactly one endpoint,
+   revocable, rotatable, tenant-scoped, never retrievable in plaintext
+   after issuance, never logged.
+3. **Unenrolled / revoked telemetry — reject AND raise a visible security
+   signal.** 401/403 at the trust boundary plus a security-audit event
+   recording tenant, source IP, presented agent identity, credential
+   fingerprint, timestamp, reason, request id, resolvable endpoint identity.
+   Never silently dropped. The rejected payload is a security signal but is
+   **NOT trusted endpoint evidence** and must never enter the authoritative
+   EDR evidence, detection or response pipelines.
+4. **UI — minimal enrolment control plane only**: generate one-time token,
+   show it exactly once, TTL, single-use status, enrolled endpoints,
+   endpoint identity, credential status, revoke. No larger
+   endpoint-management UI in this slice.
+5. **Architectural boundary that must hold**:
+   `Endpoint Identity ≠ Authentication Mechanism ≠ Transport ≠ Telemetry
+   Envelope`. Auth/transport pluggable so mTLS drops in later WITHOUT
+   changing endpoint identity, telemetry contracts, ingestion contracts or
+   EDR investigation/response contracts.
+6. **Acceptance criterion**: a real endpoint can be enrolled with a
+   one-time bootstrap token, receive its durable per-agent credential,
+   authenticate, be represented by authoritative endpoint identity, and be
+   revoked deterministically — with **no ambiguity about trust state**.
+   Required tests: successful enrolment · expired token · reused token ·
+   invalid token · credential rotation · credential revocation ·
+   unauthorised telemetry rejection · revoked-agent rejection · tenant
+   isolation · endpoint-scoped credential enforcement · no secret leakage
+   in API responses or logs · restart/persistence · concurrent
+   enrolment/idempotency.
+
+**Do NOT** touch the sensor yet, and do NOT rebuild File Trajectory, fleet
+propagation or cross-endpoint spread.
+
+
+
 ## ✅ 2026-06 · NIVXFORGE EDR · READ-ONLY TRUTH AUDIT (40 rows) · DELIVERED
 
 Full audit: **`/app/docs/audit/NIVXFORGE_EDR_TRUTH_AUDIT.md`**
