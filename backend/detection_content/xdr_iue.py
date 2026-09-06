@@ -151,16 +151,28 @@ def _capability_tags(canonical: dict, detection: dict | None) -> list[str]:
     return tags
 
 
-def _severity_hint(canonical: dict) -> str:
+def _severity_hint(canonical: dict, detection: dict | None = None) -> str:
     """Resolve the canonical severity band.
 
-    Two accepted inputs, in priority order:
+    Three accepted inputs, in strict priority order:
       1. `security.severity_band` — an explicit allow-listed band. A
          normalizer whose source severity is NOT on the Suricata 1-4
          scale (CEF/LEEF use 0-10) MUST supply this rather than let its
          numbers be misread as Suricata codes.
       2. `security.severity` — the Suricata numeric scale (1 = most
          severe), preserved verbatim for the snort-eve path.
+      3. The severity of the authoritative detection rule that actually
+         FIRED, when the source expressed no opinion at all.
+
+    (3) exists because an endpoint sensor reports facts, not judgements:
+    a process event carries no vendor severity, and inventing one per
+    activity would be fabrication. The severity of `bash -i >&
+    /dev/tcp/...` lives in the rule content that matched it. Without this,
+    ANY source lacking a vendor severity band was permanently capped at
+    the detection weight alone, so a CRITICAL rule firing on real
+    endpoint evidence could never be more than LIKELY_BENIGN. The band is
+    still derived from evidence — the rule that fired — and never guessed;
+    when nothing fired, this returns INFORMATIONAL exactly as before.
     """
     sec = canonical.get("security") or {}
     band = sec.get("severity_band")
@@ -171,7 +183,30 @@ def _severity_hint(canonical: dict) -> str:
         band = _SURICATA_SEV_MAP.get(int(sev)) if sev is not None else None
     except (TypeError, ValueError):
         band = None
-    return band or "INFORMATIONAL"
+    if band:
+        return band
+    if detection and detection.get("matched"):
+        fired = [str(m.get("severity") or "").strip().upper()
+                 for m in (detection.get("detections") or ())]
+        ranked = [s for s in fired if s in _SEV_ORDER]
+        if ranked:
+            # The most severe rule that fired, not an average: a critical
+            # behaviour is not diluted by benign-looking company.
+            return max(ranked, key=_SEV_ORDER.index)
+    return "INFORMATIONAL"
+
+
+def _severity_source(canonical: dict, detection: dict | None,
+                     resolved: str) -> str:
+    sec = canonical.get("security") or {}
+    band = sec.get("severity_band")
+    if isinstance(band, str) and band.strip().upper() in _SEV_ORDER:
+        return "source.security.severity_band"
+    if sec.get("severity") is not None:
+        return "source.security.severity"
+    if resolved != "INFORMATIONAL" and detection and detection.get("matched"):
+        return "detection.rule_severity"
+    return "none_declared"
 
 
 def _confidence(entities: list[dict], detection: dict | None) -> int:
@@ -203,7 +238,7 @@ def understand(canonical: dict, detection: dict | None = None) -> dict:
     ev_id = canonical.get("event_id") or "no-event-id"
     entities = _extract_entities(canonical)
     tags     = _capability_tags(canonical, detection)
-    sev      = _severity_hint(canonical)
+    sev      = _severity_hint(canonical, detection)
     conf     = _confidence(entities, detection)
 
     iue_id = _stable_id("iue", f"{ev_id}|{sev}|{','.join(tags)}")
@@ -216,6 +251,9 @@ def understand(canonical: dict, detection: dict | None = None) -> dict:
         "entities":            entities,
         "capability_tags":     tags,
         "severity_hint":       sev,
+        # WHERE the band came from, so an analyst can see whether the
+        # source claimed it or the rule that fired supplied it.
+        "severity_source":     _severity_source(canonical, detection, sev),
         "confidence":          conf,
         "detection_supported": bool(detection and detection.get("matched")),
         "honesty_note":

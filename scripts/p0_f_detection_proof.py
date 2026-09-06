@@ -237,6 +237,35 @@ check("surface reports rule ids and provenance, not fabricated rows",
           d.get("rule_ids") and d.get("raw_id")
           for d in det["detections"]))
 
+step(9, "VERDICT THRESHOLD · a severe real detection reaches a real "
+     "incident")
+inc_ids = sorted({i for m in (data.get("matched") or [])
+                  for i in (m.get("incident_ids") or [])})
+verdicts = sorted({m.get("verdict") for m in (data.get("matched") or [])})
+print("   verdicts observed: " + ", ".join(v for v in verdicts if v))
+print("   incidents created: " + (", ".join(inc_ids) or "none"))
+check("a severe endpoint detection produced MALICIOUS or SUSPICIOUS",
+      any(v in ("MALICIOUS", "SUSPICIOUS") for v in verdicts), verdicts)
+check("the verdict gate promoted a REAL incident", bool(inc_ids), inc_ids)
+if inc_ids:
+    inc = req(f"/api/incidents/{inc_ids[0]}", bearer=admin)
+    print("   " + json.dumps({k: inc.get(k) for k in
+                              ("id", "incident_number", "name", "severity",
+                               "state", "tenant", "engine",
+                               "evidence_count")})[:500])
+    check("the incident is retrievable from the authoritative store",
+          inc.get("id") == inc_ids[0] and bool(inc.get("incident_number")),
+          inc.get("incident_number"))
+    check("the incident points at the canonical endpoint evidence",
+          bool(inc.get("canonical_evidence_ids")
+               or inc.get("evidence_pointers")),
+          f"evidence_count={inc.get('evidence_count')}")
+    ev_api = req(f"/api/edr/detections?incident_id={inc_ids[0]}",
+                 bearer=admin)
+    print(f"   /api/edr/detections rows: {len(ev_api.get('detections') or [])}")
+    check("the incident carries the endpoint detection evidence",
+          bool(ev_api.get("detections")))
+
 for p in procs.values():
     p.terminate()
 shutil.rmtree(STATE, ignore_errors=True)

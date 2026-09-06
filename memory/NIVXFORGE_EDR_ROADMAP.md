@@ -126,9 +126,16 @@ DSM registry and `DetectionRuleContent` model. Proven on real behaviour
 proof. Incident promotion NOT claimed — the VEEE gate declined at
 LIKELY_BENIGN/45, honestly.
 
-**Next (owner sequencing):** PHASE 3 detection→finding→reasoning proof
-(drive a rule severe enough to cross the gate), then PHASE 4 rule-store
-binding, PHASE 5 Process Tree re-key, PHASE 6 endpoint response.
+### ✅ P0-F.1 · Verdict Threshold Proof · DONE (2026-06)
+Real endpoint behaviour → MALICIOUS/80 → REAL incident, with the VEEE
+gate UNCHANGED. Root cause was IUE reading only a vendor severity band,
+which a sensor never supplies; the band now falls back to the severity of
+the rule that actually fired (`iue.severity_source` records which).
+
+**Next (owner sequencing):** endpoint incident CONSOLIDATION (one
+incident per campaign, not per observed process — found by the P0-F.1
+proof), then PHASE 4 rule-store binding, PHASE 5 Process Tree re-key,
+PHASE 6 endpoint response.
 
 ### ▶ P0-F · superseded section below (kept for history)
 The question P0-F exists to answer: *can NivXForge actually detect

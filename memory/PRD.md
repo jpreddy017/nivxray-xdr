@@ -1,6 +1,59 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · **P0-F.1 VERDICT THRESHOLD PROOF** · PASS · endpoint → REAL incident
+
+The owner correctly refused P0-F as fully PASS while incident promotion
+was unverified. It is now verified, and **no threshold was moved.**
+
+### Root cause (investigated before changing anything)
+`xdr_veee` scoring is `detection match (45) + iue.severity_hint + ICE`.
+`xdr_iue._severity_hint()` read ONLY a **vendor** severity
+(`security.severity_band`, or the Suricata numeric scale). **A sensor
+never supplies one** — an endpoint reports facts, not judgements — so
+severity contributed +0 and ANY source without a vendor band was
+permanently capped at 45/LIKELY_BENIGN no matter how severe the rule that
+fired. The severity of `bash -i >& /dev/tcp/…` lives in the
+`DetectionRuleContent` that matched it.
+
+### The fix (evidence-based, not a tuning)
+`_severity_hint()` gained a THIRD and LAST priority: the severity of the
+authoritative rule that actually FIRED, used only when the source
+declared nothing. Most-severe-rule wins (a critical behaviour is not
+diluted by benign company). New `iue.severity_source` field states where
+the band came from: `source.security.severity_band` /
+`source.security.severity` / `detection.rule_severity` / `none_declared`.
+Vendor bands still win, so CEF/LEEF and snort semantics are untouched
+(re-proven: CEF still MEDIUM from source, verdict 15/INCONCLUSIVE,
+unchanged). A test pins the bands and weights so the gate cannot be
+quietly moved later: 45 / (80,55,25,0) / CRITICAL=35.
+
+### Real runtime proof · `scripts/p0_f_detection_proof.py` · 23/23
+Real behaviour on this host → `MALICIOUS` and `SUSPICIOUS` verdicts → **6
+real incidents** created through the unchanged gate, e.g.
+`inc_3e3db02e67d748388eb7` / `INC000000227`, retrievable from
+`/api/incidents/{id}`, `evidence_count=1`, pointing at the canonical
+endpoint evidence, with the endpoint detection visible on
+`/api/edr/detections?incident_id=`. Deterministic ladder now:
+critical→MALICIOUS/80, high→SUSPICIOUS/70, medium→SUSPICIOUS/60,
+low→LIKELY_BENIGN/50, no-match→INCONCLUSIVE/0 (no incident).
+`tests/edr` **229 pass**; 314 detection/ingestion/investigation/response
+tests pass; `tests/live` 9 pass.
+
+### NEW FINDINGS — reported, deliberately NOT fixed (out of scope)
+1. **One incident per observed process, not per campaign.** The proof's
+   looping behaviour produced 6 incidents from one endpoint. ICE
+   correlation runs, but incident promotion does not consolidate repeated
+   endpoint behaviour. This is the next real quality problem.
+2. **Incident naming does not understand endpoint evidence** — titles
+   render as `Suspicious — sig UNKNOWN → UNKNOWN` because the namer
+   expects signature/network entities.
+3. Pre-existing and unrelated: `tests/live/test_phase2_final_gate_live.py`
+   fails only when run in the SAME process as any async EDR suite
+   (`no current event loop`) — reproduced identically on a clean tree.
+
+
+
 ## ✅ 2026-06 · NivXForge EDR · **P0-F ENDPOINT DETECTION ACTIVATION** · PASS
 
 The one missing arrow the accepted intra-repository audit identified is

@@ -239,15 +239,19 @@ PIPELINE_CAPABILITIES: list[Capability] = [
             "GET /api/edr/endpoint-detections · "
             "tests/edr/test_p0_f_endpoint_detection.py · "
             "scripts/p0_f_detection_proof.py",
-         note="P0-F: the endpoint plane CONSUMES the fabric — it owns no "
-              "engine, registry or rule model. Proven on real behaviour "
-              "executed on this host: 5 Linux rules fired with full "
-              "raw_id → canonical_event_id → rule provenance, and benign "
-              "controls did not alert. NOT claimed: promotion to an "
-              "incident (the VEEE gate evaluated these and honestly "
-              "declined at LIKELY_BENIGN/45), and the 5-second poll means "
-              "a command that starts and exits between scans is never "
-              "evaluated at all.",
+         note="P0-F + P0-F.1: the endpoint plane CONSUMES the fabric — it "
+              "owns no engine, registry or rule model. Proven on real "
+              "behaviour executed on this host: 5 Linux rules fired with "
+              "full raw_id → canonical_event_id → rule provenance, benign "
+              "controls did not alert, and a CRITICAL detection now "
+              "reaches MALICIOUS/80 and a REAL incident "
+              "(INC000000227-class) through the UNCHANGED VEEE gate. The "
+              "root cause was that IUE only read a VENDOR severity band, "
+              "which a sensor never supplies — no threshold was moved. "
+              "STILL A GAP: the 5-second poll means a command that starts "
+              "and exits between scans is never evaluated at all, and "
+              "repeated malicious behaviour currently opens one incident "
+              "per observed process rather than one per campaign.",
          wave="P0-F · DONE"),
     _cap("backend.activity_identity", Plane.BACKEND, "pipeline",
          "One real activity → one piece of evidence",
