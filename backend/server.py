@@ -265,6 +265,10 @@ api.include_router(xdr_dashboard_router)
 api.include_router(xdr_mss_router)
 api.include_router(xdr_queue_ops_router)
 api.include_router(edr_projections_router)
+from routers.edr_response import (agent as edr_resp_agent,
+                                  router as edr_resp_router)
+api.include_router(edr_resp_router)
+api.include_router(edr_resp_agent)
 api.include_router(incident_summary_router)
 api.include_router(ops_router)
 api.include_router(analyze_router)
@@ -835,6 +839,8 @@ async def _startup():
         from edr_plane.enrollment.store import ensure_indexes as _ensure_enr
         from edr_plane.enrollment.rejection import (
             ensure_indexes as _ensure_rej)
+        from edr_plane.response import ensure_indexes as _ensure_resp
+        await _ensure_resp(_raw_db)
         await _ensure_enr(_raw_db)
         await _ensure_rej(_raw_db)
         # P0-D · the activity-identity lookup that keeps a re-observation

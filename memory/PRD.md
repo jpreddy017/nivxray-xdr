@@ -1,6 +1,36 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## 🔎 2026-06 · **P0-F.5 DIAGNOSIS ONLY · NO CODE CHANGED · AWAITING OWNER APPROVAL**
+
+Owner instruction: reproduce first, change nothing. Done — `scripts/p0_f5_response_proof.py`
+re-run verbatim: **19/20 PASS, 1 FAIL = `['the REAL process is actually gone']`**.
+
+Proven facts from the run (`cmd_4c50a9c130c5482ca4c5`, endpoint `ep_2d57cbe6f80152062109`,
+victim pid 2191):
+- command reached the sensor; history is exactly
+  `REQUESTED(admin@nivxray.com) → DISPATCHED(ep_…) → EXECUTED(ep_…) → VERIFIED(ep_…)`;
+- sensor delivered SIGKILL (`sensor_result.evidence = {"signal":"SIGKILL","pid":2191}`);
+- verification is independent post-action `/proc` read: `process_present=false`,
+  **`proc_state="Z"`**;
+- every negative case passed (never-observed pid → `TARGET_NOT_OBSERVED`; isolation →
+  `CAPABILITY_UNAVAILABLE`, `verified_at=null`; revoked endpoint → `ENDPOINT_REVOKED`).
+
+**Root cause = the ASSERTION, not the kill.** The victim is a direct child of the proof
+script, so after SIGKILL it is an unreaped **zombie** and `/proc/<pid>` persists until the
+parent `wait()`s. Isolated OS evidence: child → `/proc` exists, state `Z`; after reap →
+gone, waitstatus `-9`. Non-child (`setsid`) victim killed → `/proc` gone immediately.
+
+Two side findings reported, NOT fixed: (1) `observed_start_time` came back `null`, so
+`_proc_alive` fell back to pid-only identity for this kill; (2) `victim.poll() is not None`
+does not assert the signal was 9, so a self-exit would also pass that check.
+
+**Authorised fix (pending owner approval, nothing done yet)**: assert `-9` waitstatus,
+accept absent-or-`Z`, and add a non-child `setsid` victim so "actually gone" is unambiguous.
+P0-F.6 must not start until the owner explicitly accepts P0-F.5.
+
+
+
 ## ✅ 2026-06 · **P0-F.4 PROCESS TREE RE-KEY** · PASS
 
 `/api/edr/process-tree` was incident-keyed and case-derived, so it could

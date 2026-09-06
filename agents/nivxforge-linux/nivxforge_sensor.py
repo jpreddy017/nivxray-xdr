@@ -37,6 +37,9 @@ import pwd
 import socket
 import sys
 import time
+import shutil
+import signal
+import subprocess
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -494,6 +497,138 @@ def _save_observed(procs: set[str], conns: set[str],
     tmp.replace(OBSERVED_FILE)
 
 
+def _get(api: str, path: str, bearer: str) -> dict:
+    req = urllib.request.Request(
+        f"{api}{path}",
+        headers={"User-Agent": f"NivXForge-EDR-Sensor/{SENSOR_VERSION}",
+                 "Authorization": f"Bearer {bearer}"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"{e.code} {e.read().decode()[:300]}") from None
+
+
+def _proc_alive(pid: int, start_ticks: str | None = None) -> bool:
+    """Is THAT process still there? Identity, not just a pid.
+
+    When a start time is known it must match, otherwise a reused pid would
+    make a successful kill look like a failure (or worse, a failed kill
+    look successful).
+    """
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return False
+    # A zombie (state Z) has ALREADY terminated — /proc still holds the
+    # entry only until its parent reaps it. Counting that as "still
+    # running" would report a successful kill as a failure.
+    try:
+        if stat[stat.rindex(")") + 2:].split()[0] == "Z":
+            return False
+    except (ValueError, IndexError):
+        pass
+    if not start_ticks:
+        return True
+    try:
+        return str(int(stat[stat.rindex(")") + 2:].split()[19])) == \
+            str(start_ticks)
+    except (ValueError, IndexError):
+        return True
+
+
+def _execute_command(cmd: dict) -> tuple[str, str, dict]:
+    """Perform the action for real. Never report success it did not have."""
+    action, target = cmd.get("action"), cmd.get("target") or {}
+    if action == "KILL_PROCESS":
+        pid = target.get("pid")
+        if not isinstance(pid, int) or pid <= 1:
+            return "FAILED", "no valid pid in the command target", {}
+        if not _proc_alive(pid, target.get("observed_start_time")):
+            return ("FAILED",
+                    f"pid {pid} is not present on this endpoint now — "
+                    f"nothing was killed", {"pre_state": "absent"})
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except PermissionError:
+            return ("CAPABILITY_UNAVAILABLE",
+                    f"this sensor lacks permission to signal pid {pid}", {})
+        except OSError as e:
+            return "FAILED", f"kill failed: {e}", {}
+        time.sleep(0.4)
+        return ("EXECUTED", f"SIGKILL delivered to pid {pid}",
+                {"signal": "SIGKILL", "pid": pid})
+    if action in ("ISOLATE_ENDPOINT", "RELEASE_ISOLATION"):
+        # Honest capability probe. Claiming isolation without the kernel
+        # privilege to enforce it would be the worst lie this product
+        # could tell: an analyst would believe a live host was contained.
+        if shutil.which("iptables") is None:
+            return ("CAPABILITY_UNAVAILABLE",
+                    "no iptables on this endpoint: network isolation "
+                    "cannot be enforced, so it is not claimed", {})
+        probe = subprocess.run(["iptables", "-L", "-n"],
+                               capture_output=True, text=True)
+        if probe.returncode != 0:
+            return ("CAPABILITY_UNAVAILABLE",
+                    "iptables is present but this sensor cannot use it "
+                    f"(needs NET_ADMIN): {probe.stderr.strip()[:160]}", {})
+        return ("CAPABILITY_UNAVAILABLE",
+                "isolation enforcement is not implemented in this sensor "
+                "version; it is reported as unavailable rather than faked",
+                {})
+    return "FAILED", f"unknown action {action}", {}
+
+
+def _verify_command(cmd: dict, result: tuple) -> dict:
+    """Evidence gathered AFTER the action, independent of the action."""
+    target = cmd.get("target") or {}
+    if cmd.get("action") == "KILL_PROCESS":
+        pid = target.get("pid")
+        present = _proc_alive(pid) if isinstance(pid, int) else False
+        try:
+            stat = Path(f"/proc/{pid}/stat").read_text()
+            state = stat[stat.rindex(")") + 2:].split()[0]
+        except (OSError, ValueError, IndexError):
+            state = None
+        return {"method": "post_action_proc_read",
+                "process_present": present, "pid": pid,
+                "proc_state": state,
+                "detail": (f"/proc/{pid} state={state}" if state
+                           else f"/proc/{pid} no longer exists")}
+    return {"method": "post_action_probe", "effect_confirmed": False,
+            "detail": "no verification method exists for this action yet"}
+
+
+def _serve_commands(api: str, ident: dict, session: dict) -> int:
+    """Claim, execute and then PROVE. A command is never marked verified
+    from the fact that it ran."""
+    if not session.get("token"):
+        session["token"] = _open_session(api, ident)
+    try:
+        cmds = _get(api, "/api/edr/agent/commands",
+                    session["token"]).get("commands") or []
+    except RuntimeError as e:
+        if "401" in str(e):
+            session["token"] = None
+        return 0
+    for cmd in cmds:
+        outcome, detail, evidence = _execute_command(cmd)
+        print(f"[{_now()}] command {cmd['command_id']} {cmd['action']} "
+              f"→ {outcome}: {detail}")
+        _post(api, "/api/edr/agent/command-result",
+              {"command_id": cmd["command_id"], "outcome": outcome,
+               "detail": detail, "evidence": evidence},
+              bearer=session["token"])
+        if outcome == "EXECUTED":
+            probe = _verify_command(cmd, (outcome, detail, evidence))
+            v = _post(api, "/api/edr/agent/command-verification",
+                      {"command_id": cmd["command_id"], "probe": probe},
+                      bearer=session["token"])
+            print(f"[{_now()}]   verification → {v.get('state')}: "
+                  f"{v.get('finding')}")
+    return len(cmds)
+
+
 def run(api: str, interval: int, watch: str | None, once: bool) -> None:
     ident = _read_identity()
     session: dict = {"token": None}
@@ -517,7 +652,8 @@ def run(api: str, interval: int, watch: str | None, once: bool) -> None:
             _enqueue(batch)
         _save_observed(seen_pids, seen_conns, known_files, baselined)
         sent, failed = _drain(api, ident, session)
-        print(f"[{_now()}] collected={len(batch)} sent={sent} "
+        served = _serve_commands(api, ident, session)
+        print(f"[{_now()}] commands={served} collected={len(batch)} sent={sent} "
               f"held={failed} endpoint={ident['endpoint_id']}")
         if once:
             return
