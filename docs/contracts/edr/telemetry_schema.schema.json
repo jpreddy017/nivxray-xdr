@@ -1,0 +1,1811 @@
+{
+  "$defs": {
+    "ActivityType": {
+      "description": "The endpoint activity dimensions NivXForge collects. Directive \u00a711\nextends the Cisco 43-item baseline with these; it does not replace it.",
+      "enum": [
+        "PROCESS",
+        "FILE",
+        "NETWORK",
+        "DNS",
+        "REGISTRY",
+        "SERVICE",
+        "SCHEDULED_TASK",
+        "PERSISTENCE",
+        "IDENTITY",
+        "USB",
+        "DRIVER",
+        "MODULE",
+        "MEMORY",
+        "CONTAINER",
+        "BROWSER",
+        "CLOUD",
+        "SENSOR",
+        "RESPONSE",
+        "DETECTION",
+        "SYSTEM"
+      ],
+      "title": "ActivityType",
+      "type": "string"
+    },
+    "EpistemicState": {
+      "description": "Directive \u00a76. The six \u2014 and only six \u2014 states an evidence field\nmay resolve to.",
+      "enum": [
+        "OBSERVED",
+        "NOT_OBSERVED",
+        "NOT_COLLECTED",
+        "NOT_SUPPORTED",
+        "PARSER_FAILED",
+        "UNKNOWN"
+      ],
+      "title": "EpistemicState",
+      "type": "string"
+    },
+    "FileIdentity": {
+      "additionalProperties": false,
+      "description": "Contract 4. Content identity is the SHA-256; path identity is not\nidentity at all, because one file appears under many names.\n\n`content_digest_available` is explicit because the current substrate\nhonestly cannot hash file content (see the truth audit): a SHA-256\nquery today degrades to a name query, and the API says so rather than\npretending to match on hash.",
+      "properties": {
+        "content_digest_available": {
+          "default": false,
+          "title": "Content Digest Available",
+          "type": "boolean"
+        },
+        "disposition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CLEAN | MALICIOUS | UNKNOWN | UNAVAILABLE \u2014 never defaulted to CLEAN",
+          "nivxforge_evidence": true,
+          "title": "Disposition"
+        },
+        "extension": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Extension"
+        },
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "file_iid": {
+          "title": "File Iid",
+          "type": "string"
+        },
+        "file_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "File Type"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Filename"
+        },
+        "md5": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Md5"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FileOperation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Path"
+        },
+        "prevalence": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Prevalence"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sha1": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Sha1"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Sha256"
+        },
+        "signer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Signer"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Size"
+        }
+      },
+      "required": [
+        "file_iid"
+      ],
+      "title": "FileIdentity",
+      "type": "object"
+    },
+    "FileOperation": {
+      "enum": [
+        "CREATE",
+        "MODIFY",
+        "MOVE",
+        "COPY",
+        "EXECUTE",
+        "DELETE",
+        "RESTORE",
+        "RENAME",
+        "OPEN"
+      ],
+      "title": "FileOperation",
+      "type": "string"
+    },
+    "NetworkDirection": {
+      "enum": [
+        "INBOUND",
+        "OUTBOUND",
+        "LISTEN",
+        "UNKNOWN"
+      ],
+      "title": "NetworkDirection",
+      "type": "string"
+    },
+    "NetworkIdentity": {
+      "additionalProperties": false,
+      "description": "Contract 5.\n\nA remote IP is a network peer. It is NEVER an endpoint and it is NEVER\na process \u2014 the two fabrications this codebase has already had to fix\nonce.",
+      "properties": {
+        "bytes_received": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Bytes Received"
+        },
+        "bytes_sent": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Bytes Sent"
+        },
+        "connection_iid": {
+          "title": "Connection Iid",
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/NetworkDirection",
+          "default": "UNKNOWN"
+        },
+        "dns_answers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dns Answers",
+          "type": "array"
+        },
+        "dns_query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Dns Query"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Domain"
+        },
+        "endpoint_id": {
+          "title": "Endpoint Id",
+          "type": "string"
+        },
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "local_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Local Ip"
+        },
+        "local_port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Local Port"
+        },
+        "process_iid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Process Iid"
+        },
+        "protocol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Protocol"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "remote_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Remote Ip"
+        },
+        "remote_port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Remote Port"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "connection_iid",
+        "endpoint_id"
+      ],
+      "title": "NetworkIdentity",
+      "type": "object"
+    },
+    "PersistenceArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "mechanism": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "RUN_KEY | SERVICE | SCHEDULED_TASK | CRON | LAUNCH_AGENT | STARTUP_FOLDER | SYSTEM_EXTENSION | DRIVER | WMI_SUBSCRIPTION",
+          "nivxforge_evidence": true,
+          "title": "Mechanism"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Operation"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Owner"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Target"
+        }
+      },
+      "title": "PersistenceArtifact",
+      "type": "object"
+    },
+    "Platform": {
+      "enum": [
+        "WINDOWS",
+        "MACOS",
+        "LINUX",
+        "UNKNOWN"
+      ],
+      "title": "Platform",
+      "type": "string"
+    },
+    "ProcessIdentity": {
+      "additionalProperties": false,
+      "description": "Contract 3.\n\n`process_iid` binds (endpoint, pid, start_time) because a PID alone is\nreused by the OS within minutes. Without start_time in the identity,\ntwo unrelated processes collapse into one lifeline \u2014 which is how a\nfabricated process tree gets built by accident.",
+      "properties": {
+        "command_line": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Command Line"
+        },
+        "endpoint_id": {
+          "title": "Endpoint Id",
+          "type": "string"
+        },
+        "exit_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Exit Time"
+        },
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "basename, e.g. cmd.exe",
+          "nivxforge_evidence": true,
+          "title": "Image"
+        },
+        "image_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Image Path"
+        },
+        "integrity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Integrity"
+        },
+        "lineage_state": {
+          "default": "PARENT_NOT_OBSERVED",
+          "description": "PARENT_OBSERVED | PARENT_NOT_OBSERVED | PARENT_LINEAGE_INCOMPLETE_PARSER_FAILED",
+          "title": "Lineage State",
+          "type": "string"
+        },
+        "md5": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Md5"
+        },
+        "parent_iid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Parent Iid"
+        },
+        "pid": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Pid"
+        },
+        "ppid": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Ppid"
+        },
+        "process_iid": {
+          "title": "Process Iid",
+          "type": "string"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Session Id"
+        },
+        "sha1": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Sha1"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Sha256"
+        },
+        "signature_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Signature Status"
+        },
+        "signer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Signer"
+        },
+        "start_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Start Time"
+        },
+        "user": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "User"
+        }
+      },
+      "required": [
+        "process_iid",
+        "endpoint_id"
+      ],
+      "title": "ProcessIdentity",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Directive \u00a75 \u2014 every layer is additive and versioned.",
+      "properties": {
+        "analysis_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis Version"
+        },
+        "detection_content_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detection Content Version"
+        },
+        "normalizer_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalizer Version"
+        },
+        "parser_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Name"
+        },
+        "parser_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Version"
+        },
+        "raw_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "raw_id in edr_raw_events. The immutable original.",
+          "title": "Raw Ref"
+        },
+        "replay_generation": {
+          "default": 0,
+          "description": "0 = original ingest. Incremented per replay so a re-reasoned event never masquerades as a new one.",
+          "title": "Replay Generation",
+          "type": "integer"
+        },
+        "sensor_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sensor Version"
+        },
+        "source": {
+          "description": "collector / sensor / adapter identity",
+          "title": "Source",
+          "type": "string"
+        },
+        "verdict_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verdict Version"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RegistryIdentity": {
+      "additionalProperties": false,
+      "description": "Windows registry operation identity. Windows-only by nature: on\nLinux and macOS every field is NOT_SUPPORTED, never NOT_OBSERVED.",
+      "properties": {
+        "endpoint_id": {
+          "title": "Endpoint Id",
+          "type": "string"
+        },
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "hive": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Hive"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Key"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Operation"
+        },
+        "process_iid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Process Iid"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "registry_iid": {
+          "title": "Registry Iid",
+          "type": "string"
+        },
+        "value_data": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Value Data"
+        },
+        "value_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Value Name"
+        }
+      },
+      "required": [
+        "registry_iid",
+        "endpoint_id"
+      ],
+      "title": "RegistryIdentity",
+      "type": "object"
+    },
+    "ScheduledTaskArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Action"
+        },
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Name"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Operation"
+        },
+        "principal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Principal"
+        },
+        "trigger": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Trigger"
+        }
+      },
+      "title": "ScheduledTaskArtifact",
+      "type": "object"
+    },
+    "ServiceArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "binary_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Binary Path"
+        },
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Display Name"
+        },
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Name"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Operation"
+        },
+        "start_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Start Type"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "State"
+        }
+      },
+      "title": "ServiceArtifact",
+      "type": "object"
+    },
+    "TelemetryHealth": {
+      "enum": [
+        "HEALTHY",
+        "DEGRADED",
+        "MISSING",
+        "PARSER_FAILED",
+        "NOT_CONFIGURED",
+        "STALE"
+      ],
+      "title": "TelemetryHealth",
+      "type": "string"
+    },
+    "UsbDevice": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Device Id"
+        },
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "mount_point": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Mount Point"
+        },
+        "product": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Product"
+        },
+        "serial": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Serial"
+        },
+        "vendor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Vendor"
+        }
+      },
+      "title": "UsbDevice",
+      "type": "object"
+    },
+    "UserSession": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Domain"
+        },
+        "field_state_reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+          "title": "Field State Reasons",
+          "type": "object"
+        },
+        "field_states": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EpistemicState"
+          },
+          "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+          "title": "Field States",
+          "type": "object"
+        },
+        "is_remote": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Is Remote"
+        },
+        "logon_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Logon Time"
+        },
+        "logon_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Logon Type"
+        },
+        "privileges": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Privileges",
+          "type": "array"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "Session Id"
+        },
+        "user": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "nivxforge_evidence": true,
+          "title": "User"
+        }
+      },
+      "title": "UserSession",
+      "type": "object"
+    }
+  },
+  "$id": "nivxforge-edr/wave0/v1/telemetry_schema.schema.json",
+  "additionalProperties": false,
+  "description": "The canonical endpoint evidence record.\n\nThis is the ONLY shape the detection fabric, the reasoning fabric and\nthe analyst console are permitted to consume. A vendor adapter's job is\nfinished when it has produced one of these; it never reaches further\ninto the platform.",
+  "properties": {
+    "activity_type": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ActivityType"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Confidence"
+    },
+    "dedup_key": {
+      "title": "Dedup Key",
+      "type": "string"
+    },
+    "detection_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Detection Refs",
+      "type": "array"
+    },
+    "device_iid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Device Iid"
+    },
+    "endpoint_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Endpoint Id"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_time": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Event Time"
+    },
+    "event_type": {
+      "title": "Event Type",
+      "type": "string"
+    },
+    "field_state_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+      "title": "Field State Reasons",
+      "type": "object"
+    },
+    "field_states": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EpistemicState"
+      },
+      "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+      "title": "Field States",
+      "type": "object"
+    },
+    "file": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FileIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "hostname": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Hostname"
+    },
+    "ingest_time": {
+      "title": "Ingest Time",
+      "type": "string"
+    },
+    "ioc_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ioc Refs",
+      "type": "array"
+    },
+    "mitre_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Mitre Refs",
+      "type": "array"
+    },
+    "network": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NetworkIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "parent_process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProcessIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "parser_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Parser Notes",
+      "type": "array"
+    },
+    "parser_state": {
+      "default": "OK",
+      "description": "OK | PARTIAL | FAILED. FAILED still yields a record \u2014 an event that failed to parse DID occur.",
+      "title": "Parser State",
+      "type": "string"
+    },
+    "persistence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersistenceArtifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "platform": {
+      "$ref": "#/$defs/Platform",
+      "default": "UNKNOWN"
+    },
+    "process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProcessIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "raw_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "raw_id of the immutable original. Directive \u00a75.",
+      "nivxforge_evidence": true,
+      "title": "Raw Ref"
+    },
+    "registry": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RegistryIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "scheduled_task": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ScheduledTaskArtifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "sensor_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Sensor Version"
+    },
+    "service": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ServiceArtifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "telemetry_quality": {
+      "$ref": "#/$defs/TelemetryHealth",
+      "default": "HEALTHY"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "usb_device": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/UsbDevice"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "user_session": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/UserSession"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    }
+  },
+  "required": [
+    "tenant_id",
+    "event_id",
+    "dedup_key",
+    "ingest_time",
+    "event_type",
+    "provenance"
+  ],
+  "title": "EndpointEvidence",
+  "type": "object",
+  "x-nivxforge-contract": "telemetry_schema",
+  "x-nivxforge-epistemic-states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "x-nivxforge-evidence-fields": [
+    "endpoint_id",
+    "device_iid",
+    "hostname",
+    "sensor_version",
+    "event_time",
+    "activity_type",
+    "process",
+    "parent_process",
+    "file",
+    "network",
+    "registry",
+    "user_session",
+    "persistence",
+    "usb_device",
+    "service",
+    "scheduled_task",
+    "confidence",
+    "raw_ref"
+  ]
+}

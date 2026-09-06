@@ -609,6 +609,15 @@ api.include_router(audit_downloads_router)
 from routers.deck_download import router as deck_download_router
 api.include_router(deck_download_router)
 
+# NivXForge EDR · Wave 0 — the capability-truth API. Read-only. Serves the
+# executable contracts, the graded capability registry, the filter-taxonomy
+# status and the immutable raw-event substrate stats, so the console cannot
+# claim a capability the registry denies.
+# Authority: docs/architecture/NIVXFORGE_EDR_MASTER_DIRECTIVE.md
+from routers.edr_wave0 import router as edr_wave0_router
+api.include_router(edr_wave0_router)
+
+
 # v2 · Additive next-generation namespace (Phase 3+).
 # Isolated inside a try/except so if `/app/backend/v2/` is deleted
 # outright the RC5 API keeps running — this is the deletion-safety
@@ -806,6 +815,17 @@ async def _startup():
         log.info("[startup] decoded artifact store indexes ensured")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] decoded artifact indexes failed: {e}")
+    # NivXForge EDR Wave 0 · immutable raw-event substrate. The unique
+    # (tenant_id, dedup_key) index is what makes append-only idempotency a
+    # storage guarantee rather than an application convention.
+    try:
+        from edr_plane.raw_events import ensure_indexes as _ensure_raw_indexes
+        from deps import db as _raw_db
+        await _ensure_raw_indexes(_raw_db)
+        log.info("[startup] edr_raw_events indexes ensured (append-only)")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] edr_raw_events indexes failed: {e}")
+
     # P1.1 · FileStore retention sweeper (application-controlled TTL)
     try:
         from services.files.retention_sweeper import start_retention_sweeper

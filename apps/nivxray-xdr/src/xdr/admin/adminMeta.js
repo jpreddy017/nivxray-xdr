@@ -43,6 +43,13 @@ export const ADMIN_SECTIONS = [
     api: null, kind: "capability_hub", connected: true,
   },
   {
+    key: "edr-capability-truth", label: "NivXForge EDR · Capability Truth",
+    icon: ShieldCheck,
+    subtitle: "Wave 0 honesty baseline · every EDR capability graded across all three planes with feature state, gap class and an evidence reference. No capability counts as implemented merely because a route, UI component, stub, simulator or contract exists.",
+    api: "/api/edr/wave0/capabilities", kind: "edr_capability_truth",
+    connected: true, authoritative: true,
+  },
+  {
     key: "detection-registry", label: "Detection Registry",
     icon: Radar,
     subtitle: "AUTHORITATIVE detection-content plane · Rules · Content Packs · ATT&CK Coverage · Sources & Provenance · Versions & Sync · Validation. Single source of truth for every rule NivXRay executes. Detection ≠ Verdict preserved.",

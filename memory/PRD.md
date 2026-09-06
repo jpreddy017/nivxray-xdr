@@ -1,6 +1,177 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · NivXForge EDR · **WAVE 0 · ARCHITECTURE & CONTRACTS** · DELIVERED (iteration_89)
+
+**Authority now frozen in-repo**: `docs/architecture/NIVXFORGE_EDR_MASTER_DIRECTIVE.md`
+(24 sections). The framing *"Complete 360-Degree Cisco Secure Endpoint
+UI/UX Clone"* is **RETIRED**. The correct framing is *"NivXForge EDR —
+Complete Enterprise Endpoint Security Plane, with Cisco Secure Endpoint
+operational parity as the MINIMUM baseline."* Roadmap:
+`memory/NIVXFORGE_EDR_ROADMAP.md`.
+
+**Owner decisions locked for Wave 0**: 1A contracts first then P0-A.2 ·
+2C executable contracts + Capability Registry/API consumed by the console ·
+3A immutable `edr_raw_events` now, do not defer the foundation ·
+4B locate the 43 items in the repo, never invent · 5A grade all ~90
+capabilities before implementation expands.
+
+### Wave 0 builds no feature. Its only claim is that four specific dishonesties are now STRUCTURALLY IMPOSSIBLE.
+
+**1 · An evidence field cannot be silently null.**
+`edr_plane/contracts/epistemic.py` · `EvidenceModel` validates that any
+field declared with `evidence_field()` which is null MUST name one of the
+six §6 states in `field_states` plus a reason — otherwise it is a
+`ValidationError`. Declaring `OBSERVED` on a null field is also rejected,
+because OBSERVED asserts a value exists. A present value is auto-stamped
+OBSERVED so no consumer ever has to infer. `presentation()` returns a
+glyph (`◇` no evidence · `⊘` not collected/not supported · `!` parser
+failed · `?` unknown) **plus the reason** — it can never return an empty
+string or a bare dash. The six §7 forbidden equivalences are held as
+DATA (`FORBIDDEN_EQUIVALENCES`) so the suite asserts them mechanically
+instead of trusting a future author to remember them.
+
+**2 · A response cannot claim success without endpoint evidence.**
+`edr_plane/contracts/response.py` · `ResponseLifecycle` has **no
+`SUCCEEDED` member at all**. `advance()` enforces `RESPONSE_TRANSITIONS`,
+so REQUESTED → VERIFIED raises. `verify()` is the only route to success
+and refuses an empty `evidence_ref` with *"never report success without
+endpoint evidence"*. An action with no registered driver terminates at
+`DRIVER_NOT_REGISTERED` — which is why the console shows
+`⊘ RESPONSE DRIVER NOT REGISTERED` and not a green tick. Full record:
+requested_by · approved_by · policy · playbook · target · action ·
+timestamp · status · result · evidence · verification.
+
+**3 · A capability cannot claim more than the repo can prove.**
+`edr_plane/capability/model.py` · `Capability._downgrade_unproven_claims()`
+caps `effective_state` to what the component statuses support and records
+`downgrade_reason`. Claiming OPERATIONAL with `telemetry_status=ABSENT`
+downgrades to BACKEND_IMPLEMENTED; UI present with backend absent is
+reclassified UI_IMPLEMENTED + gap `UI_ONLY`; any claim at or above
+BACKEND_IMPLEMENTED without an `evidence_reference` falls to
+CONTRACT_DEFINED. The owner's rule is enforced, not advised: *no
+capability counts as implemented merely because a route, UI component,
+stub, simulator or contract exists.*
+
+**4 · Raw telemetry cannot be overwritten.**
+`edr_plane/raw_events.py` · append-only `edr_raw_events`, enforced three
+ways: a unique `(tenant_id, dedup_key)` index makes idempotency a storage
+guarantee; the module exposes **no** update/delete/overwrite function at
+all; and every pipeline pass is `$push`ed to `derivations` with its own
+parser/normalizer/detection/analysis/verdict version stamps plus
+`replay_generation`. Proven against real Mongo: a byte-identical
+re-delivery yields one document with `duplicate_count=1` and untouched
+bytes; a parser failure retains the bytes, appears in
+`replay-candidates?parser_state=FAILED`, and after a successful re-reason
+at generation 1 **both** derivations survive — so the record of what we
+believed and when is not destroyed by the fix.
+
+### The twelve contracts (executable, not documented)
+
+`EndpointIdentity` · `EndpointEvidence` (telemetry schema) ·
+`ProcessIdentity` · `FileIdentity` · `NetworkIdentity` · `EventIdentity` ·
+`EvidenceIdentity` · `ResponseCommand` · `ResponseResult` ·
+`TelemetryHealthContract` · `Capability` · `SensorCapability`.
+JSON Schema exported to `docs/contracts/edr/` (10 schemas + manifest) so a
+future agent in another language can populate the same canonical model.
+
+Identity decisions worth remembering: `endpoint_id` precedence is
+hardware > machine guid > device_iid > hostname, because hostname is the
+only one an attacker can trivially change; minting refuses outright with
+no durable attribute (an unattributed observation is not an endpoint).
+`process_iid` binds (endpoint, pid, start_time) because a bare PID is
+reused within minutes and without start_time two unrelated processes
+collapse into one lifeline — which is how a fabricated process tree gets
+built by accident. `FileIdentity.mint()` degrades to a `filename_` prefix
+without a hash and keeps `content_digest_available=false`, so nothing
+claims a hash match it cannot make. `LINEAGE_PRESENTATION` has exactly
+three states and renders `[ROOT / PARENT NOT OBSERVED]` — never an
+invented `explorer.exe`.
+
+**One discrepancy resolved honestly rather than silently**: the directive
+names a 6-state telemetry dimension; the shipped resolver produces 9. The
+9-state set is strictly FINER — it distinguishes never-enrolled from
+revoked from intentionally-isolated, all three of which the 6-state set
+flattens to MISSING. So the 9-state set stays authoritative and
+`TO_DIRECTIVE_TELEMETRY` publishes a **clearly-labelled lossy**
+down-projection for conformance reporting only. Nothing decides on it.
+`TelemetryHealthContract` also has no `overall`/`status`/`healthy` field —
+adding one is what would let a CONNECTED-but-silent agent read as an
+all-clear.
+
+### The 127-row honesty baseline
+
+```
+OPERATIONAL 11 · END_TO_END_VALIDATED 2 · GOLDEN_CORPUS_VALIDATED 9
+BACKEND_IMPLEMENTED 34 · UI_IMPLEMENTED 2 · CONTRACT_DEFINED 27
+NOT_IMPLEMENTED 42          AGENT 31 · BACKEND 63 · EXPERIENCE 33
+gaps: TELEMETRY_MISSING 67 · CONTROL_DRIVER_MISSING 15 · NONE 39
+      UI_ONLY 5 · OWNER_INPUT_PENDING 1      sensors registered: 0
+```
+
+**The finding**: 67 of 127 capabilities are blocked on missing telemetry
+and zero sensors are registered. The gap is the SUBSTRATE, not the
+capability — which is exactly why Wave 0 → P0-A.2 → P0-B is the order.
+Every row above CONTRACT_DEFINED cites a real file, route, test or test
+report; `downgraded_claims` is 0 because two rows I had over-declared
+(spread correlation and RBAC) were corrected at source rather than left
+to be auto-downgraded.
+
+**API** (read-only, authenticated, 9 routes): `/api/edr/wave0/capabilities`
+`/capabilities/summary` `/capabilities/{id}` `/sensors` `/contracts`
+`/contracts/{name}/schema` `/filter-taxonomy` `/raw-events/stats`
+`/raw-events/replay-candidates`.
+**Console**: `/xdr/admin/edr-capability-truth` — renders `effective_state`
+(never `declared_state`), shows the downgrade reason inline, and hardcodes
+no status.
+
+### 43-item filter taxonomy — honestly PENDING, not faked
+
+Searched `docs/`, `memory/`, `apps/` and `backend/`. The five categories
+are in `docs/uiux/NIVXFORGE_EDR_TARGET_UX_ARCHITECTURE.md`; the **verbatim
+43 items are NOT in this repository** and were deliberately not
+reconstructed from general product knowledge (owner decision 4B). State:
+`CONTRACT_DEFINED · ITEM_LIST_PENDING_OWNER_INPUT`, gap
+`OWNER_INPUT_PENDING`. `register_baseline_items()` refuses anything other
+than exactly 43 items and refuses unknown categories. Both the API and
+the console banner disclose `0/43` rather than present a partial filter
+set as the mandatory baseline. The 20 NivXForge extension dimensions are
+ours and are declared; they EXTEND and never replace the baseline.
+
+### Packaging note that cost real time
+
+The code lives at `backend/edr_plane/` — **not** `backend/edr/` (shadowed
+by `tests/edr` on `sys.path` under pytest) and **not** inside
+`backend/nivxforge/`, which is an isolation-enforced package that forbids
+Workspace imports, allows only `/api/nivxforge/` routes and mandates
+`FORGE_` env and `forge_` collections. NivXForge EDR must reach the
+authoritative NivXRay engines and the existing `/api/edr` surface, so it
+sits alongside them.
+
+### Testing
+
+`tests/edr/` **147 pass**: 45 contract-invariant + 5 real-Mongo
+immutability + 16 live-API smoke (added by the testing agent) + the 81
+pre-existing. **iteration_89: 100% backend / 100% frontend, zero issues,
+zero action items.** Auth boundary confirmed on all 9 routes. P0-A.1
+regression re-verified. Pre-existing and NOT caused by Wave 0:
+`tests/decoder_harness/test_b3_3_dependency_audit.py` has 2 failures —
+confirmed by stashing all changes and re-running on a clean tree.
+
+### Honest limits of Wave 0 (NOT claimed as done)
+
+- `edr_raw_events` is **empty** and is not yet the write path for live
+  ingest. Wiring it in is P0-C/P0-D.
+- `EndpointEvidence` has **no producer**. Live telemetry still lands as
+  `v2_shadow_observations`.
+- Replay selection and generation stamping exist; driving the full
+  pipeline over a replay set is not wired.
+- Zero sensors registered, so every endpoint field resolves
+  NOT_SUPPORTED / NOT_COLLECTED — never NOT_OBSERVED.
+- No enrolment, no authentication, no agent. That is P0-A.2 and P0-B.
+
+
+
 ## 🔒 2026-06 · SCOPE FROZEN TO **NivXForge EDR** · XDR IS OUT OF THIS TRACK
 
 Owner directive: "we keep XDR aside and focus exclusively on NivXForge EDR."

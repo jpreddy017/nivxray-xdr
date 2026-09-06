@@ -28,6 +28,7 @@ import ParsersBody from "@/xdr/admin/ParsersBody";
 import NormalizationBody from "@/xdr/admin/NormalizationBody";
 import CorpusBody from "@/xdr/admin/CorpusBody";
 import CapabilityHubBody from "@/xdr/admin/CapabilityHubBody";
+import EdrCapabilityTruthBody from "@/xdr/admin/EdrCapabilityTruthBody";
 import DetectionContentBody from "@/xdr/admin/DetectionContentBody";
 import DeprecatedBanner     from "@/xdr/admin/DeprecatedBanner";
 import AuditLogBody from "@/xdr/admin/AuditLogBody";
@@ -191,7 +192,8 @@ function AdminBody({ section }) {
       setState("populated");
       return;
     }
-    if (section.kind === "capability_hub" || section.kind === "detection_content"
+    if (section.kind === "capability_hub" || section.kind === "edr_capability_truth"
+         || section.kind === "detection_content"
          || section.kind === "deprecated_detection_content"
          || section.kind === "audit_log" || section.kind === "secrets"
          || section.kind === "content_pack_lolbas"
@@ -333,6 +335,8 @@ function AdminBody({ section }) {
               ? <CorpusBody />
               : section.kind === "capability_hub"
               ? <CapabilityHubBody />
+              : section.kind === "edr_capability_truth"
+              ? <EdrCapabilityTruthBody />
               : (section.kind === "detection_content"
                   || section.kind === "deprecated_detection_content")
               ? <DetectionContentBody />
