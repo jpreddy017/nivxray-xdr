@@ -1,6 +1,66 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## 🟡 2026-06 · **P0-F.10 ISOLATION DRIVER** · BUILT + POLICY + UI · **CONTAINMENT NOT YET PROVEN ON A PRIVILEGED HOST**
+
+Owner choices honoured verbatim: real kernel-enforced driver (the degraded
+socket-termination mode was **rejected**), policy-controlled allow-list,
+explicit analyst release, and **two independent proofs** before VERIFIED.
+
+### What is DONE and tested (iteration_93 · 100% / 100% · zero issues)
+- `edr_plane/isolation_policy.py` — the allow-list is **policy, not code**:
+  tenant-scoped, versioned, `PLATFORM_DEFAULT_NOT_YET_REVIEWED` until an
+  operator writes it, and a write with no verification target is refused
+  (`400 INVALID_POLICY`) because containment cannot be proven by behaviour
+  without one. Model: **platform control channel + DNS + operator allow-list,
+  default-deny everything else.**
+- **Two invariants that are NOT settings**: the sensor's own control channel is
+  always allowed (no field can disable it), and a sensor that cannot resolve it
+  **refuses to isolate** (`CONTROL_CHANNEL_UNRESOLVED`, nothing applied) — a
+  contained host we cannot reach is not contained, it is lost.
+- Containment carries an explicit **AUTHORIZED** step:
+  `REQUESTED → AUTHORIZED → DISPATCHED → EXECUTED → dual proof → VERIFIED`.
+  The accepted P0-F.5 kill lifecycle is unchanged (still `REQUESTED → …`,
+  `authorisation: null`) — pinned by a test.
+- **Dual-proof verification** (`_verify_containment`): kernel policy read back
+  out of the kernel **AND** an independently chosen external target
+  unreachable while the control channel is still reachable. Distinct honest
+  failures: `RULES_INSTALLED_BUT_NOT_EFFECTIVE` · `CONTROL_CHANNEL_LOST` ·
+  `VERIFICATION_INCOMPLETE` · `POLICY_NOT_INSTALLED`; release needs
+  `rules_absent` **and** `external_restored`.
+- Endpoint isolation state changes **only on verified evidence**
+  (`ISOLATED` / `RELEASED`, otherwise `ISOLATION_UNPROVEN`).
+- **No automatic release.** A configured timeout raises a NEW authorised
+  `RELEASE_ISOLATION` command (`requested_by: policy:auto_release`) that is
+  verified like any other; the endpoint stays ISOLATED until it is.
+- Sensor driver: `nft` primary (default-deny on output/input/forward,
+  `nivx_allow` set, DNS restricted to `/etc/resolv.conf` nameservers),
+  `iptables` fallback, capability preflight on `CapEff` bit 12.
+- Console: `ISOLATION POLICY` editor + "Invariants — not settings" on
+  `/xdr/admin/edr-response`, plus Proof-1/Proof-2 rendering.
+- `tests/edr` **291 → 298 pass** (14 new isolation tests + 7 live-API).
+
+### The honest gap — READ THIS BEFORE CLAIMING ISOLATION
+**This preview container has no `CAP_NET_ADMIN`** (`CapEff 00000000a80405fb`;
+`ip`/`tc`/`unshare`/raw sockets all `Operation not permitted`; even `nft -c`
+fails at netlink cache init). So containment is **NOT** REAL_ENDPOINT_VALIDATED.
+What IS proven here (`scripts/p0_f10_isolation_proof.py`, exit 0) is the honest
+refusal: `CAPABILITY_UNAVAILABLE` · `MISSING_PRIVILEGE: CAP_NET_ADMIN`,
+`verification: null`, endpoint **not** recorded as isolated, external target
+still reachable.
+
+**Acceptance is owner-run**: the same script on a VM / `docker run
+--cap-add=NET_ADMIN` asserts the full `REQUESTED → AUTHORIZED → DISPATCHED →
+EXECUTED → VERIFIED` chain, both proofs, the endpoint recording `ISOLATED`, and
+release proven in reverse. Until that run, isolation stays
+`CAPABILITY_UNAVAILABLE` in the console — no capability claim was upgraded.
+
+### Next per owner
+P0-F.7 Campaign Story · Response-From-Incident · hash-integrity defect
+(`v2/ingestion/canonical.py:326` synthetic `raw.sha256` — tracked separately,
+deliberately NOT folded into a response milestone) · Live Attack Replay.
+
+
 ## ✅ 2026-06 · **P0-F.6 RESPONSE VERIFICATION UI** · PASS (iteration_92 · 100% / 100%)
 
 The console surface for endpoint response is an **evidence surface, not a

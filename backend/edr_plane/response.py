@@ -20,8 +20,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+
+from edr_plane.isolation_policy import bind as bind_policy
+from edr_plane.isolation_policy import get_policy
 
 COLLECTION = "edr_response_commands"
 ENGINE_ID = "nivxray::edr_plane::response"
@@ -140,6 +143,33 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
             db, tenant_id=tenant_id, endpoint_id=endpoint_id, pid=pid,
             target=target)
 
+    authorisation: Optional[Dict[str, Any]] = None
+    if action in ("ISOLATE_ENDPOINT", "RELEASE_ISOLATION"):
+        # Containment is a POLICY decision, so it carries an explicit
+        # AUTHORIZED step of its own. A kill is authorised by binding it to
+        # one observed process (above); an isolation is authorised by
+        # binding it to a reviewed policy that provably keeps the control
+        # channel reachable.
+        pol = await get_policy(db, tenant_id=tenant_id)
+        bound = bind_policy(pol)
+        if not (bound["verification_target"].get("host")
+                and bound["verification_target"].get("port")):
+            raise ResponseError(
+                "VERIFICATION_TARGET_NOT_CONFIGURED",
+                "containment cannot be proven without an independently "
+                "chosen external target; configure one before isolating")
+        target = {**target, "policy": bound}
+        authorisation = {
+            "authorised_by": requested_by,
+            "at": _now(),
+            "policy_version": bound["policy_version"],
+            "policy_source": bound["policy_source"],
+            "control_channel_protected": True,
+            "basis": ("the sensor's own control channel is allowed by an "
+                      "invariant the policy cannot switch off; the sensor "
+                      "refuses to isolate if it cannot resolve it"),
+        }
+
     doc = {
         "command_id": f"cmd_{uuid.uuid4().hex[:20]}",
         "tenant_id": tenant_id, "endpoint_id": endpoint_id,
@@ -148,15 +178,56 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
         "requested_by": requested_by, "reason": reason,
         "engine_id": ENGINE_ID,
         "dispatched_at": None, "executed_at": None, "verified_at": None,
+        "authorisation": authorisation,
         "sensor_result": None, "verification": None,
         "history": [{"state": "REQUESTED", "at": _now(),
                      "actor": requested_by}],
     }
+    if authorisation:
+        doc["state"] = "AUTHORIZED"
+        doc["authorised_at"] = authorisation["at"]
+        doc["history"].append(
+            {"state": "AUTHORIZED", "at": authorisation["at"],
+             "actor": requested_by,
+             "reason": (f"policy v{authorisation['policy_version']} "
+                        f"({authorisation['policy_source']}) bound; control "
+                        f"channel protected")})
     await db[COLLECTION].insert_one(dict(doc))
     doc.pop("_id", None)
     return {**doc,
-            "honesty_note": ("REQUESTED only. This command has not reached "
+            "honesty_note": ("Recorded only. This command has not reached "
                              "the endpoint and nothing has happened yet.")}
+
+
+async def expire_isolations(db, *, tenant_id: str, endpoint_id: str) -> int:
+    """A configured timeout raises a NEW authorised release command. It
+    never flips a state on a timer: an endpoint whose release has not been
+    verified is still isolated, and must read that way."""
+    pol = await get_policy(db, tenant_id=tenant_id)
+    secs = pol.get("auto_release_seconds")
+    if not isinstance(secs, int) or secs <= 0:
+        return 0
+    cutoff = (datetime.now(timezone.utc)
+              - timedelta(seconds=secs)).isoformat()
+    raised = 0
+    async for doc in db[COLLECTION].find(
+            {"tenant_id": tenant_id, "endpoint_id": endpoint_id,
+             "action": "ISOLATE_ENDPOINT", "state": "VERIFIED",
+             "verified_at": {"$lt": cutoff},
+             "auto_release_raised": {"$ne": True}}, {"command_id": 1}):
+        await request_action(
+            db, tenant_id=tenant_id, endpoint_id=endpoint_id,
+            action="RELEASE_ISOLATION", target={},
+            requested_by="policy:auto_release",
+            reason=(f"configured auto-release after {secs}s of verified "
+                    f"containment (isolation {doc['command_id']}); this is "
+                    f"a request, not a release — it is verified like any "
+                    f"other action"))
+        await db[COLLECTION].update_one(
+            {"command_id": doc["command_id"]},
+            {"$set": {"auto_release_raised": True}})
+        raised += 1
+    return raised
 
 
 async def claim_pending(db, *, tenant_id: str,
@@ -164,11 +235,12 @@ async def claim_pending(db, *, tenant_id: str,
     """The sensor claims its own commands. Dispatch is recorded so a
     command that never came back is visibly stuck at DISPATCHED rather
     than silently lost."""
+    await expire_isolations(db, tenant_id=tenant_id, endpoint_id=endpoint_id)
     out: List[Dict[str, Any]] = []
     while True:
         doc = await db[COLLECTION].find_one_and_update(
             {"tenant_id": tenant_id, "endpoint_id": endpoint_id,
-             "state": "REQUESTED"},
+             "state": {"$in": ["REQUESTED", "AUTHORIZED"]}},
             {"$set": {"state": "DISPATCHED", "dispatched_at": _now()},
              "$push": {"history": {"state": "DISPATCHED", "at": _now(),
                                    "actor": endpoint_id}}},
@@ -252,6 +324,8 @@ async def verify(db, *, tenant_id: str, endpoint_id: str, command_id: str,
             else:
                 finding = ("the target process is no longer present in "
                            "/proc under its observed start identity")
+    elif doc["action"] in ("ISOLATE_ENDPOINT", "RELEASE_ISOLATION"):
+        ok, finding = _verify_containment(doc["action"], probe)
     else:
         ok = bool(probe.get("effect_confirmed"))
         finding = str(probe.get("detail") or
@@ -267,10 +341,94 @@ async def verify(db, *, tenant_id: str, endpoint_id: str, command_id: str,
                                    "at": _now()}},
          "$push": {"history": {"state": state, "at": _now(),
                                "actor": endpoint_id, "reason": finding}}})
+    if doc["action"] in ("ISOLATE_ENDPOINT", "RELEASE_ISOLATION"):
+        await _record_isolation_state(db, tenant_id=tenant_id,
+                                      endpoint_id=endpoint_id,
+                                      action=doc["action"], verified=ok,
+                                      command_id=command_id, finding=finding)
     return {"command_id": command_id, "state": state, "finding": finding,
             "honesty_note": ("VERIFIED means evidence gathered after the "
                              "action proves the effect. It is never "
                              "inferred from the command succeeding.")}
+
+
+def _verify_containment(action: str, probe: Dict[str, Any]):
+    """Two INDEPENDENT proofs, both required.
+
+    A firewall rule that exists is not containment: the rule may not match
+    the traffic, may sit below an earlier ACCEPT, or may cover the wrong
+    address family. So the kernel policy state must confirm the rules ARE
+    installed, and the endpoint's own behaviour must confirm an
+    independently chosen external target is unreachable WHILE the control
+    channel still is. Losing the control channel is a failure too — a host
+    we cannot talk to is not contained, it is lost.
+    """
+    cp = probe.get("control_plane") or {}
+    bh = probe.get("behavioural") or {}
+    if not cp or not bh:
+        return False, ("VERIFICATION_INCOMPLETE — containment requires BOTH "
+                       "kernel policy state and independent connectivity "
+                       "behaviour; this probe carried "
+                       + ("no behavioural proof" if cp else
+                          "no control-plane proof"))
+    if action == "ISOLATE_ENDPOINT":
+        installed = cp.get("rules_installed") is True
+        blocked = bh.get("external_blocked") is True
+        control = bh.get("control_channel_reachable") is True
+        if installed and blocked and control:
+            return True, (
+                f"containment proven twice: {cp.get('backend')} policy is "
+                f"installed (default-deny on "
+                f"{', '.join(cp.get('deny_chains') or [])}) AND the endpoint "
+                f"cannot reach {bh.get('external_target')} while the "
+                f"NivXForge control channel "
+                f"{bh.get('control_channel')} remains reachable")
+        if installed and blocked and not control:
+            return False, ("CONTROL_CHANNEL_LOST — external traffic is "
+                           "blocked but the endpoint can no longer reach "
+                           "NivXForge. That is not containment, it is an "
+                           "unmanageable host.")
+        if installed and not blocked:
+            return False, ("RULES_INSTALLED_BUT_NOT_EFFECTIVE — the policy "
+                           f"is present yet the endpoint still reached "
+                           f"{bh.get('external_target')}. Containment is "
+                           f"NOT in force.")
+        return False, ("POLICY_NOT_INSTALLED — the kernel does not hold the "
+                       "containment rules; nothing is contained")
+    absent = cp.get("rules_absent") is True
+    restored = bh.get("external_restored") is True
+    if absent and restored:
+        return True, ("release proven twice: the containment policy is gone "
+                      f"from the kernel AND {bh.get('external_target')} is "
+                      f"reachable again")
+    if absent and not restored:
+        return False, ("RULES_REMOVED_BUT_TRAFFIC_STILL_BLOCKED — the "
+                       "endpoint remains cut off; treat it as isolated and "
+                       "investigate before telling anyone it is back")
+    return False, ("CONTAINMENT_POLICY_STILL_PRESENT — the kernel still "
+                   "holds isolation rules; the endpoint is NOT released")
+
+
+async def _record_isolation_state(db, *, tenant_id: str, endpoint_id: str,
+                                  action: str, verified: bool,
+                                  command_id: str, finding: str) -> None:
+    """The endpoint's isolation state changes ONLY on verified evidence.
+    An unproven isolation is recorded as unproven, never as isolated and
+    never as released — both would be a claim the evidence does not
+    support."""
+    if verified:
+        state = ("ISOLATED" if action == "ISOLATE_ENDPOINT" else "RELEASED")
+    else:
+        state = ("ISOLATION_UNPROVEN" if action == "ISOLATE_ENDPOINT"
+                 else "RELEASE_UNPROVEN")
+    await db["edr_endpoints"].update_one(
+        {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
+        {"$set": {"isolation": {"state": state, "at": _now(),
+                                "evidence_command_id": command_id,
+                                "finding": finding,
+                                "proven_by": ("kernel policy state + "
+                                              "independent connectivity "
+                                              "behaviour")}}})
 
 
 #: What a record PROVES — computed from the record, never from intent.
@@ -279,6 +437,9 @@ async def verify(db, *, tenant_id: str, endpoint_id: str, command_id: str,
 PROOF_STATES = {
     "REQUESTED": ("NOTHING_HAS_HAPPENED_YET", False,
                   "Recorded only. The command has not reached the endpoint."),
+    "AUTHORIZED": ("AUTHORISED_NOT_YET_SENT", False,
+                   "Policy and authority are bound, but the command has not "
+                   "reached the endpoint. Nothing has happened yet."),
     "DISPATCHED": ("CLAIMED_BY_ENDPOINT_NO_RESULT", False,
                    "The endpoint has claimed the command. No result has "
                    "come back, so nothing is proven — and a command stuck "

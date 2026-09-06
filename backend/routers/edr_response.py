@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from deps import db as _db, get_current_user
+from edr_plane import isolation_policy
 from edr_plane import response as resp
 from edr_plane.enrollment.identity import AuthenticatedEndpoint
 from routers.edr_enrollment import get_authenticated_endpoint
@@ -79,6 +80,39 @@ async def get_action(command_id: str,
             command_id=command_id)
     except resp.ResponseError as e:
         _fail(e)
+
+
+class PolicyBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    allow_list: Optional[list] = None
+    allow_dns: Optional[bool] = None
+    extra_control_hosts: Optional[list] = None
+    verification_target: Optional[Dict[str, Any]] = None
+    auto_release_seconds: Optional[int] = None
+
+
+@router.get("/isolation-policy")
+async def read_isolation_policy(
+        user: dict = Depends(get_current_user)) -> dict:
+    return await isolation_policy.get_policy(
+        _db, tenant_id=user.get("tenant_id") or "default")
+
+
+@router.put("/isolation-policy")
+async def write_isolation_policy(
+        body: PolicyBody, user: dict = Depends(get_current_user)) -> dict:
+    try:
+        return await isolation_policy.put_policy(
+            _db, tenant_id=user.get("tenant_id") or "default",
+            updated_by=str(user.get("sub") or user.get("email") or "user"),
+            allow_list=body.allow_list, allow_dns=body.allow_dns,
+            extra_control_hosts=body.extra_control_hosts,
+            verification_target=body.verification_target,
+            auto_release_seconds=body.auto_release_seconds)
+    except ValueError as e:
+        raise HTTPException(status_code=400,
+                            detail={"error": "INVALID_POLICY",
+                                    "reason": str(e)}) from None
 
 
 @agent.get("/commands")

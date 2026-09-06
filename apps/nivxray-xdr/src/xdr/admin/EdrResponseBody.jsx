@@ -25,6 +25,7 @@ const STATE_EP = {
   VERIFIED: "evidence_present",
   EXECUTED: "unknown",
   DISPATCHED: "unknown",
+  AUTHORIZED: "no_evidence",
   REQUESTED: "no_evidence",
   VERIFICATION_FAILED: "capability_unavailable",
   FAILED: "capability_unavailable",
@@ -120,12 +121,30 @@ function ActionRecord({ r }) {
       <Block title="Authorisation" testid={`edr-response-auth-${r.command_id}`}>
         <Field label="Requested by" value={r.requested_by}
                testid={`edr-response-requested-by-${r.command_id}`} />
-        <Field label="Approved by" value=""
-               note="⊘ NO APPROVAL STEP EXISTS in this response plane yet — this action was authorised by the requester's own permissions only."
-               testid={`edr-response-approved-by-${r.command_id}`} wide />
-        <Field label="Policy / playbook" value=""
-               note="⊘ NO POLICY BOUND — this command was raised directly, not by an automated response policy."
-               testid={`edr-response-policy-${r.command_id}`} wide />
+        {r.authorisation ? (
+          <>
+            <Field label="Authorised by" value={r.authorisation.authorised_by}
+                   testid={`edr-response-approved-by-${r.command_id}`} />
+            <Field label="Authorised at" value={r.authorisation.at} />
+            <Field label="Policy / playbook"
+                   value={`isolation policy v${r.authorisation.policy_version}`
+                          + ` (${r.authorisation.policy_source})`}
+                   note={r.authorisation.control_channel_protected
+                     ? "control channel protected by invariant" : null}
+                   testid={`edr-response-policy-${r.command_id}`} wide />
+            <Field label="Authorisation basis" value={r.authorisation.basis}
+                   wide />
+          </>
+        ) : (
+          <>
+            <Field label="Approved by" value=""
+                   note="⊘ NO APPROVAL STEP EXISTS for this action type yet — it was authorised by the requester's own permissions only."
+                   testid={`edr-response-approved-by-${r.command_id}`} wide />
+            <Field label="Policy / playbook" value=""
+                   note="⊘ NO POLICY BOUND — this command was raised directly, not by an automated response policy."
+                   testid={`edr-response-policy-${r.command_id}`} wide />
+          </>
+        )}
         <Field label="Reason given" value={r.reason} wide
                testid={`edr-response-reason-${r.command_id}`} />
       </Block>
@@ -202,7 +221,8 @@ function ActionRecord({ r }) {
             <Field label="Finding" value={v.finding} wide
                    testid={`edr-response-finding-${r.command_id}`} />
             {probe && Object.entries(probe)
-              .filter(([k]) => k !== "method" && k !== "detail")
+              .filter(([k, v]) => k !== "method" && k !== "detail"
+                      && (v === null || typeof v !== "object"))
               .map(([k, val]) => (
                 <Field key={k} label={k.replace(/_/g, " ")}
                        value={val === null
@@ -210,6 +230,31 @@ function ActionRecord({ r }) {
                          : String(val)}
                        testid={`edr-response-probe-${k}-${r.command_id}`} />
               ))}
+            {probe && ["control_plane", "behavioural"].map((grp) => (
+              probe[grp] ? (
+                <div key={grp} style={{ width: "100%" }}
+                     data-testid={`edr-response-proof-${grp}-${r.command_id}`}>
+                  <div style={{ color: "var(--faint)", fontSize: 8.5,
+                                fontWeight: 800, letterSpacing: ".4px",
+                                textTransform: "uppercase", marginTop: 4 }}>
+                    {grp === "control_plane"
+                      ? "Proof 1 · kernel policy state"
+                      : "Proof 2 · independent connectivity behaviour"}
+                  </div>
+                  <div style={{ display: "flex", gap: 18, flexWrap: "wrap",
+                                marginTop: 6 }}>
+                    {Object.entries(probe[grp]).map(([k, v]) => (
+                      <Field key={k} label={k.replace(/_/g, " ")}
+                             value={v === null || v === undefined ? ""
+                               : typeof v === "object"
+                                 ? JSON.stringify(v) : String(v)}
+                             wide={typeof v === "object"}
+                             testid={`edr-response-${grp}-${k}-${r.command_id}`} />
+                    ))}
+                  </div>
+                </div>
+              ) : null
+            ))}
           </>
         ) : (
           <span className="nx-ep" data-ep="capability_unavailable"
@@ -242,6 +287,172 @@ function ActionRecord({ r }) {
           </div>
         </div>
       </Block>
+    </div>
+  );
+}
+
+function IsolationPolicy() {
+  const [p, setP] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    api.get("/edr/response/isolation-policy")
+      .then(({ data }) => { setP(data); setDraft(data); })
+      .catch((x) => setErr(x?.message || String(x)));
+  }, []);
+
+  const save = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const { data } = await api.put("/edr/response/isolation-policy", {
+        allow_list: String(draft.allow_list_text ??
+                           (draft.allow_list || []).join("\n"))
+          .split("\n").map((s) => s.trim()).filter(Boolean),
+        allow_dns: !!draft.allow_dns,
+        verification_target: {
+          host: String(draft.verification_target?.host || ""),
+          port: Number(draft.verification_target?.port || 0),
+        },
+        auto_release_seconds: draft.auto_release_seconds === ""
+          ? null : Number(draft.auto_release_seconds) || null,
+      });
+      setP(data); setDraft(data);
+    } catch (x) {
+      setErr(x?.response?.data?.detail?.reason || x?.message || String(x));
+    } finally { setBusy(false); }
+  };
+
+  if (!p) return null;
+  return (
+    <div data-testid="edr-isolation-policy"
+         style={{ border: "1px solid #17202A", borderRadius: 4,
+                  marginBottom: 14 }}>
+      <div onClick={() => setOpen((o) => !o)}
+           data-testid="edr-isolation-policy-toggle"
+           style={{ display: "flex", gap: 10, alignItems: "center",
+                    padding: "7px 10px", cursor: "pointer" }}>
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: ".6px",
+                       textTransform: "uppercase", color: "var(--cyan)" }}>
+          Isolation policy
+        </span>
+        <span className="nx-ep"
+              data-ep={p.policy_source === "OPERATOR_CONFIGURED"
+                ? "evidence_present" : "unknown"}
+              data-known="true" style={{ fontSize: 9 }}
+              data-testid="edr-isolation-policy-source">
+          {p.policy_source} · v{p.version}
+        </span>
+        <span className="mono" style={{ fontSize: 9.5,
+                                        color: "var(--text-dim)" }}>
+          {(p.allow_list || []).length} operator-approved targets · DNS{" "}
+          {p.allow_dns ? "allowed" : "denied"} · release{" "}
+          {p.auto_release_seconds
+            ? `auto-requested after ${p.auto_release_seconds}s`
+            : "analyst only"}
+        </span>
+      </div>
+      {open && (
+        <div style={{ padding: "4px 12px 14px", borderTop: "1px solid #141C24",
+                      background: "#080C10" }}>
+          {err && (
+            <div style={{ color: "#D08A8A", fontSize: 10.5, marginBottom: 8 }}
+                 data-testid="edr-isolation-policy-error">{err}</div>
+          )}
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap",
+                        marginTop: 10 }}>
+            <div>
+              <div style={{ color: "var(--faint)", fontSize: 8.5,
+                            fontWeight: 800, textTransform: "uppercase" }}>
+                Operator-approved targets (one per line)
+              </div>
+              <textarea className="mono" rows={4}
+                        data-testid="edr-isolation-allow-list"
+                        value={draft.allow_list_text ??
+                               (draft.allow_list || []).join("\n")}
+                        onChange={(e) => setDraft({ ...draft,
+                                                    allow_list_text: e.target.value })}
+                        style={{ background: "#0C1116", width: 280,
+                                 border: "1px solid #212B36", marginTop: 4,
+                                 color: "var(--text)", fontSize: 10.5,
+                                 padding: "5px 8px", borderRadius: 3 }} />
+            </div>
+            <div>
+              <div style={{ color: "var(--faint)", fontSize: 8.5,
+                            fontWeight: 800, textTransform: "uppercase" }}>
+                Verification target (must be unreachable when contained)
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <input className="mono"
+                       data-testid="edr-isolation-verify-host"
+                       value={draft.verification_target?.host || ""}
+                       onChange={(e) => setDraft({ ...draft,
+                                                   verification_target: {
+                                                     ...draft.verification_target,
+                                                     host: e.target.value } })}
+                       style={{ background: "#0C1116", width: 150,
+                                border: "1px solid #212B36",
+                                color: "var(--text)", fontSize: 10.5,
+                                padding: "5px 8px", borderRadius: 3 }} />
+                <input className="mono" data-testid="edr-isolation-verify-port"
+                       value={draft.verification_target?.port || ""}
+                       onChange={(e) => setDraft({ ...draft,
+                                                   verification_target: {
+                                                     ...draft.verification_target,
+                                                     port: e.target.value } })}
+                       style={{ background: "#0C1116", width: 70,
+                                border: "1px solid #212B36",
+                                color: "var(--text)", fontSize: 10.5,
+                                padding: "5px 8px", borderRadius: 3 }} />
+              </div>
+              <label style={{ display: "block", marginTop: 10, fontSize: 10.5,
+                              color: "var(--text-dim)" }}>
+                <input type="checkbox" checked={!!draft.allow_dns}
+                       data-testid="edr-isolation-allow-dns"
+                       onChange={(e) => setDraft({ ...draft,
+                                                   allow_dns: e.target.checked })}
+                       style={{ marginRight: 6 }} />
+                Allow DNS while contained
+              </label>
+              <div style={{ marginTop: 8 }}>
+                <div style={{ color: "var(--faint)", fontSize: 8.5,
+                              fontWeight: 800, textTransform: "uppercase" }}>
+                  Auto-release seconds (blank = analyst only)
+                </div>
+                <input className="mono"
+                       data-testid="edr-isolation-auto-release"
+                       value={draft.auto_release_seconds ?? ""}
+                       onChange={(e) => setDraft({ ...draft,
+                                                   auto_release_seconds: e.target.value })}
+                       style={{ background: "#0C1116", width: 120,
+                                border: "1px solid #212B36", marginTop: 4,
+                                color: "var(--text)", fontSize: 10.5,
+                                padding: "5px 8px", borderRadius: 3 }} />
+              </div>
+              <button className="btn" disabled={busy} onClick={save}
+                      data-testid="edr-isolation-policy-save"
+                      style={{ fontSize: 10.5, padding: "5px 11px",
+                               marginTop: 10 }}>
+                Save policy
+              </button>
+            </div>
+            <div style={{ maxWidth: 420 }}>
+              <div style={{ color: "var(--faint)", fontSize: 8.5,
+                            fontWeight: 800, textTransform: "uppercase" }}>
+                Invariants — not settings
+              </div>
+              <ul style={{ margin: "6px 0 0 14px", padding: 0, fontSize: 9.5,
+                           color: "var(--faint)", lineHeight: 1.7 }}
+                  data-testid="edr-isolation-invariants">
+                {(p.invariants || []).map((i, n) => <li key={n}>{i}</li>)}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -302,6 +513,7 @@ export default function EdrResponseBody({ refreshNonce = 0 }) {
 
   return (
     <div style={{ padding: "10px 12px 20px" }} data-testid="edr-response">
+      <IsolationPolicy />
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap",
                     alignItems: "center", marginBottom: 12 }}>
         <Stat label="Actions on record" value={data.count}

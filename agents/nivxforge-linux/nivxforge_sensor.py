@@ -76,7 +76,16 @@ CAPABILITIES = {
         "process.exit_time", "process.signer", "process.integrity",
         "file.actor_process", "registry.*", "usb_device.*", "memory.*",
     ],
-    "response_actions": [],
+    "response_actions": ["KILL_PROCESS"],
+    #: Declared but privilege-gated. The sensor reports the exact missing
+    #: capability at command time rather than claiming containment it
+    #: cannot enforce.
+    "response_actions_conditional": {
+        "ISOLATE_ENDPOINT": "requires CAP_NET_ADMIN and nft or iptables on "
+                            "this endpoint",
+        "RELEASE_ISOLATION": "requires CAP_NET_ADMIN and nft or iptables on "
+                             "this endpoint",
+    },
     "collection_method": "PROC_POLL",
     "limits": [
         "process exit is not observed; polling cannot distinguish exit from "
@@ -516,6 +525,283 @@ def _get(api: str, path: str, bearer: str) -> dict:
         raise RuntimeError(f"{e.code} {e.read().decode()[:300]}") from None
 
 
+def _isolation_capability() -> dict:
+    """Preflight. Names the EXACT missing privilege, because "isolation
+    failed" sends an operator hunting the wrong thing."""
+    cap = False
+    try:
+        for line in Path("/proc/self/status").read_text().splitlines():
+            if line.startswith("CapEff:"):
+                cap = bool((int(line.split()[1], 16) >> 12) & 1)  # NET_ADMIN
+                break
+    except (OSError, ValueError):
+        pass
+    backend = ("nft" if shutil.which("nft")
+               else "iptables" if shutil.which("iptables") else None)
+    missing = ([] if cap else ["CAP_NET_ADMIN"]) + \
+              ([] if backend else ["nft or iptables"])
+    return {"available": bool(cap and backend), "backend": backend,
+            "cap_net_admin": cap, "missing": missing,
+            "detail": (f"network containment enforceable with {backend}"
+                       if cap and backend else
+                       "cannot enforce network containment: missing "
+                       + ", ".join(missing))}
+
+
+def _is_literal_addr(s: str) -> bool:
+    host = s.split("/", 1)[0]
+    try:
+        socket.inet_aton(host)
+        return True
+    except OSError:
+        return False
+
+
+def _resolve_allow(entries: list[str]) -> tuple[list[str], list[str]]:
+    """Hostnames → addresses. A name we cannot resolve is REPORTED, never
+    dropped silently: a missing allow-list entry becomes an outage."""
+    out: list[str] = []
+    failed: list[str] = []
+    for raw in entries:
+        e = str(raw).strip()
+        if not e:
+            continue
+        if _is_literal_addr(e):
+            out.append(e)
+            continue
+        try:
+            for info in socket.getaddrinfo(e, None, socket.AF_INET):
+                out.append(info[4][0])
+        except OSError:
+            failed.append(e)
+    return sorted(set(out)), failed
+
+
+def _control_channel(api: str) -> tuple[str, int]:
+    from urllib.parse import urlsplit
+    u = urlsplit(api)
+    return (u.hostname or "", u.port or (443 if u.scheme == "https" else 80))
+
+
+def _nameservers() -> list[str]:
+    try:
+        return [ln.split()[1] for ln in
+                Path("/etc/resolv.conf").read_text().splitlines()
+                if ln.startswith("nameserver") and len(ln.split()) > 1]
+    except OSError:
+        return []
+
+
+NFT_TABLE = "nivxforge_isolation"
+
+
+def _nft_ruleset(allowed: list[str], dns: list[str]) -> str:
+    els = ", ".join(allowed) or "127.0.0.1"
+    dns_out = "\n".join(
+        f"    ip daddr {{ {', '.join(dns)} }} {p} dport 53 accept"
+        for p in ("udp", "tcp")) if dns else ""
+    dns_in = "\n".join(
+        f"    ip saddr {{ {', '.join(dns)} }} {p} sport 53 accept"
+        for p in ("udp", "tcp")) if dns else ""
+    return f"""table inet {NFT_TABLE} {{
+  set nivx_allow {{ type ipv4_addr; elements = {{ {els} }} }}
+  chain nivx_out {{
+    type filter hook output priority -150; policy drop;
+    oifname "lo" accept
+    ip daddr @nivx_allow accept
+{dns_out}
+  }}
+  chain nivx_in {{
+    type filter hook input priority -150; policy drop;
+    iifname "lo" accept
+    ip saddr @nivx_allow accept
+{dns_in}
+  }}
+  chain nivx_fwd {{
+    type filter hook forward priority -150; policy drop;
+  }}
+}}
+"""
+
+
+def _run(cmd: list[str], stdin: str | None = None):
+    return subprocess.run(cmd, input=stdin, capture_output=True, text=True)
+
+
+def _apply_isolation(backend: str, allowed: list[str],
+                     dns: list[str]) -> tuple[bool, str]:
+    if backend == "nft":
+        _run(["nft", "delete", "table", "inet", NFT_TABLE])
+        r = _run(["nft", "-f", "-"], stdin=_nft_ruleset(allowed, dns))
+        return r.returncode == 0, (r.stderr or r.stdout).strip()[:400]
+    errs = []
+    for chain, direction in (("NIVX_ISO_OUT", "OUTPUT"),
+                             ("NIVX_ISO_IN", "INPUT")):
+        _run(["iptables", "-N", chain])
+        _run(["iptables", "-F", chain])
+        rules = [["-A", chain, "-o" if direction == "OUTPUT" else "-i",
+                  "lo", "-j", "ACCEPT"]]
+        for ip in allowed:
+            rules.append(["-A", chain,
+                          "-d" if direction == "OUTPUT" else "-s", ip,
+                          "-j", "ACCEPT"])
+        for ip in dns:
+            for proto in ("udp", "tcp"):
+                rules.append(["-A", chain, "-p", proto,
+                              "-d" if direction == "OUTPUT" else "-s", ip,
+                              "--dport" if direction == "OUTPUT"
+                              else "--sport", "53", "-j", "ACCEPT"])
+        rules.append(["-A", chain, "-j", "DROP"])
+        for rule in rules:
+            r = _run(["iptables", *rule])
+            if r.returncode != 0:
+                errs.append(r.stderr.strip()[:160])
+        _run(["iptables", "-D", direction, "-j", chain])
+        r = _run(["iptables", "-I", direction, "1", "-j", chain])
+        if r.returncode != 0:
+            errs.append(r.stderr.strip()[:160])
+    return (not errs), "; ".join(errs)[:400]
+
+
+def _remove_isolation(backend: str) -> tuple[bool, str]:
+    if backend == "nft":
+        r = _run(["nft", "delete", "table", "inet", NFT_TABLE])
+        gone = _run(["nft", "list", "table", "inet",
+                     NFT_TABLE]).returncode != 0
+        return gone, (r.stderr or "").strip()[:400]
+    errs = []
+    for chain, direction in (("NIVX_ISO_OUT", "OUTPUT"),
+                             ("NIVX_ISO_IN", "INPUT")):
+        _run(["iptables", "-D", direction, "-j", chain])
+        _run(["iptables", "-F", chain])
+        r = _run(["iptables", "-X", chain])
+        if r.returncode != 0 and "No chain" not in r.stderr:
+            errs.append(r.stderr.strip()[:160])
+    return (not errs), "; ".join(errs)[:400]
+
+
+def _control_plane_proof(backend: str, allowed: list[str]) -> dict:
+    """Proof 1 — read the policy back OUT of the kernel. Never trust the
+    fact that the apply command exited 0."""
+    if backend == "nft":
+        r = _run(["nft", "list", "table", "inet", NFT_TABLE])
+        text = r.stdout
+        present = r.returncode == 0 and bool(text.strip())
+        deny = [c for c in ("nivx_out", "nivx_in", "nivx_fwd")
+                if f"chain {c}" in text
+                and "policy drop" in text.split(f"chain {c}", 1)[1][:400]]
+    else:
+        out = _run(["iptables", "-S", "NIVX_ISO_OUT"])
+        inp = _run(["iptables", "-S", "NIVX_ISO_IN"])
+        text = out.stdout + inp.stdout
+        present = out.returncode == 0 and inp.returncode == 0
+        deny = [c for c, s in (("NIVX_ISO_OUT", out.stdout),
+                               ("NIVX_ISO_IN", inp.stdout))
+                if f"-A {c} -j DROP" in s]
+    missing = [ip for ip in allowed if ip.split("/")[0] not in text]
+    return {"rules_installed": bool(present and deny and not missing),
+            "rules_absent": not present,
+            "backend": backend, "deny_chains": deny,
+            "allowed_expected": allowed, "allowed_missing_in_kernel": missing,
+            "ruleset_digest": hashlib.sha256(text.encode()).hexdigest()[:32],
+            "detail": (f"{backend}: {len(deny)} default-deny chains, "
+                       f"{len(allowed) - len(missing)}/{len(allowed)} "
+                       f"allow-list entries present in the kernel"
+                       if present else
+                       f"{backend} holds no {NFT_TABLE} policy")}
+
+
+def _tcp_probe(host: str, port: int, timeout: float = 4.0) -> dict:
+    t0 = time.time()
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return {"target": f"{host}:{port}", "reachable": True,
+                    "ms": int((time.time() - t0) * 1000), "error": None}
+    except Exception as e:  # noqa: BLE001
+        return {"target": f"{host}:{port}", "reachable": False,
+                "ms": int((time.time() - t0) * 1000),
+                "error": f"{type(e).__name__}: {e}"[:160]}
+
+
+def _behavioural_proof(api: str, policy: dict, *, isolated: bool) -> dict:
+    """Proof 2 — what the endpoint can actually REACH, right now."""
+    vt = policy.get("verification_target") or {}
+    ext = _tcp_probe(str(vt.get("host")), int(vt.get("port") or 443))
+    ch, cp = _control_channel(api)
+    ctrl = _tcp_probe(ch, cp)
+    out = {"external_target": ext["target"], "external_probe": ext,
+           "control_channel": ctrl["target"], "control_probe": ctrl,
+           "control_channel_reachable": ctrl["reachable"]}
+    if isolated:
+        out["external_blocked"] = not ext["reachable"]
+    else:
+        out["external_restored"] = ext["reachable"]
+    return out
+
+
+def _execute_isolation(cmd: dict, api: str) -> tuple[str, str, dict]:
+    action = cmd.get("action")
+    policy = (cmd.get("target") or {}).get("policy") or {}
+    cap = _isolation_capability()
+    if not cap["available"]:
+        return ("CAPABILITY_UNAVAILABLE",
+                f"MISSING_PRIVILEGE: {', '.join(cap['missing'])} — "
+                f"{cap['detail']}. Network containment is reported as "
+                f"unavailable rather than faked.", cap)
+
+    if action == "RELEASE_ISOLATION":
+        ok, err = _remove_isolation(cap["backend"])
+        if not ok:
+            return "FAILED", f"could not remove containment: {err}", cap
+        return ("EXECUTED", f"containment policy removed with "
+                f"{cap['backend']}", {**cap, "removed": True})
+
+    # The self-lockout guard. The sensor's OWN control channel is allowed
+    # by invariant, and if it cannot be resolved the sensor refuses to
+    # isolate at all — a contained host we cannot reach is not contained,
+    # it is lost.
+    ch_host, ch_port = _control_channel(api)
+    ctrl_ips, ctrl_failed = _resolve_allow([ch_host]
+                                           + list(policy.get(
+                                               "extra_control_hosts") or []))
+    if not ctrl_ips:
+        return ("FAILED",
+                f"CONTROL_CHANNEL_UNRESOLVED: {ch_host} could not be "
+                f"resolved ({', '.join(ctrl_failed)}), so isolating would "
+                f"strand this endpoint. Nothing was applied.",
+                {"control_channel": f"{ch_host}:{ch_port}"})
+    allow_ips, allow_failed = _resolve_allow(policy.get("allow_list") or [])
+    allowed = sorted(set(ctrl_ips + allow_ips))
+    dns = _nameservers() if policy.get("allow_dns") else []
+    ok, err = _apply_isolation(cap["backend"], allowed, dns)
+    if not ok:
+        return "FAILED", f"could not apply containment: {err}", cap
+    return ("EXECUTED",
+            f"default-deny containment applied with {cap['backend']}; "
+            f"{len(allowed)} allowed addresses, DNS "
+            f"{'allowed' if dns else 'denied'}",
+            {**cap, "allowed": allowed, "dns_servers": dns,
+             "control_channel": f"{ch_host}:{ch_port}",
+             "unresolved_allow_list_entries": allow_failed,
+             "policy_version": policy.get("policy_version")})
+
+
+def _verify_isolation(cmd: dict, api: str) -> dict:
+    """Both proofs, gathered AFTER the action and independent of it."""
+    action = cmd.get("action")
+    policy = (cmd.get("target") or {}).get("policy") or {}
+    cap = _isolation_capability()
+    allowed = ((cmd.get("_applied") or {}).get("allowed")
+               or [_control_channel(api)[0]])
+    isolated = action == "ISOLATE_ENDPOINT"
+    return {"method": "post_action_dual_proof",
+            "control_plane": _control_plane_proof(cap["backend"] or "nft",
+                                                  allowed if isolated else []),
+            "behavioural": _behavioural_proof(api, policy, isolated=isolated),
+            "detail": ("kernel policy state + independent connectivity "
+                       "behaviour; a rule alone is not containment")}
+
+
 def _proc_identity(pid: int) -> dict:
     """What is at this pid RIGHT NOW, read from /proc. Never inferred.
 
@@ -546,7 +832,7 @@ def _proc_identity(pid: int) -> dict:
             "reason": "RUNNING"}
 
 
-def _execute_command(cmd: dict) -> tuple[str, str, dict]:
+def _execute_command(cmd: dict, api: str = "") -> tuple[str, str, dict]:
     """Perform the action for real. Never report success it did not have."""
     action, target = cmd.get("action"), cmd.get("target") or {}
     if action == "KILL_PROCESS":
@@ -595,23 +881,7 @@ def _execute_command(cmd: dict) -> tuple[str, str, dict]:
                  "observed_start_ticks": want,
                  "identity_confirmed_before_signal": True})
     if action in ("ISOLATE_ENDPOINT", "RELEASE_ISOLATION"):
-        # Honest capability probe. Claiming isolation without the kernel
-        # privilege to enforce it would be the worst lie this product
-        # could tell: an analyst would believe a live host was contained.
-        if shutil.which("iptables") is None:
-            return ("CAPABILITY_UNAVAILABLE",
-                    "no iptables on this endpoint: network isolation "
-                    "cannot be enforced, so it is not claimed", {})
-        probe = subprocess.run(["iptables", "-L", "-n"],
-                               capture_output=True, text=True)
-        if probe.returncode != 0:
-            return ("CAPABILITY_UNAVAILABLE",
-                    "iptables is present but this sensor cannot use it "
-                    f"(needs NET_ADMIN): {probe.stderr.strip()[:160]}", {})
-        return ("CAPABILITY_UNAVAILABLE",
-                "isolation enforcement is not implemented in this sensor "
-                "version; it is reported as unavailable rather than faked",
-                {})
+        return _execute_isolation(cmd, api)
     return "FAILED", f"unknown action {action}", {}
 
 
@@ -669,7 +939,7 @@ def _serve_commands(api: str, ident: dict, session: dict) -> int:
             session["token"] = None
         return 0
     for cmd in cmds:
-        outcome, detail, evidence = _execute_command(cmd)
+        outcome, detail, evidence = _execute_command(cmd, api)
         print(f"[{_now()}] command {cmd['command_id']} {cmd['action']} "
               f"→ {outcome}: {detail}")
         _post(api, "/api/edr/agent/command-result",
@@ -677,7 +947,11 @@ def _serve_commands(api: str, ident: dict, session: dict) -> int:
                "detail": detail, "evidence": evidence},
               bearer=session["token"])
         if outcome == "EXECUTED":
-            probe = _verify_command(cmd, (outcome, detail, evidence))
+            if cmd.get("action") in ("ISOLATE_ENDPOINT",
+                                     "RELEASE_ISOLATION"):
+                probe = _verify_isolation({**cmd, "_applied": evidence}, api)
+            else:
+                probe = _verify_command(cmd, (outcome, detail, evidence))
             v = _post(api, "/api/edr/agent/command-verification",
                       {"command_id": cmd["command_id"], "probe": probe},
                       bearer=session["token"])
