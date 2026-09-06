@@ -170,10 +170,16 @@ def _register_builtin_dsms(reg: TelemetryDSMRegistry) -> None:
         from .sysmon_dsm import SysmonDSM
         return SysmonDSM()
 
+    def _cef_leef():
+        from .cef_leef_dsm import CefLeefDSM
+        return CefLeefDSM()
+
     reg.try_register("windows-security-evd", _windows)
     reg.try_register("linux-auditd", _linux)
     reg.try_register("aws-cloudtrail", _cloudtrail)
     reg.try_register("microsoft-sysmon", _sysmon)
+    # P1.10 · live CEF/LEEF payloads forwarded by nivxray-xdr-collector.
+    reg.try_register("cef-leef", _cef_leef)
 
 
 _register_builtin_dsms(TELEMETRY_DSM_REGISTRY)

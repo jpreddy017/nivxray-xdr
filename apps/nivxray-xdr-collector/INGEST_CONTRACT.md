@@ -38,6 +38,7 @@ NivXRay backend remains the single source of truth.
 | **Method** | `POST` |
 | **Path**   | `POST {NIVX_INGEST_URL}` — e.g. `https://nivxray.example.com/api/xdr/ingest` |
 | **Auth**   | `Authorization: Bearer {NIVX_INGEST_TOKEN}` |
+| **Tenant** | `X-Tenant-Id` — REQUIRED. The core proves this header matches the enrolled collector's tenant *before* it looks the collector up, so a mismatch returns `403 TENANT_ISOLATION_VIOLATION` and never leaks whether the collector exists. Also sent: `X-Principal-Id`, `X-Principal-Kind`. |
 | **Content-Type** | `application/json` |
 | **Idempotency** | Deduplication is REQUIRED on `(tenant_id, connector_id, source_event_id)` when `source_event_id` is present. The same envelope MUST be accepted twice without side-effects. |
 | **Max body size** | 5 MiB per POST (the collector batches ≤ 50 envelopes per call). |
@@ -67,6 +68,10 @@ NivXRay backend remains the single source of truth.
 ```
 
 Field semantics (owner-locked):
+
+`{"envelopes": [...]}` above is the canonical/public body. A bare JSON
+list of envelopes is also accepted for backward compatibility and is
+normalised to this shape immediately on arrival.
 
 - `tenant_id` — required. Multi-tenant scope. Base backend enforces
   RBAC against it.
@@ -115,6 +120,50 @@ Response body for 2xx should look like:
   "rejected":   [ /* per-envelope error rows, if any */ ]
 }
 ```
+
+### 2.3 Receipt · live reasoning (P1.10)
+
+The authoritative receipt returned by `POST /api/xdr/ingest/telemetry`
+additionally reports what the core reasoning chain did with the batch.
+This is provenance for the operator, not instruction for the collector —
+the collector still marks rows DELIVERED purely on the 2xx.
+
+```json
+{
+  "accepted": 4, "parse_errors": 0, "normalize_errors": 0,
+  "collector_state": "CONNECTED",
+  "collector_state_reason": "telemetry received/parsed/normalized: 4/4/4",
+  "reasoned": 4,
+  "observations_created": 4,
+  "incidents_promoted": ["inc_9a21ec5b6d5842f78a63"],
+  "reasoning": [
+    {
+      "trace_id": "live_1b2c…", "status": "REASONED",
+      "detection": "RULE_MATCH", "detections_matched": 1,
+      "verdict": "SUSPICIOUS", "verdict_score": 70,
+      "incident_created": true, "incident_id": "inc_9a21ec5b6d5842f78a63",
+      "observation_id": "6a9cc…"
+    },
+    {
+      "trace_id": "live_7f9d…", "status": "REASONED",
+      "detection": "RULE_NO_MATCH", "verdict": "INCONCLUSIVE",
+      "verdict_score": 5, "incident_created": false,
+      "incident_reason": "verdict.label=INCONCLUSIVE score=5 below gate (min_score=55, required_labels=MALICIOUS|SUSPICIOUS)"
+    }
+  ]
+}
+```
+
+`status` values: `REASONED` · `NO_DSM` (no authoritative parser for this
+payload format) · `BLOCKED` · `NOT_ATTEMPTED` · `FAILED`.
+
+**`incident_created: false` is a first-class answer, not an error.** An
+incident is materialised only when the VEEE gate is satisfied; the gate's
+refusal is returned verbatim in `incident_reason`. The event is still
+persisted as canonical evidence and as a live observation
+(`origin="collector-live"`, `case_id=null`). No case is ever invented to
+hold telemetry — `case_id` is back-filled only if a real incident is
+promoted from that event.
 
 The collector does not currently act on per-envelope rejections —
 they are logged and surfaced as `last_error` in `/api/xdr/outbox/health`.

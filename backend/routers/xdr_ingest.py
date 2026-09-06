@@ -28,6 +28,7 @@ Storage: updates in place on ``xdr_collectors`` and ``xdr_data_sources``.
 from __future__ import annotations
 
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -81,8 +82,8 @@ def _now() -> str:
 class CanonicalEnvelope(BaseModel):
     """One telemetry unit forwarded by the collector service.  Fields
     match the ``framework.base.Envelope`` shape in nivxray-xdr-collector
-    plus the parser/normalization outcome so this endpoint can update
-    counters truthfully."""
+    (INGEST_CONTRACT.md §2.1) plus the parser/normalization outcome so
+    this endpoint can update counters truthfully."""
     tenant_id:            str
     collector_id:         str                           # required — anchors state
     data_source_id:       str | None  = None
@@ -94,6 +95,45 @@ class CanonicalEnvelope(BaseModel):
     parser_ok:            bool = True
     normalized_ok:        bool = True
     received_at:          str | None  = None
+    # ── collector provenance (contract §2.1) ─────────────────────
+    source:               str | None  = None            # human label of origin
+    connector_id:         str | None  = None            # transport instance
+    parser_version:       str | None  = None
+    event_type:           str | None  = None
+    source_timestamp:     str | None  = None
+    collection_timestamp: str | None  = None
+    # The collector's best-effort extraction.  Provenance, NOT authority
+    # — the core re-parses ``raw`` itself (contract §2.1).
+    canonical:            dict[str, Any] | None = None
+
+    def normalized_view(self) -> dict[str, Any] | None:
+        return self.normalized if self.normalized is not None else self.canonical
+
+
+class TelemetryBatch(BaseModel):
+    """The canonical/public ingest body — INGEST_CONTRACT.md §2.1:
+    ``{"envelopes": [...]}``.  A bare JSON list is still accepted for
+    backward compatibility and normalised to this shape immediately."""
+    envelopes: list[CanonicalEnvelope]
+
+
+class ReasoningOutcome(BaseModel):
+    """Honest per-envelope record of what the core reasoning chain did.
+    ``NOT_ATTEMPTED`` and ``NO_DSM`` are real answers, not failures to
+    hide: they mean the payload format has no authoritative parser."""
+    source_event_id:  str | None = None
+    trace_id:         str
+    status:           str                    # REASONED | NO_DSM | BLOCKED | FAILED
+    blocker:          str | None = None
+    detection:        str | None = None
+    detections_matched: int = 0
+    verdict:          str | None = None
+    verdict_score:    int | None = None
+    incident_created: bool = False
+    incident_id:      str | None = None
+    incident_reason:  str | None = None
+    observation_id:   str | None = None
+    error:            str | None = None
 
 
 class TelemetryReceipt(BaseModel):
@@ -102,24 +142,188 @@ class TelemetryReceipt(BaseModel):
     normalize_errors:     int
     collector_state:      str
     collector_state_reason: str
+    # ── P1.10 · live reasoning ───────────────────────────────────
+    reasoned:             int = 0
+    observations_created: int = 0
+    incidents_promoted:   list[str] = Field(default_factory=list)
+    reasoning:            list[ReasoningOutcome] = Field(default_factory=list)
+
+
+# ── P1.10 · Live reasoning stage ──────────────────────────────────
+# The collector's job ends at delivery.  From here the event travels the
+# EXISTING authoritative chain — canonical evidence → detection → IUE →
+# ICE → VEEE → gated incident materialisation.  No second engine is
+# created, and no incident is fabricated: `materialise_incident` refuses
+# any verdict below its gate and that refusal is reported verbatim.
+_REASONING_AUDIT = "xdr_live_reasoning_audit"
+
+
+def _raw_event_for_pipeline(e: CanonicalEnvelope) -> dict[str, Any]:
+    """Assemble the raw event the DSM registry resolves against.  The
+    verbatim line is the authority; the collector's parse rides along as
+    provenance only."""
+    raw = e.raw or {}
+    return {
+        "tenant_id":            e.tenant_id,
+        "line":                 raw.get("line") or raw.get("message") or "",
+        "payload_format":       raw.get("payload_format")
+                                or (e.canonical or {}).get("payload_format"),
+        "source":               e.source,
+        "connector_id":         e.connector_id,
+        "collector_id":         e.collector_id,
+        "collection_method":    e.collection_method,
+        "parser_version":       e.parser_version,
+        "collection_timestamp": e.collection_timestamp,
+        "raw":                  raw,
+    }
+
+
+async def _run_reasoning(envelopes: list[CanonicalEnvelope],
+                             tenant_id: str) -> dict[str, Any]:
+    """Drive each envelope through the existing reasoning chain.
+
+    The counter/state contract of this endpoint is locked and must not
+    depend on the reasoning fabric: if the async DB binding is absent
+    (e.g. a TestClient that never ran startup) the receipt still returns
+    truthfully, with the reason recorded rather than swallowed.
+    """
+    try:
+        return await _reason_batch(envelopes, tenant_id)
+    except Exception as ex:                                       # noqa: BLE001
+        return {"reasoned": 0, "observations_created": 0,
+                "incidents_promoted": [],
+                "reasoning": [ReasoningOutcome(
+                    trace_id="none", status="NOT_ATTEMPTED",
+                    blocker="reasoning_unavailable",
+                    error=f"{type(ex).__name__}: {ex}"[:300])]}
+
+
+async def _reason_batch(envelopes: list[CanonicalEnvelope],
+                            tenant_id: str) -> dict[str, Any]:
+    from deps import db as _adb
+    from detection_content.xdr_pipeline import process_event_through_pipeline
+    from v2.ingestion.telemetry_bridge import (
+        link_observations_to_incident, persist_live_observation)
+
+    outcomes: list[ReasoningOutcome] = []
+    promoted: list[str] = []
+    observations = 0
+    reasoned = 0
+
+    for idx, e in enumerate(envelopes):
+        trace_id = f"live_{uuid.uuid4().hex[:16]}"
+        raw_event = _raw_event_for_pipeline(e)
+        if not raw_event["line"]:
+            outcomes.append(ReasoningOutcome(
+                source_event_id=e.source_event_id, trace_id=trace_id,
+                status="NOT_ATTEMPTED",
+                blocker="no_verbatim_line",
+                error="envelope carries no raw line to re-parse"))
+            continue
+        try:
+            result = await process_event_through_pipeline(
+                _adb, raw_event, trace_id,
+                integration_id=e.data_source_id or e.connector_id or "unmapped",
+                collector_id=e.collector_id,
+                tenant_id=e.tenant_id or tenant_id)
+        except Exception as ex:                                   # noqa: BLE001
+            outcomes.append(ReasoningOutcome(
+                source_event_id=e.source_event_id, trace_id=trace_id,
+                status="FAILED", error=f"{type(ex).__name__}: {ex}"[:300]))
+            continue
+
+        canonical = result.get("canonical")
+        if canonical is None:
+            outcomes.append(ReasoningOutcome(
+                source_event_id=e.source_event_id, trace_id=trace_id,
+                status="NO_DSM" if result.get("blocker") == "dsm" else "BLOCKED",
+                blocker=result.get("blocker")))
+            continue
+
+        obs_id = await persist_live_observation(
+            _adb, canonical, envelope=e.model_dump(),
+            tenant_id=e.tenant_id or tenant_id, sequence=idx)
+        if obs_id:
+            observations += 1
+
+        detection = result.get("detection") or {}
+        verdict   = result.get("verdict") or {}
+        incident  = result.get("incident") or {}
+        created   = bool(incident.get("created"))
+        if created:
+            promoted.append(incident.get("incident_id"))
+            await link_observations_to_incident(
+                _adb, trace_id=trace_id,
+                incident_id=incident["incident_id"])
+        reasoned += 1
+        outcomes.append(ReasoningOutcome(
+            source_event_id=e.source_event_id, trace_id=trace_id,
+            status="REASONED", blocker=result.get("blocker"),
+            detection=detection.get("status"),
+            detections_matched=len(detection.get("detections") or []),
+            verdict=verdict.get("label"),
+            verdict_score=verdict.get("score"),
+            incident_created=created,
+            incident_id=incident.get("incident_id"),
+            incident_reason=incident.get("reason"),
+            observation_id=obs_id))
+
+    await _adb[_REASONING_AUDIT].insert_one({
+        "tenant_id":   tenant_id,
+        "at":          _now(),
+        "envelopes":   len(envelopes),
+        "reasoned":    reasoned,
+        "observations_created": observations,
+        "incidents_promoted":   promoted,
+        "outcomes":    [o.model_dump() for o in outcomes],
+    })
+    return {"reasoned": reasoned,
+            "observations_created": observations,
+            "incidents_promoted": promoted,
+            "reasoning": outcomes}
 
 
 # ── Endpoint ──────────────────────────────────────────────────────
 @router.post("/telemetry",
                        response_model=TelemetryReceipt,
                        dependencies=[Depends(require_permission("collectors.enroll"))])
-def ingest_telemetry(envelopes: list[CanonicalEnvelope], request: Request):
+async def ingest_telemetry(
+        body: TelemetryBatch | list[CanonicalEnvelope],
+        request: Request):
     """Bulk ingest for a single collector.  Every envelope in the
     batch MUST reference the same ``collector_id`` — this endpoint
     rejects batches that mix collectors so a state transition is
     always tied to a single evidence-backed source.
+
+    Body: ``{"envelopes": [...]}`` (canonical) or a bare JSON list
+    (backward compatibility).  Both normalise to ``TelemetryBatch``.
     """
+    batch = body if isinstance(body, TelemetryBatch) else TelemetryBatch(envelopes=body)
+    envelopes = batch.envelopes
     if not envelopes:
         raise HTTPException(400, detail="empty batch")
     if _c_collectors() is None:
         raise HTTPException(503, detail="storage unavailable")
 
     ten_hdr, pid, pkd = _principal(request)
+
+    # Tenant isolation is proved BEFORE anything else is looked up: a
+    # caller must never learn whether a collector exists in another
+    # tenant, and a batch must never mix tenants.
+    body_tenants = {e.tenant_id for e in envelopes}
+    if len(body_tenants) != 1:
+        raise HTTPException(403, detail={
+            "code": "TENANT_ISOLATION_VIOLATION",
+            "reason": "one batch must reference exactly one tenant_id",
+            "header_tenant": ten_hdr,
+            "envelope_tenants": sorted(body_tenants)})
+    body_ten = next(iter(body_tenants))
+    if body_ten != ten_hdr:
+        raise HTTPException(403, detail={
+            "code": "TENANT_ISOLATION_VIOLATION",
+            "header_tenant": ten_hdr,
+            "envelope_tenant": body_ten})
+
     collector_ids = {e.collector_id for e in envelopes}
     if len(collector_ids) != 1:
         raise HTTPException(400, detail={
@@ -170,11 +374,16 @@ def ingest_telemetry(envelopes: list[CanonicalEnvelope], request: Request):
             "collection_method": e.collection_method,
             "canonical_schema": e.canonical_schema,
             "raw":             e.raw,
-            "normalized":      e.normalized,
+            "normalized":      e.normalized_view(),
             "parser_ok":       e.parser_ok,
             "normalized_ok":   e.normalized_ok,
-            "received_at":     e.received_at or now,
+            "received_at":     e.received_at or e.collection_timestamp or now,
             "ingested_at":     now,
+            "source":          e.source,
+            "connector_id":    e.connector_id,
+            "parser_version":  e.parser_version,
+            "event_type":      e.event_type,
+            "source_timestamp": e.source_timestamp,
         }
         if _c_events() is not None:
             r = _c_events().insert_one(rec)
@@ -275,4 +484,6 @@ def ingest_telemetry(envelopes: list[CanonicalEnvelope], request: Request):
     return TelemetryReceipt(accepted=accepted, parse_errors=parse_err,
                                               normalize_errors=norm_err,
                                               collector_state=new_state,
-                                              collector_state_reason=reason)
+                                              collector_state_reason=reason,
+                                              **(await _run_reasoning(
+                                                  envelopes, owner_ten)))

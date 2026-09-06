@@ -220,7 +220,8 @@ CANONICAL_COLLECTION = "xdr_canonical_evidence"
 async def process_event_through_pipeline(db, raw_event: dict,
                                                        trace_id: str,
                                                        integration_id: str,
-                                                       collector_id: str) -> dict:
+                                                       collector_id: str,
+                                                       tenant_id: str = "default") -> dict:
     """
     Drive one raw event through DSM → Parser → Normalizer →
     Canonical Evidence → Sigma Detection.  Halts honestly at first
@@ -248,8 +249,16 @@ async def process_event_through_pipeline(db, raw_event: dict,
                 fields=len(parsed))
 
     normalizer = dsm.select_normalizer()
-    canonical = normalizer.normalize(
-        parsed, dsm.id, collector_id, integration_id, trace_id)
+    # Tenant-aware normalizers take an explicit tenant; the older
+    # positional-only ones (snort) resolve it from the raw event.
+    import inspect as _inspect
+    if "tenant_id" in _inspect.signature(normalizer.normalize).parameters:
+        canonical = normalizer.normalize(
+            parsed, dsm.id, collector_id, integration_id, trace_id,
+            tenant_id=tenant_id)
+    else:
+        canonical = normalizer.normalize(
+            parsed, dsm.id, collector_id, integration_id, trace_id)
     _s("normalizer", "EXECUTED", normalizer_id=normalizer.id)
 
     await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
@@ -297,7 +306,8 @@ async def process_event_through_pipeline(db, raw_event: dict,
 
     # ── Round 11 · Incident (gated materialisation) ─────────────
     incident = await materialise_incident(
-        db, canonical, iue, ice, detection, verdict, trace_id)
+        db, canonical, iue, ice, detection, verdict, trace_id,
+        tenant_id=canonical.get("tenant_id") or tenant_id)
     if incident.get("created"):
         _s("incident", "EXECUTED",
                 incident_id=incident["incident_id"],
@@ -316,55 +326,86 @@ async def process_event_through_pipeline(db, raw_event: dict,
     loop = None
     framework = None
     if incident.get("created"):
-        investigation = await project_investigation(
-            db, incident["incident_id"])
-        _s("investigation", "EXECUTED",
-                incident_id=incident["incident_id"],
-                lanes_ready=investigation["lanes_ready"],
-                lanes_total=investigation["lanes_total"],
-                engine_id=investigation["engine_id"])
+        try:
+            investigation = await project_investigation(
+                db, incident["incident_id"])
+            _s("investigation", "EXECUTED",
+                    incident_id=incident["incident_id"],
+                    lanes_ready=investigation["lanes_ready"],
+                    lanes_total=investigation["lanes_total"],
+                    engine_id=investigation["engine_id"])
+        except Exception as ex:                                  # noqa: BLE001
+            investigation = None
+            _s("investigation", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::investigation_fabric")
 
         # Response Fabric — Round 13 · P0.7 · Context → Recommendation
         # → Decision → Approval → Executor (with real OSINT adapter).
-        response = await response_orchestrate(db, incident["incident_id"])
-        decision  = (response.get("decision") or {})
-        execution = (response.get("execution") or {})
-        _s("response", "EXECUTED",
-                decision=decision.get("decision"),
-                required_action=decision.get("required_action"),
-                execution_state=(execution or {}).get("state"),
-                engine_id=response.get("engine_id"),
-                recommendations=len(response.get("recommendations") or []))
+        # A fabric fault must not erase the fact that the incident WAS
+        # materialised — record it as a FAILED stage and continue.
+        try:
+            response = await response_orchestrate(db, incident["incident_id"])
+            decision  = (response.get("decision") or {})
+            execution = (response.get("execution") or {})
+            _s("response", "EXECUTED",
+                    decision=decision.get("decision"),
+                    required_action=decision.get("required_action"),
+                    execution_state=(execution or {}).get("state"),
+                    engine_id=response.get("engine_id"),
+                    recommendations=len(response.get("recommendations") or []))
+        except Exception as ex:                                  # noqa: BLE001
+            response = None
+            _s("response", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::response_fabric")
 
         # Closed-Loop Recompute — Round 14 · P0.7.1 · Action result
         # becomes provenance-bearing observation, Investigation and
         # Recommendations recompute idempotently.
-        loop = await closed_loop_recompute(db, incident["incident_id"])
-        _s("closed_loop", "EXECUTED",
-                engine_id=loop.get("engine_id"),
-                changed=loop.get("changed"),
-                new_observations=loop.get("new_observations"),
-                created_recos=len((loop.get("recommendations") or {}).get("created") or []),
-                superseded_recos=len((loop.get("recommendations") or {}).get("superseded") or []),
-                decision=loop.get("decision"))
+        try:
+            loop = await closed_loop_recompute(db, incident["incident_id"])
+            _s("closed_loop", "EXECUTED",
+                    engine_id=loop.get("engine_id"),
+                    changed=loop.get("changed"),
+                    new_observations=loop.get("new_observations"),
+                    created_recos=len((loop.get("recommendations") or {}).get("created") or []),
+                    superseded_recos=len((loop.get("recommendations") or {}).get("superseded") or []),
+                    decision=loop.get("decision"))
+        except Exception as ex:                                  # noqa: BLE001
+            loop = None
+            _s("closed_loop", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::closed_loop")
 
         # Framework Mapping Fabric — Round 15 · P0.7.2 · knowledge
         # mapping above the engines.  Pure Fabric composer.
-        framework = await framework_resolve(db, incident["incident_id"])
-        _s("framework_mapping", "EXECUTED",
-                engine_id=framework.get("engine_id"),
-                frameworks_active=[fw for fw, c in (framework.get("counts") or {}).items() if c > 0],
-                counts=framework.get("counts") or {})
+        try:
+            framework = await framework_resolve(db, incident["incident_id"])
+            _s("framework_mapping", "EXECUTED",
+                    engine_id=framework.get("engine_id"),
+                    frameworks_active=[fw for fw, c in (framework.get("counts") or {}).items() if c > 0],
+                    counts=framework.get("counts") or {})
+        except Exception as ex:                                  # noqa: BLE001
+            framework = None
+            _s("framework_mapping", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::framework_mapping")
 
         # Round 16 · Threat Family classification — deterministic
         # projection over IUE / ICE / observations / VEEE.
-        from detection_content.xdr_threat_family import classify as _cf
-        family = await _cf(db, incident["incident_id"])
-        _s("threat_family", "EXECUTED",
-                family=family.get("family"),
-                confidence=family.get("confidence"),
-                score=family.get("score"),
-                engine_id=family.get("engine_id"))
+        try:
+            from detection_content.xdr_threat_family import classify as _cf
+            family = await _cf(db, incident["incident_id"])
+            _s("threat_family", "EXECUTED",
+                    family=family.get("family"),
+                    confidence=family.get("confidence"),
+                    score=family.get("score"),
+                    engine_id=family.get("engine_id"))
+        except Exception as ex:                                  # noqa: BLE001
+            _s("threat_family", "FAILED",
+                    error=f"{type(ex).__name__}: {ex}",
+                    engine_id="nivxray::xdr::threat_family")
 
         # Round 31 · Autonomous Investigator — kicks the deterministic
         # investigation loop automatically.  No UI, no button.

@@ -21,6 +21,7 @@ from framework.rest_poller import RestPollerConnector
 from framework.scheduler  import PollerScheduler
 from framework.syslog     import SyslogConnector, SyslogRunner
 from framework.webhook    import WebhookConnector
+from framework.identity import collector_id
 
 
 class CollectorRuntime:
@@ -107,7 +108,7 @@ class CollectorRuntime:
                 source               = conn.label,
                 source_event_id      = str(eid) if eid is not None else None,
                 connector_id         = conn.identity,
-                collector_id         = "collector-local",
+                collector_id         = collector_id(),
                 collection_method    = "rest-poll",
                 parser_version       = "phaseB.rest-poller.inject.1",
                 source_timestamp     = str(ts) if ts else None,

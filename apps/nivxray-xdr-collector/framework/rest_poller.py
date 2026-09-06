@@ -37,6 +37,7 @@ import httpx
 
 from framework.base    import Connector, Envelope, Health, Capability
 from framework.parsers import get_path, utcnow_iso
+from framework.identity import collector_id
 
 
 class RestPollerConnector(Connector):
@@ -152,7 +153,7 @@ class RestPollerConnector(Connector):
                 source               = self.label,
                 source_event_id      = str(eid) if eid is not None else None,
                 connector_id         = self.identity,
-                collector_id         = "collector-local",
+                collector_id         = collector_id(),
                 collection_method    = "rest-poll",
                 parser_version       = "phaseB.rest-poller.1",
                 source_timestamp     = str(ts) if ts else None,

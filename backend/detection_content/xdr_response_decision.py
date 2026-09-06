@@ -268,7 +268,7 @@ def decide(context: dict, recommendations: list[dict]) -> dict:
         # If we have an OSINT recommendation, promote it — enrichment is
         # non-destructive and lifts investigation before analyst triage.
         osint_reco = next((r for r in recommendations
-                                    if r.get("suggested_action", "").startswith("OSINT_")),
+                                    if (r.get("suggested_action") or "").startswith("OSINT_")),
                                    None)
         if osint_reco:
             entry = action_entry(osint_reco["suggested_action"])

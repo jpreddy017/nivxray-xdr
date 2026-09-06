@@ -144,6 +144,21 @@ def _priority(verdict: dict) -> tuple[str, str]:
     return "P4", "Low"
 
 
+def _title(label: str, canonical: dict) -> str:
+    """Two canonical network shapes exist in the pipeline: the snort
+    normalizer's nested `network.dst.ip` and the telemetry models'
+    flat `network.dest_ip`.  Read both, and say UNKNOWN rather than
+    printing `None` when the event genuinely has no destination."""
+    net = canonical.get("network") or {}
+    nested = net.get("dst")
+    dst = net.get("dest_ip") or (
+        nested.get("ip") if isinstance(nested, dict) else nested)
+    sig = ((canonical.get("security") or {}).get("signature") or {}).get("id")
+    host = (canonical.get("host") or {}).get("hostname")
+    target = dst or host or "UNKNOWN"
+    return f"{label.title()} — sig {sig or 'UNKNOWN'} → {target}"
+
+
 async def materialise_incident(db, canonical: dict, iue: dict,
                                     ice: dict, detection: dict | None,
                                     verdict: dict, trace_id: str,
@@ -218,10 +233,7 @@ async def materialise_incident(db, canonical: dict, iue: dict,
             "veee":              verdict,
             "source_provenance": (canonical.get("provenance") or {}),
         },
-        "title": (
-            f"{label.title()} — sig {(canonical.get('security') or {}).get('signature', {}).get('id')} "
-            f"→ {(canonical.get('network') or {}).get('dst', {}).get('ip')}"
-        ),
+        "title": _title(label, canonical),
     }
 
     await db[INCIDENT_COLLECTION].insert_one(dict(doc))

@@ -1,6 +1,175 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · P1.10 · REAL TELEMETRY INGESTION ACTIVATED · SHIPPED & VERIFIED
+
+**Owner directive:** activate real telemetry ingestion and prove ONE complete
+real path — real log source → collector → parser → normalizer → durable
+outbox → core ingest → canonical event → observation → detection → IUE →
+ICE → VEEE → incident promotion *only when evidence warrants it* → visible
+investigation. The collector must remain Acquire → Parse → Normalize →
+Deliver and must NEVER become an intelligence engine.
+
+**Owner-locked decisions for this task**
+- Q1 · **A** — build the reasoning bridge (the missing wire).
+- Q2 · **B** — dedicated live tenant `nivx-live`, isolated from `default`
+  and from the test corpus.
+- Q3 · **owner correction** — NO long-lived and NO per-day "live telemetry
+  case". A case/incident is an investigation object, not a telemetry
+  bucket. Live telemetry lands as canonical events + observations; the
+  existing pipeline promotes genuine incidents.
+- Q4 · **A** — accept both body shapes; `{"envelopes":[...]}` is canonical,
+  bare list is backward compatibility. Do not break the 12 existing tests.
+- Q5 · **A** — keep events with absent PID/PPID/hash; represent them as
+  `null` + an explicit `*_state = UNKNOWN`, never a string in a value field.
+
+### Two blockers found (the second was the real one)
+
+1. **Surface (the reported 422):** `ingest_telemetry()` was typed
+   `envelopes: list[CanonicalEnvelope]` while the collector posts
+   `{"envelopes":[...]}` per its own `INGEST_CONTRACT.md §2.1`. Every real
+   delivery failed. The collector also sends `source` / `connector_id` /
+   `parser_version` / `event_type` / `canonical` / `collection_timestamp`,
+   none of which the model carried — so even once the body parsed, the
+   parsed telemetry would have been silently dropped. `delivery.py` sent no
+   `X-Tenant-Id`, which would then have 403'd on the isolation guard.
+
+2. **Structural (unreported):** `/api/xdr/ingest/telemetry` wrote into
+   `xdr_canonical_events` — a collection **nothing in the backend reads**.
+   A live event could flip a collector to CONNECTED and never reach an
+   incident. There was no wire between the ingest plane and the reasoning
+   plane.
+
+### The bridge is a DSM, not a new engine
+
+The authoritative chain already existed as
+`detection_content.xdr_pipeline.process_event_through_pipeline`
+(canonical evidence → detection → IUE → ICE → VEEE → gated
+`materialise_incident` → investigation → response → closed loop →
+framework mapping → threat family → autonomous investigator).
+CEF/LEEF was simply absent from the telemetry DSM registry. Adding a DSM
+means live telemetry travels the SAME path as every other source. No
+second reasoning engine was created (confirmed by the testing agent).
+
+### Delivered
+
+- **`backend/detection_content/telemetry/cef_leef_dsm.py`** (NEW) —
+  `CefLeefDSM` / `CefLeefParser` / `CefLeefNormalizer`. Registered as
+  `cef-leef` in `TELEMETRY_DSM_REGISTRY` (position 6; the pre-existing
+  resolution order is untouched). The core **re-parses the verbatim raw
+  line** rather than trusting the collector's `canonical` — per
+  INGEST_CONTRACT §2.1. `raw_ref.line` preserves the line byte-for-byte.
+  - Known-key boundary rule so unescaped base64 in a CEF value
+    (`cs1=powershell.exe -enc SQBFAFgA...==`) is not mistaken for a new
+    extension key; every rejected token is recorded in `parse_notes`.
+  - LEEF 2.0 declared-delimiter handling with an honest fallback note
+    when the declared delimiter is absent from the payload.
+  - Emits `epistemic_state` per field (OBSERVED / UNKNOWN) plus root-level
+    `pid_state`, `ppid_state`, `file_sha256_state`, `command_line_state`.
+    CEF/LEEF have **no** parent-process field in either specification, so
+    `ppid` is permanently `None` + `UNKNOWN`.
+- **`backend/v2/ingestion/telemetry_bridge.py`** (NEW) — canonical event →
+  CES → CEM v1 observation in `v2_shadow_observations`, tagged
+  `origin="collector-live"` with `case_id=None`.
+  `link_observations_to_incident()` back-fills the link **only** after a
+  real promotion.
+- **`backend/routers/xdr_ingest.py`** — accepts
+  `TelemetryBatch | list[CanonicalEnvelope]`; envelope model extended to
+  the full contract; **tenant isolation now proved BEFORE the collector
+  lookup** (a mismatch returns 403 `TENANT_ISOLATION_VIOLATION` instead of
+  leaking 404 `collector not found`); drives the reasoning chain and writes
+  a per-batch decision trail to `xdr_live_reasoning_audit`. The receipt now
+  reports `reasoned`, `observations_created`, `incidents_promoted[]` and a
+  per-envelope `reasoning[]` array. The counter/state contract is unchanged
+  and cannot be broken by a reasoning fault.
+- **`apps/nivxray-xdr-collector`** — `delivery.py` sends `X-Tenant-Id`
+  (derived from the batch, not blindly from env) + principal headers;
+  `identity.py` gained `tenant_id()`.
+- **`routers/xdr_collectors.py`** — `cef` / `leef` flipped SCAFFOLD →
+  **IMPLEMENTED**, because they now genuinely are (implemented 3 → 5).
+- **`scripts/p1_10_live_proof.py`** — repeatable 4-event real-UDP driver.
+- **`backend/tests/edr/test_p1_10_cef_leef_dsm.py`** (10 tests) +
+  `test_p1_10_live_contract.py` (6 tests, added by the testing agent).
+
+### Three real defects found and fixed while proving the path
+
+- `detection_content/xdr_response_decision.py` — `r.get("suggested_action", "")`
+  returned `None` when the key existed with a null value, raising
+  `AttributeError` on `.startswith`. It fired on the SUSPICIOUS +
+  zero-correlation branch and destroyed the whole pipeline result even
+  though the incident HAD been materialised.
+- `detection_content/xdr_iue.py` — `_severity_hint()` read
+  `security.severity` on the **Suricata 1-4** scale. CEF/LEEF use **0-10**,
+  so `sev=8` collapsed to `INFORMATIONAL` and the gate refused events that
+  genuinely warranted an incident. The DSM now supplies an explicit
+  allow-listed `security.severity_band`; the Suricata numeric path is
+  preserved verbatim for `snort-eve`.
+- `detection_content/xdr_incident.py` — incident titles read only the snort
+  nested `network.dst.ip` shape and printed the literal `None` for all five
+  model-shaped DSMs. New `_title()` reads both shapes and says `UNKNOWN`.
+- `xdr_pipeline.py` — the post-incident fabric stages are now individually
+  guarded, so a fabric fault records a `FAILED` stage instead of erasing
+  the honest record that an incident was created.
+
+### Proof run (repeatable · `python3 /app/scripts/p1_10_live_proof.py`)
+
+Four REAL events on UDP 5514 → collector → outbox → core → HTTP 200:
+
+| Event | Detection | VEEE | Outcome |
+|---|---|---|---|
+| CEF sev=8 · encoded powershell (`-enc`) | RULE_MATCH `DET-EX-001` | SUSPICIOUS 70 | **incident promoted** · P3 |
+| CEF sev=2 · url-filter allow | RULE_NO_MATCH | INCONCLUSIVE 5 | **no incident** — gate refusal recorded verbatim |
+| LEEF sev=9 · certutil remote fetch | RULE_MATCH `DET-EX-002` | MALICIOUS 80 | **incident promoted** · P1 |
+| LEEF sev=2 · robocopy mirror | RULE_NO_MATCH | INCONCLUSIVE 5 | **no incident** |
+
+Collector `col_6551885c766a458ab315` → **CONNECTED** 4/4/4 · 4 canonical
+evidence rows · 4 live observations · exactly 2 linked to real incidents ·
+both incidents visible on `/api/incidents` with `customer=nivx-live` and
+`detection_source=nivxray::xdr::veee`.
+
+**No incident was fabricated to make the demo pass.** Two of four events
+honestly produced "ingested → observation created → no incident promoted".
+
+### Testing
+
+`iteration_85.json` — **100% backend, zero critical, zero action items.**
+139 + 16 = 155 tests pass: 10 CEF/LEEF DSM · 6 live contract · 20
+cross-tenant · 12 collectors/data-sources · 97 pipeline/engine
+(round11-16/20/30, phase2 telemetry normalization, phase2.1 adversarial
+field normalization, P0.3 windows logon). The 615-scenario corpus and
+golden-corpus semantics were not touched.
+
+### Live plane identifiers (also in `memory/test_credentials.md`)
+
+- Tenant `nivx-live` · core collector `col_6551885c766a458ab315`
+- Collector-service connector `syslog-3daed23d` · UDP `0.0.0.0:5514`
+- Collector service `http://localhost:8055` · supervisor `xdr_collector`
+- Env in `/etc/supervisor/conf.d/xdr_collector.conf`: `NIVX_COLLECTOR_ID`,
+  `NIVX_TENANT_ID`, `NIVX_INGEST_URL`, `NIVX_INGEST_TIMEOUT`
+
+### Honest limits of P1.10 (NOT claimed as done)
+
+- Only the **syslog** transport carries the CEF/LEEF parsers. Webhook and
+  REST poller still deliver their native payloads.
+- Real PID/PPID lineage, process-creation events and file hashes remain
+  wire-format-limited — CEF/LEEF simply do not carry them. That is
+  **P1.12 Sensor Foundation**, not a parser gap.
+- No bearer token is enforced on ingest in preview because `nivx-live` has
+  zero provisioned users and the RBAC bootstrap-allow path applies. A
+  production tenant with users provisioned requires a scoped key carrying
+  `collectors.enroll`.
+
+### Next authorized transitions
+
+- **P1.10a Spread Watchlist** (was deferred behind P1.10).
+- **P1.11 Saved Hunts.**
+- **P1.12 Sensor Foundation** — real PID/PPID, process creation, file
+  hashes, identity. Unlocks P2.x.
+- **P2.x Unified Artifact Trajectory & Attack Traversal Projection** —
+  still deferred until the Sensor Foundation lands.
+
+
+
 ## 🎯 2026-09-05 · COMPLETE AG BASELINE INTEGRATION · STAGE 1 + STAGE 2 · DELIVERED
 
 **Authority:** OWNER AUTHORIZATION — FULL AG BUILD → NIVXRAY XDR END-TO-END IMPLEMENTATION.

@@ -152,7 +152,21 @@ def _capability_tags(canonical: dict, detection: dict | None) -> list[str]:
 
 
 def _severity_hint(canonical: dict) -> str:
-    sev = (canonical.get("security") or {}).get("severity")
+    """Resolve the canonical severity band.
+
+    Two accepted inputs, in priority order:
+      1. `security.severity_band` — an explicit allow-listed band. A
+         normalizer whose source severity is NOT on the Suricata 1-4
+         scale (CEF/LEEF use 0-10) MUST supply this rather than let its
+         numbers be misread as Suricata codes.
+      2. `security.severity` — the Suricata numeric scale (1 = most
+         severe), preserved verbatim for the snort-eve path.
+    """
+    sec = canonical.get("security") or {}
+    band = sec.get("severity_band")
+    if isinstance(band, str) and band.strip().upper() in _SEV_ORDER:
+        return band.strip().upper()
+    sev = sec.get("severity")
     try:
         band = _SURICATA_SEV_MAP.get(int(sev)) if sev is not None else None
     except (TypeError, ValueError):
