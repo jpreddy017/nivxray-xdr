@@ -335,6 +335,8 @@ from routers.xdr_collectors import router as xdr_collectors_router
 app.include_router(xdr_collectors_router)
 from routers.xdr_ingest import router as xdr_ingest_router
 app.include_router(xdr_ingest_router)
+from routers.xdr_spread import router as xdr_spread_router
+app.include_router(xdr_spread_router)
 # P1 · Detection Content Registry (Sigma + MITRE analytics + native).
 # 10-stage sync pipeline · never fabricates · bundled snapshot fallback.
 from routers.xdr_detection_content import router as xdr_detection_content_router

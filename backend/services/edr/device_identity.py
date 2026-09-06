@@ -213,7 +213,13 @@ def observations(device_ref: str, cross_tenant: bool,
             "title":         (proc.get("name") or raw.get("entity")
                               or raw.get("rule_label") or kind),
             "severity":      "info",
-            "process":       proc.get("name") or raw.get("entity"),
+            "process":       proc.get("name") or None,
+            # HONEST STATE: this field previously fell back to
+            # `raw["entity"]`, which for a network-only observation is
+            # the remote endpoint — so the Device Trajectory rendered an
+            # IP address as a running process on the PROCESSES lane.
+            # No process evidence means UNKNOWN, not a substitute.
+            "process_state": "OBSERVED" if proc.get("name") else "UNKNOWN",
             "process_iid":   doc.get("process_iid") or ev.get("process_iid"),
             "parent_iid":    proc.get("parent_iid"),
             "parent_name":   proc.get("parent_name") or raw.get("parent_image"),

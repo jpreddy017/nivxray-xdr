@@ -518,6 +518,14 @@ async def get_device_trajectory(
                 if not first or (since_iso and first < since_iso):
                     continue
                 lane_counts[lane] = lane_counts.get(lane, 0) + 1
+                # HONEST STATE: only a PROCESS entity may populate the
+                # `process` field.  Falling back to `name` for a network
+                # / file / registry entity put a remote endpoint into
+                # the process lane, so the Device Trajectory rendered an
+                # IP address as if it were a running process.
+                is_process = (kind or "").lower() == "process"
+                entity_name = (ent.get("name") or ent.get("process")
+                               or ent.get("file") or ent.get("host") or kind)
                 events.append({
                     "id":           f"{case_id}::{kind}::{ent.get('entity_id')}",
                     "kind":         "activity",
@@ -525,11 +533,13 @@ async def get_device_trajectory(
                     "lane":         lane,
                     "timestamp":    first,
                     "last_seen":    ent.get("last_seen"),
-                    "title":        ent.get("name") or ent.get("process")
-                                        or ent.get("file") or ent.get("host") or kind,
+                    "title":        entity_name,
                     "severity":     "info",
-                    "process":      ent.get("process") or ent.get("name"),
+                    "process":      (ent.get("process") or ent.get("name")
+                                     if is_process else None),
+                    "process_state": "OBSERVED" if is_process else "UNKNOWN",
                     "file":         ent.get("file") or ent.get("path"),
+                    "target":       entity_name if not is_process else None,
                     "user":         ent.get("user"),
                     "command_line": ent.get("command_line"),
                     "path":         ent.get("path"),

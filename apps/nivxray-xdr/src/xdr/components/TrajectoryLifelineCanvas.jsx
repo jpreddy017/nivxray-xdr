@@ -89,7 +89,7 @@ export default function TrajectoryLifelineCanvas({
     [viewStart, viewEnd, plotW],
   );
 
-  const { processRows, artifactRows, anchors } = useMemo(
+  const { processRows, artifactRows, anchors, actorlessEvents } = useMemo(
     () => buildSwimlanes(events), [events]);
   const lineage = useMemo(() => lineageStats(events), [events]);
   const spans   = useMemo(() => compromiseSpans(events), [events]);
@@ -100,9 +100,19 @@ export default function TrajectoryLifelineCanvas({
     let y = AXIS_H;
     if (processRows.length) {
       rows.push({ type: "header", label: "PROCESSES", y, h: HEADER_H,
-                  note: `${processRows.length} lifeline${processRows.length === 1 ? "" : "s"}` });
+                  note: `${processRows.length} lifeline${processRows.length === 1 ? "" : "s"}`,
+                  detail: actorlessEvents
+                    ? `? ${actorlessEvents} observation${actorlessEvents === 1 ? "" : "s"} in this window carried no process telemetry`
+                    : null });
       y += HEADER_H;
       for (const r of processRows) { rows.push({ type: "row", row: r, y, h: ROW_H }); y += ROW_H; }
+    } else if (actorlessEvents) {
+      // No process telemetry was recorded for ANY observation in view.
+      // Say so — never synthesise a process lane from a network target.
+      rows.push({ type: "header", label: "PROCESSES", y, h: HEADER_H,
+                  note: "? NO PROCESS EVIDENCE",
+                  detail: `${actorlessEvents} observation${actorlessEvents === 1 ? "" : "s"} in this window carried no process telemetry — no lifeline is inferred` });
+      y += HEADER_H;
     }
     if (artifactRows.length) {
       rows.push({ type: "header", label: "ARTIFACTS & NETWORK", y, h: HEADER_H,
@@ -111,7 +121,7 @@ export default function TrajectoryLifelineCanvas({
       for (const r of artifactRows) { rows.push({ type: "row", row: r, y, h: ROW_H }); y += ROW_H; }
     }
     return { rows, bodyEnd: y };
-  }, [processRows, artifactRows]);
+  }, [processRows, artifactRows, actorlessEvents]);
 
   const rowY = useMemo(() => {
     const m = new Map();
@@ -296,6 +306,12 @@ export default function TrajectoryLifelineCanvas({
                       fontSize={8.5} fontFamily="'IBM Plex Mono', monospace">
                   {item.note}
                 </text>
+                {item.detail ? (
+                  <text x={GUTTER + 8} y={item.y + 14} fill="#59636F"
+                        fontSize={8.5} fontFamily="'IBM Plex Mono', monospace">
+                    {item.detail}
+                  </text>
+                ) : null}
               </g>
             );
           }

@@ -1,6 +1,123 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · P1.10a · SPREAD WATCHLIST · SHIPPED & VERIFIED (iteration_86)
+
+**Owner-locked decisions (all 11 implemented verbatim)**
+1. Identity keys: file hashes (sha256/sha1/md5) + dest_ip + domain/DNS +
+   process identity + **normalized command-line fingerprint**. Raw command
+   line, src_ip and username are explicitly NOT identity — they are context.
+2. Enrollment: evidence-gated (a real detection match, OR a VEEE verdict
+   strictly above INCONCLUSIVE, score >= 25). Enrollment is NOT a malicious
+   verdict.
+3. Endpoint identity: hostname, or host_id when it is not an IP literal.
+   A source IP is never an endpoint. UNKNOWN sightings are retained,
+   displayed and provenance-preserving but NEVER counted. Two unknown hosts
+   are not two endpoints.
+4. Thresholds: 2 SPREAD_CONFIRMED · 3 SPREAD_ESCALATING · 5
+   SPREAD_SIGNIFICANT · 10 SPREAD_WIDESPREAD. One evidence record per
+   threshold, cap-aware — the existing VEEE cap (+20/match, max 3 = +60) is
+   untouched, and `endpoint_count` + the threshold ledger preserve evidence
+   progression past the score cap.
+5. **NO new engine.** The watch plane records and emits evidence only. ICE
+   correlates, VEEE scores, the existing incident gate promotes.
+6. Backend + API + tests + proof run. No UI (folded into Refused Evidence).
+8. Idempotency: repeat sightings from one endpoint and replays of the same
+   raw event cannot inflate spread.
+9. Full provenance on every spread assertion.
+10. Spread != lateral movement, != compromise, != patient zero. The claim
+    string is always "Indicator observed across N distinct endpoint
+    identities."
+
+**Delivered**
+- `backend/detection_content/xdr_spread_watchlist.py` (NEW) — the watch
+  plane. Reuses the existing DIE `normalize_command` (which peels
+  PowerShell `-EncodedCommand`), collapses Windows paths to basename,
+  strips volatile tokens (IP/GUID/hex/base64/long numbers) and strips the
+  shell-interpreter wrapper so `powershell.exe <script>` and
+  `powershell.exe -nop -w hidden -enc <same script>` fingerprint
+  identically. Dedupe key is the verbatim raw-line digest, so a replay
+  cannot inflate spread.
+- `backend/detection_content/xdr_pipeline.py` — hook sits AFTER VEEE and
+  BEFORE `materialise_incident`. The first verdict is provisional and gates
+  enrollment only; spread evidence is appended to `ice["matches"]` and the
+  EXISTING `veee_compute` runs once more. New stages `spread_watchlist` and
+  `verdict_reevaluated` record both the provisional and final score.
+- `backend/routers/xdr_spread.py` (NEW) — GET `/api/xdr/spread`,
+  `/policy`, `/signals`, `/{watch_id}`; POST analyst enrollment (creates a
+  row with endpoint_count 0 and `endpoint_cardinality: NOT_OBSERVED` —
+  adding something to a watchlist is not evidence it was observed);
+  POST `/{watch_id}/retire` (never deletes sightings or emitted evidence).
+- `backend/detection_content/xdr_ice.py` — **pre-existing defect fixed**:
+  `_signal_from_canonical()` read only the snort nested shape
+  (`network.src.ip`/`network.dst.ip`), so `host_id` and `dst_ip` were
+  silently `None` for ALL five model-shaped DSMs and IP/host correlation
+  could never match live telemetry. Now reads both shapes, hostname
+  preferred for `host_id`.
+- `backend/tests/edr/test_p1_10a_spread_watchlist.py` (24 tests)
+- `scripts/p1_10a_spread_proof.py` — the repeatable 4-track proof driver.
+
+**Proof run — 6 real CEF/LEEF events on UDP 5514, all four tracks**
+
+| Track | Outcome |
+|---|---|
+| A1 HYD-SRV31 · certutil + hash H1 | RULE_MATCH, 50 LIKELY_BENIGN → **no incident**, indicators enrolled at 1 endpoint |
+| A2 HYD-SRV32 · same hash + tooling | 3 spread evidence records → **100 MALICIOUS → INCIDENT PROMOTED** (`detection(+45) + iue.severity_hint(+5) + ice.matches(+60)`) |
+| B1 HYD-FW05 · dest_ip only | 25 LIKELY_BENIGN → no incident |
+| B2 HYD-FW06 · same dest_ip | 1 spread evidence → 45 → **STILL REFUSED** — spread alone does not force an incident |
+| C1 no hostname · same dest_ip | sighting RETAINED, `unknown_endpoint_sightings=1`, `endpoint_count` unchanged at 2, no threshold, no evidence |
+| D1 byte-identical replay of B2 | `duplicate_sightings=1`, sighting_count unchanged, no second evidence record |
+
+**Testing** — iteration_86: zero critical. One minor (the shell-wrapper
+fingerprint divergence) was fixed and covered by 2 new tests. 118 tests
+pass across tests/edr/, collectors, round11/13/30 and phase2.
+
+---
+
+## ✅ 2026-06 · HONEST-STATE FIX · AN IP WAS RENDERED AS A PROCESS
+
+**Reported from the UI**: the Device Trajectory PROCESSES lane showed a
+lifeline labelled `203.0.113.77` with the badge `[77]`.
+
+**Why it changed**: nothing in the trajectory was edited. P1.10 started
+delivering REAL firewall telemetry, which legitimately carries no process
+evidence at all. The golden corpus had always supplied a process for every
+observation, so four latent fallbacks had never been exercised:
+
+1. `services/edr/device_identity.observations()` —
+   `proc.get("name") or raw.get("entity")`. For a network observation
+   `raw["entity"]` IS the remote endpoint. **This was the one the UI hit.**
+2. `routers/edr.py` activity projection —
+   `ent.get("process") or ent.get("name")` for every entity kind.
+3. `trajectoryModel.actorOf()` — `evt.process || evt.title`, so a
+   title became a process actor.
+4. `trajectoryModel.typeTag()` — read `.77`, the last octet of an IPv4
+   address, as a file extension and printed `[77]`, which reads like a PID.
+
+**Fixes**
+- Both backend projections now gate `process` on real process evidence and
+  emit `process_state: OBSERVED | UNKNOWN`. A non-process entity yields
+  `process: None`.
+- `actorOf()` returns only real process evidence — never a title.
+- `buildSwimlanes()` no longer drops an actor-less observation: it creates
+  no process lifeline but still anchors the event on its target lifeline,
+  and reports `actorlessEvents` so the UI can disclose it.
+- `typeTag()` recognises IPv4 / IPv6 / `ip:port` / URL / domain and returns
+  `[IPv4]`, `[ENDPOINT]`, `[URL]`, `[DOMAIN]`; a purely numeric "extension"
+  now yields `[NO EXT]`.
+- The canvas renders an explicit `? NO PROCESS EVIDENCE · N observations in
+  this window carried no process telemetry — no lifeline is inferred`.
+
+**Verified**: 17/17 model assertions via node, 2 new backend contract tests
+(`tests/edr/test_p1_10b_process_evidence_honesty.py`), and a screenshot
+confirming `[77]` is gone, `[IPv4]` is shown, no process lifeline is
+fabricated. `tests/edr/test_iteration_82_activation.py` was relaxed from
+"exactly 7 endpoints" to "the 7 corpus endpoints are all present, total
+>= 7" — live telemetry is SUPPOSED to add endpoints, and pinning the total
+made a working ingestion path look like a regression.
+
+
+
 ## ✅ 2026-06 · P1.10 · REAL TELEMETRY INGESTION ACTIVATED · SHIPPED & VERIFIED
 
 **Owner directive:** activate real telemetry ingestion and prove ONE complete

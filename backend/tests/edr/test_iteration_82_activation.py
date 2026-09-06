@@ -44,12 +44,21 @@ def test_endpoints_returns_seven_authoritative(auth):
     data = r.json()
     rows = [d for d in data["endpoints"]
             if d.get("source") == "v2_shadow_observations"]
-    assert len(rows) == 7, f"expected 7 IRG rows, got {len(rows)}"
+    # The 7 golden-corpus endpoints must ALL still resolve authoritatively.
+    # The total is no longer pinned at 7: since P1.10 activated real
+    # telemetry ingestion, live CEF/LEEF sources legitimately register
+    # additional endpoints, and asserting an exact total would make a
+    # working ingestion path look like a regression.
+    corpus = [d for d in rows if d["hostname"] in EXPECTED_HOSTS]
+    assert {d["hostname"] for d in corpus} == set(EXPECTED_HOSTS), \
+        f"corpus endpoints missing: {set(EXPECTED_HOSTS) - {d['hostname'] for d in corpus}}"
+    assert len(rows) >= 7, f"expected at least 7 IRG rows, got {len(rows)}"
     for row in rows:
         assert row["identity_confidence"] == "authoritative"
         assert row["device_iid"] and row["device_iid"].startswith("dev_")
         assert row["observation_count"] > 0
         assert row.get("lane_counts")
+    for row in corpus:
         assert row["hostname"] in EXPECTED_HOSTS
 
 

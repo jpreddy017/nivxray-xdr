@@ -86,10 +86,22 @@ def _match_condition(cond: dict, signal: dict) -> bool:
 
 def _signal_from_canonical(canonical: dict, iue: dict) -> dict:
     """Flatten canonical + IUE into the Signal shape consumed by
-    `xdr_correlation`.  Deterministic — no clock, no uuid."""
+    `xdr_correlation`.  Deterministic — no clock, no uuid.
+
+    Two canonical network shapes exist in the pipeline: the snort
+    normalizer's nested ``network.src.ip`` / ``network.dst.ip`` and the
+    telemetry models' flat ``network.src_ip`` / ``network.dest_ip``
+    (windows-security, linux-auditd, aws-cloudtrail, microsoft-sysmon,
+    cef-leef).  Read BOTH — reading only the nested shape silently
+    nulled ``host_id`` and ``dst_ip`` for every model-shaped DSM, so
+    IP- and host-based correlation could never match live telemetry.
+    """
     net = canonical.get("network") or {}
-    src = net.get("src") or {}
-    dst = net.get("dst") or {}
+    src = net.get("src") if isinstance(net.get("src"), dict) else {}
+    dst = net.get("dst") if isinstance(net.get("dst"), dict) else {}
+    src_ip = src.get("ip") or net.get("src_ip") or None
+    dst_ip = dst.get("ip") or net.get("dest_ip") or None
+    host = canonical.get("host") or {}
     intel = canonical.get("decoded_intelligence") or {}
     iocs = intel.get("iocs") or {}
     sig = (canonical.get("security") or {}).get("signature") or {}
@@ -98,8 +110,9 @@ def _signal_from_canonical(canonical: dict, iue: dict) -> dict:
         "signature_name": sig.get("name"),
         "protocol":       net.get("protocol"),
         "severity_hint":  iue.get("severity_hint"),
-        "src_ip":         src.get("ip"),
-        "dst_ip":         dst.get("ip"),
+        "src_ip":         src_ip,
+        "dst_ip":         dst_ip,
+        "hostname":       host.get("hostname") or None,
     }
     if isinstance(iocs, dict):
         ips = iocs.get("ips") or []
@@ -119,10 +132,13 @@ def _signal_from_canonical(canonical: dict, iue: dict) -> dict:
     return {
         "signal_id":      f"sig_{canonical.get('event_id', '')}",
         "signal_kind":    "detection",
-        "at":             canonical.get("timestamp"),
+        "at":             canonical.get("timestamp") or canonical.get("event_time"),
         "event_kind":     canonical.get("event_type"),
-        "host_id":        src.get("ip"),           # network-alert host proxy
-        "dst_ip":         dst.get("ip"),
+        # Prefer a real endpoint identity; fall back to the source IP as
+        # a network-alert host proxy only when no hostname exists.
+        "host_id":        (host.get("hostname") or host.get("host_id")
+                           or src_ip),
+        "dst_ip":         dst_ip,
         "source_event_id": canonical.get("event_id"),
         "detection_id":   sig.get("id"),
         "fields":         fields,

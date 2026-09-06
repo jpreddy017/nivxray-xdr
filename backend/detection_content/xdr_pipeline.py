@@ -18,6 +18,7 @@ from .nivxray_native_sigma import evaluate as nx_evaluate
 from .xdr_iue import understand as iue_understand
 from .xdr_ice import correlate as ice_correlate
 from .xdr_veee import compute_verdict as veee_compute
+from .xdr_spread_watchlist import observe as spread_observe
 from .xdr_incident import materialise_incident
 from .xdr_investigation import project_investigation
 from .xdr_response_fabric import orchestrate as response_orchestrate
@@ -304,6 +305,47 @@ async def process_event_through_pipeline(db, raw_event: dict,
             engine_id=verdict["engine_id"],
             reason=verdict["reason"])
 
+    # ── P1.10a · Spread Watchlist (evidence / watch plane) ──────
+    # NOT an engine.  It records sightings and, when the same tracked
+    # indicator appears on a NEW distinct REAL endpoint, emits
+    # correlation EVIDENCE.  That evidence is appended to the ICE
+    # result and the EXISTING VEEE re-evaluates once, so the existing
+    # incident gate stays the sole authority on promotion.
+    # The verdict above is provisional and used only to gate
+    # enrollment; the verdict below is authoritative.
+    spread = await spread_observe(
+        db, canonical, iue=iue, detection=detection, verdict=verdict,
+        trace_id=trace_id, tenant_id=canonical.get("tenant_id") or tenant_id)
+    verdict_provisional = None
+    if spread.get("correlation_matches"):
+        verdict_provisional = {"label": verdict["label"],
+                                    "score": verdict["score"]}
+        ice = {**ice,
+                    "state": "MATCHED",
+                    "matches": list(ice.get("matches") or [])
+                                    + list(spread["correlation_matches"])}
+        verdict = veee_compute(canonical, detection, iue, ice)
+        _s("verdict_reevaluated", "EXECUTED",
+                label=verdict["label"], score=verdict["score"],
+                provisional_label=verdict_provisional["label"],
+                provisional_score=verdict_provisional["score"],
+                spread_evidence=len(spread["correlation_matches"]),
+                engine_id=verdict["engine_id"],
+                reason=verdict["reason"],
+                note="spread evidence re-scored by the EXISTING VEEE; "
+                        "no separate spread score exists")
+    _s("spread_watchlist", "EXECUTED",
+            state=spread["state"],
+            admitted=spread["admitted"],
+            admission_reason=spread["admission_reason"],
+            endpoint_identity_state=spread["endpoint_identity_state"],
+            counts_toward_spread=spread["counts_toward_spread"],
+            indicators=spread["indicators_extracted"],
+            sightings_recorded=spread["sightings_recorded"],
+            duplicates_ignored=spread["duplicate_sightings_ignored"],
+            spread_thresholds=[s["status"] for s in spread["spread"]],
+            plane_id=spread["plane_id"])
+
     # ── Round 11 · Incident (gated materialisation) ─────────────
     incident = await materialise_incident(
         db, canonical, iue, ice, detection, verdict, trace_id,
@@ -447,6 +489,8 @@ async def process_event_through_pipeline(db, raw_event: dict,
             "detection":      detection,
             "iue":            iue,
             "ice":            ice,
+            "spread":         spread,
+            "verdict_provisional": verdict_provisional,
             "verdict":        verdict,
             "incident":       incident,
             "investigation":  investigation,

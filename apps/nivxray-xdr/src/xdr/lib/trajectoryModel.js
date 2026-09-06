@@ -45,13 +45,34 @@ export function glyphFor(evt) {
 /** Literal artifact tag from the observed path — never guessed.
  *  `.exe` yields `[EXE]`, not `[PE]`: PE-ness would be a claim about
  *  file contents we have not parsed. */
+const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+const ENDPOINT_RE = /^(?:\d{1,3}\.){3}\d{1,3}:\d{1,5}$/;
+const DOMAIN_RE = /^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+$/i;
+
+/**
+ * Type badge for a lifeline label.
+ *
+ * A network identifier is NOT a filename: reading the last octet of
+ * `203.0.113.77` as a file extension produced the badge `[77]`, which
+ * reads like a process id and is pure fabrication. Network, domain and
+ * URL identifiers are labelled as what they are.
+ */
 export function typeTag(pathOrName) {
-  const s = String(pathOrName || "");
+  const s = String(pathOrName || "").trim();
+  if (!s) return "[UNKNOWN]";
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) return "[URL]";
+  if (ENDPOINT_RE.test(s)) return "[ENDPOINT]";
+  if (IPV4_RE.test(s)) return "[IPv4]";
+  if (s.includes(":") && /^[0-9a-f:]+$/i.test(s)) return "[IPv6]";
   const leaf = s.split(/[\\/]/).pop() || "";
   if (/^[a-f0-9]{64}$/i.test(leaf)) return "[SHA-256]";
   if (!leaf.includes(".")) return "[NO EXT]";
+  if (DOMAIN_RE.test(leaf) && !/\.(exe|dll|ps1|bat|cmd|js|vbs|scr|sys|msi|tmp|dat|log|txt|zip|docx?|xlsx?|pdf)$/i.test(leaf)) {
+    return "[DOMAIN]";
+  }
   const ext = leaf.split(".").pop();
   if (!ext || ext.length > 8) return "[NO EXT]";
+  if (/^\d+$/.test(ext)) return "[NO EXT]";
   return `[${ext.toUpperCase()}]`;
 }
 
@@ -134,9 +155,20 @@ export function dedupeObservations(events) {
   return out;
 }
 
-/** Actor of an observation — the process that performed it. */
+/**
+ * Actor of an observation — the process that performed it.
+ *
+ * HONEST STATE: only real process evidence qualifies. Falling back to
+ * `title` meant a network-only observation (a firewall session with no
+ * process telemetry at all) produced a PROCESSES lifeline labelled with
+ * a remote IP address. An IP is not a process. When there is no process
+ * evidence the observation has NO actor, and it is anchored on its
+ * target lifeline alone.
+ */
 export function actorOf(evt) {
-  return evt.process || evt.title || null;
+  if (!evt) return null;
+  if (evt.process_state === "UNKNOWN") return null;
+  return evt.process || null;
 }
 
 /** Target of an observation, as recorded. */
@@ -144,7 +176,7 @@ export function targetOf(evt) {
   if (PROCESS_KINDS.has(evt.observation_kind)) {
     return evt.path || evt.process || evt.title || null;
   }
-  return evt.file || null;
+  return evt.file || evt.target || null;
 }
 
 /**
@@ -186,25 +218,33 @@ export function buildSwimlanes(events) {
   };
 
   const anchors = [];        // { evt, actorRowKey, targetRowKey }
+  let actorlessEvents = 0;
   for (const e of events || []) {
     const t = tsOf(e);
     if (t === null) continue;
-    const actorName = actorOf(e);
-    if (!actorName) continue;
-    const actorRow = touch(procRows, actorName, "process", e.path || actorName);
-    actorRow.events.push(e);
     const tier = severityTier(e);
-    if (tier >= TIER_ATTRIBUTED) actorRow.iocCount += 1;
-    if (tier === TIER_MALICIOUS) actorRow.maliciousCount += 1;
-    else if (tier === TIER_ATTRIBUTED) actorRow.attributedCount += 1;
-    if (e.process_iid && !actorRow.processIids.includes(e.process_iid)) {
-      actorRow.processIids.push(e.process_iid);
+    const actorName = actorOf(e);
+
+    // An observation with no process evidence gets NO process lifeline,
+    // but it is never discarded: it still anchors on its target.
+    let actorRow = null;
+    if (actorName) {
+      actorRow = touch(procRows, actorName, "process", e.path || actorName);
+      actorRow.events.push(e);
+      if (tier >= TIER_ATTRIBUTED) actorRow.iocCount += 1;
+      if (tier === TIER_MALICIOUS) actorRow.maliciousCount += 1;
+      else if (tier === TIER_ATTRIBUTED) actorRow.attributedCount += 1;
+      if (e.process_iid && !actorRow.processIids.includes(e.process_iid)) {
+        actorRow.processIids.push(e.process_iid);
+      }
+      if (e.parent_iid && !actorRow.parentClaims.some((p) => p.iid === e.parent_iid)) {
+        actorRow.parentClaims.push({ iid: e.parent_iid, name: e.parent_name || null });
+      }
+      if (actorRow.first === null || t < actorRow.first) actorRow.first = t;
+      if (actorRow.last === null || t > actorRow.last) actorRow.last = t;
+    } else {
+      actorlessEvents += 1;
     }
-    if (e.parent_iid && !actorRow.parentClaims.some((p) => p.iid === e.parent_iid)) {
-      actorRow.parentClaims.push({ iid: e.parent_iid, name: e.parent_name || null });
-    }
-    if (actorRow.first === null || t < actorRow.first) actorRow.first = t;
-    if (actorRow.last === null || t > actorRow.last) actorRow.last = t;
 
     let targetRowKey = null;
     const tgt = targetOf(e);
@@ -218,7 +258,12 @@ export function buildSwimlanes(events) {
       if (artRow.last === null || t > artRow.last) artRow.last = t;
       targetRowKey = artRow.key;
     }
-    anchors.push({ evt: e, t, actorRowKey: actorRow.key, targetRowKey });
+    if (!actorRow && !targetRowKey) continue;
+    anchors.push({
+      evt: e, t,
+      actorRowKey: actorRow ? actorRow.key : null,
+      targetRowKey,
+    });
   }
 
   const sortRows = (m) => Array.from(m.values())
@@ -228,6 +273,9 @@ export function buildSwimlanes(events) {
     processRows:  sortRows(procRows),
     artifactRows: sortRows(artRows),
     anchors,
+    // Honest disclosure: how many observations carried no process
+    // evidence at all, so the UI can say so instead of inventing a lane.
+    actorlessEvents,
   };
 }
 
