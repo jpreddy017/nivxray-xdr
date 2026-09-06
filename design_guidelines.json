@@ -1,134 +1,132 @@
 {
-  "theme_architecture": {
-    "default_mode": "dark",
-    "supported_modes": ["dark", "light"],
-    "theme_attribute": "data-nx-theme",
-    "theme_switch_persistence_key": "nx.theme",
-    "surfaces": {
-      "canvas": { "dark": "#0B0E14", "light": "#F8FAFC", "description": "Application ground canvas" },
-      "primary": { "dark": "#121721", "light": "#FFFFFF", "description": "Dominant work surface" },
-      "inset": { "dark": "#0E131C", "light": "#F1F5F9", "description": "Controls, wells, sub-sections" },
-      "raised": { "dark": "#1A212D", "light": "#FFFFFF", "description": "Popovers, drawers, graph nodes" },
-      "hover": { "dark": "#222B3A", "light": "#E2E8F0", "description": "Row and control hover" },
-      "graph_bg": { "dark": "#090C12", "light": "#FBFBF9", "description": "Graph and trajectory canvas background" }
-    }
-  },
-  "colors": {
-    "brand_signal": { "dark": "#F59E0B", "light": "#B45309", "name": "Kinetic Amber" },
-    "secondary_signals": {
-      "cyan": "#06B6D4",
-      "mint": "#10B981",
-      "purple": "#A855F7"
+  "theme_standardization": {
+    "selected_theme": "cisco_amp_classic_light",
+    "theme_rationale": "Cisco Secure Endpoint Device Trajectory baseline specifies exact Cisco light console canvas with crisp structural borders, grey gutter bands, and vivid green process lifelines and red compromise bands.",
+    "shell_transition_seam": {
+      "strategy": "Seamless embedded card shell",
+      "wrapper_background": "#0F172A",
+      "canvas_container_background": "#F8FAFC",
+      "border_color": "#CBD5E1",
+      "border_radius": "6px",
+      "padding": "0px"
     },
-    "forbidden_colors": [
-      "#7351B7",
-      "#1B93A4"
-    ],
-    "priority_ladder": {
-      "P1": { "rank": 1, "name": "CRITICAL", "fill_dark": "#EF4444", "fill_light": "#DC2626", "glyph": "▰▰▰▰" },
-      "P2": { "rank": 2, "name": "HIGH", "fill_dark": "#F97316", "fill_light": "#EA580C", "glyph": "▰▰▰▱" },
-      "P3": { "rank": 3, "name": "MEDIUM", "fill_dark": "#EAB308", "fill_light": "#CA8A04", "glyph": "▰▰▱▱" },
-      "P4": { "rank": 4, "name": "LOW", "fill_dark": "#14B8A6", "fill_light": "#0D9488", "glyph": "▰▱▱▱" },
-      "P5": { "rank": 5, "name": "INFO", "fill_dark": "#94A3B8", "fill_light": "#64748B", "glyph": "▱▱▱▱" }
-    },
-    "epistemic_vocabulary": {
-      "EVIDENCE_PRESENT": { "glyph": "◆", "token": "--nx-ep-present", "color": "#10B981", "border": "solid 1px" },
-      "NO_EVIDENCE": { "glyph": "◇", "token": "--nx-ep-none", "color": "#94A3B8", "border": "dashed 1px" },
-      "UNKNOWN": { "glyph": "?", "token": "--nx-ep-unknown", "color": "#EAB308", "border": "dotted 1px" },
-      "NOT_RUN": { "glyph": "○", "token": "--nx-ep-notrun", "color": "#64748B", "border": "dashed 1px" },
-      "CAPABILITY_UNAVAILABLE": { "glyph": "⊘", "token": "--nx-ep-nocap", "color": "#F87171", "border": "solid 1px" }
+    "palette": {
+      "bg_main": "#F8FAFC",
+      "bg_card": "#FFFFFF",
+      "bg_gutter": "#F1F5F9",
+      "border_subtle": "#E2E8F0",
+      "border_strong": "#CBD5E1",
+      "text_primary": "#0F172A",
+      "text_secondary": "#475569",
+      "text_muted": "#64748B",
+      "process_lifeline": "#16A34A",
+      "process_lifeline_dashed": "#22C55E",
+      "file_network_line": "#94A3B8",
+      "malicious_compromise_red": "#DC2626",
+      "malicious_compromise_halo": "#FEF2F2",
+      "compromise_band_amber": "rgba(251, 191, 36, 0.18)",
+      "selection_highlight": "#3B82F6",
+      "selection_bg": "#EFF6FF",
+      "disposition_clean": "#16A34A",
+      "disposition_malicious": "#DC2626",
+      "disposition_unknown": "#D97706"
     }
   },
   "typography": {
-    "display": "Outfit, sans-serif",
-    "body": "IBM Plex Sans, sans-serif",
-    "technical": "JetBrains Mono, monospace",
-    "forbidden_fonts": ["Inter", "Roboto", "Open Sans", "Space Grotesk"],
-    "hierarchy": {
+    "font_family_headings": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    "font_family_body": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    "font_family_mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    "sizes": {
       "h1": "text-2xl font-bold tracking-tight",
       "h2": "text-xl font-semibold tracking-tight",
       "h3": "text-lg font-medium",
-      "body": "text-xs font-normal leading-relaxed",
-      "machine_fact": "font-mono text-xs tracking-wide"
+      "body": "text-sm font-normal leading-normal",
+      "mono": "text-xs font-mono tracking-tight",
+      "caption": "text-xs font-normal text-slate-500"
     }
   },
-  "layouts": {
-    "investigation_canvas": {
-      "structure": "3-pane high-density grid",
-      "grid_template_columns": "260px 1fr 340px",
-      "left_pane": "Device Activity Inventory & Lane Filters",
-      "center_pane": "Interactive Multi-lane Timeline Canvas (System, Process, File, Network, Registry)",
-      "right_pane": "Activity Details & Context-Preserving Pivots"
+  "layout_geometry": {
+    "page_header": {
+      "height": "48px",
+      "border_bottom": "1px solid #CBD5E1",
+      "bg": "#FFFFFF"
     },
-    "zero_device_state": {
-      "rendering_rule": "First-class screen state displaying exact backend status (no_matching_evidence)",
-      "action_bridge": "Provide operational link to IRG shadow observations (v2_shadow_observations)"
+    "top_row_computer_and_navigator": {
+      "layout": "flex flex-col lg:flex-row gap-4 align-stretch",
+      "computer_card": {
+        "flex": "flex-1 min-w-[320px]",
+        "min_height": "220px"
+      },
+      "navigator_panel": {
+        "flex": "flex-1 min-w-[360px]",
+        "min_height": "220px",
+        "alignment_rule": "Equal height matching computer card, eliminate dead space"
+      }
+    },
+    "workspace_and_events_row": {
+      "layout": "grid grid-cols-12 gap-0 border border-slate-300 rounded-md overflow-hidden bg-white mt-4",
+      "trajectory_workspace": {
+        "col_span": "col-span-12 lg:col-span-8 xl:col-span-9",
+        "gutter_width": "280px",
+        "min_height": "540px"
+      },
+      "events_panel": {
+        "col_span": "col-span-12 lg:col-span-4 xl:col-span-3",
+        "border_left": "1px solid #CBD5E1",
+        "min_height": "540px"
+      }
     }
   },
-  "grids": {
-    "dashboard_mode": "High Density Grid (MODE B)",
-    "columns": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
-    "gap": "gap-3"
+  "row_and_axis_metrics": {
+    "row_height": "28px",
+    "row_gutter_width": "280px",
+    "time_axis_height": "32px",
+    "gridline_weight": "1px",
+    "gridline_color": "#E2E8F0",
+    "lifeline_stroke_width": "2px",
+    "lifeline_dash_array": "4 3",
+    "parent_child_connector_color": "#94A3B8",
+    "icon_size": "16px",
+    "badge_size": "14px"
   },
-  "visual_enhancers": {
-    "borders": "1px solid rgba(255, 255, 255, 0.08) in dark mode, #E2E8F0 in light mode",
-    "elevation": "Subtle ambient shadows; no dark color gradients",
-    "glassmorphism": "backdrop-blur-md bg-[#121721]/80 border-white/10"
-  },
-  "motion": {
-    "transitions": "transition-colors duration-150 ease-in-out, transition-opacity duration-150 ease-in-out",
-    "forbidden_transitions": "transition: all",
-    "prefers_reduced_motion": "Respect user prefers-reduced-motion media query"
-  },
-  "accessibility": {
-    "apca_contrast": "Minimum 4.5:1 for normal text, 3:1 for large/interactive elements",
-    "epistemic_redundancy": "Glyph + text label + color contrast; never rely on color alone",
-    "keyboard_navigation": "Full arrow key, tab, and shortcut navigation on canvas and queue"
-  },
-  "media": {
-    "icons": "Lucide React & Phosphor Icons",
-    "image_constraints": "max-h-[80vh] md:max-h-none on responsive views"
-  },
-  "3d_libraries": {
-    "r3f": "React Three Fiber / Drei for 3D attack topology visualization where applicable",
-    "canvas": "2D HTML5 Canvas / SVG for microsecond timeline replay"
-  },
-  "component_name": "NivXForge EDR & Dynamic Sandbox Console",
-  "image_urls": {
-    "brand_logo": { "category": "branding", "description": "NivXRay XDR / NivXForge EDR logo mark" }
-  },
-  "data_testid_convention": "kebab-case role-based attributes (e.g. data-testid=\"xdr-trajectory-lane-process\")",
-  "edr_target_ux_architecture": {
-    "navigation_spine": "Incident -> Endpoint Entity -> NivXForge EDR -> Device Trajectory",
-    "trajectory_resolver": "/edr/trajectory redirects to /xdr/endpoints/:device/trajectory with resolved device_iid or INFERRED hostname",
-    "availability_tiers": {
-      "live_now": ["EDR Overview", "Endpoint Fleet", "Detections Queue", "Detection Detail", "Incidents", "Device Trajectory", "Process Tree", "Vulnerabilities & Exposure", "Threat Intelligence", "Detection Engineering", "MITRE Matrix", "Attack Story", "Evidence Vault", "Investigation Pivots"],
-      "design_ready": ["Entity 360", "Device Timeline", "Process Detail", "Files", "File Detail", "Network", "DNS", "Registry", "Services", "Users & Sessions", "Persistence", "Threat Hunting", "Live Query", "Forensics", "Memory", "Response Command Center", "Host Isolation", "Quarantine Vault", "Remote Terminal"],
-      "future": ["Agent Management", "Telemetry Health", "Policies & Config", "UEBA / UBAE Context"]
+  "navigator_specifics": {
+    "sparkline_height": "24px",
+    "sparkline_fill": "rgba(59, 130, 246, 0.15)",
+    "sparkline_stroke": "#2563EB",
+    "thirty_day_band": {
+      "cell_height": "20px",
+      "selected_border": "2px solid #2563EB",
+      "dot_compromise": "#DC2626",
+      "dot_activity": "#2563EB"
+    },
+    "twenty_four_hour_band": {
+      "bin_dot_size": "4px",
+      "draggable_window_bg": "rgba(37, 99, 235, 0.12)",
+      "triangle_handle_color": "#1D4ED8"
     }
   },
-  "sandbox_target_ux_architecture": {
-    "staging_model": "Static Analysis & 59 Decoders = LIVE NOW; Hypervisor Detonation = DESIGN ONLY",
-    "demarcation_banner": "⚠️ REPRESENTATIVE / PROTOTYPE DATA — Operational UI/UX Contract for Sandbox Implementation",
-    "honest_rendering": "Do not emit synthetic syscalls or mock process trees in dynamic tabs"
+  "event_details_specifics": {
+    "detected_by_line": {
+      "color": "#DC2626",
+      "font_weight": "600",
+      "font_size": "12px"
+    },
+    "mitre_box": {
+      "bg": "#FEF2F2",
+      "border": "1px solid #FCA5A5",
+      "text": "#991B1B"
+    },
+    "observables_box": {
+      "bg": "#F8FAFC",
+      "border": "1px solid #E2E8F0"
+    }
   },
-  "design_decisions": {
-    "visual_identity": "Deterministic Obsidian & Kinetic Amber token system",
-    "vendor_synthesis": "Microsoft information density + Cisco progressive disclosure + CrowdStrike process tree + Cortex XDR causality + SentinelOne operations clarity + ANY.RUN interactive analysis",
-    "anti_patterns_rejected": "No fake telemetry, no duplicate trajectory surfaces, no second reasoning engine, no color collapse on priority chips"
+  "component_path": "/app/apps/nivxray-xdr/src/nivxforge/trajectory/",
+  "instructions_to_main_agent": "Ensure 100% fidelity to Cisco AMP Device Trajectory layout, matching computer card height with Navigator panel, eliminating dead gaps, aligning workspace and right-hand Events Details panel with solid matched boundaries, and utilizing exact color tokens.",
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
+    "data_testid_requirement": "All interactive buttons, canvas regions, search inputs, day cells, handles, event list rows, and event detail sections MUST include role-based data-testid attributes (kebab-case).",
+    "no_universal_transition": "Do NOT apply 'transition: all' globally on trajectory canvas or lifelines to prevent jitter during drag/pan operations.",
+    "alignment": "Zero alignment errors; equal height panels and shared structural borders."
   },
-  "implementation_sequencing": [
-    "Phase 1: Register /edr/trajectory as Resolver Route pointing to /xdr/endpoints/:device/trajectory and render Zero-Device honest state.",
-    "Phase 2: Enhance Device Trajectory 3-pane canvas with device_iid vs INFERRED hostname badge and IRG shadow observation linking.",
-    "Phase 3: Connect Sandbox Static Analysis report to operational 59-Decoder Feedback loop while maintaining DESIGN-ONLY banners on VM tabs."
-  ],
-  "instructions_to_main_agent": "Strictly follow the dual-theme token system in nx-theme.css. Ensure all 37 EDR surfaces render appropriate availability tiers (LIVE NOW or ⊘ CAPABILITY UNAVAILABLE). Do not fabricate endpoints, telemetry, or sandbox executions. Every interactive element must carry a data-testid attribute.",
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "Do not use dark color gradients.",
-    "Never use Inter or Space Grotesk for headings.",
-    "Do not center-align app containers.",
-    "Every machine-emitted fact must use monospaced font.",
-    "Ensure all interactive elements have data-testid attributes.",
-    "Never create mock endpoint devices or mock telemetry when none exist in backend."
-  ]
+  "image_urls": []
 }

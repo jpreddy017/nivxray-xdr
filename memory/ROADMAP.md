@@ -1409,3 +1409,31 @@ P0-C2 ACDE Phase 1 → Phase 6                      ← incremental architectura
   exists the controls stay disabled under ⊘ RESPONSE DRIVER NOT REGISTERED.
 - P3: PID/PPID capture in the observation contract — would make process→process
   lineage resolvable and light up the orthogonal lineage links already implemented.
+
+## 2026-06-06 · after P0-F.12 (Cisco AMP Device Trajectory clone)
+
+DONE: P0-F.12 Cisco AMP Device Trajectory clone — lineage pre-order
+axis, viewport-invariant deep rows, Navigator (30-day + 24-hour),
+Event Details + Detected By, filters, fullscreen. 17/17 backend proof,
+frontend ~100% (iteration 98). See memory/AMP_TRAJECTORY_CONFORMANCE.md.
+
+### P0 remaining
+- P0-F.10b · real-host CAP_NET_ADMIN isolation validation (backend and
+  policy are complete; only real-host execution proof is outstanding).
+
+### P1
+- Hash integrity across the rest of the product: the trajectory now
+  separates `event_content_digest` from `file_sha256`, but other views
+  still surface event digests where an analyst may read them as file
+  hashes.
+- Response From Incident: Incident → Process → Kill → Watch verification.
+- Script execution attribution: attribute to the script, not the
+  interpreter (`/usr/bin/dash`).
+- Sensor misses short-lived one-shot commands (polling gap).
+- Live Attack Replay.
+- Content remediation: 52 incomplete / unbound Mongo detection rules.
+
+### P2
+- EDR capabilities: quarantine, forensic snapshot, live query, hunting.
+- Windows NivXForge agent.
+- File Trajectory (fleet-wide) parity with the device clone.

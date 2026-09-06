@@ -636,9 +636,13 @@ async def endpoint_trajectory_window(
     lane_end: int = 40,
     cursor: Optional[str] = None,
     limit: int = 500,
+    kinds: Optional[str] = None,
+    q: Optional[str] = None,
+    dispositions: Optional[str] = None,
+    hist_day: Optional[str] = None,
     user=Depends(get_current_user),
 ):
-    """Stage 1 · a WINDOWED, endpoint-scoped trajectory read.
+    """A WINDOWED, endpoint-scoped trajectory read.
 
     Endpoint-centric on purpose: it needs no case, incident, verdict or
     investigation state. It is a projection over the existing canonical
@@ -651,27 +655,64 @@ async def endpoint_trajectory_window(
     if not identity:
         return {"engine_id": tw.ENGINE_ID, "endpoint": None, "events": [],
                 "lane_axis": {"total_lanes": 0, "lanes": []},
+                "computer": None,
                 "epistemic_state": tw.empty_state(
                     identity=None, enrolled=False, observations_all_time=0,
                     observations_in_window=0)}
     out = await tw.query_window(
         _db, identity=identity, time_start=time_start, time_end=time_end,
         lane_start=max(0, lane_start), lane_end=max(1, lane_end),
-        cursor=cursor, limit=limit)
-    all_time = out["matched_in_time_range"] if not (
-        time_start or time_end) else (await tw.query_window(
-            _db, identity=identity, lane_start=0, lane_end=1,
-            limit=1))["matched_in_time_range"]
+        cursor=cursor, limit=limit, kinds=kinds, q=q,
+        dispositions=dispositions, hist_day=hist_day)
     ep = await _db["edr_endpoints"].find_one(
         {"$or": [{"endpoint_id": endpoint_id},
+                 {"device_iid": identity.get("device_iid")},
                  {"hostname": identity.get("hostname")}]},
-        {"_id": 0, "enrollment_state": 1})
+        {"_id": 0})
     out["epistemic_state"] = tw.empty_state(
         identity=identity,
         enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
-        observations_all_time=all_time,
+        observations_all_time=out["observations_all_time"],
         observations_in_window=out["matched_in_window"])
+    out["computer"] = _computer_header(identity, ep, out)
     return out
+
+
+def _computer_header(identity: Dict[str, Any], ep: Optional[Dict[str, Any]],
+                     out: Dict[str, Any]) -> Dict[str, Any]:
+    """The AMP-equivalent computer summary, from persisted fields only.
+
+    Every field NivXForge does not collect is returned as an explicit
+    ``NOT_COLLECTED`` rather than an empty string, so the header can
+    never read as "no groups" when the truth is "groups are not a
+    concept this sensor reports".
+    """
+    ep = ep or {}
+    NC = {"state": "NOT_COLLECTED",
+          "reason": "not reported by the NivXForge Linux sensor"}
+    return {
+        "hostname": identity.get("hostname"),
+        "device_iid": identity.get("device_iid"),
+        "identity_confidence": identity.get("identity_confidence"),
+        "operating_system": ep.get("platform") or NC,
+        "connector_version": ep.get("sensor_version") or NC,
+        "enrollment_state": ep.get("enrollment_state") or "NOT_ENROLLED",
+        "sensor_state": ep.get("sensor_state") or NC,
+        "last_telemetry_at": ep.get("last_telemetry_at")
+        or out["time_range"].get("observed_end"),
+        "endpoint_id": ep.get("endpoint_id") or NC,
+        "tenant": ep.get("tenant_id") or identity.get("tenant") or NC,
+        "group": NC,
+        "policy": NC,
+        "definitions_version": NC,
+        "internal_ip": NC,
+        "external_ip": NC,
+        "observations_all_time": out.get("observations_all_time"),
+        "first_observed": out["time_range"].get("observed_start"),
+        "last_observed": out["time_range"].get("observed_end"),
+        "lane_total": out["lane_axis"].get("total_lanes"),
+        "group_counts": out["lane_axis"].get("group_counts"),
+    }
 
 
 @router.get("/device-trajectory")

@@ -47,7 +47,7 @@ const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewP
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
 const EdrProcessTreePage     = lazy(() => import("@/nivxforge/pages/EdrProcessTreePage"));
 const EdrCampaignStoryPage   = lazy(() => import("@/nivxforge/pages/EdrCampaignStoryPage"));
-const EdrDeviceTrajectoryPage = lazy(() => import("@/nivxforge/pages/EdrDeviceTrajectoryPage"));
+const EdrDeviceTrajectoryPage = lazy(() => import("@/nivxforge/trajectory/EdrDeviceTrajectoryPage"));
 
 const EdrReserved = lazy(() =>
   import("@/nivxforge/pages/EdrReservedPages").then((m) => ({ default: m })),

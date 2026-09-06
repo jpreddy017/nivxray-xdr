@@ -10916,3 +10916,53 @@ endpoint forensic view; the Evidence Graph is explicitly secondary.
 **NOT done in this cycle (next):** deeper Attack Story redesign, Evidence Graph presentation
 pass 2, Evidence Inspector rework, and **Verdict Arithmetic from authoritative VEEE
 contributors** — the IA slot ("Why we believe it") now exists for it.
+
+---
+
+## 2026-06-06 · P0-F.12 · Device Trajectory = Cisco AMP clone (DELIVERED)
+
+**Requirement (owner, verbatim intent):** a 100% observable UX clone of
+the Cisco AMP / Cisco Secure Endpoint Device Trajectory inside NivXForge
+EDR — fully operational, Cisco's navigation and architecture, zero
+alignment errors, zero mock data, no NivXRay-specific enhancements, and
+the legacy `/edr/trajectory` left untouched. Where Cisco artwork cannot
+be reproduced, use original functionally equivalent artwork; where an
+interaction is not established by the Cisco reference, use the closest
+evidence-supported behaviour and record it as a DIFFERENCE rather than
+inventing Cisco behaviour.
+
+**Route:** `/xdr/edr/device-trajectory` (sidebar "Device Trajectory · AMP").
+**Legacy:** `/edr/trajectory` unchanged and operational.
+
+**Delivered:** Cisco stack (title row → collapsed computer strip +
+filter/search strip → full-width Navigator with sparkline, 30-day band
+and 24-hour band with dual handles → trajectory workspace with lineage
+pre-order rows, process lifelines, parent→child connectors, activity
+icons, compromise markers and amber bands, time and activity scrollbars
+→ right-hand Event Details with severity chip, red "Detected …",
+description, MITRE|ATT&CK, Observables, Observed Activity and
+**Detected By**), filters by activity type / disposition / indicator,
+event selection with auto-focus on both axes, deep links, right-click
+pivots, fullscreen.
+
+**Non-negotiables held:**
+- The activity axis is endpoint-wide and invariant to the viewport, so a
+  row means the same process at every zoom level. This is what fixed
+  deep rows rendering empty.
+- Lineage comes only from `process_iid` / `parent_iid`, never PID.
+- Nothing is ever labelled CLEAN — unassessed activity is
+  `UNKNOWN_NOT_ASSESSED`, because absence of a detection is not a
+  verdict.
+- Uncollected fields (group, policy, IPs, definitions, vulnerabilities)
+  render as an explicit "not collected" with the reason, and
+  unimplemented actions render disabled with the reason.
+- `event_content_digest` is labelled as not being a file hash;
+  `file_sha256` comes only from file artefacts.
+- The projection creates no store of its own.
+
+**Proof:** `scripts/p0_f12_amp_trajectory_proof.py` 17/17 PASS on live
+evidence; `test_reports/iteration_96/97/98.json` (iteration 98 ~100%,
+zero issues, alignment pixel-flush at three viewport sizes).
+
+**Conformance table and declared differences:**
+`memory/AMP_TRAJECTORY_CONFORMANCE.md`.

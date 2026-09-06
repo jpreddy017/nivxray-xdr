@@ -6965,3 +6965,67 @@ persistence, NO object storage, NO export-event collection, NO new endpoints.
   with `? UNKNOWN` disposition, per-event detail, limitations section, exported_by
   admin@nivxray.com), Fleet CSV (14 rows, scope + digest + reconciliation in the
   header comments) and the on-screen receipt. Backend untouched.
+
+---
+
+## 2026-06-06 · P0-F.12 — Cisco AMP Device Trajectory clone (NivXForge EDR)
+
+`/xdr/edr/device-trajectory` is now a 100% observable clone of the Cisco
+AMP / Secure Endpoint Device Trajectory, driven only by canonical
+NivXForge evidence. Legacy `/edr/trajectory` untouched and operational.
+
+**Defects fixed**
+- **Deep activity rows rendered empty.** The lane catalogue was built
+  only from documents inside the requested time window, so lane indices
+  were renumbered per window and rows 300–324 could address rows that
+  did not exist in that window. The axis is now endpoint-wide and
+  invariant to the viewport (`ENDPOINT_WIDE_INVARIANT_TO_VIEWPORT`)
+  with a `lane_axis_version` for real catalogue growth.
+- **The trajectory read as disconnected rows.** Ordering was
+  `(group, depth, first_seen)`, putting every root first and its
+  children hundreds of rows away. It is now a depth-first **lineage
+  pre-order** over observed `process_iid`/`parent_iid`.
+- **"parent not observed" was a blanket fallback.** Three truths are now
+  named: `OBSERVED`, `PARENT_NOT_REPORTED_BY_SENSOR`,
+  `PARENT_NOT_OBSERVED_VISIBILITY_GAP`. Parents outside the viewport
+  still resolve (`parent_lane_index` computed on the full axis).
+- **The sensor's display label was rendered as a detection.**
+  `raw.rule_label` ("bash · process create") is a display label, not a
+  rule; carried as `display_label`, with `rule_label` populated only
+  when `raw.rule_id` exists. "Detected …" is stated only when something
+  actually detected the observation. (Also closes part of the P1 hash /
+  label honesty issue: `event_content_digest` is explicitly labelled as
+  not a file hash, and `file_sha256` comes only from file artefacts.)
+- **Event identity collisions** (8 duplicates per 406 in Stage 1):
+  `event_iid` is now canonical id + digest of distinguishing fields.
+- **Request timeouts** on first paint: the projection is built once per
+  endpoint and cached 90 s (derived values only, no second store).
+
+**Backend** — `edr_plane/trajectory_window.py` rewritten:
+lineage pre-order axis, `parent_lane_index` / `parent_label` /
+`parent_state` / `end_state`, `disposition` (never CLEAN), `detected_by`
+(engine, rule, component, basis; telemetry-only stated explicitly),
+30-day `activity.days` + 240×6-minute `activity.day_bins`,
+`event_type_counts`, filters (`kinds`, `dispositions`, `q`) that rebuild
+a filter-scoped axis, and `_computer_header()` in `routers/edr.py`
+declaring every uncollected field.
+
+**Frontend** — `nivxforge/trajectory/`: `EdrDeviceTrajectoryPage.jsx`,
+`AmpCanvas.jsx`, `AmpNavigator.jsx`, `AmpFilterBar.jsx`,
+`AmpComputerHeader.jsx`, `AmpEventDetails.jsx`, `AmpIcons.jsx`,
+`ampModel.js`. Cisco stack: title row → collapsed computer strip +
+filter strip → full-width Navigator (sparkline · 30-day · 24-hour with
+dual handles) → workspace (gutter + lifelines + lineage connectors +
+activity icons + compromise markers/bands + time & activity scrollbars)
+→ right-hand **Event Details** (severity chip, red "Detected …",
+description, MITRE|ATT&CK Tactics/Techniques, Observables, Observed
+Activity, **Detected By**, Process, File & network, Activity,
+Provenance, pivots). Design tokens from `design_guidelines.json`.
+
+**Proof** — `scripts/p0_f12_amp_trajectory_proof.py` 17/17 PASS on live
+evidence. Frontend: `test_reports/iteration_96/97/98.json` — iteration 98
+~100%, zero issues, alignment pixel-flush at 1920×1080 / 1600×900 /
+1440×900.
+
+**Conformance + declared differences**: `memory/AMP_TRAJECTORY_CONFORMANCE.md`
+(supersedes the deleted AMP_TRAJECTORY_GAP_CHECKLIST.md).
