@@ -1,6 +1,74 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · NIVXFORGE EDR · ENDPOINT HEADER: SHOW DETAILS + ACTIONS ▼ (iteration_87)
+
+Adopted the Cisco Secure Endpoint endpoint-header interaction pattern, with
+NivXRay's own capabilities, terminology, governance and evidence model.
+
+**Delivered**
+- `apps/nivxray-xdr/src/xdr/components/EndpointDetailsDrawer.jsx` (NEW) —
+  the persistent right-side context drawer. Collapsible sections: Endpoint
+  Identity, Sensor & Platform, Isolation, Antivirus (closed by default),
+  Vulnerabilities (closed by default). Sticky, scrollable, closable. It is
+  context only — not an investigation surface, not an action menu.
+- `apps/nivxray-xdr/src/xdr/components/EndpointActionsMenu.jsx` (NEW) —
+  the compact dropdown grouped DEVICE ACTIONS / INVESTIGATE / RESPONSE /
+  PIVOTS-LINKS. Closes on outside click and Escape. A pinned footer states
+  how many actions are disabled and why.
+- `XdrEntity360Page.jsx` — the header now carries
+  `[Show details] [Actions ▼]`. The always-visible left identity rail was
+  REPLACED by the drawer, so the Device Trajectory canvas now gets the full
+  page width by default (`detailsOpen` starts false). Grid is
+  `1fr 318px` when open, `1fr` when closed, with CSS `order` putting the
+  drawer on the right. The drawer persists across tab changes.
+
+**State-awareness — three states, no fourth**
+- `available` → enabled and runs.
+- `unavailable` → disabled, `⊘`, tooltip names the missing driver.
+- `no_evidence` → disabled, `◇`, tooltip names the missing data.
+
+There is deliberately NO state where a control looks live and does nothing.
+11 of 20 actions are disabled because NivXRay has no registered response
+driver, no enrolled sensor, no policy plane and no live-query driver.
+Because isolation state is genuinely UNKNOWN, NEITHER "Start isolation" nor
+"Release isolation" is offered — a single disabled "Isolate endpoint" is
+shown, since offering either would imply a state we do not have.
+
+**Enabled and proven working**: View endpoint details, Device trajectory,
+Entity 360 overview, Process ancestry, Endpoint lanes, Events ledger,
+Fleet file trajectory, Spread watchlist, and Related incident.
+
+**Bug found and fixed during verification**: my `actionGroups` read
+`identity?.latest_incident_id`, but `/api/edr/device-trajectory` never
+projected it — so the "Related incident" pivot was a DEAD BRANCH that could
+never enable. Fixed at source: `routers/edr.py` now surfaces `case_ids`,
+`incident_count`, `latest_incident_id`, `users` and `provenance` on the
+identity payload (they already existed on the underlying identity row).
+Proven with real data: HYD-SRV32, bound to the P1.10a-promoted incident,
+shows an enabled "Related incident" that navigates to
+`/xdr/incidents/inc_7742fe7120174204be36`; HYD-FW05, with no incident,
+stays disabled at `data-state="no_evidence"` and a forced click changes
+nothing.
+
+**Testing** — iteration_87: **100% frontend, zero issues, zero action
+items.** Plus 107 backend tests and 17 trajectory-model assertions passing.
+One note in the report claimed no endpoint had a bound incident; that was
+incorrect — HYD-SRV32 does, and the enabled branch is now proven.
+
+**Layout fixes applied during verification**: badge text wraps inside the
+318px drawer (zero overflow measured at 1920x950); the actions menu grew to
+`maxHeight: 78vh` so all 20 items plus the footer fit without scrolling,
+with the footer `position: sticky` as the fallback on short viewports.
+
+**Still honest about**: every device and response action remains unavailable
+until P1.12 Sensor Foundation and a registered response driver exist. The
+destructive-action chain (Authorization → Approval → Response Safety →
+Execution → Verification → Action Evidence → timeline) is NOT built; no
+action is offered that would bypass it.
+
+
+
 ## ✅ 2026-06 · P1.10a · SPREAD WATCHLIST · SHIPPED & VERIFIED (iteration_86)
 
 **Owner-locked decisions (all 11 implemented verbatim)**

@@ -29,6 +29,8 @@ import ProcessAncestryTree from "@/xdr/components/ProcessAncestryTree";
 import TrajectoryWorkspace from "@/xdr/components/TrajectoryWorkspace";
 import ArtifactContextMenu from "@/xdr/components/ArtifactContextMenu";
 import ExportMenu from "@/xdr/components/ExportMenu";
+import EndpointActionsMenu from "@/xdr/components/EndpointActionsMenu";
+import EndpointDetailsDrawer from "@/xdr/components/EndpointDetailsDrawer";
 import StaticAnalysisBridge from "@/xdr/components/StaticAnalysisBridge";
 import { compileQuery, searchCorpus } from "@/xdr/components/TrajectoryNavigator";
 import TrajectoryFiltersModal, { applyFilters }
@@ -78,6 +80,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
   const deviceRef = decodeURIComponent(device || "");
 
   const [tab, setTab] = useState(params.get("tab") || initialTab);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [hours, setHours] = useState(0);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -238,6 +241,79 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
 
   const authoritative = identity?.identity_confidence === "authoritative";
 
+  // ── Actions ▼ — state-aware, and honest about every state ────────
+  // A capability with no registered driver is DISABLED with the reason
+  // named. Nothing here simulates execution, and no destructive action
+  // is offered while its authorization -> approval -> response-safety ->
+  // execution -> verification chain has nothing behind it.
+  const NO_RESPONSE_DRIVER =
+    "⊘ RESPONSE DRIVER NOT REGISTERED — no isolation, quarantine, scan or "
+    + "termination path exists on this platform. The control is disabled "
+    + "rather than simulated.";
+  const NO_SENSOR =
+    "⊘ NO ENDPOINT SENSOR ENROLLED — requires the P1.12 Sensor Foundation. "
+    + "Until a sensor reports, there is nothing to diagnose or snapshot.";
+  const NO_POLICY_PLANE =
+    "⊘ NO POLICY PLANE BOUND — groups and policies are not modelled on this "
+    + "platform.";
+
+  const incidentId = identity?.latest_incident_id || null;
+  const actionGroups = useMemo(() => [
+    { label: "Device actions", items: [
+      { id: "scan", label: "Scan", state: "unavailable", reason: NO_RESPONSE_DRIVER },
+      { id: "isolate", label: "Isolate endpoint", state: "unavailable",
+        reason: `${NO_RESPONSE_DRIVER} Isolation state is UNKNOWN, so neither `
+                + "Start nor Release isolation can be offered." },
+      { id: "move-group", label: "Move / assign policy", state: "unavailable",
+        reason: NO_POLICY_PLANE },
+      { id: "diagnose-sensor", label: "Diagnose sensor", state: "unavailable",
+        reason: NO_SENSOR },
+      { id: "device-details", label: "View endpoint details",
+        state: "available", run: () => setDetailsOpen(true) },
+    ] },
+    { label: "Investigate", items: [
+      { id: "trajectory", label: "Device trajectory", state: "available",
+        run: () => setTab("trajectory") },
+      { id: "entity-360", label: "Entity 360 overview", state: "available",
+        run: () => setTab("overview") },
+      { id: "process-ancestry", label: "Process ancestry", state: "available",
+        run: () => setTab("ancestry") },
+      { id: "endpoint-lanes", label: "Endpoint lanes", state: "available",
+        run: () => setTab("lanes") },
+      { id: "forensic-snapshot", label: "Take forensic snapshot",
+        state: "unavailable", reason: NO_SENSOR },
+      { id: "live-query", label: "Live query", state: "unavailable",
+        reason: "⊘ NO LIVE-QUERY DRIVER REGISTERED — there is no live channel "
+                + "to this endpoint, so a query cannot be issued." },
+    ] },
+    { label: "Response", items: [
+      { id: "response-actions", label: "Response actions", state: "unavailable",
+        reason: NO_RESPONSE_DRIVER },
+      { id: "quarantine-file", label: "Fetch / quarantine file",
+        state: "unavailable", reason: NO_RESPONSE_DRIVER },
+      { id: "terminate-process", label: "Terminate process",
+        state: "unavailable", reason: NO_RESPONSE_DRIVER },
+    ] },
+    { label: "Pivots / links", items: [
+      { id: "events", label: "Events ledger", state: "available",
+        run: () => setTab("trajectory") },
+      { id: "related-incidents",
+        label: incidentId ? "Related incident" : "Related incidents",
+        state: incidentId ? "available" : "no_evidence",
+        reason: "◇ NO INCIDENT IS BOUND TO THIS ENDPOINT — no incident has "
+                + "been promoted from its observations.",
+        run: () => navigate(`/xdr/incidents/${incidentId}`) },
+      { id: "fleet-file-trajectory", label: "Fleet file trajectory",
+        state: "available", run: () => navigate("/xdr/intelligence/files") },
+      { id: "spread-watchlist", label: "Spread watchlist",
+        state: "available", run: () => navigate("/xdr/endpoints") },
+      { id: "audit-log", label: "Device audit log", state: "no_evidence",
+        reason: "◇ NO PER-DEVICE AUDIT TRAIL IS RECORDED — the platform audit "
+                + "log is tenant-scoped, not device-scoped." },
+    ] },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [incidentId, navigate]);
+
   return (
     <XdrShell>
       {/* ── Breadcrumb ──────────────────────────────────────────── */}
@@ -286,10 +362,15 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
               : "◇ INFERRED IDENTITY (NO IID)"}
           </span>
         )}
-        <span className="nx-ep" data-ep="capability_unavailable" data-known="true"
-              data-testid="entity360-isolation-state">
-          ⊘ ISOLATION STATE UNKNOWN — RESPONSE DRIVER NOT REGISTERED
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button className="btn ghost" style={{ padding: "4px 9px", fontSize: 10.5 }}
+                  onClick={() => setDetailsOpen((o) => !o)}
+                  aria-expanded={detailsOpen}
+                  data-testid="endpoint-details-toggle">
+            {detailsOpen ? "Hide details" : "Show details"}
+          </button>
+          <EndpointActionsMenu groups={actionGroups} />
+        </div>
         <span className="mono" style={{ fontSize: 10,
                 color: maliciousCount ? "#FF3838" : "var(--faint)" }}
               data-testid="entity360-compromise-count">
@@ -396,105 +477,27 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
 
       {/* ── Master-detail body ──────────────────────────────────── */}
       {!loading && !error && !unresolved && data && (
-        <div style={{ display: "grid", gridTemplateColumns: "268px 1fr", gap: 12 }}
+        <div style={{ display: "grid", gap: 12,
+                      gridTemplateColumns: detailsOpen ? "1fr 318px" : "1fr" }}
              data-testid="entity360-split">
-          {/* Left rail — identity + response truth */}
-          <aside className="panel" style={{ padding: 11, alignSelf: "start" }}
-                 data-testid="entity360-identity-rail">
-            <div className="section-title" style={{ marginBottom: 8 }}>
-              Endpoint Identity
+          {/* Right-side endpoint context drawer (order: 2) — kept open
+              while the analyst works the trajectory. */}
+          {detailsOpen ? (
+            <div style={{ order: 2, minWidth: 0 }}>
+              <EndpointDetailsDrawer
+                hostname={identity?.hostname}
+                deviceRef={deviceRef}
+                identity={identity}
+                authoritative={authoritative}
+                observedUsers={observedUsers}
+                observedProviders={observedProviders}
+                onClose={() => setDetailsOpen(false)}
+              />
             </div>
-            <Field k="Hostname"
-                   v={identity?.hostname
-                       ? <>{identity.hostname}{" "}
-                           <span className="nx-ep" data-ep="unknown" data-known="false"
-                                 title="Hostname is a string carried on the observation record.">
-                             INFERRED
-                           </span></>
-                       : <Nope label="◇ NO HOSTNAME OBSERVED" />} />
-            <Field k="Device IID (authoritative)"
-                   v={identity?.device_iid || <Nope label="◇ NO IID BOUND" />} />
-            <Field k="Identity confidence"
-                   v={<span className="nx-ep"
-                            data-ep={authoritative ? "evidence_present" : "unknown"}
-                            data-known="true">
-                        {authoritative ? "◆ AUTHORITATIVE" : "◇ INFERRED"}
-                      </span>} />
-            <Field k="Observations"
-                   v={`${identity?.observation_count ?? 0} persisted`} />
-            <Field k="First observed" v={identity?.observed_first_seen || "◇"} />
-            <Field k="Last observed" v={identity?.observed_last_seen || "◇"} />
-            <Field k="Users observed"
-                   v={observedUsers.length ? observedUsers.join(", ")
-                                           : <Nope label="◇ NONE RECORDED" />} />
-            <Field k="Telemetry providers"
-                   v={observedProviders.length ? observedProviders.join(", ")
-                                               : <Nope label="◇ NONE RECORDED" />} />
+          ) : null}
 
-            <div style={{ borderTop: "1px solid #212B36", margin: "9px 0",
-                          paddingTop: 9 }}>
-              <div className="section-title" style={{ marginBottom: 8 }}>
-                Sensor &amp; Platform
-              </div>
-              <Field k="Operating system"
-                     v={<Nope label="◇ NOT REPORTED — NO SENSOR ENROLMENT" />} />
-              <Field k="Connector version"
-                     v={<Nope label="⊘ NO CONNECTOR ENROLLED" ep="capability_unavailable" />} />
-              <Field k="Internal / external IP"
-                     v={<Nope label="◇ NOT OBSERVED IN THIS SUBSTRATE" />} />
-              <Field k="Policy / group"
-                     v={<Nope label="⊘ NO POLICY PLANE BOUND" ep="capability_unavailable" />} />
-              <Field k="Connector health"
-                     v={<Nope label="⊘ NO HEARTBEAT — TELEMETRY IS HISTORIC ONLY"
-                              ep="capability_unavailable" />} />
-            </div>
-
-            <div style={{ borderTop: "1px solid #212B36", margin: "9px 0",
-                          paddingTop: 9 }}>
-              <div className="section-title" style={{ marginBottom: 6 }}>
-                Response
-              </div>
-              <div className="nx-ep" data-ep="capability_unavailable" data-known="true"
-                   style={{ display: "block", marginBottom: 7 }}
-                   id="entity360-response-driver-reason"
-                   data-testid="entity360-response-driver-state">
-                ⊘ RESPONSE DRIVER NOT REGISTERED
-              </div>
-              {RESPONSE_ACTIONS.map((a) => (
-                <button key={a} className="btn" disabled aria-disabled="true"
-                        aria-describedby="entity360-response-driver-reason"
-                        style={{ width: "100%", justifyContent: "flex-start",
-                                 padding: "4px 8px", marginBottom: 4,
-                                 fontSize: 10, opacity: 0.55,
-                                 cursor: "not-allowed" }}
-                        title={`⊘ ${a} — RESPONSE DRIVER NOT REGISTERED. No isolation, quarantine or termination path exists on this platform.`}
-                        data-testid={`entity360-action-${a.toLowerCase().replace(/\s+/g, "-")}`}>
-                  ⊘ {a}
-                </button>
-              ))}
-              <div style={{ fontSize: 9.5, color: "var(--faint)", lineHeight: 1.6,
-                            marginTop: 4 }}>
-                No isolation, quarantine or termination path exists on this
-                platform. The controls are disabled rather than simulated.
-              </div>
-            </div>
-
-            <div style={{ borderTop: "1px solid #212B36", margin: "9px 0",
-                          paddingTop: 9 }}>
-              <div className="section-title" style={{ marginBottom: 6 }}>
-                Vulnerabilities
-              </div>
-              <Nope label="⊘ NO EXPOSURE DATA BOUND TO THIS ENDPOINT ENTITY"
-                    ep="capability_unavailable" />
-              <div style={{ fontSize: 9.5, color: "var(--faint)", marginTop: 5,
-                            lineHeight: 1.6 }}>
-                No known software vulnerabilities observed for this entity.
-              </div>
-            </div>
-          </aside>
-
-          {/* Right — tabbed workspace */}
-          <div style={{ minWidth: 0 }}>
+          {/* Tabbed workspace (order: 1 — sits left of the drawer) */}
+          <div style={{ minWidth: 0, order: 1 }}>
             <div style={{ display: "flex", gap: 4, marginBottom: 10 }}
                  data-testid="entity360-tabs">
               {TABS.map((t) => {

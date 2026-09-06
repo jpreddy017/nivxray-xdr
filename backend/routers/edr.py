@@ -573,6 +573,14 @@ async def get_device_trajectory(
             "observation_count":   (identity or {}).get("observation_count", 0),
             "observed_first_seen": observed_first,
             "observed_last_seen":  observed_last,
+            # Incidents actually promoted from this endpoint's
+            # observations.  Surfaced so the endpoint header can offer a
+            # real pivot instead of an action that can never enable.
+            "case_ids":            list((identity or {}).get("case_ids") or []),
+            "incident_count":      len((identity or {}).get("case_ids") or []),
+            "latest_incident_id":  ((identity or {}).get("case_ids") or [None])[0],
+            "users":               list((identity or {}).get("users") or []),
+            "provenance":          list((identity or {}).get("provenance") or []),
         },
         "window_hours": None if all_time else hours,
         "all_time":     all_time,
