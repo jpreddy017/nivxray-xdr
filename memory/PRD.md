@@ -1,6 +1,46 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## 🟡 2026-06 · **DEVICE TRAJECTORY STAGE 1** · API PROVEN 24/24 · UI PARTIALLY PROVEN (1 open defect)
+
+New, alongside the untouched `/edr/trajectory`:
+`/xdr/edr/device-trajectory?device=<device_iid>` → `EdrDeviceTrajectoryPage.jsx`
+→ `GET /api/edr/endpoints/{endpoint_id}/trajectory` →
+`edr_plane/trajectory_window.py`. Projection only; creates no store.
+
+### PROVEN (`scripts/p0_f11_trajectory_window_proof.py` · 24/24)
+Real endpoint `dev_42e8c6dc74b9`, 6 356 observations, 491 lanes
+(PROCESS 446 · FILE 3 · NETWORK 41 · OTHER 1). Windowed on both axes; lane axis
+deterministic and **causality-ordered** (processes by lineage depth → files →
+network, never severity) with a stable `lane_axis_version`; lineage identity is
+`process_iid`; unobserved parents declared `NOT_OBSERVED`; cursor paging
+`(timestamp, event_iid)`; **0 duplicates over 1 600 paged rows**; server-bounded
+limit with `has_more`; honest states (`NO_ACTIVITY_IN_RANGE` ·
+`ENDPOINT_NOT_RESOLVED` · `NO_TELEMETRY` · `TELEMETRY_NOT_COLLECTED`); auth
+required; no case/incident/verdict anywhere in the path. Latency: initial 522 ms
+· lane slice 545 ms · full axis 683 ms. Old API unchanged (6 352 events).
+
+**Defect found and fixed during the proof**: `event.iid` is NOT unique — paging
+produced 8 duplicates in 406 rows. `event_iid` is now
+`iid#sha256(ts|lane|kind|cev|case|cmdline|target|pid|raw_id)[:10]`, stable
+across requests and unique per observation.
+
+### UI · classified honestly
+- **PROVEN**: virtualization (24 of 491 lane rows in the DOM), vertical drag
+  (lanes 0→14), vertical scrollbar (→ lanes 300–324), windowed fetch + bounded
+  cache (24/24) + 0 duplicates merged, Activity Details with provenance.
+- **NOT PROVEN**: horizontal drag / horizontal scrollbar effect on position
+  (the readout shows span, not position — weak assertion), and **deep lane
+  slices render EMPTY**: at lanes 300–324 the request fires but no lanes/events
+  reach the canvas (`rendering 0 glyph(s) of 36 cached`). Prefetch/merge or the
+  lane-window request for far slices is at fault. **This is the first Stage 1
+  fix next session.**
+- **NOT STARTED (Stage 2 by owner instruction)**: endpoint selector, Navigator
+  coexistence, fullscreen, filters, zoom focal preservation, XDR pivots.
+
+**No capability-registry change** — Stage 1 is not accepted.
+
+
 ## ✅ 2026-06 · **DEVICE TRAJECTORY · AMP-STYLE NAVIGATION** · PASS (iteration_95 · frontend 100%)
 
 Owner report: markers crammed against the right edge, unreadable, and "it

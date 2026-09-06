@@ -627,6 +627,53 @@ def _iso_ok(ts: Optional[str]) -> Optional[str]:
     return str(ts)
 
 
+@router.get("/endpoints/{endpoint_id}/trajectory")
+async def endpoint_trajectory_window(
+    endpoint_id: str,
+    time_start: Optional[str] = None,
+    time_end: Optional[str] = None,
+    lane_start: int = 0,
+    lane_end: int = 40,
+    cursor: Optional[str] = None,
+    limit: int = 500,
+    user=Depends(get_current_user),
+):
+    """Stage 1 · a WINDOWED, endpoint-scoped trajectory read.
+
+    Endpoint-centric on purpose: it needs no case, incident, verdict or
+    investigation state. It is a projection over the existing canonical
+    evidence and creates no telemetry store of its own.
+    """
+    from deps import db as _db
+    from edr_plane import trajectory_window as tw
+
+    identity = dir_svc.resolve(endpoint_id, _is_cross_tenant(user))
+    if not identity:
+        return {"engine_id": tw.ENGINE_ID, "endpoint": None, "events": [],
+                "lane_axis": {"total_lanes": 0, "lanes": []},
+                "epistemic_state": tw.empty_state(
+                    identity=None, enrolled=False, observations_all_time=0,
+                    observations_in_window=0)}
+    out = await tw.query_window(
+        _db, identity=identity, time_start=time_start, time_end=time_end,
+        lane_start=max(0, lane_start), lane_end=max(1, lane_end),
+        cursor=cursor, limit=limit)
+    all_time = out["matched_in_time_range"] if not (
+        time_start or time_end) else (await tw.query_window(
+            _db, identity=identity, lane_start=0, lane_end=1,
+            limit=1))["matched_in_time_range"]
+    ep = await _db["edr_endpoints"].find_one(
+        {"$or": [{"endpoint_id": endpoint_id},
+                 {"hostname": identity.get("hostname")}]},
+        {"_id": 0, "enrollment_state": 1})
+    out["epistemic_state"] = tw.empty_state(
+        identity=identity,
+        enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
+        observations_all_time=all_time,
+        observations_in_window=out["matched_in_window"])
+    return out
+
+
 @router.get("/device-trajectory")
 async def get_device_trajectory(
     device: str,
