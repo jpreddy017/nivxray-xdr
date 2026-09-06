@@ -617,6 +617,16 @@ api.include_router(deck_download_router)
 from routers.edr_wave0 import router as edr_wave0_router
 api.include_router(edr_wave0_router)
 
+# NivXForge EDR · P0-A.2 — enrolment control plane + authenticated agent
+# surface. Enrolment, sensor identity and telemetry authentication are ONE
+# atomic boundary: every raw event records which authenticated endpoint
+# produced it. Transport is pluggable (bearer today, mTLS later) without
+# touching identity, the envelope or any ingestion contract.
+from routers.edr_enrollment import admin as edr_enrollment_admin_router
+from routers.edr_enrollment import agent as edr_agent_router
+api.include_router(edr_enrollment_admin_router)
+api.include_router(edr_agent_router)
+
 
 # v2 · Additive next-generation namespace (Phase 3+).
 # Isolated inside a try/except so if `/app/backend/v2/` is deleted
@@ -822,7 +832,13 @@ async def _startup():
         from edr_plane.raw_events import ensure_indexes as _ensure_raw_indexes
         from deps import db as _raw_db
         await _ensure_raw_indexes(_raw_db)
-        log.info("[startup] edr_raw_events indexes ensured (append-only)")
+        from edr_plane.enrollment.store import ensure_indexes as _ensure_enr
+        from edr_plane.enrollment.rejection import (
+            ensure_indexes as _ensure_rej)
+        await _ensure_enr(_raw_db)
+        await _ensure_rej(_raw_db)
+        log.info("[startup] edr_raw_events + enrollment indexes ensured "
+                 "(append-only)")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] edr_raw_events indexes failed: {e}")
 

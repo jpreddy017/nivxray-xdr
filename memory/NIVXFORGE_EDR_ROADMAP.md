@@ -18,18 +18,20 @@ and cross-product XDR correlation are explicitly OUT of this track.
 
 ```
 effective state              gap class
-OPERATIONAL              11  NONE                    39
-END_TO_END_VALIDATED      2  TELEMETRY_MISSING       67
+OPERATIONAL              11  NONE                    44
+END_TO_END_VALIDATED      7  TELEMETRY_MISSING       66
 GOLDEN_CORPUS_VALIDATED   9  CONTROL_DRIVER_MISSING  15
-BACKEND_IMPLEMENTED      34  UI_ONLY                  5
+BACKEND_IMPLEMENTED      33  UI_ONLY                  5
 UI_IMPLEMENTED            2  OWNER_INPUT_PENDING      1
-CONTRACT_DEFINED         27
-NOT_IMPLEMENTED          42   sensors registered:      0
+CONTRACT_DEFINED         28
+NOT_IMPLEMENTED          41   (131 rows after P0-A.2)
 ```
 
-**The one fact that explains this whole roadmap**: 67 of 127 capabilities
-are blocked on `TELEMETRY_MISSING` and 0 sensors are registered. The gap
-is the SUBSTRATE, not the capability. Eight capabilities are
+**The one fact that explains this whole roadmap**: 66 of 131 capabilities
+are blocked on `TELEMETRY_MISSING`. The trust boundary is now closed —
+an endpoint can enrol, authenticate and have its evidence attributed —
+but **no agent software exists to walk through it**. The gap is the
+SENSOR, not the capability and no longer the trust plane. Eight capabilities are
 BIND-don't-BUILD — File Trajectory, fleet propagation, spread watchlist,
 quarantine, process termination, isolation, custom hash detections,
 policy — real code, starved of endpoint evidence.
@@ -45,7 +47,18 @@ enforcement · Capability Registry + API + console · immutable
 iteration_89: 100% backend / 100% frontend, zero issues, zero action
 items.
 
-### ▶ P0-A.2 · Endpoint Enrolment, Identity & Authentication · NEXT
+### ✅ P0-A.2 · Endpoint Enrolment, Identity & Authentication · DONE (2026-06)
+Delivered as ONE atomic boundary per owner instruction. One-time token →
+platform-minted `endpoint_id` → opaque durable credential (HMAC-SHA-256
+keyed digest at rest, never a JWT) → short-lived endpoint-scoped session →
+immutable `edr_raw_events` stamped with the endpoint/credential/session
+that produced it. Rejected Sensor Alarm records every refusal as a
+security signal that can never become evidence. Transport pluggable;
+mTLS reserved as an honest 501. 185 tests; iteration_90 100%/100%, zero
+issues. **`edr_raw_events` is now the live authenticated write path.**
+Registry 127 → 131 rows.
+
+Original locked requirements, all met:
 First CONSUMER of the Wave 0 `EndpointIdentity` contract. Owner-locked:
 - One-time, short-TTL, single-use enrolment token → invalidated on use.
   Reusable fleet tokens are REJECTED as the P0 bootstrap primitive.
@@ -73,7 +86,11 @@ First CONSUMER of the Wave 0 `EndpointIdentity` contract. Owner-locked:
   authoritative identity, and be revoked deterministically — with **no
   ambiguity about trust state**.
 
-### P0-B · Real Linux NivXForge Agent
+### ▶ P0-B · Real Linux NivXForge Agent · NEXT
+The platform side of enrolment is done and proven; nothing on any
+endpoint presents a token yet. This is the first REAL sensor: it enrols
+with a one-time token, stores its durable credential, opens sessions and
+streams authenticated telemetry.
 Genuinely executable, runs in this container. Real PID/PPID/ancestry,
 SHA-256, command lines, file and network events. No simulated values.
 

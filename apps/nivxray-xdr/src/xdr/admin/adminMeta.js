@@ -43,6 +43,13 @@ export const ADMIN_SECTIONS = [
     api: null, kind: "capability_hub", connected: true,
   },
   {
+    key: "edr-enrollment", label: "NivXForge EDR · Endpoint Enrolment",
+    icon: KeyRound,
+    subtitle: "P0-A.2 · one-time enrolment tokens, durable per-agent credentials, rotation, revocation and the rejected-sensor alarm. Enrolment, sensor identity and telemetry authentication are one atomic boundary: every raw event records which authenticated endpoint produced it.",
+    api: "/api/edr/enrollment/endpoints", kind: "edr_enrollment",
+    connected: true, authoritative: true,
+  },
+  {
     key: "edr-capability-truth", label: "NivXForge EDR · Capability Truth",
     icon: ShieldCheck,
     subtitle: "Wave 0 honesty baseline · every EDR capability graded across all three planes with feature state, gap class and an evidence reference. No capability counts as implemented merely because a route, UI component, stub, simulator or contract exists.",

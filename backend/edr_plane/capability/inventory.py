@@ -84,9 +84,13 @@ AGENT_CAPABILITIES: list[Capability] = [
          "Agent presents a one-time bootstrap token and stores the issued "
          "durable per-agent credential.",
          gap=GC.TELEMETRY_MISSING,
-         note="Owner-locked design exists (one-time token -> opaque durable "
-              "credential -> short-lived scoped session token). Not built.",
-         wave="P0-A.2"),
+         state=FS.CONTRACT_DEFINED, contract=_P,
+         ev="backend/edr_plane/enrollment/store.py::enroll · "
+            "POST /api/edr/agent/enroll",
+         note="The PLATFORM side is delivered and proven end-to-end. The "
+              "AGENT side does not exist: no software on any endpoint "
+              "presents a token. That is P0-B.",
+         wave="P0-B"),
     _cap("agent.durable_queue", Plane.AGENT, "agent core",
          "Local durable queue / buffer",
          "On-endpoint append-only buffer so a connectivity loss replays "
@@ -150,12 +154,18 @@ PIPELINE_CAPABILITIES: list[Capability] = [
          "Append-only edr_raw_events with parser/normalizer/detection/"
          "analysis/verdict version stamps. Nothing downstream may overwrite "
          "the original event.",
-         state=FS.BACKEND_IMPLEMENTED, backend=_P, contract=_P, test=_P,
-         ev="backend/edr_plane/raw_events.py · tests/edr/test_wave0_contracts.py",
+         state=FS.END_TO_END_VALIDATED, backend=_P, contract=_P, test=_P,
+         telemetry=_N, e2e=_P,
+         ev="backend/edr_plane/raw_events.py · "
+            "tests/edr/test_wave0_raw_events.py · "
+            "POST /api/edr/agent/telemetry",
          note="Directive §4 correction: v2_shadow_observations alone was not "
-              "a sufficient substrate. Built in Wave 0; not yet the write "
-              "path for live ingest (that is P0-C/P0-D).",
-         wave="Wave 0"),
+              "a sufficient substrate. As of P0-A.2 this IS the live write "
+              "path for authenticated agent telemetry, and every event "
+              "carries the endpoint/credential/session that produced it. "
+              "Legacy collector telemetry still lands as shadow "
+              "observations (P0-D).",
+         wave="Wave 0 · P0-A.2"),
     _cap("backend.replay", Plane.BACKEND, "pipeline",
          "Retrospective replay",
          "Re-reason retained raw telemetry after a parser, normalizer, "
@@ -192,14 +202,17 @@ PIPELINE_CAPABILITIES: list[Capability] = [
          "EDR ingestion gateway",
          "Authenticated ingest boundary with tenant isolation and refused-"
          "evidence recording.",
-         state=FS.BACKEND_IMPLEMENTED, backend=_N, telemetry=_N, test=_P,
-         contract=_P,
-         ev="backend/routers/xdr_ingest.py · tests/edr/test_cross_tenant.py "
-            "(20 tests)",
-         note="Tenant isolation is proven and returns 403 before collector "
-              "lookup. Ingest is NOT authenticated per-agent — no enrolment "
-              "exists, so nothing can be authenticated yet.",
-         wave="P0-A.2"),
+         state=FS.END_TO_END_VALIDATED, backend=_P, telemetry=_N, test=_P,
+         contract=_P, e2e=_P,
+         ev="backend/routers/edr_enrollment.py · "
+            "backend/edr_plane/enrollment/transport.py · "
+            "tests/edr/test_p0_a2_enrollment.py (29) · "
+            "tests/edr/test_cross_tenant.py (20)",
+         note="P0-A.2: /api/edr/agent/telemetry is authenticated per-agent "
+              "and refuses unenrolled or revoked agents with 401/403 plus a "
+              "security signal. The legacy /api/xdr/ingest/telemetry path "
+              "remains tenant-isolated but NOT per-agent authenticated.",
+         wave="P0-A.2 · DONE"),
     _cap("backend.telemetry_health", Plane.BACKEND, "pipeline",
          "Telemetry health (2 dimensions)",
          "Agent lifecycle x telemetry health, computed and never collapsed.",
@@ -211,6 +224,66 @@ PIPELINE_CAPABILITIES: list[Capability] = [
          note="Closed as P0-A.1. Cannot reach REAL_ENDPOINT_VALIDATED "
               "because no real agent exists to report a lifecycle.",
          wave="P0-A.1 · DONE"),
+    _cap("backend.enrollment", Plane.BACKEND, "identity & trust",
+         "Endpoint enrolment (one-time token)",
+         "Admin mints a short-TTL single-use token; the agent presents it "
+         "once; the platform mints the endpoint_id from durable machine "
+         "attributes and issues the durable credential; the token is burned "
+         "atomically.",
+         state=FS.END_TO_END_VALIDATED, backend=_P, ui=_P, contract=_P,
+         test=_P, e2e=_P, telemetry=_N,
+         ev="backend/edr_plane/enrollment/store.py · "
+            "tests/edr/test_p0_a2_enrollment.py (29 tests incl. 25- and "
+            "50-way concurrent single-use proofs)",
+         note="endpoint_id is minted BY THE PLATFORM (hardware > machine "
+              "guid > device_iid > hostname) and never accepted from the "
+              "agent. Token failure modes are deliberately "
+              "indistinguishable so the error is not an oracle.",
+         wave="P0-A.2 · DONE"),
+    _cap("backend.agent_auth", Plane.BACKEND, "identity & trust",
+         "Agent credential + scoped session",
+         "Opaque durable per-agent credential (HMAC-SHA-256 keyed digest at "
+         "rest, never a JWT, never retrievable) exchanged for a short-lived "
+         "endpoint-scoped session token used on continuous telemetry.",
+         state=FS.END_TO_END_VALIDATED, backend=_P, ui=_P, contract=_P,
+         test=_P, e2e=_P, telemetry=_N,
+         ev="backend/edr_plane/enrollment/security.py · "
+            "backend/edr_plane/enrollment/store.py::resolve_session · "
+            "tests/edr/test_p0_a2_enrollment.py",
+         note="auth_epoch invalidates an in-flight, still-unexpired session "
+              "the instant its credential is revoked or rotated — a "
+              "guarantee that does not depend on a second write "
+              "succeeding.",
+         wave="P0-A.2 · DONE"),
+    _cap("backend.transport_boundary", Plane.BACKEND, "identity & trust",
+         "Pluggable transport / auth boundary",
+         "Endpoint Identity != Authentication Mechanism != Transport != "
+         "Telemetry Envelope. One module knows a bearer token exists; mTLS "
+         "replaces it without touching identity, envelope or ingestion.",
+         state=FS.BACKEND_IMPLEMENTED, backend=_P, contract=_P, test=_P,
+         telemetry=_N,
+         ev="backend/edr_plane/enrollment/transport.py::ACTIVE_TRANSPORT",
+         note="mTLS is an explicit NOT-REGISTERED stub returning 501 rather "
+              "than an absent seam — it never silently falls back to "
+              "bearer, because an operator believing mTLS is enforced when "
+              "it is not is worse than no mTLS.",
+         wave="P0-A.2 · DONE"),
+    _cap("backend.rejected_sensor_signal", Plane.BACKEND, "identity & trust",
+         "Rejected sensor alarm",
+         "Every refused ingest attempt is rejected 401/403 AND recorded as "
+         "a security signal with tenant, source IP, credential fingerprint, "
+         "timestamp, reason, request id and resolvable endpoint — never "
+         "silently dropped, never eligible to become endpoint evidence.",
+         state=FS.END_TO_END_VALIDATED, backend=_P, ui=_P, contract=_P,
+         test=_P, e2e=_P, telemetry=_N,
+         ev="backend/edr_plane/enrollment/rejection.py · "
+            "GET /api/edr/enrollment/rejections · "
+            "tests/edr/test_p0_a2_enrollment.py",
+         note="Stored in edr_rejected_telemetry, which no evidence, "
+              "trajectory, detection or verdict path queries — the "
+              "isolation is structural. A revoked agent still transmitting "
+              "escalates to HIGH.",
+         wave="P0-A.2 · DONE"),
     _cap("backend.capability_registry", Plane.BACKEND, "governance",
          "Capability Registry + API",
          "Machine-readable truth authority: feature state, gap class and "

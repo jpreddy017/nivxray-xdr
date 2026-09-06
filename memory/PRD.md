@@ -1,6 +1,147 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · NivXForge EDR · **P0-A.2 · ENROLMENT + SENSOR IDENTITY + TELEMETRY AUTH** · DELIVERED (iteration_90)
+
+Owner authorised this immediately after accepting Wave 0, with the
+instruction that it be **ONE ATOMIC ARCHITECTURAL BOUNDARY**, not three
+features. `integration_expert` was called before any auth code was
+written, as required.
+
+**The question the whole slice exists to answer, for every event:**
+
+> *Which AUTHENTICATED endpoint produced this EXACT evidence?*
+
+That is why it is one boundary. If the answer is ever *"probably that
+host"*, then Device Trajectory, Fleet File Trajectory, Attack Story,
+response authorisation and forensic integrity all inherit the doubt.
+
+### The three-stage chain, proven end-to-end by curl and by test
+
+```
+admin mints one-time token (enr_)   short TTL · single use
+        ↓ agent presents it once
+platform MINTS endpoint_id          hardware > machine guid
+                                    > device_iid > hostname
+        ↓ token burned atomically
+durable credential (eak_)           opaque · NOT a JWT · shown once
+        ↓ exchanged
+scoped session token (est_)         short-lived · endpoint-scoped
+        ↓ continuous telemetry
+immutable edr_raw_events            stamped AUTHENTICATED with the
+                                    endpoint + credential + session
+```
+
+`edr_raw_events` is now the **live write path** for authenticated agent
+telemetry, and every event carries `authentication` = {endpoint_id,
+credential_id, session_id, auth_method, device_iid}.
+
+### Design decisions and why each one is the way it is
+
+- **`endpoint_id` is minted BY THE PLATFORM, never accepted from the
+  agent.** `TelemetryBody` and `EnrollBody` reject an `endpoint_id` field
+  outright (`extra="forbid"`). An agent that could name its own endpoint
+  could impersonate another one. Hostname is LAST in the precedence
+  because it is the only attribute an attacker can trivially change.
+- **HMAC-SHA-256 with a server-side pepper, not bcrypt or Argon2id.**
+  These are 256-bit CSPRNG machine secrets, so the offline-brute-force
+  threat a slow KDF defends against does not exist. bcrypt truncates at
+  72 bytes and is deliberately slow — on a token verified on EVERY
+  telemetry request that is a self-inflicted DoS. A keyed digest is also
+  *indexable*, which is what makes revocation an immediate lookup rather
+  than a scan. `_pepper()` **raises** if `EDR_AUTH_PEPPER` is unset rather
+  than degrade to an unkeyed digest.
+- **Opaque session tokens with server-side lookup, not JWTs.** Immediate
+  revocation, no key-rotation pitfalls, and trivial endpoint binding.
+- **Single-use is atomic, not checked.** `consume_enrollment_token()`
+  matches AND invalidates in ONE `find_one_and_update`. Proven with a
+  25-way concurrent enrolment and a 50-way concurrent consumption: exactly
+  one winner. A read-then-write passes every other test in the file and
+  still lets two agents enrol on one token.
+- **`auth_epoch` kills an in-flight, still-unexpired session.** Every
+  session records the epoch it was minted under; revoke/rotate increments
+  it. We also rewrite the session rows, but the epoch is the guarantee
+  that does not depend on that second write succeeding. Tested by bumping
+  only the epoch and leaving the session document pristine.
+- **One error message for every token failure.** Unknown, malformed,
+  expired, already-used and wrong-tenant are INDISTINGUISHABLE and the
+  message says so. A distinguishable message is an oracle that tells an
+  attacker with a stolen token whether it was ever valid and whether
+  someone else already used it.
+- **Three lifecycles, never collapsed.** `enrollment_state` ×
+  `credential_state` × `sensor_state`. `EndpointRecord` has no `status`
+  and no `health` field. `ENROLLED` + `ACTIVE` +
+  `ENROLLED_NEVER_REPORTED` is the state that matters: trusted to send,
+  has sent nothing. **Enrolment is not evidence of visibility.**
+
+### Rejected Sensor Alarm — reject AND signal (owner decision 4C)
+
+Every refusal is rejected 401/403 **and** recorded in
+`edr_rejected_telemetry` with code, reason, severity, signal_class,
+source_ip, credential **fingerprint** (16-hex, correlatable, not
+reversible), tenant_resolution, request_id, path,
+`payload_retained=false`, `trust_state=REJECTED`,
+`evidence_eligibility=NEVER_EVIDENCE`. A revoked agent still transmitting
+escalates to **HIGH / REVOKED_AGENT_STILL_TRANSMITTING**.
+
+The isolation is **structural, not a convention**: no evidence,
+trajectory, detection or verdict path queries that collection, and a
+refused ingest creates no `edr_raw_events` document at all.
+`record_rejection()` never raises — a failure to record must not become a
+way to make a rejection quieter. The tenant on an unauthenticated attempt
+is `UNRESOLVED`, never guessed, because attributing an attack to a tenant
+on the attacker's word would be a fabrication.
+
+### The pluggable boundary holds
+
+`transport.py` is the **only** module that knows a bearer token exists.
+`ACTIVE_TRANSPORT` is the one-line migration point. `authenticate_mtls()`
+is an explicit `501 TRANSPORT_NOT_REGISTERED` stub — it never silently
+falls back, because an operator believing mTLS is enforced when it is not
+is worse than no mTLS. `AuthenticatedEndpoint` is frozen and contains no
+token, secret, password, authorization or hash field.
+
+### Console
+
+`/xdr/admin/edr-enrollment` — owner-locked minimal scope only: generate
+one-time token, shown ONCE and held in React state alone (verified absent
+from the DOM after Dismiss and from both storage APIs after a hard
+reload), TTL, single-use status, enrolled endpoints with all three
+lifecycles as SEPARATE columns plus a Trusted column and its reason,
+credential status, rotate, revoke, and the rejected-sensor alarm feed.
+
+### Testing
+
+`tests/edr/` **185 pass**. `test_p0_a2_enrollment.py` covers all 13
+owner-required cases; the testing agent added
+`test_p0_a2_adversarial_live.py` (9 live probes against the preview).
+**iteration_90: 100% backend / 100% frontend, zero issues, zero action
+items.** Adversarially confirmed impossible: token reused, error-message
+oracle, revoked agent ingesting inside its TTL, cross-tenant or
+cross-endpoint credential use, agent naming its own endpoint_id or
+tenant_id, secret in a log / OpenAPI / second response, refused payload
+becoming evidence.
+
+**Registry updated honestly**: 127 → **131 rows** (4 new: enrolment,
+agent auth, transport boundary, rejected-sensor signal).
+`backend.raw_events` and `backend.ingestion_gateway` moved to
+END_TO_END_VALIDATED with real evidence; `experience.enrollment_ui` moved
+from NOT_IMPLEMENTED. `downgraded_claims` still 0.
+
+### Honest limits (NOT claimed)
+
+- **No agent software exists.** This is the platform side. `agent.*` rows
+  remain CONTRACT_DEFINED — nothing on any endpoint presents a token yet.
+  That is P0-B.
+- Authenticated sensor telemetry is preserved as an immutable raw event
+  and is **not yet canonicalized, detected, or visible in Device
+  Trajectory**. That is P0-C/P0-D and completes the owner's milestone.
+- The legacy `/api/xdr/ingest/telemetry` collector path stays
+  tenant-isolated but is **not** per-agent authenticated.
+- mTLS is reserved, not registered.
+
+
+
 ## ✅ 2026-06 · NivXForge EDR · **WAVE 0 · ARCHITECTURE & CONTRACTS** · DELIVERED (iteration_89)
 
 **Authority now frozen in-repo**: `docs/architecture/NIVXFORGE_EDR_MASTER_DIRECTIVE.md`

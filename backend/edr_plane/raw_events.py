@@ -90,6 +90,14 @@ class RawEndpointEvent(BaseModel):
         description="AUTHENTICATED | UNAUTHENTICATED | REJECTED. A REJECTED "
                     "payload is retained as a SECURITY SIGNAL and must "
                     "never enter the authoritative evidence pipeline.")
+    authentication: Optional[dict] = Field(
+        default=None,
+        description="AuthenticatedEndpoint.provenance() — the authenticated "
+                    "endpoint_id, credential_id, session_id, auth_method and "
+                    "device_iid that produced this exact event. This is what "
+                    "lets every downstream trajectory, story and response "
+                    "authorisation be attributable rather than assumed. Null "
+                    "means the event predates authenticated transport.")
 
     derivations: list[Derivation] = Field(default_factory=list)
     duplicate_count: int = 0

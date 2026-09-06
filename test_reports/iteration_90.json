@@ -1,0 +1,30 @@
+{
+  "summary": "P0-A.2 (Endpoint Enrolment + Sensor Identity + Telemetry Auth) tested adversarially, both backend and frontend. Full EDR pytest suite green (176 pre-existing + 9 new adversarial live probes = 185/185). Live probes hit the deployed preview and specifically stressed the review's threat model: token reuse, error-oracle discipline, in-flight session survival after revoke, envelope smuggling of tenant_id/endpoint_id, secret leakage into OpenAPI/admin lists/backend logs, and 401 detail redaction. Frontend enrolment console verified end-to-end: mint shows plaintext once, TTL/single-use/warning present, Dismiss clears it from the DOM and it is NOT persisted in localStorage/sessionStorage nor recoverable via reload; the enrolled table renders THREE separate lifecycle columns + Trusted column with reasons; Rotate emits a new eak_ shown once; Rejected Sensor Alarm section renders with NEVER_EVIDENCE eligibility; capability-truth 0/43 disclosure intact; P0-A.1 endpoint page regression clean; zero console errors.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/edr/test_p0_a2_adversarial_live.py",
+    "/app/test_reports/pytest/iter90_edr.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "security.py: EDR_AUTH_PEPPER raising when unset (rather than degrading to an unkeyed digest) is exactly the correct fail-fast posture for a keyed-digest credential store — good.",
+    "store.consume_enrollment_token uses a single find_one_and_update for match+invalidate — this is what makes the 50-way concurrent single-use proof deterministic. Do not refactor into read-then-write.",
+    "TelemetryBody rejects tenant_id and endpoint_id (extra=forbid). This is enforced at the pydantic layer AND provenance is stamped from the AuthenticatedEndpoint — belt-and-suspenders, which is right for auth code.",
+    "SessionBody DOES accept tenant_id (needed for credential lookup index); the tenant used on the raw event is still taken from the authenticated identity, so an attacker cannot force cross-tenant attribution. This is a fine distinction the review request slightly overstated ('resolve_session takes NO tenant_id'); the guarantee still holds where it matters (telemetry envelope + raw-event attribution).",
+    "401 redacted form 'est_[REDACTED:<16-hex>]' correctly reveals the fingerprint (audit correlator) but nothing of the secret — good.",
+    "Test-corpus identifiers like 'est_xdr_round28x2_mde_s1' appear in older backend logs; they are NOT real secrets (24 chars, lowercase+underscore, deterministic). New adversarial log-grep uses a strict entropy filter (length >= 40 AND at least one uppercase) so it will not miss real leaks while ignoring these test IDs.",
+    "Frontend correctly holds the freshly-minted secret in React state only; verified DOM and both storage APIs are clean after Dismiss and after a hard reload."
+  ],
+  "updated_files": ["/app/backend/tests/edr/test_p0_a2_adversarial_live.py"],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Adversarial run created a small number of test endpoints (hostnames LAB-ADV-01, LAB-REVKILL, LAB-ENV) via the real /api/edr/agent/enroll path; one was revoked as part of the in-flight-kill probe. Consistent with existing preview data (already contained LAB-LINUX-01 revoked and several LAB-ADV-01/LAB-REVKILL/LAB-ENV rows from previous runs).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0-A.2 is complete and green. Suite locations: tests/edr/test_p0_a2_enrollment.py (29 in-process, includes the 25-way and 50-way concurrency proofs) and tests/edr/test_p0_a2_adversarial_live.py (9 live HTTP probes against REACT_APP_BACKEND_URL). Full tests/edr/ = 185 passing. Notable owner-locked invariants that these tests explicitly guard: (a) enroll body REJECTS endpoint_id (extra=forbid → 422), (b) same processor_id → same endpoint_id regardless of hostname, (c) generic identical error for unknown/malformed/expired/used/wrong-tenant tokens, (d) revoke kills an in-flight session inside its TTL (auth_epoch bump), (e) telemetry envelope rejects tenant_id/endpoint_id, (f) no plaintext enr_/eak_/est_ in OpenAPI, admin lists, or backend logs, (g) admin routes require platform login, agent routes do not. Wave 0 registry: >= 127 rows (currently 131). Do NOT re-freeze exact integers on wave0 counts."
+}
