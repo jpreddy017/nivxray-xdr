@@ -36,11 +36,51 @@ export const DAY_BINS = 240;
 
 /** Cisco's console is a light surface; the NivXForge chrome around it
  *  stays dark. */
-export const C = {
-  // Cisco AMP classic light console tokens (design_guidelines.json)
-  shell: "#0F172A",
+/** Cisco ships the Device Trajectory in BOTH a dark console (current
+ *  Secure Endpoint) and a light console (classic AMP). Both are
+ *  authentic, so both are provided and the analyst chooses. */
+const DARK = {
+  theme: "dark",
+  shell: "#0B0E13",
+  page: "#12161D",
+  paper: "#171C24",
+  paperAlt: "#1C222B",
+  chrome: "#12161D",
+  gutterBg: "#12171E",
+  grid: "#2A313B",
+  gridStrong: "#39424E",
+  ink: "#E6EAF0",
+  inkDim: "#9AA6B4",
+  inkFaint: "#6B7684",
+  lifeline: "#6E7B8B",
+  lifelineDim: "#4A535F",
+  connector: "#7E8A98",
+  glyph: "#C3CBD5",
+  malicious: "#E5484D",
+  maliciousHalo: "#2A1417",
+  suspicious: "#E0A200",
+  detection: "#E5484D",
+  band: "rgba(224, 162, 0, 0.13)",
+  telemetry: "#4A9EFF",
+  spark: "#4A9EFF",
+  sparkFill: "rgba(74, 158, 255, 0.12)",
+  selection: "#4A9EFF",
+  selectionRow: "rgba(74, 158, 255, 0.12)",
+  selectionStrong: "#4A9EFF",
+  handle: "#4A9EFF",
+  navWindow: "rgba(74, 158, 255, 0.08)",
+  hatch: "rgba(120, 132, 148, 0.16)",
+  file: "#C3CBD5",
+  network: "#C3CBD5",
+  link: "#4A9EFF",
+};
+
+const LIGHT = {
+  theme: "light",
+  shell: "#E8ECF1",
+  page: "#F8FAFC",
   paper: "#FFFFFF",
-  paperAlt: "#F8FAFC",
+  paperAlt: "#F1F5F9",
   chrome: "#F8FAFC",
   gutterBg: "#F1F5F9",
   grid: "#E2E8F0",
@@ -49,7 +89,7 @@ export const C = {
   inkDim: "#475569",
   inkFaint: "#64748B",
   lifeline: "#16A34A",
-  lifelineDim: "#22C55E",
+  lifelineDim: "#86C79E",
   connector: "#94A3B8",
   glyph: "#475569",
   malicious: "#DC2626",
@@ -64,11 +104,23 @@ export const C = {
   selectionRow: "#EFF6FF",
   selectionStrong: "#2563EB",
   handle: "#1D4ED8",
-  navWindow: "rgba(37, 99, 235, 0.12)",
+  navWindow: "rgba(37, 99, 235, 0.10)",
+  hatch: "rgba(148, 163, 184, 0.22)",
   file: "#475569",
   network: "#475569",
   link: "#2563EB",
 };
+
+/** Live palette. Mutated in place so every component keeps reading the
+ *  same reference; React re-renders after the theme state changes. */
+export const C = { ...DARK };
+
+export function setTheme(theme) {
+  Object.assign(C, theme === "light" ? LIGHT : DARK);
+  return C;
+}
+
+export const THEMES = ["dark", "light"];
 
 export const DISPOSITION = {
   MALICIOUS: { label: "Malicious", color: C.malicious },

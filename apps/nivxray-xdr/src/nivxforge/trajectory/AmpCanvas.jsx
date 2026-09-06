@@ -12,11 +12,13 @@
  * loading with no viewport jump, icon aggregation, and dotted
  * treatment where a lifeline or a lineage is truncated.
  *
- * Not reproduced on purpose: wheel-zoom. The Cisco reference
- * establishes zoom on the Navigator bands, so the wheel scrolls the
- * activity axis rather than inventing a gesture.
+ * The mouse wheel is deliberately inert over this workspace: Cisco
+ * navigates the trajectory through the Navigator bands, the two
+ * scrollbars and deliberate dragging, so a wheel tick must never
+ * silently move an analyst through time or activity.
  */
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef,
+                useState } from "react";
 
 import { C, ROW_H, GUTTER, AXIS_H, GROUP_SECTION, eventColor, isRed,
          typeLabel, rowTag, ticksFor } from "./ampModel";
@@ -103,12 +105,22 @@ export default function AmpCanvas({
     window.addEventListener("mouseup", onUp);
   };
 
-  const onWheel = (e) => {
-    e.preventDefault();
-    const step = Math.sign(e.deltaY) * Math.max(1, Math.round(rows / 4));
-    onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - 1),
-                                     laneStart + step)));
-  };
+  /** The mouse wheel must NOT drive the trajectory: not zoom, not time,
+   *  not the activity axis, not the Navigator. Cisco navigates through
+   *  the Navigator bands, the two scrollbars and deliberate dragging.
+   *
+   *  React registers `onWheel` as PASSIVE, so calling preventDefault
+   *  there is rejected by the browser and logs on every tick. The
+   *  listener is therefore attached natively and non-passively, which
+   *  is the only way to stop an ancestor from scrolling instead.
+   */
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return undefined;
+    const swallow = (e) => { e.preventDefault(); e.stopPropagation(); };
+    el.addEventListener("wheel", swallow, { passive: false });
+    return () => el.removeEventListener("wheel", swallow);
+  }, []);
 
   const openMenu = (e, ev) => {
     e.preventDefault();
@@ -126,7 +138,8 @@ export default function AmpCanvas({
          style={{ position: "relative", background: C.paper,
                   overflow: "hidden", height, cursor: "grab", flex: 1,
                   minWidth: 0 }}
-         onMouseDown={onMouseDown} onWheel={onWheel}
+         onMouseDown={onMouseDown}
+         data-wheel-navigation="disabled"
          onMouseLeave={() => setHover(null)}
          onClick={() => setMenu(null)}>
       <svg width={GUTTER + plotW} height={height} data-testid="amp-svg">

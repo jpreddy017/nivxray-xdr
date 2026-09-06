@@ -9,6 +9,8 @@
  */
 import React from "react";
 
+import { C } from "./ampModel";
+
 const S = 4.2;   // half-extent of the glyph box (Cisco draws small
                  // outline marks, not filled dots)
 
@@ -16,7 +18,7 @@ const S = 4.2;   // half-extent of the glyph box (Cisco draws small
  *  observation mark rather than a shape that would imply a category. */
 function Shape({ type, color, filled }) {
   const stroke = color;
-  const fill = filled ? color : "#FFFFFF";
+  const fill = filled ? color : "transparent";
   const sw = 1.05;
   const p = { stroke, strokeWidth: sw, fill: "none",
               strokeLinejoin: "round", strokeLinecap: "round" };
@@ -27,7 +29,7 @@ function Shape({ type, color, filled }) {
           <rect x={-S} y={-S} width={S * 2} height={S * 2} rx={1.2}
                 fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d={`M ${-1.9} ${-2.9} L ${2.4} 0 L ${-1.9} ${2.9} Z`}
-                fill={filled ? "#FFFFFF" : stroke} stroke="none" />
+                fill={stroke} stroke="none" />
         </>
       );
     case "process_exit":
@@ -36,7 +38,7 @@ function Shape({ type, color, filled }) {
           <rect x={-S} y={-S} width={S * 2} height={S * 2} rx={1.2}
                 fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d={`M -2.6 -2.6 L 2.6 2.6 M 2.6 -2.6 L -2.6 2.6`}
-                {...p} stroke={filled ? "#FFFFFF" : stroke} />
+                {...p} stroke={stroke} />
         </>
       );
     case "file_create":
@@ -51,9 +53,9 @@ function Shape({ type, color, filled }) {
           <path d="M 1.4 -5.6 L 1.4 -2.6 L 4 -2.6" {...p} />
           {type === "file_delete"
             ? <path d="M -3 3.6 L 3 -3.4" {...p}
-                    stroke={filled ? "#FFFFFF" : stroke} />
+                    stroke={stroke} />
             : <path d="M -2 0.4 L 2 0.4 M -2 2.6 L 1 2.6" {...p}
-                    stroke={filled ? "#FFFFFF" : stroke} />}
+                    stroke={stroke} />}
         </>
       );
     }
@@ -63,7 +65,7 @@ function Shape({ type, color, filled }) {
           <rect x={-S} y={-S} width={S * 2} height={S * 2} rx={1.2}
                 fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d="M 0 3.2 L 0 -2.6 M -2.2 -0.6 L 0 -2.9 L 2.2 -0.6"
-                {...p} stroke={filled ? "#FFFFFF" : stroke} />
+                {...p} stroke={stroke} />
         </>
       );
     case "network_connect":
@@ -71,7 +73,7 @@ function Shape({ type, color, filled }) {
         <>
           <circle r={S} fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d="M -3.2 1.6 L 2.4 -2.4 M 0.1 -2.9 L 2.9 -2.9 L 2.9 -0.2"
-                {...p} stroke={filled ? "#FFFFFF" : stroke} />
+                {...p} stroke={stroke} />
         </>
       );
     case "network_listen":
@@ -79,7 +81,7 @@ function Shape({ type, color, filled }) {
         <>
           <circle r={S} fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d="M -2.8 2.2 A 4 4 0 0 1 2.8 -2.4 M -0.9 2.4 A 2 2 0 0 1 1 0.4"
-                {...p} stroke={filled ? "#FFFFFF" : stroke} />
+                {...p} stroke={stroke} />
         </>
       );
     case "dns_query":
@@ -88,7 +90,7 @@ function Shape({ type, color, filled }) {
         <>
           <circle r={S} fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d="M -5.4 0 L 5.4 0 M 0 -5.5 A 3.4 5.5 0 0 0 0 5.5 A 3.4 5.5 0 0 0 0 -5.5"
-                {...p} stroke={filled ? "#FFFFFF" : stroke} />
+                {...p} stroke={stroke} />
         </>
       );
     case "detection":
@@ -107,7 +109,7 @@ function Shape({ type, color, filled }) {
           <rect x={-S} y={-S} width={S * 2} height={S * 2} rx={1.2}
                 fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d="M -2.8 -1.8 L 2.8 -1.8 M -2.8 1.4 L 0.6 1.4"
-                {...p} stroke={filled ? "#FFFFFF" : stroke} />
+                {...p} stroke={stroke} />
         </>
       );
     case "service_install":
@@ -115,7 +117,7 @@ function Shape({ type, color, filled }) {
         <>
           <circle r={S} fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d="M 0 -3.4 L 0 3.4 M -3.4 0 L 3.4 0"
-                {...p} stroke={filled ? "#FFFFFF" : stroke} />
+                {...p} stroke={stroke} />
         </>
       );
     case "memory_alloc":
@@ -124,7 +126,7 @@ function Shape({ type, color, filled }) {
           <rect x={-S} y={-3.6} width={S * 2} height={7.2} rx={1}
                 fill={fill} stroke={stroke} strokeWidth={sw} />
           <path d="M -2 -3.6 L -2 3.6 M 1.4 -3.6 L 1.4 3.6"
-                {...p} stroke={filled ? "#FFFFFF" : stroke} />
+                {...p} stroke={stroke} />
         </>
       );
     case "kernel_event":
@@ -163,7 +165,8 @@ export default function EventGlyph({ event, color, count = 1, red = false,
                 strokeWidth={1} />
       )}
       {red && (
-        <circle r={7.4} fill="#FFFFFF" stroke={color} strokeWidth={1.2} />
+        <circle r={7.4} fill={C.maliciousHalo} stroke={color}
+                strokeWidth={1.2} />
       )}
       <Shape type={event.event_type} color={color} filled={false} />
       {count > 1 && (
@@ -181,10 +184,11 @@ export default function EventGlyph({ event, color, count = 1, red = false,
 
 /** Compromise marker on the time axis — Cisco puts a red mark above the
  *  trajectory at the instant of a compromise event. */
-export function CompromiseMarker({ color = "#D0021B" }) {
+export function CompromiseMarker({ color = C.malicious }) {
   return (
     <g>
-      <circle r={5.2} fill="#FFFFFF" stroke={color} strokeWidth={1.4} />
+      <circle r={5.2} fill={C.maliciousHalo} stroke={color}
+              strokeWidth={1.4} />
       <line x1={-3.4} y1={3.4} x2={3.4} y2={-3.4} stroke={color}
             strokeWidth={1.4} />
     </g>

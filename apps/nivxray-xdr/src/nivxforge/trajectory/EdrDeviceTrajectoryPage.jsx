@@ -23,18 +23,18 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, Moon, Sun } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 import api from "@/lib/api";
 
-import { C, GUTTER, ROW_H, AXIS_H, MS, DAY_MS, iso, dayKeyOf,
+import { C, GUTTER, ROW_H, AXIS_H, MS, DAY_MS, iso, dayKeyOf, setTheme,
          startOfDayUTC } from "./ampModel";
 import AmpComputerHeader from "./AmpComputerHeader";
 import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
 import AmpNavigator from "./AmpNavigator";
-import AmpEventDetails from "./AmpEventDetails";
+import AmpActivityPanel from "./AmpActivityPanel";
 
 const LANE_PREFETCH = 14;
 const TIME_PREFETCH = 0.3;
@@ -44,6 +44,12 @@ const DETAILS_W = 348;
 export default function EdrDeviceTrajectoryPage() {
   const [params, setParams] = useSearchParams();
   const device = params.get("device") || "";
+
+  /** Cisco ships both a dark and a light console; the analyst picks.
+   *  Applied before children render so one palette drives every part. */
+  const [theme, setThemeState] = useState(
+    () => window.localStorage.getItem("nvf-amp-theme") || "dark");
+  setTheme(theme);
 
   const [meta, setMeta] = useState(null);
   const [view, setView] = useState(null);
@@ -424,6 +430,23 @@ export default function EdrDeviceTrajectoryPage() {
           Device Trajectory
         </span>
         <span style={{ flex: 1 }} />
+        <button onClick={() => {
+                  const next = theme === "dark" ? "light" : "dark";
+                  window.localStorage.setItem("nvf-amp-theme", next);
+                  setThemeState(next);
+                }}
+                data-testid="amp-theme-toggle"
+                data-theme={theme}
+                title={theme === "dark" ? "Switch to the light console"
+                  : "Switch to the dark console"}
+                style={{ fontSize: 10.6, color: C.link, cursor: "pointer",
+                         background: C.paper, padding: "4px 8px",
+                         borderRadius: 2,
+                         border: `1px solid ${C.gridStrong}`,
+                         display: "flex", alignItems: "center", gap: 5 }}>
+          {theme === "dark" ? <Sun size={11} /> : <Moon size={11} />}
+          {theme === "dark" ? "Light" : "Dark"}
+        </button>
         <a href="/edr/trajectory" target="_blank" rel="noreferrer"
            data-testid="amp-legacy-link"
            style={{ fontSize: 10.6, color: C.link, textDecoration: "none",
@@ -592,14 +615,12 @@ export default function EdrDeviceTrajectoryPage() {
               </div>
             </div>
 
-            {/* Cisco's right-hand pane is the details of the SELECTED
-                event — not a list. Selection happens on the trajectory
-                itself, as in the reference. */}
-            <AmpEventDetails event={selected}
-                             lane={selected ? lanes.get(selected.lane_index)
-                               : null}
-                             onPivot={onPivot} width={DETAILS_W}
-                             onClose={() => focusEvent(null)} />
+            {/* Cisco's right-hand pane: Activity master list, drilling
+                in to Activity Details in place, with a back arrow. */}
+            <AmpActivityPanel events={windowEvents} lanes={lanes}
+                              selected={selected} onSelect={focusEvent}
+                              onPivot={onPivot} width={DETAILS_W}
+                              height={canvasH + 13} />
           </div>
 
           <div className="mono" data-testid="amp-status"
@@ -609,9 +630,10 @@ export default function EdrDeviceTrajectoryPage() {
             {windowEvents.length} observation(s) in the window from{" "}
             {events.size} cached · activity axis{" "}
             {meta?.lane_axis?.lane_axis_version}{" "}
-            ({meta?.lane_axis?.axis_scope}) · drag the trajectory to move
-            through time and activity · the wheel scrolls the activity axis
-            (zoom lives on the Navigator, as in the Cisco reference)
+            ({meta?.lane_axis?.axis_scope}) · navigate with the two
+            scrollbars, by dragging the trajectory, or from the Navigator
+            bands and search · the mouse wheel is intentionally inert
+            here, as in the Cisco console
           </div>
         </>
       )}
@@ -622,7 +644,7 @@ export default function EdrDeviceTrajectoryPage() {
     return (
       <div data-testid="amp-fullscreen"
            style={{ position: "fixed", inset: 0, zIndex: 2000,
-                    background: C.chrome, overflow: "auto",
+                    background: C.shell, overflow: "auto",
                     padding: "12px 16px" }}>
         {body}
       </div>
@@ -632,7 +654,7 @@ export default function EdrDeviceTrajectoryPage() {
   return (
     <NivXForgeConsole activeTab="device-trajectory">
       <div data-testid="amp-page-surface"
-           style={{ background: C.chrome,
+           style={{ background: C.page,
                     border: `1px solid ${C.gridStrong}`, borderRadius: 6,
                     padding: "12px 14px 14px", margin: "-4px -8px 0" }}>
         {body}

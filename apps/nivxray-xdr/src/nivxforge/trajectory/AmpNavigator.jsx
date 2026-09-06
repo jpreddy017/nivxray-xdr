@@ -153,8 +153,9 @@ export default function AmpNavigator({
                                  cursor: has ? "pointer" : "default",
                                  background: active ? C.selectionRow
                                    : C.paper,
-                                 border: `1px solid ${active
-                                   ? C.selectionStrong : C.grid}`,
+                                 borderStyle: "solid",
+                                 borderColor: active ? C.selectionStrong
+                                   : C.grid,
                                  borderWidth: active ? 2 : 1,
                                  display: "flex", flexDirection: "column",
                                  alignItems: "center",

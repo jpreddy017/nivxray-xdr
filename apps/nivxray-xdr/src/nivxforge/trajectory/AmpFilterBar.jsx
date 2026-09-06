@@ -177,8 +177,9 @@ export default function AmpFilterBar({
                placeholder="Search Device Trajectory — IP, filename, SHA-256, process, command line, MITRE technique"
                style={{ flex: 1, fontSize: 11, color: C.ink,
                         padding: "5px 9px", background: C.paper,
-                        border: `1px solid ${C.gridStrong}`,
-                        borderRight: "none",
+                        borderWidth: "1px 0 1px 1px",
+                        borderStyle: "solid",
+                        borderColor: C.gridStrong,
                         borderRadius: "3px 0 0 3px" }} />
         <span style={{ display: "flex", alignItems: "center",
                        padding: "0 9px", background: C.paperAlt,

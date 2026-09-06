@@ -7029,3 +7029,29 @@ evidence. Frontend: `test_reports/iteration_96/97/98.json` — iteration 98
 
 **Conformance + declared differences**: `memory/AMP_TRAJECTORY_CONFORMANCE.md`
 (supersedes the deleted AMP_TRAJECTORY_GAP_CHECKLIST.md).
+
+### 2026-06-06 (later) · AMP clone · interaction model corrections
+
+Against the operator's live Cisco Secure Endpoint console screenshots:
+
+- **Right pane is now Cisco's master/detail**: default **Activity**
+  (`amp-activity-panel`, the window's activity, actor → artefact →
+  time), clicking an event marker drills into **Activity Details**
+  (`amp-details-panel`) with a **back arrow** (`amp-details-back`) that
+  restores the list. In place — no modal, no navigation away, and the
+  trajectory viewport is never disturbed. The previous "Event Details
+  only" pane and the earlier standalone events list are gone.
+- **The mouse wheel no longer navigates the trajectory at all** (not
+  zoom, time, activity axis or Navigator). Attached natively and
+  non-passively so no ancestor scrolls instead; verified inert with
+  zero console errors.
+- **Both Cisco consoles ship**: the dark current Secure Endpoint theme
+  (default) and the light classic AMP theme, via `amp-theme-toggle`,
+  persisted in `nvf-amp-theme`. Both palettes live in `ampModel.js`.
+- Footer copy corrected to describe the real navigation model; React
+  border shorthand/long-hand mixing removed from the filter bar and
+  Navigator.
+
+Verified: `test_reports/iteration_99.json` (all critical flows pass);
+the three findings it raised are fixed and re-verified — wheel inert,
+0 console errors, light and dark both legible.

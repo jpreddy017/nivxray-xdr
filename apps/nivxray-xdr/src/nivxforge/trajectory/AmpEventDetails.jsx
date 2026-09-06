@@ -22,7 +22,8 @@
  *    appears under Observables / File SHA-256.
  */
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronUp,
+         ExternalLink } from "lucide-react";
 
 import { C, dispositionOf, eventColor, isRed, typeLabel } from "./ampModel";
 import EventGlyph from "./AmpIcons";
@@ -57,26 +58,29 @@ const Section = ({ title, children, testid }) => (
   </div>
 );
 
-const Shell = ({ width, children, onClose }) => (
+/** Cisco's detail pane header: a back arrow returning to Activity. */
+const Shell = ({ width, height, children, onBack }) => (
   <aside data-testid="amp-details-panel"
-         style={{ width, flexShrink: 0, background: C.paper,
+         style={{ width, height, flexShrink: 0, background: C.paper,
                   borderLeft: `1px solid ${C.gridStrong}`,
                   display: "flex", flexDirection: "column", minWidth: 0 }}>
-    <div style={{ display: "flex", alignItems: "center",
-                  padding: "9px 10px",
+    <div style={{ display: "flex", alignItems: "center", gap: 7,
+                  padding: "7px 10px",
                   borderBottom: `1px solid ${C.gridStrong}` }}>
-      <span style={{ fontSize: 12, color: C.ink, fontWeight: 600, flex: 1 }}>
-        Event Details
-      </span>
-      {onClose && (
-        <button onClick={onClose} data-testid="amp-details-close"
-                title="Close event details"
-                style={{ background: "none", border: "none",
-                         cursor: "pointer", color: C.inkFaint,
-                         display: "flex" }}>
-          <X size={12} />
+      {onBack && (
+        <button onClick={onBack} data-testid="amp-details-back"
+                title="Back to Activity"
+                style={{ display: "flex", alignItems: "center",
+                         cursor: "pointer", color: C.ink,
+                         background: C.paperAlt, borderRadius: 4,
+                         border: `1px solid ${C.gridStrong}`, padding: 3 }}>
+          <ChevronLeft size={13} />
         </button>
       )}
+      <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 600,
+                     flex: 1 }}>
+        {onBack ? "Activity Details" : "Event Details"}
+      </span>
     </div>
     <div style={{ overflowY: "auto", flex: 1, padding: "10px 11px 20px" }}>
       {children}
@@ -85,12 +89,12 @@ const Shell = ({ width, children, onClose }) => (
 );
 
 export default function AmpEventDetails({ event, lane, onPivot, width,
-                                          onClose }) {
+                                          height, onBack }) {
   const [openHash, setOpenHash] = useState(null);
 
   if (!event) {
     return (
-      <Shell width={width}>
+      <Shell width={width} height={height}>
         <p data-testid="amp-details-empty"
            style={{ fontSize: 10.6, color: C.inkFaint, lineHeight: 1.6 }}>
           Select an event in the trajectory to see its details, its
@@ -109,7 +113,7 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
   const techniques = (event.mitre || []).filter((m) => !/^TA/i.test(m));
 
   return (
-    <Shell width={width} onClose={onClose}>
+    <Shell width={width} height={height} onBack={onBack}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <svg width={18} height={18} viewBox="-9 -9 18 18">
           <EventGlyph event={event} color={eventColor(event)}

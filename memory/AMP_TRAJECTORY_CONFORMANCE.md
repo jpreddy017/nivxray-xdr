@@ -33,7 +33,9 @@ Legacy `/edr/trajectory` is untouched and remains operational.
 | Activity icons per event type, aggregated when overlapping | `amp-event-<event_iid>` + count badge |
 | Compromise treatment: red icons, red axis markers, amber band | `amp-compromise-marker-*`, `amp-compromise-band-*` |
 | Hover tooltip | `amp-tooltip` |
-| Right-hand Event Details with × | `amp-details-panel`, `amp-details-close` |
+| Right-hand **Activity** master list | `amp-activity-panel`, `amp-activity-row-<event_iid>`, `amp-activity-count` |
+| Click an event → **Activity Details** in place, with a back arrow | `amp-details-panel` (header "Activity Details"), `amp-details-back` — no modal, no navigation away, viewport preserved |
+| Dark console (current Secure Endpoint) and light console (classic AMP) | `amp-theme-toggle`, default dark, persisted |
 | Timestamp + severity chip | `amp-details-timestamp`, `amp-details-disposition` |
 | "Detected <name>" in red | `amp-details-detected-line` (only when something detected it) |
 | Description | `amp-details-description` |
@@ -55,10 +57,13 @@ Legacy `/edr/trajectory` is untouched and remains operational.
    identification, so the tag is DERIVED from the observed path
    extension and falls back to the row's group (`[Proc]`, `[File]`,
    `[Net]`). It is a derivation, never an identification.
-3. **Wheel zoom is deliberately NOT bound.** The reference establishes
-   navigation through the Navigator bands and the trajectory itself, so
-   the wheel scrolls the activity axis. Zoom lives on the Navigator.
-   Binding two-axis wheel zoom would be invented behaviour.
+3. **The mouse wheel is deliberately inert** over the workspace — not
+   zoom, not time, not the activity axis, not the Navigator. Cisco
+   navigates through the Navigator bands, the two scrollbars and
+   deliberate dragging. The listener is attached natively and
+   non-passively so no ancestor scrolls instead. Navigation remains:
+   `amp-vscroll`, `amp-hscroll`, drag, Navigator bands, the window
+   controls, search/focus and event selection.
 4. **Take a Tour / Share** are Cisco product features with no
    NivXForge equivalent, so they are absent rather than faked.
 5. **Dispositions** — Cisco has a file reputation service. NivXForge
