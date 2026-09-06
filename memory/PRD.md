@@ -1,6 +1,76 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · NIVXFORGE EDR · READ-ONLY TRUTH AUDIT (40 rows) · DELIVERED
+
+Full audit: **`/app/docs/audit/NIVXFORGE_EDR_TRUTH_AUDIT.md`**
+Owner instruction: audit first, then build only verified gaps. No code was
+changed to produce it.
+
+**Tally: EXISTS 14 · PARTIAL 17 · MISSING 9. Six rows corrected.**
+
+**Headline finding — the gap is the SUBSTRATE, not the capability.**
+`GET /api/edr/file-trajectory?key=<sha256>` already returns `entry_points`,
+`creators`, `observed_names`, `observed_paths`, `first_observed`,
+`last_observed`, `affected_endpoints`, `endpoint_rows` — i.e. Cisco's Entry
+Point / Created By / Known Names / First Seen / Last Seen / Observations /
+computer list are BUILT. It also honestly reports
+`content_digests_available: false` and downgrades a SHA-256 query to
+`key_type: "name"` rather than pretend to match on hash. File Trajectory is
+not missing; it is complete, honest and **starved**.
+
+**Corrections to the prior matrix (6 rows)**
+- Understated (already operational): #10 File Trajectory, #11 fleet-wide
+  file propagation, #12 cross-endpoint spread, #34 audit/change history
+  (7164 + 46856 + 55641 audit rows, 21 routes).
+- Overstated (routes exist but are unrelated to endpoints): #21 network
+  blocking is *report* content not enforcement; #16 remote diagnostics is
+  preview-build diagnostics.
+
+**Eight capabilities are BIND-don't-BUILD** — real code, only missing
+endpoint telemetry: File Trajectory, fleet propagation, spread watchlist,
+quarantine, process termination, isolation, custom hash detections, policy.
+The response decision engine already returns `CAPABILITY_UNAVAILABLE`
+honestly (`xdr_response_decision.py:302`).
+
+**Genuinely missing and buildable WITHOUT a sensor**
+- #25 Retrospective detection — raw evidence is already retained (329
+  `xdr_canonical_events` + collector outbox), so a replay driver over the
+  existing pipeline is self-contained and high value.
+- #32 Endpoint health — no lifecycle state and no telemetry-health state
+  exist today. This is the row the audit found MISSING rather than partial.
+- #30 Exact-event trajectory pivot — small, and it ties the console together.
+
+**UI-only, no backend**: Live Query (`XdrReservedPage`, zero routes),
+Forensics, network-block enforcement.
+
+**Owner decisions locked for the P0 program**
+1. Sensor target: **real Linux sensor first** (a). No untestable Windows code.
+2. Auth: **(c)** enrolment token + per-agent credential, transport/auth
+   boundary pluggable so mTLS drops in without changing endpoint identity,
+   the telemetry envelope, or the ingestion/investigation/response contracts.
+3. Health: **(c) BOTH dimensions, never collapsed** — agent lifecycle
+   (INITIALIZING → PROVISIONING → REGISTERING → CONNECTING → CONNECTED /
+   DISABLED / DISCONNECTED_RETRYING / OFFLINE + retry states) × NivXRay
+   telemetry health (ONLINE / DEGRADED / STALE / NO_TELEMETRY / AGENT_ERROR
+   / PARSER_ERROR / ISOLATED / UNENROLLED / NEVER_ENROLLED).
+4. First slice: **(b) identity + health + real Linux sensor** — one provable
+   vertical, 15-point acceptance target, no simulated PID/PPID/hash.
+5. Audit first: **done**.
+
+**Revised build order** (P0-A adds the health model because #32 is MISSING):
+P0-A identity + enrolment + both health dimensions · P0-B Linux sensor ·
+P0-C authenticated pluggable transport · P0-D canonical evidence via the
+EXISTING `process_event_through_pipeline` + a new sensor DSM (same pattern
+as `cef-leef`, no new engine) · P0-E Device Trajectory binding ·
+P0-F exact-event pivot · P0-G file/network expansion to feed
+`content_digests`.
+
+**Sandbox confirmed at P3** — it would add a ninth evidence producer while
+eight existing consumers sit starved.
+
+
+
 ## ✅ 2026-06 · NIVXFORGE EDR · ENDPOINT HEADER: SHOW DETAILS + ACTIONS ▼ (iteration_87)
 
 Adopted the Cisco Secure Endpoint endpoint-header interaction pattern, with
