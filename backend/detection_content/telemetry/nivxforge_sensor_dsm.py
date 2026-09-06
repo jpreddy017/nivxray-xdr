@@ -81,7 +81,15 @@ class NivXForgeSensorNormalizer:
             "normalizer_id": self.id,
             "dsm_id": dsm_id,
         }
+        raw = parsed.get("raw") if isinstance(parsed.get("raw"), dict) else {}
+        endpoint_id = raw.get("endpoint_id") or collector_id
+        if endpoint_id or raw.get("hostname"):
+            canonical["host"] = {**(canonical.get("host") or {}),
+                                 "host_id": endpoint_id or None,
+                                 "hostname": raw.get("hostname") or None}
         extra = dict(canonical.get("additional_fields") or {})
+        if endpoint_id:
+            extra["endpoint_id"] = endpoint_id
         extra.setdefault("normalizer_id", self.id)
         extra.setdefault("dsm_id", dsm_id)
         canonical["additional_fields"] = extra

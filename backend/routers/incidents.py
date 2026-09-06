@@ -123,6 +123,13 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
     evidence = (stage2.get("evidence") or []) if isinstance(stage2, dict) else []
     evidence_count = len(evidence)
 
+    # P0-F.2 · a consolidated endpoint campaign retains one row per
+    # contributing observation; the list must show all of them or
+    # consolidation reads as evidence loss.
+    _rows = ((doc.get("endpoint_campaign") or {}).get("detections") or [])
+    if _rows:
+        evidence_count = max(evidence_count, len(_rows))
+
     # ── MITRE techniques · union of evidence[].technique_id + mitre + techniques
     tech_set = set()
     for e in evidence:
@@ -301,6 +308,18 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
     # Evidence count — the honest lower-bound is
     #   1 canonical event  +  N correlation matches.
     evidence_count = (1 if canonical_event_id else 0) + len(correlation_match_ids)
+
+    # P0-F.2 · a consolidated endpoint campaign retains one row per
+    # contributing observation, so the count must reflect ALL of them —
+    # otherwise consolidation would look like evidence loss.
+    campaign = doc.get("endpoint_campaign") or {}
+    campaign_rows = campaign.get("detections") or []
+    if campaign_rows:
+        canonical_evidence_ids = sorted({
+            r.get("canonical_event_id") for r in campaign_rows
+            if r.get("canonical_event_id")} | set(canonical_evidence_ids))
+        evidence_count = len(canonical_evidence_ids) + len(
+            correlation_match_ids)
 
     # Investigative assets — derived only from what the case's iocs +
     # provenance already contain.  Never fabricated.
@@ -924,6 +943,10 @@ async def list_incidents(
         "high_fidelity": 1, "customer_engaged": 1,
         "on_hold_reason": 1, "on_hold_until": 1, "sla_due_at": 1,
         "mitre": 1, "techniques": 1, "engine": 1,
+        # P0-F.2 · needed for the honest evidence count on a consolidated
+        # endpoint campaign. Count only — the rows themselves are not
+        # projected into the queue.
+        "endpoint_campaign.detections.canonical_event_id": 1,
     }
     sort_field = _SORTABLE.get(sort, "updated_at")
     sort_dir = -1 if (order or "desc").lower() == "desc" else 1

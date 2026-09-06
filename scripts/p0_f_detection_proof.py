@@ -247,6 +247,11 @@ print("   incidents created: " + (", ".join(inc_ids) or "none"))
 check("a severe endpoint detection produced MALICIOUS or SUSPICIOUS",
       any(v in ("MALICIOUS", "SUSPICIOUS") for v in verdicts), verdicts)
 check("the verdict gate promoted a REAL incident", bool(inc_ids), inc_ids)
+# P0-F.2 · one attack campaign on one endpoint is ONE incident.
+check("the whole endpoint attack consolidated into ONE incident",
+      len(inc_ids) == 1,
+      f"{len(data.get('matched') or [])} detections → "
+      f"{len(inc_ids)} incident(s)")
 if inc_ids:
     inc = req(f"/api/incidents/{inc_ids[0]}", bearer=admin)
     print("   " + json.dumps({k: inc.get(k) for k in

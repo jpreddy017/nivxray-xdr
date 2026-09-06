@@ -20,12 +20,20 @@ from __future__ import annotations
 import hashlib
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 
 INCIDENT_COLLECTION   = "workspace_cases"
 INCIDENT_MIN_SCORE    = int(os.environ.get("INCIDENT_MIN_SCORE", "55"))
+#: P0-F.2 · how long an endpoint campaign stays open for new evidence.
+#: Rolling from the LAST observed activity, so a sustained intrusion is
+#: one incident while a fresh attack days later is its own.
+CAMPAIGN_WINDOW_MINUTES = int(
+    os.environ.get("INCIDENT_CAMPAIGN_WINDOW_MINUTES", "30"))
+#: A closed case is never silently reopened — new evidence after closure
+#: opens a new incident.
+_CLOSED_STATES = ("closed", "resolved", "false_positive", "merged")
 INCIDENT_ENGINE_ID    = "nivxray::xdr::incident"
 INCIDENT_ENGINE_VERSION = "1.0.0"
 
@@ -144,6 +152,61 @@ def _priority(verdict: dict) -> tuple[str, str]:
     return "P4", "Low"
 
 
+def _endpoint_scope(canonical: dict) -> tuple[str, str] | None:
+    """The endpoint this evidence belongs to, or None for non-endpoint
+    sources (whose behaviour is deliberately left unchanged).
+
+    Identity first: the platform-minted `endpoint_id` is authoritative and
+    survives a hostname change. Hostname is only a display label here.
+    """
+    extra = canonical.get("additional_fields") or {}
+    host = canonical.get("host") or {}
+    endpoint_id = (extra.get("endpoint_id") or host.get("host_id") or "")
+    if not str(endpoint_id).startswith("ep_"):
+        return None
+    return str(endpoint_id), str(host.get("hostname") or "")
+
+
+def _primary_behaviour(detection: dict | None) -> dict | None:
+    """The most severe rule that actually fired — deterministic, and tied
+    for severity is broken by rule_id so the same evidence always names
+    the same behaviour."""
+    order = ["informational", "low", "medium", "high", "critical"]
+    fired = [d for d in ((detection or {}).get("detections") or ())
+             if d.get("rule_id")]
+    if not fired:
+        return None
+    return sorted(
+        fired,
+        key=lambda d: (-order.index(str(d.get("severity") or
+                                        "informational").lower())
+                       if str(d.get("severity") or "").lower() in order
+                       else 0, str(d.get("rule_id"))))[0]
+
+
+def _endpoint_title(label: str, canonical: dict, detection: dict | None,
+                    extra_behaviours: int = 0) -> str | None:
+    """Name the incident after the behaviour that was actually detected.
+
+    Evidence hierarchy: the fired rule's own name, then the endpoint's
+    hostname, then its platform-minted id. Nothing is invented — if no
+    rule fired there is no behaviour to name and this returns None so the
+    generic namer stays in charge.
+    """
+    scope = _endpoint_scope(canonical)
+    if not scope:
+        return None
+    endpoint_id, hostname = scope
+    primary = _primary_behaviour(detection)
+    if not primary:
+        return None
+    where = hostname or endpoint_id
+    more = f" (+{extra_behaviours} more behaviour"\
+           f"{'s' if extra_behaviours != 1 else ''})" \
+        if extra_behaviours > 0 else ""
+    return f"{primary['name']} — {where}{more}"
+
+
 def _title(label: str, canonical: dict) -> str:
     """Two canonical network shapes exist in the pipeline: the snort
     normalizer's nested `network.dst.ip` and the telemetry models'
@@ -157,6 +220,118 @@ def _title(label: str, canonical: dict) -> str:
     host = (canonical.get("host") or {}).get("hostname")
     target = dst or host or "UNKNOWN"
     return f"{label.title()} — sig {sig or 'UNKNOWN'} → {target}"
+
+
+def _campaign_detection(canonical: dict, detection: dict | None,
+                        verdict: dict, trace_id: str, at: str) -> dict:
+    """One retained row per contributing observation. A detection that no
+    longer opens its own incident must still be findable, or consolidation
+    would be evidence loss dressed up as tidiness."""
+    proc = canonical.get("process") or {}
+    return {
+        "at":                 at,
+        "trace_id":           trace_id,
+        "raw_event_id":       (canonical.get("raw_ref") or {}).get("raw_id")
+                              or trace_id,
+        "canonical_event_id": canonical.get("event_id"),
+        "rule_ids":           [d["rule_id"] for d in
+                               (detection or {}).get("detections") or []
+                               if d.get("rule_id")],
+        "verdict":            (verdict or {}).get("label"),
+        "score":              int((verdict or {}).get("score") or 0),
+        "process": {"pid": proc.get("pid"), "ppid": proc.get("ppid"),
+                    "name": proc.get("name"),
+                    "command_line": proc.get("command_line")},
+    }
+
+
+async def _consolidate(db, canonical: dict, detection: dict | None,
+                       verdict: dict, trace_id: str, tenant_id: str,
+                       label: str, score: int) -> dict | None:
+    """Attach this observation to the OPEN campaign on the SAME endpoint,
+    if one is still inside the rolling window.
+
+    The key is `(tenant_id, endpoint_id)` plus that window, and it is safe
+    because: identity is the platform-minted endpoint_id, so two endpoints
+    never merge even on an identical rule; the window rolls from the LAST
+    observed activity, so an attack days later is its own incident; and a
+    closed case is never reopened. It intentionally does NOT split on rule
+    or tactic — separating the reverse shell from the curl that fetched it
+    would fragment ONE intrusion into several, which is the same triage
+    failure in the opposite direction.
+    """
+    scope = _endpoint_scope(canonical)
+    if not scope:
+        return None                      # non-endpoint sources unchanged
+    endpoint_id, hostname = scope
+    cutoff = (datetime.now(timezone.utc)
+              - timedelta(minutes=CAMPAIGN_WINDOW_MINUTES)).isoformat()
+    existing = await db[INCIDENT_COLLECTION].find_one(
+        {"doc_type": "xdr_incident", "tenant_id": tenant_id,
+         "endpoint_campaign.endpoint_id": endpoint_id,
+         "endpoint_campaign.last_activity_at": {"$gte": cutoff},
+         "incident_state": {"$nin": list(_CLOSED_STATES)}},
+        sort=[("endpoint_campaign.last_activity_at", -1)])
+    if not existing:
+        return None
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    camp = existing.get("endpoint_campaign") or {}
+    row = _campaign_detection(canonical, detection, verdict, trace_id,
+                              now_iso)
+    rule_ids = sorted(set(camp.get("rule_ids") or []) | set(row["rule_ids"]))
+    escalates = score > int(camp.get("max_score") or 0)
+    update: dict[str, Any] = {
+        "updated_at": now_iso,
+        "endpoint_campaign.last_activity_at": now_iso,
+        "endpoint_campaign.rule_ids": rule_ids,
+    }
+    if escalates:
+        # Escalate only. A later low-severity observation must never
+        # downgrade an incident that already saw something worse.
+        priority_code, priority_label = _priority(verdict)
+        update.update({
+            "endpoint_campaign.max_score": score,
+            "endpoint_campaign.max_label": label,
+            "incident_priority": priority_code,
+            "priority_label": priority_label,
+            "verdict_card": {"verdict": label.lower(), "confidence": score,
+                             "reason": verdict.get("reason"),
+                             "engine": verdict.get("engine_id")},
+            "verdict_stage2": _stage2_from_veee(verdict, canonical),
+            "title": (_endpoint_title(label, canonical, detection,
+                                      max(len(rule_ids) - 1, 0))
+                      or existing.get("title")),
+        })
+    await db[INCIDENT_COLLECTION].update_one(
+        {"id": existing["id"]},
+        {"$set": update,
+         "$push": {"endpoint_campaign.detections": row,
+                   "incident_state_history": {
+                       "state": existing.get("incident_state"),
+                       "at": now_iso, "actor": INCIDENT_ENGINE_ID,
+                       "reason": ("enriched by a further observation of the "
+                                  "same endpoint campaign"
+                                  + (" · escalated" if escalates else ""))}}})
+    n = len(camp.get("detections") or []) + 1
+    return {
+        "created":      False,
+        "consolidated": True,
+        "incident_id":  existing["id"],
+        "incident_number": existing.get("incident_number"),
+        "endpoint_id":  endpoint_id,
+        "escalated":    escalates,
+        "observations": n,
+        "rule_ids":     rule_ids,
+        "engine_id":    INCIDENT_ENGINE_ID,
+        "collection":   INCIDENT_COLLECTION,
+        "reason":       (f"attached to the open campaign on {endpoint_id} "
+                         f"(window {CAMPAIGN_WINDOW_MINUTES}m, "
+                         f"observation {n})"),
+        "honesty_note": ("No second incident was created and NO evidence "
+                         "was dropped: this observation is retained in "
+                         "endpoint_campaign.detections[]."),
+    }
 
 
 async def materialise_incident(db, canonical: dict, iue: dict,
@@ -180,6 +355,12 @@ async def materialise_incident(db, canonical: dict, iue: dict,
             "honesty_note":
                 "No fabricated incident: gate honestly refused this verdict.",
         }
+
+    # P0-F.2 · one attack campaign on one endpoint is ONE incident.
+    merged = await _consolidate(db, canonical, detection, verdict, trace_id,
+                                tenant_id, label, score)
+    if merged:
+        return merged
 
     incident_id = f"inc_{uuid.uuid4().hex[:20]}"
     # Human-facing sequential number (owner-authorised 2026-09-05).
@@ -233,12 +414,32 @@ async def materialise_incident(db, canonical: dict, iue: dict,
             "veee":              verdict,
             "source_provenance": (canonical.get("provenance") or {}),
         },
-        "title": _title(label, canonical),
+        "title": (_endpoint_title(label, canonical, detection)
+                  or _title(label, canonical)),
     }
+    scope = _endpoint_scope(canonical)
+    if scope:
+        endpoint_id, hostname = scope
+        doc["endpoint_campaign"] = {
+            "endpoint_id":      endpoint_id,
+            "hostname":         hostname or None,
+            "window_minutes":   CAMPAIGN_WINDOW_MINUTES,
+            "first_activity_at": now_iso,
+            "last_activity_at": now_iso,
+            "max_score":        score,
+            "max_label":        label,
+            "rule_ids":         sorted({d["rule_id"] for d in
+                                        (detection or {}).get("detections")
+                                        or [] if d.get("rule_id")}),
+            "detections": [_campaign_detection(canonical, detection, verdict,
+                                               trace_id, now_iso)],
+        }
+        doc["iocs"] = {"host": [hostname or endpoint_id]}
 
     await db[INCIDENT_COLLECTION].insert_one(dict(doc))
     return {
         "created":     True,
+        "consolidated": False,
         "incident_id": incident_id,
         "priority":    priority_code,
         "priority_label": priority_label,

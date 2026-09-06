@@ -287,6 +287,11 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
             process_event_through_pipeline)
         sensor_event = json.loads(payload)
         sensor_event.setdefault("collection_method", "PROC_POLL")
+        # The authenticated endpoint identity and the hostname the sensor
+        # itself reported. Passed explicitly so the fabric can scope and
+        # NAME the incident from real evidence instead of UNKNOWN.
+        sensor_event["endpoint_id"] = endpoint_id
+        sensor_event["hostname"] = hostname
         result = await process_event_through_pipeline(
             db, sensor_event, trace_id=raw_id,
             integration_id=PARSER_NAME, collector_id=endpoint_id,

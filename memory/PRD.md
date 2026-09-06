@@ -1,6 +1,69 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · **P0-F.2 ENDPOINT INCIDENT CONSOLIDATION + IDENTITY** · PASS
+
+### Root cause
+`materialise_incident()` **always inserted** — there was no consolidation
+for any source. Every qualifying observation minted a new incident, so one
+attack on one endpoint produced one incident per observed process (6 in
+the P0-F.1 proof). Titles came from `_title()`, which reads only
+`network.dest_ip` / `security.signature`, so endpoint incidents rendered
+`Suspicious — sig UNKNOWN → UNKNOWN`. Compounding it, the sensor's
+`endpoint_id`/`hostname` never reached the pipeline at all (the bridge set
+`canonical.host` only AFTER the pipeline call), so the namer had nothing
+real to use.
+
+### Consolidation key and why it is safe
+`(tenant_id, endpoint_id)` + a **rolling 30-minute window** from the LAST
+observed activity (`INCIDENT_CAMPAIGN_WINDOW_MINUTES`), and only while the
+incident is OPEN.
+- Identity is the platform-minted `endpoint_id`, so two endpoints never
+  merge even on an identical rule.
+- The window rolls from last activity, so a sustained intrusion is one
+  incident while a fresh attack later is its own.
+- A closed/resolved/false-positive case is never silently reopened.
+- It deliberately does NOT split on rule or tactic: separating the reverse
+  shell from the curl that fetched it would fragment ONE intrusion — the
+  same triage failure in the opposite direction.
+
+### Behaviour
+Consolidation ENRICHES: one retained row per observation in
+`endpoint_campaign.detections[]` (raw_event_id, canonical_event_id,
+rule_ids, verdict, score, pid/ppid/command_line), union of `rule_ids`, a
+state-history entry, and **escalate-only** verdict/priority/title (a later
+medium observation can never downgrade an incident that already saw
+CRITICAL). Both incident projections now count every retained
+observation, so consolidation cannot read as evidence loss.
+
+### Titles from real evidence
+`_endpoint_title()` names the incident after the most severe rule that
+actually FIRED (ties broken by rule_id → deterministic), plus hostname,
+falling back to the platform-minted id — **never UNKNOWN when evidence
+exists**. No rule fired → returns None and the original generic namer
+stays in charge. Non-endpoint sources are untouched (a test pins
+`Malicious — sig 2001219 → 10.0.0.5` and asserts network incidents still
+do NOT consolidate).
+
+### Real runtime proof · `scripts/p0_f_detection_proof.py` · 24/24
+`6 detections → 1 incident` on the real sensor: `INC000000230`,
+MALICIOUS, `evidence_count=6`, title *"Reverse-shell shaped command line
+— agent-env-630704a1-… (+4 more behaviours)"*. Negative separation proven
+in TEST RUNTIME: different endpoints → 2 incidents; attack after the
+window → 2 incidents; closed incident → new incident; benign → none.
+`tests/edr` **235 pass** (229 → 235); 320 detection/ingestion/round11-13/
+observability tests pass; `tests/live` 9 pass standalone.
+
+### Pre-existing, unrelated (proven, not assumed)
+- `tests/live/test_phase2_final_gate_live.py` — 3 failures only when run
+  in the SAME process as an async EDR suite (`no current event loop`);
+  identical on a clean tree.
+- `tests/test_adr0014_endpoints.py` — 3 CIO validator failures inside the
+  dormant `nivxforge` package (`Non-artifact nodes not reachable`); that
+  code path imports none of the modules touched here.
+
+
+
 ## ✅ 2026-06 · **P0-F.1 VERDICT THRESHOLD PROOF** · PASS · endpoint → REAL incident
 
 The owner correctly refused P0-F as fully PASS while incident promotion
