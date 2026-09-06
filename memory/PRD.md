@@ -1,6 +1,33 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## 🔒 2026-06 · **CAPABILITY REGISTRY CORRECTED · ISOLATION CAPPED AT BACKEND_IMPLEMENTED**
+
+Owner instruction: *"Do not let the dashboard/capability registry say
+OPERATIONAL until the privileged-host acceptance run succeeds."* Audited — and
+the ledger was **stale**, understating three rows and carrying one note that
+was no longer true. Corrected from verified evidence only (no isolation logic
+touched):
+
+| Row | Effective state | Why |
+|---|---|---|
+| `backend.control.process_termination` **(new)** | REAL_ENDPOINT_VALIDATED | P0-F.5 · 25/25 proof + 13 tests + iteration_92 |
+| `experience.response_ui` | REAL_ENDPOINT_VALIDATED | P0-F.6 · iteration_92, was wrongly NOT_IMPLEMENTED |
+| `backend.control.isolation` | **BACKEND_IMPLEMENTED** · gap CONTROL_DRIVER_MISSING | driver exists but is **"PRESENT IN CODE AND MISSING IN EFFECT"** — no endpoint has proven it |
+| `agent.response_executor` | BACKEND_IMPLEMENTED · driver PARTIAL | only 1 of its 5 actions is proven; quarantine/scan/fetch do not exist |
+
+The isolation row's note names the exact blocker (`CAP_NET_ADMIN`) and states it
+must NOT be graded above BACKEND_IMPLEMENTED until
+`scripts/p0_f10_isolation_proof.py` passes on a privileged host. Registry now
+**135 rows**, `downgraded_claims` still **0**, no endpoint-isolation row at or
+above END_TO_END_VALIDATED anywhere. `tests/edr` **298 pass**; the Capability
+Truth console renders the new rows and the "MISSING IN EFFECT" note verbatim.
+
+**P0-F.10 recorded status**: BUILT + POLICY-CONTROLLED + DUAL-PROOF IMPLEMENTED
++ **REAL-HOST VALIDATION PENDING**. No further isolation coding is planned —
+the remaining question is runtime proof, not implementation.
+
+
 ## 🟡 2026-06 · **P0-F.10 ISOLATION DRIVER** · BUILT + POLICY + UI · **CONTAINMENT NOT YET PROVEN ON A PRIVILEGED HOST**
 
 Owner choices honoured verbatim: real kernel-enforced driver (the degraded

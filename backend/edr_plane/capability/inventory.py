@@ -159,7 +159,16 @@ AGENT_CAPABILITIES: list[Capability] = [
          "On-endpoint response executor",
          "Executes isolate / kill / quarantine / scan / fetch and emits "
          "verification telemetry.",
-         gap=GC.CONTROL_DRIVER_MISSING, driver=_A, wave="P0-H"),
+         state=FS.BACKEND_IMPLEMENTED, backend=_P, test=_P, driver=_N,
+         gap=GC.CONTROL_DRIVER_MISSING,
+         ev="agents/nivxforge-linux/nivxforge_sensor.py::_execute_command · "
+            "scripts/p0_f5_response_proof.py",
+         note="Only ONE of the five actions is proven: KILL_PROCESS is "
+              "REAL_ENDPOINT_VALIDATED (see "
+              "backend.control.process_termination). Isolation ships a real "
+              "nft/iptables driver that this host cannot execute. "
+              "Quarantine, scan and fetch do not exist.",
+         wave="P0-F.5 · partial"),
 ]
 
 
@@ -567,13 +576,41 @@ CONTROL_CAPABILITIES: list[Capability] = [
          "control fabric", "Exploit prevention",
          "On-endpoint exploit mitigation.",
          gap=GC.CONTROL_DRIVER_MISSING, driver=_A, wave="Wave 6"),
+    _cap("backend.control.process_termination", Plane.BACKEND,
+         "control fabric", "Process termination (verified)",
+         "Kill an observed process on a real endpoint and PROVE it died.",
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, ui=_P, driver=_P,
+         telemetry=_P, test=_P, e2e=_P, contract=_P, gap=GC.NONE,
+         ev="backend/edr_plane/response.py · "
+            "scripts/p0_f5_response_proof.py (25/25) · "
+            "backend/tests/edr/test_p0_f5_response_identity.py · "
+            "test_reports/iteration_92.json",
+         note="Bound to endpoint_id + pid + start_ticks from immutable raw "
+              "evidence; a missing or mismatched start identity is REFUSED "
+              "(TARGET_IDENTITY_UNVERIFIED / "
+              "TARGET_IDENTITY_MISMATCH_PID_REUSE) rather than killed on a "
+              "bare pid. Verified only by a post-action /proc re-read.",
+         wave="P0-F.5 · DONE"),
     _cap("backend.control.isolation", Plane.BACKEND, "control fabric",
          "Endpoint isolation / release",
          "Network-contain an endpoint and release it, with verified state.",
-         gap=GC.CONTROL_DRIVER_MISSING, driver=_A,
-         note="Isolation state is genuinely UNKNOWN today, so the console "
-              "offers neither Start nor Release — offering either would "
-              "imply a state we do not have.", wave="Wave 6"),
+         state=FS.BACKEND_IMPLEMENTED, backend=_P, ui=_P, driver=_N,
+         test=_P, contract=_P, telemetry=_NA,
+         gap=GC.CONTROL_DRIVER_MISSING,
+         ev="backend/edr_plane/isolation_policy.py · "
+            "agents/nivxforge-linux/nivxforge_sensor.py::_execute_isolation "
+            "· backend/tests/edr/test_p0_f10_isolation.py (14) · "
+            "scripts/p0_f10_isolation_proof.py",
+         note="The driver EXISTS (nft primary, iptables fallback, "
+              "default-deny on output/input/forward, policy-controlled "
+              "allow-list, dual-proof verification) but it is PRESENT IN "
+              "CODE AND MISSING IN EFFECT: no endpoint has proven it. This "
+              "host has no CAP_NET_ADMIN, so every isolation command ends "
+              "at CAPABILITY_UNAVAILABLE · MISSING_PRIVILEGE. It must NOT "
+              "be graded above BACKEND_IMPLEMENTED until "
+              "scripts/p0_f10_isolation_proof.py passes on a privileged "
+              "host.",
+         wave="P0-F.10 · REAL-HOST VALIDATION PENDING"),
 ]
 
 SERVICE_CAPABILITIES: list[Capability] = [
@@ -822,9 +859,16 @@ _EXPERIENCE = [
      _P, _P, GC.NONE, "test_reports/iteration_88.json",
      "Both dimensions rendered separately with reasons, plus the "
      "epistemic-honesty note."),
-    ("response_ui", "Response UI", FS.NOT_IMPLEMENTED, _N, _P,
-     GC.CONTROL_DRIVER_MISSING, "/edr/response · EdrReservedPages.jsx",
-     None),
+    ("response_ui", "Response UI", FS.REAL_ENDPOINT_VALIDATED, _P, _P,
+     GC.NONE, "test_reports/iteration_92.json · EdrResponseBody.jsx · "
+     "/xdr/admin/edr-response",
+     "P0-F.6: an EVIDENCE surface, not a success indicator. The 'what does "
+     "this prove?' verdict is computed in the backend (response.proof_of), "
+     "so EXECUTED renders as a sensor CLAIM and only a record whose "
+     "post-action probe re-read the target renders as verified. A VERIFIED "
+     "row with no probe is shown as an integrity fault. Isolation still "
+     "renders CAPABILITY_UNAVAILABLE here because no endpoint has proven "
+     "it."),
     ("enrollment_ui", "Endpoint enrolment UI", FS.NOT_IMPLEMENTED, _A, _A,
      GC.NONE, None,
      "Owner-locked minimal scope: generate one-time token, show once, TTL, "
