@@ -7,12 +7,19 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from .models import DetectionRuleContent, Platform, Severity, Tactic
 from .rules_enterprise import ENTERPRISE_DETECTION_RULES
+from .rules_edr_linux import EDR_LINUX_DETECTION_RULES
+
+#: The runtime-authoritative rule set. The Linux endpoint pack (P0-F) is
+#: added through this EXISTING mechanism — there is no second registry and
+#: no second rule model.
+RUNTIME_DETECTION_RULES = (ENTERPRISE_DETECTION_RULES
+                           + EDR_LINUX_DETECTION_RULES)
 
 
 class DetectionLibraryRegistry:
     def __init__(self, rules: Optional[List[DetectionRuleContent]] = None):
         self._rules: Dict[str, DetectionRuleContent] = {}
-        for r in (rules or ENTERPRISE_DETECTION_RULES):
+        for r in (rules or RUNTIME_DETECTION_RULES):
             self._rules[r.rule_id] = r
 
     def get_rule(self, rule_id: str) -> Optional[DetectionRuleContent]:

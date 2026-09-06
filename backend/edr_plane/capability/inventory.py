@@ -228,6 +228,27 @@ PIPELINE_CAPABILITIES: list[Capability] = [
               "reasoning engine. A parse failure appends a PARSER_FAILED "
               "derivation and leaves the raw bytes replayable.",
          wave="Wave 0 · P0-D"),
+    _cap("backend.endpoint_detection", Plane.BACKEND, "detection",
+         "Endpoint detection via the authoritative XDR fabric",
+         "Real endpoint evidence is evaluated by the SAME detection "
+         "engine, IUE, ICE and VEEE chain every other source uses.",
+         state=FS.REAL_ENDPOINT_VALIDATED, backend=_P, ui=_P, telemetry=_P,
+         test=_P, e2e=_P, contract=_P, gap=GC.NONE,
+         ev="detection_content/telemetry/nivxforge_sensor_dsm.py · "
+            "detection_content/library/rules_edr_linux.py · "
+            "GET /api/edr/endpoint-detections · "
+            "tests/edr/test_p0_f_endpoint_detection.py · "
+            "scripts/p0_f_detection_proof.py",
+         note="P0-F: the endpoint plane CONSUMES the fabric — it owns no "
+              "engine, registry or rule model. Proven on real behaviour "
+              "executed on this host: 5 Linux rules fired with full "
+              "raw_id → canonical_event_id → rule provenance, and benign "
+              "controls did not alert. NOT claimed: promotion to an "
+              "incident (the VEEE gate evaluated these and honestly "
+              "declined at LIKELY_BENIGN/45), and the 5-second poll means "
+              "a command that starts and exits between scans is never "
+              "evaluated at all.",
+         wave="P0-F · DONE"),
     _cap("backend.activity_identity", Plane.BACKEND, "pipeline",
          "One real activity → one piece of evidence",
          "A re-observation of the same process, connection or file state is "

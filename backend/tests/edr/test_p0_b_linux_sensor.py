@@ -328,9 +328,13 @@ async def test_authenticated_identity_reaches_the_canonical_observation():
         doc = await get(db, tenant_id=tenant, raw_id=ev.raw_id)
         # "Which authenticated endpoint produced this exact evidence?"
         assert doc["authentication"]["authenticated_endpoint_id"] == "ep_real"
-        d = doc["derivations"][-1]
+        # P0-F appended a detection derivation, so match on the outcome
+        # rather than on position.
+        outcomes = [x["outcome"] for x in doc["derivations"]]
+        assert "CANONICAL_EVIDENCE_CREATED" in outcomes
+        d = [x for x in doc["derivations"]
+             if x["outcome"] == "CANONICAL_EVIDENCE_CREATED"][0]
         assert d["parser_state"] == "OK"
-        assert d["outcome"] == "CANONICAL_EVIDENCE_CREATED"
         assert d["evidence_ids"] == [out["observation_id"]]
     finally:
         await db[COLLECTION].delete_many({"tenant_id": tenant})

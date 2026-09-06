@@ -118,7 +118,19 @@ platform-minted `endpoint_id` as a pivot. **Not claimed**: the
 `/api/edr/process-tree` route and File Trajectory have NOT been re-proven
 against sensor evidence, and the exact-event pivot is still open.
 
-### ▶ P0-F · EDR Detection · NEXT (owner-selected)
+### ✅ P0-F · Endpoint Detection Activation · DONE (2026-06)
+Endpoint evidence now enters the authoritative XDR fabric via
+`NivXForgeSensorDSM` + a 5-rule Linux pack, both built on the EXISTING
+DSM registry and `DetectionRuleContent` model. Proven on real behaviour
+(`scripts/p0_f_detection_proof.py`, 20/20) with negative false-positive
+proof. Incident promotion NOT claimed — the VEEE gate declined at
+LIKELY_BENIGN/45, honestly.
+
+**Next (owner sequencing):** PHASE 3 detection→finding→reasoning proof
+(drive a rule severe enough to cross the gate), then PHASE 4 rule-store
+binding, PHASE 5 Process Tree re-key, PHASE 6 endpoint response.
+
+### ▶ P0-F · superseded section below (kept for history)
 The question P0-F exists to answer: *can NivXForge actually detect
 malicious or suspicious behaviour from the real endpoint evidence it now
 holds?* Behavioural + IOC rules over canonical EDR evidence, using the

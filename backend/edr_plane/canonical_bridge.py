@@ -273,7 +273,74 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                              evidence_ids=[obs_id] if obs_id else [],
                              outcome="CANONICAL_EVIDENCE_CREATED"))
 
+    # P0-F · the endpoint plane now CONSUMES the authoritative XDR
+    # detection fabric. It does not evaluate anything itself: the event is
+    # handed to the SAME process_event_through_pipeline that every other
+    # source uses, so detection, IUE, ICE, VEEE and incident promotion are
+    # unchanged and unduplicated. A fault here is recorded as its own
+    # derivation and must never destroy the honest record that canonical
+    # evidence was created.
+    detection: dict[str, Any] = {"evaluated": False,
+                                 "reason": "not attempted"}
+    try:
+        from detection_content.xdr_pipeline import (
+            process_event_through_pipeline)
+        sensor_event = json.loads(payload)
+        sensor_event.setdefault("collection_method", "PROC_POLL")
+        result = await process_event_through_pipeline(
+            db, sensor_event, trace_id=raw_id,
+            integration_id=PARSER_NAME, collector_id=endpoint_id,
+            tenant_id=tenant_id)
+        det = (result.get("detection") or {})
+        matches = det.get("detections") or []
+        verdict = (result.get("verdict") or {})
+        detection = {
+            "evaluated": True,
+            "blocker": result.get("blocker"),
+            "status": det.get("status"),
+            "engine_id": det.get("engine_id"),
+            "matched": bool(det.get("matched")),
+            "rule_ids": [m.get("rule_id") for m in matches],
+            "rules": matches,
+            "verdict": verdict.get("label"),
+            "verdict_score": verdict.get("score"),
+            "incident_id": (result.get("incident") or {}).get("incident_id"),
+            "stages": [s.get("stage") for s in (result.get("stages") or ())],
+        }
+        await add_derivation(
+            db, tenant_id=tenant_id, raw_id=raw_id,
+            derivation=Derivation(
+                replay_generation=gen,
+                derived_at=datetime.now(timezone.utc).isoformat(),
+                parser_name=PARSER_NAME, parser_version=PARSER_VERSION,
+                parser_state="OK",
+                detection_content_version=det.get("engine_id"),
+                verdict_version=verdict.get("label"),
+                event_id=canonical["event_id"],
+                evidence_ids=[i for i in
+                              [detection.get("incident_id")] if i],
+                outcome=("DETECTION_MATCHED" if detection["matched"]
+                         else "DETECTION_EVALUATED_NO_MATCH"),
+                reason=("rules: " + ", ".join(
+                    r for r in detection["rule_ids"] if r))
+                if detection["matched"] else None))
+    except Exception as e:  # noqa: BLE001
+        detection = {"evaluated": False, "reason": str(e)[:300]}
+        await add_derivation(
+            db, tenant_id=tenant_id, raw_id=raw_id,
+            derivation=Derivation(
+                replay_generation=gen,
+                derived_at=datetime.now(timezone.utc).isoformat(),
+                parser_name=PARSER_NAME, parser_version=PARSER_VERSION,
+                parser_state="OK", event_id=canonical["event_id"],
+                outcome="DETECTION_NOT_EVALUATED",
+                reason=("the detection fabric could not be reached for this "
+                        "event; canonical evidence EXISTS and the raw bytes "
+                        "are replayable — this is a detection gap, not an "
+                        "absence of activity: " + str(e)[:200])))
+
     return {"canonicalized": True, "parser_state": "OK",
             "canonical_event_id": canonical["event_id"],
             "observation_id": obs_id,
-            "activity_type": canonical["additional_fields"]["activity_type"]}
+            "activity_type": canonical["additional_fields"]["activity_type"],
+            "detection": detection}

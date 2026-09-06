@@ -13,6 +13,7 @@ Owner-locked rules (Slice 2 · P0 · 2026-08-29):
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -215,6 +216,72 @@ async def list_detections(incident_id: str,
         "note":        "Read-only projection · rule_id is the detection source (no native detection engine)."
                           if rows else "no_matching_evidence",
     }
+
+
+@router.get("/endpoint-detections")
+async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
+                                   user=Depends(get_current_user)):
+    """P0-F · read-only projection of the AUTHORITATIVE detection records.
+
+    It creates no detection store and holds no detection state: every row
+    is a derivation written by the XDR detection fabric onto the immutable
+    raw endpoint event, so a detection cannot exist here without the real
+    evidence that produced it. `/detections` (incident-keyed, case-derived)
+    is deliberately left untouched.
+    """
+    since = (datetime.now(timezone.utc)
+             - timedelta(hours=max(1, min(hours, 24 * 30)))).isoformat()
+    rows = []
+    evaluated = 0
+    not_evaluated = 0
+    for raw in sync_collection("edr_raw_events").find(
+            {"endpoint_ref": endpoint_id, "ingest_time": {"$gte": since}},
+            {"_id": 0, "raw_id": 1, "payload": 1, "derivations": 1,
+             "ingest_time": 1, "trust_state": 1}):
+        for d in (raw.get("derivations") or ()):
+            outcome = d.get("outcome")
+            if outcome in ("DETECTION_MATCHED",
+                           "DETECTION_EVALUATED_NO_MATCH"):
+                evaluated += 1
+            elif outcome == "DETECTION_NOT_EVALUATED":
+                not_evaluated += 1
+            if outcome != "DETECTION_MATCHED":
+                continue
+            try:
+                p = json.loads(raw.get("payload") or "{}")
+            except ValueError:
+                p = {}
+            rows.append({
+                "raw_id": raw["raw_id"],
+                "canonical_event_id": d.get("event_id"),
+                "rule_ids": [r.strip() for r in
+                             str(d.get("reason") or "").replace("rules:", "")
+                             .split(",") if r.strip()],
+                "detection_engine": d.get("detection_content_version"),
+                "verdict": d.get("verdict_version"),
+                "incident_ids": d.get("evidence_ids") or [],
+                "activity": p.get("activity"),
+                "command_line": p.get("command_line"),
+                "image_path": p.get("image_path") or p.get("path"),
+                "observed_at": p.get("observed_at"),
+                "detected_at": d.get("derived_at"),
+                "trust_state": raw.get("trust_state"),
+            })
+    rows.sort(key=lambda r: str(r.get("detected_at") or ""), reverse=True)
+    return {
+        "endpoint_id": endpoint_id,
+        "window_hours": hours,
+        "detections": rows,
+        "count": len(rows),
+        "events_evaluated": evaluated,
+        "events_not_evaluated": not_evaluated,
+        "source": "edr_raw_events.derivations[] · written by "
+                  "detection_content.xdr_pipeline",
+        "note": ("Read-only projection of authoritative detection "
+                 "derivations. `events_not_evaluated` is a DETECTION GAP, "
+                 "not an absence of malicious activity."),
+    }
+
 
 
 @router.get("/process-tree")

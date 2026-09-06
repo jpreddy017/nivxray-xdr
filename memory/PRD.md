@@ -1,6 +1,71 @@
 # NivXRay — Master Reminders + Product Requirements
 
 
+## ✅ 2026-06 · NivXForge EDR · **P0-F ENDPOINT DETECTION ACTIVATION** · PASS
+
+The one missing arrow the accepted intra-repository audit identified is
+closed: **real endpoint evidence now enters the authoritative NivXRay XDR
+detection fabric.** NivXForge EDR runs no engine of its own.
+
+```
+real Linux behaviour → sensor → edr_raw_events → canonical evidence
+  → NivXForgeSensorDSM → process_event_through_pipeline (EXISTING)
+  → detection → IUE → ICE → VEEE → incident gate
+```
+
+### Delivered (no parallel architecture created)
+- `detection_content/telemetry/nivxforge_sensor_dsm.py` — endpoint DSM,
+  registered LAST in the ONE `DSM_REGISTRY` so existing resolution order
+  is untouched. Its parser DELEGATES to `edr_plane.canonical_bridge.parse`
+  so the sensor→canonical projection is never duplicated.
+- `detection_content/library/rules_edr_linux.py` — 5 Linux rules
+  (EDR-LNX-001…005) authored with the EXISTING `DetectionRuleContent`
+  model, evaluated by the EXISTING registry. 12 fixtures, positive AND
+  negative for every rule.
+- `edr_plane/canonical_bridge.py` — calls the EXISTING
+  `process_event_through_pipeline`; the outcome is recorded as a
+  derivation (`DETECTION_MATCHED` / `..._NO_MATCH` / `..._NOT_EVALUATED`).
+- `GET /api/edr/endpoint-detections` + console section — a read-only
+  projection of those authoritative derivations. No second detection store.
+
+### Real runtime proof · `scripts/p0_f_detection_proof.py` · 20/20
+All five Linux rules fired on behaviour genuinely executed on this host,
+plus the pre-existing DET-EX-006 (fabric reuse proven). Benign controls
+(`/bin/sleep`, `ls -la`, `cat /tmp/notes.txt`, `curl -o`) did NOT alert.
+Console shows 18 real detections with full `raw_id → canonical_event_id →
+rule` provenance. Regression: `tests/edr` 223 pass (was 202); CEF/LEEF
+still resolves to `cef-leef` through all 15 stages with unchanged
+semantics; 55 detection/ingestion/live tests pass.
+
+### Two real defects found by the proof and fixed
+1. **EDR-LNX-002 missed script execution.** A script run from /tmp shows
+   the INTERPRETER as its kernel image (`/usr/bin/dash`), so an
+   image-path-only rule never saw it. Now matches when an interpreter runs
+   a script located in a world-writable path — and still refuses to match
+   `cat /tmp/notes.txt` or `chmod +x /tmp/x`.
+2. **The polling visibility gap is worse than assumed.** bash tail-execs
+   its final command, DESTROYING the original argv. A one-shot suspicious
+   command is therefore invisible to a 5-second poller — it is not
+   "not detected", it is NEVER EVALUATED. Reported, not hidden.
+
+### Honest classification
+- REAL RUNTIME VERIFIED: sensor → raw → canonical → DSM → pipeline →
+  detection → rule attribution → IUE → ICE → verdict → EDR surface.
+- **NOT VERIFIED — incident promotion.** The gate RAN and honestly
+  declined: `LIKELY_BENIGN/45` vs `min_score=55`. No incident was
+  fabricated to make the chain look complete.
+- MISSING: eBPF; sub-poll-interval execution; file-writer attribution;
+  endpoint response (all endpoint actions report
+  `capability_available: false`).
+- FOLLOW-UP (untouched, as instructed): rule-store/runtime binding
+  (98 authored Mongo rules vs the runtime library), `backend/nivxforge`
+  namespace rename, Process Tree re-key, endpoint response.
+
+Registry: 133 rows, new `backend.endpoint_detection` =
+REAL_ENDPOINT_VALIDATED, `downgraded_claims` 0.
+
+
+
 ## ✅ 2026-06 · NivXForge EDR · **P0-B REAL LINUX SENSOR + P0-D CANONICAL BRIDGE** · CLOSED (iteration_91)
 
 The milestone that turns this from an architecture into an actual EDR:

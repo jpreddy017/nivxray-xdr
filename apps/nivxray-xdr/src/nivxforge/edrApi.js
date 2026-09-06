@@ -10,6 +10,18 @@ export async function listEdrDetections(incidentId) {
   return data;
 }
 
+/**
+ * P0-F · endpoint-scoped detections. These are the AUTHORITATIVE records
+ * written by the XDR detection fabric onto the immutable raw endpoint
+ * event — not a second detection store, and not case-derived.
+ */
+export async function listEndpointDetections(endpointId, hours = 24) {
+  const { data } = await api.get("/edr/endpoint-detections",
+                                    { params: { endpoint_id: endpointId,
+                                                hours }});
+  return data;
+}
+
 export async function getEdrProcessTree(incidentId) {
   const { data } = await api.get("/edr/process-tree",
                                     { params: { incident_id: incidentId }});

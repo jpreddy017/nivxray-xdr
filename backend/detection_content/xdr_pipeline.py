@@ -69,6 +69,12 @@ class DSMRegistry:
 #   microsoft-sysmon
 DSM_REGISTRY = TELEMETRY_DSM_REGISTRY
 DSM_REGISTRY.try_register("snort-eve", SnortEveDSM, first=True)
+# P0-F · NivXForge Linux endpoint sensor. Appended, so the pre-existing
+# resolution order is untouched.
+DSM_REGISTRY.try_register(
+    "nivxforge-linux-sensor",
+    lambda: __import__("detection_content.telemetry.nivxforge_sensor_dsm",
+                       fromlist=["NivXForgeSensorDSM"]).NivXForgeSensorDSM())
 
 
 # ── Parser ──────────────────────────────────────────────────────
