@@ -67,9 +67,11 @@ const SIDEBAR = [
     area: "investigator",
     section: "Workspace",
     items: [
-      { key: "workspace", label: "Analyst Workspace", icon: LayoutGrid,
-        to: "/analyst", external: true,
-        title: "Opens the existing NivXRay Analyst Workspace in a new tab" },
+      // "Analyst Workspace" removed: it linked externally to `/analyst`,
+      // which has no application — the SPA catch-all sent that new tab
+      // straight back to /xdr. A control that pretends to open another
+      // product and silently returns you to this one is a dead control,
+      // and Incidents is the analyst's real destination.
     ],
   },
   {
@@ -268,7 +270,7 @@ const ITEM_BY_KEY = Object.fromEntries(
 const RAIL = [
   { key: "control-center", label: "Control Center", icon: LayoutDashboard,
     to: "/xdr/mss-dashboard",
-    children: ["workspace", "telemetry-studio", "telemetry-health",
+    children: ["telemetry-studio", "telemetry-health",
                "platform-health"] },
   { key: "incidents-primary", label: "Incidents", icon: AlertOctagon,
     to: "/xdr/incidents",
