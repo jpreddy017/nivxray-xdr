@@ -213,3 +213,27 @@
   letter-spacing: .4px; color: var(--text); text-decoration: none;
 }
 .nvf-console.nvf-embedded .sidebar .brand .accent { color: var(--mint); }
+
+/* Y1 · D-1 · NivXForge EDR product chrome (own console, shared tokens). */
+.nvf-product { min-height: 100vh; background: var(--bg); color: var(--text); }
+.nvf-product > .topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 14px; height: 46px;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+}
+.nvf-product > .topbar .brand {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 800; letter-spacing: .4px;
+  color: var(--text); text-decoration: none;
+}
+.nvf-product > .topbar .brand .accent { color: var(--cyan, #22B8CF); }
+.nvf-product > .topbar .pill {
+  display: inline-flex; gap: 6px; align-items: baseline;
+  border: 1px solid var(--border); border-radius: 3px; padding: 3px 8px;
+  font-size: 10px;
+}
+.nvf-product > .topbar .pill .k {
+  font-size: 8.6px; letter-spacing: .7px; color: var(--muted);
+  text-transform: uppercase;
+}
+.nvf-product > .topbar .btn { font-size: 10.6px; padding: 4px 10px; }

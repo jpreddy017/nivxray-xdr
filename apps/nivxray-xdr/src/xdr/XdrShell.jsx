@@ -23,6 +23,7 @@ import {
   Database, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, Users, Webhook, HeartPulse, CheckSquare,
   ExternalLink, Bell, HelpCircle, Lock, ShieldAlert, ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -251,6 +252,53 @@ const SIDEBAR_AREAS = [
   { area: "administration", label: "Administration" },
 ];
 
+// ═══════════════════════════════════════════════════════════════════
+// Y1 · RAIL · information-architecture correction (Y0 gap V-1/V-2/V-14)
+//
+// The reference rail is EIGHT primary destinations, each expanding to
+// indented children — not 45 flat rows under uppercase group headers.
+// This is a structural correction, so the primaries are declared here
+// and the children are REUSED from the existing definitions above by
+// key: no route, label, icon or capability state is retyped, and
+// nothing is invented.
+// ═══════════════════════════════════════════════════════════════════
+const ITEM_BY_KEY = Object.fromEntries(
+  SIDEBAR.flatMap((g) => g.items.map((i) => [i.key, i])));
+
+const RAIL = [
+  { key: "control-center", label: "Control Center", icon: LayoutDashboard,
+    to: "/xdr/mss-dashboard",
+    children: ["workspace", "telemetry-studio", "telemetry-health",
+               "platform-health"] },
+  { key: "incidents-primary", label: "Incidents", icon: AlertOctagon,
+    to: "/xdr/incidents",
+    children: ["my-queue", "sla-aging", "response"] },
+  { key: "investigate", label: "Investigate", icon: FolderSearch,
+    to: "/xdr/investigations",
+    children: ["entity-search", "evidence-explorer",
+               "attack-story-rollup"] },
+  { key: "intelligence", label: "Intelligence", icon: Globe,
+    to: "/xdr/intelligence/threat",
+    children: ["ioc", "command", "malware", "mitre", "kb"] },
+  { key: "automate", label: "Automate", icon: Zap,
+    to: "/xdr/respond/playbooks",
+    children: ["automation-rules", "approvals", "rule-studio",
+               "detection-registry", "correlation-rules", "detections"] },
+  { key: "assets-primary", label: "Assets", icon: Boxes,
+    to: "/xdr/endpoints",
+    children: ["assets-identity", "assets-network", "vulnerabilities",
+               "exposure", "attack-paths", "critical-assets"] },
+  { key: "client-management", label: "Client Management", icon: Users,
+    to: "/xdr/admin/users-roles",
+    children: ["users-roles", "response-policies",
+               "response-strategies"] },
+  { key: "administration", label: "Administration", icon: Sliders,
+    to: "/xdr/admin",
+    children: ["integrations", "data-sources", "collectors", "agents",
+               "parsers", "normalization", "sdl", "detection-rules",
+               "api-webhooks", "docs"] },
+];
+
 // Determine which sidebar entry is currently active based on location.
 function useActiveKey() {
   const { pathname, search } = useLocation();
@@ -286,6 +334,7 @@ export default function XdrShell({ children, flush = false }) {
   const { user, logout } = useAuth();
   const activeKey = useActiveKey();
   const navigate  = useNavigate();
+  const [expanded, setExpanded] = useState({});
   const { pathname } = useLocation();
   const [q, setQ] = useState("");
   const [theme, setTheme] = useState(readTheme);
@@ -511,80 +560,86 @@ export default function XdrShell({ children, flush = false }) {
                   ? (navOverlay ? " nav-overlay" : " nav-hidden") : ""}`}
                data-testid="xdr-sidebar"
                aria-hidden={focusMode && !navOverlay ? "true" : "false"}>
-          {SIDEBAR_AREAS.map((area) => {
-            const groupsInArea = SIDEBAR.filter(
-              (g) => !g.hidden && g.area === area.area);
-            if (groupsInArea.length === 0) return null;
+          {RAIL.map((primary) => {
+            const kids = (primary.children || [])
+              .map((k) => ITEM_BY_KEY[k]).filter(Boolean);
+            const childActive = kids.some((k) => k.key === activeKey);
+            const isActive = primary.key === activeKey
+              || activeKey === primary.children?.[0]
+              || (primary.to && pathname === primary.to);
+            const open = expanded[primary.key] ?? (childActive || isActive);
+            const PIcon = primary.icon;
             return (
-              <div key={area.area} data-testid={`xdr-area-${area.area}`}>
-                <div className="nav-area"
-                       style={{
-                         fontSize: 11, fontWeight: 800,
-                         letterSpacing: 1.2, color: "#7c3aed",
-                         textTransform: "uppercase",
-                         padding: "14px 16px 4px",
-                         borderTop: "1px solid rgba(124, 58, 237, 0.15)",
-                         marginTop: 6,
-                       }}>
-                  {area.label}
+              <div key={primary.key}
+                   data-testid={`xdr-rail-${primary.key}`}
+                   data-open={open || undefined}>
+                <div className={`nav-item${isActive || childActive
+                        ? " active" : ""}`}
+                     data-active={isActive || childActive || undefined}
+                     data-testid={`xdr-nav-${primary.key}`}
+                     title={primary.title || undefined}
+                     style={{ cursor: "pointer" }}
+                     onClick={() => navigate(primary.to)}>
+                  <span className="ic"><PIcon size={13} /></span>
+                  {primary.label}
+                  {kids.length > 0 && (
+                    <span className="ext"
+                          data-testid={`xdr-rail-toggle-${primary.key}`}
+                          title={open ? "Collapse" : "Expand"}
+                          onClick={(e) => { e.stopPropagation();
+                            setExpanded((v) => ({ ...v,
+                              [primary.key]: !open })); }}>
+                      {open ? <ChevronDown size={11} />
+                            : <ChevronRight size={11} />}
+                    </span>
+                  )}
                 </div>
-                {groupsInArea.map((group) => (
-                  <div key={group.section}>
-                    <div className="nav-title">{group.section}</div>
-                    {group.items.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = item.key === activeKey;
-                      const testId = `xdr-nav-${item.key}`;
-                      if (item.disabled) {
-                        return (
-                          <button
-                            key={item.key}
-                            className="nav-item disabled"
-                            title={item.title || "Not available in this slice"}
-                            disabled
-                            data-testid={testId}
-                          >
-                            <span className="ic"><Icon size={13} /></span>
-                            {item.label}
-                          </button>
-                        );
-                      }
-                if (item.external) {
+                {open && kids.map((item) => {
+                  const Icon = item.icon;
+                  const active = item.key === activeKey;
+                  const testId = `xdr-nav-${item.key}`;
+                  const common = { key: item.key, "data-testid": testId,
+                                   style: { paddingLeft: 34 } };
+                  if (item.disabled) {
+                    return (
+                      <button {...common} className="nav-item disabled"
+                              disabled
+                              title={item.title
+                                || "Not available in this slice"}>
+                        <span className="ic"><Icon size={12} /></span>
+                        {item.label}
+                      </button>
+                    );
+                  }
+                  if (item.external) {
+                    return (
+                      <button {...common} className="nav-item"
+                              onClick={() => openExternal(item.to)}
+                              title={item.title
+                                || `Opens ${item.to} in a new browser tab`}>
+                        <span className="ic"><Icon size={12} /></span>
+                        {item.label}
+                        <span className="ext"><ExternalLink size={10} /></span>
+                      </button>
+                    );
+                  }
                   return (
-                    <button
-                      key={item.key}
-                      className="nav-item"
-                      onClick={() => openExternal(item.to)}
-                      data-testid={testId}
-                      title={item.title || `Opens ${item.to} in a new browser tab`}
-                    >
-                      <span className="ic"><Icon size={13} /></span>
+                    <button {...common}
+                            className={`nav-item ${active ? "active" : ""}`}
+                            onClick={() => navigate(item.to || item.reserved)}
+                            data-active={active || undefined}
+                            title={item.title || undefined}>
+                      <span className="ic"><Icon size={12} /></span>
                       {item.label}
-                      <span className="ext"><ExternalLink size={10} /></span>
+                      {item.reserved && (
+                        <span className="ext"
+                              title="Reserved · native XDR placeholder">
+                          <Lock size={9} />
+                        </span>
+                      )}
                     </button>
                   );
-                }
-                return (
-                  <button
-                    key={item.key}
-                    className={`nav-item ${isActive ? "active" : ""}`}
-                    onClick={() => navigate(item.to || item.reserved)}
-                    data-active={isActive || undefined}
-                    data-testid={testId}
-                    title={item.title || undefined}
-                  >
-                    <span className="ic"><Icon size={13} /></span>
-                    {item.label}
-                    {item.reserved && (
-                      <span className="ext" title="Reserved · native XDR placeholder">
-                        <Lock size={9} />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-                  </div>
-                ))}
+                })}
               </div>
             );
           })}

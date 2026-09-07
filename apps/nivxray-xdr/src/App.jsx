@@ -43,6 +43,7 @@ const XdrEvidenceExplorerPage     = lazy(() => import("@/xdr/pages/XdrEvidenceEx
 const EdrTrajectoryResolver       = lazy(() => import("@/xdr/pages/EdrTrajectoryResolver"));
 const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));
 const XdrSearchPage               = lazy(() => import("@/xdr/pages/XdrSearchPage"));
+const EdrTrajectoryRedirect       = lazy(() => import("@/nivxforge/EdrTrajectoryRedirect"));
 const XdrNotImplementedPage       = lazy(() => import("@/xdr/pages/XdrNotImplementedPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
@@ -97,6 +98,9 @@ export default function App() {
       <Routes>
         {/* Standalone login — reuses POST /api/auth/login. */}
         <Route path="/login" element={<LoginPage />} />
+        {/* Y1 · D-3 · second product entry point, same auth engine. */}
+        <Route path="/edr/login"
+               element={<LoginPage product="NIVXFORGE_EDR" />} />
 
         {/* Root of the standalone app.  `/xdr` collapses onto
             Incidents — Dashboard is no longer a separate destination
@@ -189,7 +193,8 @@ export default function App() {
         <Route path="/edr/detections"    element={<Protected><EdrDetectionsPage /></Protected>} />
         <Route path="/edr/process-tree"  element={<Protected><EdrProcessTreePage /></Protected>} />
         <Route path="/edr/campaign-story" element={<Protected><EdrCampaignStoryPage /></Protected>} />
-        <Route path="/xdr/edr/device-trajectory" element={<Protected><EdrDeviceTrajectoryPage /></Protected>} />
+        {/* Y1 · D-2 · permanent context-preserving compatibility route. */}
+        <Route path="/xdr/edr/device-trajectory" element={<EdrTrajectoryRedirect />} />
         <Route path="/edr/device-trajectory" element={<Protected><EdrDeviceTrajectoryPage /></Protected>} />
         <Route path="/edr/files"         element={<Protected><EdrFilesPage /></Protected>} />
         <Route path="/edr/network"       element={<Protected><EdrNetworkPage /></Protected>} />

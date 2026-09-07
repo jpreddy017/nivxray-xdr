@@ -127,7 +127,7 @@ def _endpoints(term: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                                             or [None])[0],
                             "tenant_attribution": r.get("tenant_attribution"),
                         },
-                        "href": ("/xdr/edr/device-trajectory?device="
+                        "href": ("/edr/device-trajectory?device="
                                  f"{r.get('device_iid')}")})
     return out[:PER_GROUP]
 
@@ -169,7 +169,7 @@ def _detections(term: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                                "canonical_event_id": d.get("event_id"),
                                "endpoint_id": raw.get("endpoint_ref")},
                 # the proven identifier-only handoff
-                "href": ("/xdr/edr/device-trajectory?device="
+                "href": ("/edr/device-trajectory?device="
                          f"{ep.get('device_iid') or ''}"
                          f"&raw_event_id={raw.get('raw_id')}"
                          f"&canonical_event_id={d.get('event_id') or ''}"),
@@ -218,7 +218,7 @@ def _observations(term: str, rows: List[Dict[str, Any]],
             groups["EVIDENCE"].append({
                 **base, "entity_type": "EVIDENCE", "id": cev,
                 "label": cev, "detail": f"{ev.get('kind')} · {host}",
-                "href": ("/xdr/edr/device-trajectory?device="
+                "href": ("/edr/device-trajectory?device="
                          f"{dev}&canonical_event_id={cev}")})
         pid = proc.get("iid")
         if pid and pid not in seen["PROCESS"] and len(

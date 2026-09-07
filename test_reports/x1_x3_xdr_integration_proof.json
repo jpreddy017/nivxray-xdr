@@ -12,13 +12,13 @@
    "item": "X2_detection_result_opens_the_exact_observation",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "href /xdr/edr/device-trajectory?device=dev_42e8c6dc74b9&raw_event_id=raw_852ccd4c1b35ce5163812618&can (the proven identifier-only handoff)"
+   "detail": "href /edr/device-trajectory?device=dev_42e8c6dc74b9&raw_event_id=raw_852ccd4c1b35ce5163812618&canonic (the proven identifier-only handoff)"
   },
   {
    "item": "X2_hostname_resolves_the_endpoint",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "{'INCIDENT': 4, 'ENDPOINT': 1} \u00b7 endpoint href ['/xdr/edr/device-trajectory?device=dev_42e8c6dc74b9']"
+   "detail": "{'INCIDENT': 4, 'ENDPOINT': 1} \u00b7 endpoint href ['/edr/device-trajectory?device=dev_42e8c6dc74b9']"
   },
   {
    "item": "X2_evidence_identifier_resolves_evidence_process_and_detection",

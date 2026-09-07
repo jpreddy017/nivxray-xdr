@@ -1,5 +1,40 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## ✅ 2026-06 · **Y0 REFERENCE INTAKE + Y1 PRODUCT SEPARATION** · shell slice done
+
+- **Y0** (`/app/memory/Y0_CISCO_XDR_REFERENCE_INTAKE.md`): baseline frozen
+  from **7** owner-supplied Cisco XDR captures (Investigate · Incident
+  Response tab · Assets/Devices · Investigation results graph+timeline ·
+  Incident Overview · Incidents list + preview drawer + MITRE popover ·
+  Control Center tile grid) with four gap matrices (visual · interaction ·
+  navigation · state, 21+13+5+7 rows). Owner decisions **A/A/A/A/C**:
+  keep the honest disposition vocabulary (no fabricated `Clean`, keep
+  `DETECTED_RULE_MATCHED`); shell in both themes now, per-page light
+  conformance rides later phases; priority breakdown states
+  *"Asset Value Contribution: Not Available"*; design/web research allowed
+  for **measurement only**; proceed on captured surfaces and mark the rest
+  `REFERENCE_CAPTURE_REQUIRED`.
+- **Y1** (`/app/memory/Y1_STATUS_REPORT.md`): **the two products are now
+  separate.** NivXForge EDR has its own console
+  (`data-product="NIVXFORGE_EDR"`, own topbar, customer pill, theme, user,
+  `Investigate in NivXRay XDR` pivot) and no longer renders `XdrShell`
+  (reverses P0-F.13.3 per D-1). `/login` → XDR, `/edr/login` → EDR, one
+  auth engine, product-guarded destination. `/xdr/edr/device-trajectory`
+  is a **permanent** redirect carrying the whole query string — verified
+  live with `?device&raw_event_id&incident_id`, handoff still landing on
+  `evt_0b5121e3924461c7#7dd36299ea`. The rail is now the observed
+  **8 primaries with indented children** (Control Center · Incidents ·
+  Investigate · Intelligence · Automate · Assets · Client Management ·
+  Administration), children reused by key.
+- **Regression green**: X1–X3 **17/17** · Detection Attribution **12/12** ·
+  P0-F.13.5 **25/25** · `tests/edr` **330 pass** (3 pre-existing unrelated).
+- **Parity is NOT declared complete.** Ribbon/Casebook · incidents list
+  drawer · Control Center tiles · Devices columns · Investigate
+  composition · graph/timeline interactions remain `NOT_IMPLEMENTED`;
+  10 surfaces remain `REFERENCE_CAPTURE_REQUIRED`; `G-16 / FLOW-5` stays
+  `REAL_SECOND_TELEMETRY_DOMAIN_REQUIRED`.
+
+
 ## ⏸ 2026-06 · **TWO-PRODUCT REBASE · Y1 ON HOLD** (owner instruction)
 
 The programme was rebased from "one integrated console" to **two sellable

@@ -22,13 +22,13 @@ import {
   BookOpen, Monitor } from "lucide-react";
 
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
-import XdrShell from "@/xdr/XdrShell";
-import { getEdrEntryContext } from "./edrApi";
+import XdrContextBar from "@/xdr/components/XdrContextBar";
+import { useAuth } from "@/lib/auth";
+import { getEdrEntryContext, getSessionContext } from "./edrApi";
 import "./nivxforge.css";
 
 const TABS = [
   { key: "overview",       label: "Overview",         icon: LayoutGrid,      to: "/edr" },
-  { key: "computers",      label: "Computers",        icon: Monitor,         to: "/xdr/endpoints" },
   { key: "detections",     label: "Detections",       icon: ShieldAlert,     to: "/edr/detections" },
   // P0-F.13.3 · ONE canonical Device Trajectory in the operational EDR
   // navigation — the AMP renderer. The XDR case-context projection is
@@ -146,6 +146,34 @@ export default function NivXForgeConsole({ activeTab, children }) {
     return match?.key || "overview";
   }, [activeTab, pathname]);
 
+  const { user, logout } = useAuth();
+  const [sess, setSess] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    try {
+      return window.localStorage.getItem("nx.theme") === "light"
+        ? "light" : "dark";
+    } catch { return "dark"; }
+  });
+
+  useEffect(() => {
+    let live = true;
+    getSessionContext().then((d) => { if (live) setSess(d); })
+      .catch(() => { if (live) setSess(null); });
+    const onTheme = (e) => setTheme(e.detail === "light" ? "light" : "dark");
+    window.addEventListener("nx-theme", onTheme);
+    return () => { live = false;
+      window.removeEventListener("nx-theme", onTheme); };
+  }, []);
+
+  // One theme truth across both products — shared service, not a copy.
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    try { window.localStorage.setItem("nx.theme", next); } catch { /* ok */ }
+    document.documentElement.setAttribute("data-nx-theme", next);
+    window.dispatchEvent(new CustomEvent("nx-theme", { detail: next }));
+  };
+
   const propagate = (to) => {
     // Preserve incident context when navigating between EDR pages.
     const carry = new URLSearchParams();
@@ -157,15 +185,61 @@ export default function NivXForgeConsole({ activeTab, children }) {
     return qs ? `${to}?${qs}` : to;
   };
 
+  /** Y1 · D-1 · NivXForge EDR is its OWN product console.
+   *
+   *  It no longer renders inside `XdrShell`: the two products have
+   *  separate identity, chrome and navigation, and integrate through
+   *  explicit pivots. The theme, session context and auth are SHARED
+   *  platform services — not duplicated. */
   return (
-    <XdrShell flush>
-      <div className="nvf-console nvf-embedded" data-testid="nivxforge-console">
+    <div className={`nvf-console nvf-product theme-${theme}`}
+         data-nx-theme={theme}
+         data-testid="nivxforge-console"
+         data-product="NIVXFORGE_EDR">
+      <div className="topbar" data-testid="nvf-topbar">
+        <Link to="/edr" className="brand" data-testid="nvf-product-brand">
+          <NivxrayMark size={20} boxed={false} />
+          NIVXFORGE <span className="accent">EDR</span>
+        </Link>
+        <span className="mono" data-testid="nvf-product-tagline"
+              style={{ fontSize: 9.4, letterSpacing: .8, opacity: .55,
+                       textTransform: "uppercase" }}>
+          Endpoint detection &amp; response
+        </span>
+        <span style={{ flex: 1 }} />
+        <span className="pill" data-testid="nvf-customer-pill"
+              data-customer={sess?.active_customer?.value || ""}
+              title="Customer scope resolved by the server">
+          <span className="k">Customer</span>
+          <span className="v">
+            {sess?.active_customer?.value
+              || (sess?.active_customer?.basis
+                === "CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER"
+                ? "ALL CUSTOMERS" : "◇ NOT RESOLVED")}
+          </span>
+        </span>
+        {/* EDR → XDR product pivot (the products are peers). */}
+        <button className="btn ghost" data-testid="nvf-open-in-xdr"
+                onClick={() => navigate(params.get("incident_id")
+                  ? `/xdr/incidents/${params.get("incident_id")}`
+                  : "/xdr")}
+                title="Investigate in NivXRay XDR">
+          Investigate in NivXRay XDR
+        </button>
+        <button className="btn ghost" data-testid="nvf-theme-toggle"
+                onClick={toggleTheme} title="Light / dark">
+          {theme === "dark" ? "Light" : "Dark"}
+        </button>
+        <span className="mono" data-testid="nvf-user"
+              style={{ fontSize: 10, opacity: .7 }}>
+          {user?.email || "—"}
+        </span>
+        <button className="btn ghost" data-testid="nvf-logout"
+                onClick={logout}>Sign out</button>
+      </div>
+      <div className="nvf-console nvf-embedded">
         <div className="body">
           <aside className="sidebar" data-testid="nvf-sidebar">
-            <Link to="/edr" className="brand" data-testid="nvf-brand">
-              <NivxrayMark size={20} boxed={false} />
-              NIVXFORGE <span className="accent">EDR</span>
-            </Link>
             <div className="nav-title">Endpoint plane</div>
             {TABS.map((t) => {
               const Icon = t.icon;
@@ -185,11 +259,12 @@ export default function NivXForgeConsole({ activeTab, children }) {
             })}
           </aside>
           <main className="main" data-testid="nvf-main">
+            <XdrContextBar />
             <IncidentContextBanner />
             {children}
           </main>
         </div>
       </div>
-    </XdrShell>
+    </div>
   );
 }
