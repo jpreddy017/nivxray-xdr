@@ -34,7 +34,7 @@ function fmtTs(iso) {
  * that never reached detection is a DETECTION GAP, and a console that
  * hides it would be telling the analyst the endpoint is clean.
  */
-const EndpointDetections = ({ endpointId }) => {
+const EndpointDetections = ({ endpointId, incidentId }) => {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
 
@@ -86,6 +86,7 @@ const EndpointDetections = ({ endpointId }) => {
               <tr>
                 <th>Detected</th><th>Rules</th><th>Activity</th>
                 <th>Command line</th><th>Verdict</th><th>Provenance</th>
+                <th>Trajectory</th>
               </tr>
             </thead>
             <tbody>
@@ -110,6 +111,27 @@ const EndpointDetections = ({ endpointId }) => {
                   <td className="mono" style={{ fontSize: 9,
                                                 color: "var(--faint)" }}>
                     {r.raw_id} → {r.canonical_event_id}
+                  </td>
+                  <td>
+                    {/* Hand off on the stable identifier, so the
+                        trajectory opens on THIS observation. */}
+                    <Link
+                      to={`/xdr/edr/device-trajectory?device=`
+                        + `${encodeURIComponent(endpointId)}`
+                        + `&raw_event_id=${encodeURIComponent(r.raw_id)}`
+                        + (r.canonical_event_id
+                          ? `&canonical_event_id=`
+                            + `${encodeURIComponent(r.canonical_event_id)}`
+                          : "")
+                        + (incidentId
+                          ? `&incident_id=${encodeURIComponent(incidentId)}`
+                          : "")}
+                      data-testid={`edr-detection-trajectory-${r.raw_id}`}
+                      style={{ color: "var(--cyan)", fontSize: 10.5,
+                               textDecoration: "none", whiteSpace: "nowrap" }}
+                    >
+                      Trajectory <ExternalLink size={9} />
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -172,7 +194,8 @@ export default function EdrDetectionsPage() {
             + "preserved."}
       </div>
 
-      {endpointId && <EndpointDetections endpointId={endpointId} />}
+      {endpointId && <EndpointDetections endpointId={endpointId}
+                                         incidentId={ctx.incident_id} />}
 
       {!ctx.incident_id && !endpointId && (
         <div className="x-empty" data-testid="edr-detections-noctx">

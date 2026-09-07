@@ -304,6 +304,57 @@ export default function EdrDeviceTrajectoryPage() {
   }, [laneStart, rows, total, params, setParams]);
 
   const deepLink = params.get("event");
+
+  /** P0-F.13.5 · detection handoff.
+   *
+   *  A detection names itself with a stable identifier; the server turns
+   *  that into the exact observation. If it cannot, we say so — we never
+   *  drop the analyst on the right machine at the wrong moment and let
+   *  them hunt for it. */
+  const [handoff, setHandoff] = useState(null);
+  const handoffKey = `${params.get("detection") || ""}|`
+    + `${params.get("raw_event_id") || ""}|`
+    + `${params.get("canonical_event_id") || ""}`;
+  useEffect(() => {
+    if (!device || handoffKey === "||" || deepLink) return undefined;
+    let live = true;
+    api.get(`/edr/endpoints/${encodeURIComponent(device)}/trajectory/focus`,
+            { params: {
+              detection_id: params.get("detection") || undefined,
+              raw_event_id: params.get("raw_event_id") || undefined,
+              canonical_event_id: params.get("canonical_event_id")
+                || undefined,
+              incident_id: params.get("incident")
+                || params.get("incident_id") || undefined } })
+      .then(({ data }) => {
+        if (!live) return;
+        setHandoff(data);
+        if (data.state !== "FOCUS_RESOLVED" || !data.focus) return;
+        const w = data.focus.window;
+        if (w) {
+          setPreset("custom");
+          setView({ t0: Date.parse(w.time_start),
+                    t1: Date.parse(w.time_end) });
+          setSelectedDay(startOfDayUTC(Date.parse(data.focus.timestamp)));
+        }
+        /** The resolver returns the observation's ROW as well as its
+         *  moment. Without moving the row viewport the windowed request
+         *  never asks for that row, so the exact observation would be
+         *  resolved by the server and still be absent from the canvas. */
+        const li = data.focus.lane_index;
+        if (Number.isInteger(li)) {
+          const n = Math.max(0, li - 6);
+          setLaneStart(n);
+          if (vScroll.current) vScroll.current.scrollTop = n * ROW_H;
+        }
+        const next = new URLSearchParams(params);
+        next.set("event", data.focus.event_iid);
+        setParams(next, { replace: true });
+      })
+      .catch(() => { if (live) setHandoff({ state: "FOCUS_UNAVAILABLE" }); });
+    return () => { live = false; };
+  }, [device, handoffKey, deepLink]);   // eslint-disable-line
+
   const locate = useCallback(async (iid) => {
     if (!device) return;
     setLocating(true);
@@ -343,6 +394,27 @@ export default function EdrDeviceTrajectoryPage() {
     if (hit) focusEvent(hit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLink, events]);
+
+  /** P0-F.13.5 · the handoff completes itself.
+   *
+   *  The resolver has already named the exact observation, so the
+   *  analyst must never be asked to press "search" to see the event
+   *  they clicked a detection to reach. If the windowed fetch has not
+   *  produced it, the retained period is searched once, automatically. */
+  const autoLocatedRef = useRef(false);
+  useEffect(() => {
+    if (handoff?.state !== "FOCUS_RESOLVED" || !deepLink) return undefined;
+    if (autoLocatedRef.current || selected?.event_iid === deepLink) {
+      return undefined;
+    }
+    if (events.get(deepLink) || locating || !total) return undefined;
+    const t = setTimeout(() => {
+      autoLocatedRef.current = true;
+      locate(deepLink);
+    }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoff, deepLink, events, locating, total, selected]);
 
   /** Detection → Trajectory, when the caller knows the instant but not
    *  the observation id: select the observation nearest that instant
@@ -509,6 +581,92 @@ export default function EdrDeviceTrajectoryPage() {
           {fullscreen ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
         </button>
       </div>
+
+      {device && handoff && handoff.state !== "FOCUS_RESOLVED" && (
+        <div data-testid="amp-handoff-state"
+             data-state={handoff.state}
+             data-observations-searched={handoff.search?.observations_examined
+               ?? handoff.observations_searched}
+             data-pages-searched={handoff.search?.pages_searched}
+             data-cursor-state={handoff.search?.cursor_state}
+             style={{ background: C.paper, padding: "8px 10px",
+                      marginBottom: 8, fontSize: 11, color: C.ink,
+                      borderLeft: `3px solid ${C.suspicious}`,
+                      border: `1px solid ${C.grid}` }}>
+          <b>◇ AMP HANDOFF — {handoff.state}</b>{" "}
+          {handoff.missing_link || handoff.reason
+            || "the originating observation could not be resolved"}
+          <div className="mono" style={{ marginTop: 5, color: C.inkDim,
+                                         lineHeight: 1.7, fontSize: 10.2 }}>
+            <div>
+              Search scope: endpoint{" "}
+              {handoff.endpoint?.device_iid || device}
+              {handoff.endpoint?.hostname
+                ? ` · ${handoff.endpoint.hostname}` : ""}
+            </div>
+            {handoff.search && (
+              <>
+                <div data-testid="amp-handoff-observations-searched">
+                  Observations searched:{" "}
+                  {Number(handoff.search.observations_examined || 0)
+                    .toLocaleString()}
+                  {" "}· pages searched: {handoff.search.pages_searched}
+                  {" "}(page size {handoff.search.page_size})
+                </div>
+                <div>Search state: {handoff.search.cursor_state}</div>
+                <div>
+                  Identity searched:{" "}
+                  {[handoff.search.identities_searched?.raw_event_ids?.length
+                    ? `raw_event_id ${handoff.search.identities_searched
+                      .raw_event_ids.join(", ")}` : null,
+                    handoff.search.identities_searched?.canonical_event_ids
+                      ?.length
+                      ? `canonical_event_id ${handoff.search
+                        .identities_searched.canonical_event_ids.join(", ")}`
+                      : null,
+                    handoff.search.identities_searched?.event_iid
+                      ? `event_iid ${handoff.search.identities_searched
+                        .event_iid}` : null,
+                  ].filter(Boolean).join(" · ") || "none supplied"}
+                </div>
+              </>
+            )}
+            <div>Result: {handoff.state}</div>
+            <div style={{ color: C.inkFaint }}>
+              Diagnostic information — not evidence that the event exists.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {device && handoff?.state === "FOCUS_RESOLVED" && handoff.focus && (
+        <div data-testid="amp-handoff-resolved"
+             data-event-iid={handoff.focus.event_iid}
+             data-lane-index={handoff.focus.lane_index}
+             data-incident-id={handoff.context?.incident_id || ""}
+             data-tenant-id={handoff.context?.tenant_id || ""}
+             style={{ background: C.paper, padding: "6px 10px",
+                      marginBottom: 8, fontSize: 10.4, color: C.inkDim,
+                      borderLeft: `3px solid ${C.link}`,
+                      border: `1px solid ${C.grid}` }}>
+          <b style={{ color: C.ink }}>OPENED FROM DETECTION</b>{" "}
+          <span className="mono">
+            {handoff.context?.detection_id
+              || handoff.focus.provenance?.raw_event_id}
+          </span>{" "}
+          → observation{" "}
+          <span className="mono">{handoff.focus.event_iid}</span> @{" "}
+          <span className="mono">{handoff.focus.timestamp}</span> · row{" "}
+          {handoff.focus.lane_index}
+          {handoff.context?.incident_id
+            ? ` · incident ${handoff.context.incident_id}` : ""}
+          {handoff.context?.tenant_id
+            ? ` · customer ${handoff.context.tenant_id}` : ""}
+          <span style={{ color: C.inkFaint }}>
+            {" "}· exact identifier match, no timestamp inference
+          </span>
+        </div>
+      )}
 
       {!device && (
         <div data-testid="amp-no-endpoint"

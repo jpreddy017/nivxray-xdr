@@ -1,5 +1,104 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## ✅ 2026-06 · **P0-F.13.5 · DETECTION → TRAJECTORY HANDOFF** · PASS
+### proof 25/25 · tests/edr 323 pass (+5 new) · iteration_103 frontend 7/7
+
+Cisco-observable workflow, implemented independently:
+`Detection/Event → Device Trajectory → the EXACT event selected →
+Activity Details → inspect activity before/after`.
+
+### The blocker from the previous session was MISDIAGNOSED — corrected here
+The earlier proof declared a **data-lineage gap** ("`v2_shadow_observations`
+stores no `raw_event_id`"). That was **wrong**, and it is worth remembering
+*why* it was wrong: an unresolved lookup was written up as missing evidence
+instead of being traced.
+
+The join has always been persisted:
+```
+edr_raw_events.raw_id            ==  v2_shadow_observations.ingest_job_id
+derivations[].event_id           ==  v2_shadow_observations.canonical_event_id
+```
+Verified on all 64 `DETECTION_MATCHED` raw events of
+`ep_2d57cbe6f80152062109`; 6 356 / 6 356 observations carry
+`ingest_job_id`.
+
+**The real defect (one line)**: `routers/edr.py::trajectory_focus` read the
+paging cursor as `out["page"]["next_cursor"]`, but `query_window` returns
+`next_cursor` at the **top level**. So the resolver searched only the FIRST
+page (4 000 observations) and then returned a plausible-sounding
+`OBSERVATION_NOT_RESOLVED / missing_link` for every detection later in the
+corpus. The proof detections sat at corpus indices **5 683 and 6 142** —
+page 2.
+
+### What now holds
+- Resolution is by **stable identifier only** (`raw_event_id` ·
+  `canonical_event_id` · `event_iid` · `detection_id` `case::rule::RULE`
+  read from the case's `endpoint_campaign`). No hostname, process-name, pid
+  or timestamp-proximity fallback exists in this path
+  (`NO_IDENTIFIER_SUPPLIED` when nothing is supplied).
+- The response now carries **`search` diagnostics** —
+  `observations_examined` · `pages_searched` · `page_size` ·
+  `cursor_state` (`EXHAUSTED_SEARCH_COMPLETED` / `STOPPED_ON_MATCH` /
+  `PAGE_BUDGET_REACHED_8`) · `identities_searched` — and the UI renders them
+  in the `amp-handoff-state` banner. Owner-requested, precisely so a
+  repeat of this defect is visible as "searched 4 000 of 6 356" instead of a
+  vague "not found". Labelled **diagnostic, not evidence that the event
+  exists**; the count is never fabricated.
+- The response carries a **`context`** block (endpoint_id · device_iid ·
+  tenant_id · tenant_attribution · organization_id · incident_id ·
+  detection_id · rule_ids) so the pivot never re-derives XDR context from
+  the URL.
+- **Frontend** (`EdrDeviceTrajectoryPage.jsx`): centres the window on
+  `focus.window`, selects the day, **scrolls the row viewport to
+  `focus.lane_index`** (without this the windowed request never asks for
+  that row, so a server-resolved observation would still be absent from the
+  canvas), writes `?event=<event_iid>`, and Activity Details opens on it.
+  If the merge cache still lacks it, the retained period is searched
+  **once, automatically** — the analyst never has to press "search" for an
+  event the server already named. New `amp-handoff-resolved` strip:
+  `OPENED FROM DETECTION <raw_id> → observation <event_iid> @ <ts> · row N ·
+  incident · customer`.
+- Detection rows now also carry `&incident_id=` so the incident banner and
+  the handoff strip hold **together**.
+- No new renderer, event store, observation store, detection store or
+  incident store. The AMP canvas remains the canonical operational
+  trajectory.
+
+### Proof
+`scripts/p0_f13_5_detection_handoff_proof.py` · **25/25**, incl.
+`N_detection_beyond_the_first_page_resolves_via_pagination` (resolved after
+**2 pages / 6 356 observations examined**), two different detections landing
+on two different observations, the case-surface `detection_id` resolving,
+and negatives: cross-tenant principal · forged endpoint · forged
+`?tenant=`/`?tenant_id=`/`?organization_id=` · wrong raw id · wrong
+canonical id · wrong detection id · no identifier — **none** produce a
+focus. `tests/edr/test_p0_f13_5_detection_handoff.py` (5) pins the cursor
+regression at the unit level (hit on the last row of page 2, cursors
+asserted `[None, "cur_page2"]`).
+**iteration_103**: 7/7 frontend flows, zero issues.
+
+### Honest gaps found and NOT fixed (reported, not hidden)
+1. **Detection attribution does not reach the canonical observation.** An
+   observation opened from a real `DETECTION_MATCHED` derivation still
+   renders `Unknown · not assessed` / "no detection engine claimed this
+   observation", because the canonical event carries no `rule_id` and
+   `trajectory_window.classify()` derives disposition from labels only. The
+   detection is authoritative in `edr_raw_events.derivations[]` but is not
+   projected onto the observation. Next phase candidate.
+2. Pre-existing and unrelated (reproduced on a clean tree):
+   `tests/edr/test_p0_f4_endpoint_process_tree.py` 3 failures.
+3. `device_identity.list_devices()` still filters tenants in memory.
+
+### Next, per owner sequencing (firm)
+`P0-F.13.6 Real Process Exit Collection → P0-F.13.7 Endpoint Ownership
+Audit → P0-F.14 Fleet File Trajectory`. Fleet File Trajectory must not
+start early. Owner also filed a **future** XDR-integration UX blueprint
+(bottom XDR ribbon / Casebook · observable pivot context menu ·
+`?at=`/`?process_iid=` deep links · linked-incident badge) — backlog, not
+in P0-F.13.5.
+
+
+
 
 ## 🟡 2026-06 · **DEVICE TRAJECTORY STAGE 1** · API PROVEN 24/24 · UI PARTIALLY PROVEN (1 open defect)
 

@@ -1,0 +1,177 @@
+{
+ "phase": "P0-F.13.5",
+ "terminology": "observable Cisco Secure Endpoint behavioural/operational parity, implemented independently",
+ "base_url": "https://greeting-app-5782.preview.emergentagent.com",
+ "corrected_earlier_conclusion": "the earlier run reported a missing raw_event_id lineage. That was wrong: the join is persisted. The defect was the resolver's paging cursor (read from a nested `page` key the projection never returns), which capped the search at the first 4 000 observations.",
+ "acceptance": [
+  {
+   "item": "A_real_detections_available",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "64 authoritative detections on ep_2d57cbe6f80152062109"
+  },
+  {
+   "item": "B_detection_carries_stable_identifiers",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "raw_id + canonical_event_id present, e.g. raw_fac9185acde4f8ccebef7a3b"
+  },
+  {
+   "item": "C_detection_A_resolves_to_exact_observation",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "raw_fac9185acde4f8ccebef7a3b -> evt_0b5121e3924461c7#7dd36299ea @ 2026-09-06T15:45:47.380000+00:00"
+  },
+  {
+   "item": "D_detection_B_resolves_to_a_different_observation",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "raw_7d74032aab1c82327ffabc2f -> evt_b357bce76defe3d0#6682d6baf2"
+  },
+  {
+   "item": "D2_every_detection_examined_resolved",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "6 resolved \u00b7 0 unresolved"
+  },
+  {
+   "item": "E_activity_details_target_is_the_same_event",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "event_iid evt_0b5121e3924461c7#7dd36299ea carries provenance {\"raw_event_id\": \"raw_fac9185acde4f8ccebef7a3b\", \"canonical_event_id\": \"cev_fac9185acde4f8"
+  },
+  {
+   "item": "E2_resolved_identifier_is_the_one_requested",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "requested raw_fac9185acde4f8ccebef7a3b == resolved raw_fac9185acde4f8ccebef7a3b"
+  },
+  {
+   "item": "F_endpoint_is_correct",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "agent-env-630704a1-621f-478b-9b86-a321772d01bf / dev_42e8c6dc74b9"
+  },
+  {
+   "item": "L_window_is_navigated_to_the_observation",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "window {'time_start': '2026-09-06T15:15:47.380000Z', 'time_end': '2026-09-06T16:15:47.380000Z'}"
+  },
+  {
+   "item": "L2_row_is_named_so_the_viewport_can_scroll_to_it",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "lane_index 339 \u00b7 lane proc::proc_8ece6c451e0f"
+  },
+  {
+   "item": "L3_pivot_context_is_carried_through",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "context {\"endpoint_id\": \"dev_42e8c6dc74b9\", \"device_iid\": \"dev_42e8c6dc74b9\", \"tenant_id\": \"default\", \"tenant_attribution\": \"ATTRIBUTED_AUTHENTICATED_ENDPOINT\", \"organi"
+  },
+  {
+   "item": "N_detection_beyond_the_first_page_resolves_via_pagination",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "raw_fac9185acde4f8ccebef7a3b resolved after 2 page(s) / 6356 observations examined (page size 4000)"
+  },
+  {
+   "item": "G_I_cross_tenant_endpoint_fails_closed",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "nivx-live principal on a default endpoint -> ENDPOINT_NOT_RESOLVED"
+  },
+  {
+   "item": "H_endpoint_substitution_fails_closed",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "forged endpoint -> ENDPOINT_NOT_RESOLVED"
+  },
+  {
+   "item": "I2_cross_tenant_incident_pivot_fails_closed",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "-> ENDPOINT_NOT_RESOLVED"
+  },
+  {
+   "item": "I3_forged_tenant_and_organization_params_are_ignored",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "?tenant=&tenant_id=&organization_id= forged by a nivx-live principal -> ENDPOINT_NOT_RESOLVED"
+  },
+  {
+   "item": "NO_TIMESTAMP_GUESSING",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "-> NO_IDENTIFIER_SUPPLIED"
+  },
+  {
+   "item": "M_observation_not_resolved_is_explicit",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "OBSERVATION_NOT_RESOLVED \u00b7 searched 6356 observations"
+  },
+  {
+   "item": "M1_unresolved_state_reports_the_search_scope",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "6356 observations examined over 2 page(s) \u00b7 EXHAUSTED_SEARCH_COMPLETED"
+  },
+  {
+   "item": "M1b_wrong_canonical_event_id_resolves_nothing",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "-> OBSERVATION_NOT_RESOLVED"
+  },
+  {
+   "item": "M1c_wrong_detection_id_resolves_nothing",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "-> INCIDENT_NOT_FOUND"
+  },
+  {
+   "item": "M2_xdr_case_detection_surface_resolves_its_observation",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "detection_id from the case surface -> FOCUS_RESOLVED \u00b7 evt_b73ed914adc8b9b1#6a116567f5"
+  },
+  {
+   "item": "J_direct_edr_trajectory_still_works",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "no incident required"
+  },
+  {
+   "item": "K_xdr_pivot_retains_incident_context",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "INC000000293 \u00b7 customer default"
+  },
+  {
+   "item": "UI_detection_row_links_to_the_handoff",
+   "result": "PASS",
+   "status": "IMPLEMENTED",
+   "detail": "EdrDetectionsPage rows carry data-testid edr-detection-trajectory-<raw_id> linking to ?device=&raw_event_id=&canonical_event_id=(&incident_id=); the trajectory page resolves the focus, centres the window, scrolls the row viewport to lane_index, selects event_iid and opens Activity Details; amp-handoff-state reports the search scope when it does not resolve"
+  }
+ ],
+ "provenance_chain": {
+  "detection_rule_ids": [
+   "EDR-LNX-002"
+  ],
+  "raw_event_id": "raw_fac9185acde4f8ccebef7a3b",
+  "canonical_event_id": "cev_fac9185acde4f8ccebef7a3b_0",
+  "endpoint_id": "ep_2d57cbe6f80152062109",
+  "device_iid": "dev_42e8c6dc74b9",
+  "process_iid": "proc_8ece6c451e0f",
+  "trajectory_event_iid": "evt_0b5121e3924461c7#7dd36299ea",
+  "lane_index": 339,
+  "timestamp": "2026-09-06T15:45:47.380000+00:00",
+  "incident": "inc_2305c71cd8f54dc38e55",
+  "join": "v2_shadow_observations.ingest_job_id == edr_raw_events.raw_id, and v2_shadow_observations.canonical_event_id == derivations[].event_id",
+  "missing_links": []
+ },
+ "unresolved_detections": [],
+ "passed": 25,
+ "failed": 0
+}

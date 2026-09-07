@@ -1065,3 +1065,198 @@ async def edr_entry_context(endpoint_id: Optional[str] = None,
         "errors": errors,
     })
     return ctx
+
+
+
+def _ms_iso(ms: int) -> str:
+    from datetime import datetime, timezone
+    return (datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+            .isoformat().replace("+00:00", "Z"))
+
+# ═══════════════════════════════════════════════════════════════════
+# DETECTION HANDOFF  ·  P0-F.13.5
+#
+# Cisco-observable behaviour, implemented independently: opening the
+# Device Trajectory from a detection must land on the EXACT observation
+# that produced it — not merely on the right machine.
+#
+# Resolution is by stable identifier only. Hostname, process name, pid
+# and timestamp proximity are NOT resolution keys here; if the exact
+# identifier cannot be found, this endpoint says so and the trajectory
+# refuses to pretend.
+# ═══════════════════════════════════════════════════════════════════
+@router.get("/endpoints/{endpoint_id}/trajectory/focus")
+async def trajectory_focus(endpoint_id: str,
+                           raw_event_id: Optional[str] = None,
+                           canonical_event_id: Optional[str] = None,
+                           event_iid: Optional[str] = None,
+                           detection_id: Optional[str] = None,
+                           incident_id: Optional[str] = None,
+                           user=Depends(get_current_user)) -> Dict[str, Any]:
+    from services.session_context import authorised_incident
+    from deps import db as _db
+    from edr_plane import trajectory_window as tw
+
+
+    scope = _is_cross_tenant(user)
+    identity = dir_svc.resolve(endpoint_id, scope)
+    if not identity:
+        return {"engine_id": "nivxray::edr_plane::trajectory_focus",
+                "state": "ENDPOINT_NOT_RESOLVED",
+                "reason": ("no endpoint you are authorised for resolves "
+                           "to this reference"),
+                "focus": None}
+
+    wanted_raw = {raw_event_id} if raw_event_id else set()
+    wanted_cev = {canonical_event_id} if canonical_event_id else set()
+    rule_ids: List[str] = []
+    inc_id = incident_id
+
+    # A detection_id from the XDR case surface is `case::rule::RULE`.
+    # The case's endpoint_campaign is the only place that carries the
+    # authoritative raw/canonical event ids for its detections.
+    if detection_id and "::rule::" in detection_id:
+        case_id, _, rule = detection_id.partition("::rule::")
+        inc_id = inc_id or case_id
+        rule_ids = [rule]
+    if inc_id:
+        got = authorised_incident(inc_id, (user or {}).get("email"))
+        if got["state"] != "AUTHORIZED":
+            return {"engine_id": "nivxray::edr_plane::trajectory_focus",
+                    "state": got["state"], "focus": None,
+                    "reason": "the incident is not within your tenant scope"}
+        camp = (got["doc"].get("endpoint_campaign") or {})
+        for d in (camp.get("detections") or []):
+            if not isinstance(d, dict):
+                continue
+            if rule_ids and not (set(d.get("rule_ids") or []) & set(rule_ids)):
+                continue
+            if d.get("raw_event_id"):
+                wanted_raw.add(d["raw_event_id"])
+            if d.get("canonical_event_id"):
+                wanted_cev.add(d["canonical_event_id"])
+
+    if not (wanted_raw or wanted_cev or event_iid):
+        return {"engine_id": "nivxray::edr_plane::trajectory_focus",
+                "state": "NO_IDENTIFIER_SUPPLIED", "focus": None,
+                "reason": ("supply raw_event_id, canonical_event_id, "
+                           "event_iid or detection_id — this surface does "
+                           "not guess from a timestamp")}
+
+    # The window projection is paged; follow the cursor rather than
+    # asking for an unbounded read, so a detection late in the corpus is
+    # still found.
+    hit = None
+    cursor = None
+    searched = 0
+    pages = 0
+    MAX_PAGES = 8
+    for _ in range(MAX_PAGES):
+        out = await tw.query_window(
+            _db, identity=identity, time_start=None, time_end=None,
+            lane_start=0, lane_end=100000, cursor=cursor, limit=4000)
+        page = out.get("events") or []
+        searched += len(page)
+        pages += 1
+        for e in page:
+            prov = e.get("provenance") or {}
+            if (event_iid and e.get("event_iid") == event_iid) \
+               or (prov.get("raw_event_id") in wanted_raw) \
+               or (prov.get("canonical_event_id") in wanted_cev):
+                hit = e
+                break
+        # The projection returns `next_cursor` at the top level. Reading
+        # it from a nested "page" object silently stopped the search at
+        # the FIRST 4000 observations and then reported an honest-looking
+        # but WRONG "missing link" for every detection later in the
+        # corpus. The search state is now reported so a regression of
+        # exactly that shape is visible to the analyst.
+        cursor = out.get("next_cursor")
+        if hit or not cursor:
+            break
+
+    # What the pivot must carry through, so the EDR surface never has to
+    # re-derive the XDR context from the URL.
+    context = {
+        "endpoint_id": endpoint_id,
+        "device_iid": identity.get("device_iid"),
+        "tenant_id": identity.get("tenant_id"),
+        "tenant_attribution": identity.get("tenant_attribution"),
+        "organization_id": identity.get("organization_id"),
+        "incident_id": inc_id,
+        "detection_id": detection_id,
+        "rule_ids": rule_ids,
+    }
+    search = {
+        "identities_searched": {
+            "raw_event_ids": sorted(wanted_raw),
+            "canonical_event_ids": sorted(wanted_cev),
+            "event_iid": event_iid},
+        "observations_examined": searched,
+        "pages_searched": pages,
+        "page_size": 4000,
+        "cursor_state": ("EXHAUSTED_SEARCH_COMPLETED" if not cursor
+                         else ("STOPPED_ON_MATCH" if hit
+                               else f"PAGE_BUDGET_REACHED_{MAX_PAGES}")),
+        "basis": ("counts of observations actually examined by this "
+                  "resolver — diagnostic only, never evidence that the "
+                  "requested observation exists"),
+    }
+
+    if not hit:
+        return {
+            "engine_id": "nivxray::edr_plane::trajectory_focus",
+            "state": "OBSERVATION_NOT_RESOLVED",
+            "focus": None,
+            "searched": search["identities_searched"],
+            "search": search,
+            "context": context,
+            "endpoint": {"endpoint_id": endpoint_id,
+                         "device_iid": identity.get("device_iid"),
+                         "hostname": identity.get("hostname")},
+            "observations_searched": searched,
+            "resolution_reason": ("no observation examined on this "
+                                  "endpoint carries the requested "
+                                  "identifier"),
+            "missing_link": (
+                "no observation on this endpoint carries the requested "
+                "identifier. This surface will not substitute hostname, "
+                "process-name or timestamp proximity for an exact "
+                "identifier match, so nothing is focused."),
+        }
+
+    ts = hit.get("timestamp")
+    ms = None
+    try:
+        from datetime import datetime
+        ms = int(datetime.fromisoformat(str(ts)).timestamp() * 1000)
+    except Exception:                                       # noqa: BLE001
+        ms = None
+    half = 30 * 60 * 1000
+    return {
+        "engine_id": "nivxray::edr_plane::trajectory_focus",
+        "state": "FOCUS_RESOLVED",
+        "endpoint": {"endpoint_id": endpoint_id,
+                     "device_iid": identity.get("device_iid"),
+                     "hostname": identity.get("hostname")},
+        "context": context,
+        "search": search,
+        "focus": {
+            "event_iid":     hit.get("event_iid"),
+            "timestamp":     ts,
+            "event_type":    hit.get("event_type"),
+            "is_detection":  bool(hit.get("is_detection")),
+            "process_iid":   hit.get("process_iid"),
+            "lane_index":    hit.get("lane_index"),
+            "lane_id":       hit.get("lane_id"),
+            "provenance":    hit.get("provenance"),
+            "window": ({"time_start": _ms_iso(ms - half),
+                        "time_end":   _ms_iso(ms + half)}
+                       if ms is not None else None),
+        },
+        "resolved_by": ("event_iid" if event_iid and
+                        hit.get("event_iid") == event_iid
+                        else "provenance identifier"),
+        "note": ("exact identifier match over the canonical projection — "
+                 "no hostname, process-name or timestamp inference"),
+    }
