@@ -87,22 +87,7 @@ export default function AmpComputerHeader({ computer, epistemic, malicious,
         {compromise ? `${compromise} compromise event${compromise === 1
           ? "" : "s"}` : "No compromise events"}
       </span>
-      <span data-testid="amp-isolation-row"
-            style={{ fontSize: 11, color: C.inkDim, display: "flex",
-                     alignItems: "center", gap: 4 }}>
-        {c.isolation_state || "Not Isolated"}
-        <AlertTriangle size={10} color={C.suspicious} />
-      </span>
       <span style={{ flex: 1 }} />
-      <span data-testid="amp-computer-state"
-            style={{ fontSize: 9.4, fontWeight: 700, padding: "2px 7px",
-                     borderRadius: 2, letterSpacing: ".4px",
-                     color: epistemic?.state === "OBSERVED"
-                       ? "#2FBF71" : C.suspicious,
-                     background: C.paperAlt,
-                     border: `1px solid ${C.gridStrong}` }}>
-        {epistemic?.state || "UNKNOWN"}
-      </span>
 
       <button onClick={() => setDrawer(true)} data-testid="amp-show-details"
               style={{ fontSize: 10.6, padding: "4px 9px", borderRadius: 2,
@@ -189,6 +174,27 @@ export default function AmpComputerHeader({ computer, epistemic, malicious,
               </button>
             </div>
             <div style={{ marginTop: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8,
+                            paddingBottom: 7 }}>
+                <span data-testid="amp-isolation-row"
+                      style={{ fontSize: 10.6, color: C.inkDim,
+                               display: "flex", alignItems: "center",
+                               gap: 4 }}>
+                  {c.isolation_state || "Not Isolated"}
+                  <AlertTriangle size={10} color={C.suspicious} />
+                </span>
+                <span style={{ flex: 1 }} />
+                <span data-testid="amp-computer-state"
+                      style={{ fontSize: 9.4, fontWeight: 700,
+                               padding: "2px 7px", borderRadius: 2,
+                               letterSpacing: ".4px",
+                               color: epistemic?.state === "OBSERVED"
+                                 ? "#2FBF71" : C.suspicious,
+                               background: C.paperAlt,
+                               border: `1px solid ${C.gridStrong}` }}>
+                  {epistemic?.state || "UNKNOWN"}
+                </span>
+              </div>
               <Prop k="Hostname" v={c.hostname} testid="amp-hdr-hostname" />
               <Prop k="Device IID" v={c.device_iid}
                     testid="amp-hdr-device-iid" />

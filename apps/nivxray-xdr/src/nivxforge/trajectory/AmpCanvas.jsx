@@ -96,7 +96,7 @@ export default function AmpCanvas({
       const dt = -(dx / Math.max(1, plotW)) * (p.t1 - p.t0);
       onView({ t0: p.t0 + dt, t1: p.t1 + dt });
       const dl = Math.round(-dy / ROW_H);
-      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - 1),
+      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - rows),
                                        p.lane0 + dl)));
     };
     const onUp = () => {
@@ -148,7 +148,7 @@ export default function AmpCanvas({
         return;
       }
       const step = Math.sign(e.deltaY) * Math.max(1, Math.round(rows / 6));
-      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - 1),
+      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - rows),
                                        laneStart + step)));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -184,7 +184,9 @@ export default function AmpCanvas({
                 fill={C.gutterBg} />
           <text x={GUTTER - 10} y={AXIS_H - 10} textAnchor="end"
                 fontSize={10.6} fill={C.inkDim}
-                data-testid="amp-gutter-system">[ System ]</text>
+                data-testid="amp-gutter-system">
+            [ {GROUP_SECTION[lanes[0]?.group] || "System"} ]
+          </text>
           <line x1={0} y1={AXIS_H} x2={GUTTER + plotW} y2={AXIS_H}
                 stroke={C.gridStrong} />
           {ticks.map((tk) => (
@@ -203,7 +205,7 @@ export default function AmpCanvas({
         {ticks.map((tk) => (
           <line key={`g-${tk.t}`} x1={GUTTER + tk.x} y1={AXIS_H}
                 x2={GUTTER + tk.x} y2={height}
-                stroke={tk.major ? C.grid : "#F1F3F6"} />
+                stroke={C.grid} opacity={tk.major ? 1 : 0.42} />
         ))}
 
         {/* ── amber compromise bands + axis markers ─────────────── */}
@@ -245,15 +247,25 @@ export default function AmpCanvas({
             const inView = rowOf.has(pIdx);
             const py = inView ? AXIS_H + rowOf.get(pIdx) * ROW_H + ROW_H / 2
               : (pIdx < laneStart ? AXIS_H : height);
+            // An elbow, not a bare vertical: it leaves the PARENT's
+            // lifeline at the instant the child started and turns into
+            // the CHILD's lifeline, so the plot reads as a tree.
+            const dir = cy >= py ? 1 : -1;
+            const elbow = `M ${x} ${py} L ${x} ${cy - 5 * dir} `
+              + `Q ${x} ${cy} ${x + 7} ${cy}`;
             return (
               <g key={`c-${ln.lane_id}`}
                  data-testid={`amp-connector-${ln.lane_index}`}
                  data-child-lane-index={ln.lane_index}
                  data-parent-lane-index={pIdx}
                  data-parent-in-view={inView ? "true" : "false"}>
-                <line x1={x} y1={py} x2={x} y2={cy} stroke={C.connector}
-                      strokeWidth={1}
+                <path d={elbow} fill="none" stroke={C.connector}
+                      strokeWidth={1.1} strokeLinecap="round"
                       strokeDasharray={inView ? undefined : "2 2"} />
+                {inView && (
+                  <rect x={x - 1.6} y={py - 1.6} width={3.2} height={3.2}
+                        fill={C.connector} />
+                )}
               </g>
             );
           })}
@@ -300,12 +312,17 @@ export default function AmpCanvas({
               <line x1={0} y1={y + ROW_H} x2={GUTTER + plotW} y2={y + ROW_H}
                     stroke={C.grid} strokeWidth={0.6} />
 
-              {/* section label, right-aligned like the Cisco gutter */}
+              {/* the vertical axis is sectioned, as in the Cisco gutter:
+                  [ System ] first, then [ Files & Network ] */}
               {newSection && r > 0 && (
-                <text x={GUTTER - 10} y={mid - ROW_H + 3.4} textAnchor="end"
-                      fontSize={10} fill={C.inkDim}
+                <line x1={0} y1={y} x2={GUTTER + plotW} y2={y}
+                      stroke={C.gridStrong} strokeWidth={1.6} />
+              )}
+              {newSection && (
+                <text x={6} y={mid + 3.2} fontSize={8.8} fill={C.inkDim}
+                      fontWeight={700}
                       data-testid={`amp-section-${section}`}>
-                  {section}
+                  [ {section} ]
                 </text>
               )}
 

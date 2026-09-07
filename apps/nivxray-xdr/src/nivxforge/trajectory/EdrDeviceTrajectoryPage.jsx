@@ -281,7 +281,7 @@ export default function EdrDeviceTrajectoryPage() {
     });
     setSelectedDay((d) => (d === startOfDayUTC(t) ? d : startOfDayUTC(t)));
     if (e.lane_index < laneStart || e.lane_index >= laneStart + rows) {
-      const n = Math.max(0, Math.min(Math.max(0, total - 1),
+      const n = Math.max(0, Math.min(Math.max(0, total - rows),
                                      e.lane_index - Math.floor(rows / 3)));
       setLaneStart(n);
       if (vScroll.current) vScroll.current.scrollTop = n * ROW_H;
@@ -531,20 +531,17 @@ export default function EdrDeviceTrajectoryPage() {
 
       {device && (
         <>
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start",
-                        marginBottom: 8 }}>
-            <div style={{ flex: "1 1 50%", minWidth: 320, display: "flex" }}>
-              {meta && (
-                <AmpComputerHeader computer={meta.computer} epistemic={epi}
-                                   malicious={malicious}
-                                   detections={detections}
-                                   onAction={(k) => onPivot(k, selected)} />
-              )}
-            </div>
-            <div style={{ flex: "1 1 50%", minWidth: 360 }}>
-              {filterStrip}
-            </div>
+          <div style={{ marginBottom: 8, display: "flex" }}>
+            {meta && (
+              <AmpComputerHeader computer={meta.computer} epistemic={epi}
+                                 malicious={malicious}
+                                 detections={detections}
+                                 onAction={(k) => onPivot(k, selected)} />
+            )}
           </div>
+          {/* Cisco puts Search Device Trajectory and Filters ⌄ above the
+              Navigator, full width, as the primary controls. */}
+          <div style={{ marginBottom: 8 }}>{filterStrip}</div>
           <div style={{ marginBottom: 8 }}>{navigator_}</div>
         </>
       )}
@@ -597,7 +594,15 @@ export default function EdrDeviceTrajectoryPage() {
                         border: `1px solid ${C.gridStrong}`,
                         borderRadius: 6, overflow: "hidden",
                         background: C.paper }}
-               data-testid="amp-workspace">
+               data-testid="amp-workspace"
+               data-row-start={laneStart}
+               data-row-end={Math.min(total, laneStart + rows)}
+               data-row-total={total}
+               data-window-observations={windowEvents.length}
+               data-cached-observations={events.size}
+               data-lane-axis-version={meta?.lane_axis?.lane_axis_version}
+               data-axis-scope={meta?.lane_axis?.axis_scope}
+               data-wheel-navigation="rows|shift-time|ctrl-zoom">
             <div ref={plotRef} style={{ flex: 1, minWidth: 0,
                                         display: "flex",
                                         flexDirection: "column" }}>
@@ -614,7 +619,7 @@ export default function EdrDeviceTrajectoryPage() {
                   onPivot={onPivot} />
                 <div ref={vScroll} data-testid="amp-vscroll"
                      onScroll={(e) => setLaneStart(Math.max(0, Math.min(
-                       Math.max(0, total - 1),
+                       Math.max(0, total - rows),
                        Math.floor(e.target.scrollTop / ROW_H))))}
                      style={{ width: 13, height: canvasH,
                               overflowY: "scroll", flexShrink: 0,
@@ -651,19 +656,6 @@ export default function EdrDeviceTrajectoryPage() {
                               selected={selected} onSelect={focusEvent}
                               onPivot={onPivot} width={DETAILS_W}
                               height={canvasH + 13} />
-          </div>
-
-          <div className="mono" data-testid="amp-status"
-               style={{ fontSize: 9, color: C.inkFaint,
-                        padding: "5px 2px" }}>
-            rows {laneStart}–{Math.min(total, laneStart + rows)} of {total} ·{" "}
-            {windowEvents.length} observation(s) in the window from{" "}
-            {events.size} cached · activity axis{" "}
-            {meta?.lane_axis?.lane_axis_version}{" "}
-            ({meta?.lane_axis?.axis_scope}) · wheel scrolls the activity
-            axis · shift-wheel scrubs time · ctrl-wheel zooms the window ·
-            drag the trajectory, use the two scrollbars, the Navigator
-            bands or search
           </div>
         </>
       )}

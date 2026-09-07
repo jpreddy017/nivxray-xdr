@@ -13,7 +13,7 @@
  * The list is the window's observations in chronological order — never
  * a sample; the header states the count in the window.
  */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 
 import { C, eventColor, isRed, fmtHMS } from "./ampModel";
 import EventGlyph from "./AmpIcons";
@@ -43,34 +43,12 @@ const actorOf = (e, lanes) => {
   return e.process || "◇ no lineage reported";
 };
 
-/** Quick-filter tabs over the window's activity — a view filter on the
- *  Activity list only; it never changes what the trajectory shows. */
-const TABS = [
-  ["all", "All", () => true],
-  ["processes", "Processes", (e) => e.lane_group === "PROCESS"],
-  ["files", "Files", (e) => e.lane_group === "FILE"],
-  ["network", "Network", (e) => e.lane_group === "NETWORK"],
-  ["detections", "Detections", (e) => isRed(e)],
-];
-
 export default function AmpActivityPanel({ events, lanes, selected, onSelect,
                                            onPivot, width, height }) {
   const listRef = useRef(null);
   const selRef = useRef(null);
-  const [tab, setTab] = useState("all");
 
-  const counts = useMemo(() => {
-    const out = {};
-    for (const [key, , pred] of TABS) {
-      out[key] = events.filter(pred).length;
-    }
-    return out;
-  }, [events]);
-
-  const rows = useMemo(() => {
-    const pred = (TABS.find((t) => t[0] === tab) || TABS[0])[2];
-    return events.filter(pred).slice(0, MAX_ROWS);
-  }, [events, tab]);
+  const rows = useMemo(() => events.slice(0, MAX_ROWS), [events]);
 
   /** A selection made on the trajectory must be visible in the list
    *  when the analyst navigates back to it. */
@@ -103,29 +81,10 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
           Activity
         </span>
         <span className="mono" data-testid="amp-activity-count"
+              data-shown={rows.length} data-in-window={events.length}
               style={{ fontSize: 9.4, color: C.inkFaint }}>
-          {events.length} in this window · {rows.length} shown
+          {events.length}
         </span>
-      </div>
-
-      <div style={{ display: "flex", gap: 3, padding: "6px 8px",
-                    flexWrap: "wrap",
-                    borderBottom: `1px solid ${C.grid}` }}
-           data-testid="amp-activity-tabs">
-        {TABS.map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)}
-                  data-testid={`amp-activity-tab-${key}`}
-                  style={{ fontSize: 9.8, padding: "2px 7px", borderRadius: 2,
-                           cursor: "pointer",
-                           color: tab === key ? "#FFFFFF" : C.inkDim,
-                           background: tab === key ? C.selectionStrong
-                             : "transparent",
-                           borderStyle: "solid", borderWidth: 1,
-                           borderColor: tab === key ? C.selectionStrong
-                             : C.gridStrong }}>
-            {label} ({counts[key] ?? 0})
-          </button>
-        ))}
       </div>
 
       <div ref={listRef} data-testid="amp-activity-list"

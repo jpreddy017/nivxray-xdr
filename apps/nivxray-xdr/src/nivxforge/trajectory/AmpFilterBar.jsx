@@ -44,8 +44,7 @@ export default function AmpFilterBar({
   onCollapsed, onZoom, onPan, onFitDay,
 }) {
   const [open, setOpen] = useState(false);
-  const count = kinds.length + dispositions.length
-    + (preset !== "all" ? 1 : 0);
+  const count = kinds.length + dispositions.length;
 
   const toggle = (list, setter) => (v) => setter(
     list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);

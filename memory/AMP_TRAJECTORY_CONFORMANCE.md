@@ -143,3 +143,69 @@ filters · digest separation · epistemic state).
 
 Frontend interaction coverage: `/app/test_reports/iteration_96.json`,
 `iteration_97.json`, `iteration_98.json`.
+
+
+## P0-F.13.1 — Final Cisco Secure Endpoint baseline conformance pass (2026-06, iteration_101)
+
+Owner choices: proceed as planned (1a); Activity-pane quick-filter tabs
+REMOVED, header `Filters` menu RETAINED (2a).
+
+Corrected against the Cisco reference:
+
+* **30-day Navigator** — the flat polyline is now a continuous
+  activity-density curve (log-scaled, smooth cubic) over the real
+  per-day observation counts, with per-day gridlines, a day-cell grid
+  whose blue bar height is the day's density, and a red top strip whose
+  thickness is the day's malicious + detection count. A day with
+  nothing observed sits on the baseline; it is never interpolated
+  upwards. Each cell carries `data-observations` / `data-compromise`.
+* **24-hour scrubber** — time OUTSIDE the window is now drawn with a
+  diagonal hatch (`url(#amp-nav-hatch)`), so it reads as OUT OF VIEW
+  rather than empty; the theme-broken hardcoded light grey is gone.
+  Added a precise temporal selection cursor on the window edge with its
+  UTC time.
+* **Central graph** — parent→child links are elbows (SVG path leaving
+  the parent's lifeline at the child's start instant and turning into
+  the child's lifeline) with a junction node, so the plot reads as a
+  tree. Row sections are bracketed (`[ System ]`, `[ Files & Network ]`)
+  with a strong rule at the boundary, and the gutter header follows the
+  top visible section.
+* **Activity pane** — NivXForge quick-filter tabs removed from the
+  baseline presentation (the code path is gone from the panel; the
+  header `Filters` menu remains, as in Cisco).
+* **Header + page** — full-width computer strip, then a full-width
+  `Search Device Trajectory` + `Filters` control strip ABOVE the
+  Navigator. `isolation_state` and the epistemic state chip moved into
+  the Show details drawer. All debug text removed from the production
+  UI (`rows N-M of N`, cached counts, lane-axis version); the same
+  values are now `data-*` attributes on `amp-workspace`.
+
+Defects found by test and fixed (root causes, not patches):
+
+1. **The 24-hour band could not be dragged at all.** The band spanned
+   edge to edge, so the right handle's hit rect was clipped outside the
+   SVG (`elementFromPoint` returned the parent div), and the 7 px bin
+   hit-targets were painted ON TOP of the band and swallowed the
+   pointerdown. Fixed with a 9 px inset, bin targets moved behind the
+   band, and drag tracked on window-level pointer/mouse listeners
+   instead of `setPointerCapture` on a 12 px handle (which emitted
+   `pointerleave` and cancelled the drag immediately). The band's click
+   still centres on the nearest observed bin, and dragging past midnight
+   now rolls the selected day instead of stalling.
+2. **Deep rows rendered nothing at the bottom of the axis.**
+   `laneStart` was clamped to `totalLanes - 1` (490 of 491), leaving one
+   addressable row. Clamped to `totalLanes - rows` in the wheel, drag,
+   scrollbar and focus paths; the bottom of the axis now lands on rows
+   453-488 and shows `[ Files & Network ]`.
+3. **`Filters (1)` on a fresh load** counted the default 24-hour
+   timeframe as a filter. The timeframe is a window, not a filter.
+
+Verified: `test_reports/iteration_101.json` — 14/14 acceptance items
+PASS, `baseline_signoff: PASS`, both themes legible, 0 console errors.
+Backend untouched: `scripts/p0_f12_amp_trajectory_proof.py` 17/17 PASS.
+The trajectory remains a read-only projection over canonical evidence —
+no second telemetry/trajectory/detection store, no mock data,
+relationships only from authoritative `process_iid`/`parent_iid`.
+
+Still explicitly NOT started (owner instruction): Fleet File
+Trajectory, and any NivXRay enrichment inside the trajectory.
