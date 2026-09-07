@@ -529,16 +529,46 @@ export default function AmpCanvas({
       {menu && (
         <div data-testid="amp-context-menu"
              style={{ position: "absolute", left: menu.x, top: menu.y,
-                      zIndex: 60, background: C.paper, minWidth: 232,
+                      zIndex: 60, background: C.paper, minWidth: 248,
+                      maxHeight: 420, overflowY: "auto",
                       border: `1px solid ${C.gridStrong}`, borderRadius: 3,
                       boxShadow: "0 10px 26px rgba(20,32,44,.22)" }}>
-          {[["process-tree", "Open Process Tree for this process"],
-            ["campaign-story", "Open Campaign Story"],
+          {[["§", "Observe · sightings"],
+            ["sightings", "Sightings across NivXRay XDR"],
             ["filter-indicator", "Filter trajectory by this indicator"],
             ["focus", "Focus the window on this observation"],
-            ["copy-digest", "Copy event content digest"],
-            ["file-trajectory", "Open fleet File Trajectory"]].map(
-            ([k, label]) => (
+            ["file-trajectory", "Open fleet File Trajectory"],
+            ["§", "Investigate · endpoint"],
+            ["process-tree", "Open Process Tree for this process"],
+            ["campaign-story", "Open Campaign Story"],
+            ["§", "Investigate · NivXRay XDR"],
+            ["investigate-xdr", "Investigate in NivXRay XDR"],
+            ["§", "Deliberate · reputation"],
+            ["⊘reputation",
+             "⊘ Reputation lookup — no intelligence enricher configured"],
+            ["§", "Respond · enforcement"],
+            ["⊘respond", "⊘ Enforcement — no response driver registered"],
+            ["§", "Refer · external"],
+            ["⊘refer", "⊘ External references — no relay registered"],
+            ["§", "Utility"],
+            ["copy-digest", "Copy event content digest"]].map(
+            ([k, label], i) => (k === "§" ? (
+              <div key={`s${i}`} data-testid={`amp-menu-section-${i}`}
+                   style={{ padding: "6px 10px 3px", fontSize: 8.4,
+                            letterSpacing: .7, color: C.inkFaint,
+                            textTransform: "uppercase",
+                            borderTop: `1px solid ${C.grid}` }}>
+                {label}
+              </div>
+            ) : k.startsWith("⊘") ? (
+              /* Named absence, not a control that goes nowhere. */
+              <div key={k} data-testid={`amp-menu-${k.slice(1)}`}
+                   title="Capability not available in this build"
+                   style={{ fontSize: 10, padding: "5px 10px",
+                            color: C.inkFaint, cursor: "not-allowed" }}>
+                {label}
+              </div>
+            ) : (
               <button key={k} data-testid={`amp-menu-${k}`}
                       onClick={() => { onPivot(k, menu.event);
                                        setMenu(null); }}
@@ -549,7 +579,7 @@ export default function AmpCanvas({
                                color: C.ink }}>
                 {label}
               </button>
-            ))}
+            )))}
         </div>
       )}
     </div>

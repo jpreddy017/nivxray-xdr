@@ -1,5 +1,29 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## ✅ 2026-06 · **Y3.1 · OBSERVABLE PIVOT MENU** (reference-first)
+
+- Reference verified from Cisco XDR docs **before** coding: observable
+  menu grouped by verb — **deliberate · observe · respond · refer**.
+- **Extended** the existing menus (`AmpCanvas` in the EDR product,
+  `ArtifactContextMenu` in XDR). Nothing duplicated.
+- New `xdr/lib/pivots.js` = the single canonical pivot builder for both
+  products (`sightings · file trajectory · process tree · incident ·
+  buildEdrPivot`) + `observableType()`.
+- New real pivots: **Sightings across NivXRay XDR** (tenant-scoped) and
+  **EDR → XDR `Investigate in NivXRay XDR`** (the observation's own
+  incident when recorded).
+- **Second dead route found and fixed**: the trajectory's fleet
+  File Trajectory pivot opened `/xdr/fleet-file-trajectory` (not a route,
+  bounced to `/xdr`) → now `/xdr/intelligence/files/:key`.
+- Unavailable capabilities render as **named absences** with reasons
+  (no intelligence enricher · no response driver · no relay), never dead
+  buttons. Casebook "add to case" deliberately withheld until Y3.2.
+- Gate: **22/22 · 25/25 · 12/12 · tests/edr 330 pass**, 7 verb sections
+  verified live in the EDR trajectory.
+- Surfaced honestly: Fleet File Trajectory is **starved** (`G-4`) —
+  `artefacts.file[].sha256`/name unpopulated; Y4 owns connecting it.
+
+
 ## ✅ 2026-06 · **Y2 · CONTEXT-PRESERVING PRODUCT PIVOTS** · 22/22
 
 - `OpenInEdr` — one builder for the whole carried context (customer ·

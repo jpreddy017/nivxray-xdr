@@ -27,6 +27,8 @@ import { Maximize2, Minimize2, Moon, Sun } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 import LinkedXdrIncidents from "@/nivxforge/components/LinkedXdrIncidents";
+import { buildFileTrajectoryPivot, buildIncidentPivot,
+         buildSightingsPivot } from "@/xdr/lib/pivots";
 import { getSessionContext } from "@/nivxforge/edrApi";
 import api from "@/lib/api";
 
@@ -467,9 +469,26 @@ export default function EdrDeviceTrajectoryPage() {
       openTab("/edr/campaign-story",
               { incident_id: e?.provenance?.incident_id });
     } else if (kind === "file-trajectory") {
-      openTab("/xdr/fleet-file-trajectory",
-              { key: e?.file || e?.process,
-                key_type: e?.file ? "path" : "name" });
+      // `/xdr/fleet-file-trajectory` is not a route — this pivot has been
+      // opening a tab that the SPA catch-all bounced to /xdr. The real
+      // surface is keyed in the path.
+      const key = e?.file ? `name:${String(e.file).split(/[\\/]/).pop()}`
+        : e?.process ? `name:${e.process}` : null;
+      if (key) window.open(buildFileTrajectoryPivot(key), "_blank",
+                           "noopener");
+    } else if (kind === "sightings") {
+      // OBSERVE · where else has the platform seen this observable.
+      const v = e?.file_sha256 || e?.file || e?.network || e?.process
+        || e?.rule_id;
+      if (v) window.open(buildSightingsPivot(v), "_blank", "noopener");
+    } else if (kind === "investigate-xdr") {
+      // EDR → XDR product pivot on the observable's incident, when the
+      // evidence records one; otherwise the XDR search for its value.
+      const inc = e?.provenance?.incident_id
+        || (e?.detection?.incident_ids || [])[0];
+      window.open(inc ? buildIncidentPivot(inc)
+        : buildSightingsPivot(e?.file_sha256 || e?.file || e?.process || ""),
+        "_blank", "noopener");
     } else if (kind === "filter-indicator") {
       setQuery(e?.file || e?.network || e?.process || e?.rule_id || "");
     } else if (kind === "focus" && e?.timestamp) {

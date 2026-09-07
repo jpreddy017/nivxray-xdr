@@ -1,5 +1,49 @@
 # Y1 · STATUS REPORT — product separation + rail information architecture
 # Y2 · appended — context-preserving product pivots (M-4 · M-5 · N-2)
+# Y3.1 · appended — observable pivot menu (reference-first)
+
+## Y3.1 · Reference verification FIRST
+`docs.xdr.security.cisco.com` + Cisco DevNet material confirm the
+observable pivot menu is an **object-oriented menu opened by clicking an
+observable**, whose actions are grouped by verb: **deliberate**
+(reputation/disposition) · **observe** (sightings) · **respond**
+(enforcement) · **refer** (external references), with Casebook
+"add to case" alongside. That structure — not my memory of Cisco — drove
+the implementation. The pivot-menu *visual* capture is still
+`REFERENCE_CAPTURE_REQUIRED`, so this is behavioural conformance, not a
+pixel claim.
+
+## Y3.1 · Delivered
+
+| Item | What changed | Status |
+|---|---|---|
+| **Ownership honoured** | The EDR product's operational canvas already had an observable menu (`AmpCanvas`), and XDR already had `ArtifactContextMenu`. **Both were extended — neither was replaced or duplicated** | `REAL_RUNTIME_VERIFIED` |
+| **Verb grouping** | Menus now render the reference structure: `Observe · sightings` → `Investigate · endpoint` → `Investigate · NivXRay XDR` → `Deliberate · reputation` → `Respond · enforcement` → `Refer · external` → `Utility`. Verified live in the trajectory: **7 sections**, every item present | `REAL_RUNTIME_VERIFIED` |
+| **One canonical builder** | New `xdr/lib/pivots.js` owns every pivot URL (`buildSightingsPivot` · `buildFileTrajectoryPivot` · `buildProcessTreePivot` · `buildIncidentPivot`, re-exporting `buildEdrPivot`) plus `observableType()`. No call site builds its own URL | `REAL_RUNTIME_VERIFIED` |
+| **New real pivots** | `Sightings across NivXRay XDR` (tenant-scoped `/xdr/search`) and **EDR → XDR** `Investigate in NivXRay XDR` (the observation's own incident when recorded, else the XDR search for its value) | `REAL_RUNTIME_VERIFIED` |
+| **Dead route fixed (2nd occurrence)** | The trajectory's `Open fleet File Trajectory` pivot opened `/xdr/fleet-file-trajectory`, which **is not a route** — the SPA catch-all bounced the new tab to `/xdr`. Now `/xdr/intelligence/files/:key`; both destinations verified to render | `REAL_RUNTIME_VERIFIED` |
+| **Named absence, not dead controls** | `Reputation lookup` · `Enforcement` · `External references` render as explicit unavailable rows carrying the reason (no intelligence enricher / no response driver / no relay registered). No action pretends to work | `REAL_RUNTIME_VERIFIED` |
+| **Casebook item deliberately omitted** | "Add to case" is **not** shown yet: it belongs to Y3.2 and will project onto the existing `workspace_cases` / investigation model. Showing it now would have been a dead control | `NOT_IMPLEMENTED` (by design) |
+
+## Y3.1 · Regression (owner gate)
+`x1_x3_xdr_integration_proof` **22/22** · `p0_f13_5` **25/25** ·
+`p0_detection_attribution` **12/12** · `tests/edr` **330 passed** (same 3
+pre-existing unrelated). Zero console errors on the exercised routes.
+
+## Y3.1 · Known gap surfaced, not hidden
+Fleet File Trajectory answers honestly — *"NO OBSERVATIONS FOUND FOR THIS
+KEY"* — because the substrate's `event.artefacts.file[].sha256`/name
+fields are unpopulated (`G-4`, starved page). The pivot is correct; the
+data is missing, and the page says so. **Y4 owns connecting it.**
+
+## Next · Y3.2 Casebook ribbon
+Must project onto the **existing** case/investigation model (owner rule):
+inspect `workspace_cases` + the incident worklog/notes API first, and
+build no second case engine. `G-16 / FLOW-5` remains untouched and
+blocked.
+
+---
+
 
 ## Y2 · Delivered
 
