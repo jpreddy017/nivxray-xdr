@@ -18,8 +18,8 @@ const NODES = {
     title: "Identity / Users",
     trail: "Assets › Identity / Users",
     state: "NOT_IMPLEMENTED",
-    why: ("No identity provider, directory or authentication telemetry is "
-          "ingested by this platform, so no user asset can be represented."),
+    why: `No identity provider, directory or authentication telemetry is
+          ingested by this platform, so no user asset can be represented.`,
     would: ["identity.asset", "session.activity", "authentication.event"],
     needs: ["An identity source (IdP / directory / auth log) integration",
             "Identity correlation into the canonical evidence model"],
@@ -29,9 +29,9 @@ const NODES = {
     title: "Network assets",
     trail: "Assets › Network assets",
     state: "NOT_IMPLEMENTED",
-    why: ("No network inventory, flow or device-management source is "
-          "ingested, so a network asset would be an assertion, not a "
-          "record."),
+    why: `No network inventory, flow or device-management source is
+          ingested, so a network asset would be an assertion, not a
+          record.`,
     would: ["network.asset", "flow.observation", "segment.topology"],
     needs: ["An NDR / flow / network inventory source",
             "Asset identity minting for network devices"],
@@ -41,35 +41,25 @@ const NODES = {
     title: "Attack paths",
     trail: "Assets › Attack paths",
     state: "NOT_IMPLEMENTED",
-    why: ("Attack-path analysis needs identity, network and exposure "
-          "graphs. Two of the three do not exist in this build, so any "
-          "path drawn would be invented."),
+    why: `Attack-path analysis needs identity, network and exposure
+          graphs. Two of the three do not exist in this build, so any
+          path drawn would be invented.`,
     would: ["attack.path", "path.chokepoint", "path.blast_radius"],
     needs: ["Identity assets", "Network assets", "Exposure findings"],
-    related: [["Vulnerability exposure", "/xdr/exposure"],
-              ["MITRE ATT&CK coverage", "/xdr/intelligence/mitre"]],
+    related: [["MITRE ATT&CK coverage", "/xdr/intelligence/mitre"],
+              ["Endpoints (operational)", "/xdr/endpoints"]],
   },
   "critical-assets": {
     title: "Critical assets",
     trail: "Assets › Critical assets",
     state: "NOT_IMPLEMENTED",
-    why: ("Business criticality is an owner-declared classification. "
-          "Nothing in this platform declares it, and inferring it from "
-          "activity volume would be a guess presented as governance."),
+    why: `Business criticality is an owner-declared classification.
+          Nothing in this platform declares it, and inferring it from
+          activity volume would be a guess presented as governance.`,
     would: ["asset.criticality", "asset.owner", "asset.business_service"],
-    needs: ["An asset criticality/ownership source or an operator-declared "
-            "classification surface"],
+    needs: [`An asset criticality/ownership source, or an
+             operator-declared classification surface`],
     related: [["Endpoints (operational)", "/xdr/endpoints"]],
-  },
-  "sla-aging": {
-    title: "SLA / Aging",
-    trail: "Incidents › SLA / Aging",
-    state: "NOT_IMPLEMENTED",
-    why: ("No service-level policy is configured for any customer, so an "
-          "incident cannot be measured as inside or outside an SLA."),
-    would: ["sla.policy", "sla.breach", "queue.aging"],
-    needs: ["Per-customer SLA policy configuration"],
-    related: [["Incident queue", "/xdr/incidents"]],
   },
 };
 
@@ -142,7 +132,7 @@ export default function XdrNotImplementedPage({ node }) {
                       flexWrap: "wrap" }}>
           {cap.related.map(([label, to]) => (
             <Link key={to} to={to} className="btn ghost"
-                  data-testid={`xdr-node-related-${to}`}
+                  data-testid={`xdr-node-related-${node}`}
                   style={{ fontSize: 11, padding: "5px 11px",
                            textDecoration: "none" }}>
               {label}

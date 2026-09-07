@@ -13,7 +13,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 
-import api from "@/lib/api";
+import { getSessionContext } from "@/nivxforge/edrApi";
 
 /** Route → breadcrumb trail. Deterministic, no fetch, no guessing. */
 const TRAILS = [
@@ -72,8 +72,10 @@ export default function XdrContextBar() {
   const [sess, setSess] = useState(null);
 
   useEffect(() => {
-    api.get("/xdr/rbac/session-context").then(({ data }) => setSess(data))
-      .catch(() => setSess(null));
+    // `/xdr/rbac/session-context` answers inside an {ok, data} envelope;
+    // edrApi.getSessionContext already unwraps it and is the one place
+    // that knows how.
+    getSessionContext().then(setSess).catch(() => setSess(null));
   }, []);
 
   if (pathname === "/login") return null;

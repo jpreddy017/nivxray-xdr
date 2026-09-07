@@ -588,7 +588,30 @@ export default function EdrDeviceTrajectoryPage() {
         </button>
       </div>
 
-      {device && handoff && handoff.state !== "FOCUS_RESOLVED" && (
+      {/* X1/X3 · when a reference was named and did not resolve, the
+          outcome is stated as a machine-readable handoff state instead
+          of an empty canvas that could be mistaken for "nothing
+          happened on this endpoint". */}
+      {device && epi?.state === "ENDPOINT_NOT_RESOLVED" && (
+        <div data-testid="amp-handoff-state"
+             data-state={epi.state}
+             style={{ background: C.paper, padding: "8px 10px",
+                      marginBottom: 8, fontSize: 11, color: C.ink,
+                      borderLeft: `3px solid ${C.suspicious}`,
+                      border: `1px solid ${C.grid}` }}>
+          <b>◇ AMP HANDOFF — {epi.state}</b> {epi.message}
+          <div className="mono" style={{ marginTop: 4, fontSize: 10,
+                                         color: C.inkFaint }}>
+            requested reference: {epi.requested_ref || device}
+          </div>
+        </div>
+      )}
+
+      {/* Only ONE handoff state is ever shown. When the endpoint itself
+          did not resolve, the focus resolver's echo of the same outcome
+          is redundant noise, so it is suppressed. */}
+      {device && handoff && handoff.state !== "FOCUS_RESOLVED"
+        && epi?.state !== "ENDPOINT_NOT_RESOLVED" && (
         <div data-testid="amp-handoff-state"
              data-state={handoff.state}
              data-observations-searched={handoff.search?.observations_examined

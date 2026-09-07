@@ -880,11 +880,22 @@ def _type_counts(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def empty_state(*, identity: Optional[Dict[str, Any]],
                 enrolled: bool, observations_all_time: int,
-                observations_in_window: int) -> Dict[str, Any]:
+                observations_in_window: int,
+                requested_ref: Optional[str] = None) -> Dict[str, Any]:
     """The honest state, named. Never a blank canvas and never a demo
     event on a production endpoint."""
     if not identity:
-        return {"state": "ENDPOINT_NOT_RESOLVED",
+        # "Select an endpoint" is only true when none was asked for. When
+        # a reference WAS named and did not resolve, saying that would
+        # hide an authorisation outcome behind a UI hint.
+        if requested_ref:
+            return {"state": "ENDPOINT_NOT_RESOLVED",
+                    "requested_ref": requested_ref,
+                    "message": ("No endpoint you are authorised for "
+                                "resolves to this reference. Nothing is "
+                                "rendered, and no conclusion about the "
+                                "endpoint is implied.")}
+        return {"state": "NO_ENDPOINT_SELECTED",
                 "message": "Select an endpoint to view operational Device "
                            "Trajectory."}
     if not enrolled and observations_all_time == 0:

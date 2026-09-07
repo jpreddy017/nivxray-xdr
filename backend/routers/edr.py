@@ -685,7 +685,8 @@ async def endpoint_trajectory_window(
                 "computer": None,
                 "epistemic_state": tw.empty_state(
                     identity=None, enrolled=False, observations_all_time=0,
-                    observations_in_window=0)}
+                    observations_in_window=0,
+                    requested_ref=endpoint_id)}
     out = await tw.query_window(
         _db, identity=identity, time_start=time_start, time_end=time_end,
         lane_start=max(0, lane_start), lane_end=max(1, lane_end),

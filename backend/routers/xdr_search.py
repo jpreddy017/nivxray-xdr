@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends
 
@@ -239,8 +240,8 @@ def _observations(term: str, rows: List[Dict[str, Any]],
             groups["FILE"].append({
                 **base, "entity_type": "FILE", "id": key,
                 "label": target, "detail": host,
-                "href": ("/xdr/fleet-file-trajectory?key="
-                         f"{key}&key_type=path")})
+                "href": ("/xdr/intelligence/files/"
+                         + quote(str(key), safe=""))})
         peer = raw.get("remote_ip") or raw.get("destination")
         if peer and peer not in seen["NETWORK"] and len(
                 groups["NETWORK"]) < PER_GROUP:

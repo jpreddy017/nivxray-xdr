@@ -65,12 +65,22 @@ export default function LinkedXdrIncidents({ device, incidentId }) {
           </div>
           {rows.length === 0 && (
             <div data-testid="edr-linked-xdr-none"
+                 data-state={data.state}
                  style={{ padding: "10px 11px", fontSize: 10.6,
                           color: "var(--muted)", lineHeight: 1.6 }}>
-              {data.message
-                || "No XDR incident references this endpoint. That is an "
-                   + "absence of a correlated incident, not a verdict of "
-                   + "clean."}
+              {data.state === "ENDPOINT_NOT_RESOLVED" ? (
+                <>
+                  <b style={{ color: "var(--amber)" }}>
+                    ENDPOINT_NOT_RESOLVED
+                  </b>
+                  {" — "}
+                  {data.reason || `no endpoint you are authorised for
+                    resolves to this reference`}
+                  {". No incident is reported either way."}
+                </>
+              ) : (data.message || `No XDR incident references this
+                endpoint. That is an absence of a correlated incident,
+                not a verdict of clean.`)}
             </div>
           )}
           {rows.map((r) => (

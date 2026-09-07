@@ -370,7 +370,7 @@ export default function XdrShell({ children, flush = false }) {
         <form className="top-search" onSubmit={handleSearch} data-testid="xdr-topbar-search-form">
           <Search size={12} />
           <input
-            placeholder="Search incidents, hosts, users, hashes, IOCs…"
+            placeholder="Search incidents, endpoints, detections, rules, evidence, processes…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             data-testid="xdr-topbar-search"

@@ -1,5 +1,60 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## ⏸ 2026-06 · **TWO-PRODUCT REBASE · Y1 ON HOLD** (owner instruction)
+
+The programme was rebased from "one integrated console" to **two sellable
+products**: `NivXRay XDR` (master XDR: MSS dashboard + global search +
+correlation/incident/investigation/evidence/verdict/response/automation)
+and `NivXForge EDR` (standalone endpoint console owning Device Trajectory
+and **Device Trajectory · AMP ★**), with two direct logins, one shared
+platform, deep bidirectional pivots. Acceptance is **100 % observable**
+Cisco XDR / Secure-Endpoint parity — implemented independently.
+
+**Audit delivered before any implementation**:
+`/app/memory/XDR_EDR_PARITY_AUDIT.md` — decisions D-1…D-8, current UI
+inventory (59 routes), 20-row gap matrix, reuse list, required
+modifications, genuinely-missing list, duplicates-never-to-create,
+Y0–Y7 plan, validation plan.
+
+**Y1 is deliberately NOT started**: it waits on the approved Cisco XDR
+reference captures so the shell separation and the visual conformance are
+done in ONE pass. `G-16 / FLOW-5` is **BLOCKED —
+REAL_SECOND_TELEMETRY_DOMAIN_REQUIRED** (only endpoint telemetry exists;
+nothing will be fabricated).
+
+**Top finding**: the products are currently merged —
+`NivXForgeConsole` renders `<XdrShell flush>`, the canonical AMP
+trajectory lives at `/xdr/edr/device-trajectory`, and one `/login` always
+lands on `/xdr`. That was P0-F.13.3, built at the owner's earlier
+instruction and now explicitly reversed (D-1), with the old route kept
+forever as a context-preserving redirect (D-2).
+
+### ✅ Delivered and verified in this session (already-approved scope)
+- **X1** global XDR context bar on every page of both planes (breadcrumbs
+  + customer/endpoint/incident/evidence/plane chips), capability-honest IA
+  nodes for Identity · Network assets · Attack paths · Critical assets
+  (`NOT_IMPLEMENTED`, stating why, what it would produce and what it needs).
+- **X2** unified global search — new `/api/xdr/search` over 7 authoritative
+  entity types, **creates no index**, tenant-scoped, `NOT_SEARCHABLE_NO_INDEX`
+  named for 7 unsupported types, honest `NO_MATCH` wording.
+- **X3** Linked XDR Incidents inside the EDR plane (4 incidents on the
+  fixture endpoint, `workspace_cases.endpoint_campaign` basis) and
+  **explicit identifier now wins** over incident-derived ids.
+- Defects I found and fixed while proving it: dead route
+  `/xdr/fleet-file-trajectory` → `/xdr/intelligence/files/:key`; search
+  placeholder advertising non-searchable "users"; envelope bug on the
+  customer chip; JSX string concatenation breaking the IA page; dishonest
+  "no incident references this endpoint" shown for a cross-tenant
+  `ENDPOINT_NOT_RESOLVED`; misleading "Select an endpoint" empty state when
+  a reference WAS named; duplicated handoff banners.
+- **Proofs**: `x1_x3_xdr_integration_proof.py` **17/17** ·
+  `p0_f13_5_detection_handoff_proof.py` **25/25** ·
+  `p0_detection_attribution_proof.py` **12/12** · `tests/edr` **330 pass**
+  (3 pre-existing unrelated failures) · frontend iterations 103, 104 (7/7
+  each) and 105 (3 defects found → all fixed → cross-tenant re-verified:
+  one honest banner, `nivx-live` chip, zero hostname leakage).
+
+
 ## ✅ 2026-06 · **P0 · DETECTION ATTRIBUTION** · PASS
 ### runtime proof 12/12 · tests/edr 330 pass (+7) · iteration_104 frontend 7/7
 
