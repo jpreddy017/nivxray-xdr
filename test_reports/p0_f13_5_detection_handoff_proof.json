@@ -68,7 +68,7 @@
    "item": "L3_pivot_context_is_carried_through",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "context {\"endpoint_id\": \"dev_42e8c6dc74b9\", \"device_iid\": \"dev_42e8c6dc74b9\", \"tenant_id\": \"default\", \"tenant_attribution\": \"ATTRIBUTED_AUTHENTICATED_ENDPOINT\", \"organi"
+   "detail": "context {\"endpoint_id\": \"dev_42e8c6dc74b9\", \"device_iid\": \"dev_42e8c6dc74b9\", \"addressed_by\": [\"dev_42e8c6dc74b9\", \"agent-env-630704a1-621f-478b-9b86-a321772d01bf\", \"ep"
   },
   {
    "item": "N_detection_beyond_the_first_page_resolves_via_pagination",

@@ -1,5 +1,145 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · **P0-2C ALIAS SITE SWEEP** — `REAL_RUNTIME_VERIFIED` · 52 PASS · 0 FAIL
+
+Report: `/app/memory/P0_2C_ALIAS_SITE_SWEEP.md`
+Proof: `scripts/p0_2c_alias_site_sweep_proof.py` · Guard:
+`backend/tests/edr/test_p0_2c_alias_invariant.py` (**10 passed**)
+Owner decisions: **Q1 = B · Q2 = B · Q3 = A**, `test_p0_f4` untouched.
+
+The `F-1` class is closed **structurally**, not with a fourth local fix.
+New `services/edr/endpoint_query.py` is the ONE place the flow exists —
+`external id → tenant-scoped resolve → canonical identity + VALIDATED
+alias set → predicate over the store's DECLARED identity fields`. **No
+second resolver**: it delegates to `device_identity.resolve()` +
+`identity_refs()`. `ENDPOINT_KEYED_STORES` is a contract — an undeclared
+store or field raises. An empty alias set becomes an **unsatisfiable**
+predicate, never an unfiltered read.
+
+### Inventory reconciled (the stop condition, pinned in code)
+158 repo-wide query calls on the 9 endpoint-keyed collections · **88
+live** · of those **21** name a declared identity field (**11** via the
+invariant · **10** allow-listed raw with a written reason · **0
+bypasses**) · **67** keyed on non-endpoint identities =
+`NOT_APPLICABLE` · **10 live caller-supplied endpoint surfaces**, pinned
+as `LIVE_ENDPOINT_ROUTES` so an 11th cannot be added without resolution ·
+**0** legacy/unwired endpoint-keyed sites, **0** `LOAD_BEARING_LEGACY` ·
+**14** frontend pivots audited.
+
+### Four real defects, graded honestly
+- **`linked-incidents` built its own ref list** — `identity.endpoint_id`
+  is populated only when the caller arrived by `ep_…`, so a `device_iid`
+  pivot could never match `endpoint_campaign.endpoint_id`. **13 of 30**
+  campaigns record an `endpoint_id` and **no** hostname, so the exposure
+  is real; observable delta on today's corpus **0** (latent). Fixed.
+- **`POST /edr/response/actions` rejected valid aliases** — returned
+  `404 ENDPOINT_NOT_ENROLLED`, a **false statement about enrolment**, for
+  an enrolled endpoint pivoted by `dev_…`. Fixed at the boundary
+  (`_canonical_endpoint_id`): an existing enrolment key is used untouched
+  (the registry stays the authority), only non-enrolment identifiers are
+  resolved, only aliases enrolled **in that tenant** are accepted. Proven
+  **without creating a command**: all three aliases now fail on
+  `TARGET_NOT_OBSERVED`, a forged one still on `ENDPOINT_NOT_ENROLLED`.
+- **The trajectory projection ignored `collector_id`/`connector_id`**
+  while the process tree honoured them — two query sites, one store, two
+  answers. Observable delta **0 rows** today; fixed because the
+  divergence is the defect.
+- **NEW P0 SECURITY DEFECT IN THE RESOLVER ITSELF.**
+  `identity_refs()`'s reverse lookup read the **tenant-partitioned**
+  `edr_endpoints` with **no tenant predicate**, so a hostname enrolled in
+  two customers would hand one customer's surface the other's
+  `endpoint_id` — and every downstream query built from that alias set
+  would address the other customer's records. A cross-tenant read path
+  created by the F-1 fixes themselves. Now constrained to the resolved
+  identity's tenant (or the caller's authorised tenants when the
+  observation carries none); the constraint can only **narrow** (proven
+  3 → 2). No exposure today: all 158 enrolments are `default`.
+- **Frontend**: `XdrInvestigationWorkspacePage` used a **case id** as a
+  `device` identifier — removed rather than given an invented endpoint.
+
+### Failure semantics (Q2 = B)
+supplied + unresolvable → `state`/`reason = ENDPOINT_NOT_RESOLVED`,
+never `200 []` · **no** identifier supplied → collection semantics
+unchanged (`/edr/response/actions` 31 · `/edr/endpoints` 14) ·
+endpoint resolves but the observation does not → the distinct
+`OBSERVATION_NOT_RESOLVED` · `/edr/device-trajectory` keeps its three
+granular reasons **and** gains the uniform state.
+
+### Proof — equivalence on EVIDENCE IDS, never counts
+`dev_… / ep_… / hostname` return **identical id sets**: process-tree
+427 · endpoint-detections 64 · response commands 31 · trajectory 4000 ·
+linked-incidents 4 · device-trajectory 6338 — each asserted **non-empty**
+so equivalence cannot pass vacuously. 12 forged-identifier gates, 18
+cross-tenant gates (**same observable failure class as an unknown
+identifier**; no hostname/`endpoint_id` in the body; existence never
+disclosed), alias-set disclosure (`addressed_by`), and the tenant-narrowing
+gate.
+
+### Regression guard — 3 layers, with the boundary stated
+**Layer 1** AST bypass guard anchored on *store × declared identity
+field* (a rename cannot defeat it), conformance detected in the enclosing
+function's call graph, 11 allow-listed raw sites each with an asserted
+reason → **0 offenders**. **Layer 2** route-contract test over the pinned
+`LIVE_ENDPOINT_ROUTES`. **Layer 3** enumeration pin (a guard that matches
+nothing is worse than none). Plus 6 helper contracts.
+**Stated honestly in the test's own docstring**: static analysis cannot
+see runtime-assembled store/field names, opaque filter dicts or dynamic
+pipelines — those are covered by the runtime proof and the route-contract
+test. Static enforcement **alone is not sufficient**, and two scanner
+artefacts are disclosed rather than tuned away.
+
+### Regression — none, no baseline reset
+`22/22` · `25/25` · `12/12` · `27/27` · `25/25` · P0-1 `37 PASS · 0 FAIL ·
+2 BLOCKED` · engine `27 passed` · `tests/edr` **340 passed / 3 failed**
+(330 + 10 new; the same `test_p0_f4` trio, **untouched, not absorbed,
+not baseline-reset**; the sweep did NOT prove any of them is caused by
+alias resolution, so no F-4 classification changed).
+**Newly disclosed pre-existing drift**: `p0_f11_trajectory_window_proof`
+reads **22/24** — `build_lane_catalogue` is untouched by this pass
+(verified against `git diff HEAD`); the lane axis became depth-**first**
+in P0-F.12/F.13 so `depth` is legitimately non-monotonic, and
+`parent_state` was refined to `PARENT_NOT_OBSERVED_VISIBILITY_GAP` /
+`PARENT_NOT_REPORTED_BY_SENSOR`. Script drift, separately classified,
+deliberately not repaired.
+
+### The CONSUMER half — caught by iteration_106, fixed not deferred
+The backend said `ENDPOINT_NOT_RESOLVED` and **the console ignored it**:
+`/edr/response?device=dev_ffff…` read *"No endpoint command records in
+scope"* and `/edr/detections` read *"NO RULE FIRED"* — indistinguishable
+from a real endpoint with none, i.e. the ambiguity re-created in the UI.
+`/edr/process-tree` drew **nothing at all**. New
+`nivxforge/components/EndpointNotResolved.jsx` reads the invariant's own
+**state field** (never inferring unresolved from an empty collection) and
+renders one banner (`data-testid=edr-endpoint-not-resolved`,
+`data-state=ENDPOINT_NOT_RESOLVED`) with the literal token, *"No endpoint
+that this identifier resolves to."*, the failing reference and the
+backend's note verbatim. Wired into Response · Detections · Process Tree;
+the response count now reads `ENDPOINT_NOT_RESOLVED` instead of `0 of 0`.
+Re-verified live: forged → banner on all three; real `dev_42e8c6dc74b9` →
+unchanged **33 of 33**; `analyst@nivx-live.com` on a `default` endpoint →
+**identical banner**, no hostname and no `endpoint_id` in the DOM.
+
+### Adjacent finding disclosed, NOT fixed (owner decision needed)
+`/edr/process-tree` on the fixture renders **"NO MATCHING EVIDENCE"** —
+**not** an alias failure: `hours=24 → 0`, `hours=48 → 439`,
+`hours=720 → 439`. **Two** problems sit behind that one screen:
+(1) `WINDOW_HONESTY_GAP` — the sensor's last delivery was
+`2026-09-06T15:46Z`, so evidence is just outside a 24 h window and the
+empty state never says **439 nodes exist 25 hours away** (root cause is
+P0-3); (2) **`EdrProcessTreePage` ignores `?hours=` entirely** and
+exposes no window control, so the analyst **cannot widen the window from
+the console at all**. Neither was changed — (1) is P0-3's root cause and
+(2) is unrequested UI. Recommended: fold both into P0-3, since the
+out-of-window count must come from the backend anyway.
+
+### Order (unchanged, owner-fixed)
+`P0-3` Sensor Recovery → `P0-2B` Release Isolation → `P0-2D` Isolation
+Policy → `P0-4` Collector Reconciliation → `P1` Worklog Entry Types.
+The 34-point Technology Adoption / Competitive Engineering Audit stays
+untouched until the P0s close.
+
+
+
 ## 2026-06 · **P0-2A EDR RESPONSE SURFACE** — `REAL_RUNTIME_VERIFIED` (enforcement `BLOCKED_ENVIRONMENT`)
 
 Report: `/app/memory/P0_2_EDR_RESPONSE_SURFACE.md`

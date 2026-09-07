@@ -245,7 +245,8 @@ def _endpoint_id_aliases(needle: str) -> List[str]:
 
 
 def identity_refs(identity: Optional[Dict[str, Any]],
-                  supplied: Optional[str] = None) -> List[str]:
+                  supplied: Optional[str] = None,
+                  tenant_ids: Optional[List[str]] = None) -> List[str]:
     """Every identifier that addresses ONE resolved endpoint.
 
     P0-W.F-1.  `resolve()` already translates a platform-minted
@@ -280,11 +281,21 @@ def identity_refs(identity: Optional[Dict[str, Any]],
     # device_iid / hostname → every enrolled endpoint_id (the reverse of
     # `_endpoint_id_aliases`).  A hostname may legitimately have been
     # enrolled more than once, so every match is carried.
+    #
+    # P0-2C: the enrolment registry IS tenant-partitioned, so the reverse
+    # lookup is constrained to the tenants the resolved identity/caller
+    # owns.  Without it, a hostname enrolled in two customers handed one
+    # customer's surface the other customer's `endpoint_id`, and every
+    # downstream query built from this alias set would then address the
+    # other customer's records.  The constraint can only narrow.
     match = [{k: v} for k, v in (("device_iid", identity.get("device_iid")),
                                  ("hostname", identity.get("hostname"))) if v]
     if match:
+        q: Dict[str, Any] = {"$or": match}
+        if tenant_ids is not None:
+            q["tenant_id"] = {"$in": [str(t) for t in tenant_ids]}
         for row in sync_collection("edr_endpoints").find(
-                {"$or": match}, {"_id": 0, "endpoint_id": 1}):
+                q, {"_id": 0, "endpoint_id": 1}):
             _add(row.get("endpoint_id"))
     return refs
 
@@ -317,9 +328,27 @@ def resolve(device_ref: str, cross_tenant: bool) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _addresses(doc: Dict[str, Any], ev: Dict[str, Any],
+               refs: set) -> bool:
+    """Does this observation belong to the resolved endpoint?
+
+    P0-2C: the observation plane keys an endpoint on `event.device_iid`,
+    the hostname AND the authenticated `collector_id`/`connector_id`.
+    Matching only two of the four is how one query site saw evidence
+    that another query site reported as absent.
+    """
+    for v in (ev.get("device_iid"), doc.get("device_iid"), _hostname(ev),
+              doc.get("collector_id"), doc.get("connector_id"),
+              ev.get("computer")):
+        if v and str(v).lower() in refs:
+            return True
+    return False
+
+
 def observations(device_ref: str, cross_tenant: bool,
                  since_iso: Optional[str] = None,
-                 identity: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+                 identity: Optional[Dict[str, Any]] = None,
+                 refs: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """Trajectory-shaped events for a resolved device.
 
     ``identity`` may be supplied by a caller that has already resolved
@@ -333,16 +362,13 @@ def observations(device_ref: str, cross_tenant: bool,
         return []
     iid = (identity.get("device_iid") or "").lower()
     host = (identity.get("hostname") or "").lower()
+    ref_set = {str(r).lower() for r in (refs or []) if r}
+    ref_set |= {v for v in (iid, host) if v}
 
     out: List[Dict[str, Any]] = []
     for doc in _obs.find({}, {"_id": 0}):
         ev = _event_of(doc)
-        d_iid = (ev.get("device_iid") or "").lower()
-        d_host = (_hostname(ev) or "").lower()
-        if iid:
-            if d_iid != iid:
-                continue
-        elif not host or d_host != host:
+        if not _addresses(doc, ev, ref_set):
             continue
 
         ts = _ts_of(doc, ev)
@@ -406,20 +432,18 @@ def observations(device_ref: str, cross_tenant: bool,
 
 
 def find_observation(device_ref: str, event_iid: str,
-                     cross_tenant: bool) -> Optional[Dict[str, Any]]:
+                     cross_tenant: bool,
+                     refs: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
     """Return the raw persisted observation for one ``event.iid`` on a
     resolved device.  ``None`` when the reference does not resolve —
     the caller renders an explicit unresolved state."""
     identity = resolve(device_ref, cross_tenant)
     if not identity or not event_iid:
         return None
-    iid = (identity.get("device_iid") or "").lower()
-    host = (identity.get("hostname") or "").lower()
+    ref_set = {str(r).lower() for r in (refs or []) if r}
+    ref_set |= {v for v in ((identity.get("device_iid") or "").lower(),
+                            (identity.get("hostname") or "").lower()) if v}
     for doc in _obs.find({"event.iid": event_iid}, {"_id": 0}):
-        ev = _event_of(doc)
-        if iid:
-            if (ev.get("device_iid") or "").lower() == iid:
-                return doc
-        elif host and (_hostname(ev) or "").lower() == host:
+        if _addresses(doc, _event_of(doc), ref_set):
             return doc
     return None

@@ -18,6 +18,7 @@ from edr_plane.enrollment.identity import AuthenticatedEndpoint
 from routers.edr_enrollment import get_authenticated_endpoint
 from services.dashboard_lenses import resolve_tenant_scope
 from services.edr import device_identity as dir_svc
+from services.edr import endpoint_query as eq
 
 router = APIRouter(prefix="/edr/response", tags=["nivxforge-edr-response"])
 agent = APIRouter(prefix="/edr/agent", tags=["nivxforge-edr-agent"])
@@ -53,14 +54,54 @@ class VerifyBody(BaseModel):
 @router.post("/actions")
 async def request_action(body: ActionBody,
                          user: dict = Depends(get_current_user)) -> dict:
+    """P0-2C · the command plane accepts the same aliases the read plane
+    does.
+
+    The command store and the enrolment registry key on the
+    platform-minted `endpoint_id`, but the console pivots on the
+    `device_iid`. Without resolution here, requesting an action from a
+    trajectory URL returned `404 ENDPOINT_NOT_ENROLLED` — a false
+    statement about enrolment for an endpoint that IS enrolled. The
+    enrolment record stays the authority; only the identifier is widened,
+    and it is widened under the CALLER'S scope.
+    """
+    tenant_id = user.get("tenant_id") or "default"
+    endpoint_id = await _canonical_endpoint_id(
+        body.endpoint_id, tenant_id, resolve_tenant_scope(user.get("email")))
     try:
         return await resp.request_action(
-            _db, tenant_id=user.get("tenant_id") or "default",
-            endpoint_id=body.endpoint_id, action=body.action,
+            _db, tenant_id=tenant_id,
+            endpoint_id=endpoint_id, action=body.action,
             target=body.target, reason=body.reason,
             requested_by=str(user.get("sub") or user.get("email") or "user"))
     except resp.ResponseError as e:
         _fail(e)
+
+
+async def _canonical_endpoint_id(supplied: str, tenant_id: str,
+                                 scope) -> str:
+    """The enrolled `endpoint_id` this reference addresses.
+
+    An identifier that is already an enrolment key in this tenant is
+    returned untouched — the enrolment registry remains the authority
+    and no resolution is attempted. Only a non-enrolment identifier is
+    passed through the authoritative resolver, and only its aliases that
+    are themselves enrolled in THIS tenant are accepted.
+    """
+    if await _db["edr_endpoints"].find_one(
+            {"tenant_id": tenant_id, "endpoint_id": supplied},
+            {"_id": 1}):
+        return supplied
+    res = eq.resolve_endpoint(supplied, scope)
+    if not res:
+        return supplied            # caller sees the honest enrolment error
+    for ref in res.refs:
+        if ref == supplied:
+            continue
+        if await _db["edr_endpoints"].find_one(
+                {"tenant_id": tenant_id, "endpoint_id": ref}, {"_id": 1}):
+            return ref
+    return supplied
 
 
 @router.get("/actions")
@@ -78,17 +119,13 @@ async def list_actions(endpoint_id: Optional[str] = None,
     refs = None
     if endpoint_id:
         scope = resolve_tenant_scope(user.get("email"))
-        identity = dir_svc.resolve(endpoint_id, scope)
-        if not identity:
-            return {"endpoint_id": endpoint_id, "commands": [], "count": 0,
+        res = eq.resolve_endpoint(endpoint_id, scope)
+        if not res:
+            return {**eq.unresolved_envelope(endpoint_id),
+                    "commands": [], "count": 0,
                     "total_count": 0, "truncated": False, "by_state": {},
-                    "verified_count": 0, "integrity_alarms": 0,
-                    "identity": {"resolved": False},
-                    "reason": "ENDPOINT_NOT_RESOLVED",
-                    "note": ("no endpoint you are authorised for resolves to "
-                             "this reference — an authorisation or identity "
-                             "outcome, not a statement about response actions")}
-        refs = dir_svc.identity_refs(identity, endpoint_id)
+                    "verified_count": 0, "integrity_alarms": 0}
+        refs = res.refs
     out = await resp.list_commands(
         _db, tenant_id=user.get("tenant_id") or "default",
         endpoint_id=endpoint_id, endpoint_refs=refs)

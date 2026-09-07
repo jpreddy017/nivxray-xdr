@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 
 from edr_plane.isolation_policy import bind as bind_policy
 from edr_plane.isolation_policy import get_policy
+from services.edr.endpoint_query import endpoint_predicate
 
 COLLECTION = "edr_response_commands"
 ENGINE_ID = "nivxray::edr_plane::response"
@@ -63,8 +64,16 @@ async def _resolve_kill_target(db, *, tenant_id: str, endpoint_id: str,
     degrade to pid-only targeting.
     """
     found = None
+    # P0-2C · the identifier reaching this function is already the
+    # canonical enrolment key (the HTTP boundary resolves aliases), and
+    # `endpoint_ref` is stamped by the AUTHENTICATED sensor session, so
+    # the canonical key is the only alias this store can hold for a
+    # command target. The predicate is still built from the declared
+    # identity field of the declared store, so the invariant holds here
+    # too.
     cur = db["edr_raw_events"].find(
-        {"tenant_id": tenant_id, "endpoint_ref": endpoint_id,
+        {"tenant_id": tenant_id,
+         **endpoint_predicate([endpoint_id], "edr_raw_events"),
          "payload": {"$regex": f'"pid": ?{pid}[,}}]'}},
         {"payload": 1, "raw_id": 1, "derivations": 1}).sort("_id", -1).limit(
             400)
@@ -503,11 +512,12 @@ async def list_commands(db, *, tenant_id: str,
                         endpoint_refs: Optional[list] = None) -> Dict[str, Any]:
     q: Dict[str, Any] = {"tenant_id": tenant_id}
     if endpoint_refs:
-        # P0-W.F-1 · address the endpoint by every identifier its resolved
-        # identity owns, not by the string the caller happened to supply.
-        q["endpoint_id"] = {"$in": endpoint_refs}
+        # P0-W.F-1 / P0-2C · address the endpoint by every identifier its
+        # resolved identity owns, over the store's declared identity
+        # field, not by the string the caller happened to supply.
+        q.update(endpoint_predicate(list(endpoint_refs), COLLECTION))
     elif endpoint_id:
-        q["endpoint_id"] = endpoint_id
+        q.update(endpoint_predicate([endpoint_id], COLLECTION))
     rows = [d async for d in db[COLLECTION].find(q, {"_id": 0}).sort(
         "requested_at", -1).limit(100)]
     total = await db[COLLECTION].count_documents(q)

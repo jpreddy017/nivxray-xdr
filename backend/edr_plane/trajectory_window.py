@@ -37,6 +37,8 @@ import json
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+from services.edr.endpoint_query import endpoint_predicate
+
 ENGINE_ID = "nivxray::edr_plane::trajectory_window"
 COLLECTION = "v2_shadow_observations"
 #: The authoritative detection record. A detection is NOT stored on the
@@ -222,7 +224,7 @@ async def _detection_attribution(db, docs: List[Dict[str, Any]],
         return {}
     out: Dict[str, Dict[str, Any]] = {}
     cursor = db[RAW_COLLECTION].find(
-        {"endpoint_ref": {"$in": sorted(refs)},
+        {**endpoint_predicate(sorted(refs), RAW_COLLECTION),
          "derivations.outcome": DETECTION_OUTCOME},
         {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
          "derivations": 1})
@@ -253,30 +255,34 @@ def _attr_of(doc: Dict[str, Any], ev: Dict[str, Any],
     return None
 
 
-async def _projected(db, *, ident: Dict[str, Any]) -> Dict[str, Any]:
+async def _projected(db, *, ident: Dict[str, Any],
+                     refs: Optional[List[str]] = None) -> Dict[str, Any]:
     """The endpoint's whole observed history, projected once.
 
     Deliberately NOT time filtered: the lane axis is invariant to the
     viewport, which is what makes deep activity rows resolve at every
     zoom level.
     """
-    key = _identity_key(ident)
+    key = _identity_key(ident) + "|" + ",".join(
+        sorted(str(r) for r in (refs or []) if r))
     now = time.time()
     hit = _proj_cache.get(key)
     if hit and hit[0] > now:
         return hit[1]
 
-    iid = ident.get("device_iid")
-    host = ident.get("hostname")
-    ors: List[Dict[str, Any]] = []
-    if iid:
-        ors += [{"event.device_iid": iid}, {"device_iid": iid}]
-    if host:
-        ors += [{"event.raw.computer": host}, {"event.computer": host},
-                {"event.raw.hostname": host}]
-    if not ors:
+    # P0-2C · address the store by its DECLARED identity fields over the
+    # validated alias set.  Building this `$or` by hand is exactly how
+    # this projection came to ignore `collector_id` while the
+    # process-tree projection honoured it — two query sites, one store,
+    # two different answers about the same endpoint.
+    ref_set: List[str] = [str(r) for r in (refs or []) if r]
+    for v in (ident.get("device_iid"), ident.get("hostname")):
+        if v and str(v) not in ref_set:
+            ref_set.append(str(v))
+    if not ref_set:
         return {"cat": build_lane_catalogue([]), "rows": []}
-    docs = [d async for d in db[COLLECTION].find({"$or": ors}, {"_id": 0})]
+    docs = [d async for d in db[COLLECTION].find(
+        endpoint_predicate(ref_set, COLLECTION), {"_id": 0})]
     attribution = await _detection_attribution(db, docs)
     cat = build_lane_catalogue(docs, attribution)
     rows: List[Dict[str, Any]] = []
@@ -753,9 +759,10 @@ async def query_window(db, *, identity: Dict[str, Any],
                        kinds: Optional[str] = None,
                        q: Optional[str] = None,
                        dispositions: Optional[str] = None,
-                       hist_day: Optional[str] = None) -> Dict[str, Any]:
+                       hist_day: Optional[str] = None,
+                       refs: Optional[List[str]] = None) -> Dict[str, Any]:
     limit = max(1, min(int(limit), MAX_LIMIT))
-    proj = await _projected(db, ident=identity)
+    proj = await _projected(db, ident=identity, refs=refs)
     cat = proj["cat"]
     all_rows = proj["rows"]
 

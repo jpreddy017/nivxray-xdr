@@ -18,6 +18,8 @@ import { useSearchParams } from "react-router-dom";
 import NivXForgeConsole, { useIncidentContext } from "@/nivxforge/NivXForgeConsole";
 import { getEdrProcessTree,
          getEndpointProcessTree } from "@/nivxforge/edrApi";
+import { EndpointNotResolved,
+         notResolved } from "@/nivxforge/components/EndpointNotResolved";
 
 function useTree(incidentId, endpointId) {
   const pivot = endpointId || incidentId;
@@ -92,7 +94,11 @@ export default function EdrProcessTreePage() {
           {String(error)}
         </div>
       )}
-      {pivot && !loading && !error && tree
+      {pivot && !loading && !error && notResolved(tree) && (
+        <EndpointNotResolved supplied={endpointId} payload={tree}
+                             testid="edr-processtree-not-resolved" />
+      )}
+      {pivot && !loading && !error && tree && !notResolved(tree)
         && tree.reason === "no_matching_evidence" && (
         <div className="x-empty" data-testid="edr-processtree-empty">
           <b>NO MATCHING EVIDENCE</b>

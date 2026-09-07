@@ -148,15 +148,14 @@ export default function XdrInvestigationWorkspacePage() {
         setTrajectoryData(res.data);
       })
       .catch(() => {
-        api.get(`/edr/device-trajectory?device=${encodeURIComponent(caseId)}&hours=24`)
-          .then((res) => {
-            setTrajectoryData({
-              ok: true,
-              frames: res.data?.events || [],
-              lane_counts: res.data?.lane_counts,
-            });
-          })
-          .catch(() => setTrajectoryData(null));
+        // P0-2C · PIVOT DEFECT REMOVED. This fallback called
+        // `/edr/device-trajectory?device=<CASE ID>` — a case id is never
+        // an endpoint identifier, so the request could only ever return
+        // an empty canvas that read as "this case has no activity".
+        // There is no endpoint identity in scope here to substitute, and
+        // inventing one would be worse, so the tab now reports the
+        // absence instead of querying an unsupported identifier.
+        setTrajectoryData(null);
       })
       .finally(() => setTrajectoryLoading(false));
 

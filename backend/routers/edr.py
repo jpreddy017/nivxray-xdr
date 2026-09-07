@@ -23,6 +23,7 @@ from deps import get_current_user, sync_collection
 from services.activity.projector import build_inventory
 from services.dashboard_lenses import resolve_tenant_scope
 from services.edr import device_identity as dir_svc
+from services.edr import endpoint_query as eq
 from services.edr import observation_narrative as narrative_svc
 from services.edr import file_trajectory as file_traj_svc
 from services.edr.endpoint_health import resolve_endpoint_health
@@ -220,29 +221,25 @@ def _project_endpoint_process_tree(endpoint_id: str,
     which case it is.
     """
     # Ownership is the caller's scope, never an unconditional bypass.
-    identity = dir_svc.resolve(endpoint_id, scope or {"all_tenants": False,
-                                                      "tenant_ids": []})
-    if not identity:
+    res = eq.resolve_endpoint(endpoint_id, scope or {"all_tenants": False,
+                                                     "tenant_ids": []})
+    if not res:
         return {"engine_id": "nivxray::edr_plane::process_tree",
-                "endpoint_id": endpoint_id, "nodes": [], "edges": [],
+                **eq.unresolved_envelope(endpoint_id),
+                "nodes": [], "edges": [],
                 "epistemic_state": {
-                    "state": "ENDPOINT_NOT_RESOLVED",
+                    "state": eq.ENDPOINT_NOT_RESOLVED,
                     "message": ("no endpoint you are authorised for "
                                 "resolves to this reference")}}
+    identity = res.identity
     since = (datetime.now(timezone.utc)
              - timedelta(hours=max(1, min(hours, 24 * 30)))).isoformat()
-    # P0-W.F-1: address the endpoint by EVERY identifier the resolved
-    # identity owns, not by the string the caller happened to supply.
-    # The observation plane keys the device on `event.device_iid` and
-    # `collector_id`; the legacy top-level/`event.computer` clauses are
-    # kept for adapters that populate them.
-    refs = dir_svc.identity_refs(identity, endpoint_id)
+    # P0-W.F-1 / P0-2C: address the endpoint by EVERY identifier the
+    # resolved identity owns, over the store's DECLARED identity fields.
+    refs = res.refs
     docs = list(sync_collection("v2_shadow_observations").find(
         {"kind": {"$regex": "process"},
-         "$or": [{"event.device_iid": {"$in": refs}},
-                 {"collector_id": {"$in": refs}},
-                 {"device_iid": {"$in": refs}},
-                 {"event.computer": {"$in": refs}}],
+         **res.predicate("v2_shadow_observations"),
          "captured_at": {"$gte": since}},
         {"_id": 0, "event": 1, "captured_at": 1, "adapter": 1}))
 
@@ -365,26 +362,23 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
     detections instead of one of them reading as "no rule fired".
     """
     scope = resolve_tenant_scope((user or {}).get("email"))
-    identity = dir_svc.resolve(endpoint_id, scope)
-    if not identity:
-        return {"endpoint_id": endpoint_id, "window_hours": hours,
-                "identity": {"resolved": False, "resolved_via": None},
+    res = eq.resolve_endpoint(endpoint_id, scope)
+    if not res:
+        return {**eq.unresolved_envelope(endpoint_id),
+                "window_hours": hours,
                 "detections": [], "count": 0,
                 "events_evaluated": 0, "events_not_evaluated": 0,
-                "source": "edr_raw_events.derivations[]",
-                "reason": "ENDPOINT_NOT_RESOLVED",
-                "note": ("no endpoint you are authorised for resolves to "
-                         "this reference — this is an authorisation or "
-                         "identity outcome, not a statement about "
-                         "detections")}
-    refs = dir_svc.identity_refs(identity, endpoint_id)
+                "source": "edr_raw_events.derivations[]"}
+    identity = res.identity
+    refs = res.refs
     since = (datetime.now(timezone.utc)
              - timedelta(hours=max(1, min(hours, 24 * 30)))).isoformat()
     rows = []
     evaluated = 0
     not_evaluated = 0
     for raw in sync_collection("edr_raw_events").find(
-            {"endpoint_ref": {"$in": refs}, "ingest_time": {"$gte": since}},
+            {**res.predicate("edr_raw_events"),
+             "ingest_time": {"$gte": since}},
             {"_id": 0, "raw_id": 1, "payload": 1, "derivations": 1,
              "ingest_time": 1, "trust_state": 1}):
         for d in (raw.get("derivations") or ()):
@@ -492,13 +486,23 @@ async def observation_narrative(device: str, event_iid: str,
     Returns ``resolved: false`` rather than an invented sentence when the
     device reference or the ``event.iid`` does not resolve.
     """
-    doc = dir_svc.find_observation(device, event_iid, _is_cross_tenant(user))
+    scope = _is_cross_tenant(user)
+    res = eq.resolve_endpoint(device, scope)
+    doc = (dir_svc.find_observation(device, event_iid, scope, refs=res.refs)
+           if res else None)
     if not doc:
         return {"resolved": False, "device": device, "event_iid": event_iid,
-                "reason": "observation_unresolved",
-                "note": "No persisted observation matches this event_iid on "
-                        "this device. No narrative is composed."}
+                "reason": ("observation_unresolved" if res
+                           else eq.ENDPOINT_NOT_RESOLVED),
+                "state": ("OBSERVATION_NOT_RESOLVED" if res
+                          else eq.ENDPOINT_NOT_RESOLVED),
+                "identity": (res.descriptor() if res
+                             else {"resolved": False}),
+                "note": ("No persisted observation matches this event_iid on "
+                         "this device. No narrative is composed."
+                         if res else eq.UNRESOLVED_NOTE)}
     return {"resolved": True, "device": device, "event_iid": event_iid,
+            "identity": res.descriptor(),
             **narrative_svc.compose(doc)}
 
 
@@ -706,25 +710,25 @@ async def endpoint_trajectory_window(
     from deps import db as _db
     from edr_plane import trajectory_window as tw
 
-    identity = dir_svc.resolve(endpoint_id, _is_cross_tenant(user))
-    if not identity:
+    res = eq.resolve_endpoint(endpoint_id, _is_cross_tenant(user))
+    if not res:
         return {"engine_id": tw.ENGINE_ID, "endpoint": None, "events": [],
                 "lane_axis": {"total_lanes": 0, "lanes": []},
                 "computer": None,
+                **eq.unresolved_envelope(endpoint_id),
                 "epistemic_state": tw.empty_state(
                     identity=None, enrolled=False, observations_all_time=0,
                     observations_in_window=0,
                     requested_ref=endpoint_id)}
+    identity = res.identity
     out = await tw.query_window(
         _db, identity=identity, time_start=time_start, time_end=time_end,
         lane_start=max(0, lane_start), lane_end=max(1, lane_end),
         cursor=cursor, limit=limit, kinds=kinds, q=q,
-        dispositions=dispositions, hist_day=hist_day)
+        dispositions=dispositions, hist_day=hist_day, refs=res.refs)
     ep = await _db["edr_endpoints"].find_one(
-        {"$or": [{"endpoint_id": endpoint_id},
-                 {"device_iid": identity.get("device_iid")},
-                 {"hostname": identity.get("hostname")}]},
-        {"_id": 0})
+        res.predicate("edr_endpoints"), {"_id": 0})
+    out["identity"] = res.descriptor()
     out["epistemic_state"] = tw.empty_state(
         identity=identity,
         enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
@@ -800,7 +804,8 @@ async def get_device_trajectory(
     since_iso = None if all_time else since.isoformat()
 
     cross_tenant = _is_cross_tenant(user)
-    identity = dir_svc.resolve(device, cross_tenant)
+    res = eq.resolve_endpoint(device, cross_tenant)
+    identity = res.identity if res else None
 
     events: List[Dict[str, Any]] = []
     lane_counts: Dict[str, int] = {k: 0 for k in _LANE_ORDER}
@@ -808,7 +813,8 @@ async def get_device_trajectory(
 
     # 1) IRG observations — authoritative device identity.
     for obs in dir_svc.observations(device, cross_tenant, since_iso,
-                                     identity=identity):
+                                    identity=identity,
+                                    refs=(res.refs if res else None)):
         lane_counts[obs["lane"]] = lane_counts.get(obs["lane"], 0) + 1
         events.append(obs)
         cid = obs.get("incident_id")
@@ -914,12 +920,14 @@ async def get_device_trajectory(
                 })
 
     events.sort(key=lambda e: str(e.get("timestamp") or ""))
+    state = "RESOLVED"
 
     if identity is None and not docs:
         # Distinguish the three ways a reference can fail to resolve. An
         # operator seeing an empty canvas must be able to tell "we have
         # never heard from this endpoint" from "this endpoint is revoked"
         # from "that reference is not an endpoint at all".
+        state = eq.ENDPOINT_NOT_RESOLVED
         reason = "identity_unresolved"
         if str(device).startswith("ep_"):
             row = sync_collection("edr_endpoints").find_one(
@@ -943,8 +951,10 @@ async def get_device_trajectory(
 
     return {
         "device":       device,
+        "state":        state,
         "identity": {
             "resolved":            identity is not None,
+            "addressed_by":        list(res.refs) if res else [],
             "device_iid":          (identity or {}).get("device_iid"),
             "hostname":            (identity or {}).get("hostname"),
             "identity_confidence": (identity or {}).get("identity_confidence"),
@@ -1017,8 +1027,9 @@ async def edr_entry_context(endpoint_id: Optional[str] = None,
     investigation: Optional[Dict[str, Any]] = None
     inherited: Optional[str] = None
 
-    identity = (dir_svc.resolve(endpoint_id, _is_cross_tenant(user))
-                if endpoint_id else None)
+    _res = (eq.resolve_endpoint(endpoint_id, _is_cross_tenant(user))
+            if endpoint_id else None)
+    identity = _res.identity if _res else None
 
     if incident_id:
         got = authorised_incident(incident_id, (user or {}).get("email"))
@@ -1080,9 +1091,11 @@ async def edr_entry_context(endpoint_id: Optional[str] = None,
         "endpoint": ({"endpoint_id": endpoint_id,
                       "device_iid": (identity or {}).get("device_iid"),
                       "hostname": (identity or {}).get("hostname"),
+                      "addressed_by": list(_res.refs) if _res else [],
                       "identity_confidence":
                           (identity or {}).get("identity_confidence"),
-                      "state": "RESOLVED" if identity else "UNRESOLVED"}
+                      "state": ("RESOLVED" if identity
+                                else eq.ENDPOINT_NOT_RESOLVED)}
                      if endpoint_id else None),
         "investigation": investigation,
         "tenant_switch_policy": (
@@ -1116,22 +1129,23 @@ def _ms_iso(ms: int) -> str:
 async def linked_incidents(endpoint_id: str,
                            user=Depends(get_current_user)) -> Dict[str, Any]:
     scope = _is_cross_tenant(user)
-    identity = dir_svc.resolve(endpoint_id, scope)
-    if not identity:
+    res = eq.resolve_endpoint(endpoint_id, scope)
+    if not res:
         return {"engine_id": "nivxray::edr_plane::linked_incidents",
-                "state": "ENDPOINT_NOT_RESOLVED", "incidents": [],
-                "count": 0,
-                "reason": ("no endpoint you are authorised for resolves to "
-                           "this reference")}
+                **eq.unresolved_envelope(endpoint_id),
+                "incidents": [], "count": 0}
+    identity = res.identity
 
     host = identity.get("hostname")
-    ep = identity.get("endpoint_id")
-    refs = [r for r in (host, ep, identity.get("device_iid")) if r]
+    # P0-2C · the incident records whichever endpoint identifier it saw,
+    # so the link must be resolved over the WHOLE validated alias set.
+    # This site previously built its own three-element ref list in which
+    # `endpoint_id` was populated only when the CALLER happened to arrive
+    # by `ep_…`, so a `device_iid` pivot could never match
+    # `endpoint_campaign.endpoint_id`.
+    refs = res.refs
     q: Dict[str, Any] = {"endpoint_campaign": {"$exists": True},
-                         "$or": [{"endpoint_campaign.hostname":
-                                  {"$in": refs}},
-                                 {"endpoint_campaign.endpoint_id":
-                                  {"$in": refs}}]}
+                         **res.predicate("workspace_cases")}
     tscope = resolve_tenant_scope((user or {}).get("email"))
     if not tscope.get("all_tenants"):
         q["tenant_id"] = {"$in": tscope.get("tenant_ids") or []}
@@ -1169,6 +1183,7 @@ async def linked_incidents(endpoint_id: str,
         "endpoint": {"endpoint_id": endpoint_id,
                      "device_iid": identity.get("device_iid"),
                      "hostname": host,
+                     "addressed_by": list(refs),
                      "tenant_id": identity.get("tenant_id")},
         "incidents": rows, "count": len(rows),
         "basis": ("workspace_cases.endpoint_campaign, matched on the "
@@ -1205,13 +1220,12 @@ async def trajectory_focus(endpoint_id: str,
 
 
     scope = _is_cross_tenant(user)
-    identity = dir_svc.resolve(endpoint_id, scope)
-    if not identity:
+    res = eq.resolve_endpoint(endpoint_id, scope)
+    if not res:
         return {"engine_id": "nivxray::edr_plane::trajectory_focus",
-                "state": "ENDPOINT_NOT_RESOLVED",
-                "reason": ("no endpoint you are authorised for resolves "
-                           "to this reference"),
+                **eq.unresolved_envelope(endpoint_id),
                 "focus": None}
+    identity = res.identity
 
     wanted_raw = {raw_event_id} if raw_event_id else set()
     wanted_cev = {canonical_event_id} if canonical_event_id else set()
@@ -1269,7 +1283,8 @@ async def trajectory_focus(endpoint_id: str,
     for _ in range(MAX_PAGES):
         out = await tw.query_window(
             _db, identity=identity, time_start=None, time_end=None,
-            lane_start=0, lane_end=100000, cursor=cursor, limit=4000)
+            lane_start=0, lane_end=100000, cursor=cursor, limit=4000,
+            refs=res.refs)
         page = out.get("events") or []
         searched += len(page)
         pages += 1
@@ -1295,6 +1310,7 @@ async def trajectory_focus(endpoint_id: str,
     context = {
         "endpoint_id": endpoint_id,
         "device_iid": identity.get("device_iid"),
+        "addressed_by": list(res.refs),
         "tenant_id": identity.get("tenant_id"),
         "tenant_attribution": identity.get("tenant_attribution"),
         "organization_id": identity.get("organization_id"),

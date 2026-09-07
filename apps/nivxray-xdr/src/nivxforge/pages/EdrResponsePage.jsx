@@ -24,6 +24,8 @@ import React, { useEffect, useState } from "react";
 import { ShieldOff, RefreshCw, AlertTriangle } from "lucide-react";
 
 import NivXForgeConsole, { useIncidentContext } from "@/nivxforge/NivXForgeConsole";
+import { EndpointNotResolved, notResolved,
+         ENDPOINT_NOT_RESOLVED } from "@/nivxforge/components/EndpointNotResolved";
 import {
   listEndpointCommands, getResponseCatalogue,
   getResponseEngineHealth, getPendingApprovals,
@@ -75,6 +77,7 @@ export default function EdrResponsePage() {
   useEffect(load, [load]);
 
   const rows = data?.commands || [];
+  const unresolvedEndpoint = notResolved(data);
   const real = (cat?.actions || []).filter((a) => a.dispatch_mode === "REAL_PRODUCT_API");
   const stub = (cat?.actions || []).filter((a) => a.dispatch_mode !== "REAL_PRODUCT_API");
 
@@ -144,12 +147,19 @@ export default function EdrResponsePage() {
         Endpoint Commands
         <span style={{ marginLeft: 8, fontSize: 11, color: "var(--muted)" }}
               data-testid="edr-response-row-count">
-          {busy ? "loading…" : `${rows.length} of ${data?.total_count ?? rows.length}`}
+          {busy ? "loading…"
+           : unresolvedEndpoint ? ENDPOINT_NOT_RESOLVED
+           : `${rows.length} of ${data?.total_count ?? rows.length}`}
           {ctx.device ? ` · endpoint ${ctx.device}` : " · all endpoints in scope"}
         </span>
       </div>
 
-      {!busy && !rows.length && (
+      {!busy && unresolvedEndpoint && (
+        <EndpointNotResolved supplied={ctx.device} payload={data}
+                             testid="edr-response-not-resolved" />
+      )}
+
+      {!busy && !unresolvedEndpoint && !rows.length && (
         <div className="panel" style={{ padding: 14, color: "var(--faint)", fontSize: 12 }}
              data-testid="edr-response-empty">
           No endpoint command records in scope. This is an absence of commands,

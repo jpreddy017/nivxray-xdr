@@ -29,6 +29,7 @@ from fastapi import APIRouter, Depends
 from deps import get_current_user, sync_collection
 from services.dashboard_lenses import resolve_tenant_scope
 from services.edr import device_identity as dir_svc
+from services.edr.endpoint_query import endpoint_predicate
 
 router = APIRouter(prefix="/xdr/search", tags=["xdr-search"])
 
@@ -143,7 +144,7 @@ def _detections(term: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             by_ep[ep] = r
     if not refs:
         return []
-    q = {"endpoint_ref": {"$in": sorted(refs)},
+    q = {**endpoint_predicate(sorted(refs), "edr_raw_events"),
          "derivations.outcome": "DETECTION_MATCHED",
          "$or": [{"raw_id": _rx(term)},
                  {"derivations.reason": _rx(term)},

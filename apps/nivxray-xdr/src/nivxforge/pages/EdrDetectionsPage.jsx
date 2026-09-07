@@ -12,6 +12,8 @@ import { ExternalLink, ShieldAlert, Loader2 } from "lucide-react";
 
 import NivXForgeConsole, { useIncidentContext } from "@/nivxforge/NivXForgeConsole";
 import { listEdrDetections, listEndpointDetections } from "@/nivxforge/edrApi";
+import { EndpointNotResolved,
+         notResolved } from "@/nivxforge/components/EndpointNotResolved";
 
 const SEV_CLASS = {
   critical: "sev-critical",
@@ -57,6 +59,10 @@ const EndpointDetections = ({ endpointId, incidentId }) => {
                style={{ verticalAlign: "middle", marginRight: 6 }} />
       Reading endpoint detections …
     </div>;
+  }
+  if (notResolved(data)) {
+    return <EndpointNotResolved supplied={endpointId} payload={data}
+                                testid="edr-endpoint-detections-not-resolved" />;
   }
   return (
     <div data-testid="edr-endpoint-detections">
