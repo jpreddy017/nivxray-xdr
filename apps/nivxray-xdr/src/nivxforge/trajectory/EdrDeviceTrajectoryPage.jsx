@@ -658,6 +658,10 @@ export default function EdrDeviceTrajectoryPage() {
           <span className="mono">{handoff.focus.event_iid}</span> @{" "}
           <span className="mono">{handoff.focus.timestamp}</span> · row{" "}
           {handoff.focus.lane_index}
+          {(handoff.focus.detection?.rule_ids || []).length
+            ? ` · rule ${handoff.focus.detection.rule_ids.join(", ")}` : ""}
+          {handoff.focus.detection?.verdict
+            ? ` · verdict ${handoff.focus.detection.verdict}` : ""}
           {handoff.context?.incident_id
             ? ` · incident ${handoff.context.incident_id}` : ""}
           {handoff.context?.tenant_id

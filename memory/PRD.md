@@ -1,5 +1,83 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## ✅ 2026-06 · **P0 · DETECTION ATTRIBUTION** · PASS
+### runtime proof 12/12 · tests/edr 330 pass (+7) · iteration_104 frontend 7/7
+
+The evidence-integrity defect disclosed at the end of P0-F.13.5 is closed:
+an observation a rule genuinely fired on rendered **`Unknown · not
+assessed`** — the console telling the analyst nothing was assessed when
+something was.
+
+### Root cause
+A detection is **never stored on the observation**. The XDR detection
+fabric writes it as a derivation on the immutable raw event
+(`edr_raw_events.derivations[] outcome=DETECTION_MATCHED`, carrying
+`reason: "rules: …"`, `verdict_version`, `detection_content_version`,
+`evidence_ids: [incident]`). `trajectory_window.classify()` only ever read
+`event.labels` / `raw.confidence`, which the Linux sensor does not set —
+so every real detection projected as unassessed.
+
+### Fix — the projection joins the two stores; no new store, no inference
+`edr_plane/trajectory_window.py::_detection_attribution()`
+```
+edr_raw_events.raw_id        ==  v2_shadow_observations.ingest_job_id
+derivations[].event_id       ==  v2_shadow_observations.canonical_event_id
+```
+- Looked up by the **authenticated connector of the observations the
+  caller is already authorised to see**, and a derivation is accepted only
+  when the raw event's `tenant_id` matches the observation's — attribution
+  cannot cross a customer boundary.
+- **Deterministic merge** when several derivations name one canonical
+  event: rule ids are a sorted union, the verdict is the **most severe**
+  recorded (a critical finding is not diluted by a milder one),
+  `detected_at` is the **first** time the detection was made.
+- `classify()` is **escalate-only**: an authoritative detection never
+  softens a disposition the observation's own evidence already earned.
+  New disposition **`DETECTED_RULE_MATCHED`** ("Detected · rule matched")
+  for a rule match whose recorded verdict is not malicious/suspicious —
+  it is *assessed* so it may not read as unknown, and it is *not graded*
+  so it may not be promoted to MALICIOUS. The verdict
+  (e.g. `LIKELY_BENIGN`) is carried **verbatim** beside it.
+- Every event now emits `detection` (or `null`), `rule_ids`,
+  `assessment_state` (`ASSESSED_BY_DETECTION_FABRIC` /
+  `NO_DETECTION_CLAIMED_THIS_OBSERVATION`), and `detected_by[0]` names the
+  authoritative engine, so "no detection engine claimed this observation"
+  can no longer appear on a detected event. `detection_id` is **composed**
+  from the persisted incident id + rule id and labels itself as composed
+  (`detection_id_basis`) — no detection id is stored anywhere.
+- `rule_id`/`rule_ids` are searchable, so the trajectory filter reduces to
+  the observations a rule fired on (6 356 → 35 for `EDR-LNX-002`).
+- **UI**: new `Detection` section in Activity Details
+  (`amp-detection-record` — rules · engine · verdict · detected at ·
+  detection id · incidents · `DETECTION_MATCHED → raw → canonical` · basis;
+  or `amp-detection-none` stating the assessment state and that absence of
+  a detection is not a verdict of clean). The handoff strip carries the
+  rule + verdict. The endpoint header no longer says "N compromise
+  events": malicious and detections are counted **separately and never
+  summed** (a malicious observation is also a detection — summing
+  double-counted it), now `6 malicious · 68 detection events`.
+
+### Proof
+`scripts/p0_detection_attribution_proof.py` · **12/12**: 8/8 detections
+reached through the handoff carry rule attribution matching the
+authoritative derivation; **31 of 4 000** page-1 observations attributed
+and **3 969 unchanged** (exact, not blanket); same rule ids through a
+second independent request path; forged identifier and cross-tenant
+principal manufacture nothing. `tests/edr/test_p0_detection_attribution.py`
+(7) pins detected-≠-unassessed, the multi-rule merge, verdict-absent
+grading, tenant crossing, and that attribution is **not** derived from
+time or process name (two same-named processes one second apart — only the
+one owning the raw id is attributed). iteration_104: 7/7 frontend, zero
+issues. P0-F.13.5 proof re-run **25/25**.
+
+### Still open
+`tests/edr/test_p0_f4_endpoint_process_tree.py` 3 failures (pre-existing,
+reproduced on a clean tree) · `device_identity.list_devices()` filters
+tenants in memory. Next per owner: **P0-F.13.6 Real Process Exit
+Collection → P0-F.13.7 Endpoint Ownership Audit → P0-F.14 Fleet File
+Trajectory**; the XDR-ribbon/Casebook UX blueprint stays backlog.
+
+
 ## ✅ 2026-06 · **P0-F.13.5 · DETECTION → TRAJECTORY HANDOFF** · PASS
 ### proof 25/25 · tests/edr 323 pass (+5 new) · iteration_103 frontend 7/7
 

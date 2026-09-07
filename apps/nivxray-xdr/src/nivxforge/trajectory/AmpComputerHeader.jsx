@@ -82,10 +82,19 @@ export default function AmpComputerHeader({ computer, epistemic, malicious,
         </span>
       </span>
       <span data-testid="amp-compromise-summary"
+            data-malicious={malicious || 0}
+            data-detections={detections || 0}
             style={{ fontSize: 11,
                      color: compromise ? C.malicious : C.inkDim }}>
-        {compromise ? `${compromise} compromise event${compromise === 1
-          ? "" : "s"}` : "No compromise events"}
+        {/* Counted separately and never summed: a rule match is not by
+            itself a compromise, and a malicious observation is also a
+            detection — adding them would double-count the same event. */}
+        {compromise
+          ? [(malicious || 0) ? `${malicious} malicious` : null,
+             (detections || 0) ? `${detections} detection event${
+               detections === 1 ? "" : "s"}` : null]
+            .filter(Boolean).join(" · ")
+          : "No detections recorded"}
       </span>
       <span style={{ flex: 1 }} />
 

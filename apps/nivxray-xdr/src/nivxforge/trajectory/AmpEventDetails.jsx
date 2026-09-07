@@ -281,6 +281,61 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
         </div>
       </Section>
 
+      <Section title="Detection" testid="amp-detection-attribution">
+        {event.detection ? (
+          <div data-testid="amp-detection-record"
+               data-rule-ids={(event.detection.rule_ids || []).join(",")}
+               data-verdict={event.detection.verdict || ""}
+               style={{ marginTop: 5, background: C.paperAlt,
+                        borderLeft: `3px solid ${C.detection}`,
+                        border: `1px solid ${C.grid}`, padding: "6px 8px" }}>
+            <div style={{ fontSize: 10.6, fontWeight: 700,
+                          color: C.ink }}>
+              Detected — {event.detection.outcome}
+            </div>
+            <Row k="Rule(s)" v={(event.detection.rule_ids || []).join(", ")}
+                 testid="amp-d-detection-rules" />
+            <Row k="Detection engine"
+                 v={(event.detection.engines || []).join(", ")}
+                 testid="amp-d-detection-engine" />
+            <Row k="Verdict recorded" v={event.detection.verdict}
+                 testid="amp-d-detection-verdict" />
+            <Row k="Detected at" v={event.detection.detected_at}
+                 testid="amp-d-detection-at" />
+            <Row k="Detection id" v={event.detection.detection_id}
+                 testid="amp-d-detection-id" />
+            <Row k="Incident(s)"
+                 v={(event.detection.incident_ids || []).join(", ")}
+                 testid="amp-d-detection-incidents" />
+            <Row k="Evidence"
+                 v={`${event.detection.outcome} → `
+                   + `${event.detection.raw_event_id} → `
+                   + `${event.detection.canonical_event_id}`}
+                 testid="amp-d-detection-evidence" />
+            <div className="mono" style={{ fontSize: 9, color: C.inkFaint,
+                                           marginTop: 3, lineHeight: 1.5 }}>
+              basis: {event.detection.basis}
+              {event.detection.detection_id_basis
+                ? ` · detection id: ${event.detection.detection_id_basis}`
+                : ""}
+            </div>
+          </div>
+        ) : (
+          <div data-testid="amp-detection-none"
+               style={{ fontSize: 10.4, color: C.inkDim, marginTop: 5,
+                        lineHeight: 1.55, background: C.paperAlt,
+                        border: `1px solid ${C.grid}`, padding: "6px 8px" }}>
+            <span className="mono">
+              {event.assessment_state
+                || "NO_DETECTION_CLAIMED_THIS_OBSERVATION"}
+            </span>
+            {" "}— no rule match is recorded against this observation in
+            the authoritative detection records. Absence of a detection is
+            not a verdict of clean.
+          </div>
+        )}
+      </Section>
+
       <Section title="Detected By" testid="amp-detected-by">
         {telemetryOnly ? (
           <div data-testid="amp-detected-by-none"

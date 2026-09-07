@@ -125,6 +125,11 @@ export const THEMES = ["dark", "light"];
 export const DISPOSITION = {
   MALICIOUS: { label: "Malicious", color: C.malicious },
   SUSPICIOUS: { label: "Suspicious", color: C.suspicious },
+  /** A rule DID fire on this observation, and the authoritative record
+   *  carries no malicious/suspicious verdict. It is assessed, so it must
+   *  never read as "unknown · not assessed". */
+  DETECTED_RULE_MATCHED: { label: "Detected · rule matched",
+                           color: C.detection },
   UNKNOWN_NOT_ASSESSED: { label: "Unknown · not assessed",
                           color: C.inkFaint },
 };

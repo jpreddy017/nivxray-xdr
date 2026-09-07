@@ -39,6 +39,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 ENGINE_ID = "nivxray::edr_plane::trajectory_window"
 COLLECTION = "v2_shadow_observations"
+#: The authoritative detection record. A detection is NOT stored on the
+#: observation; the XDR detection fabric writes it as a derivation onto
+#: the immutable raw event. This projection joins the two so the
+#: observation an analyst is looking at carries the detection that was
+#: actually made about it.
+RAW_COLLECTION = "edr_raw_events"
 GROUPS = ("PROCESS", "FILE", "NETWORK")
 MAX_LIMIT = 4000
 
@@ -54,9 +60,17 @@ _NET_KINDS = {"network_connect", "network", "dns_query", "dns",
 DISPOSITION_MALICIOUS = "MALICIOUS"
 DISPOSITION_SUSPICIOUS = "SUSPICIOUS"
 DISPOSITION_UNKNOWN = "UNKNOWN_NOT_ASSESSED"
+#: A rule DID fire on this observation but the authoritative record
+#: carries no verdict. It is assessed, so it must never read as
+#: "unknown · not assessed"; it is also not graded, so it must not be
+#: promoted to MALICIOUS.
+DISPOSITION_DETECTED = "DETECTED_RULE_MATCHED"
 
 _MALICIOUS_LABELS = {"malicious", "high", "critical", "compromise"}
 _SUSPICIOUS_LABELS = {"medium", "suspicious", "anomalous"}
+_VERDICT_RANK = {"MALICIOUS": 3, "CRITICAL": 3, "HIGH": 3,
+                 "SUSPICIOUS": 2, "MEDIUM": 2, "ANOMALOUS": 2}
+DETECTION_OUTCOME = "DETECTION_MATCHED"
 
 # Short-lived projection cache. A pan issues many overlapping windows
 # over the SAME endpoint history; re-reading and re-projecting it per
@@ -128,6 +142,117 @@ def _identity_key(ident: Dict[str, Any]) -> str:
     return f"{ident.get('device_iid') or ''}|{ident.get('hostname') or ''}"
 
 
+def _rules_of(deriv: Dict[str, Any]) -> List[str]:
+    """Rule ids exactly as the detection fabric recorded them."""
+    reason = str(deriv.get("reason") or "")
+    return sorted({r.strip() for r in reason.replace("rules:", "").split(",")
+                   if r.strip()})
+
+
+def _merge_attribution(cur: Optional[Dict[str, Any]],
+                       deriv: Dict[str, Any], raw: Dict[str, Any],
+                       ) -> Dict[str, Any]:
+    """Deterministic merge of every DETECTION_MATCHED derivation that
+    names the same canonical event.
+
+    Multiple rules on one observation are a union, sorted; the verdict is
+    the most severe recorded (a critical finding is not diluted by a
+    milder one); `detected_at` is the FIRST time the detection was made.
+    """
+    rules = _rules_of(deriv)
+    verdict = str(deriv.get("verdict_version") or "").upper() or None
+    engines = [e for e in [deriv.get("detection_content_version")] if e]
+    incidents = [str(i) for i in (deriv.get("evidence_ids") or [])
+                 if str(i).startswith("inc_")]
+    at = deriv.get("derived_at")
+    if cur is None:
+        cur = {"state": "DETECTED",
+               "outcome": DETECTION_OUTCOME,
+               "rule_ids": [], "engines": [], "verdict": None,
+               "detected_at": None, "incident_ids": [],
+               "raw_event_id": raw.get("raw_id"),
+               "canonical_event_id": deriv.get("event_id"),
+               "replay_generation": deriv.get("replay_generation"),
+               "tenant_id": raw.get("tenant_id"),
+               "trust_state": raw.get("trust_state"),
+               "basis": (f"{RAW_COLLECTION}.derivations[] outcome="
+                         f"{DETECTION_OUTCOME}, joined to this observation "
+                         f"on raw_id == ingest_job_id and event_id == "
+                         f"canonical_event_id"),
+               "detection_id": None,
+               "detection_id_basis": None}
+    cur["rule_ids"] = sorted(set(cur["rule_ids"]) | set(rules))
+    cur["engines"] = sorted(set(cur["engines"]) | set(engines))
+    cur["incident_ids"] = sorted(set(cur["incident_ids"]) | set(incidents))
+    if verdict and (_VERDICT_RANK.get(verdict, 1)
+                    > _VERDICT_RANK.get(cur["verdict"] or "", 0)):
+        cur["verdict"] = verdict
+    if at and (cur["detected_at"] is None or str(at) < str(cur["detected_at"])):
+        cur["detected_at"] = at
+    # The product's detection reference elsewhere (the XDR case surface
+    # and the trajectory focus resolver) is `<case>::rule::<RULE>`. It is
+    # COMPOSED from these two persisted ids, and says so, rather than
+    # being presented as a stored field.
+    if cur["incident_ids"] and cur["rule_ids"]:
+        cur["detection_id"] = (f"{cur['incident_ids'][0]}::rule::"
+                               f"{cur['rule_ids'][0]}")
+        cur["detection_id_basis"] = ("composed from the authoritative "
+                                     "incident id + rule id; no detection "
+                                     "id is stored on the record")
+    return cur
+
+
+async def _detection_attribution(db, docs: List[Dict[str, Any]],
+                                 ) -> Dict[str, Dict[str, Any]]:
+    """`raw_event_id`/`canonical_event_id` → authoritative detection.
+
+    Read-only join; it creates no detection store and invents nothing. An
+    observation with no matching derivation gets no attribution, which is
+    a real answer: no rule has been evaluated against it or none matched.
+
+    The lookup is keyed by the authenticated connector of the OBSERVATIONS
+    the caller is already authorised to see, and a derivation is accepted
+    only when the raw event's tenant matches the observation's tenant, so
+    attribution can never cross a customer boundary.
+    """
+    refs = {str(d.get("collector_id") or d.get("connector_id"))
+            for d in docs if d.get("collector_id") or d.get("connector_id")}
+    tenants = {str(d.get("tenant_id")) for d in docs if d.get("tenant_id")}
+    if not refs:
+        return {}
+    out: Dict[str, Dict[str, Any]] = {}
+    cursor = db[RAW_COLLECTION].find(
+        {"endpoint_ref": {"$in": sorted(refs)},
+         "derivations.outcome": DETECTION_OUTCOME},
+        {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
+         "derivations": 1})
+    async for raw in cursor:
+        if tenants and str(raw.get("tenant_id")) not in tenants:
+            continue
+        for deriv in (raw.get("derivations") or []):
+            if deriv.get("outcome") != DETECTION_OUTCOME:
+                continue
+            key = str(raw.get("raw_id"))
+            merged = _merge_attribution(out.get(key), deriv, raw)
+            out[key] = merged
+            cev = deriv.get("event_id")
+            if cev:
+                out[str(cev)] = merged
+    return out
+
+
+def _attr_of(doc: Dict[str, Any], ev: Dict[str, Any],
+             attribution: Optional[Dict[str, Dict[str, Any]]],
+             ) -> Optional[Dict[str, Any]]:
+    if not attribution:
+        return None
+    for key in (_prov(ev).get("ingest_job_id"), doc.get("ingest_job_id"),
+                doc.get("canonical_event_id")):
+        if key and str(key) in attribution:
+            return attribution[str(key)]
+    return None
+
+
 async def _projected(db, *, ident: Dict[str, Any]) -> Dict[str, Any]:
     """The endpoint's whole observed history, projected once.
 
@@ -152,13 +277,15 @@ async def _projected(db, *, ident: Dict[str, Any]) -> Dict[str, Any]:
     if not ors:
         return {"cat": build_lane_catalogue([]), "rows": []}
     docs = [d async for d in db[COLLECTION].find({"$or": ors}, {"_id": 0})]
-    cat = build_lane_catalogue(docs)
+    attribution = await _detection_attribution(db, docs)
+    cat = build_lane_catalogue(docs, attribution)
     rows: List[Dict[str, Any]] = []
     for doc in docs:
         _, lane_id, _ = _group_and_key(_ev(doc))
         lane = cat["by_id"].get(lane_id)
         if lane:
-            rows.append(_project(doc, lane))
+            rows.append(_project(doc, lane,
+                                 _attr_of(doc, _ev(doc), attribution)))
     rows.sort(key=lambda r: (r["timestamp"] or "", r["event_iid"]))
     out = {"cat": cat, "rows": rows}
 
@@ -184,8 +311,14 @@ def _depth(iid: Optional[str], parents: Dict[str, Optional[str]],
     return d
 
 
-def classify(ev: Dict[str, Any]) -> Dict[str, Any]:
-    """Disposition + attribution from persisted evidence only."""
+def classify(ev: Dict[str, Any],
+             attribution: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Disposition + attribution from persisted evidence only.
+
+    `attribution` is the authoritative DETECTION_MATCHED derivation for
+    this observation. When one exists the observation HAS been assessed,
+    so it is never reported as UNKNOWN_NOT_ASSESSED.
+    """
     raw = _raw(ev)
     labels = [str(x).lower() for x in (ev.get("labels") or [])
               if isinstance(x, (str, int))]
@@ -199,16 +332,31 @@ def classify(ev: Dict[str, Any]) -> Dict[str, Any]:
     elif set(labels) & _SUSPICIOUS_LABELS or conf == "medium":
         disposition = DISPOSITION_SUSPICIOUS
 
+    if attribution:
+        rank = _VERDICT_RANK.get(str(attribution.get("verdict") or "").upper(),
+                                 0)
+        graded = (DISPOSITION_MALICIOUS if rank >= 3
+                  else DISPOSITION_SUSPICIOUS if rank == 2
+                  else DISPOSITION_DETECTED)
+        # Escalate-only: an authoritative detection never softens a
+        # disposition the observation's own evidence already earned.
+        order = {DISPOSITION_UNKNOWN: 0, DISPOSITION_DETECTED: 1,
+                 DISPOSITION_SUSPICIOUS: 2, DISPOSITION_MALICIOUS: 3}
+        if order[graded] > order[disposition]:
+            disposition = graded
+
     return {
         "disposition": disposition,
-        "is_detection": kind == "detection",
+        "is_detection": kind == "detection" or bool(attribution),
         "labels": labels,
         "mitre": mitre,
-        "attributed": bool(mitre),
+        "attributed": bool(mitre) or bool(attribution),
     }
 
 
-def detected_by(doc: Dict[str, Any], ev: Dict[str, Any]) -> List[Dict[str, Any]]:
+def detected_by(doc: Dict[str, Any], ev: Dict[str, Any],
+                attribution: Optional[Dict[str, Any]] = None,
+                ) -> List[Dict[str, Any]]:
     """Which engine produced this — named from provenance, never guessed.
 
     An empty list is a real answer: the observation is telemetry that no
@@ -217,6 +365,24 @@ def detected_by(doc: Dict[str, Any], ev: Dict[str, Any]) -> List[Dict[str, Any]]
     raw = _raw(ev)
     prov = _prov(ev)
     out: List[Dict[str, Any]] = []
+
+    if attribution:
+        # The authoritative record: the XDR detection fabric wrote this
+        # onto the immutable raw event. It is named first because it is
+        # the strongest claim available about this observation.
+        out.append({
+            "engine": (attribution.get("engines") or [None])[0]
+                      or "NivXRay detection content",
+            "component": "detection_content.xdr_pipeline",
+            "rule_id": (attribution.get("rule_ids") or [None])[0],
+            "rule_ids": attribution.get("rule_ids"),
+            "verdict": attribution.get("verdict"),
+            "detection_id": attribution.get("detection_id"),
+            "detected_at": attribution.get("detected_at"),
+            "incident_ids": attribution.get("incident_ids"),
+            "basis": attribution.get("basis"),
+            "authoritative": True,
+        })
 
     rule_id = raw.get("rule_id")
     if rule_id:  # a rule actually fired
@@ -261,7 +427,9 @@ def _artefact_files(ev: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
-def build_lane_catalogue(docs: List[Dict[str, Any]]) -> Dict[str, Any]:
+def build_lane_catalogue(docs: List[Dict[str, Any]],
+                         attribution: Optional[Dict[str, Dict[str, Any]]]
+                         = None) -> Dict[str, Any]:
     """Deterministic lane axis. Processes by lineage depth, then files,
     then network — an activity/causality order, never a severity rank."""
     lanes: Dict[str, Dict[str, Any]] = {}
@@ -271,7 +439,7 @@ def build_lane_catalogue(docs: List[Dict[str, Any]]) -> Dict[str, Any]:
         group, lane_id, label = _group_and_key(ev)
         ts = _ts(doc, ev)
         proc = ev.get("process") if isinstance(ev.get("process"), dict) else {}
-        cls = classify(ev)
+        cls = classify(ev, _attr_of(doc, ev, attribution))
         if group == "PROCESS" and proc.get("iid"):
             parents[str(proc["iid"])] = (str(proc["parent_iid"])
                                          if proc.get("parent_iid") else None)
@@ -425,15 +593,18 @@ def _event_iid(doc: Dict[str, Any], ev: Dict[str, Any],
     return f"{base}#{hashlib.sha256(fingerprint.encode()).hexdigest()[:10]}"
 
 
-def _project(doc: Dict[str, Any], lane: Dict[str, Any]) -> Dict[str, Any]:
+def _project(doc: Dict[str, Any], lane: Dict[str, Any],
+             attribution: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """One trajectory event. Provenance travels with it; a field with no
     evidence is omitted, never filled in."""
     ev = _ev(doc)
     raw = _raw(ev)
     prov = _prov(ev)
     proc = ev.get("process") if isinstance(ev.get("process"), dict) else {}
-    cls = classify(ev)
+    cls = classify(ev, attribution)
     files = _artefact_files(ev)
+    rule_ids = (list(attribution.get("rule_ids") or []) if attribution
+                else ([raw.get("rule_id")] if raw.get("rule_id") else []))
     return {
         "event_iid": _event_iid(doc, ev, lane["lane_id"]),
         "canonical_iid": ev.get("iid"),
@@ -466,15 +637,23 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any]) -> Dict[str, Any]:
         "is_detection": cls["is_detection"],
         "attributed": cls["attributed"],
         "labels": cls["labels"], "mitre": cls["mitre"],
-        "rule_id": raw.get("rule_id"),
+        "rule_id": rule_ids[0] if rule_ids else None,
+        "rule_ids": rule_ids,
+        # The authoritative detection record for THIS observation, or
+        # null. Null is a real answer and the UI states which it is.
+        "detection": attribution,
+        "assessment_state": ("ASSESSED_BY_DETECTION_FABRIC" if attribution
+                             else "NO_DETECTION_CLAIMED_THIS_OBSERVATION"),
         # `raw.rule_label` is the sensor's DISPLAY label ("bash · process
         # create"), not a detection rule. Surfacing it as a rule would
         # make every ordinary process look detected, so it is carried
         # under its real name and `rule_label` is populated only when a
         # rule actually fired.
         "display_label": raw.get("rule_label"),
-        "rule_label": raw.get("rule_label") if raw.get("rule_id") else None,
-        "detected_by": detected_by(doc, ev),
+        "rule_label": (", ".join(rule_ids) if attribution
+                       else (raw.get("rule_label") if raw.get("rule_id")
+                             else None)),
+        "detected_by": detected_by(doc, ev, attribution),
         "provenance": {
             "raw_event_id": prov.get("ingest_job_id"),
             "canonical_event_id": doc.get("canonical_event_id"),
@@ -500,6 +679,8 @@ def _matches(row: Dict[str, Any], kinds: Optional[set],
             row.get("process"), row.get("image"), row.get("command_line"),
             row.get("file"), row.get("network"), row.get("user"),
             row.get("rule_id"), row.get("rule_label"),
+            " ".join(row.get("rule_ids") or []),
+            (row.get("detection") or {}).get("detection_id"),
             row.get("display_label"),
             row.get("file_sha256"), row.get("event_content_digest"),
             row.get("event_type"), " ".join(row.get("mitre") or []),
