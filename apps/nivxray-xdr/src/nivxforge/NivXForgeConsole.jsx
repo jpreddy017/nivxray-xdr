@@ -33,7 +33,11 @@ const TABS = [
   // P0-F.13.3 · ONE canonical Device Trajectory in the operational EDR
   // navigation — the AMP renderer. The XDR case-context projection is
   // reachable from XDR → Endpoint / Entity 360, not duplicated here.
-  { key: "device-trajectory", label: "Device Trajectory", icon: Radar,       to: "/xdr/edr/device-trajectory" },
+  // P0-W.F-2 · the nav now addresses the CANONICAL EDR route directly.
+  // `/xdr/edr/device-trajectory` remains a permanent context-preserving
+  // redirect (D-2) for external deep links, but the EDR product no
+  // longer routes its own primary navigation through the XDR namespace.
+  { key: "device-trajectory", label: "Device Trajectory", icon: Radar,       to: "/edr/device-trajectory" },
   { key: "process-tree",   label: "Process Tree",     icon: GitBranch,       to: "/edr/process-tree" },
   { key: "campaign-story", label: "Campaign Story",   icon: BookOpen,        to: "/edr/campaign-story" },
   { key: "files",          label: "Files",            icon: FileText,        to: "/edr/files" },

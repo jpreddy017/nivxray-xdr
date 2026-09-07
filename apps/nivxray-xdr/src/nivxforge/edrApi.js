@@ -65,6 +65,20 @@ export async function getFleetSpreadIndex() {
   return data;
 }
 
+/**
+ * P0-W.F-2 · the AUTHORITATIVE capability-truth registry.
+ *
+ * `GET /api/edr/wave0/capabilities` is the single place that grades every
+ * EDR capability across all three planes.  The console must read this
+ * instead of hardcoding availability: no capability may be presented as
+ * unavailable when the registry grades it implemented, and none may be
+ * presented as operational because a route or component exists.
+ */
+export async function getEdrCapabilities() {
+  const { data } = await api.get("/edr/wave0/capabilities");
+  return data;
+}
+
 /** Evidence-gated prose for one persisted observation. */
 export async function getObservationNarrative(device, eventIid) {
   const { data } = await api.get("/edr/observation-narrative",

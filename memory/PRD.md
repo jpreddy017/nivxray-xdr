@@ -1,5 +1,119 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · **CISCO XDR AUDIT DELTA** + **WIRING PHASE P0 (F-1, F-2)** · DELIVERED
+
+### A · Cisco delta — `/app/memory/MASTER_CISCO_DELTA.md`
+Read all 76 slides of the owner's `XDR.pptx`. **Delta only** — the master
+audit was not restarted, no matrix duplicated, no finding repeated, no
+ownership decision changed. The deck **validates** the two-product
+separation (`INGEST → DETECT → RESPOND`); it contradicts nothing in the
+baseline. Sections 1, 3, 4, 5, 6, 7 and 8 of the owner's delta brief were
+found **already covered → OMITTED**.
+
+13 genuinely new gaps, the important ones being:
+- **D-1** The priority score is *specified*: `Priority Score = Detection
+  Risk × Asset Value`, `Detection Risk = MITRE TTP Financial Risk + #
+  MITRE TTPs + Source Severity`. The Devices page *"allows defining a
+  device's **value**, used when scoring XDR incidents"* → Cisco's asset
+  value is **user-defined, not collected**, so `S-7`/`B-8`'s asset
+  component is **`MISSING`, not `BLOCKED`**. First baseline correction
+  found by the delta (flagged, not applied).
+- **D-2** *Attack chain* is a distinct named object **between alert and
+  incident**, and incident creation is **gated** on chain qualification.
+  We never audited whether ours is persisted, nor which of our **three**
+  correlation surfaces owns that gate. `Recommend Actions` is a pipeline
+  stage, and `Device Insights` an incident-evaluation input.
+- **D-3** Per-domain telemetry + **per-domain detection producers**
+  (Endpoint · Firewall Log · NVM · Cloud Flow · Network Flow). `B-1` audits
+  "a second domain" generically — the missing per-domain row is exactly
+  what decides whether F-4's real CEF/LEEF stream is a **second domain** or
+  **another transport for endpoint telemetry**.
+- **D-4** **Judgements** are first-class intel objects and the pivot menu's
+  first action; we have verdicts, not judgements → adopt
+  `/api/corrections/*` or `/api/verdict/*`, never a third disposition engine.
+- **D-6** Cisco's notes surface is the **Worklog** (notes + automated
+  response-action history). `M-1` may therefore be an **ORPHAN (adopt the
+  existing `workspace_cases` worklog)**, not a build — audit before
+  creating any notes store.
+- **D-5** the ribbon's six contents are now specified · **D-7** the
+  *Important only* detection filter has a published definition (derivable
+  → MISSING, not BLOCKED) · **D-8** XDR needs an *entry point* into
+  endpoint live query while EDR keeps ownership · **D-9** dashboards are
+  **shareable** · **D-10** *targets vs assets* classification is absent
+  from our audit entirely · **D-11** playbook stage labels conflict between
+  the deck and the R2 capture → `REFERENCE_CAPTURE_REQUIRED` · **D-12**
+  five automation-rule types, **Approval is one of them** · **D-13** the
+  `source-product API → execution → verification` chain has exactly **one**
+  implementation (EDR).
+
+5 new ownership ambiguities (A-1 attack chain · A-2 device value · A-3
+judgement · A-4 worklog · A-5 live-query entry point) and 8 new
+review-only wiring candidates, all expressed as `EXISTING A → EXISTING B`.
+The deck is an architecture reference, so it **closed no**
+`REFERENCE_CAPTURE_REQUIRED` row; it **added** seven newly needed captures.
+
+### B · Wiring phase P0 — APPROVED, EXECUTED, PROVEN
+`scripts/p0_w_f1_f2_wiring_proof.py` → **27/27 PASS**.
+
+**F-1 · Endpoint identity — `REAL_RUNTIME_VERIFIED`.** Root cause was
+narrower and worse than the audit could see: the observation plane keys the
+device on `event.device_iid` + `collector_id`, but the projection queried
+top-level `device_iid` and `event.computer` — **fields that exist on 0
+documents** — so the *only* live clause was `collector_id == <the raw
+string the caller supplied>`. `endpoint-detections` did no identity
+resolution at all and had **no tenant scoping**.
+Fixed by adding `device_identity.identity_refs()` — a **lookup in both
+directions** through the enrolment record (never an inference) — and using
+it, plus the fields the stores actually use, in both projections.
+`endpoint-detections` now resolves under the **caller's** scope.
+Proof: `dev_42e8c6dc74b9`, `ep_2d57cbe6f80152062109` and the hostname all
+return **the same 30-node tree and the same 7 detections over 678 events
+evaluated**, and the **same raw evidence ids** — not merely equal counts.
+Isolation was **widened by nothing**: forged references → honest
+`ENDPOINT_NOT_RESOLVED`; a `nivx-live` analyst gets nothing for a
+`default` endpoint and the alias set leaks no `endpoint_id`; the owning
+tenant's analyst sees exactly what the admin sees. Both surfaces now
+disclose `identity.addressed_by`. UI proof: `/edr/process-tree` and
+`/edr/detections` on the `device_iid` no longer print *"NO MATCHING
+EVIDENCE"* / *"NO RULE FIRED"*.
+
+**F-2 · EDR console truth — `REAL_RUNTIME_VERIFIED`.** `available: false`
+literals are gone. Every overview card now reads the authoritative
+capability registry (`GET /api/edr/wave0/capabilities`, 135 rows) and
+renders its grade verbatim with the registry's own `honest_note` as the
+reason. Live: Device Trajectory `AVAILABLE`; Detections / Process Tree
+`IMPLEMENTED · NOT RUNTIME VERIFIED` (openable); Network `NOT IMPLEMENTED`
+(disabled, still correct). Files exposed a **new honesty trap** — the
+registry grades the capability implemented but `/edr/files` is still a
+stub, so it renders **`IMPLEMENTED · NOT WIRED IN THIS PRODUCT`** and
+stays closed, naming where the capability currently lives. Grading a
+capability real never licenses claiming a stub works. Device Trajectory
+now navigates to the canonical `/edr/device-trajectory`;
+`/xdr/edr/device-trajectory` remains a permanent redirect (D-2).
+Isolation/agent status no longer assert *"Not isolated"* without evidence.
+
+### C · Regression — no regression accepted
+`X1–X3/Y2 22/22` · `P0-F.13.5 25/25` · `Detection Attribution 12/12` ·
+`backend/tests/edr` **330 passed**. The **same 3** pre-existing
+`test_p0_f4_endpoint_process_tree.py` failures remain, unchanged in
+identity and cause: they predate the identity gate and seed **unenrolled**
+endpoints, so the projection returns `ENDPOINT_NOT_RESOLVED` (no `reason`
+key). Diagnosed, not touched — fixing them is test drift, not approved
+wiring.
+
+### D · Still NOT done — next in the approved order
+`P1 F-5` deploy `apps/nivxray-xdr-response` as its own service (owner
+chose separate service) · `P1 F-3` wire `/edr/response` to the EDR
+execution/verification capability without copying the XDR admin UI ·
+`P1 F-4` collector reconciliation — **must not** be solved by pointing the
+console at `:8055`; establish the authoritative state model, reconcile the
+duplicate registries/outboxes, prove tenant/source identity, and fix the
+`0 connectors vs 1 in state file` contradiction (D-c) · `P2 F-6` four 404
+consumer paths · `P2 F-7` spread + Control Center, incl. the admin `400`
+(D-d) · `F-8` **no action, load-bearing** · `G-16` re-evaluate only after
+F-4 proves the CEF/LEEF domain.
+
+
 ## 2026-06 · **MASTER OWNERSHIP + WIRING AUDIT** · DELIVERED · AUDIT ONLY · STOPPED FOR APPROVAL
 
 Executed `/app/memory/MASTER_GATE.md` PART B/L. **No feature code, no

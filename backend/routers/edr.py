@@ -231,15 +231,18 @@ def _project_endpoint_process_tree(endpoint_id: str,
                                 "resolves to this reference")}}
     since = (datetime.now(timezone.utc)
              - timedelta(hours=max(1, min(hours, 24 * 30)))).isoformat()
-    needles = {endpoint_id}
-    if identity:
-        needles |= {v for v in (identity.get("device_iid"),
-                                identity.get("hostname")) if v}
+    # P0-W.F-1: address the endpoint by EVERY identifier the resolved
+    # identity owns, not by the string the caller happened to supply.
+    # The observation plane keys the device on `event.device_iid` and
+    # `collector_id`; the legacy top-level/`event.computer` clauses are
+    # kept for adapters that populate them.
+    refs = dir_svc.identity_refs(identity, endpoint_id)
     docs = list(sync_collection("v2_shadow_observations").find(
         {"kind": {"$regex": "process"},
-         "$or": [{"device_iid": {"$in": list(needles)}},
-                 {"event.computer": {"$in": list(needles)}},
-                 {"collector_id": endpoint_id}],
+         "$or": [{"event.device_iid": {"$in": refs}},
+                 {"collector_id": {"$in": refs}},
+                 {"device_iid": {"$in": refs}},
+                 {"event.computer": {"$in": refs}}],
          "captured_at": {"$gte": since}},
         {"_id": 0, "event": 1, "captured_at": 1, "adapter": 1}))
 
@@ -302,7 +305,8 @@ def _project_endpoint_process_tree(endpoint_id: str,
         "identity": {"resolved": identity is not None,
                      "hostname": (identity or {}).get("hostname"),
                      "device_iid": (identity or {}).get("device_iid"),
-                     "resolved_via": (identity or {}).get("resolved_via")},
+                     "resolved_via": (identity or {}).get("resolved_via"),
+                     "addressed_by": refs},
         "window_hours": hours,
         "nodes": sorted(nodes.values(),
                         key=lambda n: (str(n.get("first_seen") or ""),
@@ -354,14 +358,33 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
     raw endpoint event, so a detection cannot exist here without the real
     evidence that produced it. `/detections` (incident-keyed, case-derived)
     is deliberately left untouched.
+
+    P0-W.F-1: the endpoint is resolved under the CALLER'S scope and then
+    addressed by every identifier that resolved identity owns, so a
+    `device_iid` and its platform-minted `endpoint_id` return the same
+    detections instead of one of them reading as "no rule fired".
     """
+    scope = resolve_tenant_scope((user or {}).get("email"))
+    identity = dir_svc.resolve(endpoint_id, scope)
+    if not identity:
+        return {"endpoint_id": endpoint_id, "window_hours": hours,
+                "identity": {"resolved": False, "resolved_via": None},
+                "detections": [], "count": 0,
+                "events_evaluated": 0, "events_not_evaluated": 0,
+                "source": "edr_raw_events.derivations[]",
+                "reason": "ENDPOINT_NOT_RESOLVED",
+                "note": ("no endpoint you are authorised for resolves to "
+                         "this reference — this is an authorisation or "
+                         "identity outcome, not a statement about "
+                         "detections")}
+    refs = dir_svc.identity_refs(identity, endpoint_id)
     since = (datetime.now(timezone.utc)
              - timedelta(hours=max(1, min(hours, 24 * 30)))).isoformat()
     rows = []
     evaluated = 0
     not_evaluated = 0
     for raw in sync_collection("edr_raw_events").find(
-            {"endpoint_ref": endpoint_id, "ingest_time": {"$gte": since}},
+            {"endpoint_ref": {"$in": refs}, "ingest_time": {"$gte": since}},
             {"_id": 0, "raw_id": 1, "payload": 1, "derivations": 1,
              "ingest_time": 1, "trust_state": 1}):
         for d in (raw.get("derivations") or ()):
@@ -397,6 +420,11 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
     return {
         "endpoint_id": endpoint_id,
         "window_hours": hours,
+        "identity": {"resolved": True,
+                     "resolved_via": identity.get("resolved_via"),
+                     "device_iid": identity.get("device_iid"),
+                     "hostname": identity.get("hostname"),
+                     "addressed_by": refs},
         "detections": rows,
         "count": len(rows),
         "events_evaluated": evaluated,

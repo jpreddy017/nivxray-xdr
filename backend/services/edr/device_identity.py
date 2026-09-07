@@ -244,6 +244,51 @@ def _endpoint_id_aliases(needle: str) -> List[str]:
                                      row.get("hostname")) if v]
 
 
+def identity_refs(identity: Optional[Dict[str, Any]],
+                  supplied: Optional[str] = None) -> List[str]:
+    """Every identifier that addresses ONE resolved endpoint.
+
+    P0-W.F-1.  `resolve()` already translates a platform-minted
+    `endpoint_id` down to the `device_iid`/hostname the observation plane
+    keys on, but the reverse direction was never available, so a caller
+    arriving with the `device_iid` could not address stores keyed on the
+    `endpoint_id` (`edr_raw_events.endpoint_ref`,
+    `v2_shadow_observations.collector_id`).  Surfaces therefore rendered
+    an honest-looking empty state for an endpoint that genuinely has
+    evidence.
+
+    This is a LOOKUP through the enrolment record in BOTH directions,
+    never an inference: an endpoint that is not enrolled contributes
+    nothing, and no identifier is derived from a name, a pid or a
+    timestamp.  The caller must still have resolved the reference under
+    its own scope first — this function widens the identifiers, never
+    the authorisation.
+    """
+    if not identity:
+        return [supplied] if supplied else []
+    refs: List[str] = []
+
+    def _add(v: Any) -> None:
+        if v and str(v) not in refs:
+            refs.append(str(v))
+
+    _add(supplied)
+    _add(identity.get("device_iid"))
+    _add(identity.get("hostname"))
+    _add(identity.get("endpoint_id"))
+
+    # device_iid / hostname → every enrolled endpoint_id (the reverse of
+    # `_endpoint_id_aliases`).  A hostname may legitimately have been
+    # enrolled more than once, so every match is carried.
+    match = [{k: v} for k, v in (("device_iid", identity.get("device_iid")),
+                                 ("hostname", identity.get("hostname"))) if v]
+    if match:
+        for row in sync_collection("edr_endpoints").find(
+                {"$or": match}, {"_id": 0, "endpoint_id": 1}):
+            _add(row.get("endpoint_id"))
+    return refs
+
+
 def resolve(device_ref: str, cross_tenant: bool) -> Optional[Dict[str, Any]]:
     """Resolve a URL device reference to a projected identity.
 
