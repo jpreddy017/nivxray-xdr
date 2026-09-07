@@ -42,6 +42,8 @@ const XdrInvestigationWorkspacePage = lazy(() => import("@/xdr/pages/XdrInvestig
 const XdrEvidenceExplorerPage     = lazy(() => import("@/xdr/pages/XdrEvidenceExplorerPage"));
 const EdrTrajectoryResolver       = lazy(() => import("@/xdr/pages/EdrTrajectoryResolver"));
 const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));
+const XdrSearchPage               = lazy(() => import("@/xdr/pages/XdrSearchPage"));
+const XdrNotImplementedPage       = lazy(() => import("@/xdr/pages/XdrNotImplementedPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
@@ -124,7 +126,14 @@ export default function App() {
         {/* P0 · 2026-09-05 — the inventory now resolves real endpoint
             entities from v2_shadow_observations, so it is a real page
             again instead of a redirect to the incident queue. */}
+        <Route path="/xdr/search"          element={<Protected><XdrSearchPage /></Protected>} />
         <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
+        {/* X1 · the information architecture stays complete; unsupported
+            capabilities render an explicit NOT_IMPLEMENTED page. */}
+        <Route path="/xdr/assets/identity"     element={<Protected><XdrNotImplementedPage node="assets-identity" /></Protected>} />
+        <Route path="/xdr/assets/network"      element={<Protected><XdrNotImplementedPage node="assets-network" /></Protected>} />
+        <Route path="/xdr/assets/attack-paths" element={<Protected><XdrNotImplementedPage node="attack-paths" /></Protected>} />
+        <Route path="/xdr/assets/critical"     element={<Protected><XdrNotImplementedPage node="critical-assets" /></Protected>} />
         {/* P1.4 · Endpoint Entity 360 workspace (master-detail). */}
         <Route path="/xdr/endpoints/:device"
                                             element={<Protected><XdrEntity360Page /></Protected>} />

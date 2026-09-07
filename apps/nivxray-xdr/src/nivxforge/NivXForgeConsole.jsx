@@ -19,8 +19,7 @@ import {
   LayoutGrid, ShieldAlert, Radar, GitBranch, FileText, Wifi,
   Search, Camera, Terminal, ArrowRightLeft,
   ArrowLeft,
-  BookOpen,
-} from "lucide-react";
+  BookOpen, Monitor } from "lucide-react";
 
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import XdrShell from "@/xdr/XdrShell";
@@ -29,6 +28,7 @@ import "./nivxforge.css";
 
 const TABS = [
   { key: "overview",       label: "Overview",         icon: LayoutGrid,      to: "/edr" },
+  { key: "computers",      label: "Computers",        icon: Monitor,         to: "/xdr/endpoints" },
   { key: "detections",     label: "Detections",       icon: ShieldAlert,     to: "/edr/detections" },
   // P0-F.13.3 · ONE canonical Device Trajectory in the operational EDR
   // navigation — the AMP renderer. The XDR case-context projection is

@@ -1073,6 +1073,83 @@ def _ms_iso(ms: int) -> str:
     return (datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
             .isoformat().replace("+00:00", "Z"))
 
+
+# ═══════════════════════════════════════════════════════════════════
+# X3 · EDR → XDR ·  LINKED XDR INCIDENTS
+#
+# The operational endpoint plane must be able to say which XDR
+# incidents reference the endpoint the analyst is looking at, without
+# leaving the trajectory. It is a read of `workspace_cases` — no
+# incident is created, graded or duplicated here, and the link is
+# resolved on the endpoint identity the incident itself recorded.
+# ═══════════════════════════════════════════════════════════════════
+@router.get("/endpoints/{endpoint_id}/linked-incidents")
+async def linked_incidents(endpoint_id: str,
+                           user=Depends(get_current_user)) -> Dict[str, Any]:
+    scope = _is_cross_tenant(user)
+    identity = dir_svc.resolve(endpoint_id, scope)
+    if not identity:
+        return {"engine_id": "nivxray::edr_plane::linked_incidents",
+                "state": "ENDPOINT_NOT_RESOLVED", "incidents": [],
+                "count": 0,
+                "reason": ("no endpoint you are authorised for resolves to "
+                           "this reference")}
+
+    host = identity.get("hostname")
+    ep = identity.get("endpoint_id")
+    refs = [r for r in (host, ep, identity.get("device_iid")) if r]
+    q: Dict[str, Any] = {"endpoint_campaign": {"$exists": True},
+                         "$or": [{"endpoint_campaign.hostname":
+                                  {"$in": refs}},
+                                 {"endpoint_campaign.endpoint_id":
+                                  {"$in": refs}}]}
+    tscope = resolve_tenant_scope((user or {}).get("email"))
+    if not tscope.get("all_tenants"):
+        q["tenant_id"] = {"$in": tscope.get("tenant_ids") or []}
+
+    rows: List[Dict[str, Any]] = []
+    for doc in sync_collection("workspace_cases").find(
+            q, {"_id": 0, "id": 1, "incident_number": 1, "title": 1,
+                "tenant_id": 1, "incident_state": 1, "incident_priority": 1,
+                "verdict_stage2": 1, "endpoint_campaign": 1}).limit(50):
+        camp = doc.get("endpoint_campaign") or {}
+        dets = [d for d in (camp.get("detections") or [])
+                if isinstance(d, dict)]
+        rows.append({
+            "incident_id": doc.get("id"),
+            "incident_number": doc.get("incident_number"),
+            "title": doc.get("title"),
+            "tenant_id": doc.get("tenant_id"),
+            "state": doc.get("incident_state"),
+            "priority": doc.get("incident_priority"),
+            "verdict": (doc.get("verdict_stage2") or {}).get("label"),
+            "rule_ids": list(camp.get("rule_ids") or []),
+            "detection_count": len(dets),
+            "first_activity_at": camp.get("first_activity_at"),
+            "last_activity_at": camp.get("last_activity_at"),
+            "matched_on": ("endpoint_campaign.endpoint_id"
+                           if camp.get("endpoint_id") in refs
+                           else "endpoint_campaign.hostname"),
+            "href": f"/xdr/incidents/{doc.get('id')}",
+        })
+    rows.sort(key=lambda r: str(r.get("last_activity_at") or ""),
+              reverse=True)
+    return {
+        "engine_id": "nivxray::edr_plane::linked_incidents",
+        "state": "LINKED" if rows else "NO_LINKED_INCIDENT",
+        "endpoint": {"endpoint_id": endpoint_id,
+                     "device_iid": identity.get("device_iid"),
+                     "hostname": host,
+                     "tenant_id": identity.get("tenant_id")},
+        "incidents": rows, "count": len(rows),
+        "basis": ("workspace_cases.endpoint_campaign, matched on the "
+                  "endpoint identity the incident itself recorded"),
+        "message": (None if rows else
+                    "No XDR incident references this endpoint. That is an "
+                    "absence of a correlated incident, not a verdict of "
+                    "clean."),
+    }
+
 # ═══════════════════════════════════════════════════════════════════
 # DETECTION HANDOFF  ·  P0-F.13.5
 #
@@ -1119,6 +1196,13 @@ async def trajectory_focus(endpoint_id: str,
         case_id, _, rule = detection_id.partition("::rule::")
         inc_id = inc_id or case_id
         rule_ids = [rule]
+    # An explicitly named observation WINS. Adding the incident's other
+    # detections to the wanted set made a URL that named one raw event
+    # land on a different (also-detected) observation from the same
+    # campaign — exact by identifier, but not the identifier the analyst
+    # clicked. The campaign is only consulted when nothing explicit was
+    # supplied.
+    explicit = bool(raw_event_id or canonical_event_id or event_iid)
     if inc_id:
         got = authorised_incident(inc_id, (user or {}).get("email"))
         if got["state"] != "AUTHORIZED":
@@ -1127,6 +1211,8 @@ async def trajectory_focus(endpoint_id: str,
                     "reason": "the incident is not within your tenant scope"}
         camp = (got["doc"].get("endpoint_campaign") or {})
         for d in (camp.get("detections") or []):
+            if explicit:
+                break
             if not isinstance(d, dict):
                 continue
             if rule_ids and not (set(d.get("rule_ids") or []) & set(rule_ids)):

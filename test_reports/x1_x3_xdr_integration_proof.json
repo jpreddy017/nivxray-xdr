@@ -1,0 +1,111 @@
+{
+ "phase": "X1-X3 \u00b7 XDR shell \u00b7 unified search \u00b7 XDR\u2194EDR pivots",
+ "base_url": "https://greeting-app-5782.preview.emergentagent.com",
+ "acceptance": [
+  {
+   "item": "X2_rule_id_search_spans_entity_types",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "14 results \u00b7 {'INCIDENT': 4, 'DETECTION': 10} \u00b7 classified RULE_ID"
+  },
+  {
+   "item": "X2_detection_result_opens_the_exact_observation",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "href /xdr/edr/device-trajectory?device=dev_42e8c6dc74b9&raw_event_id=raw_852ccd4c1b35ce5163812618&can (the proven identifier-only handoff)"
+  },
+  {
+   "item": "X2_hostname_resolves_the_endpoint",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "{'INCIDENT': 4, 'ENDPOINT': 1} \u00b7 endpoint href ['/xdr/edr/device-trajectory?device=dev_42e8c6dc74b9']"
+  },
+  {
+   "item": "X2_evidence_identifier_resolves_evidence_process_and_detection",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "{'DETECTION': 1, 'EVIDENCE': 1, 'PROCESS': 1}"
+  },
+  {
+   "item": "X2_incident_reference_resolves_its_incident",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "/xdr/incidents/inc_2305c71cd8f54dc38e55"
+  },
+  {
+   "item": "X2_no_match_is_stated_not_padded",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "-> NO_MATCH"
+  },
+  {
+   "item": "X2_unsupported_entity_type_is_explicit",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "identity -> NOT_SEARCHABLE_NO_INDEX \u00b7 no identity/user directory is ingested by this platform"
+  },
+  {
+   "item": "X2_ordinary_search_is_not_cluttered_with_unsupported_types",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "empty/unsupported categories are absent from a normal result set; they are listed only by /api/xdr/search/capabilities or when asked"
+  },
+  {
+   "item": "X2_search_declares_what_it_cannot_answer",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "7 searchable \u00b7 7 NOT_SEARCHABLE_NO_INDEX"
+  },
+  {
+   "item": "X2_no_event_digest_is_offered_as_a_file_hash",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "event.raw.sha256 is an event-content digest, so FILE results pivot on the observed path only"
+  },
+  {
+   "item": "X2_search_is_tenant_scoped",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "nivx-live principal searching a default endpoint -> NO_MATCH \u00b7 {}"
+  },
+  {
+   "item": "X3_linked_xdr_incidents_are_resolved",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "4 incidents \u00b7 ['INC000000293', 'INC000000232', 'INC000000231', 'INC000000230'] \u00b7 basis workspace_cases.endpoint_campaign, matched on the endpoint i"
+  },
+  {
+   "item": "X3_linked_incidents_fail_closed_cross_tenant",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "-> ENDPOINT_NOT_RESOLVED"
+  },
+  {
+   "item": "X3_forged_endpoint_has_no_linked_incidents",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "-> ENDPOINT_NOT_RESOLVED"
+  },
+  {
+   "item": "X3_explicit_identifier_wins_over_incident_derived_ids",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "named raw_fac9185acde4f8ccebef7a3b with incident context held -> raw_fac9185acde4f8ccebef7a3b \u00b7 lane 339 \u00b7 incident inc_2305c71cd8f54dc38e55"
+  },
+  {
+   "item": "X3_incident_only_pivot_still_resolves_from_the_campaign",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "case-surface detection_id -> evt_b73ed914adc8b9b1#6a116567f5"
+  },
+  {
+   "item": "X1_pivot_context_is_complete",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "tenant INHERITED_FROM_INCIDENT \u00b7 incident INC000000293 \u00b7 endpoint dev_42e8c6dc74b9"
+  }
+ ],
+ "reuse_note": "extends XdrShell, NivXForgeConsole, edr router and the proven P0-F.13.5 handoff; the only new surfaces are the genuinely missing ones (/api/xdr/search, the context bar, linked incidents, capability-honest IA nodes)",
+ "passed": 17,
+ "failed": 0
+}

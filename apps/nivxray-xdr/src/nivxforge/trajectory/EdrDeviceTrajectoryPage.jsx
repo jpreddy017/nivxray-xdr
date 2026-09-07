@@ -26,6 +26,7 @@ import { useSearchParams } from "react-router-dom";
 import { Maximize2, Minimize2, Moon, Sun } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
+import LinkedXdrIncidents from "@/nivxforge/components/LinkedXdrIncidents";
 import { getSessionContext } from "@/nivxforge/edrApi";
 import api from "@/lib/api";
 
@@ -544,6 +545,11 @@ export default function EdrDeviceTrajectoryPage() {
           Device Trajectory
         </span>
         <span style={{ flex: 1 }} />
+        {/* X3 · EDR → XDR: which incidents reference this endpoint, and
+            open them, without leaving the trajectory. */}
+        <LinkedXdrIncidents device={device}
+                            incidentId={params.get("incident_id")
+                              || params.get("incident")} />
         <button onClick={() => {
                   const next = theme === "dark" ? "light" : "dark";
                   window.localStorage.setItem("nx.theme", next);

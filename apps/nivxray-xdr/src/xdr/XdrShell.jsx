@@ -28,6 +28,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { getSessionContext } from "@/nivxforge/edrApi";
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
+import XdrContextBar from "@/xdr/components/XdrContextBar";
 import "./xdr-console.css";
 import "./nx/nx-epistemic.css";
 import "./nx/nx-tokens.css";
@@ -101,8 +102,9 @@ const SIDEBAR = [
       { key: "evidence-explorer", label: "Evidence Explorer", icon: Search,
         to: "/xdr/evidence-explorer",
         title: "Cross-case evidence explorer · extracted artifacts · hash chains · decoded payloads" },
-      { key: "entity-search", label: "Entity Search", icon: Fingerprint,
-        disabled: true, title: "Cross-case entity search — arrives in Phase 6" },
+      { key: "entity-search", label: "Global Search", icon: Fingerprint,
+        to: "/xdr/search",
+        title: "Unified search across incidents, endpoints, detections and canonical evidence" },
       { key: "attack-story-rollup", label: "Attack Story Rollup", icon: Fingerprint,
         disabled: true, title: "Cross-case attack-story rollup — arrives in Phase 5+ (distinct from per-incident Attack Story)" },
     ],
@@ -147,13 +149,28 @@ const SIDEBAR = [
     area: "investigator",
     section: "Exposure",
     items: [
-      { key: "assets",          label: "Assets",          icon: Boxes,    disabled: true },
+      // The information architecture stays COMPLETE: a capability that
+      // belongs to NivXRay XDR is reachable and states honestly that it
+      // is not operational, instead of being a dead disabled row.
+      { key: "assets",          label: "Endpoints",       icon: Boxes,
+        to: "/xdr/endpoints",
+        title: "Endpoint inventory — the operational asset class" },
+      { key: "assets-identity", label: "Identity / Users", icon: UserIcon,
+        to: "/xdr/assets/identity",
+        title: "Not implemented — no identity source is ingested" },
+      { key: "assets-network",  label: "Network Assets",  icon: Wifi,
+        to: "/xdr/assets/network",
+        title: "Not implemented — no network inventory source is ingested" },
       { key: "vulnerabilities", label: "Vulnerabilities", icon: ShieldOff, disabled: true },
       { key: "exposure",        label: "Vulnerability Exposure", icon: ShieldAlert,
         to: "/xdr/exposure",
         title: "CVE / NVD / KEV / EPSS · asset ↔ software ↔ CVE correlation" },
-      { key: "attack-paths",    label: "Attack Paths",    icon: Route,    disabled: true },
-      { key: "critical-assets", label: "Critical Assets", icon: KeyRound, disabled: true },
+      { key: "attack-paths",    label: "Attack Paths",    icon: Route,
+        to: "/xdr/assets/attack-paths",
+        title: "Not implemented — needs identity, network and exposure graphs" },
+      { key: "critical-assets", label: "Critical Assets", icon: KeyRound,
+        to: "/xdr/assets/critical",
+        title: "Not implemented — no asset criticality source is declared" },
     ],
   },
   {
@@ -318,7 +335,9 @@ export default function XdrShell({ children, flush = false }) {
     e.preventDefault();
     const term = q.trim();
     if (!term) return;
-    navigate(`/xdr/incidents?q=${encodeURIComponent(term)}`);
+    // X2 · one unified search surface across every authoritative store,
+    // not the incident queue's local filter.
+    navigate(`/xdr/search?q=${encodeURIComponent(term)}`);
   };
 
   const openExternal = (to) => window.open(to, "_blank", "noopener,noreferrer");
@@ -571,6 +590,10 @@ export default function XdrShell({ children, flush = false }) {
           })}
         </aside>
         <main className={`main${flush ? " flush" : ""}`} data-testid="xdr-main">
+          {/* X1 · one context bar for every plane: breadcrumbs plus the
+              customer / endpoint / incident / evidence context that must
+              survive a pivot. It states context, never grants it. */}
+          <XdrContextBar />
           {children}
         </main>
       </div>

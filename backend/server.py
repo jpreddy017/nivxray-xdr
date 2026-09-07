@@ -621,6 +621,10 @@ api.include_router(deck_download_router)
 from routers.edr_wave0 import router as edr_wave0_router
 api.include_router(edr_wave0_router)
 
+from routers.xdr_search import router as xdr_search_router
+api.include_router(xdr_search_router)
+
+
 # NivXForge EDR · P0-A.2 — enrolment control plane + authenticated agent
 # surface. Enrolment, sensor identity and telemetry authentication are ONE
 # atomic boundary: every raw event records which authenticated endpoint
