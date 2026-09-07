@@ -318,6 +318,11 @@ api.include_router(auto_investigate_router)
 # to.  Idempotent on execution_id · never touches SSOT / Verdict / IKG.
 from routers.xdr_response_evidence import router as xdr_response_evidence_router
 api.include_router(xdr_response_evidence_router)
+
+# P0-1 · service boundary to the independently deployed Response Engine.
+# Holds no response state or logic; fails closed when the engine is down.
+from routers.xdr_respond_boundary import router as xdr_respond_boundary_router
+api.include_router(xdr_respond_boundary_router)
 from routers.xdr_audit_log import router as xdr_audit_log_router
 app.include_router(xdr_audit_log_router)
 from routers.xdr_secrets import router as xdr_secrets_router

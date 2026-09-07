@@ -52,14 +52,22 @@ def session(creds) -> requests.Session:
     return s
 
 
+# The window must cover the evidence, not the sensor's uptime: this proof
+# is about IDENTITY resolution, so it must not fail merely because the
+# sensor stopped delivering and a 24h default slid past the data.
+WINDOW_HOURS = 720
+
+
 def tree(s, ident):
     return s.get(f"{BASE}/api/edr/process-tree",
-                 params={"endpoint_id": ident}, timeout=90).json()
+                 params={"endpoint_id": ident, "hours": WINDOW_HOURS},
+                 timeout=90).json()
 
 
 def dets(s, ident):
     return s.get(f"{BASE}/api/edr/endpoint-detections",
-                 params={"endpoint_id": ident}, timeout=90).json()
+                 params={"endpoint_id": ident, "hours": WINDOW_HOURS},
+                 timeout=90).json()
 
 
 def traj(s, ident):

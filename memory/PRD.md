@@ -1,5 +1,116 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · **P0-1 RESPONSE SERVICE DEPLOY** — DONE · 37 PASS · 0 FAIL · 2 BLOCKED
+
+Report: `/app/memory/STEP2_RESPONSE_SERVICE_DEPLOY.md`
+Proof: `scripts/p01_response_service_deploy_proof.py`
+
+**No second response implementation.** No new response store, collection,
+state machine, registry or approval logic. The existing plane was
+deployed and connected.
+
+### Architecture trace first — the decisive finding
+The engine (`apps/nivxray-xdr-response`) already had registry, executor,
+approval workflow, idempotency, sqlite SSOT and evidence forwarder. But
+**all 18 adapters were Phase-1 stubs** returning deterministic success —
+so deploying it as-is would have handed an operator `SUCCEEDED` for an
+isolation that never left the service. Meanwhile the **EDR already owned
+the authoritative execution AND verification lifecycle**
+(`edr_plane/response.py`: `REQUESTED → DISPATCHED → EXECUTED → VERIFIED`,
+with `proof_of()` and a `CLAIMED_VERIFIED_WITHOUT_EVIDENCE` guard). So
+the endpoint domain was **adopted**, not reimplemented.
+
+### Topology
+`console → backend /api/xdr/respond/* (boundary, fails closed) → engine
+:8056 (supervisor xdr_response, own sqlite SSOT) → POST /api/edr/response/actions
+→ endpoint → proof_of() → evidence + audit → XDR`
+Only `:8001`/`:3000` traverse the ingress, hence the boundary. It holds
+**no** state, registry or approval logic and re-derives no authorization.
+
+### Response SSOT: RETAINED
+`framework/execution_store.py` (sqlite, WAL, tenant-first idempotency
+key) stays authoritative. The new lifecycle is **derived** in
+`framework/lifecycle.py` — **zero schema change, zero new column**.
+
+### Five facts kept distinct (the whole point)
+`requested → pending_approval → approved → dispatched → executing →
+executed → verified` + `rejected · cancelled · dispatch_failed ·
+execution_failed · timed_out · verification_failed · simulated`.
+Enforced **as data** in `facts{}`:
+- engine `SUCCEEDED` maps to **`dispatched`** for a real dispatch, never `executed`
+- `executed` requires the EDR's own `EXECUTED`
+- `verified` requires `edr_proof.verified == True`; a `VERIFIED` state
+  **without** proof is downgraded to `executed`
+- a stub adapter terminates at **`simulated`** and can never reach
+  dispatched/executed/verified. Catalogue: **2 REAL_PRODUCT_API · 16
+  STUB_NO_SIDE_EFFECT**, every stub `NOT_CONNECTED`.
+
+### Authorization derived from EXISTING models, never invented
+The engine speaks `role:scope`, XDR speaks `resource.action`. The
+boundary translates between the two existing catalogues: without
+`response.execute` **no scope is issued** and the engine refuses on its
+own authority; `response.approve` is required separately. Result: real
+**separation of duties** — a recommend-only analyst can neither execute
+nor approve. Every decision discloses `authorization_basis`. Tenant and
+invoker come from the **session** and overwrite the body; the approver is
+the session principal, never the body. **The bearer is never persisted**
+— a restart-resumed execution fails closed with `no_acting_principal`.
+
+### Proof highlights (37 gates)
+Separate process · health/readiness · boundary reachability · no
+anonymous surface · destructive action parks in `pending_approval` ·
+separation of duties · wrong tenant cannot see/approve/read · client
+`tenant_id` never honoured · approval attributed to the session ·
+**real dispatcher handoff** (`edr_command_id`, EDR `AUTHORIZED`, proof
+`AUTHORISED_NOT_YET_SENT`) · full correlation · immutable approval (409)
+· **idempotent replay creates no second endpoint command** · durable
+across a **service restart** · evidence + audit refs forwarded · and with
+the engine **DOWN** the boundary returns `503
+response_engine_unavailable` / `dispatch_failed` — **never a silent
+success**.
+
+### BLOCKED — not convertible to PASS in this pod
+- **Real network isolation** — `CAP_NET_ADMIN` absent (`CapEff
+  00000000a80405fb`). Not simulated, not mocked, not written around.
+- **Independent verification of real isolation** — no post-action
+  containment probe can run, so **no isolation may be graded VERIFIED**.
+
+### Other unresolved
+16 of 18 actions have no product adapter (firewall/DNS/mail/cloud/
+identity — same dependency as `B-1`/`D-13`) · `endpoint.release` has no
+`ActionSpec`, so isolation cannot be lifted through the engine ·
+isolation still requires a configured verification target.
+
+### Regression — none
+engine tests **27 passed** (2 corrected: they asserted stub `SUCCEEDED`
+for a now-real action, and now assert the approval lifecycle + the new
+invariants) · `22/22` · `25/25` · `12/12` · `27/27` · `25/25` ·
+`backend/tests/edr` + lifecycle + queue + response-evidence **367 passed,
+3 failed** (the same pre-existing `test_p0_f4` trio). The 6 pre-existing
+queue/lens/MSS data-dependent failures remain baselined, not repaired.
+
+**Two honest observations:** `p0_w_f1_f2_wiring_proof` briefly read 23/27
+— not a regression, the sensor's last delivery was `2026-09-06T15:46Z`
+and the proof's 24h default window slid past it; it now requests an
+explicit window because it tests identity, not uptime. Separately,
+**the endpoint sensor has stopped delivering telemetry** (no
+`edr_raw_events` in the last 24h).
+
+### Contract now available for P0-2
+`response_lifecycle.lifecycle` · `.facts{}` · `.dispatch_mode` ·
+`.authoritative_for_execution` · `.edr{command_id, state, proof}`.
+A UI reading `facts` **cannot** render containment from an accepted or
+dispatched action.
+
+### Untouched by design
+`incident_state_history[]` was **not** redesigned (worklog propagation is
+P1) and the Case/Investigation stores gained **no** response state.
+
+### Remaining order (fixed)
+`P0-2` EDR Response Surface → `P0-3` Collector Reconciliation → `P1`
+Worklog Entry Types. `F-6`/`F-7` excluded from this phase.
+
+
 ## 2026-06 · **STEP 1 WORKLOG ADOPTION CHECK** + **P0 INCIDENT TENANT AUTHORIZATION FIX**
 
 Report: `/app/memory/STEP1_WORKLOG_ADOPTION_CHECK.md`.
