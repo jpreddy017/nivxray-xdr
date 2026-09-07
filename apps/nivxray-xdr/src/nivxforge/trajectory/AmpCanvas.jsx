@@ -46,6 +46,7 @@ function aggregate(events, xOf) {
 export default function AmpCanvas({
   lanes, laneStart, rows, totalLanes, view, plotW, height, byLane,
   selected, onSelect, onView, onLaneStart, onPivot,
+  observedStart = null, observedEnd = null,
 }) {
   const [hover, setHover] = useState(null);
   const [menu, setMenu] = useState(null);
@@ -176,6 +177,43 @@ export default function AmpCanvas({
          onMouseLeave={() => setHover(null)}
          onClick={() => setMenu(null)}>
       <svg width={GUTTER + plotW} height={height} data-testid="amp-svg">
+        <defs>
+          {/* Time with NO SENSOR COVERAGE is hatched. An empty white
+              column would claim "nothing happened here", which is a
+              verdict the evidence does not support. */}
+          <pattern id="amp-canvas-hatch" width={7} height={7}
+                   patternUnits="userSpaceOnUse"
+                   patternTransform="rotate(45)">
+            <rect width={7} height={7} fill={C.paperAlt} />
+            <line x1={0} y1={0} x2={0} y2={7} stroke={C.hatch}
+                  strokeWidth={2.8} />
+          </pattern>
+        </defs>
+
+        {/* ── outside the observed evidence range ────────────────── */}
+        {(() => {
+          const bands = [];
+          if (observedStart != null && observedStart > view.t0) {
+            bands.push(["before", GUTTER,
+                        Math.min(plotW, xOf(observedStart))]);
+          }
+          if (observedEnd != null && observedEnd < view.t1) {
+            const x = Math.max(0, xOf(observedEnd));
+            bands.push(["after", GUTTER + x, plotW - x]);
+          }
+          return bands.filter(([, , w]) => w > 0.5).map(([k, x, w]) => (
+            <g key={`hatch-${k}`}>
+              <rect x={x} y={AXIS_H} width={w} height={height - AXIS_H}
+                    fill="url(#amp-canvas-hatch)" pointerEvents="none"
+                    data-testid={`amp-canvas-hatch-${k}`} />
+              <text x={k === "before" ? x + 6 : x + 6} y={AXIS_H + 13}
+                    fontSize={8.6} fill={C.inkFaint} pointerEvents="none">
+                no sensor coverage
+              </text>
+            </g>
+          ));
+        })()}
+
         {/* ── time axis: rotated tick labels above the plot ─────── */}
         <g data-testid="amp-time-axis">
           <rect x={0} y={0} width={GUTTER + plotW} height={AXIS_H}
@@ -225,6 +263,26 @@ export default function AmpCanvas({
             </g>
           );
         })}
+
+        {/* ── selected observation · precise temporal guide ─────── */}
+        {selected?.timestamp && (() => {
+          const t = Date.parse(selected.timestamp);
+          if (!(t >= view.t0 && t <= view.t1)) return null;
+          const x = GUTTER + xOf(t);
+          const hhmmss = new Date(t).toISOString().slice(11, 19);
+          return (
+            <g pointerEvents="none" data-testid="amp-temporal-guide"
+               data-at={selected.timestamp}>
+              <line x1={x} y1={AXIS_H} x2={x} y2={height}
+                    stroke={C.selectionStrong} strokeWidth={0.9}
+                    strokeDasharray="3 2" />
+              <rect x={x - 26} y={AXIS_H - 13} width={52} height={12}
+                    rx={1.5} fill={C.selectionStrong} />
+              <text x={x} y={AXIS_H - 4} textAnchor="middle" fontSize={8.4}
+                    fill="#FFFFFF" fontWeight={700}>{hhmmss}</text>
+            </g>
+          );
+        })()}
 
         {/* ── lineage connectors, drawn under the rows ──────────── */}
         <g data-testid="amp-connectors">

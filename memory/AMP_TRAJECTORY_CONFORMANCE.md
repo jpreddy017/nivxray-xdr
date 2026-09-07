@@ -209,3 +209,80 @@ relationships only from authoritative `process_iid`/`parent_iid`.
 
 Still explicitly NOT started (owner instruction): Fleet File
 Trajectory, and any NivXRay enrichment inside the trajectory.
+
+
+## P0-F.13.2 / .3 — Trajectory architecture audit + platform shell restoration (2026-09-07)
+
+Owner vote: **`/xdr/edr/device-trajectory` (AMP renderer) is the canonical
+operational Device Trajectory.**
+
+Audit (`test_reports/p0_f13_2*.json` + `P0_F13_2*_AUDIT.md`):
+
+* The two sidebar entries were never two engines. Both projections read
+  `v2_shadow_observations`; `/api/edr/device-trajectory` is the XDR
+  case/entity-context projection (58 name-grouped lifelines, 5 swim-lanes,
+  Entity 360) and `/api/edr/endpoints/{id}/trajectory` is the operational
+  per-`process_iid` projection (491 lanes). No second telemetry, evidence,
+  trajectory or detection store exists. `ARCHITECTURAL_DUPLICATION = NO`
+  at the engine level, resolved at the navigation level.
+* Three complaints from the screenshots were proven to be DATASET facts,
+  not renderer defects: 446/446 process lanes are `END_NOT_OBSERVED` (no
+  `process_exit` is collected) so lifelines dash open; the host's whole
+  event vocabulary is `network_connect` 3731 / `process_create` 262 /
+  `detection` 4 / `file_write` 3, so the System section is legitimately
+  one glyph; Files & Network is real at rows 453-488.
+
+Implemented:
+
+* **Canvas visibility hatch** — `amp-canvas-hatch-before/after` hatch the
+  part of the window outside the endpoint's observed evidence range and
+  label it `no sensor coverage`. "No visibility" is not "nothing
+  happened".
+* **Selected-event temporal guide** — `amp-temporal-guide` drops a dashed
+  guide plus an `hh:mm:ss` chip at the observation's exact timestamp.
+* **Platform shell restored** — the EDR plane renders inside `XdrShell`
+  (`flush`), so global search, the global navigation incl. Administration,
+  and the user context are the platform's. `NivXForgeConsole` no longer
+  paints a second top bar and owns only the endpoint sub-nav, now with a
+  single `Device Trajectory` entry.
+* **Customer/organisation identity** — the pill printed
+  `user.tenant || user.email`. It now shows the server-resolved customer
+  over the principal, in the Cisco position (icon · name · chevron); the
+  initials chip is gone and Sign out moved into that dropdown. The
+  decorative notification bell was deleted rather than left ringing at
+  nothing; Help opens the real Knowledge Base.
+* **Entry context** — `GET /api/edr/context` (`DIRECT_EDR` vs
+  `XDR_PIVOT`). Tenant context (who owns the data) and investigation
+  context (why the analyst is here) are separate keys. The browser may
+  name an incident; the server validates it against
+  `resolve_tenant_scope`, inherits its tenant, and reports
+  `endpoint_reference.state` from
+  `workspace_cases.endpoint_campaign.hostname`. `?tenant=` is ignored and
+  never echoed. Cross-tenant attempts fail closed with
+  `INCIDENT_TENANT_OUT_OF_SCOPE`.
+* **Customer-scoped login proven** — `analyst@nivx-live.com` (role
+  `analyst`, `tenant_id=nivx-live`, seeded by
+  `scripts/seed_customer_scoped_analyst.py`) shows `nivx-live` in the
+  pill (`SINGLE_AUTHORIZED_TENANT`) and only its own customer in the
+  dropdown.
+* Owner instruction honoured: the legacy Device Trajectory header
+  controls (breadcrumbs, 1h/6h/24h/7d/30d/All, Fit to observations,
+  Refresh, Export, XDR case-context link) were implemented and then
+  **removed** — "Dont add Device Trajectory things to Device
+  Trajectory · AMP".
+
+Disclosed limitation (not hidden, not faked): `device_identity.list_devices`
+returns `[]` for any principal without a cross-tenant role, because the
+observation substrate carries no `tenant_id` and no enrolment-time customer
+attribution exists. A customer-scoped login therefore sees an empty endpoint
+inventory, and the page now says exactly that. **Next real work:** attribute
+endpoints to a customer at enrolment and carry it into the observation
+envelope.
+
+Verified: `test_reports/iteration_102.json` — backend 6/6, frontend 13/13,
+11/11 EDR routes render inside the shell with one top bar and no console
+errors; P0-F.13.1 mechanics re-verified (wheel/shift/ctrl, drag, navigator
+handles and band, Files & Network deep rows, Activity -> Details -> Back,
+no debug footer). Navigator controls individually exercised: zoom in/out,
+step back/forward and collapse all change state; `fit-day` is a correct
+no-op when the window already spans the day.

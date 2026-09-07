@@ -22,10 +22,11 @@ import {
   Boxes, ShieldOff, Route, KeyRound, Layers,
   Database, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, Users, Webhook, HeartPulse, CheckSquare,
-  ExternalLink, Bell, HelpCircle, Lock, ShieldAlert,
+  ExternalLink, Bell, HelpCircle, Lock, ShieldAlert, ChevronDown,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
+import { getSessionContext } from "@/nivxforge/edrApi";
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import "./xdr-console.css";
 import "./nx/nx-epistemic.css";
@@ -264,28 +265,52 @@ function useActiveKey() {
   }, [pathname, search]);
 }
 
-export default function XdrShell({ children }) {
+export default function XdrShell({ children, flush = false }) {
   const { user, logout } = useAuth();
   const activeKey = useActiveKey();
   const navigate  = useNavigate();
   const { pathname } = useLocation();
   const [q, setQ] = useState("");
   const [theme, setTheme] = useState(readTheme);
+  const [sess, setSess] = useState(null);
+  const [custOpen, setCustOpen] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    getSessionContext()
+      .then((d) => { if (live) setSess(d); })
+      .catch(() => { if (live) setSess({ error: true }); });
+    return () => { live = false; };
+  }, []);
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     try { window.localStorage.setItem(NX_THEME_KEY, next); } catch { /* non-fatal */ }
+    // One theme truth across the shell and the embedded EDR consoles.
+    window.dispatchEvent(new CustomEvent("nx-theme", { detail: next }));
   };
+  useEffect(() => {
+    const onTheme = (e) => setTheme(e.detail === "light" ? "light" : "dark");
+    window.addEventListener("nx-theme", onTheme);
+    return () => window.removeEventListener("nx-theme", onTheme);
+  }, []);
 
-  const initials = (user?.email || "?").slice(0, 2).toUpperCase();
-  const tenant   = user?.tenant || user?.email || "default";
+  /** The customer is an AUTHORISATION fact resolved by the server. The
+   *  pill used to print the analyst's e-mail, which is not a tenant. */
+  const active = sess?.active_customer || null;
+  const customers = sess?.customers || [];
+  const tenantLabel = active?.value
+    ? active.value
+    : (active?.basis === "CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER"
+        ? "ALL CUSTOMERS" : "◇ NOT RESOLVED");
 
   /** Focus mode: the Device Trajectory workspace is a full-width
    *  investigation console, so the product nav leaves the layout. */
   const focusMode = /^\/xdr\/endpoints\/[^/]+/.test(pathname)
                     || pathname.startsWith("/xdr/intelligence/files/")
-                    || pathname.startsWith("/edr/trajectory");
+                    || pathname.startsWith("/xdr/edr/")
+                    || pathname.startsWith("/edr");
   const [navOverlay, setNavOverlay] = useState(false);
   useEffect(() => { setNavOverlay(false); }, [pathname]);
 
@@ -334,9 +359,17 @@ export default function XdrShell({ children }) {
         </form>
 
         <div className="top-actions">
-          <span className="tier-pill" data-testid="xdr-tenant-pill" title="Active tenant / workspace">
-            TENANT · {String(tenant).toUpperCase().slice(0, 24)}
-          </span>
+          {/* No notification service exists in this build, so no bell is
+              painted: a bell that never rings is a lie. Help points at
+              the real Knowledge Base. */}
+          <button
+            className="btn ghost" style={{ padding: 6 }}
+            onClick={() => navigate("/xdr/kb")}
+            title="Knowledge Base · investigation guides, detection guidance, runbooks"
+            data-testid="xdr-help"
+          >
+            <HelpCircle size={13} />
+          </button>
           <button
             className="nx-theme-toggle"
             onClick={toggleTheme}
@@ -349,26 +382,103 @@ export default function XdrShell({ children }) {
           >
             {theme === "dark" ? "◐ DARK" : "◑ LIGHT"}
           </button>
-          <button
-            className="btn ghost" style={{ padding: 6 }}
-            title="Notifications" data-testid="xdr-notifications"
-          >
-            <Bell size={13} />
-          </button>
-          <button
-            className="btn ghost" style={{ padding: 6 }}
-            title="Help" data-testid="xdr-help"
-          >
-            <HelpCircle size={13} />
-          </button>
-          <button
-            className="user-chip"
-            onClick={logout}
-            title={`${user?.email || ""} · Logout`}
-            data-testid="xdr-user-logout"
-          >
-            {initials}
-          </button>
+
+          {/* Customer / organisation cluster — the console's identity
+              anchor, in the Cisco position: icon · org over principal ·
+              chevron. It replaces the initials chip, which said nothing
+              a tenant name does not say better. */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setCustOpen((v) => !v)}
+              title="Active customer / organisation · resolved by the server from your authorisation scope"
+              data-testid="xdr-tenant-pill"
+              data-active-customer={active?.value || ""}
+              data-customer-basis={active?.basis || ""}
+              aria-expanded={custOpen}
+              style={{ display: "flex", alignItems: "center", gap: 8,
+                       background: "transparent", border: "none",
+                       cursor: "pointer", padding: "2px 2px 2px 6px",
+                       color: "var(--text)" }}
+            >
+              <UserIcon size={16} style={{ opacity: .8 }} />
+              <span style={{ display: "flex", flexDirection: "column",
+                             alignItems: "flex-start", lineHeight: 1.15,
+                             maxWidth: 180 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 700,
+                               whiteSpace: "nowrap", overflow: "hidden",
+                               textOverflow: "ellipsis", maxWidth: 180 }}>
+                  {tenantLabel}
+                </span>
+                <span style={{ fontSize: 10, color: "var(--muted)",
+                               whiteSpace: "nowrap", overflow: "hidden",
+                               textOverflow: "ellipsis", maxWidth: 180 }}
+                      data-testid="xdr-principal">
+                  {user?.email || "—"}
+                </span>
+              </span>
+              <ChevronDown size={13} style={{ opacity: .7 }} />
+            </button>
+            {custOpen && (
+              <div data-testid="xdr-customer-menu"
+                   style={{ position: "absolute", top: "calc(100% + 6px)",
+                            right: 0, width: 300, zIndex: 1200,
+                            background: "var(--panel)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 6, padding: 0,
+                            overflow: "hidden",
+                            boxShadow: "0 18px 48px rgba(0,0,0,.5)" }}>
+                <div style={{ fontSize: 9.2, letterSpacing: .7,
+                              textTransform: "uppercase",
+                              padding: "8px 12px 6px",
+                              color: "var(--muted)",
+                              borderBottom: "1px solid var(--border)" }}>
+                  Customer
+                </div>
+                {customers.length === 0 && (
+                  <div style={{ fontSize: 11, padding: "10px 12px",
+                                color: "var(--faint)" }}>
+                    ◇ no customer is resolvable from your scope
+                  </div>
+                )}
+                <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                  {customers.map((c) => (
+                    <div key={c.customer} role="button" tabIndex={0}
+                         onClick={() => { setCustOpen(false);
+                                          navigate(c.queue_href); }}
+                         onKeyDown={(e) => { if (e.key === "Enter") {
+                           setCustOpen(false); navigate(c.queue_href); } }}
+                         data-testid={`xdr-customer-${c.customer}`}
+                         style={{ display: "flex", alignItems: "baseline",
+                                  gap: 10, width: "100%", cursor: "pointer",
+                                  padding: "7px 12px", fontSize: 11.5,
+                                  color: "var(--text)" }}>
+                      <span style={{ flex: 1, minWidth: 0,
+                                     overflow: "hidden",
+                                     textOverflow: "ellipsis",
+                                     whiteSpace: "nowrap" }}>
+                        {c.customer}
+                      </span>
+                      <span className="mono" style={{ fontSize: 10,
+                              color: "var(--faint)", flex: "0 0 auto" }}>
+                        {c.open_incidents} open
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={logout}
+                  data-testid="xdr-user-logout"
+                  style={{ display: "flex", width: "100%", gap: 8,
+                           alignItems: "center", cursor: "pointer",
+                           padding: "8px 12px", fontSize: 11.5,
+                           background: "transparent", border: "none",
+                           borderTop: "1px solid var(--border)",
+                           color: "var(--text-dim)" }}>
+                  <Lock size={11} /> Sign out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -460,7 +570,7 @@ export default function XdrShell({ children }) {
             );
           })}
         </aside>
-        <main className="main" data-testid="xdr-main">
+        <main className={`main${flush ? " flush" : ""}`} data-testid="xdr-main">
           {children}
         </main>
       </div>

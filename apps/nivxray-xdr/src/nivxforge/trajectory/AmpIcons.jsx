@@ -159,7 +159,7 @@ function Shape({ type, color, filled }) {
 export default function EventGlyph({ event, color, count = 1, red = false,
                                      selected = false }) {
   return (
-    <g>
+    <g data-glyph={event.event_type || "unmapped"}>
       {selected && (
         <circle r={8.4} fill="rgba(31,134,208,0.16)" stroke="#1F86D0"
                 strokeWidth={1} />

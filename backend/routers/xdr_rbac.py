@@ -63,6 +63,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from pymongo import ASCENDING, MongoClient
 
+from deps import get_current_user as _deps_current_user
 from routers.xdr_audit_log import emit_audit
 
 router = APIRouter(prefix="/api/xdr/rbac", tags=["xdr-rbac"])
@@ -986,3 +987,13 @@ def simulate(body: SimulateBody, request: Request):
         "effective_permissions_count": len(result.get("effective_permissions") or []),
         "scope_ok":  result.get("scope_ok"),
     }}
+
+
+# ── Endpoint · session context (shell customer pill) ──────────────
+# The XDR shell top bar previously printed the analyst's e-mail where the
+# customer belongs. Tenant identity is an authorisation fact, so it is
+# resolved here from the persisted principal and the real case corpus.
+@router.get("/session-context")
+def rbac_session_context(user=Depends(_deps_current_user)):
+    from services.session_context import tenant_context
+    return {"ok": True, "data": tenant_context((user or {}).get("email"))}

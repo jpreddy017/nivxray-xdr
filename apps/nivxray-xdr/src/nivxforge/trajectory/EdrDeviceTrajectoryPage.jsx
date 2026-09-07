@@ -26,6 +26,7 @@ import { useSearchParams } from "react-router-dom";
 import { Maximize2, Minimize2, Moon, Sun } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
+import { getSessionContext } from "@/nivxforge/edrApi";
 import api from "@/lib/api";
 
 import { C, GUTTER, ROW_H, AXIS_H, MS, DAY_MS, iso, dayKeyOf, setTheme,
@@ -48,8 +49,17 @@ export default function EdrDeviceTrajectoryPage() {
   /** Cisco ships both a dark and a light console; the analyst picks.
    *  Applied before children render so one palette drives every part. */
   const [theme, setThemeState] = useState(
-    () => window.localStorage.getItem("nvf-amp-theme") || "dark");
+    () => (window.localStorage.getItem("nx.theme") === "light"
+      ? "light" : "dark"));
   setTheme(theme);
+
+  /** One theme truth: the platform shell's toggle and this one write the
+   *  same key and broadcast the same event. */
+  useEffect(() => {
+    const onTheme = (e) => setThemeState(e.detail === "light" ? "light" : "dark");
+    window.addEventListener("nx-theme", onTheme);
+    return () => window.removeEventListener("nx-theme", onTheme);
+  }, []);
 
   const [meta, setMeta] = useState(null);
   const [view, setView] = useState(null);
@@ -69,6 +79,7 @@ export default function EdrDeviceTrajectoryPage() {
   const [status, setStatus] = useState({ loading: true, err: null });
   const [locating, setLocating] = useState(false);
   const [endpoints, setEndpoints] = useState([]);
+  const [sessCtx, setSessCtx] = useState(null);
 
   const cache = useRef(new Map());
   const plotRef = useRef(null);
@@ -134,6 +145,7 @@ export default function EdrDeviceTrajectoryPage() {
     api.get("/edr/endpoints").then(({ data }) =>
       setEndpoints((data.endpoints || []).filter((e) => e.device_iid)))
       .catch(() => {});
+    getSessionContext().then(setSessCtx).catch(() => {});
   }, [device]);
 
   /** Meta pass: computer card, activity bands, type counts, extent.
@@ -462,8 +474,10 @@ export default function EdrDeviceTrajectoryPage() {
         <span style={{ flex: 1 }} />
         <button onClick={() => {
                   const next = theme === "dark" ? "light" : "dark";
-                  window.localStorage.setItem("nvf-amp-theme", next);
+                  window.localStorage.setItem("nx.theme", next);
                   setThemeState(next);
+                  window.dispatchEvent(new CustomEvent("nx-theme",
+                                                       { detail: next }));
                 }}
                 data-testid="amp-theme-toggle"
                 data-theme={theme}
@@ -500,7 +514,33 @@ export default function EdrDeviceTrajectoryPage() {
         <div data-testid="amp-no-endpoint"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: 16, color: C.ink, fontSize: 11.5 }}>
-          <b>Select an endpoint</b> to open its Device Trajectory.
+          {endpoints.length > 0 ? (
+            <b>Select an endpoint</b>
+          ) : (
+            <b data-testid="amp-no-endpoint-visible">
+              No endpoint evidence is attributed to{" "}
+              {sessCtx?.active_customer?.value
+                || (sessCtx?.tenant_scope?.all_tenants
+                  ? "any customer" : "your customer")}
+            </b>
+          )}
+          {endpoints.length > 0
+            ? " to open its Device Trajectory."
+            : (
+              <div style={{ marginTop: 8, lineHeight: 1.6,
+                            color: C.inkDim, maxWidth: 760 }}>
+                {sessCtx?.edr_tenant_boundary
+                  || "Endpoint visibility could not be established."}
+                <div style={{ marginTop: 6, color: C.inkFaint }}>
+                  Nothing is shown here rather than something borrowed from
+                  another customer. Your XDR case surfaces
+                  {sessCtx?.tenant_scope?.tenant_ids?.length
+                    ? ` (${sessCtx.tenant_scope.tenant_ids.join(", ")})`
+                    : ""}{" "}
+                  are unaffected.
+                </div>
+              </div>
+            )}
           <div style={{ marginTop: 10, display: "flex", gap: 8,
                         flexWrap: "wrap" }}>
             {endpoints.map((e) => (
@@ -616,7 +656,8 @@ export default function EdrDeviceTrajectoryPage() {
                     setLaneStart(n);
                     if (vScroll.current) vScroll.current.scrollTop = n * ROW_H;
                   }}
-                  onPivot={onPivot} />
+                  onPivot={onPivot}
+                  observedStart={obsStart} observedEnd={obsEnd} />
                 <div ref={vScroll} data-testid="amp-vscroll"
                      onScroll={(e) => setLaneStart(Math.max(0, Math.min(
                        Math.max(0, total - rows),

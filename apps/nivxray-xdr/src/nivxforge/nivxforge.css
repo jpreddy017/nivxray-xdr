@@ -198,3 +198,18 @@
 .nvf-console .btn:hover { background: #141a24; color: var(--text); }
 .nvf-console .btn:disabled { opacity: .5; cursor: not-allowed; }
 .nvf-console .btn.mint { background: #0f1f1a; border-color: var(--mint); color: var(--mint); }
+
+/* ── Embedded in the XDR shell (P0-F.13.3) ─────────────────────────
+   The EDR plane is a child of the platform shell, not an application:
+   it no longer paints its own top bar and it must not claim a second
+   viewport height inside `.xdr-console .main`. */
+.xdr-console .main.flush { padding: 0; overflow: hidden; }
+.nvf-console.nvf-embedded { min-height: 0; height: 100%; }
+.nvf-console.nvf-embedded .body { height: 100%; }
+.nvf-console.nvf-embedded .sidebar { padding-top: 6px; }
+.nvf-console.nvf-embedded .sidebar .brand {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 12px 4px; font-size: 12.5px; font-weight: 800;
+  letter-spacing: .4px; color: var(--text); text-decoration: none;
+}
+.nvf-console.nvf-embedded .sidebar .brand .accent { color: var(--mint); }

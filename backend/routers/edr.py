@@ -931,3 +931,110 @@ async def get_device_trajectory(
                          if identity is None
                          else "No observations for this device in the selected window."),
     }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ENTRY CONTEXT  ·  P0-F.13.3
+#
+# There are two legitimate ways into the NivXForge EDR plane and they
+# are NOT the same thing:
+#
+#   DIRECT_EDR  — the analyst signed into the EDR plane. Tenant context
+#                 is whatever the principal is authorised for.
+#   XDR_PIVOT   — the analyst arrived from an XDR incident. Tenant is
+#                 INHERITED from that incident, and the investigation
+#                 context travels with the view.
+#
+# Tenant context answers WHO OWNS THE DATA. Investigation context
+# answers WHY THE ANALYST IS HERE. They are reported separately and the
+# server never accepts either of them from the browser: the client may
+# name an incident, the server decides whether it may be seen and what
+# it actually references.
+# ═══════════════════════════════════════════════════════════════════
+@router.get("/context")
+async def edr_entry_context(endpoint_id: Optional[str] = None,
+                            incident_id: Optional[str] = None,
+                            user=Depends(get_current_user)) -> Dict[str, Any]:
+    from services.session_context import authorised_incident, tenant_context
+
+    errors: List[str] = []
+    investigation: Optional[Dict[str, Any]] = None
+    inherited: Optional[str] = None
+
+    identity = (dir_svc.resolve(endpoint_id, _is_cross_tenant(user))
+                if endpoint_id else None)
+
+    if incident_id:
+        got = authorised_incident(incident_id, (user or {}).get("email"))
+        if got["state"] != "AUTHORIZED":
+            errors.append(got["state"])
+        else:
+            doc = got["doc"]
+            inherited = got["tenant"]
+            camp = doc.get("endpoint_campaign") or {}
+            inc_host = camp.get("hostname")
+            host = (identity or {}).get("hostname")
+            if not endpoint_id:
+                ref_state = "ENDPOINT_NOT_REQUESTED"
+            elif identity is None:
+                ref_state = "ENDPOINT_UNRESOLVED"
+            elif not inc_host:
+                ref_state = "INCIDENT_CARRIES_NO_ENDPOINT_REFERENCE"
+            elif str(inc_host) == str(host):
+                ref_state = "REFERENCES_THIS_ENDPOINT"
+            else:
+                ref_state = "ENDPOINT_NOT_REFERENCED_BY_INCIDENT"
+
+            dets = [d for d in (camp.get("detections") or [])
+                    if isinstance(d, dict)]
+            investigation = {
+                "incident_id":     doc.get("id"),
+                "incident_number": doc.get("incident_number"),
+                "title":           doc.get("title") or None,
+                "tenant_id":       inherited,
+                "state":           doc.get("incident_state"),
+                "priority":        doc.get("incident_priority"),
+                "verdict":         ((doc.get("verdict_stage2") or {})
+                                    .get("label")
+                                    or (doc.get("verdict_card") or {})
+                                    .get("label")),
+                "endpoint_reference": {
+                    "state":    ref_state,
+                    "basis":    "workspace_cases.endpoint_campaign.hostname",
+                    "incident_endpoint_id": camp.get("endpoint_id"),
+                    "incident_hostname":    inc_host,
+                    "resolved_hostname":    (identity or {}).get("hostname"),
+                },
+                "detection_window": {
+                    "first_activity_at": camp.get("first_activity_at"),
+                    "last_activity_at":  camp.get("last_activity_at"),
+                },
+                "detection_raw_event_ids": [d.get("raw_event_id")
+                                            for d in dets
+                                            if d.get("raw_event_id")],
+                "detection_count": len(dets),
+                "rule_ids": list(camp.get("rule_ids") or []),
+                "href": f"/xdr/incidents/{doc.get('id')}",
+            }
+
+    ctx = tenant_context((user or {}).get("email"), inherited_tenant=inherited)
+    ctx.update({
+        "engine_id": "nivxray::edr_plane::entry_context",
+        "entry_context": "XDR_PIVOT" if investigation else "DIRECT_EDR",
+        "endpoint": ({"endpoint_id": endpoint_id,
+                      "device_iid": (identity or {}).get("device_iid"),
+                      "hostname": (identity or {}).get("hostname"),
+                      "identity_confidence":
+                          (identity or {}).get("identity_confidence"),
+                      "state": "RESOLVED" if identity else "UNRESOLVED"}
+                     if endpoint_id else None),
+        "investigation": investigation,
+        "tenant_switch_policy": (
+            "Switching customer while an investigation context is held "
+            "would create an invalid state (tenant B + incident from "
+            "tenant A). The investigation context must be left first."
+            if investigation else
+            "Customer switching is permitted for the authorised tenants."),
+        "errors": errors,
+    })
+    return ctx

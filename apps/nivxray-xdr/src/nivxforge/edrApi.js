@@ -95,3 +95,25 @@ export async function getDecodedArtifactStats() {
   const { data } = await api.get("/v2/decoded-artifacts/stats/summary");
   return data;
 }
+
+/**
+ * P0-F.13.3 · EDR entry context.
+ *
+ * Answers two different questions the UI must never conflate:
+ * WHO owns the data (tenant/customer) and WHY the analyst is here
+ * (investigation context). The server validates the incident against
+ * the principal's tenant scope — the browser only names it.
+ */
+export async function getEdrEntryContext(endpointId, incidentId) {
+  const params = {};
+  if (endpointId) params.endpoint_id = endpointId;
+  if (incidentId) params.incident_id = incidentId;
+  const { data } = await api.get("/edr/context", { params });
+  return data;
+}
+
+/** Principal + authorised customers, for the shell's customer pill. */
+export async function getSessionContext() {
+  const { data } = await api.get("/xdr/rbac/session-context");
+  return data?.data || null;
+}
