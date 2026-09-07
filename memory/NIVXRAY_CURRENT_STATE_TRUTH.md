@@ -1,3 +1,5 @@
+> **SUPERSEDED_BY:** `docs/nivxray-xdr/08_VALIDATION/REALITY_MATRIX.md` (P-1 documentation reconciliation, 2026-09-07T18:00Z). Retained for provenance; do not edit.
+
 # NivXRay XDR · CURRENT-STATE FORENSIC ARCHITECTURE & IMPLEMENTATION TRUTH AUDIT
 
 > **Mode:** Strict READ-ONLY forensic audit. No source code, tests, configs, or UI were modified during this audit.

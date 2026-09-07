@@ -1,3 +1,5 @@
+> **SUPERSEDED_BY:** `docs/nivxray-xdr/08_VALIDATION/REALITY_MATRIX.md` (P-1 documentation reconciliation, 2026-09-07T18:00Z). Retained for provenance; do not edit.
+
 # NivXRay — 360° Current-State Audit
 _Date: 2026-02-09 · Author: E1 (via factual repo inspection · no code changes)_
 

@@ -1,5 +1,128 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · **P-1 · PRODUCT REFERENCE, DOCUMENTATION & ARCHITECTURE PROGRAM** — STOPPED FOR OWNER APPROVAL
+
+Owner directive: **stop feature-by-feature development**; establish the
+authoritative product specification. Decisions taken: Blocker 1 = **(a)
+ADOPT + MIGRATE**, Blocker 2 = **(a)** honest evidence classes,
+executable doc gate = **YES**, depth/breadth = **(a)**.
+**Documentation and architecture only. Nothing was implemented.**
+
+Authoritative tree: **`/app/docs/nivxray-xdr/` · 92 documents**
+(19 `AUTHORED` · 7 `GENERATED` · 66 `SPEC_PENDING`).
+Entry point: `docs/nivxray-xdr/README.md`.
+
+### Three truth layers — the owner's safeguard, implemented
+Every document declares `layer:` in `NIVX-DOC` front matter.
+`CURRENT_REALITY` (generated/verified, may not run ahead) ·
+`TARGET_SPEC` (**may** run ahead, must label maturity) ·
+`HISTORICAL_RECORD` (never edited). Current mix: 8 / 83 / 1.
+
+### Executable documentation — the gate is real, and proven twice
+`scripts/docs_reconcile.py` (also `--gate` for CI) imports the live
+FastAPI app, reads the capability registry, parses the frontend router
+and queries the operational DB, then regenerates 6 `CURRENT_REALITY`
+documents + `runtime_truth.json`. It **fails only** when a doc asserts as
+*current reality* something the runtime contradicts.
+- **Proof 1**: a test doc claiming an operational Windows sensor,
+  verified isolation and production-readiness → **3 violations**, while a
+  `TARGET_SPEC` doc describing the same as future → **passes**. The
+  target spec is allowed to be ahead of the code, exactly as required.
+- **Proof 2 (numeric drift)**: a new rule caught **my own** authored
+  docs quoting 61 engines / 60 UI routes when the runtime read **64 /
+  58**. Corrected, and the rule now fails any hand-written inventory
+  count that disagrees with the runtime. This is the
+  `memory/CAPABILITY_REGISTRY.md` failure mode made impossible.
+- Also enforced: every doc must declare a truth layer, and every
+  `SPEC_PENDING` doc must carry all 8 required sections (purpose, owner,
+  dependencies, source inputs, known current reality, unresolved
+  questions, completion criteria, release stage) — no generic filler.
+
+### Migration: no second documentation universe
+`scripts/docs_provenance.py` reconciled **all 157** `/app/memory/*.md` →
+`ADOPTED 73` · `HISTORICAL_REFERENCE 66` · `OPERATIONAL 10` ·
+`SUPERSEDED 8`. Nothing deleted; **8 `SUPERSEDED_BY:` pointers stamped**
+in place. Ledger: `01_REFERENCE/DOC_PROVENANCE_LEDGER.md`, which also
+records 6 open reconciliation risks — notably **two design authorities**
+(`NIVXRAY_VISUAL_GRAMMAR` 617 lines vs `VISUAL_LANGUAGE` 514 lines, never
+diffed), three architecture docs, three governance docs, two live
+roadmaps, and an **inherited unresolved investigation-SSOT question that
+is carried forward rather than quietly closed**.
+
+### Cisco evidence — classified honestly, not dressed up
+`01_REFERENCE/SOURCE_REGISTER.md`. **Verified publicly**: the modular
+integration capability model (`Data Ingestion, Observe, Deliberate,
+Refer, Respond, Health, Automation`), disposition set
+`clean/malicious/suspicious/unknown`, ingestion→warehouse→detections→
+incidents, distributed response, automation triggers, the 3-step custom
+source upload API, **plus two naming corrections the brief predates:
+`Tiles → Dashboards` and `Device Insights → Assets`**.
+**NOT verified**: CTIM as the common representation, and "API-first / the
+UI is an API client" → both `OWNER_ASSERTED` + `REFERENCE_CAPTURE_REQUIRED`.
+API-first is adopted as **our own doctrine on our own evidence** (865
+routes; recurring defect class = surfaces asserting more than their API
+can prove). All Cisco screen-level layout evidence is
+`REFERENCE_CAPTURE_REQUIRED` — **zero Cisco screen captures exist in the
+repo**, so screen-level parity cannot honestly be judged yet.
+
+### Reality baseline (generated, not asserted)
+865 `/api` routes · 58 UI routes (42 XDR · 13 EDR · 3 shared) · 64 engine
+identities · 135 capabilities (**11 `is_operational`**) · 8,070 real
+sensor events from **2** endpoints · last real delivery
+**2026-09-06T15:46Z** · platforms with a real producer: **LINUX only** ·
+64 detections from real events · 572 incidents, **0 with a provenance
+label** · 33 response commands.
+**Per owner instruction this is NOT converted into a completion
+percentage** — it is used as sprawl-vs-depth evidence feeding an
+`ADOPT / WIRE / CONSOLIDATE / EXTEND / DEPRECATE / REMOVE_LATER / BUILD`
+decision list.
+
+### Five findings that change the plan
+1. **We are the inverse of Cisco's starting position.** They had sources
+   and built a platform; we have a platform and **one** source. Nothing
+   in the common-representation layer needs building — the gap is
+   **producers**, not primitives.
+2. **Correlation cannot be judged.** 10 rules exist, one domain exists;
+   any rule needing two domains silently never fires. Must be measured.
+3. **The action catalogue over-promises**: 18 catalogued, 2 operational.
+4. **Asset value is the one genuinely missing prioritisation input**, so
+   our priority is detection-risk-only and must say so.
+5. **The owner's mockup rail is a domain-shaped rail** (Email, Network,
+   Cloud, Applications, Identity) for a product with one domain — nine of
+   fifteen top-level promises would be unkeepable. Recorded as an **open
+   conflict** in `03_DESIGN/NAVIGATION_SPEC.md`, not silently decided.
+
+### Operationalisation sequence (`09_RELEASE/LAB_VALIDATION_PLAN.md`)
+Owner's order preserved, with **two justified insertions**:
+**(1) incident provenance labelling** and **(3) observability on going
+blind** — both are prerequisites for *knowing whether later steps
+worked*. Then P0-3 sensor recovery → P0-2B → P0-2D → P0-4 → **Windows
+sensor v0.1** → Windows response identity basis (PID + creation time) →
+real Windows detection → rule applicability audit → second independent
+domain → real multi-source incident → action-catalogue consolidation →
+tenant-scoping guard → **UI completion incl. Control Center LAST**.
+
+### Windows readiness — the direct answer
+**Not ready.** The enrolment/ingest APIs are platform-agnostic and the
+detection content is largely Windows-shaped, but: **no Windows producer
+exists**; trajectory lanes cover only PROCESS/FILE/NETWORK so
+registry/service/USB events would ingest with **no lane to appear in**;
+and kill verification requires a `/proc` `start_ticks` identity basis, so
+a Windows kill could be *claimed* but never *verified*.
+
+### Regression
+No implementation. `docs_reconcile --gate` **PASS · 0 violations**;
+`test_p0_2c_alias_invariant` **10 passed**; all services running. Working
+tree contains only the new docs tree, 3 scripts and the 8 `SUPERSEDED_BY`
+headers.
+
+### STOPPED FOR OWNER APPROVAL
+Open decisions: rail conflict (A / A+Home / B) · which of the two design
+authorities wins · second-domain definition · workflow engine vs fixed
+playbooks · Sysmon permitted on the Windows test box · asset-criticality
+source · GA scoped to EDR first?
+
+
 ## 2026-06 · **P0-2C ALIAS SITE SWEEP** — `REAL_RUNTIME_VERIFIED` · 52 PASS · 0 FAIL
 
 Report: `/app/memory/P0_2C_ALIAS_SITE_SWEEP.md`

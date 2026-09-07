@@ -1,3 +1,5 @@
+> **SUPERSEDED_BY:** `docs/nivxray-xdr/02_ARCHITECTURE/INVESTIGATION_ARCHITECTURE.md` (P-1 documentation reconciliation, 2026-09-07T18:00Z). Retained for provenance; do not edit.
+
 # NivXRay Workspace Architecture Rules (v1.0 · FROZEN)
 
 > Superseded by `/app/memory/NIVXRAY_ARCHITECTURE_V1.md`.
