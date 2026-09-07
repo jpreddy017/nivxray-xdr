@@ -183,6 +183,51 @@ def main() -> int:
         f"{ctx['investigation']['incident_number']} · endpoint "
         f"{ctx['endpoint']['device_iid']}")
 
+    # ── Y2 · product ownership + pivot context ──────────────────
+    prods = {g["entity_type"]: (g["results"][0].get("source_product"))
+             for g in d.get("groups") or []}
+    rec("Y2_search_results_name_the_owning_product",
+        prods.get("INCIDENT") == "NIVXRAY_XDR"
+        and prods.get("DETECTION") == "NIVXFORGE_EDR"
+        and all(v for v in prods.values()),
+        "REAL_RUNTIME_VERIFIED", f"{prods}")
+    rec("Y2_edr_owned_results_open_the_edr_product",
+        all(r["href"].startswith("/edr/")
+            for g in d["groups"] if g["entity_type"] != "INCIDENT"
+            for r in g["results"]),
+        "REAL_RUNTIME_VERIFIED",
+        "endpoint/detection/evidence/process results address the "
+        "canonical NivXForge EDR namespace")
+    inc = a.get(f"{BASE}/api/incidents/{INCIDENT}", timeout=300).json()
+    camp = inc.get("endpoint_campaign") or {}
+    rec("Y2_incident_record_projects_its_endpoint_identity",
+        bool(camp.get("endpoint_id") or camp.get("hostname")),
+        "REAL_RUNTIME_VERIFIED",
+        f"endpoint_campaign.endpoint_id={camp.get('endpoint_id')} · "
+        f"rules {camp.get('rule_ids')} — `assets` is only a COUNT map, so "
+        f"the pivot could not have carried an authoritative endpoint "
+        f"without this projection")
+    piv = a.get(f"{BASE}/api/edr/context",
+                params={"endpoint_id": camp.get("endpoint_id"),
+                        "incident_id": INCIDENT}, timeout=300).json()
+    rec("Y2_pivot_target_resolves_with_incident_context",
+        piv.get("entry_context") == "XDR_PIVOT"
+        and piv["investigation"]["incident_number"],
+        "REAL_RUNTIME_VERIFIED",
+        f"{camp.get('endpoint_id')} + {INCIDENT} -> "
+        f"{piv.get('entry_context')} · "
+        f"{piv['investigation']['incident_number']}")
+    xpiv = o.get(f"{BASE}/api/edr/context",
+                 params={"endpoint_id": camp.get("endpoint_id"),
+                         "incident_id": INCIDENT}, timeout=300).json()
+    rec("Y2_pivot_fails_closed_for_another_customer",
+        xpiv.get("entry_context") != "XDR_PIVOT"
+        or not (xpiv.get("investigation") or {}).get("incident_number"),
+        "REAL_RUNTIME_VERIFIED",
+        f"nivx-live principal pivoting a default incident -> "
+        f"{xpiv.get('entry_context')} / "
+        f"{(xpiv.get('errors') or ['—'])[0]}")
+
     failed = [r for r in R if r["result"] != "PASS"]
     out = {"phase": "X1-X3 · XDR shell · unified search · XDR↔EDR pivots",
            "base_url": BASE, "acceptance": R,

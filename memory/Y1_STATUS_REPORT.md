@@ -1,4 +1,34 @@
 # Y1 · STATUS REPORT — product separation + rail information architecture
+# Y2 · appended — context-preserving product pivots (M-4 · M-5 · N-2)
+
+## Y2 · Delivered
+
+| Item | What changed | Status |
+|---|---|---|
+| **M-4 · XDR → EDR pivot control** | New `xdr/components/OpenInEdr.jsx` — ONE builder for the whole carried context (customer · organization · endpoint · incident · detection · raw + canonical evidence · event · process · timestamp) so it cannot drift between call sites. Wired into **XDR Assets/Endpoints rows** (14 rows, `data-testid=xdr-endpoints-open-in-edr-*`) and the **incident workspace** (`xdr-incident-open-in-edr`). Context is **carried, never granted** — EDR re-authorises everything server-side | `REAL_RUNTIME_VERIFIED` |
+| **FLOW 3 end to end** | `INC000000293 → Open in NivXForge EDR → /edr/device-trajectory?device=ep_2d57cbe6f80152062109&incident_id=…` lands in the **EDR product** (`data-product=NIVXFORGE_EDR`) with the `XDR_PIVOT` banner showing INC000000293 · customer `default` · verdict suspicious · rule `EDR-LNX-002` · Return to incident | `END_TO_END_VALIDATED` |
+| **M-5 · product ownership on search** | Every result now carries `source_product`; the UI renders the owning product badge and an `Open in EDR →` / `Open →` affordance. EDR-owned results address the canonical `/edr/*` namespace | `REAL_RUNTIME_VERIFIED` |
+| **Backend projection (root cause, not a workaround)** | The incident record exposed `assets` as a **count map** (`hosts: 1`) and no endpoint identity, so the pivot honestly rendered *"◇ no endpoint on this record"*. Rather than scraping a hostname out of the title, `routers/incidents.py` now projects the endpoint identity the incident **itself recorded** (`endpoint_campaign.endpoint_id · hostname · device_iid · rule_ids · first/last activity`), null when the campaign recorded none | `REAL_RUNTIME_VERIFIED` |
+| **Dead control removed** | `Analyst Workspace` was an `external` link to `/analyst`, which has no app — the SPA catch-all bounced the new tab back to `/xdr`. Removed; **Incidents** is the single analyst destination, matching the reference rail which has no such node | `REAL_RUNTIME_VERIFIED` |
+
+## Y2 · Proof
+`x1_x3_xdr_integration_proof.py` **22/22** (was 17; +5 Y2 items incl.
+`Y2_pivot_fails_closed_for_another_customer` → a nivx-live principal
+pivoting a `default` incident gets `DIRECT_EDR` /
+`INCIDENT_TENANT_OUT_OF_SCOPE`). `p0_f13_5` **25/25** ·
+`p0_detection_attribution` **12/12** · `tests/edr` **330 pass**.
+The four incident-related failures in the wider `tests/` tree were
+**verified pre-existing on a clean tree** (`git stash` comparison) and are
+unrelated to the projection change.
+
+## Y2 · Not delivered
+`EDR → XDR` per-observable pivots (`Investigate in NivXRay XDR` from a
+hash/process/IP inside the trajectory) still need the **observable pivot
+menu capture** — `REFERENCE_CAPTURE_REQUIRED`. The product-level EDR → XDR
+pivot (topbar) and Linked XDR Incidents are live.
+
+---
+
 
 Scope executed: **only the surfaces the supplied captures authorise**
 (decision C). Every unseen surface stays `REFERENCE_CAPTURE_REQUIRED` and

@@ -170,6 +170,25 @@ export default function XdrSearchPage() {
                               color: "var(--faint)", flex: "0 0 auto" }}>
                         {r.tenant_id || "◇ tenant not attributed"}
                       </span>
+                      {/* Y2 · M-5 · which PRODUCT owns this record. */}
+                      <span data-testid={`xdr-search-product-${r.id}`}
+                            data-product={r.source_product || ""}
+                            style={{ fontSize: 8.8, fontWeight: 800,
+                                     letterSpacing: .6, flex: "0 0 auto",
+                                     padding: "2px 6px", borderRadius: 2,
+                                     border: "1px solid var(--border)",
+                                     color: r.source_product
+                                       === "NIVXFORGE_EDR"
+                                       ? "var(--cyan, #22B8CF)"
+                                       : "var(--muted)" }}>
+                        {r.source_product === "NIVXFORGE_EDR"
+                          ? "NivXForge EDR" : "NivXRay XDR"}
+                      </span>
+                      <span style={{ fontSize: 9.2, flex: "0 0 auto",
+                                     color: "var(--muted)" }}>
+                        {r.source_product === "NIVXFORGE_EDR"
+                          ? "Open in EDR →" : "Open →"}
+                      </span>
                     </Link>
                   ))}
                 </div>

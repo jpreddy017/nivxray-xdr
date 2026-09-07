@@ -9,6 +9,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, HardDrive, Radar, Search } from "lucide-react";
+import OpenInEdr from "@/xdr/components/OpenInEdr";
 
 import XdrShell from "@/xdr/XdrShell";
 import { listEndpoints } from "@/nivxforge/edrApi";
@@ -178,6 +179,15 @@ export default function XdrEndpointsPage() {
                       {fmtDate(r.last_seen)}
                     </td>
                     <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {/* Y2 · D-4 · Computers is owned by NivXForge EDR;
+                          the XDR asset view PIVOTS OUT to it. */}
+                      <span style={{ marginRight: 5 }}>
+                        <OpenInEdr compact
+                                   device={r.device_iid}
+                                   tenant={r.tenant}
+                                   testid={`xdr-endpoints-open-in-edr-${
+                                     r.device_ref || r.host}`} />
+                      </span>
                       <button
                         className="btn"
                         style={{ padding: "3px 8px", marginRight: 5 }}

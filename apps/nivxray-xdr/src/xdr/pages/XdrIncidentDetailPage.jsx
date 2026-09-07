@@ -19,6 +19,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { AlertOctagon } from "lucide-react";
+import OpenInEdr from "@/xdr/components/OpenInEdr";
 
 import { useAuth } from "@/lib/auth";
 import { getIncident, transitionIncidentState } from "@/lib/incidentsApi";
@@ -139,6 +140,24 @@ export default function XdrIncidentDetailPage() {
               state={incident.state}
               onTransition={handleTransition}
             />
+            {/* Y2 · M-4/N-2 · pivot into the endpoint product with the
+                incident's OWN endpoint identity, carried, never guessed. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10,
+                          padding: "6px 0" }}
+                 data-testid="xdr-incident-product-pivots">
+              <span style={{ fontSize: 9.6, letterSpacing: .7,
+                             color: "var(--muted)",
+                             textTransform: "uppercase" }}>
+                Source product
+              </span>
+              <OpenInEdr
+                device={incident?.endpoint_campaign?.endpoint_id
+                  || incident?.endpoint_campaign?.hostname
+                  || (incident?.assets?.hosts || incident?.hosts || [])[0]}
+                incidentId={incident?.id}
+                tenant={incident?.tenant_id}
+                testid="xdr-incident-open-in-edr" />
+            </div>
             <RecordTabs current={tab} onChange={setTab} />
             <div
               className="rl-tabpanel"

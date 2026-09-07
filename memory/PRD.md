@@ -1,5 +1,29 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## ✅ 2026-06 · **Y2 · CONTEXT-PRESERVING PRODUCT PIVOTS** · 22/22
+
+- `OpenInEdr` — one builder for the whole carried context (customer ·
+  organization · endpoint · incident · detection · raw + canonical
+  evidence · event · process · timestamp), wired into XDR Assets rows and
+  the incident workspace. Context is **carried, never granted**.
+- **FLOW 3 END_TO_END_VALIDATED**: incident → `Open in NivXForge EDR` →
+  EDR **product** console → correct endpoint → `XDR_PIVOT` banner
+  (INC000000293 · customer default · verdict suspicious · rule
+  EDR-LNX-002 · Return to incident).
+- Search results now name the **owning product** (`source_product`) and
+  EDR-owned results address the canonical `/edr/*` namespace.
+- Root-cause fix, not a workaround: the incident record exposed `assets`
+  as a **count map** and no endpoint identity, so the pivot honestly said
+  *"no endpoint on this record"*. `routers/incidents.py` now projects the
+  endpoint identity the incident itself recorded.
+- Removed the **dead** `Analyst Workspace` nav item (external link to
+  `/analyst`, which has no app — the catch-all bounced it back to `/xdr`).
+  Incidents is the single analyst destination, matching the reference rail.
+- Cross-tenant pivot **fails closed** (`DIRECT_EDR` /
+  `INCIDENT_TENANT_OUT_OF_SCOPE`). Four wider-suite incident test failures
+  were verified **pre-existing on a clean tree**.
+
+
 ## ✅ 2026-06 · **Y0 REFERENCE INTAKE + Y1 PRODUCT SEPARATION** · shell slice done
 
 - **Y0** (`/app/memory/Y0_CISCO_XDR_REFERENCE_INTAKE.md`): baseline frozen

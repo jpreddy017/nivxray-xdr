@@ -90,6 +90,7 @@ def _incidents(term: str, scope: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "tenant_id": 1, "state": 1, "priority": 1,
                 "verdict": 1}).limit(PER_GROUP):
         out.append({"entity_type": "INCIDENT",
+                    "source_product": "NIVXRAY_XDR",
                     "id": d.get("id"),
                     "label": d.get("incident_number") or d.get("id"),
                     "detail": d.get("title"),
@@ -116,6 +117,7 @@ def _endpoints(term: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                         " ".join(r.get("owning_endpoint_ids") or [])]).lower()
         if t in hay:
             out.append({"entity_type": "ENDPOINT",
+                        "source_product": "NIVXFORGE_EDR",
                         "id": r.get("device_iid"),
                         "label": r.get("hostname") or r.get("device_iid"),
                         "detail": (f"{r.get('observation_count', 0)} "
@@ -159,6 +161,7 @@ def _detections(term: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                      .split(",") if r.strip()]
             out.append({
                 "entity_type": "DETECTION",
+                "source_product": "NIVXFORGE_EDR",
                 "id": raw.get("raw_id"),
                 "label": ", ".join(rules) or raw.get("raw_id"),
                 "detail": (f"{ep.get('hostname') or raw.get('endpoint_ref')}"
@@ -209,6 +212,7 @@ def _observations(term: str, rows: List[Dict[str, Any]],
         dev = ev.get("device_iid")
         host = host_of.get(dev, dev)
         base = {"tenant_id": d.get("tenant_id"),
+                "source_product": "NIVXFORGE_EDR",
                 "attributes": {"device_iid": dev, "timestamp": ev.get("ts"),
                                "kind": ev.get("kind")}}
         cev = d.get("canonical_event_id")

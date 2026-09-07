@@ -378,6 +378,27 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
         "correlation_match_ids":  correlation_match_ids,
         "source_integration_id":  source_integration_id,
         "assets":                 assets,
+        # ── Y2 · M-4 · the endpoint identity the incident ITSELF
+        # recorded, projected so the product pivot into NivXForge EDR
+        # carries an authoritative endpoint instead of a hostname the UI
+        # scraped out of a title. `assets` above is a COUNT map, so it
+        # can never serve this purpose. Nothing is derived or inferred:
+        # if the campaign recorded no endpoint, this is null and the
+        # pivot control states that plainly.
+        "endpoint_campaign": ({
+            "endpoint_id": (doc.get("endpoint_campaign") or {})
+                           .get("endpoint_id"),
+            "hostname":    (doc.get("endpoint_campaign") or {})
+                           .get("hostname"),
+            "device_iid":  (doc.get("endpoint_campaign") or {})
+                           .get("device_iid"),
+            "rule_ids":    list((doc.get("endpoint_campaign") or {})
+                                .get("rule_ids") or []),
+            "first_activity_at": (doc.get("endpoint_campaign") or {})
+                                 .get("first_activity_at"),
+            "last_activity_at": (doc.get("endpoint_campaign") or {})
+                                .get("last_activity_at"),
+        } if doc.get("endpoint_campaign") else None),
         # ── Owner reference §incident-header + §overview additions ────
         # Every derived block below is evidence-backed only.  If the
         # underlying data is absent, the block is empty and the UI

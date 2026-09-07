@@ -103,9 +103,39 @@
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
    "detail": "tenant INHERITED_FROM_INCIDENT \u00b7 incident INC000000293 \u00b7 endpoint dev_42e8c6dc74b9"
+  },
+  {
+   "item": "Y2_search_results_name_the_owning_product",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "{'INCIDENT': 'NIVXRAY_XDR', 'DETECTION': 'NIVXFORGE_EDR'}"
+  },
+  {
+   "item": "Y2_edr_owned_results_open_the_edr_product",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "endpoint/detection/evidence/process results address the canonical NivXForge EDR namespace"
+  },
+  {
+   "item": "Y2_incident_record_projects_its_endpoint_identity",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "endpoint_campaign.endpoint_id=ep_2d57cbe6f80152062109 \u00b7 rules ['EDR-LNX-002'] \u2014 `assets` is only a COUNT map, so the pivot could not have carried an authoritative endpoint without this projection"
+  },
+  {
+   "item": "Y2_pivot_target_resolves_with_incident_context",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "ep_2d57cbe6f80152062109 + inc_2305c71cd8f54dc38e55 -> XDR_PIVOT \u00b7 INC000000293"
+  },
+  {
+   "item": "Y2_pivot_fails_closed_for_another_customer",
+   "result": "PASS",
+   "status": "REAL_RUNTIME_VERIFIED",
+   "detail": "nivx-live principal pivoting a default incident -> DIRECT_EDR / INCIDENT_TENANT_OUT_OF_SCOPE"
   }
  ],
  "reuse_note": "extends XdrShell, NivXForgeConsole, edr router and the proven P0-F.13.5 handoff; the only new surfaces are the genuinely missing ones (/api/xdr/search, the context bar, linked incidents, capability-honest IA nodes)",
- "passed": 17,
+ "passed": 22,
  "failed": 0
 }
