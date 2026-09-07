@@ -1,5 +1,125 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · **MASTER OWNERSHIP + WIRING AUDIT** · DELIVERED · AUDIT ONLY · STOPPED FOR APPROVAL
+
+Executed `/app/memory/MASTER_GATE.md` PART B/L. **No feature code, no
+wiring, no route/ownership change, no deletion.** Owner rules honoured:
+depth **2C**, legacy scope **2A**, runtime probing **YES / GET only**,
+deliverables **B (all three matrices in one pass, then STOP)**, and
+`apps/nivxray-xdr-collector` / `apps/nivxray-xdr-response` treated as
+**potential XDR orphans, never legacy**.
+
+Deliverables:
+- `/app/memory/MASTER_OWNERSHIP_AUDIT.md` — MATRIX 2 (593 route-level rows +
+  16 engine/service packages + 22 UI surfaces), MATRIX 3, orphan worklist
+- `/app/memory/MASTER_PARITY_MATRIX.md` — MATRIX 1 (XDR ⇄ Cisco XDR, 38 rows
+  re-verified live; EDR ⇄ Secure Endpoint/AMP, 17 rows — new this pass)
+- `scripts/master_audit_runtime_probe.py` (117 read-only GETs) ·
+  `scripts/master_audit_frontend_wiring.py` ·
+  `scripts/master_audit_matrix2_gen.py` ·
+  `memory/master_audit_runtime_probe.json` ·
+  `memory/master_audit_frontend_wiring.json`
+
+**Wiring was never inferred from filenames.** Every claim rests on
+`CODE EXISTS + ROUTER REGISTERED + APP RUNNING + REAL UI ROUTE + HTTP
+REACHABILITY`: live OpenAPI (**775 routes**), 117 authenticated GETs, 189
+frontend `/api` literals reconciled (154 live / 35 not),
+`supervisorctl` + `ss -ltnp`, direct Mongo counts, 4 authenticated
+screenshots.
+
+### The eight findings — every one an existing implementation, not a gap
+- **F-1 · P0** Endpoint identity aliasing is wired for Device Trajectory
+  **only**. `/api/edr/process-tree` and `/api/edr/endpoint-detections`
+  *resolve* the alias and then query the raw string. `dev_42e8c6dc74b9` →
+  **0 nodes / 0 detections / 0 evaluated**; `ep_2d57cbe6f80152062109` →
+  **populated tree (4 real roots, 5 ghost parents) + 10 detections / 895–971
+  evaluated**. Same endpoint, same `device_iid`, both `resolved: true`. The
+  console prints *"NO MATCHING EVIDENCE"* / *"NO RULE FIRED"* where evidence
+  exists — a **false-honest empty state**, the worst kind.
+- **F-2 · P0** `EdrOverviewPage.jsx` hardcodes `available: false` for
+  Detections · Process Tree · Files · Network although two of them are
+  routed and implemented, and points Device Trajectory at the **legacy**
+  `/edr/trajectory`.
+- **F-3 · P1** `/edr/response` is a reserved stub while the
+  `REAL_ENDPOINT_VALIDATED` response-evidence surface (41 KB of real command
+  records) lives at `/xdr/admin/edr-response`. EDR capability, XDR-only
+  surface.
+- **F-4 · P1** **Collector split-brain.** The standalone collector **IS
+  running** (supervisor `xdr_collector`, :8055, tenant `nivx-live`,
+  `ingest.state: connected`, **35 delivered · 3 dead-letter**, one real
+  syslog/CEF-LEEF connector on UDP 5514). The console reads the **landed**
+  collector (separate outbox in `/app/backend/xdr_state/`) which reports
+  `not_configured` / 0 / `never_connected`. Two runtimes, two state stores,
+  and a third overlapping registry in `xdr_collectors`/`xdr_data_sources`
+  (111 + 22 Mongo docs, test tenants only).
+- **F-5 · P1** `apps/nivxray-xdr-response` is a **complete** response plane
+  (registry · adapters · vendor adapters · executor · execution store ·
+  approvals · evidence forwarder) that is **not deployed** — no supervisor
+  program, no listener, `VITE_XDR_RESPONSE_URL` unset — so `/xdr/respond/*`
+  runs on browser-local stores. Its base sink already holds **231**
+  executions. **ORPHAN, explicitly not legacy.**
+- **F-6 · P2** Four authoritative engines are wired to routes that 404:
+  `/api/verdict/stage2` (real `…/compute`), `/api/ioc/lookup` (real
+  `/api/ioc/enrich`), `/api/behavior-registry` (real
+  `/api/behaviors/registry`), `/api/mitigations*` (real
+  `/api/decode/mitigations/*`). The UI honestly says "adapter not connected"
+  about capabilities that are present.
+- **F-7 · P2** `/api/xdr/spread/*` has **zero** consumers behind **181
+  watchlist + 421 sighting** records; `XdrDashboardPage` (Control Center
+  tiles, reachable API, real data) is imported in `App.jsx` and **never
+  routed** — the only unrouted page of 37.
+- **F-8** The inverse warning: **39 "legacy" routes are load-bearing** for
+  the XDR product (Rule Tuning runs on the regression/batch/corpus harness;
+  Recommendations on `/api/decode/mitigations/evidence_driven`; Intelligence
+  Control on `/api/intelligence/policy/*`). Reclassified **`SHARED ·
+  adopted-in-product`**. Legacy may stay unwired but must **not** be deleted.
+
+### Classification result
+| Class | Count |
+|---|---|
+| Routes registered | 775 |
+| XDR / EDR / SHARED, route level | 555 |
+| Adopted from the earlier lineage (rule 2) | 39 |
+| Legacy lineage, no product consumer (lineage level) | 181 / 35 lineages |
+| Unclassified stubs | 3 |
+
+`backend/nivxforge/` is **LEGACY-DUPLICATE · PARTIALLY REUSED** — a **name
+collision**, NOT the EDR backend (that is `edr_plane` + `services/edr` +
+`routers/edr*`). Superseded by `v2/investigation`, but one production import
+(`services/canonical_evidence_recovery.py:201`) and a registered
+`/api/nivxforge/*` router still depend on it → **do not wire, do not
+delete**. Same treatment for `l1_evidence`, `l2_investigation`, `workspace`,
+`reasoning`. `backend/engine/` is a **live dependency** (`v2/jobs/pipeline`)
+and must not be called legacy.
+
+### Parity — nothing declared
+Y1 **closed** `V-1 · V-2 · V-14` (the 8-primary rail with indented children,
+verified live). Two rows were **downgraded on runtime evidence**: `V-17`
+(12 live incident columns vs the reference's 6; priority is a band, not a
+score) and `I-7` (the response executor is not deployed, so `Execute` must
+not read as operational). The console is still **dark-first** (`V-3` open),
+has **no ribbon** (`V-5`), no preview drawer (`V-18`), no tile framework
+(`V-20`). **11 XDR + 12 EDR surfaces plus the AMP shell IA remain
+`REFERENCE_CAPTURE_REQUIRED`** — the entire NivXForge console beyond Device
+Trajectory has no reference, and Secure Endpoint uses a **top nav**, not a
+left rail. `G-16 / FLOW-5` stays
+`BLOCKED · REAL_SECOND_TELEMETRY_DOMAIN_REQUIRED` (noting F-4: a real syslog
+domain is delivering but invisible — nothing claimed until it is wired and
+proven).
+
+### New defects found in this audit (not fixed)
+`D-c` the running standalone collector reports 0 connectors while its own
+`.state/connectors.json` records 1 enabled syslog connector ·
+`D-d` `/api/xdr/spread` and `/api/xdr/spread/signals` return **400** to an
+authenticated cross-tenant admin.
+
+### STOP
+Awaiting approval of the orphan-engine wiring worklist. Regression gates
+untouched and unchanged (nothing was modified): `X1–X3/Y2 22/22` ·
+`P0-F.13.5 25/25` · `Detection Attribution 12/12` · `tests/edr 330 pass`
+(3 known pre-existing `test_p0_f4_endpoint_process_tree.py` failures).
+
+
 ## ✅ 2026-06 · **Y3.1 · OBSERVABLE PIVOT MENU** (reference-first)
 
 - Reference verified from Cisco XDR docs **before** coding: observable
