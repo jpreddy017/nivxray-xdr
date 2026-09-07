@@ -1437,3 +1437,26 @@ frontend ~100% (iteration 98). See memory/AMP_TRAJECTORY_CONFORMANCE.md.
 - EDR capabilities: quarantine, forensic snapshot, live query, hunting.
 - Windows NivXForge agent.
 - File Trajectory (fleet-wide) parity with the device clone.
+
+## 2026-06-06 · after P0-F.13
+
+DONE: P0-F.13 Cisco endpoint context + navigation (wheel mapping, Show
+details drawer, Actions menu, Detection → Trajectory anchoring, PID +
+lineage guides, Activity quick filters). iteration_100 all pass.
+
+### Next, in the owner's stated order
+1. Validate P0-F.13 against the Cisco screenshots (owner review).
+2. **P0-F.14 · Fleet File Trajectory** — a SECOND projection over the
+   same authoritative evidence (file/hash → every endpoint that touched
+   it). Must NOT clone trajectory data into another store. Do not start
+   until P0-F.13 is accepted.
+3. Only after the Cisco baseline is accepted: NivXRay-specific
+   enrichment (IKG, Attack Story, verdicts, XDR correlation) — the
+   owner will specify.
+
+### Carried forward
+- P0-F.10b real-host CAP_NET_ADMIN isolation validation.
+- P1: hash/label honesty sweep across the rest of the product; response
+  from incident; script-vs-interpreter attribution; short-lived process
+  visibility gap; live attack replay; 52 unbound detection rules.
+- P2: quarantine, forensic snapshot, live query, hunting; Windows agent.

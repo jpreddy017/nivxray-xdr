@@ -288,6 +288,9 @@ def build_lane_catalogue(docs: List[Dict[str, Any]]) -> Dict[str, Any]:
             if group == "PROCESS" else "NOT_APPLICABLE",
             "image": proc.get("image") or _raw(ev).get("image_path"),
             "user": _raw(ev).get("user") or None,
+            # The PID the analyst needs to tell 15 identical `python3.11`
+            # rows apart. It is NOT an identity — process_iid is.
+            "pid": _raw(ev).get("pid"),
             "first_seen": ts, "last_seen": ts, "count": 0,
             "malicious_count": 0, "suspicious_count": 0,
             "detection_count": 0, "attributed_count": 0,
@@ -307,6 +310,8 @@ def build_lane_catalogue(docs: List[Dict[str, Any]]) -> Dict[str, Any]:
             lane["image"] = proc.get("image") or _raw(ev).get("image_path")
         if not lane.get("user"):
             lane["user"] = _raw(ev).get("user") or None
+        if lane.get("pid") in (None, ""):
+            lane["pid"] = _raw(ev).get("pid")
         if ts:
             if not lane["first_seen"] or ts < lane["first_seen"]:
                 lane["first_seen"] = ts
@@ -641,7 +646,7 @@ async def query_window(db, *, identity: Dict[str, Any],
     lane_fields = ("lane_id", "lane_index", "group", "label", "depth",
                    "process_iid", "parent_iid", "parent_lane_index",
                    "parent_label", "parent_state", "end_state",
-                   "exit_observed", "image", "user", "first_seen",
+                   "exit_observed", "image", "user", "pid", "first_seen",
                    "last_seen", "count", "malicious_count",
                    "suspicious_count", "detection_count",
                    "attributed_count")

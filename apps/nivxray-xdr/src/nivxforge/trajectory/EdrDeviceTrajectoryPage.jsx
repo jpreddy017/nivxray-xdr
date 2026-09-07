@@ -160,10 +160,15 @@ export default function EdrDeviceTrajectoryPage() {
         const s = data.time_range?.observed_start;
         const e = data.time_range?.observed_end;
         if (s && e) {
-          const a = Date.parse(s), b = Date.parse(e);
-          setSelectedDay((d) => d ?? startOfDayUTC(b));
-          setView((v) => v ?? { t0: startOfDayUTC(b), t1: startOfDayUTC(b)
-            + DAY_MS });
+          const b = Date.parse(e);
+          // Detection → Trajectory: land on the detection's own moment,
+          // not on "now" and not on the endpoint's last day.
+          const at = params.get("at") ? Date.parse(params.get("at")) : null;
+          const anchor = Number.isFinite(at) && at ? at : b;
+          setSelectedDay((d) => d ?? startOfDayUTC(anchor));
+          setView((v) => v ?? (Number.isFinite(at) && at
+            ? { t0: at - 15 * MS.m, t1: at + 15 * MS.m }
+            : { t0: startOfDayUTC(b), t1: startOfDayUTC(b) + DAY_MS }));
           if (preset === "all") setPreset("1d");
         }
       } catch (x) {
@@ -326,6 +331,31 @@ export default function EdrDeviceTrajectoryPage() {
     if (hit) focusEvent(hit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLink, events]);
+
+  /** Detection → Trajectory, when the caller knows the instant but not
+   *  the observation id: select the observation nearest that instant
+   *  (optionally constrained to a process), once only, so the analyst's
+   *  own later selections are never overridden. */
+  const anchoredRef = useRef(false);
+  useEffect(() => {
+    const atRaw = params.get("at");
+    if (!atRaw || deepLink || anchoredRef.current || selected) return;
+    const at = Date.parse(atRaw);
+    if (!Number.isFinite(at) || events.size === 0) return;
+    const wantProc = params.get("process_iid");
+    let best = null;
+    let bestD = Infinity;
+    for (const e of events.values()) {
+      if (wantProc && e.process_iid !== wantProc) continue;
+      const d = Math.abs(Date.parse(e.timestamp) - at);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    if (best) {
+      anchoredRef.current = true;
+      focusEvent(best);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, params, deepLink, selected]);
 
   const onPreset = (key, days) => {
     setPreset(key);
@@ -630,10 +660,10 @@ export default function EdrDeviceTrajectoryPage() {
             {windowEvents.length} observation(s) in the window from{" "}
             {events.size} cached · activity axis{" "}
             {meta?.lane_axis?.lane_axis_version}{" "}
-            ({meta?.lane_axis?.axis_scope}) · navigate with the two
-            scrollbars, by dragging the trajectory, or from the Navigator
-            bands and search · the mouse wheel is intentionally inert
-            here, as in the Cisco console
+            ({meta?.lane_axis?.axis_scope}) · wheel scrolls the activity
+            axis · shift-wheel scrubs time · ctrl-wheel zooms the window ·
+            drag the trajectory, use the two scrollbars, the Navigator
+            bands or search
           </div>
         </>
       )}

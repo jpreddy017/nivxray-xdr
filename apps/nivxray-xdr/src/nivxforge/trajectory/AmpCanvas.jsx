@@ -12,10 +12,9 @@
  * loading with no viewport jump, icon aggregation, and dotted
  * treatment where a lifeline or a lineage is truncated.
  *
- * The mouse wheel is deliberately inert over this workspace: Cisco
- * navigates the trajectory through the Navigator bands, the two
- * scrollbars and deliberate dragging, so a wheel tick must never
- * silently move an analyst through time or activity.
+ * Wheel: the activity axis; shift or horizontal wheel: the time axis;
+ * ctrl/cmd + wheel: zoom the window. Dragging, the two scrollbars and
+ * the Navigator bands all remain.
  */
 import React, { useCallback, useEffect, useMemo, useRef,
                 useState } from "react";
@@ -52,6 +51,10 @@ export default function AmpCanvas({
   const [menu, setMenu] = useState(null);
   const pan = useRef(null);
   const boxRef = useRef(null);
+  const viewRef = useRef(view);
+  const plotWRef = useRef(plotW);
+  viewRef.current = view;
+  plotWRef.current = plotW;
 
   const span = Math.max(1, view.t1 - view.t0);
   const xOf = useCallback((ts) => {
@@ -114,13 +117,43 @@ export default function AmpCanvas({
    *  listener is therefore attached natively and non-passively, which
    *  is the only way to stop an ancestor from scrolling instead.
    */
+  /** Wheel mapping, as an analyst expects of a 2D workspace:
+   *    wheel            → the activity axis (process rows)
+   *    shift/deltaX     → the time axis (scrub the timeline)
+   *    ctrl/cmd + wheel → zoom the time window
+   *  Attached natively and non-passively; React's synthetic onWheel is
+   *  passive and cannot preventDefault, which would let an ancestor
+   *  scroll the page instead of the trajectory.
+   */
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return undefined;
-    const swallow = (e) => { e.preventDefault(); e.stopPropagation(); };
-    el.addEventListener("wheel", swallow, { passive: false });
-    return () => el.removeEventListener("wheel", swallow);
-  }, []);
+    const onWheel = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.ctrlKey || e.metaKey) {
+        const f = e.deltaY > 0 ? 1.25 : 0.8;
+        const c = (viewRef.current.t0 + viewRef.current.t1) / 2;
+        const sp = Math.max(1000,
+                            (viewRef.current.t1 - viewRef.current.t0) * f);
+        onView({ t0: c - sp / 2, t1: c + sp / 2 });
+        return;
+      }
+      const horizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (horizontal) {
+        const d = (e.shiftKey ? e.deltaY : e.deltaX) || 0;
+        const sp = viewRef.current.t1 - viewRef.current.t0;
+        const dt = (d / Math.max(1, plotWRef.current)) * sp;
+        onView({ t0: viewRef.current.t0 + dt, t1: viewRef.current.t1 + dt });
+        return;
+      }
+      const step = Math.sign(e.deltaY) * Math.max(1, Math.round(rows / 6));
+      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - 1),
+                                       laneStart + step)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [laneStart, rows, totalLanes, onLaneStart, onView]);
 
   const openMenu = (e, ev) => {
     e.preventDefault();
@@ -139,7 +172,7 @@ export default function AmpCanvas({
                   overflow: "hidden", height, cursor: "grab", flex: 1,
                   minWidth: 0 }}
          onMouseDown={onMouseDown}
-         data-wheel-navigation="disabled"
+         data-wheel-navigation="rows|shift-time|ctrl-zoom"
          onMouseLeave={() => setHover(null)}
          onClick={() => setMenu(null)}>
       <svg width={GUTTER + plotW} height={height} data-testid="amp-svg">
@@ -276,14 +309,31 @@ export default function AmpCanvas({
                 </text>
               )}
 
+              {/* lineage guides: one vertical tick per ancestor level,
+                  so 15 identical process names remain traceable */}
+              {ln.group === "PROCESS" && ln.depth > 0
+                && Array.from({ length: Math.min(ln.depth, 10) },
+                              (_, d) => (
+                <line key={d} x1={8 + d * 6} y1={y} x2={8 + d * 6}
+                      y2={y + ROW_H} stroke={C.grid} strokeWidth={1} />
+              ))}
+              {ln.group === "PROCESS" && ln.depth > 0 && (
+                <line x1={8 + Math.min(ln.depth, 10) * 6 - 6} y1={mid}
+                      x2={8 + Math.min(ln.depth, 10) * 6} y2={mid}
+                      stroke={C.connector} strokeWidth={1} />
+              )}
               <text x={GUTTER - 10} y={mid + 3.2} textAnchor="end"
                     fontSize={9.4} fill={C.ink}
                     data-testid={`amp-lane-label-${ln.lane_index}`}>
                 {shown}
+                {ln.pid ? (
+                  <tspan fill={C.inkDim}> ({ln.pid})</tspan>
+                ) : null}
                 <tspan fill={C.inkFaint}> [{rowTag(ln)}]</tspan>
                 <title>{`${ln.group} · ${ln.label}\n${ln.image || ""}\n`
                   + `${ln.count} observation(s)\nfirst ${ln.first_seen}`
-                  + `\nlast ${ln.last_seen}\nrow ${ln.lane_index}`
+                  + `\nlast ${ln.last_seen}\npid ${ln.pid ?? "not reported"}`
+                  + `\nrow ${ln.lane_index}`
                   + ` · lineage depth ${ln.depth}`}</title>
               </text>
               {ln.malicious_count + ln.detection_count > 0 && (

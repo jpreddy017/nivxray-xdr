@@ -1,61 +1,64 @@
 /**
- * Computer card — the Cisco Secure Endpoint Device Trajectory computer
- * panel, reproduced from NivXForge's authoritative endpoint record:
+ * Device header — Cisco's one-line endpoint strip with **Show details**
+ * and **Actions**, as the live Secure Endpoint console presents it:
  *
- *   ▼ <hostname> in group <group>            <compromise summary>
- *   ▶ <isolation state>
- *   ┌ two-column attribute table ─────────────────────────────────┐
- *   │ Related Compromise Events │ Vulnerabilities                 │
- *   └ action row ─────────────────────────────────────────────────┘
+ *   ▸ 🖥 <hostname> in group <g>   N compromise events   [Show details] [Actions ⌄]
+ *
+ * "Show details" opens a right-side drawer of endpoint properties — it
+ * never navigates away from the trajectory. "Actions" is the endpoint
+ * command surface, wired to real NivXForge capabilities; anything this
+ * platform does not implement is disabled and says why on hover.
  *
  * A field the sensor does not report renders as an explicit
- * "not collected"; an action NivXForge does not implement renders
- * disabled and says so. An analyst must be able to tell "no policy"
- * from "policy is not a concept this platform collects", and "no
- * vulnerabilities" from "vulnerability data is not collected".
+ * "not collected": an analyst must be able to tell "no policy" from
+ * "policy is not a concept this platform collects".
  */
 import React, { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, Monitor,
-         ShieldOff } from "lucide-react";
+import { AlertTriangle, ChevronDown, Monitor, X } from "lucide-react";
 
 import { C } from "./ampModel";
 
 const nc = (v) => v == null || v === "" ||
   (typeof v === "object" && v.state === "NOT_COLLECTED");
 
-const Cell = ({ k, v, testid, link }) => (
-  <>
-    <td style={{ padding: "4px 8px", fontSize: 10.6, color: C.inkDim,
-                 background: C.paperAlt, borderBottom: `1px solid ${C.grid}`,
-                 whiteSpace: "nowrap", width: 148 }}>{k}</td>
-    <td data-testid={testid} className="mono"
-        title={nc(v) && typeof v === "object" ? v.reason : undefined}
-        style={{ padding: "4px 8px", fontSize: 10.6, wordBreak: "break-all",
-                 borderBottom: `1px solid ${C.grid}`,
-                 color: nc(v) ? C.inkFaint : (link ? C.link : C.ink) }}>
-      {nc(v) ? "◇ not collected" : String(v)}
-    </td>
-  </>
+const val = (v) => (nc(v) ? "◇ not collected" : String(v));
+
+const Prop = ({ k, v, testid }) => (
+  <div style={{ display: "flex", gap: 8, padding: "5px 0",
+                borderBottom: `1px solid ${C.grid}` }}>
+    <span style={{ width: 132, flexShrink: 0, fontSize: 10.2,
+                   color: C.inkDim }}>{k}</span>
+    <span className="mono" data-testid={testid}
+          title={nc(v) && typeof v === "object" ? v.reason : undefined}
+          style={{ flex: 1, fontSize: 10.4, wordBreak: "break-all",
+                   color: nc(v) ? C.inkFaint : C.ink }}>
+      {val(v)}
+    </span>
+  </div>
 );
 
-const ActionBtn = ({ label, onClick, disabled, title, testid }) => (
-  <button onClick={onClick} disabled={disabled} title={title}
-          data-testid={testid}
-          style={{ fontSize: 10.4, padding: "4px 10px", borderRadius: 2,
-                   cursor: disabled ? "not-allowed" : "pointer",
-                   background: C.paper, color: disabled ? C.inkFaint : C.link,
-                   border: `1px solid ${disabled ? C.grid : C.gridStrong}`,
-                   opacity: disabled ? 0.75 : 1 }}>
-    {label}
-  </button>
-);
+/** Cisco's Actions menu, mapped to what NivXForge actually implements. */
+const ACTIONS = [
+  ["detections", "Events", true],
+  ["process-tree", "Process Tree", true],
+  ["campaign-story", "Campaign Story", true],
+  ["live-query", "Live Query", true],
+  ["forensics", "Take System Snapshot", true],
+  ["isolation", "Start Isolation…", true],
+  ["scan", "Scan…", false,
+   "On-demand scanning is not implemented by the NivXForge sensor"],
+  ["diagnose", "Diagnose Connector…", false,
+   "Connector diagnostics are not implemented by the NivXForge sensor"],
+  ["move-group", "Move to Group…", false,
+   "Endpoint groups are not a NivXForge concept"],
+  ["audit", "Device Audit Log", false,
+   "A per-device audit log is not collected by NivXForge"],
+];
 
 export default function AmpComputerHeader({ computer, epistemic, malicious,
                                             detections, onAction }) {
-  // Cisco shows this as a single collapsed strip by default, giving the
-  // trajectory the page. It expands to the full attribute table.
-  const [open, setOpen] = useState(false);
-  const [isoOpen, setIsoOpen] = useState(false);
+  const [drawer, setDrawer] = useState(false);
+  const [menu, setMenu] = useState(false);
   if (!computer) return null;
   const c = computer;
   const compromise = (malicious || 0) + (detections || 0);
@@ -63,202 +66,196 @@ export default function AmpComputerHeader({ computer, epistemic, malicious,
   return (
     <section data-testid="amp-computer-header"
              style={{ background: C.paper,
-                      border: `1px solid ${C.gridStrong}`,
-                      borderRadius: 6, width: "100%", height: "fit-content",
-                      display: "flex", flexDirection: "column" }}>
-      <button onClick={() => setOpen((v) => !v)}
-              data-testid="amp-computer-collapse"
-              style={{ width: "100%", display: "flex", alignItems: "center",
-                       gap: 7, padding: "7px 10px", cursor: "pointer",
-                       background: C.paper, border: "none",
-                       borderBottom: `1px solid ${C.grid}` }}>
-        {open ? <ChevronDown size={12} color={C.inkDim} />
-              : <ChevronRight size={12} color={C.inkDim} />}
-        <Monitor size={13} color={C.inkDim} />
-        <span data-testid="amp-computer-hostname"
-              style={{ fontSize: 11.6, color: C.ink, fontWeight: 600 }}>
-          {c.hostname || c.device_iid || "unresolved endpoint"}
+                      border: `1px solid ${C.gridStrong}`, borderRadius: 6,
+                      width: "100%", height: "fit-content", padding: "7px 10px",
+                      display: "flex", alignItems: "center", gap: 9,
+                      flexWrap: "wrap" }}>
+      <Monitor size={13} color={C.inkDim} />
+      <span data-testid="amp-computer-hostname"
+            style={{ fontSize: 11.6, color: C.ink, fontWeight: 600 }}>
+        {c.hostname || c.device_iid || "unresolved endpoint"}
+      </span>
+      <span style={{ fontSize: 11, color: C.inkDim }}>
+        in group{" "}
+        <span style={{ color: nc(c.group) ? C.inkFaint : C.link }}>
+          {val(c.group)}
         </span>
-        <span style={{ fontSize: 11, color: C.inkDim }}>
-          in group{" "}
-          <span style={{ color: nc(c.group) ? C.inkFaint : C.link }}>
-            {nc(c.group) ? "◇ not collected" : String(c.group)}
-          </span>
-        </span>
-        <span data-testid="amp-compromise-summary"
-              style={{ marginLeft: 14, fontSize: 11,
-                       color: compromise ? C.malicious : C.inkDim }}>
-          {compromise ? `${compromise} compromise event${compromise === 1
-            ? "" : "s"}` : "No compromise events"}
-        </span>
-        <span style={{ flex: 1 }} />
-        <span data-testid="amp-computer-state"
-              style={{ fontSize: 9.4, fontWeight: 700, padding: "2px 7px",
-                       borderRadius: 2, letterSpacing: ".4px",
-                       color: epistemic?.state === "OBSERVED"
-                         ? "#1C6B4B" : "#8A5B00",
-                       background: epistemic?.state === "OBSERVED"
-                         ? "#EAF6F0" : "#FDF3E0",
-                       border: `1px solid ${epistemic?.state === "OBSERVED"
-                         ? "#C3E3D4" : "#EFD9A8"}` }}>
-          {epistemic?.state || "UNKNOWN"}
-        </span>
+      </span>
+      <span data-testid="amp-compromise-summary"
+            style={{ fontSize: 11,
+                     color: compromise ? C.malicious : C.inkDim }}>
+        {compromise ? `${compromise} compromise event${compromise === 1
+          ? "" : "s"}` : "No compromise events"}
+      </span>
+      <span data-testid="amp-isolation-row"
+            style={{ fontSize: 11, color: C.inkDim, display: "flex",
+                     alignItems: "center", gap: 4 }}>
+        {c.isolation_state || "Not Isolated"}
+        <AlertTriangle size={10} color={C.suspicious} />
+      </span>
+      <span style={{ flex: 1 }} />
+      <span data-testid="amp-computer-state"
+            style={{ fontSize: 9.4, fontWeight: 700, padding: "2px 7px",
+                     borderRadius: 2, letterSpacing: ".4px",
+                     color: epistemic?.state === "OBSERVED"
+                       ? "#2FBF71" : C.suspicious,
+                     background: C.paperAlt,
+                     border: `1px solid ${C.gridStrong}` }}>
+        {epistemic?.state || "UNKNOWN"}
+      </span>
+
+      <button onClick={() => setDrawer(true)} data-testid="amp-show-details"
+              style={{ fontSize: 10.6, padding: "4px 9px", borderRadius: 2,
+                       cursor: "pointer", background: C.paper, color: C.link,
+                       border: `1px solid ${C.gridStrong}` }}>
+        Show details
       </button>
 
-      {open && (
-        <>
-          <button onClick={() => setIsoOpen((v) => !v)}
-                  data-testid="amp-isolation-row"
-                  style={{ width: "100%", display: "flex", gap: 7,
-                           alignItems: "center", padding: "6px 10px",
-                           background: C.paper, cursor: "pointer",
-                           border: "none",
-                           borderBottom: `1px solid ${C.grid}` }}>
-            {isoOpen ? <ChevronDown size={11} color={C.inkDim} />
-                     : <ChevronRight size={11} color={C.inkDim} />}
-            <ShieldOff size={12} color={C.inkDim} />
-            <span style={{ fontSize: 11, color: C.ink }}>
-              {c.isolation_state || "Not Isolated"}
-            </span>
-            <AlertTriangle size={11} color="#E0A200" />
-          </button>
-          {isoOpen && (
-            <div data-testid="amp-isolation-detail"
-                 style={{ fontSize: 10.4, color: C.inkDim, padding: "7px 30px",
-                          borderBottom: `1px solid ${C.grid}`,
-                          lineHeight: 1.55 }}>
-              Isolation is requested, executed and verified by the NivXForge
-              response plane, never from this read-only trajectory. Open{" "}
-              <button onClick={() => onAction("isolation")}
-                      data-testid="amp-isolation-open"
-                      style={{ background: "none", border: "none", padding: 0,
-                               color: C.link, cursor: "pointer",
-                               fontSize: 10.4 }}>
-                Response
-              </button>{" "}
-              to request it with its verification record.
-            </div>
-          )}
-
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <tbody>
-              <tr>
-                <Cell k="Hostname" v={c.hostname} testid="amp-hdr-hostname" />
-                <Cell k="Group" v={c.group} testid="amp-hdr-group" link />
-              </tr>
-              <tr>
-                <Cell k="Operating System" v={c.operating_system}
-                      testid="amp-hdr-os" />
-                <Cell k="Policy" v={c.policy} testid="amp-hdr-policy" link />
-              </tr>
-              <tr>
-                <Cell k="Connector Version" v={c.connector_version}
-                      testid="amp-hdr-connector" />
-                <Cell k="Internal IP" v={c.internal_ip}
-                      testid="amp-hdr-int-ip" />
-              </tr>
-              <tr>
-                <Cell k="First Observed" v={c.first_observed}
-                      testid="amp-hdr-first-observed" />
-                <Cell k="External IP" v={c.external_ip}
-                      testid="amp-hdr-ext-ip" />
-              </tr>
-              <tr>
-                <Cell k="Device IID" v={c.device_iid}
-                      testid="amp-hdr-device-iid" />
-                <Cell k="Last Seen" v={c.last_telemetry_at}
-                      testid="amp-hdr-last-telemetry" />
-              </tr>
-              <tr>
-                <Cell k="Endpoint ID" v={c.endpoint_id}
-                      testid="amp-hdr-endpoint-id" />
-                <Cell k="Definitions Last Updated" v={c.definitions_version}
-                      testid="amp-hdr-definitions" />
-              </tr>
-              <tr>
-                <Cell k="Enrollment" v={c.enrollment_state}
-                      testid="amp-hdr-enrollment" />
-                <Cell k="Identity Confidence" v={c.identity_confidence}
-                      testid="amp-hdr-identity" />
-              </tr>
-              <tr>
-                <Cell k="Sensor State" v={c.sensor_state}
-                      testid="amp-hdr-sensor" />
-                <Cell k="Customer / Tenant" v={c.tenant}
-                      testid="amp-hdr-tenant" />
-              </tr>
-              <tr>
-                <Cell k="Observations" v={c.observations_all_time}
-                      testid="amp-hdr-observations" />
-                <Cell k="Activity Rows" v={c.lane_total}
-                      testid="amp-hdr-lanes" />
-              </tr>
-            </tbody>
-          </table>
-
-          <div style={{ display: "flex", gap: 10, padding: "9px 10px" }}>
-            {[["Related Compromise Events",
-               compromise
-                 ? `${compromise} compromise event(s) observed on this endpoint.`
-                 : "No related compromise events observed.",
-               "amp-related-compromise"],
-              ["Vulnerabilities",
-               "Vulnerability data is not collected by NivXForge — this is "
-               + "an absence of collection, not an absence of vulnerabilities.",
-               "amp-vulnerabilities"]].map(([title, body, tid]) => (
-              <div key={tid} style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: C.ink, fontWeight: 600,
-                              marginBottom: 5 }}>{title}</div>
-                <div data-testid={tid}
-                     style={{ border: `1px solid ${C.grid}`, minHeight: 62,
-                              background: C.paperAlt, padding: "8px 9px",
-                              fontSize: 10.4, color: C.inkDim,
-                              lineHeight: 1.5 }}>
-                  {body}
-                </div>
-              </div>
+      <div style={{ position: "relative" }}>
+        <button onClick={() => setMenu((v) => !v)}
+                data-testid="amp-actions-button"
+                style={{ fontSize: 10.6, padding: "4px 9px", borderRadius: 2,
+                         cursor: "pointer", background: C.paper,
+                         color: C.link, display: "flex", gap: 4,
+                         alignItems: "center",
+                         border: `1px solid ${C.gridStrong}` }}>
+          Actions <ChevronDown size={10} />
+        </button>
+        {menu && (
+          <div data-testid="amp-actions-menu"
+               style={{ position: "absolute", right: 0, top: 26, zIndex: 70,
+                        background: C.paper, minWidth: 236, borderRadius: 3,
+                        border: `1px solid ${C.gridStrong}`,
+                        boxShadow: "0 10px 26px rgba(0,0,0,.34)" }}>
+            {ACTIONS.map(([k, label, enabled, why]) => (
+              <button key={k} disabled={!enabled} title={why}
+                      data-testid={`amp-action-${k}`}
+                      onClick={() => { onAction(k); setMenu(false); }}
+                      style={{ display: "block", width: "100%",
+                               textAlign: "left", fontSize: 10.5,
+                               padding: "6px 10px", background: "none",
+                               border: "none",
+                               cursor: enabled ? "pointer" : "not-allowed",
+                               color: enabled ? C.ink : C.inkFaint }}>
+                {label}
+              </button>
             ))}
+            <div style={{ fontSize: 9, color: C.inkFaint,
+                          padding: "5px 10px",
+                          borderTop: `1px solid ${C.grid}` }}>
+              greyed actions are not implemented by this platform — hover
+              for why
+            </div>
           </div>
-
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap",
-                        padding: "0 10px 10px", alignItems: "center" }}>
-            <ActionBtn label="Forensic Snapshot" testid="amp-act-forensics"
-                       onClick={() => onAction("forensics")}
-                       title="Open NivXForge Forensics" />
-            <ActionBtn label="Live Query" testid="amp-act-live-query"
-                       onClick={() => onAction("live-query")}
-                       title="Open NivXForge Live Query" />
-            <ActionBtn label="Events" testid="amp-act-events"
-                       onClick={() => onAction("detections")}
-                       title="Open endpoint detections" />
-            <ActionBtn label="Process Tree" testid="amp-act-process-tree"
-                       onClick={() => onAction("process-tree")} />
-            <ActionBtn label="Campaign Story" testid="amp-act-campaign"
-                       onClick={() => onAction("campaign-story")} />
-            <ActionBtn label="Response · Isolate / Kill"
-                       testid="amp-act-response"
-                       onClick={() => onAction("isolation")} />
-            <ActionBtn label="Scan…" disabled testid="amp-act-scan"
-                       title="On-demand scanning is not implemented by the NivXForge sensor" />
-            <ActionBtn label="Diagnose…" disabled testid="amp-act-diagnose"
-                       title="Connector diagnostics are not implemented by the NivXForge sensor" />
-            <ActionBtn label="Move to Group…" disabled
-                       testid="amp-act-move-group"
-                       title="Endpoint groups are not a NivXForge concept" />
-            <span style={{ fontSize: 9.6, color: C.inkFaint }}>
-              greyed actions are not implemented by this platform — hover for
-              why
-            </span>
-          </div>
-        </>
-      )}
+        )}
+      </div>
 
       {epistemic?.message && (
         <div data-testid="amp-computer-epistemic"
-             style={{ margin: "0 10px 10px", fontSize: 10.4, color: "#8A5B00",
-                      background: "#FDF3E0", border: "1px solid #EFD9A8",
-                      padding: "6px 9px", borderRadius: 2 }}>
+             style={{ width: "100%", marginTop: 6, fontSize: 10.4,
+                      color: C.suspicious, background: C.paperAlt,
+                      border: `1px solid ${C.gridStrong}`,
+                      padding: "5px 8px", borderRadius: 2 }}>
           {epistemic.message}
+        </div>
+      )}
+
+      {/* Show details · right-side drawer, never a navigation away */}
+      {drawer && (
+        <div data-testid="amp-details-drawer-backdrop"
+             onClick={() => setDrawer(false)}
+             style={{ position: "fixed", inset: 0, zIndex: 3000,
+                      background: "rgba(0,0,0,.42)" }}>
+          <aside data-testid="amp-details-drawer"
+                 onClick={(e) => e.stopPropagation()}
+                 style={{ position: "absolute", top: 0, right: 0, bottom: 0,
+                          width: 392, background: C.paper, overflowY: "auto",
+                          borderLeft: `1px solid ${C.gridStrong}`,
+                          padding: "12px 14px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8,
+                          borderBottom: `1px solid ${C.gridStrong}`,
+                          paddingBottom: 8 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink,
+                             flex: 1 }}>
+                Device details
+              </span>
+              <button onClick={() => setDrawer(false)}
+                      data-testid="amp-details-drawer-close"
+                      style={{ background: C.paperAlt, cursor: "pointer",
+                               border: `1px solid ${C.gridStrong}`,
+                               borderRadius: 3, color: C.ink, padding: 3,
+                               display: "flex" }}>
+                <X size={12} />
+              </button>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Prop k="Hostname" v={c.hostname} testid="amp-hdr-hostname" />
+              <Prop k="Device IID" v={c.device_iid}
+                    testid="amp-hdr-device-iid" />
+              <Prop k="Endpoint ID" v={c.endpoint_id}
+                    testid="amp-hdr-endpoint-id" />
+              <Prop k="Operating System" v={c.operating_system}
+                    testid="amp-hdr-os" />
+              <Prop k="Connector Version" v={c.connector_version}
+                    testid="amp-hdr-connector" />
+              <Prop k="Enrollment" v={c.enrollment_state}
+                    testid="amp-hdr-enrollment" />
+              <Prop k="Sensor State" v={c.sensor_state}
+                    testid="amp-hdr-sensor" />
+              <Prop k="Isolation" v={c.isolation_state || "Not Isolated"}
+                    testid="amp-hdr-isolation" />
+              <Prop k="Group" v={c.group} testid="amp-hdr-group" />
+              <Prop k="Policy" v={c.policy} testid="amp-hdr-policy" />
+              <Prop k="Internal IP" v={c.internal_ip}
+                    testid="amp-hdr-int-ip" />
+              <Prop k="External IP" v={c.external_ip}
+                    testid="amp-hdr-ext-ip" />
+              <Prop k="Definitions Last Updated" v={c.definitions_version}
+                    testid="amp-hdr-definitions" />
+              <Prop k="Identity Confidence" v={c.identity_confidence}
+                    testid="amp-hdr-identity" />
+              <Prop k="Customer / Tenant" v={c.tenant}
+                    testid="amp-hdr-tenant" />
+              <Prop k="First Observed" v={c.first_observed}
+                    testid="amp-hdr-first-observed" />
+              <Prop k="Last Seen" v={c.last_telemetry_at}
+                    testid="amp-hdr-last-telemetry" />
+              <Prop k="Observations" v={c.observations_all_time}
+                    testid="amp-hdr-observations" />
+              <Prop k="Activity Rows" v={c.lane_total}
+                    testid="amp-hdr-lanes" />
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.ink,
+                            marginBottom: 5 }}>
+                Related Compromise Events
+              </div>
+              <div data-testid="amp-related-compromise"
+                   style={{ border: `1px solid ${C.grid}`,
+                            background: C.paperAlt, padding: "7px 9px",
+                            fontSize: 10.4, color: C.inkDim,
+                            lineHeight: 1.5 }}>
+                {compromise
+                  ? `${compromise} compromise event(s) observed on this `
+                    + "endpoint."
+                  : "No related compromise events observed."}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.ink,
+                            margin: "9px 0 5px" }}>
+                Vulnerabilities
+              </div>
+              <div data-testid="amp-vulnerabilities"
+                   style={{ border: `1px solid ${C.grid}`,
+                            background: C.paperAlt, padding: "7px 9px",
+                            fontSize: 10.4, color: C.inkDim,
+                            lineHeight: 1.5 }}>
+                Vulnerability data is not collected by NivXForge — this is
+                an absence of collection, not an absence of
+                vulnerabilities.
+              </div>
+            </div>
+          </aside>
         </div>
       )}
     </section>

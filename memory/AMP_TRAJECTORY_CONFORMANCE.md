@@ -36,6 +36,11 @@ Legacy `/edr/trajectory` is untouched and remains operational.
 | Right-hand **Activity** master list | `amp-activity-panel`, `amp-activity-row-<event_iid>`, `amp-activity-count` |
 | Click an event → **Activity Details** in place, with a back arrow | `amp-details-panel` (header "Activity Details"), `amp-details-back` — no modal, no navigation away, viewport preserved |
 | Dark console (current Secure Endpoint) and light console (classic AMP) | `amp-theme-toggle`, default dark, persisted |
+| Activity quick filters | `amp-activity-tabs`: All / Processes / Files / Network / Detections with counts |
+| **Show details** endpoint drawer | `amp-show-details` → `amp-details-drawer` (right-side, never navigates away) |
+| **Actions** endpoint command menu | `amp-actions-button` → `amp-actions-menu`: Events, Process Tree, Campaign Story, Live Query, Take System Snapshot, Start Isolation; Scan / Diagnose Connector / Move to Group / Device Audit Log disabled with a stated reason |
+| Row labels carry the PID and lineage guides | `amp-lane-label-<row>` renders `name (pid) [Tag]` with one guide tick per ancestor level |
+| Detection → Trajectory: open at the right endpoint, time and event | `?device=&at=<ISO>[&process_iid=]` centres the window on that instant and selects the nearest observation once; `?event=<event_iid>` selects exactly |
 | Timestamp + severity chip | `amp-details-timestamp`, `amp-details-disposition` |
 | "Detected <name>" in red | `amp-details-detected-line` (only when something detected it) |
 | Description | `amp-details-description` |
@@ -57,13 +62,12 @@ Legacy `/edr/trajectory` is untouched and remains operational.
    identification, so the tag is DERIVED from the observed path
    extension and falls back to the row's group (`[Proc]`, `[File]`,
    `[Net]`). It is a derivation, never an identification.
-3. **The mouse wheel is deliberately inert** over the workspace — not
-   zoom, not time, not the activity axis, not the Navigator. Cisco
-   navigates through the Navigator bands, the two scrollbars and
-   deliberate dragging. The listener is attached natively and
-   non-passively so no ancestor scrolls instead. Navigation remains:
-   `amp-vscroll`, `amp-hscroll`, drag, Navigator bands, the window
-   controls, search/focus and event selection.
+3. **Wheel mapping** (per the owner's final instruction): wheel scrolls
+   the activity axis, shift/horizontal wheel scrubs time, ctrl or cmd +
+   wheel zooms the window. Attached natively and non-passively so no
+   ancestor scrolls the page instead. Dragging, `amp-vscroll`,
+   `amp-hscroll`, the Navigator bands, the window controls, search and
+   event selection all remain.
 4. **Take a Tour / Share** are Cisco product features with no
    NivXForge equivalent, so they are absent rather than faked.
 5. **Dispositions** — Cisco has a file reputation service. NivXForge

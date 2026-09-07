@@ -7055,3 +7055,27 @@ Against the operator's live Cisco Secure Endpoint console screenshots:
 Verified: `test_reports/iteration_99.json` (all critical flows pass);
 the three findings it raised are fixed and re-verified — wheel inert,
 0 console errors, light and dark both legible.
+
+### 2026-06-06 (later still) · P0-F.13 · Cisco endpoint context + navigation
+
+- **Show details drawer** (`amp-show-details` → `amp-details-drawer`):
+  the endpoint properties moved out of a tall card into Cisco's
+  right-side drawer, so the header is a one-line strip and the
+  trajectory gets the page. It never navigates away.
+- **Actions menu** (`amp-actions-button`): Events, Process Tree,
+  Campaign Story, Live Query, Take System Snapshot, Start Isolation
+  wired to real NivXForge capabilities; Scan, Diagnose Connector, Move
+  to Group and Device Audit Log disabled with the reason on hover.
+- **Detection → Trajectory contract**: `?at=<ISO>` (optionally
+  `&process_iid=`) opens the trajectory at that instant and selects the
+  nearest observation exactly once, so a later analyst selection is
+  never overridden. `?event=<event_iid>` still selects exactly.
+- **Row labels carry the PID** (`python3.11 (81757) [Proc]`) plus one
+  lineage guide tick per ancestor level, so identical process names
+  stay traceable. `pid` added to the lane catalogue.
+- **Activity quick filters**: All / Processes / Files / Network /
+  Detections with counts — a view filter on the list only, never on the
+  trajectory.
+- **Wheel mapping** per the owner's final instruction: wheel = activity
+  axis, shift/horizontal = time, ctrl/cmd = zoom. Verified: rows moved
+  0–36 → 6–42 and the window moved 00:00 → 14:07 with 0 console errors.

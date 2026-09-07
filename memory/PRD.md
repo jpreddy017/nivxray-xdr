@@ -10966,3 +10966,36 @@ zero issues, alignment pixel-flush at three viewport sizes).
 
 **Conformance table and declared differences:**
 `memory/AMP_TRAJECTORY_CONFORMANCE.md`.
+
+### 2026-06-06 · P0-F.13 · Cisco endpoint context + navigation (DELIVERED)
+
+Frozen scope, from the owner's Cisco console research:
+
+1. **Wheel mapping correction** (supersedes "wheel must be inert"):
+   wheel = activity rows, shift/horizontal = timeline scrub,
+   ctrl/cmd + wheel = zoom the window. Native non-passive listener, so
+   the page behind never scrolls instead.
+2. **Show details drawer** — the endpoint properties live in Cisco's
+   right-side drawer; the header is a one-line strip. Never navigates
+   away.
+3. **Actions menu** — the endpoint command surface: Events, Process
+   Tree, Campaign Story, Live Query, Take System Snapshot, Start
+   Isolation; Scan, Diagnose Connector, Move to Group and Device Audit
+   Log disabled with the reason stated.
+4. **Detection → Trajectory** — `?at=<ISO>` (optionally
+   `&process_iid=`) opens the correct endpoint, time window and selects
+   the nearest activity, exactly once, so a later analyst selection is
+   never hijacked. `?event=<event_iid>` selects exactly.
+5. **PID + lineage guides** in the row gutter, so fifteen identical
+   `python3.11` rows stay traceable.
+6. **Activity quick filters** — All / Processes / Files / Network /
+   Detections with counts; a view filter on the list only.
+
+Verified: `test_reports/iteration_100.json` — all seven owner
+acceptance items pass, 0 console errors, both themes legible; the one
+LOW cosmetic remark (activity count suffix) is fixed and re-verified.
+
+**Explicitly NOT started** (owner instruction — do not begin until the
+Cisco baseline is accepted): Fleet File Trajectory implementation, and
+any NivXRay-specific enrichment in the trajectory (IKG, Attack Story,
+verdict visualisation, XDR scoring).
