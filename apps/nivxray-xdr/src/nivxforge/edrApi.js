@@ -79,6 +79,42 @@ export async function getEdrCapabilities() {
   return data;
 }
 
+/**
+ * P0-2A · EDR Response surface data.
+ *
+ * Two authorities, never merged into one invented state:
+ *  · `/edr/response/actions`  — NivXForge EDR owns endpoint execution
+ *    AND verification. Its `state` + `proof` are the truth about what
+ *    happened on the endpoint.
+ *  · `/xdr/respond/*`         — the XDR orchestration plane owns
+ *    request, approval and dispatch, and reports capability truth
+ *    (`dispatch_mode`) per action.
+ */
+export async function listEndpointCommands(params = {}) {
+  const { data } = await api.get("/edr/response/actions", { params });
+  return data;
+}
+
+export async function getIsolationPolicy() {
+  const { data } = await api.get("/edr/response/isolation-policy");
+  return data;
+}
+
+export async function getResponseCatalogue() {
+  const { data } = await api.get("/xdr/respond/actions");
+  return data;
+}
+
+export async function getResponseEngineHealth() {
+  const { data } = await api.get("/xdr/respond/health");
+  return data;
+}
+
+export async function getPendingApprovals() {
+  const { data } = await api.get("/xdr/respond/pending-approvals");
+  return data;
+}
+
 /** Evidence-gated prose for one persisted observation. */
 export async function getObservationNarrative(device, eventIid) {
   const { data } = await api.get("/edr/observation-narrative",

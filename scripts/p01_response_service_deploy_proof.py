@@ -190,7 +190,7 @@ def main() -> int:
          f"edr_state={edr.get('state')} executed={(aplc.get('facts') or {}).get('executed')}")
     gate("19 executed != verified — verified requires the product's own proof",
          (aplc.get("lifecycle") != "verified"
-          or bool((edr.get("proof") or {}).get("verified"))),
+          or (edr.get("proof") or {}).get("proof") == "VERIFIED_BY_POST_ACTION_EVIDENCE"),
          f"lifecycle={aplc.get('lifecycle')} proof={(edr.get('proof') or {}).get('proof')}")
 
     # ── 8 · correlation across request → dispatch → result ───────────
@@ -212,7 +212,7 @@ def main() -> int:
         gate("22 the wrong tenant cannot read the dispatched command in the EDR product",
              fer.status_code >= 400, f"HTTP {fer.status_code}")
         gate("23 the EDR refuses to grade an unexecuted command as verified",
-             (erj.get("proof") or {}).get("verified") is not True
+             (erj.get("proof") or {}).get("proof") != "VERIFIED_BY_POST_ACTION_EVIDENCE"
              or erj.get("state") == "VERIFIED",
              f"state={erj.get('state')} proof={(erj.get('proof') or {}).get('proof')}")
     else:

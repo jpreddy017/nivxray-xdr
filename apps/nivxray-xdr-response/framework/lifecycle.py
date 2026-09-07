@@ -80,7 +80,12 @@ def project(row: Dict[str, Any], *, dispatch_mode: Optional[str] = None
 
     edr_state = result.get("edr_state")
     edr_proof = result.get("edr_proof") or {}
-    edr_verified = bool(edr_proof.get("verified")) if isinstance(edr_proof, dict) else False
+    # The EDR grades proof with a TOKEN, not a boolean. Only
+    # `VERIFIED_BY_POST_ACTION_EVIDENCE` means the effect was proven, and
+    # an integrity alarm withdraws the claim regardless of the grade.
+    edr_verified = (isinstance(edr_proof, dict)
+                    and edr_proof.get("proof") == "VERIFIED_BY_POST_ACTION_EVIDENCE"
+                    and not edr_proof.get("integrity_alarm"))
 
     # ── exception / terminal first ────────────────────────────────
     if state == "REJECTED":

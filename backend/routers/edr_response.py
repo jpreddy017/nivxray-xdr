@@ -16,6 +16,8 @@ from edr_plane import isolation_policy
 from edr_plane import response as resp
 from edr_plane.enrollment.identity import AuthenticatedEndpoint
 from routers.edr_enrollment import get_authenticated_endpoint
+from services.dashboard_lenses import resolve_tenant_scope
+from services.edr import device_identity as dir_svc
 
 router = APIRouter(prefix="/edr/response", tags=["nivxforge-edr-response"])
 agent = APIRouter(prefix="/edr/agent", tags=["nivxforge-edr-agent"])
@@ -64,9 +66,35 @@ async def request_action(body: ActionBody,
 @router.get("/actions")
 async def list_actions(endpoint_id: Optional[str] = None,
                        user: dict = Depends(get_current_user)) -> dict:
-    return await resp.list_commands(
+    """P0-W.F-1 (third occurrence) · resolve the endpoint reference.
+
+    The command store keys on the platform-minted `endpoint_id`, but the
+    EDR console navigates and pivots on the `device_iid`. Without alias
+    resolution this surface reported "0 of 0" for an endpoint that has
+    real command records — the same false-empty class as the process
+    tree and endpoint detections. It reuses the SAME authoritative
+    resolver; it widens the identifiers, never the authorization.
+    """
+    refs = None
+    if endpoint_id:
+        scope = resolve_tenant_scope(user.get("email"))
+        identity = dir_svc.resolve(endpoint_id, scope)
+        if not identity:
+            return {"endpoint_id": endpoint_id, "commands": [], "count": 0,
+                    "total_count": 0, "truncated": False, "by_state": {},
+                    "verified_count": 0, "integrity_alarms": 0,
+                    "identity": {"resolved": False},
+                    "reason": "ENDPOINT_NOT_RESOLVED",
+                    "note": ("no endpoint you are authorised for resolves to "
+                             "this reference — an authorisation or identity "
+                             "outcome, not a statement about response actions")}
+        refs = dir_svc.identity_refs(identity, endpoint_id)
+    out = await resp.list_commands(
         _db, tenant_id=user.get("tenant_id") or "default",
-        endpoint_id=endpoint_id)
+        endpoint_id=endpoint_id, endpoint_refs=refs)
+    if refs:
+        out["identity"] = {"resolved": True, "addressed_by": refs}
+    return out
 
 
 @router.get("/actions/{command_id}")

@@ -1,5 +1,100 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · **P0-2A EDR RESPONSE SURFACE** — `REAL_RUNTIME_VERIFIED` (enforcement `BLOCKED_ENVIRONMENT`)
+
+Report: `/app/memory/P0_2_EDR_RESPONSE_SURFACE.md`
+
+**P0-1 is LOCKED.** Correct classification, per the owner: *"`REAL_RUNTIME_VERIFIED`
+response orchestration plane; endpoint enforcement `BLOCKED_ENVIRONMENT`."*
+The phrase "production-capable" is withdrawn — 2 real adapters vs 16
+stubs, and the flagship containment action can neither execute nor be
+independently verified here.
+
+### What was built
+`/edr/response` is now a **native EDR operational projection** — not the
+XDR admin view copied across. **No** response backend, store, state
+machine or approval engine was created; **no** backend route was added.
+Audit-before-code classified every component ADOPT / WIRE / EXTEND /
+REPLACE_STUB / DO_NOT_USE (`xdr/admin/EdrResponseBody.jsx` =
+**DO_NOT_USE**).
+
+Two authorities are rendered without being merged: NivXForge EDR
+(`/api/edr/response/actions`) owns endpoint **execution + verification**;
+the XDR plane (`/api/xdr/respond/*`) owns request, approval, dispatch and
+per-action capability truth. Availability is read from the **registry**,
+never hardcoded. The UI makes **no** authorization decisions.
+
+### Truth rendering — no generic "Success" exists on the page
+`AUTHORIZED → "Approved · not dispatched"` · `EXECUTED → "Executed ·
+unproven"` · `VERIFIED + proof → "Verified"` · `VERIFIED without proof →
+"Executed · proof missing"` · `CAPABILITY_UNAVAILABLE → "Blocked ·
+environment"` · plus verification-failed / failed / timed-out. Absent
+values read **"Not recorded"**, never a blank implying success. Header
+carries a standing `BLOCKED_ENVIRONMENT` notice and names all 16
+non-operational stubs.
+
+### TWO REAL BUGS THE SURFACE CAUGHT
+- **Proof grade read as a boolean.** The EDR grades proof with a
+  **token** (`VERIFIED_BY_POST_ACTION_EVIDENCE`), not `proof.verified`.
+  Both the new UI **and** `framework/lifecycle.py` (written in P0-1)
+  tested a boolean, so **genuinely verified actions were being
+  under-reported** and P0-1's lifecycle would have downgraded every real
+  `verified` to `executed`. Fixed in both, with `integrity_alarm` as an
+  overriding veto. Safe failure direction, but still wrong — and only
+  visible once a real surface rendered real records.
+- **F-1 RECURRING A THIRD TIME — found by the owner in the UI.**
+  `/edr/response?device=dev_42e8c6dc74b9` read **"0 OF 0"** while that
+  endpoint has **29** real commands incl. 5 verified.
+  `GET /api/edr/response/actions?endpoint_id=` applied **no alias
+  resolution**. Fixed with the same authoritative resolver:
+  `dev_…` → **29 of 29**, `ep_…` → 29 of 29, forged → explicit
+  `ENDPOINT_NOT_RESOLVED`. Authorization was not widened, only the
+  identifiers.
+  **LESSON RECORDED: the F-1 class is PER QUERY SITE, not global.** Any
+  store keyed on `endpoint_id` must resolve the alias set. Fixed so far:
+  process tree · endpoint detections · response commands. **Remaining
+  sites must be audited before P0-3.**
+
+### Proof — 8/8 owner cases, live
+A pending_approval · B approved w/ approver+timestamp · C real
+`cmd_…` id + correlation · D no fake execution (`Not recorded`) ·
+E proofless VERIFIED never displays verified · F 16 stubs
+non-operational · G `analyst@nivx-live.com` sees **0 of 0**, no endpoint
+id and no admin identity in the DOM · H unavailable state explicit
+(P0-1 gate 33 = `503 dispatch_failed`). Real states rendered on the
+owner's URL: `APPROVED·NOT DISPATCHED 14 · BLOCKED·ENVIRONMENT 8 ·
+VERIFIED 5 · VERIFICATION FAILED 1 · FAILED 1`.
+
+### Regression — none, no baseline reset
+engine **27 passed** · `22/22` · `25/25` · `12/12` · `27/27` · `25/25` ·
+`P0-1 37 PASS · 0 FAIL · 2 BLOCKED` · `tests/edr` **330 passed, 3
+failed** (the same pre-existing `test_p0_f4` trio, still separately
+classified). The 6 pre-existing queue/lens/MSS failures remain
+baselined.
+
+### BLOCKED / NOT DONE
+- Real endpoint network isolation + its independent verification —
+  `BLOCKED_ENVIRONMENT` (CAP_NET_ADMIN). Never simulated.
+- Cisco Secure Endpoint parity for this screen —
+  `REFERENCE_CAPTURE_REQUIRED`; no parity claimed.
+- Request/approve **controls** deliberately absent from EDR (approval is
+  an XDR authority and enforcement is blocked) — surface is read-only.
+- `isolation-policy` wired in the client, not yet surfaced.
+- **P0-2B release-isolation — NOT STARTED.** Repo search for existing
+  release/un-isolate implementations must come first;
+  `RELEASE_ISOLATION` already exists as an EDR verb but has no engine
+  `ActionSpec`.
+- **P0-3 sensor telemetry RCA — NOT STARTED.** Standing fact: last
+  sensor delivery `2026-09-06T15:46Z`, so the fleet is currently blind.
+- **P0-4 collector reconciliation — NOT STARTED.** `G-16` stays
+  `BLOCKED` until the CEF/LEEF producer is proven to be a distinct
+  security domain rather than endpoint telemetry in another transport.
+
+### Order (fixed)
+`P0-2B` Release → `P0-3` Sensor RCA → `P0-4` Collector → `P1` Worklog
+Entry Types. `F-6`/`F-7` still excluded.
+
+
 ## 2026-06 · **P0-1 RESPONSE SERVICE DEPLOY** — DONE · 37 PASS · 0 FAIL · 2 BLOCKED
 
 Report: `/app/memory/STEP2_RESPONSE_SERVICE_DEPLOY.md`

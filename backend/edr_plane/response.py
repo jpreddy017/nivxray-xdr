@@ -499,9 +499,14 @@ async def get_command(db, *, tenant_id: str,
 
 
 async def list_commands(db, *, tenant_id: str,
-                        endpoint_id: Optional[str] = None) -> Dict[str, Any]:
+                        endpoint_id: Optional[str] = None,
+                        endpoint_refs: Optional[list] = None) -> Dict[str, Any]:
     q: Dict[str, Any] = {"tenant_id": tenant_id}
-    if endpoint_id:
+    if endpoint_refs:
+        # P0-W.F-1 · address the endpoint by every identifier its resolved
+        # identity owns, not by the string the caller happened to supply.
+        q["endpoint_id"] = {"$in": endpoint_refs}
+    elif endpoint_id:
         q["endpoint_id"] = endpoint_id
     rows = [d async for d in db[COLLECTION].find(q, {"_id": 0}).sort(
         "requested_at", -1).limit(100)]
