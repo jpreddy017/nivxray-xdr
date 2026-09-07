@@ -7222,3 +7222,71 @@ handles and band, Files & Network deep rows, Activity -> Details -> Back,
 no debug footer). Navigator controls individually exercised: zoom in/out,
 step back/forward and collapse all change state; `fit-day` is a correct
 no-op when the window already spans the day.
+
+
+## P0-F.13.4 — Customer endpoint attribution (2026-09-07)
+
+Owner decisions: **1a** (hide legacy unattributed observations from
+customer-scoped principals, keep them for cross-tenant roles, labelled,
+never attributed) and **2a** (seed a `default`-scoped analyst so the
+boundary is proven from BOTH sides).
+
+The enrolment plane was already correct — this was a missing join, not a
+missing pipeline:
+
+* `edr_endpoints` holds 128 durable records, each with `tenant_id`, minted
+  by the authenticated enrolment flow.
+* The authenticated telemetry path already stamps `tenant_id` and
+  `connector_id` (= the authenticated `endpoint_id`) onto every
+  `collector-live` observation.
+* `device_identity.list_devices` ignored all of it: `if not cross_tenant:
+  return []` then `_obs.find({})`. Customers saw nothing; only that blunt
+  early return prevented a leak.
+
+Implemented (no new store, no telemetry mutation, no seeding of evidence):
+
+* `list_devices` / `resolve` / `observations` now take the **authorisation
+  scope** instead of a boolean. `_is_cross_tenant(user)` returns that scope
+  under its original name, so every call site passes it unchanged.
+* **Ownership cross-check**: `connector_id → edr_endpoints.tenant_id`
+  compared with the observation's own `tenant_id`. Disagreement, or a
+  device with observations in two tenants, yields
+  `TENANT_MISMATCH_FAILED_CLOSED` / `TENANT_CONFLICT_FAILED_CLOSED` with
+  `tenant_id: null` — released to nobody. One real device in this corpus
+  hits that path.
+* Attribution states surfaced on every `/api/edr/endpoints` row:
+  `ATTRIBUTED_AUTHENTICATED_ENDPOINT`, `ATTRIBUTED_TENANT_ONLY`,
+  `UNATTRIBUTED_LEGACY_OBSERVATION`, and the two failed-closed states.
+* The whole (small) collection is read before filtering so a device split
+  across tenants is *detected* rather than silently sliced by a predicate.
+* Closed a real bypass: `/api/edr/process-tree` called
+  `dir_svc.resolve(endpoint_id, cross_tenant=True)` unconditionally. It now
+  takes the caller's scope and returns `ENDPOINT_NOT_RESOLVED` otherwise.
+
+Proof — `scripts/p0_f13_4_tenant_attribution_proof.py` →
+`test_reports/p0_f13_4_tenant_attribution_proof.json`: **16/16 PASS**.
+
+| item | result |
+|---|---|
+| A enrolment creates ownership | 6 of 14 devices carry a server-resolved tenant |
+| B one endpoint → one tenant | conflicted devices carry `tenant_id: null` |
+| C `default` analyst | 1 device, tenants `['default']` |
+| D `nivx-live` analyst | 5 devices, tenants `['nivx-live']` |
+| C∩D | empty — no overlap |
+| E cross-tenant access | trajectory `ENDPOINT_NOT_RESOLVED`, 0 events, 0 process-tree nodes |
+| F/G/H pivot | `XDR_PIVOT` + `REFERENCES_THIS_ENDPOINT`; `DIRECT_EDR` has no incident |
+| H2 cross-tenant pivot | `INCIDENT_TENANT_OUT_OF_SCOPE` |
+| manipulation | `?tenant=` / `organization_id` / `customer` change nothing and are never echoed |
+| I/J/K | no duplicate registry or store; trajectory still reads `nivxray::edr_plane::trajectory_window` |
+| legacy | 7 devices labelled `UNATTRIBUTED_LEGACY_OBSERVATION`, cross-tenant only |
+
+UI verified not frozen: `analyst@default.com` logs in, the pill reads
+`default`, the picker offers exactly its own endpoint, and the trajectory
+opens with all 491 rows and 6356 observations.
+
+Accounts (also in `memory/test_credentials.md`):
+`analyst@default.com` / `DefaultCo!Analyst2026` ·
+`analyst@nivx-live.com` / `NivxLive!Analyst2026`.
+
+Next per owner order: P0-F.13.5 Detection → Trajectory handoff, then
+P0-F.13.6 process-exit collection, then P0-F.14 Fleet File Trajectory.

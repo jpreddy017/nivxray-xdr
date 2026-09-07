@@ -23,18 +23,17 @@ from services.dashboard_lenses import _scope, resolve_tenant_scope
 
 _cases = sync_collection("workspace_cases")
 
-#: Stated, not implied: the EDR evidence substrate has no tenant column,
-#: and there is no enrolment-time customer attribution for endpoints yet.
-#: `device_identity.list_devices` therefore releases the endpoint
-#: inventory to cross-tenant roles only — a customer-scoped principal is
-#: shown NOTHING rather than another customer's endpoints.
+#: Stated, not implied. Ownership is resolved server-side from the
+#: enrolment record and cross-checked against each observation.
 EDR_TENANT_BOUNDARY = (
-    "Endpoint evidence carries no customer attribution in this build "
-    "(v2_shadow_observations has no tenant_id), so the endpoint "
-    "inventory is released to cross-tenant roles only. A customer-scoped "
-    "principal is shown nothing rather than another customer's "
-    "endpoints. Per-customer endpoint visibility requires "
-    "enrolment-time attribution, which is not implemented."
+    "Endpoint ownership is resolved from the authenticated enrolment "
+    "record (edr_endpoints.tenant_id) cross-checked against each "
+    "observation's tenant_id via the connector_id the sensor "
+    "authenticated with. A customer-scoped principal is shown its own "
+    "endpoints or nothing — never another customer's. Observations that "
+    "carry no owner stay UNATTRIBUTED_LEGACY_OBSERVATION and are "
+    "released to cross-tenant roles only; they are never assigned to a "
+    "customer by inference."
 )
 
 

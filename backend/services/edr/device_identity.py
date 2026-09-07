@@ -123,9 +123,73 @@ def _new_row(ref: str, device_iid: Optional[str],
     }
 
 
-def list_devices(cross_tenant: bool) -> List[Dict[str, Any]]:
-    """Project every device identity observable in the IRG plane."""
-    if not cross_tenant:
+def _norm_scope(scope: Any) -> tuple[bool, List[str]]:
+    """Accept the authorisation scope (dict) or the legacy bool."""
+    if isinstance(scope, dict):
+        return (bool(scope.get("all_tenants")),
+                [str(t) for t in (scope.get("tenant_ids") or [])])
+    return bool(scope), []
+
+
+def _endpoint_owners() -> Dict[str, str]:
+    """`endpoint_id -> tenant_id` from the durable enrolment records.
+
+    This is the ownership authority. An observation's own `tenant_id` is
+    only believed when it agrees with the endpoint record that the
+    authenticated sensor enrolled under.
+    """
+    from deps import sync_collection
+    return {d["endpoint_id"]: d.get("tenant_id")
+            for d in sync_collection("edr_endpoints")
+            .find({}, {"_id": 0, "endpoint_id": 1, "tenant_id": 1})
+            if d.get("endpoint_id")}
+
+
+def _attribute(row: Dict[str, Any], owners: Dict[str, str]) -> Dict[str, Any]:
+    """Decide, and SAY, who owns a device — or that nobody does."""
+    tenants = {t for t in row.pop("_tenant_ids", set()) if t}
+    conns = {c for c in row.pop("_connector_ids", set()) if c}
+    owner_tenants = {owners[c] for c in conns if c in owners}
+
+    if not tenants:
+        state, tenant = "UNATTRIBUTED_LEGACY_OBSERVATION", None
+    elif len(tenants) > 1:
+        state, tenant = "TENANT_CONFLICT_FAILED_CLOSED", None
+    elif owner_tenants and owner_tenants != tenants:
+        # The observation claims one customer, the enrolment record says
+        # another. Neither gets it.
+        state, tenant = "TENANT_MISMATCH_FAILED_CLOSED", None
+    elif owner_tenants:
+        state, tenant = "ATTRIBUTED_AUTHENTICATED_ENDPOINT", next(iter(tenants))
+    else:
+        state, tenant = "ATTRIBUTED_TENANT_ONLY", next(iter(tenants))
+
+    row["tenant_id"] = tenant
+    row["tenant_attribution"] = state
+    row["attribution_basis"] = (
+        "v2_shadow_observations.tenant_id cross-checked against "
+        "edr_endpoints.tenant_id via the authenticated connector_id")
+    row["owning_endpoint_ids"] = sorted(conns)
+    return row
+
+
+def list_devices(scope: Any) -> List[Dict[str, Any]]:
+    """Project the device identities the PRINCIPAL is authorised to see.
+
+    Ownership is decided here, on the server, from the enrolment record —
+    never from a query parameter and never inferred from a hostname.
+    A customer-scoped principal receives its own endpoints or nothing;
+    it never falls back to cross-tenant devices. Legacy observations that
+    carry no tenant at all are released to cross-tenant roles ONLY, and
+    labelled, because an observation with no owner cannot be turned into
+    customer-owned evidence by inference.
+
+    The whole (small) collection is read so that a device with
+    observations in two tenants is detected and failed closed rather than
+    silently sliced by a query predicate.
+    """
+    all_tenants, tenant_ids = _norm_scope(scope)
+    if not all_tenants and not tenant_ids:
         return []
     rows: Dict[str, Dict[str, Any]] = {}
     for doc in _obs.find({}, {"_id": 0}):
@@ -138,17 +202,28 @@ def list_devices(cross_tenant: bool) -> List[Dict[str, Any]]:
         row = rows.get(ref)
         if not row:
             row = _new_row(ref, device_iid, hostname)
+            row["_tenant_ids"] = set()
+            row["_connector_ids"] = set()
             rows[ref] = row
         elif hostname and not row.get("hostname"):
             row["hostname"] = hostname
+        row["_tenant_ids"].add(doc.get("tenant_id"))
+        row["_connector_ids"].add(doc.get("connector_id"))
         _bump(row,
               _ts_of(doc, ev),
               lane_for_kind(ev.get("kind") or doc.get("kind") or ""),
               doc.get("case_id"),
               (_raw(ev).get("user") or None),
               ((ev.get("provenance") or {}) or {}).get("origin"))
-    return sorted(rows.values(),
-                  key=lambda r: r.get("last_seen") or "", reverse=True)
+
+    owners = _endpoint_owners()
+    out = [_attribute(r, owners) for r in rows.values()]
+    if not all_tenants:
+        allowed = set(tenant_ids)
+        out = [r for r in out
+               if r["tenant_attribution"].startswith("ATTRIBUTED")
+               and r["tenant_id"] in allowed]
+    return sorted(out, key=lambda r: r.get("last_seen") or "", reverse=True)
 
 
 def _endpoint_id_aliases(needle: str) -> List[str]:

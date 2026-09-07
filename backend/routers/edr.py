@@ -51,9 +51,19 @@ def _case_scope(user) -> Optional[Dict[str, Any]]:
     return q
 
 
-def _is_cross_tenant(user) -> bool:
+def _is_cross_tenant(user) -> Any:
+    """The principal's authorisation scope.
+
+    Returns the scope object the EDR identity plane needs, not a bare
+    boolean: a customer-scoped analyst must be able to see ITS OWN
+    endpoints, which a boolean cannot express. Kept under the original
+    name so every existing call site passes the scope unchanged.
+    """
     scope = resolve_tenant_scope((user or {}).get("email"))
-    return bool(scope.get("authorized") and scope.get("all_tenants"))
+    if not scope.get("authorized"):
+        return {"all_tenants": False, "tenant_ids": []}
+    return {"all_tenants": bool(scope.get("all_tenants")),
+            "tenant_ids": list(scope.get("tenant_ids") or [])}
 
 
 def _extract_host(doc: Dict[str, Any]) -> Optional[str]:
@@ -194,7 +204,8 @@ def _project_process_tree(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _project_endpoint_process_tree(endpoint_id: str,
-                                   hours: int) -> Dict[str, Any]:
+                                   hours: int,
+                                   scope: Any = None) -> Dict[str, Any]:
     """Build ancestry from the REAL sensor evidence for one endpoint.
 
     Every node is one observed process. Links are the canonical
@@ -208,7 +219,16 @@ def _project_endpoint_process_tree(endpoint_id: str,
     command line or user). `lineage_state` on each node says exactly
     which case it is.
     """
-    identity = dir_svc.resolve(endpoint_id, cross_tenant=True)
+    # Ownership is the caller's scope, never an unconditional bypass.
+    identity = dir_svc.resolve(endpoint_id, scope or {"all_tenants": False,
+                                                      "tenant_ids": []})
+    if not identity:
+        return {"engine_id": "nivxray::edr_plane::process_tree",
+                "endpoint_id": endpoint_id, "nodes": [], "edges": [],
+                "epistemic_state": {
+                    "state": "ENDPOINT_NOT_RESOLVED",
+                    "message": ("no endpoint you are authorised for "
+                                "resolves to this reference")}}
     since = (datetime.now(timezone.utc)
              - timedelta(hours=max(1, min(hours, 24 * 30)))).isoformat()
     needles = {endpoint_id}
@@ -404,7 +424,8 @@ async def get_process_tree(incident_id: str | None = None,
         detection fires on an endpoint.
     """
     if endpoint_id:
-        return _project_endpoint_process_tree(endpoint_id, hours)
+        return _project_endpoint_process_tree(endpoint_id, hours,
+                                              _is_cross_tenant(user))
     if not incident_id:
         raise HTTPException(
             status_code=422,
@@ -565,7 +586,13 @@ async def list_endpoints(user=Depends(get_current_user)):
             "worst_label":         "unknown",
             "worst_risk":          None,
             "latest_incident_id":  (dev.get("case_ids") or [None])[0],
-            "tenant":              None,
+            # Ownership as the server resolved it, plus the state that
+            # says how much that ownership is worth.
+            "tenant":              dev.get("tenant_id"),
+            "tenant_id":           dev.get("tenant_id"),
+            "tenant_attribution":  dev.get("tenant_attribution"),
+            "attribution_basis":   dev.get("attribution_basis"),
+            "owning_endpoint_ids": dev.get("owning_endpoint_ids"),
             "engine":              None,
             "users":               dev.get("users"),
             "provenance":          dev.get("provenance"),
