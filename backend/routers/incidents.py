@@ -30,6 +30,51 @@ router = APIRouter(prefix="/incidents", tags=["incidents"])
 _col = sync_collection("workspace_cases")
 
 
+# ── P0-W · TENANT AUTHORIZATION ON EVERY SINGLE-INCIDENT LOOKUP ──────
+# The queue was correctly scoped through `services.dashboard_lenses._scope`,
+# but every by-id route resolved `{"id": incident_id}` with NO tenant
+# predicate — a direct-object-reference leak across the whole incident
+# plane, on both the read and the write paths (and two write routes
+# accepted an ANONYMOUS principal).  These helpers reuse the SAME
+# authoritative scope resolver the queue uses; they add no new
+# authorization model.
+#
+# Not-found semantics are deliberate: an out-of-scope incident is
+# indistinguishable from a non-existent one, so the response never
+# discloses that another customer's incident exists.
+
+def _incident_scope_predicate(email: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Mongo predicate fragment for what this principal may address."""
+    from services.dashboard_lenses import resolve_tenant_scope
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        return None
+    if scope.get("all_tenants"):
+        return {}
+    return {"tenant_id": {"$in": scope["tenant_ids"]}}
+
+
+def _authorized_incident(incident_id: str, user: Optional[Dict[str, Any]],
+                         projection: Optional[Dict[str, Any]] = None):
+    """Resolve ONE incident inside the caller's tenant authorization.
+
+    Returns `(doc, query)`. The query MUST be reused as the filter of any
+    subsequent write so the mutation cannot escape the same scope.
+    """
+    pred = _incident_scope_predicate((user or {}).get("email"))
+    if pred is None:
+        raise HTTPException(status_code=404,
+                            detail={"error": "incident_not_found",
+                                    "id": incident_id})
+    query = {"id": incident_id, **pred}
+    doc = _col.find_one(query, projection) if projection else _col.find_one(query)
+    if not doc:
+        raise HTTPException(status_code=404,
+                            detail={"error": "incident_not_found",
+                                    "id": incident_id})
+    return doc, query
+
+
 # ── Lifecycle state machine ──────────────────────────────────────────
 # Deterministic, allow-listed transitions.  Any transition not in
 # this map is rejected with HTTP 409.
@@ -992,11 +1037,7 @@ async def list_incidents(
 @router.get("/{incident_id}")
 async def get_incident(incident_id: str,
                           user=Depends(get_current_user_optional)):
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found",
-                                       "id": incident_id})
+    doc, _q = _authorized_incident(incident_id, user)
     return _project_detail(doc)
 
 
@@ -1017,12 +1058,8 @@ async def get_incident_understanding(incident_id: str,
     import os
     from services.iue.service import IUEService
 
-    # Verify incident exists first — sync collection (already imported).
-    doc = _col.find_one({"id": incident_id}, {"_id": 0, "id": 1})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found",
-                                       "id": incident_id})
+    # Verify the incident exists AND is inside the caller's tenant scope.
+    _doc, _q = _authorized_incident(incident_id, user, {"_id": 0, "id": 1})
 
     client = AsyncIOMotorClient(os.environ["MONGO_URL"])
     try:
@@ -1052,10 +1089,7 @@ async def patch_state(incident_id: str,
                               detail={"error": "invalid_state",
                                        "target_state": target,
                                        "allowed": list(LIFECYCLE_STATES)})
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found"})
+    doc, scoped_q = _authorized_incident(incident_id, user)
     current = (doc.get("incident_state") or "new").lower()
     if current == target:
         # Idempotent — no history entry, no DB write.
@@ -1073,11 +1107,11 @@ async def patch_state(incident_id: str,
         "note": (body.note or "").strip()[:500] or None,
     }
     _col.update_one(
-        {"id": incident_id},
+        scoped_q,
         {"$set":  {"incident_state": target, "updated_at": now},
          "$push": {"incident_state_history": entry}},
     )
-    doc = _col.find_one({"id": incident_id})
+    doc = _col.find_one(scoped_q)
     return _project_detail(doc)
 
 
@@ -1089,18 +1123,15 @@ class AssigneePatch(BaseModel):
 async def patch_assignee(incident_id: str,
                             body: AssigneePatch,
                             user=Depends(get_current_user)):
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found"})
+    doc, scoped_q = _authorized_incident(incident_id, user)
     now = datetime.now(timezone.utc).isoformat()
     new_assignee = (body.assignee or "").strip() or None
     _col.update_one(
-        {"id": incident_id},
+        scoped_q,
         {"$set": {"incident_assignee": new_assignee,
                     "updated_at": now}},
     )
-    doc = _col.find_one({"id": incident_id})
+    doc = _col.find_one(scoped_q)
     return _project_detail(doc)
 
 
@@ -1132,10 +1163,7 @@ async def patch_operations(incident_id: str,
     Analyst-authored values are stored alongside (never overwriting)
     the deterministic verdict-derived values in ``_project_row``.
     """
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found"})
+    doc, scoped_q = _authorized_incident(incident_id, user)
     updates: Dict[str, Any] = {}
     if body.priority is not None:
         updates["incident_priority"] = body.priority
@@ -1154,6 +1182,6 @@ async def patch_operations(incident_id: str,
     if not updates:
         return _project_detail(doc)
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-    _col.update_one({"id": incident_id}, {"$set": updates})
-    doc = _col.find_one({"id": incident_id})
+    _col.update_one(scoped_q, {"$set": updates})
+    doc = _col.find_one(scoped_q)
     return _project_detail(doc)

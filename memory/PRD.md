@@ -1,5 +1,107 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · **STEP 1 WORKLOG ADOPTION CHECK** + **P0 INCIDENT TENANT AUTHORIZATION FIX**
+
+Report: `/app/memory/STEP1_WORKLOG_ADOPTION_CHECK.md`.
+Proof: `scripts/p0_w_incident_tenant_authorization_proof.py` → **25/25 PASS**.
+
+### STEP 1 verdict: **ADOPT, DO NOT BUILD**
+The authoritative worklog **already exists and is already wired**:
+`workspace_cases.incident_state_history[]` (append-only,
+`{from, to, at, actor, note}`) → written by `PATCH /api/incidents/{id}/state`
+(`$push`, never `$set`) → projected as `incident.state_history` → rendered
+by `TimelineTab.jsx:26` as `Timestamp · Transition · Actor · Note`.
+**262 of 278** incidents carry history; `ClosureTab` already makes a
+closure note mandatory.
+
+`M-1` splits three ways:
+- **M-1a** action history → **already wired**; a Cisco Worklog tab is a
+  *re-presentation*, never a new store.
+- **M-1b** note on a state change → **ORPHAN: the field exists, only the
+  closure transition produces one** (0 of 262 histories carry a note;
+  `patch_assignee` and `patch_operations` append no entry at all).
+- **M-1c** standalone note (no state change) → the only genuinely
+  **MISSING** piece; must extend the **same array**, never a new
+  collection. **HELD** per owner decision 4A.
+
+### Baseline correction
+`routers/incidents.py:30` → `_col = sync_collection("workspace_cases")`.
+**`workspace_cases` IS the authoritative XDR incident store**, the same
+collection that holds the 563 decoder-lineage analysis runs; the incident
+is that document additively extended. `MASTER_GATE`'s
+"`workspace_cases`/worklog" was right about the collection and wrong about
+the object. `v2_cases` (37 rows) and every `v2_case_*` collection (**0
+rows**) are not it, and `v2/case_engine` is only `schema.py` + `store.py`
+— collection names and index specs, **no case behaviour**. Five other
+candidates were ruled out in the report so nobody repurposes them
+(`investigations.notes` 0 populated · `investigation_cases.state_history`
+empty on all 91 · `summary_overrides` 2 empty · `xdr_audit_log` has **0**
+`resource_kind: incident` rows · `pending_training_notes`).
+
+### P0 DEFECT FOUND AND FIXED — cross-tenant incident IDOR
+Found while auditing the store the Worklog would surface. **Six** by-id
+lookups in `routers/incidents.py` resolved `{"id": incident_id}` with **no
+tenant predicate**, on both read and write paths — and `GET /{id}`,
+`GET /{id}/understanding` and `PATCH /{id}/operations` accepted an
+**anonymous** principal. Proven before the fix: `analyst@nivx-live.com`
+read a `default` incident with **HTTP 200** and **7 state-history entries
+including `admin@nivxray.com`**, across **254** `default` incidents. The
+queue was already scoped, so this was a detail-route IDOR only.
+
+Fixed by reusing the **existing** `resolve_tenant_scope()` (the queue's own
+resolver — no new authorization model) via `_incident_scope_predicate()` +
+`_authorized_incident()`, which returns the scoped query so **every write
+reuses the filter that authorised the read**. **Not-found semantics**: an
+out-of-scope incident returns `404 incident_not_found`, byte-identical to
+a non-existent id — existence is never disclosed, and no `403` is used.
+
+Proven: wrong-tenant GET/state/assignee/operations/understanding all
+**404**; state, assignee, priority unchanged and `state_history`
+**byte-identical** (no worklog entry created); anonymous read *and* write
+both **404**; the owning analyst still reads full history, still
+transitions, and the transition appends **exactly one** attributed entry
+with the note persisted; the queue scoping is unchanged (nivx-live 1
+visible, default 255); the record renders normally in the UI.
+
+**Honest disclosure:** the positive test moved
+`inc_2305c71cd8f54dc38e55` `new → in_progress`.
+`LIFECYCLE_TRANSITIONS` has no edge back to `new`, so a legal revert is
+impossible — and I did **not** write to Mongo directly to fake one,
+because that would break the append-only worklog this phase protects. The
+proof now uses the reversible `in_progress ↔ on_hold` round-trip.
+
+### Owner decisions recorded for later phases
+- **Worklog tab: DEFERRED** (4A/3A) — build it later as a projection of
+  the authoritative worklog, never as a new store.
+- **M-1c: HELD.** When approved it must carry `entry_type`, `actor`,
+  `timestamp`, `tenant`, `reason/context`, `note` and stay append-only.
+- **Response audit model (locked):** `xdr_audit_log` is the
+  **authoritative** full response lifecycle record (`resource_kind =
+  response_execution`); `incident_state_history[]` gets only a
+  **lightweight attributed reference** (`entry_type =
+  response_execution_ref`, `resource_kind`, `resource_id`, actor,
+  timestamp, human note) — **no duplicated event payload**, so the Worklog
+  shows the milestone and pivots into the authoritative execution record.
+
+### Regression — none
+`X1–X3/Y2 22/22` · `P0-F.13.5 25/25` · `Detection Attribution 12/12` ·
+`P0-W F-1/F-2 27/27` · `P0-W authorization 25/25` · `tests/edr` **330
+passed** (same 3 pre-existing `test_p0_f4` failures). Queue/lens/MSS
+suites: **6 failed / 35 passed both before and after**, verified by
+reverting `routers/incidents.py` to `HEAD` and restoring.
+
+### Next — STEP 2, not started
+`STEP 2` deploy `apps/nivxray-xdr-response` as its own service →
+`STEP 3` `/edr/response` surface → `STEP 4` collector reconciliation →
+re-evaluate `G-16`. **F-6/F-7 excluded from this phase.**
+**Known constraint for STEP 2's acceptance:** points 6–7 of your 10-point
+chain (*endpoint actually executes* / *independently verified*) depend on
+endpoint containment, which is `BLOCKED · CAP_NET_ADMIN` in this pod
+(`CapEff 00000000a80405fb`). The orchestration, approval, dispatch,
+evidence and audit links are provable here; real isolation execution and
+its verification are not, and must be reported `BLOCKED`, never claimed.
+
+
 ## 2026-06 · **CISCO XDR AUDIT DELTA** + **WIRING PHASE P0 (F-1, F-2)** · DELIVERED
 
 ### A · Cisco delta — `/app/memory/MASTER_CISCO_DELTA.md`
