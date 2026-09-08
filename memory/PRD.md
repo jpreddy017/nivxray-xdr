@@ -12685,3 +12685,169 @@ gate as BLOCKED unless `TEST_ANALYST_NIVXLIVE_PASSWORD` is set. The
 remaining ~274 need an owner decision: the honest remedy is to rotate
 the preview admin password and move every test to an env var, which
 invalidates the credential currently in use.
+
+---
+
+# Phase 1 · Workspace migration to workspace.nivxmachines.com — 2026-09-08
+
+Owner reprioritised: XDR/EDR production deployment **paused**. The
+complete application live at `nivxray.nivxforge.com` (nav: WORKSPACE ·
+XDR · HISTORY · INVESTIGATIONS · BATCH · HEATMAP · TOOLS · LEARN ·
+ADMIN; "201 OPERATIONS"; Auto Investigate / Decode / Cases / Save Case /
+Share / Copy Link / Report / Upload / Find Related / Candidate Explorer
+/ MoE Analyst Panel / Chain Mode / Threat Analysis panel) must be
+reproduced **as-is** at `workspace.nivxmachines.com`.
+Rule: COPY/DEPLOY → VERIFY → CUTOVER. The old host stays operational.
+
+**BLOCKED — `OWNER_DEPLOYMENT_ACTION_REQUIRED`.** Creating a deployment
+and attaching a hostname are Emergent control-plane actions; the agent
+cannot perform them. Phase 1 is NOT done and must not be reported as
+done.
+
+**Build-provenance evidence gathered (read-only), and its limit.**
+Live `asset-manifest.json`: **139 files**, entrypoints
+`main.b4fd60ad.js` / `main.d85aa4cc.css`, and it **includes `.map`
+entries** — the live build shipped with source maps enabled. Local
+`/app/frontend` build: **70 files** (no maps, built with
+`GENERATE_SOURCEMAP=false`), entrypoints `main.60c3a843.js` /
+`main.b3e9c0c5.css`. The count gap is explained by the maps
+(139 ≈ 70 + ~69). All chunk hashes differ, so **bundle comparison cannot
+establish source equivalence either way** — string checks are invalid
+because the live app code-splits and only its `main` chunk was
+retrievable within budget. **The authoritative evidence is the
+deployment's build config + commit SHA, which lives in the control
+plane — i.e. Step 1, still open.** Per the owner's instruction, repo HEAD
+is NOT assumed to reproduce the deployed app.
+
+**Finding:** the live Workspace publishes **source maps**, exposing its
+original source to anyone. `frontend/vercel.json` already sets
+`GENERATE_SOURCEMAP=false`, so the migrated build fixes this — flagged
+because it is a behaviour difference the owner should approve, not a
+silent change.
+
+**Repo side is ready:** `frontend/vercel.json` (inert; supplies
+`CI=false` + SPA rewrite `/(.*) → /index.html`). The one decision
+outstanding: the Workspace build must bake the **production** backend
+origin (per owner: not Preview), and ideally `api.nivxforge.com` so it
+survives the legacy host's retirement.
+
+**Zero-damage confirmed:** nothing was modified in this pass — no
+XDR/EDR preview change, no sensor/P0-3 change, no engine, response,
+collector, Mongo schema/data or backend architecture change, no
+duplicate backend. Services verified RUNNING; sensor `DELIVERING`.
+
+
+---
+
+# Phase 1 · Workspace cleanup EXECUTED · `BUILD_VERIFIED` · deployment BLOCKED on platform — 2026-09-08
+
+Owner lock: *FINAL WORKSPACE + XDR + EDR PRODUCTION ARCHITECTURE*.
+Decisions applied: **Q1 = A · Q2 = A · Q3 = B · Q4 = B · Q5 = A**, Phase-1
+API = `https://nivxray.nivxforge.com` (declared `TEMPORARY_MIGRATION_DEPENDENCY`).
+
+Reports: `memory/PHASE1_WORKSPACE_ROUTE_CLASSIFICATION.md` ·
+`memory/PHASE1_WORKSPACE_DEPLOYMENT_RUNBOOK.md`
+
+## The previous session's blocker was a FALSE FINDING — withdrawn
+
+"Live has 139 files, local has 70, features are missing" was **sourcemaps**.
+69 of the 139 entries are `.map` files. Real files **70 vs 70**; bundle bytes
+3,071,059 vs 3,067,516; router routes extracted from both **shipped** bundles
+**62 vs 62 with an empty set difference both ways**; `/api` string sets
+identical. `/app/frontend` **is** the live Workspace source. The only
+functional difference was the build-time backend URL. No branch hunt was
+needed and none was performed.
+
+## Executed (frontend only — no backend, no engine, no SSOT, no DNS, no deploy)
+
+- **Q1 A** · `INVESTIGATIONS` nav item removed; the **4 investigation routes
+  retained**. Reason, found by dependency sweep before touching anything:
+  four surfaces the owner ordered preserved navigate **into** them —
+  HistoryDrawer (3 sites), FindRelatedDrawer (4 sites, mounted by both
+  Workspace and History), QuickOpenPalette (`GET /investigations?limit=50`),
+  `WorkspacePage:4203`. Deleting the routes would have silently bounced all
+  four to `/`.
+- **Q1/XDR** · `XDR` nav item removed. It was **already a dead link**: `App.js`
+  has no `/xdr` route (the shell lives in `apps/nivxray-xdr`), so the
+  catch-all bounced it to `/`. Verified in the **live production bundle**:
+  `href:"/xdr"` ships, `path:"/xdr"` does not. A broken promise, not a
+  capability.
+- **Q2 A** · 9 `/nivxforge/*` routes + 8 lazy imports removed. Dependency
+  proof first: nothing outside `App.js` imports `@/nivxforge/*`, and
+  `src/nivxforge/**` imports only **into** retained shared code — one-way, so
+  `src/nivxforge/**` was **retained on disk** exactly as instructed. The dead
+  `devMode` X-LAB item (pointing at the route deleted 2026-08-11) went with it.
+- **Q3 B** · `/edr/trajectory` route removed, `DeviceTrajectoryPage.jsx`
+  retained. **No `edr.nivxforge.com` link created** — that hostname is not
+  live and a dead outbound link is worse than none.
+- **Q4 B** · `/analyst*`, `/investigate*`, `/v2/*` (17 routes) retained
+  unchanged, all three `REACT_APP_NIVX_FLAG_*` forced to `disabled`.
+- **Q5 A** · `/benchmark` wrapped in `<Protected>` — it was the **only** route
+  in the app with no auth wrapper, calling `/api/benchmark/*` with no auth
+  header and rendering the product nav to anonymous visitors.
+
+## A production-safety trap found, not just avoided
+
+`craco.config.js:3` calls `require("dotenv").config()` at module load, so
+`.env` lands in `process.env` **before** react-scripts' loader — and dotenv
+never overwrites. **`.env` therefore beats `.env.production` in this
+project**, the opposite of stock CRA. A `.env.production` was tried and
+**silently ignored**: the build still inlined the **preview** backend URL 22
+times. Shipped, the production Workspace would have read the **preview
+database** while looking healthy, and the `/v2/*` shadow flags would have
+shipped **ON** (`.env` sets them to `shadow`), contradicting Q4 = B.
+Every production variable now lives in the `buildCommand` in
+`frontend/vercel.json`, where real shell variables win.
+
+## Proof — 75 checks, 0 failures
+
+`scripts/phase1_workspace_build_proof.py` **32/32** ·
+`scripts/phase1_workspace_authenticated_proof.py` **43/43**
+(`memory/phase1_workspace_build_proof.json`,
+`memory/phase1_workspace_authenticated_proof.json`)
+
+- artefact: **22** production API refs, **0** preview refs; all three flags
+  `"disabled"`; removed routes absent; retained routes present
+- SPA rewrite requirement demonstrated **both ways** — plain static host
+  `/auto-investigate` **404**, with the rewrite **200**
+- 11 unauthenticated paths gate to `/login`, incl. the `/benchmark` fix
+- authenticated sweep on the **same cleaned source** built against preview
+  (the production DB is separate and has no credential yet, so this is
+  labelled as what it is and not passed off as production proof): 17 retained
+  surfaces render; **Q1 proven** with a real id
+  `/investigations/6a72169b3d98eb14810c9506`; Quick Open returns 25 rows;
+  6 removed surfaces bounce to `/`; `/v2/workspace` shows its honest
+  flag-off notice; **0** uncaught page errors
+- CORS proven, not assumed: `OPTIONS nivxray.nivxforge.com/api/auth/login`
+  with `Origin: workspace.nivxmachines.com` → **200**, `allow-origin: *`,
+  `authorization` allowed
+- zero damage verified after the change: legacy host `/` **200**,
+  `/auto-investigate` **200**, live bundle **200**; preview `/xdr/incidents`
+  and `/edr` **200**; `apps/nivxray-xdr` not modified; repo-root
+  `vercel.json` not touched
+
+## STOP — platform blocker, owner action required
+
+**Emergent cannot deploy two independent frontends from one repository**
+(confirmed with the platform team): there is no per-deployment Root Directory
+setting, so a second Emergent project on this repo would still build the
+**repo-root** `vercel.json`, i.e. the XDR app. `frontend/vercel.json` is
+correct but only a host that can target the `frontend` directory will honour
+it. Two supported routes are written up with click-by-click steps, the exact
+CNAME record and a 25-point acceptance list in
+`memory/PHASE1_WORKSPACE_DEPLOYMENT_RUNBOOK.md`:
+**Route A · Vercel with Root Directory `frontend` (recommended)** ·
+**Route B · second GitHub repo + second Emergent project (accepts permanent
+code duplication)**.
+
+**Armed hazard, unchanged:** pressing Deploy on the Emergent project holding
+`nivxray.nivxforge.com` rebuilds from current repo state and would replace
+the live legacy Workspace with the XDR app.
+
+Status: **`WORKSPACE_CLEANUP_BUILD_VERIFIED`** — deliberately **not**
+`WORKSPACE_MIGRATION_RUNTIME_VERIFIED`, which requires the real hostname, a
+fresh production credential and the 25 acceptance checks.
+
+Carried forward: `nivxray.nivxforge.com` **must not** be retired after Phase 1
+(the new Workspace calls its `/api`). Phases 2–5 untouched, per instruction
+not to mix them in.

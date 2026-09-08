@@ -9,8 +9,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LogOut, LayoutGrid, Cog, Sparkles, Beaker, Terminal, BookOpen,
   KeyRound, Rss, TestTube, GraduationCap, Grid, Wrench, Library, Gauge, FolderOpen,
-  BarChart3, Battery, Radar, Upload, ShieldCheck, Zap, History as HistoryIcon,
-  AlertOctagon,
+  BarChart3, Battery, Upload, ShieldCheck, Zap, History as HistoryIcon,
 } from "lucide-react";
 
 export default function Header() {
@@ -26,28 +25,31 @@ export default function Header() {
   // removed. Investigation is a *mode* of the Workspace, not a separate
   // page. HISTORY is a full-page investigation listing; restoring a
   // case returns to the Workspace with full state rehydrated.
-  // X-LAB retired from production nav (owner directive 2026-02-16 · UX
-  // consolidation, NOT architectural). The route + all code stay live for
-  // dev experimentation — flip on with:
-  //   localStorage.setItem('nvx_dev_mode', '1')
-  // in DevTools. Zero backend impact. Zero code deletion.
-  const devMode = (() => {
-    try { return window.localStorage.getItem("nvx_dev_mode") === "1"; }
-    catch { return false; }
-  })();
 
   const primary = [
     { key: "workspace",   href: "/",              label: "WORKSPACE",   icon: LayoutGrid, testId: "nav-workspace" },
-    { key: "xdr",         href: "/xdr",           label: "XDR",         icon: AlertOctagon, testId: "nav-xdr", title: "NivXRay XDR platform shell · operational incident workflow" },
+    // XDR removed from the Workspace nav (OWNER LOCK · Phase 1 ·
+    // REMOVE_LEGACY_XDR). NivXRay XDR is its own product, promoted to
+    // xdr.nivxforge.com in Phase 2. This item was already a dead link:
+    // `/xdr` has no route in this app (the shell lives in
+    // /app/apps/nivxray-xdr), so the catch-all bounced it back to `/`.
+    // Removing it removes a broken promise, not a capability. The real
+    // cross-product launcher is Phase 4 work.
     { key: "history",     href: "/history",       label: "HISTORY",     icon: HistoryIcon, testId: "nav-history", title: "Investigation history · restore any past case with full state" },
-    { key: "investigations", href: "/investigations", label: "INVESTIGATIONS", icon: Radar, testId: "nav-investigations", title: "Cross-artifact investigations · linked cases, unified attack chain, evidence graph, timeline" },
+    // INVESTIGATIONS removed from the Workspace nav (OWNER LOCK · Phase 1 ·
+    // Q1 = A · REMOVE_LEGACY_INVESTIGATIONS). Nav removal ONLY — the
+    // `/investigations`, `/investigations/:id`, `/investigations/:id/replay`
+    // and `/investigation-summary` ROUTES stay live because four retained
+    // Workspace workflows land on them: Correlate, Find Related, the History
+    // drilldown and Quick Open. Investigations is no longer a standalone
+    // product section in the Workspace; the investigation capability is
+    // untouched.
     // Trajectory retired from top-level nav (Phase A.5 · item 3.7 · 2026-02-16).
-    // It now lives inside the Investigation Story tab via the `Open full
-    // Trajectory canvas` link; direct deep-links (/v2/trajectory/:caseId)
-    // continue to resolve for existing bookmarks.
     { key: "batch",       href: "/batch-test",    label: "BATCH",       icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",     href: "/heatmap",       label: "HEATMAP",     icon: Grid,       testId: "nav-heatmap" },
-    ...(devMode ? [{ key: "nivxforge", href: "/nivxforge/x-lab", label: "X-LAB (DEV)", icon: Radar, testId: "nav-nivxforge" }] : []),
+    // X-LAB (DEV) removed (OWNER LOCK · Phase 1 · Q2 = A). It pointed at
+    // `/nivxforge/x-lab`, a route deleted on 2026-08-11, and `/nivxforge/*`
+    // product exposure is removed from the Workspace entirely.
   ];
 
   // Grouped: analysis tools (secondary usage)
