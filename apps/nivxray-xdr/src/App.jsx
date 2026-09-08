@@ -8,6 +8,8 @@
  */
 import React, { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { HOME_PATH } from "@/productScope";
+import ProductScopeGuard from "@/components/ProductScopeGuard";
 
 import { useAuth } from "@/lib/auth";
 import LoginPage from "@/pages/LoginPage";
@@ -98,7 +100,13 @@ function RouteFallback() {
 export default function App() {
   return (
     <Suspense fallback={<RouteFallback />}>
+      <ProductScopeGuard>
       <Routes>
+        {/* Landing. On a scoped deployment `/` lands on THAT product, so
+            xdr.nivxforge.com/ → /xdr and edr.nivxforge.com/ → /edr. On an
+            unscoped/combined deployment (preview) HOME_PATH is /xdr, which
+            is exactly the previous behaviour. */}
+        <Route path="/" element={<Navigate to={HOME_PATH} replace />} />
         {/* Standalone login — reuses POST /api/auth/login. */}
         <Route path="/login" element={<LoginPage />} />
         {/* Y1 · D-3 · second product entry point, same auth engine. */}
@@ -206,8 +214,13 @@ export default function App() {
         <Route path="/edr/live-query"    element={<Protected><EdrLiveQueryPage /></Protected>} />
         <Route path="/edr/response"      element={<Protected><EdrResponsePage /></Protected>} />
 
-        <Route path="*" element={<Navigate to="/xdr" replace />} />
+        {/* Scope-aware catch-all. Previously this was a hard
+            `Navigate to="/xdr"`, which meant an unknown path on the EDR
+            hostname client-side navigated straight into XDR. It now lands
+            on the product this deployment actually serves. */}
+        <Route path="*" element={<Navigate to={HOME_PATH} replace />} />
       </Routes>
+      </ProductScopeGuard>
     </Suspense>
   );
 }

@@ -79,35 +79,85 @@ URL, external link, bookmark, hard refresh, any full page load. They
 **cannot** fire on client-side React navigation after the page is already
 loaded, because no HTTP request is made.
 
-The residual case: on the EDR host, an unknown path hits the app's
-catch-all, which client-side navigates to `/xdr` — so the analyst can end up
-looking at XDR on `edr.nivxforge.com` without a server round-trip. It
-**self-heals on refresh** (the server rule then fires), but it is visible
-until then.
+**Closed. Owner-approved and implemented — see §3.1.**
 
-**Closing it properly needs a small source change, which is outside
-"prepare configuration and tests" and is NOT done.** Proposed minimal fix,
-for approval:
+The residual case was: on the EDR host, an unknown path hit the app's
+catch-all, which client-side navigated to `/xdr`, so an analyst could end
+up looking at XDR on `edr.nivxforge.com` without a server round-trip.
 
-1. add a per-project build variable `REACT_APP_PRODUCT_SCOPE=xdr|edr`
-   — note this is a **product-scope** variable, *not* a cross-product origin
-   variable, so it does **not** light up any launcher and does not conflict
-   with decision 4a;
-2. make the catch-all scope-aware: `*` → `/edr` when the scope is `edr`,
-   `/xdr` otherwise;
-3. for in-app cross-product pivots, when scope and target product disagree,
-   perform a full-page navigation so the edge rule gets a chance to run.
+### 3.1 · Product scope — implemented and proven (owner: APPROVED)
 
-Until approved, the guard is airtight for real navigations and soft for
-client-side ones.
+`REACT_APP_PRODUCT_SCOPE` = `xdr` | `edr`, set per Vercel project. It is a
+**product-scope** variable, not a cross-product origin variable: it lights
+up no launcher, so decision 4a is untouched.
+
+| file | role |
+|---|---|
+| `src/productScope.js` | `PRODUCT_SCOPE`, `HOME_PATH`, `productOfPath()`, `isForeignPath()` |
+| `src/components/ProductScopeGuard.jsx` | blocks the other product from rendering |
+| `src/App.jsx` | explicit `/` route → `HOME_PATH`; catch-all `*` → `HOME_PATH` (was a hard-coded `/xdr`); `<Routes>` wrapped in the guard |
+| `vite.config.js` | exposes the variable (`REACT_APP_*` or `VITE_*`) |
+
+**How it recovers without any origin variable.** The correct destination for
+a foreign path is already encoded in the proven host redirects, so the guard
+simply forces **one full page load of the same URL** — the edge rule then
+sends the analyst to the right hostname. The redirect table stays the single
+source of truth, and `REACT_APP_XDR_URL` / `_EDR_URL` stay unset.
+
+**Loop-safe by construction.** The reload is attempted at most once per path
+(session-scoped marker). If the host has no edge rule — a preview host where
+a scope was set by mistake — the second pass renders an explicit
+`wrong product host` notice and **never** the other product.
+
+**UNSET is a first-class state.** Preview and any combined deployment
+genuinely serve both products at one origin, so nothing is foreign there and
+behaviour is byte-for-byte what it was. Preview XDR and Preview EDR are
+untouched.
+
+`/login` is treated as **neutral** — both hostnames need it — while `/kb`
+and `/docs` are XDR-owned because they redirect into `/xdr/*`.
+
+#### Proof · `scripts/xdr_edr_product_scope_proof.py` → **21/21 PASS**
+
+The same bundle is built **three times** (scope `edr`, `xdr`, UNSET) and each
+is served on a plain SPA host with **no edge redirects** — deliberately the
+worst case, so the guard's behaviour is observable instead of being masked
+by a redirect — then driven in a real browser
+(`memory/xdr_edr_product_scope_proof.json`):
+
+- all three builds succeed; the scope value is inlined
+- `scope=edr`: `/` → `/edr`, unknown path → `/edr`, and **all three tested
+  `/xdr` paths blocked with XDR never rendering**
+- `scope=xdr`: mirrored, `/edr` paths blocked
+- no loop on a host without an edge rule
+- **own** product routes not blocked; neutral `/login` reachable on both
+- `scope=UNSET`: `/` → `/xdr` and **no guard at all** — previous behaviour
+
+#### A real bug this proof caught, which the build did not
+
+The first run failed 2/21 with the foreign paths not blocked. Cause:
+`ProductScopeGuard.jsx` imported only `useEffect` from `react`, but this app
+builds with the **classic JSX runtime** (`vite.config.js ·
+jsxRuntime: "classic"`), so JSX compiles to `React.createElement` and needs
+`React` in scope. **The build passed cleanly and the entire app then crashed
+at runtime with `ReferenceError: React is not defined`** — a blank page, not
+a degraded guard. Fixed with an explicit `import React`, and the reason is
+recorded in the file so it is not reintroduced. A build-only check would
+have shipped this.
 
 ## 4 · API origin (owner 3a)
 
 Set **per project** in the Vercel dashboard:
 
 ```
-REACT_APP_NIVXRAY_API_URL = https://nivxray.nivxforge.com
+Project A (xdr.nivxforge.com)      Project B (edr.nivxforge.com)
+REACT_APP_NIVXRAY_API_URL=         REACT_APP_NIVXRAY_API_URL=
+  https://nivxray.nivxforge.com      https://nivxray.nivxforge.com
+REACT_APP_PRODUCT_SCOPE=xdr        REACT_APP_PRODUCT_SCOPE=edr
 ```
+
+`REACT_APP_PRODUCT_SCOPE` is **required** on both projects — without it the
+client-side boundary is inert (see §3.1).
 
 Classification: **`TEMPORARY_MIGRATION_DEPENDENCY`**, same as the Workspace.
 Therefore `nivxray.nivxforge.com` remains **not eligible for retirement**

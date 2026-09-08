@@ -13481,3 +13481,84 @@ only active item and is blocked solely on the owner-side Vercel/DNS action:
 new project · Root Directory `frontend` · **Production Branch
 `conflict_310826_2116`** (GitHub `main` still has no `frontend/vercel.json`,
 verified directly on GitHub) · domain `workspace.nivxmachines.com`.
+
+
+---
+
+# Product Scope APPROVED and IMPLEMENTED · client-side product boundary closed · 21/21 — 2026-09-08
+
+Owner: *APPROVED: Product Scope only.* Nothing else started, nothing deployed.
+
+## 1 · What was implemented
+
+`REACT_APP_PRODUCT_SCOPE` = `xdr` | `edr`, set per Vercel project. A
+**product-scope** variable, not a cross-product origin variable — it lights
+up no launcher, so decision **4a stays intact**.
+
+- `apps/nivxray-xdr/src/productScope.js` (new) — `PRODUCT_SCOPE`,
+  `HOME_PATH`, `productOfPath()`, `isForeignPath()`
+- `apps/nivxray-xdr/src/components/ProductScopeGuard.jsx` (new) — blocks the
+  other product from rendering
+- `apps/nivxray-xdr/src/App.jsx` — explicit `/` route → `HOME_PATH`;
+  catch-all `*` → `HOME_PATH` (was a hard-coded `/xdr`); `<Routes>` wrapped
+  in the guard
+- `apps/nivxray-xdr/vite.config.js` — exposes the variable
+  (`REACT_APP_*` or `VITE_*`)
+
+**Recovery needs no origin variable.** The correct destination for a foreign
+path is already encoded in the proven host redirects, so the guard forces
+**one full page load of the same URL** and lets the edge rule do the routing.
+The redirect table remains the single source of truth and
+`REACT_APP_XDR_URL` / `_EDR_URL` stay unset.
+
+**Loop-safe by construction** — one reload attempt per path (session-scoped
+marker); if the host has no edge rule, the second pass renders an explicit
+`wrong product host` notice and **never** the other product.
+
+**UNSET is a first-class state** — preview/combined deployments genuinely
+serve both products at one origin, so nothing is foreign and behaviour is
+byte-for-byte unchanged. `/login` is neutral (both hosts need it); `/kb` and
+`/docs` are XDR-owned because they redirect into `/xdr/*`.
+
+## 2 · Proof · both halves of the boundary
+
+**`scripts/xdr_edr_product_scope_proof.py` → 21/21 PASS.** The same bundle
+built **three times** (scope `edr`, `xdr`, UNSET), each served on a plain SPA
+host with **no edge redirects** — deliberately the worst case so the guard is
+observable rather than masked — then driven in a real browser:
+`scope=edr` → `/` and unknown paths land on `/edr`, **all tested `/xdr` paths
+blocked and XDR never renders**; `scope=xdr` mirrored; no loop on a host
+without an edge rule; own routes not blocked; neutral `/login` reachable;
+`scope=UNSET` → no guard at all.
+
+**`scripts/xdr_edr_redirect_rules_proof.py` re-run → 11/11 PASS.** The
+already-proven server redirects are preserved and unchanged.
+
+## 3 · A real bug the browser proof caught that the build did not
+
+First run: 2/21 FAIL, foreign paths not blocked. Cause —
+`ProductScopeGuard.jsx` imported only `useEffect` from `react`, but this app
+builds with the **classic JSX runtime** (`jsxRuntime: "classic"`), so JSX
+compiles to `React.createElement` and needs `React` in scope. **The build
+passed cleanly and the whole app then crashed at runtime with
+`ReferenceError: React is not defined`** — a blank page, not a degraded
+guard. Fixed with an explicit `import React`, with the reason recorded in
+the file so it cannot be reintroduced. A build-only check would have shipped
+a dead app.
+
+## 4 · Zero collateral damage — verified after the change
+
+Preview XDR `/xdr/incidents` **200** · Preview EDR `/edr` **200** (both
+unscoped, so untouched) · Workspace build guard **PASSED** · legacy watchdog
+**healthy** · repo-root `vercel.json` unchanged · no backend, `.env`, DNS or
+supervisor change · **nothing deployed**.
+
+Deferred exactly as instructed: Create Workspace Project, Escalate Two
+Questions, Lockfile Guard.
+
+## 5 · Next
+
+`REACT_APP_PRODUCT_SCOPE` is now **required** on both XDR/EDR projects at
+deploy time (documented in `memory/PHASE2_3_XDR_EDR_DEPLOYMENT_PREP.md` §4).
+Back to the Workspace Vercel problem, which is the only remaining active
+item.

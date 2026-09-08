@@ -53,6 +53,15 @@ export default defineConfig(({ mode }) => {
       "process.env.REACT_APP_WORKSPACE_URL": JSON.stringify(
         env.REACT_APP_WORKSPACE_URL || env.VITE_WORKSPACE_URL || "",
       ),
+      // Which product THIS deployment serves: "xdr" | "edr" | "" .
+      // A PRODUCT-SCOPE variable, not a cross-product origin variable —
+      // it lights up no launcher, so it does not conflict with keeping
+      // the *_URL origins unset until each product is runtime-verified.
+      // Empty means a combined deployment (preview): nothing is foreign
+      // and behaviour is unchanged.
+      "process.env.REACT_APP_PRODUCT_SCOPE": JSON.stringify(
+        env.REACT_APP_PRODUCT_SCOPE || env.VITE_PRODUCT_SCOPE || "",
+      ),
     },
     build: {
       outDir: "dist",
