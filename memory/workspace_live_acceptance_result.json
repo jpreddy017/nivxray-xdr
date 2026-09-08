@@ -1,0 +1,285 @@
+{
+  "base_url": "http://127.0.0.1:9096",
+  "results": [
+    {
+      "section": "A",
+      "check": "root document is served",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": "A",
+      "check": "response is the SPA index document",
+      "pass": true,
+      "detail": "index.html markers present"
+    },
+    {
+      "section": "A",
+      "check": "TLS certificate valid",
+      "pass": null,
+      "detail": "base-url is not https \u2014 local validation run"
+    },
+    {
+      "section": "B",
+      "check": "all 48 retained deep links return HTTP 200",
+      "pass": true,
+      "detail": "no 404s"
+    },
+    {
+      "section": "B",
+      "check": "every retained deep link is served the SPA index document",
+      "pass": true,
+      "detail": "rewrite active on all"
+    },
+    {
+      "section": "C",
+      "check": "asset-manifest.json reachable",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "check": "manifest lists javascript chunks",
+      "pass": true,
+      "detail": "62 chunks"
+    },
+    {
+      "section": "C",
+      "check": "every chunk in the manifest is downloadable",
+      "pass": true,
+      "detail": "62 ok"
+    },
+    {
+      "section": "C",
+      "check": "NO preview Emergent origin embedded in the live bundle",
+      "pass": true,
+      "detail": "0 hits"
+    },
+    {
+      "section": "C",
+      "check": "production API origin embedded and approved",
+      "pass": true,
+      "detail": "['https://nivxray.nivxforge.com'] \u00b7 approved ['https://nivxray.nivxforge.com']"
+    },
+    {
+      "section": "C",
+      "check": "shadow flag OFF \u00b7 REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE",
+      "pass": true,
+      "detail": "['disabled']"
+    },
+    {
+      "section": "C",
+      "check": "shadow flag OFF \u00b7 REACT_APP_NIVX_FLAG_CASE_ENGINE",
+      "pass": true,
+      "detail": "['disabled']"
+    },
+    {
+      "section": "C",
+      "check": "shadow flag OFF \u00b7 REACT_APP_NIVX_FLAG_VERDICT_ENGINE_V3",
+      "pass": true,
+      "detail": "['disabled']"
+    },
+    {
+      "section": "C",
+      "check": "removed route absent from the live bundle \u00b7 /xdr",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "check": "removed route absent from the live bundle \u00b7 /nivxforge",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "check": "removed route absent from the live bundle \u00b7 /nivxforge/dashboard",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "check": "removed route absent from the live bundle \u00b7 /edr/trajectory",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "check": "retained routes present in the live bundle",
+      "pass": true,
+      "detail": "all present"
+    },
+    {
+      "section": "D",
+      "check": "every retained deep link survives a HARD REFRESH",
+      "pass": true,
+      "detail": "48 routes ok"
+    },
+    {
+      "section": "E",
+      "check": "all 11 removed surfaces are unreachable",
+      "pass": true,
+      "detail": "all bounce away"
+    },
+    {
+      "section": "E",
+      "check": "XDR top nav absent from the DOM",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "section": "E",
+      "check": "Investigations top nav absent from the DOM",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "section": "E",
+      "check": "embedded NivXForge console nav absent from the DOM",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "section": "F",
+      "check": "protected surfaces gate to /login when unauthenticated",
+      "pass": true,
+      "detail": "all gated"
+    },
+    {
+      "section": "F",
+      "check": "Q5 \u00b7 /benchmark requires authentication",
+      "pass": true,
+      "detail": "/login"
+    },
+    {
+      "section": "F",
+      "check": "Q5 \u00b7 /benchmark leaks neither benchmark data nor product nav",
+      "pass": true,
+      "detail": "450 chars rendered"
+    },
+    {
+      "section": "H",
+      "check": "no uncaught console / runtime errors",
+      "pass": true,
+      "detail": "0: []"
+    },
+    {
+      "section": "H",
+      "check": "no 5xx responses during the sweep",
+      "pass": true,
+      "detail": "0: []"
+    },
+    {
+      "section": "G",
+      "check": "legacy nivxray.nivxforge.com STILL SERVING",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": "G",
+      "check": "legacy deep link still works",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": "G",
+      "check": "legacy Workspace is UNCHANGED (still ships its original nav)",
+      "pass": true,
+      "detail": "67 chunks scanned \u00b7 found ['nav-xdr', 'nav-investigations']"
+    },
+    {
+      "section": "G",
+      "check": "legacy API (the temporary dependency) still answering",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": "G",
+      "check": "Preview NivXRay XDR still serving",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": "G",
+      "check": "Preview NivXForge EDR still serving",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": "G",
+      "check": "marketing site untouched \u00b7 https://nivxmachines.com",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": "G",
+      "check": "marketing site untouched \u00b7 https://www.nivxmachines.com",
+      "pass": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "section": "C-auth",
+      "check": "sign in with a production administrator",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL \u2014 owner-accepted; provisioning requires an env change that rebuilds the legacy project"
+    },
+    {
+      "section": "D-auth",
+      "check": "Workspace decode",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    },
+    {
+      "section": "D-auth",
+      "check": "Auto Investigate",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    },
+    {
+      "section": "D-auth",
+      "check": "Analyze",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    },
+    {
+      "section": "D-auth",
+      "check": "History list",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    },
+    {
+      "section": "D-auth",
+      "check": "History \u2192 investigation detail",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    },
+    {
+      "section": "D-auth",
+      "check": "Find Related",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    },
+    {
+      "section": "D-auth",
+      "check": "Correlate",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    },
+    {
+      "section": "D-auth",
+      "check": "Quick Open",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    },
+    {
+      "section": "D-auth",
+      "check": "Share / Copy Link",
+      "pass": null,
+      "detail": "BLOCKED_BY_PRODUCTION_CREDENTIAL"
+    }
+  ],
+  "passed": 35,
+  "ran": 35,
+  "blocked": 11,
+  "classification": "WORKSPACE_MIGRATION_UNAUTHENTICATED_VERIFIED"
+}

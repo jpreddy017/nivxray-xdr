@@ -12965,3 +12965,112 @@ productionization → EDR productionization → cross-product launchers →
 permanent API hostname → legacy `nivxray.nivxforge.com` retirement.
 The launcher is explicitly **deferred**: no control may point at
 `xdr.nivxforge.com` or `edr.nivxforge.com` until each is runtime-verified.
+
+
+---
+
+# Phase 1 (cont.) · live acceptance sweep BUILT AND VALIDATED · API/auth options reported — 2026-09-08
+
+Owner overrode my earlier framing, correctly: the legacy Workspace stays
+alive, and the credential blocker stays explicitly blocked rather than
+forcing an early XDR cutover on `nivxray.nivxforge.com`. Accepted.
+**I withdraw the "the rebuild becomes safe once the new Workspace is live"
+reasoning** — see the database unknown below.
+
+## 1 · Go-live cannot be executed by the agent
+
+Deploying to Vercel requires the owner's Vercel account, GitHub
+authorisation and a registrar DNS record. It is a customer-side UI action.
+Steps are in `memory/PHASE1_WORKSPACE_DEPLOYMENT_RUNBOOK.md` §2.
+**Nothing was deployed. The Emergent project was not touched.**
+
+## 2 · Live acceptance sweep — BUILT and VALIDATED before the domain exists
+
+`scripts/workspace_live_acceptance.py --base-url <url>` · one command,
+8 sections. Dry-run against a local host that mimics Vercel's rewrite
+(`scripts/serve_workspace_build.py`): **35/35 PASS · 0 FAIL · 11 BLOCKED**.
+
+- **A** DNS/TLS + the index document is genuinely served
+- **B** SPA rewrite at the HTTP layer for **all 48** retained deep links
+  (HTTP 200 **and** the index document, which is what distinguishes a
+  hosting 404 from a React redirect)
+- **C** the **LIVE** artefact re-checked with the build guard's own rules:
+  every manifest chunk downloadable, **0** preview origins, exactly one
+  approved API origin, all three shadow flags `disabled`, removed routes
+  absent, retained routes present
+- **D** the approved **Deep Link Sweep**: every retained route driven by
+  direct URL **then hard-refreshed**, asserting no route is eaten by the
+  catch-all through a hosting fault
+- **E** all **11** removed surfaces unreachable + the three removed nav
+  testids absent from the DOM
+- **F** unauthenticated gating incl. the `/benchmark` correction, asserting
+  it leaks neither benchmark data nor the product nav
+- **G** zero damage, side by side: legacy host serving, legacy deep link
+  working, **legacy API answering**, and — the sharp one — the legacy bundle
+  **still ships its original nav** (`nav-xdr` + `nav-investigations` found
+  across all 67 chunks), which proves the old Workspace was not replaced;
+  plus preview XDR, preview EDR and both marketing hosts
+- **H** zero console/runtime errors and zero 5xx
+
+The 11 authenticated checks are reported **`BLOCKED_BY_PRODUCTION_CREDENTIAL`**,
+never silently skipped, and a clean run classifies only as
+**`WORKSPACE_MIGRATION_UNAUTHENTICATED_VERIFIED`**.
+
+**A false FAIL caught during validation, worth recording:** the legacy-nav
+check first sampled the first 12 manifest chunks and failed. `Header.jsx` is
+imported by lazily-loaded pages, so its testids live in a shared chunk that
+is not near the front of the manifest. Sampling was replaced with a full
+67-chunk scan. A sampling shortcut would have reported the legacy Workspace
+as destroyed when it was intact — the worst possible false alarm for this
+programme.
+
+## 3 · §5 · API / auth lifecycle — reported, not executed
+
+Full report: `memory/PHASE1_API_AUTH_LIFECYCLE_OPTIONS.md`.
+
+Platform-confirmed: backend-only restart/env update **not supported**;
+deployments atomic; no console/shell/task-runner; no production DB access;
+env change → **rebuild**; rollback **restores the artefact**.
+
+**Corrected one platform answer on our own evidence:** "one backend serving
+multiple frontends is not a documented pattern" describes what the platform
+*manages*, not what works. Cross-origin consumption is already proven
+(`OPTIONS` → `200`, `allow-origin: *`, Bearer in `localStorage`, no cookie).
+The target architecture needs **no** second backend and none is proposed.
+
+**THE BLOCKING UNKNOWN — new and serious.** The platform team **could not
+confirm whether a rebuild preserves the production MongoDB**. Until that is
+answered in writing, no rebuild of the legacy project may be contemplated:
+if data were re-provisioned, a rebuild would destroy the authoritative
+production database, which is categorically worse than any frontend concern.
+
+Options reported with consequences: **A** re-point repo-root `vercel.json`
+at `frontend`, so a legacy rebuild yields the *cleaned Workspace* instead of
+the XDR app — disarms the hazard at its root and unblocks the credential with
+no product cutover, but changes what the legacy host serves and **conflicts
+with a standing instruction**, so it is reported, not acted on · **B** attach
+`api.nivxforge.com` to the existing deployment (cleanest route to the end
+state, but hinges on the unanswered "does adding a domain rebuild?") ·
+**C** do nothing, credential stays blocked (zero risk; blocks
+`RUNTIME_VERIFIED` and Phase 5 indefinitely) · **D** ask the vendor to
+provision the row (last resort). Rejected outright: second backend/DB,
+a bespoke admin-creation endpoint, direct DB manipulation, credential
+guessing.
+
+Recommendation: hold Option C, and ask support the **two factual questions**
+(domain-add rebuild? DB preserved across rebuild?) which cost nothing and
+unlock everything. No further architecture work until those answers exist.
+
+## 4 · Regression — unchanged
+
+Build guard **PASSED** · `phase1_workspace_build_proof` **32/32** ·
+`phase1_workspace_authenticated_proof` **43/43** ·
+`workspace_live_acceptance` (local dry-run) **35/35**.
+No backend, `.env`, DNS, supervisor, repo-root `vercel.json` or
+`apps/nivxray-xdr` change. Legacy host and both preview products serving.
+
+## 5 · Deferred, per owner
+
+Product launcher (no control may point at `xdr.`/`edr.nivxforge.com` until
+each is runtime-verified) · XDR productionization · EDR productionization ·
+API-domain migration · legacy hostname retirement.
