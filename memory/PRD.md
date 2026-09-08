@@ -13989,3 +13989,49 @@ flipped and `main`'s tip is unchanged, before the project is created.
 Still prohibited: any action inside `nivxray-xdr` · changing its Production
 Branch · merging into `main` · XDR/EDR source or deploys · legacy production
 · new backend/database · attaching domains.
+
+---
+
+# Vercel-supported project creation WITHOUT touching the repo default branch — 2026-09-08
+
+Owner rejected changing the GitHub default branch (correctly — it is
+repo-wide: PR targets, clone behaviour). Researched CLI/API instead.
+
+## Finding
+`vercel link --create` creates a project in the account **without deploying**
+— project creation is decoupled from the import screen, so the repository
+default branch never participates. (As of Apr 2026 creation during link is
+gated behind the explicit `--create` flag.) `productionBranch` is a
+post-creation setting via Dashboard or REST API, matching the owner's own
+citation.
+
+## Safest single method
+1. `npx vercel@latest login` (as `jpreddy017`), then from ANY empty folder
+   `npx vercel@latest link --create` → name `nivxmachines-workspace`.
+   No repo attached → nothing imported, nothing built. No local clone needed.
+2. Then in that project only, IN THIS ORDER: Settings → Git → Connect
+   `jpreddy017/nivxray-xdr` → Environments → Production → Branch Tracking =
+   `conflict_310826_2116` → Root Directory = `frontend` → Auto-assign Custom
+   Production Domains **OFF** → only then deploy.
+
+**Caveat stated:** connecting the repo in step 2 may trigger ONE throwaway
+build from `main`. Harmless (no domain attached) and it is one build, not a
+loop. Fully programmatic alternative avoiding even that:
+`POST /v9/projects` with `gitRepository` + `rootDirectory`, needs an API
+token.
+
+## Why safer than the default-branch change
+Touches nothing repository-wide — no PR targets, no clone behaviour, no
+commits. `nivxray-xdr` untouched by construction: separate project, created
+empty, Branch Tracking still pinned to `main`.
+
+## ONE next action (owner)
+`npx vercel@latest login` → from an empty folder `npx vercel@latest link
+--create` → name `nivxmachines-workspace` → STOP and report. Agent then
+confirms the project exists and is empty before the repo is connected.
+No deployment until approved.
+
+Prohibited, unchanged: any action inside `nivxray-xdr` · changing its
+Production Branch · changing the GitHub default branch · merging into `main`
+· XDR/EDR source or deploys · legacy production · new backend/database ·
+attaching domains.
