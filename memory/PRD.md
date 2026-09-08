@@ -12420,3 +12420,47 @@ X1–X3/Y2 22/22 · `docs_reconcile --gate` PASS · 0 violations.
 **Next per owner order: P1 — Windows sensor** (now unblocked). Also open:
 P0-2B release-isolation lifecycle, P0-4 collector reconciliation,
 blindness ALERTING, batch ingest, rail/IA re-alignment.
+
+---
+
+# Workspace separation + cross-product launcher — 2026-09-08
+
+**Owner decision:** the NivXMachines Workspace frontend (`/app/frontend`:
+AutoInvestigate, Decoder, Analyze, Lab, `/v2/*`) gets **its own frontend
+deployment** at its own domain, calling the **same** authoritative FastAPI
+backend and MongoDB. The two frontend codebases are **NOT** merged; the
+owner-locked boundary in `apps/nivxray-xdr/vite.config.js` stays intact.
+XDR + EDR remain their own deployment. Intended naming: NivXRay XDR = XDR
+console · NivXForge EDR = EDR console · NivXMachines Workspace = analysis
+/ decoding / AutoInvestigate workspace.
+
+**Why the tool "disappeared":** supervisor serves `/app/apps/nivxray-xdr`
+on port 3000, so `/app/frontend` was never started; the XDR SPA
+catch-all (`* → /xdr`) then swallowed `/auto-investigate`. Nothing was
+deleted, and the backend half was live throughout
+(`/api/decode/smart`, `/api/analyze`, `/api/ai/auto-investigate` all 200).
+
+**Build readiness: `BUILD_READY`** — see
+`memory/WORKSPACE_BUILD_VERIFICATION.md` (full report) and
+`memory/ws_build.log`. `craco build` PASS in 40s, 0 compile errors, 9
+eslint hooks-deps warnings only, all Workspace routes verified present in
+the emitted bundle, ONE env var (`REACT_APP_BACKEND_URL`), no hardcoded
+backend URL, no same-origin API coupling → the bundle can run from
+another origin against this backend. Prerequisites recorded: build-time
+env baking (CRA inlines), `CI=false` or fix the 9 warnings, SPA fallback
+rewrite to `/index.html`, and the still-unbranded `public/index.html`
+head. Status stays **implemented, not deployed, not runtime-verified**.
+
+**Implemented in this pass (the only code change):**
+`apps/nivxray-xdr/src/components/WorkspaceLaunch.jsx` — a cross-product
+launcher in both top bars (`xdr-open-workspace`, `nvf-open-workspace`)
+that opens the Workspace origin in a **new tab**, driven by
+`REACT_APP_WORKSPACE_URL`. When that is unset it renders **disabled ·
+`◇ NOT CONFIGURED`** and explains why, honouring the rule already written
+into `XdrShell.jsx`: *a control that pretends to open another product and
+silently returns you to this one is a dead control.* Verified live in
+both consoles.
+
+**Deferred by owner decision:** SSO (separate-origin sign-in accepted for
+now; OIDC later) · replacing `CORS_ORIGINS="*"` with explicit production
+origins once domains are final · all DNS/domain mapping.

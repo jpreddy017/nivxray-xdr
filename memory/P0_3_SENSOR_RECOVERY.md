@@ -51,7 +51,7 @@ precedence order is what saved the identity).
 
 ---
 
-## 2 · FOUR REAL DEFECTS FOUND WHILE FIXING IT
+## 2 · FIVE REAL DEFECTS FOUND WHILE FIXING IT
 
 ### D1 · Re-enrolment ERASED the delivery record — P0
 `store.enroll()` wrote `$set: record.model_dump()` for the whole
@@ -344,6 +344,48 @@ Verified live in the browser as admin:
 
 ---
 
+### D5 · The outage RECURRED the same day — and blindness detection caught it
+
+Hours after the recovery, the pod restarted. The sensor came back, drained
+its backlog, and then **died**:
+
+```
+_serve_commands → _open_session → _post → urlopen
+OSError [Errno 99] Cannot assign requested address
+```
+
+Local **ephemeral-port exhaustion**. One HTTP request per event with no
+keep-alive had churned through the 32768–60999 range while draining
+thousands of queued events. `_drain` handles this correctly (it holds the
+queue back and loses nothing), but `_serve_commands` → `_open_session`
+was **unguarded**, so the error escaped `run()`, the process exited,
+supervisor burned its **default 3 retries** and marked the program
+`FATAL` — permanently dead and silent. The same outage, same day, same
+class: *nothing keeps the sensor alive.*
+
+**It was caught in minutes instead of days, by the thing built in Phase A.**
+The console read `PIPELINE · FLEET BLIND · BLIND · NO DELIVERY · 901s ·
+DELIVERY_CEASED`. That is the whole point of P0-3 working in anger — but
+blindness detection is not a substitute for a sensor that keeps trying.
+
+Fixed:
+- **Every network phase of a cycle is now inside a catch-all** in
+  `run()`. A transport error prints `cycle_error=…`, drops the session
+  token so it is re-opened, abandons that cycle only, and retries next
+  interval. Unsent events stay in the durable outbox and replay. Nothing
+  can terminate the sensor except a real signal.
+- **`startretries=1000`** in the supervisor program. A `FATAL` sensor is
+  silent blindness; supervisor may not give up on it.
+- Guarded by two tests
+  (`test_the_run_loop_cannot_die_of_a_transient_transport_error`,
+  `test_supervisor_never_gives_up_on_the_sensor`).
+
+Still open, disclosed: the underlying churn is the one-POST-per-event
+design. The 200/cycle bound plus the loop guard contain it; **batch
+ingest** is the real fix and remains unbuilt.
+
+---
+
 ## 8 · FILES
 
 **Backend**
@@ -374,11 +416,12 @@ Verified live in the browser as admin:
 - `scripts/p0_3_sensor_recovery_proof.py` — **41 PASS · 0 FAIL · 0
   BLOCKED** · `scripts/p0_3_generate_physical_event.py` ·
   `scripts/backfill_incident_provenance.py --relabel-unknown`
-- `backend/tests/edr/test_p0_3_telemetry_freshness.py` (14 tests) — pins
+- `backend/tests/edr/test_p0_3_telemetry_freshness.py` (16 tests) — pins
   the cadence derivation, the three boundaries, live-vs-lost link,
   backlog-vs-silence, the three blindness bases, that the heartbeat is
-  sent before the drain, that a heartbeat can never write a delivery
-  field, and that re-enrolment keeps `$setOnInsert` for delivery facts.
+  sent before the drain, that the run loop cannot die of a transport
+  error, that supervisor never gives up, that a heartbeat can never write
+  a delivery field, and that re-enrolment keeps `$setOnInsert`.
 - `backend/tests/edr/test_iter107_p0_3_freshness_review.py` (11 tests,
   written by the independent review pass)
 

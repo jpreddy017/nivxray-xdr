@@ -1034,21 +1034,45 @@ def run(api: str, interval: int, watch: str | None, once: bool) -> None:
         baselined.add(watch)
         _save_observed(seen_pids, seen_conns, known_files, baselined)
     while True:
-        batch = collect_processes(seen_pids) + collect_network(seen_conns)
-        if watch:
-            batch += collect_files(watch, known_files)
-        for e in batch:
-            e.update({"sensor_version": SENSOR_VERSION,
-                      "collection_method": "PROC_POLL"})
-        if batch:
-            _enqueue(batch)
-        _save_observed(seen_pids, seen_conns, known_files, baselined)
-        beat = _heartbeat(api, ident, session, interval)
-        sent, failed = _drain(api, ident, session, interval)
-        served = _serve_commands(api, ident, session)
-        print(f"[{_now()}] commands={served} collected={len(batch)} sent={sent} "
-              f"held={failed} heartbeat={beat} queued={_queue_depth()} "
-              f"endpoint={ident['endpoint_id']}", flush=True)
+        # P0-3 · a sensor may NEVER die of a transient transport error.
+        #
+        # This is not defensive padding — it is the fix for a real
+        # recurrence. `_serve_commands` → `_open_session` was unguarded,
+        # so when the local ephemeral-port range was briefly exhausted
+        # while draining a large backlog (`OSError 99 Cannot assign
+        # requested address`), the URLError escaped the loop, the process
+        # exited, supervisor exhausted its retries and marked it FATAL —
+        # and the fleet went blind again, for exactly the same reason as
+        # the original 24-hour outage. The console DID report it
+        # (`BLIND_NO_DELIVERY · DELIVERY_CEASED`), which is why it was
+        # caught in minutes rather than days; but blindness detection is
+        # not a substitute for a sensor that keeps trying.
+        #
+        # Nothing is lost by continuing: unsent events stay in the durable
+        # outbox and replay, and the failure is printed with the cycle.
+        try:
+            batch = collect_processes(seen_pids) + collect_network(seen_conns)
+            if watch:
+                batch += collect_files(watch, known_files)
+            for e in batch:
+                e.update({"sensor_version": SENSOR_VERSION,
+                          "collection_method": "PROC_POLL"})
+            if batch:
+                _enqueue(batch)
+            _save_observed(seen_pids, seen_conns, known_files, baselined)
+            beat = _heartbeat(api, ident, session, interval)
+            sent, failed = _drain(api, ident, session, interval)
+            served = _serve_commands(api, ident, session)
+            print(f"[{_now()}] commands={served} collected={len(batch)} "
+                  f"sent={sent} held={failed} heartbeat={beat} "
+                  f"queued={_queue_depth()} "
+                  f"endpoint={ident['endpoint_id']}", flush=True)
+        except Exception as e:          # noqa: BLE001 — see the note above
+            session["token"] = None     # a broken session must be re-opened
+            print(f"[{_now()}] cycle_error={type(e).__name__}: "
+                  f"{str(e)[:200]} · queued={_queue_depth()} · the cycle was "
+                  f"abandoned, nothing was dropped, retrying in {interval}s",
+                  flush=True)
         if once:
             return
         time.sleep(interval)

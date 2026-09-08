@@ -31,6 +31,15 @@ export default defineConfig(({ mode }) => {
       "process.env.REACT_APP_BACKEND_URL": JSON.stringify(
         env.REACT_APP_NIVXRAY_API_URL || env.REACT_APP_BACKEND_URL || "",
       ),
+      // Origin of the SEPARATELY deployed NivXMachines Workspace
+      // frontend (AutoInvestigate / Decoder / Analyze / Lab). It is a
+      // different origin by owner decision, so this app can only open
+      // it in a new tab — never route to it. Empty means "not
+      // configured", and the console then renders the launcher disabled
+      // instead of linking nowhere.
+      "process.env.REACT_APP_WORKSPACE_URL": JSON.stringify(
+        env.REACT_APP_WORKSPACE_URL || "",
+      ),
     },
     build: {
       outDir: "dist",

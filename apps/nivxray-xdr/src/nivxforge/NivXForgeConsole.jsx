@@ -22,6 +22,7 @@ import {
   BookOpen, Monitor } from "lucide-react";
 
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
+import WorkspaceLaunch from "@/components/WorkspaceLaunch";
 import XdrContextBar from "@/xdr/components/XdrContextBar";
 import { useAuth } from "@/lib/auth";
 import { getEdrEntryContext, getSessionContext } from "./edrApi";
@@ -230,6 +231,9 @@ export default function NivXForgeConsole({ activeTab, children }) {
                 title="Investigate in NivXRay XDR">
           Investigate in NivXRay XDR
         </button>
+        {/* EDR → Workspace hand-off. A SEPARATE frontend at its own
+            origin, so it opens in a new tab and is never routed to. */}
+        <WorkspaceLaunch testid="nvf-open-workspace" />
         <button className="btn ghost" data-testid="nvf-theme-toggle"
                 onClick={toggleTheme} title="Light / dark">
           {theme === "dark" ? "Light" : "Dark"}

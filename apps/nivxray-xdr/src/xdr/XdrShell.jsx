@@ -29,6 +29,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { getSessionContext } from "@/nivxforge/edrApi";
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
+import WorkspaceLaunch from "@/components/WorkspaceLaunch";
 import XdrContextBar from "@/xdr/components/XdrContextBar";
 import "./xdr-console.css";
 import "./nx/nx-epistemic.css";
@@ -72,6 +73,14 @@ const SIDEBAR = [
       // straight back to /xdr. A control that pretends to open another
       // product and silently returns you to this one is a dead control,
       // and Incidents is the analyst's real destination.
+      //
+      // 2026-09-08: the real NivXMachines Workspace (AutoInvestigate /
+      // Decoder / Analyze / Lab) now has a hand-off — but it is a
+      // SEPARATE frontend deployment at its own origin, so it cannot be
+      // a rail route. It lives in the top bar as
+      // `components/WorkspaceLaunch.jsx`, which opens a new tab only
+      // when a Workspace origin is actually configured. This section
+      // stays empty on purpose.
     ],
   },
   {
@@ -429,6 +438,11 @@ export default function XdrShell({ children, flush = false }) {
         </form>
 
         <div className="top-actions">
+          {/* XDR → NivXMachines Workspace hand-off. The Workspace
+              frontend is deployed separately at its own origin and calls
+              this same backend, so it opens in a new tab and is never
+              routed to from here. */}
+          <WorkspaceLaunch testid="xdr-open-workspace" />
           {/* No notification service exists in this build, so no bell is
               painted: a bell that never rings is a lie. Help points at
               the real Knowledge Base. */}

@@ -96,6 +96,41 @@ def test_a_sensor_that_is_alive_and_behind_is_backlogged_not_silent():
         == "DELIVERY_LATE_LINK_UNCONFIRMED"
 
 
+def test_the_run_loop_cannot_die_of_a_transient_transport_error():
+    """A sensor that exits on a network blip re-creates the outage.
+
+    `_serve_commands` → `_open_session` was unguarded, so a brief local
+    ephemeral-port exhaustion (`OSError 99`) escaped the loop, killed the
+    process, and supervisor's default 3 retries then marked it FATAL —
+    silent blindness, for the second time in one day.
+    """
+    import pathlib
+    src = pathlib.Path(
+        "/app/agents/nivxforge-linux/nivxforge_sensor.py").read_text()
+    loop = src.split("    while True:")[1].split("\ndef ")[0]
+    assert "except Exception" in loop, (
+        "every network phase of a cycle must be inside a catch-all so no "
+        "transport error can terminate the sensor")
+    assert "cycle_error=" in loop, "an abandoned cycle must be printed"
+    for phase in ("_heartbeat(", "_drain(", "_serve_commands("):
+        assert loop.index(phase) < loop.index("except Exception"), (
+            f"{phase} must be inside the guarded cycle")
+
+
+def test_supervisor_never_gives_up_on_the_sensor():
+    import pathlib
+    conf = pathlib.Path(
+        "/etc/supervisor/conf.d/nivxforge_sensor.conf")
+    if not conf.exists():                       # not this environment
+        return
+    text = conf.read_text()
+    assert "autorestart=true" in text
+    retries = [ln for ln in text.splitlines() if ln.startswith("startretries=")]
+    assert retries and int(retries[0].split("=")[1]) >= 100, (
+        "supervisor's default of 3 retries turns a transient failure into "
+        "a permanently dead sensor")
+
+
 def test_the_heartbeat_is_sent_before_the_drain():
     """Liveness must not depend on evidence throughput. Sending the
     heartbeat after the drain meant a large backlog delayed the sensor's
