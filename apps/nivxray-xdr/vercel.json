@@ -1,56 +1,6 @@
 {
-  "$comment": [
-    "PHASE 2/3 · deployment config for BOTH sellable products.",
-    "OWNER DECISIONS: 1a · 2a · 3a · 4a · 5a. PREPARE ONLY — NOT DEPLOYED.",
-    "",
-    "ONE FILE, TWO PROJECTS. Both Vercel projects use Root Directory",
-    "`apps/nivxray-xdr`, so they both read THIS file. That is why the",
-    "product boundary is expressed as HOST-CONDITIONAL redirects rather",
-    "than per-project settings — a per-project build command could not",
-    "distinguish the two, but `has: [{type: host}]` can.",
-    "",
-    "  Project A · xdr.nivxforge.com · / → /xdr · /edr/* → EDR host",
-    "  Project B · edr.nivxforge.com · / → /edr · /xdr/* → XDR host",
-    "",
-    "WHY THE GUARD EXISTS: XDR and EDR currently ship in ONE bundle (60",
-    "routes, 13 of them /edr/*) and the app's catch-all is",
-    "`<Route path=\"*\" element={<Navigate to=\"/xdr\" replace/>} />`.",
-    "Without these rules, `edr.nivxforge.com/` would land the analyst on",
-    "/xdr/incidents — XDR served from the EDR hostname, i.e. exactly the",
-    "'silently falls back into the wrong product' failure the owner",
-    "prohibited.",
-    "",
-    "COVERAGE, STATED HONESTLY: these are SERVER redirects, so they fire",
-    "on every real navigation — typed URL, external link, bookmark, hard",
-    "refresh, any full page load. They CANNOT fire on client-side React",
-    "navigation that happens after the page is already loaded, because no",
-    "HTTP request is made. That residual gap is documented in",
-    "memory/PHASE2_3_XDR_EDR_DEPLOYMENT_PREP.md with a proposed fix",
-    "awaiting owner approval; it self-heals on refresh.",
-    "",
-    "ORDER MATTERS: cross-host rules come FIRST so the `/` landing rules",
-    "cannot shadow them. Both the bare path and the `:path*` form are",
-    "listed rather than relying on `:path*` also matching the bare path.",
-    "",
-    "permanent:false (307) is deliberate — a 308 would be cached by",
-    "browsers and is the wrong tool while a topology is still moving.",
-    "",
-    "PREVIEW / *.vercel.app HOSTS ARE UNAFFECTED: no `has` condition",
-    "matches them, so no redirect fires and the app behaves exactly as it",
-    "does today (productOrigins SAME_ORIGIN mode). The guard is keyed to",
-    "the two production hostnames only, which keeps Preview XDR and",
-    "Preview EDR working untouched.",
-    "",
-    "ENV: set REACT_APP_NIVXRAY_API_URL per project in the Vercel",
-    "dashboard. Unlike the CRA Workspace app, this one has no dotenv",
-    "precedence trap — vite.config.js uses loadEnv(mode, cwd, \"\"), and a",
-    "real environment variable was PROVEN to override .env (build emitted",
-    "4 production API refs and 0 preview refs). Leave REACT_APP_XDR_URL,",
-    "REACT_APP_EDR_URL and REACT_APP_WORKSPACE_URL UNSET (owner decision",
-    "4a) so no launcher points at an unverified product."
-  ],
-  "installCommand": "yarn install --production=false --frozen-lockfile",
-  "buildCommand": "yarn run vercel-build",
+  "installCommand": "yarn install --production=false",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "dist",
   "framework": null,
   "build": {
@@ -61,41 +11,21 @@
   },
   "redirects": [
     {
-      "source": "/edr",
-      "has": [{ "type": "host", "value": "xdr.nivxforge.com" }],
-      "destination": "https://edr.nivxforge.com/edr",
-      "permanent": false
-    },
-    {
-      "source": "/edr/:path*",
-      "has": [{ "type": "host", "value": "xdr.nivxforge.com" }],
-      "destination": "https://edr.nivxforge.com/edr/:path*",
-      "permanent": false
-    },
-    {
-      "source": "/xdr",
-      "has": [{ "type": "host", "value": "edr.nivxforge.com" }],
-      "destination": "https://xdr.nivxforge.com/xdr",
-      "permanent": false
-    },
-    {
-      "source": "/xdr/:path*",
-      "has": [{ "type": "host", "value": "edr.nivxforge.com" }],
-      "destination": "https://xdr.nivxforge.com/xdr/:path*",
-      "permanent": false
-    },
-    {
       "source": "/",
-      "has": [{ "type": "host", "value": "xdr.nivxforge.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "xdr.nivxforge.com"
+        }
+      ],
       "destination": "/xdr",
-      "permanent": false
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "edr.nivxforge.com" }],
-      "destination": "/edr",
       "permanent": false
     }
   ],
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
