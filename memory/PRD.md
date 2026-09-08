@@ -13238,3 +13238,78 @@ watchdog **healthy** (legacy untouched, 67 chunks, original nav intact).
 include `frontend/yarn.lock` and `frontend/.nvmrc` or the install fails on
 Vercel exactly as it did here. Then confirm Root Directory = `frontend` is
 saved. **Then STOP for approval before Deploy.**
+
+
+---
+
+# Vercel build failure diagnosed · WRONG PROJECT · harmless · root cause = unpushed XDR lockfile — 2026-09-08
+
+## 1 · That failing deployment is the XDR project, NOT the Workspace project
+
+Proof from the owner's build log: the install step ran
+`cd apps/nivxray-xdr && yarn install --production=false --frozen-lockfile`.
+That command exists **only** in the **repo-root** `vercel.json`, so the
+project was building with **Root Directory unset** — it is the existing
+`nivxray-xdr` Vercel project (name in the breadcrumb), not a new
+`nivxmachines-workspace` project with Root Directory `frontend`.
+
+**The Workspace Vercel project still does not exist.** Nothing in this
+failure relates to `/app/frontend`, whose own install command was already
+fixed and verified (`--frozen-lockfile` exit 0).
+
+## 2 · The failure was HARMLESS — verified, not assumed
+
+- **Environment: Preview**, branch `conflict_310826_2116`, commit `61e5a04`.
+- It failed at the **install** step, so **no artefact was produced and
+  nothing was promoted**.
+- That Vercel project has **no custom domain** attached (its own Production
+  Checklist still shows "Add Custom Domain" unchecked), so
+  `nivxray.nivxforge.com` was never in play.
+- Its previous XDR production deployment is intact (the dashboard still
+  renders the NIVXRAY XDR sign-in page as the current Production Deployment).
+- `scripts/legacy_watchdog.py` → **healthy**: legacy `/` 200, `/api/health`
+  200, 67 chunks, original nav markers present. **The frozen Emergent
+  project is untouched.**
+
+## 3 · Root cause — the committed XDR lockfile is missing one dependency
+
+`apps/nivxray-xdr/package.json` declares `d3@^7.9.0`, genuinely imported by
+`src/xdr/components/TrajectoryLifelineCanvas.jsx`. The **committed** (HEAD)
+`apps/nivxray-xdr/yarn.lock` does **not** contain it:
+
+| lockfile | missing top-level patterns | `--frozen-lockfile` |
+|---|---|---|
+| `HEAD:apps/nivxray-xdr/yarn.lock` (what GitHub/Vercel sees) | **1** · `d3@^7.9.0` | fails |
+| working tree `apps/nivxray-xdr/yarn.lock` | **0** | **exit 0** |
+
+**The corrected lockfile already exists on disk** (the long-standing
+uncommitted `M apps/nivxray-xdr/yarn.lock`, +283 lines) — it was simply
+never committed or pushed. So the fix is a **push**, not a code change.
+
+**`apps/nivxray-xdr` source was NOT modified**, per the standing
+instruction. The only proof action taken was running the exact repo-root
+build command to confirm it now succeeds — `vite build` **exit 0**,
+`dist/index.html` produced, and `dist/` is gitignored so the repo is
+unchanged.
+
+## 4 · Same defect class, second occurrence
+
+This is the identical failure already found and fixed for `frontend`
+(17 missing patterns there, 1 here). Two of three deployable frontends
+shipped a lockfile that did not satisfy their own `package.json`, and in both
+cases local builds masked it because `node_modules` was already populated.
+A pre-push lockfile drift check is offered but **not built** — it was not
+approved this pass.
+
+## 5 · What the owner needs to do
+
+1. **Save to Github** — the push must include `apps/nivxray-xdr/yarn.lock`
+   (and `frontend/yarn.lock` + `frontend/.nvmrc` from the previous pass).
+   That alone makes the failed XDR build succeed on retry.
+2. **Create the Workspace project separately**: new Vercel project,
+   **Root Directory = `frontend`** — per
+   `memory/VERCEL_WORKSPACE_PROJECT_CONFIG.md` §5. Do not reuse the
+   `nivxray-xdr` project for the Workspace; its Root Directory is unset and
+   it builds the XDR app.
+3. Phase 2 (XDR → `xdr.nivxforge.com`) remains **not started**, per the
+   locked order.
