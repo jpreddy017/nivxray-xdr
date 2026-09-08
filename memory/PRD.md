@@ -13853,3 +13853,42 @@ change will be needed there — NOT done now, per the locked order.
 ## 4 · Regression
 Workspace build guard PASSED · build proof 32/32 · `vercel.json` valid JSON
 · nothing deployed · `nivxray-xdr` untouched by the agent.
+
+---
+
+# nivxray-xdr LOCKED · Workspace project confirmed NON-EXISTENT · one action outstanding — 2026-09-08
+
+## Confirmed safe state of `nivxray-xdr` (LOCKED — DO NOT TOUCH)
+Branch Tracking = `main`, Save disabled (persisted), production domain
+`nivxray-xdr.vercel.app`, Auto-assign Custom Production Domains Enabled.
+The accidental `conflict_310826_2116` production tracking is reversed.
+Its `REACT_APP_NIVXRAY_API_URL` still points at the Emergent preview origin
+— owner instructed NOT to change it now; that belongs to the later XDR
+production phase, not the Workspace migration.
+
+Prohibited on that project from here: redeploy, Build & Deployment changes,
+Root Directory, env vars, domains, Production Branch.
+
+## Workspace Vercel project · DOES NOT EXIST
+The agent cannot query the owner's Vercel account (no token, no guessing).
+Conclusion rests on owner evidence: the project switcher lists only
+`nivxray-xdr` + Create Project, and every screen opened has been under
+`/jpreddy017/nivxray-xdr/`.
+
+Intended: name `nivxmachines-workspace` · branch `conflict_310826_2116` ·
+Root Directory `frontend` · install `yarn install --production=false` ·
+build = guarded CRA command · output `build` · Node 20 · SPA rewrite.
+
+## Root cause of the failed creation, and the one differing step
+The import screen read `Importing from GitHub · main · frontend`. `main`
+has no `frontend/vercel.json`, so Vercel locked the repo-root XDR config.
+**The single change: switch the import branch selector from `main` to
+`conflict_310826_2116` BEFORE pressing Deploy.** If no branch selector is
+offered, STOP rather than deploy.
+
+## ONE outstanding action (owner): Save to Github
+The install-command fix (`--frozen-lockfile` removed from
+`frontend/vercel.json`) is in the working tree but NOT on GitHub. Creating
+the project first would fail at install again. So: push only — no project,
+no deploy, no domain. Agent then verifies the corrected install command is
+live on the branch before the project is created.
