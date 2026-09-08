@@ -31,18 +31,31 @@ a project at the `frontend` directory.
 > project. Nothing in this pass changed that; nothing in this pass touched
 > it either.
 
-### Two supported routes — pick one (owner decision required)
+### THE RECOMMENDED ROUTE — ONE, NOT TWO
 
-| | Route A · Vercel, root directory `frontend` | Route B · second GitHub repo, second Emergent project |
-|---|---|---|
-| Works today | **Yes** — Vercel supports monorepo Root Directory natively, and `frontend/vercel.json` is already written for exactly this | Yes |
-| Touches the existing Emergent project | **No** | No |
-| Extra cost | Vercel free tier is sufficient for a static SPA | 50 credits/month |
-| Ongoing burden | One repo, two hosts | **Two copies of the code to keep in sync** — a permanent divergence risk, i.e. the exact failure this migration exists to end |
-| Recommendation | **Recommended** | Only if you want everything on Emergent and accept the sync burden |
+**Deploy `/app/frontend` on Vercel with Root Directory = `frontend`.**
 
-I recommend **Route A**. Route B re-creates the "which source built the live
-bundle?" question that cost the previous session an entire pass.
+Scored against the owner's eight criteria:
+
+| criterion | Vercel · Root Directory `frontend` |
+|---|---|
+| lowest chance of damaging the existing deployment | **highest score — it never touches the Emergent project at all.** No Deploy press, no env change, no rebuild trigger |
+| independent frontend deployment | yes |
+| supports `workspace.nivxmachines.com` | yes, one CNAME |
+| SPA fallback | yes — `frontend/vercel.json` already carries the rewrite and Vercel reads it natively at that Root Directory |
+| explicit build-time env vars | yes — already in the `buildCommand`, plus the dashboard if wanted |
+| can deploy `/app/frontend` | yes, **without copying any code** |
+| no duplication of the authoritative backend/database | yes — it is a static SPA calling the existing API |
+| straightforward rollback | yes — instant "Promote to Production" on any previous deployment, no rebuild |
+
+**The second-repo option is rejected, and it is not an equivalent choice.**
+It fails the sixth criterion: it can only deploy `/app/frontend` by
+**copying the Workspace source into a second repository**, which then
+drifts. That is precisely the "which source built the live bundle?"
+question that cost the previous session an entire pass and produced the
+false 139-vs-70 finding. Duplicating the authoritative frontend to solve a
+hosting limitation trades a one-time platform constraint for a permanent
+correctness risk, so there is no genuine owner-level tradeoff to weigh.
 
 ---
 
@@ -61,6 +74,7 @@ bundle?" question that cost the previous session an entire pass.
 | Cross-origin call will work | PROVEN | `OPTIONS https://nivxray.nivxforge.com/api/auth/login` with `Origin: https://workspace.nivxmachines.com` → **200**, `access-control-allow-origin: *`, `authorization` allowed |
 | Legacy host unharmed | VERIFIED | `nivxray.nivxforge.com/` **200**, `/auto-investigate` **200**, live bundle `main.b4fd60ad.js` **200** — unchanged, no deploy performed |
 | Preview XDR / EDR unharmed | VERIFIED | preview `/xdr/incidents` **200**, `/edr` **200**; `apps/nivxray-xdr` not modified |
+| Migration build guard | ADDED + PROVEN | `frontend/scripts/verify-production-build.js`, chained into the `buildCommand`. Fails the build on: a preview origin, an unapproved/missing/multiple API origin, or a `/v2/*` shadow flag switched on. Proven on **1 passing** artefact and **6 distinct failing** ones, all exit 1 — including the realistic regression of *forgetting the flag overrides*, where `.env`'s `shadow` silently wins |
 
 Proof scripts (re-runnable):
 `scripts/phase1_workspace_build_proof.py` → **32/32 PASS**
@@ -99,7 +113,7 @@ without explicit overrides the `/v2/*` shadow surfaces would have shipped
 
 ---
 
-## 2 · Route A · click-by-click (recommended)
+## 2 · The recommended route · click-by-click
 
 ### 2.1 Push the repo
 Use **Save to Github** in the chat input. Confirm the commit includes
@@ -109,8 +123,9 @@ Use **Save to Github** in the chat input. Confirm the commit includes
 ### 2.2 Create the Vercel project
 1. vercel.com → **Add New… → Project** → import this GitHub repository.
 2. On the configure screen open **Root Directory** and set it to
-   **`frontend`**. *(This is the one setting that makes the whole thing
-   work — it is why Route A exists.)*
+   **`frontend`**. *(This is the single setting the whole plan rests on: it
+   is what makes `frontend/vercel.json` authoritative instead of the
+   repo-root one that builds the XDR app.)*
 3. Leave Framework Preset as detected/Other. **Do not** override Build
    Command, Install Command or Output Directory: `frontend/vercel.json`
    already supplies all three, including the SPA rewrite.
@@ -140,35 +155,16 @@ Use **Save to Github** in the chat input. Confirm the commit includes
    touched. Confirmed with the platform team.
 4. Wait for the certificate to be issued (usually minutes).
 
-## 3 · Route B · if you insist on staying entirely on Emergent
-
-1. Create a new **empty** GitHub repo, e.g. `nivxmachines-workspace`.
-2. Copy the **contents of `/app/frontend`** into its root — so `vercel.json`,
-   `package.json`, `src/`, `public/`, `craco.config.js`, `.env`,
-   `yarn.lock`, `jsconfig.json` sit at the repo root.
-3. New Emergent project → import that repo → Deploy → **Configure
-   environment variables**, and set:
-   `REACT_APP_BACKEND_URL=https://nivxray.nivxforge.com`,
-   `REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=disabled`,
-   `REACT_APP_NIVX_FLAG_CASE_ENGINE=disabled`,
-   `REACT_APP_NIVX_FLAG_VERDICT_ENGINE_V3=disabled`, `CI=false`.
-4. **Link domain** → `workspace.nivxmachines.com` → follow the Entri /
-   CNAME instructions.
-5. Cost: 50 credits/month. Custom domains are free.
-6. **Accept the consequence**: the Workspace source then exists in two
-   repositories and will drift. Every future Workspace change must be
-   applied twice.
-
-## 4 · Before either route — identify who owns the legacy domain
+## 3 · Before you start — identify who owns the legacy domain
 
 Home tab → **View all deployed apps** → find the deployment holding
-`nivxray.nivxforge.com`. **Look only. Do not redeploy it.** Note its name
-so nobody redeploys it by accident later; that single click is the one
-action that can destroy the live Workspace.
+`nivxray.nivxforge.com`. **Look only. Do not redeploy it.** Note its name so
+nobody redeploys it by accident later; that single click is the one action
+that can destroy the live Workspace.
 
 ---
 
-## 5 · Post-deployment acceptance — the exact checks, in order
+## 4 · Post-deployment acceptance — the exact checks, in order
 
 Run these against `https://workspace.nivxmachines.com`. All must pass before
 Phase 1 may be classified `WORKSPACE_MIGRATION_RUNTIME_VERIFIED`.
@@ -189,8 +185,9 @@ Phase 1 may be classified `WORKSPACE_MIGRATION_RUNTIME_VERIFIED`.
    `https://nivxray.nivxforge.com/api/...` and **never** to
    `greeting-app-5782.preview…`.
 7. Sign in. **A production credential is required** — the preview admin
-   password returns `401` on this database. Generate a fresh production
-   admin; do not reuse any preview credential.
+   password returns `401` on this database, and provisioning one is
+   currently blocked by the platform. **See §5 before attempting this
+   step.**
 8. After sign-in the header shows your e-mail and the corpus pill renders.
 
 **D · retained functionality — the actual acceptance list**
@@ -233,11 +230,119 @@ Phase 1 may be classified `WORKSPACE_MIGRATION_RUNTIME_VERIFIED`.
 25. DevTools console: no uncaught errors on `/`, `/auto-investigate`,
     `/history` or an investigation detail page.
 
-Once A–H pass, tell me and I will record
+**I · the four checks you added on top of the 25**
+26. **Shadow flags OFF**: open `/v2/workspace`. It must render the honest
+    disabled notice, not a working v2 surface.
+27. **No preview API URL embedded**: DevTools → Sources → search the loaded
+    bundles for `preview.emergentagent.com` → **zero** hits. *(The build
+    guard already fails the build on this, so this is confirmation that the
+    guard ran, not a substitute for it.)*
+28. **No broken API requests**: DevTools → Network, filter XHR, walk
+    Workspace → Auto Investigate → History → an investigation detail. No
+    `4xx`/`5xx` other than a deliberate auth challenge, and **no CORS
+    errors** *(preflight already proven from this origin: `200`,
+    `allow-origin: *`, `authorization` allowed)*.
+29. **Retained nested / drilldown routes + deep-link reload**: open
+    `/workspace/session/<id>`, `/compare`, `/investigations/<id>` directly in
+    a fresh tab and press **F5** on each. All must survive the reload.
+
+Once A–I pass, tell me and I will record
 `WORKSPACE_MIGRATION_RUNTIME_VERIFIED` and stop for your approval before
 Phase 2.
 
 ---
+
+## 5 · The production administrator credential — BLOCKED BY THE PLATFORM
+
+You instructed me not to request or reuse any credential from you, and to
+provision a new production Workspace administrator through the application's
+supported mechanism. I traced that mechanism and then established that it
+**cannot be executed in this pass**. Reporting it rather than working around
+it.
+
+### The supported mechanism exists, and it is the right one
+
+`backend/deps.py:359 · seed_admin()` — runs on backend startup:
+
+- reads **`ADMIN_EMAIL`** and **`ADMIN_PASSWORD`** from the environment
+- **idempotent**: `if existing: return` — it will **never** reset or disturb
+  an admin that already exists
+- honours **`ADMIN_FORCE_PASSWORD_CHANGE=true`**, which sets
+  `must_change_password=True`. That flag is genuinely **enforced**, not
+  decorative: `deps.py:297` blocks every authenticated route until the
+  password is rotated through `POST /api/auth/change-password`
+- hashes via the same `hash_password` used everywhere else
+
+There is **no** self-registration route, **no** password-reset flow and
+**no** admin user-creation API — I checked: `routers/auth.py` exposes only
+`login`, `me` and `change-password`, and `db.users.insert_one` appears in
+exactly one non-test place, `seed_admin`. So environment-driven seeding at
+startup is the *only* supported path.
+
+### Why it cannot run yet — confirmed with the platform team
+
+| question | answer |
+|---|---|
+| Can env vars be changed on a deployed app? | Yes |
+| Does changing one trigger a **rebuild from current repo state**? | **Yes** |
+| Can the backend be restarted / env-updated **without** rebuilding the frontend? | **Not supported** — deployments are atomic |
+| Any console, shell, task runner or migration hook against the production DB? | **Not supported** |
+| Direct production MongoDB connection string? | **Not supported** |
+| Does rollback re-run the build or restore the artefact? | **Restores the previous artefact** |
+
+Setting `ADMIN_EMAIL` / `ADMIN_PASSWORD` on the legacy project therefore
+forces a rebuild, and that rebuild would replace the live legacy Workspace
+with the XDR app — the one thing you forbade. **So I did not do it, and I
+did not probe production auth either**: the login route has a sliding-window
+rate limiter keyed on `(email, ip)` that returns `429` on lockout, and
+guessing at the production admin would be brute-forcing our own production.
+
+### The consequence for Phase 1 acceptance, stated plainly
+
+Checks **A, B, E, F, G, H** and **26–29** can all be proven **without**
+signing in. Checks **C7–C8** and **D** cannot: they need an authenticated
+session, which needs an admin on that database.
+
+So Phase 1 splits honestly into two gates:
+
+- **`WORKSPACE_MIGRATION_UNAUTHENTICATED_VERIFIED`** — achievable the moment
+  `workspace.nivxmachines.com` is live. No credential, no rebuild, no risk.
+- **`WORKSPACE_MIGRATION_RUNTIME_VERIFIED`** — requires the authenticated
+  half, and therefore requires one owner decision.
+
+### The decision, and why the safe answer is "later, not now"
+
+The rebuild becomes **safe** exactly once `workspace.nivxmachines.com` is
+live and unauthenticated-verified, because at that point the legacy host's
+**frontend** is no longer load-bearing — only its **API** is, and the API is
+rebuilt from the same backend code it is already running. The sequence that
+keeps everything reversible:
+
+1. Deploy Workspace to Vercel. Run A, B, E, F, G, H, 26–29 →
+   `WORKSPACE_MIGRATION_UNAUTHENTICATED_VERIFIED`.
+2. **Owner approval gate.** You decide whether the legacy hostname may stop
+   serving the legacy Workspace UI. *(Note what the rebuild does: repo-root
+   `vercel.json` builds the XDR app, so `nivxray.nivxforge.com` would begin
+   serving the XDR frontend while continuing to serve the API. That is a
+   change to what that hostname shows, and it is your call — not mine.)*
+3. On approval: add `ADMIN_EMAIL`, `ADMIN_PASSWORD` and
+   `ADMIN_FORCE_PASSWORD_CHANGE=true` to that deployment's environment and
+   let it rebuild. **You type the password directly into the platform's env
+   UI.** It never reaches me, the repo, the bundle, a log, a proof script or
+   any document — which is exactly the handling you asked for, and is only
+   achievable this way.
+4. Sign in once at `workspace.nivxmachines.com`; the forced rotation makes
+   the bootstrap value single-use.
+5. Run C7–C8 and D → `WORKSPACE_MIGRATION_RUNTIME_VERIFIED`.
+6. Rollback remains available at every step and restores the artefact
+   without rebuilding.
+
+Use a **new** production address (for example `admin@nivxmachines.com`) —
+not `admin@nivxray.com`. `seed_admin` is idempotent, so if an admin with
+that e-mail already exists on the production database nothing happens at
+all, and the provisioning would silently no-op.
+
+I have not written any credential anywhere, and there is none to hand over.
 
 ## 6 · Standing constraints carried into later phases
 

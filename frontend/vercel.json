@@ -41,10 +41,17 @@
     "",
     "rewrites: WITHOUT this, /auto-investigate returns 404 on a static host",
     "while / works — the exact symptom that looks like 'the tool is",
-    "missing'."
+    "missing'.",
+    "",
+    "scripts/verify-production-build.js is chained after the build and FAILS",
+    "it if the emitted bundle embeds a preview origin, embeds an unapproved",
+    "or missing API origin, or ships a /v2/* shadow flag switched on. It",
+    "inspects the ARTEFACT, not process.env, precisely because the dotenv",
+    "precedence trap above means the environment can look right while the",
+    "bundle is wrong."
   ],
   "installCommand": "yarn install --production=false --frozen-lockfile",
-  "buildCommand": "CI=false GENERATE_SOURCEMAP=false REACT_APP_BACKEND_URL=https://nivxray.nivxforge.com REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=disabled REACT_APP_NIVX_FLAG_CASE_ENGINE=disabled REACT_APP_NIVX_FLAG_VERDICT_ENGINE_V3=disabled yarn build",
+  "buildCommand": "CI=false GENERATE_SOURCEMAP=false REACT_APP_BACKEND_URL=https://nivxray.nivxforge.com REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=disabled REACT_APP_NIVX_FLAG_CASE_ENGINE=disabled REACT_APP_NIVX_FLAG_VERDICT_ENGINE_V3=disabled yarn build && node scripts/verify-production-build.js",
   "outputDirectory": "build",
   "framework": null,
   "build": {

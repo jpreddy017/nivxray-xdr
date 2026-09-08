@@ -12851,3 +12851,117 @@ fresh production credential and the 25 acceptance checks.
 Carried forward: `nivxray.nivxforge.com` **must not** be retired after Phase 1
 (the new Workspace calls its `/api`). Phases 2–5 untouched, per instruction
 not to mix them in.
+
+
+---
+
+# Phase 1 (cont.) · single deployment route recommended · build guard added · production credential BLOCKED — 2026-09-08
+
+Owner accepted `WORKSPACE_CLEANUP_BUILD_VERIFIED` (75 checks · 0 failures) and
+scoped this pass to Workspace go-live preparation only. No XDR/EDR
+productionization, no API-domain migration, no launcher, no sensor work.
+
+## 1 · ONE deployment route recommended, not two
+
+**Deploy `/app/frontend` on Vercel with Root Directory = `frontend`.**
+It scores highest on every one of the owner's eight criteria, and critically
+**never touches the Emergent project at all** — no Deploy press, no env
+change, no rebuild trigger. `frontend/vercel.json` is already written for
+exactly that Root Directory. Rollback is instant artefact promotion.
+
+**The second-repo option is rejected and is NOT an equivalent choice.** It can
+only deploy `/app/frontend` by **copying the Workspace source into a second
+repository**, which then drifts — reproducing the "which source built the live
+bundle?" question that produced the false 139-vs-70 finding. Trading a
+one-time platform constraint for a permanent correctness risk is not a
+tradeoff worth offering.
+
+Click-by-click steps, the exact CNAME record and the acceptance list live in
+`memory/PHASE1_WORKSPACE_DEPLOYMENT_RUNBOOK.md` (rewritten to a single route).
+
+## 2 · Migration build guard — ADDED and PROVEN, scoped to this migration only
+
+`frontend/scripts/verify-production-build.js`, chained into the `buildCommand`
+so a bad artefact cannot ship. It fails the build (exit 1) on exactly the four
+approved conditions: a **preview Emergent origin** embedded; a **`/v2/*`
+shadow flag** switched on; the **production backend URL absent/empty**; an
+**unapproved or mixed** API origin.
+
+It inspects the **emitted artefact, not `process.env`** — deliberately.
+`craco.config.js` loads dotenv at module load, so `.env` beats
+`.env.production` here; an env-based check would have agreed with a build that
+was already wrong. Only the bundle tells the truth.
+
+Proven on **1 passing** artefact plus **6 distinct failing** ones, all exit 1:
+preview-pointed build (caught 22 embedded preview refs), **a build that simply
+omits the flag overrides** — the realistic human regression, where `.env`'s
+`shadow` silently wins and all three flags trip the guard — empty backend URL,
+two conflicting origins, unapproved origin, and a missing build directory. Not
+broadened into CI refactoring.
+
+## 3 · Production administrator credential — BLOCKED BY THE PLATFORM, reported not worked around
+
+The supported mechanism was traced and is the correct one:
+`backend/deps.py:359 seed_admin()` — startup seed from `ADMIN_EMAIL` /
+`ADMIN_PASSWORD`, **idempotent** (`if existing: return`, never resets an
+existing admin), honouring `ADMIN_FORCE_PASSWORD_CHANGE=true`, which is
+**genuinely enforced** at `deps.py:297` (every authenticated route is blocked
+until rotation via `POST /api/auth/change-password`). There is **no**
+self-registration, **no** reset flow and **no** admin-creation API —
+`routers/auth.py` exposes only `login`, `me`, `change-password`, and
+`db.users.insert_one` appears in exactly one non-test place.
+
+Confirmed with the platform team: changing an env var on a deployed app
+**triggers a rebuild from current repo state**; backend-only restart/env
+update is **not supported**; there is **no** console, shell, task runner or
+migration hook; the production **MongoDB is not reachable**; rollback
+**restores the previous artefact**.
+
+So provisioning would force a rebuild of the legacy project, replacing the
+live legacy Workspace with the XDR app — the one forbidden act. **It was not
+done.** Production auth was also **not probed**: the login route has a
+sliding-window limiter keyed on `(email, ip)` returning `429`, and guessing
+would be brute-forcing our own production.
+
+**Consequence, stated honestly.** Phase 1 acceptance splits in two:
+- **`WORKSPACE_MIGRATION_UNAUTHENTICATED_VERIFIED`** — checks A, B, E, F, G, H
+  and 26–29. Achievable the moment the Vercel deployment is live. No
+  credential, no rebuild, no risk.
+- **`WORKSPACE_MIGRATION_RUNTIME_VERIFIED`** — needs checks C7–C8 and D, hence
+  an authenticated session, hence one owner-approved rebuild of the legacy
+  project. That rebuild becomes **safe only after** the new Workspace is live,
+  because then the legacy host's frontend is no longer load-bearing — only its
+  API is, and the API rebuilds from the code it already runs. The owner must
+  also accept that `nivxray.nivxforge.com` would then begin serving the XDR
+  frontend, since repo-root `vercel.json` builds that app.
+
+When approved, the owner types the bootstrap password **directly into the
+platform env UI** with `ADMIN_FORCE_PASSWORD_CHANGE=true` and a **new**
+address (e.g. `admin@nivxmachines.com`, not `admin@nivxray.com` — the seed is
+idempotent and would silently no-op on an existing e-mail). The secret never
+reaches the agent, the repo, the bundle, any log, any proof script or any
+document. **No credential was generated, stored or written anywhere in this
+pass, and there is none to hand over.**
+
+## 4 · Acceptance list extended with the owner's four additional checks
+
+Items 26–29 added: shadow flags OFF at `/v2/workspace`; zero
+`preview.emergentagent.com` in the loaded bundles; no broken API requests and
+no CORS errors across the main flows; retained nested/drilldown routes
+(`/workspace/session/<id>`, `/compare`, `/investigations/<id>`) surviving a
+direct **F5** reload.
+
+## 5 · Regression — unchanged, re-run after every edit in this pass
+
+Build guard **PASSED** · `phase1_workspace_build_proof` **32/32** ·
+`phase1_workspace_authenticated_proof` **43/43** · **0** uncaught page errors.
+No backend, `.env`, DNS, supervisor, repo-root `vercel.json` or
+`apps/nivxray-xdr` change. Legacy host and both preview products still serving.
+
+## 6 · Order locked by the owner (correcting the earlier next-actions list)
+
+Workspace go-live → runtime verification → **owner approval** → XDR
+productionization → EDR productionization → cross-product launchers →
+permanent API hostname → legacy `nivxray.nivxforge.com` retirement.
+The launcher is explicitly **deferred**: no control may point at
+`xdr.nivxforge.com` or `edr.nivxforge.com` until each is runtime-verified.

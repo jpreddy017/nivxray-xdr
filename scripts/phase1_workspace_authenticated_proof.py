@@ -195,8 +195,11 @@ def main():
         check("no uncaught page errors across the whole sweep",
               len(real_errors) == 0, f"{len(real_errors)} errors: {real_errors[:3]}")
 
-        page.screenshot(path="/app/memory/phase1_workspace_cleaned_nav.png",
-                        full_page=False)
+        # Screenshots are deliberately NOT taken here: this sweep ends on
+        # /v2/workspace, whose flag-off state reads as a blank page and was
+        # once mistaken for a broken product. Evidence shots are produced by
+        # scripts/phase1_workspace_screenshots.py, which captures the real
+        # product surfaces.
         browser.close()
 
     httpd.shutdown()
