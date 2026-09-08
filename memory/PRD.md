@@ -12464,3 +12464,59 @@ both consoles.
 **Deferred by owner decision:** SSO (separate-origin sign-in accepted for
 now; OIDC later) · replacing `CORS_ORIGINS="*"` with explicit production
 origins once domains are final · all DNS/domain mapping.
+
+---
+
+# Production domain reality check — 2026-09-08 (measured)
+
+Full inventory: `memory/PRODUCTION_DOMAIN_INVENTORY.md`.
+
+Measured against the live hosts, four assumptions in the migration plan
+were wrong:
+
+1. **Workspace is ALREADY in production** at `nivxray.nivxforge.com`
+   (CRA bundle containing `/auto-investigate` + `/analyze`; deep links
+   return 200, SPA rewrite already configured).
+2. **`www.nivxmachines.com` is OCCUPIED** by a live branded marketing
+   site ("NivX Machines · Cybersecurity, AI & Threat Intelligence").
+   Attaching it to a new deployment would take that site down — a direct
+   breach of the owner's own HARD RULE. Use
+   `workspace.nivxmachines.com`.
+3. **`nivxforge.com` is not empty** — it serves an older build of the
+   same product family (mentions NivXForge / Decoder / AutoInvestigate /
+   EDR).
+4. **No custom domain serves the XDR/EDR Vite app at all** (every custom
+   domain serves CRA `static/js/main.*.js`; Vite emits `assets/index-*.js`).
+
+**Armed hazard:** the production backend runs current code (785 openapi
+paths, identical to preview, including routes built today) but a
+**separate database** (preview admin credential → 200 on preview, 401 on
+production). The repo-root `vercel.json` now builds `apps/nivxray-xdr`,
+while the live Workspace is the artefact of an earlier deploy — so
+**pressing Deploy silently replaces the live Workspace with XDR.** The
+destructive act is the deploy, not the domain change.
+
+**Corollary for Stage 2 acceptance:** the only real Linux sensor reports
+to the PREVIEW database, so a production XDR/EDR starts with zero
+endpoints and P0-3 will correctly report `NEVER_DELIVERED` /
+`NO_ENROLLED_ENDPOINTS`. "Sensor still DELIVERING" cannot be a production
+acceptance criterion until a sensor is enrolled against production.
+
+**Platform constraints (confirmed with Emergent support):** one frontend
+deployment per project → Stage 1 and Stage 2 need **two projects**;
+preview/production databases are always separate; **no host-based routing
+at the edge**, so `www.nivxforge.com → /edr` vs
+`nivxray.nivxforge.com → /xdr` from one bundle must be in-app or two
+deployments; domains are free, deployments are 50 credits/month each.
+
+**Done in this pass (non-destructive):** `frontend/vercel.json` — INERT
+(only a deployment's Root-Directory config is read; repo-root
+`vercel.json` untouched and verified). Supplies the two things the
+Workspace build lacked: `CI=false` and the SPA rewrite
+`/(.*) → /index.html`. `REACT_APP_BACKEND_URL` deliberately left unset
+because CRA inlines it at build time and preview/production are different
+databases.
+
+**Not done:** no deployment was created (that is a platform action in the
+Emergent UI, not something I can perform), no domain/DNS/CORS change, no
+merge, no supervisor change.

@@ -1,0 +1,46 @@
+{
+  "$comment": [
+    "STAGE 1 · build config for the NivXMachines Workspace frontend.",
+    "",
+    "INERT BY DESIGN. Only the config at a deployment's configured Root",
+    "Directory is read. The repo-root vercel.json (which builds",
+    "apps/nivxray-xdr) is untouched and still governs the existing",
+    "deployment, so adding this file CANNOT change what the current",
+    "deployment produces. It takes effect only for a deployment whose",
+    "Root Directory is set to `frontend`.",
+    "",
+    "Why each field exists:",
+    "  buildCommand   CI=false because CRA promotes warnings to errors when",
+    "                 CI is truthy, and this app carries 9 react-hooks",
+    "                 exhaustive-deps advisories (see",
+    "                 memory/WORKSPACE_BUILD_VERIFICATION.md). They are",
+    "                 lint advisories, not defects; fixing them changes",
+    "                 effect timing, so they are not being touched during",
+    "                 a migration.",
+    "  rewrites       WITHOUT this, /auto-investigate returns 404 on a",
+    "                 static host while / works — verified locally against",
+    "                 the built bundle. That is the exact symptom that",
+    "                 looks like 'the tool is missing'.",
+    "",
+    "REACT_APP_BACKEND_URL is NOT set here on purpose: CRA inlines env",
+    "vars at build time, so it must be supplied by the deployment that",
+    "builds this app and must point at the backend whose DATABASE the",
+    "Workspace is meant to read. Preview and production are separate",
+    "databases (verified: the preview admin credential returns 401 on the",
+    "production host), so baking the wrong one silently shows the wrong",
+    "data."
+  ],
+  "installCommand": "yarn install --production=false --frozen-lockfile",
+  "buildCommand": "CI=false GENERATE_SOURCEMAP=false yarn build",
+  "outputDirectory": "build",
+  "framework": null,
+  "build": {
+    "env": {
+      "NPM_CONFIG_PRODUCTION": "false",
+      "YARN_PRODUCTION": "false"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
