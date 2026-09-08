@@ -37,10 +37,23 @@ the identical result, which is why it must not be repeated.
 
 ## The one safe next action
 
-On the Vercel project **you already created** — no re-import, no deploy:
+**Do this in the WORKSPACE project — NOT in `nivxray-xdr`.** Use the project
+switcher at the top of the Vercel dashboard to leave `nivxray-xdr` first;
+that project's branch tracking must not be touched, because changing it
+would alter which branch fires its production deployments.
 
-> **Settings → Git → Production Branch:** change `main` →
-> **`conflict_310826_2116`**, and save.
+> **Settings → Environments → Production → Branch Tracking**
+> set the branch to **`conflict_310826_2116`**, then **Save**.
+
+**Correction to an earlier instruction in this file's history:** I first said
+*Settings → Git → Production Branch*. That path is **out of date** —
+current Vercel keeps only Connected Git Repository, Git Commits, Git LFS and
+Deploy Hooks on the Git page. The production branch lives under
+**Environments → Production → Branch Tracking**
+(`vercel.com/docs/git`, `vercel.com/kb/guide/can-i-use-a-non-default-branch-for-production`).
+The `Branch` field next to **Create Hook** on the Git page is a **deploy
+hook** — it triggers a deployment and is not the branch setting. Do not
+create one.
 
 Then re-open **Settings → Build and Deployment**. The locked values should
 now read from `frontend/vercel.json`:
@@ -60,6 +73,15 @@ Node     20.x   (frontend/.nvmrc)
 that would mean Vercel is consulting the repo-root config regardless of Root
 Directory, which is a different cause and needs a different fix. Do not
 deploy to find out.
+
+### Worth knowing for later, not an action now
+
+The same **Branch Tracking** panel has an **Auto-assign Custom Production
+Domains** toggle. Turning it **off** lets a push build without going live,
+so a deployment can be verified first and then promoted manually via
+Deployments → ⋯ → **Promote to Production**. That is a good fit for this
+migration's "verify before cutover" rule — but it is a later decision, not
+part of this next action.
 
 ## Why the obvious alternatives are NOT safe
 

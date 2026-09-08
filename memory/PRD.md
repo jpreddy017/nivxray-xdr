@@ -13622,3 +13622,62 @@ prohibited.
 Legacy watchdog healthy · Workspace build guard PASSED · repo-root
 `vercel.json` untouched · `apps/nivxray-xdr` untouched · nothing deployed.
 Deferred as instructed: Scope Screenshot, Escalate Two Questions.
+
+
+---
+
+# Workspace Vercel diagnosis RE-CHECKED against the current Vercel UI — 2026-09-08
+
+Owner opened **Settings → Git on the existing `nivxray-xdr` project** and
+correctly reported there is no Production Branch setting there (only
+Connected Git Repository, Git Commits, Git LFS, Deploy Hooks) and correctly
+changed nothing.
+
+## Two corrections I owe
+
+1. **My menu path was out of date.** I said *Settings → Git → Production
+   Branch*. Current Vercel keeps the production branch under
+   **Settings → Environments → Production → Branch Tracking**
+   (`vercel.com/docs/git`,
+   `vercel.com/kb/guide/can-i-use-a-non-default-branch-for-production`).
+   `Environments` is present in the owner's sidebar.
+2. **Wrong project.** The owner was inside `nivxray-xdr`. The change belongs
+   to the **Workspace** project; `nivxray-xdr`'s branch tracking must not be
+   touched, since it decides which branch fires ITS production deployments.
+
+The owner was also right that the `Branch` field beside **Create Hook** is a
+**deploy hook** — it triggers deployments and is not the branch setting.
+Creating one was correctly avoided.
+
+## Diagnosis itself is UNCHANGED and still verified
+
+`main` has **no `frontend/vercel.json`** and no `frontend/.nvmrc` (both
+404 on GitHub raw), while the repo-root `vercel.json` — the
+`cd apps/nivxray-xdr` config — is present on every ref. A new Vercel project
+tracks `main` by default, so the XDR config is the only one it can find, and
+Vercel locks Build/Install/Output whenever a `vercel.json` supplies them.
+Root Directory `frontend` cannot help when that directory holds no config on
+the tracked branch.
+
+## Single exact next action (owner-side, no deploy, no re-import)
+
+Switch out of `nivxray-xdr` via the project switcher, then in the
+**Workspace** project:
+**Settings → Environments → Production → Branch Tracking** →
+**`conflict_310826_2116`** → Save. Re-open Settings → Build and Deployment
+and report what the locked values say. If they still name
+`apps/nivxray-xdr`, STOP — that is a different cause (Vercel consulting the
+repo-root config regardless of Root Directory) needing a different fix.
+
+## Useful for later, deliberately not an action now
+
+The same Branch Tracking panel has **Auto-assign Custom Production
+Domains**. Turning it OFF lets a push build **without going live**, so a
+deployment can be verified and then promoted manually
+(Deployments → ⋯ → Promote to Production) — a strong fit for the
+"verify before cutover" rule. Flagged only; not part of this action.
+
+## Unchanged
+Workspace build guard PASSED · legacy watchdog healthy · repo-root
+`vercel.json` untouched · `apps/nivxray-xdr` untouched · nothing deployed ·
+no setting changed by the agent. XDR/EDR work remains stopped.
