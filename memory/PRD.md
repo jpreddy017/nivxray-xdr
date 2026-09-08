@@ -13934,3 +13934,58 @@ production or the frozen Emergent project.
 Note for Phase 2: `apps/nivxray-xdr/yarn.lock` on GitHub still lacks
 `d3@^7.9.0` and its `vercel.json` still uses `--frozen-lockfile`, so XDR
 will need the same one-line install change when its turn comes.
+
+---
+
+# ROOT CAUSE of the Vercel import loop · default branch, not a misconfiguration — 2026-09-08
+
+Owner correctly halted the Vercel UI experimentation. Read-only diagnosis:
+
+## Why Create Project forces `main`
+1. GitHub API: repo **`default_branch` = `main`**. Vercel's import screen has
+   **no branch selector** — by design it creates the project from the
+   repository's **default branch**. Branch choice is a POST-creation concept
+   (Environments → Production → Branch Tracking) and does not exist at
+   import time.
+2. On `main`, repo-root `vercel.json` declares `installCommand`,
+   `buildCommand`, `outputDirectory` (`cd apps/nivxray-xdr …`,
+   `apps/nivxray-xdr/dist`) while **`frontend/vercel.json` does not exist**.
+   With Root Directory `frontend` Vercel finds no config there, falls back to
+   the root file, and locks the fields to the XDR values.
+
+The import screen therefore CANNOT be made to work. No amount of repeating it
+helps — the owner's instinct was right.
+
+## Supported solution · ONE GitHub setting, ZERO commits
+Change the repository **default branch** from `main` to
+`conflict_310826_2116` (GitHub → Settings → Branches). Not a merge, not a
+commit; `main`'s tip is untouched. Vercel's import then reads that branch,
+finds `frontend/vercel.json`, and shows `yarn install --production=false`,
+the guarded build command and output `build`. Reversible in one click.
+
+## Repository files that must change
+**None.** Zero commits. One repo setting only.
+
+## Proof it cannot affect `nivxray-xdr`
+- Its Branch Tracking is **explicitly pinned to `main`** (verified: value
+  `main`, Save disabled). Vercel deploys a project's CONFIGURED production
+  branch, not the repo default.
+- No push/commit/merge → `main`'s tip byte-identical → nothing can trigger a
+  build of it.
+- Root Directory, env vars and domains are not read or written by a GitHub
+  setting.
+- Pushes to `conflict_310826_2116` will keep producing **preview**
+  deployments on `nivxray-xdr` — already the case today (Active Branches /
+  Recent Previews). **No behavioural change.**
+- Only side effect is cosmetic: new clones/PRs default to the newer branch,
+  which is arguably correct (222 commits ahead, the real trunk).
+
+## ONE next action (owner)
+GitHub → `jpreddy017/nivxray-xdr` → Settings → Branches → Default branch →
+`main` → **`conflict_310826_2116`**. Nothing else. No Vercel screens, no
+project creation, no deploy. Agent then verifies via API that the default
+flipped and `main`'s tip is unchanged, before the project is created.
+
+Still prohibited: any action inside `nivxray-xdr` · changing its Production
+Branch · merging into `main` · XDR/EDR source or deploys · legacy production
+· new backend/database · attaching domains.
