@@ -13562,3 +13562,63 @@ Questions, Lockfile Guard.
 deploy time (documented in `memory/PHASE2_3_XDR_EDR_DEPLOYMENT_PREP.md` §4).
 Back to the Workspace Vercel problem, which is the only remaining active
 item.
+
+
+---
+
+# Workspace Vercel issue DIAGNOSED · wrong production branch, not a bad import — 2026-09-08
+
+Report: `memory/WORKSPACE_VERCEL_ISSUE_DIAGNOSIS.md`. Diagnose-only pass —
+nothing deployed, no setting changed, XDR/EDR untouched.
+
+## Symptom
+New Vercel project created with Root Directory `frontend`, yet
+Build/Install/Output stayed **locked** showing the XDR `apps/nivxray-xdr`
+configuration.
+
+## Cause · measured on GitHub raw, not inferred
+
+| ref | root `vercel.json` | `frontend/vercel.json` | `frontend/.nvmrc` |
+|---|---|---|---|
+| `conflict_310826_2116` | 200 · 440 B | **200 · 3566 B** | **200** |
+| `main` | 200 · 440 B (**XDR config**) | **404** | **404** |
+
+A new Vercel project defaults its **Production Branch to `main`**, and on
+`main` the **only** `vercel.json` in the repo is the **repo-root** one with
+the `cd apps/nivxray-xdr` commands. Vercel locks those fields whenever a
+`vercel.json` supplies them. Root Directory `frontend` could not help
+because **`frontend/vercel.json` does not exist on `main`** — it exists only
+on `conflict_310826_2116`.
+
+**The import flow was not wrong; the project was pointed at a branch without
+the Workspace config.** Re-importing reproduces the same result, which is
+exactly why the owner must not repeat it.
+
+This is the trap flagged one pass earlier (production branch vs. stale
+`main`) actually firing. The earlier note said to set the Production Branch
+at creation time; it was not set, so `main` won.
+
+## One safe next action (owner-side, on the EXISTING project)
+
+**Settings → Git → Production Branch:** `main` → **`conflict_310826_2116`**,
+save. No re-import, no deploy. Then re-open Settings → Build and Deployment;
+the locked values should now come from `frontend/vercel.json` (install with
+`--frozen-lockfile`, the guarded build command, output `build`, Node 20 from
+`.nvmrc`).
+
+**If they still show `apps/nivxray-xdr` after saving, STOP and report** —
+that would mean Vercel consults the repo-root config regardless of Root
+Directory, a different cause needing a different fix. Do not deploy to find
+out.
+
+## Why the obvious alternatives are unsafe
+Pushing `frontend/vercel.json` to `main`, or merging into `main`, would fire
+the **production** deployment of the existing `nivxray-xdr` Vercel project
+(its production branch is `main`) — an unapproved Phase 2 action. Editing
+repo-root `vercel.json` governs the frozen Emergent project's build and is
+prohibited.
+
+## Unchanged
+Legacy watchdog healthy · Workspace build guard PASSED · repo-root
+`vercel.json` untouched · `apps/nivxray-xdr` untouched · nothing deployed.
+Deferred as instructed: Scope Screenshot, Escalate Two Questions.
