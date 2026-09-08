@@ -13154,3 +13154,87 @@ watchdog **healthy**. No backend, `.env`, DNS, supervisor, repo-root
 XDR production deployment · EDR production deployment · Product Launcher ·
 `api.nivxforge.com` migration · legacy hostname retirement · backend
 duplication · database migration · authentication redesign.
+
+
+---
+
+# Phase 1 (cont.) · Vercel Workspace project configuration · REAL deploy blocker found and fixed — 2026-09-08
+
+Report: `memory/VERCEL_WORKSPACE_PROJECT_CONFIG.md`. **Nothing deployed.**
+Not touched: repo-root `vercel.json`, `apps/nivxray-xdr`, Preview XDR,
+Preview EDR, backend, databases, the frozen production deployment.
+
+## 1 · The read-only `apps/nivxray-xdr` fields need NO repo change
+
+Those greyed fields are Vercel saying "managed by `vercel.json`", populated
+from the **repo-root** config at import time. Per Vercel's docs `vercel.json`
+is read from the **Root Directory**, and Root Directory "takes effect on your
+next deployment" — so once `frontend` is **saved**, `frontend/vercel.json`
+becomes authoritative. Repo-root `vercel.json` was therefore **left alone**,
+consistent with the owner's standing instruction.
+
+**Safe failure property worth recording:** if the root config were somehow
+applied under Root Directory `frontend`, both `cd apps/nivxray-xdr` and
+`outputDirectory: apps/nivxray-xdr/dist` point outside the Root Directory,
+which Vercel forbids → **failed build, not a wrong site**. The build guard
+would reject a wrong artefact too. No path silently ships XDR to
+`workspace.nivxmachines.com`.
+
+## 2 · A REAL blocker: the deploy would have FAILED at install
+
+Running the exact `installCommand` verbatim instead of trusting it:
+
+```
+yarn install --production=false --frozen-lockfile
+error Your lockfile needs to be updated, but yarn was run with `--frozen-lockfile`.
+```
+
+**`frontend/yarn.lock` did not cover `frontend/package.json`** — 17 top-level
+deps declared but absent, including four **runtime** ones (`@xyflow/react`,
+`dagre`, `konva`, `react-konva`; `konva`/`react-konva` are genuinely imported
+by `src/v2/canvas_engine/IRGGraphCanvas.jsx` and `InvestigationCanvas.jsx`)
+plus the seven `@storybook/*` 8.6.14 packages, `storybook`, `typescript`,
+`@types/*` and `json-schema-to-typescript`.
+
+Local builds only worked because `node_modules` already held them from an
+earlier non-frozen install. A clean Vercel checkout has none, so the install
+step would have failed and **the deployment would never have built**. This is
+the payoff for running the install command verbatim rather than assuming it.
+
+### Fixed with zero dependency risk — measured, not assumed
+
+`frontend/yarn.lock` regenerated (`yarn install --production=false`):
+**0 existing entries changed version**, 223 additive entries.
+`react`/`react-dom` 19.0.0, `react-router-dom` 7.15.0, `axios` 1.16.0,
+`react-scripts` 5.0.1, `@craco/craco` 7.1.0 — all unchanged. Purely
+additive, so nothing needed re-qualifying. `--frozen-lockfile` now exits 0.
+
+## 3 · Node pinned · `frontend/.nvmrc` = `20`
+
+`package.json` declared no `engines.node` and there was no `.nvmrc`, so Vercel
+would have chosen its own default. The build is proven on **Node v20.20.2**
+with `react-scripts@5.0.1` (CRA, unmaintained). Pinning removes an avoidable
+variable; it does not claim newer Node is broken, only unproven here. Read
+from the Root Directory, so it affects this project only.
+
+## 4 · Files changed
+
+`frontend/yarn.lock` (regenerated, +1329/−37, 0 version changes) ·
+`frontend/.nvmrc` (new). `frontend/vercel.json` already correct and unchanged
+this pass. **Repo-root `vercel.json` NOT modified. `apps/nivxray-xdr` NOT
+modified.**
+
+## 5 · Everything re-verified against the NEW artefact
+
+`--frozen-lockfile` **exit 0** · exact Vercel build command + guard
+**PASSED** (22 production refs, 0 preview, all flags `disabled`) ·
+build proof **32/32** · authenticated proof **43/43**, 0 console errors ·
+live acceptance local dry-run **35/35 PASS · 11 BLOCKED (credential)** ·
+watchdog **healthy** (legacy untouched, 67 chunks, original nav intact).
+
+## 6 · Owner action before importing
+
+**Save to Github** — Vercel builds from the repository, and the commit must
+include `frontend/yarn.lock` and `frontend/.nvmrc` or the install fails on
+Vercel exactly as it did here. Then confirm Root Directory = `frontend` is
+saved. **Then STOP for approval before Deploy.**
