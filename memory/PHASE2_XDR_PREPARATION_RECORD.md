@@ -1,6 +1,38 @@
 # PHASE 2 · NivXRay XDR productionization — PREPARATION RECORD
 
-**Date**: 2026-09-08 · **Status: `READY_FOR_OWNER_VERCEL_ACTION`**
+**Date**: 2026-09-08 · **Status: `READY_FOR_OWNER_VERCEL_ACTION` · PREPARATION APPROVED BY OWNER**
+
+## Owner rulings on the two open items (ratified 2026-09-08)
+1. **`REACT_APP_PRODUCT_SCOPE=xdr` — CONFIRMED and MANDATORY.** The guard must
+   keep failing the build if it is absent, so the deployment can never silently
+   degrade into a combined XDR+EDR console.
+2. **PRODUCTION XDR DATA SEEDING — REJECTED.** `incidents = 0` / `KPIs = 0` is
+   the honest, correct production state while the production backend holds no
+   real XDR incidents. **Never** manufacture incidents, detections, telemetry
+   or KPIs to make the product look impressive. Synthetic data may exist only
+   in an explicitly separate test/demo environment. *(My earlier
+   "seed XDR demo data" suggestion was wrong and is withdrawn.)*
+3. **Workspace launcher — NOT NOW.** Cross-product launchers are Phase 4, only
+   after BOTH `XDR_PRODUCTION_RUNTIME_VERIFIED` and
+   `EDR_PRODUCTION_RUNTIME_VERIFIED`. Do not touch Workspace or XDR navigation
+   for this purpose during Phase 2.
+4. **`frontend/yarn.lock` / anything under `/app/frontend` — DO NOT TOUCH.**
+   Locked Workspace source, outside Phase 2. Do not push, regenerate, clean or
+   fold it into XDR work. Treat as separate pre-existing state.
+5. **Phase 2 is XDR ONLY** — no EDR deploy, no `edr.nivxforge.com`, no EDR DNS,
+   no Preview EDR change, no change to `www.nivxmachines.com`,
+   `workspace.nivxmachines.com`, either existing Vercel project, the backend or
+   any database, and no production data seeding.
+
+**Phase status**: Phase 1 🔒 LOCKED · Phase 2 preparation ✅ APPROVED ·
+XDR production deployment ⏳ NOT STARTED · Phase 3 EDR ⛔ NOT STARTED ·
+production demo seeding ❌ REJECTED.
+
+**Owner-only next action**: create a NEW independent Vercel project with Root
+Directory `apps/nivxray-xdr`, destination `xdr.nivxforge.com`. The agent does
+not create the project, does not deploy, does not touch DNS, and waits for the
+owner's project configuration/screenshots before DNS is attached.
+
 Owner decisions applied: **1b · 2a · 3a · 4a · 5b** + HARD ISOLATION RULE.
 No Vercel project, DNS record or deployment was created or touched.
 
