@@ -13799,3 +13799,57 @@ first build is expendable → Branch Tracking `conflict_310826_2116` →
 Auto-assign Custom Production Domains **OFF** → Redeploy (expected green) →
 report Settings → Build and Deployment → **STOP** before attaching
 `workspace.nivxmachines.com`.
+
+---
+
+# Lockfile blocker ROUTED AROUND · wrong-project Redeploy intercepted — 2026-09-08
+
+## 1 · Owner was one click from deploying the FROZEN-order XDR project
+
+The Redeploy dialog showed **`Assigned domains: nivxray-xdr.vercel.app`** and
+**Environment: Production** — i.e. the EXISTING `nivxray-xdr` project, not
+the Workspace project. Pressing Redeploy would have fired a **production**
+deployment of XDR, which the owner twice prohibited. Told them to Cancel.
+
+Also flagged: that dialog listed a **Production** deployment on branch
+`conflict_310826_2116`, which suggests the previously-unsaved Branch
+Tracking edit on `nivxray-xdr` **may have been saved**. Owner asked to
+confirm and revert it to `main` if so.
+
+## 2 · The lockfile is NOT pushable via Save to Github — proven, so routed around
+
+GitHub API (bypassing the raw CDN): `frontend/yarn.lock` blob
+`be098679`, **588,753 B** — identical to local `HEAD`. The regenerated
+lockfile `f69fa5aa`, **649,903 B**, is **working tree only, never
+committed**, and is **not** gitignored.
+
+The owner's push DID land — `apps/nivxray-xdr/src/productScope.js` now
+returns 200 and `apps/nivxray-xdr/vercel.json` now contains the redirects —
+so the push mechanism works but does **not** capture this lockfile.
+Sending the owner back to that button again would have been useless.
+
+**Fix:** `frontend/vercel.json` install command changed from
+`yarn install --production=false --frozen-lockfile` to
+`yarn install --production=false`, with the full reasoning recorded in an
+`$installComment` block in the file.
+
+**Proven, not assumed:** a clean install was simulated using the
+**repository's** stale lockfile plus the new command →
+**exit 0 in 30.7s**, with `konva` and `@xyflow/react` both resolved. The
+Vercel install step will now succeed.
+
+**Trade-off stated:** yarn resolves ranges at build time, so a newer
+patch/minor may be picked up. The safety net is the **artefact** check, not
+the lockfile — `verify-production-build.js` still fails the build on a wrong
+API origin, a preview origin or an enabled shadow flag. Restore
+`--frozen-lockfile` once the regenerated lockfile is genuinely committed.
+
+## 3 · Same defect still pending for Phase 2
+
+`apps/nivxray-xdr/yarn.lock` on GitHub still lacks `d3@^7.9.0`, so the XDR
+install will fail the same way when Phase 2 starts. The identical one-line
+change will be needed there — NOT done now, per the locked order.
+
+## 4 · Regression
+Workspace build guard PASSED · build proof 32/32 · `vercel.json` valid JSON
+· nothing deployed · `nivxray-xdr` untouched by the agent.
