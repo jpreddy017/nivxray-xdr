@@ -13681,3 +13681,42 @@ deployment can be verified and then promoted manually
 Workspace build guard PASSED · legacy watchdog healthy · repo-root
 `vercel.json` untouched · `apps/nivxray-xdr` untouched · nothing deployed ·
 no setting changed by the agent. XDR/EDR work remains stopped.
+
+
+---
+
+# FINAL CAUSE · the Workspace Vercel project never existed — 2026-09-08
+
+Owner confirmed the project switcher shows only **`nivxray-xdr`** and
+**Create Project**. There is no Workspace project, so the earlier
+instruction to set Branch Tracking "in the Workspace project" was **not
+performable**. Several passes were spent trying to fix settings on a
+project that did not exist.
+
+**Ordering constraint nobody had spotted:** Branch Tracking exists only
+AFTER a project exists, and a Vercel project is created only by completing
+an import, which builds immediately. Therefore the first build CANNOT be
+correct — `main` has no `frontend/vercel.json` — and it does not need to
+be. **No custom domain is attached at that point, so a wrong or failed
+first build serves nobody and damages nothing.** The earlier passes wrongly
+treated that first screen as something that had to be right.
+
+Safe method (owner-side, recorded in
+`memory/WORKSPACE_VERCEL_ISSUE_DIAGNOSIS.md`): create project
+`nivxmachines-workspace` → Root Directory `frontend` → Deploy and let the
+first build be wrong → Settings → Environments → Production → Branch
+Tracking = `conflict_310826_2116` → turn **Auto-assign Custom Production
+Domains OFF** → Redeploy → confirm Build and Deployment now reads from
+`frontend/vercel.json` → **STOP** before attaching
+`workspace.nivxmachines.com`.
+
+**Hazard flagged:** the owner had `conflict_310826_2116` typed unsaved into
+**`nivxray-xdr`'s** Branch Tracking. Saving it would repoint that project's
+production branch. Told them not to save and to refresh to discard.
+
+Also prohibited: pushing `frontend/vercel.json` to `main` or merging into
+`main` — `main` is `nivxray-xdr`'s production branch, so either fires its
+production deployment from 218-commit-stale code.
+
+Unchanged: nothing deployed, no setting changed by the agent, repo-root
+`vercel.json` and `apps/nivxray-xdr` untouched, XDR/EDR work stopped.

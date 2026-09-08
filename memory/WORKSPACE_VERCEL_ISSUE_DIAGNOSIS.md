@@ -99,3 +99,71 @@ reversible.
 
 Legacy watchdog healthy · Workspace build guard PASSED · repo-root
 `vercel.json` untouched · `apps/nivxray-xdr` untouched · nothing deployed.
+
+---
+
+## FINAL CAUSE · the Workspace project never existed
+
+Confirmed by the owner: the Vercel project switcher shows only
+**`nivxray-xdr`** and **Create Project**. There is no Workspace project.
+
+So the earlier instruction — "set Branch Tracking in the Workspace
+project" — was **not performable**, and every attempt to fix settings was
+chasing a project that does not exist. The `frontend`-rooted import was
+either never completed or was abandoned at the screen showing the locked
+XDR values.
+
+**Do not save the `conflict_310826_2116` value typed into `nivxray-xdr`.**
+That field is that project's own production branch; saving it would
+repoint its production deployments. Refresh the page to discard it.
+
+### The ordering constraint nobody had spotted
+
+Branch Tracking only exists **after** a project exists, and a Vercel
+project is only created by completing an import — which performs a first
+build immediately. So the sequence *must* be:
+
+```
+create project (first build happens, and may be WRONG) 
+      ↓
+set Branch Tracking → conflict_310826_2116
+      ↓
+redeploy → settings now read frontend/vercel.json
+      ↓
+only THEN attach workspace.nivxmachines.com
+```
+
+**The first build is expendable, and that is what makes this safe.** No
+custom domain is attached at that point, so a wrong or failed first build
+serves nobody and damages nothing. The mistake before was treating that
+first screen as something that had to be perfect.
+
+### The single safe method
+
+1. Vercel → **Create Project** → import `jpreddy017/nivxray-xdr`.
+2. Name it **`nivxmachines-workspace`**.
+3. **Root Directory → `frontend`.**
+4. If the import screen offers a **branch** selector, pick
+   `conflict_310826_2116`. If it does not, continue anyway.
+5. Press **Deploy** and let it finish **however it turns out**. Ignore the
+   locked `apps/nivxray-xdr` values on this screen — they come from `main`,
+   which has no `frontend/vercel.json`. Expect this build to be wrong or to
+   fail. That is fine and expected.
+6. In the **new** project: **Settings → Environments → Production →
+   Branch Tracking** → `conflict_310826_2116` → **Save**.
+7. Recommended in the same panel: turn **Auto-assign Custom Production
+   Domains OFF**, so future builds do not go live until promoted.
+8. **Deployments → Redeploy** (or push).
+9. Re-open **Settings → Build and Deployment** and confirm it now reads
+   from `frontend/vercel.json` (install with `--frozen-lockfile`, the
+   guarded build command, output `build`, Node 20).
+10. **STOP.** Do not add `workspace.nivxmachines.com` until step 9 is
+    confirmed and reported.
+
+### What must NOT be done
+
+- Do not touch `nivxray-xdr` — no Save, no branch change, no deploy hook.
+- Do not push `frontend/vercel.json` to `main`, and do not merge into
+  `main`: `main` is `nivxray-xdr`'s production branch, so that fires its
+  production deployment from 218-commit-stale code.
+- Do not attach the custom domain before the build settings are correct.
