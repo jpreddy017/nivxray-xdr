@@ -1,6 +1,6 @@
 {
   "installCommand": "yarn install --production=false",
-  "buildCommand": "CI=false GENERATE_SOURCEMAP=false REACT_APP_BACKEND_URL=https://nivxray.nivxforge.com REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=disabled REACT_APP_NIVX_FLAG_CASE_ENGINE=disabled REACT_APP_NIVX_FLAG_VERDICT_ENGINE_V3=disabled yarn build && node scripts/verify-production-build.js",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "build",
   "framework": null,
   "build": {
