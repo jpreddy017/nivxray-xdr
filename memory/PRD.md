@@ -12610,3 +12610,78 @@ only against the **preview** backend/database. Rotation is safe and cheap
 (revoke → supervised bootstrap re-enrols; re-enrolment preserves the
 delivery record) but touches the sensor, so it is **not rotated** —
 awaiting owner instruction.
+
+---
+
+# Pre-deployment actions executed — 2026-09-08
+
+Report: `memory/PRE_DEPLOYMENT_ACTIONS.md`. Step 1 still **STOPPED**
+pending the owner's control-plane result. No deploy/detach/DNS/CORS/
+production change.
+
+**Preview sensor credential ROTATED** (it had entered git history →
+treated as compromised). Existing P0-3 lifecycle, sensor not redesigned:
+revoke → delete exposed `identity.json` → supervised re-enrolment.
+Proven: old credential now `403 AGENT_CREDENTIAL_REVOKED`; same
+`ep_2d57cbe6f80152062109`, 1 enrolment row; `cred_81f9a04c… →
+cred_00b4f731…` (1 ACTIVE / 30 REVOKED); `event_count 20364 → 20408`
+(history preserved, not reset); `sensor_state REPORTING`; `DELIVERING`;
+outbox replayed the rotation window (`collected=44 sent=118`, nothing
+lost); 200/200 AUTHENTICATED on the new credential with 199 canonical
+evidence and 1 fresh detection; Process Tree `ok` (43 nodes);
+Trajectory `RESOLVED` (2,509 events / 5 lanes); P0-3 proof **40 PASS ·
+0 FAIL · 1 BLOCKED**; `tests/edr` **368 passed / 3 pre-existing**.
+Defect fixed to make rotation safe: `enroll()` now heals a stale
+`REVOKED` `sensor_state` (it is `$setOnInsert`, which is right for
+REPORTING and wrong for REVOKED).
+
+**`api.nivxforge.com` — safest mapping determined, nothing bound.**
+Production frontend and API are the SAME origin (the live bundle was
+built with its own host as `REACT_APP_BACKEND_URL`); there is exactly
+one production backend + DB. Safest: attach `api.nivxforge.com` as an
+**additional custom domain on the existing deployment that already
+serves that backend** — no second backend, no second DB, no rebuild, and
+the API address becomes independent of `nivxray.nivxforge.com`'s
+retirement. Single `CNAME` (subdomain, so the marketing site's apex/www
+records are untouched). That host will also serve the deployment's
+frontend at `/` (harmless; a bare-API origin would need a platform route
+restriction that does not exist). Final explicit CORS list when domains
+are locked: `workspace.nivxmachines.com`, `xdr.nivxforge.com`,
+`edr.nivxforge.com` (+ legacy host during the redirect window) —
+**not changed now**. ⚠️ Do not attach until Step 1 says which
+deployment owns which hostname.
+
+**Cross-origin product pivots implemented** —
+`apps/nivxray-xdr/src/productOrigins.js` resolves
+`REACT_APP_XDR_URL` / `REACT_APP_EDR_URL` /
+`REACT_APP_WORKSPACE_URL` (`VITE_*` also accepted). `CONFIGURED` →
+absolute cross-origin URL; `SAME_ORIGIN` (default) → in-app route,
+because with nothing configured the products genuinely are one
+deployment at one origin. Workspace is never in this bundle, so with no
+URL it renders disabled `NOT CONFIGURED`. Converted:
+`NivXForgeConsole.jsx` (EDR→XDR, carries `incident_id`),
+`XdrIncidentDomainPage.jsx` and `ActivityTab.jsx` (XDR→EDR trajectory,
+carry `incident_id`+`device`). Context stays in the query contract.
+Proven in-browser both ways; `CONFIGURED` produced
+`https://xdr.nivxforge.com/xdr/incidents/inc_57fee8bc67a047da9685`, then
+the env was **reverted to empty** because those hostnames are NXDOMAIN
+and dead controls are not acceptable.
+
+**Credential policy applied.** No secret value appears in any file I
+created or in chat. Production credentials cannot and should not be
+created by the agent — production admin seeds from the production
+secret facility, and the production sensor credential comes from the
+legitimate enrolment flow, which needs a production operator login that
+does not exist yet → **`OWNER_CREDENTIAL_ACTION_REQUIRED`**. No existing
+production credential rotated or deleted.
+
+**🔴 FINDING — 275 tracked files contain the preview admin password**
+(live-API test files, `backend/docs/assets/NIVXRAY_XDR_SOURCE_EXPORT.html`,
+and a `COMPLETE_AG_EXPORT` test report). `memory/test_credentials.md`
+itself is correctly gitignored. Fixed **my own** contribution only:
+`scripts/p0_3_sensor_recovery_proof.py` reads `ADMIN_EMAIL`/
+`ADMIN_PASSWORD` from the environment and reports the nivx-live analyst
+gate as BLOCKED unless `TEST_ANALYST_NIVXLIVE_PASSWORD` is set. The
+remaining ~274 need an owner decision: the honest remedy is to rotate
+the preview admin password and move every test to an env var, which
+invalidates the credential currently in use.

@@ -23,6 +23,8 @@ import {
 
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import WorkspaceLaunch from "@/components/WorkspaceLaunch";
+import { isCrossOrigin, productHref,
+         productMode } from "@/productOrigins";
 import XdrContextBar from "@/xdr/components/XdrContextBar";
 import { useAuth } from "@/lib/auth";
 import { getEdrEntryContext, getSessionContext } from "./edrApi";
@@ -223,12 +225,29 @@ export default function NivXForgeConsole({ activeTab, children }) {
                 ? "ALL CUSTOMERS" : "◇ NOT RESOLVED")}
           </span>
         </span>
-        {/* EDR → XDR product pivot (the products are peers). */}
+        {/* EDR → XDR product pivot. Resolved through `productOrigins` so
+            it becomes an absolute cross-origin URL the moment XDR gets
+            its own hostname, and stays an in-app route while both
+            products share one deployment. Context travels in the query
+            contract, which is why it survives the split. */}
         <button className="btn ghost" data-testid="nvf-open-in-xdr"
-                onClick={() => navigate(params.get("incident_id")
+                data-pivot-mode={productMode("xdr")}
+                data-pivot-href={productHref("xdr", params.get("incident_id")
                   ? `/xdr/incidents/${params.get("incident_id")}`
                   : "/xdr")}
-                title="Investigate in NivXRay XDR">
+                onClick={() => {
+                  const path = params.get("incident_id")
+                    ? `/xdr/incidents/${params.get("incident_id")}`
+                    : "/xdr";
+                  if (isCrossOrigin("xdr")) {
+                    window.location.assign(productHref("xdr", path));
+                  } else {
+                    navigate(path);
+                  }
+                }}
+                title={isCrossOrigin("xdr")
+                  ? `Investigate in NivXRay XDR (${productHref("xdr", "/xdr")})`
+                  : "Investigate in NivXRay XDR"}>
           Investigate in NivXRay XDR
         </button>
         {/* EDR → Workspace hand-off. A SEPARATE frontend at its own

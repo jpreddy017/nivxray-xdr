@@ -29,6 +29,7 @@ import XdrShell from "@/xdr/XdrShell";
 import IncidentContextStrip from "@/xdr/components/IncidentContextStrip";
 import { DOMAIN_META } from "@/xdr/domains/domainMeta";
 import { getIncident } from "@/lib/incidentsApi";
+import { isCrossOrigin, productHref } from "@/productOrigins";
 
 const STATE_BADGE = {
   not_observed:    { label: "NOT OBSERVED",    color: "var(--yellow)" },
@@ -109,7 +110,18 @@ export default function XdrIncidentDomainPage() {
                           const host = inv.host || (inv.device && inv.device.hostname);
                           const qs = new URLSearchParams({ incident_id: String(id) });
                           if (host) qs.set("device", host);
-                          navigate(`/edr/trajectory?${qs.toString()}`);
+                          // XDR → EDR pivot. `productHref` returns an
+                          // absolute URL once EDR has its own hostname
+                          // and the in-app path while both products
+                          // share one deployment. The incident/device
+                          // context stays in the query string, so it
+                          // survives becoming cross-origin.
+                          const path = `/edr/trajectory?${qs.toString()}`;
+                          if (isCrossOrigin("edr")) {
+                            window.location.assign(productHref("edr", path));
+                          } else {
+                            navigate(path);
+                          }
                         }} />
         </>
       )}

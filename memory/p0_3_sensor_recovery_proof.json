@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-09-08T02:27:03.834618+00:00",
- "pass": 41,
+ "generated_at": "2026-09-08T04:45:20.608516+00:00",
+ "pass": 40,
  "fail": 0,
- "blocked": 0,
+ "blocked": 1,
  "gates": [
   {
    "state": "PASS",
    "gate": "A1 sensor is a supervised program",
-   "detail": "nivxforge_sensor                 RUNNING   pid 3369, uptime 0:01:15"
+   "detail": "nivxforge_sensor                 RUNNING   pid 13193, uptime 0:08:33"
   },
   {
    "state": "PASS",
@@ -27,7 +27,7 @@
   {
    "state": "PASS",
    "gate": "A5 re-enrolment did NOT reset the delivery record (pre-outage 225 events preserved and added to)",
-   "detail": "event_count=16070 sensor_state=REPORTING"
+   "detail": "event_count=22284 sensor_state=REPORTING"
   },
   {
    "state": "PASS",
@@ -47,12 +47,12 @@
   {
    "state": "PASS",
    "gate": "B4 the recovered endpoint reads DELIVERING",
-   "detail": "DELIVERING \u00b7 DELIVERY_WITHIN_DECLARED_CADENCE \u00b7 last delivery 6s ago, inside 60s (3 \u00d7 15s cadence)"
+   "detail": "DELIVERING \u00b7 DELIVERY_WITHIN_DECLARED_CADENCE \u00b7 last delivery 1s ago, inside 60s (3 \u00d7 15s cadence)"
   },
   {
    "state": "PASS",
    "gate": "B5 the sensor link is separately confirmed by a heartbeat (a quiet sensor is not a dead sensor)",
-   "detail": "link_confirmed=True heartbeat_age=17s"
+   "detail": "link_confirmed=True heartbeat_age=9s"
   },
   {
    "state": "PASS",
@@ -77,12 +77,12 @@
   {
    "state": "PASS",
    "gate": "B9 fleet summary counts every state separately",
-   "detail": "PARTIALLY_DELIVERING \u00b7 {'DELIVERING': 1, 'STALE': 0, 'BLIND_NO_DELIVERY': 181} of 182 enrolled"
+   "detail": "PARTIALLY_DELIVERING \u00b7 {'DELIVERING': 1, 'STALE': 0, 'BLIND_NO_DELIVERY': 196} of 197 enrolled"
   },
   {
    "state": "PASS",
    "gate": "B10 an endpoint that never delivered is NEVER_DELIVERED, not lumped in with one that stopped",
-   "detail": "never_delivered=122 \u00b7 bases=['CREDENTIAL_REVOKED', 'DELIVERY_WITHIN_DECLARED_CADENCE', 'NEVER_DELIVERED']"
+   "detail": "never_delivered=132 \u00b7 bases=['CREDENTIAL_REVOKED', 'DELIVERY_WITHIN_DECLARED_CADENCE', 'NEVER_DELIVERED']"
   },
   {
    "state": "PASS",
@@ -102,47 +102,47 @@
   {
    "state": "PASS",
    "gate": "B14 the heartbeat advanced NEITHER last_telemetry_at NOR event_count (it is liveness, not evidence)",
-   "detail": "telemetry_at unchanged=True event_count 16070\u219216070"
+   "detail": "telemetry_at unchanged=True event_count 22284\u219222284"
   },
   {
    "state": "PASS",
    "gate": "B15 the heartbeat created no raw event",
-   "detail": "23923 raw events, unchanged"
+   "detail": "30134 raw events, unchanged"
   },
   {
    "state": "PASS",
    "gate": "C1 the sensor observed the real process and delivered it through the authenticated ingest",
-   "detail": "raw_id=raw_92edabc32e4ee0f7e3d747a9 trust=AUTHENTICATED ingest_time=2026-09-08T02:26:24.992593+00:00"
+   "detail": "raw_id=raw_213992ebee3adc6dde7e3963 trust=AUTHENTICATED ingest_time=2026-09-08T04:44:40.341870+00:00"
   },
   {
    "state": "PASS",
    "gate": "C2 the immutable raw event is attributed to THIS endpoint",
-   "detail": "{\"authenticated_endpoint_id\": \"ep_2d57cbe6f80152062109\", \"credential_id\": \"cred_81f9a04c424e4e91\", \"session_id\": \"sess_a"
+   "detail": "{\"authenticated_endpoint_id\": \"ep_2d57cbe6f80152062109\", \"credential_id\": \"cred_00b4f731548443fd\", \"session_id\": \"sess_9"
   },
   {
    "state": "PASS",
    "gate": "C3 canonical evidence was created and joins back to the raw event",
-   "detail": "canonical_event_id=cev_92edabc32e4ee0f7e3d747a9_0 process_iid=proc_65678d7a10fd"
+   "detail": "canonical_event_id=cev_213992ebee3adc6dde7e3963_0 process_iid=proc_03b39d52d5be"
   },
   {
    "state": "PASS",
    "gate": "C4 canonical provenance carries the AUTHENTICATED SENSOR attribution (P0-3 defect fix \u2014 it used to be dropped, so live sensor incidents were born PROVENANCE_UNKNOWN)",
-   "detail": "{\"trace_id\": \"raw_92edabc32e4ee0f7e3d747a9\", \"collector_id\": \"ep_2d57cbe6f80152062109\", \"integration_id\": \"nivxforge-linux-sensor\", \"normalizer_id\": \"nivxforge-linux-sensor-normalizer\", \"dsm_id\": \"nivxforge-linux-sensor\", \"source_kind\": \"sensor\", \"sensor_version\": \"0.1.0\", \"trust_state\": \"AUTHENTICATED\"}"
+   "detail": "{\"trace_id\": \"raw_213992ebee3adc6dde7e3963\", \"collector_id\": \"ep_2d57cbe6f80152062109\", \"integration_id\": \"nivxforge-linux-sensor\", \"normalizer_id\": \"nivxforge-linux-sensor-normalizer\", \"dsm_id\": \"nivxforge-linux-sensor\", \"source_kind\": \"sensor\", \"sensor_version\": \"0.1.0\", \"trust_state\": \"AUTHENTICATED\"}"
   },
   {
    "state": "PASS",
    "gate": "C5 the fresh process appears in the EDR Process Tree with real kernel-read attributes",
-   "detail": "pid=3636 sha256=4c44e4b8c5c3c612\u2026 cmd=/var/tmp/nivxforge-watch/nivx-p03-proof-1788834375 240"
+   "detail": "pid=15511 sha256=eb2cfcede715258b\u2026 cmd=/var/tmp/nivxforge-watch/nivx-p03-proof-1788842666 240"
   },
   {
    "state": "PASS",
    "gate": "C6 the fresh process appears in Device Trajectory",
-   "detail": "6135 events in the 1h window"
+   "detail": "4260 events in the 1h window"
   },
   {
    "state": "PASS",
    "gate": "C7 XDR projection \u00b7 post-recovery evidence reached an XDR incident, followed through the detection derivation itself",
-   "detail": "40 post-recovery detected raw event(s) \u2192 incident(s) ['inc_57fee8bc67a047da9685'] \u00b7 INC000000446 created 2026-09-08T00:31:23.371114+00:00"
+   "detail": "60 post-recovery detected raw event(s) \u2192 incident(s) ['inc_57fee8bc67a047da9685', 'inc_cfa29e5d51be424a929a'] \u00b7 INC000000446 created 2026-09-08T00:31:23.371114+00:00"
   },
   {
    "state": "PASS",
@@ -155,19 +155,19 @@
    "detail": "REAL_SENSOR_DERIVED \u00b7 canonical event provenance records delivery by an authenticated sensor (source_kind=sensor, sensor_version=0.1.0)"
   },
   {
-   "state": "PASS",
-   "gate": "C9 a detection fired on POST-RECOVERY evidence",
-   "detail": "2 detection(s) recorded after 2026-09-08T02:25:46.829937+00:00"
+   "state": "BLOCKED",
+   "gate": "C9 detection on this specific proof process",
+   "detail": "no rule matched THIS process, which is the honest outcome for a benign binary. Detection on post-recovery evidence is proven separately by the fresh DETECTION_MATCHED derivations counted in C10."
   },
   {
    "state": "PASS",
    "gate": "C10 the detection fabric is evaluating post-recovery evidence",
-   "detail": "40 raw events delivered since recovery carry a DETECTION_MATCHED derivation (2 during this run)"
+   "detail": "60 raw events delivered since recovery carry a DETECTION_MATCHED derivation (2 during this run)"
   },
   {
    "state": "PASS",
    "gate": "D1 the process tree discloses what exists OUTSIDE the window",
-   "detail": "{\"state\": \"OK\", \"observations_in_window\": 153, \"observations_outside_window\": 542, \"processes_outside_window\": 530}"
+   "detail": "{\"state\": \"OK\", \"observations_in_window\": 95, \"observations_outside_window\": 722, \"processes_outside_window\": 706}"
   },
   {
    "state": "PASS",
@@ -177,7 +177,7 @@
   {
    "state": "PASS",
    "gate": "D3 widening the window from the console reaches evidence a 1h window could not",
-   "detail": "1h=153 in window \u2192 720h=691"
+   "detail": "1h=95 in window \u2192 720h=813"
   },
   {
    "state": "PASS",
@@ -197,7 +197,7 @@
   {
    "state": "PASS",
    "gate": "F1 supervisor brought the sensor back after SIGKILL",
-   "detail": "nivxforge_sensor                 RUNNING   pid 3662, uptime 0:00:25 \u00b7 pids ['3609'] \u2192 ['3662']"
+   "detail": "nivxforge_sensor                 RUNNING   pid 15515, uptime 0:00:24 \u00b7 pids ['15509'] \u2192 ['15515']"
   },
   {
    "state": "PASS",
@@ -207,7 +207,7 @@
   {
    "state": "PASS",
    "gate": "F3 delivery resumed after the restart and the console says so",
-   "detail": "DELIVERING \u00b7 last delivery 4s ago, inside 60s (3 \u00d7 15s cadence)"
+   "detail": "DELIVERING \u00b7 last delivery 12s ago, inside 60s (3 \u00d7 15s cadence)"
   }
  ]
 }

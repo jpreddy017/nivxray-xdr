@@ -211,6 +211,18 @@ async def enroll(db: Any, *, tenant_id: str, presented_token: str,
         {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
         {"_id": 0, "sensor_state": 1, "event_count": 1,
          "last_telemetry_at": 1}) or {}
+    # `sensor_state` is a delivery fact and therefore `$setOnInsert`, which
+    # is right for REPORTING but WRONG for REVOKED: a re-enrolled endpoint
+    # is, by definition, no longer revoked, and leaving the token in place
+    # would have the console call a delivering endpoint REVOKED until its
+    # first event arrived. Corrected from the delivery record itself.
+    if stored.get("sensor_state") == SensorState.REVOKED.value:
+        healed = (SensorState.REPORTING.value if stored.get("last_telemetry_at")
+                  else SensorState.ENROLLED_NEVER_REPORTED.value)
+        await db[ENDPOINTS].update_one(
+            {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
+            {"$set": {"sensor_state": healed}})
+        stored["sensor_state"] = healed
     sensor_state = (stored.get("sensor_state")
                     or SensorState.ENROLLED_NEVER_REPORTED.value)
     return {

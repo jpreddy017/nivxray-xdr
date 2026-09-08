@@ -22,7 +22,6 @@
 import React from "react";
 import { ExternalLink } from "lucide-react";
 
-/** Configured Workspace origin, or "" when this deployment has none. */
 export const WORKSPACE_URL =
   (process.env.REACT_APP_WORKSPACE_URL || "").trim().replace(/\/+$/, "");
 

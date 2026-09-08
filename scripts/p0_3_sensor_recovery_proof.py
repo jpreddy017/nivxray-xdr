@@ -78,10 +78,26 @@ def get(path: str, token: str, **params):
                            .startswith("application/json") else r.text)
 
 
+def _operator_credential() -> tuple[str, str]:
+    """Read the operator credential from the environment, never inline.
+
+    A hardcoded password in a tracked test or proof script is a secret in
+    git. 275 tracked files in this repo already carry the preview admin
+    password (reported to the owner); this script will not be the 276th.
+    """
+    email = os.environ.get("ADMIN_EMAIL")
+    password = os.environ.get("ADMIN_PASSWORD")
+    if not (email and password):
+        sys.exit("ADMIN_EMAIL / ADMIN_PASSWORD are not present in "
+                 "backend/.env — cannot authenticate. Refusing to guess "
+                 "or to embed a credential in this file.")
+    return email, password
+
+
 def main() -> int:
     started = datetime.now(timezone.utc)
     db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
-    admin = login("admin@nivxray.com", "uulVDp5cCSB3Hva99s7UUAwK")
+    admin = login(*_operator_credential())
 
     # ── A · the root cause, fixed structurally ───────────────────────
     print("\nA · ROOT CAUSE · the sensor is supervised and its state is "
@@ -397,15 +413,24 @@ def main() -> int:
          "fleet", forged.get("state") == "ENDPOINT_NOT_RESOLVED"
          and forged.get("endpoints") == [],
          f"{forged.get('state')}")
-    other = login("analyst@nivx-live.com", "NivxLive!Analyst2026")
-    code, scoped = get("edr/telemetry/freshness", other,
-                       endpoint=FIXTURE_DEVICE)
-    body = json.dumps(scoped)
-    gate("E2 a cross-tenant analyst learns nothing about a `default` "
-         "endpoint through the freshness route",
-         FIXTURE_ENDPOINT not in body
-         and "agent-env-630704a1" not in body,
-         f"state={scoped.get('state')} endpoints={len(scoped.get('endpoints') or [])}")
+    other_pw = os.environ.get("TEST_ANALYST_NIVXLIVE_PASSWORD")
+    if not other_pw:
+        blocked("E2 cross-tenant isolation over the freshness route",
+                "TEST_ANALYST_NIVXLIVE_PASSWORD is not set in the "
+                "environment. The credential is deliberately NOT inlined "
+                "here — a hardcoded password in a tracked file is a secret "
+                "in git. Set it in backend/.env to run this gate.")
+    else:
+        other = login("analyst@nivx-live.com", other_pw)
+        code, scoped = get("edr/telemetry/freshness", other,
+                           endpoint=FIXTURE_DEVICE)
+        body = json.dumps(scoped)
+        gate("E2 a cross-tenant analyst learns nothing about a `default` "
+             "endpoint through the freshness route",
+             FIXTURE_ENDPOINT not in body
+             and "agent-env-630704a1" not in body,
+             f"state={scoped.get('state')} "
+             f"endpoints={len(scoped.get('endpoints') or [])}")
 
     # ── F · restart survivability ────────────────────────────────────
     print("\nF · RESTART SURVIVABILITY · the outage may not recur silently")

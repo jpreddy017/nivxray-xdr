@@ -37,8 +37,21 @@ export default defineConfig(({ mode }) => {
       // it in a new tab — never route to it. Empty means "not
       // configured", and the console then renders the launcher disabled
       // instead of linking nowhere.
+      // Origins of the SEPARATELY deployed sibling products. Empty means
+      // "this deployment serves it at the same origin" (preview, and any
+      // combined deployment), so cross-product pivots stay in-app. Both
+      // REACT_APP_* and VITE_* spellings are accepted so a deployment can
+      // use either convention. PUBLIC configuration only — a build
+      // variable is readable in the browser bundle and must never hold a
+      // credential.
+      "process.env.REACT_APP_XDR_URL": JSON.stringify(
+        env.REACT_APP_XDR_URL || env.VITE_XDR_URL || "",
+      ),
+      "process.env.REACT_APP_EDR_URL": JSON.stringify(
+        env.REACT_APP_EDR_URL || env.VITE_EDR_URL || "",
+      ),
       "process.env.REACT_APP_WORKSPACE_URL": JSON.stringify(
-        env.REACT_APP_WORKSPACE_URL || "",
+        env.REACT_APP_WORKSPACE_URL || env.VITE_WORKSPACE_URL || "",
       ),
     },
     build: {
