@@ -13313,3 +13313,63 @@ approved this pass.
    it builds the XDR app.
 3. Phase 2 (XDR → `xdr.nivxforge.com`) remains **not started**, per the
    locked order.
+
+
+---
+
+# Push/branch safety analysis · three verified findings before Save to GitHub — 2026-09-08
+
+Runbook §2.0 now carries all four items so they cannot be lost.
+
+## 1 · `Save to Github` cannot rebuild the frozen Emergent project — CONFIRMED
+
+Platform team, verbatim: *"Save to GitHub is purely a code export feature
+with **no effect on deployments**"* and Emergent deployments are *"**always
+explicit manual actions** — never triggered automatically by GitHub pushes or
+webhooks"*. The freeze holds while pushing. Safe to proceed.
+
+## 2 · Push to `conflict_310826_2116`, NOT `main`
+
+The `nivxray-xdr` Vercel project states *"To update your Production
+Deployment, push to the `main` branch"*. **Pushing to `main` would fire a
+PRODUCTION deployment of the XDR Vercel project** — an unapproved Phase 2
+action. `conflict_310826_2116` yields a Preview build only, and clears the
+failed XDR build at the same time.
+
+## 3 · `main` is 1,529 commits stale — a trap for the Workspace project
+
+Vercel binds a custom domain to the **Production** deployment, which builds
+from the **Production Branch** (default `main`). Measured:
+
+| | |
+|---|---|
+| commits on the working branch not in `main` | **1,529** |
+| `main` last commit | **2026-07-19** |
+| `frontend/vercel.json` on `main` | **ABSENT** |
+| `frontend/.nvmrc` on `main` | **ABSENT** |
+
+Left on the default, `workspace.nivxmachines.com` would build July code with
+**no `frontend/vercel.json`** — no correct build command, no SPA rewrite, no
+build guard. It would serve the wrong thing or fail. This would have looked
+like "the migration is broken" when the cause is purely branch selection.
+
+**Fix: set the NEW Workspace project's Production Branch to
+`conflict_310826_2116`** (Settings → Git → Production Branch). Scoped to that
+project; `main` is not moved, so the XDR project is unaffected.
+
+## 4 · Sweep must target the custom domain, never a `.vercel.app` URL
+
+Vercel **Standard Protection** (default, and the only option on Hobby) gates
+all preview and generated `.vercel.app` URLs behind Vercel SSO but leaves
+**custom production domains public**. Verified on the owner's XDR preview
+URL: `GET /xdr/incidents` → `302 → https://vercel.com/sso-api?...` with a
+`_vercel_sso_nonce` cookie. So that URL is not publicly reachable and the
+automated sweep cannot read it — while `workspace.nivxmachines.com` will be
+reachable. This matches the owner's own instruction to run acceptance against
+the real production hostname.
+
+## 5 · Regression
+
+Workspace build guard **PASSED** · legacy watchdog **healthy** (67 chunks,
+original nav markers intact). No repo change in this pass beyond
+documentation; `apps/nivxray-xdr` source untouched.

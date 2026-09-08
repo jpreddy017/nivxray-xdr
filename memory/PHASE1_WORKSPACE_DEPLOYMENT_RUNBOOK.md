@@ -115,6 +115,53 @@ without explicit overrides the `/v2/*` shadow surfaces would have shipped
 
 ## 2 · The recommended route · click-by-click
 
+### 2.0 · Three things settled before you click anything
+
+**(a) `Save to Github` cannot rebuild the frozen Emergent project.** Confirmed
+with the platform team: it is *"purely a code export feature with no effect
+on deployments"*, and Emergent deployments are *"always explicit manual
+actions — never triggered automatically by GitHub pushes or webhooks"*. So
+pushing is safe while the production project stays frozen.
+
+**(b) Push to `conflict_310826_2116`, NOT `main`.** The existing
+`nivxray-xdr` Vercel project states *"To update your Production Deployment,
+push to the `main` branch"*. Pushing to `main` would therefore fire a
+**production** deployment of the XDR Vercel project — an unapproved Phase 2
+action. Pushing to `conflict_310826_2116` produces a **Preview** build only,
+which is what you want, and it will also clear the failed XDR build
+(root cause: the committed `apps/nivxray-xdr/yarn.lock` was missing
+`d3@^7.9.0`; the corrected lockfile is already on disk and just needs to
+travel).
+
+**(c) `main` is 1,529 commits stale — this is a trap for the Workspace
+project.** Vercel attaches a custom domain to the **Production** deployment,
+which builds from the **Production Branch** (default `main`). Measured:
+
+| | |
+|---|---|
+| commits on the working branch not in `main` | **1,529** |
+| `main` last commit | **2026-07-19** |
+| `frontend/vercel.json` on `main` | **absent** |
+| `frontend/.nvmrc` on `main` | **absent** |
+
+If the Workspace project were left on the default production branch,
+`workspace.nivxmachines.com` would build from July code **with no
+`frontend/vercel.json`** — so no correct build command, no SPA rewrite and no
+build guard. It would serve the wrong thing or fail outright.
+
+> **Therefore: when creating the Workspace project, set its Production
+> Branch to `conflict_310826_2116`** (Settings → Git → Production Branch).
+> Changing that on the *new* project affects only that project and does not
+> move `main`, so the XDR project's production deployment stays untouched.
+
+**(d) Run the acceptance sweep against the custom domain, never a
+`.vercel.app` URL.** Vercel's Standard Protection — the default, and the only
+option on Hobby — gates all preview and generated `.vercel.app` URLs behind
+Vercel SSO while leaving **custom production domains public**. Verified on
+your XDR preview URL: it returns `302 → vercel.com/sso-api`, which is why it
+asks for a Vercel login. `workspace.nivxmachines.com` will be publicly
+reachable; a `.vercel.app` URL would block the sweep.
+
 ### 2.1 Push the repo
 Use **Save to Github** in the chat input. Confirm the commit includes
 `frontend/src/App.js`, `frontend/src/components/Header.jsx` and
