@@ -1,0 +1,19 @@
+{
+  "checked_at": "2026-09-08T06:57:29.478001+00:00",
+  "host": "https://nivxray.nivxforge.com",
+  "healthy": true,
+  "alerts": [],
+  "facts": {
+    "root_status": 200,
+    "api_health_status": 200,
+    "api_health_body": "{\"status\":\"ok\",\"service\":\"nivxray-api\"}",
+    "manifest_status": 200,
+    "chunk_count": 67,
+    "nav_markers_found": [
+      "nav-xdr",
+      "nav-investigations"
+    ],
+    "route_count": 58,
+    "has_workspace_route": true
+  }
+}

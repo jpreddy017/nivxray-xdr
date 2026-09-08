@@ -13074,3 +13074,83 @@ No backend, `.env`, DNS, supervisor, repo-root `vercel.json` or
 Product launcher (no control may point at `xdr.`/`edr.nivxforge.com` until
 each is runtime-verified) · XDR productionization · EDR productionization ·
 API-domain migration · legacy hostname retirement.
+
+
+---
+
+# Phase 1 (cont.) · LEGACY PROJECT FROZEN · watchdog live · both support questions UNDOCUMENTED — 2026-09-08
+
+Owner gate accepted. Status stays `WORKSPACE_CLEANUP_BUILD_VERIFIED` with
+live-domain acceptance **prepared but not executed** — the remaining blocker
+is the owner-side Vercel/GitHub/DNS action, which the agent cannot perform.
+
+## 1 · Both platform questions came back UNDOCUMENTED — escalation required
+
+Put to the support channel exactly as the owner wrote them. Reply recorded
+**verbatim** in `memory/PHASE1_API_AUTH_LIFECYCLE_OPTIONS.md` §3.1:
+
+- **Q1 · does adding/changing a custom domain trigger a rebuild?**
+  `NOT_DOCUMENTED · ESCALATION_REQUIRED`
+- **Q2 · is the production MongoDB preserved across a rebuild/redeploy?**
+  `NOT_DOCUMENTED · ESCALATION_REQUIRED`
+
+The channel explicitly **recommended against experimentation due to
+potential data loss** — independently matching the owner's own instruction
+not to experiment. Escalation to `support@emergent.sh` with the job id is an
+owner action; the agent cannot obtain an authoritative answer.
+
+## 2 · LEGACY PROJECT FROZEN · `BLOCKED_PENDING_PLATFORM_CONFIRMATION`
+
+No rebuild, redeploy, env-var change or any rebuild-triggering action is
+authorised on the Emergent project holding `nivxray.nivxforge.com` until Q2
+is answered in writing. The freeze covers the legacy Workspace frontend, the
+authoritative backend/API **and** the production database together, because
+the platform treats them as one atomic unit. Recorded as a standing
+constraint in the runbook §6 so a later pass cannot quietly drop it.
+
+**Consequence for Option B** (attach `api.nivxforge.com` to the existing
+deployment): entirely contingent on Q1, therefore undecidable today.
+
+## 3 · Legacy Watchdog — built, read-only, ALL ALERT PATHS PROVEN
+
+`scripts/legacy_watchdog.py` → `memory/legacy_watchdog_state.json`.
+GET only; cannot restart, redeploy or alter anything remote; sole side effect
+is the local status file. Deliberately small — three checks, not an
+observability project:
+
+1. `GET /` → 200
+2. `GET /api/health` → 200 + `{"status":"ok"}` — the Workspace's temporary
+   API dependency. Endpoint verified to exist and be unauthenticated
+   (`/api/healthz` is 404; `/api/` also answers).
+3. the served frontend is **still the legacy Workspace** — manifest fetched,
+   **all** chunks scanned for `nav-xdr` / `nav-investigations` and the
+   `/auto-investigate` route. Their disappearance is exactly what a stray
+   Deploy on the frozen project would look like.
+
+Current reading: **healthy** · `/` 200 · `/api/health` 200 · 67 chunks ·
+markers `['nav-xdr','nav-investigations']` · 58 routes.
+
+**Alarms proven to fire, not assumed:** default host → healthy, exit 0 ·
+pointed at a host serving a different app → `LEGACY FRONTEND REPLACED`,
+exit 1 · pointed at a dead host → `LEGACY FRONTEND DOWN` + `LEGACY API
+DOWN`, exit 1. During that proof the replacement path first emitted a vague
+"BUNDLE CHECK FAILED" (a non-CRA host returns index.html for
+`asset-manifest.json`, so JSON parsing throws); it now reports the
+replacement explicitly, because a watchdog that alarms unclearly is a
+watchdog that gets ignored.
+
+## 4 · State of play
+
+Code ✅ · Build ✅ · Guard ✅ · Acceptance harness ✅ · Deep-link harness ✅ ·
+Legacy protected ✅ (frozen + watched) · **Vercel deployment ⏳ owner-side**
+
+Regression re-run: guard **PASSED** · build proof **32/32** ·
+authenticated proof **43/43** · live sweep local dry-run **35/35** ·
+watchdog **healthy**. No backend, `.env`, DNS, supervisor, repo-root
+`vercel.json` or `apps/nivxray-xdr` change.
+
+## 5 · Not started, per owner
+
+XDR production deployment · EDR production deployment · Product Launcher ·
+`api.nivxforge.com` migration · legacy hostname retirement · backend
+duplication · database migration · authentication redesign.

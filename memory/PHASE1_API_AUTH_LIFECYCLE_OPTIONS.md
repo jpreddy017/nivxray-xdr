@@ -53,6 +53,51 @@ concern, and it would invalidate the "rebuild is safe once the new Workspace
 is live" reasoning I offered earlier. **I withdraw that reasoning until this
 is confirmed.**
 
+### 3.1 · Platform response — recorded VERBATIM, as instructed
+
+The owner's two questions were put to the platform support channel exactly
+as written. The reply, verbatim:
+
+> ## Support Query Response - Deployment & Database Persistence
+>
+> **Query:** Two critical questions about Emergent deployment behavior
+> regarding custom domains and database persistence.
+>
+> **Response Provided:**
+> - Both questions require escalation - not explicitly covered in current
+>   documentation
+> - Question 1 (custom domain changes triggering rebuild): Not documented
+> - Question 2 (MongoDB persistence during redeploy/rollback): Not documented
+> - Advised customer to contact support@emergent.sh with job ID given
+>   production data is at risk
+> - Recommended against experimentation due to potential data loss
+>
+> **Status:** Customer directed to official support channel for authoritative
+> answers before proceeding with any deployment changes.
+
+**Both answers are therefore UNDOCUMENTED and require escalation.** The
+support channel available to me cannot answer either question, and explicitly
+recommends **against experimentation** — which matches the owner's own
+instruction not to experiment to find out.
+
+**Q1 · custom domain → rebuild?** `NOT_DOCUMENTED · ESCALATION_REQUIRED`
+**Q2 · production MongoDB preserved across rebuild?**
+`NOT_DOCUMENTED · ESCALATION_REQUIRED`
+
+### 3.2 · Consequence — the legacy project is FROZEN
+
+Status: **`BLOCKED_PENDING_PLATFORM_CONFIRMATION`**
+
+No rebuild, no redeploy, no environment-variable change and no other
+rebuild-triggering action is authorised on the legacy production project
+until Q2 is answered conclusively **in writing**. This freeze covers the
+legacy Workspace frontend, the authoritative backend/API and the production
+database together, because the platform treats them as one atomic unit.
+
+**Owner action required:** e-mail `support@emergent.sh` with the job id and
+Q1 + Q2 as written above. Nothing in §4 can be decided without those answers,
+and **Option B is entirely contingent on Q1**.
+
 ## 4 · The options, ranked, with honest consequences
 
 ### Option A · Make a legacy rebuild *non-destructive in kind* — repo-side only
@@ -127,13 +172,49 @@ it would be attacking our own production).
 
 1. **Now:** deploy the Workspace to Vercel and run the sweep → Option C
    holds; nothing else is needed for Phase 1's unauthenticated gate.
-2. **In parallel, ask support two factual questions** — they cost nothing and
-   they unlock everything:
-   - does adding a custom domain to a deployed app trigger a rebuild?
-   - **is the production MongoDB preserved across a rebuild?**
+2. **Escalate Q1 + Q2 to `support@emergent.sh` with the job id** — the
+   support channel available to the agent has confirmed both are
+   **undocumented** (§3.1). Until Q2 is answered, the legacy project stays
+   **frozen**.
 3. **Then decide between A and B** with those answers in hand. If domains are
    routing-only, B gives the permanent API hostname immediately; A remains
    the only path that unblocks the credential without a product cutover.
 
 No further work on this is warranted until those two answers exist — any plan
 built before them would be speculation dressed as architecture.
+
+---
+
+## 6 · Legacy Watchdog — read-only, in place
+
+`scripts/legacy_watchdog.py` · state: `memory/legacy_watchdog_state.json`
+
+```
+python3 scripts/legacy_watchdog.py           # one shot · exit 1 on ALERT
+python3 scripts/legacy_watchdog.py --quiet   # for cron
+```
+
+GET requests only. It cannot restart, redeploy or alter any remote system;
+its sole side effect is the local status file. It watches exactly three
+things on the frozen host:
+
+1. `GET /` answers `200`
+2. `GET /api/health` answers `200` with `{"status":"ok"}` — the Workspace's
+   temporary API dependency *(verified: this endpoint exists and is
+   unauthenticated; `/api/healthz` is a 404, `/api/` also works)*
+3. the served frontend is **still the legacy Workspace** — the manifest is
+   fetched and **all** chunks scanned for `nav-xdr` / `nav-investigations`
+   plus the `/auto-investigate` route. If those vanish, the host has been
+   silently replaced, which is precisely the consequence of a stray Deploy on
+   the frozen project.
+
+Current reading: **healthy** · `/` 200 · `/api/health` 200 · 67 chunks ·
+markers `['nav-xdr','nav-investigations']` · 58 routes.
+
+**All three alert paths were proven to fire, not assumed:** the default host
+reports healthy (exit 0); pointed at a host serving a *different* app it
+reports `LEGACY FRONTEND REPLACED` (exit 1); pointed at a dead host it
+reports `LEGACY FRONTEND DOWN` + `LEGACY API DOWN` (exit 1). The `--host`
+flag exists only to prove those paths; production monitoring uses the
+default. A watchdog whose alarm has never been heard is not a watchdog.
+

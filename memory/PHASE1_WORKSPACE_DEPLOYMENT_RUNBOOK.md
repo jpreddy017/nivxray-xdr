@@ -346,6 +346,17 @@ I have not written any credential anywhere, and there is none to hand over.
 
 ## 6 · Standing constraints carried into later phases
 
+- **THE LEGACY PROJECT IS FROZEN ·
+  `BLOCKED_PENDING_PLATFORM_CONFIRMATION`.** No rebuild, redeploy,
+  environment-variable change or any other rebuild-triggering action is
+  authorised on the Emergent project holding `nivxray.nivxforge.com` until
+  the platform confirms **in writing** that a rebuild preserves the
+  production MongoDB. The support channel has confirmed this is
+  **undocumented** and requires escalation to `support@emergent.sh` — see
+  `memory/PHASE1_API_AUTH_LIFECYCLE_OPTIONS.md` §3.1 for the verbatim reply.
+  Do **not** experiment to find out.
+- `scripts/legacy_watchdog.py` monitors that host read-only and alerts on
+  downtime **or silent frontend replacement**. All alert paths proven.
 - **`nivxray.nivxforge.com` MUST NOT be retired after Phase 1.** The new
   Workspace calls its `/api` — a declared `TEMPORARY_MIGRATION_DEPENDENCY`.
   Retirement stays in Phase 5, after Phase 4 establishes the permanent API
