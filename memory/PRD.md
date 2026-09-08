@@ -14035,3 +14035,43 @@ Prohibited, unchanged: any action inside `nivxray-xdr` · changing its
 Production Branch · changing the GitHub default branch · merging into `main`
 · XDR/EDR source or deploys · legacy production · new backend/database ·
 attaching domains.
+
+---
+
+# Vercel schema rejection FIXED · `$comment` removed from frontend/vercel.json — 2026-09-08
+
+Vercel halted at **schema validation, before the build** —
+`should NOT have additional property '$comment'`. Nothing was deployed or
+overwritten. My error: I had put documentation into `$comment` /
+`$installComment` top-level keys; Vercel's schema forbids unknown top-level
+properties.
+
+## Change (minimal, one file)
+`frontend/vercel.json` — removed **both** `$comment` and `$installComment`
+(the second would have failed on the next attempt). Diff: **69 deletions,
+0 insertions to functional config.**
+
+Verified field by field that the intended configuration is unchanged:
+- `installCommand` = `yarn install --production=false`
+- `buildCommand` = guarded CRA command · production API present · `=disabled` x3 · guard chained
+- `outputDirectory` = `build` · `framework` = null
+- `build.env` = NPM_CONFIG_PRODUCTION/YARN_PRODUCTION false
+- `rewrites` = `/(.*) → /index.html`
+- top-level keys: only Vercel-supported ones · **zero** `$`-prefixed keys
+
+The reasoning was not lost — moved to
+`memory/WORKSPACE_VERCEL_CONFIG_NOTES.md`.
+
+Not touched: repo-root `vercel.json`, `apps/nivxray-xdr`, backend, XDR/EDR,
+domains, databases, any other file. Build guard still **PASSED**.
+
+## Same defect pending for Phase 2 (NOT changed, per instruction)
+`apps/nivxray-xdr/vercel.json` still contains a `$comment` block and will hit
+the identical schema rejection when XDR/EDR deployment starts.
+
+## Push
+Agent cannot perform git writes; the correction needs **Save to Github** on
+`conflict_310826_2116`. Precedent: `frontend/vercel.json` modifications HAVE
+travelled before (3566 B → 4658 B on GitHub), unlike `yarn.lock`, so this
+should push cleanly. Agent will verify via the GitHub API that the pushed
+file contains no `$`-prefixed keys before any retry.
