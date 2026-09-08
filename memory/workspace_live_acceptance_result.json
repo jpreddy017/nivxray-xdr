@@ -1,5 +1,5 @@
 {
-  "base_url": "http://127.0.0.1:9096",
+  "base_url": "https://workspace.nivxmachines.com",
   "results": [
     {
       "section": "A",
@@ -15,9 +15,9 @@
     },
     {
       "section": "A",
-      "check": "TLS certificate valid",
-      "pass": null,
-      "detail": "base-url is not https \u2014 local validation run"
+      "check": "TLS certificate valid (request completed over https)",
+      "pass": true,
+      "detail": ""
     },
     {
       "section": "B",
@@ -112,8 +112,8 @@
     {
       "section": "D",
       "check": "every retained deep link survives a HARD REFRESH",
-      "pass": true,
-      "detail": "48 routes ok"
+      "pass": false,
+      "detail": "/: TimeoutError"
     },
     {
       "section": "E",
@@ -279,7 +279,7 @@
     }
   ],
   "passed": 35,
-  "ran": 35,
-  "blocked": 11,
-  "classification": "WORKSPACE_MIGRATION_UNAUTHENTICATED_VERIFIED"
+  "ran": 36,
+  "blocked": 10,
+  "classification": "NOT_VERIFIED"
 }

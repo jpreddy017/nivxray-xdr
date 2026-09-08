@@ -1,5 +1,74 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-09-08 · **PHASE 1 · WORKSPACE DOMAIN MIGRATION** — `WORKSPACE_MIGRATION_RUNTIME_VERIFIED`
+
+Report: `/app/memory/PHASE1_WORKSPACE_RUNTIME_ACCEPTANCE.md`
+Runbook: `/app/memory/PHASE1_WORKSPACE_DEPLOYMENT_RUNBOOK.md`
+Proof: `scripts/workspace_live_acceptance.py` → **35/36** unauth (the 1 FAIL was
+a 30 s navigation timeout; re-run standalone **48/48 routes PASS**) + 7
+authenticated real-browser sessions + full 62-chunk live-bundle scan.
+
+**The NivXMachines Workspace is live and independently deployed** at
+`https://workspace.nivxmachines.com` (Vercel, Root Directory `frontend`,
+production branch `conflict_310826_2116`), calling the existing production API
+`https://nivxray.nivxforge.com/api` — a declared `TEMPORARY_MIGRATION_DEPENDENCY`
+that must NOT be retired before Phase 5.
+
+### Deployment blockers cleared this session (all owner-driven, agent never deployed)
+1. Vercel used the stale XDR install command → owner corrected the project
+   override to `yarn install --production=false`.
+2. Vercel schema rejection **`buildCommand should NOT be longer than 256
+   characters`** (measured **274**). Fixed by extracting the command verbatim
+   into **`frontend/scripts/vercel-build.sh`** (`set -euo pipefail` reproduces
+   the `&&`, so the build guard still runs and can still fail the deploy);
+   `buildCommand` is now **28** chars. Proven locally twice: build OK, guard
+   `PASSED`, 22 production API refs, 0 preview refs.
+3. Phase hygiene: the uncommitted `apps/nivxray-xdr/yarn.lock` was reverted to
+   HEAD so the Workspace trigger commit carried Workspace files only.
+
+### Acceptance — runtime, not code inspection
+Nav reads exactly `WORKSPACE · HISTORY · BATCH · HEATMAP · TOOLS · LEARN ·
+ADMIN`; **XDR = 0, INVESTIGATIONS = 0** in the DOM. All 4 removals bounce to `/`
+authenticated and to `/login` unauthenticated. Decode · Auto Investigate ·
+Analyze (`POST /api/analyze/command 200`) · Batch · Heatmap · History (35) ·
+Quick Open · Copy Link (carries the **new** host) all real-runtime verified.
+**Retained investigation dependencies work**: RESTORE rehydrates
+(`GET /api/history/{id} 200`), the real correlation
+`/investigations/6a757cf2c69de88feccb4efc` renders all 4 tabs and survives F5,
+and Find Related runs (`POST /api/correlations/find-related 200`) once a case is
+anchored. `/v2/*` shadow surfaces ship **disabled**; `/benchmark` is gated.
+62/62 live chunks: **0** preview-origin references. Legacy host, preview XDR,
+preview EDR, marketing site, backend and both databases **untouched**.
+
+### P0 SECURITY FINDING — production admin runs on a PUBLISHED credential
+`seed_admin()` (`deps.py:370-372`) is idempotent and **never re-sets an existing
+admin's password**, so the Feb-2026 SEC-001 rotation reached **preview only**;
+production still authenticates the pre-audit credential that SEC-001 itself
+classifies as copied from a public repo, and `must_change_password` is not set.
+`test_sec001_002_auth_hardening.py:22-26` reads `BASE_URL` from
+`frontend/.env`, so the regression test only ever asserted against preview —
+the blind spot that hid this. **Rotate via `POST /api/auth/change-password`
+(no redeploy required); then point the SEC-001 test at production too.**
+Details (without the value) in `memory/test_credentials.md`.
+
+### Pre-existing defects observed, NOT fixed (not migration-caused)
+- `QuickOpenPalette.jsx:284` calls **`GET /api/training-inbox`, which does not
+  exist** in the backend → 404, **identical on preview**. Silently swallowed.
+- Record-level 404s on `/api/correlations/{cem,fingerprint,provenance}/{id}`
+  when no such record exists; routes are registered, preview behaves the same.
+
+### Not safely exercised in production (classified, never fabricated)
+Correlate / Start Investigation · Save Case · Share · Report export · Upload ·
+Delete · Batch RUN — all write or mutate production data. Controls verified
+present/enabled only.
+
+### Standing constraints (unchanged)
+Legacy Emergent project remains **FROZEN**; a redeploy is now known to
+**preserve** the production Mongo (documented: only *Replace → New DB* would
+provision a fresh database). Phase 2 (`xdr.nivxforge.com`) **not started** —
+awaiting owner approval.
+
+
 ## 2026-06 · **P-1 · PRODUCT REFERENCE, DOCUMENTATION & ARCHITECTURE PROGRAM** — STOPPED FOR OWNER APPROVAL
 
 Owner directive: **stop feature-by-feature development**; establish the
