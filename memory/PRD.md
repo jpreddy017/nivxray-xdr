@@ -13720,3 +13720,36 @@ production deployment from 218-commit-stale code.
 
 Unchanged: nothing deployed, no setting changed by the agent, repo-root
 `vercel.json` and `apps/nivxray-xdr` untouched, XDR/EDR work stopped.
+
+---
+
+# Workspace project creation IN PROGRESS · diagnosis confirmed by the import screen — 2026-09-08
+
+Owner's import screen confirmed the diagnosis verbatim: header reads
+**`jpreddy017/nivxray-xdr · main · frontend`**, Root Directory already
+`frontend`, project name `nivxmachines-workspace`, and Build/Output/Install
+locked to `apps/nivxray-xdr/...` — because Vercel is reading **`main`**,
+which has no `frontend/vercel.json`. GitHub branch list confirms
+`conflict_310826_2116` is 222 ahead / 0 behind `main`.
+
+Owner instructed to click Deploy. **The first build is EXPECTED TO FAIL**:
+the inherited install command `cd apps/nivxray-xdr && yarn install …` runs
+from inside `frontend/`, where no `apps/` directory exists. Harmless — no
+custom domain attached, so the deployment serves nobody.
+
+**Warning given: do NOT flip the override toggles** beside Build Command /
+Output Directory / Install Command on the import screen. Values typed there
+become permanent dashboard overrides that take precedence over
+`frontend/vercel.json` — including over the build guard — and would
+reintroduce configuration drift.
+
+Next, after the first deployment finishes (either result):
+1. Settings → Environments → Production → Branch Tracking =
+   `conflict_310826_2116` → Save
+2. Same panel: Auto-assign Custom Production Domains → **OFF**
+3. Deployments → Redeploy
+4. Confirm Settings → Build and Deployment now reads from
+   `frontend/vercel.json`
+5. STOP before attaching `workspace.nivxmachines.com`
+
+`nivxray-xdr` untouched; its unsaved Branch Tracking edit was discarded.
