@@ -13753,3 +13753,49 @@ Next, after the first deployment finishes (either result):
 5. STOP before attaching `workspace.nivxmachines.com`
 
 `nivxray-xdr` untouched; its unsaved Branch Tracking edit was discarded.
+
+---
+
+# OWNER: option (c) — locked order retained · Workspace lockfile fix NEVER PUSHED — 2026-09-08
+
+Owner chose **c**: keep the locked order (Workspace → XDR → EDR), do not
+reuse or repurpose `nivxray-xdr`, do not deploy XDR/EDR yet. XDR/EDR work
+remains fully prepared and stopped.
+
+## Blocking finding · the Workspace deploy would have failed identically
+
+| `frontend/yarn.lock` | size | `konva` | `@xyflow/react` |
+|---|---|---|---|
+| workspace (regenerated fix) | 649,903 B | present | present |
+| **GitHub `conflict_310826_2116`** | 588,753 B | **absent** | **absent** |
+
+`git status` shows ` M frontend/yarn.lock` — **the fix is uncommitted, so it
+never reached GitHub.** `yarn install --production=false --frozen-lockfile`
+would therefore fail on Vercel exactly as the XDR build did. **Same defect,
+third occurrence** (frontend 17 missing patterns · apps/nivxray-xdr `d3` ·
+frontend again, unpushed).
+
+## Verified as correctly pushed on the branch
+
+`frontend/vercel.json` (3566 B) · `frontend/.nvmrc` (3 B) ·
+`frontend/scripts/verify-production-build.js` (5062 B) ·
+`frontend/src/App.js` · `frontend/package.json` · `frontend/craco.config.js`
+· and the pushed `Header.jsx` contains **0** `href: "/xdr"`, confirming the
+approved nav cleanup is live on the branch.
+
+## NOT pushed (XDR/EDR work — irrelevant to Workspace, but recorded)
+
+`apps/nivxray-xdr/src/productScope.js` **404** ·
+`ProductScopeGuard.jsx` **404** · `apps/nivxray-xdr/vercel.json` still the
+old 356 B copy with **no redirects** · `apps/nivxray-xdr/yarn.lock` still
+missing `d3@^7.9.0`. These must be pushed before Phase 2/3 — that is why
+the earlier XDR preview build failed at install.
+
+## Single next action
+
+**Save to Github** on `conflict_310826_2116` (captures the regenerated
+lockfile), then in the `nivxmachines-workspace` project only:
+first build is expendable → Branch Tracking `conflict_310826_2116` →
+Auto-assign Custom Production Domains **OFF** → Redeploy (expected green) →
+report Settings → Build and Deployment → **STOP** before attaching
+`workspace.nivxmachines.com`.
