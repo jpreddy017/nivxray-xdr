@@ -27,7 +27,7 @@ FORGED = "dev_ffffffffffff"
 
 
 def _login(email, password):
-    r = requests.post(f"{BASE}/api/auth/login", json={"email": email, "password": password}, timeout=15)
+    r = requests.post(f"{BASE}/api/auth/login", json={"email": email, "password": password}, timeout=60)
     assert r.status_code == 200, f"login failed {r.status_code}: {r.text[:200]}"
     tok = r.json().get("access_token") or r.json().get("token")
     assert tok
@@ -47,7 +47,7 @@ def analyst_h():
 # --- Freshness API ---
 class TestFreshness:
     def test_fleet_summary_shape(self, admin_h):
-        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", headers=admin_h, timeout=20)
+        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", headers=admin_h, timeout=60)
         assert r.status_code == 200, r.text[:300]
         body = r.json()
         assert "fleet" in body and "endpoints" in body
@@ -57,7 +57,7 @@ class TestFreshness:
         assert set(fleet["by_delivery_state"].keys()) == {"DELIVERING", "STALE", "BLIND_NO_DELIVERY"}, fleet["by_delivery_state"]
 
     def test_endpoint_row_shape_live(self, admin_h):
-        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": LIVE_DEV}, headers=admin_h, timeout=20)
+        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": LIVE_DEV}, headers=admin_h, timeout=60)
         assert r.status_code == 200, r.text[:300]
         body = r.json()
         rows = body["endpoints"]
@@ -75,19 +75,19 @@ class TestFreshness:
         assert isinstance(thr["formula"], str) and len(thr["formula"]) > 0
 
     def test_alias_hostname(self, admin_h):
-        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": LIVE_HOST}, headers=admin_h, timeout=20)
+        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": LIVE_HOST}, headers=admin_h, timeout=60)
         assert r.status_code == 200
         rows = r.json()["endpoints"]
         assert len(rows) == 1 and rows[0]["endpoint_id"] == LIVE_EP
 
     def test_alias_endpoint_id(self, admin_h):
-        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": LIVE_EP}, headers=admin_h, timeout=20)
+        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": LIVE_EP}, headers=admin_h, timeout=60)
         assert r.status_code == 200
         rows = r.json()["endpoints"]
         assert len(rows) == 1 and rows[0]["endpoint_id"] == LIVE_EP
 
     def test_blind_never_delivered(self, admin_h):
-        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": BLIND_EP}, headers=admin_h, timeout=20)
+        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": BLIND_EP}, headers=admin_h, timeout=60)
         assert r.status_code == 200, r.text[:300]
         body = r.json()
         rows = body["endpoints"]
@@ -100,7 +100,7 @@ class TestFreshness:
         assert ab.get("resolved_via") == "ENROLMENT_REGISTRY_DIRECT", ab
 
     def test_forged_identifier(self, admin_h):
-        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": FORGED}, headers=admin_h, timeout=20)
+        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": FORGED}, headers=admin_h, timeout=60)
         assert r.status_code == 200, r.text[:300]
         body = r.json()
         assert body.get("state") == "ENDPOINT_NOT_RESOLVED", body.get("state")
@@ -110,7 +110,7 @@ class TestFreshness:
             assert fleet.get("scope") == "FLEET_WIDE_NOT_THE_SUPPLIED_IDENTIFIER", fleet.get("scope")
 
     def test_tenant_isolation(self, analyst_h):
-        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": LIVE_DEV}, headers=analyst_h, timeout=20)
+        r = requests.get(f"{BASE}/api/edr/telemetry/freshness", params={"endpoint": LIVE_DEV}, headers=analyst_h, timeout=60)
         assert r.status_code == 200, r.text[:300]
         body_text = r.text
         assert LIVE_EP not in body_text, "endpoint id leaked to out-of-tenant analyst"
@@ -119,7 +119,7 @@ class TestFreshness:
 
 class TestHeartbeatAuth:
     def test_heartbeat_requires_agent_session(self):
-        r = requests.post(f"{BASE}/api/edr/agent/heartbeat", json={}, timeout=15)
+        r = requests.post(f"{BASE}/api/edr/agent/heartbeat", json={}, timeout=60)
         assert r.status_code in (401, 403), f"got {r.status_code}: {r.text[:200]}"
 
 

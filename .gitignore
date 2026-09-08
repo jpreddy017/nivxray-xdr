@@ -172,3 +172,10 @@ frontend/node_modules/.cache/default-development/136.pack
 frontend/node_modules/.cache/default-development/105.pack
 frontend/node_modules/.cache/default-development/4.pack
 frontend/node_modules/.cache/default-development/13.pack
+
+# P0-3 · NivXForge Linux sensor runtime state. MUST NOT be committed:
+# identity.json holds the endpoint's durable agent CREDENTIAL (0600) and
+# outbox.jsonl holds raw host telemetry (process names, command lines,
+# file paths). The state dir lives under /app only because that is the
+# persistent path in this environment.
+agents/nivxforge-linux/.state/

@@ -12520,3 +12520,93 @@ databases.
 **Not done:** no deployment was created (that is a platform action in the
 Emergent UI, not something I can perform), no domain/DNS/CORS change, no
 merge, no supervisor change.
+
+---
+
+# OWNER-LOCKED TARGET ARCHITECTURE — 2026-09-08
+
+Locked by owner. Separation is at the **product / frontend / domain**
+level only; the intelligence and data core is **shared and never
+duplicated** (FastAPI backend, MongoDB, detection + correlation engines,
+Decoder, analyzers, Verdict Engine, Evidence Graph, Investigation SSOT,
+Response service, Collector, canonical evidence, endpoint identity,
+provenance).
+
+| host | product | source | status |
+|---|---|---|---|
+| `www.nivxmachines.com` | NivX Machines corporate / marketing | (existing site) | live — **preserve as-is** |
+| `workspace.nivxmachines.com` | NivXMachines Workspace (Analyst Workspace, AutoInvestigate, Decoder, Analyze, Lab) | `/app/frontend` | to create — **NXDOMAIN today** |
+| `www.nivxforge.com` | NivXForge product landing / selector | — | **reserved, keep unused** |
+| `xdr.nivxforge.com` | NivXRay XDR | `apps/nivxray-xdr` | to create — **NXDOMAIN today** |
+| `edr.nivxforge.com` | NivXForge EDR | `apps/nivxray-xdr` | to create — **NXDOMAIN today** |
+| `nivxray.nivxforge.com` | legacy — currently serves Workspace | `/app/frontend` | redirect during migration, retire last |
+
+Cross-product launchers (Step 7): XDR→`edr.nivxforge.com`,
+EDR→`xdr.nivxforge.com`, both→`workspace.nivxmachines.com` in a new tab.
+Context preserved where supported (tenant, customer, endpoint, incident,
+detection, evidence, process identity, time range). **No launcher may
+silently fall back to another product** — missing configuration must
+render `NOT CONFIGURED`.
+
+Migration is 9 stages, one production cutover at a time, STOP for owner
+approval after each. Hard zero-damage rule: nothing existing may be
+deleted, overwritten, merged, silently replaced, broken, made
+unreachable, or pointed at the wrong environment; any regression →
+`EXISTING_PRODUCT_REGRESSION` → rollback → STOP → report. Preview and
+production must stay distinct; preview sensor activity is **not**
+production validation.
+
+## STEP 1 executed — read-only · `OWNERSHIP_NOT_AUTHORITATIVELY_CONFIRMABLE_FROM_POD`
+
+Report: `memory/STEP1_DEPLOYMENT_OWNERSHIP.md`. Halted per the owner's
+own STOP condition — the deployment registry is in the Emergent control
+plane, not the container.
+
+Measured: all three custom domains sit on one Cloudflare edge pair
+(`162.159.142.117` / `172.66.2.113`), preview on a different pair with
+`via: 1.1 google`; **no `x-vercel-*` header anywhere**; per-hostname
+single-SAN Google Trust Services certificates;
+`xdr.nivxforge.com`, `edr.nivxforge.com`,
+`workspace.nivxmachines.com` all **NXDOMAIN** (nothing to displace).
+
+**The deployed backend is running THIS session's code** — its
+`/api/openapi.json` contains `HeartbeatBody.queue_depth` with the
+description string written minutes earlier, 785 paths on both hosts,
+identical `/api/health` — **but a different user store** (same login
+payload: 200 preview / 401 production).
+
+**This corrects my earlier hazard warning.** With no Vercel involvement,
+the root `vercel.json` appears not to govern these deployments; the
+deployed frontend is still the CRA Workspace while the backend is current
+to minutes ago. Most probable: the pipeline builds the conventional
+`/app/frontend`, ignoring `vercel.json`. If so the risk **inverts** —
+Workspace is likely NOT endangered by a redeploy, but **XDR/EDR likely
+cannot be production-deployed from this project at all**, and forcing it
+to would be the act that removes Workspace. Both remain hypotheses;
+neither may be acted on. Confirms the owner's Step 4/5 shape (separate
+deployments, prove on the generated URL first).
+
+Blockers recorded before Step 2: production credentials unknown (so
+Step 3's "legacy host still works" check cannot be performed by the
+agent); the Step 2 `REACT_APP_BACKEND_URL` / database choice is
+undecided and invisible once baked; and Step 5+7 interact — one bundle
+holds both product shells, and the XDR↔EDR pivot is an in-app
+`navigate()` that must become an env-driven absolute cross-origin URL
+before the products live on separate hostnames.
+
+**Security defect found and fixed during Step 1 (self-inflicted by P0-3):**
+the sensor state dir was placed under `/app` to survive container
+recreation — and `/app` is the git working tree, so
+`identity.json` (the endpoint's 47-char agent credential, 0600) and
+`outbox.jsonl` (18,152 lines / 6.4 MB of raw host telemetry: process
+names, command lines, file paths) were **tracked by git** and would have
+been published by "Save to Github". Fixed:
+`.gitignore` entry + `git rm --cached -r agents/nivxforge-linux/.state/`
+(files stay on disk; sensor unaffected — same PID, `DELIVERING`
+immediately after) + regression guard
+`test_sensor_runtime_state_is_never_committed`.
+**Residual:** git history still contains the credential. It authenticates
+only against the **preview** backend/database. Rotation is safe and cheap
+(revoke → supervised bootstrap re-enrols; re-enrolment preserves the
+delivery record) but touches the sensor, so it is **not rotated** —
+awaiting owner instruction.

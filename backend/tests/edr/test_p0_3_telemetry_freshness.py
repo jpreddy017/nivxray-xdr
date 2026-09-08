@@ -131,6 +131,25 @@ def test_supervisor_never_gives_up_on_the_sensor():
         "a permanently dead sensor")
 
 
+def test_sensor_runtime_state_is_never_committed():
+    """`identity.json` is the endpoint's durable agent CREDENTIAL and
+    `outbox.jsonl` is raw host telemetry (process names, command lines,
+    file paths). The state dir lives under /app only because that is the
+    persistent path here — it must never reach version control.
+    """
+    import subprocess
+    state = "agents/nivxforge-linux/.state"
+    ignored = subprocess.run(["git", "check-ignore", f"{state}/identity.json"],
+                             cwd="/app", capture_output=True, text=True)
+    if ignored.returncode == 128:                # not a git checkout
+        return
+    assert ignored.returncode == 0, f"{state}/ must be gitignored"
+    tracked = subprocess.run(["git", "ls-files", state],
+                             cwd="/app", capture_output=True, text=True)
+    assert not tracked.stdout.strip(), (
+        f"these are tracked and would be pushed: {tracked.stdout.strip()}")
+
+
 def test_the_heartbeat_is_sent_before_the_drain():
     """Liveness must not depend on evidence throughput. Sending the
     heartbeat after the drain meant a large backlog delayed the sensor's
