@@ -117,6 +117,17 @@ class EndpointRecord(BaseModel):
     last_telemetry_at: Optional[str] = None
     event_count: int = 0
 
+    # P0-3 · liveness and cadence are SEPARATE from delivery. A heartbeat
+    # proves the sensor process and its transport are alive; it is not
+    # evidence and never becomes a raw event. `report_interval_seconds` is
+    # the sensor's OWN configured cadence, so the platform derives its
+    # staleness thresholds from the endpoint instead of guessing.
+    last_heartbeat_at: Optional[str] = None
+    report_interval_seconds: Optional[float] = None
+    cadence_basis: Optional[str] = None
+    lifecycle_reported: Optional[str] = None
+    outbox_queue_depth: Optional[int] = None
+
     def trust_summary(self) -> dict:
         """Directive §10 acceptance criterion: **no ambiguity about trust
         state.** Returns the three dimensions plus a single explicit

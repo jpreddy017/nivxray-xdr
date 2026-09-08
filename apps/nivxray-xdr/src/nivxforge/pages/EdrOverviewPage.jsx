@@ -19,6 +19,8 @@ import { Radar, ShieldAlert, GitBranch, FileText, Wifi, ArrowRight } from "lucid
 
 import NivXForgeConsole, { useIncidentContext } from "@/nivxforge/NivXForgeConsole";
 import { getEdrCapabilities } from "@/nivxforge/edrApi";
+import { TelemetryFreshnessBanner }
+  from "@/nivxforge/components/TelemetryFreshness";
 
 // Card → the capability row that authoritatively grades it. The route is
 // the CANONICAL EDR route (the legacy `/edr/trajectory` resolver is no
@@ -87,6 +89,11 @@ export default function EdrOverviewPage() {
           ? "Opened from an operational incident — endpoint context is pinned at the top of every page in this console."
           : "Endpoint state, recent detections, and pivots into the operational surfaces of NivXForge EDR."}
       </div>
+
+      {/* P0-3 · the product states whether it is receiving anything at
+          all, BEFORE it shows any endpoint surface. An empty surface on a
+          blind pipeline is a visibility gap, not an all-clear. */}
+      <TelemetryFreshnessBanner endpoint={ctx.device || null} />
 
       <div className="stat-grid" data-testid="edr-overview-stats">
         <Stat label="Device"       value={ctx.device || "Not provided"}  tone={ctx.device ? "cyan" : "faint"} />

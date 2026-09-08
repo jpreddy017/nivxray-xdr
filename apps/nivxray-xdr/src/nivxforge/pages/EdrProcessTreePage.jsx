@@ -20,8 +20,10 @@ import { getEdrProcessTree,
          getEndpointProcessTree } from "@/nivxforge/edrApi";
 import { EndpointNotResolved,
          notResolved } from "@/nivxforge/components/EndpointNotResolved";
+import { TelemetryFreshnessBanner }
+  from "@/nivxforge/components/TelemetryFreshness";
 
-function useTree(incidentId, endpointId) {
+function useTree(incidentId, endpointId, hours) {
   const pivot = endpointId || incidentId;
   const [state, setState] = useState({
     loading: !!pivot, error: null, tree: null,
@@ -33,7 +35,7 @@ function useTree(incidentId, endpointId) {
       setState({ loading: true, error: null, tree: null });
       try {
         const data = endpointId
-          ? await getEndpointProcessTree(endpointId)
+          ? await getEndpointProcessTree(endpointId, hours)
           : await getEdrProcessTree(incidentId);
         if (!cancelled) setState({ loading: false, error: null, tree: data });
       } catch (e) {
@@ -45,16 +47,85 @@ function useTree(incidentId, endpointId) {
       }
     })();
     return () => { cancelled = true; };
-  }, [pivot, endpointId, incidentId]);
+  }, [pivot, endpointId, incidentId, hours]);
   return state;
 }
 
+/** P0-3 · the analyst can widen the window from the console.
+ *  Before this the page ignored `?hours=` entirely, so an endpoint whose
+ *  evidence sat 25 hours away was unreachable from the UI at all. */
+const WINDOWS = [1, 24, 72, 168, 720];
+
+function WindowControl({ hours, onChange, window: win }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6,
+                  marginBottom: 10, flexWrap: "wrap" }}
+         data-testid="edr-processtree-window-control">
+      <span style={{ fontSize: 10, letterSpacing: ".3px", fontWeight: 800,
+                     textTransform: "uppercase", color: "var(--faint)" }}>
+        Window
+      </span>
+      {WINDOWS.map((h) => (
+        <button key={h} className={`btn${h === hours ? " mint" : ""}`}
+                style={{ padding: "3px 9px", fontSize: 10.5 }}
+                data-testid={`edr-processtree-window-${h}`}
+                data-active={h === hours}
+                onClick={() => onChange(h)}>
+          {h < 24 ? `${h}h` : `${h / 24}d`}
+        </button>))}
+      {win && (
+        <span className="mono" style={{ fontSize: 10, color: "var(--faint)" }}
+              data-testid="edr-processtree-window-counts">
+          {win.observations_in_window} in window ·{" "}
+          {win.observations_outside_window} outside ·{" "}
+          {win.retained_observations_total} retained
+        </span>)}
+    </div>
+  );
+}
+
+/** The empty state that may NOT claim the endpoint is empty. */
+function EmptyWindow({ tree }) {
+  const win = tree.window || {};
+  const outside = win.state === "EVIDENCE_OUTSIDE_WINDOW";
+  return (
+    <div className="x-empty"
+         data-testid={outside ? "edr-processtree-outside-window"
+                              : "edr-processtree-empty"}
+         data-window-state={win.state || "UNKNOWN"}
+         style={{ textAlign: "left",
+                  borderColor: outside ? "var(--amber)" : undefined }}>
+      <b style={{ color: outside ? "var(--amber)" : undefined }}>
+        {outside ? "EVIDENCE EXISTS OUTSIDE THIS WINDOW"
+                 : "NO MATCHING EVIDENCE"}
+      </b>
+      <div style={{ marginTop: 6 }}>
+        {win.statement
+         || tree.note
+         || "No canonical timeline attached to this incident."}
+      </div>
+      {outside && (
+        <div style={{ marginTop: 6, fontSize: 10.5, color: "var(--faint)" }}>
+          Widen the window above to reach it. Most recent evidence:{" "}
+          <span className="mono">{win.latest_evidence_at}</span>
+        </div>)}
+    </div>
+  );
+}
+
+
 export default function EdrProcessTreePage() {
   const ctx = useIncidentContext();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const endpointId = params.get("endpoint_id") || params.get("device");
-  const { loading, error, tree } = useTree(ctx.incident_id, endpointId);
+  const hours = Math.max(1, parseInt(params.get("hours") || "24", 10) || 24);
+  const { loading, error, tree } = useTree(ctx.incident_id, endpointId, hours);
   const pivot = endpointId || ctx.incident_id;
+  const setHours = (h) => {
+    const next = new URLSearchParams(params);
+    next.set("hours", String(h));
+    setParams(next, { replace: true });
+  };
 
   const byId = useMemo(() => {
     const m = new Map();
@@ -75,6 +146,13 @@ export default function EdrProcessTreePage() {
           : "Reuses the canonical Activity Inventory (parent → child "
             + "process relationships). No parallel correlation engine."}
       </div>
+
+      {endpointId && (
+        <>
+          <TelemetryFreshnessBanner endpoint={endpointId} />
+          <WindowControl hours={hours} onChange={setHours}
+                         window={tree?.window} />
+        </>)}
 
       {!pivot && (
         <div className="x-empty" data-testid="edr-processtree-noctx">
@@ -99,14 +177,8 @@ export default function EdrProcessTreePage() {
                              testid="edr-processtree-not-resolved" />
       )}
       {pivot && !loading && !error && tree && !notResolved(tree)
-        && tree.reason === "no_matching_evidence" && (
-        <div className="x-empty" data-testid="edr-processtree-empty">
-          <b>NO MATCHING EVIDENCE</b>
-          <div style={{ marginTop: 4 }}>
-            {tree.note
-             || "No canonical timeline attached to this incident."}
-          </div>
-        </div>
+        && tree.reason !== "ok" && (
+        <EmptyWindow tree={tree} />
       )}
       {pivot && !loading && !error && tree
         && tree.reason === "ok" && (

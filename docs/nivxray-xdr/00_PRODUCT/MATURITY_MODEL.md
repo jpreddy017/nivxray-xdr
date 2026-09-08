@@ -36,7 +36,7 @@ Goal: *the product tells the truth about itself.*
 | 4 | Operational environment defaults to **real evidence only**; seeded corpora are test-scoped | environment audit |
 | 5 | Every catalogued action either has an adapter or is removed from the catalogue | registry + surface |
 | 6 | No surface converts a named absence into an empty result | sweep + test |
-| 7 | Component ↔ inventory reconciliation complete (865 routes, 64 engines, 58 UI routes, 135 capabilities each assigned or classified) | `COMPONENT_ARCHITECTURE.md` |
+| 7 | Component ↔ inventory reconciliation complete (every route, engine, UI route and capability assigned or classified) | `COMPONENT_ARCHITECTURE.md` |
 
 ## `INTERNAL_ALPHA` → `LAB_VALIDATED`
 

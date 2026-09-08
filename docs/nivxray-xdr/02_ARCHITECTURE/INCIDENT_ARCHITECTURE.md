@@ -31,7 +31,7 @@ an architecture violation — this was audited and confirmed
 | linkage | detections, endpoint campaign, observables, assets | detection + correlation |
 | lifecycle | state, assignee, timestamps | incident plane |
 | worklog | `incident_state_history[]` (append-only) | incident plane |
-| **provenance** | **MISSING** — see §5 | ingest |
+| **provenance** | `provenance` · `provenance_basis` · `provenance_evidence` · `provenance_is_real` | derived from the evidence the incident was built from (P-2) |
 
 ## 3 · Lifecycle
 
@@ -72,17 +72,35 @@ Requirement: any surface displaying priority must disclose its basis.
 Showing a priority that implies asset-awareness we do not have is
 precisely the class of over-claim this programme exists to prevent.
 
-## 5 · The provenance gap — highest value, lowest cost
+## 5 · Provenance — IMPLEMENTED (P-2, 2026-06)
 
-Incidents exist in the operational store and **none carry a provenance
-label**. Detections and canonical events *are* traceable to real
-producer events; the incident set is not.
+Every incident declares where it came from. Closed vocabulary, owner-
+specified: `REAL_SENSOR_DERIVED` · `SEEDED_FOR_DEVELOPMENT` ·
+`SYNTHETIC_TEST` · `REPLAY_DERIVED` · `MIXED_PROVENANCE` ·
+`PROVENANCE_UNKNOWN`. Live distribution: `08_VALIDATION/REALITY_MATRIX.md`.
 
-Consequence: an analyst — or a customer, or an investor — cannot tell a
-real incident from one seeded during UI development. There is no
-technical answer to *"is that a real incident?"*
+**Historical provenance was derived from evidence and never guessed.**
+An incident whose origin could not be established is
+`PROVENANCE_UNKNOWN` — which is an honest absence, **not** a claim that
+the incident is fabricated, and explicitly not filed as seeded.
 
-**Required at `INTERNAL_ALPHA`:**
+Enforced properties (proof: `scripts/p2_incident_provenance_proof.py`,
+27 gates):
+
+- **write-time gate** at the single creation site — an incident cannot
+  be created without a declared class **and** a recorded basis;
+- **every label records the rule that produced it** and the artefact it
+  traced, so any label is auditable and reversible;
+- **consolidation does not launder provenance** — merging a real
+  observation into a differently-sourced incident yields
+  `MIXED_PROVENANCE`, and `PROVENANCE_UNKNOWN` stays dominant because
+  the pre-existing evidence is still unaccounted for. The change is
+  appended to `incident_state_history[]` as a `provenance_change`;
+- **`provenance_is_real` is true only for `REAL_SENSOR_DERIVED`**;
+- exposed on the queue row, the detail view and
+  `GET /api/incidents/provenance/summary` (tenant-scoped).
+
+**Original requirement, for the record:**
 
 1. Add `provenance` to the incident model:
    `REAL_SENSOR_DERIVED` | `SEEDED_FOR_DEVELOPMENT` | `REPLAYED_CORPUS`.

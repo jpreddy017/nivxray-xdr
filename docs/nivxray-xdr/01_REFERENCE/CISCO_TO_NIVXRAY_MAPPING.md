@@ -98,8 +98,8 @@ Values come from the generated capability matrix: `OPERATIONAL`,
 ## 7 · The five findings that actually matter
 
 1. **We are the inverse of Cisco's starting position.** Cisco had
-   sources and built a platform. We have a platform (865 routes, 61
-   engines, 135 catalogued capabilities) and **one** real source.
+   sources and built a platform. We have a platform (see
+   `08_VALIDATION/REALITY_MATRIX.md` for the live inventory) and **one** real source.
    Everything in the roadmap follows from this.
 
 2. **Nothing in section 2 needs building.** The common representation,

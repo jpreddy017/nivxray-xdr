@@ -1,5 +1,5 @@
 {
- "stamp": "2026-09-07T18:12Z",
+ "stamp": "2026-09-07T20:23Z",
  "routes": [
   {
    "path": "/api/",
@@ -2416,6 +2416,13 @@
     "GET"
    ],
    "name": "list_incidents"
+  },
+  {
+   "path": "/api/incidents/provenance/summary",
+   "methods": [
+    "GET"
+   ],
+   "name": "provenance_summary"
   },
   {
    "path": "/api/incidents/{incident_id}",
@@ -8011,6 +8018,11 @@
  ],
  "proofs": [
   {
+   "script": "scripts/backfill_incident_provenance.py",
+   "is_proof": false,
+   "title": ""
+  },
+  {
    "script": "scripts/build_audit_pdf.py",
    "is_proof": false,
    "title": ""
@@ -8179,6 +8191,11 @@
    "script": "scripts/p1_10a_verify.py",
    "is_proof": false,
    "title": "import asyncio, os, json"
+  },
+  {
+   "script": "scripts/p2_incident_provenance_proof.py",
+   "is_proof": true,
+   "title": ""
   },
   {
    "script": "scripts/prod_validator.py",
@@ -8958,8 +8975,11 @@
    "LINUX",
    "linux"
   ],
-  "incidents": 572,
-  "incidents_with_provenance": 0,
+  "incidents": 286,
+  "incidents_with_provenance": 286,
+  "incidents_real_sensor_derived": 16,
+  "incidents_provenance_unknown": 270,
+  "analysis_cases_same_collection": 285,
   "canonical_events": 445,
   "detections_from_real": 64,
   "response_commands": 33,

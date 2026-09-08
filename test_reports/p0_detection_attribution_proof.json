@@ -6,7 +6,7 @@
    "item": "A_authoritative_detections_exist",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "64 DETECTION_MATCHED derivations on ep_2d57cbe6f80152062109"
+   "detail": "82 DETECTION_MATCHED derivations on ep_2d57cbe6f80152062109"
   },
   {
    "item": "B_every_detection_reached_carries_attribution",
@@ -24,13 +24,13 @@
    "item": "D_disposition_is_no_longer_unassessed",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "raw_fac9185acde4f8ccebef7a3b -> disposition SUSPICIOUS (was UNKNOWN_NOT_ASSESSED)"
+   "detail": "raw_f5cae2936c2f2b8fbf6b9d74 -> disposition SUSPICIOUS (was UNKNOWN_NOT_ASSESSED)"
   },
   {
    "item": "E_provenance_back_to_the_raw_derivation_is_intact",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "DETECTION_MATCHED \u2192 raw_fac9185acde4f8ccebef7a3b \u2192 cev_fac9185acde4f8ccebef7a3b_0"
+   "detail": "DETECTION_MATCHED \u2192 raw_f5cae2936c2f2b8fbf6b9d74 \u2192 cev_f5cae2936c2f2b8fbf6b9d74_0"
   },
   {
    "item": "F_attribution_is_exact_not_blanket",
@@ -83,11 +83,11 @@
    "nivxray::detection_content::nivxray_native_sigma"
   ],
   "verdict": "SUSPICIOUS",
-  "detection_id": "inc_2305c71cd8f54dc38e55::rule::EDR-LNX-002",
+  "detection_id": "inc_57fee8bc67a047da9685::rule::EDR-LNX-002",
   "outcome": "DETECTION_MATCHED",
-  "raw_event_id": "raw_fac9185acde4f8ccebef7a3b",
-  "canonical_event_id": "cev_fac9185acde4f8ccebef7a3b_0",
-  "observation": "evt_0b5121e3924461c7#7dd36299ea",
+  "raw_event_id": "raw_f5cae2936c2f2b8fbf6b9d74",
+  "canonical_event_id": "cev_f5cae2936c2f2b8fbf6b9d74_0",
+  "observation": "evt_2005068965f6d9b9#54610d7ddc",
   "disposition": "SUSPICIOUS",
   "assessment_state": "ASSESSED_BY_DETECTION_FABRIC"
  },

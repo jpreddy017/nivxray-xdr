@@ -23,7 +23,7 @@ UI → fake data → stub backend → claim complete
 ```
 
 This is adopted on our own evidence, not by imitation: this repository
-has 865 API routes against a small operational core, and the recurring
+has a very large API surface against a small operational core, and the recurring
 defect class has been *surfaces asserting more than their API can prove*.
 
 ## 2 · Before building anything

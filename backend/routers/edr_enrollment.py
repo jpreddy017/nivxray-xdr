@@ -15,6 +15,7 @@ evidence?"* has a recorded answer for every event in the store.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -217,6 +218,43 @@ class TelemetryBody(BaseModel):
     event_time: Optional[str] = None
     source_kind: str = "sensor"
     sensor_version: Optional[str] = None
+    report_interval_seconds: Optional[float] = Field(
+        default=None, gt=0,
+        description="The sensor's OWN configured collect/flush cadence. "
+                    "P0-3 derives this endpoint's staleness thresholds from "
+                    "it, so the console never invents a timeout.")
+
+
+class HeartbeatBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    report_interval_seconds: Optional[float] = Field(default=None, gt=0)
+    sensor_version: Optional[str] = None
+    queue_depth: Optional[int] = Field(
+        default=None, ge=0,
+        description="Unsent events in the sensor's local outbox. Lets the "
+                    "platform distinguish a BACKLOG from a silence: a "
+                    "sensor that is alive and behind has not stopped.")
+
+
+@agent.post("/heartbeat")
+async def heartbeat(body: HeartbeatBody,
+                    who: AuthenticatedEndpoint = Depends(
+                        get_authenticated_endpoint)) -> dict:
+    """Sensor LIVENESS · P0-3.
+
+    Without this route the platform could not tell a sensor that died
+    from a sensor that is alive and has observed nothing new — both look
+    identical in `last_telemetry_at`. A heartbeat is deliberately NOT
+    telemetry: it creates no raw event, does not move
+    `last_telemetry_at` and does not count as an event, so it can never
+    make a silent endpoint look like a delivering one.
+    """
+    return await store.mark_heartbeat(
+        _db, tenant_id=who.tenant_id, endpoint_id=who.endpoint_id,
+        at=datetime.now(timezone.utc).isoformat(),
+        report_interval_seconds=body.report_interval_seconds,
+        sensor_version=body.sensor_version,
+        queue_depth=body.queue_depth)
 
 
 @agent.post("/telemetry")
@@ -241,7 +279,9 @@ async def ingest(body: TelemetryBody, request: Request,
     result = await raw.append(_db, ev)
     await store.mark_reported(_db, tenant_id=who.tenant_id,
                               endpoint_id=who.endpoint_id,
-                              at=ev.ingest_time)
+                              at=ev.ingest_time,
+                              report_interval_seconds=(
+                                  body.report_interval_seconds))
 
     # P0-D · canonical bridge. Only for a NEW event: re-canonicalising a
     # byte-identical duplicate would double-count the same activity.
@@ -253,7 +293,8 @@ async def ingest(body: TelemetryBody, request: Request,
         canonical = await bridge(
             _db, raw_id=ev.raw_id, tenant_id=who.tenant_id,
             payload=body.payload, endpoint_id=who.endpoint_id,
-            hostname=ep.get("hostname"), authentication=who.provenance())
+            hostname=ep.get("hostname"), authentication=who.provenance(),
+            source_kind=ev.source_kind, sensor_version=ev.sensor_version)
 
     return {
         **result,

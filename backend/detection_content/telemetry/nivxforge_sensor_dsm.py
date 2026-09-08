@@ -82,6 +82,18 @@ class NivXForgeSensorNormalizer:
             "dsm_id": dsm_id,
         }
         raw = parsed.get("raw") if isinstance(parsed.get("raw"), dict) else {}
+        # P0-3 · sensor attribution is READ from the authenticated ingest
+        # envelope, never inferred from the event's shape. A sensor-shaped
+        # event that did not arrive through the authenticated endpoint
+        # ingest carries no attribution here, and the incident engine then
+        # correctly refuses to call it real.
+        auth = raw.get("_authenticated_ingest")
+        if isinstance(auth, dict) and auth.get("source_kind"):
+            canonical["provenance"].update({
+                "source_kind": auth.get("source_kind"),
+                "sensor_version": auth.get("sensor_version"),
+                "trust_state": auth.get("trust_state"),
+            })
         endpoint_id = raw.get("endpoint_id") or collector_id
         if endpoint_id or raw.get("hostname"):
             canonical["host"] = {**(canonical.get("host") or {}),

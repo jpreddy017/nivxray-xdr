@@ -2,6 +2,58 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-09-08 · P0-3 — Blindness/Staleness Detection + Linux Sensor Recovery — SHIPPED
+
+NivXForge can now detect and state when its OWN telemetry pipeline has
+gone blind, and the Linux sensor that had been silent since
+2026-09-06 is delivering real telemetry again under supervision.
+Report `memory/P0_3_SENSOR_RECOVERY.md` · proof
+`scripts/p0_3_sensor_recovery_proof.py` **41 PASS · 0 FAIL · 0 BLOCKED**.
+
+**Root cause** — not a sensor bug: the sensor was never a supervised
+program and its durable state (credential, outbox, dedup set) lived on a
+path that did not survive container recreation. The platform could not
+notice, because no state, route or UI could say "we are receiving
+nothing".
+
+**Backend**
+- `services/edr/endpoint_health.py` — dimension C, the single delivery
+  freshness authority: `DELIVERING` / `STALE` / `BLIND_NO_DELIVERY` with
+  a `basis` (`NEVER_DELIVERED`, `DELIVERY_CEASED`, `CREDENTIAL_REVOKED`,
+  `LINK_ALIVE_NO_NEW_EVIDENCE`, `DELIVERY_BACKLOGGED_AT_SENSOR`,
+  `DELIVERY_LATE_LINK_UNCONFIRMED`). Thresholds derived from the sensor's
+  own declared cadence; the formula travels with every answer.
+- `services/edr/telemetry_freshness.py` (new) — fleet/endpoint projection
+  with an enrolment-registry fallback so an enrolled-but-never-reported
+  endpoint is addressable (`ENROLMENT_REGISTRY_DIRECT`).
+- `GET /api/edr/telemetry/freshness[?endpoint=]`.
+- `POST /api/edr/agent/heartbeat` — liveness only; never advances
+  `last_telemetry_at`, never counts as an event, creates no raw event.
+- `routers/edr.py::_window_honesty()` — the process tree now discloses
+  what exists OUTSIDE the requested window.
+- `enroll()` no longer erases the delivery record on re-enrolment.
+- `canonical_bridge` + `nivxforge_sensor_dsm` now carry the authenticated
+  sensor attribution, so live-sensor incidents are no longer born
+  `PROVENANCE_UNKNOWN`.
+
+**Sensor / ops**
+- `nivxforge_sensor` is a supervised program with persistent state and
+  idempotent enrolment; SIGKILL-proven to resume the same endpoint id.
+- Heartbeat at the start of each cycle with `queue_depth`; drain bounded
+  to 200 events per cycle (nothing dropped, remainder reported as a
+  backlog).
+
+**Frontend**
+- `nivxforge/components/TelemetryFreshness.jsx` (new) on Endpoint
+  Overview and Process Tree.
+- Process Tree honours `?hours=`, gained a window control and now reads
+  "EVIDENCE EXISTS OUTSIDE THIS WINDOW" with real counts instead of
+  "NO MATCHING EVIDENCE".
+
+**Not shipped, stated**: no alerting (blindness is a console state, not a
+notification); batch ingest; endpoint isolation stays
+`BLOCKED_ENVIRONMENT` (`CAP_NET_ADMIN`).
+
 ## 2026-09-01 · Round 46 — Analyst Intelligence Overlay (v1) — SHIPPED
 
 Governance layer over machine-derived interpretation.  Canonical

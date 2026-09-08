@@ -30,10 +30,10 @@ justification, per the rule that reordering requires evidence.
 
 | # | Step | Why here | Gate |
 |---:|---|---|---|
-| 0 | **This documentation pass** | architecture reconciled before more building | — |
-| **1** | **Incident provenance labelling** *(proposed insertion)* | **Cheapest high-value item in the programme.** Until an incident says whether it is real, no user guide can be written honestly, no demo can be trusted and no analyst can answer *"is that real?"* It blocks A1, A2, G5 | `INTERNAL_ALPHA` |
-| 2 | **P0-3 · Linux sensor recovery** | the pipeline that already works must be alive before a second platform is added; debugging two broken pipelines at once is the trap | `INTERNAL_ALPHA` |
-| **3** | **Observability on going blind** *(proposed insertion)* | telemetry was lost for over 24 hours and **nothing alerted**. Without this, step 2 will silently regress and we will not know | `INTERNAL_ALPHA` |
+| 0 | **This documentation pass** | architecture reconciled before more building | — | 
+| **1** | ✅ **Incident provenance labelling** *(proposed insertion)* — **DONE 2026-06** | **Cheapest high-value item in the programme.** Until an incident says whether it is real, no user guide can be written honestly, no demo can be trusted and no analyst can answer *"is that real?"* It blocks A1, A2, G5 | `INTERNAL_ALPHA` |
+| 2 | ✅ **P0-3 · Linux sensor recovery** — **DONE 2026-09-08** · `memory/P0_3_SENSOR_RECOVERY.md` · 40 PASS · fresh physical event proven end to end and restart survivability proven | the pipeline that already works must be alive before a second platform is added; debugging two broken pipelines at once is the trap | `INTERNAL_ALPHA` |
+| **3** | 🟡 **Observability on going blind** *(proposed insertion)* — **STATE DONE, ALERT NOT DONE** · delivered together with step 2 because the recovery could not otherwise be shown to have worked | telemetry was lost for over 24 hours and **nothing alerted**. Without this, step 2 will silently regress and we will not know | `INTERNAL_ALPHA` |
 | 4 | **P0-2B · Release isolation** | completes the containment pair through the same lifecycle | `LAB_VALIDATED` |
 | 5 | **P0-2D · Isolation policy projection** | analysts must see containment rules before acting | `LAB_VALIDATED` |
 | 6 | **P0-4 · Collector reconciliation** | integration health must be authoritative **before** it is used to judge a second domain | `LAB_VALIDATED` |

@@ -444,10 +444,19 @@ def _enqueue(events: list[dict]) -> None:
         os.fsync(f.fileno())
 
 
-def _drain(api: str, ident: dict, session: dict) -> tuple[int, int]:
+def _drain(api: str, ident: dict, session: dict,
+           interval: int | None = None,
+           max_per_cycle: int = 200) -> tuple[int, int]:
     """Send everything the queue holds, advancing the offset only after a
     confirmed accept. A connectivity loss therefore REPLAYS instead of
-    losing evidence."""
+    losing evidence.
+
+    Bounded per cycle. One HTTP request per event means an unbounded
+    drain of a large backlog saturates the ingest API — measured on this
+    box: a 650-event cycle starved unrelated API calls into timeouts.
+    Anything not sent STAYS queued and is reported to the platform as
+    `queue_depth`, which surfaces as `DELIVERY_BACKLOGGED_AT_SENSOR`
+    rather than as silence. No event is dropped and none is skipped."""
     if not QUEUE_FILE.exists():
         return 0, 0
     offset = int(OFFSET_FILE.read_text()) if OFFSET_FILE.exists() else 0
@@ -469,11 +478,15 @@ def _drain(api: str, ident: dict, session: dict) -> tuple[int, int]:
                     session["token"] = _open_session(api, ident)
                 _post(api, "/api/edr/agent/telemetry",
                       {"payload": line, "source_kind": "sensor",
-                       "sensor_version": SENSOR_VERSION},
+                       "sensor_version": SENSOR_VERSION,
+                       **({"report_interval_seconds": float(interval)}
+                          if interval else {})},
                       bearer=session["token"])
                 sent += 1
                 offset += consumed
                 OFFSET_FILE.write_text(str(offset))
+                if sent >= max_per_cycle:
+                    break
             except (RuntimeError, urllib.error.URLError, OSError) as e:
                 msg = str(e)
                 if msg.startswith(("401", "403")) and session.get("token"):
@@ -960,6 +973,54 @@ def _serve_commands(api: str, ident: dict, session: dict) -> int:
     return len(cmds)
 
 
+def _queue_depth() -> int:
+    """Unsent lines in the local outbox. Reported with the heartbeat so
+    the platform can tell a BACKLOG from a silence — a sensor that is
+    alive and behind is not a sensor that has stopped."""
+    try:
+        if not QUEUE_FILE.exists():
+            return 0
+        offset = int(OFFSET_FILE.read_text()) if OFFSET_FILE.exists() else 0
+        with open(QUEUE_FILE, "rb") as f:
+            f.seek(offset)
+            return sum(1 for line in f if line.strip())
+    except (OSError, ValueError):
+        return 0
+
+
+def _heartbeat(api: str, ident: dict, session: dict,
+               interval: int) -> str:
+    """Declare LIVENESS at the START of every cycle · P0-3.
+
+    A poll-based sensor legitimately has cycles where nothing new happened,
+    and without this the platform cannot tell that from a sensor that
+    died — it sees the same frozen `last_telemetry_at` either way. The
+    heartbeat carries this sensor's OWN interval so the platform derives
+    its staleness thresholds from the endpoint instead of guessing.
+
+    It is sent BEFORE the drain deliberately. Sending it after meant that
+    a large backlog delayed the sensor's own liveness signal past the
+    staleness threshold, and the platform then reported "no sensor
+    heartbeat confirms the link" about a sensor that was busy delivering.
+    Liveness must not depend on evidence throughput.
+
+    It is not telemetry and must never be treated as evidence.
+    """
+    try:
+        if not session.get("token"):
+            session["token"] = _open_session(api, ident)
+        _post(api, "/api/edr/agent/heartbeat",
+              {"report_interval_seconds": float(interval),
+               "sensor_version": SENSOR_VERSION,
+               "queue_depth": _queue_depth()},
+              bearer=session["token"])
+        return "SENT"
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        return f"FAILED:{str(e)[:80]}"
+
+
 def run(api: str, interval: int, watch: str | None, once: bool) -> None:
     ident = _read_identity()
     session: dict = {"token": None}
@@ -982,10 +1043,12 @@ def run(api: str, interval: int, watch: str | None, once: bool) -> None:
         if batch:
             _enqueue(batch)
         _save_observed(seen_pids, seen_conns, known_files, baselined)
-        sent, failed = _drain(api, ident, session)
+        beat = _heartbeat(api, ident, session, interval)
+        sent, failed = _drain(api, ident, session, interval)
         served = _serve_commands(api, ident, session)
         print(f"[{_now()}] commands={served} collected={len(batch)} sent={sent} "
-              f"held={failed} endpoint={ident['endpoint_id']}")
+              f"held={failed} heartbeat={beat} queued={_queue_depth()} "
+              f"endpoint={ident['endpoint_id']}", flush=True)
         if once:
             return
         time.sleep(interval)

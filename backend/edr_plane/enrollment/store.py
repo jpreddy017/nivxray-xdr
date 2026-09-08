@@ -190,22 +190,49 @@ async def enroll(db: Any, *, tenant_id: str, presented_token: str,
         sensor_state=SensorState.ENROLLED_NEVER_REPORTED,
         hostname=hostname, platform=platform, sensor_version=sensor_version,
         enrolled_at=_iso(now), last_seen=_iso(now))
+    # P0-3 DEFECT FIX: re-enrolment used to `$set` the WHOLE record, which
+    # reset last_telemetry_at, event_count and sensor_state to "never
+    # reported" on an endpoint that had delivered thousands of events. The
+    # delivery record is the very evidence blindness detection is derived
+    # from, so a credential re-issue may not erase it. Delivery facts are
+    # therefore written on INSERT only; re-enrolment refreshes identity and
+    # credential state and leaves history intact.
+    fields = record.model_dump()
+    delivery = {k: fields.pop(k) for k in
+                ("sensor_state", "last_telemetry_at", "event_count",
+                 "last_heartbeat_at", "report_interval_seconds",
+                 "cadence_basis", "lifecycle_reported",
+                 "outbox_queue_depth")}
     await db[ENDPOINTS].update_one(
         {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
-        {"$set": record.model_dump()}, upsert=True)
+        {"$set": fields, "$setOnInsert": delivery}, upsert=True)
 
+    stored = await db[ENDPOINTS].find_one(
+        {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
+        {"_id": 0, "sensor_state": 1, "event_count": 1,
+         "last_telemetry_at": 1}) or {}
+    sensor_state = (stored.get("sensor_state")
+                    or SensorState.ENROLLED_NEVER_REPORTED.value)
     return {
         "endpoint_id": endpoint_id,
         "credential_id": credential_id,
         "agent_credential": credential,   # the only time it ever appears
         "enrollment_state": EnrollmentState.ENROLLED.value,
-        "sensor_state": SensorState.ENROLLED_NEVER_REPORTED.value,
+        "sensor_state": sensor_state,
+        "delivery_history_preserved": bool(stored.get("last_telemetry_at")),
         "warning": ("The durable credential is shown once and is not "
                     "retrievable. It is never returned by any other route."),
         "honesty_note": (
             "The endpoint is now enrolled and trusted to send telemetry. It "
             "has NOT sent any — sensor_state is ENROLLED_NEVER_REPORTED. "
-            "Enrolment is not evidence of visibility."),
+            "Enrolment is not evidence of visibility."
+            if sensor_state == SensorState.ENROLLED_NEVER_REPORTED.value else
+            "This endpoint had already delivered telemetry under a previous "
+            f"credential ({stored.get('event_count') or 0} event(s), last at "
+            f"{stored.get('last_telemetry_at')}). Re-enrolment re-issued the "
+            "credential and deliberately did NOT reset the delivery record — "
+            "that record is the evidence blindness detection is derived "
+            "from."),
     }
 
 
@@ -400,12 +427,51 @@ async def revoke_endpoint(db: Any, *, tenant_id: str, endpoint_id: str,
 # ── endpoint records ──────────────────────────────────────────────
 
 async def mark_reported(db: Any, *, tenant_id: str, endpoint_id: str,
-                        at: str) -> None:
+                        at: str,
+                        report_interval_seconds: float | None = None) -> None:
+    fields: dict[str, Any] = {"sensor_state": SensorState.REPORTING.value,
+                              "last_seen": at, "last_telemetry_at": at}
+    # P0-3: the sensor's own cadence, recorded from the running sensor
+    # rather than configured in the console, so staleness is judged
+    # against what this endpoint actually does.
+    if report_interval_seconds and report_interval_seconds > 0:
+        fields["report_interval_seconds"] = float(report_interval_seconds)
+        fields["cadence_basis"] = "DECLARED_BY_SENSOR"
     await db[ENDPOINTS].update_one(
         {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
-        {"$set": {"sensor_state": SensorState.REPORTING.value,
-                  "last_seen": at, "last_telemetry_at": at},
-         "$inc": {"event_count": 1}})
+        {"$set": fields, "$inc": {"event_count": 1}})
+
+
+async def mark_heartbeat(db: Any, *, tenant_id: str, endpoint_id: str,
+                         at: str, report_interval_seconds: float | None = None,
+                         sensor_version: str | None = None,
+                         queue_depth: int | None = None) -> dict:
+    """Record sensor LIVENESS. Deliberately not a telemetry write.
+
+    A heartbeat says the sensor process and its transport are alive. It
+    says nothing about evidence, so it must never advance
+    `last_telemetry_at`, never increment `event_count` and never create a
+    raw event — otherwise a silent sensor would look like a delivering one,
+    which is precisely the blindness this phase exists to expose.
+    """
+    fields: dict[str, Any] = {"last_heartbeat_at": at,
+                              "last_seen": at,
+                              "lifecycle_reported": "CONNECTED"}
+    if report_interval_seconds and report_interval_seconds > 0:
+        fields["report_interval_seconds"] = float(report_interval_seconds)
+        fields["cadence_basis"] = "DECLARED_BY_SENSOR"
+    if sensor_version:
+        fields["sensor_version"] = sensor_version
+    if queue_depth is not None:
+        fields["outbox_queue_depth"] = int(queue_depth)
+    await db[ENDPOINTS].update_one(
+        {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
+        {"$set": fields})
+    return {"endpoint_id": endpoint_id, "recorded_at": at,
+            "link_state": "CONNECTED",
+            "note": ("Liveness only. A heartbeat is not telemetry: it does "
+                     "not advance last_telemetry_at, does not count as an "
+                     "event and creates no evidence.")}
 
 
 async def list_endpoints(db: Any, *, tenant_id: str) -> list[dict]:

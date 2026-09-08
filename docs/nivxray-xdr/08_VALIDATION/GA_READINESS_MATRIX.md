@@ -15,8 +15,8 @@ Status vocabulary: `MET` · `PARTIAL` · `NOT_MET` · `BLOCKED_ENVIRONMENT`
 
 | # | Gate | Status | Evidence / gap |
 |---|---|---|---|
-| A1 | No synthetic operational data anywhere | `NOT_MET` | seeded incidents coexist with real ones and are unlabelled |
-| A2 | Every incident carries provenance | `NOT_MET` | no provenance field exists |
+| A1 | No synthetic operational data anywhere | `PARTIAL` | every incident is now **labelled**, so real and non-real are distinguishable; non-real data has not yet been quarantined out of the operational scope |
+| A2 | Every incident carries provenance | **`MET`** | closed vocabulary, write-time gate, evidence-derived backfill, 27-gate proof — `scripts/p2_incident_provenance_proof.py` |
 | A3 | No surface converts a named absence into an empty result | `PARTIAL` | `ENDPOINT_NOT_RESOLVED` enforced end-to-end on 3 EDR surfaces; `WINDOW_HONESTY_GAP` open |
 | A4 | No capability claims more than its evidence | `MET` | `claim_is_honest` true for every registry entry |
 | A5 | Every offered response action can execute | `NOT_MET` | 18 catalogued, 2 operational, 16 stubs |

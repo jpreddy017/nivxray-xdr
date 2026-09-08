@@ -24,15 +24,15 @@ gate. Anything lacking these is classified `ORPHAN`,
 `LEGACY_UNWIRED` or `LOAD_BEARING_LEGACY`.
 
 The scale problem this document exists to solve, from the generated
-inventories: **865 live API routes · 64 declared engine identities · 58
-UI routes · 135 catalogued capabilities.** Those are four different
-counts of four different things, and none of them is a count of
-components.
+inventories: **API routes · declared engine identities · UI routes ·
+catalogued capabilities** — four different counts of four different
+things, none of which is a count of components.
 
-> These four numbers are **generated**, not hand-written, and
-> `scripts/docs_reconcile.py` fails if this document disagrees with the
-> runtime. They are quoted here only because the whole point of the
-> component model is to reconcile them.
+> The live values are **generated** and deliberately NOT restated here:
+> `08_VALIDATION/REALITY_MATRIX.md`. `scripts/docs_reconcile.py` fails
+> any authored document that hand-writes one of these counts, because
+> such a number is stale the moment a route is added — it caught this
+> very document when a new endpoint moved the route count by one.
 
 ## 1 · First-class components
 
@@ -151,7 +151,7 @@ blind.** The platform lost telemetry for over 24 hours silently. This is
 the component whose absence caused the most damage in this programme.
 
 ### C14 · Analyst Consoles
-Two shells, 58 routes (42 XDR · 13 EDR · 3 shared). Consumers only —
+Two shells (route split: REALITY_MATRIX). Consumers only —
 they must own no truth. The `EndpointNotResolved` component is the
 reference pattern: render the backend's declared state, never
 reinterpret an absence.
@@ -160,10 +160,10 @@ reinterpret an absence.
 
 | Inventory | Count | Reconciliation obligation |
 |---|---|---|
-| API routes | 865 | every route belongs to exactly one component, or is `ORPHAN` |
-| Engine identities | 64 | every engine maps to a component with a UI consumer, or is `LEGACY_UNWIRED` |
-| UI routes | 58 | every route maps to a screen spec and authoritative APIs |
-| Capabilities | 135 | every capability names its owning component |
+| API routes | see REALITY_MATRIX | every route belongs to exactly one component, or is `ORPHAN` |
+| Engine identities | see REALITY_MATRIX | every engine maps to a component with a UI consumer, or is `LEGACY_UNWIRED` |
+| UI routes | see REALITY_MATRIX | every route maps to a screen spec and authoritative APIs |
+| Capabilities | see REALITY_MATRIX | every capability names its owning component |
 
 **This reconciliation is not yet done** — it is the first task after
 owner approval, and it is the mechanism by which sprawl becomes a

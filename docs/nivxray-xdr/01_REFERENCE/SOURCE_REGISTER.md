@@ -53,7 +53,8 @@ The NivXRay decisions they support stand on their own merits regardless:
 
 - **API-first is adopted as NivXRay engineering doctrine**, independent
   of Cisco attribution. Justification is internal, not comparative: this
-  repository contains **865 live API routes** and **58 UI routes**, and
+  repository contains a very large API surface against a small
+  operational core (exact counts: `08_VALIDATION/REALITY_MATRIX.md`), and
   the recurring defect class in this programme has been *surfaces that
   assert more than their API can prove*. API-first is the fix for our own
   observed failure mode.

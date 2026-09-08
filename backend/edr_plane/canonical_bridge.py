@@ -172,7 +172,9 @@ def parse(line: str) -> dict[str, Any]:
 
 async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                  endpoint_id: str, hostname: Optional[str],
-                 authentication: dict) -> dict[str, Any]:
+                 authentication: dict,
+                 source_kind: Optional[str] = None,
+                 sensor_version: Optional[str] = None) -> dict[str, Any]:
     """Parse → canonical → CES/CEM observation → append the derivation.
 
     Returns what actually happened. A parse failure is reported as a
@@ -209,6 +211,14 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
     canonical["provenance"] = {
         "trace_id": raw_id,
         "normalizer_id": f"{PARSER_NAME}/{NORMALIZER_VERSION}",
+        # P0-3 · the attribution recorded on the raw event travels with
+        # the canonical evidence. Without it a downstream consumer cannot
+        # tell live sensor evidence from anything else, and the freshest,
+        # most certainly-real incident on the platform gets labelled
+        # PROVENANCE_UNKNOWN — which is what actually happened.
+        "source_kind": source_kind,
+        "sensor_version": sensor_version,
+        "trust_state": "AUTHENTICATED",
     }
     # The authenticated identity travels with the evidence, so
     # "which authenticated endpoint produced this exact evidence?" is
@@ -299,6 +309,16 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
         # NAME the incident from real evidence instead of UNKNOWN.
         sensor_event["endpoint_id"] = endpoint_id
         sensor_event["hostname"] = hostname
+        # Only the AUTHENTICATED ingest path can attach this. The DSM
+        # stamps sensor provenance from it and from nothing else, so an
+        # unauthenticated pipeline call cannot manufacture a
+        # REAL_SENSOR_DERIVED label.
+        sensor_event["_authenticated_ingest"] = {
+            "source_kind": source_kind, "sensor_version": sensor_version,
+            "trust_state": "AUTHENTICATED", "raw_id": raw_id,
+            "authenticated_endpoint_id": (authentication or {}).get(
+                "authenticated_endpoint_id"),
+        }
         result = await process_event_through_pipeline(
             db, sensor_event, trace_id=raw_id,
             integration_id=PARSER_NAME, collector_id=endpoint_id,

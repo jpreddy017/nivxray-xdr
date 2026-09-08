@@ -12330,3 +12330,93 @@ Accounts (also in `memory/test_credentials.md`):
 
 Next per owner order: P0-F.13.5 Detection → Trajectory handoff, then
 P0-F.13.6 process-exit collection, then P0-F.14 Fleet File Trajectory.
+
+---
+
+# P0-3 · Blindness/Staleness Detection + Linux Sensor Recovery — DONE 2026-09-08
+
+Owner order was fixed: **1. Incident Provenance (done) → 2. P0-3 → 3.
+Windows sensor**, and P0-3 itself was ordered **observability first,
+recovery second**, so the blind → delivering transition could be *seen*
+rather than asserted. Full report: `memory/P0_3_SENSOR_RECOVERY.md`.
+Proof: `scripts/p0_3_sensor_recovery_proof.py` → **41 PASS · 0 FAIL · 0
+BLOCKED** (`memory/p0_3_sensor_recovery_proof.json`).
+
+**Root cause — not a sensor bug.** The sensor, outbox, transport,
+credential model, ingest route and canonical bridge were all healthy.
+It was (1) never a supervised program, (2) its durable state lived on
+`/var/lib/nivxforge-sensor`, which does not survive container
+recreation — so credential, outbox and dedup set were destroyed with the
+process — and (3) the platform had no state, route or UI that could say
+*"we are receiving nothing"*, so 24 hours of blindness rendered as empty
+screens.
+
+**Delivered**
+- Delivery freshness is a derived state with ONE authority
+  (`services/edr/endpoint_health.resolve_delivery_freshness`):
+  `DELIVERING` / `STALE` / `BLIND_NO_DELIVERY`, plus a `basis` that
+  separates `NEVER_DELIVERED`, `DELIVERY_CEASED`, `CREDENTIAL_REVOKED`,
+  `LINK_ALIVE_NO_NEW_EVIDENCE`, `DELIVERY_BACKLOGGED_AT_SENSOR` and
+  `DELIVERY_LATE_LINK_UNCONFIRMED`.
+- Thresholds are **derived from the sensor's own declared cadence** —
+  `stale_after_s = max(interval × 3, 60)`,
+  `blind_after_s = max(interval × 20, 900)` — and the formula is returned
+  with every answer. No threshold exists in the browser.
+- `GET /api/edr/telemetry/freshness[?endpoint=]` · fleet roll-up
+  (`FLEET_BLIND` / `PARTIALLY_DELIVERING` / …) + per-endpoint rows.
+- `POST /api/edr/agent/heartbeat` — sensor liveness, sent at the START of
+  every cycle with `report_interval_seconds` and outbox `queue_depth`.
+  Never telemetry: no raw event, no `last_telemetry_at`, no `event_count`.
+- Sensor is supervisor-managed (`nivxforge_sensor`) with persistent state
+  at `/app/agents/nivxforge-linux/.state` and idempotent enrolment
+  (`scripts/nivxforge_sensor_supervise.py`). SIGKILL-proven: it resumes
+  the SAME `ep_2d57cbe6f80152062109` with one enrolment row.
+- Process Tree window honesty: the backend re-runs the same endpoint
+  predicate with the time bound removed and returns
+  `observations_outside_window`, `processes_outside_window`,
+  `latest_evidence_at` and `max_window_hours`; the console gained a
+  window control (`1h/1d/3d/7d/30d`) and now says **"EVIDENCE EXISTS
+  OUTSIDE THIS WINDOW"** instead of "NO MATCHING EVIDENCE".
+- Console: `nivxforge/components/TelemetryFreshness.jsx` on Endpoint
+  Overview and Process Tree, rendering backend tokens verbatim.
+
+**Fresh physical event, post-recovery, proven end to end**
+real `/proc`-observed process → outbox → authenticated
+`POST /api/edr/agent/telemetry` → immutable raw event → canonical
+evidence → EDR Process Tree (real sha256, real cmdline, real pid) →
+Device Trajectory → detection fabric (`EDR-LNX-002` firing on
+post-recovery evidence) → XDR incident labelled `REAL_SENSOR_DERIVED`.
+No seed, replay, DB insert or synthetic probe.
+
+**Four defects found and fixed while doing it**
+1. Re-enrolment `$set` the whole `EndpointRecord`, **erasing the delivery
+   record** (the exact evidence blindness detection reads). Delivery
+   facts moved to `$setOnInsert`.
+2. A poll-based sensor cannot be judged on `last_telemetry_at` alone —
+   heartbeat added (D2).
+3. `canonical_bridge` dropped the authenticated sensor attribution, so
+   live-sensor incidents were **born `PROVENANCE_UNKNOWN`**. Fixed at the
+   ingest→bridge→DSM path; only the authenticated envelope can produce a
+   sensor attribution. `backfill_incident_provenance.py
+   --relabel-unknown` re-classified exactly **1** of 573 documents.
+4. Found by the proof failing on the real box: liveness depended on
+   delivery throughput, a backlog read as a silence, and an unbounded
+   drain starved the ingest API. Heartbeat moved before the drain,
+   `queue_depth` added, drain bounded to 200 events/cycle (nothing
+   dropped).
+
+**Not done, stated**: there is **no alert** — blindness is a console
+state, not a notification, so `05_OPERATIONS/OBSERVABILITY_GUIDE.md`
+stays `SPEC_PENDING` for the alert half. Batch ingest is still one POST
+per event. Isolation remains `BLOCKED_ENVIRONMENT`
+(`MISSING_PRIVILEGE: CAP_NET_ADMIN`, 18 queued commands reported, none
+faked). The 3 pre-existing `test_p0_f4_endpoint_process_tree` failures
+are untouched (P2).
+
+**Regression**: `tests/edr` 365 passed / 3 pre-existing failures ·
+alias sweep 52/52 · provenance 27/27 · detection attribution 12/12 ·
+X1–X3/Y2 22/22 · `docs_reconcile --gate` PASS · 0 violations.
+
+**Next per owner order: P1 — Windows sensor** (now unblocked). Also open:
+P0-2B release-isolation lifecycle, P0-4 collector reconciliation,
+blindness ALERTING, batch ingest, rail/IA re-alignment.

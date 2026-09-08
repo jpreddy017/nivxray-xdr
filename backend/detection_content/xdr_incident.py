@@ -23,6 +23,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from services import incident_provenance as prov
+
+
 
 INCIDENT_COLLECTION   = "workspace_cases"
 INCIDENT_MIN_SCORE    = int(os.environ.get("INCIDENT_MIN_SCORE", "55"))
@@ -303,16 +306,43 @@ async def _consolidate(db, canonical: dict, detection: dict | None,
                                       max(len(rule_ids) - 1, 0))
                       or existing.get("title")),
         })
+    # Owner directive · consolidating an observation of one provenance
+    # class into an incident of another does not launder either one. It
+    # makes the incident honestly MIXED_PROVENANCE, and the merge is
+    # recorded in the append-only worklog so the change is auditable.
+    incoming = _provenance_of_pipeline(canonical, trace_id)
+    merged_class = prov.merge(existing.get("provenance"),
+                              incoming["provenance"])
+    prov_changed = merged_class != existing.get("provenance")
+    if prov_changed:
+        update.update(prov.stamp(
+            merged_class,
+            basis=(f"consolidation: incident was "
+                   f"{existing.get('provenance') or 'unlabelled'}, "
+                   f"incoming observation is {incoming['provenance']}"),
+            evidence={"previous": existing.get("provenance"),
+                      "incoming": incoming["provenance"],
+                      "incoming_basis": incoming["provenance_basis"]}))
+
+    history = [{
+        "state": existing.get("incident_state"),
+        "at": now_iso, "actor": INCIDENT_ENGINE_ID,
+        "reason": ("enriched by a further observation of the same endpoint "
+                   "campaign" + (" · escalated" if escalates else ""))}]
+    if prov_changed:
+        history.append({
+            "state": existing.get("incident_state"),
+            "at": now_iso, "actor": INCIDENT_ENGINE_ID,
+            "kind": "provenance_change",
+            "reason": (f"provenance {existing.get('provenance') or 'unset'} "
+                       f"→ {merged_class} on consolidation of a "
+                       f"{incoming['provenance']} observation")})
+
     await db[INCIDENT_COLLECTION].update_one(
         {"id": existing["id"]},
         {"$set": update,
          "$push": {"endpoint_campaign.detections": row,
-                   "incident_state_history": {
-                       "state": existing.get("incident_state"),
-                       "at": now_iso, "actor": INCIDENT_ENGINE_ID,
-                       "reason": ("enriched by a further observation of the "
-                                  "same endpoint campaign"
-                                  + (" · escalated" if escalates else ""))}}})
+                   "incident_state_history": {"$each": history}}})
     n = len(camp.get("detections") or []) + 1
     return {
         "created":      False,
@@ -436,6 +466,13 @@ async def materialise_incident(db, canonical: dict, iue: dict,
         }
         doc["iocs"] = {"host": [hostname or endpoint_id]}
 
+    # Owner directive 2026-06 · an incident may not be created without a
+    # declared provenance. This is the ONLY creation site, so the gate
+    # here is the whole gate. The label is derived from the evidence this
+    # incident is being built from — never guessed.
+    doc.update(_provenance_of_pipeline(canonical, trace_id))
+    prov.require(doc)
+
     await db[INCIDENT_COLLECTION].insert_one(dict(doc))
     return {
         "created":     True,
@@ -444,9 +481,45 @@ async def materialise_incident(db, canonical: dict, iue: dict,
         "priority":    priority_code,
         "priority_label": priority_label,
         "state":       _INITIAL_STATE,
+        "provenance":  doc["provenance"],
         "engine_id":   INCIDENT_ENGINE_ID,
         "collection":  INCIDENT_COLLECTION,
         "honesty_note":
             "Incident materialised only because verdict passed the gate. "
             "Full provenance chain preserved in xdr_pipeline sub-document.",
     }
+
+
+def _provenance_of_pipeline(canonical: dict, trace_id: str) -> dict:
+    """Provenance of an incident the pipeline is creating right now.
+
+    The canonical event carries the provenance of the evidence it was
+    built from, so this is a read of a recorded fact rather than an
+    inference. Anything the canonical event cannot account for is
+    `PROVENANCE_UNKNOWN`.
+    """
+    src = (canonical or {}).get("provenance") or {}
+    kind = str(src.get("source_kind") or src.get("kind") or "").lower()
+    sensor = src.get("sensor_version") or src.get("agent_version")
+    if kind == "sensor" and sensor:
+        return prov.stamp(
+            prov.REAL_SENSOR_DERIVED,
+            basis=f"canonical event provenance records delivery by an "
+                  f"authenticated sensor (source_kind={kind}, "
+                  f"sensor_version={sensor})",
+            evidence={"trace_id": trace_id, "source_kind": kind,
+                      "sensor_version": sensor})
+    if kind in ("replay", "corpus"):
+        return prov.stamp(prov.REPLAY_DERIVED,
+                          basis=f"canonical event provenance records a "
+                                f"replayed corpus (source_kind={kind})",
+                          evidence={"trace_id": trace_id,
+                                    "source_kind": kind})
+    return prov.stamp(
+        prov.PROVENANCE_UNKNOWN,
+        basis=f"canonical event provenance does not attribute this "
+              f"evidence to a sensor (source_kind={kind or 'absent'}, "
+              f"sensor_version={sensor or 'absent'}); origin is therefore "
+              f"not established and is not inferred",
+        evidence={"trace_id": trace_id, "source_kind": kind or None,
+                  "sensor_version": sensor})

@@ -219,6 +219,12 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
         "assignee":    doc.get("incident_assignee"),
         # Human-facing number; `id` stays the authoritative identity.
         "incident_number": doc.get("incident_number"),
+        # Owner directive 2026-06 · an analyst must be able to tell a real
+        # incident from a seeded or synthetic one without asking anyone.
+        "provenance":       doc.get("provenance") or "PROVENANCE_UNKNOWN",
+        "provenance_basis": doc.get("provenance_basis") or
+                            ("no provenance recorded on this incident"),
+        "provenance_is_real": bool(doc.get("provenance_is_real")),
         "state":       doc.get("incident_state") or "new",
         "last_activity": updated,
         # Auto-Investigation state · reads engine_executions, else NOT_RUN.
@@ -401,6 +407,12 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
         "assignee":    doc.get("incident_assignee"),
         # Human-facing number; `id` stays the authoritative identity.
         "incident_number": doc.get("incident_number"),
+        # Owner directive 2026-06 · an analyst must be able to tell a real
+        # incident from a seeded or synthetic one without asking anyone.
+        "provenance":       doc.get("provenance") or "PROVENANCE_UNKNOWN",
+        "provenance_basis": doc.get("provenance_basis") or
+                            ("no provenance recorded on this incident"),
+        "provenance_is_real": bool(doc.get("provenance_is_real")),
         "state":       doc.get("incident_state") or "new",
         "state_history": history,
         # ── Phase-1 operational extensions ──────────────────────────
@@ -1002,6 +1014,7 @@ async def list_incidents(
 
     projection = {
         "_id": 0, "id": 1, "incident_number": 1, "name": 1, "title": 1, "doc_type": 1,
+        "provenance": 1, "provenance_basis": 1, "provenance_is_real": 1,
         "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "verdict_stage2": 1,
         "verdict_card": 1, "incident_state": 1, "incident_assignee": 1,
@@ -1185,3 +1198,35 @@ async def patch_operations(incident_id: str,
     _col.update_one(scoped_q, {"$set": updates})
     doc = _col.find_one(scoped_q)
     return _project_detail(doc)
+
+
+@router.get("/provenance/summary")
+def provenance_summary(user: dict = Depends(get_current_user)) -> dict:
+    """Provenance distribution inside the caller's tenant authorization.
+
+    Owner directive 2026-06: the console must be able to state how many
+    incidents are real without anyone having to ask an engineer.
+    """
+    from services import incident_provenance as prov
+    from services.dashboard_lenses import resolve_tenant_scope
+    scope = resolve_tenant_scope((user or {}).get("email"))
+    if not scope.get("authorized"):
+        raise HTTPException(status_code=403,
+                            detail={"error": "TENANT_SCOPE_UNAUTHORIZED"})
+    tenants = None if scope.get("all_tenants") else scope["tenant_ids"]
+    out = prov.summary(_db_sync_for_provenance(), tenants)
+    out["vocabulary"] = {k: v for k, v in prov.MEANING.items()}
+    out["real_classes"] = list(prov.REAL_CLASSES)
+    out["scope"] = "all_tenants" if tenants is None else tenants
+    return out
+
+
+class _SyncDb:
+    """Minimal mapping so the provenance service stays storage-agnostic."""
+
+    def __getitem__(self, name):
+        return sync_collection(name)
+
+
+def _db_sync_for_provenance():
+    return _SyncDb()

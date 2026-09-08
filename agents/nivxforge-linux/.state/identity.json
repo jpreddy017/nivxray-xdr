@@ -1,0 +1,61 @@
+{
+  "tenant_id": "default",
+  "endpoint_id": "ep_2d57cbe6f80152062109",
+  "credential_id": "cred_81f9a04c424e4e91",
+  "agent_credential": "eak_TbPLvLRstHkTPPp_3L7MaF5UgPgSDADO_HMQuw3CVX0",
+  "enrolled_at": "2026-09-08T00:31:20.341113+00:00",
+  "capabilities": {
+    "collects": [
+      "PROCESS",
+      "FILE",
+      "NETWORK"
+    ],
+    "fields_supported": [
+      "process.pid",
+      "process.ppid",
+      "process.image",
+      "process.image_path",
+      "process.sha256",
+      "process.command_line",
+      "process.user",
+      "process.start_time",
+      "process.parent_image",
+      "process.parent_image_path",
+      "file.path",
+      "file.filename",
+      "file.size",
+      "file.sha256",
+      "file.operation",
+      "network.protocol",
+      "network.local_ip",
+      "network.local_port",
+      "network.remote_ip",
+      "network.remote_port",
+      "network.direction",
+      "network.process_iid"
+    ],
+    "fields_not_supported": [
+      "process.exit_time",
+      "process.signer",
+      "process.integrity",
+      "file.actor_process",
+      "registry.*",
+      "usb_device.*",
+      "memory.*"
+    ],
+    "response_actions": [
+      "KILL_PROCESS"
+    ],
+    "response_actions_conditional": {
+      "ISOLATE_ENDPOINT": "requires CAP_NET_ADMIN and nft or iptables on this endpoint",
+      "RELEASE_ISOLATION": "requires CAP_NET_ADMIN and nft or iptables on this endpoint"
+    },
+    "collection_method": "PROC_POLL",
+    "limits": [
+      "process exit is not observed; polling cannot distinguish exit from a missed scan",
+      "the file writer is not observed; a path change does not identify the process that made it",
+      "processes that start and exit within one poll interval are missed entirely \u2014 a visibility gap, not an absence of activity",
+      "no eBPF, so no syscall-level fidelity"
+    ]
+  }
+}

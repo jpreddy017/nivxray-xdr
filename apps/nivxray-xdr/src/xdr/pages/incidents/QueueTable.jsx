@@ -11,6 +11,7 @@ import {
   PriorityChip, SeverityChip, VerdictChip, StateChip,
 } from "@/xdr/components/chips";
 import { NxHonestyChip, NxChip, NxLink } from "@/xdr/nx";
+import { ProvenanceChip } from "@/xdr/components/ProvenanceChip";
 
 // Default column set + sortable metadata.  All 15 columns known
 // to the backend projection; visible/hidden and ordering is
@@ -25,6 +26,7 @@ export const ALL_COLUMNS = [
   { id: "severity",          label: "Severity",          sort: "severity",     w: 100 },
   { id: "name",              label: "Incident",          sort: null,           w: 260 },
   { id: "verdict",           label: "Verdict",           sort: null,           w: 108 },
+  { id: "provenance",        label: "Provenance",        sort: null,           w: 150 },
   { id: "customer",          label: "Customer",          sort: "customer",     w: 130 },
   { id: "detection_source",  label: "Detection Source",  sort: null,           w: 140 },
   { id: "evidence_count",    label: "Evidence",          sort: null,           w:  86 },
@@ -94,6 +96,12 @@ function renderCell(colId, r, onDrill) {
       return r.severity ? <SeverityChip value={r.severity} /> : <SeverityChip value="unknown" />;
     case "name":
       return null;  // handled specially by caller
+    case "provenance":
+      // Owner directive 2026-06 · an analyst must be able to tell a real
+      // incident from a seeded or synthetic one without asking anyone.
+      // PROVENANCE_UNKNOWN is an honest absence, NOT a claim of fakery,
+      // so it is toned neutral rather than as a failure.
+      return <ProvenanceChip value={r.provenance} basis={r.provenance_basis} />;
     case "verdict":
       return r.verdict?.stage2_label
         ? <VerdictChip value={r.verdict.stage2_label} />

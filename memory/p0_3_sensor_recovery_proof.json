@@ -1,0 +1,213 @@
+{
+ "generated_at": "2026-09-08T01:46:15.314794+00:00",
+ "pass": 41,
+ "fail": 0,
+ "blocked": 0,
+ "gates": [
+  {
+   "state": "PASS",
+   "gate": "A1 sensor is a supervised program",
+   "detail": "nivxforge_sensor                 RUNNING   pid 18050, uptime 0:01:28"
+  },
+  {
+   "state": "PASS",
+   "gate": "A2 durable state lives on a persistent path",
+   "detail": "/app/agents/nivxforge-linux/.state/identity.json exists=True"
+  },
+  {
+   "state": "PASS",
+   "gate": "A3 credential file is 0600",
+   "detail": "600"
+  },
+  {
+   "state": "PASS",
+   "gate": "A4 re-enrolment resolved to the SAME platform-minted endpoint identity (history stays attached)",
+   "detail": "ep_2d57cbe6f80152062109 == ep_2d57cbe6f80152062109"
+  },
+  {
+   "state": "PASS",
+   "gate": "A5 re-enrolment did NOT reset the delivery record (pre-outage 225 events preserved and added to)",
+   "detail": "event_count=12605 sensor_state=REPORTING"
+  },
+  {
+   "state": "PASS",
+   "gate": "B1 route answers",
+   "detail": "HTTP 200"
+  },
+  {
+   "state": "PASS",
+   "gate": "B2 thresholds are derived from the SENSOR'S OWN declared cadence",
+   "detail": "DECLARED_BY_SENSOR \u00b7 interval=15.0s"
+  },
+  {
+   "state": "PASS",
+   "gate": "B3 the derivation formula travels with the answer",
+   "detail": "stale_after_s = max(report_interval_s \u00d7 3, 60) \u00b7 blind_after_s = max(report_interval_s \u00d7 20, 900)"
+  },
+  {
+   "state": "PASS",
+   "gate": "B4 the recovered endpoint reads DELIVERING",
+   "detail": "DELIVERING \u00b7 DELIVERY_WITHIN_DECLARED_CADENCE \u00b7 last delivery 2s ago, inside 60s (3 \u00d7 15s cadence)"
+  },
+  {
+   "state": "PASS",
+   "gate": "B5 the sensor link is separately confirmed by a heartbeat (a quiet sensor is not a dead sensor)",
+   "detail": "link_confirmed=True heartbeat_age=24s"
+  },
+  {
+   "state": "PASS",
+   "gate": "B6 past the cadence-derived stale threshold the same delivery record reads STALE",
+   "detail": "STALE \u00b7 DELIVERY_LATE_LINK_UNCONFIRMED"
+  },
+  {
+   "state": "PASS",
+   "gate": "B7 past the blindness threshold it reads BLIND_NO_DELIVERY",
+   "detail": "BLIND_NO_DELIVERY \u00b7 DELIVERY_CEASED"
+  },
+  {
+   "state": "PASS",
+   "gate": "B8 STALE distinguishes a live link from a lost one in its basis",
+   "detail": "LINK_ALIVE_NO_NEW_EVIDENCE vs DELIVERY_LATE_LINK_UNCONFIRMED"
+  },
+  {
+   "state": "PASS",
+   "gate": "B8b a sensor that is alive and BEHIND is reported as backlogged, not as 'no new evidence' (found by this proof failing against the real box under load)",
+   "detail": "DELIVERY_BACKLOGGED_AT_SENSOR"
+  },
+  {
+   "state": "PASS",
+   "gate": "B9 fleet summary counts every state separately",
+   "detail": "PARTIALLY_DELIVERING \u00b7 {'DELIVERING': 1, 'STALE': 0, 'BLIND_NO_DELIVERY': 178} of 179 enrolled"
+  },
+  {
+   "state": "PASS",
+   "gate": "B10 an endpoint that never delivered is NEVER_DELIVERED, not lumped in with one that stopped",
+   "detail": "never_delivered=120 \u00b7 bases=['CREDENTIAL_REVOKED', 'DELIVERY_WITHIN_DECLARED_CADENCE', 'NEVER_DELIVERED']"
+  },
+  {
+   "state": "PASS",
+   "gate": "B11 a revoked credential is stated as such, not as a fault",
+   "detail": "bases=['CREDENTIAL_REVOKED', 'DELIVERY_WITHIN_DECLARED_CADENCE', 'NEVER_DELIVERED']"
+  },
+  {
+   "state": "PASS",
+   "gate": "B12 blindness never reads as an all-clear",
+   "detail": "Blind means the platform is receiving nothing from this endpoint. It is NOT a st\u2026"
+  },
+  {
+   "state": "PASS",
+   "gate": "B13 heartbeat is authenticated and accepted",
+   "detail": "HTTP 200 CONNECTED"
+  },
+  {
+   "state": "PASS",
+   "gate": "B14 the heartbeat advanced NEITHER last_telemetry_at NOR event_count (it is liveness, not evidence)",
+   "detail": "telemetry_at unchanged=True event_count 12605\u219212605"
+  },
+  {
+   "state": "PASS",
+   "gate": "B15 the heartbeat created no raw event",
+   "detail": "20459 raw events, unchanged"
+  },
+  {
+   "state": "PASS",
+   "gate": "C1 the sensor observed the real process and delivered it through the authenticated ingest",
+   "detail": "raw_id=raw_e144b1dfb894753cb64ef529 trust=AUTHENTICATED ingest_time=2026-09-08T01:45:32.575215+00:00"
+  },
+  {
+   "state": "PASS",
+   "gate": "C2 the immutable raw event is attributed to THIS endpoint",
+   "detail": "{\"authenticated_endpoint_id\": \"ep_2d57cbe6f80152062109\", \"credential_id\": \"cred_81f9a04c424e4e91\", \"session_id\": \"sess_c"
+  },
+  {
+   "state": "PASS",
+   "gate": "C3 canonical evidence was created and joins back to the raw event",
+   "detail": "canonical_event_id=cev_e144b1dfb894753cb64ef529_0 process_iid=proc_3134c2906d55"
+  },
+  {
+   "state": "PASS",
+   "gate": "C4 canonical provenance carries the AUTHENTICATED SENSOR attribution (P0-3 defect fix \u2014 it used to be dropped, so live sensor incidents were born PROVENANCE_UNKNOWN)",
+   "detail": "{\"trace_id\": \"raw_e144b1dfb894753cb64ef529\", \"collector_id\": \"ep_2d57cbe6f80152062109\", \"integration_id\": \"nivxforge-linux-sensor\", \"normalizer_id\": \"nivxforge-linux-sensor-normalizer\", \"dsm_id\": \"nivxforge-linux-sensor\", \"source_kind\": \"sensor\", \"sensor_version\": \"0.1.0\", \"trust_state\": \"AUTHENTICATED\"}"
+  },
+  {
+   "state": "PASS",
+   "gate": "C5 the fresh process appears in the EDR Process Tree with real kernel-read attributes",
+   "detail": "pid=18304 sha256=b3b6a64af5af319f\u2026 cmd=/var/tmp/nivxforge-watch/nivx-p03-proof-1788831787 240"
+  },
+  {
+   "state": "PASS",
+   "gate": "C6 the fresh process appears in Device Trajectory",
+   "detail": "8499 events in the 1h window"
+  },
+  {
+   "state": "PASS",
+   "gate": "C7 XDR projection \u00b7 post-recovery evidence reached an XDR incident, followed through the detection derivation itself",
+   "detail": "32 post-recovery detected raw event(s) \u2192 incident(s) ['inc_57fee8bc67a047da9685'] \u00b7 INC000000446 created 2026-09-08T00:31:23.371114+00:00"
+  },
+  {
+   "state": "PASS",
+   "gate": "C8 that incident is labelled REAL_SENSOR_DERIVED from evidence",
+   "detail": "REAL_SENSOR_DERIVED \u00b7 previous=PROVENANCE_UNKNOWN \u00b7 re-classified from PROVENANCE_UNKNOWN on the same evidence rule after the P0-3 canonical-attribution fix \u00b7 traced to raw event delivered by "
+  },
+  {
+   "state": "PASS",
+   "gate": "C8b the incident CREATION path now labels live sensor evidence REAL_SENSOR_DERIVED at birth (the defect was in the creation path, not the backfill)",
+   "detail": "REAL_SENSOR_DERIVED \u00b7 canonical event provenance records delivery by an authenticated sensor (source_kind=sensor, sensor_version=0.1.0)"
+  },
+  {
+   "state": "PASS",
+   "gate": "C9 a detection fired on POST-RECOVERY evidence",
+   "detail": "5 detection(s) recorded after 2026-09-08T01:42:38.898743+00:00"
+  },
+  {
+   "state": "PASS",
+   "gate": "C10 the detection fabric is evaluating post-recovery evidence",
+   "detail": "32 raw events delivered since recovery carry a DETECTION_MATCHED derivation (5 during this run)"
+  },
+  {
+   "state": "PASS",
+   "gate": "D1 the process tree discloses what exists OUTSIDE the window",
+   "detail": "{\"state\": \"OK\", \"observations_in_window\": 116, \"observations_outside_window\": 486, \"processes_outside_window\": 474}"
+  },
+  {
+   "state": "PASS",
+   "gate": "D2 an endpoint whose evidence is ALL outside the window returns EVIDENCE_OUTSIDE_WINDOW, never 'no matching evidence'",
+   "detail": "EVIDENCE_OUTSIDE_WINDOW \u00b7 3 process(es) outside \u00b7 3 observed process(es) across 40 observation(s) exist for this endpoint, but ALL of them fall OUTSIDE the last 24h. The most recent is 2026-02-25T14:00:20+00:00. This window is empty; the endpoint is not."
+  },
+  {
+   "state": "PASS",
+   "gate": "D3 widening the window from the console reaches evidence a 1h window could not",
+   "detail": "1h=116 in window \u2192 720h=598"
+  },
+  {
+   "state": "PASS",
+   "gate": "D4 the maximum reachable window is disclosed, so unreachable evidence is not silently unreachable",
+   "detail": "720"
+  },
+  {
+   "state": "PASS",
+   "gate": "E1 a forged identifier is ENDPOINT_NOT_RESOLVED, not an empty fleet",
+   "detail": "ENDPOINT_NOT_RESOLVED"
+  },
+  {
+   "state": "PASS",
+   "gate": "E2 a cross-tenant analyst learns nothing about a `default` endpoint through the freshness route",
+   "detail": "state=ENDPOINT_NOT_RESOLVED endpoints=0"
+  },
+  {
+   "state": "PASS",
+   "gate": "F1 supervisor brought the sensor back after SIGKILL",
+   "detail": "nivxforge_sensor                 RUNNING   pid 18319, uptime 0:00:25 \u00b7 pids ['18296'] \u2192 ['18319']"
+  },
+  {
+   "state": "PASS",
+   "gate": "F2 it resumed the SAME endpoint identity from persistent state (no duplicate endpoint, no orphaned history)",
+   "detail": "ep_2d57cbe6f80152062109 \u00b7 1 enrolment row(s) for this hostname"
+  },
+  {
+   "state": "PASS",
+   "gate": "F3 delivery resumed after the restart and the console says so",
+   "detail": "DELIVERING \u00b7 last delivery 6s ago, inside 60s (3 \u00d7 15s cadence)"
+  }
+ ]
+}

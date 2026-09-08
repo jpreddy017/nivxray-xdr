@@ -127,8 +127,9 @@ beautiful UI → fake objects → figure out the backend later
 
 Cisco attribution for this pattern is `OWNER_ASSERTED` and unverified
 (`SOURCE_REGISTER` A10); we adopt it on our own evidence. This repository
-has **865 live API routes** against a small number of operational
-capabilities, and the recurring defect class has been *surfaces asserting
+has a very large API surface against a small operational core (exact
+counts: `08_VALIDATION/REALITY_MATRIX.md`), and the recurring defect
+class has been *surfaces asserting
 more than their API can prove*. API-first is the fix for our own observed
 failure mode, not an imitation.
 

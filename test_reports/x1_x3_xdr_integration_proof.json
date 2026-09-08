@@ -6,7 +6,7 @@
    "item": "X2_rule_id_search_spans_entity_types",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "14 results \u00b7 {'INCIDENT': 4, 'DETECTION': 10} \u00b7 classified RULE_ID"
+   "detail": "15 results \u00b7 {'INCIDENT': 5, 'DETECTION': 10} \u00b7 classified RULE_ID"
   },
   {
    "item": "X2_detection_result_opens_the_exact_observation",
@@ -18,7 +18,7 @@
    "item": "X2_hostname_resolves_the_endpoint",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "{'INCIDENT': 4, 'ENDPOINT': 1} \u00b7 endpoint href ['/edr/device-trajectory?device=dev_42e8c6dc74b9']"
+   "detail": "{'INCIDENT': 5, 'ENDPOINT': 1} \u00b7 endpoint href ['/edr/device-trajectory?device=dev_42e8c6dc74b9']"
   },
   {
    "item": "X2_evidence_identifier_resolves_evidence_process_and_detection",
@@ -72,7 +72,7 @@
    "item": "X3_linked_xdr_incidents_are_resolved",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "4 incidents \u00b7 ['INC000000293', 'INC000000232', 'INC000000231', 'INC000000230'] \u00b7 basis workspace_cases.endpoint_campaign, matched on the endpoint i"
+   "detail": "5 incidents \u00b7 ['INC000000446', 'INC000000293', 'INC000000232', 'INC000000231'] \u00b7 basis workspace_cases.endpoint_campaign, matched on the endpoint i"
   },
   {
    "item": "X3_linked_incidents_fail_closed_cross_tenant",
@@ -90,7 +90,7 @@
    "item": "X3_explicit_identifier_wins_over_incident_derived_ids",
    "result": "PASS",
    "status": "REAL_RUNTIME_VERIFIED",
-   "detail": "named raw_fac9185acde4f8ccebef7a3b with incident context held -> raw_fac9185acde4f8ccebef7a3b \u00b7 lane 339 \u00b7 incident inc_2305c71cd8f54dc38e55"
+   "detail": "named raw_fac9185acde4f8ccebef7a3b with incident context held -> raw_fac9185acde4f8ccebef7a3b \u00b7 lane 369 \u00b7 incident inc_2305c71cd8f54dc38e55"
   },
   {
    "item": "X3_incident_only_pivot_still_resolves_from_the_campaign",

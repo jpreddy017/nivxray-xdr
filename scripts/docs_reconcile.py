@@ -182,9 +182,22 @@ def truth() -> dict:
             "enrolments": db["edr_endpoints"].count_documents({}),
             "platforms": sorted(str(p) for p in
                                 db["edr_endpoints"].distinct("platform") if p),
-            "incidents": db["workspace_cases"].count_documents({}),
+            "incidents": db["workspace_cases"].count_documents(
+                {"doc_type": "xdr_incident"}),
             "incidents_with_provenance": db["workspace_cases"].count_documents(
-                {"provenance": {"$exists": True}}),
+                {"doc_type": "xdr_incident",
+                 "provenance": {"$exists": True}}),
+            "incidents_real_sensor_derived":
+                db["workspace_cases"].count_documents(
+                    {"doc_type": "xdr_incident",
+                     "provenance": "REAL_SENSOR_DERIVED"}),
+            "incidents_provenance_unknown":
+                db["workspace_cases"].count_documents(
+                    {"doc_type": "xdr_incident",
+                     "provenance": "PROVENANCE_UNKNOWN"}),
+            "analysis_cases_same_collection":
+                db["workspace_cases"].count_documents(
+                    {"doc_type": "analysis_case"}),
             "canonical_events": db["xdr_canonical_events"].count_documents({}),
             "detections_from_real": db["edr_raw_events"].count_documents(
                 {**real, "derivations.outcome": "DETECTION_MATCHED"}),
@@ -368,9 +381,17 @@ def gen_reality_matrix(t) -> str:
             f"| Detections derived from REAL events | "
             f"**{tl['detections_from_real']}** |",
             f"| Canonical events | {tl['canonical_events']} |",
-            f"| Incidents | {tl['incidents']} |",
+            f"| Incidents (`doc_type=xdr_incident`) | {tl['incidents']} |",
             f"| — carrying a provenance label | "
             f"**{tl['incidents_with_provenance']}** |",
+            f"| — **`REAL_SENSOR_DERIVED`** (traced to real sensor "
+            f"evidence) | **{tl['incidents_real_sensor_derived']}** |",
+            f"| — `PROVENANCE_UNKNOWN` (origin not establishable from "
+            f"evidence; **not** a claim of fabrication) | "
+            f"{tl['incidents_provenance_unknown']} |",
+            f"| `analysis_case` documents sharing the same collection "
+            f"(a DIFFERENT object, not incidents) | "
+            f"{tl['analysis_cases_same_collection']} |",
             f"| Response commands | {tl['response_commands']} |",
             f"| — by state | "
             f"{', '.join(f'`{k}` {v}' for k, v in sorted(tl['response_by_state'].items()))} |",

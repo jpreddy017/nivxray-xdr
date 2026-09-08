@@ -31,15 +31,10 @@ Every piece of evidence carries: producer identity, tenant attribution,
 collection time, ingest time, sensor/source version, and the
 transformation chain that produced any derived form.
 
-**The one place provenance is missing is incidents.** There are incidents
-in the operational store and **none carry a provenance label**, so real
-and development-seeded incidents cannot be distinguished. That is a
-genuine hole in the audit trail: the canonical events and detections
-*are* traceable to real producer events, but the incident count is not.
-
-Required (`ALPHA` gate): every incident stamped
-`REAL_SENSOR_DERIVED` | `SEEDED_FOR_DEVELOPMENT` | `REPLAYED_CORPUS`,
-displayed on the incident surface, and enforced at write time.
+Incidents were the one place provenance was missing. **Closed in P-2
+(2026-06):** every incident now carries a class, a basis and the
+artefact it traced, enforced at write time. See
+`INCIDENT_ARCHITECTURE.md` §5.
 
 ## 3 · Tenant attribution
 

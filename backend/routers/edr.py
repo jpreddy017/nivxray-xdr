@@ -27,6 +27,7 @@ from services.edr import endpoint_query as eq
 from services.edr import observation_narrative as narrative_svc
 from services.edr import file_trajectory as file_traj_svc
 from services.edr.endpoint_health import resolve_endpoint_health
+from services.edr import telemetry_freshness as fresh_svc
 
 router = APIRouter(prefix="/edr", tags=["edr"])
 
@@ -204,6 +205,73 @@ def _project_process_tree(doc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _window_honesty(store: str, match: Dict[str, Any], since: str,
+                    hours: int) -> Dict[str, Any]:
+    """P0-3 · what exists OUTSIDE the window the caller asked for.
+
+    The defect this closes: `/edr/process-tree?hours=24` returned "NO
+    MATCHING EVIDENCE" for an endpoint holding 439 process nodes 25 hours
+    away. An empty window is a statement about the WINDOW, and it may
+    never be presented as a statement about the endpoint. The count has to
+    come from the backend because only the backend can see past the
+    caller's own filter.
+    """
+    iid = {"$ifNull": ["$event.process.iid",
+                       {"$ifNull": ["$event.process.process_iid",
+                                    "$event.process_iid"]}]}
+    rows = list(sync_collection(store).aggregate([
+        {"$match": match},
+        {"$group": {
+            "_id": {"$cond": [{"$gte": ["$captured_at", since]},
+                              "in_window", "outside_window"]},
+            "observations": {"$sum": 1},
+            "processes": {"$addToSet": iid},
+            "earliest": {"$min": "$captured_at"},
+            "latest": {"$max": "$captured_at"}}},
+    ]))
+    buckets = {r["_id"]: r for r in rows}
+    inw = buckets.get("in_window") or {}
+    out = buckets.get("outside_window") or {}
+
+    def procs(b: Dict[str, Any]) -> int:
+        return len([p for p in (b.get("processes") or []) if p])
+
+    total = int(inw.get("observations") or 0) + int(out.get("observations") or 0)
+    if int(inw.get("observations") or 0):
+        state, statement = "OK", None
+    elif int(out.get("observations") or 0):
+        state = "EVIDENCE_OUTSIDE_WINDOW"
+        statement = (
+            f"{procs(out)} observed process(es) across "
+            f"{int(out['observations'])} observation(s) exist for this "
+            f"endpoint, but ALL of them fall OUTSIDE the last {hours}h. The "
+            f"most recent is {out.get('latest')}. This window is empty; the "
+            f"endpoint is not.")
+    else:
+        state = "NO_EVIDENCE_RETAINED"
+        statement = ("No process evidence is retained for this endpoint in "
+                     "any window. That is a visibility gap, not an absence "
+                     "of activity.")
+    return {
+        "hours": hours,
+        "since": since,
+        "max_window_hours": 24 * 30,
+        "state": state,
+        "statement": statement,
+        "observations_in_window": int(inw.get("observations") or 0),
+        "observations_outside_window": int(out.get("observations") or 0),
+        "processes_outside_window": procs(out),
+        "retained_observations_total": total,
+        "earliest_evidence_at": min([v for v in (inw.get("earliest"),
+                                                 out.get("earliest")) if v],
+                                    default=None),
+        "latest_evidence_at": max([v for v in (inw.get("latest"),
+                                               out.get("latest")) if v],
+                                  default=None),
+        "basis": f"{store} · same endpoint predicate, time bound removed",
+    }
+
+
 def _project_endpoint_process_tree(endpoint_id: str,
                                    hours: int,
                                    scope: Any = None) -> Dict[str, Any]:
@@ -232,16 +300,19 @@ def _project_endpoint_process_tree(endpoint_id: str,
                     "message": ("no endpoint you are authorised for "
                                 "resolves to this reference")}}
     identity = res.identity
+    window_hours = max(1, min(hours, 24 * 30))
     since = (datetime.now(timezone.utc)
-             - timedelta(hours=max(1, min(hours, 24 * 30)))).isoformat()
+             - timedelta(hours=window_hours)).isoformat()
     # P0-W.F-1 / P0-2C: address the endpoint by EVERY identifier the
     # resolved identity owns, over the store's DECLARED identity fields.
     refs = res.refs
+    match = {"kind": {"$regex": "process"},
+             **res.predicate("v2_shadow_observations")}
     docs = list(sync_collection("v2_shadow_observations").find(
-        {"kind": {"$regex": "process"},
-         **res.predicate("v2_shadow_observations"),
-         "captured_at": {"$gte": since}},
+        {**match, "captured_at": {"$gte": since}},
         {"_id": 0, "event": 1, "captured_at": 1, "adapter": 1}))
+    window = _window_honesty("v2_shadow_observations", match, since,
+                             window_hours)
 
     nodes: Dict[str, Dict[str, Any]] = {}
     for d in docs:
@@ -304,7 +375,8 @@ def _project_endpoint_process_tree(endpoint_id: str,
                      "device_iid": (identity or {}).get("device_iid"),
                      "resolved_via": (identity or {}).get("resolved_via"),
                      "addressed_by": refs},
-        "window_hours": hours,
+        "window_hours": window_hours,
+        "window": window,
         "nodes": sorted(nodes.values(),
                         key=lambda n: (str(n.get("first_seen") or ""),
                                        n["process_iid"])),
@@ -312,7 +384,10 @@ def _project_endpoint_process_tree(endpoint_id: str,
         "counts": {"observed": sum(1 for n in nodes.values()
                                    if n["observed"]),
                    "ghost_parents": ghosts, "roots": len(roots)},
-        "reason": "ok" if nodes else "no_matching_evidence",
+        "reason": ("ok" if nodes
+                   else ("evidence_outside_window"
+                         if window["state"] == "EVIDENCE_OUTSIDE_WINDOW"
+                         else "no_matching_evidence")),
         "source": "v2_shadow_observations · canonical process_iid/parent_iid",
         "note": ("Links are canonical process identities, never pid alone — "
                  "Linux reuses pids. A ghost root is a real gap in "
@@ -531,6 +606,27 @@ async def fleet_spread_index(user=Depends(get_current_user)):
 # is a pure projection — no new store, no new engine.  The XDR
 # Endpoints screen consumes this list; every row's `latest_incident_id`
 # points back into the existing incident record.
+# ── P0-3 · telemetry freshness / blindness ──────────────────────────
+@router.get("/telemetry/freshness")
+async def telemetry_freshness(endpoint: str | None = None,
+                              user=Depends(get_current_user)):
+    """Is this product's own telemetry pipeline delivering, or are we blind?
+
+    The console previously had no way to ask this, so a fleet that had
+    stopped delivering months ago rendered exactly like a quiet one. Every
+    state token here is produced by the single delivery-freshness
+    authority in `services/edr/endpoint_health.py`, against thresholds
+    derived from each sensor's OWN declared cadence.
+    """
+    scope = resolve_tenant_scope((user or {}).get("email"))
+    if not scope.get("authorized"):
+        return {"engine_id": "nivxray::edr_plane::telemetry_freshness",
+                "endpoints": [], "count": 0, "fleet": None,
+                "reason": "not_authorized"}
+    return fresh_svc.fleet_freshness(scope, endpoint=endpoint)
+
+
+
 @router.get("/endpoints")
 async def list_endpoints(user=Depends(get_current_user)):
     q = _case_scope(user)

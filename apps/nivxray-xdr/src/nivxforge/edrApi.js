@@ -39,6 +39,16 @@ export async function getEndpointProcessTree(endpointId, hours = 24) {
   return data;
 }
 
+/**
+ * P0-3 · is this product's own telemetry pipeline delivering, or are we
+ * blind? Every state token and threshold comes from the backend.
+ */
+export async function getTelemetryFreshness(endpoint = null) {
+  const { data } = await api.get("/edr/telemetry/freshness",
+                                 { params: endpoint ? { endpoint } : {} });
+  return data;
+}
+
 // ── Slice 6 ────────────────────────────────────────────────────────
 export async function listEndpoints() {
   const { data } = await api.get("/edr/endpoints");
