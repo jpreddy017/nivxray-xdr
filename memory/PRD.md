@@ -13892,3 +13892,45 @@ The install-command fix (`--frozen-lockfile` removed from
 the project first would fail at install again. So: push only — no project,
 no deploy, no domain. Agent then verifies the corrected install command is
 live on the branch before the project is created.
+
+---
+
+# Branch VERIFIED complete on GitHub · Workspace project creation cleared — 2026-09-08
+
+Owner pushed. Verified on `conflict_310826_2116` via the GitHub **API**
+(not the cached raw CDN, which is how the unpushed lockfile was caught):
+
+| item | state |
+|---|---|
+| `frontend/vercel.json` | 4658 B |
+| `installCommand` | `yarn install --production=false` — **`--frozen-lockfile` REMOVED** |
+| `buildCommand` | guarded CRA command · production API · flags disabled |
+| `outputDirectory` | `build` |
+| guard chained into build | **yes** |
+| `.nvmrc` · `verify-production-build.js` · `package.json` · `craco.config.js` · `App.js` | all 200 |
+| `Header.jsx` · `href: "/xdr"` | **0** — nav cleanup live |
+| `App.js` · `path="/nivxforge` | **0** — product routes removed |
+| `App.js` · `/benchmark` wrapped in `<Protected>` | **1** — security fix live |
+
+The last blocker (install command) is cleared. All three lockfile-class
+failures are now either fixed or bypassed for the Workspace.
+
+## Cleared for the owner · ONE action
+
+Create Project → import `jpreddy017/nivxray-xdr` → name
+`nivxmachines-workspace` → **branch selector `main` → `conflict_310826_2116`**
+→ Root Directory `frontend` → no domain, no env vars → Deploy.
+
+Expected Build/Install/Output to display `yarn install --production=false`,
+the guarded build command and `build`. **If they still display
+`apps/nivxray-xdr`, STOP before Deploy and report** — that means the branch
+selector did not apply.
+
+Still forbidden: any action inside `nivxray-xdr` (LOCKED, Branch Tracking
+`main`, API variable untouched) · attaching `workspace.nivxmachines.com`
+before the build settings are confirmed · XDR/EDR deploys · touching legacy
+production or the frozen Emergent project.
+
+Note for Phase 2: `apps/nivxray-xdr/yarn.lock` on GitHub still lacks
+`d3@^7.9.0` and its `vercel.json` still uses `--frozen-lockfile`, so XDR
+will need the same one-line install change when its turn comes.
