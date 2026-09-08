@@ -13373,3 +13373,111 @@ the real production hostname.
 Workspace build guard **PASSED** · legacy watchdog **healthy** (67 chunks,
 original nav markers intact). No repo change in this pass beyond
 documentation; `apps/nivxray-xdr` source untouched.
+
+
+---
+
+# Phase 2/3 · XDR + EDR deployment PREPARED (1a·2a·3a·4a·5a) · nothing deployed — 2026-09-08
+
+Report: `memory/PHASE2_3_XDR_EDR_DEPLOYMENT_PREP.md`. **No deploy, no DNS,
+no new domains.** Hostnames fixed: `xdr.nivxforge.com`,
+`edr.nivxforge.com`, `workspace.nivxmachines.com`.
+
+## 1 · The finding that drove the design
+
+**XDR and EDR are ONE bundle**, not two apps: `apps/nivxray-xdr/src/App.jsx`
+has **60 routes — 42 `/xdr/*`, 13 `/edr/*`** — and its catch-all is
+`<Route path="*" element={<Navigate to="/xdr" replace />} />`. Attaching
+`edr.nivxforge.com` unguarded would land analysts on **`/xdr/incidents`** —
+XDR served from the EDR hostname, i.e. the exact "silently falls back into
+the wrong product" failure the owner prohibited, shipping on day one.
+
+## 2 · Topology + guard, written and PROVEN
+
+Two Vercel projects, both Root Directory `apps/nivxray-xdr`, one domain
+each → independent deploy / verify / rollback, which is what makes Phase 2
+and Phase 3 separate gates.
+
+**Both projects read the same `apps/nivxray-xdr/vercel.json`**, which is why
+the boundary is **host-conditional redirects** (`has: [{type:"host"}]`) and
+not per-project build settings: a build command cannot tell the projects
+apart, but the edge can tell the hostnames apart.
+
+Six rules, cross-host **first** so the `/` landing rules cannot shadow them,
+bare path **and** `:path*` both listed, `permanent:false` (307 — a 308 would
+be browser-cached, wrong while a topology moves).
+
+`scripts/xdr_edr_redirect_rules_proof.py` reads the **actual** rules,
+re-implements Vercel's matching, and drives the **real route table** parsed
+from `App.jsx` → **11/11 PASS**:
+`/` lands on own product on both hosts · **all 13** `/edr` routes leave the
+XDR host · **all 42** `/xdr` routes leave the EDR host · each host keeps its
+own routes · **every chain terminates** (16 combinations, no loops, no
+ping-pong) · **preview and `*.vercel.app` match no rule**, so Preview XDR
+and Preview EDR are untouched · SPA rewrite intact.
+
+**Coverage limit stated, not hidden:** server redirects fire on every real
+navigation (typed URL, link, bookmark, refresh) but **cannot** fire on
+client-side React navigation. So on the EDR host an unknown path hits the
+app catch-all and client-navigates to `/xdr` — visible until a refresh,
+which self-heals it. Closing it needs a source change (a
+`REACT_APP_PRODUCT_SCOPE=xdr|edr` build var — a *product-scope* variable,
+**not** a cross-product origin variable, so it does not conflict with 4a —
+plus a scope-aware catch-all and full-page cross-product pivots). That is
+outside "prepare configuration and tests" and **was NOT done**; it is
+written up awaiting approval.
+
+## 3 · API origin (3a) + a verified NON-trap
+
+`REACT_APP_NIVXRAY_API_URL=https://nivxray.nivxforge.com` per project in the
+Vercel dashboard · `TEMPORARY_MIGRATION_DEPENDENCY`, so the legacy host
+remains ineligible for retirement after Phase 2/3 too.
+
+**Verified rather than assumed:** this app has **no** dotenv precedence trap.
+`vite.config.js` uses `loadEnv(mode, cwd, "")` and a real env var **does**
+override `.env` — a test build emitted **4 production refs, 0 preview refs**
+even though `.env` still names preview. This is the **opposite** of the CRA
+Workspace app, so the Workspace's "everything in the buildCommand" pattern
+must **not** be copied here; dashboard variables are correct and cleaner for
+two projects sharing one config file.
+
+## 4 · Launcher variables stay UNSET (4a)
+
+`REACT_APP_XDR_URL` / `REACT_APP_EDR_URL` / `REACT_APP_WORKSPACE_URL` unset
+on both projects; `productOrigins.js` then stays honest. The acceptance
+sweep **asserts their absence from the shipped bundle**, so no launcher can
+be switched on by accident.
+
+## 5 · Acceptance + rollback prepared
+
+`scripts/xdr_edr_live_acceptance.py --product xdr|edr` — 9 sections per
+product, gated independently: reachability/TLS · own-product landing ·
+containment both ways **plus** "own deep links are NOT redirected away" ·
+hard-refresh survival · unauth gating · artefact (0 preview origins,
+approved API, launcher origins unset) · zero damage incl. the **sibling
+product** · console errors · authenticated →
+`BLOCKED_BY_PRODUCTION_CREDENTIAL`. Rollback drill documented **per
+product**, asserting the sibling domain is unaffected.
+
+## 6 · Commercial licensing flagged
+
+**Vercel Hobby is non-commercial.** XDR/EDR are sellable, so **Pro is the
+expected plan before serving customers**; verify terms before launch,
+**do not upgrade now** — preparation needs no paid plan.
+
+## 7 · Zero impact on anything running
+
+`vercel.json` (repo root) **unchanged** — and because the existing
+`nivxray-xdr` Vercel project has Root Directory unset, it reads the
+**repo-root** config, so **the new redirects do not affect that project's
+deployments at all**. `apps/nivxray-xdr` **source** unchanged; only its
+`vercel.json` (deployment configuration, explicitly requested). XDR build
+re-verified **exit 0**. Workspace guard **PASSED**. Watchdog **healthy**.
+
+## 8 · Back to the Workspace
+
+XDR/EDR work **stops here**, per the owner. Workspace Phase 1 remains the
+only active item and is blocked solely on the owner-side Vercel/DNS action:
+new project · Root Directory `frontend` · **Production Branch
+`conflict_310826_2116`** (GitHub `main` still has no `frontend/vercel.json`,
+verified directly on GitHub) · domain `workspace.nivxmachines.com`.
