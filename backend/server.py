@@ -167,6 +167,21 @@ if obs_enabled():
 api = APIRouter(prefix="/api")
 
 
+# ── OpenAPI root alias ──────────────────────────────────────────────────
+# The canonical schema stays at `/api/openapi.json` (P0-H, owner-locked, so
+# the ingress can reach it). The RC5 API contract additionally requires the
+# schema at the SPEC-DEFAULT location `/openapi.json`
+# (tests/rc5/api/test_diag_endpoint.py::test_openapi_lists_rc5_parse and the
+# three sibling contract tests). Both now serve the same document.
+#
+# Not an exposure change: the Kubernetes ingress routes only `/api/*` to this
+# service, so `/openapi.json` is reachable in-process (TestClient, local
+# tooling) and never externally. No route, model, prefix or auth is altered.
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi_root_alias() -> dict:
+    return app.openapi()
+
+
 # ── Health endpoints ────────────────────────────────────────────────────
 # `/api/health` = liveness (Cloudflare + k8s can hit cheaply)
 # `/api/health/deep` = readiness (Mongo + LLM key + disk) — for on-call triage
