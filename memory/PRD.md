@@ -14736,3 +14736,49 @@ the XDR project, DNS, API or database. Long term, reconcile both projects onto
 one ref.
 
 STOPPED. Awaiting owner approval.
+
+---
+
+# PUBLISH PROVEN EDR BUILD — WORKSPACE VERIFIED, PUSH IS OWNER-ONLY (2026-06)
+
+Agent cannot perform git writes. "Save to Github" is a chat-input action only
+the owner can trigger. Nothing was pushed, deployed or changed.
+
+**Pre-push verification of the workspace working tree — ALL PASS:**
+- `apps/nivxray-xdr/src/productScope.js` present
+- `apps/nivxray-xdr/src/components/ProductScopeGuard.jsx` present
+- `apps/nivxray-xdr/src/productOrigins.js` present
+- `apps/nivxray-xdr/scripts/vercel-build.sh` present
+- `apps/nivxray-xdr/scripts/verify-production-build.js` present
+- `scripts/refuse-root-deployment.sh` present
+- `apps/nivxray-xdr/vercel.json` redirects: `xdr.nivxforge.com -> /xdr` AND
+  **`edr.nivxforge.com -> /edr`** (both present)
+
+**LOCKFILE RISK CLEARED (this was the Phase-1 failure class):**
+- `apps/nivxray-xdr/yarn.lock` in the working tree is **byte-identical** to
+  `memory/AUTHORITATIVE_XDR_yarn.lock` (1785 lines).
+- It is +287 lines vs the last local commit — that delta IS the d3 dependency
+  tree (`"d3": "^7.9.0"` in package.json, 31 d3 entries in the lock).
+- **`yarn install --production=false --frozen-lockfile` exits 0** — the exact
+  command Vercel runs. So the new branch will install cleanly.
+- Caveat stated honestly: `bb8a4d2` is not in this workspace, so byte-identity
+  with the owner's GitHub D3 fix cannot be asserted — only that the pushed
+  lockfile passes `--frozen-lockfile` with d3 resolved.
+
+**Owner action (only they can do it):** Save button in chat input ->
+"Save to Github" -> repo `jpreddy017/nivxray-xdr` -> type new branch
+`phase2/edr-production` -> "create a new branch" -> Save.
+Save to Github does NOT force-push or modify other branches, so
+`conflict_310826_2116` and `bb8a4d2` stay untouched.
+🔴 If a conflict dialog ever appears, choose **Cancel** or
+**Create Branch & Push** — **NEVER Force Push**.
+`.env` files are excluded from the push by design; harmless here because
+`scripts/vercel-build.sh` injects the API origin (that missing injection was
+the original 405 root cause).
+SHA must be read from GitHub.com (this container has NO git remote, so the
+agent cannot fetch or verify the push).
+
+**STOPPED. Do not repoint Vercel yet.** Next: owner reports branch + SHA, then
+repoint ONLY `nivxray-edr-production` Production Branch and redeploy; accept
+only on `EDR PRODUCTION BUILD GUARD · PASSED` + `/build-info.json` real JSON
+with `product_scope=edr`.
