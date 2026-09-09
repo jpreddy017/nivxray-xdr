@@ -1,0 +1,24 @@
+{
+  "id": "rijndael-managed-ps-1",
+  "algorithm": "RijndaelManaged",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "utf8-key-decode",
+    "utf8-iv-decode",
+    "base64-cipher-decode"
+  ],
+  "runtime_stages": [
+    "rijndael-cbc-decrypt"
+  ],
+  "expected_verdict": "malicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

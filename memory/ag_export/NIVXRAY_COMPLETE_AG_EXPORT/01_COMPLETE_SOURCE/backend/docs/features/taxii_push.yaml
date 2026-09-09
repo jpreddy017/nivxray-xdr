@@ -1,0 +1,25 @@
+id: taxii_push
+title: TAXII 2.1 Push
+category: Admin
+audience: admin
+purpose: Publish extracted IOCs as STIX 2.1 indicator objects to a configurable TAXII 2.1 server.
+when_to_use:
+  - Sharing indicators with your ISAC or upstream feed
+  - Pushing to a MISP-connected TAXII bridge
+  - Automating your intel-sharing workflow
+supported_formats: [url, ipv4, ipv6, domain, email, md5, sha1, sha256, file-name]
+confidence_rules:
+  - Auth modes supported — none / basic / bearer / custom header
+  - Failed pushes are recorded in the push log with the exact URL and error
+tips:
+  - Test discovery FIRST via the "Test Connection" button before pushing
+  - The bundle always includes an `identity` object identifying NivXRay
+related: [threat_intel_enrichment]
+
+capture:
+  login: true
+  steps:
+    - url: /admin
+      wait_for: 'body'
+      delay_ms: 2500
+      full_page: true

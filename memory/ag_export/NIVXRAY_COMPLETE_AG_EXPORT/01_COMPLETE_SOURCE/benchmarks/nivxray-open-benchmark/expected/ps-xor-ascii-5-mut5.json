@@ -1,0 +1,8 @@
+{
+  "id": "ps-xor-ascii-5-mut5",
+  "category": "ps-xor-inline",
+  "expected_keywords": [
+    "powershell"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

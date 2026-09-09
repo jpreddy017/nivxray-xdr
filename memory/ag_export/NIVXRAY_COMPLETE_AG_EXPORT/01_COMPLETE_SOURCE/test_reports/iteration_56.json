@@ -1,0 +1,24 @@
+{
+  "summary": "IEDDE SSOT wiring (P1+P2+P3) validated end-to-end. Backend: 87/87 IEDDE-related unit/integration tests pass (test_iedde_ssot_wiring, test_iedde_endpoint, test_iedde_stage2_stage3, test_interpreter_identifier, test_binary_terminal_state, test_pr212_canonical_evidence_recovery). New API-level suite tests/test_iedde_ssot_api_iter56.py (6 tests) executed against public preview URL — all pass: PS-EncodedCommand canonical(100%), whoami canonical(100%), AES stability_gate(<100), byte-identical determinism on /api/decode/smart, atomic IOC 8.8.8.8 short-circuit (no IEDDE augmentation), /api/analyze/async job doc carries iedde/iedde_terminal_state/canonical_confidence/canonical_confidence_reason at top level. Fingerprint stability: DCS 17/17 byte-identical, R1 107/107 byte-identical. Frontend: logged in via public URL, pasted the powershell -EncodedCommand payload, decoded — recovery-status-ribbon shows THREAT CONFIDENCE 25% + CANONICAL CONFIDENCE 100% + Terminal State pill 'Canonical'; iedde-decision-trace present, toggle opens body with iedde-interpreter-value='powershell', 3 technique chips (utf16le, base64, decoder-powershell-encoded-command), iedde-stage-0 present with planner reasoning; legacy Recipe + Pipeline Trace + Output panels still render below (non-regression); btn-nivxray-decode, btn-auto-investigate, input-textarea all clickable and present; CLEAR hides both new panels (state reset works).",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "public preview URL", "issue": "Cloudflare intermittently returns 502 / read-timeouts. Retry loop added to iter56 test fixtures. Not a code issue."}
+  ]},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iedde_ssot_api_iter56.py",
+    "/app/test_reports/pytest/iedde_iter56.xml",
+    "/app/test_reports/pytest/iedde_ssot_api_iter56.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "test_iedde_ssot_api_iter56.py needed retries because the public Cloudflare preview URL flakes (502/ReadTimeout). This is the same infra issue documented in iteration_55. Consider adding a health-warmup step before test runs.",
+    "The label on-screen for the legacy pipeline trace panel reads 'PIPELINE TRACE' rather than 'Decoding Trace' — review request nomenclature drift is cosmetic only; the panel exists and renders."
+  ],
+  "updated_files": ["/app/backend/tests/test_iedde_ssot_api_iter56.py (new)"],
+  "success_rate": {"backend": "100% (87/87 pytest + 6/6 API iter56 + 17/17 DCS + 107/107 R1)", "frontend": "100% (all data-testids present with correct values, clear-state reset works, legacy panels intact)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "None (read-only decode/async endpoints; no persistent case data created).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable API regression: cd /app/backend && python -m pytest tests/test_iedde_ssot_api_iter56.py -v -o addopts= (uses REACT_APP_BACKEND_URL, has 5x retry on 502/timeout). For fingerprint stability: `python -m workspace_recovery.dcs_runner --strict` and `python -m workspace_recovery.phase_r.r1_runner --strict`. WorkspacePage is served at '/' (not '/workspace'). Login uses [data-testid=login-{email,password}-input] and [data-testid=login-submit-btn]."
+}

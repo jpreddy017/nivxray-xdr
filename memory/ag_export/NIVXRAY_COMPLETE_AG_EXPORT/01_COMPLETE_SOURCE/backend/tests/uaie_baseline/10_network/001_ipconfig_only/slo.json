@@ -1,0 +1,5 @@
+{
+  "max_ms": 2000,
+  "max_behaviors": 10,
+  "min_tactics": 1
+}

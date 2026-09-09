@@ -1,0 +1,98 @@
+
+────────────────────────────────────────────────────────────────────────
+ 1 · Original payload (verbatim)
+────────────────────────────────────────────────────────────────────────
+powershell -c "$b=[Convert]::FromBase64String('H4sIAAAAAAAAA0vOzy1ILCpJLVJIzs8tKC0uKS0oyE3NLc1LTk0BAJdD/S8ZAAAA'); $ms=New-Object IO.MemoryStream(,$b); $gz=New-Object IO.Compression.GzipStream($ms,[IO.Compression.CompressionMode]::Decompress); $sr=New-Object IO.StreamReader($gz); IEX $sr.ReadToEnd()"
+
+────────────────────────────────────────────────────────────────────────
+ 2 · Extracted Base64 argument
+────────────────────────────────────────────────────────────────────────
+  length         : 64 chars
+  multiple of 4  : True
+  content        : H4sIAAAAAAAAA0vOzy1ILCpJLVJIzs8tKC0uKS0oyE3NLc1LTk0BAJdD/S8ZAAAA
+
+────────────────────────────────────────────────────────────────────────
+ 3 · Raw Base64-decoded bytes
+────────────────────────────────────────────────────────────────────────
+  length         : 48 bytes
+  0000  1f 8b 08 00 00 00 00 00 00 03 4b ce cf 2d 48 2c   ..........K..-H,
+  0010  2a 49 2d 52 48 ce cf 2d 28 2d 2e 29 2d 28 c8 4d   *I-RH..-(-.)-(.M
+  0020  cd 2d cd 4b 4e 4d 01 00 97 43 fd 2f 19 00 00 00   .-.KNM...C./....
+
+────────────────────────────────────────────────────────────────────────
+ 4 · Byte-level gzip anatomy
+────────────────────────────────────────────────────────────────────────
+  header (10 B)  : 1f 8b 08 00 00 00 00 00 00 03
+    magic        : 1f 8b (OK)
+    method       : 0x08 (DEFLATE (0x08))
+    flags        : 0x00
+    mtime        : 00 00 00 00
+    xfl / os     : 0x00 / 0x03
+  body (30 B) : 4b ce cf 2d 48 2c 2a 49 2d 52 48 ce cf 2d 28 2d 2e 29 2d 28 c8 4d cd 2d cd 4b 4e 4d 01 00
+  trailer (8 B)  : 97 43 fd 2f 19 00 00 00
+    declared CRC : 0x2ffd4397
+    declared size: 25 bytes
+
+────────────────────────────────────────────────────────────────────────
+ 5 · gzip.decompress() attempt
+────────────────────────────────────────────────────────────────────────
+  ! FAILED: BadGzipFile: CRC check failed
+
+────────────────────────────────────────────────────────────────────────
+ 6 · zlib.decompress(body, -MAX_WBITS) — raw DEFLATE
+────────────────────────────────────────────────────────────────────────
+  SUCCESS (28 bytes)
+  as latin-1     : 'comparter compustuppmemunced'
+  computed CRC32 : 0x0270fdca
+  declared CRC32 : 0x2ffd4397
+  CRC match      : False
+  computed size  : 28 bytes
+  declared size  : 25 bytes
+  size match     : False
+
+────────────────────────────────────────────────────────────────────────
+ 7 · zlib.decompress(raw) — full stream
+────────────────────────────────────────────────────────────────────────
+  ! FAILED: Error -3 while decompressing data: incorrect header check
+
+────────────────────────────────────────────────────────────────────────
+ 8 · Recovered plaintext (best-effort)
+────────────────────────────────────────────────────────────────────────
+  via raw DEFLATE   : b'comparter compustuppmemunced'
+
+────────────────────────────────────────────────────────────────────────
+ 9 · Corpus-declared expectations
+────────────────────────────────────────────────────────────────────────
+  interpreter                    : powershell
+  decoder_chain                  : ['base64', 'gzip']
+  final_output_contains          : ['Hello', 'hello', 'malicious']
+  verdict_must_be_in             : ['Suspicious', 'Malicious']
+
+────────────────────────────────────────────────────────────────────────
+ 10 · Byte-level comparison
+────────────────────────────────────────────────────────────────────────
+  recovered text : 'comparter compustuppmemunced'
+    substring 'Hello'              present=False
+    substring 'hello'              present=False
+    substring 'malicious'          present=False
+
+────────────────────────────────────────────────────────────────────────
+ 11 · Verdict
+────────────────────────────────────────────────────────────────────────
+If:
+  * gzip.decompress FAILED, AND
+  * raw DEFLATE SUCCEEDED, AND
+  * the recovered text does NOT contain any expected
+    substring:
+then the PAYLOAD BYTES themselves cannot produce the
+declared final output — this is a corpus-authoring defect,
+not a decoder defect. The decoder ran every recovery path
+available (gzip + raw DEFLATE) and every recovery yields a
+different plaintext than the corpus declares.
+
+If instead:
+  * gzip.decompress SUCCEEDED, and
+  * the recovered text contains "Hello" / "malicious":
+then this decoder is failing to fire and the decoder is
+defective — proceed to fix `decoder-frombase64string-fold`
+and `decoder-base64-full`.

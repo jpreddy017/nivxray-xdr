@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "legacy": "v2.investigation.rte.transformations.ps_byte_array_xor_loop",
+  "replacement": "services.uaie.plugins.transformer_byte_array_xor_loop",
+  "capability_id": "ps.byte_array_xor_loop",
+  "retired_in": "PhaseA.Slice6",
+  "retired_at": "2026-09-02T07:13:05+00:00",
+  "equivalence": {
+    "topology": "waived",
+    "evidence": "pass",
+    "recipe": "pass",
+    "verdict_inputs": "pass"
+  },
+  "notes": "All three current implementations (recursive_decoder peel, RTE transformation, UAIE plugin) produce XOR key 0x23 and surface C2 IP 149.28.81.19 on the Golden Vertical Chain payload.  The UAIE plugin is now the canonical owner; the recursive_decoder legacy peel remains until Phase-C engine-consolidation.\nEquivalence source: tests/test_slice3_byte_array_xor.py \u00b7 test_slice3_all_three_engines_agree_on_xor_key_and_c2 \u00b7 test_slice3_retirement_gates_are_met"
+}

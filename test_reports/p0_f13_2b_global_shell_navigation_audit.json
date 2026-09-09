@@ -1,0 +1,61 @@
+{
+ "phase": "P0-F.13.2B",
+ "generated_at": "2026-09-07",
+ "subject": "application shell + navigation parity for the NivXForge EDR plane",
+
+ "before": {
+  "amp_route_shell": "NivXForceConsole only — xdr-shell 0, xdr-topbar-search 0, no global navigation, no Administration/Management, its own second top bar",
+  "legacy_route_shell": "XdrShell — global search, tenant pill, notifications, help, user, full INVESTIGATOR + ADMINISTRATION navigation, focus-mode overlay",
+  "consequence": "opening Device Trajectory · AMP replaced the platform application with an EDR-only application"
+ },
+
+ "findings": {
+  "GLOBAL_SEARCH": "PRESENT but was HIDDEN from the EDR plane. XdrShell owns it (xdr-topbar-search -> /xdr/incidents?q=). No second search engine was built. It is distinct from the trajectory's own amp-filter-search, which searches endpoint evidence (IP, filename, SHA-256, process, command line, MITRE technique).",
+  "GLOBAL_SHELL": "PRESENT (XdrShell) — was simply not used by the EDR routes",
+  "ADMINISTRATION": "PRESENT — xdr-area-administration renders in the shell sidebar; it was hidden, not missing",
+  "MANAGEMENT": "PRESENT via the ADMINISTRATION area groups (Data / Detect / Platform governance entries)",
+  "DASHBOARD_INBOX_EVENTS_ANALYSIS_OUTBREAK_CONTROL": "NOT_APPLICABLE as Cisco labels. The NivXRay equivalents already exist and are used as-is (MSS Dashboard, Incidents, My Queue, Investigation Workspace, Evidence Explorer, Intelligence, Telemetry, Exposure, Detect). No Cisco label was copied and no placeholder route was invented.",
+  "EDR_NAVIGATION": "COMPLETE — 11 items: Overview, Detections, Device Trajectory, Process Tree, Campaign Story, Files, Network, Threat Hunting, Forensics, Live Query, Response",
+  "DEVICE_TRAJECTORY_DUPLICATION": "RESOLVED — the 'Device Trajectory · AMP' duplicate label is gone; 'Device Trajectory' points at the canonical AMP route",
+  "CUSTOMER_TENANT_NAME": "WAS WRONG, NOW CORRECT — the pill printed user.tenant || user.email, i.e. the analyst's e-mail where a customer belongs. It now shows the server-resolved customer with a dropdown of the authorised customers."
+ },
+
+ "restorations_performed": [
+  "NivXForgeConsole renders inside <XdrShell flush>; it no longer paints a second top bar and owns only the EDR sub-navigation",
+  "XdrShell focus mode extended to /edr and /xdr/edr so the global navigation collapses to the ☰ overlay and the trajectory keeps full width",
+  "customer/organisation cluster in the Cisco position (user icon · customer over principal · chevron), replacing the initials chip; Sign out moved into that dropdown",
+  "one theme truth: shell toggle and page toggle share localStorage nx.theme and an 'nx-theme' event",
+  "single canonical Device Trajectory entry in the EDR sub-navigation"
+ ],
+
+ "changes_not_performed": [
+  "no second global search, search index, entity resolver or search API",
+  "no invented routes and no placeholder pages to make the sidebar look complete",
+  "no Cisco product navigation labels copied into NivXRay",
+  "no redirect of the operational Device Trajectory into an XDR case",
+  "legacy Device Trajectory header controls NOT added to AMP (owner instruction)"
+ ],
+
+ "entry_context_model": {
+  "endpoint": "GET /api/edr/context?endpoint_id=&incident_id=",
+  "engine_id": "nivxray::edr_plane::entry_context",
+  "DIRECT_EDR": "no incident named -> investigation=null, active_customer derived from the principal's authorisation scope (SINGLE_AUTHORIZED_TENANT / CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER / MULTIPLE_AUTHORIZED_TENANTS)",
+  "XDR_PIVOT": "incident named -> the SERVER reads the incident, checks it against resolve_tenant_scope, and INHERITS its tenant (active_customer.basis=INHERITED_FROM_INCIDENT)",
+  "endpoint_reference_states": ["REFERENCES_THIS_ENDPOINT", "ENDPOINT_NOT_REFERENCED_BY_INCIDENT", "ENDPOINT_UNRESOLVED", "INCIDENT_CARRIES_NO_ENDPOINT_REFERENCE", "ENDPOINT_NOT_REQUESTED"],
+  "endpoint_reference_basis": "workspace_cases.endpoint_campaign.hostname / endpoint_id — never a name or PID guess",
+  "error_states": ["INCIDENT_NOT_FOUND", "INCIDENT_TENANT_OUT_OF_SCOPE", "NOT_AUTHORIZED"],
+  "browser_trust": "NONE — the client may name an incident and an endpoint; it may not assert a tenant. A ?tenant= parameter is ignored and never echoed.",
+  "tenant_vs_investigation": "tenant_scope answers who owns the data; investigation answers why the analyst is here. They are separate keys in the response and separate labels in the UI.",
+  "tenant_switch_policy": "while an investigation context is held the response states that switching would create tenant B + incident from tenant A and that the investigation context must be left first",
+  "edr_tenant_boundary": "v2_shadow_observations carries no tenant_id — EDR endpoint evidence is not tenant-partitioned in this build; customer context is authoritative for XDR case surfaces and is shown for provenance, not used to filter endpoint evidence"
+ },
+
+ "shared_implementation": "services/session_context.py — tenant_context() / list_customers() / authorised_incident(); list_customers reuses services.dashboard_lenses._scope so the customer list and counts cannot drift from the incident queue (verified: 'default' = 241 open in both /api/xdr/rbac/session-context and /api/xdr/mss/customer-operations)",
+
+ "route_sweep": "11/11 EDR routes render inside the shell with exactly one top bar, no clipping and no console errors (test_reports/iteration_102.json)",
+
+ "TRAJECTORY_REGRESSION": "PASS",
+ "EVIDENCE_INTEGRITY": "PASS",
+ "CANONICAL_APP_SHELL": "apps/nivxray-xdr/src/xdr/XdrShell.jsx",
+ "CANONICAL_DEVICE_TRAJECTORY": "/xdr/edr/device-trajectory -> nivxforge/trajectory/EdrDeviceTrajectoryPage.jsx"
+}

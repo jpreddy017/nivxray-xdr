@@ -1,0 +1,44 @@
+{
+  "id": "xor-multi-5",
+  "category": "ps-crypto",
+  "algorithm": "XOR-multi",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('NivXor2026'); $c=[byte[]](61,10,30,44,14,1,89,67,18,25,45,27,19,57,27,23,18,31,70,88,110,11,19,57,12,29,92,16,29,66,60,73,21,98,51,23,68,89,94,24,43,17,19,120,64,1,81,16,93,88,61,29,23,42,27); $out=[byte[]]::new($c.Length); for($i=0;$i -lt $c.Length;$i++){$out[$i] = $c[$i] -bxor $k[$i % $k.Length]}; IEX ([Text.Encoding]::UTF8.GetString($out))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "byte-array-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "schtasks /create /tn beacon /tr c:\\evil.exe /sc onstart",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

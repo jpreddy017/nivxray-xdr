@@ -1,0 +1,1542 @@
+{
+  "canonical_input_contract": {
+    "builder": "from_investigation_model(m: InvestigationModel)",
+    "note": "Derived from `v2.investigation.model.InvestigationModel` (the pre-existing 9-bucket evidence model). Does NOT inherit any legacy verdict engine's shape.",
+    "shim": "from_commands(cmds: list[str])  \u00b7 parity-only",
+    "source": "backend/v2/verdict/canonical_input.py::CanonicalVerdictInput",
+    "wrapper": "backend/v2/verdict/canonical.py::score(inp: CanonicalVerdictInput)"
+  },
+  "class_counts": {
+    "CORRECTED": 30,
+    "INPUT-CONTRACT-UNRESOLVED": 11,
+    "INTENTIONAL": 22,
+    "PRESERVED": 7,
+    "UNEXPLAINED": 0
+  },
+  "corpus_id": "vendor-v1",
+  "engines_probed": [
+    "A_nivxforge",
+    "B_verdict_v2",
+    "C_v2_score",
+    "D_ps_verdict",
+    "CANONICAL"
+  ],
+  "entries": [
+    {
+      "article_title": "Volt Typhoon Post-Exploitation",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Runtime Dependent",
+          "C_v2_score": "Runtime Dependent",
+          "D_ps_verdict": "Malicious"
+        },
+        "ground_rationale": "Volt Typhoon post-exploitation (LOLBAS + PS)",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          },
+          "C_v2_score": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          },
+          "D_ps_verdict": {
+            "class": "PRESERVED",
+            "explanation": "Engine agrees with ground truth (Malicious)."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 3,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: cmd [high, w=3.0] \u00b7 netsh [high, w=3.0] \u00b7 reg [high, w=3.0].",
+          "score_pct": 75
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Runtime Dependent",
+          "n_events": 3,
+          "n_signals": 4,
+          "reason": "Runtime Dependent. Top signals: CREDENTIAL_DUMPING, LSASS_ACCESS, MITRE_CRITICAL. 5 contributor(s) across 3 event(s).",
+          "score_pct": 55,
+          "top_score": 55
+        },
+        "C_v2_score": {
+          "band": "low",
+          "engine": "C_v2_score",
+          "label": "Runtime Dependent",
+          "per_cmd": [
+            {
+              "band": "low",
+              "cmd_head": "cmd.exe",
+              "score": 55
+            },
+            {
+              "band": "benign",
+              "cmd_head": "netsh",
+              "score": 0
+            },
+            {
+              "band": "benign",
+              "cmd_head": "reg",
+              "score": 0
+            }
+          ],
+          "score_pct": 55
+        },
+        "D_ps_verdict": {
+          "behavior_score": 44,
+          "confidence": 80,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Malicious",
+          "obfusc_score": 0,
+          "score_pct": 75
+        }
+      },
+      "fixture_id": "talos.001",
+      "vendor": "talos"
+    },
+    {
+      "article_title": "RomCom RAT Loader Analysis",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Informational",
+          "C_v2_score": "Informational",
+          "D_ps_verdict": "Runtime Dependent"
+        },
+        "ground_rationale": "RomCom RAT loader (encoded PS + IEX)",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 3,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: powershell [high, w=3.0] \u00b7 certutil [high, w=3.0] \u00b7 schtasks [high, w",
+          "score_pct": 75
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Informational",
+          "n_events": 3,
+          "n_signals": 4,
+          "reason": "Informational. Top signals: LOLBAS_ABUSE, MITRE_HIGH_RISK, MITRE_OTHER. 5 contributor(s) across 3 event(s).",
+          "score_pct": 30,
+          "top_score": 24
+        },
+        "C_v2_score": {
+          "band": "informational",
+          "engine": "C_v2_score",
+          "label": "Informational",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "powershell.exe",
+              "score": 4
+            },
+            {
+              "band": "benign",
+              "cmd_head": "certutil.exe",
+              "score": 0
+            },
+            {
+              "band": "informational",
+              "cmd_head": "schtasks",
+              "score": 24
+            }
+          ],
+          "score_pct": 24
+        },
+        "D_ps_verdict": {
+          "behavior_score": 45,
+          "confidence": 80,
+          "engine": "D_ps_verdict",
+          "ioc_score": 24,
+          "label": "Runtime Dependent",
+          "obfusc_score": 0,
+          "score_pct": 31
+        }
+      },
+      "fixture_id": "talos.002",
+      "vendor": "talos"
+    },
+    {
+      "article_title": "Play Ransomware Recovery Inhibit",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Runtime Dependent",
+          "C_v2_score": "Runtime Dependent",
+          "D_ps_verdict": "Malicious"
+        },
+        "ground_rationale": "Play ransomware \u2014 recovery inhibit",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          },
+          "C_v2_score": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          },
+          "D_ps_verdict": {
+            "class": "PRESERVED",
+            "explanation": "Engine agrees with ground truth (Malicious)."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 3,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: vssadmin [high, w=3.0] \u00b7 wbadmin [high, w=3.0] \u00b7 bcdedit [high, w=3.0",
+          "score_pct": 75
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Runtime Dependent",
+          "n_events": 3,
+          "n_signals": 4,
+          "reason": "Runtime Dependent. Top signals: BACKUP_DESTRUCTION, MITRE_CRITICAL, NO_MITRE_TAGS. 5 contributor(s) across 3 event(s).",
+          "score_pct": 60,
+          "top_score": 50
+        },
+        "C_v2_score": {
+          "band": "low",
+          "engine": "C_v2_score",
+          "label": "Runtime Dependent",
+          "per_cmd": [
+            {
+              "band": "low",
+              "cmd_head": "vssadmin",
+              "score": 45
+            },
+            {
+              "band": "low",
+              "cmd_head": "wbadmin",
+              "score": 50
+            },
+            {
+              "band": "benign",
+              "cmd_head": "bcdedit",
+              "score": 0
+            }
+          ],
+          "score_pct": 50
+        },
+        "D_ps_verdict": {
+          "behavior_score": 83,
+          "confidence": 80,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Malicious",
+          "obfusc_score": 0,
+          "score_pct": 75
+        }
+      },
+      "fixture_id": "talos.003",
+      "vendor": "talos"
+    },
+    {
+      "article_title": "Octlurk Lateral Movement",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Informational",
+          "C_v2_score": "Informational",
+          "D_ps_verdict": "Informational"
+        },
+        "ground_rationale": "Octlurk lateral movement (WMIC + PS)",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 3,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: cmd [high, w=3.0] \u00b7 reg [high, w=3.0] \u00b7 net [high, w=3.0].",
+          "score_pct": 75
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Informational",
+          "n_events": 3,
+          "n_signals": 3,
+          "reason": "Informational. Top signals: MITRE_OTHER, NO_MITRE_TAGS, SCHEDULED_TASK_CREATE. 4 contributor(s) across 3 event(s).",
+          "score_pct": 16,
+          "top_score": 16
+        },
+        "C_v2_score": {
+          "band": "informational",
+          "engine": "C_v2_score",
+          "label": "Informational",
+          "per_cmd": [
+            {
+              "band": "informational",
+              "cmd_head": "cmd.exe",
+              "score": 24
+            },
+            {
+              "band": "benign",
+              "cmd_head": "reg",
+              "score": 0
+            },
+            {
+              "band": "benign",
+              "cmd_head": "net",
+              "score": 0
+            }
+          ],
+          "score_pct": 24
+        },
+        "D_ps_verdict": {
+          "behavior_score": 20,
+          "confidence": 80,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Informational",
+          "obfusc_score": 0,
+          "score_pct": 11
+        }
+      },
+      "fixture_id": "securelist.001",
+      "vendor": "securelist"
+    },
+    {
+      "article_title": "Gopher Loader",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Malicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Undetermined",
+          "C_v2_score": "Undetermined",
+          "D_ps_verdict": "Suspicious"
+        },
+        "ground_rationale": "Gopher loader (rundll32 sideload)",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "PRESERVED",
+            "explanation": "Engine agrees with ground truth (Malicious)."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Malicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: rundll32 [high, w=3.0] \u00b7 mshta [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Undetermined",
+          "n_events": 2,
+          "n_signals": 1,
+          "reason": "Undetermined. Top signals: MITRE_HIGH_RISK. 2 contributor(s) across 2 event(s).",
+          "score_pct": 23,
+          "top_score": 12
+        },
+        "C_v2_score": {
+          "band": "benign",
+          "engine": "C_v2_score",
+          "label": "Undetermined",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "rundll32.exe",
+              "score": 12
+            },
+            {
+              "band": "benign",
+              "cmd_head": "mshta.exe",
+              "score": 12
+            }
+          ],
+          "score_pct": 12
+        },
+        "D_ps_verdict": {
+          "behavior_score": 54,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 12,
+          "label": "Suspicious",
+          "obfusc_score": 0,
+          "score_pct": 55
+        }
+      },
+      "fixture_id": "securelist.002",
+      "vendor": "securelist"
+    },
+    {
+      "article_title": "Financial Trojan Persistence",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Informational",
+          "C_v2_score": "Informational",
+          "D_ps_verdict": "Informational"
+        },
+        "ground_rationale": "Financial trojan (registry persistence)",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: reg [high, w=3.0] \u00b7 schtasks [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Informational",
+          "n_events": 2,
+          "n_signals": 3,
+          "reason": "Informational. Top signals: MITRE_HIGH_RISK, NO_MITRE_TAGS, SCHEDULED_TASK_CREATE. 3 contributor(s) across 2 event(s).",
+          "score_pct": 24,
+          "top_score": 24
+        },
+        "C_v2_score": {
+          "band": "informational",
+          "engine": "C_v2_score",
+          "label": "Informational",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "reg",
+              "score": 0
+            },
+            {
+              "band": "informational",
+              "cmd_head": "schtasks",
+              "score": 24
+            }
+          ],
+          "score_pct": 24
+        },
+        "D_ps_verdict": {
+          "behavior_score": 18,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Informational",
+          "obfusc_score": 0,
+          "score_pct": 10
+        }
+      },
+      "fixture_id": "securelist.003",
+      "vendor": "securelist"
+    },
+    {
+      "article_title": "UNC5221 Ivanti Post-Compromise",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Undetermined",
+          "C_v2_score": "Undetermined",
+          "D_ps_verdict": "Informational"
+        },
+        "ground_rationale": "UNC5221 Ivanti post-compromise",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: curl [high, w=3.0] \u00b7 chmod [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Undetermined",
+          "n_events": 2,
+          "n_signals": 1,
+          "reason": "Undetermined. Top signals: NO_MITRE_TAGS. 2 contributor(s) across 2 event(s).",
+          "score_pct": 0,
+          "top_score": 0
+        },
+        "C_v2_score": {
+          "band": "benign",
+          "engine": "C_v2_score",
+          "label": "Undetermined",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "curl",
+              "score": 0
+            },
+            {
+              "band": "benign",
+              "cmd_head": "chmod",
+              "score": 0
+            }
+          ],
+          "score_pct": 0
+        },
+        "D_ps_verdict": {
+          "behavior_score": 4,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 12,
+          "label": "Informational",
+          "obfusc_score": 0,
+          "score_pct": 5
+        }
+      },
+      "fixture_id": "mandiant.001",
+      "vendor": "mandiant"
+    },
+    {
+      "article_title": "FIN12 Credential Harvest",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Runtime Dependent",
+          "C_v2_score": "Runtime Dependent",
+          "D_ps_verdict": "Malicious"
+        },
+        "ground_rationale": "FIN12 credential harvest (reg save SAM)",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          },
+          "C_v2_score": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          },
+          "D_ps_verdict": {
+            "class": "PRESERVED",
+            "explanation": "Engine agrees with ground truth (Malicious)."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: reg [high, w=3.0] \u00b7 reg [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Runtime Dependent",
+          "n_events": 2,
+          "n_signals": 2,
+          "reason": "Runtime Dependent. Top signals: CREDENTIAL_DUMPING, MITRE_CRITICAL. 4 contributor(s) across 2 event(s).",
+          "score_pct": 60,
+          "top_score": 50
+        },
+        "C_v2_score": {
+          "band": "low",
+          "engine": "C_v2_score",
+          "label": "Runtime Dependent",
+          "per_cmd": [
+            {
+              "band": "low",
+              "cmd_head": "reg",
+              "score": 50
+            },
+            {
+              "band": "low",
+              "cmd_head": "reg",
+              "score": 50
+            }
+          ],
+          "score_pct": 50
+        },
+        "D_ps_verdict": {
+          "behavior_score": 81,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Malicious",
+          "obfusc_score": 0,
+          "score_pct": 75
+        }
+      },
+      "fixture_id": "mandiant.002",
+      "vendor": "mandiant"
+    },
+    {
+      "article_title": "Storm-0501 Cloud Ransomware",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Informational",
+          "C_v2_score": "Undetermined",
+          "D_ps_verdict": "Informational"
+        },
+        "ground_rationale": "Storm-0501 cloud ransomware",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: powershell [high, w=3.0] \u00b7 sc [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Informational",
+          "n_events": 2,
+          "n_signals": 3,
+          "reason": "Informational. Top signals: DEFENDER_TAMPERING, MITRE_HIGH_RISK, MITRE_OTHER. 3 contributor(s) across 2 event(s).",
+          "score_pct": 30,
+          "top_score": 22
+        },
+        "C_v2_score": {
+          "band": "benign",
+          "engine": "C_v2_score",
+          "label": "Undetermined",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "powershell.exe",
+              "score": 14
+            },
+            {
+              "band": "benign",
+              "cmd_head": "sc.exe",
+              "score": 12
+            }
+          ],
+          "score_pct": 14
+        },
+        "D_ps_verdict": {
+          "behavior_score": 4,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Informational",
+          "obfusc_score": 0,
+          "score_pct": 2
+        }
+      },
+      "fixture_id": "microsoft.001",
+      "vendor": "microsoft"
+    },
+    {
+      "article_title": "Sandworm APT44 Wiper",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Undetermined",
+          "C_v2_score": "Undetermined",
+          "D_ps_verdict": "Informational"
+        },
+        "ground_rationale": "Sandworm APT44 wiper (destructive impact)",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: bcdedit [high, w=3.0] \u00b7 wevtutil [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Undetermined",
+          "n_events": 2,
+          "n_signals": 1,
+          "reason": "Undetermined. Top signals: NO_MITRE_TAGS. 2 contributor(s) across 2 event(s).",
+          "score_pct": 0,
+          "top_score": 0
+        },
+        "C_v2_score": {
+          "band": "benign",
+          "engine": "C_v2_score",
+          "label": "Undetermined",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "bcdedit",
+              "score": 0
+            },
+            {
+              "band": "benign",
+              "cmd_head": "wevtutil",
+              "score": 0
+            }
+          ],
+          "score_pct": 0
+        },
+        "D_ps_verdict": {
+          "behavior_score": 4,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Informational",
+          "obfusc_score": 0,
+          "score_pct": 2
+        }
+      },
+      "fixture_id": "microsoft.002",
+      "vendor": "microsoft"
+    },
+    {
+      "article_title": "REF7707 Loader Deep Dive",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Malicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Undetermined",
+          "C_v2_score": "Undetermined",
+          "D_ps_verdict": "Runtime Dependent"
+        },
+        "ground_rationale": "REF7707 loader (staged exec + evasion)",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "PRESERVED",
+            "explanation": "Engine agrees with ground truth (Malicious)."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Malicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: certutil [high, w=3.0] \u00b7 wmic [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Undetermined",
+          "n_events": 2,
+          "n_signals": 1,
+          "reason": "Undetermined. Top signals: MITRE_OTHER. 2 contributor(s) across 2 event(s).",
+          "score_pct": 8,
+          "top_score": 4
+        },
+        "C_v2_score": {
+          "band": "benign",
+          "engine": "C_v2_score",
+          "label": "Undetermined",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "certutil",
+              "score": 0
+            },
+            {
+              "band": "benign",
+              "cmd_head": "wmic",
+              "score": 4
+            }
+          ],
+          "score_pct": 4
+        },
+        "D_ps_verdict": {
+          "behavior_score": 43,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Runtime Dependent",
+          "obfusc_score": 0,
+          "score_pct": 24
+        }
+      },
+      "fixture_id": "elastic.001",
+      "vendor": "elastic"
+    },
+    {
+      "article_title": "LOBSHOT Persistence",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Malicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Undetermined",
+          "C_v2_score": "Undetermined",
+          "D_ps_verdict": "Runtime Dependent"
+        },
+        "ground_rationale": "LOBSHOT persistence",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "PRESERVED",
+            "explanation": "Engine agrees with ground truth (Malicious)."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Malicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: reg [high, w=3.0] \u00b7 regsvr32 [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Undetermined",
+          "n_events": 2,
+          "n_signals": 2,
+          "reason": "Undetermined. Top signals: MITRE_HIGH_RISK, NO_MITRE_TAGS. 2 contributor(s) across 2 event(s).",
+          "score_pct": 12,
+          "top_score": 12
+        },
+        "C_v2_score": {
+          "band": "benign",
+          "engine": "C_v2_score",
+          "label": "Undetermined",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "reg",
+              "score": 0
+            },
+            {
+              "band": "benign",
+              "cmd_head": "regsvr32",
+              "score": 12
+            }
+          ],
+          "score_pct": 12
+        },
+        "D_ps_verdict": {
+          "behavior_score": 29,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Runtime Dependent",
+          "obfusc_score": 0,
+          "score_pct": 16
+        }
+      },
+      "fixture_id": "elastic.002",
+      "vendor": "elastic"
+    },
+    {
+      "article_title": "ScreenConnect Post-Exploit",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Suspicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Informational",
+          "C_v2_score": "Informational",
+          "D_ps_verdict": "Runtime Dependent"
+        },
+        "ground_rationale": "ScreenConnect post-exploit tradecraft",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Suspicious` while ground truth is `Malicious`. Both are on the flagged side (>= Suspicious); the divergence reflects each engine's scope/sensitivity by design and can be reconciled during Phase 3 canonicalization by adjusting the escalation rules \u2014 NOT the underlying scoring."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Informational` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Informational` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Suspicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: cmd [high, w=3.0] \u00b7 net [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Informational",
+          "n_events": 2,
+          "n_signals": 4,
+          "reason": "Informational. Top signals: ENCODED_POWERSHELL, LOLBAS_ABUSE, MITRE_HIGH_RISK. 4 contributor(s) across 2 event(s).",
+          "score_pct": 30,
+          "top_score": 30
+        },
+        "C_v2_score": {
+          "band": "informational",
+          "engine": "C_v2_score",
+          "label": "Informational",
+          "per_cmd": [
+            {
+              "band": "informational",
+              "cmd_head": "cmd.exe",
+              "score": 30
+            },
+            {
+              "band": "benign",
+              "cmd_head": "net",
+              "score": 0
+            }
+          ],
+          "score_pct": 30
+        },
+        "D_ps_verdict": {
+          "behavior_score": 29,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 0,
+          "label": "Runtime Dependent",
+          "obfusc_score": 28,
+          "score_pct": 22
+        }
+      },
+      "fixture_id": "huntress.001",
+      "vendor": "huntress"
+    },
+    {
+      "article_title": "SimpleHelp Traversal",
+      "classification": {
+        "cross_engine_agree": false,
+        "engine_labels": {
+          "A_nivxforge": "Malicious",
+          "B_verdict_v2": "Benign",
+          "CANONICAL": "Undetermined",
+          "C_v2_score": "Undetermined",
+          "D_ps_verdict": "Runtime Dependent"
+        },
+        "ground_rationale": "SimpleHelp traversal / abuse",
+        "ground_truth": "Malicious",
+        "per_engine": {
+          "A_nivxforge": {
+            "class": "PRESERVED",
+            "explanation": "Engine agrees with ground truth (Malicious)."
+          },
+          "B_verdict_v2": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Benign` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "CANONICAL": {
+            "class": "INPUT-CONTRACT-UNRESOLVED",
+            "explanation": "Canonical engine returned `Undetermined` on the `from_commands` parity shim (bare command list) while ground truth is `Malicious`. This is NOT a confirmed false-negative \u2014 the shim provides only `lane=process` events and no file / network / registry / auth / TI enrichment. Phase 4 Wave 1 side-by-side observation with real InvestigationModel input is required to decide whether this is (a) genuine detector gap, (b) correct conservative scope, or (c) engine-A over-fire. Tracked, not resolved."
+          },
+          "C_v2_score": {
+            "class": "CORRECTED",
+            "explanation": "Engine returned `Undetermined` (below analyst threshold) while ground truth is `Malicious`. This is a false-negative surface. Phase 3 canonicalization must lift the canonical v2 engine to the ground-truth label without touching the scoring algorithm \u2014 by ensuring detector coverage for the fixture's signals."
+          },
+          "D_ps_verdict": {
+            "class": "INTENTIONAL",
+            "explanation": "Engine returned `Runtime Dependent` where ground truth is `Malicious`. This engine flags the tradecraft but withholds the maliciousness label until runtime execution outcome is observed \u2014 an intentional analyst-caution scope, not a coverage gap. Phase 3 canonicalization will document this as the canonical engine's default scope; owner decides whether to elevate it via an escalation rule."
+          }
+        }
+      },
+      "engines": {
+        "A_nivxforge": {
+          "engine": "A_nivxforge",
+          "escalation": null,
+          "label": "Malicious",
+          "n_contributors": 2,
+          "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: bitsadmin [high, w=3.0] \u00b7 start [high, w=3.0].",
+          "score_pct": 73
+        },
+        "B_verdict_v2": {
+          "cap": null,
+          "engine": "B_verdict_v2",
+          "floor": null,
+          "label": "Benign",
+          "raw_risk": 0,
+          "score_pct": 0,
+          "scores_dims": {
+            "capability": 0,
+            "defense_evasion": 0,
+            "execution": 0,
+            "impact": 0,
+            "intent": 0,
+            "persistence": 0,
+            "stealth": 0
+          },
+          "top_reasons": []
+        },
+        "CANONICAL": {
+          "engine": "CANONICAL",
+          "floor_applied": null,
+          "label": "Undetermined",
+          "n_events": 2,
+          "n_signals": 2,
+          "reason": "Undetermined. Top signals: MITRE_HIGH_RISK, NO_MITRE_TAGS. 2 contributor(s) across 2 event(s).",
+          "score_pct": 12,
+          "top_score": 12
+        },
+        "C_v2_score": {
+          "band": "benign",
+          "engine": "C_v2_score",
+          "label": "Undetermined",
+          "per_cmd": [
+            {
+              "band": "benign",
+              "cmd_head": "bitsadmin",
+              "score": 0
+            },
+            {
+              "band": "benign",
+              "cmd_head": "start",
+              "score": 0
+            }
+          ],
+          "score_pct": 0
+        },
+        "D_ps_verdict": {
+          "behavior_score": 29,
+          "confidence": 70,
+          "engine": "D_ps_verdict",
+          "ioc_score": 12,
+          "label": "Runtime Dependent",
+          "obfusc_score": 0,
+          "score_pct": 19
+        }
+      },
+      "fixture_id": "huntress.002",
+      "vendor": "huntress"
+    }
+  ],
+  "fixture_count": 14,
+  "per_engine_counts": {
+    "A_nivxforge": {
+      "CORRECTED": 0,
+      "INPUT-CONTRACT-UNRESOLVED": 0,
+      "INTENTIONAL": 10,
+      "PRESERVED": 4,
+      "UNEXPLAINED": 0
+    },
+    "B_verdict_v2": {
+      "CORRECTED": 14,
+      "INPUT-CONTRACT-UNRESOLVED": 0,
+      "INTENTIONAL": 0,
+      "PRESERVED": 0,
+      "UNEXPLAINED": 0
+    },
+    "CANONICAL": {
+      "CORRECTED": 0,
+      "INPUT-CONTRACT-UNRESOLVED": 11,
+      "INTENTIONAL": 3,
+      "PRESERVED": 0,
+      "UNEXPLAINED": 0
+    },
+    "C_v2_score": {
+      "CORRECTED": 11,
+      "INPUT-CONTRACT-UNRESOLVED": 0,
+      "INTENTIONAL": 3,
+      "PRESERVED": 0,
+      "UNEXPLAINED": 0
+    },
+    "D_ps_verdict": {
+      "CORRECTED": 5,
+      "INPUT-CONTRACT-UNRESOLVED": 0,
+      "INTENTIONAL": 6,
+      "PRESERVED": 3,
+      "UNEXPLAINED": 0
+    }
+  },
+  "purpose": "ADR-004 Step 1 \u00b7 Phase 3 \u00b7 Canonical engine + 4-way legacy comparison",
+  "schema_version": "1.0"
+}

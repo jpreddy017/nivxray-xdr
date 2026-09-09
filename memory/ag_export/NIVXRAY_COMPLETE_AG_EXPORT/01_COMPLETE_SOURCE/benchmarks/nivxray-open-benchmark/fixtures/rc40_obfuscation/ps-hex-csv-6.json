@@ -1,0 +1,10 @@
+{
+  "id": "ps-hex-csv-6",
+  "category": "ps-hex-csv",
+  "command_line": "$h='70,6f,77,65,72,73,68,65,6c,6c,2e,65,78,65'; $c = $h -split ',' | ForEach-Object {[char][int]('0x'+$_)}; Invoke-Expression ($c -join '')",
+  "expected_keywords": [
+    "powershell"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

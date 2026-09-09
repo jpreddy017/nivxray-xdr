@@ -1,0 +1,19 @@
+[
+  {
+    "tenant_id": "TENANT_DISTRIBUTED",
+    "case_id": "CASE_MP_IDEMPOTENT",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-shared",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "6bda5f083fac42d17f78e77bee7db1f2dcf1087e9b696f6b88fe70ae83ef0fa7",
+    "payload": {
+      "state_hash": "7072cbe0a1f7c71903cbd1eaa32fe59fa810727ecf526288655b899b15e80ae8",
+      "version": 1
+    },
+    "timestamp": "2026-09-04T01:50:12.198426+00:00",
+    "verified": true
+  }
+]

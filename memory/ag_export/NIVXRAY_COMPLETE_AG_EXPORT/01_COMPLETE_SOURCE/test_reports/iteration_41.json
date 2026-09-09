@@ -1,0 +1,34 @@
+{
+  "summary": "Validated P0.1 (async jobs + WebSocket), P0.2 (Decoded Artifact Store cache + provenance), P0.3 (recursive decode chain + stats) end-to-end. 9/9 backend pytest tests pass. Frontend AutoInvestigatePage live-progress + decode-tree UI verified for both async and sync fallback flows.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/v2/auto-investigate/jobs/{id} (external URL)", "issue": "Preview URL exhibited transient TCP read timeouts (~15s) on 1st attempt of some runs — retry logic (4 attempts with backoff) was added to fixtures to handle it. Not a backend defect, appears to be preview proxy latency."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_p0_async_investigate.py",
+    "/app/test_reports/pytest/p0_async.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Sync endpoint POST /api/v2/auto-investigate does NOT populate decode_pipeline.chains[] / recursive_stats — those exist only in the async jobs pipeline result. Consider adding them to the sync response too for parity (or documenting the divergence). The review request implied both paths should expose them.",
+    "Sync endpoint does NOT use the Decoded Artifact Store cache — only the async pipeline (`_decode_with_cache`) does. Repeated sync-only runs will re-decode the same commands. Consider wiring cache into `_run_single_command` centrally.",
+    "WebSocket rejection on missing/invalid token is currently reported as `4401` custom close code. This is correct per spec, though the client sees it as a connection close after handshake rather than a 401 HTTP response (expected for WS).",
+    "Fallback `_fallback_encoded_payload` is conservative (>=85% b64/hex, <15% spaces) — good for false-positive avoidance but may miss real-world blobs mixed with a few spaces/newlines. Consider stripping whitespace before ratio calc."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p0_async_investigate.py (new)"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (all data-testids present, live-progress + decode-tree render, sync fallback works)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend suite at /app/backend/tests/test_p0_async_investigate.py covers: POST /jobs latency, GET job polling, WS auth reject (4401), WS event streaming + replay of a completed job, decoded-artifact cache_hit + provenance stats, artifact GET/LIST + 404, decode_pipeline.chains[] + recursive_stats validation on async result, sync backward compat (final_incident_summary shape), and raw-base64 fallback command detection. Note: sync response shape is {ok, raw_incident, detected:{commands,entities}, decode_pipeline:{statuses,budgets,guardrails_triggered}, final_incident_summary:{executive_summary,verdict,iocs,mitre_attack,...}, engine}. chains[]+recursive_stats live only on async result.decode_pipeline. Preview URL is flaky (~15s cold start) — use retries. WS URL uses wss:// and same host. Run with: `REACT_APP_BACKEND_URL=<url> pytest tests/test_p0_async_investigate.py -o addopts=''`."
+}

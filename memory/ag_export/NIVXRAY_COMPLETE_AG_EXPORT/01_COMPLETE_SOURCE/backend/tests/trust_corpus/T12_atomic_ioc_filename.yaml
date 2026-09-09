@@ -1,0 +1,33 @@
+id: T12_atomic_ioc_bare_filename
+title: Benign · atomic IOC — bare filename with no surrounding context
+provenance: SME false-positive review (2026-07-29) · scwxc.exe from BITS investigation pasted alone
+input: 'scwxc.exe'
+expected_verdict: benign
+must_fire_intents: []
+must_not_fire:
+  - staging
+  - remote_execution
+  - defense_evasion
+  - persistence
+  - credential_access
+  - discovery
+  - runtime_dependent
+forbidden_words_in_verdict:
+  - suspicious
+  - malicious
+  - xor
+  - rot
+must_admit_unknown: false
+expected_confidence_band: unknown
+expected_iocs:
+  - {kind: filename, value: 'scwxc.exe'}
+expected_mitre: []
+expected_behaviors: []
+min_recommendations: 0
+notes: >
+  Atomic-IOC honesty test. A bare filename cannot be assessed as
+  malicious or benign without surrounding context. The legacy chain
+  decoder wrongly XOR/ROT-brute-forced this string into "sc|nc%ini"
+  and returned "Suspicious 65/100". Investigation Brain must
+  short-circuit and return BENIGN + explicit atomic-IOC IOC entry.
+  Ground truth 2026-07-29.

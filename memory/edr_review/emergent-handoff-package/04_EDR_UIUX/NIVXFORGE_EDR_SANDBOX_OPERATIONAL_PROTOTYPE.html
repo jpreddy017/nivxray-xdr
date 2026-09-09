@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NivXForge EDR & Native Dynamic Sandbox — Exhaustive Operational UI/UX Prototype</title>
+  <style>
+    :root {
+      --bg-app: #06080d;
+      --bg-sidebar: #0a0e17;
+      --bg-surface: #0e131f;
+      --bg-card: #131a2b;
+      --bg-card-hover: #182238;
+      --bg-input: #090d16;
+      --border-subtle: #162033;
+      --border-card: #1e2b45;
+      --border-strong: #2c3e63;
+      --text-primary: #e6edf3;
+      --text-secondary: #919eb0;
+      --text-muted: #5e6b7d;
+      --accent-teal: #5cc0a5;
+      --accent-cyan: #38bdf8;
+      --accent-purple: #a855f7;
+      --accent-amber: #fbbf24;
+      --accent-rose: #f87171;
+      --accent-emerald: #4ade80;
+      --accent-blue: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    code, pre, .font-mono {
+      font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+    }
+    
+    /* Top Representative Data Banner */
+    .prototype-warning-banner {
+      background: linear-gradient(90deg, #b45309, #d97706, #b45309);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #f59e0b;
+      z-index: 1000;
+    }
+    .prototype-warning-banner .badge {
+      background: rgba(0,0,0,0.3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+    
+    /* Top Shell Navigation */
+    .app-header {
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-card);
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: 0.04em;
+    }
+    .brand-pill {
+      background: var(--accent-teal);
+      color: #000;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 900;
+    }
+    .brand-sub { color: var(--text-secondary); font-weight: 400; font-size: 12px; }
+    
+    .attack-chain-btn {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: white;
+      border: 1px solid #38bdf8;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .attack-chain-btn:hover {
+      background: linear-gradient(135deg, #0369a1, #075985);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Main Container with Sidebar and Content */
+    .app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    /* Left Navigation Rail */
+    .nav-sidebar {
+      width: 250px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-card);
+      overflow-y: auto;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .nav-group-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 12px 14px 4px 14px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.12s, color 0.12s;
+    }
+    .nav-item:hover {
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+    }
+    .nav-item.active {
+      background-color: var(--bg-card);
+      color: var(--accent-teal);
+      border-left-color: var(--accent-teal);
+      font-weight: 600;
+    }
+    .nav-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background-color: var(--bg-input);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+    .nav-pill.rose { background: rgba(248,113,113,0.15); color: var(--accent-rose); border-color: rgba(248,113,113,0.3); }
+    .nav-pill.teal { background: rgba(92,192,165,0.15); color: var(--accent-teal); border-color: rgba(92,192,165,0.3); }
+
+    /* Content Area */
+    .content-viewport {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      background-color: var(--bg-app);
+      position: relative;
+    }
+    
+    /* Top Context Filter Strip */
+    .context-filter-tray {
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-card);
+      padding: 6px 16px;
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-secondary);
+    }
+    .context-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .context-tag {
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .context-tag .tag-label { color: var(--text-muted); font-size: 10px; }
+
+    /* Workspace Canvas Panels */
+    .screen-panel {
+      display: none;
+      padding: 20px 24px;
+      flex: 1;
+    }
+    .screen-panel.active {
+      display: block;
+    }
+
+    /* Standardized Card */
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Metric Counters Strip */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .metric-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .metric-card .metric-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .metric-card .metric-value {
+      font-size: 22px;
+      font-weight: 800;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text-primary);
+    }
+
+    /* Tables */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      background: var(--bg-surface);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 12px;
+    }
+    th {
+      background-color: var(--bg-card);
+      color: var(--text-secondary);
+      font-weight: 600;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-card);
+      text-transform: uppercase;
+      font-size: 10.5px;
+      letter-spacing: 0.05em;
+    }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+    tr:hover td {
+      background-color: var(--bg-card-hover);
+    }
+
+    /* Badges */
+    .status-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-badge.critical, .status-badge.isolated { background: rgba(248,113,113,0.2); color: var(--accent-rose); border: 1px solid rgba(248,113,113,0.4); }
+    .status-badge.online, .status-badge.benign { background: rgba(74,222,128,0.2); color: var(--accent-emerald); border: 1px solid rgba(74,222,128,0.4); }
+    .status-badge.amber { background: rgba(251,191,36,0.2); color: var(--accent-amber); border: 1px solid rgba(251,191,36,0.4); }
+    .status-badge.cyan { background: rgba(56,189,248,0.2); color: var(--accent-cyan); border: 1px solid rgba(56,189,248,0.4); }
+    .status-badge.purple { background: rgba(168,85,247,0.2); color: var(--accent-purple); border: 1px solid rgba(168,85,247,0.4); }
+    .status-badge.teal { background: rgba(92,192,165,0.2); color: var(--accent-teal); border: 1px solid rgba(92,192,165,0.4); }
+
+    /* Action Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      transition: all 0.12s;
+    }
+    .btn:hover { background: var(--bg-card-hover); border-color: var(--border-strong); }
+    .btn-teal { background: var(--accent-teal); color: #000; border-color: var(--accent-teal); }
+    .btn-teal:hover { background: #4db397; }
+    .btn-rose { background: rgba(248,113,113,0.15); color: var(--accent-rose); border-color: rgba(248,113,113,0.4); }
+    .btn-rose:hover { background: rgba(248,113,113,0.3); }
+    .btn-cyan { background: rgba(56,189,248,0.15); color: var(--accent-cyan); border-color: rgba(56,189,248,0.4); }
+
+    /* Modal Dialog */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(4, 7, 13, 0.85);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-dialog {
+      width: 580px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .modal-title { font-size: 15px; font-weight: 700; color: var(--accent-rose); }
+    
+    /* Slide-over Drawer */
+    .drawer-overlay {
+      display: none;
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: 620px;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-card);
+      z-index: 1500;
+      box-shadow: -8px 0 32px rgba(0,0,0,0.7);
+      flex-direction: column;
+    }
+    .drawer-overlay.active { display: flex; }
+    .drawer-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-card);
+    }
+    .drawer-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    /* Attack-Chain Walkthrough Modal */
+    .walkthrough-box {
+      background: linear-gradient(135deg, rgba(14, 19, 31, 0.95), rgba(22, 32, 51, 0.95));
+      border: 1px solid var(--accent-cyan);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 18px;
+      display: none;
+    }
+    .walkthrough-box.active { display: block; }
+    .walkthrough-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .walkthrough-step-badge {
+      background: var(--accent-cyan);
+      color: #000;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Trajectory 5 Lanes */
+    .lane-strip {
+      display: flex;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 8px 0;
+      align-items: center;
+    }
+    .lane-title { width: 110px; font-weight: 700; font-size: 11px; text-transform: uppercase; }
+    .lane-events { display: flex; gap: 8px; flex: 1; overflow-x: auto; padding: 4px 0; }
+    .lane-event-node {
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .lane-proc { background: rgba(92,192,165,0.15); border-color: rgba(92,192,165,0.4); color: var(--accent-teal); }
+    .lane-net { background: rgba(56,189,248,0.15); border-color: rgba(56,189,248,0.4); color: var(--accent-cyan); }
+    .lane-file { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.4); color: var(--accent-amber); }
+    .lane-reg { background: rgba(168,85,247,0.15); border-color: rgba(168,85,247,0.4); color: var(--accent-purple); }
+    .lane-sys { background: rgba(145,158,176,0.15); border-color: rgba(145,158,176,0.4); color: var(--text-secondary); }
+
+    /* Process Tree Visual Canvas */
+    .tree-node {
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .tree-indent-1 { margin-left: 36px; border-left: 3px solid var(--accent-teal); }
+    .tree-indent-2 { margin-left: 72px; border-left: 3px solid var(--accent-amber); }
+    .tree-indent-3 { margin-left: 108px; border-left: 3px solid var(--accent-rose); }
+    
+    /* Code / SQL Editor */
+    .code-editor {
+      background: var(--bg-input);
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      padding: 12px;
+      color: #38bdf8;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      min-height: 100px;
+      outline: none;
+      white-space: pre;
+    }
+    
+    /* Toast */
+    .toast-popup {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--accent-teal);
+      color: var(--text-primary);
+      padding: 12px 18px;
+      border-radius: 6px;
+      font-size: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 3000;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. PERSISTENT PROTOTYPE CONTRACT INDICATOR -->
+  <div class="prototype-warning-banner">
+    <div>
+      <span>⚠️ REPRESENTATIVE / PROTOTYPE DATA — Operational UI/UX Contract for Future EDR & Sandbox Implementation</span>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <span class="badge">SPEC: NIVXFORGE-UIUX-SPEC-2026-09-05</span>
+      <span class="badge">TRUTH AUDIT: 100% UNTOUCHED</span>
+    </div>
+  </div>
+
+  <!-- 2. APPLICATION SHELL HEADER -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-logo">
+        <span class="brand-pill">NIVXRAY</span>
+        <span>NivXForge EDR & Sandbox</span>
+        <span class="brand-sub">/ Unified Analyst Experience</span>
+      </div>
+      <div style="height: 16px; width: 1px; background: var(--border-card);"></div>
+      <button class="attack-chain-btn" onclick="toggleAttackChainWalkthrough()">
+        <span>▶</span> Run 20-Step Attack-Chain Walkthrough
+      </button>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <span style="font-size: 11px; color: var(--text-secondary);">Tenant: <strong style="color:var(--text-primary)">Enterprise-Default</strong></span>
+      <span class="status-badge online">48 SENSORS ONLINE</span>
+    </div>
+  </header>
+
+  <!-- 3. MAIN WORKSPACE WITH 7-GROUP NAVIGATION -->
+  <div class="app-body">
+    
+    <!-- LEFT NAVIGATION RAIL (37 SURFACES + SANDBOX) -->
+    <nav class="nav-sidebar">
+      
+      <div class="nav-group-title">1. Overview & Health</div>
+      <div class="nav-item active" onclick="switchView('overview')">
+        <span>EDR Overview</span>
+        <span class="nav-pill teal">LIVE</span>
+      </div>
+      <div class="nav-item" onclick="switchView('telemetry-health')">
+        <span>Telemetry Health</span>
+        <span class="nav-pill">1.8k EPS</span>
+      </div>
+      <div class="nav-item" onclick="switchView('agents')">
+        <span>Agent / Sensor Mgmt</span>
+        <span class="nav-pill">v2.4.0</span>
+      </div>
+      <div class="nav-item" onclick="switchView('policies')">
+        <span>Prevention Policies</span>
+      </div>
+
+      <div class="nav-group-title">2. Assets & Posture</div>
+      <div class="nav-item" onclick="switchView('endpoints')">
+        <span>Endpoint Fleet</span>
+        <span class="nav-pill">48 Hosts</span>
+      </div>
+      <div class="nav-item" onclick="switchView('entity-360')">
+        <span>Endpoint Entity 360</span>
+      </div>
+      <div class="nav-item" onclick="switchView('users-sessions')">
+        <span>Users & Sessions</span>
+        <span class="nav-pill">12 Active</span>
+      </div>
+      <div class="nav-item" onclick="switchView('vulnerabilities')">
+        <span>Vulnerabilities / KEV</span>
+        <span class="nav-pill rose">3 High</span>
+      </div>
+      <div class="nav-item" onclick="switchView('ubae-context')">
+        <span>UBAE / Identity Context</span>
+      </div>
+
+      <div class="nav-group-title">3. Detections & Triage</div>
+      <div class="nav-item" onclick="switchView('detections')">
+        <span>Detections Queue</span>
+        <span class="nav-pill rose">14 New</span>
+      </div>
+      <div class="nav-item" onclick="switchView('incidents')">
+        <span>Correlated Incidents</span>
+        <span class="nav-pill">2 Open</span>
+      </div>
+      <div class="nav-item" onclick="switchView('detection-engineering')">
+        <span>Detection Engineering</span>
+        <span class="nav-pill teal">615 Rules</span>
+      </div>
+      <div class="nav-item" onclick="switchView('attack-matrix')">
+        <span>MITRE ATT&CK Matrix</span>
+      </div>
+
+      <div class="nav-group-title">4. Device Analytics & DFIR</div>
+      <div class="nav-item" onclick="switchView('trajectory')">
+        <span>5-Lane Device Trajectory</span>
+        <span class="nav-pill teal">Replay</span>
+      </div>
+      <div class="nav-item" onclick="switchView('process-tree')">
+        <span>Process Tree Ancestry</span>
+      </div>
+      <div class="nav-item" onclick="switchView('files')">
+        <span>Files & PE Artifacts</span>
+      </div>
+      <div class="nav-item" onclick="switchView('network')">
+        <span>Network Connections</span>
+      </div>
+      <div class="nav-item" onclick="switchView('dns')">
+        <span>DNS Query Activity</span>
+      </div>
+      <div class="nav-item" onclick="switchView('registry')">
+        <span>Registry Modifications</span>
+      </div>
+      <div class="nav-item" onclick="switchView('services')">
+        <span>System Services</span>
+      </div>
+      <div class="nav-item" onclick="switchView('persistence')">
+        <span>Persistence Mechanisms</span>
+      </div>
+      <div class="nav-item" onclick="switchView('memory')">
+        <span>Memory / Volatiles</span>
+      </div>
+      <div class="nav-item" onclick="switchView('forensics')">
+        <span>Forensics Triage</span>
+      </div>
+      <div class="nav-item" onclick="switchView('evidence')">
+        <span>Evidence Vault</span>
+      </div>
+
+      <div class="nav-group-title">5. Hunting & Live Query</div>
+      <div class="nav-item" onclick="switchView('hunting')">
+        <span>Threat Hunting</span>
+      </div>
+      <div class="nav-item" onclick="switchView('live-query')">
+        <span>Distributed Live Query</span>
+        <span class="nav-pill cyan">osquery</span>
+      </div>
+      <div class="nav-item" onclick="switchView('threat-intel')">
+        <span>Threat Intelligence</span>
+      </div>
+
+      <div class="nav-group-title">6. Containment & Response</div>
+      <div class="nav-item" onclick="switchView('response')">
+        <span>Response Center</span>
+      </div>
+      <div class="nav-item" onclick="switchView('isolation')">
+        <span>Host Isolation</span>
+        <span class="nav-pill rose">Safety Gated</span>
+      </div>
+      <div class="nav-item" onclick="switchView('quarantine')">
+        <span>Quarantine Vault</span>
+      </div>
+      <div class="nav-item" onclick="switchView('terminal')">
+        <span>Live Remote Shell</span>
+      </div>
+
+      <div class="nav-group-title">7. Native Dynamic Sandbox</div>
+      <div class="nav-item" onclick="switchView('sandbox-intake')">
+        <span>Detonation Intake</span>
+        <span class="nav-pill cyan">MicroVM</span>
+      </div>
+      <div class="nav-item" onclick="switchView('sandbox-live')">
+        <span>Live Hypervisor & Syscall</span>
+      </div>
+      <div class="nav-item" onclick="switchView('sandbox-report')">
+        <span>Detonation Analysis Report</span>
+        <span class="nav-pill rose">Score 96</span>
+      </div>
+      <div class="nav-item" onclick="switchView('sandbox-bridge')">
+        <span>Convergence Bridge</span>
+        <span class="nav-pill teal">59 Decoders</span>
+      </div>
+
+    </nav>
+
+    <!-- CENTER CONTENT VIEWPORT -->
+    <main class="content-viewport">
+      
+      <!-- PERSISTENT CONTEXT FILTER TRAY -->
+      <div class="context-filter-tray">
+        <div class="context-pills">
+          <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);">ACTIVE INVESTIGATION FILTER:</span>
+          <div class="context-tag">
+            <span class="tag-label">HOST</span>
+            <span class="font-mono" id="tray-host">WKS-FINANCE-09</span>
+          </div>
+          <div class="context-tag">
+            <span class="tag-label">PROCESS</span>
+            <span class="font-mono" id="tray-process">powershell.exe (PID 4912)</span>
+          </div>
+          <div class="context-tag">
+            <span class="tag-label">CASE</span>
+            <span class="font-mono">#INC-2026-0841</span>
+          </div>
+        </div>
+        <div>
+          <button class="btn" style="font-size: 11px;" onclick="resetContextFilter()">Reset Filter</button>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE ATTACK-CHAIN WALKTHROUGH BOX -->
+      <div class="walkthrough-box" id="walkthrough-box">
+        <div class="walkthrough-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="walkthrough-step-badge" id="wt-step-number">STEP 1 OF 20</span>
+            <strong style="color:var(--accent-cyan); font-size:13px;" id="wt-step-title">Detection → Alert Detail</strong>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" onclick="prevAttackStep()">◄ Back</button>
+            <button class="btn btn-teal" onclick="nextAttackStep()">Next Step ►</button>
+            <button class="btn" onclick="toggleAttackChainWalkthrough()">Close</button>
+          </div>
+        </div>
+        <p style="font-size: 12px; color: var(--text-secondary);" id="wt-step-desc">
+          Analyst begins at the Detections Queue and inspects a high-severity alert triggered by an anomalous encoded PowerShell process.
+        </p>
+        <div style="margin-top:6px; font-size:11px; color:var(--accent-amber);" id="wt-step-intent">
+          Cognitive Intent: Identify rule justification, command-line arguments, and initial telemetry payload.
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- SURFACE 1: EDR OVERVIEW -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel active" id="view-overview">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">NivXForge EDR Overview</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Real-time endpoint fleet posture, detection velocity, and streaming telemetry throughput.</p>
+          </div>
+          <button class="btn btn-teal" onclick="switchView('endpoints')">Manage 48 Fleet Sensors</button>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">TOTAL ENROLLED SENSORS</div>
+            <div class="metric-value">48</div>
+            <div style="font-size:10.5px; color:var(--accent-emerald);">● 44 Streaming Active (91.6%)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">STREAMING TELEMETRY EPS</div>
+            <div class="metric-value" style="color:var(--accent-cyan);">1,842</div>
+            <div style="font-size:10.5px; color:var(--text-secondary);">Avg 38.3 EPS/Host</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">ACTIVE NETWORK ISOLATIONS</div>
+            <div class="metric-value" style="color:var(--accent-rose);">2</div>
+            <div style="font-size:10.5px; color:var(--accent-rose);">Safety Gate Verified</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">MEAN TIME TO CONTAIN (MTTC)</div>
+            <div class="metric-value" style="color:var(--accent-amber);">3.4m</div>
+            <div style="font-size:10.5px; color:var(--accent-emerald);">▼ 18% from last week</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Fleet Execution & Threat Breakdown</span>
+            <span style="font-size:11px; color:var(--text-secondary);">Last 24 Hours</span>
+          </div>
+          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+            <div>
+              <p style="color:var(--text-secondary); margin-bottom:10px;">Observed Behavioral Anomalies by Tactic:</p>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+                    <span>Execution (T1059.001 - PowerShell)</span>
+                    <span class="font-mono">42 events</span>
+                  </div>
+                  <div style="background:var(--border-card); height:6px; border-radius:3px;">
+                    <div style="background:var(--accent-rose); width:75%; height:100%; border-radius:3px;"></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+                    <span>Defense Evasion (T1027 - Obfuscated Payload)</span>
+                    <span class="font-mono">28 events</span>
+                  </div>
+                  <div style="background:var(--border-card); height:6px; border-radius:3px;">
+                    <div style="background:var(--accent-amber); width:50%; height:100%; border-radius:3px;"></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+                    <span>Persistence (T1547.001 - Registry Run Keys)</span>
+                    <span class="font-mono">14 events</span>
+                  </div>
+                  <div style="background:var(--border-card); height:6px; border-radius:3px;">
+                    <div style="background:var(--accent-purple); width:25%; height:100%; border-radius:3px;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="border-left:1px solid var(--border-subtle); padding-left:16px;">
+              <p style="color:var(--text-secondary); margin-bottom:10px;">Infrastructure Safety Check:</p>
+              <div style="font-size:11.5px; display:flex; flex-direction:column; gap:6px;">
+                <div style="color:var(--accent-emerald);">✔ 4 Active Directory DCs Protected</div>
+                <div style="color:var(--accent-emerald);">✔ 2 Healthcare ICU Nodes Safelisted</div>
+                <div style="color:var(--accent-cyan);">✔ Controller mTLS Pinning Healthy</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- SURFACE 2: ENDPOINT FLEET / INVENTORY -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel" id="view-endpoints">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Endpoint Fleet Inventory</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Sensor agent health, streaming throughput, and network containment controls.</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-rose" onclick="openIsolationModal('WKS-FINANCE-09', false)">Safety-Gated Host Isolation</button>
+            <button class="btn btn-teal" onclick="showToast('Sensor deployment token generated: nvx_agt_98a7f1... Valid for 24h.')">+ Deploy Sensor</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Hostname & GUID</th>
+                <th>Status</th>
+                <th>OS & Kernel</th>
+                <th>IP & Subnet</th>
+                <th>Sensor</th>
+                <th>Streaming EPS</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <strong>WKS-FINANCE-09</strong><br>
+                  <span class="font-mono" style="font-size:10px; color:var(--text-muted)">9f1b2c4d-88a2-4a7b</span>
+                </td>
+                <td><span class="status-badge critical">ISOLATED</span></td>
+                <td>Windows 11 Enterprise (23H2)</td>
+                <td class="font-mono">192.168.10.45</td>
+                <td><span class="font-mono">v2.4.2</span></td>
+                <td><span class="font-mono" style="color:var(--accent-cyan);">142 EPS</span></td>
+                <td>
+                  <button class="btn" style="padding:2px 6px;" onclick="pivotToHost('WKS-FINANCE-09')">360</button>
+                  <button class="btn" style="padding:2px 6px;" onclick="switchView('trajectory')">Trajectory</button>
+                  <button class="btn btn-rose" style="padding:2px 6px;" onclick="openIsolationModal('WKS-FINANCE-09', true)">Un-Isolate</button>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>SRV-DC-01 (Domain Controller)</strong><br>
+                  <span class="font-mono" style="font-size:10px; color:var(--text-muted)">1a2b3c4d-0001-4a7b</span>
+                </td>
+                <td><span class="status-badge online">ONLINE (PROTECTED)</span></td>
+                <td>Windows Server 2022 Datacenter</td>
+                <td class="font-mono">192.168.1.5</td>
+                <td><span class="font-mono">v2.4.2</span></td>
+                <td><span class="font-mono" style="color:var(--accent-cyan);">310 EPS</span></td>
+                <td>
+                  <button class="btn" style="padding:2px 6px;" onclick="pivotToHost('SRV-DC-01')">360</button>
+                  <button class="btn" style="padding:2px 6px;" onclick="switchView('trajectory')">Trajectory</button>
+                  <button class="btn" style="padding:2px 6px; opacity:0.5;" title="Domain Controller cannot be isolated" disabled>Isolate (Gated)</button>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>UBUNTU-PROD-APP02</strong><br>
+                  <span class="font-mono" style="font-size:10px; color:var(--text-muted)">e5d4c3b2-7777-4a7b</span>
+                </td>
+                <td><span class="status-badge online">ONLINE</span></td>
+                <td>Ubuntu 22.04 LTS (eBPF Kernel 5.15)</td>
+                <td class="font-mono">10.0.4.12</td>
+                <td><span class="font-mono">v2.4.0</span></td>
+                <td><span class="font-mono" style="color:var(--accent-cyan);">88 EPS</span></td>
+                <td>
+                  <button class="btn" style="padding:2px 6px;" onclick="pivotToHost('UBUNTU-PROD-APP02')">360</button>
+                  <button class="btn" style="padding:2px 6px;" onclick="switchView('trajectory')">Trajectory</button>
+                  <button class="btn btn-rose" style="padding:2px 6px;" onclick="openIsolationModal('UBUNTU-PROD-APP02', false)">Isolate</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- SURFACE 3: ENDPOINT ENTITY 360 -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel" id="view-entity-360">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Endpoint Entity 360: <span style="color:var(--accent-teal);" id="e360-host-title">WKS-FINANCE-09</span></h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Authoritative hardware, patch posture, active sessions, and network interface dossier.</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-cyan" onclick="switchView('trajectory')">View 5-Lane Trajectory</button>
+            <button class="btn btn-rose" onclick="openIsolationModal('WKS-FINANCE-09', true)">Manage Containment</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; font-size:12px;">
+            <div>
+              <span style="color:var(--text-muted); font-size:11px;">HARDWARE UUID</span><br>
+              <strong class="font-mono">9f1b2c4d-88a2-4a7b-b891-99882244aa11</strong>
+            </div>
+            <div>
+              <span style="color:var(--text-muted); font-size:11px;">OPERATING SYSTEM</span><br>
+              <strong>Windows 11 Enterprise (23H2)</strong>
+            </div>
+            <div>
+              <span style="color:var(--text-muted); font-size:11px;">PRIMARY LOGGED-ON USER</span><br>
+              <strong style="color:var(--accent-amber);">CORP\jdoe (Interactive Type 2)</strong>
+            </div>
+            <div>
+              <span style="color:var(--text-muted); font-size:11px;">NETWORK ISOLATION STATE</span><br>
+              <span class="status-badge critical">ISOLATED BY OPERATOR</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Dossier Sub-Tabs</span>
+          </div>
+          <div style="display:flex; gap:12px; margin-bottom:14px; border-bottom:1px solid var(--border-subtle); padding-bottom:8px;">
+            <button class="btn btn-teal">Active Sockets (14)</button>
+            <button class="btn" onclick="switchView('vulnerabilities')">Vulnerabilities (CVE-2023-36884)</button>
+            <button class="btn" onclick="switchView('users-sessions')">Logon Sessions (2)</button>
+            <button class="btn" onclick="switchView('services')">Installed Services (84)</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Protocol</th>
+                  <th>Local Address</th>
+                  <th>Remote Address</th>
+                  <th>Bound Process</th>
+                  <th>PID</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="status-badge cyan">TCP</span></td>
+                  <td class="font-mono">192.168.10.45:49812</td>
+                  <td class="font-mono" style="color:var(--accent-rose)">198.51.100.45:8080 (C2 IP)</td>
+                  <td><strong>powershell.exe</strong></td>
+                  <td class="font-mono">4912</td>
+                  <td><button class="btn btn-rose" style="padding:2px 6px;" onclick="openDrawer('process')">Inspect Process</button></td>
+                </tr>
+                <tr>
+                  <td><span class="status-badge cyan">TCP</span></td>
+                  <td class="font-mono">192.168.10.45:443</td>
+                  <td class="font-mono">52.96.166.130:443</td>
+                  <td>outlook.exe</td>
+                  <td class="font-mono">3120</td>
+                  <td><button class="btn" style="padding:2px 6px;">Benign</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- SURFACE 4: DETECTIONS QUEUE -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel" id="view-detections">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Endpoint Detections Queue</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Real-time stream of behavioral and signature detections with ATT&CK tagging.</p>
+          </div>
+          <button class="btn btn-teal" onclick="switchView('incidents')">View Correlated Incidents</button>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Severity</th>
+                <th>Detection Title</th>
+                <th>Target Host</th>
+                <th>Process</th>
+                <th>ATT&CK Technique</th>
+                <th>Trigger Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background: rgba(248,113,113,0.06);">
+                <td><span class="status-badge critical">CRITICAL</span></td>
+                <td>
+                  <strong>Encoded PowerShell Download Cradle (Cobalt Strike)</strong><br>
+                  <span style="font-size:10.5px; color:var(--text-muted)">Rule ID: SIG-2026-WIN-PS-004 · Provenance: 615 Content Fabric</span>
+                </td>
+                <td><a href="#" onclick="pivotToHost('WKS-FINANCE-09'); return false;" style="color:var(--accent-cyan)">WKS-FINANCE-09</a></td>
+                <td class="font-mono">powershell.exe</td>
+                <td><span class="status-badge amber">T1059.001 / T1105</span></td>
+                <td class="font-mono">00:38:12 UTC</td>
+                <td>
+                  <button class="btn btn-teal" style="padding:2px 8px;" onclick="openDrawer('detection')">Detail</button>
+                  <button class="btn btn-cyan" style="padding:2px 8px;" onclick="switchView('trajectory')">Trajectory</button>
+                  <button class="btn btn-rose" style="padding:2px 8px;" onclick="switchView('sandbox-intake')">Sandbox</button>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="status-badge amber">HIGH</span></td>
+                <td>
+                  <strong>Living-off-the-Land Binary Execution (rundll32.exe)</strong><br>
+                  <span style="font-size:10.5px; color:var(--text-muted)">Rule ID: SIG-2026-LOLBAS-019</span>
+                </td>
+                <td><a href="#" onclick="pivotToHost('WKS-FINANCE-09'); return false;" style="color:var(--accent-cyan)">WKS-FINANCE-09</a></td>
+                <td class="font-mono">rundll32.exe</td>
+                <td><span class="status-badge purple">T1218.011</span></td>
+                <td class="font-mono">00:38:45 UTC</td>
+                <td>
+                  <button class="btn" style="padding:2px 8px;" onclick="openDrawer('detection')">Detail</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- SURFACE 8: 5-LANE DEVICE TRAJECTORY -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel" id="view-trajectory">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">5-Lane Chronological Device Trajectory</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Historical multi-lane replay of Process, Network, File, Registry, and System telemetry (internal target: microsecond-level replay).</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-teal" onclick="showToast('Replaying trajectory at 5x speed...')">▶ Play Replay</button>
+            <button class="btn" onclick="switchView('process-tree')">View Ancestry Tree</button>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 12px;">
+          <!-- LANE 1: PROCESS -->
+          <div class="lane-strip">
+            <div class="lane-title" style="color:var(--accent-teal);">1. Process</div>
+            <div class="lane-events">
+              <div class="lane-event-node lane-proc" onclick="openDrawer('process')">00:38:09 · winword.exe [PID 2104]</div>
+              <div class="lane-event-node lane-proc" style="border-color:var(--accent-rose);" onclick="openDrawer('process')">00:38:12 · cmd.exe [PID 4110] ➔ powershell.exe [PID 4912]</div>
+              <div class="lane-event-node lane-proc" onclick="openDrawer('process')">00:38:45 · rundll32.exe [PID 5508]</div>
+            </div>
+          </div>
+
+          <!-- LANE 2: NETWORK -->
+          <div class="lane-strip">
+            <div class="lane-title" style="color:var(--accent-cyan);">2. Network</div>
+            <div class="lane-events">
+              <div class="lane-event-node lane-net">00:38:13 · DNS Query: update.microsoft-check[.]net</div>
+              <div class="lane-event-node lane-net" style="color:var(--accent-rose); border-color:var(--accent-rose);">00:38:14 · Outbound TCP 198.51.100.45:8080 (34.2 KB)</div>
+            </div>
+          </div>
+
+          <!-- LANE 3: FILE -->
+          <div class="lane-strip">
+            <div class="lane-title" style="color:var(--accent-amber);">3. File I/O</div>
+            <div class="lane-events">
+              <div class="lane-event-node lane-file">00:38:14 · Created: C:\Windows\Temp\stage2.ps1</div>
+              <div class="lane-event-node lane-file" style="color:var(--accent-rose);">00:38:16 · Dropped PE: C:\ProgramData\svchost_update.exe</div>
+            </div>
+          </div>
+
+          <!-- LANE 4: REGISTRY -->
+          <div class="lane-strip">
+            <div class="lane-title" style="color:var(--accent-purple);">4. Registry</div>
+            <div class="lane-events">
+              <div class="lane-event-node lane-reg">00:38:20 · SetValue: HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate</div>
+            </div>
+          </div>
+
+          <!-- LANE 5: SYSTEM -->
+          <div class="lane-strip">
+            <div class="lane-title" style="color:var(--text-secondary);">5. System</div>
+            <div class="lane-events">
+              <div class="lane-event-node lane-sys">00:38:00 · User Interactive Logon (CORP\jdoe Type 2)</div>
+              <div class="lane-event-node lane-sys">00:39:10 · Host Network Isolation Applied by NivXForge Agent</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Canonical Event Inspector (Raw ETW/eBPF Telemetry)</span>
+            <span class="status-badge teal">ETW Event ID 4688</span>
+          </div>
+          <pre class="code-editor" style="color:#e6edf3; font-size:11px;">{
+  "event_id": 4688,
+  "timestamp": "2026-09-05T00:38:12.441920Z",
+  "provider": "Microsoft-Windows-Kernel-Process",
+  "computer": "WKS-FINANCE-09.corp.internal",
+  "process_guid": "9f1b2c4d-proc-4912",
+  "parent_process_guid": "9f1b2c4d-proc-4110",
+  "parent_command_line": "cmd.exe /c powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand WwBTAHkAcwB0...",
+  "new_process_name": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+  "target_user_sid": "S-1-5-21-39482910-2918239-1002",
+  "hashes": {
+    "sha256": "419c225566d6054d38fe5ee5c01bd9d2bdfedf79a312dd15ae71646e322255ae"
+  }
+}</pre>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- SURFACE 9: PROCESS TREE ANCESTRY -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel" id="view-process-tree">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Process Tree Ancestry</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Visual execution lineage, LOLBAS tool tags, and memory injection alerts.</p>
+          </div>
+          <button class="btn btn-rose" onclick="switchView('sandbox-intake')">Detonate Target Binary in Sandbox</button>
+        </div>
+
+        <!-- Node 1: winword.exe -->
+        <div class="tree-node">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <strong>explorer.exe</strong> <span class="font-mono" style="color:var(--text-muted)">[PID 1420]</span>
+              <span class="status-badge online" style="margin-left:8px;">BENIGN SHELL</span>
+            </div>
+            <button class="btn" style="padding:2px 6px;" onclick="openDrawer('process')">Inspect</button>
+          </div>
+        </div>
+
+        <!-- Node 2: cmd.exe -->
+        <div class="tree-node tree-indent-1">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <strong>winword.exe</strong> <span class="font-mono" style="color:var(--text-muted)">[PID 2104]</span>
+              <span class="status-badge amber" style="margin-left:8px;">MALICIOUS MACRO SPAWN</span>
+              <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">
+                Image: <span class="font-mono">C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE</span>
+              </div>
+            </div>
+            <button class="btn" style="padding:2px 6px;" onclick="openDrawer('process')">Inspect</button>
+          </div>
+        </div>
+
+        <!-- Node 3: powershell.exe -->
+        <div class="tree-node tree-indent-2" style="border: 1px solid var(--accent-rose);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <strong style="color:var(--accent-rose);">powershell.exe</strong> <span class="font-mono" style="color:var(--text-muted)">[PID 4912]</span>
+              <span class="status-badge critical" style="margin-left:8px;">LOLBAS: ENCODED COMMAND</span>
+              <span class="status-badge purple" style="margin-left:4px;">MEMORY INJECTION</span>
+              <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
+                CmdLine: <span class="font-mono" style="color:var(--accent-cyan);">powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand WwBTAHkAcw...</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-rose" style="padding:2px 8px;" onclick="switchView('sandbox-intake')">Detonate in Sandbox</button>
+              <button class="btn btn-teal" style="padding:2px 8px;" onclick="openDrawer('process')">Detail</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Node 4: rundll32.exe -->
+        <div class="tree-node tree-indent-3">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <strong>rundll32.exe</strong> <span class="font-mono" style="color:var(--text-muted)">[PID 5508]</span>
+              <span class="status-badge amber" style="margin-left:8px;">SUSPICIOUS DLL LOADER</span>
+              <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">
+                CmdLine: <span class="font-mono">rundll32.exe C:\ProgramData\svchost_update.exe,DllRegisterServer</span>
+              </div>
+            </div>
+            <button class="btn" style="padding:2px 6px;" onclick="openDrawer('process')">Inspect</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- SURFACE 20: DISTRIBUTED LIVE QUERY (OSQUERY) -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel" id="view-live-query">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Distributed Fleet Live Query (osquery)</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Execute distributed SQL queries across online fleet sensor daemons in real-time.</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" onclick="setQueryTemplate('powershell')">Template: Encoded PowerShell</button>
+            <button class="btn" onclick="setQueryTemplate('sockets')">Template: Listening Sockets</button>
+            <button class="btn btn-teal" onclick="executeLiveQuery()">▶ Run Fleet Query</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Distributed SQL Query Console</span>
+            <span style="font-size:11px; color:var(--accent-cyan);">Target: All 48 Online Sensor Endpoints</span>
+          </div>
+          <div class="code-editor" id="live-query-input" contenteditable="true">SELECT p.pid, p.name, p.cmdline, p.parent, u.username, p.path
+FROM processes p
+JOIN users u ON p.uid = u.uid
+WHERE p.name LIKE '%powershell%' OR p.cmdline LIKE '%-EncodedCommand%';</div>
+        </div>
+
+        <div class="card" id="query-progress-card" style="display:none;">
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+            <span id="query-progress-label">Querying 48 endpoints...</span>
+            <span class="font-mono" id="query-progress-pct">0%</span>
+          </div>
+          <div style="background:var(--border-card); height:8px; border-radius:4px; overflow:hidden;">
+            <div id="query-progress-bar" style="background:var(--accent-cyan); width:0%; height:100%; transition:width 0.3s;"></div>
+          </div>
+        </div>
+
+        <div class="card" id="query-results-card">
+          <div class="card-header">
+            <span class="card-title">Query Results (1 match across fleet)</span>
+            <button class="btn" style="font-size:11px;" onclick="showToast('Exported query results to CSV.')">Export CSV</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Host</th>
+                  <th>PID</th>
+                  <th>Process Name</th>
+                  <th>User</th>
+                  <th>Command Line</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong style="color:var(--accent-teal);">WKS-FINANCE-09</strong></td>
+                  <td class="font-mono">4912</td>
+                  <td>powershell.exe</td>
+                  <td>CORP\jdoe</td>
+                  <td class="font-mono" style="font-size:11px; color:var(--accent-cyan);">powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand WwBTAHk...</td>
+                  <td><button class="btn btn-rose" style="padding:2px 6px;" onclick="openDrawer('process')">Inspect</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- SURFACE 26: SAFETY-GATED HOST ISOLATION -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel" id="view-isolation">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Safety-Gated Host Network Isolation</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Enforce kernel-level packet filtering with Active Directory Domain Controller and ICU safety checks.</p>
+          </div>
+          <button class="btn btn-rose" onclick="openIsolationModal('WKS-FINANCE-09', false)">Initiate Containment</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Safety Invariants Enforced by Driver</span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; font-size:12px;">
+            <div style="padding:12px; border:1px solid var(--border-subtle); border-radius:6px;">
+              <strong style="color:var(--accent-rose);">1. Domain Controller Gate</strong>
+              <p style="color:var(--text-secondary); margin-top:4px;">Sensors running on AD Domain Controllers refuse isolation commands to prevent enterprise authentication collapse.</p>
+            </div>
+            <div style="padding:12px; border:1px solid var(--border-subtle); border-radius:6px;">
+              <strong style="color:var(--accent-amber);">2. Healthcare Life-Safety Gate</strong>
+              <p style="color:var(--text-secondary); margin-top:4px;">Medical, ICU, and telemetry equipment tagged as life-critical are excluded from automated isolation.</p>
+            </div>
+            <div style="padding:12px; border:1px solid var(--border-subtle); border-radius:6px;">
+              <strong style="color:var(--accent-emerald);">3. Pinned mTLS Management</strong>
+              <p style="color:var(--text-secondary); margin-top:4px;">The driver maintains an encrypted mTLS tunnel to NivXForge controller:443 to allow remote un-isolation.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Cryptographically Sealed Containment Audit Ledger</span>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Job UUID</th>
+                  <th>Target Host</th>
+                  <th>Action</th>
+                  <th>Safety Gate Status</th>
+                  <th>Operator</th>
+                  <th>Timestamp</th>
+                  <th>Ledger Hash</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono" style="font-size:10.5px;">iso-98a2-4411</td>
+                  <td><strong>WKS-FINANCE-09</strong></td>
+                  <td><span class="status-badge critical">ISOLATED</span></td>
+                  <td><span class="status-badge online">VERIFIED (NON-DC)</span></td>
+                  <td>SOC_LEAD_JP</td>
+                  <td class="font-mono">00:39:10 UTC</td>
+                  <td class="font-mono" style="font-size:10px; color:var(--text-muted);">9f8a...312e</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- GROUP 7: NATIVE DYNAMIC SANDBOX (INTAKE, LIVE, REPORT, BRIDGE) -->
+      <!-- ========================================================================= -->
+      <div class="screen-panel" id="view-sandbox-intake">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Native Dynamic Sandbox: Detonation Intake</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Hardware hypervisor detonation with anti-evasion countermeasures and network emulation.</p>
+          </div>
+          <button class="btn btn-teal" onclick="switchView('sandbox-report')">View Last Completed Report</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Detonation Target & Presets</span>
+          </div>
+          <div style="display:flex; gap:10px; margin-bottom:16px;">
+            <button class="btn btn-teal" onclick="loadSamplePreset('cobalt')">Preset: Cobalt Strike Dropper</button>
+            <button class="btn" onclick="loadSamplePreset('darkgate')">Preset: DarkGate VBScript</button>
+            <button class="btn" onclick="loadSamplePreset('agenttesla')">Preset: AgentTesla Stealer</button>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+            <div>
+              <label style="font-size:11px; color:var(--text-secondary);">TARGET SAMPLE / SCRIPT PATH</label>
+              <input type="text" id="sb-input-path" value="C:\Windows\Temp\stage2.ps1" style="width:100%; background:var(--bg-input); border:1px solid var(--border-strong); padding:8px; border-radius:4px; color:var(--text-primary); font-family:monospace; margin-top:4px;">
+              
+              <div style="margin-top:14px; display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div>
+                  <label style="font-size:11px; color:var(--text-secondary);">GUEST OS PROFILE</label>
+                  <select style="width:100%; background:var(--bg-input); border:1px solid var(--border-strong); padding:6px; border-radius:4px; color:var(--text-primary); margin-top:4px;">
+                    <option>Windows 11 Enterprise 23H2 (x64) · Office 2021</option>
+                    <option>Windows 10 Pro 22H2 (x64) · Adobe Acrobat</option>
+                    <option>Ubuntu 22.04 LTS (x86_64) · eBPF Kernel</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px; color:var(--text-secondary);">NETWORK SIMULATION</label>
+                  <select style="width:100%; background:var(--bg-input); border:1px solid var(--border-strong); padding:6px; border-radius:4px; color:var(--text-primary); margin-top:4px;">
+                    <option>INETSim Emulated Services (Fake DNS/HTTP/SMTP)</option>
+                    <option>Isolated Airgap (TCP RST)</option>
+                    <option>Restricted Outbound Egress (WireGuard Proxy)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-surface); padding:14px; border-radius:6px; border:1px solid var(--border-subtle);">
+              <strong style="color:var(--accent-teal);">Anti-Evasion Hardening</strong>
+              <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; font-size:11.5px;">
+                <label><input type="checkbox" checked> Fake Human Mouse & Typing Jitter</label>
+                <label><input type="checkbox" checked> Virtualized Uptime Offset (&gt;72h)</label>
+                <label><input type="checkbox" checked> Hypervisor Hide Flag (QEMU ACPI Patched)</label>
+                <label><input type="checkbox" checked> Anti-Sleep Acceleration Hooking</label>
+              </div>
+              <button class="btn btn-teal" style="width:100%; margin-top:16px; justify-content:center;" onclick="startDetonationJob()">▶ Launch Detonation in MicroVM</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SURFACE: SANDBOX LIVE HYPERVISOR & SYSCALL -->
+      <div class="screen-panel" id="view-sandbox-live">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Live Hypervisor Console & Syscall Feed</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Real-time interactive guest display and low-level kernel execution stream.</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" onclick="showToast('Detonation time extended by +60 seconds.')">+60s Time</button>
+            <button class="btn btn-rose" onclick="switchView('sandbox-report')">Stop & Dissect</button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+          <div class="card" style="padding:10px;">
+            <div class="card-header">
+              <span class="card-title">Guest Display (Interactive Canvas — internal target: up to 30 FPS)</span>
+              <span class="status-badge online">DETONATION ACTIVE (01:42 REMAINING)</span>
+            </div>
+            <div style="background:#000; height:280px; border-radius:4px; display:flex; flex-direction:column; align-items:center; justify-content:center; border:1px solid #1e293b; position:relative;">
+              <div style="color:var(--accent-teal); font-weight:700; font-size:14px;">[ Windows 11 Enterprise Guest Session ]</div>
+              <div style="color:var(--text-secondary); font-size:11px; margin-top:4px;">PID 4912 powershell.exe executing encoded buffer...</div>
+              <div style="position:absolute; bottom:10px; right:10px; font-size:10px; color:var(--text-muted);">QEMU/KVM 8.2 · HW-Accel</div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:10px;">
+            <div class="card-header">
+              <span class="card-title">Windows Kernel Syscall Instrumentation Feed</span>
+              <span class="status-badge cyan">LIVE HOOKS</span>
+            </div>
+            <div class="code-editor" style="height:280px; overflow-y:auto; font-size:11px;">
+[00:38:12.102] NtCreateFile("C:\Windows\Temp\stage2.ps1", GENERIC_WRITE) -> SUCCESS
+[00:38:12.441] NtAllocateVirtualMemory(PID 4912, Base=0x04F10000, Size=4096, PAGE_EXECUTE_READWRITE) -> <span style="color:var(--accent-rose)">ALERT: RWX ALLOC</span>
+[00:38:13.011] NtWriteVirtualMemory(PID 4912, Dest=0x04F10000, Bytes=849) -> SUCCESS
+[00:38:13.120] CreateRemoteThread(Target=explorer.exe PID 1420, StartAddr=0x04F10000) -> <span style="color:var(--accent-rose)">INJECTION DETECTED</span>
+[00:38:14.004] InternetConnectA("update.microsoft-check[.]net", Port=8080) -> ESTABLISHED
+[00:38:14.502] HttpSendRequestA("POST /api/v2/beacon") -> 200 OK (Extracted C2 payload)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SURFACE: SANDBOX REPORT -->
+      <div class="screen-panel" id="view-sandbox-report">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Dynamic Detonation Analysis Report: <span class="font-mono" style="color:var(--accent-rose)">stage2.ps1</span></h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Comprehensive forensic dissection across 6 operational subtabs.</p>
+          </div>
+          <button class="btn btn-teal" onclick="switchView('sandbox-bridge')">Open Convergence Bridge</button>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card" style="border-color:var(--accent-rose);">
+            <div class="metric-label">DYNAMIC THREAT SCORE</div>
+            <div class="metric-value" style="color:var(--accent-rose);">96 / 100</div>
+            <div style="font-size:10.5px; color:var(--accent-rose);">CRITICAL MALWARE THREAT</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">MALWARE FAMILY</div>
+            <div class="metric-value" style="font-size:16px; color:var(--text-primary);">Cobalt Strike Dropper</div>
+            <div style="font-size:10.5px; color:var(--accent-amber);">Anti-Debug & Sleep Evasion</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">EXTRACTED C2 NODES</div>
+            <div class="metric-value" style="color:var(--accent-cyan);">1</div>
+            <div style="font-size:10.5px; color:var(--text-secondary);">198.51.100.45:8080</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">DROPPED PAYLOADS</div>
+            <div class="metric-value" style="color:var(--accent-amber);">2</div>
+            <div style="font-size:10.5px; color:var(--accent-teal);">Available for 59 Decoders</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; gap:10px; margin-bottom:14px; border-bottom:1px solid var(--border-subtle); padding-bottom:8px;">
+            <button class="btn btn-teal">1. Behavioral Process Hierarchy</button>
+            <button class="btn">2. Network & C2 Sockets</button>
+            <button class="btn">3. Dropped Files</button>
+            <button class="btn">4. Windows Registry</button>
+            <button class="btn">5. Memory & Injection</button>
+            <button class="btn">6. Extracted C2 Configs</button>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Spawned Process</th>
+                  <th>PID</th>
+                  <th>Behavioral Classification</th>
+                  <th>Memory Security</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>powershell.exe</strong></td>
+                  <td class="font-mono">4912</td>
+                  <td><span class="status-badge critical">PROCESS INJECTION</span></td>
+                  <td><span class="status-badge rose">PAGE_EXECUTE_READWRITE</span></td>
+                  <td><button class="btn btn-rose" style="padding:2px 6px;" onclick="openDrawer('process')">Inspect</button></td>
+                </tr>
+                <tr>
+                  <td><strong>explorer.exe</strong></td>
+                  <td class="font-mono">1420</td>
+                  <td><span class="status-badge amber">TARGET OF INJECTION</span></td>
+                  <td><span class="status-badge online">SYSTEM INTEGRITY</span></td>
+                  <td><button class="btn" style="padding:2px 6px;">Inspect</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SURFACE: SANDBOX CONVERGENCE BRIDGE -->
+      <div class="screen-panel" id="view-sandbox-bridge">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight:800;">Closed-Loop Convergence Bridge (Sandbox ➔ EDR ➔ XDR)</h2>
+            <p style="color:var(--text-secondary); font-size:12px;">Convert sandbox dynamic findings into immediate enterprise defenses without manual translation.</p>
+          </div>
+          <button class="btn btn-teal" onclick="showToast('All 4 convergence actions dispatched successfully.')">Dispatch All Actions</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">1. Deploy Fleet Detection (Sigma/YARA-L)</span>
+              <span class="status-badge teal">615 Content Engine</span>
+            </div>
+            <p style="color:var(--text-secondary); font-size:12px; margin-bottom:12px;">
+              Publish active detection rule targeting the sample's command line and injection footprint across all 48 fleet sensors.
+            </p>
+            <button class="btn btn-teal" onclick="showToast('Rule SIG-2026-CS-098 published to 48 online sensors.')">Deploy Rule Fleet-Wide</button>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">2. Block IOCs on All Sensors</span>
+              <span class="status-badge rose">Immediate Containment</span>
+            </div>
+            <p style="color:var(--text-secondary); font-size:12px; margin-bottom:12px;">
+              Push SHA-256 <span class="font-mono">419c...55ae</span> and C2 IP <span class="font-mono">198.51.100.45</span> to sensor blocklists.
+            </p>
+            <button class="btn btn-rose" onclick="showToast('Blocked 1 hash and 1 IP address on 48 EDR agents.')">Push to Agent Blocklists</button>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">3. Attach to Investigation Case</span>
+              <span class="status-badge cyan">XDR Case #INC-2026-0841</span>
+            </div>
+            <p style="color:var(--text-secondary); font-size:12px; margin-bottom:12px;">
+              Commit sandbox PCAP, memory dump, and execution trace to the immutable case evidence ledger.
+            </p>
+            <button class="btn btn-cyan" onclick="showToast('Detonation evidence attached to case #INC-2026-0841.')">Attach Evidence</button>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">4. Deobfuscate Payloads in 59 Decoders</span>
+              <span class="status-badge purple">59 Native Decoders</span>
+            </div>
+            <p style="color:var(--text-secondary); font-size:12px; margin-bottom:12px;">
+              Send extracted secondary payload stage to the 59-decoder suite for multi-stage recursive unpacking.
+            </p>
+            <button class="btn" style="border-color:var(--accent-purple); color:var(--accent-purple);" onclick="showToast('Sent payload to 59-Decoder pipeline. Decoded plain-text recovered in 83ms.')">Forward to 59 Decoders</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLACEHOLDER FOR REMAINING EXTENDED SURFACES -->
+      <div class="screen-panel" id="view-generic">
+        <h2 style="font-size: 18px; font-weight:800;" id="generic-title">Extended EDR Surface</h2>
+        <p style="color:var(--text-secondary); font-size:12px;" id="generic-subtitle">Operational specification view.</p>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header">
+            <span class="card-title" id="generic-card-title">Authoritative Surface Blueprint</span>
+            <span class="status-badge teal">SPEC COMPLIANT</span>
+          </div>
+          <p style="color:var(--text-secondary); font-size:12px;" id="generic-desc">
+            This surface represents one of the 37 mandatory NivXForge EDR capabilities specified in <span class="font-mono">NIVXFORGE_EDR_INFORMATION_ARCHITECTURE.md</span>.
+          </p>
+          <div style="margin-top:16px;">
+            <button class="btn btn-teal" onclick="switchView('overview')">Return to EDR Overview</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- SLIDE-OVER INSPECTION DRAWER -->
+  <div class="drawer-overlay" id="drawer">
+    <div class="drawer-header">
+      <strong style="color:var(--text-primary); font-size:14px;" id="drawer-title">Entity Inspector Drawer</strong>
+      <button class="btn" onclick="closeDrawer()">✕ Close</button>
+    </div>
+    <div class="drawer-body" id="drawer-content">
+      <!-- Injected by JavaScript -->
+    </div>
+  </div>
+
+  <!-- SAFETY-GATED HOST ISOLATION MODAL -->
+  <div class="modal-overlay" id="isolation-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">Safety-Gated Host Network Isolation</span>
+        <button class="btn" onclick="closeIsolationModal()">✕</button>
+      </div>
+      <div style="font-size:12px; color:var(--text-secondary); margin-bottom:16px;">
+        Target Host: <strong style="color:var(--text-primary);" id="modal-target-host">WKS-FINANCE-09</strong>
+      </div>
+
+      <div style="background:var(--bg-input); padding:12px; border-radius:6px; border:1px solid var(--border-subtle); margin-bottom:16px;">
+        <strong style="color:var(--accent-amber); font-size:11.5px;">Automated Infrastructure Safety Verification:</strong>
+        <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px; font-size:11px;">
+          <div style="color:var(--accent-emerald);">✔ Verified: Host is NOT a Domain Controller (SRV-DC-*)</div>
+          <div style="color:var(--accent-emerald);">✔ Verified: Host is NOT an ICU or Healthcare Life-Safety Node</div>
+          <div style="color:var(--accent-cyan);">✔ Verified: Management mTLS channel pinned to NivXForge controller:443</div>
+        </div>
+      </div>
+
+      <label style="font-size:11px; color:var(--text-secondary);">MANDATORY OPERATOR JUSTIFICATION NOTE:</label>
+      <textarea id="isolation-reason" style="width:100%; height:70px; background:var(--bg-input); border:1px solid var(--border-strong); padding:8px; border-radius:4px; color:var(--text-primary); font-family:sans-serif; font-size:12px; margin-top:4px;" placeholder="e.g. Active C2 beaconing and memory injection observed under Case #INC-2026-0841"></textarea>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button class="btn" onclick="closeIsolationModal()">Cancel</button>
+        <button class="btn btn-rose" id="modal-confirm-btn" onclick="confirmIsolationAction()">Execute Isolation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast-popup" id="toast">Action dispatched successfully.</div>
+
+  <script>
+    // VIEW SWITCHER STATE
+    const views = [
+      'overview', 'endpoints', 'entity-360', 'detections', 'trajectory',
+      'process-tree', 'live-query', 'isolation', 'sandbox-intake',
+      'sandbox-live', 'sandbox-report', 'sandbox-bridge'
+    ];
+
+    function switchView(viewName) {
+      // Hide all panels
+      document.querySelectorAll('.screen-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+      const targetPanel = document.getElementById('view-' + viewName);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+      } else {
+        // Fallback to generic blueprint for extended surfaces
+        const generic = document.getElementById('view-generic');
+        generic.classList.add('active');
+        document.getElementById('generic-title').innerText = 'Surface: ' + viewName.toUpperCase();
+        document.getElementById('generic-subtitle').innerText = 'Complete operational specification and architecture blueprint for ' + viewName;
+      }
+
+      // Highlight nav item
+      const navs = document.querySelectorAll('.nav-item');
+      navs.forEach(n => {
+        if (n.innerText.toLowerCase().includes(viewName.replace('-', ' '))) {
+          n.classList.add('active');
+        }
+      });
+    }
+
+    function pivotToHost(hostname) {
+      document.getElementById('tray-host').innerText = hostname;
+      document.getElementById('e360-host-title').innerText = hostname;
+      switchView('entity-360');
+      showToast('Pivoted to Endpoint Entity 360 for ' + hostname);
+    }
+
+    function resetContextFilter() {
+      document.getElementById('tray-host').innerText = 'WKS-FINANCE-09';
+      document.getElementById('tray-process').innerText = 'powershell.exe (PID 4912)';
+      showToast('Context filters reset to default.');
+    }
+
+    // DRAWERS (PROCESS & DETECTION)
+    function openDrawer(type) {
+      const drawer = document.getElementById('drawer');
+      const title = document.getElementById('drawer-title');
+      const content = document.getElementById('drawer-content');
+
+      if (type === 'process') {
+        title.innerText = 'Process Forensic Detail: powershell.exe [PID 4912]';
+        content.innerHTML = `
+          <div style="font-size:12px;">
+            <div style="background:var(--bg-card); padding:12px; border-radius:6px; margin-bottom:12px;">
+              <span style="color:var(--text-muted); font-size:11px;">NORMALIZED COMMAND LINE</span><br>
+              <code style="color:var(--accent-cyan); font-size:11px; word-break:break-all;">powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand WwBTAHkAcwB0...</code>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+              <div>
+                <span style="color:var(--text-muted); font-size:11px;">SHA-256 HASH</span><br>
+                <code class="font-mono" style="font-size:10px;">419c225566d6054d...</code>
+              </div>
+              <div>
+                <span style="color:var(--text-muted); font-size:11px;">SECURITY INTEGRITY</span><br>
+                <span class="status-badge amber">High Integrity · CORP\\jdoe</span>
+              </div>
+            </div>
+            <h4 style="margin-top:14px; margin-bottom:6px; font-size:12px;">Virtual Memory Segment Protections:</h4>
+            <div style="background:var(--bg-input); padding:8px; border-radius:4px; font-family:monospace; font-size:11px; color:var(--accent-rose);">
+              [0x04F10000 - 0x04F11000] PAGE_EXECUTE_READWRITE (RWX) · UNBACKED BY DISK
+            </div>
+            <div style="margin-top:16px; display:flex; gap:8px;">
+              <button class="btn btn-rose" onclick="switchView('sandbox-intake'); closeDrawer();">Detonate in Sandbox</button>
+              <button class="btn btn-teal" onclick="switchView('trajectory'); closeDrawer();">View in Trajectory</button>
+            </div>
+          </div>
+        `;
+      } else {
+        title.innerText = 'Detection Detail: Encoded PowerShell Download Cradle';
+        content.innerHTML = `
+          <div style="font-size:12px;">
+            <span class="status-badge critical">CRITICAL SEVERITY</span>
+            <p style="margin-top:8px; color:var(--text-secondary);">
+              Rule SIG-2026-WIN-PS-004 detected an encoded PowerShell command line downloading a second-stage payload from an external IP address.
+            </p>
+            <div style="margin-top:12px; background:var(--bg-card); padding:10px; border-radius:4px;">
+              <strong>Triggered Telemetry:</strong>
+              <pre class="font-mono" style="font-size:10.5px; color:var(--accent-cyan); margin-top:4px;">EventID 4688 · Parent PID 4110 -> Target PID 4912</pre>
+            </div>
+            <div style="margin-top:16px; display:flex; gap:8px;">
+              <button class="btn btn-rose" onclick="openIsolationModal('WKS-FINANCE-09', false); closeDrawer();">Isolate Host</button>
+              <button class="btn btn-teal" onclick="switchView('sandbox-intake'); closeDrawer();">Detonate Sample</button>
+            </div>
+          </div>
+        `;
+      }
+      drawer.classList.add('active');
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawer').classList.remove('active');
+    }
+
+    // SAFETY-GATED ISOLATION MODAL
+    let isCurrentHostIsolated = true;
+    function openIsolationModal(hostname, isUnisolate) {
+      const modal = document.getElementById('isolation-modal');
+      const title = document.getElementById('modal-title');
+      const target = document.getElementById('modal-target-host');
+      const btn = document.getElementById('modal-confirm-btn');
+
+      target.innerText = hostname;
+      if (isUnisolate) {
+        title.innerText = 'Restore Network Connectivity (Un-Isolate Host)';
+        btn.innerText = 'Restore Connectivity';
+        btn.className = 'btn btn-teal';
+      } else {
+        title.innerText = 'Safety-Gated Host Network Isolation';
+        btn.innerText = 'Execute Isolation';
+        btn.className = 'btn btn-rose';
+      }
+      modal.classList.add('active');
+    }
+
+    function closeIsolationModal() {
+      document.getElementById('isolation-modal').classList.remove('active');
+    }
+
+    function confirmIsolationAction() {
+      const reason = document.getElementById('isolation-reason').value;
+      closeIsolationModal();
+      showToast('Action confirmed: Network containment policy updated for host.');
+    }
+
+    // LIVE QUERY ENGINE SIMULATION
+    function setQueryTemplate(tpl) {
+      const editor = document.getElementById('live-query-input');
+      if (tpl === 'powershell') {
+        editor.innerText = `SELECT p.pid, p.name, p.cmdline, p.parent, u.username, p.path
+FROM processes p
+JOIN users u ON p.uid = u.uid
+WHERE p.name LIKE '%powershell%' OR p.cmdline LIKE '%-EncodedCommand%';`;
+      } else {
+        editor.innerText = `SELECT s.pid, p.name, s.local_address, s.local_port, s.remote_address, s.remote_port
+FROM listening_ports s
+JOIN processes p ON s.pid = p.pid
+WHERE s.local_port NOT IN (80, 443, 22);`;
+      }
+    }
+
+    function executeLiveQuery() {
+      const progressCard = document.getElementById('query-progress-card');
+      const progressBar = document.getElementById('query-progress-bar');
+      const progressPct = document.getElementById('query-progress-pct');
+      progressCard.style.display = 'block';
+      progressBar.style.width = '0%';
+      progressPct.innerText = '0%';
+
+      let pct = 0;
+      const timer = setInterval(() => {
+        pct += 25;
+        progressBar.style.width = pct + '%';
+        progressPct.innerText = pct + '% (' + Math.floor(pct * 0.48) + '/48 sensors)';
+        if (pct >= 100) {
+          clearInterval(timer);
+          showToast('Query returned from all 48 fleet sensors in 680ms.');
+        }
+      }, 150);
+    }
+
+    // SANDBOX PRESETS & DETONATION SIMULATION
+    function loadSamplePreset(preset) {
+      const input = document.getElementById('sb-input-path');
+      if (preset === 'cobalt') input.value = 'C:\\Windows\\Temp\\stage2.ps1';
+      else if (preset === 'darkgate') input.value = 'C:\\Users\\jdoe\\Downloads\\invoice_882.vbs';
+      else input.value = 'C:\\Users\\jdoe\\AppData\\Local\\Temp\\chrome_installer.exe';
+      showToast('Loaded preset: ' + preset);
+    }
+
+    function startDetonationJob() {
+      showToast('Starting microVM hypervisor instance in Firecracker... Spinup time: 240ms.');
+      setTimeout(() => {
+        switchView('sandbox-live');
+      }, 500);
+    }
+
+    // TOAST DISPLAY
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    // 20-STEP ATTACK-CHAIN WALKTHROUGH ENGINE
+    const attackSteps = [
+      { step: 1, surface: 'detections', title: '1. Detection → Alert Detail', desc: 'Analyst starts at Detections Queue and inspects the critical Cobalt Strike download cradle alert.', intent: 'Identify trigger rule, command-line arguments, and initial payload.' },
+      { step: 2, surface: 'detections', title: '2. Alert Detail → Process', desc: 'From Detection Detail, analyst pivots to the target process powershell.exe [PID 4912].', intent: 'Examine process metadata, hashes, and parent lineage.' },
+      { step: 3, surface: 'process-tree', title: '3. Process → Parent Process', desc: 'Analyst pivots to Process Tree to find winword.exe [PID 2104] spawned cmd.exe then powershell.exe.', intent: 'Identify execution genesis (Office macro weaponization).' },
+      { step: 4, surface: 'entity-360', title: '4. Parent Process → Device', desc: 'Analyst pivots to Endpoint Entity 360 for WKS-FINANCE-09 to check machine posture.', intent: 'Assess workstation criticality and active network interfaces.' },
+      { step: 5, surface: 'entity-360', title: '5. Device → User', desc: 'Analyst inspects logged-in identity CORP\\jdoe (Interactive Session Type 2).', intent: 'Determine compromised account privileges and lateral risk.' },
+      { step: 6, surface: 'trajectory', title: '6. User → Network Connection', desc: 'Pivoting to 5-Lane Trajectory at event time reveals an outbound TCP socket to 198.51.100.45:8080.', intent: 'Observe external network communication following macro launch.' },
+      { step: 7, surface: 'trajectory', title: '7. Network Connection → DNS', desc: 'Trajectory Network Lane shows prior DNS query for update.microsoft-check[.]net.', intent: 'Identify domain name resolving to suspicious C2 IP.' },
+      { step: 8, surface: 'hunting', title: '8. DNS → Threat Intel IOC', desc: 'Domain lookup in Threat Intel confirms newly registered domain with C2 reputation.', intent: 'Validate malicious indicator reputation across threat feeds.' },
+      { step: 9, surface: 'trajectory', title: '9. IOC → Dropped File', desc: 'Trajectory File Lane captures newly dropped PE file C:\\ProgramData\\svchost_update.exe.', intent: 'Detect secondary stage payload written to disk.' },
+      { step: 10, surface: 'sandbox-intake', title: '10. Dropped File → Sandbox', desc: 'Analyst clicks "Detonate in Sandbox" to dispatch payload to hardened microVM.', intent: 'Execute suspect binary dynamically in isolated hypervisor.' },
+      { step: 11, surface: 'sandbox-live', title: '11. Sandbox → Dynamic Syscall Trace', desc: 'Live hypervisor console reveals NtAllocateVirtualMemory with PAGE_EXECUTE_READWRITE (RWX).', intent: 'Observe unbacked executable memory allocation and injection.' },
+      { step: 12, surface: 'sandbox-report', title: '12. Dynamic Evidence → ATT&CK', desc: 'Detonation report automatically maps behaviors to T1055 (Injection) and T1105 (Ingress).', intent: 'Correlate dynamic execution traces with MITRE enterprise matrix.' },
+      { step: 13, surface: 'incidents', title: '13. ATT&CK → Incremental Knowledge Graph (IKG)', desc: 'Dynamic evidence binds into NivXRay IKG multi-entity causal graph for Case #INC-2026-0841.', intent: 'Connect isolated host events into global attack graph.' },
+      { step: 14, surface: 'incidents', title: '14. IKG → Authoritative Security State', desc: 'Security State transitions to CONFIRMED_ATTACK based solely on verified telemetry.', intent: 'Assess authoritative security state without manufactured scores.' },
+      { step: 15, surface: 'incidents', title: '15. Security State → Deterministic Verdict', desc: 'Deterministic Verdict Engine calculates confirmed malicious attack without proxy weights.', intent: 'Mathematically prove malicious verdict from verified evidence.' },
+      { step: 16, surface: 'overview', title: '16. Verdict → Impact Analysis', desc: 'Impact analysis computes blast radius across finance subnet; confirms DC is safe.', intent: 'Determine affected assets, accounts, and business exposure.' },
+      { step: 17, surface: 'isolation', title: '17. Impact → Safety-Gated Response', desc: 'Analyst initiates containment; platform verifies target is NOT a DC or healthcare unit.', intent: 'Ensure critical enterprise infrastructure is protected before isolation.' },
+      { step: 18, surface: 'isolation', title: '18. Response → Host Isolation', desc: 'Sensor driver drops all inbound/outbound packets while maintaining pinned mTLS channel.', intent: 'Halt adversary C2 traffic immediately.' },
+      { step: 19, surface: 'isolation', title: '19. Isolation → Audit Execution', desc: 'Response action is cryptographically sealed into immutable containment ledger.', intent: 'Preserve complete chain of custody for legal and compliance audit.' },
+      { step: 20, surface: 'trajectory', title: '20. Execution → Verification', desc: 'Post-containment telemetry proves zero outbound network flows and terminates attack chain.', intent: 'Verify containment effectiveness using subsequent sensor telemetry.' }
+    ];
+
+    let currentAttackStep = 0;
+    function toggleAttackChainWalkthrough() {
+      const box = document.getElementById('walkthrough-box');
+      if (box.classList.contains('active')) {
+        box.classList.remove('active');
+      } else {
+        box.classList.add('active');
+        currentAttackStep = 0;
+        renderAttackStep();
+      }
+    }
+
+    function renderAttackStep() {
+      const s = attackSteps[currentAttackStep];
+      document.getElementById('wt-step-number').innerText = 'STEP ' + s.step + ' OF 20';
+      document.getElementById('wt-step-title').innerText = s.title;
+      document.getElementById('wt-step-desc').innerText = s.desc;
+      document.getElementById('wt-step-intent').innerText = 'Cognitive Intent: ' + s.intent;
+      switchView(s.surface);
+    }
+
+    function nextAttackStep() {
+      if (currentAttackStep < attackSteps.length - 1) {
+        currentAttackStep++;
+        renderAttackStep();
+      } else {
+        showToast('Attack-chain walkthrough complete! 20 of 20 steps verified.');
+      }
+    }
+
+    function prevAttackStep() {
+      if (currentAttackStep > 0) {
+        currentAttackStep--;
+        renderAttackStep();
+      }
+    }
+  </script>
+</body>
+</html>

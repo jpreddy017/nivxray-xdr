@@ -37,10 +37,13 @@ import { NxHeroHeader, NxHBar, NxSurface } from "@/xdr/nx";
 import PriorityStrip           from "./incidents/PriorityStrip";
 import QueueToolbar            from "./incidents/QueueToolbar";
 import StateTabs               from "./incidents/StateTabs";
+import { incidentNumber } from "./incidents/QueueTable";
 import QueueTable, {
   ALL_COLUMNS, DEFAULT_VISIBLE, DEFAULT_ORDER,
 }                              from "./incidents/QueueTable";
 import IncidentPreviewDrawer   from "./incidents/IncidentPreviewDrawer";
+import QueueContextMenu        from "./incidents/QueueContextMenu";
+import QueueSearchBar          from "./incidents/QueueSearchBar";
 import FiltersPanel            from "./incidents/FiltersPanel";
 import "./incidents/queue-theme.css";
 
@@ -57,6 +60,15 @@ const LENS_LABELS = {
 const FILTER_KEYS = [
   "priority", "severity", "verdict", "confidence",
   "customer", "detection_source", "technique",
+  // Work-management filter (P0-2b) — never a visibility gate.
+  "assignment",
+  // Column search (server-side).
+  "number", "name", "assignee",
+  // Negative predicates · explicit allow-list, applied inside the
+  // tenant authorization scope.
+  "exclude_customer", "exclude_assignee", "exclude_detection_source",
+  "exclude_priority", "exclude_severity", "exclude_verdict",
+  "exclude_mitre",
 ];
 
 const TIME_WINDOW_MS = {
@@ -331,6 +343,33 @@ export default function XdrIncidentsPage() {
   const previewRow = previewIndex >= 0 ? visibleRows[previewIndex] : null;
 
   const onRowClick = (r) => setPrevId(r.id);
+
+  // ── Row context menu · work management without leaving the queue ──
+  // Backed by PATCH /api/incidents/{id}/assignee (a real endpoint).
+  // Assignment is work management only — it NEVER changes who can SEE
+  // the incident (that is tenant authorization).
+  const [ctx, setCtx] = useState(null);   // { row, at:{x,y}, col }
+
+  const [ctxToast, setCtxToast] = useState(null);
+
+  const patchAssignee = async (row, assignee) => {
+    const target = (assignee || "").trim() || null;
+    try {
+      // Reuse the audited bulk-assign path so a single-row assignment
+      // is written and audited exactly like a bulk one.
+      await bulkAssign([row.id], target, "assign from queue context menu");
+      setRows(rs => rs.map(r => (r.id === row.id
+        ? { ...r, assignee: target } : r)));
+      setCtxToast(target
+        ? `${incidentNumber(row)} assigned to ${target}`
+        : `${incidentNumber(row)} released — now unassigned`);
+      return true;
+    } catch (e) {
+      setCtxToast(`Assignment failed — ${e?.response?.data?.detail?.error
+        || e?.response?.status || "network error"}`);
+      return false;
+    }
+  };
   const onNameClick = (r) => navigate(`/xdr/incidents/${r.id}`);
   const onDrawerOpen = () => {
     if (previewRow) navigate(`/xdr/incidents/${previewRow.id}`);
@@ -590,6 +629,24 @@ export default function XdrIncidentsPage() {
         )}
 
         {/* Table */}
+        <QueueSearchBar
+          values={{ ...filters, state: urlState || "" }}
+          facets={{
+            // Facet options come from the rows the API actually
+            // returned — never a hard-coded customer list.
+            customers: [...new Set(rows.map(r => r.customer).filter(Boolean))].sort(),
+            sources:   [...new Set(rows.map(r => r.detection_source).filter(Boolean))].sort(),
+          }}
+          onChange={(param, value) => setParam(param, value)}
+          onClear={() => {
+            const next = new URLSearchParams(params);
+            ["number", "name", "assignee", "customer", "detection_source",
+             "priority", "severity", "verdict", "state", "technique"]
+              .forEach(k => next.delete(k));
+            setParams(next, { replace: true });
+          }}
+        />
+
         <QueueTable
           rows={visibleRows}
           visibleColumns={visibleColumns}
@@ -605,7 +662,37 @@ export default function XdrIncidentsPage() {
           order={urlOrder}
           onSort={onSort}
           loading={loading}
+          onContextMenu={(row, at, col) => setCtx({ row, at, col })}
         />
+
+        {ctx && (
+          <QueueContextMenu
+            row={ctx.row}
+            at={ctx.at}
+            col={ctx.col}
+            currentUser={user?.email}
+            onClose={() => setCtx(null)}
+            onOpen={(r) => navigate(`/xdr/incidents/${r.id}`)}
+            onOpenNewTab={(r) => window.open(`/xdr/incidents/${r.id}`, "_blank", "noopener")}
+            onOpenNewWindow={(r) => window.open(
+              `/xdr/incidents/${r.id}`, `nivxray-${r.id}`,
+              "noopener,width=1480,height=940")}
+            onShowMatching={(param, value) => setParam(param, value)}
+            onFilterOut={(param, value) => setParam(param, value)}
+            onPreview={(r) => setPrevId(r.id)}
+            onAssignToMe={(r) => patchAssignee(r, user?.email)}
+            onUnassign={(r) => patchAssignee(r, "")}
+            onToast={(m) => setCtxToast(m)}
+          />
+        )}
+
+        {ctxToast && (
+          <div className="ql-ctx-toast" role="status"
+                data-testid="ql-ctx-toast"
+                onAnimationEnd={() => setCtxToast(null)}>
+            {ctxToast}
+          </div>
+        )}
 
         {/* Preview drawer */}
         <IncidentPreviewDrawer
@@ -789,9 +876,9 @@ function IntelBlock({ label, bars }) {
 }
 
 function ExposureTile({ label, value, tone, sub }) {
-  const bgMap = { critical: "#FEF2F2", amber: "#FFFBEB", faint: "var(--nx-surf-inset)" };
+  const bgMap = { critical: "var(--nx-critical-bg)", amber: "var(--nx-medium-bg)", faint: "var(--nx-surf-inset)" };
   const fgMap = { critical: "var(--nx-critical)", amber: "var(--nx-medium)", faint: "var(--nx-muted)" };
-  const bMap  = { critical: "#FCA5A5", amber: "#FCD34D", faint: "var(--nx-bd-quiet)" };
+  const bMap  = { critical: "var(--nx-critical-bd)", amber: "var(--nx-medium-bd)", faint: "var(--nx-bd-quiet)" };
   return (
     <div style={{
       padding: "10px 12px",

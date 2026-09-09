@@ -1,0 +1,31 @@
+{
+  "summary": "Phase A.5 items 3.4 (Investigation Replay) + 3.5 (Universal Evidence Drill-down) — frontend-only testing. 25/26 scenarios PASS. Investigation Detail Replay CTA, Investigation Replay page (scrubber, pipeline flow, step detail, Show Evidence), shared EvidenceModal from Attack Chain, MITRE chips, Timeline events, modal close via button/Escape/backdrop, tab switching (chain/raw), deep-linking to /investigations/:id/replay, and back navigation ALL work. ONE CRITICAL BUG: ComparePage crashes at runtime with 'ReferenceError: evi is not defined' — the useEvidenceModal() hook is used (evi.open on line 117, evi.modal on line 119) but never declared. This makes the /compare page throw an Uncaught runtime error and blocks the Confidence Provenance rule-fire drill-down flow (a-rule-<id> / b-rule-<id> → EvidenceModal).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ComparePage", "issue": "ReferenceError: evi is not defined — component crashes on mount. Missing `const evi = useEvidenceModal();` inside ComparePage() before the return. useEvidenceModal is imported (line 19) and evi.open/evi.modal are referenced (lines 117 and 119) but the hook is never called to create `evi`.", "selector": "/app/frontend/src/pages/ComparePage.jsx line ~54-58 (add `const evi = useEvidenceModal();`)", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "Compare Cases → rule fire → EvidenceModal", "issue": "Cannot be exercised because ComparePage itself crashes before rendering anything. Rule-fire rows (a-rule-<id>, b-rule-<id>) never render.", "affected_selectors": ["compare-page", "a-rule-*", "b-rule-*", "evidence-modal"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Add `const evi = useEvidenceModal();` inside the ComparePage() component body in /app/frontend/src/pages/ComparePage.jsx (before the return statement, alongside the other useState hooks around lines 54-58). This is a one-line fix that will unblock the Compare page and the Confidence Provenance rule-fire → EvidenceModal flow."
+  ],
+  "critical_code_review_comments": [
+    "ComparePage.jsx uses `evi.open` and `evi.modal` without ever calling useEvidenceModal() — a clear implementation miss. This should have been caught by a smoke test on /compare.",
+    "InvestigationReplayPage.jsx buildSteps() is deterministic and clean; steps array is well-formed with 10 stages on the seeded investigation.",
+    "EvidenceModal correctly handles backdrop click, Escape key, and close button — all three close paths verified.",
+    "evidenceDescriptors.js factory functions are consistent — good abstraction."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "96% (25/26 scenarios; the one failure is the ComparePage crash blocking the Confidence Provenance rule-fire flow)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used existing investigation /investigations/6a72169b3d98eb14810c9506 (root_case_id 6a71df55de61c45467e3a650) per agent-to-agent context.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "After main agent adds the missing `const evi = useEvidenceModal();` line in ComparePage, only the /compare flow needs retesting: (1) load /compare, (2) enter two case IDs (use 6a71df55de61c45467e3a650 and any other from history), (3) click Compare, (4) click a rule fire row [data-testid='a-rule-<id>' or 'b-rule-<id>'], (5) verify EvidenceModal opens with Confidence Provenance descriptor. All other Phase A.5 3.4/3.5 flows already verified passing.",
+  "rca of the issue": "ComparePage.jsx imports { useEvidenceModal } from '@/components/EvidenceModal' (line 19) and calls `evi.open` (line 117) and renders `{evi.modal}` (line 119), but the local const `evi` is never declared via `const evi = useEvidenceModal();`. Reproduction: log in as admin → navigate to /compare → Uncaught ReferenceError: evi is not defined at ComparePage. Mitigation: add `const evi = useEvidenceModal();` inside the ComparePage component body (near the other useState declarations, before the return)."
+}

@@ -1,0 +1,267 @@
+{
+ "stages": [
+  {
+   "stage": "control_plane_login",
+   "status": "EXECUTED",
+   "principal": "admin@nivxray.com",
+   "note": "admin JWT is used for key minting / enrollment / queue read ONLY"
+  },
+  {
+   "stage": "api_key_minted",
+   "status": "EXECUTED",
+   "key_id": "key_9df41e8ef1f14a028c90",
+   "prefix": "nvx_1f386002",
+   "scopes": [
+    "collectors.enroll",
+    "collectors.read"
+   ],
+   "tenant": "p0f-collector-auth-proof",
+   "stored_hash_len": 64,
+   "plaintext_absent_from_store": true
+  },
+  {
+   "stage": "collector_enrolled",
+   "status": "EXECUTED",
+   "collector_id": "col_e325acba880e48b68593",
+   "tenant": "p0f-collector-auth-proof",
+   "state": "ADOPTED",
+   "protocol": "webhook"
+  },
+  {
+   "stage": "auth_proof_matrix",
+   "status": "PASS",
+   "cases": 11
+  },
+  {
+   "stage": "cross_tenant_wellformed_envelope",
+   "status": "PASS",
+   "http": 403,
+   "body": "{\"detail\":{\"code\":\"TENANT_ISOLATION_VIOLATION\",\"header_tenant\":\"p0f-collector-auth-proof\",\"envelope_tenant\":\"p0f-collector-auth-proof-other\"}}"
+  },
+  {
+   "stage": "cross_tenant_malformed_envelope",
+   "status": "OBSERVED",
+   "http": 422,
+   "body": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"TelemetryBatch\",\"envelopes\",0,\"collector_id\"],\"msg\":\"Field required\",\"input\":{\"tenant_id\":\"p0f-collector-auth-proof-other\",\"source\":\"x\",\"events\":[]}},{\"type"
+  },
+  {
+   "stage": "ingest_receipt",
+   "status": "EXECUTED",
+   "accepted": 1,
+   "collector_state": "CONNECTED",
+   "collector_state_reason": "telemetry received/parsed/normalized: 1/1/1",
+   "reasoned": 1,
+   "observations_created": 1,
+   "reasoning_status": "REASONED",
+   "blocker": null,
+   "detections_matched": 1,
+   "verdict": "SUSPICIOUS",
+   "verdict_score": 70,
+   "incident_created": true,
+   "incident_reason": null,
+   "trace_id": "live_3d34c51fc9e0410f"
+  },
+  {
+   "stage": "raw_ingest_persisted",
+   "status": "PASS",
+   "collection": "xdr_canonical_events",
+   "_id": "6aa10e091dfb01736ed42363",
+   "line_verbatim": true
+  },
+  {
+   "stage": "canonical_evidence_created",
+   "status": "PASS",
+   "collection": "xdr_canonical_evidence",
+   "event_id": "6ed3c359-55bb-4306-b2be-0823fe1a52d6",
+   "tenant": "p0f-collector-auth-proof",
+   "dsm": "cef-leef",
+   "severity_band": "HIGH"
+  },
+  {
+   "stage": "incident_materialised",
+   "status": "PASS",
+   "incident_id": "inc_3237ef62a05947abb5d1",
+   "doc_type": "xdr_incident",
+   "tenant": "p0f-collector-auth-proof",
+   "title": "Suspicious \u2014 sig 4001 \u2192 203.0.113.55",
+   "priority": "P3",
+   "state": "new",
+   "veee_score": null,
+   "veee_label": null,
+   "detection_rule_id": "DET-EX-001",
+   "canonical_event_id": "6ed3c359-55bb-4306-b2be-0823fe1a52d6",
+   "iue_id": "iue_0d58b00820b8a38e4f84",
+   "collector": null,
+   "gate": "INCIDENT_MIN_SCORE=55 \u00b7 verdict=SUSPICIOUS score=70"
+  },
+  {
+   "stage": "replay_identical_envelope",
+   "status": "PASS",
+   "http": 200,
+   "duplicates_reported": 1,
+   "replay_status": "DUPLICATE",
+   "replay_incident_created": false,
+   "points_at_original_incident": true,
+   "duplicate_of_trace_id": "live_3d34c51fc9e0410f",
+   "delivery_count": 3,
+   "raw_rows": "8->8",
+   "canonical_docs": "10->10",
+   "incidents": "10->10",
+   "reasoned": 0,
+   "observations_created": 0,
+   "incidents_promoted": [],
+   "collector_events_received": 1,
+   "collector_events_duplicate": 2,
+   "incident_duplicate_delivery_count": 2
+  },
+  {
+   "stage": "distinct_event_not_suppressed",
+   "status": "PASS",
+   "http": 200,
+   "duplicates_reported": 0,
+   "reasoning_status": "REASONED",
+   "new_incident_id": "inc_fe352fb9a71d46e2ba91",
+   "note": "different source_event_id => genuinely new event, never suppressed"
+  },
+  {
+   "stage": "queue_visible_to_authorized_reader",
+   "status": "PASS",
+   "http": 200,
+   "incident_present": true,
+   "returned": 11,
+   "reader": "admin (all_tenants)"
+  },
+  {
+   "stage": "queue_hidden_from_other_tenant",
+   "status": "PASS",
+   "reader": "analyst@nivx-live.com (tenant nivx-live)",
+   "http": 200,
+   "incident_present": false,
+   "returned": 1
+  },
+  {
+   "stage": "other_tenant_key_cannot_see_proof_collector",
+   "status": "PASS",
+   "http": 200,
+   "proof_collector_visible": false,
+   "returned": 0
+  },
+  {
+   "stage": "cleanup",
+   "status": "EXECUTED",
+   "keys_revoked": [
+    "key_9df41e8ef1f14a028c90",
+    "key_2b034c477b4a41caa36d",
+    "key_e8a230b45af443919c90",
+    "key_5350b1b28d644066b984"
+   ],
+   "collector_disabled": "col_e325acba880e48b68593",
+   "revoked_key_now_denied": true,
+   "revoked_key_http": 403,
+   "evidence_retained": "raw events, canonical evidence and the incident are INTENTIONALLY retained under tenant p0f-collector-auth-proof for owner review"
+  }
+ ],
+ "auth_matrix": [
+  {
+   "case": "valid key + matching tenant",
+   "expected": "200 accepted",
+   "http": 200,
+   "reason": null,
+   "verdict": "PASS"
+  },
+  {
+   "case": "no credential",
+   "expected": "403 denied",
+   "http": 403,
+   "reason": "unauthenticated",
+   "verdict": "PASS"
+  },
+  {
+   "case": "unknown key",
+   "expected": "401 denied",
+   "http": 401,
+   "reason": "unknown-api-key",
+   "verdict": "PASS"
+  },
+  {
+   "case": "malformed key",
+   "expected": "401 denied",
+   "http": 401,
+   "reason": "malformed-api-key",
+   "verdict": "PASS"
+  },
+  {
+   "case": "empty key header",
+   "expected": "401 denied",
+   "http": 401,
+   "reason": "malformed-api-key",
+   "verdict": "PASS"
+  },
+  {
+   "case": "revoked key",
+   "expected": "403 denied",
+   "http": 403,
+   "reason": "api-key-revoked",
+   "verdict": "PASS"
+  },
+  {
+   "case": "key without collectors.enroll",
+   "expected": "403 denied",
+   "http": 403,
+   "reason": "scope-not-granted",
+   "verdict": "PASS"
+  },
+  {
+   "case": "valid key + wrong tenant header",
+   "expected": "403 denied",
+   "http": 403,
+   "reason": "api-key-tenant-mismatch",
+   "verdict": "PASS"
+  },
+  {
+   "case": "other-tenant key -> this collector",
+   "expected": "403 denied",
+   "http": 403,
+   "reason": null,
+   "verdict": "PASS"
+  },
+  {
+   "case": "key + admin JWT together",
+   "expected": "401 ambiguous",
+   "http": 401,
+   "reason": "ambiguous-credentials",
+   "verdict": "PASS"
+  },
+  {
+   "case": "key + spoofed principal headers",
+   "expected": "200 (key still the authority)",
+   "http": 200,
+   "reason": null,
+   "verdict": "PASS"
+  }
+ ],
+ "ids": {
+  "api_key_id": "key_9df41e8ef1f14a028c90",
+  "api_key_prefix": "nvx_1f386002",
+  "revoked_key_id": "key_2b034c477b4a41caa36d",
+  "unscoped_key_id": "key_e8a230b45af443919c90",
+  "other_tenant_key_id": "key_5350b1b28d644066b984",
+  "collector_id": "col_e325acba880e48b68593",
+  "trace_id": "live_3d34c51fc9e0410f",
+  "observation_id": "6aa10e0a1dfb01736ed423b5",
+  "incident_id": "inc_3237ef62a05947abb5d1",
+  "canonical_event_id": "6ed3c359-55bb-4306-b2be-0823fe1a52d6",
+  "detection_rule_id": "DET-EX-001",
+  "iue_id": "iue_0d58b00820b8a38e4f84",
+  "tenant": "p0f-collector-auth-proof"
+ },
+ "findings": [
+  {
+   "item": "reported 422 on cross-tenant envelope",
+   "classification": "VALIDATION-ORDER SEMANTICS \u00b7 NOT a tenant-isolation defect",
+   "evidence": "A WELL-FORMED cross-tenant envelope is refused 403 TENANT_ISOLATION_VIOLATION. The 422 only appears for a body that fails Pydantic shape validation (missing collector_id/collection_method), which FastAPI runs before the handler, so the tenant check is never reached. No cross-tenant write is possible in either case.",
+   "security_impact": "NONE \u2014 isolation holds. Left unfixed as instructed."
+  }
+ ],
+ "verdict": "PASS"
+}

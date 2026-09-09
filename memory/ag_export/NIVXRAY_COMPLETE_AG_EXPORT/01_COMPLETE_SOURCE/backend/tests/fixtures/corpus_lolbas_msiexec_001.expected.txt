@@ -1,0 +1,1 @@
+http://msi-1.example.test/pkg1.msi

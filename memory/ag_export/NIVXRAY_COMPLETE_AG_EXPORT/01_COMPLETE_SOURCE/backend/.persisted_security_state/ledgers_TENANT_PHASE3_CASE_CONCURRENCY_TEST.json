@@ -1,0 +1,87 @@
+[
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-w0",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "cbafbed2bb3e89b72c0d21578e01fe700867310b336e4d3de476824ff3398065",
+    "payload": {
+      "state_hash": "fc2150aa9dd78f7924aced87c8aa61a40b6bf43ff018809d15b19ee94a3ed9cb",
+      "version": 1
+    },
+    "timestamp": "2026-09-04T01:50:10.375505+00:00",
+    "verified": true
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "sequence_number": 2,
+    "block_id": "blk-000002",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-w4",
+    "state_version": 2,
+    "previous_hash": "cbafbed2bb3e89b72c0d21578e01fe700867310b336e4d3de476824ff3398065",
+    "current_hash": "cd54c992d3cc4eaaa5234359b35e248eaa2dac7bf0c3d15921b2f639ea3abd7f",
+    "payload": {
+      "state_hash": "ac9e8b8e19aee8f1b7753719226958355aeaeaa1fcd37216c1d0c00074aca326",
+      "version": 2
+    },
+    "timestamp": "2026-09-04T01:50:10.450018+00:00",
+    "verified": true
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "sequence_number": 3,
+    "block_id": "blk-000003",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-w3",
+    "state_version": 3,
+    "previous_hash": "cd54c992d3cc4eaaa5234359b35e248eaa2dac7bf0c3d15921b2f639ea3abd7f",
+    "current_hash": "3b35ec1094bb1c52807274d6bcbdd61ece9389a678447341943d3e1befa9da46",
+    "payload": {
+      "state_hash": "30200e3e93c98905819bf8d5416772760f6520d7e222a394a40012528f405f24",
+      "version": 3
+    },
+    "timestamp": "2026-09-04T01:50:10.531115+00:00",
+    "verified": true
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "sequence_number": 4,
+    "block_id": "blk-000004",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-w2",
+    "state_version": 4,
+    "previous_hash": "3b35ec1094bb1c52807274d6bcbdd61ece9389a678447341943d3e1befa9da46",
+    "current_hash": "2f0152f956ecbd6818a7d8483a6845a15a8c52b8d7d8a2281a638be6335b76dd",
+    "payload": {
+      "state_hash": "5cc8069d01ba284a3f5c7e4e6befc914d51faa8ecc035bfcb8364bd10ab27f4f",
+      "version": 4
+    },
+    "timestamp": "2026-09-04T01:50:10.611353+00:00",
+    "verified": true
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "sequence_number": 5,
+    "block_id": "blk-000005",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-w1",
+    "state_version": 5,
+    "previous_hash": "2f0152f956ecbd6818a7d8483a6845a15a8c52b8d7d8a2281a638be6335b76dd",
+    "current_hash": "aa2392f5babc840d77569e32b46d5f86383a350ed447d0e92923ac4e7db6b8df",
+    "payload": {
+      "state_hash": "96af1d7543e31ba012af43ce0c682b6c5c493daa79658379a7a091df561edd2f",
+      "version": 5
+    },
+    "timestamp": "2026-09-04T01:50:10.700498+00:00",
+    "verified": true
+  }
+]

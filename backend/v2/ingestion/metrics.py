@@ -34,6 +34,10 @@ class IngestionMetrics:
     ikg_edges: int = 0
     workspace_generation_ms: float = 0.0
 
+    # Wiring Fix (a) telemetry — authoritative-orchestrator trace per event
+    pipeline_traces: list[Any] = field(default_factory=list)
+    pipeline_error: str = ""
+
     def finish(self) -> "IngestionMetrics":
         self.finished_at = time.time()
         return self

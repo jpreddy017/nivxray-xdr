@@ -1,0 +1,906 @@
+/* NivXRay Enterprise Visual System v1 — 2026-02-34
+ *
+ * Product-wide design system for the XDR console.  Establishes a
+ * cohesive enterprise SOC identity:
+ *
+ *   - Deep navy-slate navigation surface (topbar + sidebar) — feels
+ *     premium and confident, not flat black.
+ *   - Warm neutral workspace surface (main) — modern enterprise
+ *     feel with slight warmth against clinical white.
+ *   - Pure white card layer for actual data density.
+ *   - Refined NivXRay purple identity + restrained teal secondary.
+ *   - Semantic status system (success · warn · danger · info).
+ *   - 3-tier elevation, unified focus/hover/selected states.
+ *   - Enterprise typography scale.
+ *
+ * Scoped under `.xdr-console` — leaks nowhere.  Downstream page
+ * classes (.stat-card, .panel, .btn, .lens-tile, .table-lite …)
+ * continue to consume these tokens, so redefining the tokens here
+ * re-themes the entire /xdr/* surface consistently.
+ */
+
+.xdr-console {
+  /* Workspace surface (main content area) */
+  --bg:            #FAFAF9;   /* warm neutral 50 */
+  --bg2:           #F5F5F4;   /* warm neutral 100 */
+  --panel:         #FFFFFF;   /* card surface */
+  --panel2:        #FAFAF9;   /* subtle inset surface */
+  --border:        #E7E5E4;   /* warm neutral 200 */
+  --border-sf:     #D6D3D1;   /* warm neutral 300 */
+
+  /* Typography (workspace) */
+  --text:          #111827;   /* slate 900 with warmth */
+  --text-dim:      #4B5563;   /* slate 600 */
+  --muted:         #6B7280;   /* slate 500 */
+  --faint:         #9CA3AF;   /* slate 400 */
+
+  /* Brand identity */
+  --purple:        #6D4EE0;   /* NivXRay identity */
+  --purple-hover:  #5B3ED1;
+  --purple-dim:    #EDE7FF;   /* subtle purple wash */
+  --purple-ring:   rgba(109, 78, 224, 0.20);
+
+  /* Secondary supporting accent (charts, links, informational) */
+  --teal:          #0D9488;
+  --teal-dim:      #CCFBF1;
+
+  /* Semantic status system */
+  --success:       #059669; --success-bg: #ECFDF5; --success-bd: #A7F3D0;
+  --info:          #2563EB; --info-bg:    #EFF6FF; --info-bd:    #93C5FD;
+  --warn:          #D97706; --warn-bg:    #FFFBEB; --warn-bd:    #FCD34D;
+  --danger:        #DC2626; --danger-bg:  #FEF2F2; --danger-bd:  #FCA5A5;
+  --critical:      #991B1B; --critical-bg:#7F1D1D;
+
+  /* Legacy shorthands kept for downstream page code */
+  --mint:          var(--success);
+  --cyan:          var(--info);
+  --amber:         #EA580C;   /* orange (high) */
+  --yellow:        var(--warn);
+  --red:           var(--danger);
+  --red-dim:       var(--danger-bg);
+
+  /* Deep navy navigation surface (topbar + sidebar) */
+  --nav-bg:        #0F172A;   /* slate 900 · deep navy */
+  --nav-bg-2:      #111827;   /* slate 900 (topbar/panel) */
+  --nav-border:    #1E293B;   /* slate 800 */
+  --nav-border-2:  #334155;   /* slate 700 */
+  --nav-text:      #E2E8F0;   /* slate 200 */
+  --nav-text-dim:  #94A3B8;   /* slate 400 */
+  --nav-muted:     #64748B;   /* slate 500 */
+  --nav-faint:     #475569;   /* slate 600 */
+  --nav-active-bg: rgba(109, 78, 224, 0.18);
+  --nav-hover-bg:  rgba(148, 163, 184, 0.08);
+
+  /* Typography families + geometry */
+  --sans:   'Inter','Segoe UI',system-ui,sans-serif;
+  --mono:   'IBM Plex Mono','SFMono-Regular',Consolas,monospace;
+  --radius:      6px;
+  --radius-lg:   8px;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgba(15, 20, 30, 0.04);
+  --shadow-2: 0 2px 8px rgba(15, 20, 30, 0.08);
+  --shadow-3: 0 8px 24px rgba(15, 20, 30, 0.12);
+
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Top bar (deep navy · utility only) ────────────────────────── */
+.xdr-console .topbar {
+  height: 50px; flex: 0 0 50px;
+  display: flex; align-items: center; gap: 0;
+  padding: 0 16px;
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+  position: sticky; top: 0; z-index: 60;
+  color: var(--nav-text);
+  box-shadow: var(--shadow-1);
+}
+.xdr-console .brand {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 800; letter-spacing: .5px;
+  font-size: 14px; padding-right: 20px;
+  color: var(--nav-text); text-decoration: none;
+}
+.xdr-console .brand:hover { color: #FFFFFF; }
+.xdr-console .brand .accent { color: var(--purple); font-weight: 700; }
+.xdr-console .top-search {
+  flex: 1; max-width: 480px; margin-left: 12px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--nav-bg-2);
+  border: 1px solid var(--nav-border);
+  border-radius: 6px; padding: 6px 10px;
+  color: var(--nav-muted);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.xdr-console .top-search:focus-within {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px var(--purple-ring);
+}
+.xdr-console .top-search input {
+  background: none; border: none; outline: none;
+  color: var(--nav-text); font-size: 12.5px; width: 100%;
+  font-family: var(--sans);
+}
+.xdr-console .top-search input::placeholder { color: var(--nav-muted); }
+.xdr-console .top-actions {
+  display: flex; align-items: center; gap: 6px;
+  margin-left: auto;
+}
+.xdr-console .tier-pill {
+  padding: 3px 10px;
+  background: rgba(109, 78, 224, 0.18);
+  color: #C7B7FF;
+  border: 1px solid rgba(109, 78, 224, 0.35);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+}
+.xdr-console .user-chip {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--purple);
+  color: #FFFFFF;
+  border: none; border-radius: 50%;
+  font-family: var(--mono);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+.xdr-console .user-chip:hover { filter: brightness(1.08); }
+
+.xdr-console .btn.ghost {
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--nav-text-dim);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.xdr-console .btn.ghost:hover {
+  background: var(--nav-hover-bg);
+  color: var(--nav-text);
+}
+
+/* ── Body layout ───────────────────────────────────────────────── */
+.xdr-console .body {
+  display: flex; flex: 1; min-height: 0;
+  background: var(--bg);
+}
+
+/* ── Sidebar (deep navy · product nav) ─────────────────────────── */
+.xdr-console .sidebar {
+  width: 220px; flex: 0 0 220px;
+  padding: 12px 8px 24px;
+  background: var(--nav-bg);
+  border-right: 1px solid var(--nav-border);
+  overflow-y: auto;
+  color: var(--nav-text-dim);
+}
+.xdr-console .sidebar .nav-title {
+  padding: 14px 12px 4px;
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.8px; text-transform: uppercase;
+  color: var(--nav-muted);
+}
+.xdr-console .sidebar .nav-item {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%;
+  padding: 7px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--nav-text-dim);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  margin: 1px 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+.xdr-console .sidebar .nav-item .ic {
+  display: inline-flex; align-items: center;
+  color: inherit;
+  opacity: 0.85;
+}
+.xdr-console .sidebar .nav-item:hover {
+  background: var(--nav-hover-bg);
+  color: var(--nav-text);
+}
+.xdr-console .sidebar .nav-item.active {
+  background: var(--nav-active-bg);
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--purple);
+  padding-left: 12px;
+}
+.xdr-console .sidebar .nav-item.active .ic {
+  color: var(--purple);
+  opacity: 1;
+}
+.xdr-console .sidebar .nav-item.disabled {
+  color: var(--nav-faint);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.xdr-console .sidebar .nav-item .ext {
+  margin-left: auto;
+  color: var(--nav-muted);
+  display: inline-flex; align-items: center;
+}
+
+/* ── Main workspace (warm neutral) ─────────────────────────────── */
+.xdr-console .main {
+  flex: 1; min-width: 0;
+  padding: 20px 24px;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: auto;
+}
+
+.xdr-console h1.page-h1 {
+  font-size: 18px; font-weight: 700;
+  margin: 0 0 4px; color: var(--text);
+}
+.xdr-console .page-sub {
+  font-size: 11.5px; color: var(--muted); margin-bottom: 14px;
+}
+.xdr-console h3 {
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: .2px; text-transform: uppercase;
+  color: var(--text-dim); margin: 0 0 10px;
+}
+.xdr-console .section-title {
+  font-size: 10.3px; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--faint); font-weight: 800;
+}
+
+/* ── Panels + buttons ──────────────────────────────────────────── */
+.xdr-console .panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.xdr-console .panel2 {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.xdr-console .btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px; border-radius: 5px;
+  background: var(--panel2); border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--sans); font-size: 11px; font-weight: 700;
+  letter-spacing: .2px; cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.xdr-console .btn:hover { background: #141a24; color: var(--text); }
+.xdr-console .btn:disabled { opacity: .5; cursor: not-allowed; }
+.xdr-console .btn.primary {
+  background: var(--purple-dim); border-color: var(--purple); color: var(--purple);
+}
+.xdr-console .btn.ghost { background: transparent; }
+.xdr-console .qf { font-size: 10.5px; padding: 5px 10px; }
+
+/* ── KPI stat cards ────────────────────────────────────────────── */
+.xdr-console .stat-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-bottom: 16px;
+}
+.xdr-console .stat-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px;
+  border-top: 2px solid var(--border);
+}
+.xdr-console .stat-card .lbl {
+  font-size: 9.5px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .3px;
+  font-weight: 700; margin-bottom: 6px;
+}
+.xdr-console .stat-card .val {
+  font-family: var(--mono); font-size: 22px; font-weight: 800;
+}
+.xdr-console .stat-card .sub {
+  margin-top: 4px; font-size: 10.5px; color: var(--faint);
+}
+.xdr-console .stat-card.crit  { border-top-color: var(--red);    } .xdr-console .stat-card.crit  .val  { color: var(--red);    }
+.xdr-console .stat-card.high  { border-top-color: var(--amber);  } .xdr-console .stat-card.high  .val  { color: var(--amber);  }
+.xdr-console .stat-card.med   { border-top-color: var(--yellow); } .xdr-console .stat-card.med   .val  { color: var(--yellow); }
+.xdr-console .stat-card.info  { border-top-color: var(--cyan);   } .xdr-console .stat-card.info  .val  { color: var(--cyan);   }
+.xdr-console .stat-card.ok    { border-top-color: var(--mint);   } .xdr-console .stat-card.ok    .val  { color: var(--mint);   }
+.xdr-console .stat-card.na    { border-top-color: var(--border); opacity: .7; }
+.xdr-console .stat-card.na .val { color: var(--faint); font-family: var(--sans); font-size: 14px; }
+
+/* ── Queue table ───────────────────────────────────────────────── */
+.xdr-console .queue-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  background: var(--panel2);
+}
+.xdr-console .queue-toolbar input {
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); border-radius: 5px;
+  padding: 6px 10px; font-family: var(--sans); font-size: 11.5px;
+  outline: none; min-width: 260px;
+}
+.xdr-console .queue-toolbar input::placeholder { color: var(--muted); }
+.xdr-console table.x-table { width: 100%; border-collapse: collapse; }
+.xdr-console .x-table thead th {
+  text-align: left; padding: 10px 12px;
+  font-size: 9.8px; font-weight: 700; letter-spacing: .4px;
+  text-transform: uppercase; color: var(--faint);
+  background: var(--panel2); border-bottom: 1px solid var(--border);
+}
+.xdr-console .x-table tbody td {
+  padding: 8px 12px; font-size: 11.8px; color: var(--text-dim);
+  border-bottom: 1px solid var(--border-sf);
+  white-space: nowrap;
+}
+.xdr-console .x-table tbody tr.rowlink { cursor: pointer; }
+.xdr-console .x-table tbody tr.rowlink:hover td { background: #141a24; color: var(--text); }
+.xdr-console .mono   { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+.xdr-console .inc-id { font-family: var(--mono); font-size: 11px; color: var(--cyan); }
+
+/* ── Badges / chips / pills ────────────────────────────────────── */
+.xdr-console .badge {
+  display: inline-block; padding: 2px 7px; border-radius: 3px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: .35px;
+  text-transform: uppercase;
+}
+.xdr-console .badge.sev-critical { background: var(--red-dim); color: #ff9494; }
+.xdr-console .badge.sev-high     { background: #3A2A0E;       color: var(--amber); }
+.xdr-console .badge.sev-medium   { background: #3A330E;       color: var(--yellow); }
+.xdr-console .badge.sev-low      { background: #123527;       color: var(--mint); }
+.xdr-console .badge.sev-info     { background: #1a2028;       color: var(--text-dim); }
+
+.xdr-console .prio {
+  font-family: var(--mono); font-size: 11px; font-weight: 800;
+  padding: 2px 7px; border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-dim); background: #1a2028;
+}
+.xdr-console .prio.p1 { border-color: rgba(239,91,91,.55);   color: #ff9494; }
+.xdr-console .prio.p2 { border-color: rgba(245,166,35,.55);  color: var(--amber); }
+.xdr-console .prio.p3 { border-color: rgba(232,197,71,.55);  color: var(--yellow); }
+.xdr-console .prio.p4 { border-color: rgba(60,232,184,.55);  color: var(--mint); }
+.xdr-console .prio.p5 { border-color: var(--border);         color: var(--muted); }
+
+.xdr-console .status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: .35px;
+  text-transform: uppercase;
+  background: #1a2028; color: var(--text-dim);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.xdr-console .status-pill::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+}
+.xdr-console .status-pill.state-new         { color: var(--cyan);  border-color: rgba(63,193,232,.55); }
+.xdr-console .status-pill.state-in_progress { color: var(--amber); border-color: rgba(245,166,35,.55); }
+.xdr-console .status-pill.state-on_hold     { color: var(--muted); }
+.xdr-console .status-pill.state-resolved    { color: var(--mint);  border-color: rgba(60,232,184,.55); }
+.xdr-console .status-pill.state-closed      { color: var(--faint); }
+
+.xdr-console .dom-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 3px;
+  font-size: 9px; font-weight: 800; letter-spacing: .3px;
+  text-transform: uppercase; background: #171e2b;
+  color: var(--cyan); border: 1px solid #232e40; margin-right: 4px;
+}
+.xdr-console .tag-pill {
+  display: inline-block; background: #151b26; border: 1px solid var(--border);
+  color: var(--text-dim); font-size: 10px; padding: 2px 7px;
+  border-radius: 3px; margin-right: 4px;
+}
+
+/* ── Status ribbon (above the header) ──────────────────────────── */
+.xdr-console .status-ribbon {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 10px 14px; margin-bottom: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel2);
+  font-size: 11px; color: var(--text-dim);
+}
+.xdr-console .status-ribbon .rib { display: inline-flex; align-items: baseline; gap: 6px; }
+.xdr-console .status-ribbon .rib .k { color: var(--muted); }
+.xdr-console .status-ribbon .rib .v {
+  font-weight: 800; letter-spacing: .3px;
+  padding: 2px 7px; border-radius: 3px; font-size: 10.5px;
+  background: #1a2028; border: 1px solid var(--border);
+}
+.xdr-console .status-ribbon .rib.tone-red    .v { color: #ff9494;         border-color: rgba(239,91,91,.6); background: var(--red-dim); }
+.xdr-console .status-ribbon .rib.tone-amber  .v { color: var(--amber);   border-color: rgba(245,166,35,.6); }
+.xdr-console .status-ribbon .rib.tone-mint   .v { color: var(--mint);    border-color: rgba(60,232,184,.6); }
+.xdr-console .status-ribbon .rib.tone-cyan   .v { color: var(--cyan);    border-color: rgba(63,193,232,.6); }
+
+/* ── Incident header ───────────────────────────────────────────── */
+.xdr-console .inc-header {
+  padding: 14px 16px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--panel);
+}
+.xdr-console .inc-top {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;
+}
+.xdr-console .inc-id {
+  font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 6px;
+}
+.xdr-console .inc-id .sep { color: var(--faint); margin: 0 6px; }
+.xdr-console .inc-title { font-size: 20px; font-weight: 800; color: var(--text); margin: 0 0 8px; letter-spacing: -.005em; }
+.xdr-console .inc-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.xdr-console .inc-meta { display: flex; flex-wrap: wrap; gap: 16px 22px; margin-top: 6px; }
+.xdr-console .inc-meta .m { font-size: 11px; }
+.xdr-console .inc-meta .m .k {
+  color: var(--faint); display: block; font-size: 9.5px;
+  text-transform: uppercase; letter-spacing: .3px; margin-bottom: 2px;
+}
+.xdr-console .inc-meta .m .v { color: var(--text-dim); font-family: var(--mono); }
+.xdr-console .hdr-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── Verdict card row (4-up) ───────────────────────────────────── */
+.xdr-console .verdict-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 6px 0 16px;
+}
+.xdr-console .verdict-card {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px;
+  border-top: 2px solid var(--border);
+}
+.xdr-console .verdict-card.crit { border-top-color: var(--red); }
+.xdr-console .verdict-card.info { border-top-color: var(--cyan); }
+.xdr-console .verdict-card.high { border-top-color: var(--amber); }
+.xdr-console .verdict-card.na   { border-top-color: var(--border); opacity: .8; }
+.xdr-console .verdict-card .lbl {
+  font-size: 9.5px; color: var(--muted); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px;
+}
+.xdr-console .verdict-card .val {
+  font-family: var(--mono); font-size: 20px; font-weight: 800; color: var(--text);
+}
+.xdr-console .verdict-card.crit .val { color: var(--red); }
+.xdr-console .verdict-card.reason .val {
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  color: var(--text-dim); line-height: 1.5;
+}
+
+/* ── Attack progression stepper ────────────────────────────────── */
+.xdr-console .progression {
+  display: flex; align-items: center; overflow-x: auto;
+  padding: 12px 0 20px; margin-bottom: 8px;
+}
+.xdr-console .stage {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 108px; padding: 3px;
+  border: none; background: transparent; cursor: default;
+}
+.xdr-console .stage .dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #171e2b; border: 2px solid var(--border);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--muted); font-weight: 700;
+}
+.xdr-console .stage .lbl {
+  font-size: 10.5px; color: var(--text-dim);
+  text-align: center; letter-spacing: .3px;
+}
+.xdr-console .stage.hit .dot { border-color: var(--red); color: var(--red); background: #241416; }
+.xdr-console .stage.hit .lbl { color: var(--text); }
+.xdr-console .stage-arrow {
+  flex: 1; height: 2px; background: var(--border);
+  min-width: 24px; margin: 0 4px; position: relative; top: -18px;
+}
+
+/* ── Tabbar / subnav ───────────────────────────────────────────── */
+.xdr-console .tabbar {
+  display: flex; gap: 1px; overflow-x: auto;
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0; padding: 0 4px;
+  margin-top: 14px;
+}
+.xdr-console .tabbtn {
+  padding: 10px 14px; font-size: 11.3px; font-weight: 700;
+  color: var(--muted); white-space: nowrap;
+  border: none; background: transparent;
+  border-bottom: 2px solid transparent;
+  letter-spacing: .3px; cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.xdr-console .tabbtn:hover { color: var(--text-dim); }
+.xdr-console .tabbtn.active { color: var(--purple); border-bottom-color: var(--purple); }
+.xdr-console .tabpanel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+  padding: 16px; min-height: 380px;
+}
+.xdr-console .subnav {
+  display: flex; gap: 1px; overflow-x: auto;
+  background: #0d1119; border: 1px solid var(--border);
+  border-radius: 4px; padding: 0 4px; margin-bottom: 12px;
+}
+.xdr-console .subtabbtn {
+  padding: 8px 12px; font-size: 10.5px; font-weight: 700;
+  color: var(--faint); white-space: nowrap;
+  border: none; background: transparent;
+  border-bottom: 2px solid transparent;
+  letter-spacing: .3px; cursor: pointer;
+}
+.xdr-console .subtabbtn:hover { color: var(--text-dim); }
+.xdr-console .subtabbtn.active { color: var(--mint); border-bottom-color: var(--mint); }
+
+/* ── Rich Evidence-Across-Domains cards ────────────────────────── */
+.xdr-console .edom-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.xdr-console .edom-card {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-left: 3px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 160px;
+}
+.xdr-console .edom-card.related      { border-left-color: var(--cyan); }
+.xdr-console .edom-card.searched     { border-left-color: var(--faint); opacity: .88; }
+.xdr-console .edom-card.notconnected { border-left-color: var(--faint); border-left-style: dashed; opacity: .70; }
+.xdr-console .edom-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.xdr-console .edom-name {
+  font-weight: 800; font-size: 10.5px; color: var(--cyan);
+  letter-spacing: .3px; text-transform: uppercase;
+}
+.xdr-console .edom-card.searched .edom-name,
+.xdr-console .edom-card.notconnected .edom-name { color: var(--faint); }
+.xdr-console .edom-count {
+  font-family: var(--mono); font-size: 18px; font-weight: 800; color: var(--text);
+}
+.xdr-console .edom-card.searched .edom-count,
+.xdr-console .edom-card.notconnected .edom-count { color: var(--faint); }
+.xdr-console .edom-bullets {
+  margin: 0 0 4px; padding-left: 15px;
+  font-size: 10.8px; color: var(--text-dim); line-height: 1.6;
+}
+.xdr-console .edom-why { font-size: 10.5px; color: var(--text-dim); line-height: 1.5; }
+.xdr-console .edom-why b { color: var(--cyan); font-weight: 700; }
+.xdr-console .edom-card.searched .edom-why,
+.xdr-console .edom-card.notconnected .edom-why { color: var(--muted); }
+.xdr-console .edom-card.searched .edom-why b,
+.xdr-console .edom-card.notconnected .edom-why b { color: var(--muted); }
+.xdr-console .edom-open {
+  align-self: flex-start; background: transparent; border: none; padding: 0;
+  font-family: var(--sans); font-size: 10.3px;
+  color: var(--purple); font-weight: 800;
+  text-transform: uppercase; letter-spacing: .3px;
+  cursor: pointer; margin-top: auto;
+}
+.xdr-console .edom-open:disabled { color: var(--faint); cursor: not-allowed; }
+.xdr-console .edom-open:hover:not(:disabled) { text-decoration: underline; }
+
+/* ── Empty / reserved states ───────────────────────────────────── */
+.xdr-console .x-empty {
+  padding: 32px 18px; text-align: center;
+  color: var(--muted); font-size: 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--panel2);
+}
+.xdr-console .x-reserved {
+  padding: 18px; border: 1px dashed var(--border);
+  border-radius: var(--radius); background: var(--panel2);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.xdr-console .x-reserved .lock {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--faint); font-size: 9.5px;
+  text-transform: uppercase; letter-spacing: .45px; font-weight: 800;
+}
+.xdr-console .x-reserved .title { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.xdr-console .x-reserved .body  { font-size: 11.5px; color: var(--text-dim); line-height: 1.55; }
+
+/* ── Utility ───────────────────────────────────────────────────── */
+.xdr-console .row  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.xdr-console .grow { flex: 1; min-width: 0; }
+.xdr-console .spin { animation: xdr-spin 1s linear infinite; }
+@keyframes xdr-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* ── Wizard form inputs ────────────────────────────────────────── */
+.xdr-console .x-input {
+  width: 100%;
+  padding: 6px 9px;
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--sans);
+  font-size: 12px;
+  outline: none;
+  transition: border-color .12s;
+}
+.xdr-console .x-input:focus  { border-color: var(--purple); }
+.xdr-console .x-input:hover  { border-color: var(--border-sf); }
+.xdr-console select.x-input  { appearance: none; padding-right: 22px; }
+
+/* Generic spin used by refresh buttons across admin bodies. */
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase A.2 · Visual Maturity global uplift
+   Applies to every legacy page inside .xdr-console so they inherit
+   Platform Overview quality without per-page JSX edits.
+   ═══════════════════════════════════════════════════════════════ */
+
+.xdr-console .main {
+  background: var(--nx-surf-canvas);
+  padding: 24px 28px;
+}
+
+/* Hero-like page header — .page-h1 + .page-sub */
+.xdr-console h1.page-h1 {
+  font-size: 26px; font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--nx-text);
+  line-height: 1.15;
+  margin: 0 0 4px;
+}
+.xdr-console .page-sub {
+  font-size: 13px;
+  color: var(--nx-text-dim);
+  line-height: 1.55;
+  max-width: 720px;
+  margin-bottom: 22px;
+}
+.xdr-console h3 {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--nx-text);
+  text-transform: none;
+  margin: 0 0 12px;
+}
+.xdr-console .section-title {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--nx-muted);
+}
+
+/* Primary elevated surface */
+.xdr-console .panel {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: var(--nx-shadow-1);
+  min-width: 0;
+  overflow: hidden;
+}
+.xdr-console .panel2 {
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+/* Buttons — cleaner sans + purple primary */
+.xdr-console .btn {
+  padding: 7px 12px;
+  border-radius: 6px;
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  color: var(--nx-text);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition: background 120ms ease, border-color 120ms ease,
+              box-shadow 120ms ease;
+  box-shadow: var(--nx-shadow-1);
+}
+.xdr-console .btn:hover {
+  background: var(--nx-surf-inset);
+  border-color: var(--nx-bd-strong);
+  color: var(--nx-text);
+}
+.xdr-console .btn.primary {
+  background: var(--nx-purple);
+  border-color: var(--nx-purple);
+  color: #FFFFFF;
+}
+.xdr-console .btn.primary:hover {
+  background: #5A3FCB;
+  border-color: #5A3FCB;
+  color: #FFFFFF;
+}
+.xdr-console .btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.xdr-console .btn.ghost:hover {
+  background: var(--nx-surf-inset);
+}
+.xdr-console .qf { font-size: 11.5px; padding: 6px 12px; }
+
+/* Stat grid + card = KPI strip */
+.xdr-console .stat-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 20px;
+}
+.xdr-console .stat-card {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 10px;
+  padding: 14px 16px;
+  border-top: 3px solid var(--nx-bd-quiet);
+  box-shadow: var(--nx-shadow-1);
+  min-width: 0;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.xdr-console .stat-card:hover {
+  border-color: var(--nx-bd-strong);
+  box-shadow: 0 2px 8px rgba(15,20,30,0.06);
+}
+.xdr-console .stat-card .lbl {
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 800;
+  color: var(--nx-muted);
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+.xdr-console .stat-card .val {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--nx-text);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.xdr-console .stat-card .sub {
+  margin-top: 4px;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--nx-text-dim);
+}
+.xdr-console .stat-card.crit  { border-top-color: var(--nx-critical); } .xdr-console .stat-card.crit  .val { color: var(--nx-critical); }
+.xdr-console .stat-card.high  { border-top-color: var(--nx-high);     } .xdr-console .stat-card.high  .val { color: var(--nx-high); }
+.xdr-console .stat-card.med   { border-top-color: var(--nx-medium);   } .xdr-console .stat-card.med   .val { color: var(--nx-medium); }
+.xdr-console .stat-card.info  { border-top-color: var(--nx-low);      } .xdr-console .stat-card.info  .val { color: var(--nx-low); }
+.xdr-console .stat-card.ok    { border-top-color: var(--nx-benign);   } .xdr-console .stat-card.ok    .val { color: var(--nx-benign); }
+.xdr-console .stat-card.na .val { color: var(--nx-muted); font-family: var(--sans); font-size: 18px; }
+
+/* Toolbar */
+.xdr-console .queue-toolbar {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 12px 12px 0 0;
+  padding: 12px 16px;
+  box-shadow: var(--nx-shadow-1);
+}
+.xdr-console .queue-toolbar input {
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  color: var(--nx-text);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  padding: 7px 12px;
+}
+.xdr-console .queue-toolbar input::placeholder { color: var(--nx-muted); }
+
+/* Work table */
+.xdr-console table.x-table {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+}
+.xdr-console .x-table thead th {
+  background: var(--nx-surf-inset);
+  color: var(--nx-muted);
+  border-bottom: 1px solid var(--nx-bd-quiet);
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 10px 12px;
+}
+.xdr-console .x-table tbody td {
+  padding: 11px 12px;
+  color: var(--nx-text);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--nx-bd-quiet);
+  white-space: nowrap;
+}
+.xdr-console .x-table tbody tr.rowlink { cursor: pointer; transition: background 100ms ease; }
+.xdr-console .x-table tbody tr.rowlink:hover td { background: var(--nx-surf-inset); color: var(--nx-text); }
+.xdr-console .mono   { font-family: var(--mono); font-size: 11.5px; color: var(--nx-text-dim); }
+.xdr-console .inc-id { font-family: var(--mono); font-size: 11.5px; color: var(--nx-purple); font-weight: 700; }
+
+/* Badges — light theme semantics */
+.xdr-console .badge {
+  padding: 2px 8px; border-radius: 3px;
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.4px;
+  border: 1px solid;
+}
+.xdr-console .badge.sev-critical { background: #FEF2F2; color: var(--nx-critical); border-color: #FCA5A5; }
+.xdr-console .badge.sev-high     { background: #FFF7ED; color: var(--nx-high);     border-color: #FDBA74; }
+.xdr-console .badge.sev-medium   { background: #FFFBEB; color: var(--nx-medium);   border-color: #FCD34D; }
+.xdr-console .badge.sev-low      { background: #EFF6FF; color: var(--nx-low);      border-color: #BFDBFE; }
+.xdr-console .badge.sev-info     { background: var(--nx-surf-inset); color: var(--nx-text-dim); border-color: var(--nx-bd-quiet); }
+
+.xdr-console .prio {
+  font-family: var(--sans);
+  font-size: 11px; font-weight: 800;
+  padding: 2px 8px; border-radius: 4px;
+  border: 1px solid var(--nx-bd-quiet);
+  color: var(--nx-text-dim); background: var(--nx-surf-inset);
+}
+.xdr-console .prio.p1 { border-color: #FCA5A5; color: var(--nx-critical); background: #FEF2F2; }
+.xdr-console .prio.p2 { border-color: #FDBA74; color: var(--nx-high);     background: #FFF7ED; }
+.xdr-console .prio.p3 { border-color: #FCD34D; color: var(--nx-medium);   background: #FFFBEB; }
+.xdr-console .prio.p4 { border-color: #A7F3D0; color: var(--nx-benign);   background: #ECFDF5; }
+.xdr-console .prio.p5 { border-color: var(--nx-bd-quiet); color: var(--nx-muted); }
+
+.xdr-console .status-pill {
+  padding: 3px 10px;
+  background: var(--nx-surf-inset);
+  color: var(--nx-text-dim);
+  border: 1px solid var(--nx-bd-quiet);
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.4px;
+}
+.xdr-console .status-pill.state-new         { color: var(--nx-low);      border-color: #BFDBFE; background: #EFF6FF; }
+.xdr-console .status-pill.state-in_progress { color: var(--nx-medium);   border-color: #FCD34D; background: #FFFBEB; }
+.xdr-console .status-pill.state-on_hold     { color: var(--nx-muted);    background: var(--nx-surf-inset); }
+.xdr-console .status-pill.state-resolved    { color: var(--nx-benign);   border-color: #A7F3D0; background: #ECFDF5; }
+.xdr-console .status-pill.state-closed      { color: var(--nx-muted); }
+
+/* Domain / tag pills */
+.xdr-console .dom-badge {
+  padding: 2px 7px; border-radius: 3px;
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 700;
+  background: var(--nx-purple-dim);
+  color: var(--nx-purple);
+  border: 1px solid rgba(109,78,224,0.24);
+}
+.xdr-console .tag-pill {
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  color: var(--nx-text-dim);
+  font-family: var(--sans);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Empty states */
+.xdr-console .x-empty {
+  padding: 18px 20px;
+  background: var(--nx-surf-inset);
+  border: 1px dashed var(--nx-bd-quiet);
+  border-radius: 8px;
+  color: var(--nx-text-dim);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+}

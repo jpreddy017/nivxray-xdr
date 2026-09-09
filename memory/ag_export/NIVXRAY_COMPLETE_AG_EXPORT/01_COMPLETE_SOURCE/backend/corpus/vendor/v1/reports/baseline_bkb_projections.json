@@ -1,0 +1,3613 @@
+{
+  "bkb_snapshot": {
+    "count": 110,
+    "entries": {
+      "ARP table discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1016",
+            "name": "System Network Configuration Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "ARP table discovery",
+        "evidence_required": [],
+        "label": "ARP table discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Account / group discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1087",
+            "name": "Account Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Account / group discovery",
+        "evidence_required": [],
+        "label": "Account / group discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Active Directory discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1087.002",
+            "name": "Account Discovery \u00b7 Domain Account"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Active Directory discovery",
+        "evidence_required": [],
+        "label": "Active Directory discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Active Directory query (dsquery)": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1087.002",
+            "name": "Account Discovery \u00b7 Domain Account"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Active Directory query (dsquery)",
+        "evidence_required": [],
+        "label": "Active Directory query (dsquery)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "AnyDesk RMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "AnyDesk RMM execution",
+        "evidence_required": [],
+        "label": "AnyDesk RMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Archive extraction": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1140",
+            "name": "Deobfuscate / Decode Files or Information"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Archive extraction",
+        "evidence_required": [],
+        "label": "Archive extraction",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Atera RMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Atera RMM execution",
+        "evidence_required": [],
+        "label": "Atera RMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "AutoHotkey stager": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.006",
+            "name": "Command and Scripting Interpreter \u00b7 Python/AutoHotkey"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "AutoHotkey stager",
+        "evidence_required": [],
+        "label": "AutoHotkey stager",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "BITSAdmin download": {
+        "canonical_tactics": [
+          "command_and_control",
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1105",
+            "name": "Ingress Tool Transfer"
+          },
+          {
+            "id": "T1197",
+            "name": "BITS Jobs"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "BITSAdmin download",
+        "evidence_required": [],
+        "label": "BITSAdmin download",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Backup catalog deletion (wbadmin)": {
+        "canonical_tactics": [
+          "impact"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1490",
+            "name": "Inhibit System Recovery"
+          }
+        ],
+        "category": "Impact",
+        "confidence_model": "deterministic",
+        "display_name": "Backup catalog deletion (wbadmin)",
+        "evidence_required": [],
+        "label": "Backup catalog deletion (wbadmin)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "COM hijack (regsvr32)": {
+        "canonical_tactics": [
+          "persistence"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1546.015",
+            "name": "Event Triggered Execution \u00b7 Component Object Model Hijacking"
+          }
+        ],
+        "category": "Persistence",
+        "confidence_model": "deterministic",
+        "display_name": "COM hijack (regsvr32)",
+        "evidence_required": [],
+        "label": "COM hijack (regsvr32)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "CScript execution": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.005",
+            "name": "Command and Scripting Interpreter \u00b7 Visual Basic"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "CScript execution",
+        "evidence_required": [],
+        "label": "CScript execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Certutil download / decode": {
+        "canonical_tactics": [
+          "command_and_control",
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1105",
+            "name": "Ingress Tool Transfer"
+          },
+          {
+            "id": "T1140",
+            "name": "Deobfuscate/Decode Files or Information"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Certutil download / decode",
+        "evidence_required": [],
+        "label": "Certutil download / decode",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Credential dumping (mimikatz)": {
+        "canonical_tactics": [
+          "credential_access"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1003.001",
+            "name": "OS Credential Dumping \u00b7 LSASS Memory"
+          }
+        ],
+        "category": "Credential Access",
+        "confidence_model": "deterministic",
+        "display_name": "Credential dumping (mimikatz)",
+        "evidence_required": [],
+        "label": "Credential dumping (mimikatz)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "Credential dumping (secretsdump-family)": {
+        "canonical_tactics": [
+          "credential_access"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1003",
+            "name": "OS Credential Dumping"
+          },
+          {
+            "id": "T1003.006",
+            "name": "OS Credential Dumping \u00b7 DCSync"
+          }
+        ],
+        "category": "Credential Access",
+        "confidence_model": "deterministic",
+        "display_name": "Credential dumping (secretsdump-family)",
+        "evidence_required": [],
+        "label": "Credential dumping (secretsdump-family)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "Current-user discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1033",
+            "name": "System Owner / User Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Current-user discovery",
+        "evidence_required": [],
+        "label": "Current-user discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Data staging / exfil (rclone-style)": {
+        "canonical_tactics": [
+          "exfiltration"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1567",
+            "name": "Exfiltration Over Web Service"
+          },
+          {
+            "id": "T1567.002",
+            "name": "Exfiltration to Cloud Storage"
+          }
+        ],
+        "category": "Exfiltration",
+        "confidence_model": "deterministic",
+        "display_name": "Data staging / exfil (rclone-style)",
+        "evidence_required": [],
+        "label": "Data staging / exfil (rclone-style)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Domain trust discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1482",
+            "name": "Domain Trust Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Domain trust discovery",
+        "evidence_required": [],
+        "label": "Domain trust discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Domain-controllers enumeration": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1018",
+            "name": "Remote System Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Domain-controllers enumeration",
+        "evidence_required": [],
+        "label": "Domain-controllers enumeration",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Download from remote resource": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1105",
+            "name": "Ingress Tool Transfer"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Download from remote resource",
+        "evidence_required": [],
+        "label": "Download from remote resource",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Event log clear (PowerShell)": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1070.001",
+            "name": "Indicator Removal \u00b7 Clear Windows Event Logs"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Event log clear (PowerShell)",
+        "evidence_required": [],
+        "label": "Event log clear (PowerShell)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Event log clear (wevtutil)": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1070.001",
+            "name": "Indicator Removal \u00b7 Clear Windows Event Logs"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Event log clear (wevtutil)",
+        "evidence_required": [],
+        "label": "Event log clear (wevtutil)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Firewall configuration": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1562.004",
+            "name": "Impair Defenses \u00b7 Disable or Modify System Firewall"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Firewall configuration",
+        "evidence_required": [],
+        "label": "Firewall configuration",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Host / domain reconnaissance": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1016",
+            "name": "System Network Configuration Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Host / domain reconnaissance",
+        "evidence_required": [],
+        "label": "Host / domain reconnaissance",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Host discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1018",
+            "name": "Remote System Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Host discovery",
+        "evidence_required": [],
+        "label": "Host discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Hostname / OS discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1082",
+            "name": "System Information Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Hostname / OS discovery",
+        "evidence_required": [],
+        "label": "Hostname / OS discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Installutil proxy execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.004",
+            "name": "System Binary Proxy Execution \u00b7 InstallUtil"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Installutil proxy execution",
+        "evidence_required": [],
+        "label": "Installutil proxy execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Kaseya RMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Kaseya RMM execution",
+        "evidence_required": [],
+        "label": "Kaseya RMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "LSASS memory dump (comsvcs)": {
+        "canonical_tactics": [
+          "credential_access"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1003.001",
+            "name": "OS Credential Dumping \u00b7 LSASS Memory"
+          }
+        ],
+        "category": "Credential Access",
+        "confidence_model": "deterministic",
+        "display_name": "LSASS memory dump (comsvcs)",
+        "evidence_required": [],
+        "label": "LSASS memory dump (comsvcs)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "LSASS memory dump (procdump)": {
+        "canonical_tactics": [
+          "credential_access"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1003.001",
+            "name": "OS Credential Dumping \u00b7 LSASS Memory"
+          }
+        ],
+        "category": "Credential Access",
+        "confidence_model": "deterministic",
+        "display_name": "LSASS memory dump (procdump)",
+        "evidence_required": [],
+        "label": "LSASS memory dump (procdump)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "Lateral movement via Impacket": {
+        "canonical_tactics": [
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1021.002",
+            "name": "Remote Services \u00b7 SMB/Windows Admin Shares"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "Lateral movement via Impacket",
+        "evidence_required": [],
+        "label": "Lateral movement via Impacket",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "Lateral movement via PsExec": {
+        "canonical_tactics": [
+          "lateral_movement",
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1021.002",
+            "name": "Remote Services \u00b7 SMB/Windows Admin Shares"
+          },
+          {
+            "id": "T1569.002",
+            "name": "System Services \u00b7 Service Execution"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "Lateral movement via PsExec",
+        "evidence_required": [],
+        "label": "Lateral movement via PsExec",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "LogMeIn RMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "LogMeIn RMM execution",
+        "evidence_required": [],
+        "label": "LogMeIn RMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "MSBuild proxy execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1127.001",
+            "name": "Trusted Developer Utilities \u00b7 MSBuild"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "MSBuild proxy execution",
+        "evidence_required": [],
+        "label": "MSBuild proxy execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "MSHTA execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.005",
+            "name": "System Binary Proxy Execution \u00b7 Mshta"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Mshta proxy execution",
+        "evidence_required": [],
+        "label": "MSHTA execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "MSI execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.007",
+            "name": "System Binary Proxy Execution \u00b7 Msiexec"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "MSI execution",
+        "evidence_required": [],
+        "label": "MSI execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "MSI installation": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.007",
+            "name": "System Binary Proxy Execution \u00b7 Msiexec"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "MSI installation",
+        "evidence_required": [],
+        "label": "MSI installation",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "MSI installer child (embedded)": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.007",
+            "name": "System Binary Proxy Execution \u00b7 Msiexec"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "MSI installer child (embedded)",
+        "evidence_required": [],
+        "label": "MSI installer child (embedded)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Microsoft Edge launch": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1204.002",
+            "name": "User Execution \u00b7 Malicious File"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "Microsoft Edge launch",
+        "evidence_required": [],
+        "label": "Microsoft Edge launch",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Microsoft Edge launch (extension load \u2014 Edgecution)": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1204.002",
+            "name": "User Execution \u00b7 Malicious File"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "Microsoft Edge launch (extension load \u2014 Edgecution)",
+        "evidence_required": [],
+        "label": "Microsoft Edge launch (extension load \u2014 Edgecution)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Microsoft Edge launch (headless, extension load \u2014 Edgecution)": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1204.002",
+            "name": "User Execution \u00b7 Malicious File"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "Microsoft Edge launch (headless, extension load \u2014 Edgecution)",
+        "evidence_required": [],
+        "label": "Microsoft Edge launch (headless, extension load \u2014 Edgecution)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Mshta proxy execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.005",
+            "name": "System Binary Proxy Execution \u00b7 Mshta"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Mshta proxy execution",
+        "evidence_required": [],
+        "label": "Mshta proxy execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "NTDS.dit extraction (ntdsutil)": {
+        "canonical_tactics": [
+          "credential_access"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1003.003",
+            "name": "OS Credential Dumping \u00b7 NTDS"
+          }
+        ],
+        "category": "Credential Access",
+        "confidence_model": "deterministic",
+        "display_name": "NTDS.dit extraction (ntdsutil)",
+        "evidence_required": [],
+        "label": "NTDS.dit extraction (ntdsutil)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "Net view (remote share/system discovery)": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1018",
+            "name": "Remote System Discovery"
+          },
+          {
+            "id": "T1135",
+            "name": "Network Share Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Net view (remote share/system discovery)",
+        "evidence_required": [],
+        "label": "Net view (remote share/system discovery)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Network share enumeration": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1135",
+            "name": "Network Share Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Network share enumeration",
+        "evidence_required": [],
+        "label": "Network share enumeration",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "NinjaRMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "NinjaRMM execution",
+        "evidence_required": [],
+        "label": "NinjaRMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Ping (C2 beacon / DNS resolution)": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1071",
+            "name": "Application Layer Protocol"
+          },
+          {
+            "id": "T1071.004",
+            "name": "DNS"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Ping (C2 beacon / DNS resolution)",
+        "evidence_required": [],
+        "label": "Ping (C2 beacon / DNS resolution)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "PowerShell download-and-execute": {
+        "canonical_tactics": [
+          "execution",
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          },
+          {
+            "id": "T1105",
+            "name": "Ingress Tool Transfer"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell download-and-execute",
+        "evidence_required": [],
+        "label": "PowerShell download-and-execute",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "PowerShell encoded command": {
+        "canonical_tactics": [
+          "execution",
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          },
+          {
+            "id": "T1027",
+            "name": "Obfuscated Files or Information"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell encoded command",
+        "evidence_required": [],
+        "label": "PowerShell encoded command",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "PowerShell execution": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell execution",
+        "evidence_required": [],
+        "label": "PowerShell execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "PowerShell execution via CMD (execution-policy bypass)": {
+        "canonical_tactics": [
+          "execution",
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          },
+          {
+            "id": "T1562.001",
+            "name": "Impair Defenses \u00b7 Disable or Modify Tools"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell execution via CMD (execution-policy bypass)",
+        "evidence_required": [],
+        "label": "PowerShell execution via CMD (execution-policy bypass)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "PowerShell execution-policy bypass": {
+        "canonical_tactics": [
+          "execution",
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          },
+          {
+            "id": "T1562.001",
+            "name": "Impair Defenses \u00b7 Disable or Modify Tools"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell execution-policy bypass",
+        "evidence_required": [],
+        "label": "PowerShell execution-policy bypass",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "PowerShell hidden window": {
+        "canonical_tactics": [
+          "execution",
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          },
+          {
+            "id": "T1564.003",
+            "name": "Hide Artifacts \u00b7 Hidden Window"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell hidden window",
+        "evidence_required": [],
+        "label": "PowerShell hidden window",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "PowerShell hidden window IEX": {
+        "canonical_tactics": [
+          "execution",
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          },
+          {
+            "id": "T1564.003",
+            "name": "Hide Artifacts \u00b7 Hidden Window"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell hidden window IEX",
+        "evidence_required": [],
+        "label": "PowerShell hidden window IEX",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "PowerShell in-memory execution": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell in-memory execution",
+        "evidence_required": [
+          "iex",
+          "invoke-expression"
+        ],
+        "label": "PowerShell in-memory execution",
+        "recommendations": [
+          "Correlate with outbound URL fetches in same session"
+        ],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "PowerShell process enumeration": {
+        "canonical_tactics": [
+          "discovery",
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1057",
+            "name": "Process Discovery"
+          },
+          {
+            "id": "T1059.001",
+            "name": "PowerShell"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "PowerShell process enumeration",
+        "evidence_required": [],
+        "label": "PowerShell process enumeration",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Process discovery (tasklist)": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1057",
+            "name": "Process Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Process discovery (tasklist)",
+        "evidence_required": [],
+        "label": "Process discovery (tasklist)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Process memory dump (procdump)": {
+        "canonical_tactics": [
+          "credential_access"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1003",
+            "name": "OS Credential Dumping"
+          }
+        ],
+        "category": "Credential Access",
+        "confidence_model": "deterministic",
+        "display_name": "Process memory dump (procdump)",
+        "evidence_required": [],
+        "label": "Process memory dump (procdump)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Process termination": {
+        "canonical_tactics": [
+          "impact"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1489",
+            "name": "Service Stop"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Process termination",
+        "evidence_required": [],
+        "label": "Process termination",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Python interpreter discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1518",
+            "name": "Software Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Python interpreter discovery",
+        "evidence_required": [],
+        "label": "Python interpreter discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Recovery inhibit (bcdedit)": {
+        "canonical_tactics": [
+          "impact"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1490",
+            "name": "Inhibit System Recovery"
+          }
+        ],
+        "category": "Impact",
+        "confidence_model": "deterministic",
+        "display_name": "Recovery inhibit (bcdedit)",
+        "evidence_required": [],
+        "label": "Recovery inhibit (bcdedit)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Registry Run-key persistence": {
+        "canonical_tactics": [
+          "persistence"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1547.001",
+            "name": "Registry Run Keys / Startup Folder"
+          }
+        ],
+        "category": "Persistence",
+        "confidence_model": "deterministic",
+        "display_name": "Registry Run-key persistence",
+        "evidence_required": [],
+        "label": "Registry Run-key persistence",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Registry modification": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1112",
+            "name": "Modify Registry"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Registry modification",
+        "evidence_required": [],
+        "label": "Registry modification",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Regsvr32 execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.010",
+            "name": "System Binary Proxy Execution \u00b7 Regsvr32"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Regsvr32 proxy execution",
+        "evidence_required": [],
+        "label": "Regsvr32 execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Regsvr32 proxy execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.010",
+            "name": "System Binary Proxy Execution \u00b7 Regsvr32"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Regsvr32 proxy execution",
+        "evidence_required": [],
+        "label": "Regsvr32 proxy execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Remote WMI invoke-method": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1047",
+            "name": "Windows Management Instrumentation"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "Remote WMI invoke-method",
+        "evidence_required": [],
+        "label": "Remote WMI invoke-method",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Remote WMI process create": {
+        "canonical_tactics": [
+          "execution",
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1047",
+            "name": "Windows Management Instrumentation"
+          },
+          {
+            "id": "T1021.006",
+            "name": "Remote Services \u00b7 WinRM"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "Remote WMI process create",
+        "evidence_required": [],
+        "label": "Remote WMI process create",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "Remote-access software execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Remote-access software execution",
+        "evidence_required": [],
+        "label": "Remote-access software execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Reverse SSH tunnel": {
+        "canonical_tactics": [
+          "command_and_control",
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1572",
+            "name": "Protocol Tunneling"
+          },
+          {
+            "id": "T1021.004",
+            "name": "Remote Services \u00b7 SSH"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Reverse SSH tunnel",
+        "evidence_required": [],
+        "label": "Reverse SSH tunnel",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Route table discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1016",
+            "name": "System Network Configuration Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Route table discovery",
+        "evidence_required": [],
+        "label": "Route table discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Rundll32 execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.011",
+            "name": "System Binary Proxy Execution \u00b7 Rundll32"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Rundll32 proxy execution",
+        "evidence_required": [],
+        "label": "Rundll32 execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Rundll32 proxy execution": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1218.011",
+            "name": "System Binary Proxy Execution \u00b7 Rundll32"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Rundll32 proxy execution",
+        "evidence_required": [],
+        "label": "Rundll32 proxy execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "SAM/SECURITY hive dump (reg save)": {
+        "canonical_tactics": [
+          "credential_access"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1003.002",
+            "name": "OS Credential Dumping \u00b7 Security Account Manager"
+          }
+        ],
+        "category": "Credential Access",
+        "confidence_model": "deterministic",
+        "display_name": "SAM/SECURITY hive dump (reg save)",
+        "evidence_required": [],
+        "label": "SAM/SECURITY hive dump (reg save)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "SMB admin share access": {
+        "canonical_tactics": [
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1021.002",
+            "name": "Remote Services \u00b7 SMB/Windows Admin Shares"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "SMB admin share access",
+        "evidence_required": [],
+        "label": "SMB admin share access",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "SSH client execution": {
+        "canonical_tactics": [
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1021.004",
+            "name": "Remote Services \u00b7 SSH"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "SSH client execution",
+        "evidence_required": [],
+        "label": "SSH client execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "SSH remote session": {
+        "canonical_tactics": [
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1021.004",
+            "name": "Remote Services \u00b7 SSH"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "SSH remote session",
+        "evidence_required": [],
+        "label": "SSH remote session",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Scheduled Task": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1053.005",
+            "name": "Scheduled Task"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "Scheduled Task",
+        "evidence_required": [],
+        "label": "Scheduled Task",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Scheduled Task create": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1053.005",
+            "name": "Scheduled Task"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "Scheduled Task create",
+        "evidence_required": [
+          "schtasks_create"
+        ],
+        "label": "Scheduled Task create",
+        "recommendations": [
+          "Review scheduled tasks under \\Windows\\ that were created within the incident window"
+        ],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Scheduled Task query": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1053.005",
+            "name": "Scheduled Task"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Scheduled Task query",
+        "evidence_required": [],
+        "label": "Scheduled Task query",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Scheduled Task remote create": {
+        "canonical_tactics": [
+          "execution",
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1053.005",
+            "name": "Scheduled Task"
+          },
+          {
+            "id": "T1021.002",
+            "name": "Remote Services \u00b7 SMB/Windows Admin Shares"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "Scheduled Task remote create",
+        "evidence_required": [
+          "schtasks_remote"
+        ],
+        "label": "Scheduled Task remote create",
+        "recommendations": [
+          "Verify /s host was a legitimate admin action"
+        ],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Scheduled-task persistence": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1053.005",
+            "name": "Scheduled Task"
+          }
+        ],
+        "category": "Persistence",
+        "confidence_model": "deterministic",
+        "display_name": "Scheduled-task persistence",
+        "evidence_required": [],
+        "label": "Scheduled-task persistence",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "ScreenConnect RMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "ScreenConnect RMM execution",
+        "evidence_required": [],
+        "label": "ScreenConnect RMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Self-deletion of stager": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1070.004",
+            "name": "Indicator Removal \u00b7 File Deletion"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Self-deletion of stager",
+        "evidence_required": [],
+        "label": "Self-deletion of stager",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Service enumeration": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1007",
+            "name": "System Service Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Service enumeration",
+        "evidence_required": [],
+        "label": "Service enumeration",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Shadow copy deletion": {
+        "canonical_tactics": [
+          "impact"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1490",
+            "name": "Inhibit System Recovery"
+          }
+        ],
+        "category": "Impact",
+        "confidence_model": "deterministic",
+        "display_name": "Shadow copy deletion",
+        "evidence_required": [],
+        "label": "Shadow copy deletion",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "Shadow copy deletion (WMIC)": {
+        "canonical_tactics": [
+          "impact",
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1490",
+            "name": "Inhibit System Recovery"
+          },
+          {
+            "id": "T1047",
+            "name": "Windows Management Instrumentation"
+          }
+        ],
+        "category": "Impact",
+        "confidence_model": "deterministic",
+        "display_name": "Shadow copy deletion (WMIC)",
+        "evidence_required": [],
+        "label": "Shadow copy deletion (WMIC)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "critical"
+      },
+      "Software uninstall (defense evasion)": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1562.001",
+            "name": "Impair Defenses \u00b7 Disable or Modify Tools"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Software uninstall (defense evasion)",
+        "evidence_required": [],
+        "label": "Software uninstall (defense evasion)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Splashtop RMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Splashtop RMM execution",
+        "evidence_required": [],
+        "label": "Splashtop RMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Startup folder persistence": {
+        "canonical_tactics": [
+          "persistence"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1547.001",
+            "name": "Registry Run Keys / Startup Folder"
+          }
+        ],
+        "category": "Persistence",
+        "confidence_model": "deterministic",
+        "display_name": "Startup folder persistence",
+        "evidence_required": [],
+        "label": "Startup folder persistence",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Syncro RMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "Syncro RMM execution",
+        "evidence_required": [],
+        "label": "Syncro RMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "System information discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1082",
+            "name": "System Information Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "System information discovery",
+        "evidence_required": [],
+        "label": "System information discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "Tasklist / running process enumeration": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1057",
+            "name": "Process Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "Tasklist / running process enumeration",
+        "evidence_required": [],
+        "label": "Tasklist / running process enumeration",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "TeamViewer RMM execution": {
+        "canonical_tactics": [
+          "command_and_control"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1219",
+            "name": "Remote Access Software"
+          }
+        ],
+        "category": "Command and Control",
+        "confidence_model": "deterministic",
+        "display_name": "TeamViewer RMM execution",
+        "evidence_required": [],
+        "label": "TeamViewer RMM execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Unzip Python interpreter stager": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1140",
+            "name": "Deobfuscate / Decode Files or Information"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Unzip Python interpreter stager",
+        "evidence_required": [],
+        "label": "Unzip Python interpreter stager",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Unzip encrypted payload archive": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1140",
+            "name": "Deobfuscate / Decode Files or Information"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Unzip encrypted payload archive",
+        "evidence_required": [],
+        "label": "Unzip encrypted payload archive",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "User session discovery (quser)": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1033",
+            "name": "System Owner / User Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "User session discovery (quser)",
+        "evidence_required": [],
+        "label": "User session discovery (quser)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "WMI event subscription persistence": {
+        "canonical_tactics": [
+          "persistence"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1546.003",
+            "name": "Event Triggered Execution \u00b7 WMI Subscription"
+          }
+        ],
+        "category": "Persistence",
+        "confidence_model": "deterministic",
+        "display_name": "WMI event subscription persistence",
+        "evidence_required": [],
+        "label": "WMI event subscription persistence",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "WMI invoke-method": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1047",
+            "name": "Windows Management Instrumentation"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "WMI invoke-method",
+        "evidence_required": [],
+        "label": "WMI invoke-method",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "WMI process create": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1047",
+            "name": "Windows Management Instrumentation"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "WMI process create",
+        "evidence_required": [],
+        "label": "WMI process create",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "WMI process discovery": {
+        "canonical_tactics": [
+          "discovery"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1057",
+            "name": "Process Discovery"
+          }
+        ],
+        "category": "Discovery",
+        "confidence_model": "deterministic",
+        "display_name": "WMI process discovery",
+        "evidence_required": [],
+        "label": "WMI process discovery",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "low"
+      },
+      "WScript execution": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1059.005",
+            "name": "Command and Scripting Interpreter \u00b7 Visual Basic"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "WScript execution",
+        "evidence_required": [],
+        "label": "WScript execution",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "WinRM / PowerShell remote session": {
+        "canonical_tactics": [
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1021.006",
+            "name": "Remote Services \u00b7 WinRM"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "WinRM / PowerShell remote session",
+        "evidence_required": [],
+        "label": "WinRM / PowerShell remote session",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "WinRS remote command": {
+        "canonical_tactics": [
+          "lateral_movement"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1021.006",
+            "name": "Remote Services \u00b7 WinRM"
+          }
+        ],
+        "category": "Lateral Movement",
+        "confidence_model": "deterministic",
+        "display_name": "WinRS remote command",
+        "evidence_required": [],
+        "label": "WinRS remote command",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Windows Defender configure (disable)": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1562.001",
+            "name": "Impair Defenses \u00b7 Disable or Modify Tools"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Windows Defender configure (disable)",
+        "evidence_required": [],
+        "label": "Windows Defender configure (disable)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Windows Defender exclusion add": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1562.001",
+            "name": "Impair Defenses \u00b7 Disable or Modify Tools"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Windows Defender exclusion add",
+        "evidence_required": [],
+        "label": "Windows Defender exclusion add",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Windows Defender service tamper": {
+        "canonical_tactics": [
+          "defense_evasion"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1562.001",
+            "name": "Impair Defenses \u00b7 Disable or Modify Tools"
+          }
+        ],
+        "category": "Defense Evasion",
+        "confidence_model": "deterministic",
+        "display_name": "Windows Defender service tamper",
+        "evidence_required": [],
+        "label": "Windows Defender service tamper",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Windows Service configure": {
+        "canonical_tactics": [
+          "persistence"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1543.003",
+            "name": "Create or Modify System Process \u00b7 Windows Service"
+          }
+        ],
+        "category": "Persistence",
+        "confidence_model": "deterministic",
+        "display_name": "Windows Service configure",
+        "evidence_required": [],
+        "label": "Windows Service configure",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Windows Service create (persistence)": {
+        "canonical_tactics": [
+          "persistence"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1543.003",
+            "name": "Create or Modify System Process \u00b7 Windows Service"
+          }
+        ],
+        "category": "Persistence",
+        "confidence_model": "deterministic",
+        "display_name": "Windows Service create (persistence)",
+        "evidence_required": [],
+        "label": "Windows Service create (persistence)",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "high"
+      },
+      "Windows Service failure-action configure": {
+        "canonical_tactics": [
+          "persistence"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1543.003",
+            "name": "Create or Modify System Process \u00b7 Windows Service"
+          }
+        ],
+        "category": "Persistence",
+        "confidence_model": "deterministic",
+        "display_name": "Windows Service failure-action configure",
+        "evidence_required": [],
+        "label": "Windows Service failure-action configure",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      },
+      "Windows Service start": {
+        "canonical_tactics": [
+          "execution"
+        ],
+        "canonical_techniques": [
+          {
+            "id": "T1569.002",
+            "name": "System Services \u00b7 Service Execution"
+          }
+        ],
+        "category": "Execution",
+        "confidence_model": "deterministic",
+        "display_name": "Windows Service start",
+        "evidence_required": [],
+        "label": "Windows Service start",
+        "recommendations": [],
+        "references": [
+          "mitre-attack"
+        ],
+        "severity": "medium"
+      }
+    },
+    "schema_version": "1.0"
+  },
+  "engine_probed": "services.knowledge.behavior_registry",
+  "n_behaviors": 110,
+  "projections": {
+    "ARP table discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1016",
+          "name": "System Network Configuration Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Account / group discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1087",
+          "name": "Account Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Active Directory discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1087.002",
+          "name": "Account Discovery \u00b7 Domain Account",
+          "tactic": null
+        }
+      ]
+    },
+    "Active Directory query (dsquery)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1087.002",
+          "name": "Account Discovery \u00b7 Domain Account",
+          "tactic": null
+        }
+      ]
+    },
+    "AnyDesk RMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "Archive extraction": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1140",
+          "name": "Deobfuscate / Decode Files or Information",
+          "tactic": null
+        }
+      ]
+    },
+    "Atera RMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "AutoHotkey stager": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1059.006",
+          "name": "Command and Scripting Interpreter \u00b7 Python/AutoHotkey",
+          "tactic": null
+        }
+      ]
+    },
+    "BITSAdmin download": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1105",
+          "name": "Ingress Tool Transfer",
+          "tactic": null
+        },
+        {
+          "id": "T1197",
+          "name": "BITS Jobs",
+          "tactic": null
+        }
+      ]
+    },
+    "Backup catalog deletion (wbadmin)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1490",
+          "name": "Inhibit System Recovery",
+          "tactic": null
+        }
+      ]
+    },
+    "COM hijack (regsvr32)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1546.015",
+          "name": "Event Triggered Execution \u00b7 Component Object Model Hijacking",
+          "tactic": null
+        }
+      ]
+    },
+    "CScript execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1059.005",
+          "name": "Command and Scripting Interpreter \u00b7 Visual Basic",
+          "tactic": null
+        }
+      ]
+    },
+    "Certutil download / decode": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1105",
+          "name": "Ingress Tool Transfer",
+          "tactic": null
+        },
+        {
+          "id": "T1140",
+          "name": "Deobfuscate/Decode Files or Information",
+          "tactic": null
+        }
+      ]
+    },
+    "Credential dumping (mimikatz)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1003.001",
+          "name": "OS Credential Dumping \u00b7 LSASS Memory",
+          "tactic": null
+        }
+      ]
+    },
+    "Credential dumping (secretsdump-family)": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1003",
+          "name": "OS Credential Dumping",
+          "tactic": null
+        },
+        {
+          "id": "T1003.006",
+          "name": "OS Credential Dumping \u00b7 DCSync",
+          "tactic": null
+        }
+      ]
+    },
+    "Current-user discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1033",
+          "name": "System Owner / User Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Data staging / exfil (rclone-style)": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1567",
+          "name": "Exfiltration Over Web Service",
+          "tactic": null
+        },
+        {
+          "id": "T1567.002",
+          "name": "Exfiltration to Cloud Storage",
+          "tactic": null
+        }
+      ]
+    },
+    "Domain trust discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1482",
+          "name": "Domain Trust Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Domain-controllers enumeration": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1018",
+          "name": "Remote System Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Download from remote resource": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1105",
+          "name": "Ingress Tool Transfer",
+          "tactic": null
+        }
+      ]
+    },
+    "Event log clear (PowerShell)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1070.001",
+          "name": "Indicator Removal \u00b7 Clear Windows Event Logs",
+          "tactic": null
+        }
+      ]
+    },
+    "Event log clear (wevtutil)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1070.001",
+          "name": "Indicator Removal \u00b7 Clear Windows Event Logs",
+          "tactic": null
+        }
+      ]
+    },
+    "Firewall configuration": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1562.004",
+          "name": "Impair Defenses \u00b7 Disable or Modify System Firewall",
+          "tactic": null
+        }
+      ]
+    },
+    "Host / domain reconnaissance": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1016",
+          "name": "System Network Configuration Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Host discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1018",
+          "name": "Remote System Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Hostname / OS discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1082",
+          "name": "System Information Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Installutil proxy execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.004",
+          "name": "System Binary Proxy Execution \u00b7 InstallUtil",
+          "tactic": null
+        }
+      ]
+    },
+    "Kaseya RMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "LSASS memory dump (comsvcs)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1003.001",
+          "name": "OS Credential Dumping \u00b7 LSASS Memory",
+          "tactic": null
+        }
+      ]
+    },
+    "LSASS memory dump (procdump)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1003.001",
+          "name": "OS Credential Dumping \u00b7 LSASS Memory",
+          "tactic": null
+        }
+      ]
+    },
+    "Lateral movement via Impacket": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1021.002",
+          "name": "Remote Services \u00b7 SMB/Windows Admin Shares",
+          "tactic": null
+        }
+      ]
+    },
+    "Lateral movement via PsExec": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1021.002",
+          "name": "Remote Services \u00b7 SMB/Windows Admin Shares",
+          "tactic": null
+        },
+        {
+          "id": "T1569.002",
+          "name": "System Services \u00b7 Service Execution",
+          "tactic": null
+        }
+      ]
+    },
+    "LogMeIn RMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "MSBuild proxy execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1127.001",
+          "name": "Trusted Developer Utilities \u00b7 MSBuild",
+          "tactic": null
+        }
+      ]
+    },
+    "MSHTA execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.005",
+          "name": "System Binary Proxy Execution \u00b7 Mshta",
+          "tactic": null
+        }
+      ]
+    },
+    "MSI execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.007",
+          "name": "System Binary Proxy Execution \u00b7 Msiexec",
+          "tactic": null
+        }
+      ]
+    },
+    "MSI installation": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.007",
+          "name": "System Binary Proxy Execution \u00b7 Msiexec",
+          "tactic": null
+        }
+      ]
+    },
+    "MSI installer child (embedded)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.007",
+          "name": "System Binary Proxy Execution \u00b7 Msiexec",
+          "tactic": null
+        }
+      ]
+    },
+    "Microsoft Edge launch": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1204.002",
+          "name": "User Execution \u00b7 Malicious File",
+          "tactic": null
+        }
+      ]
+    },
+    "Microsoft Edge launch (extension load \u2014 Edgecution)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1204.002",
+          "name": "User Execution \u00b7 Malicious File",
+          "tactic": null
+        }
+      ]
+    },
+    "Microsoft Edge launch (headless, extension load \u2014 Edgecution)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1204.002",
+          "name": "User Execution \u00b7 Malicious File",
+          "tactic": null
+        }
+      ]
+    },
+    "Mshta proxy execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.005",
+          "name": "System Binary Proxy Execution \u00b7 Mshta",
+          "tactic": null
+        }
+      ]
+    },
+    "NTDS.dit extraction (ntdsutil)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1003.003",
+          "name": "OS Credential Dumping \u00b7 NTDS",
+          "tactic": null
+        }
+      ]
+    },
+    "Net view (remote share/system discovery)": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1018",
+          "name": "Remote System Discovery",
+          "tactic": null
+        },
+        {
+          "id": "T1135",
+          "name": "Network Share Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Network share enumeration": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1135",
+          "name": "Network Share Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "NinjaRMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "Ping (C2 beacon / DNS resolution)": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1071",
+          "name": "Application Layer Protocol",
+          "tactic": null
+        },
+        {
+          "id": "T1071.004",
+          "name": "DNS",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell download-and-execute": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        },
+        {
+          "id": "T1105",
+          "name": "Ingress Tool Transfer",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell encoded command": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        },
+        {
+          "id": "T1027",
+          "name": "Obfuscated Files or Information",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell execution via CMD (execution-policy bypass)": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        },
+        {
+          "id": "T1562.001",
+          "name": "Impair Defenses \u00b7 Disable or Modify Tools",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell execution-policy bypass": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        },
+        {
+          "id": "T1562.001",
+          "name": "Impair Defenses \u00b7 Disable or Modify Tools",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell hidden window": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        },
+        {
+          "id": "T1564.003",
+          "name": "Hide Artifacts \u00b7 Hidden Window",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell hidden window IEX": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        },
+        {
+          "id": "T1564.003",
+          "name": "Hide Artifacts \u00b7 Hidden Window",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell in-memory execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        }
+      ]
+    },
+    "PowerShell process enumeration": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1057",
+          "name": "Process Discovery",
+          "tactic": null
+        },
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "tactic": null
+        }
+      ]
+    },
+    "Process discovery (tasklist)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1057",
+          "name": "Process Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Process memory dump (procdump)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1003",
+          "name": "OS Credential Dumping",
+          "tactic": null
+        }
+      ]
+    },
+    "Process termination": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1489",
+          "name": "Service Stop",
+          "tactic": null
+        }
+      ]
+    },
+    "Python interpreter discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1518",
+          "name": "Software Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Recovery inhibit (bcdedit)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1490",
+          "name": "Inhibit System Recovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Registry Run-key persistence": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1547.001",
+          "name": "Registry Run Keys / Startup Folder",
+          "tactic": null
+        }
+      ]
+    },
+    "Registry modification": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1112",
+          "name": "Modify Registry",
+          "tactic": null
+        }
+      ]
+    },
+    "Regsvr32 execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.010",
+          "name": "System Binary Proxy Execution \u00b7 Regsvr32",
+          "tactic": null
+        }
+      ]
+    },
+    "Regsvr32 proxy execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.010",
+          "name": "System Binary Proxy Execution \u00b7 Regsvr32",
+          "tactic": null
+        }
+      ]
+    },
+    "Remote WMI invoke-method": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1047",
+          "name": "Windows Management Instrumentation",
+          "tactic": null
+        }
+      ]
+    },
+    "Remote WMI process create": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1047",
+          "name": "Windows Management Instrumentation",
+          "tactic": null
+        },
+        {
+          "id": "T1021.006",
+          "name": "Remote Services \u00b7 WinRM",
+          "tactic": null
+        }
+      ]
+    },
+    "Remote-access software execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "Reverse SSH tunnel": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1572",
+          "name": "Protocol Tunneling",
+          "tactic": null
+        },
+        {
+          "id": "T1021.004",
+          "name": "Remote Services \u00b7 SSH",
+          "tactic": null
+        }
+      ]
+    },
+    "Route table discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1016",
+          "name": "System Network Configuration Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Rundll32 execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.011",
+          "name": "System Binary Proxy Execution \u00b7 Rundll32",
+          "tactic": null
+        }
+      ]
+    },
+    "Rundll32 proxy execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1218.011",
+          "name": "System Binary Proxy Execution \u00b7 Rundll32",
+          "tactic": null
+        }
+      ]
+    },
+    "SAM/SECURITY hive dump (reg save)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1003.002",
+          "name": "OS Credential Dumping \u00b7 Security Account Manager",
+          "tactic": null
+        }
+      ]
+    },
+    "SMB admin share access": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1021.002",
+          "name": "Remote Services \u00b7 SMB/Windows Admin Shares",
+          "tactic": null
+        }
+      ]
+    },
+    "SSH client execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1021.004",
+          "name": "Remote Services \u00b7 SSH",
+          "tactic": null
+        }
+      ]
+    },
+    "SSH remote session": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1021.004",
+          "name": "Remote Services \u00b7 SSH",
+          "tactic": null
+        }
+      ]
+    },
+    "Scheduled Task": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1053.005",
+          "name": "Scheduled Task",
+          "tactic": null
+        }
+      ]
+    },
+    "Scheduled Task create": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1053.005",
+          "name": "Scheduled Task",
+          "tactic": null
+        }
+      ]
+    },
+    "Scheduled Task query": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1053.005",
+          "name": "Scheduled Task",
+          "tactic": null
+        }
+      ]
+    },
+    "Scheduled Task remote create": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1053.005",
+          "name": "Scheduled Task",
+          "tactic": null
+        },
+        {
+          "id": "T1021.002",
+          "name": "Remote Services \u00b7 SMB/Windows Admin Shares",
+          "tactic": null
+        }
+      ]
+    },
+    "Scheduled-task persistence": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1053.005",
+          "name": "Scheduled Task",
+          "tactic": null
+        }
+      ]
+    },
+    "ScreenConnect RMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "Self-deletion of stager": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1070.004",
+          "name": "Indicator Removal \u00b7 File Deletion",
+          "tactic": null
+        }
+      ]
+    },
+    "Service enumeration": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1007",
+          "name": "System Service Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Shadow copy deletion": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1490",
+          "name": "Inhibit System Recovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Shadow copy deletion (WMIC)": {
+      "n_techniques": 2,
+      "techniques": [
+        {
+          "id": "T1490",
+          "name": "Inhibit System Recovery",
+          "tactic": null
+        },
+        {
+          "id": "T1047",
+          "name": "Windows Management Instrumentation",
+          "tactic": null
+        }
+      ]
+    },
+    "Software uninstall (defense evasion)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1562.001",
+          "name": "Impair Defenses \u00b7 Disable or Modify Tools",
+          "tactic": null
+        }
+      ]
+    },
+    "Splashtop RMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "Startup folder persistence": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1547.001",
+          "name": "Registry Run Keys / Startup Folder",
+          "tactic": null
+        }
+      ]
+    },
+    "Syncro RMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "System information discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1082",
+          "name": "System Information Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "Tasklist / running process enumeration": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1057",
+          "name": "Process Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "TeamViewer RMM execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1219",
+          "name": "Remote Access Software",
+          "tactic": null
+        }
+      ]
+    },
+    "Unzip Python interpreter stager": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1140",
+          "name": "Deobfuscate / Decode Files or Information",
+          "tactic": null
+        }
+      ]
+    },
+    "Unzip encrypted payload archive": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1140",
+          "name": "Deobfuscate / Decode Files or Information",
+          "tactic": null
+        }
+      ]
+    },
+    "User session discovery (quser)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1033",
+          "name": "System Owner / User Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "WMI event subscription persistence": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1546.003",
+          "name": "Event Triggered Execution \u00b7 WMI Subscription",
+          "tactic": null
+        }
+      ]
+    },
+    "WMI invoke-method": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1047",
+          "name": "Windows Management Instrumentation",
+          "tactic": null
+        }
+      ]
+    },
+    "WMI process create": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1047",
+          "name": "Windows Management Instrumentation",
+          "tactic": null
+        }
+      ]
+    },
+    "WMI process discovery": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1057",
+          "name": "Process Discovery",
+          "tactic": null
+        }
+      ]
+    },
+    "WScript execution": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1059.005",
+          "name": "Command and Scripting Interpreter \u00b7 Visual Basic",
+          "tactic": null
+        }
+      ]
+    },
+    "WinRM / PowerShell remote session": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1021.006",
+          "name": "Remote Services \u00b7 WinRM",
+          "tactic": null
+        }
+      ]
+    },
+    "WinRS remote command": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1021.006",
+          "name": "Remote Services \u00b7 WinRM",
+          "tactic": null
+        }
+      ]
+    },
+    "Windows Defender configure (disable)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1562.001",
+          "name": "Impair Defenses \u00b7 Disable or Modify Tools",
+          "tactic": null
+        }
+      ]
+    },
+    "Windows Defender exclusion add": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1562.001",
+          "name": "Impair Defenses \u00b7 Disable or Modify Tools",
+          "tactic": null
+        }
+      ]
+    },
+    "Windows Defender service tamper": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1562.001",
+          "name": "Impair Defenses \u00b7 Disable or Modify Tools",
+          "tactic": null
+        }
+      ]
+    },
+    "Windows Service configure": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1543.003",
+          "name": "Create or Modify System Process \u00b7 Windows Service",
+          "tactic": null
+        }
+      ]
+    },
+    "Windows Service create (persistence)": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1543.003",
+          "name": "Create or Modify System Process \u00b7 Windows Service",
+          "tactic": null
+        }
+      ]
+    },
+    "Windows Service failure-action configure": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1543.003",
+          "name": "Create or Modify System Process \u00b7 Windows Service",
+          "tactic": null
+        }
+      ]
+    },
+    "Windows Service start": {
+      "n_techniques": 1,
+      "techniques": [
+        {
+          "id": "T1569.002",
+          "name": "System Services \u00b7 Service Execution",
+          "tactic": null
+        }
+      ]
+    }
+  },
+  "purpose": "ADR-004 Amendment A1 \u00b7 BKB projection baseline",
+  "schema_version": "1.0"
+}

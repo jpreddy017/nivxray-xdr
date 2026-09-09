@@ -1,0 +1,1 @@
+Invoke-WebRequest -Uri 'http://gz3-example.test/beacon' -Method GET

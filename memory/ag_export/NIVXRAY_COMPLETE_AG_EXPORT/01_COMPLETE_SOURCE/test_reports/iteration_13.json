@@ -1,0 +1,55 @@
+{
+  "summary": "Verified Feb-2026 Threat Model Analyst Corrections feature is VISIBLE and FUNCTIONAL on the preview environment. Banner + all 5 REFINE buttons render at the top of /threat-model. Each finding's MITRE tag renders the large amber '✎ REFINE' button. CorrectionRefineModal opens with the 4-verdict picker and successfully submits (POST /api/corrections → 200). The submitted correction is applied to the analysis (ANALYST CORRECTIONS APPLIED (1) banner appears with the corr id).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login page", "issues": ["EMAIL input pre-populates with 'admin@nivxray.com' by default which caused the test to double-type; not a bug but a minor UX consideration — clearing on focus or selectAll on click could help. Not blocking."]}
+    ]
+  },
+  "verification_results": {
+    "banner_visible": true,
+    "banner_testid": "tm-refine-feature-banner",
+    "banner_buttons_visible": {
+      "tm-btn-refine-mitre": true,
+      "tm-btn-refine-family": true,
+      "tm-btn-refine-risk": true,
+      "tm-btn-refine-mitigation": true,
+      "tm-btn-refine-detection": true
+    },
+    "banner_modal_verdicts_present": ["incorrect","partial","correct","suggest"],
+    "example_load_and_analyze": "OK (button label is 'ANALYSE THREAT MODEL')",
+    "finding_refine_buttons_after_analyze": 20,
+    "first_finding_refine_testid": "refine-mitre-0-T1566",
+    "finding_refine_button_label": "✎ REFINE",
+    "modal_prepopulates_wrong_finding": "Wrong finding: mitre=T1566",
+    "correction_submit_response": {"POST /api/corrections": 200},
+    "success_indicators_on_page_after_submit": ["correction", "applied"],
+    "analyst_corrections_applied_section": "Visible on report with 'corr_08680a2cf19c · v1 · conf 75 · OVERRIDE' entry containing the submitted prompt"
+  },
+  "test_report_links": [
+    "/app/test_reports/screenshots/04_threat_model_top.png",
+    "/app/test_reports/screenshots/05_modal_open.png",
+    "/app/test_reports/screenshots/06_after_analyze.png",
+    "/app/test_reports/screenshots/07_finding_refine_btn.png",
+    "/app/test_reports/screenshots/08_finding_modal.png",
+    "/app/test_reports/screenshots/09_submitted.png"
+  ],
+  "action_items": [
+    "User must redeploy to production to see the new feature — preview is fully verified.",
+    "Optional: minor console 'hydration' warning about <span> inside <option> in WorkspacePage.jsx (line ~1005). Not blocking but should be cleaned up."
+  ],
+  "critical_code_review_comments": [
+    "React hydration warning: <span> nested inside <option> in WorkspacePage.jsx (~line 1005) inside providers map — browsers strip content of <option> to text, so the wrapping <span data-ve-dynamic> should be removed for options.",
+    "ThreatModelPage.jsx is 598 lines — approaching the 700-line threshold; consider extracting the banner + findings render into subcomponents."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only requested)", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from request)",
+  "seed_data_creation": "One correction was created via UI submit → corr_08680a2cf19c (T1566, verdict=correct, scope=team).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Feature is fully working on preview. If user reports it missing, cause is that production hasn't been redeployed. Note: Analyse button reads 'ANALYSE THREAT MODEL' (British spelling). Login inputs (email/password) come pre-filled with defaults — must Ctrl+A+Delete before typing.",
+  "rca of the issue": "Not a bug. User was viewing the production URL (https://nivxray.nivxforge.com) which is a separate deployed instance. The preview environment (https://greeting-app-5782.preview.emergentagent.com) contains the latest code with the banner and REFINE buttons all fully functional. Root cause of user's frustration: preview vs production deploy gap. Mitigation: user should deploy latest to production."
+}

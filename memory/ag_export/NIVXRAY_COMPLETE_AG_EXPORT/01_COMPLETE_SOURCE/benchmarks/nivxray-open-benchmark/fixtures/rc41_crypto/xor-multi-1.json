@@ -1,0 +1,44 @@
+{
+  "id": "xor-multi-1",
+  "category": "ps-crypto",
+  "algorithm": "XOR-multi",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('NivXor2026'); $c=[byte[]](45,4,18,120,64,17,18,94,87,66,110,28,5,61,29,82,83,84,95,95,32,73,20,57,12,25,86,95,93,68,110,70,23,60,11); $out=[byte[]]::new($c.Length); for($i=0;$i -lt $c.Length;$i++){$out[$i] = $c[$i] -bxor $k[$i % $k.Length]}; IEX ([Text.Encoding]::UTF8.GetString($out))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "byte-array-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "cmd /c net user admin backdoor /add",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

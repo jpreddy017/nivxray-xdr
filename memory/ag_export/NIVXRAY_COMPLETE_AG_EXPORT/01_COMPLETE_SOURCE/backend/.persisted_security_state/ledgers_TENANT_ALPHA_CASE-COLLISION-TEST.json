@@ -1,0 +1,19 @@
+[
+  {
+    "tenant_id": "TENANT_ALPHA",
+    "case_id": "CASE-COLLISION-TEST",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-alpha",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "95b28047fe4da02be9853400b3d2737a910b96d0068b461d36a8eb4ae8a5a7cc",
+    "payload": {
+      "state_hash": "923cab2081fe841f56e571837af47a4f9adc0a4cd089db225b380e02f6e5c30d",
+      "version": 1
+    },
+    "timestamp": "2026-09-03T20:52:15.264212+00:00",
+    "verified": true
+  }
+]

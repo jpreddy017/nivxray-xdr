@@ -24,6 +24,7 @@ from typing import Any, Dict, Iterable, List
 import httpx
 
 from framework.base import Envelope
+from framework.identity import collector_id, tenant_id
 
 
 class IngestOutcome:
@@ -84,6 +85,15 @@ class IngestClient:
             headers = {"Content-Type": "application/json"}
             if self.token:
                 headers["Authorization"] = f"Bearer {self.token}"
+            # The core's tenant-isolation guard compares this header
+            # against the enrolled collector's tenant. Derive it from
+            # the batch so a mis-set env can never masquerade.
+            batch_tenants = {b.get("tenant_id") for b in batch if b.get("tenant_id")}
+            headers["X-Tenant-Id"] = (batch_tenants.pop()
+                                      if len(batch_tenants) == 1
+                                      else tenant_id())
+            headers["X-Principal-Id"] = f"collector:{collector_id()}"
+            headers["X-Principal-Kind"] = "system"
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(self.url, json={"envelopes": batch},
                                               headers=headers)

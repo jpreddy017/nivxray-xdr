@@ -1,0 +1,10 @@
+{
+  "id": "ps-hex-csv-8",
+  "category": "ps-hex-csv",
+  "command_line": "$h='4e,65,77,2d,4f,62,6a,65,63,74,20,4e,65,74,2e,57,65,62,43,6c,69,65,6e,74'; $c = $h -split ',' | ForEach-Object {[char][int]('0x'+$_)}; Invoke-Expression ($c -join '')",
+  "expected_keywords": [
+    "webclient"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

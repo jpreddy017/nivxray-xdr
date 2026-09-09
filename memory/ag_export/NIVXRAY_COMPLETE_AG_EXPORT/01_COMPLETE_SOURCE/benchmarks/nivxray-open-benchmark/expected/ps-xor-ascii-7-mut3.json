@@ -1,0 +1,8 @@
+{
+  "id": "ps-xor-ascii-7-mut3",
+  "category": "ps-xor-inline",
+  "expected_keywords": [
+    "a.b"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

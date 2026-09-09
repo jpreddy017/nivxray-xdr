@@ -1,0 +1,2449 @@
+{
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/finetune/dataset": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/finetune/dataset.jsonl": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/finetune/dataset/summary": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/finetune/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/finetune/test-offline-llm": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/lolbas/status": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/lolbas/sync": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/models": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/models/catalog": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/models/{model_id}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "put": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/models/{model_id}/test": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/osint/services": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/osint/settings": {
+      "put": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/osint/test/{service_id}": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/playbooks/{playbook_id}/votes": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/samples": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/samples/benchmark/all": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/samples/bulk": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/samples/dashboard": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/samples/{sid}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "put": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/samples/{sid}/benchmark": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/taxii/config": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/taxii/history": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/taxii/push": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/taxii/test": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/admin/training-notes/sync-url": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/ai/auto-decode": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/ai/auto-investigate": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/ai/budget": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/ai/toggle": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/ai/troubleshoot": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/analyze": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/analyze/async": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/analyze/command": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/analyze/process-tree": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/analyze/shellcode": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/analyze/status/{job_id}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/analyze/stream": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/analyze/{job_id}/feedback": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/batch/evaluate/nxgec": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      },
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/batch/history": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/batch/history/{run_id}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "patch": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/batch/test": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/batch/test/example": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/batch/test/json": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/batch/test/mine": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/batch/test/mine/preview": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/benchmark/cache/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/benchmark/multilayer": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/benchmark/multilayer/rerun": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/benchmark/real-world": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/benchmark/real-world/download": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/benchmark/refresh": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/cases": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/cases/reinvestigate-broken": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/cases/save": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/cases/{case_id}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/cases/{case_id}/reinvestigate": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/cases/{case_id}/sigma": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/cases/{case_id}/yara": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/corpus/validate": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/corpus/validate/example": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/corpus/validate/json": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/corrections": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/corrections/analytics": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/corrections/pending": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/corrections/preview": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/corrections/{corr_id}/approve": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/corrections/{corr_id}/reject": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/corrections/{corr_id}/rollback": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/candidates": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/chain": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/chain/export": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/chain/narrative": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/chain/narrative/stream": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/chain/split": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/feedback": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/feedback/admin/all": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/feedback/{fid}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/guidance": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/magic": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/decode/smart": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/assets/{filename}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/automation/coverage": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/docs/automation/scaffold": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/automation/suggest-fix": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/business": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/docs/business/{slug}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/cheatsheet-bundle": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/cheatsheet/{doc_id}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/explain": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/explain/feedback": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/explain/feedback/recent": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/explain/feedback/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/docs/export/docx": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/export/html": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/export/pdf": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/features": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/features/{feature_id}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/guide": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/rag/reindex": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/docs/rag/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/docs/related": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/screenshots/{workflow_id}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/screenshots/{workflow_id}/{filename}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/search": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/docs/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/docs/workflows": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/docs/workflows/{workflow_id}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/documents": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/documents/upload": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/documents/{doc_id}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/documents/{doc_id}/batch-decode": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/documents/{doc_id}/download": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/documents/{doc_id}/ingest-fixture": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/documents/{doc_id}/preview": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/documents/{doc_id}/re-investigate": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/emit/sigma": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/emit/sysmon": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/enrichment/bulk": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/enrichment/classify": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/enrichment/config": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/enrichment/ioc": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/examples": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/health/deep": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/history": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/history/compare": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/history/export/bundle": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/history/import": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/history/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/history/{iid}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "patch": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/investigations": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/investigations/lookup": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/investigations/recent": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/investigations/{iid}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/investigations/{iid}/note": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/investigations/{iid}/timeline": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/kb/entries": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/kb/entries/{slug}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/kb/rebuild": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/kb/save-from-investigation": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/kb/search": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/kb/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/lab/attempt": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/lab/attempt/narrative": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/lab/challenge": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/lab/leaderboard": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/lab/me": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/lab/public/attempt": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/lab/public/challenge": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/lab/reveal/{challenge_id}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/analyze/{payload_id}": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/approve/{payload_id}": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/approved": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/auto-analyze-inbox": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/learner/cluster/{cluster_key}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/clusters": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/learner/duplicate-check": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/feedback-source": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/history": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/inbox": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/ingest-feedback": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/learner/payload/{payload_id}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/proposals": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/reject/{payload_id}": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/rollback/{version_id}": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learner/submit": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learning/boost": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learning/correction": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learning/corrections/recent": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learning/corrections/summary": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/learning/feedback": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/learning/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/lolbas/chain": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/lolbas/export": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/mitre/heatmap": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/mitre/heatmap/probe": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/mitre/heatmap/tactic/{name}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/moe/analyze": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/moe/status": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/operations": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/planner/advise": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/planner/trace": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/entities/classify": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/entities/classify-token": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/entities/correlate": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/entities/kinds": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/rc5/evidence-graph/metrics": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/rc5/explain/export": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/golden/history": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/golden/latest": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/rc5/golden/run": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/rc5/golden/summary": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/rc5/parse": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/shadow/gate": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/rc5/shadow/prod-health": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/shadow/record": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/shadow/report/cumulative": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/shadow/report/daily": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/shadow/status": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/rc5/shadow/toggle": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/rc5/status": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/recipe/run": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/regression/corpus/entries": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/regression/corpus/entries/{entry_id}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/regression/gate": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/regression/history": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/regression/latest": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/regression/run": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/regression/runs/{run_id}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/report": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/report/stix": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/report/stix/download": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/report/stix/investigation": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/report/{fmt}": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/share": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/share/{token}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/system/llm-providers": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/threat-intel/config": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/enrich": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/enrich-batch": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/feeds/status": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/threat-intel/feeds/sync": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/threat-intel/iocs": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/lookup/{value}": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/rss/crawl": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/rss/feeds": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/threat-intel/rss/pending": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/rss/pending/promote-high-confidence": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/rss/pending/{note_id}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/rss/pending/{note_id}/dismiss": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/rss/pending/{note_id}/promote": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/rss/trending": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-intel/sources": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/threat-intel/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/threat-intel/sync-all": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/threat-intel/sync/{source_id}": {
+      "post": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-model/analyze": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-model/enrich": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/threat-model/example": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/timeline/events": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/timeline/events/{investigation_id}": {
+      "delete": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/timeline/recent": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/training/archetypes": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/training/confusion": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/training/confusion/promote": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/training/confusion/summary": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/training/dataset": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/training/render": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/training/schema": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/training/stats": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/troubleshoot/auto": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/upload": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v2/analyze": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v2/analyze/report": {
+      "post": {
+        "has_request_body": true,
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v2/plugins": {
+      "get": {
+        "has_request_body": false,
+        "responses": [
+          "200"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "rc4-dpapi-ps-2",
+  "category": "ps-crypto",
+  "algorithm": "RC4+DPAPI",
+  "command_line": "$k = [System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String('RFBBUElfV1JBUFBFRF9LRVlfezB9'),$null, 'CurrentUser'); $c = [Convert]::FromBase64String('UkM0X0NJUEhFUl8y'); # RC4 with DPAPI-unwrapped key\n$S=(0..255); # ... standard RC4 setup ...\nIEX ([Text.Encoding]::UTF8.GetString($out))",
+  "stage_ladder": [
+    {
+      "name": "base64-decode-wrapped-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "dpapi-unprotect",
+      "recoverable": false,
+      "reason": "DPAPI keys are per-user; static recovery is impossible without executing on the target machine."
+    },
+    {
+      "name": "rc4-decrypt",
+      "recoverable": false,
+      "reason": "Depends on DPAPI-unwrapped key."
+    }
+  ],
+  "key_status": "dpapi-derived",
+  "expected_plaintext": null,
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1140",
+    "T1555.003",
+    "T1059.001"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "Static recovery limited by DPAPI dependency.",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

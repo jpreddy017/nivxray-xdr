@@ -1,0 +1,1 @@
+http://vbs-1.example.test/x.exe

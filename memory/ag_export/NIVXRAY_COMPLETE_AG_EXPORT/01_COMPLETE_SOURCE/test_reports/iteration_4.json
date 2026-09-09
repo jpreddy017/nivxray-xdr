@@ -1,0 +1,32 @@
+{
+  "summary": "Backend regression run for compression + JWT + JS atob decoding + benchmark 100% target. 13/14 pytest cases pass. Benchmark endpoint returns pass_pct=100.0 (17/17). One residual gap: /api/decode/magic does not exercise zlib-decompress on the base64-wrapped zlib sample (only base64-decode + utf16le-decode explored). Smart decode handles it correctly, so the sample library benchmark still passes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/decode/magic",
+        "issue": "For raw='eJzzSM3JyVdwzs8tKEotLs7Mz1MEAD/qBsg=' (base64-wrapped zlib) magic only explores 3 candidates (base64-decode, base64-decode+utf16le-decode) and never applies zlib-decompress; top_result does not contain 'Hello Compression!'. Gzip/LZMA magic paths work correctly; only zlib is missing from magic's operation trial set."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_compression_benchmark.py",
+    "/app/test_reports/pytest/compression_bench.xml"
+  ],
+  "action_items": [
+    "In /api/decode/magic (magic_decode.py or similar) ensure the candidate-op set for binary/compression payloads includes zlib-decompress alongside gzip/lzma/bzip2 — probably a missing entry in the ops list tried after base64-decode when the decoded blob starts with 0x78 (zlib magic). Not blocking benchmark 100%, but user-facing magic decode of a plain zlib base64 blob fails."
+  ],
+  "critical_code_review_comments": [
+    "smart_decode correctly detects zlib and produces 'Hello Compression!'; magic path has a gap for the same input — behavioural inconsistency between the two decode surfaces should be closed.",
+    "Registry endpoint /api/operations returns human display names (e.g. 'Gzip Decompress') rather than the op ids used by /api/decode/manual (e.g. 'gzip-decompress'). Consider returning both to make the API self-documenting for clients."
+  ],
+  "updated_files": ["/app/backend/tests/test_compression_benchmark.py"],
+  "success_rate": {"backend": "93% (13/14)", "frontend": "skipped"},
+  "test_credentials": "admin@nivxray.com / NivXRay#2026!",
+  "seed_data_creation": "None — relied on backend startup reseed of BUILTIN_SEEDS.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Benchmark endpoint POST /api/admin/samples/benchmark/all is at 100% (17/17). All 6 target payloads (gzip, zlib, lzma, jwt, atob) work via /api/decode/smart. /api/decode/magic works for gzip/lzma/jwt/atob but NOT for zlib base64 wrapper. PowerShell -Enc regression still green. Sample library returns >=17 samples with fixed raw_input values.",
+  "rca of the issue": "For the zlib base64 sample eJzzSM3JyVdwzs8tKEotLs7Mz1MEAD/qBsg=, /api/decode/magic top_results show chain=[base64-decode] and chain=[base64-decode, utf16le-decode] but no chain trying zlib-decompress or gzip-decompress (which would fall through to zlib on 0x78-prefixed data). Suggests the magic engine's tried-op list either does not include zlib-decompress or the shared _bin_magic_op branching used in smart_decoder is not wired into magic_decode. Fix: ensure zlib-decompress is a candidate in magic's op set (mirror the smart_decoder fix)."
+}

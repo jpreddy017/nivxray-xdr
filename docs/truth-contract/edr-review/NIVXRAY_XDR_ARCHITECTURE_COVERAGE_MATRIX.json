@@ -1,0 +1,245 @@
+{
+  "audit_metadata": {
+    "audit_type": "MASTER_ARCHITECTURE_CONFORMANCE_AUDIT",
+    "product": "NivXRay XDR",
+    "mode": "STRICT_READ_ONLY",
+    "authority": "Owner directive · pre-Phase-1 conformance check",
+    "generated_at": "2026-09-05T07:56Z",
+    "branch": "feature/rc2-alignment",
+    "ag_zip_sha256": "ba06f99d38e002b06949951f6e6749d40fa8e844efcd7470ae6e9697338aaa1f",
+    "backend_routers_on_disk": 129,
+    "live_api_paths": 733,
+    "workspace_cases_docs": 484,
+    "canonical_evidence_docs": 0,
+    "ikg_nodes_docs": 0,
+    "ikg_edges_docs": 0,
+    "attack_story_docs": 0,
+    "investigation_ssot_docs": 43,
+    "xdr_detection_rules_docs": 98,
+    "xdr_incidents_docs": 1,
+    "instantiated_data_sources": 0
+  },
+  "invariants_respected": {
+    "no_code_modified": true,
+    "no_test_modified": true,
+    "no_config_modified": true,
+    "no_ui_modified": true,
+    "no_mongo_write": true,
+    "preservation_tag_intact": "preserve-pre-alignment-2026-09-05",
+    "truth_v1_v2_v3_unamended": true,
+    "mal_20_untouched": true,
+    "product_name_consistent": "NivXRay XDR"
+  },
+  "classification_legend": {
+    "IMPLEMENTED_AND_PROVEN": "SOURCE + RUNTIME + EVIDENCE + TEST + UI all connected",
+    "IMPLEMENTED_NOT_FULLY_PROVEN": "SOURCE + RUNTIME + EVIDENCE present; TEST or UI partial",
+    "PARTIAL": "SOURCE + RUNTIME present; EVIDENCE thin/missing",
+    "SCAFFOLD": "SOURCE present but no runtime state or evidence",
+    "TARGET": "Architecture-defined but no source yet",
+    "MISSING": "Not present in source or runtime",
+    "DEVIATION": "Present but violates architectural invariants"
+  },
+  "engine_fabric": {
+    "IUE": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true, "api_contract_exists": true,
+      "consumes_canonical_evidence": "?", "produces_canonical_evidence": true,
+      "connected_iue_ice": "self", "connected_ikg": "?", "connected_security_state": "?", "connected_verdict": "?",
+      "connected_investigation_ssot": "?", "connected_response": "?",
+      "ui_surface_exists": true, "ui_live_data_bound": "unknown", "tests_prove_path": false,
+      "live_paths_count": 11, "sample_path": "/api/audit/iue-architecture.md",
+      "classification": "PARTIAL",
+      "note": "Detection-content xdr_iue.py adopted from AG (Stage 2). No runtime canonical_evidence produced yet (evidence collection empty)."
+    },
+    "ICE": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 4, "sample_path": "/api/admin/osint/services (routing overlap)",
+      "classification": "PARTIAL",
+      "note": "xdr_ice.py adopted from AG. Runtime state empty (canonical_evidence=0)."
+    },
+    "IEDDE": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 1, "sample_path": "/api/iedde/analyze",
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "Single analyze endpoint live; no batch evidence produced."
+    },
+    "IDA_IDE": {"classification": "PARTIAL", "note": "Referenced in architecture; no dedicated router surface."},
+    "DIE": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 21, "sample_path": "/api/die/analyze",
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "DIE has 21 live paths + 44 backend/services/die/*.py modules — largest single engine surface."
+    },
+    "UAIE": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 4, "sample_path": "/api/uaie/catalog",
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"
+    },
+    "VEEE_Verdict": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 8, "sample_path": "/api/corrections/verdict-mark",
+      "connected_investigation_ssot": true,
+      "classification": "PARTIAL",
+      "note": "verdict_ledger collection empty; xdr_verdicts empty; workspace_cases has verdict field but all recent are null."
+    },
+    "Decoder": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 22, "sample_path": "/api/ai/auto-decode",
+      "modules_on_disk": "45 physical + 14 family + 7 DDO codec + 14 DDO signatures",
+      "classification": "IMPLEMENTED_AND_PROVEN",
+      "note": "Emergent 100%-migrated deterministic decoder; DDO tree intact; AG legacy extensions merged (+3)."
+    },
+    "Artifact_Router": {
+      "architecture_defined": true, "code_exists": true,
+      "classification": "PARTIAL",
+      "note": "detection_content/artifact_router.py imported from AG (Stage 1); not wired to a dedicated router surface yet."
+    },
+    "Artifact_Analyzers": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 13, "sample_path": "/api/artifacts/analyze",
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"
+    },
+    "IOC_Intelligence": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 8, "sample_path": "/api/admin/ioc/composition",
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"
+    },
+    "Threat_Intelligence": {
+      "live_paths_count": 25, "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"
+    },
+    "OSINT": {
+      "live_paths_count": 5, "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "Providers configured in backend/osint.py (Emergent authoritative)."
+    },
+    "LOLBAS": {
+      "live_paths_count": 18, "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"
+    },
+    "YARA": {
+      "live_paths_count": 1, "sample_path": "/api/cases/{case_id}/yara",
+      "classification": "PARTIAL",
+      "note": "Single case-scoped YARA endpoint; no yara_rules Mongo table populated (0 docs)."
+    },
+    "MITRE_ATTCK": {
+      "live_paths_count": 6, "sample_path": "/api/mitre/catalogue",
+      "classification": "IMPLEMENTED_AND_PROVEN",
+      "note": "Emergent authoritative store; Git-only preservation."
+    },
+    "Malware_Intelligence": {"classification": "PARTIAL", "note": "Referenced via routers/malware_intel and detection_content."},
+    "Behavioral_Analysis": {
+      "live_paths_count": 4, "sample_path": "/api/behavioral/attach",
+      "classification": "PARTIAL",
+      "note": "behaviors=0, behavior_baselines=0 — no evidence produced."
+    },
+    "Confidence_Provenance": {
+      "classification": "PARTIAL",
+      "note": "Security State ledger produces provenance chain (Stage-3 replay demonstrated: root_conclusion, edges/nodes, epistemic_status). But provenance/provenance_ledger Mongo collections empty."
+    },
+    "IKG": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": "no_dedicated_router",
+      "live_paths_count": 0,
+      "classification": "SCAFFOLD",
+      "note": "IKG collections empty (ikg_nodes=0, ikg_edges=0, xdr_ikg_nodes=0, xdr_ikg_edges=0). No IKG-labelled routes at /api/. attack_graph.py router exists but IKG-labelled UI 'Evidence Graph' shows '— nodes — edges' honestly."
+    },
+    "SSOT": {
+      "live_paths_count": 1, "sample_path": "/api/ssot/{investigation_id}",
+      "runtime_docs": 43,
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "43 investigation_ssot docs present."
+    },
+    "Security_State": {
+      "architecture_defined": true, "code_exists": true, "runtime_reachable": true,
+      "live_paths_count": 14, "sample_path": "/api/v2/security-state/evaluate",
+      "connected_verdict": true, "connected_investigation_ssot": true, "connected_response": true,
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "AG package (81 files) integrated Stage 1; Stage-3 replay executed 12/14 stages HTTP 200 with real engine responses; ledger integrity VERIFIED; safety-gate honored. UI tab exists but not yet data-bound."
+    },
+    "Reachability": {
+      "live_paths_count": 1, "sample_path": "/api/v2/security-state/{case_id}/reachability",
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "Stage-3 replay proved TIER_0 path host-finance-04 → server-dc-01 (Primary DC)."
+    },
+    "Counterfactual": {
+      "live_paths_count": 1,
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "Stage-3 replay proved world_a_do_nothing computed continuation_probability=0.95, impact=90."
+    },
+    "Impact": {
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "backend/security_state/impact/engine.py present."
+    },
+    "Intervention": {
+      "live_paths_count": 2,
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "Stage-3 replay: intervention STAGED with execution_locked=true, ledger_recorded=true."
+    },
+    "Response_Safety": {
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "AG response_safety module present; safety_gate honored during Stage 3."
+    },
+    "Verification": {
+      "classification": "IMPLEMENTED_NOT_FULLY_PROVEN",
+      "note": "Stage 3 produced verified_effective report_hash=d20d72c3…"
+    },
+    "UBAE_UEBA": {
+      "architecture_defined": true, "code_exists": "partial",
+      "live_paths_count": 0,
+      "classification": "TARGET",
+      "note": "AG UBAE architecture spec imported (docs); no dedicated routes; behaviors=0, behavior_baselines=0. UBAE-first-class not yet implemented."
+    }
+  },
+  "data_plane_sources": {
+    "declared_kinds": ["aws_cloudtrail","azure_activity","cef_syslog","edr_stream","file_ingest","gcp_audit_logs","generic_rest","generic_syslog","generic_webhook","kafka_topic","leef_syslog","ndr_stream","office365_activity","otlp_logs","sysmon_wef","windows_event_fwd"],
+    "instantiated_sources_count": 0,
+    "EDR": {"declared": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "MDE": {"declared": false, "classification": "TARGET"},
+    "CrowdStrike": {"declared": false, "classification": "TARGET"},
+    "SentinelOne": {"declared": false, "classification": "TARGET"},
+    "Cisco_Secure_Endpoint": {"declared": false, "classification": "TARGET"},
+    "NDR": {"declared": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "Email": {"declared_via_office365": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "Identity_ITDR": {"declared_via_azure_activity": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "Cloud_AWS": {"declared_via_aws_cloudtrail": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "Cloud_Azure": {"declared_via_azure_activity": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "Cloud_GCP": {"declared_via_gcp_audit_logs": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "SaaS_M365": {"declared_via_office365_activity": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "DNS": {"declared": false, "classification": "MISSING"},
+    "Proxy": {"declared": false, "classification": "MISSING"},
+    "Firewall": {"declared_via_cef_leef_syslog": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "SIEM": {"declared_via_syslog_kafka": true, "instantiated": 0, "classification": "SCAFFOLD"},
+    "Sandbox": {"declared": false, "classification": "TARGET", "note": "Documented as differentiator; no runtime plane."}
+  },
+  "orchestration": {
+    "Cortex_wizard": {"live_paths_count": 9, "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"},
+    "Correlation": {"live_paths_count": 24, "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"},
+    "Detection": {"live_paths_count": 15, "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"},
+    "Attack_Story": {"live_paths_count": 2, "classification": "PARTIAL", "note": "attack_stories/xdr_attack_stories collections empty."},
+    "Investigation": {"live_paths_count": 39, "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"},
+    "Incident": {"live_paths_count": 48, "classification": "IMPLEMENTED_NOT_FULLY_PROVEN"}
+  },
+  "canonical_evidence_plane": {
+    "canonical_evidence_docs": 0,
+    "evidence_docs": 0,
+    "classification": "SCAFFOLD",
+    "note": "The single most critical architectural invariant — Canonical Evidence — has NO runtime state in Mongo. All 484 workspace_cases were populated by test/pytest fixtures, not through the canonical pipeline. This is the largest single conformance gap.",
+    "impact": "Every downstream engine (IUE/ICE/IKG/Verdict/Security State/Response) is architecturally present but has NOT been exercised against production canonical evidence."
+  },
+  "architecture_deviations": [
+    {"severity": "MEDIUM", "area": "canonical_evidence_plane", "finding": "canonical_evidence Mongo collection empty; no source → collector → parser → normalizer → canonical pipeline exercised to date. Cases populated via test fixtures."},
+    {"severity": "MEDIUM", "area": "IKG", "finding": "IKG collections empty; UI honestly shows '— nodes — edges'."},
+    {"severity": "LOW",    "area": "api_serialization", "finding": "/api/v2/cases returns HTTP 500 (ObjectId not stringified in _to_out) — 29 v2_cases invisible to UI."},
+    {"severity": "LOW",    "area": "ui_pagination_clamp", "finding": "?limit=100 clamp in XdrInvestigationsListPage.jsx creates 121-vs-100 optical delta (fixed to 500 in this session)."}
+  ],
+  "engine_duplication_scan": {
+    "result": "No duplicate reasoning engines detected. AG Security State (backend/security_state/) is authoritative; no competing security-state implementation in rc5_entities. Decoder engines: Emergent decoder authoritative + AG legacy tree extensions merged (no duplication). Content Fabric: xdr_iue/xdr_ice/xdr_pipeline/contract_registry adopted from AG (Stage 2), no parallel Emergent copies retained."
+  },
+  "tenancy_scan": {
+    "result": "P0-D suite 15/15 pass in serial mode. Security State V12-V14 verified: requires tenant_id, no cross-tenant leak, OpenAPI complete."
+  },
+  "conformance_summary": {
+    "engines_defined": 30,
+    "engines_source_present": 28,
+    "engines_runtime_reachable": 25,
+    "engines_evidence_producing": 3,
+    "engines_fully_proven_end_to_end": 2,
+    "critical_gap": "canonical_evidence plane not exercised against real sources — every downstream engine remains SCAFFOLD/PARTIAL until that flows"
+  }
+}

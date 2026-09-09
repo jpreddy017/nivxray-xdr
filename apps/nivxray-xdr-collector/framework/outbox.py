@@ -34,6 +34,7 @@ from datetime    import datetime, timezone
 from typing      import Any, Dict, Iterable, List, Optional, Tuple
 
 from framework.base import Envelope
+from framework.identity import collector_id
 
 
 # ── Status enum ────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ class OutboxRow:
             source               = self.source,
             source_event_id      = self.source_event_id,
             connector_id         = self.connector_id,
-            collector_id         = "collector-local",
+            collector_id         = collector_id(),
             collection_method    = self.collection_method,
             parser_version       = self.parser_version,
             source_timestamp     = self.source_timestamp,

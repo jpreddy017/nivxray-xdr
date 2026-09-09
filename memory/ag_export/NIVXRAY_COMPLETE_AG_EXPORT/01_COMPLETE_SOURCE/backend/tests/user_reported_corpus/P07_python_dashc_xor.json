@@ -1,0 +1,11 @@
+{
+  "id": "P07",
+  "label": "Python -c deterministic XOR evaluator",
+  "reported_at": "2026-08-05",
+  "input": "python3 -c \"print(''.join(chr(ord(c) ^ 5) for c in 'bco`of'))\" | bash",
+  "expected_terminal_state": "recovered",
+  "expected_decoded_output": "gfjejc",
+  "min_confidence": 50,
+  "expected_chain_contains": ["decoder-python-dashc-eval"],
+  "notes": "Rule 22 Category C — new Python interpreter capability. Deterministic AST-whitelist evaluator; not general Python execution."
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_P3_001",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-01",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "84eadd10b2e307fc1b733d64165990c6109f5d9c45ae7ea6ccb75057902aeb48",
+    "payload": {
+      "hash": "hash_version_1_1111111111111111"
+    },
+    "timestamp": "2026-09-04T01:50:10.032426+00:00",
+    "verified": true
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_P3_001",
+    "sequence_number": 2,
+    "block_id": "blk-000002",
+    "event_type": "STATE_TRANSITION",
+    "entity_id": "host-01",
+    "state_version": 2,
+    "previous_hash": "84eadd10b2e307fc1b733d64165990c6109f5d9c45ae7ea6ccb75057902aeb48",
+    "current_hash": "36e2f4c7201a64f8b6a37432098e8779d10e205b96d0d15105273a5ce917586b",
+    "payload": {
+      "hash": "hash_version_2_2222222222222222"
+    },
+    "timestamp": "2026-09-04T01:50:10.088044+00:00",
+    "verified": true
+  }
+]

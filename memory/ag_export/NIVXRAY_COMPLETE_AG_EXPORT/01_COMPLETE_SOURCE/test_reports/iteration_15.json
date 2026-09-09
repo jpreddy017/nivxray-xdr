@@ -1,0 +1,54 @@
+{
+  "summary": "E2E validation of NivXRay v1.3.x (Feb-2026): decode/smart response shape (top-level chain_ids/score/risk), multi-fragment <br>-split, reverse-string chain, AMSI T1562.001 heuristic, 6 MITRE gap-fix heuristics (verified via existing unit tests + AMSI via API), Lab narrative endpoint (rubric 40/30/30 + Claude grading + enriched MITRE), /api/lab/reveal enrichment, /api/mitre/heatmap, /api/corpus/validate/json, /api/threat-intel/feeds/sync, /api/batch/test/json + /api/batch/history. UI: /lab (3 textareas, submit, rubric bars, Claude feedback, strengths/gaps, MITRE chips with names), /heatmap (289 heuristics · 125 techniques matrix rendered), /batch-test (input, run btn, history), /workspace (multi-fragment engine + rundll32/lsass output visible). 11/11 new e2e pytest cases pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/batch-test", "issues": ["Task expected label 'Recent Runs' — actual button label is 'HISTORY (30)'. Functionally equivalent (opens history/runs list). Cosmetic label divergence only."]}
+    ]
+  },
+  "verification_results": {
+    "backend_endpoints": {
+      "POST /api/decode/smart shape": "200 · chain_ids[list], score[int], risk{verdict,level,score} all non-null",
+      "POST /api/decode/smart multi-fragment (<br>+ multi -Enc)": "200 · engine='multi-fragment', fragments>=3, rundll32/comsvcs/lsass surfaced",
+      "POST /api/decode/smart reverse chain (b64|gzip|b64|xxd|rev|b64)": "200 · plaintext 'NivXray_Test_Payload_01' surfaces in output",
+      "POST /api/decode/smart AMSI reflection": "200 · MITRE T1562.001 present",
+      "POST /api/lab/attempt/narrative": "200 · rubric caps enforced (40/30/30), sum==score, max_score=100, provider=emergent-claude, expected_mitre_enriched list of {id,name,tactic}",
+      "POST /api/lab/attempt/narrative bad id": "404 as expected",
+      "GET /api/lab/reveal/{id}": "200 · expected_mitre_enriched present with name+tactic",
+      "GET /api/mitre/heatmap": "200 · total_heuristics=289, unique_techniques=125, tactics list, matrix dict, top_techniques list",
+      "POST /api/corpus/validate/json": "200 · summary+rows returned for payload {input, expected_mitre:[T1490]}",
+      "POST /api/threat-intel/feeds/sync": "200 · dict response",
+      "POST /api/batch/test/json + GET /api/batch/history": "200 · total=2 rows, history list returned"
+    },
+    "frontend_flows": {
+      "/lab narrative UI": "3 textareas (understanding/impact/recommendations), submit btn, rubric hint '/40 · /30 · /30 · perfect ≥ 85' present. After submit: rubric bars (lab-rubric-understanding/impact/recommendations), lab-ai-feedback, lab-mitre-reveal, strengths + gaps split, MITRE chip shows 'T1070.004 · File Deletion' (T-ID + human name).",
+      "/lab HUD + leaderboard": "Streak, Best, Total XP, Perfect stats + leaderboard table with admin@nivxray.com row rendered",
+      "/heatmap page": "Loaded — 289 heuristics · 125 techniques across 13 tactics, matrix cells, top-covered chips, sparse-tactic warning all render without errors",
+      "/batch-test page": "Loaded with textarea, mode select, 'RUN 5 PAYLOADS', 'DOWNLOAD RESULTS AS CSV', 'UPLOAD .CSV / .JSON', 'DOWNLOAD EXAMPLE CSV', 'HISTORY (30)', 'RUN NXGEC GOLD CORPUS' controls",
+      "/workspace multi-fragment paste": "Status shows 'NIVXRAY DECODE COMPLETE · multi-fragment · 65%'; recipe shows extract-payload → Base64 Decode → UTF-16LE Decode chain; rundll32/comsvcs/lsass surface in decoded output"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v13x_e2e.py",
+    "/app/test_reports/pytest/v13x_e2e.xml"
+  ],
+  "action_items": [
+    "OPTIONAL cosmetic: rename batch-test 'HISTORY (30)' button to 'RECENT RUNS' to match spec wording (or vice-versa in spec).",
+    "OPTIONAL: on /batch-test add a data-testid on the payload textarea / run button (currently none found under expected names batch-test-payloads/batch-test-run-btn). Playwright fell back to visible text — works but less robust.",
+    "OPTIONAL cleanup carried over from iter_13/14: WorkspacePage.jsx ~L1005 <span data-ve-dynamic> nested inside <option> hydration warning."
+  ],
+  "critical_code_review_comments": [
+    "review_request lists route paths that don't match implementation: `/api/heatmap/data` → actual `/api/mitre/heatmap`; `/api/batch/runs` → actual `/api/batch/history`; `/api/corpus/validate` (POST JSON) → actual `/api/corpus/validate/json` (the plain path requires multipart file upload). Consumers relying on the review-request paths would get 404/422. Consider adding lightweight alias routes or updating docs.",
+    "mitre_heatmap._default_tactic falls back to 'Defense Evasion' for unknown T-IDs — may inflate that tactic's coverage in the matrix. Log a warning or attribute to 'Unknown' bucket instead."
+  ],
+  "updated_files": ["/app/backend/tests/test_v13x_e2e.py"],
+  "success_rate": {"backend": "100% (11/11 new e2e)", "frontend": "100% (lab, heatmap, batch, workspace)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (verified working)",
+  "seed_data_creation": "Test created 1 lab_attempts row (narrative grading) + 1 batch_history row (2-payload batch) + threat-intel feed sync ran once. All bounded, safe.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All v1.3.x features work end-to-end. Actual route paths differ from what review_request v1.3.x doc claimed — see critical_code_review_comments. Regression file: /app/backend/tests/test_v13x_e2e.py (11 tests, ~15s parallel).",
+  "rca of the issue": "N/A — no bugs. Only actionable finding is a routing docs/spec mismatch (paths listed in review_request don't match implementation; endpoints themselves are healthy)."
+}

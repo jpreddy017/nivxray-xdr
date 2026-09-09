@@ -1,0 +1,44 @@
+{
+  "summary": "P1.10a Spread Watchlist verified end-to-end. Ran the full 6-event UDP proof driver (all 4 tracks: A gate-qualifies, B gate-refuses, C UNKNOWN endpoint, D idempotency); ran the 22 new contract tests plus 48 additional live/DSM/tenant tests (all 70 pass); ran 97 wider regression tests across rounds 11–30 and phase-2 (all pass). Verified honest-state contract adversarially: IP literals never count as an endpoint, unknown hosts NEVER inflate endpoint_count, replay never inflates spread, VEEE cap (+60 at 3 matches) is unchanged (3 vs 50 matches score identically at 100), threshold ladder emits exactly [2,3,5,10] once each while endpoint_count reaches 12 with SPREAD_WIDESPREAD, src_ip/username can never become an indicator (400 UNSUPPORTED_INDICATOR_TYPE), watchlist docs carry no score/verdict of their own, watchlist plane writes ONLY to xdr_spread_watchlist / xdr_spread_sightings / xdr_correlation_matches with evidence_level=CORRELATION_OBSERVED and attack_techniques=[], and materialise_incident remains the only path to an incident. Verified the pre-existing ICE _signal_from_canonical bug fix: flat canonical (hostname=HOSTA, network.dest_ip=1.2.3.4) now yields host_id=HOSTA and dst_ip=1.2.3.4, while nested snort-shaped events still resolve via network.src.ip/network.dst.ip (no regression). Proof-run final state matches spec exactly: 6 watchlist rows (4 SPREAD_CONFIRMED, 2 WATCHING), 4 SPREAD-WATCH-001 correlation matches, exactly 1 incident in tenant nivx-live, zero new dead letters at the collector (3 pre-existing kept). One minor deviation from the review contract on the cmdline fingerprint (see backend_issues.minor).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "detection_content/xdr_spread_watchlist.cmdline_fingerprint",
+        "issue": "The review contract states a PowerShell '-enc <base64>' payload MUST fingerprint identically to its decoded plaintext. Actual: the DIE normalizer strips the entire 'powershell.exe -enc <blob>' preamble in the encoded case (yielding 'get-process | where-object cpu -gt <n>'), but keeps 'powershell.exe ' in the plain-text case (yielding 'powershell.exe get-process | where-object cpu -gt <n>'). Result: the two fingerprints differ (1974ede81dd… vs 3539fd0ab86…). Two different-directories / different-IPs runs of the same tooling DO fingerprint identically as required (verified: 696053bbe… on both sides). Fix likely belongs in services/die/preprocessor/command_normalizer.py (strip the 'powershell(.exe)?' shell-invocation prefix uniformly) or in xdr_spread_watchlist to normalize the leading shell binary before hashing."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/edr/test_p1_10a_spread_watchlist.py",
+    "/app/backend/tests/edr/test_p1_10_cef_leef_dsm.py",
+    "/app/backend/tests/edr/test_p1_10_live_contract.py",
+    "/app/backend/tests/edr/test_cross_tenant.py",
+    "/app/backend/tests/test_xdr_data_sources_collectors.py",
+    "/app/scripts/p1_10a_spread_proof.py",
+    "/app/scripts/p1_10a_reset.py",
+    "/app/scripts/p1_10a_verify.py",
+    "/app/scripts/p1_10a_extended.py"
+  ],
+  "action_items": [
+    "Optional: align cmdline_fingerprint so a PowerShell '-enc <base64>' payload and its decoded plaintext produce the same fingerprint (currently they differ because normalize_command drops 'powershell.exe' only in the encoded branch). Every other primary indicator (hash, dest_ip, domain, process_identity, cmdline_fingerprint across two dirs/two IPs) satisfies the contract."
+  ],
+  "critical_code_review_comments": [
+    "xdr_spread_watchlist.observe(): correctly writes ONLY to spread + xdr_correlation_matches; emits no score, no verdict, no incident. Pipeline hook sits between provisional VEEE and materialise_incident and re-invokes existing veee_compute. Architecture boundary is clean.",
+    "xdr_ice._signal_from_canonical(): the pre-existing bug (only reading network.src.ip / network.dst.ip snort-shape, so all five model-shaped DSMs silently yielded host_id=None/dst_ip=None) is now fixed and reads BOTH flat and nested shapes with hostname preferred for host_id. No regression to the snort-eve nested path.",
+    "xdr_veee.py unchanged; +20 per correlation match, min(n,3) cap holds (3 matches = 100, 50 matches = 100).",
+    "Every SPREAD-WATCH-001 claim reads exactly 'Indicator observed across N distinct endpoint identities.' with attack_techniques=[] and evidence_level=CORRELATION_OBSERVED; no 'spread to', 'lateral movement', 'compromised' or 'patient zero' anywhere.",
+    "API: /api/xdr/spread returns totals.observed_on_multiple_endpoints (not 'spread'); policy declares is_engine=false with correlation/scoring/promotion authorities named; cross-tenant GET returns 404; POST rejects username/src_ip with 400 UNSUPPORTED_INDICATOR_TYPE; analyst enrollment sets endpoint_count=0 with epistemic_state.endpoint_cardinality=NOT_OBSERVED; retire preserves sightings and correlation evidence.",
+    "Idempotency: byte-identical replay increments duplicate_sightings only (sighting_count and endpoint_count unchanged; no second correlation match at the same threshold).",
+    "UNKNOWN endpoints: an event with dvchost=IP or no host at all resolves to identity=None state=UNKNOWN, counts_toward_spread=False; sighting retained with full src_ip/username/event_time context, but endpoint_count and thresholds are unaffected. Two unknown hosts → still endpoint_count=0."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "n/a"},
+  "test_credentials": "Read from /app/memory/test_credentials.md; the xdr/spread API works with X-Tenant-Id: nivx-live + X-Principal-Id: admin@nivxray.com (bootstrap-allow path, no bearer needed).",
+  "seed_data_creation": "Ran /app/scripts/p1_10a_reset.py (clears nivx-live workspace_cases/canonical/shadow/audit and all spread/sightings + SPREAD-WATCH-001 correlation matches) then /app/scripts/p1_10a_spread_proof.py (emitted 6 real CEF/LEEF frames on UDP 5514). Final state: 6 watchlist rows, 4 SPREAD-WATCH-001 matches, 1 incident (inc_7742fe7120174204be36), 0 new dead letters.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "P1.10a fully green. If touching xdr_spread_watchlist.cmdline_fingerprint or services/die/preprocessor/command_normalizer.py, re-run backend/tests/edr/test_p1_10a_spread_watchlist.py and the -enc vs plaintext PowerShell fingerprint parity check (see /app/scripts/p1_10a_extended.py). The proof driver is deterministic and repeatable; always run /app/scripts/p1_10a_reset.py first. Note the 3 historical dead_letter rows in the collector outbox are pre-existing from the P1.10 422 era; verify only that no NEW dead letters are added.",
+  "rca of the issue": "Cmdline fingerprint parity gap: services/die/preprocessor/command_normalizer.normalize_command('powershell.exe -enc <blob>') returns the decoded payload with the 'powershell.exe' preamble dropped, while normalize_command('powershell.exe <plaintext>') returns the plaintext WITH the 'powershell.exe' preamble retained. xdr_spread_watchlist.cmdline_fingerprint hashes what the normalizer returns, so the two forms hash to different values. Mitigation options: (a) uniformly strip a leading shell-invocation token (powershell(.exe)?, pwsh(.exe)?, cmd(.exe)?) in the DIE normalizer, or (b) apply the same strip in xdr_spread_watchlist._VOLATILE preprocessing before hashing. Zero impact on the four tracks of the proof run because they use certutil, not powershell -enc."
+}

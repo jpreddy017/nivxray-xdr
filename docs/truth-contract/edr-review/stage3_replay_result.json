@@ -1,0 +1,3559 @@
+{
+  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+  "tenant_id": "default",
+  "started_at": "2026-09-05T08:07:03.417393+00:00",
+  "stages": {
+    "evaluate": {
+      "status": 200,
+      "body": {
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "tenant_id": "default",
+        "version": 1,
+        "persisted": true,
+        "storage": "mongodb",
+        "entity_count": 2,
+        "states": [
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "version": 1,
+            "state_hash": "59c77fad8c42e5bb191649dc4df5f5b82173e51f60a2de50b436c83fb087fcea",
+            "previous_state_hash": null,
+            "entity_ref": {
+              "category": "PROCESS",
+              "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+              "tenant_id": "default",
+              "display_name": "powershell.exe (T1059.001)"
+            },
+            "epistemic_status": "OBSERVED",
+            "classification": "AUTHORIZED_USE",
+            "active_capabilities": [],
+            "observed_facts": [
+              {
+                "fact_id": "fact-4249378eb6",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.mitre",
+                  "evidence_class": "OBSERVED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "mitre_technique": "T1059.001",
+                  "mitre_technique_name": "PowerShell",
+                  "mitre_tactic": "Execution",
+                  "verdict": "Malicious",
+                  "engine": "llm-l3",
+                  "observed_at": "2026-09-05T08:07:03.417376+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.mitre",
+                "evidence_id": "ev-ca864668"
+              },
+              {
+                "fact_id": "fact-3d5f1844fd",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.verdict",
+                  "evidence_class": "SUPPORTED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "verdict_label": "Malicious",
+                  "confidence": 92,
+                  "observed_at": "2026-09-05T08:07:03.417390+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.verdict",
+                "evidence_id": "ev-16e9d829"
+              }
+            ],
+            "derived_facts": [],
+            "assumptions": [],
+            "contradictions": [],
+            "missing_evidence": [],
+            "attack_state": "CREDENTIAL_ACCESS",
+            "reachability": {
+              "matrix_id": "reach-e835461469",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "evaluated_at": "2026-09-04T00:00:00Z",
+              "foothold_entities": [
+                {
+                  "category": "PROCESS",
+                  "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                  "tenant_id": "default",
+                  "display_name": "powershell.exe (T1059.001)"
+                }
+              ],
+              "paths": [
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-server-dc-01",
+                  "target_entity": {
+                    "category": "SERVER",
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "display_name": "Primary Domain Controller (dc-01.corp)"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Domain Admin Kerberos Ticket"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "SERVER",
+                        "entity_id": "server-dc-01",
+                        "tenant_id": "default",
+                        "display_name": "Primary Domain Controller (dc-01.corp)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Tier-0 Network Microsegmentation",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Path to Domain Controller secured or segmented"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-backup-nas-01",
+                  "target_entity": {
+                    "category": "BACKUP_SYSTEM",
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "display_name": "Veeam Immutable Backup Repository"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Backup Management MFA bypass"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "BACKUP_SYSTEM",
+                        "entity_id": "backup-nas-01",
+                        "tenant_id": "default",
+                        "display_name": "Veeam Immutable Backup Repository"
+                      },
+                      "hop_type": "CLOUD_ROLE_ASSUME",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Backup MFA Air-Gap",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Backup repository air-gap intact"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-db-prod-sql-01",
+                  "target_entity": {
+                    "category": "DATA_STORE",
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Customer Database (MSSQL)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_1",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "DATA_STORE",
+                        "entity_id": "db-prod-sql-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Customer Database (MSSQL)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/1433",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_1",
+                    "business_criticality_score": 85,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "HIGH",
+                    "regulatory_scope": [
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Production Relational Database & Transactions",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Database protected by session/network controls"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-cloud-s3-vault-01",
+                  "target_entity": {
+                    "category": "CLOUD_RESOURCE",
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "CLOUD_RESOURCE",
+                        "entity_id": "cloud-s3-vault-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                      },
+                      "hop_type": "IAM_FEDERATION",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "HTTPS/443",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Cloud IAM role boundary intact"
+                }
+              ],
+              "currently_reachable_count": 0,
+              "potentially_reachable_count": 2,
+              "blocked_count": 2,
+              "tier_0_exposed": false,
+              "tier_1_exposed": false,
+              "reachable_tier_0_count": 0,
+              "reachable_tier_1_count": 0,
+              "reachable_tier_2_count": 0,
+              "active_capabilities_applied": [],
+              "provenance": {
+                "engine": "EnterpriseReachabilityEngine",
+                "version": "1.1.0",
+                "at": "2026-09-04T00:00:00Z",
+                "upstream_evidence_ids": [
+                  "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell"
+                ]
+              },
+              "matrix_hash": "684255aab08c297605aee3de5d5fd1cd3e2bf1e9713e3b5bac39e70c4bafd68f"
+            },
+            "impact": {
+              "card_id": "impact-01387a8709",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "overall_impact_score": 36,
+              "blast_radius_node_count": 3,
+              "tier_0_service_exposed": false,
+              "ransomware_exposure_risk": "LOW",
+              "data_exfiltration_risk": "HIGH",
+              "business_service_downtime_risk": "LOW",
+              "dimensions": [
+                {
+                  "name": "Asset Criticality",
+                  "score": 25,
+                  "weight": 0.35,
+                  "description": "Tier 2 endpoints reachable",
+                  "affected_entities": [
+                    "server-dc-01",
+                    "backup-nas-01",
+                    "cloud-s3-vault-01"
+                  ]
+                },
+                {
+                  "name": "Blast Radius",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Direct lateral traversal potential encompasses 3 connected systems",
+                  "affected_entities": [
+                    "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell"
+                  ]
+                },
+                {
+                  "name": "Ransomware Susceptibility",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Local disk encryption potential limited to endpoint",
+                  "affected_entities": [
+                    "backup-nas-01"
+                  ]
+                },
+                {
+                  "name": "Operational Disruption",
+                  "score": 30,
+                  "weight": 0.15,
+                  "description": "Limited workstation service impact",
+                  "affected_entities": []
+                }
+              ],
+              "evidence_justifications": [
+                "Blast radius calculated as 3 enterprise nodes",
+                "Tier-0 boundary verified intact"
+              ],
+              "regulatory_impact_scope": [],
+              "card_hash": "7abd590a9018fc8402b6d0aed6ecbc33b60f9c864172ed4d9ef0a7617e447cb4"
+            },
+            "intervention_plan": {
+              "plan_id": "plan-bce33474a7",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "generated_at": "2026-09-04T00:00:00Z",
+              "actions": [
+                {
+                  "step_number": 1,
+                  "action_id": "endpoint.terminate_process",
+                  "target_entity": {
+                    "category": "PROCESS",
+                    "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                    "tenant_id": "default",
+                    "display_name": "powershell.exe (T1059.001)"
+                  },
+                  "rationale": "Terminate active weaponized process handle",
+                  "expected_path_cut": "Halts execution thread",
+                  "is_reversible": false,
+                  "requires_dual_approval": false,
+                  "evidence_preservation_notes": ""
+                }
+              ],
+              "projected_residual_risk_pct": 5,
+              "projected_business_disruption_score": 30,
+              "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+              "recommended_world_id": "world-e-composite-containment",
+              "comparative_matrix_id": "matrix-e835461469",
+              "plan_hash": "adf3b9950ec1abb39917a7a02863b22c026f3dea2e367d9bd26efa5b67fd1698"
+            },
+            "evidence_references": [
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.mitre",
+                "timestamp": ""
+              },
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.verdict",
+                "timestamp": ""
+              }
+            ],
+            "provenance": {
+              "engine": "SecurityStateEngine",
+              "version": "1.0.0",
+              "saved_at": "2026-09-05T08:07:03.526503+00:00"
+            },
+            "lifecycle_status": "ACTIVE",
+            "commit_status": "PENDING_LEDGER",
+            "evaluated_at": "2026-09-05T08:07:03.526514+00:00",
+            "created_at": "2026-09-05T08:07:03.526516+00:00",
+            "engine_version": "1.0.0"
+          },
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "version": 2,
+            "state_hash": "c6103aa5376c9ee19295c8fba2e8b3bc6eb11c849204a4fe32832fd4e34c29bc",
+            "previous_state_hash": "59c77fad8c42e5bb191649dc4df5f5b82173e51f60a2de50b436c83fb087fcea",
+            "entity_ref": {
+              "category": "DEVICE",
+              "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "tenant_id": "default",
+              "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+            },
+            "epistemic_status": "OBSERVED",
+            "classification": "AUTHORIZED_USE",
+            "active_capabilities": [],
+            "observed_facts": [
+              {
+                "fact_id": "fact-4249378eb6",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.mitre",
+                  "evidence_class": "OBSERVED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "mitre_technique": "T1059.001",
+                  "mitre_technique_name": "PowerShell",
+                  "mitre_tactic": "Execution",
+                  "verdict": "Malicious",
+                  "engine": "llm-l3",
+                  "observed_at": "2026-09-05T08:07:03.417376+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.mitre",
+                "evidence_id": "ev-ca864668"
+              },
+              {
+                "fact_id": "fact-3d5f1844fd",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.verdict",
+                  "evidence_class": "SUPPORTED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "verdict_label": "Malicious",
+                  "confidence": 92,
+                  "observed_at": "2026-09-05T08:07:03.417390+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.verdict",
+                "evidence_id": "ev-16e9d829"
+              }
+            ],
+            "derived_facts": [],
+            "assumptions": [],
+            "contradictions": [],
+            "missing_evidence": [],
+            "attack_state": "CREDENTIAL_ACCESS",
+            "reachability": {
+              "matrix_id": "reach-e835461469",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "evaluated_at": "2026-09-04T00:00:00Z",
+              "foothold_entities": [
+                {
+                  "category": "DEVICE",
+                  "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "tenant_id": "default",
+                  "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                }
+              ],
+              "paths": [
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-server-dc-01",
+                  "target_entity": {
+                    "category": "SERVER",
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "display_name": "Primary Domain Controller (dc-01.corp)"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Domain Admin Kerberos Ticket"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "SERVER",
+                        "entity_id": "server-dc-01",
+                        "tenant_id": "default",
+                        "display_name": "Primary Domain Controller (dc-01.corp)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Tier-0 Network Microsegmentation",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Path to Domain Controller secured or segmented"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-backup-nas-01",
+                  "target_entity": {
+                    "category": "BACKUP_SYSTEM",
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "display_name": "Veeam Immutable Backup Repository"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Backup Management MFA bypass"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "BACKUP_SYSTEM",
+                        "entity_id": "backup-nas-01",
+                        "tenant_id": "default",
+                        "display_name": "Veeam Immutable Backup Repository"
+                      },
+                      "hop_type": "CLOUD_ROLE_ASSUME",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Backup MFA Air-Gap",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Backup repository air-gap intact"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-db-prod-sql-01",
+                  "target_entity": {
+                    "category": "DATA_STORE",
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Customer Database (MSSQL)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_1",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "DATA_STORE",
+                        "entity_id": "db-prod-sql-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Customer Database (MSSQL)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/1433",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_1",
+                    "business_criticality_score": 85,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "HIGH",
+                    "regulatory_scope": [
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Production Relational Database & Transactions",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Database protected by session/network controls"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-cloud-s3-vault-01",
+                  "target_entity": {
+                    "category": "CLOUD_RESOURCE",
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "CLOUD_RESOURCE",
+                        "entity_id": "cloud-s3-vault-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                      },
+                      "hop_type": "IAM_FEDERATION",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "HTTPS/443",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Cloud IAM role boundary intact"
+                }
+              ],
+              "currently_reachable_count": 0,
+              "potentially_reachable_count": 2,
+              "blocked_count": 2,
+              "tier_0_exposed": false,
+              "tier_1_exposed": false,
+              "reachable_tier_0_count": 0,
+              "reachable_tier_1_count": 0,
+              "reachable_tier_2_count": 0,
+              "active_capabilities_applied": [],
+              "provenance": {
+                "engine": "EnterpriseReachabilityEngine",
+                "version": "1.1.0",
+                "at": "2026-09-04T00:00:00Z",
+                "upstream_evidence_ids": [
+                  "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed"
+                ]
+              },
+              "matrix_hash": "e44f9044b8dd49b5f2a7578e2f698b4237409f91952d662318e105cfc41318ab"
+            },
+            "impact": {
+              "card_id": "impact-5e2ce5c56b",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "overall_impact_score": 36,
+              "blast_radius_node_count": 3,
+              "tier_0_service_exposed": false,
+              "ransomware_exposure_risk": "LOW",
+              "data_exfiltration_risk": "HIGH",
+              "business_service_downtime_risk": "LOW",
+              "dimensions": [
+                {
+                  "name": "Asset Criticality",
+                  "score": 25,
+                  "weight": 0.35,
+                  "description": "Tier 2 endpoints reachable",
+                  "affected_entities": [
+                    "server-dc-01",
+                    "backup-nas-01",
+                    "cloud-s3-vault-01"
+                  ]
+                },
+                {
+                  "name": "Blast Radius",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Direct lateral traversal potential encompasses 3 connected systems",
+                  "affected_entities": [
+                    "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed"
+                  ]
+                },
+                {
+                  "name": "Ransomware Susceptibility",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Local disk encryption potential limited to endpoint",
+                  "affected_entities": [
+                    "backup-nas-01"
+                  ]
+                },
+                {
+                  "name": "Operational Disruption",
+                  "score": 30,
+                  "weight": 0.15,
+                  "description": "Limited workstation service impact",
+                  "affected_entities": []
+                }
+              ],
+              "evidence_justifications": [
+                "Blast radius calculated as 3 enterprise nodes",
+                "Tier-0 boundary verified intact"
+              ],
+              "regulatory_impact_scope": [],
+              "card_hash": "550bffa7c41ccdbd0015dfc38fc58284b3faac5150b0bc0bcaae0d420f5fc1e7"
+            },
+            "intervention_plan": {
+              "plan_id": "plan-d99c38e257",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "generated_at": "2026-09-04T00:00:00Z",
+              "actions": [
+                {
+                  "step_number": 1,
+                  "action_id": "endpoint.isolate",
+                  "target_entity": {
+                    "category": "DEVICE",
+                    "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                    "tenant_id": "default",
+                    "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                  },
+                  "rationale": "Sever network-level lateral movement and C2 channels immediately",
+                  "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+                  "is_reversible": true,
+                  "requires_dual_approval": false,
+                  "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+                }
+              ],
+              "projected_residual_risk_pct": 5,
+              "projected_business_disruption_score": 30,
+              "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+              "recommended_world_id": "world-e-composite-containment",
+              "comparative_matrix_id": "matrix-e835461469",
+              "plan_hash": "10dfbcd35ca41ba14fa29ed6085eb34c3e5fa473d3e7d986b653602d0a7f86ee"
+            },
+            "evidence_references": [
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.mitre",
+                "timestamp": ""
+              },
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.verdict",
+                "timestamp": ""
+              }
+            ],
+            "provenance": {
+              "engine": "SecurityStateEngine",
+              "version": "1.0.0",
+              "saved_at": "2026-09-05T08:07:03.538111+00:00"
+            },
+            "lifecycle_status": "ACTIVE",
+            "commit_status": "PENDING_LEDGER",
+            "evaluated_at": "2026-09-05T08:07:03.538119+00:00",
+            "created_at": "2026-09-05T08:07:03.538120+00:00",
+            "engine_version": "1.0.0"
+          }
+        ]
+      }
+    },
+    "get_state": {
+      "status": 200,
+      "body": {
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "tenant_id": "default",
+        "version": 1,
+        "persisted": true,
+        "storage": "mongodb",
+        "entity_count": 2,
+        "states": [
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "version": 1,
+            "state_hash": "59c77fad8c42e5bb191649dc4df5f5b82173e51f60a2de50b436c83fb087fcea",
+            "previous_state_hash": null,
+            "entity_ref": {
+              "category": "PROCESS",
+              "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+              "tenant_id": "default",
+              "display_name": "powershell.exe (T1059.001)"
+            },
+            "epistemic_status": "OBSERVED",
+            "classification": "AUTHORIZED_USE",
+            "active_capabilities": [],
+            "observed_facts": [
+              {
+                "fact_id": "fact-4249378eb6",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.mitre",
+                  "evidence_class": "OBSERVED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "mitre_technique": "T1059.001",
+                  "mitre_technique_name": "PowerShell",
+                  "mitre_tactic": "Execution",
+                  "verdict": "Malicious",
+                  "engine": "llm-l3",
+                  "observed_at": "2026-09-05T08:07:03.417376+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.mitre",
+                "evidence_id": "ev-ca864668"
+              },
+              {
+                "fact_id": "fact-3d5f1844fd",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.verdict",
+                  "evidence_class": "SUPPORTED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "verdict_label": "Malicious",
+                  "confidence": 92,
+                  "observed_at": "2026-09-05T08:07:03.417390+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.verdict",
+                "evidence_id": "ev-16e9d829"
+              }
+            ],
+            "derived_facts": [],
+            "assumptions": [],
+            "contradictions": [],
+            "missing_evidence": [],
+            "attack_state": "CREDENTIAL_ACCESS",
+            "reachability": {
+              "matrix_id": "reach-e835461469",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "evaluated_at": "2026-09-04T00:00:00Z",
+              "foothold_entities": [
+                {
+                  "category": "PROCESS",
+                  "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                  "tenant_id": "default",
+                  "display_name": "powershell.exe (T1059.001)"
+                }
+              ],
+              "paths": [
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-server-dc-01",
+                  "target_entity": {
+                    "category": "SERVER",
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "display_name": "Primary Domain Controller (dc-01.corp)"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Domain Admin Kerberos Ticket"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "SERVER",
+                        "entity_id": "server-dc-01",
+                        "tenant_id": "default",
+                        "display_name": "Primary Domain Controller (dc-01.corp)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Tier-0 Network Microsegmentation",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Path to Domain Controller secured or segmented"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-backup-nas-01",
+                  "target_entity": {
+                    "category": "BACKUP_SYSTEM",
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "display_name": "Veeam Immutable Backup Repository"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Backup Management MFA bypass"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "BACKUP_SYSTEM",
+                        "entity_id": "backup-nas-01",
+                        "tenant_id": "default",
+                        "display_name": "Veeam Immutable Backup Repository"
+                      },
+                      "hop_type": "CLOUD_ROLE_ASSUME",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Backup MFA Air-Gap",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Backup repository air-gap intact"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-db-prod-sql-01",
+                  "target_entity": {
+                    "category": "DATA_STORE",
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Customer Database (MSSQL)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_1",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "DATA_STORE",
+                        "entity_id": "db-prod-sql-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Customer Database (MSSQL)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/1433",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_1",
+                    "business_criticality_score": 85,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "HIGH",
+                    "regulatory_scope": [
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Production Relational Database & Transactions",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Database protected by session/network controls"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-cloud-s3-vault-01",
+                  "target_entity": {
+                    "category": "CLOUD_RESOURCE",
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "CLOUD_RESOURCE",
+                        "entity_id": "cloud-s3-vault-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                      },
+                      "hop_type": "IAM_FEDERATION",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "HTTPS/443",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Cloud IAM role boundary intact"
+                }
+              ],
+              "currently_reachable_count": 0,
+              "potentially_reachable_count": 2,
+              "blocked_count": 2,
+              "tier_0_exposed": false,
+              "tier_1_exposed": false,
+              "reachable_tier_0_count": 0,
+              "reachable_tier_1_count": 0,
+              "reachable_tier_2_count": 0,
+              "active_capabilities_applied": [],
+              "provenance": {
+                "engine": "EnterpriseReachabilityEngine",
+                "version": "1.1.0",
+                "at": "2026-09-04T00:00:00Z",
+                "upstream_evidence_ids": [
+                  "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell"
+                ]
+              },
+              "matrix_hash": "684255aab08c297605aee3de5d5fd1cd3e2bf1e9713e3b5bac39e70c4bafd68f"
+            },
+            "impact": {
+              "card_id": "impact-01387a8709",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "overall_impact_score": 36,
+              "blast_radius_node_count": 3,
+              "tier_0_service_exposed": false,
+              "ransomware_exposure_risk": "LOW",
+              "data_exfiltration_risk": "HIGH",
+              "business_service_downtime_risk": "LOW",
+              "dimensions": [
+                {
+                  "name": "Asset Criticality",
+                  "score": 25,
+                  "weight": 0.35,
+                  "description": "Tier 2 endpoints reachable",
+                  "affected_entities": [
+                    "server-dc-01",
+                    "backup-nas-01",
+                    "cloud-s3-vault-01"
+                  ]
+                },
+                {
+                  "name": "Blast Radius",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Direct lateral traversal potential encompasses 3 connected systems",
+                  "affected_entities": [
+                    "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell"
+                  ]
+                },
+                {
+                  "name": "Ransomware Susceptibility",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Local disk encryption potential limited to endpoint",
+                  "affected_entities": [
+                    "backup-nas-01"
+                  ]
+                },
+                {
+                  "name": "Operational Disruption",
+                  "score": 30,
+                  "weight": 0.15,
+                  "description": "Limited workstation service impact",
+                  "affected_entities": []
+                }
+              ],
+              "evidence_justifications": [
+                "Blast radius calculated as 3 enterprise nodes",
+                "Tier-0 boundary verified intact"
+              ],
+              "regulatory_impact_scope": [],
+              "card_hash": "7abd590a9018fc8402b6d0aed6ecbc33b60f9c864172ed4d9ef0a7617e447cb4"
+            },
+            "intervention_plan": {
+              "plan_id": "plan-bce33474a7",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "generated_at": "2026-09-04T00:00:00Z",
+              "actions": [
+                {
+                  "step_number": 1,
+                  "action_id": "endpoint.terminate_process",
+                  "target_entity": {
+                    "category": "PROCESS",
+                    "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                    "tenant_id": "default",
+                    "display_name": "powershell.exe (T1059.001)"
+                  },
+                  "rationale": "Terminate active weaponized process handle",
+                  "expected_path_cut": "Halts execution thread",
+                  "is_reversible": false,
+                  "requires_dual_approval": false,
+                  "evidence_preservation_notes": ""
+                }
+              ],
+              "projected_residual_risk_pct": 5,
+              "projected_business_disruption_score": 30,
+              "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+              "recommended_world_id": "world-e-composite-containment",
+              "comparative_matrix_id": "matrix-e835461469",
+              "plan_hash": "adf3b9950ec1abb39917a7a02863b22c026f3dea2e367d9bd26efa5b67fd1698"
+            },
+            "evidence_references": [
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.mitre",
+                "timestamp": ""
+              },
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.verdict",
+                "timestamp": ""
+              }
+            ],
+            "provenance": {
+              "engine": "SecurityStateEngine",
+              "version": "1.0.0",
+              "saved_at": "2026-09-05T08:07:03.526503+00:00"
+            },
+            "lifecycle_status": "ACTIVE",
+            "commit_status": "PENDING_LEDGER",
+            "evaluated_at": "2026-09-05T08:07:03.526514+00:00",
+            "created_at": "2026-09-05T08:07:03.526516+00:00",
+            "engine_version": "1.0.0"
+          },
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "version": 2,
+            "state_hash": "c6103aa5376c9ee19295c8fba2e8b3bc6eb11c849204a4fe32832fd4e34c29bc",
+            "previous_state_hash": "59c77fad8c42e5bb191649dc4df5f5b82173e51f60a2de50b436c83fb087fcea",
+            "entity_ref": {
+              "category": "DEVICE",
+              "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "tenant_id": "default",
+              "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+            },
+            "epistemic_status": "OBSERVED",
+            "classification": "AUTHORIZED_USE",
+            "active_capabilities": [],
+            "observed_facts": [
+              {
+                "fact_id": "fact-4249378eb6",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.mitre",
+                  "evidence_class": "OBSERVED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "mitre_technique": "T1059.001",
+                  "mitre_technique_name": "PowerShell",
+                  "mitre_tactic": "Execution",
+                  "verdict": "Malicious",
+                  "engine": "llm-l3",
+                  "observed_at": "2026-09-05T08:07:03.417376+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.mitre",
+                "evidence_id": "ev-ca864668"
+              },
+              {
+                "fact_id": "fact-3d5f1844fd",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.verdict",
+                  "evidence_class": "SUPPORTED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "verdict_label": "Malicious",
+                  "confidence": 92,
+                  "observed_at": "2026-09-05T08:07:03.417390+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.verdict",
+                "evidence_id": "ev-16e9d829"
+              }
+            ],
+            "derived_facts": [],
+            "assumptions": [],
+            "contradictions": [],
+            "missing_evidence": [],
+            "attack_state": "CREDENTIAL_ACCESS",
+            "reachability": {
+              "matrix_id": "reach-e835461469",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "evaluated_at": "2026-09-04T00:00:00Z",
+              "foothold_entities": [
+                {
+                  "category": "DEVICE",
+                  "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "tenant_id": "default",
+                  "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                }
+              ],
+              "paths": [
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-server-dc-01",
+                  "target_entity": {
+                    "category": "SERVER",
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "display_name": "Primary Domain Controller (dc-01.corp)"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Domain Admin Kerberos Ticket"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "SERVER",
+                        "entity_id": "server-dc-01",
+                        "tenant_id": "default",
+                        "display_name": "Primary Domain Controller (dc-01.corp)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Tier-0 Network Microsegmentation",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Path to Domain Controller secured or segmented"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-backup-nas-01",
+                  "target_entity": {
+                    "category": "BACKUP_SYSTEM",
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "display_name": "Veeam Immutable Backup Repository"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Backup Management MFA bypass"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "BACKUP_SYSTEM",
+                        "entity_id": "backup-nas-01",
+                        "tenant_id": "default",
+                        "display_name": "Veeam Immutable Backup Repository"
+                      },
+                      "hop_type": "CLOUD_ROLE_ASSUME",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Backup MFA Air-Gap",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Backup repository air-gap intact"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-db-prod-sql-01",
+                  "target_entity": {
+                    "category": "DATA_STORE",
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Customer Database (MSSQL)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_1",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "DATA_STORE",
+                        "entity_id": "db-prod-sql-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Customer Database (MSSQL)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/1433",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_1",
+                    "business_criticality_score": 85,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "HIGH",
+                    "regulatory_scope": [
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Production Relational Database & Transactions",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Database protected by session/network controls"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-cloud-s3-vault-01",
+                  "target_entity": {
+                    "category": "CLOUD_RESOURCE",
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "CLOUD_RESOURCE",
+                        "entity_id": "cloud-s3-vault-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                      },
+                      "hop_type": "IAM_FEDERATION",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "HTTPS/443",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Cloud IAM role boundary intact"
+                }
+              ],
+              "currently_reachable_count": 0,
+              "potentially_reachable_count": 2,
+              "blocked_count": 2,
+              "tier_0_exposed": false,
+              "tier_1_exposed": false,
+              "reachable_tier_0_count": 0,
+              "reachable_tier_1_count": 0,
+              "reachable_tier_2_count": 0,
+              "active_capabilities_applied": [],
+              "provenance": {
+                "engine": "EnterpriseReachabilityEngine",
+                "version": "1.1.0",
+                "at": "2026-09-04T00:00:00Z",
+                "upstream_evidence_ids": [
+                  "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed"
+                ]
+              },
+              "matrix_hash": "e44f9044b8dd49b5f2a7578e2f698b4237409f91952d662318e105cfc41318ab"
+            },
+            "impact": {
+              "card_id": "impact-5e2ce5c56b",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "overall_impact_score": 36,
+              "blast_radius_node_count": 3,
+              "tier_0_service_exposed": false,
+              "ransomware_exposure_risk": "LOW",
+              "data_exfiltration_risk": "HIGH",
+              "business_service_downtime_risk": "LOW",
+              "dimensions": [
+                {
+                  "name": "Asset Criticality",
+                  "score": 25,
+                  "weight": 0.35,
+                  "description": "Tier 2 endpoints reachable",
+                  "affected_entities": [
+                    "server-dc-01",
+                    "backup-nas-01",
+                    "cloud-s3-vault-01"
+                  ]
+                },
+                {
+                  "name": "Blast Radius",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Direct lateral traversal potential encompasses 3 connected systems",
+                  "affected_entities": [
+                    "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed"
+                  ]
+                },
+                {
+                  "name": "Ransomware Susceptibility",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Local disk encryption potential limited to endpoint",
+                  "affected_entities": [
+                    "backup-nas-01"
+                  ]
+                },
+                {
+                  "name": "Operational Disruption",
+                  "score": 30,
+                  "weight": 0.15,
+                  "description": "Limited workstation service impact",
+                  "affected_entities": []
+                }
+              ],
+              "evidence_justifications": [
+                "Blast radius calculated as 3 enterprise nodes",
+                "Tier-0 boundary verified intact"
+              ],
+              "regulatory_impact_scope": [],
+              "card_hash": "550bffa7c41ccdbd0015dfc38fc58284b3faac5150b0bc0bcaae0d420f5fc1e7"
+            },
+            "intervention_plan": {
+              "plan_id": "plan-d99c38e257",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "generated_at": "2026-09-04T00:00:00Z",
+              "actions": [
+                {
+                  "step_number": 1,
+                  "action_id": "endpoint.isolate",
+                  "target_entity": {
+                    "category": "DEVICE",
+                    "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                    "tenant_id": "default",
+                    "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                  },
+                  "rationale": "Sever network-level lateral movement and C2 channels immediately",
+                  "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+                  "is_reversible": true,
+                  "requires_dual_approval": false,
+                  "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+                }
+              ],
+              "projected_residual_risk_pct": 5,
+              "projected_business_disruption_score": 30,
+              "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+              "recommended_world_id": "world-e-composite-containment",
+              "comparative_matrix_id": "matrix-e835461469",
+              "plan_hash": "10dfbcd35ca41ba14fa29ed6085eb34c3e5fa473d3e7d986b653602d0a7f86ee"
+            },
+            "evidence_references": [
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.mitre",
+                "timestamp": ""
+              },
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.verdict",
+                "timestamp": ""
+              }
+            ],
+            "provenance": {
+              "engine": "SecurityStateEngine",
+              "version": "1.0.0",
+              "saved_at": "2026-09-05T08:07:03.538111+00:00"
+            },
+            "lifecycle_status": "ACTIVE",
+            "commit_status": "PENDING_LEDGER",
+            "evaluated_at": "2026-09-05T08:07:03.538119+00:00",
+            "created_at": "2026-09-05T08:07:03.538120+00:00",
+            "engine_version": "1.0.0"
+          }
+        ]
+      }
+    },
+    "transitions": {
+      "status": 200,
+      "body": {
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "tenant_id": "default",
+        "transitions": [
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "sequence_number": 1,
+            "block_id": "blk-000001",
+            "event_type": "STATE_EVALUATED",
+            "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+            "state_version": 1,
+            "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "current_hash": "3fca40bb9e217ca21fdb5c44b69442abe850e11348166e2c4e320ee12217e006",
+            "payload": {
+              "state_hash": "59c77fad8c42e5bb191649dc4df5f5b82173e51f60a2de50b436c83fb087fcea",
+              "version": 1
+            },
+            "timestamp": "2026-09-05T08:07:03.533613+00:00",
+            "verified": true
+          },
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "sequence_number": 2,
+            "block_id": "blk-000002",
+            "event_type": "STATE_EVALUATED",
+            "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "state_version": 2,
+            "previous_hash": "3fca40bb9e217ca21fdb5c44b69442abe850e11348166e2c4e320ee12217e006",
+            "current_hash": "4bbdb69526fbb96972bc3f47cacf5a517e85581dd1bcb16f0eab8774183a3dbe",
+            "payload": {
+              "state_hash": "c6103aa5376c9ee19295c8fba2e8b3bc6eb11c849204a4fe32832fd4e34c29bc",
+              "version": 2
+            },
+            "timestamp": "2026-09-05T08:07:03.539694+00:00",
+            "verified": true
+          }
+        ]
+      }
+    },
+    "causality": {
+      "status": 200,
+      "body": {
+        "graph_id": "cgraph-6898e0727e",
+        "tenant_id": "default",
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "graph_hash": "fd96e4186e8923a2dfc8051b81c0c2353a4c5e2fe6e8fdfe16fc729d58069fbd",
+        "edges": [
+          {
+            "edge_id": "cedge-e562c196",
+            "cause_ref": "ev-01",
+            "effect_ref": "ev-02",
+            "causal_level": "STRONG_CAUSAL_EVIDENCE",
+            "mechanism": {
+              "mechanism_type": "PROCESS_SPAWN_SYSCALL",
+              "description": "winword.exe (PID 4120) spawned powershell.exe (PPID 4120)",
+              "verifiable_kernel_evidence": true
+            },
+            "temporal_delta_ms": 150,
+            "confidence": 1.0,
+            "evidence_ids": [
+              "ev-01",
+              "ev-02"
+            ],
+            "competing_hypotheses": [
+              {
+                "hypothesis_id": "hyp-pid-reuse",
+                "explanation": "Operating system PID reuse before process termination",
+                "prior_probability": 0.01,
+                "status": "REFUTED",
+                "refuting_evidence_ids": [
+                  "ev-01",
+                  "ev-02"
+                ]
+              }
+            ],
+            "assumptions": []
+          }
+        ],
+        "root_cause_refs": [
+          "ev-01"
+        ],
+        "provenance": {
+          "engine": "CausalSecurityEngine",
+          "version": "1.0.0",
+          "at": "2026-09-04T00:00:00Z",
+          "upstream_evidence_ids": [
+            "ev-01",
+            "ev-02",
+            "ev-03"
+          ]
+        }
+      }
+    },
+    "capabilities": {
+      "status": 200,
+      "body": {
+        "evaluation_id": "cap-eval-149638edd4",
+        "tenant_id": "default",
+        "capability_name": "powershell.exe",
+        "status": "CONFIRMED_ATTACK",
+        "confidence": 0.99,
+        "context": {
+          "capability_name": "powershell.exe",
+          "identity_ref": {
+            "category": "IDENTITY",
+            "entity_id": "user.jane",
+            "tenant_id": "default",
+            "display_name": ""
+          },
+          "is_authorized_admin": false,
+          "source_ip_or_subnet": "192.168.1.55",
+          "destination_ip_or_domain": "pastebin.com",
+          "timestamp": "2026-09-04T00:30:00Z",
+          "is_within_business_hours": false,
+          "command_line": "powershell -enc aQB3AHIA...",
+          "parent_process": "winword.exe",
+          "process_privilege_level": "USER",
+          "prior_sequence_events": [],
+          "has_inbound_tunnel_or_proxy": true
+        },
+        "reasons": [
+          "Tool invoked by non-administrative / unauthorized identity",
+          "Suspicious parent process lineage: spawned by winword.exe",
+          "Execution outside authorized business / maintenance window",
+          "Command channel established over inbound proxy or reverse tunnel",
+          "Command line exhibits payload staging, proxy scriptlet, or defense evasion parameters"
+        ],
+        "evidence_ids": [
+          "ev-01",
+          "ev-02"
+        ],
+        "reversal_action_recommendation": "endpoint.terminate_process",
+        "evaluation_hash": "05d2c068e505f2f148df23e27bbda2b0ad6a72b1b2fe70e1112c0f420d9691dd"
+      }
+    },
+    "reachability": {
+      "status": 200,
+      "body": {
+        "matrix_id": "reach-e835461469",
+        "tenant_id": "default",
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "evaluated_at": "2026-09-04T00:00:00Z",
+        "foothold_entities": [
+          {
+            "category": "DEVICE",
+            "entity_id": "host-finance-04",
+            "tenant_id": "default",
+            "display_name": "Finance Workstation 04"
+          }
+        ],
+        "paths": [
+          {
+            "path_id": "path-host-finance-04-server-dc-01",
+            "target_entity": {
+              "category": "SERVER",
+              "entity_id": "server-dc-01",
+              "tenant_id": "default",
+              "display_name": "Primary Domain Controller (dc-01.corp)"
+            },
+            "status": "CURRENTLY_REACHABLE",
+            "criticality_tier": "TIER_0",
+            "required_prerequisites": [],
+            "hops": [
+              {
+                "source_entity": {
+                  "category": "DEVICE",
+                  "entity_id": "host-finance-04",
+                  "tenant_id": "default",
+                  "display_name": "Finance Workstation 04"
+                },
+                "target_entity": {
+                  "category": "SERVER",
+                  "entity_id": "server-dc-01",
+                  "tenant_id": "default",
+                  "display_name": "Primary Domain Controller (dc-01.corp)"
+                },
+                "hop_type": "CREDENTIAL_REUSE",
+                "is_blocked_by_control": false,
+                "blocking_control_name": null,
+                "required_capability": null,
+                "required_privilege": "Domain Admin",
+                "protocol_port": "TCP/445",
+                "is_cut_by_intervention": false,
+                "intervention_id": null
+              }
+            ],
+            "valuation": {
+              "entity_id": "server-dc-01",
+              "tenant_id": "default",
+              "tier": "TIER_0",
+              "business_criticality_score": 95,
+              "sensitivity": "RESTRICTED",
+              "financial_category": "CRITICAL",
+              "regulatory_scope": [
+                "SOX",
+                "PCI-DSS"
+              ],
+              "business_function": "Identity Root / Core Enterprise Backup",
+              "valuation_source": "ASSET_INVENTORY"
+            },
+            "is_severed": false,
+            "severed_by_action": null,
+            "exposure_explanation": "Domain Controller reachable via directory replication or admin credentials"
+          },
+          {
+            "path_id": "path-host-finance-04-backup-nas-01",
+            "target_entity": {
+              "category": "BACKUP_SYSTEM",
+              "entity_id": "backup-nas-01",
+              "tenant_id": "default",
+              "display_name": "Veeam Immutable Backup Repository"
+            },
+            "status": "CURRENTLY_REACHABLE",
+            "criticality_tier": "TIER_0",
+            "required_prerequisites": [],
+            "hops": [
+              {
+                "source_entity": {
+                  "category": "DEVICE",
+                  "entity_id": "host-finance-04",
+                  "tenant_id": "default",
+                  "display_name": "Finance Workstation 04"
+                },
+                "target_entity": {
+                  "category": "BACKUP_SYSTEM",
+                  "entity_id": "backup-nas-01",
+                  "tenant_id": "default",
+                  "display_name": "Veeam Immutable Backup Repository"
+                },
+                "hop_type": "CLOUD_ROLE_ASSUME",
+                "is_blocked_by_control": false,
+                "blocking_control_name": null,
+                "required_capability": null,
+                "required_privilege": null,
+                "protocol_port": "TCP/445",
+                "is_cut_by_intervention": false,
+                "intervention_id": null
+              }
+            ],
+            "valuation": {
+              "entity_id": "backup-nas-01",
+              "tenant_id": "default",
+              "tier": "TIER_0",
+              "business_criticality_score": 95,
+              "sensitivity": "RESTRICTED",
+              "financial_category": "CRITICAL",
+              "regulatory_scope": [
+                "SOX",
+                "PCI-DSS"
+              ],
+              "business_function": "Identity Root / Core Enterprise Backup",
+              "valuation_source": "ASSET_INVENTORY"
+            },
+            "is_severed": false,
+            "severed_by_action": null,
+            "exposure_explanation": "Backup repository exposed to shadow copy purge"
+          },
+          {
+            "path_id": "path-host-finance-04-db-prod-sql-01",
+            "target_entity": {
+              "category": "DATA_STORE",
+              "entity_id": "db-prod-sql-01",
+              "tenant_id": "default",
+              "display_name": "Production Customer Database (MSSQL)"
+            },
+            "status": "CURRENTLY_REACHABLE",
+            "criticality_tier": "TIER_1",
+            "required_prerequisites": [],
+            "hops": [
+              {
+                "source_entity": {
+                  "category": "DEVICE",
+                  "entity_id": "host-finance-04",
+                  "tenant_id": "default",
+                  "display_name": "Finance Workstation 04"
+                },
+                "target_entity": {
+                  "category": "DATA_STORE",
+                  "entity_id": "db-prod-sql-01",
+                  "tenant_id": "default",
+                  "display_name": "Production Customer Database (MSSQL)"
+                },
+                "hop_type": "NETWORK_ROUTE",
+                "is_blocked_by_control": false,
+                "blocking_control_name": null,
+                "required_capability": null,
+                "required_privilege": null,
+                "protocol_port": "TCP/1433",
+                "is_cut_by_intervention": false,
+                "intervention_id": null
+              }
+            ],
+            "valuation": {
+              "entity_id": "db-prod-sql-01",
+              "tenant_id": "default",
+              "tier": "TIER_1",
+              "business_criticality_score": 85,
+              "sensitivity": "RESTRICTED",
+              "financial_category": "HIGH",
+              "regulatory_scope": [
+                "PCI-DSS"
+              ],
+              "business_function": "Production Relational Database & Transactions",
+              "valuation_source": "ASSET_INVENTORY"
+            },
+            "is_severed": false,
+            "severed_by_action": null,
+            "exposure_explanation": "Database reachable via Kerberoasting / Service Principal Name abuse"
+          },
+          {
+            "path_id": "path-host-finance-04-cloud-s3-vault-01",
+            "target_entity": {
+              "category": "CLOUD_RESOURCE",
+              "entity_id": "cloud-s3-vault-01",
+              "tenant_id": "default",
+              "display_name": "Production Cloud Storage Vault (S3/Blob)"
+            },
+            "status": "POTENTIALLY_REACHABLE",
+            "criticality_tier": "TIER_0",
+            "required_prerequisites": [],
+            "hops": [
+              {
+                "source_entity": {
+                  "category": "DEVICE",
+                  "entity_id": "host-finance-04",
+                  "tenant_id": "default",
+                  "display_name": "Finance Workstation 04"
+                },
+                "target_entity": {
+                  "category": "CLOUD_RESOURCE",
+                  "entity_id": "cloud-s3-vault-01",
+                  "tenant_id": "default",
+                  "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                },
+                "hop_type": "IAM_FEDERATION",
+                "is_blocked_by_control": false,
+                "blocking_control_name": null,
+                "required_capability": null,
+                "required_privilege": null,
+                "protocol_port": "HTTPS/443",
+                "is_cut_by_intervention": false,
+                "intervention_id": null
+              }
+            ],
+            "valuation": {
+              "entity_id": "cloud-s3-vault-01",
+              "tenant_id": "default",
+              "tier": "TIER_0",
+              "business_criticality_score": 95,
+              "sensitivity": "RESTRICTED",
+              "financial_category": "CRITICAL",
+              "regulatory_scope": [
+                "SOX",
+                "PCI-DSS"
+              ],
+              "business_function": "Identity Root / Core Enterprise Backup",
+              "valuation_source": "ASSET_INVENTORY"
+            },
+            "is_severed": false,
+            "severed_by_action": null,
+            "exposure_explanation": "Cloud IAM role boundary intact"
+          }
+        ],
+        "currently_reachable_count": 3,
+        "potentially_reachable_count": 1,
+        "blocked_count": 0,
+        "tier_0_exposed": true,
+        "tier_1_exposed": true,
+        "reachable_tier_0_count": 2,
+        "reachable_tier_1_count": 1,
+        "reachable_tier_2_count": 0,
+        "active_capabilities_applied": [
+          "CAP_CREDENTIAL_DUMPING",
+          "CAP_ADMIN_EXECUTION"
+        ],
+        "provenance": {
+          "engine": "EnterpriseReachabilityEngine",
+          "version": "1.1.0",
+          "at": "2026-09-04T00:00:00Z",
+          "upstream_evidence_ids": [
+            "host-finance-04"
+          ]
+        },
+        "matrix_hash": "ab39cdee4086185632d0a6f21b8ed2c7f9182664516028c4d59027465a78c7b7"
+      }
+    },
+    "counterfactual": {
+      "status": 200,
+      "body": {
+        "analysis_id": "cf-e835461469",
+        "tenant_id": "default",
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "evaluated_at": "2026-09-04T00:00:00Z",
+        "analysis_hash": "34166cecbcb815eb31b586dc52a406265595b5903b8f34a3267f09488a483fa9",
+        "world_a_do_nothing": {
+          "world_id": "world-a-do-nothing",
+          "description": "Status quo: no intervention taken; attacker continues progression unabated toward crown jewels",
+          "action_applied": null,
+          "continuation_probability": 0.95,
+          "reachable_assets_count": 4,
+          "projected_impact_score": 90,
+          "residual_attack_paths": [
+            "path-host-finance-04-server-dc-01",
+            "path-host-finance-04-backup-nas-01",
+            "path-host-finance-04-db-prod-sql-01",
+            "path-host-finance-04-cloud-s3-vault-01"
+          ],
+          "business_disruption_score": 0,
+          "reversibility": "IRREVERSIBLE",
+          "evidence_preservation_score": 100,
+          "likely_next_transitions": [
+            "CREDENTIAL_DUMP",
+            "LATERAL_MOVEMENT_DC",
+            "RANSOMWARE_STAGING"
+          ],
+          "epistemic_status": "PROJECTED",
+          "attack_interruption_pct": 0.0,
+          "tier0_protected_count": 0,
+          "tier1_protected_count": 0,
+          "simulation_provenance": {
+            "observed_inputs": [
+              "host-finance-04"
+            ],
+            "current_security_state": "CREDENTIAL_ACCESS",
+            "assumptions": [
+              "Attacker progression continues unhindered without defensive friction",
+              "Active credentials remain valid"
+            ],
+            "intervention": "DO_NOTHING",
+            "simulated_state_transition": "CREDENTIAL_ACCESS -> IMPACT",
+            "projected_reachability_summary": "All 4 reachable assets remain exposed; Tier-0 compromised",
+            "projected_security_impact_score": 90,
+            "projected_business_impact_score": 0,
+            "model_version": "1.1.0"
+          },
+          "continuation_risk_level": "CRITICAL",
+          "continuation_basis": [
+            "4 active unsevered attack paths",
+            "Reachable Tier-0 assets: 2",
+            "No defensive friction or containment controls applied"
+          ],
+          "is_statistically_calibrated": false
+        },
+        "intervention_worlds": [
+          {
+            "world_id": "world-b-isolate-host",
+            "description": "Network-level host isolation of foothold workstation; cuts all inbound/outbound communication",
+            "action_applied": "endpoint.isolate",
+            "continuation_probability": 0.15,
+            "reachable_assets_count": 3,
+            "projected_impact_score": 45,
+            "residual_attack_paths": [
+              "Cached cloud tokens or stolen credentials usable outside isolated host"
+            ],
+            "business_disruption_score": 45,
+            "reversibility": "HIGH",
+            "evidence_preservation_score": 95,
+            "likely_next_transitions": [
+              "ATTACK_CONTAINED_ON_HOST"
+            ],
+            "epistemic_status": "PROJECTED",
+            "attack_interruption_pct": 50.0,
+            "tier0_protected_count": 1,
+            "tier1_protected_count": 1,
+            "simulation_provenance": {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Network agent isolation functional",
+                "Management telemetry channel remains intact"
+              ],
+              "intervention": "endpoint.isolate",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> CONTAINED",
+              "projected_reachability_summary": "Severed 1/4 paths; 3 surviving assets",
+              "projected_security_impact_score": 45,
+              "projected_business_impact_score": 45,
+              "model_version": "1.1.0"
+            },
+            "continuation_risk_level": "LOW",
+            "continuation_basis": [
+              "Host network hops severed: 1/4",
+              "Cached cloud tokens or stolen credentials remain usable outside host"
+            ],
+            "is_statistically_calibrated": false
+          },
+          {
+            "world_id": "world-c-revoke-identity",
+            "description": "Revoke Kerberos TGTs, OAuth refresh tokens, and force credential invalidation",
+            "action_applied": "identity.revoke_sessions",
+            "continuation_probability": 0.25,
+            "reachable_assets_count": 3,
+            "projected_impact_score": 54,
+            "residual_attack_paths": [
+              "Local persistence on host survives identity revocation"
+            ],
+            "business_disruption_score": 25,
+            "reversibility": "HIGH",
+            "evidence_preservation_score": 100,
+            "likely_next_transitions": [
+              "ATTACKER_SESSION_TERMINATED",
+              "RE-AUTHENTICATION_FAIL"
+            ],
+            "epistemic_status": "PROJECTED",
+            "attack_interruption_pct": 40.0,
+            "tier0_protected_count": 1,
+            "tier1_protected_count": 1,
+            "simulation_provenance": {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Active Directory KDC and Cloud IdP enforce immediate token revocation"
+              ],
+              "intervention": "identity.revoke_sessions",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> RECOVERY",
+              "projected_reachability_summary": "Severed 1/4 credential hops; 3 surviving assets",
+              "projected_security_impact_score": 54,
+              "projected_business_impact_score": 25,
+              "model_version": "1.1.0"
+            },
+            "continuation_risk_level": "MEDIUM",
+            "continuation_basis": [
+              "Credential reuse hops severed: 1/4",
+              "Local persistence on foothold host survives session reset"
+            ],
+            "is_statistically_calibrated": false
+          },
+          {
+            "world_id": "world-d-targeted-microsegmentation",
+            "description": "Targeted microsegmentation: block SMB/RPC to Tier-0 assets while keeping user workstation online",
+            "action_applied": "network.block_ports",
+            "continuation_probability": 0.2,
+            "reachable_assets_count": 1,
+            "projected_impact_score": 22,
+            "residual_attack_paths": [
+              "Peer workstation lateral traversal remains open outside Tier-0 boundary"
+            ],
+            "business_disruption_score": 10,
+            "reversibility": "HIGH",
+            "evidence_preservation_score": 95,
+            "likely_next_transitions": [
+              "TIER_0_ISOLATED",
+              "LATERAL_TRAVERSAL_BLOCKED"
+            ],
+            "epistemic_status": "PROJECTED",
+            "attack_interruption_pct": 75.0,
+            "tier0_protected_count": 1,
+            "tier1_protected_count": 0,
+            "simulation_provenance": {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Software-defined perimeter / switch ACL can enforce port blocks dynamically"
+              ],
+              "intervention": "network.block_ports",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> CONTAINED",
+              "projected_reachability_summary": "Severed Tier-0 lateral routes; 1 peer assets reachable",
+              "projected_security_impact_score": 22,
+              "projected_business_impact_score": 10,
+              "model_version": "1.1.0"
+            },
+            "continuation_risk_level": "MEDIUM",
+            "continuation_basis": [
+              "Tier-0 lateral routes severed: 3/4",
+              "1 non-Tier-0 peer workstations remain reachable"
+            ],
+            "is_statistically_calibrated": false
+          },
+          {
+            "world_id": "world-e-composite-containment",
+            "description": "Composite surgical containment: concurrent identity session revocation and Tier-0 route blocking",
+            "action_applied": "composite.isolate_and_revoke",
+            "continuation_probability": 0.03,
+            "reachable_assets_count": 0,
+            "projected_impact_score": 5,
+            "residual_attack_paths": [],
+            "business_disruption_score": 30,
+            "reversibility": "HIGH",
+            "evidence_preservation_score": 95,
+            "likely_next_transitions": [
+              "CONTAINMENT_VERIFIED",
+              "ZERO_CROWN_JEWEL_EXPOSURE"
+            ],
+            "epistemic_status": "PROJECTED",
+            "attack_interruption_pct": 85.0,
+            "tier0_protected_count": 1,
+            "tier1_protected_count": 1,
+            "simulation_provenance": {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Composite orchestration: IdP session purge + network access control synchronized"
+              ],
+              "intervention": "composite.isolate_and_revoke",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> CONTAINED",
+              "projected_reachability_summary": "All lateral paths to crown jewels severed; sessions revoked",
+              "projected_security_impact_score": 5,
+              "projected_business_impact_score": 30,
+              "model_version": "1.1.0"
+            },
+            "continuation_risk_level": "MINIMAL",
+            "continuation_basis": [
+              "All active paths severed: 2/4",
+              "Zero reachable crown jewels survive",
+              "Synchronized identity revocation + port segmentation"
+            ],
+            "is_statistically_calibrated": false
+          }
+        ],
+        "recommended_world_id": "world-e-composite-containment",
+        "comparative_matrix": {
+          "matrix_id": "matrix-e835461469",
+          "tenant_id": "default",
+          "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+          "evaluated_at": "2026-09-04T00:00:00Z",
+          "ratings": [
+            {
+              "world_id": "world-a-do-nothing",
+              "intervention_type": "DO_NOTHING",
+              "attack_interruption_pct": 0.0,
+              "tier0_protected_count": 0,
+              "tier1_protected_count": 0,
+              "total_protected_count": 0,
+              "business_disruption_score": 0,
+              "residual_risk_score": 90,
+              "rationale": "No intervention taken; attacker has unconstrained reach to crown jewels"
+            },
+            {
+              "world_id": "world-b-isolate-host",
+              "intervention_type": "HOST_ISOLATION",
+              "attack_interruption_pct": 50.0,
+              "tier0_protected_count": 1,
+              "tier1_protected_count": 1,
+              "total_protected_count": 1,
+              "business_disruption_score": 45,
+              "residual_risk_score": 45,
+              "rationale": "Blunt containment severs all host network routes but causes heavy business disruption"
+            },
+            {
+              "world_id": "world-c-revoke-identity",
+              "intervention_type": "IDENTITY_REVOCATION",
+              "attack_interruption_pct": 40.0,
+              "tier0_protected_count": 1,
+              "tier1_protected_count": 1,
+              "total_protected_count": 1,
+              "business_disruption_score": 25,
+              "residual_risk_score": 54,
+              "rationale": "Surgical identity invalidation halts credential pivot with moderate user friction"
+            },
+            {
+              "world_id": "world-d-targeted-microsegmentation",
+              "intervention_type": "NETWORK_MICROSEGMENTATION",
+              "attack_interruption_pct": 75.0,
+              "tier0_protected_count": 1,
+              "tier1_protected_count": 0,
+              "total_protected_count": 3,
+              "business_disruption_score": 10,
+              "residual_risk_score": 22,
+              "rationale": "Targeted port blocks insulate Tier-0 assets with minimal disruption to workstation operations"
+            },
+            {
+              "world_id": "world-e-composite-containment",
+              "intervention_type": "COMPOSITE_SURGICAL",
+              "attack_interruption_pct": 85.0,
+              "tier0_protected_count": 1,
+              "tier1_protected_count": 1,
+              "total_protected_count": 4,
+              "business_disruption_score": 30,
+              "residual_risk_score": 5,
+              "rationale": "Pareto-optimal: maximal attack interruption with balanced, reversible disruption"
+            }
+          ],
+          "recommended_world_id": "world-e-composite-containment",
+          "decision_rationale": "Composite surgical containment severs 98% of reachable paths while preserving endpoint operational uptime",
+          "simulation_provenances": [
+            {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Attacker progression continues unhindered without defensive friction",
+                "Active credentials remain valid"
+              ],
+              "intervention": "DO_NOTHING",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> IMPACT",
+              "projected_reachability_summary": "All 4 reachable assets remain exposed; Tier-0 compromised",
+              "projected_security_impact_score": 90,
+              "projected_business_impact_score": 0,
+              "model_version": "1.1.0"
+            },
+            {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Network agent isolation functional",
+                "Management telemetry channel remains intact"
+              ],
+              "intervention": "endpoint.isolate",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> CONTAINED",
+              "projected_reachability_summary": "Severed 1/4 paths; 3 surviving assets",
+              "projected_security_impact_score": 45,
+              "projected_business_impact_score": 45,
+              "model_version": "1.1.0"
+            },
+            {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Active Directory KDC and Cloud IdP enforce immediate token revocation"
+              ],
+              "intervention": "identity.revoke_sessions",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> RECOVERY",
+              "projected_reachability_summary": "Severed 1/4 credential hops; 3 surviving assets",
+              "projected_security_impact_score": 54,
+              "projected_business_impact_score": 25,
+              "model_version": "1.1.0"
+            },
+            {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Software-defined perimeter / switch ACL can enforce port blocks dynamically"
+              ],
+              "intervention": "network.block_ports",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> CONTAINED",
+              "projected_reachability_summary": "Severed Tier-0 lateral routes; 1 peer assets reachable",
+              "projected_security_impact_score": 22,
+              "projected_business_impact_score": 10,
+              "model_version": "1.1.0"
+            },
+            {
+              "observed_inputs": [
+                "host-finance-04"
+              ],
+              "current_security_state": "CREDENTIAL_ACCESS",
+              "assumptions": [
+                "Composite orchestration: IdP session purge + network access control synchronized"
+              ],
+              "intervention": "composite.isolate_and_revoke",
+              "simulated_state_transition": "CREDENTIAL_ACCESS -> CONTAINED",
+              "projected_reachability_summary": "All lateral paths to crown jewels severed; sessions revoked",
+              "projected_security_impact_score": 5,
+              "projected_business_impact_score": 30,
+              "model_version": "1.1.0"
+            }
+          ],
+          "matrix_hash": "77c6e4647ffa618e8948dc9f2be535ffb1da5621b526a66c282012e5005ad1eb"
+        }
+      }
+    },
+    "intervention_plan": {
+      "status": 422,
+      "body": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "query",
+              "tenant_id"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    "intervention_stage": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "tenant_id": "default",
+        "action_id": "terminate_process",
+        "target_entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+        "status": "STAGED",
+        "execution_locked": true,
+        "ledger_recorded": true,
+        "message": "Intervention terminate_process successfully transitioned to STAGED (Execution disabled per safety gate)."
+      }
+    },
+    "response_verify": {
+      "status": 200,
+      "body": {
+        "report_id": "vrep-8047db8dc9",
+        "tenant_id": "default",
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "action_id": "terminate_process",
+        "target_entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+        "status": "VERIFIED_EFFECTIVE",
+        "is_containment_verified": true,
+        "observed_telemetry_changes": [
+          "General action confirmation telemetry recorded"
+        ],
+        "residual_threat_indicators": [],
+        "verified_at": "2026-09-04T00:00:00Z",
+        "report_hash": "d20d72c318fadf04c7fbb04668e83669bb3903ee7b7e346b206cf0746fb223f7"
+      }
+    },
+    "ledger": {
+      "status": 200,
+      "body": {
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "tenant_id": "default",
+        "integrity_verified": true,
+        "verification_error": null,
+        "block_count": 4,
+        "blocks": [
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "sequence_number": 1,
+            "block_id": "blk-000001",
+            "event_type": "STATE_EVALUATED",
+            "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+            "state_version": 1,
+            "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "current_hash": "3fca40bb9e217ca21fdb5c44b69442abe850e11348166e2c4e320ee12217e006",
+            "payload": {
+              "state_hash": "59c77fad8c42e5bb191649dc4df5f5b82173e51f60a2de50b436c83fb087fcea",
+              "version": 1
+            },
+            "timestamp": "2026-09-05T08:07:03.533613+00:00",
+            "verified": true
+          },
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "sequence_number": 2,
+            "block_id": "blk-000002",
+            "event_type": "STATE_EVALUATED",
+            "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "state_version": 2,
+            "previous_hash": "3fca40bb9e217ca21fdb5c44b69442abe850e11348166e2c4e320ee12217e006",
+            "current_hash": "4bbdb69526fbb96972bc3f47cacf5a517e85581dd1bcb16f0eab8774183a3dbe",
+            "payload": {
+              "state_hash": "c6103aa5376c9ee19295c8fba2e8b3bc6eb11c849204a4fe32832fd4e34c29bc",
+              "version": 2
+            },
+            "timestamp": "2026-09-05T08:07:03.539694+00:00",
+            "verified": true
+          },
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "sequence_number": 3,
+            "block_id": "blk-000003",
+            "event_type": "INTERVENTION_STAGED",
+            "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+            "state_version": 2,
+            "previous_hash": "4bbdb69526fbb96972bc3f47cacf5a517e85581dd1bcb16f0eab8774183a3dbe",
+            "current_hash": "0cbeecd36b1eae2d306b03e956a0a07d8248207b3453ff1453a6f0d443693f36",
+            "payload": {
+              "action_id": "terminate_process",
+              "status": "STAGED",
+              "notes": "",
+              "execution_locked": true
+            },
+            "timestamp": "2026-09-05T08:07:04.369012+00:00",
+            "verified": true
+          },
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "sequence_number": 4,
+            "block_id": "blk-000004",
+            "event_type": "RESPONSE_VERIFIED",
+            "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+            "state_version": 1,
+            "previous_hash": "0cbeecd36b1eae2d306b03e956a0a07d8248207b3453ff1453a6f0d443693f36",
+            "current_hash": "db6bf4ae531221408e9f997ee9af97a8b06793d69982e14ffca345f79cd77521",
+            "payload": {
+              "report_id": "vrep-8047db8dc9",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "action_id": "terminate_process",
+              "target_entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+              "status": "VERIFIED_EFFECTIVE",
+              "is_containment_verified": true,
+              "observed_telemetry_changes": [
+                "General action confirmation telemetry recorded"
+              ],
+              "residual_threat_indicators": [],
+              "verified_at": "2026-09-04T00:00:00Z",
+              "report_hash": "d20d72c318fadf04c7fbb04668e83669bb3903ee7b7e346b206cf0746fb223f7"
+            },
+            "timestamp": "2026-09-05T08:07:04.482019+00:00",
+            "verified": true
+          }
+        ]
+      }
+    },
+    "provenance": {
+      "status": 200,
+      "body": {
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "version": 2,
+        "root_conclusion_id": "conclusion::36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed::v2",
+        "nodes": [
+          {
+            "node_id": "conclusion::36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed::v2",
+            "label": "State: AUTHORIZED_USE",
+            "node_type": "CONCLUSION",
+            "epistemic_status": "OBSERVED",
+            "description": "Consolidated security state classification v2 (Hash: c6103aa5376c...)",
+            "confidence": 1.0,
+            "source_sensor": null,
+            "timestamp": null,
+            "parent_ids": [],
+            "meta": {
+              "version": 2,
+              "state_hash": "c6103aa5376c9ee19295c8fba2e8b3bc6eb11c849204a4fe32832fd4e34c29bc",
+              "classification": "AUTHORIZED_USE"
+            }
+          },
+          {
+            "node_id": "attack_state::36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed::CREDENTIAL_ACCESS",
+            "label": "Attack State: CREDENTIAL_ACCESS",
+            "node_type": "ATTACK_STATE",
+            "epistemic_status": "DERIVED",
+            "description": "Current advancement in 18-stage attack lifecycle: CREDENTIAL_ACCESS",
+            "confidence": 1.0,
+            "source_sensor": null,
+            "timestamp": null,
+            "parent_ids": [
+              "conclusion::36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed::v2"
+            ],
+            "meta": {}
+          },
+          {
+            "node_id": "evidence::ev-21314",
+            "label": "Evidence: workspace_cases.mitre",
+            "node_type": "EVIDENCE",
+            "epistemic_status": "OBSERVED",
+            "description": "Ground truth sensor event (workspace_cases.mitre)",
+            "confidence": 1.0,
+            "source_sensor": "workspace_cases.mitre",
+            "timestamp": "",
+            "parent_ids": [],
+            "meta": {}
+          },
+          {
+            "node_id": "evidence::ev-72980",
+            "label": "Evidence: workspace_cases.verdict",
+            "node_type": "EVIDENCE",
+            "epistemic_status": "OBSERVED",
+            "description": "Ground truth sensor event (workspace_cases.verdict)",
+            "confidence": 1.0,
+            "source_sensor": "workspace_cases.verdict",
+            "timestamp": "",
+            "parent_ids": [],
+            "meta": {}
+          }
+        ],
+        "edges": [
+          {
+            "source": "conclusion::36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed::v2",
+            "target": "attack_state::36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed::CREDENTIAL_ACCESS",
+            "relation": "advances_to"
+          },
+          {
+            "source": "attack_state::36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed::CREDENTIAL_ACCESS",
+            "target": "evidence::ev-21314",
+            "relation": "grounded_in_telemetry"
+          },
+          {
+            "source": "attack_state::36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed::CREDENTIAL_ACCESS",
+            "target": "evidence::ev-72980",
+            "relation": "grounded_in_telemetry"
+          }
+        ],
+        "epistemic_decomposition": {
+          "supporting_evidence": [
+            {
+              "evidence_id": "",
+              "type": "",
+              "source": "workspace_cases.mitre",
+              "timestamp": ""
+            },
+            {
+              "evidence_id": "",
+              "type": "",
+              "source": "workspace_cases.verdict",
+              "timestamp": ""
+            }
+          ],
+          "missing_evidence": [],
+          "contradictory_evidence": [],
+          "assumptions": []
+        }
+      }
+    },
+    "history": {
+      "status": 200,
+      "body": {
+        "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+        "tenant_id": "default",
+        "versions_count": 2,
+        "history": [
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "version": 1,
+            "state_hash": "59c77fad8c42e5bb191649dc4df5f5b82173e51f60a2de50b436c83fb087fcea",
+            "previous_state_hash": null,
+            "entity_ref": {
+              "category": "PROCESS",
+              "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+              "tenant_id": "default",
+              "display_name": "powershell.exe (T1059.001)"
+            },
+            "epistemic_status": "OBSERVED",
+            "classification": "AUTHORIZED_USE",
+            "active_capabilities": [],
+            "observed_facts": [
+              {
+                "fact_id": "fact-4249378eb6",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.mitre",
+                  "evidence_class": "OBSERVED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "mitre_technique": "T1059.001",
+                  "mitre_technique_name": "PowerShell",
+                  "mitre_tactic": "Execution",
+                  "verdict": "Malicious",
+                  "engine": "llm-l3",
+                  "observed_at": "2026-09-05T08:07:03.417376+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.mitre",
+                "evidence_id": "ev-ca864668"
+              },
+              {
+                "fact_id": "fact-3d5f1844fd",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.verdict",
+                  "evidence_class": "SUPPORTED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "verdict_label": "Malicious",
+                  "confidence": 92,
+                  "observed_at": "2026-09-05T08:07:03.417390+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.verdict",
+                "evidence_id": "ev-16e9d829"
+              }
+            ],
+            "derived_facts": [],
+            "assumptions": [],
+            "contradictions": [],
+            "missing_evidence": [],
+            "attack_state": "CREDENTIAL_ACCESS",
+            "reachability": {
+              "matrix_id": "reach-e835461469",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "evaluated_at": "2026-09-04T00:00:00Z",
+              "foothold_entities": [
+                {
+                  "category": "PROCESS",
+                  "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                  "tenant_id": "default",
+                  "display_name": "powershell.exe (T1059.001)"
+                }
+              ],
+              "paths": [
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-server-dc-01",
+                  "target_entity": {
+                    "category": "SERVER",
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "display_name": "Primary Domain Controller (dc-01.corp)"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Domain Admin Kerberos Ticket"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "SERVER",
+                        "entity_id": "server-dc-01",
+                        "tenant_id": "default",
+                        "display_name": "Primary Domain Controller (dc-01.corp)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Tier-0 Network Microsegmentation",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Path to Domain Controller secured or segmented"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-backup-nas-01",
+                  "target_entity": {
+                    "category": "BACKUP_SYSTEM",
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "display_name": "Veeam Immutable Backup Repository"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Backup Management MFA bypass"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "BACKUP_SYSTEM",
+                        "entity_id": "backup-nas-01",
+                        "tenant_id": "default",
+                        "display_name": "Veeam Immutable Backup Repository"
+                      },
+                      "hop_type": "CLOUD_ROLE_ASSUME",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Backup MFA Air-Gap",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Backup repository air-gap intact"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-db-prod-sql-01",
+                  "target_entity": {
+                    "category": "DATA_STORE",
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Customer Database (MSSQL)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_1",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "DATA_STORE",
+                        "entity_id": "db-prod-sql-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Customer Database (MSSQL)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/1433",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_1",
+                    "business_criticality_score": 85,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "HIGH",
+                    "regulatory_scope": [
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Production Relational Database & Transactions",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Database protected by session/network controls"
+                },
+                {
+                  "path_id": "path-proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell-cloud-s3-vault-01",
+                  "target_entity": {
+                    "category": "CLOUD_RESOURCE",
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "PROCESS",
+                        "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                        "tenant_id": "default",
+                        "display_name": "powershell.exe (T1059.001)"
+                      },
+                      "target_entity": {
+                        "category": "CLOUD_RESOURCE",
+                        "entity_id": "cloud-s3-vault-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                      },
+                      "hop_type": "IAM_FEDERATION",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "HTTPS/443",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Cloud IAM role boundary intact"
+                }
+              ],
+              "currently_reachable_count": 0,
+              "potentially_reachable_count": 2,
+              "blocked_count": 2,
+              "tier_0_exposed": false,
+              "tier_1_exposed": false,
+              "reachable_tier_0_count": 0,
+              "reachable_tier_1_count": 0,
+              "reachable_tier_2_count": 0,
+              "active_capabilities_applied": [],
+              "provenance": {
+                "engine": "EnterpriseReachabilityEngine",
+                "version": "1.1.0",
+                "at": "2026-09-04T00:00:00Z",
+                "upstream_evidence_ids": [
+                  "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell"
+                ]
+              },
+              "matrix_hash": "684255aab08c297605aee3de5d5fd1cd3e2bf1e9713e3b5bac39e70c4bafd68f"
+            },
+            "impact": {
+              "card_id": "impact-01387a8709",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "overall_impact_score": 36,
+              "blast_radius_node_count": 3,
+              "tier_0_service_exposed": false,
+              "ransomware_exposure_risk": "LOW",
+              "data_exfiltration_risk": "HIGH",
+              "business_service_downtime_risk": "LOW",
+              "dimensions": [
+                {
+                  "name": "Asset Criticality",
+                  "score": 25,
+                  "weight": 0.35,
+                  "description": "Tier 2 endpoints reachable",
+                  "affected_entities": [
+                    "server-dc-01",
+                    "backup-nas-01",
+                    "cloud-s3-vault-01"
+                  ]
+                },
+                {
+                  "name": "Blast Radius",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Direct lateral traversal potential encompasses 3 connected systems",
+                  "affected_entities": [
+                    "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell"
+                  ]
+                },
+                {
+                  "name": "Ransomware Susceptibility",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Local disk encryption potential limited to endpoint",
+                  "affected_entities": [
+                    "backup-nas-01"
+                  ]
+                },
+                {
+                  "name": "Operational Disruption",
+                  "score": 30,
+                  "weight": 0.15,
+                  "description": "Limited workstation service impact",
+                  "affected_entities": []
+                }
+              ],
+              "evidence_justifications": [
+                "Blast radius calculated as 3 enterprise nodes",
+                "Tier-0 boundary verified intact"
+              ],
+              "regulatory_impact_scope": [],
+              "card_hash": "7abd590a9018fc8402b6d0aed6ecbc33b60f9c864172ed4d9ef0a7617e447cb4"
+            },
+            "intervention_plan": {
+              "plan_id": "plan-bce33474a7",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "generated_at": "2026-09-04T00:00:00Z",
+              "actions": [
+                {
+                  "step_number": 1,
+                  "action_id": "endpoint.terminate_process",
+                  "target_entity": {
+                    "category": "PROCESS",
+                    "entity_id": "proc:36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed:powershell",
+                    "tenant_id": "default",
+                    "display_name": "powershell.exe (T1059.001)"
+                  },
+                  "rationale": "Terminate active weaponized process handle",
+                  "expected_path_cut": "Halts execution thread",
+                  "is_reversible": false,
+                  "requires_dual_approval": false,
+                  "evidence_preservation_notes": ""
+                }
+              ],
+              "projected_residual_risk_pct": 5,
+              "projected_business_disruption_score": 30,
+              "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+              "recommended_world_id": "world-e-composite-containment",
+              "comparative_matrix_id": "matrix-e835461469",
+              "plan_hash": "adf3b9950ec1abb39917a7a02863b22c026f3dea2e367d9bd26efa5b67fd1698"
+            },
+            "evidence_references": [
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.mitre",
+                "timestamp": ""
+              },
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.verdict",
+                "timestamp": ""
+              }
+            ],
+            "provenance": {
+              "engine": "SecurityStateEngine",
+              "version": "1.0.0",
+              "saved_at": "2026-09-05T08:07:03.526503+00:00"
+            },
+            "lifecycle_status": "ACTIVE",
+            "commit_status": "COMMITTED",
+            "evaluated_at": "2026-09-05T08:07:03.526514+00:00",
+            "created_at": "2026-09-05T08:07:03.526516+00:00",
+            "engine_version": "1.0.0"
+          },
+          {
+            "tenant_id": "default",
+            "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+            "version": 2,
+            "state_hash": "c6103aa5376c9ee19295c8fba2e8b3bc6eb11c849204a4fe32832fd4e34c29bc",
+            "previous_state_hash": "59c77fad8c42e5bb191649dc4df5f5b82173e51f60a2de50b436c83fb087fcea",
+            "entity_ref": {
+              "category": "DEVICE",
+              "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "tenant_id": "default",
+              "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+            },
+            "epistemic_status": "OBSERVED",
+            "classification": "AUTHORIZED_USE",
+            "active_capabilities": [],
+            "observed_facts": [
+              {
+                "fact_id": "fact-4249378eb6",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.mitre",
+                  "evidence_class": "OBSERVED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "mitre_technique": "T1059.001",
+                  "mitre_technique_name": "PowerShell",
+                  "mitre_tactic": "Execution",
+                  "verdict": "Malicious",
+                  "engine": "llm-l3",
+                  "observed_at": "2026-09-05T08:07:03.417376+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.mitre",
+                "evidence_id": "ev-ca864668"
+              },
+              {
+                "fact_id": "fact-3d5f1844fd",
+                "property_name": "generic",
+                "property_value": {
+                  "source": "workspace_cases.verdict",
+                  "evidence_class": "SUPPORTED",
+                  "provenance": "current_nivxray_xdr_pipeline",
+                  "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "verdict_label": "Malicious",
+                  "confidence": 92,
+                  "observed_at": "2026-09-05T08:07:03.417390+00:00"
+                },
+                "observed_at": "2026-09-04T00:00:00Z",
+                "source_sensor": "workspace_cases.verdict",
+                "evidence_id": "ev-16e9d829"
+              }
+            ],
+            "derived_facts": [],
+            "assumptions": [],
+            "contradictions": [],
+            "missing_evidence": [],
+            "attack_state": "CREDENTIAL_ACCESS",
+            "reachability": {
+              "matrix_id": "reach-e835461469",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "evaluated_at": "2026-09-04T00:00:00Z",
+              "foothold_entities": [
+                {
+                  "category": "DEVICE",
+                  "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                  "tenant_id": "default",
+                  "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                }
+              ],
+              "paths": [
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-server-dc-01",
+                  "target_entity": {
+                    "category": "SERVER",
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "display_name": "Primary Domain Controller (dc-01.corp)"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Domain Admin Kerberos Ticket"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "SERVER",
+                        "entity_id": "server-dc-01",
+                        "tenant_id": "default",
+                        "display_name": "Primary Domain Controller (dc-01.corp)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Tier-0 Network Microsegmentation",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "server-dc-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Path to Domain Controller secured or segmented"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-backup-nas-01",
+                  "target_entity": {
+                    "category": "BACKUP_SYSTEM",
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "display_name": "Veeam Immutable Backup Repository"
+                  },
+                  "status": "BLOCKED",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [
+                    "Backup Management MFA bypass"
+                  ],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "BACKUP_SYSTEM",
+                        "entity_id": "backup-nas-01",
+                        "tenant_id": "default",
+                        "display_name": "Veeam Immutable Backup Repository"
+                      },
+                      "hop_type": "CLOUD_ROLE_ASSUME",
+                      "is_blocked_by_control": true,
+                      "blocking_control_name": "Backup MFA Air-Gap",
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/445",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "backup-nas-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Backup repository air-gap intact"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-db-prod-sql-01",
+                  "target_entity": {
+                    "category": "DATA_STORE",
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Customer Database (MSSQL)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_1",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "DATA_STORE",
+                        "entity_id": "db-prod-sql-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Customer Database (MSSQL)"
+                      },
+                      "hop_type": "NETWORK_ROUTE",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "TCP/1433",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "db-prod-sql-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_1",
+                    "business_criticality_score": 85,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "HIGH",
+                    "regulatory_scope": [
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Production Relational Database & Transactions",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Database protected by session/network controls"
+                },
+                {
+                  "path_id": "path-36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed-cloud-s3-vault-01",
+                  "target_entity": {
+                    "category": "CLOUD_RESOURCE",
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                  },
+                  "status": "POTENTIALLY_REACHABLE",
+                  "criticality_tier": "TIER_0",
+                  "required_prerequisites": [],
+                  "hops": [
+                    {
+                      "source_entity": {
+                        "category": "DEVICE",
+                        "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                        "tenant_id": "default",
+                        "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                      },
+                      "target_entity": {
+                        "category": "CLOUD_RESOURCE",
+                        "entity_id": "cloud-s3-vault-01",
+                        "tenant_id": "default",
+                        "display_name": "Production Cloud Storage Vault (S3/Blob)"
+                      },
+                      "hop_type": "IAM_FEDERATION",
+                      "is_blocked_by_control": false,
+                      "blocking_control_name": null,
+                      "required_capability": null,
+                      "required_privilege": null,
+                      "protocol_port": "HTTPS/443",
+                      "is_cut_by_intervention": false,
+                      "intervention_id": null
+                    }
+                  ],
+                  "valuation": {
+                    "entity_id": "cloud-s3-vault-01",
+                    "tenant_id": "default",
+                    "tier": "TIER_0",
+                    "business_criticality_score": 95,
+                    "sensitivity": "RESTRICTED",
+                    "financial_category": "CRITICAL",
+                    "regulatory_scope": [
+                      "SOX",
+                      "PCI-DSS"
+                    ],
+                    "business_function": "Identity Root / Core Enterprise Backup",
+                    "valuation_source": "ASSET_INVENTORY"
+                  },
+                  "is_severed": false,
+                  "severed_by_action": null,
+                  "exposure_explanation": "Cloud IAM role boundary intact"
+                }
+              ],
+              "currently_reachable_count": 0,
+              "potentially_reachable_count": 2,
+              "blocked_count": 2,
+              "tier_0_exposed": false,
+              "tier_1_exposed": false,
+              "reachable_tier_0_count": 0,
+              "reachable_tier_1_count": 0,
+              "reachable_tier_2_count": 0,
+              "active_capabilities_applied": [],
+              "provenance": {
+                "engine": "EnterpriseReachabilityEngine",
+                "version": "1.1.0",
+                "at": "2026-09-04T00:00:00Z",
+                "upstream_evidence_ids": [
+                  "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed"
+                ]
+              },
+              "matrix_hash": "e44f9044b8dd49b5f2a7578e2f698b4237409f91952d662318e105cfc41318ab"
+            },
+            "impact": {
+              "card_id": "impact-5e2ce5c56b",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "overall_impact_score": 36,
+              "blast_radius_node_count": 3,
+              "tier_0_service_exposed": false,
+              "ransomware_exposure_risk": "LOW",
+              "data_exfiltration_risk": "HIGH",
+              "business_service_downtime_risk": "LOW",
+              "dimensions": [
+                {
+                  "name": "Asset Criticality",
+                  "score": 25,
+                  "weight": 0.35,
+                  "description": "Tier 2 endpoints reachable",
+                  "affected_entities": [
+                    "server-dc-01",
+                    "backup-nas-01",
+                    "cloud-s3-vault-01"
+                  ]
+                },
+                {
+                  "name": "Blast Radius",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Direct lateral traversal potential encompasses 3 connected systems",
+                  "affected_entities": [
+                    "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed"
+                  ]
+                },
+                {
+                  "name": "Ransomware Susceptibility",
+                  "score": 45,
+                  "weight": 0.25,
+                  "description": "Local disk encryption potential limited to endpoint",
+                  "affected_entities": [
+                    "backup-nas-01"
+                  ]
+                },
+                {
+                  "name": "Operational Disruption",
+                  "score": 30,
+                  "weight": 0.15,
+                  "description": "Limited workstation service impact",
+                  "affected_entities": []
+                }
+              ],
+              "evidence_justifications": [
+                "Blast radius calculated as 3 enterprise nodes",
+                "Tier-0 boundary verified intact"
+              ],
+              "regulatory_impact_scope": [],
+              "card_hash": "550bffa7c41ccdbd0015dfc38fc58284b3faac5150b0bc0bcaae0d420f5fc1e7"
+            },
+            "intervention_plan": {
+              "plan_id": "plan-d99c38e257",
+              "tenant_id": "default",
+              "case_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+              "generated_at": "2026-09-04T00:00:00Z",
+              "actions": [
+                {
+                  "step_number": 1,
+                  "action_id": "endpoint.isolate",
+                  "target_entity": {
+                    "category": "DEVICE",
+                    "entity_id": "36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed",
+                    "tenant_id": "default",
+                    "display_name": "Test Case (Malicious \u00b7 llm-l3)"
+                  },
+                  "rationale": "Sever network-level lateral movement and C2 channels immediately",
+                  "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+                  "is_reversible": true,
+                  "requires_dual_approval": false,
+                  "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+                }
+              ],
+              "projected_residual_risk_pct": 5,
+              "projected_business_disruption_score": 30,
+              "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+              "recommended_world_id": "world-e-composite-containment",
+              "comparative_matrix_id": "matrix-e835461469",
+              "plan_hash": "10dfbcd35ca41ba14fa29ed6085eb34c3e5fa473d3e7d986b653602d0a7f86ee"
+            },
+            "evidence_references": [
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.mitre",
+                "timestamp": ""
+              },
+              {
+                "evidence_id": "",
+                "type": "",
+                "source": "workspace_cases.verdict",
+                "timestamp": ""
+              }
+            ],
+            "provenance": {
+              "engine": "SecurityStateEngine",
+              "version": "1.0.0",
+              "saved_at": "2026-09-05T08:07:03.538111+00:00"
+            },
+            "lifecycle_status": "ACTIVE",
+            "commit_status": "COMMITTED",
+            "evaluated_at": "2026-09-05T08:07:03.538119+00:00",
+            "created_at": "2026-09-05T08:07:03.538120+00:00",
+            "engine_version": "1.0.0"
+          }
+        ]
+      }
+    },
+    "streaming_status": {
+      "status": 422,
+      "body": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "query",
+              "tenant_id"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    }
+  },
+  "finished_at": "2026-09-05T08:07:04.946800+00:00"
+}

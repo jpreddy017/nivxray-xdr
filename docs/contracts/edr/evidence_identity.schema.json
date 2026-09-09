@@ -1,0 +1,260 @@
+{
+  "$defs": {
+    "EpistemicState": {
+      "description": "Directive \u00a76. The six \u2014 and only six \u2014 states an evidence field\nmay resolve to.",
+      "enum": [
+        "OBSERVED",
+        "NOT_OBSERVED",
+        "NOT_COLLECTED",
+        "NOT_SUPPORTED",
+        "PARSER_FAILED",
+        "UNKNOWN"
+      ],
+      "title": "EpistemicState",
+      "type": "string"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Directive \u00a75 \u2014 every layer is additive and versioned.",
+      "properties": {
+        "analysis_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis Version"
+        },
+        "detection_content_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detection Content Version"
+        },
+        "normalizer_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalizer Version"
+        },
+        "parser_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Name"
+        },
+        "parser_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Version"
+        },
+        "raw_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "raw_id in edr_raw_events. The immutable original.",
+          "title": "Raw Ref"
+        },
+        "replay_generation": {
+          "default": 0,
+          "description": "0 = original ingest. Incremented per replay so a re-reasoned event never masquerades as a new one.",
+          "title": "Replay Generation",
+          "type": "integer"
+        },
+        "sensor_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sensor Version"
+        },
+        "source": {
+          "description": "collector / sensor / adapter identity",
+          "title": "Source",
+          "type": "string"
+        },
+        "verdict_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verdict Version"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "$id": "nivxforge-edr/wave0/v1/evidence_identity.schema.json",
+  "additionalProperties": false,
+  "description": "Contract 7. Identity of a DERIVED assertion built from events.\n\nSeparate from EventIdentity on purpose: one event can produce several\nassertions, and an assertion can be re-derived at a new\n`replay_generation` when a parser or detection improves. Keeping them\napart is what makes directive \u00a75 replay possible without rewriting\nhistory.",
+  "properties": {
+    "claim": {
+      "description": "The assertion in plain language. Must state what was observed, never a conclusion the evidence cannot carry.",
+      "title": "Claim",
+      "type": "string"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Confidence"
+    },
+    "detection_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Detection Refs",
+      "type": "array"
+    },
+    "endpoint_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Endpoint Id"
+    },
+    "event_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Event Ids",
+      "type": "array"
+    },
+    "evidence_id": {
+      "title": "Evidence Id",
+      "type": "string"
+    },
+    "evidence_sufficiency": {
+      "default": "UNKNOWN",
+      "title": "Evidence Sufficiency",
+      "type": "string"
+    },
+    "field_state_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+      "title": "Field State Reasons",
+      "type": "object"
+    },
+    "field_states": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EpistemicState"
+      },
+      "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+      "title": "Field States",
+      "type": "object"
+    },
+    "ioc_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ioc Refs",
+      "type": "array"
+    },
+    "mitre_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Mitre Refs",
+      "type": "array"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_id",
+    "tenant_id",
+    "claim"
+  ],
+  "title": "EvidenceIdentity",
+  "type": "object",
+  "x-nivxforge-contract": "evidence_identity",
+  "x-nivxforge-epistemic-states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "x-nivxforge-evidence-fields": [
+    "endpoint_id",
+    "confidence"
+  ]
+}

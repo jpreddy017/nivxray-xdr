@@ -1,3 +1,5 @@
+> **SUPERSEDED_BY:** `docs/nivxray-xdr/08_VALIDATION/REQUIREMENTS_TRACEABILITY_MATRIX.md` (P-1 documentation reconciliation, 2026-09-07T18:00Z). Retained for provenance; do not edit.
+
 # NivXRay · 360° Evidence Matrix — Flat Citation Table
 
 **Purpose:** every capability claim in the audit maps to at least one row here. Zero-hallucination lookup.

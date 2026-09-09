@@ -1,0 +1,1 @@
+powershell -nop -w hidden "((70,99,120,101,116,60,89,126,98,101,49,54,98,112,119,116,54) | ForEach-Object{[char]($_ -bxor '0x11')}) -join '' | iex"

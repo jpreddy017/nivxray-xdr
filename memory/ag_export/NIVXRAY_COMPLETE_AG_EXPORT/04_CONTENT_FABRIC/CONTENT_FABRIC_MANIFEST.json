@@ -1,0 +1,1036 @@
+{
+  "category": "04_CONTENT_FABRIC",
+  "title": "Frozen 615-Object Content Fabric across 16 Security Domains",
+  "description": "Complete implementation of the production 615-object detection content fabric, audited with zero duplicates and zero quarantined rules.",
+  "file_count": 114,
+  "total_bytes": 2514540,
+  "total_lines": 51812,
+  "files": [
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/run_content_truth_audit.py",
+      "size_bytes": 39098,
+      "sha256": "1b417de6d26c854d3bc2db4bb78250466bbb9db9517ac7a98436538a330085ac",
+      "lines_of_code": 802,
+      "last_modified": "2026-09-04 23:36:22",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/run_enterprise_content_pipeline.py",
+      "size_bytes": 9906,
+      "sha256": "750f4fa9ee51ea2ab20d4d89c37bf282411b0af5fee5ce180fc9314946c03530",
+      "lines_of_code": 236,
+      "last_modified": "2026-09-04 22:26:57",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/architecture_audit.py",
+      "size_bytes": 9506,
+      "sha256": "a4a8760ada2c65ada7c509976b39b710ab55da7082dee7e902b0415a227be532",
+      "lines_of_code": 228,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/artifact_router.py",
+      "size_bytes": 10775,
+      "sha256": "fa9854ac01ed9826461f4bde57c8efaec3aad869dcc65520f756852e7a44581b",
+      "lines_of_code": 255,
+      "last_modified": "2026-09-04 21:25:20",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/canonical_content_model.py",
+      "size_bytes": 13250,
+      "sha256": "a530e85e3d085e854460453d5ddcfe80fc6dba75eb6769b84cb6fa39fbd5785e",
+      "lines_of_code": 366,
+      "last_modified": "2026-09-04 21:24:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/capability_contract.py",
+      "size_bytes": 8427,
+      "sha256": "109aee664eadc79a51029361cd792a46d6ef1ec84cb057d70554f202085f6225",
+      "lines_of_code": 242,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/collector_runtime.py",
+      "size_bytes": 12147,
+      "sha256": "241fc12fddb96a812ebe7052e73f9569ddbacb9e6221c5659cfb5c2f851d7a9e",
+      "lines_of_code": 317,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/contract_registry.py",
+      "size_bytes": 6235,
+      "sha256": "868e6fc9a2632df3dc35978696d016c519baa679b2ec025d463450fc78df0714",
+      "lines_of_code": 177,
+      "last_modified": "2026-09-04 07:38:14",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus_expansion.py",
+      "size_bytes": 36258,
+      "sha256": "e7017a3adcee44c1fda27a494a7c19ca3705d572c41806df262d661c0fc54093",
+      "lines_of_code": 829,
+      "last_modified": "2026-09-04 21:35:43",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/correlation_library.py",
+      "size_bytes": 7935,
+      "sha256": "6bc6f622a328783d7064961792931954887c53e8b9e5d42903640e924f9e9c9e",
+      "lines_of_code": 197,
+      "last_modified": "2026-09-04 07:39:51",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/detection_harness.py",
+      "size_bytes": 7082,
+      "sha256": "e06809f4a8b1ca64f0fba5edb38a6110a805f71065edcde65ec0fbc621e8c618",
+      "lines_of_code": 176,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/engine_classifier.py",
+      "size_bytes": 7070,
+      "sha256": "d118b7148d7c80bab3a7c665c5f442717f508f26bb4651ea438b0b4d12495d74",
+      "lines_of_code": 179,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/engine_control_plane.py",
+      "size_bytes": 13432,
+      "sha256": "23c48c68caed33f65f7c1e906ec240fbbe158e2f9ceddcb5197d2430ab02c007",
+      "lines_of_code": 319,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/engine_fabric_contracts.py",
+      "size_bytes": 22408,
+      "sha256": "afbe709ff1f0387f422f311bc61bd431e32114046ae0fd565833bd0e839c84d2",
+      "lines_of_code": 447,
+      "last_modified": "2026-09-04 22:03:36",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/engine_registry.py",
+      "size_bytes": 1519,
+      "sha256": "5eb67728c68c04f770c6e324b97aa3803656fd8cb4c90cc04228d52534b8ca81",
+      "lines_of_code": 45,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/model.py",
+      "size_bytes": 5496,
+      "sha256": "4e928f5e80e28604f2ef550a033091ce2380a44636329e483ecd66313164769a",
+      "lines_of_code": 162,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/nivxray_native_sigma.py",
+      "size_bytes": 9417,
+      "sha256": "6835633b6a72154d8a7e9fb5e711dbaffe6fa35b9b6d22a03bddb56a24a2ccb1",
+      "lines_of_code": 245,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/rmm_model.py",
+      "size_bytes": 12701,
+      "sha256": "2ee3034a89aecd3e3d0d404e73473d47db45d40cb6734fd4edfe04162aa5f681",
+      "lines_of_code": 274,
+      "last_modified": "2026-09-04 21:43:16",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/rule_binding.py",
+      "size_bytes": 9828,
+      "sha256": "a1a6c2e707532fe4e62f230f531075cb0e53beb16179ce44458ef2e547383ef4",
+      "lines_of_code": 245,
+      "last_modified": "2026-09-04 20:29:26",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/sigma_ingest.py",
+      "size_bytes": 12488,
+      "sha256": "37fd0f2d129edb8069d28048229d17d04dec24becee9a115e6a32df8461b72b9",
+      "lines_of_code": 341,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/sigma_strict.py",
+      "size_bytes": 8010,
+      "sha256": "fac29d938c4c58765dddfc90220378fa2fdc15877d8dcd5de9c29a12dd8a2f92",
+      "lines_of_code": 226,
+      "last_modified": "2026-09-04 20:29:17",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_action_registry.py",
+      "size_bytes": 15826,
+      "sha256": "9cce57d086fa186f053f630b30bc3665d12b31e3689a38af84b9a3afedae944c",
+      "lines_of_code": 376,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_analyst_annotations.py",
+      "size_bytes": 6317,
+      "sha256": "25a13fe09106923dc93d6048783435fe6ae91789865919f9911698b36a48a4f5",
+      "lines_of_code": 162,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_attack_chain_graph.py",
+      "size_bytes": 19806,
+      "sha256": "e7bc7a24b38034070def8693608771b8641f14e2a9cf823d84d838d50b0585d1",
+      "lines_of_code": 455,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_capability_service.py",
+      "size_bytes": 3857,
+      "sha256": "2be9c817eae29e634a8da8d1edf70b7ce744ce5a073e368ccb5d396d578531a7",
+      "lines_of_code": 97,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_closed_loop.py",
+      "size_bytes": 20448,
+      "sha256": "b4952a8dcdddbc5aad7133d33e1623ac3b91fbec9e5536ddeb54871d8dd4c795",
+      "lines_of_code": 489,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_closure_classification.py",
+      "size_bytes": 10774,
+      "sha256": "68148094935f97618ab10ffa65a0fc25baa4e5b7d0a3aa4e2929d61ddbeca58f",
+      "lines_of_code": 269,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_cortex_adapter.py",
+      "size_bytes": 13383,
+      "sha256": "ce37ade7d19a75dc7f88493f7fdbad8a4977a6697461fe529a98ae1d3858bb9e",
+      "lines_of_code": 295,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_cortex_executor.py",
+      "size_bytes": 5812,
+      "sha256": "2f0b1a470b6f32d84d358419a907db0167fdd093b8e7d14055564fa4b429b600",
+      "lines_of_code": 147,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_cortex_ingest.py",
+      "size_bytes": 5936,
+      "sha256": "18d0f85d2937fbfe07b52810db2c89a982a8117add71d22a48a54385cb2feb3b",
+      "lines_of_code": 148,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_cortex_parser.py",
+      "size_bytes": 10660,
+      "sha256": "37ef075ac9ae6027c7263edf797e6cc472c8044f13de62d1c64bd7cb4fa04c1a",
+      "lines_of_code": 267,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_cortex_promotion.py",
+      "size_bytes": 8435,
+      "sha256": "542c174177fbbe3c99e516a91e076a0effde39223fbc6b1e4ed9552854d760ca",
+      "lines_of_code": 205,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_cortex_scheduler.py",
+      "size_bytes": 9155,
+      "sha256": "f569e51e20d9785110017e01f5313085357d45456a63e1fb35fa8bd9a0f828a7",
+      "lines_of_code": 212,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_cortex_vendor_adapter.py",
+      "size_bytes": 4909,
+      "sha256": "df87e551c268944c3d132ca421ae966e390c1632ee1118b3b1e9a9179e5b06cb",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_credential_vault.py",
+      "size_bytes": 14269,
+      "sha256": "525bea46512b0240dd1eeab983f8437b6fcf93078618e9e6e56961f5ce9b5040",
+      "lines_of_code": 328,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_edr_adapter.py",
+      "size_bytes": 5187,
+      "sha256": "fdb89993fc228b4ec7f6a07bd9d384ead66e1dcbe372faa44f15e7c76d8b404a",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_evidence_traversal.py",
+      "size_bytes": 12708,
+      "sha256": "f1711ce6693a661352ea78e3a0dc03c2d4eedde7f6b6cb4ef78c6d5f1bde493a",
+      "lines_of_code": 311,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_executive_summary.py",
+      "size_bytes": 18091,
+      "sha256": "3e90b2a37b3f620accc9864057449e2ec54941603b46360c592478e31a040950",
+      "lines_of_code": 421,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_falcon_vendor_adapter.py",
+      "size_bytes": 15646,
+      "sha256": "375dff9a8e2badc947de1f4273b18a06c76c34a6f7ac5b9bc349e5f0df29b24f",
+      "lines_of_code": 329,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_framework_mapping.py",
+      "size_bytes": 19599,
+      "sha256": "4b832669a138ff9e4415ecea023cc0b4af0e79f4e3a6ccf6f8296b74ac8f7177",
+      "lines_of_code": 462,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_ice.py",
+      "size_bytes": 8312,
+      "sha256": "4afa2e5a76d01879ca3444a9eb5fe182a538feb495311400903715d14112a1fc",
+      "lines_of_code": 205,
+      "last_modified": "2026-09-04 18:50:40",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_incident.py",
+      "size_bytes": 5079,
+      "sha256": "55af5e294f4b061161445072da8a6007426ba47373ef17a247817f2d6cf4f7f3",
+      "lines_of_code": 126,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_investigation.py",
+      "size_bytes": 16167,
+      "sha256": "60e84bcc4957619348358306b7933fb5799b46c0c6cc1438fb5375d100c7c7b3",
+      "lines_of_code": 376,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_iue.py",
+      "size_bytes": 8222,
+      "sha256": "0933c3570f156f616b4baf84aa8a35d289977b79471cebfdcd6d58dfd2ae50d4",
+      "lines_of_code": 216,
+      "last_modified": "2026-09-04 08:45:07",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_mde_vendor_adapter.py",
+      "size_bytes": 10523,
+      "sha256": "907f48e2a82c5ce3cc7ee78fd3e80e57c163922cc20c6ab86000566380419004",
+      "lines_of_code": 223,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_mitigation_intelligence.py",
+      "size_bytes": 12594,
+      "sha256": "2478a39d1fe999ce18f8ddce1fd8a84612175219b49f5c2378e84f7a0164858e",
+      "lines_of_code": 287,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_osint_cache.py",
+      "size_bytes": 6595,
+      "sha256": "73458279af1ed853d7b4022409b8ac68234b3c300ede699853aac39d7527887f",
+      "lines_of_code": 182,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_pipeline.py",
+      "size_bytes": 17638,
+      "sha256": "30d494e9c7be1b7b5f558f5b409e85d732f311f3ab99c3a62e9910254d934237",
+      "lines_of_code": 413,
+      "last_modified": "2026-09-04 19:54:22",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_recommendation_synthesis.py",
+      "size_bytes": 24230,
+      "sha256": "c1ac3e68922ebfcf05fbdae01522bad753bd4919ffadda81093a8f913ebe6e8e",
+      "lines_of_code": 550,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_response_decision.py",
+      "size_bytes": 15739,
+      "sha256": "e142c0f52f1625a077b76fa2eedcb444640a48a2c4da3be6bef198e060c16168",
+      "lines_of_code": 352,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_response_executor.py",
+      "size_bytes": 12851,
+      "sha256": "73971eddfa7bb79323e3fdb3c12a5f3ffb061ab963fffa714feb5192ad2d8349",
+      "lines_of_code": 269,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_response_fabric.py",
+      "size_bytes": 7933,
+      "sha256": "0042df63eceae08163f53d3429f88ce91fbdcb8e3db46c9943adf3644937854c",
+      "lines_of_code": 190,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_response_strategy.py",
+      "size_bytes": 20285,
+      "sha256": "82e7b775c76e9990b364f8d014eadca62f52e4b191d7cce06aff2a4795733932",
+      "lines_of_code": 446,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_sentinelone_vendor_adapter.py",
+      "size_bytes": 9249,
+      "sha256": "c23c1dfc24cec262245d2c08cda5dd105e5952e23dd6441bf4196622477736d3",
+      "lines_of_code": 203,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_stub_adapter.py",
+      "size_bytes": 3491,
+      "sha256": "ff657f1bb7d6b844461e96bc89a8e7a1f142ad06c2707291a3b901cfdd1fa40c",
+      "lines_of_code": 86,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_threat_family.py",
+      "size_bytes": 9576,
+      "sha256": "4bb1516583e18686c4fb935dce4eee61030d7efa366d92375e440ecbe8021fff",
+      "lines_of_code": 215,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_veee.py",
+      "size_bytes": 3980,
+      "sha256": "67f8014ea5733298e61e801779d6add3db855e5ee3dc0c8c0a6dafedd4b90384",
+      "lines_of_code": 110,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_vendor_adapter.py",
+      "size_bytes": 3925,
+      "sha256": "e642fc16228da90e5336fee5084866cf1f20db5b6dcf0c874e07f21dd0c76a78",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_vendor_registry.py",
+      "size_bytes": 2589,
+      "sha256": "95ec65cd5b863069adde3d41752bdbfa25aca633f1dde0ca18bbc89135be2d9d",
+      "lines_of_code": 73,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/yara_engine.py",
+      "size_bytes": 14080,
+      "sha256": "bf44700e46e91ab836a6497e786fae01733210f8a8046660867a172564dce21c",
+      "lines_of_code": 377,
+      "last_modified": "2026-09-04 21:45:36",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/__init__.py",
+      "size_bytes": 69,
+      "sha256": "3d337383a1dff095ef5aa8cffb6276d3765e27fb06d32de89052d432527b0c8f",
+      "lines_of_code": 3,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/canonical_ir/evaluator.py",
+      "size_bytes": 2311,
+      "sha256": "0c44a1bae0ed06b5c72a43b087cca660294609c1133532e1ad03d795345cb0a3",
+      "lines_of_code": 69,
+      "last_modified": "2026-09-04 19:54:45",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/canonical_ir/models.py",
+      "size_bytes": 4126,
+      "sha256": "7bd1b27139108fa5082f94c220e840ee25d9cb7436905deff5e95a1801ff7654",
+      "lines_of_code": 112,
+      "last_modified": "2026-09-04 20:10:39",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/canonical_ir/nodes.py",
+      "size_bytes": 10041,
+      "sha256": "5fbc2282f88c24d936411718788e4d213161ff7ad9b23ff7072ad1122bddcd3b",
+      "lines_of_code": 296,
+      "last_modified": "2026-09-04 21:33:51",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/canonical_ir/__init__.py",
+      "size_bytes": 787,
+      "sha256": "14f8d2efa45da0c791300f82f8a9d7604c5ba9d4ec6e8246d14186f7b35ab4ad",
+      "lines_of_code": 39,
+      "last_modified": "2026-09-04 19:54:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/adversarial_corpus.py",
+      "size_bytes": 11793,
+      "sha256": "09aff4705f8e961895e94fd1d44391fade0a78004c943cde003658894f32bc25",
+      "lines_of_code": 127,
+      "last_modified": "2026-09-04 22:02:57",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/behavioral_correlation_corpus.py",
+      "size_bytes": 12883,
+      "sha256": "7aef74b54078f8369a9c623efd5ff274de91cb2b7279f3faac6830246feeadc7",
+      "lines_of_code": 215,
+      "last_modified": "2026-09-04 22:20:22",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/eql_corpus.py",
+      "size_bytes": 7922,
+      "sha256": "18f6604c704962a18b57b0a46e7c1be7ed3ae78c2101e4d0c277057580b5bc16",
+      "lines_of_code": 114,
+      "last_modified": "2026-09-04 22:19:46",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/hunting_anomaly_corpus.py",
+      "size_bytes": 14416,
+      "sha256": "4803ffb84540334d1345b5ae3ff369169e7626bbcf78ac66bbefca0ca38d6041",
+      "lines_of_code": 215,
+      "last_modified": "2026-09-04 22:02:07",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/ioc_threat_intel_corpus.py",
+      "size_bytes": 11369,
+      "sha256": "43413f9737dff743c144a4bc66b5eb2ed0277729b9990176e6727525a3f48136",
+      "lines_of_code": 170,
+      "last_modified": "2026-09-04 22:20:39",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/mapping_response_corpus.py",
+      "size_bytes": 17158,
+      "sha256": "ee0eacefe2eb4ea9e9bcadbbd294b83245408bb7eba45beeae7e22857e64cb4a",
+      "lines_of_code": 301,
+      "last_modified": "2026-09-04 22:02:26",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/ot_ics_rmm_corpus.py",
+      "size_bytes": 9659,
+      "sha256": "12b5738e97c65c5c1820ee969a033cad0fac189d21667b3e66c8d4c988469ef5",
+      "lines_of_code": 193,
+      "last_modified": "2026-09-04 22:02:40",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/sigma_corpus.py",
+      "size_bytes": 41133,
+      "sha256": "89ae1321251d0edf77577cb86651356223c36199dc2a783de529d95e92ff702b",
+      "lines_of_code": 257,
+      "last_modified": "2026-09-04 22:26:07",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/spl_kql_corpus.py",
+      "size_bytes": 13893,
+      "sha256": "c6dc8563cb7b540789c6650b8a9f5a10cd0214de09e84c653cf08242fae82798",
+      "lines_of_code": 216,
+      "last_modified": "2026-09-04 22:20:05",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/yara_corpus.py",
+      "size_bytes": 13088,
+      "sha256": "08db9a43a9a5c4de506ab1aa8eb9c29cc680995ea156068d50f90b51e103306c",
+      "lines_of_code": 138,
+      "last_modified": "2026-09-04 22:12:12",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/corpus/__init__.py",
+      "size_bytes": 2981,
+      "sha256": "f9c1a459592ea842a3d8549c366c3a52c736e9683d3977c9cf7d89790918d3c3",
+      "lines_of_code": 57,
+      "last_modified": "2026-09-04 22:03:06",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/deduplication/engine.py",
+      "size_bytes": 7259,
+      "sha256": "7beda885df5e1bca8d9f4486bc650451cba2564dc39fbfec8a2821e38bf4e83d",
+      "lines_of_code": 156,
+      "last_modified": "2026-09-04 20:12:11",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/deduplication/fingerprint.py",
+      "size_bytes": 3866,
+      "sha256": "1a81ba7ddff7062e5a010be2a68ad5c764fe467eb73e84dcdbfe6edd502d40e8",
+      "lines_of_code": 102,
+      "last_modified": "2026-09-04 21:28:40",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/deduplication/__init__.py",
+      "size_bytes": 334,
+      "sha256": "8c2d01085ccbb1fafd337f65268f475a1caa73d8b48191efb5b906c55bc74a43",
+      "lines_of_code": 12,
+      "last_modified": "2026-09-04 19:56:17",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/library/models.py",
+      "size_bytes": 2999,
+      "sha256": "397146a72ff7bb59293d86fb87c82dca507a20c2534ccaae4943703f1243e53c",
+      "lines_of_code": 96,
+      "last_modified": "2026-09-04 07:38:43",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/library/registry.py",
+      "size_bytes": 3226,
+      "sha256": "d9b10a40019d80ab0ccb38386cf530f448cb56a4f92770111036dd466718fadd",
+      "lines_of_code": 85,
+      "last_modified": "2026-09-04 07:39:26",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/library/rules_enterprise.py",
+      "size_bytes": 46944,
+      "sha256": "0f19acb8529373792aaa5c31f70ddce46d4b033add370d696ee53c8eb475c31b",
+      "lines_of_code": 936,
+      "last_modified": "2026-09-04 07:39:19",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/library/__init__.py",
+      "size_bytes": 491,
+      "sha256": "341f95abb1cb9051f0ba73b4db24d5cb7aac95f11d56675bf7a9fb6f323670d0",
+      "lines_of_code": 23,
+      "last_modified": "2026-09-04 07:39:30",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/telemetry/aws_cloudtrail_dsm.py",
+      "size_bytes": 7130,
+      "sha256": "6b072ac7eb52bccb87d28fb3981c1710e9da09c740d6080fd222053e2f3ec941",
+      "lines_of_code": 207,
+      "last_modified": "2026-09-04 20:31:03",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/telemetry/linux_auditd_dsm.py",
+      "size_bytes": 8280,
+      "sha256": "3be41ebbe1d0a21e2f9612094fd0f965f15eaf31551b9966a81b0e34c7887bc3",
+      "lines_of_code": 238,
+      "last_modified": "2026-09-04 20:30:56",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/telemetry/models.py",
+      "size_bytes": 4273,
+      "sha256": "f6b64b04dfa6c07e6af4ff58a7c091f53e8c89b8b34fd447dec68078ddfdd7e8",
+      "lines_of_code": 135,
+      "last_modified": "2026-09-04 19:53:21",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/telemetry/registry.py",
+      "size_bytes": 1089,
+      "sha256": "0ec2c1308bddca5eb4d78420762b0697f835739eea02112ef467e41a180dd8aa",
+      "lines_of_code": 39,
+      "last_modified": "2026-09-04 19:53:59",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/telemetry/windows_security_dsm.py",
+      "size_bytes": 11920,
+      "sha256": "e42e155ee9fbc63854432985f1c12859ca70bd2d55f400f255fdf28ee9cd86fb",
+      "lines_of_code": 316,
+      "last_modified": "2026-09-04 20:42:00",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/telemetry/__init__.py",
+      "size_bytes": 1135,
+      "sha256": "493141743b33e0d9228e5fc2819349a65383310bf9edca0990a48ff43e424a95",
+      "lines_of_code": 41,
+      "last_modified": "2026-09-04 19:54:05",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/anomaly_translator.py",
+      "size_bytes": 3306,
+      "sha256": "15762519ebc1ce17c1f4afa6b7c563cc6d52500cb2bd28d43c96e6204355079e",
+      "lines_of_code": 81,
+      "last_modified": "2026-09-04 21:26:11",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/base.py",
+      "size_bytes": 1888,
+      "sha256": "7884dbb725f3e227d5dc479e2e0416b9485df41eb1a56e95a11fa3738727bfe9",
+      "lines_of_code": 55,
+      "last_modified": "2026-09-04 19:54:53",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/behavioral_translator.py",
+      "size_bytes": 4701,
+      "sha256": "54ea05011e190e23566ff0671fc283988dc7d554dbc1bbecb3913259b7fa240e",
+      "lines_of_code": 118,
+      "last_modified": "2026-09-04 21:25:52",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/correlation_translator.py",
+      "size_bytes": 3881,
+      "sha256": "0e544dcd46edcbd341c24d927cc153b2a307f4df33244e497007c1a708c67c68",
+      "lines_of_code": 99,
+      "last_modified": "2026-09-04 21:25:58",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/eql_translator.py",
+      "size_bytes": 11934,
+      "sha256": "f7e0cd370f8e7bfebc8f90d46f0133af16987c9bbd5e28124e81c097a0b87963",
+      "lines_of_code": 298,
+      "last_modified": "2026-09-04 20:43:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/hunting_translator.py",
+      "size_bytes": 2899,
+      "sha256": "a6fcb81a21c85edd2d8bde1c69ab7b5c5a776e550c8f90ca12951d78165a40ce",
+      "lines_of_code": 74,
+      "last_modified": "2026-09-04 21:26:04",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/ioc_translator.py",
+      "size_bytes": 4523,
+      "sha256": "bf156b0dbd523fbbe5de9e399c17fa3ea9466d018eac76a4d2cbdae8d7c3cf0f",
+      "lines_of_code": 116,
+      "last_modified": "2026-09-04 21:25:45",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/kql_translator.py",
+      "size_bytes": 10281,
+      "sha256": "b6d8233dff1435e0a8d049707fbfa974d5898b63dd9fdc68188d8142f1938b69",
+      "lines_of_code": 273,
+      "last_modified": "2026-09-04 21:37:45",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/manager.py",
+      "size_bytes": 4869,
+      "sha256": "1f8422240fa4147cc82388132a2d079a8003df27e0acc134d34e7b104c52a0cb",
+      "lines_of_code": 123,
+      "last_modified": "2026-09-04 22:12:25",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/mapping_translator.py",
+      "size_bytes": 3042,
+      "sha256": "8b70eaac943ff5fae5cb40920740fd832889962a9e4c985e191282acd49b445c",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 21:26:16",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/sigma_translator.py",
+      "size_bytes": 13885,
+      "sha256": "6a9b8b8f59c8c7f07e30d02771f30e02e9b690691bb45e3951fc16ed70534f8f",
+      "lines_of_code": 337,
+      "last_modified": "2026-09-04 20:42:43",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/spl_translator.py",
+      "size_bytes": 11347,
+      "sha256": "343a0cacf884551708c41ea361fb178c6472ee3952c01d9c5c8d5b1b31dba7dd",
+      "lines_of_code": 280,
+      "last_modified": "2026-09-04 19:55:23",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/yara_translator.py",
+      "size_bytes": 3813,
+      "sha256": "d33880465727d5bb798568af63fd9f43a3961fe7ebaae3b7f34c8137137885fd",
+      "lines_of_code": 94,
+      "last_modified": "2026-09-04 21:25:38",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/translation/__init__.py",
+      "size_bytes": 545,
+      "sha256": "9f10e4dac9c17b308382470ade344ce23e63b789bd3695cabde782d88198dc9d",
+      "lines_of_code": 20,
+      "last_modified": "2026-09-04 19:55:57",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/validation_framework/binding_bridge.py",
+      "size_bytes": 7947,
+      "sha256": "6ecd9a7984c5bc5c4b6e8974945fe2c0e145206132aed34c40bd10aefe1615e1",
+      "lines_of_code": 183,
+      "last_modified": "2026-09-04 20:44:59",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/validation_framework/gates.py",
+      "size_bytes": 15489,
+      "sha256": "6212d0e8eaad9abc7e183fcb9d8608252559bf843f6711a2c2edb0dd6001c310",
+      "lines_of_code": 379,
+      "last_modified": "2026-09-04 21:29:55",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/validation_framework/lifecycle.py",
+      "size_bytes": 5942,
+      "sha256": "89d6fc48f9fcdea1a594c7494f1af6458c8b411f0302f57afbce57ecfc6d922b",
+      "lines_of_code": 180,
+      "last_modified": "2026-09-04 20:12:28",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/validation_framework/tiers.py",
+      "size_bytes": 4651,
+      "sha256": "908e5b8ac1af91189ceefcfdb932b2b7eef8e4607baae211809e2dea419a2a79",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-04 19:56:35",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/validation_framework/__init__.py",
+      "size_bytes": 858,
+      "sha256": "1b3a6bb944e83213fecf01bea35b094676e9d68682642586bb8d8cc3d615085a",
+      "lines_of_code": 25,
+      "last_modified": "2026-09-04 20:17:44",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_content_truth_audit.py",
+      "size_bytes": 8754,
+      "sha256": "5051ed454e833cbc80db1b7f6ba1dfff8ad0bbc0a33df222becfc33e3ba7193a",
+      "lines_of_code": 203,
+      "last_modified": "2026-09-04 23:42:02",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_CONTENT_ACQUISITION_ARCHITECTURE.md",
+      "size_bytes": 8671,
+      "sha256": "e3d67e5e2b62dbb596fd2598a1003dee1bccad413a75bb9d412e081ca97d735e",
+      "lines_of_code": 140,
+      "last_modified": "2026-09-04 21:50:20",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_CONTENT_EXPANSION_REPORT.md",
+      "size_bytes": 13761,
+      "sha256": "3ce431ebeb173cf3596a3d6354bab11a21e18eb600590c8b8d685b6763f842bf",
+      "lines_of_code": 204,
+      "last_modified": "2026-09-04 22:31:00",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/ENTERPRISE_CONTENT_TRUTH_AUDIT.md",
+      "size_bytes": 34058,
+      "sha256": "30d46315734cd2afd5c805d1b6c25b7c8e833947d32a50f0e8c149a7efd489af",
+      "lines_of_code": 453,
+      "last_modified": "2026-09-04 23:37:56",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/test_reports/enterprise_content_inventory.json",
+      "size_bytes": 5639,
+      "sha256": "54c5cd03cf40fa667e355d65850740bc86df184f1887760fa8d64b9938b77d56",
+      "lines_of_code": 245,
+      "last_modified": "2026-09-04 23:41:49",
+      "classification": "generated_artifact",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/test_reports/enterprise_content_truth_audit.json",
+      "size_bytes": 1358417,
+      "sha256": "faddab74250182523e83dd0866d9dcdd759a2661c42607973973c8dc412ccab7",
+      "lines_of_code": 26197,
+      "last_modified": "2026-09-05 10:16:03",
+      "classification": "generated_artifact",
+      "status": "AG_CREATED"
+    }
+  ]
+}

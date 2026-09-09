@@ -1,0 +1,31 @@
+{
+  "summary": "NivXRay REVISED A+B+C stability gate executed on PRODUCTION (https://nivxray.nivxforge.com) against the authorized substitute record id 6a7d854423d53ce2b1105e6d — 17,732-character production verification (NOT the 17,681-char gate). Login OK (HTTP 200, JWT in localStorage.nvx_token). GET /api/history/6a7d854423d53ce2b1105e6d → 200, input_length=17732 (actual len(input)=17732), engine=chain, mitre=28, chain=37, output_length=15840. Record opened READ-ONLY through the real UI: /history page → [data-testid='history-row-6a7d854423d53ce2b1105e6d'] → [data-testid='btn-restore-<id>'] → Workspace rehydrated into CHAIN REPLAY read-only viewer. Heavy projection path rendered: 10 command stages (chain-replay-stage-0..9, per-stage engine/conf, decoded outputs 4000/2241/229 chars on drill-down), merged IOCs (urls 13, ips 3, domains 16, emails 1, sha256 1), verdict card (Malicious 100/100, chain-amplified), malware family (Generic PowerShell Downloader), 28 MITRE/kill-chain chips. Gate A: status-line = '▸ CHAIN REPLAY (10 stages · read-only)' — no simultaneous busy+terminal chips across 8 polls. Gate B: [data-testid='workspace-crash-fallback'] never appeared (0 hits across load, 4 drill-down expansions, 8 scroll passes, 4 tab switches and 15s idle). Gate C: 0 console errors, 0 pageerrors, none of the 4 forbidden error strings, and no literal '[object Object]' in DOM text or HTML. UI stayed responsive >15s (post-idle drill click on stage 3 honored). NO code changes, NO data created/modified (read-only GETs only; the chain 'RESTORE TO WORKSPACE' / re-run was deliberately NOT clicked to avoid creating a new production record).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "History restore of a kind='chain' record → ThreatAnalysis panel",
+        "issue": "OBSERVATION (not a crash): rehydrateFromHistory() short-circuits for kind==='chain' (WorkspacePage.jsx ~L671) so the right-hand ThreatAnalysis panel stays at 'No analysis yet — run a recipe or press AUTO-INVESTIGATE' and input-textarea length is 0, even though the record carries 28 MITRE items, 37 chain steps and full IOC sets. The heavy projection is instead rendered by ChainReplayView (stages + merged IOCs + verdict + kill-chain). Populating ThreatAnalysis (MITRE/IOC/CHAIN/GRAPH tabs) from the stored SSOT on chain rehydrate would be needed to exercise ThreatAnalysis.jsx itself without a re-run.",
+        "affected_selectors": ["[data-testid='tab-content-mitre']", "[data-testid='tab-content-iocs']", "[data-testid='tab-content-chain']", "[data-testid='input-textarea']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_74.json"],
+  "action_items": [
+    "None blocking. Optional: rehydrate ThreatAnalysis (MITRE/IOC/CHAIN/GRAPH) from the stored SSOT for kind='chain' history records so the full ThreatAnalysis render path is verifiable read-only, without requiring a re-run that would create a new production history record."
+  ],
+  "critical_code_review_comments": [
+    "PageErrorBoundary held through the entire chain-replay lifecycle; no unsafe object→string rendering observed (no '[object Object]').",
+    "Chain-record read-only viewer is the only populated heavy panel path; ThreatAnalysis.jsx (the Phase-D optimization target) was NOT exercised by this record's read-only load."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only scope)", "frontend": "100% — Gates A, B, C all PASS"},
+  "seed_data_creation": "None. Zero writes to production (login + read-only GETs + UI read-only rehydrate).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "PROD https://nivxray.nivxforge.com — admin@nivxray.com / NivXRay#2026! (HTTP 200; token in localStorage.nvx_token)",
+  "context_for_next_testing_agent": "Prod history UI: HISTORY nav = full page /history (HistoryPage.jsx → HistoryDrawer, 192 records, 100 rows rendered). Row testid = history-row-<id>, restore = btn-restore-<id>. For kind='chain' records, restore opens read-only ChainReplayView (testids: chain-replay-view, chain-replay-stage-N, btn-chain-replay-drill-N, chain-replay-output-N, chain-replay-verdict, chain-replay-iocs, chain-replay-family, chain-replay-kc-<id>) and does NOT populate input-textarea or ThreatAnalysis tabs (tab-mitre/tab-iocs/tab-chain/tab-graph, content testid tab-content-<tab>). Clicking btn-chain-replay-restore only loads stages into the chain editor (analysis reset to null) and requires a re-run — avoided on production. Record 6a7d854423d53ce2b1105e6d verified: 17,732 chars, engine=chain, 10 stages, 28 MITRE, output 15,840.",
+  "rca_of_the_issue": "No failure. Precondition satisfied via the 'command stages (10)' branch of the heavy-panel check plus merged IOCs / verdict / 28 MITRE chips. The ThreatAnalysis side panel being empty is by design for kind='chain' rehydrate (early return in rehydrateFromHistory), not a rendering error."
+}

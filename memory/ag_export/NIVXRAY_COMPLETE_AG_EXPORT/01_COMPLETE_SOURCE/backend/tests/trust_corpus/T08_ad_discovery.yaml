@@ -1,0 +1,20 @@
+id: T08_ad_discovery_powerview
+title: Suspicious — PowerView Active Directory enumeration
+provenance: red-team playbook · MITRE T1087.002
+input: 'Get-DomainUser -SPN | Select-Object samaccountname, serviceprincipalname'
+expected_verdict: suspicious
+must_fire_intents:
+  - discovery
+must_not_fire:
+  - staging
+  - persistence
+  - credential_access
+forbidden_words_in_verdict:
+  - kerberoast
+  - campaign
+  - APT
+must_admit_unknown: false
+notes: >
+  PowerView Get-DomainUser is a high-signal AD reconnaissance
+  primitive. Should fire discovery but not attribute a technique
+  (e.g. kerberoasting) without the follow-on evidence.

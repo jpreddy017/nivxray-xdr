@@ -1,0 +1,41 @@
+{
+  "label": "Medium",
+  "signals": [
+    {
+      "id": "health",
+      "status": "passed"
+    },
+    {
+      "id": "decoder",
+      "status": "skipped"
+    },
+    {
+      "id": "parser",
+      "status": "passed"
+    },
+    {
+      "id": "mitre",
+      "status": "passed"
+    },
+    {
+      "id": "lolbas",
+      "status": "passed"
+    },
+    {
+      "id": "ioc",
+      "status": "passed"
+    },
+    {
+      "id": "dkp",
+      "status": "missing"
+    },
+    {
+      "id": "evidence",
+      "status": "passed"
+    },
+    {
+      "id": "ai",
+      "status": "skipped"
+    }
+  ]
+}

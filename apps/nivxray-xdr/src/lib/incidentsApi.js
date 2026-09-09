@@ -7,8 +7,9 @@ import api from "@/lib/api";
 export async function listIncidents({
   limit = 100, lens = null, state = null, priority = null, severity = null,
   verdict = null, confidence = null, customer = null,
-  detection_source = null, technique = null,
+  detection_source = null, technique = null, assignment = null,
   sort = "updated_at", order = "desc",
+  ...rest
 } = {}) {
   const params = { limit, sort, order };
   if (lens) params.lens = lens;
@@ -20,6 +21,17 @@ export async function listIncidents({
   if (customer) params.customer = customer;
   if (detection_source) params.detection_source = detection_source;
   if (technique) params.technique = technique;
+  // Assignment is WORK MANAGEMENT, not visibility (P0-2b):
+  // unassigned | mine | team.
+  if (assignment) params.assignment = assignment;
+  // Column search + allow-listed negative predicates.
+  for (const k of ["number", "name", "assignee",
+                       "exclude_customer", "exclude_assignee",
+                       "exclude_detection_source", "exclude_priority",
+                       "exclude_severity", "exclude_verdict",
+                       "exclude_mitre"]) {
+    if (rest?.[k]) params[k] = rest[k];
+  }
   const { data } = await api.get("/incidents", { params });
   return data;
 }

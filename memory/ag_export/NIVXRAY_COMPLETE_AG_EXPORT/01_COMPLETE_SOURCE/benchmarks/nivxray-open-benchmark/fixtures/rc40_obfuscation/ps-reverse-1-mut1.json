@@ -1,0 +1,10 @@
+{
+  "id": "ps-reverse-1-mut1",
+  "category": "ps-reverse",
+  "command_line": "$s = 'exe.dapeton'; $x = -join ($s[-1..-11]); Invoke-Expression $x\n# comment-1",
+  "expected_keywords": [
+    "notepa"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

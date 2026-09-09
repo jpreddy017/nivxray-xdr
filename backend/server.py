@@ -61,6 +61,19 @@ from routers.iue_timeline import router as iue_timeline_router
 from routers.verdict_stage2 import router as verdict_stage2_router
 from routers.activity import router as activity_router
 from routers.incidents import router as incidents_router
+from routers.autonomous_investigator import router as autonomous_investigator_router
+from routers.autonomous_investigator import _registry_router as investigator_registry_router
+from routers.attack_story import router as attack_story_router
+from routers.incident_threat_model import router as incident_threat_model_router
+from routers.attack_graph import router as attack_graph_router
+from routers.attack_evidence import router as attack_evidence_router
+from routers.evidence_inspector import router as evidence_inspector_router
+from routers.report import router as report_router
+from routers.intelligence_overlay import router as intelligence_overlay_router
+from routers.mitre_catalogue import router as mitre_catalogue_router
+from routers.narration import router as narration_router
+from routers.telemetry_adapters import router as telemetry_adapters_router
+from routers.intelligence_policy import router as intelligence_policy_router
 from routers.xdr_dashboard import router as xdr_dashboard_router
 from routers.xdr_mss import router as xdr_mss_router
 from routers.xdr_queue_ops import router as xdr_queue_ops_router
@@ -118,12 +131,39 @@ from routers.public_feeds import router as public_feeds_router
 from routers.benchmark import router as benchmark_router
 from routers.multilayer_battery import router as multilayer_battery_router
 from routers.decode_feedback import router as decode_feedback_router
+# P0-H · Route-consistency alias for Response Fabric.
+from routers.response_alias import router as response_alias_router
 from request_hardening import RequestHardeningMiddleware
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+# ── P0-E · Observability foundation ────────────────────────────────────
+# Prometheus counters + histograms + JSON structured logging.
+# Owner-locked closure rule: `/api/metrics` must return real Prometheus
+# scrape output (not 404), and log lines must be a stable JSON envelope
+# with `trace_id`, `tenant_id`, `route`, `method`, `status`, `latency_ms`.
+from observability import (
+    ObservabilityMiddleware, install_json_logging, is_enabled as obs_enabled,
+    metrics_response,
+)
+
+# Install JSON logging BEFORE `basicConfig` runs so the JSON formatter
+# wins on the root logger.
+install_json_logging(level=os.environ.get("LOG_LEVEL", "INFO"))
 log = logging.getLogger("nivxray")
 
-app = FastAPI(title="NivXRay API")
+app = FastAPI(
+    title="NivXRay API",
+    version="1.0.0-rc",
+    # P0-H · owner-locked (2026-02):
+    # Expose OpenAPI + docs UI under the `/api/` prefix so they are
+    # reachable through the Kubernetes ingress (which routes only
+    # `/api/*` to the backend port).  The audit found
+    # `curl /api/openapi.json` returning 404 — this closes that gap.
+    openapi_url="/api/openapi.json",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
+if obs_enabled():
+    app.add_middleware(ObservabilityMiddleware)
 api = APIRouter(prefix="/api")
 
 
@@ -137,6 +177,17 @@ api = APIRouter(prefix="/api")
 @api.get("/health")
 async def health_liveness():
     return {"status": "ok", "service": "nivxray-api"}
+
+
+# ── P0-E · Prometheus scrape endpoint ────────────────────────────
+# Exposes counters + histograms recorded by ObservabilityMiddleware.
+# Locked as a decision-support surface for on-call / SIEM scrape.
+# Body is standard Prometheus text-format; no auth-gated so a
+# scraper can hit it inside the pod network — enterprise deployments
+# scope this via ingress rules / NetworkPolicy.
+@api.get("/metrics")
+async def metrics_endpoint():
+    return metrics_response()
 
 
 @app.get("/health", include_in_schema=False)
@@ -197,10 +248,27 @@ api.include_router(iue_timeline_router)
 api.include_router(verdict_stage2_router)
 api.include_router(activity_router)
 api.include_router(incidents_router)
+api.include_router(autonomous_investigator_router)
+api.include_router(investigator_registry_router)
+api.include_router(attack_story_router)
+api.include_router(incident_threat_model_router)
+api.include_router(attack_graph_router)
+api.include_router(attack_evidence_router)
+api.include_router(evidence_inspector_router)
+api.include_router(report_router)
+api.include_router(intelligence_overlay_router)
+api.include_router(mitre_catalogue_router)
+api.include_router(narration_router)
+api.include_router(telemetry_adapters_router)
+api.include_router(intelligence_policy_router)
 api.include_router(xdr_dashboard_router)
 api.include_router(xdr_mss_router)
 api.include_router(xdr_queue_ops_router)
 api.include_router(edr_projections_router)
+from routers.edr_response import (agent as edr_resp_agent,
+                                  router as edr_resp_router)
+api.include_router(edr_resp_router)
+api.include_router(edr_resp_agent)
 api.include_router(incident_summary_router)
 api.include_router(ops_router)
 api.include_router(analyze_router)
@@ -212,6 +280,10 @@ api.include_router(reports_router)
 api.include_router(admin_router)
 api.include_router(admin_aggregations_router)
 api.include_router(content_supply_chain_router)
+# P0-H · alias router mounts response endpoints at the intended
+# `/api/response/*` path.  Both paths remain reachable during the
+# transition.
+api.include_router(response_alias_router)
 api.include_router(telemetry_router)
 api.include_router(threat_intel_router)
 api.include_router(history_router)
@@ -246,6 +318,11 @@ api.include_router(auto_investigate_router)
 # to.  Idempotent on execution_id · never touches SSOT / Verdict / IKG.
 from routers.xdr_response_evidence import router as xdr_response_evidence_router
 api.include_router(xdr_response_evidence_router)
+
+# P0-1 · service boundary to the independently deployed Response Engine.
+# Holds no response state or logic; fails closed when the engine is down.
+from routers.xdr_respond_boundary import router as xdr_respond_boundary_router
+api.include_router(xdr_respond_boundary_router)
 from routers.xdr_audit_log import router as xdr_audit_log_router
 app.include_router(xdr_audit_log_router)
 from routers.xdr_secrets import router as xdr_secrets_router
@@ -267,10 +344,24 @@ from routers.xdr_collectors import router as xdr_collectors_router
 app.include_router(xdr_collectors_router)
 from routers.xdr_ingest import router as xdr_ingest_router
 app.include_router(xdr_ingest_router)
+from routers.xdr_spread import router as xdr_spread_router
+app.include_router(xdr_spread_router)
 # P1 · Detection Content Registry (Sigma + MITRE analytics + native).
 # 10-stage sync pipeline · never fabricates · bundled snapshot fallback.
 from routers.xdr_detection_content import router as xdr_detection_content_router
 app.include_router(xdr_detection_content_router)
+# Gate 0.5 · Truth-verification introspection endpoints (READ-ONLY, additive).
+# Reports live Content Fabric + Decoder registry inventories without
+# manufacturing a canonical 615 / 59 integer. Owner-approved AD-05.
+from routers.truth_inventory import router as truth_inventory_router
+app.include_router(truth_inventory_router)
+# AG Baseline Integration · Security State & Causal Intelligence Core.
+# 14 endpoints backed by the full AG security_state package (attack-state
+# machine, causal engine, capability abuse, reachability, counterfactual,
+# impact, intervention optimizer, response safety, verification, ledger).
+# Router already carries its own /api/v2/security-state prefix — attach to app.
+from security_state.routers.router import router as security_state_router
+app.include_router(security_state_router)
 from routers.xdr_cve import router as xdr_cve_router
 app.include_router(xdr_cve_router)
 from routers.xdr_rule_studio import router as xdr_rule_studio_router
@@ -428,6 +519,86 @@ api.include_router(static_docs_router)
 # Semantic-Mapping-Preview) deleted.
 
 # ─────────────────────────────────────────────────────────────────────
+# Round 28 · Generalized Vendor Wizard — /api/xdr/vendor/{vendor_key}/...
+# Legacy /api/xdr/vendor/cortex/... routes remain as backwards-compatible
+# aliases (Round 25a).
+try:
+    from routers.xdr_vendor_wizard import router as xdr_vendor_wizard_router
+    app.include_router(xdr_vendor_wizard_router)
+    log.info("[startup] Vendor wizard mounted at /api/xdr/vendor/{vendor_key}")
+except Exception as _vwx:                                          # pragma: no cover
+    log.warning("[startup] Vendor wizard mount failed: %s", _vwx)
+
+# ─────────────────────────────────────────────────────────────────────
+# Round 27 · Cortex Response Console — Execute endpoint that closes
+# the evidence → recommendation → action → ACTIONED evidence loop.
+try:
+    from routers.xdr_cortex_actions import router as xdr_cortex_actions_router
+    app.include_router(xdr_cortex_actions_router)
+    log.info("[startup] Cortex response console mounted at /api/xdr/vendor/cortex/actions")
+except Exception as _cax:                                          # pragma: no cover
+    log.warning("[startup] Cortex response console mount failed: %s", _cax)
+
+# ─────────────────────────────────────────────────────────────────────
+# Round 26.5b · Cortex Poller Scheduler — periodic REST polling with
+# per-integration locks and honest failure-state audit.
+try:
+    from detection_content.xdr_cortex_scheduler import get_scheduler
+    from deps import db as _sched_db
+
+    @app.on_event("startup")
+    async def _cortex_scheduler_startup():
+        try:
+            await get_scheduler(_sched_db).start()
+            log.info("[startup] Cortex poller scheduler started")
+        except Exception as e:                                     # noqa: BLE001
+            log.warning("[startup] Cortex poller scheduler start failed: %s", e)
+
+    @app.on_event("shutdown")
+    async def _cortex_scheduler_shutdown():
+        try:
+            await get_scheduler(_sched_db).stop()
+        except Exception:                                          # noqa: BLE001
+            pass
+except Exception as _cortex_sched_exc:                             # pragma: no cover
+    log.warning("[startup] Cortex scheduler wiring failed: %s", _cortex_sched_exc)
+
+# ─────────────────────────────────────────────────────────────────────
+# Round 26 · Cortex Ingest Fabric — webhook + poller + audit surface.
+try:
+    from routers.xdr_cortex_ingest_routes import router as xdr_cortex_ingest_router
+    app.include_router(xdr_cortex_ingest_router)
+    log.info("[startup] Cortex ingest fabric mounted at /api/xdr/vendor/cortex")
+except Exception as _cix:                                          # pragma: no cover
+    log.warning("[startup] Cortex ingest mount failed: %s", _cix)
+
+# ─────────────────────────────────────────────────────────────────────
+# Round 25a · Cortex XDR Vendor Wizard — typed onboarding surface.
+# Runs against the customer's REAL Cortex tenant via xdr_cortex_adapter;
+# never fabricates a probe result.  Persists into xdr_integrations so
+# xdr_capability_service consumes it deterministically.
+try:
+    from routers.xdr_cortex_wizard import router as xdr_cortex_wizard_router
+    app.include_router(xdr_cortex_wizard_router)
+    log.info("[startup] Cortex XDR vendor wizard mounted at /api/xdr/vendor/cortex")
+except Exception as _cwx:                                          # pragma: no cover
+    log.warning("[startup] Cortex wizard mount failed: %s", _cwx)
+
+# ─────────────────────────────────────────────────────────────────────
+# Round 24.95 · Collector Landing — HTTP transports of the standalone
+# NivXRay XDR Collector are landed in this backend under
+# /api/xdr/collector/*.  Standalone process remains deployable for
+# on-prem syslog forwarding.  Guarded so a broken/missing standalone
+# repo cannot crash boot.
+try:
+    from routers.xdr_collector_landing import attach_collector_landing
+    _landed = attach_collector_landing(app)
+    log.info("[startup] XDR collector landing: %s",
+             "mounted at /api/xdr/collector" if _landed else "skipped (dir missing)")
+except Exception as _landing_exc:                              # pragma: no cover
+    log.warning("[startup] XDR collector landing failed: %s", _landing_exc)
+
+# ─────────────────────────────────────────────────────────────────────
 # ADR-0005 · NivXForge router mount (READ-ONLY Preview endpoints only).
 # Authorised 2026-02-28. Any write endpoint under /api/nivxforge/*
 # requires a separate ADR.
@@ -446,6 +617,29 @@ api.include_router(audit_downloads_router)
 # P0g · NAIDE pitch-deck download endpoint
 from routers.deck_download import router as deck_download_router
 api.include_router(deck_download_router)
+
+# NivXForge EDR · Wave 0 — the capability-truth API. Read-only. Serves the
+# executable contracts, the graded capability registry, the filter-taxonomy
+# status and the immutable raw-event substrate stats, so the console cannot
+# claim a capability the registry denies.
+# Authority: docs/architecture/NIVXFORGE_EDR_MASTER_DIRECTIVE.md
+from routers.edr_wave0 import router as edr_wave0_router
+api.include_router(edr_wave0_router)
+
+from routers.xdr_search import router as xdr_search_router
+api.include_router(xdr_search_router)
+
+
+# NivXForge EDR · P0-A.2 — enrolment control plane + authenticated agent
+# surface. Enrolment, sensor identity and telemetry authentication are ONE
+# atomic boundary: every raw event records which authenticated endpoint
+# produced it. Transport is pluggable (bearer today, mTLS later) without
+# touching identity, the envelope or any ingestion contract.
+from routers.edr_enrollment import admin as edr_enrollment_admin_router
+from routers.edr_enrollment import agent as edr_agent_router
+api.include_router(edr_enrollment_admin_router)
+api.include_router(edr_agent_router)
+
 
 # v2 · Additive next-generation namespace (Phase 3+).
 # Isolated inside a try/except so if `/app/backend/v2/` is deleted
@@ -644,6 +838,30 @@ async def _startup():
         log.info("[startup] decoded artifact store indexes ensured")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] decoded artifact indexes failed: {e}")
+    # NivXForge EDR Wave 0 · immutable raw-event substrate. The unique
+    # (tenant_id, dedup_key) index is what makes append-only idempotency a
+    # storage guarantee rather than an application convention.
+    try:
+        from edr_plane.raw_events import ensure_indexes as _ensure_raw_indexes
+        from deps import db as _raw_db
+        await _ensure_raw_indexes(_raw_db)
+        from edr_plane.enrollment.store import ensure_indexes as _ensure_enr
+        from edr_plane.enrollment.rejection import (
+            ensure_indexes as _ensure_rej)
+        from edr_plane.response import ensure_indexes as _ensure_resp
+        await _ensure_resp(_raw_db)
+        await _ensure_enr(_raw_db)
+        await _ensure_rej(_raw_db)
+        # P0-D · the activity-identity lookup that keeps a re-observation
+        # from becoming a second piece of evidence.
+        await _raw_db["v2_shadow_observations"].create_index(
+            [("tenant_id", 1), ("activity_identity", 1)],
+            name="tenant_activity_identity", sparse=True)
+        log.info("[startup] edr_raw_events + enrollment indexes ensured "
+                 "(append-only)")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] edr_raw_events indexes failed: {e}")
+
     # P1.1 · FileStore retention sweeper (application-controlled TTL)
     try:
         from services.files.retention_sweeper import start_retention_sweeper

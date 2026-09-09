@@ -1,0 +1,1 @@
+http://ofc-3.example.test/report-drop.exe

@@ -1,0 +1,44 @@
+{
+  "id": "xor-fill-22",
+  "category": "ps-crypto",
+  "algorithm": "XOR-multi",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('c0v3rt'); $c=[byte[]](0,95,6,74,82,91,26,16,53,9,46,35,10,94,18,92,5,7,63,99,15,64,6,17,14,3,68,111,28,27,23,85,6,82,22,90,6,72,19,19,49,78,63,101,5,86,0,7,63,96,3,81,30,29,0,108,3,67,22,21,23,85,4,29,23,12,6); $o=[byte[]]::new($c.Length); for($i=0;$i -lt $c.Length;$i++){$o[$i]=$c[$i] -bxor $k[$i%$k.Length]}; IEX ([Text.Encoding]::UTF8.GetString($o))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "byte-array-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "copy /y C:\\Windows\\System32\\notepad.exe C:\\Users\\Public\\updater.exe",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

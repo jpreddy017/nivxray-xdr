@@ -1,0 +1,41 @@
+{
+  "id": "SCN-2026-UNK-001",
+  "category": "unknown",
+  "title": "First-seen binary from a low-signal telemetry source",
+  "description": "An unfamiliar executable is observed on a host with no MITRE mapping, no rule match, no TI signal, and no historical baseline. Engine must NOT fabricate a verdict; the correct outcome is 'unknown — evidence required'.",
+  "raw_events": [
+    { "kind": "process_create", "ts": "2026-02-10T17:44:00Z",
+      "image": "C:\\Temp\\svc-alpha.exe", "parent_image": "explorer.exe",
+      "user": "engineer.q", "host": "HOST-88",
+      "hash_sha256": "0000000000000000000000000000000000000000000000000000000000000000" }
+  ],
+  "normalized_evidence": [
+    { "type": "process", "image": "C:\\Temp\\svc-alpha.exe",
+      "parent": "explorer.exe", "user": "engineer.q", "host": "HOST-88",
+      "hash_sha256": "0000...unknown" }
+  ],
+  "expected_entities": {
+    "hosts": ["HOST-88"], "users": ["engineer.q"],
+    "processes": ["svc-alpha.exe"], "iocs": []
+  },
+  "expected_correlations": [],
+  "expected_rules_matched": [],
+  "expected_mitre": [],
+  "expected_attack_story": [
+    "First-seen executable svc-alpha.exe launched by engineer.q on HOST-88.",
+    "No rule match, no TI signal, no historical baseline available."
+  ],
+  "expected_verdict": {
+    "verdict": "unknown", "confidence": 0.0, "severity": "info",
+    "reason": "Insufficient signal — do not fabricate a verdict"
+  },
+  "expected_severity": "info",
+  "expected_recommendations": [
+    { "kind": "enrich",  "action": "ioc_enrich",              "priority": "high" },
+    { "kind": "collect", "action": "collect_endpoint_evidence","priority": "medium" }
+  ],
+  "expected_playbook": null,
+  "expected_response_outcome": { "state": "NOT_REQUIRED" },
+  "expected_report_sections": ["executive_summary", "investigation_gaps",
+                                                 "supporting_evidence"]
+}

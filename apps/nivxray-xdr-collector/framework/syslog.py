@@ -23,6 +23,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 from framework.base    import Connector, Envelope, Health, Capability
 from framework.parsers import parse_rfc3164, parse_rfc5424, parse_syslog_auto, utcnow_iso
+from framework.payload_formats import detect_and_parse
+from framework.identity import collector_id
 
 
 class SyslogConnector(Connector):
@@ -51,6 +53,31 @@ class SyslogConnector(Connector):
 
     # ── pure parsing helper (also used by the direct-inject test API) ──
     def parse(self, line: str) -> Dict[str, Any]:
+        """Syslog header first, then the payload format on top.
+
+        CEF and LEEF are payload encodings carried BY syslog, so they are
+        layered onto this receiver instead of getting a transport of their
+        own. A payload that is neither is left exactly as the syslog
+        parser produced it.
+        """
+        parsed = self._parse_syslog(line)
+        body = parsed.get("message") or parsed.get("msg") or line
+        payload = detect_and_parse(body)
+        if payload:
+            parsed["syslog_parser"] = parsed.get("parser")
+            parsed["parser"] = f"{parsed.get('parser', 'auto')}+{payload['parser']}"
+            parsed["payload_format"] = payload["parser"]
+            parsed["payload"] = payload
+            # The payload's own device time wins over the syslog header when
+            # the sender provided one; the header value is kept alongside.
+            if payload.get("source_timestamp"):
+                parsed["syslog_timestamp"] = parsed.get("timestamp")
+                parsed["timestamp"] = payload["source_timestamp"]
+        else:
+            parsed["payload_format"] = "raw"
+        return parsed
+
+    def _parse_syslog(self, line: str) -> Dict[str, Any]:
         fmt = (self.config.get("format") or "auto").lower()
         if fmt == "rfc3164":  return parse_rfc3164(line)
         if fmt == "rfc5424":  return parse_rfc5424(line)
@@ -65,13 +92,14 @@ class SyslogConnector(Connector):
             source               = self.label,
             source_event_id      = eid,
             connector_id         = self.identity,
-            collector_id         = "collector-local",
+            collector_id         = collector_id(),
             collection_method    = "syslog",
             parser_version       = f"phaseB.syslog.{parsed.get('parser', 'auto')}.1",
             source_timestamp     = str(ts) if ts else None,
             collection_timestamp = utcnow_iso(),
             event_type           = self.source_type,
-            raw                  = {"line": line, "remote": remote},
+            raw                  = {"line": line, "remote": remote,
+                                    "payload_format": parsed.get("payload_format")},
             canonical            = parsed,
         )
 

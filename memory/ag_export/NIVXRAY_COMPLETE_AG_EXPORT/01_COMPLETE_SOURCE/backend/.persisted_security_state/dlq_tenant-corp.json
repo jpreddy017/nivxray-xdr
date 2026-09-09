@@ -1,0 +1,84 @@
+[
+  {
+    "dlq_id": "dlq-dd641087d62d",
+    "source_id": "replay-equivalence_test",
+    "event_id": "ev-archetype-cmd",
+    "tenant_id": "tenant-corp",
+    "failure_class": "MALFORMED_TIMESTAMP",
+    "reason": "Future-dated event exceeds allowed clock skew: 2026-09-04T00:00:01Z",
+    "timestamp": "2026-09-03T23:48:47.388652+00:00",
+    "schema_version": "1.0.0",
+    "provenance": {
+      "source": "ReplayStreamingSource",
+      "corpus": "equivalence_test",
+      "case_id": "case-stream-01",
+      "item_index": 0
+    },
+    "raw_envelope": {
+      "source_id": "replay-equivalence_test",
+      "authenticated_tenant_id": "tenant-corp",
+      "event_id": "ev-archetype-cmd",
+      "event_timestamp": "2026-09-04T00:00:01Z",
+      "ingest_timestamp": "2026-09-03T23:48:47.367067+00:00",
+      "schema_version": "1.0.0",
+      "payload_signature": "e11b9de7d5dfa42d8199382e40cdc7eb4b00ff70236b0b337076b4d8e8903eea",
+      "provenance": {
+        "source": "ReplayStreamingSource",
+        "corpus": "equivalence_test",
+        "case_id": "case-stream-01",
+        "item_index": 0
+      },
+      "payload": {
+        "process_name": "powershell.exe",
+        "command_line": "powershell.exe -enc SQBFAFgA...",
+        "iu_type": "command_line",
+        "action": "process.start",
+        "source_kind": "endpoint",
+        "is_critical": true
+      }
+    },
+    "replayed": false,
+    "replayed_at": null
+  },
+  {
+    "dlq_id": "dlq-5f5d5a16b6c8",
+    "source_id": "replay-equivalence_test",
+    "event_id": "ev-archetype-cred",
+    "tenant_id": "tenant-corp",
+    "failure_class": "MALFORMED_TIMESTAMP",
+    "reason": "Future-dated event exceeds allowed clock skew: 2026-09-04T00:00:02Z",
+    "timestamp": "2026-09-03T23:48:47.409886+00:00",
+    "schema_version": "1.0.0",
+    "provenance": {
+      "source": "ReplayStreamingSource",
+      "corpus": "equivalence_test",
+      "case_id": "case-stream-01",
+      "item_index": 1
+    },
+    "raw_envelope": {
+      "source_id": "replay-equivalence_test",
+      "authenticated_tenant_id": "tenant-corp",
+      "event_id": "ev-archetype-cred",
+      "event_timestamp": "2026-09-04T00:00:02Z",
+      "ingest_timestamp": "2026-09-03T23:48:47.367067+00:00",
+      "schema_version": "1.0.0",
+      "payload_signature": "152c627bc206af12b530305e643ec13eb0fff2ab54d8a4adba6fec8fb3d174d6",
+      "provenance": {
+        "source": "ReplayStreamingSource",
+        "corpus": "equivalence_test",
+        "case_id": "case-stream-01",
+        "item_index": 1
+      },
+      "payload": {
+        "command_line": "mimikatz.exe sekurlsa::logonpasswords",
+        "technique_id": "T1003",
+        "action": "credential.access",
+        "source_kind": "endpoint",
+        "is_critical": true,
+        "capability": "CAP_CREDENTIAL_ACCESS"
+      }
+    },
+    "replayed": false,
+    "replayed_at": null
+  }
+]

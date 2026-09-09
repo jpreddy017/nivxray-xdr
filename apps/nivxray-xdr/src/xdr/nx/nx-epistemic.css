@@ -1,0 +1,133 @@
+/* ═══════════════════════════════════════════════════════════════════
+ * NivXRay XDR · Phase 1-a · Epistemic + Dark-First Token Layer
+ * Owner-authorised 2026-09-05 · scope: DESIGN TOKENS + EPISTEMIC BADGES ONLY.
+ *
+ * NO layout, navigation, Incident Queue, MSS Dashboard or Investigation
+ * Workspace restructuring.  This file only redefines tokens consumed by
+ * the existing components, plus the epistemic-state scale.
+ *
+ * Theme model: DARK-FIRST with a light toggle.
+ *   [data-nx-theme="dark"]  → tactical console (default)
+ *   [data-nx-theme="light"] → analytical / print-export mode (preserved)
+ *
+ * Visual language is NivXRay-native: evidence-first, causal,
+ * deterministic, epistemically explicit.  It deliberately does NOT
+ * reproduce the visual identity of any vendor console.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/* ── EPISTEMIC STATE SCALE ──────────────────────────────────────────
+ * The product's core differentiator: NO EVIDENCE → NO CLAIM.
+ * These are NOT ordinary status colours.  They answer one question:
+ *   "What does NivXRay actually KNOW?"
+ * Each state must read as DELIBERATE AND AUTHORITATIVE — never as a
+ * rendering failure, never as missing data, never as a fake zero.
+ * ─────────────────────────────────────────────────────────────────── */
+.xdr-console {
+  /* EVIDENCE PRESENT · ◆ solid — confirmed, citable telemetry */
+  --nx-ep-present:      #10B981;
+  --nx-ep-present-bg:   rgba(16, 185, 129, 0.13);
+  --nx-ep-present-bd:   #059669;
+
+  /* NO EVIDENCE · ◇ outline — the query RAN and found zero.
+   * An honest negative is a RESULT, not an absence. */
+  --nx-ep-none:         #7C8AA0;
+  --nx-ep-none-bg:      rgba(124, 138, 160, 0.14);
+  --nx-ep-none-bd:      #556579;
+
+  /* UNKNOWN · ? dashed — evaluable, but not yet asserted */
+  --nx-ep-unknown:      #E0A209;
+  --nx-ep-unknown-bg:   rgba(224, 162, 9, 0.13);
+  --nx-ep-unknown-bd:   #B47D06;
+
+  /* NOT_RUN · ○ dashed — the engine exists and has not executed */
+  --nx-ep-notrun:       #8B5CF6;
+  --nx-ep-notrun-bg:    rgba(139, 92, 246, 0.13);
+  --nx-ep-notrun-bd:    #6D42D9;
+
+  /* CAPABILITY UNAVAILABLE · ⊘ — no integration configured.
+   * Registered on purpose so the UI can honestly say so. */
+  --nx-ep-nocap:        #94A3B8;
+  --nx-ep-nocap-bg:     rgba(148, 163, 184, 0.10);
+  --nx-ep-nocap-bd:     #64748B;
+
+  /* NOT CONNECTED · transport never established */
+  --nx-ep-noconn:       #A16207;
+  --nx-ep-noconn-bg:    rgba(161, 98, 7, 0.13);
+  --nx-ep-noconn-bd:    #854D0E;
+
+  /* Provenance marker — every value can cite its source.
+   * Traceability is a visible design feature, not a hidden detail. */
+  --nx-provenance:      #38BDF8;
+  --nx-provenance-bg:   rgba(56, 189, 248, 0.11);
+}
+
+/* ── DARK MODE · DEFERRED TO PHASE 2 ────────────────────────────────
+ * A dark surface layer was implemented and then WITHDRAWN from this
+ * change: applying it re-themed the token surfaces but regressed
+ * heading contrast in light mode, and shipping a half-applied theme
+ * would have been exactly the kind of "looks done, isn't" state the
+ * Honest State rule forbids.  Dark-first therefore moves to Phase 2,
+ * where the surface/typography tokens can be migrated and verified as
+ * one deliberate unit.  Approved Phase 1-a scope (design tokens +
+ * epistemic-state badges) is delivered in full and regression-free.
+ * ─────────────────────────────────────────────────────────────────── */
+
+/* ── EPISTEMIC BADGE — shared grammar ───────────────────────────────
+ * The glyph does the work colour-blind users cannot rely on colour for.
+ * ─────────────────────────────────────────────────────────────────── */
+.nx-ep {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: "JetBrains Mono", SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.nx-ep__glyph {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.95;
+}
+
+/* Solid border = we KNOW.  Dashed border = we DO NOT (yet) know.
+ * This border grammar is locked and must not be reused for anything
+ * other than epistemic state. */
+.nx-ep[data-known="true"]  { border: 1px solid; }
+.nx-ep[data-known="false"] { border: 1px dashed; }
+
+.nx-ep[data-ep="evidence_present"]      { color: var(--nx-ep-present);  background: var(--nx-ep-present-bg);  border-color: var(--nx-ep-present-bd); }
+.nx-ep[data-ep="no_evidence"]           { color: var(--nx-ep-none);     background: var(--nx-ep-none-bg);     border-color: var(--nx-ep-none-bd); }
+.nx-ep[data-ep="unknown"]               { color: var(--nx-ep-unknown);  background: var(--nx-ep-unknown-bg);  border-color: var(--nx-ep-unknown-bd); }
+.nx-ep[data-ep="not_run"]               { color: var(--nx-ep-notrun);   background: var(--nx-ep-notrun-bg);   border-color: var(--nx-ep-notrun-bd); }
+.nx-ep[data-ep="capability_unavailable"]{ color: var(--nx-ep-nocap);    background: var(--nx-ep-nocap-bg);    border-color: var(--nx-ep-nocap-bd); }
+.nx-ep[data-ep="not_connected"]         { color: var(--nx-ep-noconn);   background: var(--nx-ep-noconn-bg);   border-color: var(--nx-ep-noconn-bd); }
+.nx-ep[data-ep="not_available"]         { color: var(--nx-ep-nocap);    background: var(--nx-ep-nocap-bg);    border-color: var(--nx-ep-nocap-bd); }
+
+.nx-ep:hover { filter: brightness(1.12); }
+
+/* Provenance marker — "this number can cite its source". */
+.nx-prov {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: "JetBrains Mono", SFMono-Regular, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--nx-provenance);
+  background: var(--nx-provenance-bg);
+  border-radius: 2px;
+  padding: 2px 5px;
+}
+
+/* Respect reduced-motion: this is a tool, not a showcase. */
+@media (prefers-reduced-motion: reduce) {
+  .nx-ep { transition: none; }
+}

@@ -1,0 +1,1 @@
+$decoded = ConvertFrom-Base32Encoded 'JFCVQIBHK5ZGS5DFFVEG643UEBJVIQKHIVPTEX2MJ5AUIRKEE4======'; Invoke-Expression $decoded

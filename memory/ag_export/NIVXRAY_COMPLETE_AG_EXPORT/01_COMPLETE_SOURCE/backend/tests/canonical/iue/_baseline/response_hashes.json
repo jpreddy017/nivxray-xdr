@@ -1,0 +1,18 @@
+{
+  "bare_url_medium_style": {
+    "sha256": "febd68f13aab444b8018ee91dd0d97e0bd04b407d565aedffd9fef6038f93a00",
+    "size": 1892
+  },
+  "powershell_naked": {
+    "sha256": "92b9c1cf9c6ac52c6600fa6b3d12660a2a6641d89f3cc765d2cd350e6d1af56b",
+    "size": 2136
+  },
+  "plain_english_short": {
+    "sha256": "35aa379db9d4b99e5587825657092843d4ae775553ad5b0ebdbd528a29dd329b",
+    "size": 2111
+  },
+  "hex_ratio_long": {
+    "sha256": "7061f38454cd08a06cb092d6827779f30500d87abd57114caf31ebd4e1b97aad",
+    "size": 2204
+  }
+}

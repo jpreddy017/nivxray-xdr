@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-ascii-0-mut4",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[System.Text.Encoding]::ASCII.GetBytes('KEY');            $b=[byte[]](40,40,61,107,106,58,107,50,49,36,36,52,34);            $d=-join(0..($b.Length-1)|%{[char]($b[$_] -bxor $k[$_ % $k.Length])});            IEX $d",
+  "expected_keywords": [
+    "whoami"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

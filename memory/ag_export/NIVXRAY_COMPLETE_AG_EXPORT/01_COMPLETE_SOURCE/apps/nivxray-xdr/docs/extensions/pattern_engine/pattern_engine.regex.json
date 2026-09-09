@@ -1,0 +1,20 @@
+{
+  "capability_id": "pattern_engine.regex",
+  "name": "Regex Pattern Engine",
+  "type": "PATTERN_ENGINE",
+  "provider": "nivxray",
+  "version": "1.0.0",
+  "vendor": "NivXRay",
+  "description": "Deterministic regex evaluator with case-insensitive + timeout + capture-group support. Every regex match becomes an evidence observation with rule_id + matched_field + matched_value + provenance — NEVER a verdict.",
+  "authentication": ["none"],
+  "permissions": ["evaluate:regex"],
+  "supported_operations": ["match", "extract", "test_pattern"],
+  "input_schema": { "pattern": "regex", "flags": "string",
+                          "apply_to": "array<string>" },
+  "output_schema": { "observation": "object", "provenance": "object" },
+  "health_check": { "kind": "internal", "interval_seconds": 3600 },
+  "lifecycle": "ENABLED",
+  "adapter_status": "AVAILABLE",
+  "risk": "low",
+  "execution_mode": "sync"
+}

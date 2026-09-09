@@ -13,7 +13,8 @@
 import {
   LayoutGrid, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, ArrowRightLeft, Users, Webhook, HeartPulse,
-  Boxes, FolderTree, Radar, PlusCircle, ShieldCheck, KeyRound, Package,
+  Boxes, FolderTree, Radar, PlusCircle, ShieldCheck, ShieldOff, KeyRound,
+  Package,
 } from "lucide-react";
 
 export const ADMIN_SECTIONS = [
@@ -41,6 +42,27 @@ export const ADMIN_SECTIONS = [
     key: "capability-hub", label: "Capability Hub", icon: PlusCircle,
     subtitle: "Plug-and-play extension registry · Install → Configure → Test → Enable · every capability is a validated manifest, never uploaded code.",
     api: null, kind: "capability_hub", connected: true,
+  },
+  {
+    key: "edr-enrollment", label: "NivXRay EDR · Endpoint Enrolment",
+    icon: KeyRound,
+    subtitle: "P0-A.2 · one-time enrolment tokens, durable per-agent credentials, rotation, revocation and the rejected-sensor alarm. Enrolment, sensor identity and telemetry authentication are one atomic boundary: every raw event records which authenticated endpoint produced it.",
+    api: "/api/edr/enrollment/endpoints", kind: "edr_enrollment",
+    connected: true, authoritative: true,
+  },
+  {
+    key: "edr-response", label: "NivXRay EDR · Response Verification",
+    icon: ShieldOff,
+    subtitle: "P0-F.6 · the action record as an EVIDENCE surface, not a success indicator. Requested by → target process identity (pid + start_ticks) → dispatch → sensor claim → independent post-action verification → final result. Only a record whose probe re-read the target on the endpoint is shown as verified; EXECUTED is a sensor claim and is never displayed as completion.",
+    api: "/api/edr/response/actions", kind: "edr_response",
+    connected: true, authoritative: true,
+  },
+  {
+    key: "edr-capability-truth", label: "NivXRay EDR · Capability Truth",
+    icon: ShieldCheck,
+    subtitle: "Wave 0 honesty baseline · every EDR capability graded across all three planes with feature state, gap class and an evidence reference. No capability counts as implemented merely because a route, UI component, stub, simulator or contract exists.",
+    api: "/api/edr/wave0/capabilities", kind: "edr_capability_truth",
+    connected: true, authoritative: true,
   },
   {
     key: "detection-registry", label: "Detection Registry",
@@ -141,6 +163,11 @@ export const ADMIN_SECTIONS = [
     key: "api-webhooks", label: "Webhooks", icon: Webhook,
     subtitle: "Outbound webhooks · HMAC-SHA256 signed · secret via P0-2 Secrets Store · retry/backoff/DLQ · replay · delivery states PENDING/DELIVERING/DELIVERED/RETRYING/FAILED/DLQ (DELIVERED requires an actual 2xx response) · RBAC-gated · audit-logged.",
     api: null, kind: "webhooks", connected: true,
+  },
+  {
+    key: "response-strategies", label: "Response Strategies", icon: ShieldCheck,
+    subtitle: "Round 20 · Knowledge transparency surface · Threat-Family → Response-Strategy → Candidate-Actions matrix (14 families × 5 objectives) · exclusion permissions · required evidence dimensions · not an engine.",
+    api: null, kind: "response_strategies", connected: true,
   },
   {
     key: "platform-health", label: "Platform Health", icon: HeartPulse,

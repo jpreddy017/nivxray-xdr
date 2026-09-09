@@ -1,0 +1,14 @@
+{
+  "id": "benign-admin-0",
+  "algorithm": "OpenSSL:AES-CBC",
+  "key_status": "n/a",
+  "recoverable_stages": [
+    "plain-cli-parse"
+  ],
+  "runtime_stages": [],
+  "expected_verdict": "benign",
+  "expected_iocs": [],
+  "expected_lolbins": [],
+  "expected_mitre": [],
+  "static_recovery_verdict": "static-recovery-complete"
+}

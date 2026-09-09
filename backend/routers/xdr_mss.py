@@ -34,10 +34,13 @@ def _now() -> datetime:
 
 
 def _base_scope(email: str | None) -> Dict[str, Any]:
-    q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
-    if email:
-        q["user_email"] = email
-    return q
+    # P0-2 queue purity: delegate to the single authoritative scope in
+    # services.dashboard_lenses so the MSS panels cannot drift from the
+    # tiles/queue.  Previously this duplicated the predicate and omitted
+    # the doc_type filter, so distribution/workload/detection panels still
+    # counted analysis cases while the tiles counted incidents only.
+    from services.dashboard_lenses import _scope
+    return _scope({}, email)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -121,7 +124,7 @@ async def mss_soc_queue(limit: int = Query(10, ge=1, le=50),
         return {"generated_at": _now().isoformat(), "rows": [], "count": 0,
                   "source": "empty"}
     cur = _col.find(pred, {
-        "_id": 0, "id": 1, "name": 1, "user_email": 1, "tenant_id": 1,
+        "_id": 0, "id": 1, "name": 1, "title": 1, "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "verdict_stage2": 1, "verdict_card": 1,
         "incident_state": 1, "incident_assignee": 1, "incident_priority": 1,
         "incident_severity": 1, "high_fidelity": 1, "customer_engaged": 1,
@@ -132,7 +135,8 @@ async def mss_soc_queue(limit: int = Query(10, ge=1, le=50),
         stage2 = d.get("verdict_stage2") or {}
         rows.append({
             "id":             d.get("id"),
-            "name":           d.get("name") or "(unnamed)",
+            # Pipeline incidents persist their display string as `title`.
+            "name":           d.get("name") or d.get("title") or "(unnamed)",
             "priority":       d.get("incident_priority") or "unset",
             "severity":       d.get("incident_severity")
                                  or (stage2.get("label") or "unset"),
@@ -394,7 +398,7 @@ async def mss_recent_activity(
     as a plain "updated" event."""
     email = (user or {}).get("email")
     q = _base_scope(email)
-    cur = _col.find(q, {"_id": 0, "id": 1, "name": 1,
+    cur = _col.find(q, {"_id": 0, "id": 1, "name": 1, "title": 1,
                              "incident_state": 1, "incident_state_history": 1,
                              "incident_assignee": 1,
                              "updated_at": 1, "created_at": 1}
@@ -406,7 +410,7 @@ async def mss_recent_activity(
             for h in history[-3:]:
                 events.append({
                     "incident_id":   d["id"],
-                    "incident_name": d.get("name"),
+                    "incident_name": d.get("name") or d.get("title"),
                     "action":        f"state → {h.get('to_state', 'unknown')}",
                     "actor":         h.get("actor") or "system",
                     "at":            h.get("at") or d.get("updated_at"),
@@ -414,7 +418,7 @@ async def mss_recent_activity(
         else:
             events.append({
                 "incident_id":   d["id"],
-                "incident_name": d.get("name"),
+                "incident_name": d.get("name") or d.get("title"),
                 "action":        "updated",
                 "actor":         d.get("incident_assignee") or "system",
                 "at":            d.get("updated_at") or d.get("created_at"),

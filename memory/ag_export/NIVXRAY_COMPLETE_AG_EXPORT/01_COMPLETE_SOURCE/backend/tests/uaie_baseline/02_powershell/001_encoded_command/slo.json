@@ -1,0 +1,9 @@
+{
+  "max_ms": 3000,
+  "max_behaviors": 10,
+  "min_tactics": 2,
+  "expect_decode": [
+    "base64",
+    "utf16le"
+  ]
+}

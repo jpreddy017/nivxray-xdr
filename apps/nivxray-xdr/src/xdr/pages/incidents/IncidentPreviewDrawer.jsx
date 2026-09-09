@@ -14,7 +14,7 @@ import {
 } from "@/xdr/components/chips";
 
 const dash = <span className="v dash">—</span>;
-const notRun = <span className="v mono" style={{ color: "#6b7280" }}>NOT_RUN</span>;
+const notRun = <span className="v mono" style={{ color: "var(--nx-muted)" }}>NOT_RUN</span>;
 const na = <span className="v dash">NOT AVAILABLE</span>;
 
 function fmtISO(iso) {
@@ -131,7 +131,7 @@ export default function IncidentPreviewDrawer({
               <span className="k">Owner</span>
               {r.assignee
                 ? <span className="v mono" data-testid="ql-drawer-owner">{r.assignee}</span>
-                : <span className="v mono" style={{ color: "#F59E0B" }}>UNASSIGNED</span>}
+                : <span className="v mono" style={{ color: "var(--nx-medium)" }}>UNASSIGNED</span>}
               <span className="k">Confidence</span>
               {r.confidence
                 ? <span className="v mono">{String(r.confidence).toUpperCase()}</span>
@@ -162,11 +162,11 @@ export default function IncidentPreviewDrawer({
               <div className="ql-drawer-metric">
                 <div className="m-k">Status</div>
                 <div className="m-v" style={{
-                  color: aiStatus === "COMPLETE" ? "#3CE8B8"
-                    : aiStatus === "PARTIAL"  ? "#F5A623"
-                    : aiStatus === "FAILED"   ? "#EF5B5B"
-                    : aiStatus === "RUNNING"  ? "#3FC1E8"
-                    : "#78808F",
+                  color: aiStatus === "COMPLETE" ? "var(--nx-benign)"
+                    : aiStatus === "PARTIAL"  ? "var(--nx-medium)"
+                    : aiStatus === "FAILED"   ? "var(--nx-critical)"
+                    : aiStatus === "RUNNING"  ? "var(--nx-info)"
+                    : "var(--nx-faint)",
                   fontSize: 12,
                 }}>
                   {aiStatus}
@@ -216,7 +216,7 @@ export default function IncidentPreviewDrawer({
             </div>
             {r.techniques_top?.length ? (
               <div style={{ marginTop: 8, fontFamily: "var(--qs-mono)",
-                            fontSize: 11, color: "#B4B9C6", lineHeight: 1.7 }}>
+                            fontSize: 11, color: "var(--nx-text-dim)", lineHeight: 1.7 }}>
                 {r.techniques_top.join(" · ")}
                 {r.techniques_total > r.techniques_top.length
                   && ` +${r.techniques_total - r.techniques_top.length}`}
@@ -228,7 +228,7 @@ export default function IncidentPreviewDrawer({
           {r.executive_summary && (
             <div className="ql-drawer-section" data-testid="ql-drawer-exec">
               <div className="ql-drawer-section-title">Executive summary</div>
-              <div style={{ fontSize: 12, lineHeight: 1.55, color: "#B4B9C6" }}>
+              <div style={{ fontSize: 12, lineHeight: 1.55, color: "var(--nx-text-dim)" }}>
                 {String(r.executive_summary).slice(0, 320)}
                 {String(r.executive_summary).length > 320 && "…"}
               </div>
@@ -238,7 +238,7 @@ export default function IncidentPreviewDrawer({
 
         <div className="ql-drawer-foot">
           <span style={{ fontFamily: "var(--qs-sans)", fontSize: 11,
-                          color: "#78808F" }}>
+                          color: "var(--nx-faint)" }}>
             Preview · updated live
           </span>
           <button

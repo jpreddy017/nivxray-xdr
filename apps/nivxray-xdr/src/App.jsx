@@ -8,6 +8,8 @@
  */
 import React, { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { HOME_PATH } from "@/productScope";
+import ProductScopeGuard from "@/components/ProductScopeGuard";
 
 import { useAuth } from "@/lib/auth";
 import LoginPage from "@/pages/LoginPage";
@@ -17,6 +19,9 @@ const XdrMssDashboardPage     = lazy(() => import("@/xdr/pages/XdrMssDashboardPa
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
+const XdrEntity360Page        = lazy(() => import("@/xdr/pages/XdrEntity360Page"));
+const XdrFleetFileTrajectoryPage =
+  lazy(() => import("@/xdr/pages/XdrFleetFileTrajectoryPage"));
 const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomainPage"));
 const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
 const XdrAdminPage            = lazy(() => import("@/xdr/pages/XdrAdminPage"));
@@ -34,10 +39,20 @@ const XdrKbPage               = lazy(() => import("@/xdr/pages/XdrKbPage"));
 const XdrDocsPage             = lazy(() => import("@/xdr/pages/XdrDocsPage"));
 const XdrExposurePage         = lazy(() => import("@/xdr/pages/XdrExposurePage"));
 const XdrRuleStudioPage       = lazy(() => import("@/xdr/pages/XdrRuleStudioPage"));
+const XdrInvestigationsListPage   = lazy(() => import("@/xdr/pages/XdrInvestigationsListPage"));
+const XdrInvestigationWorkspacePage = lazy(() => import("@/xdr/pages/XdrInvestigationWorkspacePage"));
+const XdrEvidenceExplorerPage     = lazy(() => import("@/xdr/pages/XdrEvidenceExplorerPage"));
+const EdrTrajectoryResolver       = lazy(() => import("@/xdr/pages/EdrTrajectoryResolver"));
+const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));
+const XdrSearchPage               = lazy(() => import("@/xdr/pages/XdrSearchPage"));
+const EdrTrajectoryRedirect       = lazy(() => import("@/nivxforge/EdrTrajectoryRedirect"));
+const XdrNotImplementedPage       = lazy(() => import("@/xdr/pages/XdrNotImplementedPage"));
 
 const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewPage"));
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
 const EdrProcessTreePage     = lazy(() => import("@/nivxforge/pages/EdrProcessTreePage"));
+const EdrCampaignStoryPage   = lazy(() => import("@/nivxforge/pages/EdrCampaignStoryPage"));
+const EdrDeviceTrajectoryPage = lazy(() => import("@/nivxforge/trajectory/EdrDeviceTrajectoryPage"));
 
 const EdrReserved = lazy(() =>
   import("@/nivxforge/pages/EdrReservedPages").then((m) => ({ default: m })),
@@ -49,7 +64,10 @@ const EdrNetworkPage    = lazy(() => import("@/nivxforge/pages/EdrReservedPages"
 const EdrHuntingPage    = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrHuntingPage })));
 const EdrForensicsPage  = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrForensicsPage })));
 const EdrLiveQueryPage  = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrLiveQueryPage })));
-const EdrResponsePage   = lazy(() => import("@/nivxforge/pages/EdrReservedPages").then(m => ({ default: m.EdrResponsePage })));
+// P0-2A · `/edr/response` is now a native EDR operational surface,
+// projecting the authoritative response lifecycle. It is no longer a
+// reserved stub.
+const EdrResponsePage   = lazy(() => import("@/nivxforge/pages/EdrResponsePage"));
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -82,9 +100,18 @@ function RouteFallback() {
 export default function App() {
   return (
     <Suspense fallback={<RouteFallback />}>
+      <ProductScopeGuard>
       <Routes>
+        {/* Landing. On a scoped deployment `/` lands on THAT product, so
+            xdr.nivxforge.com/ → /xdr and edr.nivxforge.com/ → /edr. On an
+            unscoped/combined deployment (preview) HOME_PATH is /xdr, which
+            is exactly the previous behaviour. */}
+        <Route path="/" element={<Navigate to={HOME_PATH} replace />} />
         {/* Standalone login — reuses POST /api/auth/login. */}
         <Route path="/login" element={<LoginPage />} />
+        {/* Y1 · D-3 · second product entry point, same auth engine. */}
+        <Route path="/edr/login"
+               element={<LoginPage product="NIVXFORGE_EDR" />} />
 
         {/* Root of the standalone app.  `/xdr` collapses onto
             Incidents — Dashboard is no longer a separate destination
@@ -94,21 +121,45 @@ export default function App() {
             /xdr and /xdr/dashboard redirect to /xdr/incidents.  The
             MSS Dashboard remains a separate destination under the
             Command Center sidebar section. */}
-        <Route path="/xdr"                 element={<Navigate to="/xdr/incidents" replace />} />
-        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/incidents" replace />} />
+        {/* Cisco XDR lands on Control Center; Incidents is a peer
+            destination, not the root. Owner decision O-2. */}
+        <Route path="/xdr"                 element={<Navigate to="/xdr/mss-dashboard" replace />} />
+        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/mss-dashboard" replace />} />
+        <Route path="/xdr/control-center"  element={<Navigate to="/xdr/mss-dashboard" replace />} />
         <Route path="/xdr/mss-dashboard"   element={<Protected><XdrMssDashboardPage /></Protected>} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
         <Route path="/xdr/incidents/:id/domain/:domainKey"
                                             element={<Protected><XdrIncidentDomainPage /></Protected>} />
 
+        {/* P0 · Flagship Causal Investigation Workspace & Evidence Explorer */}
+        <Route path="/xdr/investigations"          element={<Protected><XdrInvestigationsListPage /></Protected>} />
+        <Route path="/xdr/investigations/:caseId"  element={<Protected><XdrInvestigationWorkspacePage /></Protected>} />
+        <Route path="/xdr/evidence-explorer"       element={<Protected><XdrEvidenceExplorerPage /></Protected>} />
+
         {/* Slice 6 canvas remains reachable at the incident-scoped
             path.  The old global `/xdr/endpoints` route is retired
             per §5 of the implementation prompt — Endpoints is a
             domain reached from Incident Overview, not a global peer. */}
-        <Route path="/xdr/endpoints"       element={<Navigate to="/xdr/incidents" replace />} />
+        {/* P0 · 2026-09-05 — the inventory now resolves real endpoint
+            entities from v2_shadow_observations, so it is a real page
+            again instead of a redirect to the incident queue. */}
+        <Route path="/xdr/search"          element={<Protected><XdrSearchPage /></Protected>} />
+        <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
+        {/* X1 · the information architecture stays complete; unsupported
+            capabilities render an explicit NOT_IMPLEMENTED page. */}
+        <Route path="/xdr/assets/identity"     element={<Protected><XdrNotImplementedPage node="assets-identity" /></Protected>} />
+        <Route path="/xdr/assets/network"      element={<Protected><XdrNotImplementedPage node="assets-network" /></Protected>} />
+        <Route path="/xdr/assets/attack-paths" element={<Protected><XdrNotImplementedPage node="attack-paths" /></Protected>} />
+        <Route path="/xdr/assets/critical"     element={<Protected><XdrNotImplementedPage node="critical-assets" /></Protected>} />
+        {/* P1.4 · Endpoint Entity 360 workspace (master-detail). */}
+        <Route path="/xdr/endpoints/:device"
+                                            element={<Protected><XdrEntity360Page /></Protected>} />
         <Route path="/xdr/endpoints/:device/trajectory"
                                             element={<Protected><XdrDeviceTrajectoryPage /></Protected>} />
+        {/* P1.8 · Fleet File Trajectory (multi-endpoint artifact spread). */}
+        <Route path="/xdr/intelligence/files/:key"
+                                            element={<Protected><XdrFleetFileTrajectoryPage /></Protected>} />
 
         {/* Reserved native XDR capabilities — transitional placeholders
             for surfaces that WILL be built native in later slices.
@@ -148,8 +199,17 @@ export default function App() {
             ORIGINAL NivXRay app via a new browser tab (never
             duplicated inside this bundle). */}
         <Route path="/edr"               element={<Protected><EdrOverviewPage /></Protected>} />
+        {/* P0 · 2026-09-05 — `/edr/trajectory` was linked from 7 call
+            sites but never registered, so every click fell through
+            `<Route path="*">` to the Incident Queue.  It is now a
+            resolver into the single authoritative canvas. */}
+        <Route path="/edr/trajectory"    element={<Protected><EdrTrajectoryResolver /></Protected>} />
         <Route path="/edr/detections"    element={<Protected><EdrDetectionsPage /></Protected>} />
         <Route path="/edr/process-tree"  element={<Protected><EdrProcessTreePage /></Protected>} />
+        <Route path="/edr/campaign-story" element={<Protected><EdrCampaignStoryPage /></Protected>} />
+        {/* Y1 · D-2 · permanent context-preserving compatibility route. */}
+        <Route path="/xdr/edr/device-trajectory" element={<EdrTrajectoryRedirect />} />
+        <Route path="/edr/device-trajectory" element={<Protected><EdrDeviceTrajectoryPage /></Protected>} />
         <Route path="/edr/files"         element={<Protected><EdrFilesPage /></Protected>} />
         <Route path="/edr/network"       element={<Protected><EdrNetworkPage /></Protected>} />
         <Route path="/edr/hunting"       element={<Protected><EdrHuntingPage /></Protected>} />
@@ -157,8 +217,13 @@ export default function App() {
         <Route path="/edr/live-query"    element={<Protected><EdrLiveQueryPage /></Protected>} />
         <Route path="/edr/response"      element={<Protected><EdrResponsePage /></Protected>} />
 
-        <Route path="*" element={<Navigate to="/xdr" replace />} />
+        {/* Scope-aware catch-all. Previously this was a hard
+            `Navigate to="/xdr"`, which meant an unknown path on the EDR
+            hostname client-side navigated straight into XDR. It now lands
+            on the product this deployment actually serves. */}
+        <Route path="*" element={<Navigate to={HOME_PATH} replace />} />
       </Routes>
+      </ProductScopeGuard>
     </Suspense>
   );
 }

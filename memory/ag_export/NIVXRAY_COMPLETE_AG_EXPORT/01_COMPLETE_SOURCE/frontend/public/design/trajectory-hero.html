@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NivXRay · Device Trajectory · M2 Final Hero Mockup</title>
+<style>
+  :root {
+    --bg: #F4F6FA; --paper: #FFFFFF; --paper-2: #FAFBFD;
+    --ink: #0B1220; --ink-dim: #475569; --ink-mute: #64748B; --ink-faint: #94A3B8;
+    --line: #E2E8F0; --line-strong: #CBD5E1; --line-faint: #EEF1F5;
+    --red: #DC2626; --red-tint: #FEE2E2;
+    --amber: #F5C142; --amber-tint: #FEF3C7;
+    --blue: #2563EB; --blue-tint: #DBEAFE;
+    --green: #059669; --green-tint: #DCFCE7;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+               margin: 0; padding: 0; }
+  body { padding: 48px 32px 96px; max-width: 1760px; margin: 0 auto; }
+  h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -0.5px; }
+  .lede { color: var(--ink-dim); font-size: 14px; max-width: 820px; line-height: 1.55; margin-bottom: 48px; }
+  h2 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-mute);
+       font-weight: 700; margin: 48px 0 12px; }
+  .hero { background: var(--paper); border: 1px solid var(--line-strong);
+          border-radius: 10px; overflow: hidden; box-shadow: 0 12px 40px -12px rgba(15,23,42,0.14); }
+  svg { display: block; width: 100%; height: auto; }
+  .justify { margin-top: 40px; }
+  .justify table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .justify th, .justify td { text-align: left; padding: 12px 14px; vertical-align: top;
+                             border-bottom: 1px solid var(--line); line-height: 1.55; }
+  .justify th { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase;
+                color: var(--ink-mute); font-weight: 700; background: var(--paper-2); }
+  .justify td.name { font-weight: 600; color: var(--ink); width: 200px; }
+  .justify td.q { color: var(--ink-dim); width: 380px; font-style: italic; }
+  .killed { background: #FEF2F2; }
+  .killed td.name { color: var(--red); text-decoration: line-through; }
+  code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
+         background: var(--paper-2); padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Device Trajectory · Investigation Redesign · Final Mockup</h1>
+<div class="lede">
+  One screen. Every region defended by an investigation question it answers. Everything the
+  current implementation ships that doesn't serve an answer has been removed. The Bumblebee →
+  AdaptixC2 → Akira case renders below at 1600×900 with the redesigned experience.
+</div>
+
+<div class="hero">
+<svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0B1220" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <!-- Page bg -->
+  <rect width="1600" height="900" fill="#F4F6FA"/>
+
+  <!-- ═══════════ REGION 1 · CASE BAR · 32 px ═══════════ -->
+  <rect x="0" y="0" width="1600" height="32" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <rect x="14" y="8" width="16" height="16" rx="3" fill="#2563EB22" stroke="#2563EB55"/>
+  <text x="38" y="14" font-size="9" letter-spacing="2" fill="#64748B" font-weight="700">NIVXRAY</text>
+  <text x="38" y="24" font-size="11" fill="#0B1220" font-weight="600">Device Trajectory</text>
+
+  <text x="180" y="20" font-size="12" fill="#0B1220" font-weight="600" font-family="'IBM Plex Mono', monospace">
+    FIN-DC-01
+  </text>
+  <text x="278" y="20" font-size="11" fill="#64748B">win-2019-server · connector 7.5.19</text>
+  <circle cx="486" cy="16" r="3" fill="#DC2626"/>
+  <text x="494" y="20" font-size="11" fill="#DC2626" font-weight="600">Isolated 13:04:55Z</text>
+  <text x="612" y="20" font-size="11" fill="#64748B">·</text>
+  <text x="626" y="20" font-size="11" fill="#0B1220">Analyst: <tspan font-weight="600">j.moon</tspan></text>
+
+  <text x="900" y="20" font-size="11" fill="#0B1220" font-family="'IBM Plex Mono', monospace">
+    <tspan font-weight="700">53</tspan> events · <tspan fill="#DC2626" font-weight="700">3</tspan> compromises · <tspan font-weight="700">20</tspan> processes · <tspan font-weight="700">12</tspan> MITRE
+  </text>
+
+  <text x="1300" y="20" font-size="11" fill="#94A3B8">Cmd+K</text>
+  <text x="1370" y="20" font-size="11" fill="#64748B">Filters ⌘\</text>
+  <text x="1450" y="20" font-size="11" fill="#64748B">Export ⌘E</text>
+  <text x="1530" y="20" font-size="11" fill="#64748B">Help ?</text>
+
+  <!-- ═══════════ REGION 2 · TIME COMPASS · 56 px ═══════════ -->
+  <rect x="0" y="32" width="1600" height="56" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <text x="14" y="52" font-size="9" letter-spacing="1.6" fill="#64748B" font-weight="700">TIMELINE</text>
+  <text x="14" y="64" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">Jul 22 · 24h</text>
+
+  <!-- 24h ruler -->
+  <g transform="translate(78, 40)">
+    <g font-size="9" fill="#64748B" font-family="'IBM Plex Mono', monospace">
+      <text x="0"    y="10">00</text><text x="60"  y="10">02</text>
+      <text x="120"  y="10">04</text><text x="180" y="10">06</text>
+      <text x="240"  y="10">08</text><text x="300" y="10">10</text>
+      <text x="360"  y="10">12</text><text x="420" y="10">14</text>
+      <text x="480"  y="10">16</text><text x="540" y="10">18</text>
+      <text x="600"  y="10">20</text><text x="660" y="10">22</text>
+    </g>
+    <!-- density sparkline (24h) -->
+    <polyline fill="#2563EB1A" stroke="#2563EB88" stroke-width="1"
+              points="0,30 20,28 40,26 60,28 80,30 100,29 120,26 140,28 160,29 180,30
+                      200,28 220,26 240,28 260,29 280,26 300,26 320,29 340,26 360,29
+                      380,20 400,4 420,10 440,20 460,26 480,28 500,26 520,29 540,28
+                      560,29 580,26 600,28 620,29 640,26 660,29 680,29 700,26"/>
+
+    <!-- Compromise time-window (yellow) -->
+    <rect x="380" y="0" width="40" height="30" fill="#F5C142" opacity="0.55"/>
+    <!-- Red compromise dots -->
+    <g fill="#DC2626">
+      <circle cx="384" cy="14" r="2.5"/>
+      <circle cx="394" cy="14" r="2.5"/>
+      <circle cx="405" cy="14" r="2.5"/>
+    </g>
+
+    <!-- Viewport window (draggable) -->
+    <rect x="376" y="-2" width="52" height="34" fill="none" stroke="#0B1220" stroke-width="1.4"/>
+    <rect x="376" y="30" width="52" height="2" fill="#0B1220"/>
+  </g>
+
+  <!-- Compass counters right -->
+  <g transform="translate(1200, 40)">
+    <text x="0" y="10" font-size="9" letter-spacing="1.6" fill="#64748B" font-weight="700">FOCUS</text>
+    <text x="0" y="24" font-size="11" fill="#0B1220" font-weight="600" font-family="'IBM Plex Mono', monospace">
+      13:04:54.35 → 13:04:54.98
+    </text>
+    <text x="0" y="38" font-size="10" fill="#64748B" font-family="'IBM Plex Mono', monospace">
+      Δ 0.63s · zoom 100% · fit  −  +
+    </text>
+  </g>
+
+  <!-- ═══════════ REGION 3 · ATTACK CHAIN SIDEBAR · 232 px ═══════════ -->
+  <rect x="0" y="88" width="232" height="768" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <text x="14" y="110" font-size="10" letter-spacing="2" fill="#64748B" font-weight="700">ATTACK CHAIN</text>
+  <text x="14" y="124" font-size="10" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">MITRE-mapped stages</text>
+
+  <!-- 6 stages -->
+  <g font-family="Inter" font-size="11" fill="#0B1220">
+    <!-- Stage 01 · Initial access -->
+    <g transform="translate(14, 144)">
+      <rect x="0" y="0" width="204" height="66" rx="6" fill="#FAFBFD" stroke="#E2E8F0"/>
+      <text x="12" y="16" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">01 · INITIAL ACCESS</text>
+      <text x="12" y="34" font-weight="600">MSI installer sideload</text>
+      <text x="12" y="50" font-size="10" fill="#64748B" font-family="'IBM Plex Mono', monospace">T1189 · T1204.002</text>
+      <text x="176" y="50" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">T+0.00s</text>
+    </g>
+
+    <!-- Stage 02 · Execution -->
+    <g transform="translate(14, 220)">
+      <rect x="0" y="0" width="204" height="66" rx="6" fill="#FAFBFD" stroke="#E2E8F0"/>
+      <text x="12" y="16" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">02 · EXECUTION</text>
+      <text x="12" y="34" font-weight="600">cmd → powershell -enc</text>
+      <text x="12" y="50" font-size="10" fill="#64748B" font-family="'IBM Plex Mono', monospace">T1059.001 · T1027</text>
+      <text x="176" y="50" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">T+0.06s</text>
+    </g>
+
+    <!-- Stage 03 · Discovery -->
+    <g transform="translate(14, 296)">
+      <rect x="0" y="0" width="204" height="66" rx="6" fill="#FAFBFD" stroke="#E2E8F0"/>
+      <text x="12" y="16" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">03 · DISCOVERY</text>
+      <text x="12" y="34" font-weight="600">net · whoami · nltest</text>
+      <text x="12" y="50" font-size="10" fill="#64748B" font-family="'IBM Plex Mono', monospace">T1087 · T1482</text>
+      <text x="176" y="50" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">T+0.13s</text>
+    </g>
+
+    <!-- Stage 04 · Credential access · SELECTED -->
+    <g transform="translate(14, 372)">
+      <rect x="0" y="0" width="204" height="80" rx="6" fill="#FEE2E2" stroke="#DC2626"/>
+      <text x="12" y="16" font-size="9" letter-spacing="1.5" fill="#DC2626" font-weight="700">04 · CREDENTIAL ACCESS ★</text>
+      <text x="12" y="34" font-weight="700" fill="#DC2626">rundll32 comsvcs · lsass dump</text>
+      <text x="12" y="50" font-size="10" fill="#DC2626" font-family="'IBM Plex Mono', monospace">T1003.001 · T1218.011</text>
+      <text x="12" y="66" font-size="10" fill="#DC2626">⚠ Reflective DLL Injection</text>
+      <text x="176" y="66" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">T+0.26s</text>
+    </g>
+
+    <!-- Stage 05 · Impact prep -->
+    <g transform="translate(14, 462)">
+      <rect x="0" y="0" width="204" height="66" rx="6" fill="#FAFBFD" stroke="#E2E8F0"/>
+      <text x="12" y="16" font-size="9" letter-spacing="1.5" fill="#B7791F" font-weight="700">05 · DEFENSE EVASION ★</text>
+      <text x="12" y="34" font-weight="600">wbadmin · vssadmin</text>
+      <text x="12" y="50" font-size="10" fill="#64748B" font-family="'IBM Plex Mono', monospace">T1490 · T1562.001</text>
+      <text x="176" y="50" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">T+0.41s</text>
+    </g>
+
+    <!-- Stage 06 · Impact -->
+    <g transform="translate(14, 538)">
+      <rect x="0" y="0" width="204" height="80" rx="6" fill="#FAFBFD" stroke="#DC2626" stroke-width="1.2"/>
+      <text x="12" y="16" font-size="9" letter-spacing="1.5" fill="#DC2626" font-weight="700">06 · IMPACT ★</text>
+      <text x="12" y="34" font-weight="700" fill="#DC2626">locker.exe · 7 .locked files</text>
+      <text x="12" y="50" font-size="10" fill="#DC2626" font-family="'IBM Plex Mono', monospace">T1486 · T1489</text>
+      <text x="12" y="66" font-size="10" fill="#0B1220">Outbound TOR: 185.220.101.42:80</text>
+      <text x="176" y="66" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">T+0.51s</text>
+    </g>
+
+    <!-- Case summary -->
+    <g transform="translate(14, 638)">
+      <text x="0" y="14" font-size="9" letter-spacing="2" fill="#64748B" font-weight="700">SUMMARY</text>
+      <line x1="0" y1="20" x2="204" y2="20" stroke="#E2E8F0"/>
+      <text x="0" y="40" font-size="11" fill="#0B1220" font-weight="600">Bumblebee → AdaptixC2 → Akira</text>
+      <text x="0" y="58" font-size="10" fill="#64748B">Ransomware kill chain · complete</text>
+      <text x="0" y="80" font-size="10" fill="#64748B">Duration    <tspan fill="#0B1220" font-family="'IBM Plex Mono', monospace">0.63 s</tspan></text>
+      <text x="0" y="96" font-size="10" fill="#64748B">Detected    <tspan fill="#059669" font-family="'IBM Plex Mono', monospace">audit-mode</tspan></text>
+      <text x="0" y="112" font-size="10" fill="#64748B">Contained  <tspan fill="#DC2626" font-family="'IBM Plex Mono', monospace">isolation on</tspan></text>
+      <text x="0" y="128" font-size="10" fill="#64748B">Confidence <tspan fill="#0B1220" font-family="'IBM Plex Mono', monospace">0.92</tspan></text>
+    </g>
+  </g>
+
+  <!-- ═══════════ REGION 4 · CANVAS ═══════════ -->
+  <rect x="232" y="88" width="1028" height="768" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+  <!-- Row gutter (sticky-X) - 168 wide -->
+  <rect x="232" y="88" width="168" height="768" fill="#FFFFFF"/>
+  <line x1="400" y1="88" x2="400" y2="856" stroke="#E2E8F0"/>
+
+  <!-- Canvas time ruler (inner adaptive) -->
+  <rect x="400" y="88" width="860" height="26" fill="#FAFBFD"/>
+  <g font-size="9" fill="#64748B" font-family="'IBM Plex Mono', monospace">
+    <text x="416" y="104">T+0.0s</text>
+    <text x="536" y="104">T+0.1s</text>
+    <text x="656" y="104">T+0.2s</text>
+    <text x="776" y="104">T+0.3s</text>
+    <text x="896" y="104">T+0.4s</text>
+    <text x="1016" y="104">T+0.5s</text>
+    <text x="1136" y="104">T+0.6s</text>
+  </g>
+  <line x1="400" y1="114" x2="1260" y2="114" stroke="#E2E8F0"/>
+
+  <!-- Yellow COMPROMISE WINDOW (vertical column) - anchored to Stage 04 -->
+  <rect x="716" y="114" width="272" height="742" fill="#F5C142" opacity="0.10"/>
+  <line x1="716" y1="114" x2="716" y2="856" stroke="#F5C142" stroke-width="0.8" opacity="0.55"/>
+  <line x1="988" y1="114" x2="988" y2="856" stroke="#F5C142" stroke-width="0.8" opacity="0.55"/>
+  <text x="722" y="128" font-size="9" fill="#B7791F" font-weight="700" font-family="'IBM Plex Mono', monospace">
+    COMPROMISE  T+0.26s → T+0.49s
+  </text>
+
+  <!-- COMPROMISE INDICATOR ROW - own row at top -->
+  <rect x="232" y="132" width="1028" height="22" fill="#DBEAFE" opacity="0.5"/>
+  <text x="248" y="148" font-size="11" fill="#B7791F" font-weight="700">⚠ Reflective DLL Injection ★</text>
+  <line x1="400" y1="145" x2="1260" y2="145" stroke="#F5C142" stroke-width="1.5" opacity="0.7"/>
+  <rect x="716" y="141" width="272" height="8" rx="4" fill="#F5C142" opacity="0.6"/>
+  <text x="1210" y="148" font-size="9" fill="#B7791F" font-family="'IBM Plex Mono', monospace">T1620</text>
+
+  <!-- ROW DEFINITIONS (indented ancestry, thin lifelines) -->
+  <!-- explorer.exe · root benign source -->
+  <text x="248" y="176" font-size="11" fill="#0B1220" font-weight="600">explorer.exe</text>
+  <text x="376" y="176" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="173" x2="1260" y2="173" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+  <circle cx="416" cy="173" r="5" fill="none" stroke="#059669" stroke-width="1.2"/>
+  <circle cx="416" cy="173" r="2" fill="#059669"/>
+
+  <!-- msiexec.exe -->
+  <text x="264" y="198" font-size="11" fill="#0B1220" font-weight="500">├─ msiexec.exe</text>
+  <text x="376" y="198" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="195" x2="1260" y2="195" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+  <path d="M 416 177 L 416 195" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2"><circle cx="428" cy="195" r="5"/></g>
+  <g fill="#059669"><circle cx="428" cy="195" r="2"/></g>
+
+  <!-- cmd.exe -->
+  <text x="264" y="220" font-size="11" fill="#0B1220" font-weight="500">├─ cmd.exe</text>
+  <text x="376" y="220" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">15</text>
+  <line x1="400" y1="217" x2="1260" y2="217" stroke="#94A3B8" stroke-width="1" opacity="0.5"/>
+  <path d="M 416 177 L 416 217" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2">
+    <circle cx="460"  cy="217" r="5"/><circle cx="500"  cy="217" r="5"/>
+    <circle cx="540"  cy="217" r="5"/><circle cx="580"  cy="217" r="5"/>
+    <circle cx="620"  cy="217" r="5"/><circle cx="660"  cy="217" r="5"/>
+    <circle cx="700"  cy="217" r="5"/>
+  </g>
+  <g fill="#059669">
+    <circle cx="460"  cy="217" r="2"/><circle cx="500"  cy="217" r="2"/>
+    <circle cx="540"  cy="217" r="2"/><circle cx="580"  cy="217" r="2"/>
+    <circle cx="620"  cy="217" r="2"/><circle cx="660"  cy="217" r="2"/>
+    <circle cx="700"  cy="217" r="2"/>
+  </g>
+  <!-- red events inside compromise band with blue halo -->
+  <g stroke="#DC2626" fill="#FFFFFF" stroke-width="1.2">
+    <circle cx="740"  cy="217" r="5"/><circle cx="780"  cy="217" r="5"/>
+    <circle cx="820"  cy="217" r="5"/>
+  </g>
+  <g fill="#DC2626">
+    <circle cx="740"  cy="217" r="2"/><circle cx="780"  cy="217" r="2"/>
+    <circle cx="820"  cy="217" r="2"/>
+  </g>
+  <g fill="none" stroke="#2563EB" stroke-width="1.4">
+    <circle cx="740"  cy="217" r="9"/><circle cx="780"  cy="217" r="9"/>
+    <circle cx="820"  cy="217" r="9"/>
+  </g>
+
+  <!-- net.exe -->
+  <text x="280" y="242" font-size="11" fill="#0B1220" font-weight="500">│  ├─ net.exe</text>
+  <text x="376" y="242" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">3</text>
+  <line x1="400" y1="239" x2="1260" y2="239" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 500 221 L 500 239" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2">
+    <circle cx="500" cy="239" r="5"/><circle cx="520" cy="239" r="5"/>
+    <circle cx="540" cy="239" r="5"/>
+  </g>
+  <g fill="#059669">
+    <circle cx="500" cy="239" r="2"/><circle cx="520" cy="239" r="2"/>
+    <circle cx="540" cy="239" r="2"/>
+  </g>
+
+  <!-- reg.exe (registry mutation acted upon = square) -->
+  <text x="280" y="264" font-size="11" fill="#0B1220" font-weight="500">│  ├─ reg.exe</text>
+  <text x="376" y="264" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">2</text>
+  <line x1="400" y1="261" x2="1260" y2="261" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 560 221 L 560 261" stroke="#CBD5E1"/>
+  <rect x="556" y="258" width="7" height="7" fill="#059669" opacity="0.85"/>
+  <rect x="596" y="258" width="7" height="7" fill="#059669" opacity="0.85"/>
+
+  <!-- whoami.exe -->
+  <text x="280" y="286" font-size="11" fill="#0B1220" font-weight="500">│  ├─ whoami.exe</text>
+  <text x="376" y="286" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="283" x2="1260" y2="283" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 620 221 L 620 283" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2"><circle cx="620" cy="283" r="5"/></g>
+  <g fill="#059669"><circle cx="620" cy="283" r="2"/></g>
+
+  <!-- rundll32.exe (malicious execute) -->
+  <text x="280" y="308" font-size="11" fill="#DC2626" font-weight="500">│  ├─ rundll32.exe</text>
+  <text x="376" y="308" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">3</text>
+  <line x1="400" y1="305" x2="1260" y2="305" stroke="#94A3B8" opacity="0.6"/>
+  <path d="M 740 221 L 740 305" stroke="#CBD5E1"/>
+  <g fill="#DC2626">
+    <polygon points="736,301 736,309 744,305"/>
+    <polygon points="776,301 776,309 784,305"/>
+    <polygon points="816,301 816,309 824,305"/>
+  </g>
+  <g fill="none" stroke="#2563EB" stroke-width="1.4">
+    <circle cx="740" cy="305" r="9"/><circle cx="780" cy="305" r="9"/>
+    <circle cx="820" cy="305" r="9"/>
+  </g>
+
+  <!-- powershell.exe · heavy execute · trigger events -->
+  <text x="280" y="330" font-size="11" fill="#DC2626" font-weight="700">│  └─ powershell.exe</text>
+  <text x="376" y="330" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">5</text>
+  <line x1="400" y1="327" x2="1260" y2="327" stroke="#94A3B8" opacity="0.6"/>
+  <path d="M 780 221 L 780 327" stroke="#CBD5E1"/>
+  <g fill="#DC2626">
+    <polygon points="820,323 820,331 828,327"/>
+    <polygon points="860,323 860,331 868,327"/>
+    <polygon points="900,323 900,331 908,327"/>
+    <polygon points="940,323 940,331 948,327"/>
+    <polygon points="980,323 980,331 988,327"/>
+  </g>
+  <g fill="none" stroke="#2563EB" stroke-width="1.4">
+    <circle cx="824" cy="327" r="9"/><circle cx="864" cy="327" r="9"/>
+    <circle cx="904" cy="327" r="9"/><circle cx="944" cy="327" r="9"/>
+    <circle cx="984" cy="327" r="9"/>
+  </g>
+
+  <!-- lsass.exe (acted upon by rundll32 - grey single circle) -->
+  <text x="296" y="352" font-size="11" fill="#0B1220" font-weight="500">│     └─ lsass.exe</text>
+  <text x="376" y="352" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="349" x2="1260" y2="349" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 780 331 L 780 349" stroke="#CBD5E1"/>
+  <circle cx="784" cy="349" r="3" fill="#94A3B8"/>
+
+  <!-- RustDesk.exe -->
+  <text x="264" y="374" font-size="11" fill="#0B1220" font-weight="500">├─ RustDesk.exe</text>
+  <text x="376" y="374" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">6</text>
+  <line x1="400" y1="371" x2="1260" y2="371" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 416 177 L 416 371" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2">
+    <circle cx="1000" cy="371" r="5"/><circle cx="1040" cy="371" r="5"/>
+    <circle cx="1080" cy="371" r="5"/><circle cx="1120" cy="371" r="5"/>
+    <circle cx="1160" cy="371" r="5"/><circle cx="1200" cy="371" r="5"/>
+  </g>
+  <g fill="#059669">
+    <circle cx="1000" cy="371" r="2"/><circle cx="1040" cy="371" r="2"/>
+    <circle cx="1080" cy="371" r="2"/><circle cx="1120" cy="371" r="2"/>
+    <circle cx="1160" cy="371" r="2"/><circle cx="1200" cy="371" r="2"/>
+  </g>
+
+  <!-- ssh.exe -->
+  <text x="280" y="396" font-size="11" fill="#0B1220" font-weight="500">│  └─ ssh.exe</text>
+  <text x="376" y="396" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="393" x2="1260" y2="393" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 1080 375 L 1080 393" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2"><circle cx="1084" cy="393" r="5"/></g>
+  <g fill="#059669"><circle cx="1084" cy="393" r="2"/></g>
+
+  <!-- psql.exe -->
+  <text x="264" y="418" font-size="11" fill="#0B1220" font-weight="500">├─ psql.exe</text>
+  <text x="376" y="418" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">3</text>
+  <line x1="400" y1="415" x2="1260" y2="415" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 416 177 L 416 415" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2">
+    <circle cx="1100" cy="415" r="5"/><circle cx="1140" cy="415" r="5"/>
+    <circle cx="1180" cy="415" r="5"/>
+  </g>
+  <g fill="#059669">
+    <circle cx="1100" cy="415" r="2"/><circle cx="1140" cy="415" r="2"/>
+    <circle cx="1180" cy="415" r="2"/>
+  </g>
+
+  <!-- wbadmin.exe -->
+  <text x="264" y="440" font-size="11" fill="#DC2626" font-weight="500">├─ wbadmin.exe</text>
+  <text x="376" y="440" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">2</text>
+  <line x1="400" y1="437" x2="1260" y2="437" stroke="#94A3B8" opacity="0.6"/>
+  <path d="M 416 177 L 416 437" stroke="#CBD5E1"/>
+  <g stroke="#DC2626" stroke-width="1.4" stroke-linecap="round">
+    <line x1="1030" y1="433" x2="1040" y2="443"/><line x1="1030" y1="443" x2="1040" y2="433"/>
+    <line x1="1060" y1="433" x2="1070" y2="443"/><line x1="1060" y1="443" x2="1070" y2="433"/>
+  </g>
+
+  <!-- vssadmin.exe -->
+  <text x="264" y="462" font-size="11" fill="#DC2626" font-weight="500">├─ vssadmin.exe</text>
+  <text x="376" y="462" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="459" x2="1260" y2="459" stroke="#94A3B8" opacity="0.6"/>
+  <path d="M 416 177 L 416 459" stroke="#CBD5E1"/>
+  <g stroke="#DC2626" stroke-width="1.4" stroke-linecap="round">
+    <line x1="1090" y1="455" x2="1100" y2="465"/><line x1="1090" y1="465" x2="1100" y2="455"/>
+  </g>
+
+  <!-- locker.exe · malicious source -->
+  <text x="264" y="484" font-size="11" fill="#DC2626" font-weight="700">├─ locker.exe</text>
+  <text x="376" y="484" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">3</text>
+  <line x1="400" y1="481" x2="1260" y2="481" stroke="#DC2626" stroke-width="1.2" opacity="0.6"/>
+  <path d="M 416 177 L 416 481" stroke="#CBD5E1"/>
+  <g stroke="#DC2626" fill="#FFFFFF" stroke-width="1.2">
+    <circle cx="1120" cy="481" r="6"/><circle cx="1160" cy="481" r="6"/>
+    <circle cx="1200" cy="481" r="6"/>
+  </g>
+  <g fill="#DC2626">
+    <circle cx="1120" cy="481" r="2.5"/><circle cx="1160" cy="481" r="2.5"/>
+    <circle cx="1200" cy="481" r="2.5"/>
+  </g>
+
+  <!-- consent.exe / AdgNsy.exe -->
+  <text x="264" y="506" font-size="11" fill="#0B1220" font-weight="500">├─ consent.exe</text>
+  <text x="376" y="506" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="503" x2="1260" y2="503" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 416 177 L 416 503" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2"><circle cx="472" cy="503" r="5"/></g>
+  <g fill="#059669"><circle cx="472" cy="503" r="2"/></g>
+
+  <text x="248" y="528" font-size="11" fill="#0B1220" font-weight="500">└─ AdgNsy.exe</text>
+  <text x="376" y="528" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="525" x2="1260" y2="525" stroke="#94A3B8" opacity="0.5"/>
+  <path d="M 416 177 L 416 525" stroke="#CBD5E1"/>
+  <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2"><circle cx="492" cy="525" r="5"/></g>
+  <g fill="#059669"><circle cx="492" cy="525" r="2"/></g>
+
+  <!-- ─── FILES band ─── -->
+  <rect x="232" y="546" width="1028" height="22" fill="#F8FAFC"/>
+  <text x="248" y="561" font-size="9" letter-spacing="1.8" fill="#64748B" font-weight="700">FILES</text>
+  <text x="304" y="561" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">4 ROWS · 11 EV</text>
+  <line x1="232" y1="568" x2="1260" y2="568" stroke="#E2E8F0" stroke-width="0.5"/>
+
+  <text x="248" y="588" font-size="11" fill="#0B1220" font-weight="500">ManageEngine.msi</text>
+  <text x="376" y="588" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="585" x2="1260" y2="585" stroke="#94A3B8" opacity="0.5"/>
+  <g stroke="#059669" stroke-width="1.6" stroke-linecap="round">
+    <line x1="424" y1="585" x2="432" y2="585"/><line x1="428" y1="581" x2="428" y2="589"/>
+  </g>
+
+  <text x="248" y="610" font-size="11" fill="#0B1220" font-weight="500">lsass.dmp</text>
+  <text x="376" y="610" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="607" x2="1260" y2="607" stroke="#94A3B8" opacity="0.5"/>
+  <g stroke="#DC2626" stroke-width="1.6" stroke-linecap="round">
+    <line x1="808" y1="607" x2="816" y2="607"/><line x1="812" y1="603" x2="812" y2="611"/>
+  </g>
+  <text x="828" y="604" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">264 MB · SENSITIVE</text>
+
+  <text x="248" y="632" font-size="11" fill="#DC2626" font-weight="600">*.locked (×7)</text>
+  <text x="376" y="632" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">7</text>
+  <line x1="400" y1="629" x2="1260" y2="629" stroke="#DC2626" opacity="0.5"/>
+  <g stroke="#DC2626" stroke-width="1.6" stroke-linecap="round">
+    <line x1="1116" y1="629" x2="1124" y2="629"/><line x1="1120" y1="625" x2="1120" y2="633"/>
+    <line x1="1136" y1="629" x2="1144" y2="629"/><line x1="1140" y1="625" x2="1140" y2="633"/>
+    <line x1="1156" y1="629" x2="1164" y2="629"/><line x1="1160" y1="625" x2="1160" y2="633"/>
+    <line x1="1176" y1="629" x2="1184" y2="629"/><line x1="1180" y1="625" x2="1180" y2="633"/>
+    <line x1="1196" y1="629" x2="1204" y2="629"/><line x1="1200" y1="625" x2="1200" y2="633"/>
+    <line x1="1216" y1="629" x2="1224" y2="629"/><line x1="1220" y1="625" x2="1220" y2="633"/>
+    <line x1="1236" y1="629" x2="1244" y2="629"/><line x1="1240" y1="625" x2="1240" y2="633"/>
+  </g>
+
+  <text x="248" y="654" font-size="11" fill="#0B1220" font-weight="500">note.txt (ransom)</text>
+  <text x="376" y="654" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">1</text>
+  <line x1="400" y1="651" x2="1260" y2="651" stroke="#94A3B8" opacity="0.5"/>
+  <g stroke="#DC2626" stroke-width="1.6" stroke-linecap="round">
+    <line x1="1256" y1="651" x2="1258" y2="651"/><line x1="1257" y1="649" x2="1257" y2="653"/>
+  </g>
+
+  <!-- ─── REGISTRY band ─── -->
+  <rect x="232" y="672" width="1028" height="22" fill="#F8FAFC"/>
+  <text x="248" y="687" font-size="9" letter-spacing="1.8" fill="#64748B" font-weight="700">REGISTRY</text>
+  <text x="316" y="687" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">2 ROWS · 3 EV</text>
+  <line x1="232" y1="694" x2="1260" y2="694" stroke="#E2E8F0" stroke-width="0.5"/>
+
+  <text x="248" y="714" font-size="11" fill="#0B1220" font-weight="500">HKLM\...\Run\Update</text>
+  <line x1="400" y1="711" x2="1260" y2="711" stroke="#94A3B8" opacity="0.5"/>
+  <rect x="556" y="708" width="7" height="7" fill="#059669" opacity="0.9"/>
+
+  <text x="248" y="736" font-size="11" fill="#DC2626" font-weight="500">HKLM\...\IFEO\notepad.exe</text>
+  <line x1="400" y1="733" x2="1260" y2="733" stroke="#94A3B8" opacity="0.6"/>
+  <rect x="820" y="730" width="7" height="7" fill="#DC2626" opacity="0.9"/>
+  <rect x="850" y="730" width="7" height="7" fill="#DC2626" opacity="0.9"/>
+
+  <!-- ─── NETWORK band ─── -->
+  <rect x="232" y="754" width="1028" height="22" fill="#F8FAFC"/>
+  <text x="248" y="769" font-size="9" letter-spacing="1.8" fill="#64748B" font-weight="700">NETWORK</text>
+  <text x="316" y="769" font-size="9" fill="#94A3B8" font-family="'IBM Plex Mono', monospace">2 ROWS · 5 EV</text>
+  <line x1="232" y1="776" x2="1260" y2="776" stroke="#E2E8F0" stroke-width="0.5"/>
+
+  <text x="248" y="796" font-size="11" fill="#0B1220" font-weight="500">45.147.230.15:443</text>
+  <line x1="400" y1="793" x2="1260" y2="793" stroke="#94A3B8" opacity="0.5"/>
+  <g stroke="#059669" fill="none" stroke-width="1.4">
+    <polyline points="516,789 526,789 524,787 526,789 524,791"/>
+    <polyline points="616,789 626,789 624,787 626,789 624,791"/>
+    <polyline points="716,789 726,789 724,787 726,789 724,791"/>
+  </g>
+
+  <text x="248" y="818" font-size="11" fill="#DC2626" font-weight="600">185.220.101.42:80  (TOR exit)</text>
+  <line x1="400" y1="815" x2="1260" y2="815" stroke="#94A3B8" opacity="0.5"/>
+  <g stroke="#DC2626" fill="none" stroke-width="1.4">
+    <polyline points="1084,811 1094,811 1092,809 1094,811 1092,813"/>
+    <polyline points="1144,811 1154,811 1152,809 1154,811 1152,813"/>
+  </g>
+  <text x="1170" y="808" font-size="9" fill="#DC2626" font-family="'IBM Plex Mono', monospace">EXFIL · 264 MB</text>
+
+  <!-- ═══════════ REGION 5 · EVIDENCE PANE · 340 px ═══════════ -->
+  <rect x="1260" y="88" width="340" height="768" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+  <text x="1276" y="110" font-size="10" letter-spacing="2" fill="#0B1220" font-weight="700">EVIDENCE</text>
+  <line x1="1276" y1="116" x2="1338" y2="116" stroke="#2563EB" stroke-width="2"/>
+  <text x="1352" y="110" font-size="10" letter-spacing="2" fill="#94A3B8" font-weight="700">MITRE</text>
+  <text x="1408" y="110" font-size="10" letter-spacing="2" fill="#94A3B8" font-weight="700">HISTORY</text>
+  <text x="1476" y="110" font-size="10" letter-spacing="2" fill="#94A3B8" font-weight="700">ARTIFACTS</text>
+
+  <!-- Selected event badges -->
+  <g transform="translate(1276, 130)">
+    <rect x="0" y="0" width="72" height="20" rx="3" fill="#FEE2E2"/>
+    <text x="8" y="14" font-size="9" letter-spacing="1.5" fill="#DC2626" font-weight="700">MALICIOUS</text>
+    <rect x="80" y="0" width="60" height="20" rx="3" fill="#DBEAFE"/>
+    <text x="88" y="14" font-size="9" letter-spacing="1.5" fill="#2563EB" font-weight="700">TRIGGER</text>
+    <rect x="148" y="0" width="60" height="20" rx="3" fill="#FEF3C7"/>
+    <text x="156" y="14" font-size="9" letter-spacing="1.5" fill="#B7791F" font-weight="700">EXECUTE</text>
+  </g>
+
+  <text x="1276" y="180" font-size="15" fill="#0B1220" font-weight="700">
+    rundll32.exe comsvcs.dll,MiniDump
+  </text>
+  <text x="1276" y="198" font-size="11" fill="#64748B" font-family="'IBM Plex Mono', monospace">
+    Jul 22 13:04:54.612 UTC · T+0.257s
+  </text>
+
+  <!-- Command line -->
+  <text x="1276" y="226" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">COMMAND LINE</text>
+  <rect x="1276" y="232" width="308" height="60" rx="3" fill="#FAFBFD" stroke="#E2E8F0"/>
+  <text x="1284" y="248" font-size="10" fill="#0B1220" font-family="'IBM Plex Mono', monospace">rundll32.exe C:\Windows\</text>
+  <text x="1284" y="262" font-size="10" fill="#0B1220" font-family="'IBM Plex Mono', monospace">System32\comsvcs.dll,</text>
+  <text x="1284" y="276" font-size="10" fill="#0B1220" font-family="'IBM Plex Mono', monospace">MiniDump 812 lsass.dmp full</text>
+
+  <!-- SHA -->
+  <text x="1276" y="316" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">SHA-256</text>
+  <text x="1276" y="332" font-size="10" fill="#0B1220" font-family="'IBM Plex Mono', monospace">
+    a5c21f017b3ff89e4ac7c7e04a4cceb5…
+  </text>
+  <text x="1276" y="346" font-size="10" fill="#2563EB" font-family="'IBM Plex Mono', monospace" font-weight="600">
+    VirusTotal · 47 / 71 malicious
+  </text>
+
+  <!-- Parent -->
+  <text x="1276" y="378" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">PARENT</text>
+  <text x="1276" y="394" font-size="11" fill="#0B1220">cmd.exe (proc_shadow_7a55…)</text>
+
+  <text x="1276" y="422" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">CHILD</text>
+  <text x="1276" y="438" font-size="11" fill="#0B1220">lsass.exe (acted upon · memory read)</text>
+
+  <text x="1276" y="466" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">CREATED</text>
+  <text x="1276" y="482" font-size="11" fill="#0B1220">lsass.dmp · 264 MB · in %TEMP%</text>
+
+  <!-- MITRE -->
+  <text x="1276" y="510" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">MITRE ATT&amp;CK</text>
+  <g font-family="'IBM Plex Mono', monospace" font-weight="600">
+    <rect x="1276" y="516" width="76" height="20" rx="3" fill="#FEE2E2"/>
+    <text x="1284" y="530" font-size="10" fill="#DC2626">T1003.001</text>
+    <rect x="1358" y="516" width="76" height="20" rx="3" fill="#FEE2E2"/>
+    <text x="1366" y="530" font-size="10" fill="#DC2626">T1218.011</text>
+    <rect x="1440" y="516" width="54" height="20" rx="3" fill="#FEE2E2"/>
+    <text x="1448" y="530" font-size="10" fill="#DC2626">T1620</text>
+  </g>
+
+  <!-- Detection rule -->
+  <text x="1276" y="562" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">DETECTION RULE</text>
+  <text x="1276" y="578" font-size="11" fill="#0B1220" font-family="'IBM Plex Mono', monospace">R-CRED-LSASSDUMP-COMSVCS</text>
+  <text x="1276" y="592" font-size="10" fill="#64748B">EXPREV engine · confidence 0.96 · Q-Audit</text>
+
+  <!-- Actions -->
+  <text x="1276" y="628" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">ACTIONS</text>
+  <g transform="translate(1276, 636)">
+    <rect x="0" y="0" width="90" height="26" rx="4" fill="#DC2626"/>
+    <text x="45" y="17" font-size="11" fill="#FFFFFF" font-weight="600" text-anchor="middle">Block SHA</text>
+    <rect x="96" y="0" width="110" height="26" rx="4" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="151" y="17" font-size="11" fill="#0B1220" text-anchor="middle">Add to allow-list</text>
+    <rect x="212" y="0" width="90" height="26" rx="4" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="257" y="17" font-size="11" fill="#0B1220" text-anchor="middle">Open in IDA</text>
+  </g>
+
+  <!-- Analyst note -->
+  <text x="1276" y="694" font-size="9" letter-spacing="1.5" fill="#64748B" font-weight="700">ANALYST NOTE</text>
+  <rect x="1276" y="702" width="308" height="70" rx="3" fill="#FAFBFD" stroke="#E2E8F0"/>
+  <text x="1284" y="718" font-size="10.5" fill="#0B1220">
+    Classic Bumblebee stager. Confirmed via
+  </text>
+  <text x="1284" y="732" font-size="10.5" fill="#0B1220">
+    lsass.dmp presence in %TEMP%. Escalate
+  </text>
+  <text x="1284" y="746" font-size="10.5" fill="#0B1220">
+    to IR-P1 — j.moon 13:07Z
+  </text>
+
+  <!-- Blue trigger halo legend inline -->
+  <g transform="translate(1276, 794)">
+    <circle cx="10" cy="10" r="5" fill="#FFFFFF" stroke="#DC2626" stroke-width="1.2"/>
+    <circle cx="10" cy="10" r="2" fill="#DC2626"/>
+    <circle cx="10" cy="10" r="9" fill="none" stroke="#2563EB" stroke-width="1.4"/>
+    <text x="26" y="14" font-size="10" fill="#64748B">
+      Blue halo = event triggered the current compromise
+    </text>
+  </g>
+
+  <!-- ═══════════ REGION 6 · STATUS BAR · 22 px ═══════════ -->
+  <line x1="0" y1="856" x2="1600" y2="856" stroke="#E2E8F0"/>
+  <rect x="0" y="856" width="1600" height="22" fill="#F8FAFC"/>
+  <text x="14" y="871" font-size="10" fill="#64748B" font-family="'IBM Plex Mono', monospace">
+    WINDOW · FIT   Jul 22 13:04:54.35 → 13:04:54.98   Δ 0.63s   zoom 100%
+  </text>
+  <text x="900" y="871" font-size="10" fill="#64748B" font-family="'IBM Plex Mono', monospace">
+    stage 04 · 3 events selected
+  </text>
+  <text x="1200" y="871" font-size="10" fill="#64748B" font-family="'IBM Plex Mono', monospace">
+    53 events · 20 procs · 3 compromises · dark: ⌘D · help: ?
+  </text>
+  <line x1="0" y1="878" x2="1600" y2="878" stroke="#E2E8F0"/>
+  <rect x="0" y="878" width="1600" height="22" fill="#F4F6FA"/>
+</svg>
+</div>
+
+<!-- ═══════════ COMPONENT JUSTIFICATION TABLE ═══════════ -->
+<h2>Every element defended · investigation question · alternative if removed</h2>
+
+<div class="justify">
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Investigation question it answers</th>
+      <th>Why it exists (and why it wins the space it takes)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="name">Case bar</td>
+      <td class="q">Which endpoint am I on? Is it contained? Who owns this investigation?</td>
+      <td>Analyst may pivot across cases; the hostname, isolation state, and owner must be visible at all times so a mistake ("wrong endpoint") is impossible. 32 px is a hard floor — nothing shorter reads at analyst-scale.</td>
+    </tr>
+    <tr>
+      <td class="name">Time compass (24-hour lens)</td>
+      <td class="q">When did the attack happen? Are there quieter or louder times to focus on?</td>
+      <td>Replaces the day scrubber, hour scrubber, and mini-density row from the current implementation. Single strip carries the density sparkline, the yellow compromise time-window, red compromise dots, and the draggable viewport rectangle. Costs 56 px; would cost 130 px in the current implementation.</td>
+    </tr>
+    <tr>
+      <td class="name">Attack chain sidebar</td>
+      <td class="q">What is the story? Which stages happened? Where should I start reading?</td>
+      <td>The largest information upgrade. The sidebar is the table-of-contents of the attack in MITRE-tactic order. Clicking a stage focuses the canvas time-window and highlights the involved rows. This lets an analyst reconstruct the attack in ~10 seconds without touching the mouse over the canvas. Nothing in the current implementation does this.</td>
+    </tr>
+    <tr>
+      <td class="name">Case summary card (sidebar tail)</td>
+      <td class="q">How bad was it? Was it stopped? Am I done?</td>
+      <td>Duration · Detection mode · Containment state · Confidence. Four numbers close the loop after the analyst reads the six stages above.</td>
+    </tr>
+    <tr>
+      <td class="name">Compromise indicator row (own row)</td>
+      <td class="q">What tripped the alarm? What is the indicator's name?</td>
+      <td>Verbatim Cisco pattern. A compromise gets its own row with a yellow-shaded lifetime bar spanning the compromise time-window. Clicking it lights the trigger events with blue halos across all rows. Without this row, the compromise is invisible on the canvas.</td>
+    </tr>
+    <tr>
+      <td class="name">Thin lifelines (1 px)</td>
+      <td class="q">What entities existed? Which are still active?</td>
+      <td>Scaffolding — deliberately quiet. Only red events on a lifeline draw the eye; the line itself does not. Kills the current pill approach that colours the scaffolding.</td>
+    </tr>
+    <tr>
+      <td class="name">DFS-ancestry row order + indent glyphs</td>
+      <td class="q">Who launched whom?</td>
+      <td>Parent process appears above its children, indented with <code>├─ └─ │</code>. Ancestry L-connectors drop from the parent lifeline to the child's first event. Zero words of copy, complete parent→child answer.</td>
+    </tr>
+    <tr>
+      <td class="name">Yellow time-window column</td>
+      <td class="q">When was this endpoint under active compromise?</td>
+      <td>Vertical column at 10 % opacity anchored to the compromise start/end. Never touches an entity's lifetime. Only amber use on the whole canvas.</td>
+    </tr>
+    <tr>
+      <td class="name">Double-circle / single-symbol glyphs</td>
+      <td class="q">Did this entity <i>do</i> the thing, or was it <i>done to</i>?</td>
+      <td>Cisco's core glyph rule. Double circle = source. Single symbol = acted upon. Applied consistently across every activity kind. Explained once in the legend, then never again.</td>
+    </tr>
+    <tr>
+      <td class="name">Three-state disposition colour (green/gray/red)</td>
+      <td class="q">Is this event benign, unknown, or malicious?</td>
+      <td>Fill colour is disposition, shape is activity. Two independent axes → readable at 4 px.</td>
+    </tr>
+    <tr>
+      <td class="name">Blue trigger halo</td>
+      <td class="q">Which events caused this compromise to fire?</td>
+      <td>Only when the analyst selects a compromise row. Every causally-linked event across all rows gets a 1.4 px blue ring. The audit trail of the indicator, without a single word.</td>
+    </tr>
+    <tr>
+      <td class="name">Files / Registry / Network bands</td>
+      <td class="q">What did the attack touch outside of processes?</td>
+      <td>Compact secondary bands below the process ancestry. Rendered because a ransomware incident is defined by its <i>artifacts</i> (lsass.dmp, *.locked, note.txt, TOR exit). Costs ~180 px in scenic; pays back with the artefact story.</td>
+    </tr>
+    <tr>
+      <td class="name">Evidence pane · verbatim Cisco field list</td>
+      <td class="q">What is the technical detail of the selected event?</td>
+      <td>Tabbed to Evidence by default. Fields ordered by frequency of analyst use: verdict badges → title → command line → SHA → parent → child → created → MITRE → detection → actions → note. Every field maps to a Cisco User Guide entry.</td>
+    </tr>
+    <tr>
+      <td class="name">Analyst note field (Evidence pane)</td>
+      <td class="q">What did the analyst conclude, and why?</td>
+      <td>Persistent shift-handoff record. Written directly into the case, retained across sessions, exported with the case bundle. The note is what makes the case reusable.</td>
+    </tr>
+    <tr>
+      <td class="name">Status bar</td>
+      <td class="q">Where am I in time? How much zoom? How many selected?</td>
+      <td>One row of monospace read-outs. No decoration. Always visible so the analyst never wonders "what am I looking at?"</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Removed from the shipped implementation</h2>
+<div class="justify">
+<table>
+  <thead>
+    <tr>
+      <th>Component removed</th>
+      <th>Why analyst didn't need it</th>
+      <th>What replaces its job (if anything)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="killed">
+      <td class="name">Horizontal pill lifelines</td>
+      <td class="q">Coloured the scaffolding, not the events. Made every row shout equally.</td>
+      <td>Thin 1-px neutral lifelines. Colour reserved for events.</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">Amber/yellow tint on entity rows</td>
+      <td class="q">Every row rendered "suspicious" so nothing looked suspicious.</td>
+      <td>Amber is only the compromise time-window column.</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">Day scrubber (JUN/JUL bar)</td>
+      <td class="q">Cases live in a single day 99 % of the time; the empty months were noise.</td>
+      <td>Merged into the 24-hour time compass with a lightweight date picker in the case bar.</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">Hour scrubber row</td>
+      <td class="q">Duplicated the compass's job at a different vertical position.</td>
+      <td>Same compass carries hours + density + compromise dots + viewport rectangle.</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">Filter row across the top</td>
+      <td class="q">Consumed 36 px every second for a job used ~1 time per case.</td>
+      <td>Slide-out drawer opened by <code>\</code>; five-category filter (Activity · System · Disposition · Flags · File Type).</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">Analyst / Expert toggle button in LeftRail</td>
+      <td class="q">A preference lived in the wrong place; analysts toggle it once and forget it.</td>
+      <td>Preferences menu (⌘ ,) — analyst vs expert vs raw.</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">Minimap in the canvas corner</td>
+      <td class="q">Duplicated the compass; competed for the analyst's eye in the busiest area.</td>
+      <td>The compass already shows the viewport rectangle over the full case.</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">"Training note" green pill (bottom-right)</td>
+      <td class="q">Belongs to onboarding, not to an active investigation.</td>
+      <td>Moved into the case bar as a small note-count badge; opens the notes drawer on click.</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">Four separate Evidence / Overview / MITRE / Reference tabs</td>
+      <td class="q">Overview and Reference repeated Evidence content one field at a time.</td>
+      <td>Evidence + MITRE + History + Artifacts. Four tabs, each with a unique reason to exist.</td>
+    </tr>
+    <tr class="killed">
+      <td class="name">Empty white space to the right of the events cluster</td>
+      <td class="q">Was a bug of static <code>CONTENT_W = 3000</code>; not intentional.</td>
+      <td>Canvas width is responsive; at scale 1 the timeline fills the viewport exactly.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>The analyst's cognitive path across this screen</h2>
+<div style="font-size:14px; color: var(--ink-dim); max-width:960px; line-height:1.8;">
+Read left → right, top → bottom, in this order:
+<br><br>
+<b>1. Case bar.</b> Am I on the right endpoint? Yes — <code>FIN-DC-01</code>, isolated.
+<br>
+<b>2. Compass.</b> When did it happen? A dense yellow-shaded 12-minute window with three red dots at 13:04.
+<br>
+<b>3. Sidebar stage 01–06.</b> What is the story? Six numbered chapters, most severe at chapter 04 (Credential Access ★) and chapter 06 (Impact ★).
+<br>
+<b>4. Compromise row.</b> ⚠ Reflective DLL Injection — the case in one row.
+<br>
+<b>5. Root lifeline.</b> <code>explorer.exe</code>. From it descends <code>msiexec.exe → cmd.exe → …</code>.
+<br>
+<b>6. Red cluster.</b> Two rows scream — <code>rundll32.exe</code> and <code>powershell.exe</code>. All red events fall inside the yellow compromise window. Blue halos mark the ones that fired the indicator.
+<br>
+<b>7. Impact.</b> <code>locker.exe</code> with three red circles, and the <code>*.locked ×7</code> row of red plus-marks. The ransomware moment is unmistakable.
+<br>
+<b>8. Network.</b> One outbound TOR row · red arrow · 264 MB EXFIL caption.
+<br>
+<b>9. Evidence pane.</b> The selected event has full technical detail without a click on the canvas.
+<br><br>
+Total time to answer "where did this attack begin, how did it propagate, how did it end?" — <b>under 10 seconds</b>, no evidence-pane reading required. That is the acceptance test.
+</div>
+
+<h2>Approval gate</h2>
+<div style="font-size:14px; color: var(--ink); max-width:960px; line-height:1.8;">
+If this screen answers <b>all eight questions</b> the analyst asks on landing (as listed in the brief), design is complete. Say the word and engineering begins — a 1:1 build of this mockup, no re-designing in code. If any region fails an investigation test, point at it and I'll re-cut just that region before we touch any React file.
+</div>
+
+</body>
+</html>

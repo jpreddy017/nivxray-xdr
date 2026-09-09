@@ -1,0 +1,24 @@
+{
+  "summary": "P0-B (real Linux sensor) + P0-D (canonical bridge) end-to-end validated. Ran /app/scripts/p0_b_sensor_proof.py against the live preview URL: ALL 20 checks PASSED (enrolment single-use, endpoint_id minted by platform + 0600 credential, real marker process argv arrives, immutable edr_raw_events, Device Trajectory pivot resolves via endpoint_id, real parent_iid links to another observed process, ONE real activity = ONE evidence row across sensor restarts, real file CREATE captured, byte-identical redelivery deduped, cross-tenant credential refused with 401, unparseable payload retained with parser_state=FAILED and surfaced as replay candidate). pytest backend/tests/edr/test_p0_b_linux_sensor.py = 24/24 pass. Adversarial break attempts: (a) bogus ep_deadbeef...  -> resolved=false (honest unresolved, no evidence leaked); (b) revoked ep_b53711368a89d4bd9ed4 -> resolved=false; (c) enrolled ep_2d57cbe6f80152062109 -> resolved=true via endpoint_id with 2257 events. Frontend regression on all 3 pages: /xdr/admin/edr-capability-truth shows 132 rows, 1 sensor registered, honest 0/43 filter taxonomy banner, effective_state column populated; /xdr/admin/edr-enrollment mints tokens, lists enrolled endpoints with three lifecycles (ENROLMENT/CREDENTIAL/SENSOR) and REVOKED alarm rows; /xdr/endpoints/ep_2d57cbe6f80152062109 renders Overview (System 2 / Process 100 / File 3 / Network 2153) + 4 tabs (Overview, Device Trajectory, Endpoint Lanes, Process Ancestry) with ZERO console errors and honest 'No compromise events observed' text (no fake green all-clear).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/scripts/p0_b_sensor_proof.py",
+    "/app/backend/tests/edr/test_p0_b_linux_sensor.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Sensor was NOT left running under supervisor (owner requirement respected) — proof driver runs one-shot with --once.",
+    "device_identity.resolve() correctly gates ep_ pivot via lookup in edr_endpoints; bogus/revoked ep_ ids return identity.resolved=false with zero events, no evidence bleeds across tenants.",
+    "Duplicate-activity guard in canonical_bridge.activity_identity() suppressed the second collection cycle without swallowing genuinely new activity (file CREATE post-baseline was still captured — verified in check 6c).",
+    "Consider surfacing a machine-readable 'reason' string on identity_unresolved responses (currently reason=null) to help SOC operators distinguish 'unknown ep_' vs 'revoked ep_' — minor UX only."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md); enrolment tokens minted on demand via /api/edr/enrollment/tokens",
+  "seed_data_creation": "None. p0_b_sensor_proof.py enrols a fresh sensor and produces real host telemetry (real python3 marker process, real file CREATE in tmp watch dir). No seeded/mock telemetry used at any point.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Re-run acceptance chain with: python3 /app/scripts/p0_b_sensor_proof.py. Adversarial pivot check (bogus/revoked ep_ must return identity.resolved=false, zero events): tested and passing. When accessing preview URL from urllib always set User-Agent header (edge 403s default python-urllib). Sensor is manual/on-demand by design — do NOT add it to supervisor.",
+  "rca of the issue": "N/A — all four defects listed in the review request (endpoint_id not a trajectory pivot; PPID dropped; sensor-restart duplicate evidence; file baseline swallowing first CREATE) are already fixed and independently reverified here."
+}

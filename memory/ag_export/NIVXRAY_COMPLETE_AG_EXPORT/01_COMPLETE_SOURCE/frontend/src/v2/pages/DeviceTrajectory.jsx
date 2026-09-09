@@ -1,0 +1,2299 @@
+/**
+ * Device Trajectory · v2 · Process-timeline redesign.
+ *
+ * Adopted pattern (per user reference — Cisco Secure Endpoint Device
+ * Trajectory, Black Hat Asia 2023 XDR NOC blog):
+ *   - One row per process (not per event category)
+ *   - Each row has a horizontal LIFELINE spanning first→last event
+ *   - Event glyphs sit ON the lifeline (icon per event kind, halo per verdict)
+ *   - Vertical dashed SPAWN ARCS connect parent → child process rows
+ *   - Top strip is a mini HISTOGRAM SCRUBBER of event density over time
+ *   - Right-side EVENT DETAILS panel appears on selection
+ *
+ * Visuals (design_guidelines.json — "Amber-on-Graphite / Tactical Surveillance"):
+ *   - zinc-950 base, zinc-800 borders, IBM Plex Sans + Mono
+ *   - Amber #A1A1AA as the ONE hero accent (V2 badge, zoom active, selection)
+ *   - Per-lane accents kept small: violet SYSTEM, rose PROCESS, amber FILES,
+ *     indigo NETWORK, orange REGISTRY — used to tint event glyphs
+ *   - Verdict halos: emerald (observation) · amber (suspicious) · rose (malicious)
+ *   - No cyan/teal anywhere. No copied Cisco chrome.
+ *
+ * Feature-flag gated on TRAJECTORY_ENGINE. No RC5 imports.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  Cpu, Activity, FileCode, Globe, Database,
+  Search, Shield, ShieldAlert, ShieldCheck, ChevronRight, ChevronDown,
+  Clock, PenSquare, Radar, Play, AlertTriangle, X, Filter, HelpCircle,
+  FolderOpen, Sparkles,
+} from "lucide-react";
+import { isObservable } from "../flags";
+import api from "@/lib/api";
+
+// LocalStorage key for the "new since last view" badge
+const LAST_VIEWED_KEY = (caseId) => `nivx.trajectory.lastViewed.${caseId}`;
+// Confidence tiers used by the evidence badge
+function confidenceTierOf(frame) {
+  const c = Number(frame.provenance?.confidence ?? frame.confidence ?? 0);
+  if (c >= 0.8 || frame.rule_id) return { key: "high",   label: "HIGH",   color: "#22C55E" };
+  if (c >= 0.5 || (frame.mitre || []).length > 0)
+                                 return { key: "medium", label: "MED",    color: "#A1A1AA" };
+  return                                { key: "low",    label: "LOW",    color: "#71717A" };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NivXRay · Device Trajectory design tokens (spec §1, §3, §4, §7, §11).
+// Original identity — Cisco layout principles, not Cisco branding.
+// ═══════════════════════════════════════════════════════════════════
+const NX = {
+  // Surfaces
+  bg:          "#1F232A",           // App background
+  panel:       "#262B33",           // Primary panel
+  panel2:      "#2D333D",           // Secondary panel (rails, drawers)
+  canvasBg:    "#24282F",           // Timeline canvas
+  border:      "#4B5563",           // Low-contrast borders
+  borderDim:   "#3A404A",           // Grid lines
+  hoverBg:     "#353C46",           // Row hover
+  selectedBg:  "#425A7A",           // Row selected
+  // Text
+  text:        "#F3F4F6",
+  textDim:     "#A8B3C2",
+  textMute:    "#646C76",
+  link:        "#5FA8FF",           // Hyperlink / process names
+  // Semantic
+  success:     "#55C271",
+  warning:     "#F5C542",
+  critical:    "#F04B4B",
+  // Timeline / scrubber
+  scrubDay:    "#808A98",           // Day marker (normal)
+  scrubHour:   "#33445A",           // Hour scrubber bg
+  scrubFuture: "#3C4048",           // Future / no-data hatch
+  densityLine: "#4A90FF",           // Blue density curve
+  // Lifelines
+  lifelineActive: "#4A8B47",        // Muted green (active row)
+  lifelineDim:    "#545C66",        // Grey (inactive)
+  // Selection
+  selectGlow:  "#4A90FF",
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// Lane metadata (accents applied to event glyphs, NOT full-row bands)
+// ═══════════════════════════════════════════════════════════════════
+const LANE_META = {
+  system:   { label: "SYSTEM",   accent: NX.textDim, Icon: Cpu      },
+  process:  { label: "PROCESS",  accent: NX.textDim, Icon: Activity },
+  file:     { label: "FILES",    accent: NX.textDim, Icon: FileCode },
+  network:  { label: "NETWORK",  accent: NX.textDim, Icon: Globe    },
+  registry: { label: "REGISTRY", accent: NX.textDim, Icon: Database },
+};
+const LANE_ORDER = ["system", "process", "file", "network", "registry"];
+
+const VERDICT = {
+  benign:     { color: NX.success,  label: "OBSERVATION",  Icon: ShieldCheck },
+  suspicious: { color: NX.warning,  label: "SUSPICIOUS",   Icon: Shield      },
+  malicious:  { color: NX.critical, label: "MALICIOUS",    Icon: ShieldAlert },
+};
+function verdictFor(f) {
+  const hasMitre = (f.mitre || []).length > 0;
+  const rule = (f.rule_id || f.provenance?.rule_id || "").toLowerCase();
+  if (hasMitre && rule) return "malicious";
+  if (hasMitre) return "suspicious";
+  return "benign";
+}
+
+// Canvas backdrop — vertical grid only (spec §4). Very thin lines,
+// low opacity — the grid supports alignment without dominating.
+const TRACK_BG =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'>" +
+  "<path d='M12 0v48M24 0v48M36 0v48M48 0v48' fill='none' stroke='%233A404A' stroke-opacity='0.55' stroke-width='0.5'/>" +
+  "</svg>\")";
+
+// Layout constants (spec §16 · 8px grid).
+// Proportions per user directive: canvas ~55%, scrubbers ~18%, header/filters ~13%.
+const ROW_H         = 26;   // per-process row height — denser to give canvas more room
+const LEFT_RAIL_W   = 176;  // narrower process-label rail
+const CANVAS_PAD_X  = 16;   // horizontal padding inside track
+const HEADER_H      = 40;   // spec ~6% of 700px
+const FILTERBAR_H   = 36;   // spec ~7%
+const DAY_SCRUB_H   = 72;   // spec ~10% — blue density curve + red critical dots
+const HOUR_SCRUB_H  = 52;   // spec ~8% — hour scrubber + hatched future zone
+const STATUS_H      = 24;   // spec ~4% bottom status
+const ACTIVITY_PANEL_W = 300; // right activity/details panel width
+const GLYPH_SIZE    = 10;   // spec §8 · very small
+const BAND_H        = 20;   // band header stripe height (was 24)
+
+// Extract a readable process-name label from a frame.
+// Per user reference: hide ugly `proc_shadow_<hex>` iids behind a
+// friendly "Unknown Process" label — analysts should see binaries,
+// never internal shadow IDs.
+function processLabelOf(frame) {
+  const raw = frame.label || frame.action || "";
+  const m = raw.match(/([A-Za-z0-9_.-]+\.(?:exe|dll|msi|ps1|bat|cmd|sys|com))/i);
+  if (m) return m[1];
+  const p = (frame.process?.iid || frame.parent?.iid || "").split(/[:/\\]/).pop();
+  if (p && /^proc_shadow_/i.test(p)) return "Unknown Process";
+  return p || (frame.action || "event");
+}
+// Group key: prefer readable process name so that N events from the same
+// binary collapse to ONE lifeline (Cisco Device Trajectory pattern). The
+// shadow adapter mints a unique `proc_shadow_xxxx` iid per event, which
+// would otherwise explode into one row per event.
+function processKeyOf(frame) {
+  const label = processLabelOf(frame);
+  if (label && /\.(exe|dll|msi|ps1|bat|cmd|sys|com)$/i.test(label)) {
+    return `bin:${label.toLowerCase()}`;
+  }
+  return frame.process?.iid || frame.parent?.iid || `sys:${frame.lane}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Root component
+// ═══════════════════════════════════════════════════════════════════
+export default function DeviceTrajectory() {
+  const navigate = useNavigate();
+  const { caseId = "case_dfir_bumblebee_akira_2026" } = useParams() || {};
+  const [data, setData] = useState(null);
+  const [err, setErr]   = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [zoom, setZoom] = useState("Fit");
+  const [query, setQuery] = useState("");
+  const searchRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [canvasW, setCanvasW] = useState(1200);
+  // R1.1 · Filter chips
+  const [verdictFilter, setVerdictFilter] = useState("all"); // all | benign | suspicious | malicious
+  const [laneFilter, setLaneFilter]       = useState("all"); // all | system | process | file | network | registry
+  const [mitreFilter, setMitreFilter]     = useState(null);  // null | "TXXXX"
+  // R1.1 · Case selector
+  const [cases, setCases]           = useState(null);
+  const [caseMenuOpen, setCaseMenu] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
+  // R1.1 · New-since-last-view badge
+  const [lastViewed, setLastViewed] = useState(null);
+  // R4 · Investigation Report modal
+  const [reportOpen, setReportOpen] = useState(false);
+  // R4.2 · Two-band grouping (analyst view) vs 5-lane expert view.
+  // Analyst  → System (SYSTEM + PROCESS + REGISTRY), Files & Network (FILES + NETWORK)
+  // Expert   → SYSTEM · PROCESS · FILES · NETWORK · REGISTRY (all separate)
+  const [expertMode, setExpertMode] = useState(false);
+  const bandFor = useCallback((row) => {
+    // Derive from the row's dominant lane — the lane of its first frame,
+    // which mirrors how the row lands on the swimlane anyway.
+    const lane = (row.events?.[0]?.lane) || "process";
+    if (expertMode) {
+      return (LANE_META[lane]?.label) || lane.toUpperCase();
+    }
+    return (lane === "file" || lane === "network")
+      ? "Files & Network"
+      : "System";
+  }, [expertMode]);
+
+  const enabled = isObservable("TRAJECTORY_ENGINE") || isObservable("CASE_ENGINE");
+
+  // Fetch
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.get(
+          `/v2/cases/${encodeURIComponent(caseId)}/trajectory/device?limit=1000`,
+        );
+        if (!cancelled) setData(r.data);
+      } catch (e) {
+        if (!cancelled) setErr(e?.response?.data?.detail || e.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [caseId, enabled]);
+
+  // R1.1 · Load case list for the selector (best-effort — 401/404 → keep null)
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.get("/v2/cases?limit=100");
+        if (!cancelled) setCases(Array.isArray(r.data) ? r.data : []);
+      } catch (_) {
+        if (!cancelled) setCases([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [enabled]);
+
+  // R1.1 · Read the "last viewed" timestamp for this case, then bump it.
+  useEffect(() => {
+    if (!enabled) return;
+    try {
+      const prev = localStorage.getItem(LAST_VIEWED_KEY(caseId));
+      setLastViewed(prev ? Number(prev) : null);
+      localStorage.setItem(LAST_VIEWED_KEY(caseId), String(Date.now()));
+    } catch (_) { /* localStorage disabled — ignore */ }
+  }, [caseId, enabled]);
+
+  // Observe canvas resize so nodes stay pixel-precise across viewports
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const el = canvasRef.current;
+    const ro = new ResizeObserver(entries => {
+      for (const ent of entries) setCanvasW(ent.contentRect.width);
+    });
+    ro.observe(el);
+    setCanvasW(el.clientWidth);
+    return () => ro.disconnect();
+  }, [enabled]);
+
+  // Filtered frames (search + verdict + lane + mitre chip)
+  const frames = useMemo(() => {
+    if (!data?.frames) return [];
+    let out = data.frames;
+    if (verdictFilter !== "all")
+      out = out.filter(f => verdictFor(f) === verdictFilter);
+    if (laneFilter !== "all")
+      out = out.filter(f => f.lane === laneFilter);
+    if (mitreFilter)
+      out = out.filter(f => (f.mitre || []).includes(mitreFilter));
+    if (query) {
+      const q = query.toLowerCase();
+      out = out.filter(f =>
+        (f.label || "").toLowerCase().includes(q) ||
+        (f.action || "").toLowerCase().includes(q) ||
+        processLabelOf(f).toLowerCase().includes(q) ||
+        (f.mitre || []).some(t => t.toLowerCase().includes(q)),
+      );
+    }
+    return out;
+  }, [data, query, verdictFilter, laneFilter, mitreFilter]);
+
+  // R1.1 · Count of frames newer than the last-viewed timestamp
+  const newSinceCount = useMemo(() => {
+    if (!lastViewed || !data?.frames) return 0;
+    return data.frames.filter(f => {
+      const ing = new Date(f.provenance?.ingested_at || f.ts).getTime();
+      return ing > lastViewed;
+    }).length;
+  }, [data, lastViewed]);
+
+  // Time domain + x mapper
+  const { xForTs, minTs, maxTs, tickTimes } = useMemo(() => {
+    if (!frames.length) return { xForTs: () => 0, minTs: 0, maxTs: 1, tickTimes: [] };
+    const times = frames.map(f => new Date(f.ts).getTime());
+    let lo = Math.min(...times), hi = Math.max(...times);
+    if (hi === lo) hi = lo + 1000;
+    const span = hi - lo;
+    const usableW = Math.max(canvasW - CANVAS_PAD_X * 2, 200);
+    const ticks = Array.from({ length: 9 }, (_, i) => lo + (span * i) / 8);
+    return {
+      xForTs: (ts) => CANVAS_PAD_X + ((new Date(ts).getTime() - lo) / span) * usableW,
+      minTs: lo, maxTs: hi, tickTimes: ticks,
+    };
+  }, [frames, canvasW]);
+
+  // Build the per-process rows
+  const rows = useMemo(() => {
+    const byKey = new Map();
+    frames.forEach(f => {
+      const key = processKeyOf(f);
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          key,
+          label: processLabelOf(f),
+          type: (f.process?.iid ? "PROC" : (f.parent?.iid ? "PROC" : "SYS")),
+          events: [],
+          firstTs: new Date(f.ts).getTime(),
+          lastTs: new Date(f.ts).getTime(),
+          parentKey: f.parent?.iid || null,
+          worstVerdict: "benign",
+        });
+      }
+      const r = byKey.get(key);
+      r.events.push(f);
+      const ts = new Date(f.ts).getTime();
+      if (ts < r.firstTs) r.firstTs = ts;
+      if (ts > r.lastTs)  r.lastTs  = ts;
+      const v = verdictFor(f);
+      if (v === "malicious" || (v === "suspicious" && r.worstVerdict !== "malicious")) {
+        r.worstVerdict = v;
+      }
+    });
+    // Sort so bands cluster together (analyst view groups System vs
+    // Files & Network into contiguous blocks), then within a band by
+    // first-seen ts. Expert view uses lane precedence instead.
+    const bandRank = (r) => {
+      const lane = r.events?.[0]?.lane || "process";
+      if (expertMode) {
+        const order = ["system", "process", "file", "network", "registry"];
+        return order.indexOf(lane);
+      }
+      // Analyst: System block (0) before Files & Network (1)
+      return (lane === "file" || lane === "network") ? 1 : 0;
+    };
+    return [...byKey.values()].sort((a, b) => {
+      const ba = bandRank(a), bb = bandRank(b);
+      if (ba !== bb) return ba - bb;
+      return a.firstTs !== b.firstTs
+        ? a.firstTs - b.firstTs
+        : a.label.localeCompare(b.label);
+    });
+  }, [frames, expertMode]);
+
+  const rowIndex = useMemo(() => {
+    const m = new Map();
+    rows.forEach((r, i) => m.set(r.key, i));
+    return m;
+  }, [rows]);
+
+  // Spawn edges (parent → child)
+  const spawnEdges = useMemo(() => {
+    const edges = [];
+    rows.forEach(child => {
+      if (!child.parentKey) return;
+      if (!rowIndex.has(child.parentKey)) return;
+      edges.push({ parent: child.parentKey, child: child.key });
+    });
+    return edges;
+  }, [rows, rowIndex]);
+
+  // Histogram buckets (top scrubber)
+  const histogram = useMemo(() => {
+    const B = 48;
+    const arr = new Array(B).fill(0);
+    if (!frames.length) return arr;
+    const span = maxTs - minTs || 1;
+    frames.forEach(f => {
+      const t = new Date(f.ts).getTime();
+      const i = Math.min(B - 1, Math.max(0, Math.floor(((t - minTs) / span) * B)));
+      arr[i] += 1;
+    });
+    return arr;
+  }, [frames, minTs, maxTs]);
+
+  // Overview (drawer empty state)
+  const overview = useMemo(() => {
+    const mitreCount = new Map();
+    const laneCount = Object.fromEntries(LANE_ORDER.map(l => [l, 0]));
+    frames.forEach(f => {
+      (f.mitre || []).forEach(t => mitreCount.set(t, (mitreCount.get(t) || 0) + 1));
+      if (laneCount[f.lane] != null) laneCount[f.lane] += 1;
+    });
+    return {
+      mitre: [...mitreCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6),
+      lanes: LANE_ORDER.map(l => [l, laneCount[l]]),
+      processes: rows.length,
+      malicious: frames.filter(f => verdictFor(f) === "malicious").length,
+      suspicious: frames.filter(f => verdictFor(f) === "suspicious").length,
+    };
+  }, [frames, rows]);
+
+  // Keyboard nav
+  useEffect(() => {
+    if (!enabled) return;
+    const handler = (e) => {
+      if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
+        e.preventDefault(); searchRef.current?.focus(); return;
+      }
+      if (e.key === "Escape") { setSelected(null); return; }
+      if (!frames.length) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const idx = selected ? frames.findIndex(f => f.frame_iid === selected.frame_iid) : -1;
+      const nextIdx = e.key === "ArrowRight"
+        ? Math.min(idx + 1, frames.length - 1)
+        : Math.max(idx - 1, 0);
+      setSelected(frames[nextIdx]);
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [enabled, frames, selected]);
+
+  const onPickEvent = useCallback((f) => setSelected(f), []);
+
+  // Row Y positions on the canvas — must reserve BAND_H per band header
+  // on the left rail so lifelines stay aligned with row labels. This
+  // MUST come before any conditional early return (rules-of-hooks).
+  const { rowY, canvasH } = useMemo(() => {
+    let y = 0;
+    const arr = [];
+    let prevBand = null;
+    rows.forEach((r) => {
+      const b = bandFor(r);
+      if (b !== prevBand) {
+        y += BAND_H;
+        prevBand = b;
+      }
+      arr.push(y);
+      y += ROW_H;
+    });
+    return { rowY: arr, canvasH: y + 8 };
+  }, [rows, bandFor]);
+  const yOf = (i) => (rowY[i] ?? 0) + ROW_H / 2;
+
+  if (!enabled) {
+    return (
+      <div data-testid="v2-trajectory-disabled"
+           className="min-h-screen bg-zinc-950 text-zinc-500 p-6 text-xs"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        Device Trajectory is disabled. Set{" "}
+        <code className="text-zinc-100">REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=shadow</code>{" "}or{" "}
+        <code className="text-zinc-100">REACT_APP_NIVX_FLAG_CASE_ENGINE=shadow</code>.
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="v2-device-trajectory"
+         className="flex flex-col h-screen overflow-hidden"
+         style={{
+           background: NX.bg,
+           color: NX.text,
+           fontFamily: "Inter, 'IBM Plex Sans', system-ui, sans-serif",
+         }}>
+      <Header
+        caseId={caseId} count={data?.count} totalRows={rows.length}
+        query={query} setQuery={setQuery}
+        zoom={zoom} setZoom={setZoom}
+        searchRef={searchRef}
+        cases={cases}
+        caseMenuOpen={caseMenuOpen} setCaseMenu={setCaseMenu}
+        onPickCase={(id) => navigate(`/v2/trajectory/${encodeURIComponent(id)}`)}
+        legendOpen={legendOpen} setLegendOpen={setLegendOpen}
+        newSinceCount={newSinceCount}
+      />
+
+      {err && (
+        <div className="px-4 py-2 border-b border-rose-900/40 bg-rose-950/30 text-rose-400 text-xs"
+             style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+             data-testid="v2-trajectory-error">
+          {String(err)}
+        </div>
+      )}
+
+      {/* Top two-tier scrubber (Day + Hour) */}
+      <Scrubber frames={frames} minTs={minTs} maxTs={maxTs} />
+
+      {/* Compact filter bar (spec §14 · Filters ▼) */}
+      <div className="shrink-0 flex items-center gap-3 px-3"
+           style={{ height: FILTERBAR_H, background: NX.panel,
+                    borderBottom: `1px solid ${NX.border}` }}
+           data-testid="filter-bar">
+        <FilterChips
+          verdictFilter={verdictFilter} setVerdictFilter={setVerdictFilter}
+          laneFilter={laneFilter} setLaneFilter={setLaneFilter}
+          mitreFilter={mitreFilter} setMitreFilter={setMitreFilter}
+          topMitre={overview.mitre}
+          counts={{
+            malicious:  overview.malicious,
+            suspicious: overview.suspicious,
+            benign:     (data?.count ?? 0) - overview.malicious - overview.suspicious,
+          }}
+          laneCounts={Object.fromEntries(overview.lanes)}
+          totalShown={frames.length}
+          totalAll={data?.count ?? 0}
+        />
+      </div>
+
+      {/* Main work area */}
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          {/* Row layout (left rail + track canvas) */}
+          <div className="flex-1 flex overflow-auto">
+            <ProcessRail rows={rows} selectedKey={selected ? processKeyOf(selected) : null}
+                         bandFor={bandFor}
+                         expertMode={expertMode}
+                         onToggleExpert={() => setExpertMode(m => !m)}
+                         onPickRow={(r) => onPickEvent(r.events[0])}
+                         onOpenAncestry={(key) => {
+                           // Strip the "bin:" prefix so the URL is human-friendly
+                           const iid = key.startsWith("bin:") ? key.slice(4) : key;
+                           navigate(`/v2/ancestry/${encodeURIComponent(caseId)}/${encodeURIComponent(iid)}`);
+                         }} />
+
+            <div
+              ref={canvasRef}
+              className="flex-1 relative overflow-hidden"
+              style={{
+                backgroundColor: NX.canvasBg,
+                backgroundImage: TRACK_BG,
+                backgroundSize: "48px 100%",
+              }}
+              data-testid="trajectory-canvas"
+            >
+              <div className="relative" style={{ height: canvasH }}>
+                {/* Row separators */}
+                {rows.map((r, i) => (
+                  <div key={r.key + ":sep"} className="absolute inset-x-0 border-b border-zinc-900/70"
+                       style={{ top: (rowY[i] ?? 0) + ROW_H - 1, height: 1 }} />
+                ))}
+
+                {/* SVG overlay: lifelines + spawn arcs */}
+                <svg width={canvasW} height={canvasH}
+                     className="absolute top-0 left-0 pointer-events-none">
+                  {/* Lifelines — thin dashed, muted green when active (spec §7) */}
+                  {rows.map((r, i) => {
+                    const y = yOf(i);
+                    const x1 = xForTs(r.firstTs);
+                    const x2 = xForTs(r.lastTs);
+                    const isSel = selected && processKeyOf(selected) === r.key;
+                    const stroke = r.worstVerdict === "malicious"
+                      ? NX.critical
+                      : r.worstVerdict === "suspicious"
+                        ? NX.warning
+                        : (isSel ? NX.lifelineActive : NX.lifelineDim);
+                    return (
+                      <g key={r.key + ":line"}>
+                        <line x1={x1 - 4} y1={y} x2={x2 + 4} y2={y}
+                              stroke={stroke} strokeWidth={isSel ? 1.4 : 1}
+                              strokeDasharray="2 3"
+                              strokeOpacity={isSel ? 0.9 : 0.4} />
+                      </g>
+                    );
+                  })}
+                  {/* Spawn arcs: dashed L-shaped connector parent → child */}
+                  {spawnEdges.map(({ parent, child }, i) => {
+                    const pi = rowIndex.get(parent), ci = rowIndex.get(child);
+                    if (pi == null || ci == null) return null;
+                    const py = yOf(pi);
+                    const cy = yOf(ci);
+                    const childRow = rows[ci];
+                    const cx = xForTs(childRow.firstTs);
+                    return (
+                      <path key={`spawn-${i}`}
+                            d={`M ${cx} ${py} L ${cx} ${cy - 6}`}
+                            stroke="#52525B" strokeWidth="1" strokeDasharray="3 3"
+                            fill="none" opacity="0.75" />
+                    );
+                  })}
+                </svg>
+
+                {/* Band header stripes on canvas — thin dark bar matching
+                    the left-rail band label height, so the grid stays
+                    honest visually. */}
+                {(() => {
+                  const stripes = [];
+                  let prev = null;
+                  rows.forEach((r, i) => {
+                    const b = bandFor(r);
+                    if (b !== prev) {
+                      stripes.push(
+                        <div key={`band-${i}`}
+                             className="absolute inset-x-0 bg-zinc-950 border-b border-zinc-900"
+                             style={{ top: (rowY[i] ?? 0) - BAND_H, height: BAND_H }} />
+                      );
+                      prev = b;
+                    }
+                  });
+                  return stripes;
+                })()}
+
+                {/* Selected row highlight band (spec §11 selected #425A7A) */}
+                {selected && (() => {
+                  const idx = rowIndex.get(processKeyOf(selected));
+                  if (idx == null) return null;
+                  return (
+                    <div className="absolute inset-x-0 pointer-events-none"
+                         style={{ top: rowY[idx] ?? 0, height: ROW_H,
+                                  background: `${NX.selectedBg}22`,
+                                  borderTop:    `1px solid ${NX.selectedBg}66`,
+                                  borderBottom: `1px solid ${NX.selectedBg}66` }} />
+                  );
+                })()}
+
+                {/* Event glyphs */}
+                {frames.map(f => {
+                  const key = processKeyOf(f);
+                  const i = rowIndex.get(key);
+                  if (i == null) return null;
+                  const x = xForTs(f.ts);
+                  const y = yOf(i);
+                  const isSel = selected?.frame_iid === f.frame_iid;
+                  return (
+                    <EventGlyph key={f.frame_iid || `${key}-${x}`}
+                                frame={f} x={x} y={y} selected={isSel}
+                                onSelect={onPickEvent} />
+                  );
+                })}
+              </div>
+
+              {/* Empty hint */}
+              {!frames.length && !err && (
+                <div className="absolute inset-0 flex items-center justify-center text-zinc-600 pointer-events-none"
+                     style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  <div className="text-xs tracking-wider text-center">
+                    <Radar className="mx-auto mb-2 text-zinc-700" size={22} />
+                    NO TRAJECTORY FRAMES · seed observations via{" "}
+                    <code className="text-zinc-100">POST /api/v2/cases/{caseId}/observations</code>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom ruler */}
+          <TimeRuler ticks={tickTimes} zoom={zoom} minTs={minTs} maxTs={maxTs}
+                     total={frames.length} rows={rows.length} />
+        </div>
+
+        <Drawer selected={selected} onClose={() => setSelected(null)}
+                overview={overview} totalEvents={data?.count ?? 0} caseId={caseId}
+                frames={frames} onPickEvent={onPickEvent} />
+      </div>
+
+      {/* Floating Training Note CTA + Generate Report CTA */}
+      <button
+        data-testid="training-note-cta"
+        className="fixed bottom-6 right-[540px] bg-zinc-900 text-zinc-300 px-3 py-1.5 rounded-sm
+                   font-semibold text-[11px] tracking-wider shadow-lg hover:bg-zinc-800
+                   border border-zinc-700 flex items-center gap-2 z-40
+                   transition-colors duration-150"
+      >
+        <PenSquare size={12} /> TRAINING NOTE
+      </button>
+      <button
+        data-testid="generate-report-cta"
+        onClick={() => setReportOpen(true)}
+        className="fixed bottom-6 right-[404px] bg-zinc-100 text-zinc-950 px-3 py-1.5 rounded-sm
+                   font-semibold text-[11px] tracking-wider shadow-lg hover:bg-zinc-200
+                   border border-zinc-300/60 flex items-center gap-2 z-40
+                   transition-colors duration-150"
+      >
+        <FileCode size={12} /> GENERATE REPORT
+      </button>
+      {reportOpen && (
+        <ReportModal caseId={caseId} onClose={() => setReportOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Header
+// ═══════════════════════════════════════════════════════════════════
+function Header({
+  caseId, count, totalRows, query, setQuery, zoom, setZoom, searchRef,
+  cases, caseMenuOpen, setCaseMenu, onPickCase,
+  legendOpen, setLegendOpen, newSinceCount,
+}) {
+  return (
+    <header className="shrink-0 flex items-center gap-3 px-3 z-20 relative"
+            style={{ height: HEADER_H, background: NX.panel, borderBottom: `1px solid ${NX.border}` }}>
+      <div className="flex items-center gap-2">
+        <div className="w-5 h-5 flex items-center justify-center rounded-sm"
+             style={{ background: `${NX.link}22`, border: `1px solid ${NX.border}` }}>
+          <Radar size={11} style={{ color: NX.link }} />
+        </div>
+        <div style={{ lineHeight: 1 }}>
+          <div className="text-[8px] tracking-[0.24em] uppercase font-semibold"
+               style={{ color: NX.textMute }}>
+            NIVXRAY · V2
+          </div>
+          <h1 className="text-[13px] font-semibold tracking-tight leading-none mt-0.5"
+              style={{ color: NX.text }}>
+            Device Trajectory
+          </h1>
+        </div>
+      </div>
+
+      {/* Case selector dropdown */}
+      <div className="hidden md:flex items-center gap-2 pl-4 ml-2 border-l border-zinc-800 h-8 relative">
+        <span className="text-[10px] tracking-widest uppercase text-zinc-500 font-semibold">Case</span>
+        <button
+          data-testid="case-selector-trigger"
+          onClick={() => setCaseMenu(!caseMenuOpen)}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-sm border border-zinc-800
+                     hover:border-zinc-500/40 hover:bg-zinc-100/5 transition-colors duration-150"
+        >
+          <FolderOpen size={11} className="text-zinc-100/70" />
+          <code className="text-[11px] text-zinc-100 max-w-[240px] truncate"
+                style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+            {caseId}
+          </code>
+          {newSinceCount > 0 && (
+            <span
+              data-testid="new-since-badge"
+              className="ml-1 text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm
+                         bg-zinc-100 text-zinc-950 flex items-center gap-1"
+              title={`${newSinceCount} new events since last visit`}
+            >
+              <Sparkles size={9} /> {newSinceCount} NEW
+            </span>
+          )}
+          <ChevronDown size={11} className={"text-zinc-500 transition-transform duration-150 " +
+                                             (caseMenuOpen ? "rotate-180" : "")} />
+        </button>
+
+        {caseMenuOpen && cases && (
+          <div
+            data-testid="case-selector-menu"
+            className="absolute top-full mt-1 left-16 w-96 max-h-80 overflow-y-auto z-40
+                       bg-zinc-950 border border-zinc-800 rounded-sm shadow-2xl"
+          >
+            {cases.length === 0 && (
+              <div className="p-3 text-[11px] text-zinc-600"
+                   style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                no cases indexed · use POST /api/v2/cases to seed
+              </div>
+            )}
+            {cases.map(c => {
+              const id = c.case_id || c._id || c.id;
+              const isActive = id === caseId;
+              return (
+                <button
+                  key={id}
+                  data-testid={`case-option-${id}`}
+                  onClick={() => { onPickCase(id); setCaseMenu(false); }}
+                  className={"w-full text-left px-3 py-2 border-b border-zinc-900 last:border-b-0 " +
+                             "transition-colors duration-100 " +
+                             (isActive ? "bg-zinc-100/10" : "hover:bg-zinc-900/50")}
+                >
+                  <div className={"text-[11px] " + (isActive ? "text-zinc-100" : "text-zinc-200")}
+                       style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {id}
+                  </div>
+                  {c.title && (
+                    <div className="text-[10px] text-zinc-500 mt-0.5">{c.title}</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <span className="text-zinc-700 mx-1">·</span>
+        <span className="text-[10px] tracking-widest uppercase text-zinc-500 font-semibold">Events</span>
+        <span className="text-[11px] text-zinc-200 tabular-nums"
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+              data-testid="event-count-label">
+          {count ?? "—"}
+        </span>
+        <span className="text-zinc-700 mx-1">·</span>
+        <span className="text-[10px] tracking-widest uppercase text-zinc-500 font-semibold">Procs</span>
+        <span className="text-[11px] text-zinc-200 tabular-nums"
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+          {totalRows}
+        </span>
+      </div>
+
+      <div className="flex-1" />
+
+      {/* Legend button */}
+      <div className="relative">
+        <button
+          data-testid="glyph-legend-trigger"
+          onClick={() => setLegendOpen(!legendOpen)}
+          className="w-8 h-8 flex items-center justify-center rounded-sm border border-zinc-800
+                     text-zinc-400 hover:text-zinc-100 hover:border-zinc-500/40 transition-colors duration-150"
+          title="Symbol legend"
+        >
+          <HelpCircle size={14} />
+        </button>
+        {legendOpen && <GlyphLegend onClose={() => setLegendOpen(false)} />}
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={13}
+                style={{ color: NX.textMute }} />
+        <input
+          ref={searchRef}
+          data-testid="trajectory-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search Device Trajectory"
+          className="pl-9 pr-8 py-2 w-80 rounded-md outline-none text-[13px]"
+          style={{
+            background: NX.panel2,
+            border: `1px solid ${NX.textMute}`,
+            color: NX.text,
+            fontFamily: "Inter, 'IBM Plex Sans', sans-serif",
+            transition: "border-color 150ms",
+          }}
+          onFocus={(e) => e.currentTarget.style.borderColor = NX.link}
+          onBlur={(e)  => e.currentTarget.style.borderColor = NX.textMute}
+        />
+        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] pointer-events-none rounded px-1"
+             style={{ color: NX.textMute, border: `1px solid ${NX.border}`, background: NX.panel }}>/</kbd>
+      </div>
+
+      <div className="flex items-center gap-1 border border-zinc-800 rounded-sm p-0.5" role="tablist">
+        {["Fit", "1h", "24h", "7d", "30d"].map(z => (
+          <button key={z}
+            data-testid={`zoom-${z}`}
+            onClick={() => setZoom(z)}
+            className={
+              "px-2.5 py-1 text-[10px] font-semibold tracking-wider rounded-sm transition-colors duration-150 " +
+              (zoom === z
+                ? "bg-zinc-100/15 text-zinc-100 border border-zinc-500/40 shadow-[0_0_8px_rgba(161,161,170,0.12)]"
+                : "text-zinc-500 hover:text-zinc-300 border border-transparent")
+            }
+            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+          >
+            {z.toUpperCase()}
+          </button>
+        ))}
+      </div>
+    </header>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Compact filter bar (spec §14 · Filters ▼ dropdown).
+// Shows a single-line summary + a "Filters" dropdown. No colorful chips.
+// ═══════════════════════════════════════════════════════════════════
+function FilterChips({
+  verdictFilter, setVerdictFilter,
+  laneFilter, setLaneFilter,
+  mitreFilter, setMitreFilter,
+  topMitre, counts, laneCounts, totalShown, totalAll,
+}) {
+  const [open, setOpen] = useState(false);
+  const hasFilter = verdictFilter !== "all" || laneFilter !== "all" || mitreFilter;
+  const activeParts = [];
+  if (verdictFilter !== "all") activeParts.push(verdictFilter);
+  if (laneFilter !== "all")    activeParts.push(laneFilter);
+  if (mitreFilter)             activeParts.push(mitreFilter);
+
+  return (
+    <div className="flex-1 flex items-center gap-3" data-testid="filter-chips">
+      <div className="relative">
+        <button
+          data-testid="filters-dropdown"
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-[12px]"
+          style={{
+            background: NX.panel2,
+            border: `1px solid ${NX.border}`,
+            color: NX.text,
+            transition: "border-color 150ms",
+          }}
+        >
+          <Filter size={12} style={{ color: NX.textDim }} />
+          <span>Filters</span>
+          {hasFilter && (
+            <span className="ml-1 text-[10px] tabular-nums px-1 rounded-sm"
+                  style={{ background: `${NX.link}33`, color: NX.link }}>
+              {activeParts.length}
+            </span>
+          )}
+          <ChevronDown size={11} style={{ color: NX.textDim,
+            transition: "transform 150ms",
+            transform: open ? "rotate(180deg)" : "none" }} />
+        </button>
+
+        {open && (
+          <div className="absolute top-full mt-1 left-0 w-72 z-30 rounded-sm py-2"
+               style={{
+                 background: NX.panel2,
+                 border: `1px solid ${NX.border}`,
+                 boxShadow: "0 12px 32px -8px rgba(0,0,0,0.7)",
+               }}
+               data-testid="filters-menu">
+            <FilterGroup label="Verdict">
+              {[
+                ["all",        "All",         null],
+                ["malicious",  "Malicious",   counts.malicious],
+                ["suspicious", "Suspicious",  counts.suspicious],
+                ["benign",     "Observation", counts.benign],
+              ].map(([k, lbl, n]) => (
+                <FilterRow key={k}
+                           active={verdictFilter === k}
+                           label={lbl} count={n}
+                           onClick={() => setVerdictFilter(k)}
+                           testId={`filter-verdict-${k}`} />
+              ))}
+            </FilterGroup>
+
+            <FilterGroup label="Lane">
+              <FilterRow active={laneFilter === "all"} label="All lanes"
+                         onClick={() => setLaneFilter("all")}
+                         testId="filter-lane-all" />
+              {LANE_ORDER.map(l => (
+                <FilterRow key={l}
+                           active={laneFilter === l}
+                           label={LANE_META[l].label.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                           count={laneCounts[l] || 0}
+                           onClick={() => setLaneFilter(l)}
+                           testId={`filter-lane-${l}`} />
+              ))}
+            </FilterGroup>
+
+            {topMitre.length > 0 && (
+              <FilterGroup label="MITRE Techniques">
+                {topMitre.slice(0, 6).map(([tid, n]) => (
+                  <FilterRow key={tid}
+                             active={mitreFilter === tid}
+                             label={tid} count={n}
+                             onClick={() => setMitreFilter(mitreFilter === tid ? null : tid)}
+                             testId={`filter-mitre-${tid}`} />
+                ))}
+              </FilterGroup>
+            )}
+
+            {hasFilter && (
+              <button
+                data-testid="filter-clear"
+                onClick={() => { setVerdictFilter("all"); setLaneFilter("all"); setMitreFilter(null); }}
+                className="w-full text-left px-3 py-1.5 text-[11px]"
+                style={{
+                  color: NX.link,
+                  borderTop: `1px solid ${NX.border}`,
+                }}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {hasFilter && (
+        <div className="flex items-center gap-1 text-[11px]"
+             style={{ color: NX.textDim }}>
+          {activeParts.map(p => (
+            <span key={p} className="px-1.5 py-0.5 rounded-sm text-[10px]"
+                  style={{
+                    background: `${NX.link}22`,
+                    color: NX.link,
+                    fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                  }}>
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex-1" />
+
+      <div className="flex items-center gap-1.5 text-[11px] tabular-nums"
+           style={{ color: NX.textDim, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+        <span style={{ color: NX.text }}>{totalShown}</span>
+        <span style={{ color: NX.textMute }}>/</span>
+        <span>{totalAll}</span>
+        <span style={{ color: NX.textMute }}>shown</span>
+      </div>
+    </div>
+  );
+}
+
+function FilterGroup({ label, children }) {
+  return (
+    <div className="pb-1.5">
+      <div className="px-3 py-1 text-[9px] tracking-[0.22em] uppercase font-semibold"
+           style={{ color: NX.textMute }}>
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function FilterRow({ active, label, count, onClick, testId }) {
+  return (
+    <button
+      data-testid={testId}
+      onClick={onClick}
+      className="w-full flex items-center gap-2 px-3 py-1 text-[12px] text-left"
+      style={{
+        color: active ? NX.text : NX.textDim,
+        background: active ? `${NX.link}22` : "transparent",
+      }}
+      onMouseEnter={(e) => !active && (e.currentTarget.style.background = NX.hoverBg)}
+      onMouseLeave={(e) => !active && (e.currentTarget.style.background = "transparent")}
+    >
+      <span className="flex-1">{label}</span>
+      {count != null && (
+        <span className="text-[10px] tabular-nums"
+              style={{ color: active ? NX.link : NX.textMute,
+                       fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+function ChipGroup({ children }) {
+  return <div className="flex items-center gap-1">{children}</div>;
+}
+function Chip({ active, onClick, tid, color, children }) {
+  const style = active && color ? {
+    color, borderColor: color + "66", background: color + "1F",
+  } : undefined;
+  return (
+    <button
+      data-testid={tid}
+      onClick={onClick}
+      className={
+        "flex items-center gap-1 px-2 py-0.5 rounded-sm border text-[10px] tracking-wider " +
+        "transition-colors duration-100 " +
+        (active
+          ? (color ? "" : "border-zinc-500/50 text-zinc-100 bg-zinc-100/10")
+          : "border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700")
+      }
+      style={{ fontFamily: "'IBM Plex Sans', sans-serif", ...(style || {}) }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Glyph legend (popover)
+// ═══════════════════════════════════════════════════════════════════
+function GlyphLegend({ onClose }) {
+  const items = [
+    { kind: "create",     label: "Create"     },
+    { kind: "copy",       label: "Copy"       },
+    { kind: "move",       label: "Move"       },
+    { kind: "execute",    label: "Execute"    },
+    { kind: "open",       label: "Open"       },
+    { kind: "network",    label: "Network"    },
+    { kind: "exploit",    label: "Exploit prevention" },
+    { kind: "restore",    label: "Restore"    },
+    { kind: "detect",     label: "Scan detection" },
+    { kind: "compromise", label: "Compromise" },
+    { kind: "scan",       label: "Scan"       },
+    { kind: "reboot",     label: "Reboot"     },
+  ];
+  return (
+    <div
+      data-testid="glyph-legend"
+      className="absolute top-full mt-1 right-0 w-[420px] z-40 bg-zinc-950 border border-zinc-800
+                 rounded-sm shadow-2xl p-4"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-400 uppercase">
+          Symbol legend
+        </span>
+        <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300">
+          <X size={12} />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {items.map(({ kind, label }) => (
+          <div key={kind} className="flex items-center gap-2 py-1">
+            <svg width={22} height={22} viewBox="0 0 22 22">
+              <circle cx="11" cy="11" r="9" fill="#0B0B0E" stroke="#71717A" strokeWidth="1.5" />
+              <ActivityMark kind={kind} color="#E4E4E7" />
+            </svg>
+            <span className="text-[11px] text-zinc-300"
+                  style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>{label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 pt-3 border-t border-zinc-900 grid grid-cols-3 gap-2">
+        <LegendVerdict color="#22C55E" label="Observation" />
+        <LegendVerdict color="#A1A1AA" label="Suspicious"  />
+        <LegendVerdictHex label="Malicious" />
+      </div>
+    </div>
+  );
+}
+function LegendVerdict({ color, label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <svg width={20} height={20} viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="8" fill="#0B0B0E" stroke={color} strokeWidth="1.6" />
+      </svg>
+      <span className="text-[10px] text-zinc-300">{label}</span>
+    </div>
+  );
+}
+function LegendVerdictHex({ label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <svg width={20} height={20} viewBox="0 0 20 20">
+        <polygon points="10,1 19,6 19,14 10,19 1,14 1,6"
+                 fill="#450A0A" stroke="#E11D48" strokeWidth="1.5" />
+      </svg>
+      <span className="text-[10px] text-zinc-300">{label}</span>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Two-tier scrubber (spec §3 · Cisco Device Trajectory pattern).
+// Tier 1 · Day timeline (DAY_SCRUB_H): blue density curve + red dots
+// Tier 2 · Hour timeline (HOUR_SCRUB_H): 24-hour scrubber + hatched
+//         future / no-data zone
+// Compact — combined height ≤ 18% of viewport per user directive.
+// ═══════════════════════════════════════════════════════════════════
+function Scrubber({ frames, minTs, maxTs }) {
+  const total = frames.length;
+  const hasData = total > 0 && maxTs > minTs;
+
+  // Build a 31-day month strip anchored on maxTs.
+  const monthDays = useMemo(() => {
+    const anchor = hasData ? maxTs : Date.now();
+    const end = new Date(anchor); end.setUTCHours(0, 0, 0, 0);
+    const out = [];
+    for (let i = 30; i >= 0; i--) {
+      const d = new Date(end); d.setUTCDate(end.getUTCDate() - i);
+      out.push(d);
+    }
+    return out;
+  }, [hasData, maxTs]);
+
+  // Bucket events by day (ISO) → count. Also collect "critical" days
+  // = days with at least one malicious event.
+  const { dayCounts, criticalDays } = useMemo(() => {
+    const counts = new Map(), crit = new Set();
+    frames.forEach(f => {
+      const iso = new Date(f.ts).toISOString().slice(0, 10);
+      counts.set(iso, (counts.get(iso) || 0) + 1);
+      if (verdictFor(f) === "malicious") crit.add(iso);
+    });
+    return { dayCounts: counts, criticalDays: crit };
+  }, [frames]);
+
+  const activeDayKey = hasData
+    ? new Date(minTs).toISOString().slice(0, 10)
+    : monthDays[monthDays.length - 1].toISOString().slice(0, 10);
+
+  const activeHours = useMemo(() => {
+    const s = new Set();
+    if (!hasData) return s;
+    frames.forEach(f => {
+      const d = new Date(f.ts);
+      if (d.toISOString().slice(0, 10) === activeDayKey) s.add(d.getUTCHours());
+    });
+    return s;
+  }, [frames, hasData, activeDayKey]);
+
+  // Density curve — smooth polyline over month days. Spec §3 uses
+  // #4A90FF, thin (~2px), no glow.
+  const densityPath = useMemo(() => {
+    const maxN = Math.max(1, ...monthDays.map(d =>
+      dayCounts.get(d.toISOString().slice(0, 10)) || 0));
+    const W = 100, H = 100;   // normalised viewBox
+    const step = W / Math.max(1, monthDays.length - 1);
+    const pts = monthDays.map((d, i) => {
+      const n = dayCounts.get(d.toISOString().slice(0, 10)) || 0;
+      const y = H - 10 - (n / maxN) * (H - 20);
+      return `${(i * step).toFixed(2)},${y.toFixed(2)}`;
+    });
+    return pts.join(" ");
+  }, [monthDays, dayCounts]);
+
+  return (
+    <div className="shrink-0"
+         style={{ background: NX.panel, borderBottom: `1px solid ${NX.border}` }}
+         data-testid="scrubber">
+
+      {/* Tier 1 · Day scrubber (spec §3) */}
+      <div className="relative" style={{ height: DAY_SCRUB_H }} data-testid="scrubber-month">
+        {/* Blue density curve (behind the day cells) */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none"
+             viewBox="0 0 100 100" preserveAspectRatio="none">
+          <polyline
+            points={densityPath}
+            fill="none"
+            stroke={NX.densityLine}
+            strokeWidth="0.8"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+        </svg>
+
+        {/* Day cells overlay */}
+        <div className="absolute inset-0 flex items-end px-3 pb-1">
+          {monthDays.map((d, i) => {
+            const iso = d.toISOString().slice(0, 10);
+            const isActive   = iso === activeDayKey;
+            const isCritical = criticalDays.has(iso);
+            const isFirstOfMonth = d.getUTCDate() === 1 || i === 0;
+            const dayNum = d.getUTCDate();
+            return (
+              <div key={iso} className="flex-1 relative h-full flex flex-col justify-end items-center"
+                   title={iso}>
+                {/* Red critical dot (spec §3) */}
+                {isCritical && (
+                  <span className="absolute top-2 w-1.5 h-1.5 rounded-full"
+                        style={{ background: NX.critical }} />
+                )}
+                {/* Selected-day marker · white border */}
+                {isActive && (
+                  <span className="absolute inset-x-0 bottom-4 mx-auto w-4 h-4 rounded-full"
+                        style={{
+                          border: `1.5px solid ${NX.text}`,
+                          background: `${NX.selectGlow}33`,
+                        }} />
+                )}
+                <span className="text-[10px] tabular-nums leading-none pb-0.5"
+                      style={{
+                        color: isActive ? NX.text : NX.scrubDay,
+                        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                      }}>
+                  {dayNum}
+                </span>
+                {isFirstOfMonth && (
+                  <span className="absolute top-0.5 left-0 text-[9px] uppercase tracking-widest font-semibold"
+                        style={{ color: NX.textMute }}>
+                    {d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tier 2 · Hour scrubber (spec §3) */}
+      <div className="relative flex items-stretch"
+           style={{ height: HOUR_SCRUB_H, background: NX.scrubHour,
+                    borderTop: `1px solid ${NX.border}` }}
+           data-testid="scrubber-hour">
+        {Array.from({ length: 24 }, (_, h) => {
+          const has = activeHours.has(h);
+          return (
+            <div key={h}
+                 className="flex-1 relative flex flex-col items-center justify-end pb-1"
+                 style={!has ? {
+                   backgroundImage:
+                     `repeating-linear-gradient(135deg, transparent 0 3px, ${NX.scrubFuture} 3px 4px)`,
+                 } : undefined}
+                 title={`${h.toString().padStart(2,"0")}:00`}>
+              {/* Selected-hour vertical white line (spec §3) */}
+              {has && h === Math.min(...activeHours) && (
+                <div className="absolute inset-y-1 w-px left-1/2"
+                     style={{ background: NX.text, opacity: 0.85 }} />
+              )}
+              <span className="text-[10px] tabular-nums leading-none"
+                    style={{
+                      color: has ? NX.text : NX.textMute,
+                      fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                    }}>
+                {(h % 2 === 0) ? h.toString().padStart(2, "0") : ""}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Process left rail (one row per process)
+// ═══════════════════════════════════════════════════════════════════
+function ProcessRail({ rows, selectedKey, onPickRow, onOpenAncestry, bandFor, expertMode, onToggleExpert }) {
+  // Group rows by band label so we can render a heavy band header once
+  // per group. `bandFor(row)` returns the band label string.
+  const groups = [];
+  const seen = new Map();
+  rows.forEach((r) => {
+    const b = bandFor(r);
+    if (!seen.has(b)) {
+      seen.set(b, { label: b, rows: [] });
+      groups.push(seen.get(b));
+    }
+    seen.get(b).rows.push(r);
+  });
+
+  return (
+    <div className="shrink-0"
+         style={{ width: LEFT_RAIL_W, background: NX.panel2, borderRight: `1px solid ${NX.border}` }}
+         data-testid="process-rail">
+      <div className="h-8 flex items-center justify-between px-4"
+           style={{ borderBottom: `1px solid ${NX.border}` }}>
+        <span className="text-[10px] tracking-[0.22em] uppercase font-semibold" style={{ color: NX.textDim }}>
+          Processes
+        </span>
+        <button
+          data-testid="expert-mode-toggle"
+          onClick={onToggleExpert}
+          title={expertMode ? "Analyst view (2 bands)" : "Expert view (5 lanes)"}
+          className="text-[9px] tracking-widest font-semibold px-1.5 py-[2px] rounded-sm"
+          style={{
+            background: expertMode ? `${NX.link}22` : NX.panel,
+            color:      expertMode ? NX.link         : NX.textMute,
+            border:     `1px solid ${expertMode ? `${NX.link}66` : NX.border}`,
+            transition: "all 150ms",
+          }}
+        >
+          {expertMode ? "EXPERT" : "ANALYST"}
+        </button>
+      </div>
+      <div>
+        {groups.map((g) => (
+          <div key={g.label}>
+            <div className="h-6 flex items-center px-4"
+                 style={{
+                   background: NX.panel,
+                   borderBottom: `1px solid ${NX.border}`,
+                 }}>
+              <span className="text-[10px] tracking-[0.22em] uppercase font-semibold"
+                    style={{ color: NX.textDim }}>
+                {g.label}
+              </span>
+              <span className="ml-auto text-[9px] tabular-nums" style={{ color: NX.textMute }}>
+                {g.rows.length}
+              </span>
+            </div>
+            {g.rows.map((r) => {
+              const isSel = selectedKey === r.key;
+              const vc = r.worstVerdict === "malicious" ? NX.critical
+                       : r.worstVerdict === "suspicious" ? NX.warning
+                       : NX.border;
+              const isUnknown = r.label === "Unknown Process";
+              return (
+                <div key={r.key}
+                     className="group w-full flex items-center gap-2 pl-4 pr-1"
+                     style={{
+                       height: ROW_H,
+                       background: isSel ? `${NX.selectedBg}33` : "transparent",
+                       borderBottom: `1px solid ${NX.border}22`,
+                       borderLeft:   `2px solid ${vc}88`,
+                       transition:   "background-color 150ms",
+                     }}
+                     onMouseEnter={(e) => !isSel && (e.currentTarget.style.background = NX.hoverBg)}
+                     onMouseLeave={(e) => !isSel && (e.currentTarget.style.background = "transparent")}>
+                  <button
+                    data-testid={`row-${r.key}`}
+                    onClick={() => onPickRow(r)}
+                    className="flex-1 flex items-center gap-2 text-left outline-none">
+                    <span
+                      className="flex-1 truncate text-[13px]"
+                      style={{
+                        color: isUnknown ? NX.textMute : NX.link,
+                        fontFamily: "Inter, 'IBM Plex Sans', sans-serif",
+                        fontWeight: 400,
+                        fontStyle: isUnknown ? "italic" : "normal",
+                        textDecoration: isSel ? "underline" : "none",
+                        textUnderlineOffset: "2px",
+                      }}
+                    >
+                      {r.label}
+                    </span>
+                    <span className="text-[9px] tracking-widest font-semibold"
+                          style={{ color: NX.textMute }}>[PE]</span>
+                    <span className="text-[10px] tabular-nums w-6 text-right"
+                          style={{ color: NX.textMute, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+                      {r.events.length}
+                    </span>
+                  </button>
+                  <button
+                    data-testid={`row-ancestry-${r.key}`}
+                    title="Open ancestry graph"
+                    onClick={(e) => { e.stopPropagation(); onOpenAncestry(r.key); }}
+                    className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded-sm"
+                    style={{
+                      color: NX.textMute,
+                      border: `1px solid ${NX.border}`,
+                      transition: "all 150ms",
+                    }}
+                  >
+                    <ChevronRight size={11} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Action → activity-glyph mapping (Cisco Secure Endpoint vocabulary).
+// Each frame's action is classified into one of these buckets. The
+// disposition (verdict) is drawn as an outer ring on the disc, and for
+// MALICIOUS the whole disc is replaced by a red hexagon shield.
+// ═══════════════════════════════════════════════════════════════════
+const ACTIVITY = {
+  CREATE:    "create",     // +
+  COPY:      "copy",       // ∧
+  MOVE:      "move",       // →
+  EXECUTE:   "execute",    // ▷
+  OPEN:      "open",       // ○
+  NETWORK:   "network",    // ⇌
+  EXPLOIT:   "exploit",    // ⚡
+  RESTORE:   "restore",    // ↻
+  DETECT:    "detect",     // ✕
+  COMPROMISE:"compromise", // !?
+  SCAN:      "scan",       // 🔍
+  REBOOT:    "reboot",     // |
+};
+
+function activityOf(frame) {
+  const a = (frame.action || "").toLowerCase();
+  const lane = frame.lane;
+  // Explicit high-signal keywords first
+  if (/(ransom|locker|encrypt|removed_volume|volume_shadow)/.test(a)) return ACTIVITY.COMPROMISE;
+  if (/(dumped_lsass|dumped|stolen|ntds|credential)/.test(a))         return ACTIVITY.DETECT;
+  if (/(reverse_tunnel|c2|beacon|exfil)/.test(a))                     return ACTIVITY.NETWORK;
+  if (/(connect|tunnel|dns|network|http|beacon)/.test(a))             return ACTIVITY.NETWORK;
+  if (/(exploit|prevention|blocked)/.test(a))                         return ACTIVITY.EXPLOIT;
+  if (/(restore|rollback|revert)/.test(a))                            return ACTIVITY.RESTORE;
+  if (/(reboot|restart)/.test(a))                                     return ACTIVITY.REBOOT;
+  if (/(scan|inspect|audit)/.test(a))                                 return ACTIVITY.SCAN;
+  if (/(copy|clone)/.test(a))                                         return ACTIVITY.COPY;
+  if (/(move|rename)/.test(a))                                        return ACTIVITY.MOVE;
+  if (/(install|drop|create|add|new|write|persist|backup)/.test(a))   return ACTIVITY.CREATE;
+  if (/(open|read|query|enumerate|export|discover|list)/.test(a))     return ACTIVITY.OPEN;
+  if (/(execute|launch|spawn|ran|run|invoke|started)/.test(a))        return ACTIVITY.EXECUTE;
+  // Fall back per lane
+  if (lane === "file")     return ACTIVITY.CREATE;
+  if (lane === "network")  return ACTIVITY.NETWORK;
+  if (lane === "registry") return ACTIVITY.CREATE;
+  if (lane === "system")   return ACTIVITY.SCAN;
+  return ACTIVITY.EXECUTE;
+}
+
+// SVG activity-mark drawings, centered in a 22×22 viewBox
+function ActivityMark({ kind, color }) {
+  const c = 11; // center
+  switch (kind) {
+    case ACTIVITY.CREATE: return (
+      <g>
+        <line x1={c - 4} y1={c} x2={c + 4} y2={c}
+              stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+        <line x1={c} y1={c - 4} x2={c} y2={c + 4}
+              stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      </g>
+    );
+    case ACTIVITY.COPY: return (
+      <path d={`M ${c - 4} ${c + 2} L ${c} ${c - 3} L ${c + 4} ${c + 2}`}
+            fill="none" stroke={color} strokeWidth="1.8"
+            strokeLinecap="round" strokeLinejoin="round" />
+    );
+    case ACTIVITY.MOVE: return (
+      <g>
+        <line x1={c - 4} y1={c} x2={c + 3.5} y2={c}
+              stroke={color} strokeWidth="1.7" strokeLinecap="round" />
+        <path d={`M ${c + 1.5} ${c - 3} L ${c + 4} ${c} L ${c + 1.5} ${c + 3}`}
+              fill="none" stroke={color} strokeWidth="1.7"
+              strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    );
+    case ACTIVITY.EXECUTE: return (
+      <polygon points={`${c - 3},${c - 4} ${c - 3},${c + 4} ${c + 4},${c}`}
+               fill={color} />
+    );
+    case ACTIVITY.OPEN: return (
+      <circle cx={c} cy={c} r="3.4" fill="none" stroke={color} strokeWidth="1.6" />
+    );
+    case ACTIVITY.NETWORK: return (
+      <g>
+        <path d={`M ${c - 4} ${c - 2} L ${c + 3} ${c - 2}`}
+              fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <path d={`M ${c + 1} ${c - 4.2} L ${c + 3.5} ${c - 2} L ${c + 1} ${c - 0.2}`}
+              fill="none" stroke={color} strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round" />
+        <path d={`M ${c + 4} ${c + 2} L ${c - 3} ${c + 2}`}
+              fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <path d={`M ${c - 1} ${c + 4.2} L ${c - 3.5} ${c + 2} L ${c - 1} ${c - 0.2}`}
+              fill="none" stroke={color} strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    );
+    case ACTIVITY.EXPLOIT: return (
+      <path d={`M ${c + 1} ${c - 4.5} L ${c - 3} ${c + 0.5} L ${c} ${c + 0.5}
+                 L ${c - 1} ${c + 4.5} L ${c + 3} ${c - 0.5} L ${c} ${c - 0.5} Z`}
+            fill={color} />
+    );
+    case ACTIVITY.RESTORE: return (
+      <path d={`M ${c + 4} ${c - 1}
+                 A 4 4 0 1 0 ${c - 3} ${c + 3}
+                 M ${c + 4} ${c - 3} L ${c + 4} ${c - 1} L ${c + 2} ${c - 1}`}
+            fill="none" stroke={color} strokeWidth="1.5"
+            strokeLinecap="round" strokeLinejoin="round" />
+    );
+    case ACTIVITY.DETECT: return (
+      <g stroke={color} strokeWidth="1.9" strokeLinecap="round">
+        <line x1={c - 3.5} y1={c - 3.5} x2={c + 3.5} y2={c + 3.5} />
+        <line x1={c - 3.5} y1={c + 3.5} x2={c + 3.5} y2={c - 3.5} />
+      </g>
+    );
+    case ACTIVITY.COMPROMISE: return (
+      <g fill={color}>
+        {/* Cisco-style "!?" — bang on left, query on right */}
+        <text x={c} y={c + 3.5} textAnchor="middle"
+              fontSize="9" fontWeight="900"
+              fontFamily="'IBM Plex Sans', sans-serif">!?</text>
+      </g>
+    );
+    case ACTIVITY.SCAN: return (
+      <g fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round">
+        <circle cx={c - 1} cy={c - 1} r="2.8" />
+        <line x1={c + 1.2} y1={c + 1.2} x2={c + 4} y2={c + 4} />
+      </g>
+    );
+    case ACTIVITY.REBOOT: return (
+      <line x1={c} y1={c - 4} x2={c} y2={c + 4}
+            stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+    );
+    default: return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Event glyph — Cisco Secure Endpoint symbol vocabulary applied.
+//   Base disc + activity mark + disposition ring
+//   Malicious → red hexagon shield replaces the disc (Cisco disposition)
+//   Hover → rule-provenance tooltip (R1.1)
+// ═══════════════════════════════════════════════════════════════════
+function EventGlyph({ frame, x, y, selected, onSelect }) {
+  const v = verdictFor(frame);
+  const meta = LANE_META[frame.lane] || LANE_META.process;
+  const kind = activityOf(frame);
+  const isMalicious = v === "malicious";
+  const isSuspicious = v === "suspicious";
+  const conf = confidenceTierOf(frame);
+  const [hovered, setHovered] = useState(false);
+
+  const size = GLYPH_SIZE;
+  const half = size / 2;
+  const mitre0 = (frame.mitre || [])[0];
+
+  // Spec §9: white symbols inside subtle colored outlines.
+  // Fill is dark (matches canvas), ring color encodes verdict.
+  const ringColor = isMalicious ? NX.critical
+                  : isSuspicious ? NX.warning
+                  : NX.textDim;
+
+  // Activity mark is WHITE except on the red hex shield where it's a
+  // light-red for contrast (spec §9 · Detection ● Red).
+  const markColor = "#FFFFFF";
+
+  return (
+    <>
+      <button
+        data-testid={`event-glyph-${frame.frame_iid}`}
+        onClick={() => onSelect(frame)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        className="absolute z-10 outline-none focus-visible:ring-2 focus-visible:ring-offset-0
+                   transition-transform hover:scale-125"
+        style={{
+          left: x - half, top: y - half,
+          width: size, height: size,
+          transitionDuration: "150ms",                 // spec §17
+          filter: selected
+            ? `drop-shadow(0 0 6px ${NX.selectGlow})`   // spec §10 blue glow
+            : (isMalicious ? `drop-shadow(0 0 3px ${NX.critical}88)` : "none"),
+        }}
+      >
+        <svg width={size} height={size} viewBox="0 0 22 22">
+          {isMalicious ? (
+            <g>
+              <polygon
+                points="11,1 21,7 21,15 11,21 1,15 1,7"
+                fill="#3B0F14"
+                stroke={NX.critical}
+                strokeWidth="1.4"
+              />
+              <ActivityMark kind={kind} color="#FCA5A5" />
+            </g>
+          ) : (
+            <g>
+              <circle cx="11" cy="11" r="9.5"
+                      fill={NX.canvasBg}
+                      stroke={selected ? NX.selectGlow : ringColor}
+                      strokeWidth={selected ? 1.6 : 1.2} />
+              <ActivityMark kind={kind} color={markColor} />
+            </g>
+          )}
+        </svg>
+
+        {/* MITRE chip hidden by default; shown only when selected. */}
+        {mitre0 && selected && (
+          <span
+            className="absolute -top-3 -right-1 text-[8px] leading-none px-1 py-[1px] rounded-sm
+                       pointer-events-none z-20"
+            style={{
+              background: NX.panel2, color: NX.textDim,
+              border: `1px solid ${NX.border}`,
+              fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+            }}
+          >
+            {mitre0}
+          </span>
+        )}
+      </button>
+
+      {hovered && !selected && (
+        <ProvenanceCard frame={frame} x={x} y={y} verdict={v}
+                        conf={conf} activity={kind} meta={meta} />
+      )}
+    </>
+  );
+}
+
+// ─── Rule-provenance hover card (R1.1) ───────────────────────────────
+function ProvenanceCard({ frame, x, y, verdict, conf, activity, meta }) {
+  const vMeta = VERDICT[verdict];
+  const rule = frame.rule_id || frame.provenance?.rule_id;
+  const source = frame.provenance?.source;
+  const adapter = frame.provenance?.adapter;
+  return (
+    <div
+      data-testid={`provenance-card-${frame.frame_iid}`}
+      className="absolute z-30 pointer-events-none w-[320px] bg-zinc-950/98 border border-zinc-800
+                 rounded-sm shadow-2xl p-3"
+      style={{
+        left: x + 16,
+        top: Math.max(y - 40, 4),
+        fontFamily: "'IBM Plex Sans', sans-serif",
+        boxShadow: "0 12px 32px -8px rgba(0,0,0,0.85), 0 0 0 1px rgba(161,161,170,0.15)",
+      }}
+    >
+      {/* Header: verdict + confidence + activity + lane */}
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        <span className="inline-flex items-center gap-1 text-[8px] font-bold tracking-[0.2em] px-1 py-0.5 rounded-sm border"
+              style={{ color: vMeta.color, borderColor: vMeta.color + "66", background: vMeta.color + "14" }}>
+          <vMeta.Icon size={9} /> {vMeta.label}
+        </span>
+        <span className="inline-flex items-center gap-1 text-[8px] font-bold tracking-[0.2em] px-1 py-0.5 rounded-sm border"
+              style={{ color: conf.color, borderColor: conf.color + "66", background: conf.color + "14" }}>
+          {conf.label}
+        </span>
+        <span className="inline-flex items-center gap-1 text-[8px] font-bold tracking-[0.2em] px-1 py-0.5 rounded-sm border border-zinc-800 text-zinc-400 uppercase">
+          <meta.Icon size={9} style={{ color: meta.accent }} /> {meta.label}
+        </span>
+      </div>
+
+      {/* Command / label */}
+      <div className="text-[10px] text-zinc-100 leading-relaxed break-words mb-2"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        {frame.label || frame.action}
+      </div>
+
+      {/* Provenance grid */}
+      <div className="text-[9px] space-y-0.5"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        <ProvRow label="action"   value={frame.action}                       muted />
+        <ProvRow label="ts"       value={new Date(frame.ts).toISOString()}   muted />
+        <ProvRow label="rule_id"  value={rule || "— (no rule fired)"}
+                                  emphasize={!!rule} />
+        <ProvRow label="source"   value={source || "shadow_adapter"}         muted />
+        {adapter && <ProvRow label="adapter" value={adapter} muted />}
+        {frame.provenance?.confidence != null && (
+          <ProvRow label="conf" value={String(frame.provenance.confidence)} muted />
+        )}
+      </div>
+
+      {(frame.mitre || []).length > 0 && (
+        <div className="mt-2 pt-2 border-t border-zinc-900 flex flex-wrap gap-1">
+          {frame.mitre.map(t => (
+            <span key={t}
+                  className="text-[9px] px-1 py-[1px] border border-rose-500/30 rounded-sm
+                             text-rose-400 bg-rose-500/5"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-2 pt-2 border-t border-zinc-900 text-[9px] text-zinc-600">
+        Click to open Evidence Panel · Activity: {activity}
+      </div>
+    </div>
+  );
+}
+function ProvRow({ label, value, muted, emphasize }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="w-14 shrink-0 text-zinc-500">{label}</span>
+      <span className={"flex-1 break-all " +
+                      (emphasize ? "text-zinc-100" : (muted ? "text-zinc-400" : "text-zinc-200"))}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Bottom ruler
+// ═══════════════════════════════════════════════════════════════════
+function TimeRuler({ ticks, zoom, minTs, maxTs, total, rows }) {
+  const fmt = (ts) => new Date(ts).toISOString().replace("T", " ").slice(0, 19) + "Z";
+  return (
+    <div className="h-10 shrink-0 border-t border-zinc-800 bg-zinc-950 flex items-center relative"
+         style={{ fontFamily: "'IBM Plex Mono', monospace" }} data-testid="time-ruler">
+      <div style={{ width: LEFT_RAIL_W }}
+           className="shrink-0 h-full border-r border-zinc-800 flex items-center px-3">
+        <Clock size={11} className="text-zinc-600 mr-1.5" />
+        <span className="text-[9px] tracking-[0.18em] text-zinc-500 font-semibold">
+          WINDOW · {zoom.toUpperCase()}
+        </span>
+      </div>
+      <div className="flex-1 h-full relative flex items-center">
+        {ticks.map((t, i) => (
+          <span key={i} className="absolute top-0 bottom-0 w-px bg-zinc-800"
+                style={{ left: `${(i / (ticks.length - 1 || 1)) * 100}%` }} />
+        ))}
+        {ticks.length > 0 && (
+          <>
+            <span className="absolute left-3 text-[9px] text-zinc-500 tabular-nums">{fmt(minTs)}</span>
+            <span className="absolute left-1/2 -translate-x-1/2 text-[9px] text-zinc-600 tabular-nums">
+              {fmt((minTs + maxTs) / 2)}
+            </span>
+            <span className="absolute right-3 text-[9px] text-zinc-500 tabular-nums">{fmt(maxTs)}</span>
+          </>
+        )}
+      </div>
+      <div className="w-56 shrink-0 h-full border-l border-zinc-800 flex items-center justify-end px-3 gap-2">
+        <span className="text-[9px] tracking-[0.18em] text-zinc-500 font-semibold">EVENTS</span>
+        <span className="text-[11px] text-zinc-200 tabular-nums">{total}</span>
+        <span className="text-zinc-700 mx-1">·</span>
+        <span className="text-[9px] tracking-[0.18em] text-zinc-500 font-semibold">ROWS</span>
+        <span className="text-[11px] text-zinc-200 tabular-nums">{rows}</span>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Right drawer (Case Overview / Activity feed / Evidence Panel)
+// ═══════════════════════════════════════════════════════════════════
+function Drawer({ selected, onClose, overview, totalEvents, caseId, frames, onPickEvent }) {
+  const [tab, setTab] = useState("overview"); // overview | activity
+  return (
+    <aside data-testid="v2-trajectory-drawer"
+           className="w-[380px] shrink-0 border-l border-zinc-800 bg-zinc-950/95
+                      flex flex-col overflow-hidden z-30">
+      {selected ? (
+        <EvidencePanel frame={selected} onClose={onClose} />
+      ) : (
+        <>
+          {/* Tab strip */}
+          <div className="flex items-stretch border-b border-zinc-900 shrink-0">
+            <DrawerTab active={tab === "overview"} onClick={() => setTab("overview")}
+                       label="Case Overview" tid="tab-overview" />
+            <DrawerTab active={tab === "activity"} onClick={() => setTab("activity")}
+                       label="Activity" count={frames.length} tid="tab-activity" />
+          </div>
+          {tab === "overview"
+            ? <CaseOverviewPanel overview={overview} totalEvents={totalEvents} caseId={caseId} />
+            : <ActivityFeed frames={frames} onPickEvent={onPickEvent} />}
+        </>
+      )}
+    </aside>
+  );
+}
+
+function DrawerTab({ active, onClick, label, count, tid }) {
+  return (
+    <button data-testid={tid}
+      onClick={onClick}
+      className={"flex-1 h-9 flex items-center justify-center gap-2 text-[10px] tracking-[0.2em] " +
+                 "font-semibold uppercase transition-colors duration-150 border-b-2 " +
+                 (active
+                   ? "text-zinc-100 border-zinc-500 bg-zinc-100/5"
+                   : "text-zinc-500 border-transparent hover:text-zinc-300")}
+    >
+      {label}
+      {count != null && (
+        <span className={"text-[9px] px-1 rounded-sm tabular-nums " +
+                        (active ? "bg-zinc-100/15 text-zinc-100" : "bg-zinc-900 text-zinc-500")}
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// ─── Activity feed (chronological parent → child pairs) ──────────────
+function ActivityFeed({ frames, onPickEvent }) {
+  // Show most-recent first; each entry: [parent process name] → [event summary]
+  const items = useMemo(() => {
+    const sorted = [...frames].sort(
+      (a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime()
+    );
+    return sorted.map(f => {
+      const parentName = processLabelOf({ label: f.parent?.iid || "", action: "" }) || "—";
+      const target = processLabelOf(f);
+      return { f, parentName, target };
+    });
+  }, [frames]);
+
+  if (items.length === 0) {
+    return (
+      <div className="p-5 text-[11px] text-zinc-600"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        no activity yet
+      </div>
+    );
+  }
+  return (
+    <div className="flex-1 overflow-y-auto divide-y divide-zinc-900"
+         data-testid="activity-feed">
+      {items.map(({ f, parentName, target }, i) => {
+        const v = verdictFor(f);
+        const vColor = VERDICT[v].color;
+        return (
+          <button key={f.frame_iid || i}
+                  data-testid={`activity-item-${f.frame_iid || i}`}
+                  onClick={() => onPickEvent(f)}
+                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-zinc-900/50
+                             text-left transition-colors duration-100">
+            <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ background: vColor, boxShadow: `0 0 6px ${vColor}` }} />
+            <span className="text-[11px] text-zinc-300 truncate w-24"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+              {parentName}
+            </span>
+            <ChevronRight size={11} className="text-zinc-600 shrink-0" />
+            <span className="text-[11px] text-zinc-200 truncate flex-1"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+              {target}
+            </span>
+            <span className="text-[9px] text-zinc-600 tabular-nums shrink-0"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+              {new Date(f.ts).toISOString().slice(11, 19)}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CaseOverviewPanel({ overview, totalEvents, caseId }) {
+  return (
+    <div className="p-5 flex-1 overflow-y-auto"
+         style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+      <div className="flex items-center gap-2 mb-1">
+        <Shield size={13} className="text-zinc-100" />
+        <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-400">
+          CASE OVERVIEW
+        </span>
+      </div>
+      <div className="text-[11px] text-zinc-500 mb-5"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        Select an event on a lifeline, or press{" "}
+        <kbd className="border border-zinc-700 rounded px-1 text-[9px]">←</kbd>{" "}
+        <kbd className="border border-zinc-700 rounded px-1 text-[9px]">→</kbd> to step through.
+      </div>
+
+      {/* Verdict counts */}
+      <SectionLabel>Verdict summary</SectionLabel>
+      <div className="mb-5 grid grid-cols-3 gap-2">
+        <VerdictTile v="malicious"  n={overview.malicious} />
+        <VerdictTile v="suspicious" n={overview.suspicious} />
+        <VerdictTile v="benign"     n={totalEvents - overview.malicious - overview.suspicious} />
+      </div>
+
+      {/* Lane breakdown */}
+      <SectionLabel>Event breakdown</SectionLabel>
+      <div className="mb-5 space-y-1.5">
+        {overview.lanes.map(([lane, n]) => {
+          const meta = LANE_META[lane];
+          const pct = totalEvents ? Math.round((n / totalEvents) * 100) : 0;
+          return (
+            <div key={lane} className="flex items-center gap-2" data-testid={`overview-lane-${lane}`}>
+              <meta.Icon size={11} style={{ color: meta.accent }} />
+              <span className="text-[10px] tracking-widest text-zinc-400 w-20">{meta.label}</span>
+              <div className="flex-1 h-1.5 rounded-sm bg-zinc-900 overflow-hidden">
+                <div className="h-full" style={{ width: `${pct}%`, background: meta.accent, opacity: 0.7 }} />
+              </div>
+              <span className="text-[10px] text-zinc-500 tabular-nums w-8 text-right"
+                    style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                {n}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <SectionLabel>Top MITRE techniques</SectionLabel>
+      <div className="mb-5 flex flex-wrap gap-1.5">
+        {overview.mitre.length === 0 && (
+          <span className="text-[10px] text-zinc-600"
+                style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+            no techniques observed
+          </span>
+        )}
+        {overview.mitre.map(([tid, n]) => (
+          <span key={tid}
+                className="text-[10px] px-1.5 py-0.5 border border-zinc-700 rounded-sm bg-zinc-900 text-zinc-300"
+                style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                data-testid={`overview-mitre-${tid}`}>
+            {tid}<span className="text-zinc-600 ml-1">×{n}</span>
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-6 pt-4 border-t border-zinc-900">
+        <SectionLabel>Case reference</SectionLabel>
+        <div className="text-[10px] text-zinc-500 mt-1 break-all"
+             style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+          {caseId}
+        </div>
+        <div className="text-[10px] text-zinc-600 mt-1">
+          Processes tracked:{" "}
+          <span className="text-zinc-400 tabular-nums"
+                style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+            {overview.processes}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VerdictTile({ v, n }) {
+  const meta = VERDICT[v];
+  return (
+    <div className="border border-zinc-900 rounded-sm p-2 bg-zinc-950/60"
+         data-testid={`verdict-tile-${v}`}>
+      <div className="flex items-center gap-1.5">
+        <meta.Icon size={11} style={{ color: meta.color }} />
+        <span className="text-[9px] tracking-widest font-semibold" style={{ color: meta.color }}>
+          {meta.label}
+        </span>
+      </div>
+      <div className="text-lg text-zinc-100 tabular-nums font-semibold mt-1 leading-none"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        {n}
+      </div>
+    </div>
+  );
+}
+
+function EvidencePanel({ frame, onClose }) {
+  const meta = LANE_META[frame.lane] || LANE_META.process;
+  const v = verdictFor(frame);
+  const vMeta = VERDICT[v];
+  const conf = confidenceTierOf(frame);
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden" data-testid="evidence-panel">
+      <div className="px-5 pt-5 pb-4 border-b border-zinc-900 relative">
+        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: vMeta.color }} />
+        <div className="flex items-center gap-2 mb-2">
+          <meta.Icon size={13} style={{ color: meta.accent }} />
+          <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-400">
+            {meta.label} · {frame.action}
+          </span>
+          <div className="flex-1" />
+          <button
+            data-testid="evidence-close"
+            onClick={onClose}
+            className="text-zinc-600 hover:text-zinc-300 flex items-center gap-1 text-[10px] tracking-wider"
+            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+          >
+            ESC <X size={11} />
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.2em] px-1.5 py-0.5 rounded-sm border"
+                style={{ color: vMeta.color, borderColor: vMeta.color + "66", background: vMeta.color + "14",
+                         fontFamily: "'IBM Plex Sans', sans-serif" }}
+                data-testid="verdict-badge">
+            <vMeta.Icon size={10} /> {vMeta.label}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.2em] px-1.5 py-0.5 rounded-sm border"
+                style={{ color: conf.color, borderColor: conf.color + "66", background: conf.color + "14",
+                         fontFamily: "'IBM Plex Sans', sans-serif" }}
+                data-testid="confidence-badge">
+            {conf.label} CONF
+          </span>
+        </div>
+        <div className="mt-3 text-[12px] text-zinc-200 leading-relaxed break-words"
+             style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+             data-testid="evidence-label">
+          {frame.label}
+        </div>
+      </div>
+
+      <div className="p-5 space-y-4 overflow-y-auto text-[10px]"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        <KV k="timestamp" v={frame.ts} />
+        <KV k="frame_iid" v={frame.frame_iid} mono />
+
+        <KVGroup title="entity refs">
+          {frame.device   && <KV k="device"   v={frame.device.iid}   mono muted />}
+          {frame.process  && <KV k="process"  v={frame.process.iid}  mono />}
+          {frame.parent   && <KV k="parent"   v={frame.parent.iid}   mono />}
+          {frame.file     && <KV k="file"     v={frame.file.iid}     mono />}
+          {frame.network  && <KV k="network"  v={frame.network.iid}  mono />}
+          {frame.registry && <KV k="registry" v={frame.registry.iid} mono />}
+          {frame.user     && <KV k="user"     v={frame.user.iid}     mono />}
+        </KVGroup>
+
+        {(frame.mitre || []).length > 0 && (
+          <KVGroup title="MITRE ATT&CK">
+            <div className="flex flex-wrap gap-1">
+              {frame.mitre.map(t => (
+                <span key={t}
+                      data-testid={`evidence-mitre-${t}`}
+                      className="text-[10px] px-1.5 py-0.5 border border-rose-500/30 rounded-sm
+                                 text-rose-400 bg-rose-500/5"
+                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          </KVGroup>
+        )}
+
+        {(frame.rule_id || frame.provenance) && (
+          <KVGroup title="provenance">
+            {frame.rule_id && <KV k="rule_id" v={frame.rule_id} mono />}
+            {frame.provenance?.source && <KV k="source" v={frame.provenance.source} />}
+            {frame.provenance?.adapter && <KV k="adapter" v={frame.provenance.adapter} />}
+            {frame.provenance?.confidence != null &&
+              <KV k="confidence" v={String(frame.provenance.confidence)} />}
+          </KVGroup>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Small helpers ────────────────────────────────────────────────────
+function SectionLabel({ children }) {
+  return (
+    <div className="text-[9px] tracking-[0.24em] font-semibold text-zinc-500 uppercase mb-2">
+      {children}
+    </div>
+  );
+}
+function KV({ k, v, mono, muted }) {
+  return (
+    <div className="flex items-baseline gap-2 leading-relaxed">
+      <span className="w-20 shrink-0 text-zinc-500">{k}</span>
+      <span className={"flex-1 break-all " + (muted ? "text-zinc-500" : "text-zinc-200")}
+            style={mono ? { fontFamily: "'IBM Plex Mono', monospace" } : undefined}>
+        {v}
+      </span>
+    </div>
+  );
+}
+function KVGroup({ title, children }) {
+  return (
+    <div className="border border-zinc-900 rounded-sm p-3 bg-zinc-950/60">
+      <div className="text-[9px] tracking-[0.24em] font-semibold text-zinc-500 uppercase mb-2">
+        {title}
+      </div>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+function formatDuration(ms) {
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
+  if (ms < 86_400_000) return `${(ms / 3_600_000).toFixed(1)}h`;
+  return `${(ms / 86_400_000).toFixed(1)}d`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// R4 · Investigation Report Modal
+//   - Fetches JSON + Markdown on open
+//   - Preview pane (Markdown rendered as monospace text)
+//   - Copy JSON · Copy Markdown · Download .md · Download .json
+//   - Displays signature and section list
+// ═══════════════════════════════════════════════════════════════════
+function ReportModal({ caseId, onClose }) {
+  const [json, setJson]         = useState(null);
+  const [md, setMd]             = useState(null);
+  const [err, setErr]           = useState(null);
+  const [copied, setCopied]     = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [rj, rm] = await Promise.all([
+          api.get(`/v2/cases/${encodeURIComponent(caseId)}/report`),
+          api.get(`/v2/cases/${encodeURIComponent(caseId)}/report.md`,
+                  { responseType: "text", transformResponse: [(x) => x] }),
+        ]);
+        if (cancelled) return;
+        setJson(rj.data);
+        setMd(typeof rm.data === "string" ? rm.data : String(rm.data));
+      } catch (e) {
+        if (!cancelled) setErr(e?.response?.data?.detail || e.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [caseId]);
+
+  const copyTo = async (kind, text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 1500);
+    } catch (_) { /* clipboard blocked */ }
+  };
+
+  const download = (filename, content, mime) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  return (
+    <div
+      data-testid="report-modal"
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-8"
+      onClick={onClose}
+      style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
+    >
+      <div
+        className="w-full max-w-6xl h-full max-h-[92vh] bg-zinc-950 border border-zinc-800 rounded-sm
+                   flex flex-col overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="h-14 shrink-0 flex items-center gap-3 border-b border-zinc-800 px-5 relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-zinc-100" />
+          <FileCode className="text-zinc-100" size={16} />
+          <div>
+            <div className="text-[9px] tracking-[0.28em] text-zinc-500 uppercase font-semibold">
+              NIVXRAY · V2 · R4
+            </div>
+            <div className="text-sm font-semibold text-zinc-100 leading-none mt-0.5">
+              Deterministic Investigation Report
+            </div>
+          </div>
+          <div className="flex-1" />
+          <button
+            data-testid="report-copy-json"
+            onClick={() => copyTo("json", JSON.stringify(json, null, 2))}
+            disabled={!json}
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-700 rounded-sm
+                       text-zinc-300 hover:text-zinc-100 hover:border-zinc-500/40
+                       transition-colors duration-150 disabled:opacity-30"
+          >
+            {copied === "json" ? "✓ COPIED" : "COPY JSON"}
+          </button>
+          <button
+            data-testid="report-copy-md"
+            onClick={() => copyTo("md", md || "")}
+            disabled={!md}
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-700 rounded-sm
+                       text-zinc-300 hover:text-zinc-100 hover:border-zinc-500/40
+                       transition-colors duration-150 disabled:opacity-30"
+          >
+            {copied === "md" ? "✓ COPIED" : "COPY MD"}
+          </button>
+          <button
+            data-testid="report-download-md"
+            onClick={() => download(`${caseId}.report.md`, md || "", "text/markdown")}
+            disabled={!md}
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-500/40 rounded-sm
+                       text-zinc-100 hover:bg-zinc-100/10 transition-colors duration-150
+                       disabled:opacity-30"
+          >
+            ↓ .md
+          </button>
+          <button
+            data-testid="report-download-json"
+            onClick={() => download(`${caseId}.report.json`, JSON.stringify(json, null, 2), "application/json")}
+            disabled={!json}
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-500/40 rounded-sm
+                       text-zinc-100 hover:bg-zinc-100/10 transition-colors duration-150
+                       disabled:opacity-30"
+          >
+            ↓ .json
+          </button>
+          <button
+            data-testid="report-download-pdf"
+            onClick={async () => {
+              try {
+                const r = await api.get(
+                  `/v2/cases/${encodeURIComponent(caseId)}/report.pdf`,
+                  { responseType: "blob" },
+                );
+                const blob = new Blob([r.data], { type: "application/pdf" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = `${caseId}.report.pdf`; a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              } catch (_) { /* auth or 503 — silently ignore */ }
+            }}
+            disabled={!json}
+            className="text-[10px] tracking-widest px-2.5 py-1 rounded-sm
+                       bg-zinc-100 text-zinc-950 hover:bg-zinc-200 font-semibold
+                       transition-colors duration-150 disabled:opacity-30"
+          >
+            ↓ .pdf
+          </button>
+          <button
+            data-testid="report-close"
+            onClick={onClose}
+            className="ml-2 text-zinc-500 hover:text-zinc-300"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        {err ? (
+          <div className="p-6 text-[11px] text-rose-400"
+               style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+               data-testid="report-error">
+            {String(err)}
+          </div>
+        ) : !json ? (
+          <div className="p-6 text-[11px] text-zinc-500"
+               style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+               data-testid="report-loading">
+            composing deterministic report…
+          </div>
+        ) : (
+          <div className="flex flex-1 min-h-0">
+            {/* Left · section index */}
+            <div className="w-56 shrink-0 border-r border-zinc-800 bg-zinc-950/70 overflow-y-auto">
+              <div className="p-3 text-[9px] tracking-[0.24em] uppercase text-zinc-500 font-semibold border-b border-zinc-900">
+                Sections
+              </div>
+              {(json.sections || []).map(s => (
+                <a
+                  key={s.id}
+                  href={`#sec-${s.id}`}
+                  data-testid={`report-toc-${s.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById(`sec-${s.id}`)?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="block px-3 py-1.5 text-[10px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/50
+                             border-b border-zinc-900/50 transition-colors duration-100"
+                >
+                  <span className="tabular-nums text-zinc-600 mr-2"
+                        style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {String(s.order).padStart(2, "0")}
+                  </span>
+                  {s.title}
+                </a>
+              ))}
+              <div className="p-3 mt-2 border-t border-zinc-900">
+                <div className="text-[9px] tracking-[0.24em] uppercase text-zinc-500 font-semibold mb-1">
+                  Signature
+                </div>
+                <div className="text-[10px] text-zinc-100 break-all"
+                     style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                     data-testid="report-signature">
+                  {json.signature?.sha256}
+                </div>
+                <div className="text-[9px] text-zinc-600 mt-1">
+                  {json.schema_version} · {json.signature?.canonical_json_bytes} B
+                </div>
+              </div>
+            </div>
+
+            {/* Right · Markdown preview */}
+            <div className="flex-1 overflow-y-auto">
+              <pre
+                data-testid="report-md-preview"
+                className="p-6 text-[11px] leading-relaxed text-zinc-200 whitespace-pre-wrap break-words"
+                style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+              >
+                {md}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

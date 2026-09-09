@@ -1,0 +1,1 @@
+http://jsev-2.example.test/stub

