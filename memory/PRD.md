@@ -14418,3 +14418,67 @@ build on first ingest; a failure there is a safe 503, never unprotected ingest.
 - **P2** Key rate limiting · key health · issuance confirmation UX.
 - **P2** Campaign-folding decision for distinct non-endpoint events.
 - **P2** Legacy-header test suites still red (pre-existing).
+
+---
+
+# PRODUCTION URL ROUTING — AUDIT COMPLETE, AWAITING OWNER (2026-06)
+
+Read-only audit. **No DNS changed, no deploy, no code changed.** Full record:
+`memory/PRODUCTION_URL_ROUTING_AUDIT.md`.
+
+**Measured**: `xdr.nivxforge.com` and `edr.nivxforge.com` are **NXDOMAIN — the
+records do not exist** (not TLS, not propagation). `workspace.nivxmachines.com`
+200 on Vercel (per-project target `…vercel-dns-017.com`).
+`nivxray.nivxforge.com` `/api/health` 200, on `162.159.142.117` — the same IP
+as the `nivxforge.com` apex, so **nivxforge.com DNS lives at Cloudflare** and
+the two missing CNAMEs must be created there, DNS-only (grey cloud).
+
+**FINDING 1 (highest risk)**: two competing `vercel.json` files build the XDR
+app. `/app/vercel.json` (repo root) has **no PRODUCT_SCOPE, no host redirect
+and no build guard**, and would bake in the **preview** API origin from
+`apps/nivxray-xdr/.env`. `apps/nivxray-xdr/vercel.json` is the correct one
+(scope=xdr, production API, guard). Vercel picks by **Root Directory** — must
+be confirmed before any deploy; recommend deleting the root file after.
+
+**FINDING 2**: `vercel-build.sh` hardcodes `SCOPE="xdr"` and
+`verify-production-build.js` hard-fails on any other scope, so it cannot be
+reused for EDR without parameterisation.
+
+**Shared deployment question — answered NO for today's code**: the product
+boundary is BUILD-time (`src/productScope.js` reads
+`REACT_APP_PRODUCT_SCOPE`, enforced by `ProductScopeGuard`), so one artifact
+can declare only one scope. Recommended **Option A**: two Vercel projects from
+the SAME repo/commit, Root Directory `apps/nivxray-xdr`, differing only in
+scope — **no router change**. Option B (runtime hostname-derived scope) would
+need the guard and build-provenance checks redesigned; not recommended for
+first rollout.
+
+**Auth**: JWT is in `localStorage["nvx_token"]`, which is origin-scoped → an
+analyst will log in separately on XDR, EDR and Workspace. Unavoidable without
+moving to a `.nivxforge.com` cookie (a real auth change that still would not
+cover nivxmachines.com). Owner decision.
+
+**CORS**: `security/cors.py` reads `CORS_ORIGINS`; this pod is `"*"` (wildcard,
+credentials off) which works because auth is a Bearer header. **If production
+uses an explicit list, the two new origins must be added.** Owner must confirm
+the production value.
+
+**SPA routing**: both vercel.json files already rewrite `/(.*)` →
+`/index.html`, so deep links will work once DNS + domain attachment exist.
+
+## Blocking on 4 owner answers
+1. XDR project Root Directory (must be `apps/nivxray-xdr`)?
+2. Is `xdr.nivxforge.com` already added under Vercel Domains, and what exact
+   DNS value does Vercel display?
+3. Does an EDR Vercel project exist, or create one?
+4. Production `CORS_ORIGINS` — `*` or an explicit list?
+
+## Then: owner does DNS+Vercel; agent does 3 small code items
+Parameterise `vercel-build.sh` + `verify-production-build.js` for scope; add
+the `edr.nivxforge.com` `/` → `/edr` host redirect; remove `/app/vercel.json`.
+Also set `REACT_APP_XDR_URL` / `_EDR_URL` / `_WORKSPACE_URL` (all empty today,
+which is why cross-product pivots dead-end on the "wrong product host" notice).
+
+## Order
+URL routing (this) -> production auth+dedupe deploy -> first isolated
+production collector -> rate limiting / key health / issuance UX.
