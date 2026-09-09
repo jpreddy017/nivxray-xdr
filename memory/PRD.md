@@ -14482,3 +14482,82 @@ which is why cross-product pivots dead-end on the "wrong product host" notice).
 ## Order
 URL routing (this) -> production auth+dedupe deploy -> first isolated
 production collector -> rate limiting / key health / issuance UX.
+
+---
+
+# PRODUCTION ROUTING · XDR LIVE, EDR BUILD-READY — 2026-06
+
+Full record: `memory/PRODUCTION_ROUTING_XDR_LIVE_EDR_READY.md`.
+No DNS created/changed by the agent, no deploy triggered, no DB touched, no
+preview data into production, no secrets requested.
+
+**XDR is LIVE**: `https://xdr.nivxforge.com` on Vercel project
+`nivxray-xdr-production`, Valid Configuration. Re-confirmed from the running
+artifact (not assumed): `build-info.json` = `product_scope=xdr`,
+`api_origin=https://nivxray.nivxforge.com`, and `/` 307 -> `/xdr`. Both are
+produced ONLY by `apps/nivxray-xdr/vercel.json` + its build script, which
+PROVES **Root Directory = apps/nivxray-xdr** and that the guarded build ran.
+Left untouched.
+
+**Root vercel.json risk RESOLVED by hard failure**: `/app/vercel.json` now
+runs `scripts/refuse-root-deployment.sh` and exits 1, so an accidental
+root-directory project fails and publishes NOTHING instead of shipping a
+bundle with no product scope and the PREVIEW api origin baked in. Not deleted
+on purpose: with no config Vercel auto-detects and builds something
+unpredictable.
+
+**Scope parameterised, artifacts still separate**: `NIVX_PRODUCT_SCOPE`
+(default `xdr`) drives `vercel-build.sh` and `verify-production-build.js`;
+the guard derives the FORBIDDEN host from the scope (XDR artifact must not
+contain edr.nivxforge.com and vice versa). No hostname-aware single bundle was
+created — the boundary stays a build fact.
+
+**Cross-product URLs wired + validated but NOT activated**, behind
+`NIVX_CROSS_PRODUCT_ORIGINS=1`. Two hard reasons: edr.nivxforge.com does not
+resolve yet (dead links), and the guard's forbidden-host rule would FAIL the
+XDR deployment if REACT_APP_EDR_URL were baked in today. Proven to pass with
+the switch on.
+
+**CORS measured live**: production returns `ACAO: *` with no credentials header
+for every origin including a hostile one -> wildcard mode. **No CORS change
+needed for XDR/EDR; nothing weakened.** Disclosed but NOT changed: tightening
+`CORS_ORIGINS` to the three real origins is genuine hardening but flips
+allow_credentials to True and must be a separate owner-approved change.
+
+**Files changed (4, frontend/deployment only, zero backend)**:
+`apps/nivxray-xdr/scripts/vercel-build.sh`,
+`apps/nivxray-xdr/scripts/verify-production-build.js`,
+`apps/nivxray-xdr/vercel.json` (added edr `/` -> `/edr` host redirect),
+`/app/vercel.json` + new `scripts/refuse-root-deployment.sh`.
+
+**Guards executed**: XDR build PASS (reproduces live artifact) · EDR build
+PASS (`product_scope=edr`) · EDR build with cross-product linking PASS ·
+invalid scope exit 1 · scope/artifact mismatch exit 1 · root deployment
+refusal exit 1 · all 3 vercel.json valid JSON · dist gitignored.
+**XDR regression**: live site unchanged after all edits; backend 58/58 PASS
+(collector auth + P0-SEC + dedupe upgrade guard intact, not reopened).
+**EDR readiness: READY.**
+
+## REMAINING MANUAL ACTION (owner) — agent must NOT do these
+1. Create a SEPARATE EDR Vercel project: same repo/commit, Root Directory
+   `apps/nivxray-xdr`, env `NIVX_PRODUCT_SCOPE=edr` +
+   `XDR_PROD_API_ORIGIN=https://nivxray.nivxforge.com`. Build must print
+   "EDR PRODUCTION BUILD GUARD · PASSED".
+2. Add `edr.nivxforge.com` under that project's Domains, then STOP.
+3. Cloudflare zone nivxforge.com: `CNAME` · Name `edr` · Value = **the exact
+   per-project target Vercel displays** · **DNS only (grey cloud)**.
+   Do NOT guess: this account uses per-project targets — measured
+   xdr=f0da8943bcd95c6a.vercel-dns-017.com,
+   workspace=4544e63c01509511.vercel-dns-017.com. EDR gets a DIFFERENT hash.
+4. Report "Valid Configuration" and the agent verifies routing + product
+   isolation both ways.
+5. Only after EDR is verified live: set `NIVX_CROSS_PRODUCT_ORIGINS=1` on BOTH
+   projects and redeploy both.
+
+## Order
+XDR live (DONE) -> EDR project + CNAME (owner) -> agent verifies EDR ->
+cross-product URLs on -> production auth+dedupe deploy -> first isolated
+production collector -> rate limiting / key health / issuance UX.
+
+Known consequence (not a defect): JWT in origin-scoped
+`localStorage["nvx_token"]` means a separate sign-in per hostname.

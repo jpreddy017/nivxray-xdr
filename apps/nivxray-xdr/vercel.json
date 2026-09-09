@@ -20,6 +20,17 @@
       ],
       "destination": "/xdr",
       "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "edr.nivxforge.com"
+        }
+      ],
+      "destination": "/edr",
+      "permanent": false
     }
   ],
   "rewrites": [

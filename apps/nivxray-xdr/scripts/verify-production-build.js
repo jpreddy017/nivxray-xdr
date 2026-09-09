@@ -1,18 +1,37 @@
 /**
- * XDR PRODUCTION BUILD GUARD · Phase 2 (owner decision 4a)
+ * PRODUCTION BUILD GUARD · scope-parameterised (owner decision 4a)
  *
  * Inspects the COMPILED artifacts in dist/ — never the source .env — and exits
  * non-zero so Vercel fails the deployment rather than shipping a bundle that
- * would route production analysts at preview data.
+ * would route production analysts at preview data, or let one product render
+ * on the other product's hostname.
+ *
+ * ONE guard serves BOTH scoped projects. `NIVX_PRODUCT_SCOPE` (xdr|edr,
+ * default xdr) decides which product this artifact must be, and therefore
+ * which hostname is FORBIDDEN inside it. Default xdr keeps the live XDR
+ * deployment's checks identical to before parameterisation.
  *
  * Checks
  *   1. zero preview origins            (preview.emergentagent.com, localhost, :8001)
  *   2. the expected production API origin is actually present
  *   3. no origin outside the allow-list is baked in (unauthorised API base)
- *   4. no edr.nivxforge.com dependency  (Phase 2 is XDR ONLY · decision 5b)
+ *   4. no dependency on the OTHER product's hostname (the split must hold)
+ *   5. build-info.json declares this exact scope and API origin
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+
+const SCOPE = (process.env.NIVX_PRODUCT_SCOPE || "xdr").trim().toLowerCase();
+if (SCOPE !== "xdr" && SCOPE !== "edr") {
+  console.error(`\nPRODUCTION BUILD GUARD · FAILED\n  NIVX_PRODUCT_SCOPE must be "xdr" or "edr" (got "${SCOPE}")\n`);
+  process.exit(1);
+}
+const HOST_OF = { xdr: "xdr.nivxforge.com", edr: "edr.nivxforge.com" };
+const OTHER = SCOPE === "xdr" ? "edr" : "xdr";
+/** Set NIVX_CROSS_PRODUCT_ORIGINS=1 only once BOTH hostnames are live: the
+ *  other product's host then becomes a legitimate link target instead of
+ *  evidence that the product split has leaked. */
+const CROSS_OK = process.env.NIVX_CROSS_PRODUCT_ORIGINS === "1";
 
 const EXPECTED_API =
   process.env.XDR_GUARD_EXPECTED_API || "https://nivxray.nivxforge.com";
@@ -58,6 +77,13 @@ const ALLOWED_HOSTS = new Set([
   "api-yourorg.xdr.us.paloaltonetworks.com",
   "reactjs.org",
 ]);
+// When cross-product linking is switched on, both product hostnames are
+// legitimate link targets and must not be reported as unauthorised origins.
+if (CROSS_OK) {
+  ALLOWED_HOSTS.add(HOST_OF.xdr);
+  ALLOWED_HOSTS.add(HOST_OF.edr);
+  ALLOWED_HOSTS.add("workspace.nivxmachines.com");
+}
 
 // RFC 2606 reserved names can only ever be placeholders (e.g. the
 // "https://vendor.example.com/api/events" and "https://example.com/hook"
@@ -72,7 +98,10 @@ const PREVIEW_PATTERNS = [
   "0.0.0.0:8001",
 ];
 
-const FORBIDDEN_PHASE2 = ["edr.nivxforge.com"];
+// The other product lives on its own hostname and its own artifact. Its host
+// appearing in THIS bundle means the split has leaked — unless cross-product
+// linking has been deliberately enabled.
+const FORBIDDEN_PHASE2 = CROSS_OK ? [] : [HOST_OF[OTHER]];
 
 function walk(dir) {
   const out = [];
@@ -112,8 +141,10 @@ for (const f of files) {
   }
 }
 if (!previewHits) notes.push(`ok · no preview origin embedded (${files.length} artifacts scanned)`);
-if (!failures.some((f) => f.includes("edr.nivxforge.com")))
-  notes.push("ok · no edr.nivxforge.com dependency (Phase 2 is XDR only)");
+if (!failures.some((f) => f.includes(HOST_OF[OTHER])))
+  notes.push(CROSS_OK
+    ? `ok · cross-product linking enabled (${HOST_OF[OTHER]} allowed as a link target)`
+    : `ok · no ${HOST_OF[OTHER]} dependency (this artifact is ${SCOPE.toUpperCase()} only)`);
 
 let expectedHits = 0;
 const foreign = new Map();
@@ -138,12 +169,12 @@ if (foreign.size) {
 
 // 5 · deployment provenance: the product scope MUST be declared. Owner decision
 // 5b removed the cross-host /edr/* redirects, so productScope.js is the only
-// remaining thing keeping NivXForge EDR off the XDR hostname.
+// remaining thing keeping the other product off this hostname.
 try {
   const info = JSON.parse(readFileSync(join(dist, "build-info.json"), "utf8"));
-  if (info.product_scope !== "xdr")
-    failures.push(`build-info.json product_scope is "${info.product_scope}" — must be "xdr", or /edr/* would render EDR on the XDR host`);
-  else notes.push('ok · product scope declared "xdr" (EDR paths cannot render here)');
+  if (info.product_scope !== SCOPE)
+    failures.push(`build-info.json product_scope is "${info.product_scope}" — must be "${SCOPE}", or /${OTHER}/* would render ${OTHER.toUpperCase()} on the ${SCOPE.toUpperCase()} host`);
+  else notes.push(`ok · product scope declared "${SCOPE}" (/${OTHER}/* cannot render here)`);
   if (info.api_origin !== EXPECTED_API)
     failures.push(`build-info.json api_origin is "${info.api_origin}" — expected ${EXPECTED_API}`);
 } catch {
@@ -151,11 +182,12 @@ try {
 }
 
 console.log("");
+console.log(`  scope · ${SCOPE} → ${HOST_OF[SCOPE]}`);
 for (const n of notes) console.log("  " + n);
 if (failures.length) {
-  console.error("\nXDR PRODUCTION BUILD GUARD · FAILED");
+  console.error(`\n${SCOPE.toUpperCase()} PRODUCTION BUILD GUARD · FAILED`);
   for (const f of failures) console.error("  ✗ " + f);
   console.error("");
   process.exit(1);
 }
-console.log("\nXDR PRODUCTION BUILD GUARD · PASSED\n");
+console.log(`\n${SCOPE.toUpperCase()} PRODUCTION BUILD GUARD · PASSED\n`);
