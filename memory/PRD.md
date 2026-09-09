@@ -14221,3 +14221,47 @@ Agent cannot perform git writes; the correction needs **Save to Github** on
 travelled before (3566 B → 4658 B on GitHub), unlike `yarn.lock`, so this
 should push cleanly. Agent will verify via the GitHub API that the pushed
 file contains no `$`-prefixed keys before any retry.
+
+---
+
+# P0 · Collector API-Key Authentication IMPLEMENTED (preview only) — 2026-06
+
+The Phase 2 blocker is cleared in code. `require_permission()` in
+`backend/routers/xdr_rbac.py` now accepts two **mutually exclusive** principals:
+
+- **USER** — a verified JWT (`deps.get_current_user`), resolved through
+  `xdr_users` / `xdr_user_roles` via the untouched `check_access()`.
+- **MACHINE** — `X-XDR-API-Key: nvx_<48 hex>` + `X-Tenant-Id`, validated by the
+  new `authenticate_api_key()` against the SHA-256 digests in `xdr_api_keys`.
+
+`xdr_api_keys` already stored only `sha256(plaintext)`, so **no migration was
+needed and no plaintext fallback exists** — the owner's condition is satisfied.
+
+Denies: missing · malformed · unknown · revoked · disabled · expired ·
+malformed-expiry · tenant-mismatch · scope-not-granted · empty-scopes ·
+missing-tenant-header · store-unavailable (503) · **bearer + key together
+(`ambiguous-credentials`, so a bad JWT never falls through to key auth)**.
+
+Tested: 72/72 in-scope tests pass — `test_collector_api_key_auth.py` (33, new),
+`test_collector_api_key_adversarial_regression.py` (18, new, over HTTP),
+`test_p0sec_rbac_fail_closed.py` (21, source-guard updated). P0-SEC fail-closed
+behaviour is unchanged. Full detail: `memory/COLLECTOR_API_KEY_AUTH.md`.
+
+**Nothing was deployed. No production collector was enrolled.**
+
+## Backlog after this
+- **P0** Preview-only collector-auth proof (mint key → send telemetry → confirm
+  it reaches the incident pipeline).
+- **P0** Then, on owner approval: deploy to production + enroll the first
+  webhook collector in a dedicated tenant (`p0f-firstproof`).
+- **P1** Phase 3 · productionize EDR at `edr.nivxforge.com`.
+- **P1** Phase 4 · cross-product navigation launchers (Workspace / XDR / EDR).
+- **P1** Phase 5 · permanent `api.nivxforge.com`, retire legacy hostname.
+- **P2** Migrate `test_xdr_api_keys.py` + `test_xdr_rbac_enforcement.py`
+  fixtures off legacy `X-Principal-Id` header seeding onto real JWTs
+  (pre-existing failures, unrelated to this change).
+- **P2** `test_p0_f4_endpoint_process_tree.py` failures.
+- **P2** SEC-001 blind spot: assert `test_sec001_002_auth_hardening.py` against
+  production, not only preview.
+- **P3** Telemetry endpoint: return a distinct `403 TENANT_ISOLATION_VIOLATION`
+  instead of `422` for a cross-tenant envelope (defence-in-depth ergonomics).

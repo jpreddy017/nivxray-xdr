@@ -114,5 +114,11 @@ def test_bootstrap_bypass_pattern_is_absent_from_source():
         "tenant-empty count is being used for authorization again")
     assert "_principal(request)" not in dep, (
         "identity is being taken from request headers again")
-    assert "Depends(_deps_current_user)" in dep, (
-        "the dependency no longer derives identity from the verified JWT")
+    assert "_deps_current_user(creds)" in dep, (
+        "the dependency no longer derives user identity from the verified JWT")
+    # The machine-principal path must go through the validating helper, never
+    # trust the raw header, and never be reachable alongside a bearer token.
+    assert "authenticate_api_key(request, raw_key, permission)" in dep, (
+        "collector API keys are no longer validated by authenticate_api_key")
+    assert "ambiguous-credentials" in dep, (
+        "a bearer token and an API key can be presented together again")

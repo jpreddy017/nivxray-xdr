@@ -1,0 +1,32 @@
+{
+  "summary": "P0 Collector API-Key Authentication: fully validated. Ran the two targeted pytest suites in-process (test_collector_api_key_auth.py = 33 passed, test_p0sec_rbac_fail_closed.py = 21 passed) and an independent adversarial regression against the live preview backend URL (test_collector_api_key_adversarial_regression.py = 18 passed). 72/72 tests pass. Fail-closed matrix, credential-non-blending, tenant binding, scope gating, SHA-256-only storage, no plaintext path, usage telemetry, JWT admin regression, and anonymous P0-SEC regression (including spoofed principal headers) are all correct.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "P0-F13 telemetry endpoint validator", "issue": "POST /api/xdr/ingest/telemetry with valid enroll-scoped key and body {envelopes:[{tenant_id:<other>, source:'x', events:[]}]} returns 422 body-validation, not 403. Not a security bypass (auth gate passed, downstream body validation caught the mismatch), but a defence-in-depth ergonomic gap: cross-tenant envelope should ideally be a distinct 403 tenant-isolation denial rather than shape validation. Report only, out of scope for this P0."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_collector_api_key_auth.py",
+    "/app/backend/tests/test_p0sec_rbac_fail_closed.py",
+    "/app/backend/tests/test_collector_api_key_adversarial_regression.py",
+    "/app/test_reports/pytest/iter_108_targeted.xml",
+    "/app/test_reports/pytest/iter_108_adversarial.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Machine-auth path in xdr_rbac.authenticate_api_key uses hashlib.sha256 lookup + hmac.compare_digest with no plaintext fallback — verified by source-guard test and by grep of the function body.",
+    "require_permission correctly refuses ambiguous-credentials when both HTTPBearer creds and X-XDR-API-Key are present (an invalid JWT never falls through to key auth).",
+    "expires_at=null intentionally means never-expires; confirmed via test_expires_at_null_is_accepted_as_never_expires. Malformed expiry strings are NOT treated as never-expiring (api-key-expiry-malformed 403).",
+    "HTTP header names are case-insensitive at Starlette/FastAPI layer; lowercase/mixed-case X-XDR-API-Key work against the live URL, as expected. No case-sensitivity bypass exists.",
+    "Pre-existing failures deferred by main agent and reconfirmed as unchanged: tests/test_xdr_api_keys.py, tests/test_xdr_rbac_enforcement.py, tests/test_p0_f4_endpoint_process_tree.py — all traceable to legacy X-Tenant-Id/X-Principal-Id header seeding which P0-SEC intentionally stopped honouring. NOT caused by this change."
+  ],
+  "updated_files": ["/app/backend/tests/test_collector_api_key_adversarial_regression.py (NEW — independent regression against live preview URL)"],
+  "success_rate": {"backend": "100% (72/72 in-scope tests)", "frontend": "n/a"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (preview only, read from backend/.env ADMIN_EMAIL / ADMIN_PASSWORD)",
+  "seed_data_creation": "Adversarial test file mints ephemeral xdr_api_keys documents under tenant_id in {adv-regress-tenant-a, adv-regress-tenant-b} and cleans them up in module-scoped autouse fixture. No production data touched.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "P0 machine-auth for collectors is complete. Two suites cover it: (1) tests/test_collector_api_key_auth.py — in-process TestClient, 33 cases covering happy path, fail-closed matrix, principal non-blending, storage guarantees, and last_used telemetry; (2) tests/test_collector_api_key_adversarial_regression.py — HTTP against REACT_APP_BACKEND_URL, 18 cases covering attacker-perspective probes (empty header value, header-case variants, spoofed principal headers, cross-tenant envelope, expires_at:null, anonymous fail-closed, JWT admin regression). Pre-existing failing suites (test_xdr_api_keys.py, test_xdr_rbac_enforcement.py) are unrelated legacy-header failures explicitly deferred by user; do not attribute future regressions to them. When running the adversarial file, ensure MONGO_URL / DB_NAME / REACT_APP_BACKEND_URL / ADMIN_EMAIL / ADMIN_PASSWORD are exported (source /app/backend/.env)."
+}
