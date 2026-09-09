@@ -38,6 +38,7 @@ from pymongo import MongoClient
 
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
+from services import ingest_idempotency as idem
 
 router = APIRouter(prefix="/api/xdr/ingest", tags=["xdr-ingest"])
 
@@ -123,7 +124,12 @@ class ReasoningOutcome(BaseModel):
     hide: they mean the payload format has no authoritative parser."""
     source_event_id:  str | None = None
     trace_id:         str
-    status:           str                    # REASONED | NO_DSM | BLOCKED | FAILED
+    status:           str      # REASONED | NO_DSM | BLOCKED | FAILED | DUPLICATE
+    #: Set on a recognised retry: how many times this delivery has arrived
+    #: and the identity that proved it is the same event.
+    duplicate_of_trace_id: str | None = None
+    delivery_count:   int | None = None
+    dedupe_key:       str | None = None
     blocker:          str | None = None
     detection:        str | None = None
     detections_matched: int = 0
@@ -142,6 +148,11 @@ class TelemetryReceipt(BaseModel):
     normalize_errors:     int
     collector_state:      str
     collector_state_reason: str
+    # ── P0 · delivery idempotency ────────────────────────────────
+    #: Envelopes recognised as a retry of an already-processed delivery.
+    #: They create no raw row, no canonical event, no detection and no
+    #: incident — the original chain is reported back instead.
+    duplicates:           int = 0
     # ── P1.10 · live reasoning ───────────────────────────────────
     reasoned:             int = 0
     observations_created: int = 0
@@ -179,7 +190,8 @@ def _raw_event_for_pipeline(e: CanonicalEnvelope) -> dict[str, Any]:
 
 
 async def _run_reasoning(envelopes: list[CanonicalEnvelope],
-                             tenant_id: str) -> dict[str, Any]:
+                             tenant_id: str,
+                             keys: list[str] | None = None) -> dict[str, Any]:
     """Drive each envelope through the existing reasoning chain.
 
     The counter/state contract of this endpoint is locked and must not
@@ -187,9 +199,16 @@ async def _run_reasoning(envelopes: list[CanonicalEnvelope],
     (e.g. a TestClient that never ran startup) the receipt still returns
     truthfully, with the reason recorded rather than swallowed.
     """
+    if not envelopes:
+        return {"reasoned": 0, "observations_created": 0,
+                "incidents_promoted": [], "reasoning": []}
     try:
-        return await _reason_batch(envelopes, tenant_id)
+        return await _reason_batch(envelopes, tenant_id, keys)
     except Exception as ex:                                       # noqa: BLE001
+        # The claims cannot be left dangling: a retry must be able to
+        # reprocess an event whose first pass never completed.
+        for k in keys or []:
+            idem.release(k)
         return {"reasoned": 0, "observations_created": 0,
                 "incidents_promoted": [],
                 "reasoning": [ReasoningOutcome(
@@ -199,7 +218,8 @@ async def _run_reasoning(envelopes: list[CanonicalEnvelope],
 
 
 async def _reason_batch(envelopes: list[CanonicalEnvelope],
-                            tenant_id: str) -> dict[str, Any]:
+                            tenant_id: str,
+                            keys: list[str] | None = None) -> dict[str, Any]:
     from deps import db as _adb
     from detection_content.xdr_pipeline import process_event_through_pipeline
     from v2.ingestion.telemetry_bridge import (
@@ -211,6 +231,7 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
     reasoned = 0
 
     for idx, e in enumerate(envelopes):
+        key = keys[idx] if keys and idx < len(keys) else None
         trace_id = f"live_{uuid.uuid4().hex[:16]}"
         raw_event = _raw_event_for_pipeline(e)
         if not raw_event["line"]:
@@ -219,6 +240,9 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
                 status="NOT_ATTEMPTED",
                 blocker="no_verbatim_line",
                 error="envelope carries no raw line to re-parse"))
+            if key:
+                idem.record_outcome(key, trace_id=trace_id,
+                                    status="NOT_ATTEMPTED")
             continue
         try:
             result = await process_event_through_pipeline(
@@ -230,6 +254,11 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
             outcomes.append(ReasoningOutcome(
                 source_event_id=e.source_event_id, trace_id=trace_id,
                 status="FAILED", error=f"{type(ex).__name__}: {ex}"[:300]))
+            # A transient pipeline fault must not permanently suppress a
+            # real security event: drop the claim so the collector's next
+            # retry is reprocessed.
+            if key:
+                idem.release(key)
             continue
 
         canonical = result.get("canonical")
@@ -238,6 +267,13 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
                 source_event_id=e.source_event_id, trace_id=trace_id,
                 status="NO_DSM" if result.get("blocker") == "dsm" else "BLOCKED",
                 blocker=result.get("blocker")))
+            # Deterministically blocked payload — the claim stands, so a
+            # retry does not re-persist the same raw row.
+            if key:
+                idem.record_outcome(
+                    key, trace_id=trace_id,
+                    status="NO_DSM" if result.get("blocker") == "dsm"
+                    else "BLOCKED")
             continue
 
         obs_id = await persist_live_observation(
@@ -266,7 +302,15 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
             incident_created=created,
             incident_id=incident.get("incident_id"),
             incident_reason=incident.get("reason"),
-            observation_id=obs_id))
+            observation_id=obs_id,
+            dedupe_key=key))
+        if key:
+            idem.record_outcome(
+                key, trace_id=trace_id,
+                canonical_event_id=canonical.get("event_id"),
+                observation_id=obs_id,
+                incident_id=incident.get("incident_id"),
+                incident_created=created, status="PROCESSED")
 
     await _adb[_REASONING_AUDIT].insert_one({
         "tenant_id":   tenant_id,
@@ -353,10 +397,55 @@ async def ingest_telemetry(
             "header_tenant":   ten_hdr,
             "collector_tenant": owner_ten})
 
+    # ── P0 · delivery idempotency ─────────────────────────────────
+    # Partition the batch BEFORE anything is persisted.  A recognised retry
+    # produces no raw row, no canonical event, no detection and no incident;
+    # the original provenance chain is reported back instead.
+    fresh: list[CanonicalEnvelope] = []
+    fresh_keys: list[str] = []
+    dup_outcomes: list[ReasoningOutcome] = []
+    dup_incident_ids: list[str] = []
+    for e in envelopes:
+        ident = idem.event_identity(e.tenant_id, e.collector_id, e.source,
+                                    e.source_event_id, e.raw)
+        verdict_state, rec = idem.claim(ident)
+        if verdict_state == "DUPLICATE":
+            rec = rec or {}
+            dup_outcomes.append(ReasoningOutcome(
+                source_event_id=e.source_event_id,
+                trace_id=rec.get("trace_id") or "none",
+                status="DUPLICATE",
+                blocker="duplicate_delivery",
+                incident_created=False,
+                incident_id=rec.get("incident_id"),
+                incident_reason=(
+                    "retry of an already-processed delivery — no second "
+                    "raw/canonical/detection/incident chain was created"),
+                observation_id=rec.get("observation_id"),
+                duplicate_of_trace_id=rec.get("trace_id"),
+                delivery_count=rec.get("delivery_count"),
+                dedupe_key=ident["key"]))
+            if rec.get("incident_id"):
+                dup_incident_ids.append(rec["incident_id"])
+            continue
+        fresh.append(e)
+        if verdict_state == "FRESH":
+            fresh_keys.append(ident["key"])
+        else:  # UNAVAILABLE — ingest availability outranks de-duplication.
+            fresh_keys.append("")
+
+    # Retry provenance on the ORIGINAL incident: the same event was seen
+    # again.  Additive counters only — no state, priority or verdict change.
+    if dup_incident_ids and _db() is not None:
+        _db()["workspace_cases"].update_many(
+            {"id": {"$in": dup_incident_ids}},
+            {"$inc": {"duplicate_delivery_count": 1},
+             "$set": {"last_duplicate_delivery_at": _now()}})
+
     accepted = parse_err = norm_err = 0
     now = _now()
     persisted_ids: list[str] = []
-    for e in envelopes:
+    for e in fresh:
         if e.parser_ok and e.normalized_ok:
             accepted += 1
         elif not e.parser_ok:
@@ -389,11 +478,15 @@ async def ingest_telemetry(
             r = _c_events().insert_one(rec)
             persisted_ids.append(str(r.inserted_id))
 
-    # Update counters atomically.
-    inc = {"events_received": len(envelopes),
-              "events_parsed":   len(envelopes) - parse_err,
+    # Update counters atomically.  `events_received/parsed/normalized` are
+    # the LOCKED evidence for the CONNECTED gate and count UNIQUE telemetry
+    # only — a retry is recorded honestly in its own `events_duplicate`
+    # counter so the state machine cannot be inflated by redelivery.
+    inc = {"events_received": len(fresh),
+              "events_parsed":   len(fresh) - parse_err,
               "events_normalized": accepted,
-              "events_error":    parse_err + norm_err}
+              "events_error":    parse_err + norm_err,
+              "events_duplicate": len(dup_outcomes)}
     _c_collectors().update_one(
         {"_id": coll_doc["_id"]},
         {"$inc": inc, "$set": {"last_event_at": now, "updated_at": now}})
@@ -462,7 +555,7 @@ async def ingest_telemetry(
     # source when an envelope carries data_source_id).
     if _c_data_sources() is not None:
         by_ds: dict[str, dict[str, int]] = {}
-        for e in envelopes:
+        for e in fresh:
             if not e.data_source_id:
                 continue
             b = by_ds.setdefault(e.data_source_id,
@@ -481,9 +574,12 @@ async def ingest_telemetry(
                   "$set": {"last_telemetry_at": now, "updated_at": now}},
             )
 
+    reasoning = await _run_reasoning(fresh, owner_ten, fresh_keys)
+    reasoning["reasoning"] = list(reasoning.get("reasoning") or []) \
+        + dup_outcomes
     return TelemetryReceipt(accepted=accepted, parse_errors=parse_err,
                                               normalize_errors=norm_err,
                                               collector_state=new_state,
                                               collector_state_reason=reason,
-                                              **(await _run_reasoning(
-                                                  envelopes, owner_ten)))
+                                              duplicates=len(dup_outcomes),
+                                              **reasoning)

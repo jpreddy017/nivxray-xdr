@@ -294,24 +294,59 @@ log("incident_materialised", "PASS" if inc_doc else "FAIL",
 
 # ══ 7 · replay / idempotency ═══════════════════════════════════════
 print("\n── REPLAY / IDEMPOTENCY ──")
+raw_before = _db["xdr_canonical_events"].count_documents(
+    {"tenant_id": TENANT, "source_event_id": "p0f-proof-authmx"})
+can_before = _db["xdr_canonical_evidence"].count_documents({"tenant_id": TENANT})
+inc_before = _db["workspace_cases"].count_documents(
+    {"tenant_id": TENANT, "doc_type": "xdr_incident"})
 r2 = probe({"X-XDR-API-Key": KEY, "X-Tenant-Id": TENANT})
 rec2 = r2.json() if r2.status_code == 200 else {}
 rsn2 = (rec2.get("reasoning") or [{}])[0]
-inc_count = _db["workspace_cases"].count_documents(
-    {"tenant_id": TENANT, "doc_type": "xdr_incident"})
-raw_count = _db["xdr_canonical_events"].count_documents(
+raw_after = _db["xdr_canonical_events"].count_documents(
     {"tenant_id": TENANT, "source_event_id": "p0f-proof-authmx"})
-log("replay_identical_envelope", "OBSERVED", http=r2.status_code,
-    second_incident_id=rsn2.get("incident_id"),
-    second_incident_created=rsn2.get("incident_created"),
-    same_incident_as_first=rsn2.get("incident_id") == INCIDENT,
-    incident_docs_for_tenant=inc_count,
-    raw_rows_for_same_source_event_id=raw_count,
+can_after = _db["xdr_canonical_evidence"].count_documents({"tenant_id": TENANT})
+inc_after = _db["workspace_cases"].count_documents(
+    {"tenant_id": TENANT, "doc_type": "xdr_incident"})
+dedup_ok = (rec2.get("duplicates") == 1
+            and rsn2.get("status") == "DUPLICATE"
+            and rsn2.get("incident_created") is False
+            and rsn2.get("incident_id") == INCIDENT
+            and raw_after == raw_before
+            and can_after == can_before
+            and inc_after == inc_before)
+log("replay_identical_envelope", "PASS" if dedup_ok else "FAIL",
+    http=r2.status_code, duplicates_reported=rec2.get("duplicates"),
+    replay_status=rsn2.get("status"),
+    replay_incident_created=rsn2.get("incident_created"),
+    points_at_original_incident=rsn2.get("incident_id") == INCIDENT,
+    duplicate_of_trace_id=rsn2.get("duplicate_of_trace_id"),
+    delivery_count=rsn2.get("delivery_count"),
+    raw_rows=f"{raw_before}->{raw_after}",
+    canonical_docs=f"{can_before}->{can_after}",
+    incidents=f"{inc_before}->{inc_after}",
+    reasoned=rec2.get("reasoned"),
+    observations_created=rec2.get("observations_created"),
+    incidents_promoted=rec2.get("incidents_promoted"),
     collector_events_received=(_db["xdr_collectors"].find_one(
         {"id": COLLECTOR}) or {}).get("events_received"),
-    note=("raw ingest is append-only by design (audit trail); incident "
-          "identity is governed by the existing campaign window, NOT by "
-          "this proof"))
+    collector_events_duplicate=(_db["xdr_collectors"].find_one(
+        {"id": COLLECTOR}) or {}).get("events_duplicate"),
+    incident_duplicate_delivery_count=(_db["workspace_cases"].find_one(
+        {"id": INCIDENT}) or {}).get("duplicate_delivery_count"))
+
+# A genuinely distinct security event (new source_event_id) must still flow.
+r3 = requests.post(ING, headers={"X-XDR-API-Key": KEY, "X-Tenant-Id": TENANT},
+                   json={"envelopes": [envelope(collector=COLLECTOR,
+                                                seq="distinct")]}, timeout=120)
+rec3 = r3.json() if r3.status_code == 200 else {}
+rsn3 = (rec3.get("reasoning") or [{}])[0]
+distinct_ok = (rec3.get("duplicates") == 0
+               and rsn3.get("status") == "REASONED"
+               and rsn3.get("incident_id") != INCIDENT)
+log("distinct_event_not_suppressed", "PASS" if distinct_ok else "FAIL",
+    http=r3.status_code, duplicates_reported=rec3.get("duplicates"),
+    reasoning_status=rsn3.get("status"), new_incident_id=rsn3.get("incident_id"),
+    note="different source_event_id => genuinely new event, never suppressed")
 
 
 # ══ 8 · queue visibility + tenant isolation ════════════════════════

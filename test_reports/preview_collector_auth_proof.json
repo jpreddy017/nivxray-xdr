@@ -9,8 +9,8 @@
   {
    "stage": "api_key_minted",
    "status": "EXECUTED",
-   "key_id": "key_3280b2dad48c4f37955c",
-   "prefix": "nvx_307dcd07",
+   "key_id": "key_363db9ffd54147299aaa",
+   "prefix": "nvx_c3ce1998",
    "scopes": [
     "collectors.enroll",
     "collectors.read"
@@ -22,7 +22,7 @@
   {
    "stage": "collector_enrolled",
    "status": "EXECUTED",
-   "collector_id": "col_20818b310f8048468077",
+   "collector_id": "col_8defc6f93d3e49ce95c0",
    "tenant": "p0f-collector-auth-proof",
    "state": "ADOPTED",
    "protocol": "webhook"
@@ -59,20 +59,20 @@
    "verdict_score": 70,
    "incident_created": true,
    "incident_reason": null,
-   "trace_id": "live_81f283069f75451e"
+   "trace_id": "live_d904285cbc584eb0"
   },
   {
    "stage": "raw_ingest_persisted",
    "status": "PASS",
    "collection": "xdr_canonical_events",
-   "_id": "6aa104d55ac416ffaa4ecab5",
+   "_id": "6aa1085b5198af8b90758c90",
    "line_verbatim": true
   },
   {
    "stage": "canonical_evidence_created",
    "status": "PASS",
    "collection": "xdr_canonical_evidence",
-   "event_id": "df433768-2394-491d-904a-9a75d079f18c",
+   "event_id": "b8496a4b-5129-40ca-a20a-416ebaf3c3e6",
    "tenant": "p0f-collector-auth-proof",
    "dsm": "cef-leef",
    "severity_band": "HIGH"
@@ -80,7 +80,7 @@
   {
    "stage": "incident_materialised",
    "status": "PASS",
-   "incident_id": "inc_8c53c8ff067c4689a040",
+   "incident_id": "inc_cc66368611ca49a0ba78",
    "doc_type": "xdr_incident",
    "tenant": "p0f-collector-auth-proof",
    "title": "Suspicious \u2014 sig 4001 \u2192 203.0.113.55",
@@ -89,29 +89,46 @@
    "veee_score": null,
    "veee_label": null,
    "detection_rule_id": "DET-EX-001",
-   "canonical_event_id": "142ec7a9-aa1e-4780-a163-6b7c5ef1115d",
-   "iue_id": "iue_c7dd50e467329f87b242",
+   "canonical_event_id": "b8496a4b-5129-40ca-a20a-416ebaf3c3e6",
+   "iue_id": "iue_08855fc242bc8834ddcd",
    "collector": null,
    "gate": "INCIDENT_MIN_SCORE=55 \u00b7 verdict=SUSPICIOUS score=70"
   },
   {
    "stage": "replay_identical_envelope",
-   "status": "OBSERVED",
+   "status": "PASS",
    "http": 200,
-   "second_incident_id": "inc_d75ce097dd6d4548ab8d",
-   "second_incident_created": true,
-   "same_incident_as_first": false,
-   "incident_docs_for_tenant": 5,
-   "raw_rows_for_same_source_event_id": 5,
-   "collector_events_received": 3,
-   "note": "raw ingest is append-only by design (audit trail); incident identity is governed by the existing campaign window, NOT by this proof"
+   "duplicates_reported": 1,
+   "replay_status": "DUPLICATE",
+   "replay_incident_created": false,
+   "points_at_original_incident": true,
+   "duplicate_of_trace_id": "live_d904285cbc584eb0",
+   "delivery_count": 3,
+   "raw_rows": "7->7",
+   "canonical_docs": "8->8",
+   "incidents": "8->8",
+   "reasoned": 0,
+   "observations_created": 0,
+   "incidents_promoted": [],
+   "collector_events_received": 1,
+   "collector_events_duplicate": 2,
+   "incident_duplicate_delivery_count": 2
+  },
+  {
+   "stage": "distinct_event_not_suppressed",
+   "status": "PASS",
+   "http": 200,
+   "duplicates_reported": 0,
+   "reasoning_status": "REASONED",
+   "new_incident_id": "inc_f5f61996896a4354ba41",
+   "note": "different source_event_id => genuinely new event, never suppressed"
   },
   {
    "stage": "queue_visible_to_authorized_reader",
    "status": "PASS",
    "http": 200,
    "incident_present": true,
-   "returned": 5,
+   "returned": 9,
    "reader": "admin (all_tenants)"
   },
   {
@@ -133,12 +150,12 @@
    "stage": "cleanup",
    "status": "EXECUTED",
    "keys_revoked": [
-    "key_3280b2dad48c4f37955c",
-    "key_f6c2065b205549e7824c",
-    "key_2d34ac717ef24354a343",
-    "key_c31e8fb213db48f19d8c"
+    "key_363db9ffd54147299aaa",
+    "key_0c40de9ecd804bc49ea4",
+    "key_ba6c919a4c4e46668681",
+    "key_a786ec74db7a402f9e22"
    ],
-   "collector_disabled": "col_20818b310f8048468077",
+   "collector_disabled": "col_8defc6f93d3e49ce95c0",
    "revoked_key_now_denied": true,
    "revoked_key_http": 403,
    "evidence_retained": "raw events, canonical evidence and the incident are INTENTIONALLY retained under tenant p0f-collector-auth-proof for owner review"
@@ -224,18 +241,18 @@
   }
  ],
  "ids": {
-  "api_key_id": "key_3280b2dad48c4f37955c",
-  "api_key_prefix": "nvx_307dcd07",
-  "revoked_key_id": "key_f6c2065b205549e7824c",
-  "unscoped_key_id": "key_2d34ac717ef24354a343",
-  "other_tenant_key_id": "key_c31e8fb213db48f19d8c",
-  "collector_id": "col_20818b310f8048468077",
-  "trace_id": "live_81f283069f75451e",
-  "observation_id": "6aa104d65ac416ffaa4ecafe",
-  "incident_id": "inc_8c53c8ff067c4689a040",
-  "canonical_event_id": "df433768-2394-491d-904a-9a75d079f18c",
+  "api_key_id": "key_363db9ffd54147299aaa",
+  "api_key_prefix": "nvx_c3ce1998",
+  "revoked_key_id": "key_0c40de9ecd804bc49ea4",
+  "unscoped_key_id": "key_ba6c919a4c4e46668681",
+  "other_tenant_key_id": "key_a786ec74db7a402f9e22",
+  "collector_id": "col_8defc6f93d3e49ce95c0",
+  "trace_id": "live_d904285cbc584eb0",
+  "observation_id": "6aa1085c5198af8b90758cd9",
+  "incident_id": "inc_cc66368611ca49a0ba78",
+  "canonical_event_id": "b8496a4b-5129-40ca-a20a-416ebaf3c3e6",
   "detection_rule_id": "DET-EX-001",
-  "iue_id": "iue_c7dd50e467329f87b242",
+  "iue_id": "iue_08855fc242bc8834ddcd",
   "tenant": "p0f-collector-auth-proof"
  },
  "findings": [

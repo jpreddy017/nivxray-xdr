@@ -14312,3 +14312,54 @@ DISABLED. Evidence retained under the throwaway tenant for owner review.
 ## Order agreed with owner
 Preview Collector Proof (DONE) -> owner review -> production deploy of auth
 -> controlled production collector. Key-health alerts are later, not the P0 gate.
+
+---
+
+# P0 · INGEST/INCIDENT DEDUPLICATION — FIXED + PROVEN (preview only) — 2026-06
+
+The replay blocker from the preview collector proof is closed. Full record:
+`memory/P0_INGEST_DEDUPLICATION.md`.
+
+**Root cause**: the ingest endpoint had no delivery identity. Every envelope
+got a raw row, a canonical event, a detection, a VEEE run and an incident. The
+only duplicate protection was `xdr_incident._consolidate`, keyed on
+`(tenant_id, endpoint_id)`, and `_endpoint_scope()` is None for non-endpoint
+sources (CEF/LEEF/syslog/cloud), so it was skipped entirely.
+
+**Fix**: `backend/services/ingest_idempotency.py` (NEW) — an explicit claim
+record under a UNIQUE index, keyed on
+`sha256(tenant_id|collector_id|source|source_event_id|sha256(raw))`. Applied in
+`ingest_telemetry` BEFORE any persistence, so a retry creates no raw, no
+canonical, no detection and no incident; the original chain is returned with
+`status=DUPLICATE`. Endpoint-agnostic by design. Kept strictly separate from
+campaign consolidation, which was NOT modified. Detection, VEEE and the
+incident writer were not touched.
+
+**Proven**: `tests/test_p0_ingest_idempotency.py` 13/13 PASS covering identical
+retry, 5x retry, same payload + different source_event_id (not suppressed),
+different tenant, different collector, endpoint-shaped AND non-endpoint
+telemetry, durability/unique index, and locked-counter integrity. Full preview
+collector proof re-run: **PASS** — replay gave raw 7→7, canonical 8→8,
+incidents 8→8 and pointed at the original incident; a new source_event_id still
+created a genuine new incident. Auth matrix still 11/11.
+
+**Trade-offs accepted**: `events_received` now counts unique deliveries with
+retries in a new `events_duplicate` counter; a transient pipeline fault
+releases the claim so a retry reprocesses; dedupe fails open if its store is
+unbound (auth still fails closed).
+
+**Owner decision still open**: whether genuinely DISTINCT non-endpoint events
+from the same device should fold into one campaign incident. Not done, because
+it would reverse the owner-ratified P0-F.2 lock
+(`test_non_endpoint_sources_keep_their_existing_behaviour`) and would suppress
+legitimate repeated events with different source_event_ids.
+
+## GO/NO-GO for production auth deploy: **GO, conditional**
+- **P0 before high-volume ingest**: retention (TTL/sweeper) for
+  `xdr_ingest_dedupe` — it grows one doc per unique event forever.
+- **P0**: confirm the `events_received` semantics change (it is the evidence
+  behind the CONNECTED state).
+
+## Order
+Dedup fix (DONE) -> preview proof re-run (DONE, PASS) -> production auth deploy
+-> first isolated production collector -> rate limiting / key health / issuance UX.
