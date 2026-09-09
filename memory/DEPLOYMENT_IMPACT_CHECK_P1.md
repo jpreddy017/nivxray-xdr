@@ -181,3 +181,70 @@ curl -s https://nivxray.nivxforge.com/ | grep -o 'static/js/main[^"]*'
 # Workspace still serves a CRA bundle (hash may change only if the build is
 # not bit-reproducible; the app must still load and /auto-investigate → 200)
 ```
+
+---
+
+## PRE-DEPLOY STAGING (owner approved deploy; agent cannot press Deploy)
+
+Emergent deployment is an owner-only platform action. Everything that could be
+prepared without deploying is done:
+
+### 1 · Readiness scan — one flagged BLOCKER, DELIBERATELY NOT ACTED ON
+The scanner reported `[program:frontend] directory=/app/apps/nivxray-xdr` as a
+deployment blocker and proposed repointing it to `/app/frontend`.
+**Refused, and it must stay refused:**
+- `/etc/supervisor/conf.d/supervisord.conf` is **pod-local and NOT git-tracked**
+  (`git ls-files | grep supervisor` → empty), so it is not a deploy input.
+  `.emergent/emergent.yml` carries only image/job identifiers, no frontend path.
+- The live host already serves the CRA from `/app/frontend`
+  (`static/js/main.46cdaa0a.js`) while this same pod-local supervisor pointed at
+  `apps/nivxray-xdr` — empirical proof the setting does not reach the deploy.
+- Applying the "fix" would stop the preview from serving the NivXRay XDR app
+  the owner is actively developing. Net effect: breakage, zero deploy benefit.
+
+Everything else in the scan is green: compilation passes, no hardcoded secrets
+or URLs, env-only configuration, CORS acceptable, Mongo-only,
+`destructive_db_startup_confirmed: false`.
+
+### 2 · Startup DB behaviour — proven, not assumed
+`backend/deps.py:359 seed_admin()` reads `db.users.find_one({"email": ADMIN_EMAIL})`
+and **returns immediately if the admin exists** (lines 370-372). The production
+admin exists (`POST /api/auth/login` with a wrong password → `401 Invalid
+credentials`, i.e. the account and hash are intact). So container start writes
+nothing. The only new writes the candidate can ever make are lazy, on first
+use, into two **new** collections: `xdr_ingest_dedupe`, `xdr_machine_rate_buckets`.
+
+### 3 · Baseline captured + verification harness ready
+`scripts/prod_verify_p1_hardening.py` (read-only, no credential, no writes).
+Baseline → `test_reports/prod_baseline_p1.json`:
+
+| Probe | Pre-deploy value |
+|---|---|
+| `/api/health` | 200 |
+| openapi | 785 paths / 275 schemas |
+| `CreateKeyBody` | `[name, description, scopes, expires_at]` |
+| `TelemetryReceipt` | no `duplicates` / `resumed` |
+| unknown API key ingest | **403** `Not authenticated` |
+| anonymous ingest | 403 |
+| legacy-header RBAC | 403 (fail-closed) |
+| auth alive (bad creds) | 401 `Invalid credentials` |
+| Workspace `/` | 200 · `static/js/main.46cdaa0a.js` |
+| Workspace `/auto-investigate` | 200 |
+
+Harness run against **current** production: **5 FAIL / 6 PASS** — it fails on
+exactly the five things the deploy must change and passes on the six that must
+not. It therefore discriminates correctly and is not a rubber stamp.
+
+Note: the host is behind Cloudflare, which 403s the default `urllib`
+User-Agent. The harness sends a browser UA; a naive probe would have
+misreported the Workspace as down.
+
+### 4 · Next owner action
+Press **Deploy** (Manage Publishes) for `nivxray.nivxforge.com`, then tell the
+agent — it will immediately run
+`python3 scripts/prod_verify_p1_hardening.py --mode verify` and report the
+11 gates plus the baseline delta. If any gate fails: rollback icon (↺) on the
+previous deployment; code target `be651bce`.
+
+Still not done, per instruction: no key minted, no collector, no auditd, no
+telemetry, no seeding.
