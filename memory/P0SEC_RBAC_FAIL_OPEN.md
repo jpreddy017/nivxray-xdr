@@ -41,12 +41,16 @@ analyst.
 
 ## Status
 - Code: fixed and tested in preview. `backend/tests/test_p0sec_rbac_fail_closed.py`
-  **21/21 pass**.
-- `tests/test_xdr_rbac.py` adapted (it authenticated by header and so depended
-  on the bypass): **13/14 pass** single-process.
-  `test_builtin_roles_exposed_and_expandable` still fails with `KeyError: 'data'`
-  in-suite while the same request returns 200 outside pytest — **unattributed,
-  open**.
+  **21/21 pass**; `tests/test_xdr_rbac.py` **14/14 pass** (single-process and
+  under the default xdist runner: 35/35 combined).
+- `tests/test_xdr_rbac.py` needed adapting because it authenticated by header
+  and therefore depended on the bypass. Final root cause of the last failure:
+  line 129 `client.get("/api/xdr/rbac/roles/role_builtin_platform_admin")`
+  carried **no headers** — it now 403s, so `r2.json()["data"]` raised
+  `KeyError: 'data'`. The suite's *first* call was already returning 200
+  (`status=200` in the middleware log); the exception came from the second,
+  unauthenticated call. **Pre-existing test debt exposed by the fix, not a
+  defect in the fix.**
 - **PRODUCTION IS STILL VULNERABLE**: `nivxray.nivxforge.com` runs the old
   backend. Closing it there requires redeploying the Emergent backend project
   (currently frozen) — owner approval required.

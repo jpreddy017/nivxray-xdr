@@ -126,7 +126,8 @@ def test_builtin_roles_exposed_and_expandable():
         assert expected in names, f"missing built-in role: {expected}"
 
     # Platform Admin expands to `*.*`.
-    r2 = client.get("/api/xdr/rbac/roles/role_builtin_platform_admin")
+    r2 = client.get("/api/xdr/rbac/roles/role_builtin_platform_admin",
+                            headers=_hdrs())
     ep = r2.json()["data"]["effective_permissions"]
     assert "users.create" in ep and "secrets.reveal" in ep
     assert "response.execute" in ep
