@@ -14561,3 +14561,54 @@ production collector -> rate limiting / key health / issuance UX.
 
 Known consequence (not a defect): JWT in origin-scoped
 `localStorage["nvx_token"]` means a separate sign-in per hostname.
+
+---
+
+# EDR VERCEL PRE-DEPLOY CHECK — answered read-only (2026-06)
+
+No code changed, no deploy, no DNS, no secrets. Verified against
+`apps/nivxray-xdr/vercel.json`, `scripts/vercel-build.sh`,
+`scripts/verify-production-build.js`, `vite.config.js`, `.env`.
+
+**Exact Vercel env vars for project `nivxray-edr-production`
+(Root Directory `apps/nivxray-xdr`):**
+1. `NIVX_PRODUCT_SCOPE = edr` — **REQUIRED**, All Environments. Consumed by
+   `scripts/vercel-build.sh` (validates xdr|edr, exports
+   `REACT_APP_PRODUCT_SCOPE`, writes build-info.json) and passed to
+   `verify-production-build.js`. WITHOUT IT the default is `xdr` and the EDR
+   host would serve XDR.
+2. `XDR_PROD_API_ORIGIN = https://nivxray.nivxforge.com` — recommended,
+   Production + Preview. Consumed by `vercel-build.sh` (exports
+   `REACT_APP_NIVXRAY_API_URL`). Technically optional: the script already
+   defaults to this exact value. Proven sufficient: a local build with ONLY
+   `NIVX_PRODUCT_SCOPE=edr` passed the guard with the production API origin.
+
+**Verdict: the two listed variables are required and sufficient.** Nothing
+else is needed. `NPM_CONFIG_PRODUCTION` / `YARN_PRODUCTION` are already in
+`vercel.json build.env` — do not re-add.
+
+**Defer until EDR DNS is live (do NOT set now):**
+`NIVX_CROSS_PRODUCT_ORIGINS` — leave unset (=0).
+`REACT_APP_XDR_URL` / `REACT_APP_EDR_URL` / `REACT_APP_WORKSPACE_URL` — **must
+NEVER be set in the Vercel dashboard**: `vercel-build.sh` exports all three
+inline on the yarn command, so dashboard values are SILENTLY IGNORED. Control
+them only via `NIVX_CROSS_PRODUCT_ORIGINS=1` (+ optional `NIVX_XDR_ORIGIN`,
+`NIVX_EDR_ORIGIN`, `NIVX_WORKSPACE_ORIGIN`). Setting `REACT_APP_EDR_URL` today
+would also trip the guard's forbidden-host rule.
+
+**Framework Preset**: choose **Other**, not Vite. `vercel.json` declares
+`"framework": null` and overrides the dashboard anyway, so Vite still builds
+correctly — but Other matches the committed config and removes ambiguity.
+
+**First EDR build must produce** (all four confirmed by a real local build from
+this commit): `product_scope=edr` · `api_origin=https://nivxray.nivxforge.com`
+· `/` 307 -> `/edr` on host `edr.nivxforge.com` (redirect already committed in
+`apps/nivxray-xdr/vercel.json`) · `EDR PRODUCTION BUILD GUARD · PASSED`.
+
+**GO/NO-GO for clicking Deploy: GO.**
+
+**Disclosed known consequence (pre-existing, shared with XDR, NOT changed):**
+Preview/branch deployments of this project also build against the PRODUCTION
+API origin, because that is `vercel-build.sh`'s default. No domain is attached
+to previews, but a preview build does talk to production data. Flagged for a
+separate decision; changing it was out of scope for a read-only check.
