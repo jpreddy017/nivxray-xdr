@@ -14265,3 +14265,50 @@ behaviour is unchanged. Full detail: `memory/COLLECTOR_API_KEY_AUTH.md`.
   production, not only preview.
 - **P3** Telemetry endpoint: return a distinct `403 TENANT_ISOLATION_VIOLATION`
   instead of `422` for a cross-tenant envelope (defence-in-depth ergonomics).
+
+---
+
+# P0 · PREVIEW COLLECTOR PROOF — VERDICT PASS (preview only) — 2026-06
+
+The gate before production is cleared. Real machine-auth proven end to end with
+**no admin JWT on the ingest path**:
+
+scoped API key -> preview webhook collector `col_20818b310f8048468077`
+-> authenticated ingest -> raw persisted -> canonical evidence
+`142ec7a9-aa1e-4780-a163-6b7c5ef1115d` (dsm `cef-leef`) -> detection **rule
+DET-EX-001** -> VEEE **SUSPICIOUS score 70** (`detection+45` + `HIGH+25`)
+-> incident gate (min 55) -> incident **`inc_8c53c8ff067c4689a040`**
+(`doc_type=xdr_incident`, tenant `p0f-collector-auth-proof`, P3) -> visible in
+the Incident Queue to the authorized reader and **hidden** from
+`analyst@nivx-live.com`. Collector moved ADOPTED -> **CONNECTED** on real
+telemetry evidence. Auth matrix 11/11 PASS.
+
+No rule, threshold, VEEE logic or incident writer was modified; no incident was
+fabricated. Full record: `memory/PREVIEW_COLLECTOR_PROOF.md`,
+`test_reports/preview_collector_auth_proof.json`,
+harness `scripts/preview_collector_auth_proof.py`.
+
+**Reported 422 RESOLVED as a non-issue**: a well-formed cross-tenant envelope
+returns **403 TENANT_ISOLATION_VIOLATION**. The 422 occurs only for a body that
+fails Pydantic shape validation, which FastAPI runs before the handler. No
+cross-tenant write is possible. Security impact NONE; left unfixed.
+
+**Cleanup**: all 8 proof keys revoked (0 usable), both proof collectors
+DISABLED. Evidence retained under the throwaway tenant for owner review.
+
+## Blockers before production rollout of the auth (ordered)
+- **P0** Replay/idempotency: a byte-identical envelope created a SECOND
+  incident. Cause is pre-existing and unrelated to auth — `xdr_incident.
+  _consolidate()` keys campaigns on `(tenant, endpoint_id)` and
+  `_endpoint_scope()` is None for non-endpoint sources (CEF firewall), so
+  consolidation is skipped by design. A retrying collector would duplicate
+  incidents in production. Decide policy first.
+- **P1** No per-key rate limiting on the machine path (key/tenant/IP).
+- **P1** Key issuance takes the tenant from the client `X-Tenant-Id` header for
+  admin JWTs — safe at verify time, but a typo mints against the wrong tenant.
+- **P2** Legacy-header test suites still red (`test_xdr_api_keys.py`,
+  `test_xdr_rbac_enforcement.py`).
+
+## Order agreed with owner
+Preview Collector Proof (DONE) -> owner review -> production deploy of auth
+-> controlled production collector. Key-health alerts are later, not the P0 gate.
