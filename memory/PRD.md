@@ -1,5 +1,78 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · **MASTER PARITY DIRECTIVE · REQUIRED OUTPUT BEFORE CODING** — DELIVERED · ASSESSMENT ONLY · STOPPED FOR OWNER APPROVAL
+
+Blueprint: `/app/memory/PARITY_ARCHITECTURE_BLUEPRINT.md` (deliverables A–H).
+Owner locked: NivXRay XDR must become a single self-contained console; Cisco XDR is the
+UX/operating-model reference (no source/asset copying); **no code beyond one permitted
+string**. Freeze holds: no production deploy of API-key auth or ingest dedupe, no
+collector enrollment, no telemetry seeding, no DNS/Vercel/production-DB change.
+
+### The one permitted code change — done and verified
+`backend/routers/incidents.py:644` customer-visible pivot label
+`"NivXForge EDR"` → `"NivXRay EDR"`. Live preview: `GET /api/incidents/{id}` →
+`evidence_pointers[0] = ("edr","NivXRay EDR")`, all 8 other labels unchanged. Suite
+19 passed / 1 failed (`test_row_projection_shape`) — **proven pre-existing** by
+`git stash` on a clean tree. Comments at lines 439/638 and every other backend
+`NivXForge EDR` occurrence are infrastructure/module identifiers, left intact.
+
+### Four directive premises measured FALSE for the deployed bundle
+`apps/nivxray-xdr` has **60 routes**, **53 sidebar items**, **0 `external: true`**,
+**0 unrouted sidebar targets**, and `/xdr/investigations`, `/xdr/intelligence/mitre`,
+`/xdr/kb`, `/xdr/admin/:section`, `/xdr/admin/platform-health` all already exist.
+`XdrInvestigationWorkspacePage` (1,103) + `EvidenceFirstInvestigationWorkspace` (2,128)
++ `XdrEvidenceExplorerPage` (443) + `XdrMitreHeatmap` (808) + `XdrKbPage` (222) +
+`XdrSearchPage` (230) are already native. The premises describe the **base app**.
+
+### Where the launcher behaviour really lives (F-1 lesson, new class: per call-site)
+- **LEAK-1** `xdr/components/Pivot.jsx` — **13** `external: true` targets `window.open`
+  `/analyze`, `/threat-intel`, `/documents`, `/heatmap`, `/analyst`; **none exist in
+  this bundle**, so the catch-all bounces the new tab to `HOME_PATH`. Dead controls.
+- **LEAK-2** the **backend** authors a cross-product URL:
+  `incidents.py::_link_with_context("/threat-intel")` → `evidence_pointers[ioc].deep_link`
+  → `OverviewTab.jsx:82` / `InvestigationTab.jsx:127` `window.open`. Unfixable from the
+  frontend alone (owner decision O-4).
+- **LEAK-3** `XdrShell.jsx:403/630` still carry `openExternal()` + the `item.external`
+  branch — dead code that will re-enable the class.
+- **LEAK-4** `WorkspaceLaunch.jsx` is config-gated and correct — keep.
+
+### BIGGEST FINDING — the console lies in the OPPOSITE direction (P0 honesty)
+Intelligence rows `ti/ioc/command/malware` are `disabled: true` "arrives in Round P1.0"
+and `XdrReservedPage` renders **hardcoded 0s** under *"No intelligence sources are
+configured"* plus the footnote *"No metric on this page is fabricated."* Live on the
+same backend: **104,975** TI indicators · **8** configured sources with real
+`last_sync`/`last_error` (incl. an honest `HTTP 429`) · **9** `state: live` OSINT
+providers · **334** KB entries · **290** heuristics / **125** techniques /13 tactics ·
+7 searchable entity types. So the hardcoded zero **is** the fabrication. Intelligence is
+a **WIRE, not a BUILD**.
+
+### Reference correction (verified today from Cisco docs)
+Cisco XDR's real rail is **8 primaries** — Control Center · Incidents (**Detections**
+submenu) · Investigate (**Activities** submenu) · Intelligence (Judgments/Indicators/
+Events/Feeds) · Automate · Assets · Client Management · Administration — plus the
+Ribbon. The directive's §2 tree proposes **11** groups incl. `FORENSICS`, `EXPOSURE`,
+`DATA`, which are **not** Cisco primaries and are mostly unimplemented for us. Also
+confirmed: priority is a **score with bands** (≥800/600–799/400–599/≤399) and risk is
+0–100; dispositions `clean/malicious/suspicious/unknown`.
+
+### Matrix roll-up (counts, never percentages)
+40 rows. `NATIVE_WIRED` 24 · **`BACKEND_REAL_UI_DISABLED` 6** · `RESERVED_HONEST` 3 ·
+`NOT_IMPLEMENTED` 8 · `BLOCKED_ENVIRONMENT` 1 · `EDR_OWNED` 2.
+Actions `REUSE` 13 · `ADAPT` 14 · `WIRE` 6 · `BUILD` 4 · `RESERVE` 5.
+**Nothing requires a new engine.** Dependency closure adds **0** new deps for the WIRE
+block; 9 of the 11 proposed migrations are `DO NOT MIGRATE` (native equivalent exists,
+or they would create a second investigation surface / second design token system).
+
+### Approved sequence (awaiting owner)
+`PR-XDR-0` kill the launcher class → `PR-XDR-1` rail/IA lock → `PR-XDR-2` Intelligence
+honesty → `PR-XDR-3` Command+Malware → `PR-XDR-4` Detections+Activities →
+`PR-XDR-5` Response/Action Center → `PR-XDR-6` Automate+Admin → `PR-XDR-7` Assets/
+Exposure/asset value.
+**Open owner decisions O-1…O-5**: IA (8 vs 11 primaries) · `/xdr` landing route ·
+malware upload scope · the one backend `deep_link` edit · judgements ownership.
+
+
+
 ## 2026-09-09 · Analyst RBAC provisioning proven (PREVIEW ONLY)
 
 Detail: `/app/memory/RBAC_ANALYST_PROVISIONING.md`
