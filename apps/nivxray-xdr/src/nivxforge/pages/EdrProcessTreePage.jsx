@@ -139,7 +139,7 @@ export default function EdrProcessTreePage() {
       <h1 className="page-h1" data-testid="edr-processtree-heading">Process Tree</h1>
       <div className="page-sub">
         {endpointId
-          ? "Real ancestry from NivXForge sensor evidence. Links are "
+          ? "Real ancestry from NivXRay EDR sensor evidence. Links are "
             + "canonical process identities, never pid alone — Linux "
             + "reuses pids. A ghost parent is a visibility gap, not an "
             + "absent process."

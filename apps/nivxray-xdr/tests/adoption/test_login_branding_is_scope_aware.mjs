@@ -122,7 +122,8 @@ function visibleLegacyBrand(relPath) {
   return fs.readFileSync(abs, "utf8").split("\n")
     .map((line, i) => ({ line, n: i + 1 }))
     .filter(({ line }) => !isComment(line))
-    .filter(({ line }) => /NivXForge EDR|NIVXFORGE(?!_EDR)/.test(line))
+    .filter(({ line }) => /NivXForge EDR|NivXForge(?! EDR)|NIVXFORGE(?!_EDR)/.test(line))
+    .filter(({ line }) => !/nivxforge\.com|NivXForgeConsole|nivxforge\.css|^\s*import /.test(line))
     .map(({ n, line }) => `${relPath}:${n} → ${line.trim().slice(0, 90)}`);
 }
 
@@ -133,6 +134,7 @@ const AUTHENTICATED_SURFACES = [
   "nivxforge/pages/EdrDetectionsPage.jsx",
   "nivxforge/pages/EdrProcessTreePage.jsx",
   "nivxforge/pages/EdrResponsePage.jsx",
+  "nivxforge/trajectory/AmpComputerHeader.jsx",  // capability "not collected" copy
   "components/ProductScopeGuard.jsx",      // WRONG PRODUCT HOST notice
   "xdr/components/OpenInEdr.jsx",
   "xdr/components/ArtifactContextMenu.jsx",
@@ -158,6 +160,8 @@ const overview = fs.readFileSync(
   path.join(SRC, "nivxforge/pages/EdrOverviewPage.jsx"), "utf8");
 ok(/operational surfaces of NivXRay EDR/.test(overview),
    "Endpoint Overview description renders NivXRay EDR");
+ok(/the NivXRay EDR route is not wired to it/.test(overview),
+   "Files capability card copy reads 'the NivXRay EDR route is not wired to it'");
 const console_ = fs.readFileSync(
   path.join(SRC, "nivxforge/NivXForgeConsole.jsx"), "utf8");
 ok(/EDR_BRAND\.wordmark/.test(console_) && /brandFor\("edr"\)/.test(console_),

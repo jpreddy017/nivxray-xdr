@@ -14987,3 +14987,83 @@ Authenticated EDR surfaces need a logged-in session on the real host; a local
 static server has no SPA rewrite. Confirm on edr.nivxforge.com after deploy.
 
 ## AWAITING OWNER APPROVAL to Save to GitHub (branch phase2/edr-production)
+
+---
+
+# P0-EDR RESIDUAL BRANDING CLEANUP + AUTH DEDUPE HANDOFF (2026-06)
+
+Not pushed, not deployed. Untouched: DNS, Vercel settings, auth, backend,
+routing, API origin, XDR production, env vars, ProductScopeGuard logic.
+
+## PART 1 · residual branding — DONE
+**Scan bug owned**: the previous scan's exclusion pattern `src/nivxforge`
+matched the FILE PATH, so every file in that directory was silently filtered
+out — which is why the Files-card leak survived. Re-scanned with path-safe
+filters.
+
+**7 customer-visible (category A) occurrences found and changed, 3 files:**
+- `src/nivxforge/pages/EdrOverviewPage.jsx:45` (owner-named) —
+  "the NivXForge route is not wired to it yet" ->
+  **"the NivXRay EDR route is not wired to it yet"**
+- `src/nivxforge/pages/EdrProcessTreePage.jsx:142` — "NivXForge sensor
+  evidence" -> "NivXRay EDR sensor evidence"
+- `src/nivxforge/trajectory/AmpComputerHeader.jsx` (5) — "NivXForge sensor"x2,
+  "not a NivXForge concept", "not collected by NivXForge"x2 -> NivXRay EDR
+Replacement: `perl -pe 's/\bNivXForge\b(?! EDR)/NivXRay EDR/g unless
+m{^\s*(\*|//|\{/\*|/\*)}'` — comment lines skipped, never a global replace.
+
+**Preserved (B/C) — verified still intact**: `NIVXFORGE_EDR` constants
+(NivXForgeConsole 1, LoginPage 3), `nivxforge.com` domains, `src/nivxforge/`
+path, `NivXForgeConsole` component/file names, `nivxforge.css` + imports, all
+comments/architecture docs, ProductScopeGuard logic.
+
+**Remaining customer-visible frontend NivXForge wording: ZERO.**
+⚠ **One customer-visible string found in the BACKEND and deliberately NOT
+changed** because the instruction forbade backend edits:
+`backend/routers/incidents.py:644` -> `"label": "NivXForge EDR"` (the XDR
+incident pivot button label). Needs a separate owner approval.
+
+**Tests**: LOGIN BRANDING SCOPE GATE **51/51 PASS** (gate extended: added
+`AmpComputerHeader.jsx` to the policed surfaces, widened the detector to bare
+`NivXForge`, added an explicit assertion on the Files-card sentence, kept the
+"infrastructure must NOT be renamed" assertions) · **EDR PRODUCTION BUILD
+GUARD PASSED** · **XDR PRODUCTION BUILD GUARD PASSED** · pre-existing
+unrelated `test_capability_registry_matches_base.mjs` (147).
+
+## PART 2 · AUTH DEDUPE PRODUCTION HANDOFF (read-only)
+1. **Backend files**: `routers/xdr_rbac.py` (1178 · machine-principal auth),
+   `routers/xdr_ingest.py` (651 · fail-closed idempotent ingest),
+   `services/ingest_idempotency.py` (312 · claim lifecycle, NEW file),
+   `routers/xdr_api_keys.py` (313 · unchanged, existing sha256 key lifecycle).
+   Zero frontend files. XDR/EDR routing untouched.
+2. **Tests already proving it**: `test_collector_api_key_auth.py` (33) ·
+   `test_p0sec_rbac_fail_closed.py` (21) · `test_p0_ingest_idempotency.py`
+   (13) · `test_p0_dedupe_hardening.py` (19) ·
+   `test_p0_dedupe_upgrade_guard.py` (4) = **90 tests**, plus
+   `scripts/preview_collector_auth_proof.py` (VERDICT PASS, 11/11 auth matrix,
+   real incident via DET-EX-001/VEEE 70) and `scripts/restart_retry_proof.py`
+   (real process restart, raw 1->1 canonical 1->1 incidents 1->1).
+3. **DB/index migration**: **none to run by hand.** `xdr_ingest_dedupe` is
+   created on first ingest and `_coll()` builds all 4 indexes itself
+   (`uniq_event_key` UNIQUE, `ttl_retention_at` expireAfterSeconds=0,
+   `tenant_collector`, `status`). Production has no such collection yet, so
+   there are no legacy records to migrate. If index creation fails the request
+   is a safe **503**, never unprotected ingest.
+4. **Backward compatible: YES.** Additive only — new collection, new optional
+   headers, additive receipt fields (`duplicates`, `resumed`) and additive
+   collector counter (`events_duplicate`). JWT auth path unchanged (54/54
+   pass). One behaviour change, already owner-approved: `events_received` now
+   counts unique accepted deliveries with retries in `events_duplicate`.
+5. **GO / NO-GO: GO.**
+6. **Owner action**: (a) publish the backend work to the ref production builds
+   from, (b) restart/redeploy the backend service, (c) confirm
+   `POST /api/xdr/ingest/telemetry` anonymously still returns 403 and with an
+   unknown key returns 401, (d) then enrol the first isolated production
+   collector. No DNS, no Vercel, no frontend redeploy, no DB surgery.
+
+Acceptance reconfirmed: authenticated collector principal ✔ tenant isolation
+✔ no anonymous collector administration ✔ duplicate protection ✔ idempotent ✔
+no cross-tenant collision ✔ auditable (`emit_audit` + claim provenance) ✔
+existing logic reused not duplicated ✔ zero frontend routing change ✔.
+
+STOPPED. Awaiting owner approval to Save to GitHub.

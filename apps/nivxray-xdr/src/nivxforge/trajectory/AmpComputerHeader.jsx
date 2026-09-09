@@ -46,13 +46,13 @@ const ACTIONS = [
   ["forensics", "Take System Snapshot", true],
   ["isolation", "Start Isolation…", true],
   ["scan", "Scan…", false,
-   "On-demand scanning is not implemented by the NivXForge sensor"],
+   "On-demand scanning is not implemented by the NivXRay EDR sensor"],
   ["diagnose", "Diagnose Connector…", false,
-   "Connector diagnostics are not implemented by the NivXForge sensor"],
+   "Connector diagnostics are not implemented by the NivXRay EDR sensor"],
   ["move-group", "Move to Group…", false,
-   "Endpoint groups are not a NivXForge concept"],
+   "Endpoint groups are not a NivXRay EDR concept"],
   ["audit", "Device Audit Log", false,
-   "A per-device audit log is not collected by NivXForge"],
+   "A per-device audit log is not collected by NivXRay EDR"],
 ];
 
 export default function AmpComputerHeader({ computer, epistemic, malicious,
@@ -265,7 +265,7 @@ export default function AmpComputerHeader({ computer, epistemic, malicious,
                             background: C.paperAlt, padding: "7px 9px",
                             fontSize: 10.4, color: C.inkDim,
                             lineHeight: 1.5 }}>
-                Vulnerability data is not collected by NivXForge — this is
+                Vulnerability data is not collected by NivXRay EDR — this is
                 an absence of collection, not an absence of
                 vulnerabilities.
               </div>
