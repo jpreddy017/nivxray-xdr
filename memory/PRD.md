@@ -1,5 +1,32 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-09-09 · Analyst RBAC provisioning proven (PREVIEW ONLY)
+
+Detail: `/app/memory/RBAC_ANALYST_PROVISIONING.md`
+
+Owner rulings: preview only · role `l1_analyst` · scoped to `nivx-live` ·
+agent-driven API calls · future production verification is owner-driven UI +
+screenshots with the agent staying unauthenticated. **No production analyst
+account created** (none exists; production user lifecycle is a separate
+deliberate decision). **No collector enrolled.**
+
+`POST /api/xdr/rbac/users` created `usr_3b5131f04d96447dada7` in tenant
+`nivx-live` with `role_builtin_l1_analyst` — **no code change needed**.
+Evidence: `GET /api/xdr/rule-studio/rules` went **403 `user-not-provisioned`
+→ 200**, while `collectors.read` / `secrets.read` stay **403** with the more
+precise `permission-not-granted` — least privilege, not blanket access.
+Effective permissions = exactly the 11 built-ins.
+
+Tenant isolation verified by counts, not assumption: admin sees **327**
+incidents, the nivx-live analyst sees **1**, and Mongo holds exactly 1
+`xdr_incident` for `nivx-live` (default 272). Cross-tenant
+`?customer=default` → `count: 0` with `cross_tenant_denied: true`.
+`analyst@default.com` unaffected.
+
+Also closed this day: **production admin credential rotated by the owner**; the
+published SEC-001 password now returns **401** on production and preview.
+
+
 ## 2026-09-09 · P0-SEC · XDR RBAC bootstrap bypass — FIXED IN CODE, NOT YET IN PRODUCTION
 
 Detail: `/app/memory/P0SEC_RBAC_FAIL_OPEN.md`
