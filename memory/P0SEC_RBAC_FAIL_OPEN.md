@@ -51,7 +51,13 @@ analyst.
   (`status=200` in the middleware log); the exception came from the second,
   unauthenticated call. **Pre-existing test debt exposed by the fix, not a
   defect in the fix.**
-- **PRODUCTION IS STILL VULNERABLE**: `nivxray.nivxforge.com` runs the old
-  backend. Closing it there requires redeploying the Emergent backend project
-  (currently frozen) — owner approval required.
+- **PRODUCTION CLOSED 2026-09-09.** Post-redeploy verification against
+  `nivxray.nivxforge.com`: all five anonymous surfaces now **403 Not
+  authenticated** (were 200/200/200/200/400), header spoofing
+  (`X-Tenant-Id: default` + `X-Principal-Id: system@ingest`) also **403**,
+  authenticated admin `GET /api/xdr/collectors` and `/api/incidents` both
+  **200**, and every production data count unchanged against the pre-deploy
+  baseline (incidents 0, cases 48, history 35, correlations 1, investigations
+  3, EDR endpoints 1, collectors 0). Standard Redeploy; existing production
+  MongoDB preserved.
 - No collector enrolled, no telemetry seeded.

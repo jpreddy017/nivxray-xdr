@@ -19,10 +19,14 @@ datastore failure → 503, bootstrap bypass deleted. Preview verified:
 all five surfaces 403 anonymously (incl. spoofed `X-Tenant-Id: default|attacker`),
 admin still 200. New suite `backend/tests/test_p0sec_rbac_fail_closed.py` 21/21.
 
-**Open**: production still runs the old backend — closing it there needs an
-owner-approved backend redeploy of the frozen Emergent project.
 **Open**: `tests/test_xdr_rbac.py::test_builtin_roles_exposed_and_expandable`
 fails in-suite (`KeyError: 'data'`) though the same call returns 200 standalone.
+**CLOSED 2026-09-09** — the cause was line 129 calling
+`/api/xdr/rbac/roles/role_builtin_platform_admin` with **no headers**; it now
+403s correctly. Added `headers=_hdrs()`. Suites: `test_xdr_rbac.py` **14/14**,
+`test_p0sec_rbac_fail_closed.py` **21/21**, combined under xdist **35/35**.
+**P0-SEC CLOSED IN PRODUCTION 2026-09-09** — five anonymous surfaces 403,
+header spoofing 403, admin 200, all data counts unchanged.
 **Behaviour change**: tenant-scoped non-admins now need an RBAC grant for XDR
 admin surfaces (403 `user-not-provisioned`); `/api/incidents` unaffected.
 
