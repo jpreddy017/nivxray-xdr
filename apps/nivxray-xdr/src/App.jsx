@@ -24,6 +24,10 @@ const XdrFleetFileTrajectoryPage =
   lazy(() => import("@/xdr/pages/XdrFleetFileTrajectoryPage"));
 const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomainPage"));
 const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
+const XdrThreatIntelPage      = lazy(() => import("@/xdr/pages/XdrThreatIntelPage"));
+const XdrIocIntelPage         = lazy(() => import("@/xdr/pages/XdrIocIntelPage"));
+const XdrCommandIntelPage     = lazy(() => import("@/xdr/pages/XdrCommandIntelPage"));
+const XdrMalwareIntelPage     = lazy(() => import("@/xdr/pages/XdrMalwareIntelPage"));
 const XdrAdminPage            = lazy(() => import("@/xdr/pages/XdrAdminPage"));
 const XdrMitreHeatmap         = lazy(() => import("@/xdr/pages/XdrMitreHeatmap"));
 const XdrPlaybooksPage        = lazy(() => import("@/xdr/pages/XdrPlaybooksPage"));
@@ -164,10 +168,10 @@ export default function App() {
         {/* Reserved native XDR capabilities — transitional placeholders
             for surfaces that WILL be built native in later slices.
             Never a deep-link back into the base NivXRay UI. */}
-        <Route path="/xdr/intelligence/threat"  element={<Protected><XdrReservedPage capability="threat" /></Protected>} />
-        <Route path="/xdr/intelligence/iocs"    element={<Protected><XdrReservedPage capability="iocs" /></Protected>} />
-        <Route path="/xdr/intelligence/command" element={<Protected><XdrReservedPage capability="command" /></Protected>} />
-        <Route path="/xdr/intelligence/malware" element={<Protected><XdrReservedPage capability="malware" /></Protected>} />
+        <Route path="/xdr/intelligence/threat"  element={<Protected><XdrThreatIntelPage /></Protected>} />
+        <Route path="/xdr/intelligence/iocs"    element={<Protected><XdrIocIntelPage /></Protected>} />
+        <Route path="/xdr/intelligence/command" element={<Protected><XdrCommandIntelPage /></Protected>} />
+        <Route path="/xdr/intelligence/malware" element={<Protected><XdrMalwareIntelPage /></Protected>} />
         <Route path="/xdr/intelligence/mitre"   element={<Protected><XdrMitreHeatmap /></Protected>} />
         <Route path="/xdr/respond/playbooks"          element={<Protected><XdrPlaybooksPage /></Protected>} />
         <Route path="/xdr/respond/playbooks/:id"      element={<Protected><XdrPlaybookDesigner /></Protected>} />

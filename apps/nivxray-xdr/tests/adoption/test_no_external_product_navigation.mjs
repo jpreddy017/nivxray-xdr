@@ -50,7 +50,14 @@ const rel = (f) => path.relative(SRC, f);
 const code = (f) => fs.readFileSync(f, "utf8")
   .replace(/\/\*[\s\S]*?\*\//g, "")
   .replace(/^\s*\/\/.*$/gm, "")
-  .replace(/([^:])\/\/[^"'`\n]*$/gm, "$1");
+  .replace(/([^:])\/\/[^"'`\n]*$/gm, "$1")
+  // API paths are NOT navigation. `api.get("/documents")` targets the backend
+  // through lib/api's baseURL; it never moves the browser. The guard is about
+  // navigation, so the first argument of an api.* call is removed before the
+  // forbidden-literal scan. Anything that could move the browser
+  // (window.open, navigate, href, to:) is untouched and still scanned.
+  .replace(/\bapi\s*\.\s*(get|post|put|patch|delete)\s*\(\s*(["'`])(?:\\.|(?!\2)[^\\])*\2/g,
+           "api.$1(API_PATH");
 
 // NivXForge EDR sites deliberately NOT touched by PR-XDR-0. The owner
 // scoped this PR to NivXRay XDR navigation and forbade NivXForge EDR

@@ -1,5 +1,37 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · STABILIZATION: RC5 + KB + INTELLIGENCE WIRING — DONE · PROMOTION STILL BLOCKED
+
+Detail: `/app/memory/STABILIZATION_KB_INTEL_ROUND.md`.
+
+- **RC5 `/parse`**: contract was already satisfied at `/api/openapi.json`; the tests
+  fetch `/openapi.json` which 404'd. Added one additive `@app.get("/openapi.json")`
+  alias in `backend/server.py`. **4 failed → 7 passed.** No test weakened. The 69
+  errors in that module are pre-existing (own event-loop fixture) and untouched.
+- **KB false-empty FIXED** — response-contract mismatch in `XdrKbPage.jsx`, not
+  tenancy (`{total, items}` vs `data.entries`; `total`/`by_verdict`/`top_mitre` vs
+  `total_entries`/`distinct_tags`/`last_update`; `mitre_ids`/`last_seen` vs
+  `tags`/`updated_at`). Live: **0 → 334**, 135 malicious, top T1059.001 · 186,
+  100 rows with an honest 100-per-page cap line.
+- **Intelligence WIRED** (4 new pages, real APIs, no seeded data): TI **105,052**
+  indicators · **9 of 11** sources · **3** errors surfaced verbatim (429/403/401) ·
+  IOC **7 of 7** providers LIVE with governing env var · Command analyser incl.
+  `needs_choice` → `force_decode_span` · Malware **38 of 38** read-only. Rail rows
+  un-disabled; pivots now carry value+kind into these routes. `PROVENANCE MISSING`
+  and `—` (never `0`) rules enforced.
+- **Regression PASS**: 24 routes / 8 primaries, shell mounted, Ribbon present, 1 tab,
+  `/xdr` → Control Center, deep-route refresh OK. Four admin routes initially looked
+  broken — proven to be a **Cloudflare bot challenge** from rapid sweeping, all PASS
+  on slow re-check. Nav gate **1916 PASS**, branding **51 PASS**, production build +
+  guard **PASS**. Backend 37 passed / 1 pre-existing failure / 69 pre-existing errors.
+- **Guard refined**: forbidden-literal scan now ignores `api.*()` first arguments
+  (API paths are not navigation) and comments.
+- **STILL BLOCKED**: no Vercel credential anywhere. Needs `VERCEL_TOKEN`
+  (+ `VERCEL_TEAM_ID`) in `/app/backend/.env` (gitignored, untracked), or the owner
+  sets Root Directory `apps/nivxray-xdr` + the two env vars in the dashboard.
+
+
+
 ## 2026-06 · PRODUCTION PROMOTION REQUESTED · READY, NOT PROMOTED (owner action required)
 
 Owner froze Cisco visual-parity work and ordered the working Preview promoted to

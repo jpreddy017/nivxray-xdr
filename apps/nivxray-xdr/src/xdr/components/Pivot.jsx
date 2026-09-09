@@ -58,6 +58,15 @@ const NO_DESTINATION = {
 const off = (key, label, icon, reason) =>
   ({ key, label, icon, unavailable: true, reason });
 
+// Observable → IOC Intelligence, carrying the value and its kind so the
+// enrichment surface lands pre-filled instead of empty.
+const ioc = (key, value, kind) => ({
+  key, label: "IOC Intelligence", icon: Globe,
+  to: `/xdr/intelligence/iocs?q=${encodeURIComponent(value)}`
+      + `&kind=${encodeURIComponent(kind)}`,
+  hint: "Enrich this observable through the NivXRay enrichment fabric",
+});
+
 // ── product-pivot section · our real destinations, per observable kind ──
 const PRODUCT_PIVOTS = {
   host: (v) => [
@@ -69,14 +78,20 @@ const PRODUCT_PIVOTS = {
       hint: "Endpoint master-detail workspace" },
   ],
   device: (v, ctx) => PRODUCT_PIVOTS.host(v, ctx),
-  process: () => [off("cmd", "Command Intelligence", Terminal,
-                       NO_DESTINATION.command)],
-  file:    () => [off("vt", "Malware Intelligence", Search,
-                       NO_DESTINATION.malware)],
-  hash:    () => [off("hash", "Hash Intelligence", Search, NO_DESTINATION.intel)],
-  ip:      () => [off("ip", "IP Intelligence", Globe, NO_DESTINATION.intel)],
-  domain:  () => [off("domain", "Domain Intelligence", Globe, NO_DESTINATION.intel)],
-  url:     () => [off("url", "URL Intelligence", Globe, NO_DESTINATION.intel)],
+  process: () => [
+    { key: "cmd", label: "Command Intelligence", icon: Terminal,
+      to: "/xdr/intelligence/command",
+      hint: "Semantic command analysis (NivXRay decode fabric)" },
+  ],
+  file:    () => [
+    { key: "vt", label: "Malware Intelligence", icon: Search,
+      to: "/xdr/intelligence/malware",
+      hint: "Artifacts analysed by the NivXRay artifact pipeline" },
+  ],
+  hash:    (v) => [ioc("hash", v, "sha256")],
+  ip:      (v) => [ioc("ip", v, "ip")],
+  domain:  (v) => [ioc("domain", v, "domain")],
+  url:     (v) => [ioc("url", v, "url")],
   rule: (v) => [
     { key: "mitre", label: "MITRE ATT&CK Heatmap", icon: Grid3x3,
       to: `/xdr/intelligence/mitre?q=${encodeURIComponent(v)}`,
@@ -102,8 +117,9 @@ const PRODUCT_PIVOTS = {
     if (low.includes("collector") || low.includes("iue"))
       return [off("iue", "IUE Lane C", Terminal, NO_DESTINATION.iue)];
     if (["magic-byte", "magic", "zip-content", "heuristic"].includes(low))
-      return [off("artifact", "Artifact Intelligence", FileText,
-                   NO_DESTINATION.malware)];
+      return [{ key: "artifact", label: "Artifact Intelligence", icon: FileText,
+                to: "/xdr/intelligence/malware",
+                hint: "Artifacts analysed by the NivXRay artifact pipeline" }];
     return [];
   },
   user: () => [],
