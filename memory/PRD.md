@@ -14864,3 +14864,55 @@ on `edr.nivxforge.com` after the next deploy, which has the Vercel rewrite.
 Deploy the EDR project from the branch carrying this change, then confirm
 `edr.nivxforge.com/login?returnTo=%2Fedr` shows NIVXRAY EDR / NivXRay EDR /
 ENDPOINT DETECTION & RESPONSE, and that xdr.nivxforge.com is unchanged.
+
+---
+
+# PUBLISH LOGIN-BRANDING FIX TO phase2/edr-production — OWNER ACTION (2026-06)
+
+Brand decision LOCKED by owner: **NivXRay EDR** (consistent with NivXRay XDR
+and the shared platform identity). This is already what is implemented —
+`productScope.js` BRANDS.edr = `name: "NivXRay"`, `nameSuffix: "EDR"`. No code
+change was needed for the decision.
+
+Agent cannot push (Save to Github is an owner-only chat action). Nothing was
+pushed, deployed or changed in this step.
+
+## Pre-push verification — ALL PASS
+Branding fix files present: `src/productScope.js`, `src/pages/LoginPage.jsx`,
+`src/components/brand/NivxrayBrand.jsx`, `src/main.jsx`,
+`tests/adoption/test_login_branding_is_scope_aware.mjs`.
+Scope/build-guard files intact: `scripts/vercel-build.sh`,
+`scripts/verify-production-build.js`, `src/components/ProductScopeGuard.jsx`,
+`src/productOrigins.js`, `scripts/refuse-root-deployment.sh`.
+`apps/nivxray-xdr/vercel.json` redirects: xdr.nivxforge.com -> /xdr AND
+edr.nivxforge.com -> /edr (both intact).
+Authoritative D3 lockfile PRESERVED: `apps/nivxray-xdr/yarn.lock` is
+byte-identical to `memory/AUTHORITATIVE_XDR_yarn.lock`, 31 d3 entries,
+`yarn install --frozen-lockfile` exits 0.
+
+## Guards (re-run this session, AFTER the branding change)
+- **EDR PRODUCTION BUILD GUARD · PASSED** — scope edr -> edr.nivxforge.com,
+  no xdr dependency, api origin x4, product_scope="edr".
+- **XDR PRODUCTION BUILD GUARD · PASSED** — scope xdr, no edr dependency,
+  build-info product_scope=xdr, api_origin=https://nivxray.nivxforge.com.
+- **LOGIN BRANDING SCOPE GATE · PASSED (25 checks)**.
+- Pre-existing unrelated failure (147, before AND after, verified by stashing):
+  `tests/adoption/test_capability_registry_matches_base.mjs`.
+
+## Owner action
+Save (chat input) -> Save to Github -> repo `jpreddy017/nivxray-xdr` ->
+select the EXISTING branch **`phase2/edr-production`** (do NOT create a new
+one, do NOT select `conflict_310826_2116`) -> Save.
+Save to Github does not force-push and does not modify other branches, so
+`conflict_310826_2116` / `bb8a4d2` and XDR production stay untouched.
+🔴 If a conflict dialog appears choose **Cancel** — never **Force Push** —
+and report back.
+`.env` files are excluded by design; harmless because `vercel-build.sh`
+injects the API origin.
+
+SHA must be read from GitHub.com (this container has NO git remote, so the
+agent cannot fetch or verify the push). Vercel EDR Production already tracks
+`phase2/edr-production`, so it should auto-deploy — verify next that the log
+prints `EDR PRODUCTION BUILD GUARD · PASSED` and that
+`edr.nivxforge.com/login?returnTo=%2Fedr` renders NIVXRAY EDR / NivXRay EDR /
+ENDPOINT DETECTION & RESPONSE, with xdr.nivxforge.com unchanged.
