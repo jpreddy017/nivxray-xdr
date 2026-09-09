@@ -1,5 +1,33 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · PRODUCTION ZERO-DATA · ROOT CAUSE = TWO DIFFERENT DATABASES (not a code defect)
+
+Full record: `/app/memory/PRODUCTION_ZERO_DATA_ROOT_CAUSE.md`.
+
+- Preview backend reads `MONGO_URL=mongodb://localhost:27017`, `DB_NAME=test_database`
+  — MongoDB **inside this container**, unreachable externally. It holds **636
+  `workspace_cases`** (the 348/34/48/27/27 figures). `nivxray.nivxforge.com` is a
+  separate deployment with its own database that has no incidents, so
+  `/api/incidents` correctly returns an empty authorized set.
+- **Not broken**: auth (owner signed in as `admin@nivxray.com`), tenant attribution,
+  `/api/incidents`, and the promoted frontend (md5-identical on the live host).
+  The UI statement "No incidents returned by /api/incidents for this tenant" is true.
+- **No code fix exists.** Matching the counts would require seeding/copying/fabricating
+  production data — forbidden, and the preview dataset is container-generated dev data
+  (`agent-env-…` hostnames), not the owner's estate.
+- **Owner decision needed**: (1) enrol a real production collector — the frozen P0 —
+  so production grows its own incidents; (2) explicitly authorise a one-time dataset
+  migration; or (3) accept production empty until telemetry flows.
+- Same single cause will make Intelligence (105,052) and KB (334) read low/zero on
+  production — one root cause, not four defects.
+- **`/xdr/activities` FIXED**: `App.jsx` redirect → `/xdr/admin/telemetry-studio`; rail
+  item repointed. Verified in Preview (shell mounted, 1 tab), build + nav gate PASS.
+  **Deliberately NOT deployed** while this P0 is open; rollback ref unchanged
+  (`dpl_BF14GQG3bb4VCt7M3JP56NizCjFQ`).
+- Cisco visual matching and Incident Priority Score not started, per instruction.
+
+
+
 ## 2026-06 · PRODUCTION PROMOTED · `xdr.nivxforge.com` NOW SERVES THE VERIFIED BUILD — PASS
 
 Full record: `/app/memory/PRODUCTION_PROMOTION_STATUS.md`.

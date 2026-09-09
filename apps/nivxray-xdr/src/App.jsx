@@ -127,6 +127,10 @@ export default function App() {
             Command Center sidebar section. */}
         {/* Cisco XDR lands on Control Center; Incidents is a peer
             destination, not the root. Owner decision O-2. */}
+        {/* Cisco XDR places Activities under Investigate. The surface itself
+            is the telemetry studio, so the canonical route redirects rather
+            than duplicating the page. Typing /xdr/activities now resolves. */}
+        <Route path="/xdr/activities"      element={<Navigate to="/xdr/admin/telemetry-studio" replace />} />
         <Route path="/xdr"                 element={<Navigate to="/xdr/mss-dashboard" replace />} />
         <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/mss-dashboard" replace />} />
         <Route path="/xdr/control-center"  element={<Navigate to="/xdr/mss-dashboard" replace />} />

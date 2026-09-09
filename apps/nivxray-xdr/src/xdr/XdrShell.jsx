@@ -158,7 +158,7 @@ const SIDEBAR = [
       // Investigate. Same route, same backing telemetry — Cisco's label
       // and Cisco's position in the rail.
       { key: "activities",  label: "Activities",  icon: Sliders,
-        to: "/xdr/admin/telemetry-studio",
+        to: "/xdr/activities",
         title: "Environment activity · real telemetry the analyst can query "
                + "and pivot from (Cisco XDR: Investigate ▸ Activities)" },
       { key: "telemetry-health",  label: "Telemetry Health",  icon: ActivityIcon,
