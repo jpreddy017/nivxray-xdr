@@ -14916,3 +14916,74 @@ agent cannot fetch or verify the push). Vercel EDR Production already tracks
 prints `EDR PRODUCTION BUILD GUARD · PASSED` and that
 `edr.nivxforge.com/login?returnTo=%2Fedr` renders NIVXRAY EDR / NivXRay EDR /
 ENDPOINT DETECTION & RESPONSE, with xdr.nivxforge.com unchanged.
+
+---
+
+# P0-EDR BRAND CONSISTENCY — authenticated surfaces, DONE + TESTED (2026-06)
+
+Not deployed, not pushed. Untouched: DNS, Vercel config, routing, API origin,
+authentication, backend, XDR production, product-scope guard LOGIC.
+
+## ROOT CAUSE
+The earlier fix made only the LOGIN path scope-aware. The authenticated EDR
+chrome carried its own hard-coded literals, independent of `PRODUCT_SCOPE`:
+- `src/nivxforge/NivXForgeConsole.jsx` header hard-coded
+  `NIVXFORGE <span className="accent">EDR</span>`;
+- `src/xdr/components/XdrContextBar.jsx` hard-coded `"NivXForge EDR"` in the
+  breadcrumb map (13 entries) AND the plane badge;
+- `src/nivxforge/pages/Edr*Page.jsx`, `src/xdr/...` menus/banners/admin meta
+  and `ProductScopeGuard`'s LABEL map each held their own copy.
+There was no shared label to read from — `BRANDS` only had wordmark suffix,
+tagline lead, name, subtitle and documentTitle.
+
+## READ-ONLY INVENTORY (before changing anything)
+`NivXForge` 96 · `NIVXFORGE` 12 · `NivXForge EDR` 44 · `nivxforge.com` refs.
+Classified:
+- **A · user-visible EDR branding (CHANGED — 31 occurrences, 12 files)**:
+  ProductScopeGuard.jsx(1) · XdrContextBar.jsx(14) · XdrSearchPage.jsx(1) ·
+  XdrFleetFileTrajectoryPage.jsx(1) · ArtifactContextMenu.jsx(2) ·
+  OpenInEdr.jsx(2) · adminMeta.js(3) · EdrOverviewPage.jsx(1) ·
+  EdrResponsePage.jsx(1) · EdrDetectionsPage.jsx(2) ·
+  EdrProcessTreePage.jsx(1) · NivXForgeConsole.jsx header wordmark(1).
+- **B · infrastructure/technical (PRESERVED)**: `NIVXFORGE_EDR` product
+  constant (11), `nivxforge.com` domains, `src/nivxforge/` directory,
+  `NivXForgeConsole` component/file names, `nivxforge.css`, imports.
+- **C · comments/architecture docs (PRESERVED)**: JSDoc/JSX comments in
+  App.jsx, XdrEndpointsPage.jsx, nivxforge.css headers, etc.
+Replacement used `perl ... unless m{^\s*(\*|//|\{/\*)}` so comment lines were
+skipped — deliberately NOT a blind global replace.
+
+## CHANGES (14 files)
+- `src/productScope.js` — added `label` + `wordmark` to BRANDS
+  (xdr: "NivXRay XDR"/"NIVXRAY XDR", edr: "NivXRay EDR"/"NIVXRAY EDR").
+  Single branding source reused everywhere.
+- `src/nivxforge/NivXForgeConsole.jsx` — header wordmark now reads
+  `brandFor("edr").wordmark` instead of a literal.
+- 11 files: user-visible `NivXForge EDR` -> `NivXRay EDR`.
+- `tests/adoption/test_login_branding_is_scope_aware.mjs` — extended.
+
+## TESTS
+- **LOGIN BRANDING SCOPE GATE · PASSED (49 checks)** — now covers
+  authenticated surfaces: asserts 12 named files carry NO customer-visible
+  legacy name (comments/CSS/`NIVXFORGE_EDR` excluded), asserts the breadcrumb,
+  plane badge, Endpoint Overview copy and WRONG PRODUCT HOST notice render
+  "NivXRay EDR", asserts the console header reads from BRANDS, asserts XDR
+  strings preserved, and asserts `NIVXFORGE_EDR` / `nivxforge.com` were NOT
+  renamed (a blind replace would fail this).
+- **EDR PRODUCTION BUILD GUARD · PASSED** (scope edr, no xdr dependency).
+- **XDR PRODUCTION BUILD GUARD · PASSED** (scope xdr, no edr dependency).
+- Pre-existing unrelated: `test_capability_registry_matches_base.mjs` (147).
+
+## ACCEPTANCE A-J
+A ✔ no customer-visible "NivXForge EDR" left · B ✔ header NIVXRAY EDR ·
+C ✔ breadcrumb + plane badge NivXRay EDR · D ✔ Endpoint Overview copy ·
+E ✔ login unchanged (NivXRay EDR) · F ✔ XDR preserved · G ✔ guard LOGIC
+untouched — the only diff in ProductScopeGuard.jsx is the display LABEL map,
+`isForeignPath`/`productOfPath`/reload-then-notice behaviour unchanged, so
+/xdr on the EDR host still shows WRONG PRODUCT HOST · H ✔ · I ✔ · J ✔.
+
+## NOT VERIFIED VISUALLY (honest limitation)
+Authenticated EDR surfaces need a logged-in session on the real host; a local
+static server has no SPA rewrite. Confirm on edr.nivxforge.com after deploy.
+
+## AWAITING OWNER APPROVAL to Save to GitHub (branch phase2/edr-production)

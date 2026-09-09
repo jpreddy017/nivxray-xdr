@@ -157,7 +157,7 @@ export default function EdrProcessTreePage() {
       {!pivot && (
         <div className="x-empty" data-testid="edr-processtree-noctx">
           Process Tree is scoped to an incident.
-          Open this page from an incident's <b>NivXForge EDR</b> launcher.
+          Open this page from an incident's <b>NivXRay EDR</b> launcher.
         </div>
       )}
       {pivot && loading && (

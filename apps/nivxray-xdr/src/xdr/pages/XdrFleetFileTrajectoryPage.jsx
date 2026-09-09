@@ -36,7 +36,7 @@ import { getFileTrajectory, getFleetSpreadIndex } from "@/nivxforge/edrApi";
 import { fmtUtc, TELEMETRY_CYAN } from "@/xdr/lib/trajectoryModel";
 
 const PAGE_SIZES = [10, 25, 50];
-const TRUTH_BANNER = "NivXForge EDR — LIVE against persisted v2_shadow_observations "
+const TRUTH_BANNER = "NivXRay EDR — LIVE against persisted v2_shadow_observations "
   + "substrate; production endpoint-agent telemetry NOT YET IMPLEMENTED.";
 
 const TABS = [

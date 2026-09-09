@@ -85,7 +85,7 @@ export default function EdrResponsePage() {
     <NivXForgeConsole activeTab="response">
       <h1 className="page-h1" data-testid="edr-response-heading">Endpoint Response</h1>
       <div className="page-sub">
-        NivXForge EDR performs and verifies endpoint actions. Request,
+        NivXRay EDR performs and verifies endpoint actions. Request,
         approval and dispatch are owned by the NivXRay XDR orchestration
         plane — this surface reports both, and claims neither on the
         other's behalf.

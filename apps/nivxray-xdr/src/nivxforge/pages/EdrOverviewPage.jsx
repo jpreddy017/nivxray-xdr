@@ -87,7 +87,7 @@ export default function EdrOverviewPage() {
       <div className="page-sub">
         {ctx.incident_id
           ? "Opened from an operational incident — endpoint context is pinned at the top of every page in this console."
-          : "Endpoint state, recent detections, and pivots into the operational surfaces of NivXForge EDR."}
+          : "Endpoint state, recent detections, and pivots into the operational surfaces of NivXRay EDR."}
       </div>
 
       {/* P0-3 · the product states whether it is receiving anything at

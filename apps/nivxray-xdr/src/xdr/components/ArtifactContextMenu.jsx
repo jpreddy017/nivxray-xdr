@@ -136,8 +136,8 @@ export default function ArtifactContextMenu({
                              onClose(); }}
             testid="edr-ctx-file-trajectory" />
 
-      <Section label="Investigate · NivXForge EDR" />
-      <Item label="Open in NivXForge EDR (this endpoint)"
+      <Section label="Investigate · NivXRay EDR" />
+      <Item label="Open in NivXRay EDR (this endpoint)"
             hint={device ? "carries customer · endpoint · incident · evidence"
                          : "this observation names no endpoint"}
             disabled={!device}

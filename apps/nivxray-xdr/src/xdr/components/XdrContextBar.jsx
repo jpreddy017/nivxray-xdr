@@ -36,19 +36,19 @@ const TRAILS = [
   [/^\/xdr\/admin/, ["Administration"]],
   [/^\/xdr\/assets/, ["Assets"]],
   [/^\/xdr\/edr\/device-trajectory/,
-   ["NivXForge EDR", "Device Trajectory"]],
-  [/^\/edr\/detections/, ["NivXForge EDR", "Detections"]],
-  [/^\/edr\/process-tree/, ["NivXForge EDR", "Process Tree"]],
-  [/^\/edr\/campaign-story/, ["NivXForge EDR", "Campaign Story"]],
-  [/^\/edr\/device-trajectory/, ["NivXForge EDR", "Device Trajectory"]],
-  [/^\/edr\/files/, ["NivXForge EDR", "Files"]],
-  [/^\/edr\/network/, ["NivXForge EDR", "Network"]],
-  [/^\/edr\/hunting/, ["NivXForge EDR", "Threat Hunting"]],
-  [/^\/edr\/forensics/, ["NivXForge EDR", "Forensics"]],
-  [/^\/edr\/live-query/, ["NivXForge EDR", "Live Query"]],
-  [/^\/edr\/response/, ["NivXForge EDR", "Response"]],
-  [/^\/edr\/trajectory/, ["NivXForge EDR", "Device Trajectory (legacy)"]],
-  [/^\/edr/, ["NivXForge EDR"]],
+   ["NivXRay EDR", "Device Trajectory"]],
+  [/^\/edr\/detections/, ["NivXRay EDR", "Detections"]],
+  [/^\/edr\/process-tree/, ["NivXRay EDR", "Process Tree"]],
+  [/^\/edr\/campaign-story/, ["NivXRay EDR", "Campaign Story"]],
+  [/^\/edr\/device-trajectory/, ["NivXRay EDR", "Device Trajectory"]],
+  [/^\/edr\/files/, ["NivXRay EDR", "Files"]],
+  [/^\/edr\/network/, ["NivXRay EDR", "Network"]],
+  [/^\/edr\/hunting/, ["NivXRay EDR", "Threat Hunting"]],
+  [/^\/edr\/forensics/, ["NivXRay EDR", "Forensics"]],
+  [/^\/edr\/live-query/, ["NivXRay EDR", "Live Query"]],
+  [/^\/edr\/response/, ["NivXRay EDR", "Response"]],
+  [/^\/edr\/trajectory/, ["NivXRay EDR", "Device Trajectory (legacy)"]],
+  [/^\/edr/, ["NivXRay EDR"]],
 ];
 
 const Chip = ({ k, v, testid, tone }) => (
@@ -137,7 +137,7 @@ export default function XdrContextBar() {
       )}
       {proc && <Chip k="Process" v={proc} testid="xdr-ctx-process" />}
       <Chip k="Plane" v={plane === "NIVXFORGE_EDR"
-        ? "NivXForge EDR" : "XDR investigation"} testid="xdr-ctx-plane" />
+        ? "NivXRay EDR" : "XDR investigation"} testid="xdr-ctx-plane" />
     </div>
   );
 }

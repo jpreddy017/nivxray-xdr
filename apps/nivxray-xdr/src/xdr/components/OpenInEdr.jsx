@@ -38,7 +38,7 @@ export const buildEdrPivot = ({
   return `/edr/device-trajectory${qs ? `?${qs}` : ""}`;
 };
 
-export default function OpenInEdr({ label = "Open in NivXForge EDR",
+export default function OpenInEdr({ label = "Open in NivXRay EDR",
                                     compact = false, disabledReason,
                                     testid = "open-in-edr", ...ctx }) {
   const navigate = useNavigate();
@@ -62,7 +62,7 @@ export default function OpenInEdr({ label = "Open in NivXForge EDR",
             data-incident={ctx.incidentId || ""}
             disabled={Boolean(disabledReason)}
             title={disabledReason
-              || "Opens the NivXForge EDR Device Trajectory with this "
+              || "Opens the NivXRay EDR Device Trajectory with this "
                  + "customer, endpoint, incident and evidence context"}
             onClick={(e) => { e.stopPropagation();
                               navigate(buildEdrPivot(ctx)); }}

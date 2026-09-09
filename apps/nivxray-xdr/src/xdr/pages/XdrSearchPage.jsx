@@ -182,7 +182,7 @@ export default function XdrSearchPage() {
                                        ? "var(--cyan, #22B8CF)"
                                        : "var(--muted)" }}>
                         {r.source_product === "NIVXFORGE_EDR"
-                          ? "NivXForge EDR" : "NivXRay XDR"}
+                          ? "NivXRay EDR" : "NivXRay XDR"}
                       </span>
                       <span style={{ fontSize: 9.2, flex: "0 0 auto",
                                      color: "var(--muted)" }}>

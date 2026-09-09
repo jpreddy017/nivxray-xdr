@@ -193,7 +193,7 @@ export default function EdrDetectionsPage() {
       <div className="page-sub">
         {endpointId
           ? "Authoritative endpoint detections produced by the NivXRay XDR "
-            + "detection fabric from real sensor evidence. NivXForge EDR "
+            + "detection fabric from real sensor evidence. NivXRay EDR "
             + "runs no detection engine of its own."
           : "Read-only projection of the deterministic Stage-2 Verdict "
             + "Engine. Row → Device Trajectory with incident context "
@@ -206,7 +206,7 @@ export default function EdrDetectionsPage() {
       {!ctx.incident_id && !endpointId && (
         <div className="x-empty" data-testid="edr-detections-noctx">
           Detections are scoped to an incident.
-          Open this page from an incident's <b>NivXForge EDR</b> launcher.
+          Open this page from an incident's <b>NivXRay EDR</b> launcher.
         </div>
       )}
       {ctx.incident_id && loading && (

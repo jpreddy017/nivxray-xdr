@@ -27,8 +27,16 @@ import { isCrossOrigin, productHref,
          productMode } from "@/productOrigins";
 import XdrContextBar from "@/xdr/components/XdrContextBar";
 import { useAuth } from "@/lib/auth";
+// Product identity comes from the shared BRANDS table, never a literal: the
+// EDR console previously hard-coded "NIVXFORGE EDR" in its own chrome, which
+// is why the authenticated EDR host still showed the old product name after
+// the login page was fixed.
+import { brandFor } from "@/productScope";
+
 import { getEdrEntryContext, getSessionContext } from "./edrApi";
 import "./nivxforge.css";
+
+const EDR_BRAND = brandFor("edr");
 
 const TABS = [
   { key: "overview",       label: "Overview",         icon: LayoutGrid,      to: "/edr" },
@@ -206,7 +214,8 @@ export default function NivXForgeConsole({ activeTab, children }) {
       <div className="topbar" data-testid="nvf-topbar">
         <Link to="/edr" className="brand" data-testid="nvf-product-brand">
           <NivxrayMark size={20} boxed={false} />
-          NIVXFORGE <span className="accent">EDR</span>
+          {EDR_BRAND.wordmark.replace(/ EDR$/, "")}{" "}
+          <span className="accent">{EDR_BRAND.suffix}</span>
         </Link>
         <span className="mono" data-testid="nvf-product-tagline"
               style={{ fontSize: 9.4, letterSpacing: .8, opacity: .55,

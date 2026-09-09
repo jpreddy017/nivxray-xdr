@@ -55,6 +55,10 @@ ok(edr.BRAND.taglineLead === "ENDPOINT",
    'edr lockup tagline reads "ENDPOINT DETECTION / RESPONSE"');
 ok(edr.BRAND.documentTitle === "NivXRay EDR",
    'edr document title is "NivXRay EDR"');
+ok(edr.BRAND.label === "NivXRay EDR" && edr.BRAND.wordmark === "NIVXRAY EDR",
+   'edr brand label/wordmark are "NivXRay EDR" / "NIVXRAY EDR"');
+ok(xdr.BRAND.label === "NivXRay XDR" && xdr.BRAND.wordmark === "NIVXRAY XDR",
+   "xdr brand label/wordmark preserved");
 
 // XDR deployment — must be preserved EXACTLY as shipped.
 ok(xdr.BRAND.suffix === "XDR", "xdr wordmark suffix preserved as XDR");
@@ -104,6 +108,82 @@ ok(/await login\(email, pw\)/.test(login),
    "credential exchange unchanged (login(email, pw))");
 ok(/returnTo\.startsWith\(isEdr \? "\/edr" : "\/xdr"\)/.test(login),
    "returnTo cross-product guard unchanged");
+
+// ── 3 · AUTHENTICATED EDR surfaces · no legacy product name ──────
+// The login fix alone left "NivXForge EDR" in the signed-in EDR chrome
+// (header wordmark, breadcrumb, plane badge, Endpoint Overview copy).
+// Comments, CSS and the NIVXFORGE_EDR technical identifier are INTENTIONALLY
+// preserved, so only customer-visible strings are policed here.
+const isComment = (line) => /^\s*(\*|\/\/|\{\/\*|\/\*)/.test(line);
+
+function visibleLegacyBrand(relPath) {
+  const abs = path.join(SRC, relPath);
+  if (!fs.existsSync(abs)) return [`${relPath} is missing`];
+  return fs.readFileSync(abs, "utf8").split("\n")
+    .map((line, i) => ({ line, n: i + 1 }))
+    .filter(({ line }) => !isComment(line))
+    .filter(({ line }) => /NivXForge EDR|NIVXFORGE(?!_EDR)/.test(line))
+    .map(({ n, line }) => `${relPath}:${n} → ${line.trim().slice(0, 90)}`);
+}
+
+const AUTHENTICATED_SURFACES = [
+  "nivxforge/NivXForgeConsole.jsx",        // header wordmark + product chrome
+  "xdr/components/XdrContextBar.jsx",      // breadcrumb + plane badge
+  "nivxforge/pages/EdrOverviewPage.jsx",   // Endpoint Overview description
+  "nivxforge/pages/EdrDetectionsPage.jsx",
+  "nivxforge/pages/EdrProcessTreePage.jsx",
+  "nivxforge/pages/EdrResponsePage.jsx",
+  "components/ProductScopeGuard.jsx",      // WRONG PRODUCT HOST notice
+  "xdr/components/OpenInEdr.jsx",
+  "xdr/components/ArtifactContextMenu.jsx",
+  "xdr/admin/adminMeta.js",
+  "xdr/pages/XdrSearchPage.jsx",
+  "xdr/pages/XdrFleetFileTrajectoryPage.jsx",
+];
+for (const rel of AUTHENTICATED_SURFACES) {
+  const hits = visibleLegacyBrand(rel);
+  if (hits.length === 0) notes.push(`ok · ${rel} · no legacy product name`);
+  else failures.push(
+    `${rel} still shows the legacy product name: ${hits.join(" | ")}`);
+}
+
+// The renamed surfaces must actually say NivXRay EDR.
+const ctx = fs.readFileSync(
+  path.join(SRC, "xdr/components/XdrContextBar.jsx"), "utf8");
+ok(/\["NivXRay EDR", "Device Trajectory"\]/.test(ctx),
+   "breadcrumb renders NivXRay EDR");
+ok(/\? "NivXRay EDR" : "XDR investigation"/.test(ctx),
+   "plane badge renders NivXRay EDR");
+const overview = fs.readFileSync(
+  path.join(SRC, "nivxforge/pages/EdrOverviewPage.jsx"), "utf8");
+ok(/operational surfaces of NivXRay EDR/.test(overview),
+   "Endpoint Overview description renders NivXRay EDR");
+const console_ = fs.readFileSync(
+  path.join(SRC, "nivxforge/NivXForgeConsole.jsx"), "utf8");
+ok(/EDR_BRAND\.wordmark/.test(console_) && /brandFor\("edr"\)/.test(console_),
+   "EDR console header reads its wordmark from the shared BRANDS table");
+const guard = fs.readFileSync(
+  path.join(SRC, "components/ProductScopeGuard.jsx"), "utf8");
+ok(/edr: "NivXRay EDR"/.test(guard) && /xdr: "NivXRay XDR"/.test(guard),
+   "WRONG PRODUCT HOST notice uses the locked brand names");
+
+// XDR identity must be untouched by the EDR rename.
+ok(/\n\s*NivXRay XDR\n/.test(ctx),
+   "XDR root breadcrumb still renders NivXRay XDR");
+ok(/"XDR investigation"/.test(ctx),
+   "XDR plane badge label preserved");
+
+// Infrastructure references MUST survive — a blind global replace is a defect.
+const infra = [
+  ["nivxforge/NivXForgeConsole.jsx", /data-product="NIVXFORGE_EDR"/,
+   "NIVXFORGE_EDR technical identifier"],
+  ["pages/LoginPage.jsx", /NIVXFORGE_EDR/, "LoginPage product constant"],
+  ["productOrigins.js", /nivxforge\.com/, "nivxforge.com domain"],
+];
+for (const [rel, re, what] of infra) {
+  const body = fs.readFileSync(path.join(SRC, rel), "utf8");
+  ok(re.test(body), `${what} preserved in ${rel} (must NOT be renamed)`);
+}
 
 console.log("");
 for (const n of notes) console.log("  " + n);

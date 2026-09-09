@@ -24,7 +24,7 @@ import { PRODUCT_SCOPE, isForeignPath, productOfPath } from "@/productScope";
  * mistake), the second pass renders an explicit notice instead of
  * reloading forever — and never renders the wrong product.
  */
-const LABEL = { xdr: "NivXRay XDR", edr: "NivXForge EDR" };
+const LABEL = { xdr: "NivXRay XDR", edr: "NivXRay EDR" };
 
 function WrongProductHost({ pathname }) {
   const wanted = productOfPath(pathname);
