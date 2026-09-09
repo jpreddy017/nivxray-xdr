@@ -1,5 +1,51 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-09-09 · P0-SEC · XDR RBAC bootstrap bypass — FIXED IN CODE, NOT YET IN PRODUCTION
+
+Detail: `/app/memory/P0SEC_RBAC_FAIL_OPEN.md`
+
+`require_permission()` in `backend/routers/xdr_rbac.py` failed **open**: it took
+identity from client `X-Tenant-Id`/`X-Principal-Id` headers and returned `True`
+whenever `users` had no document for that tenant. `_principal()` defaults
+anonymous callers to tenant `default`, and `seed_admin()` writes admins with no
+`tenant_id`, so the bypass was permanent. Proven live on production:
+anonymous `GET /api/xdr/{collectors,secrets,api-keys,rule-studio/rules}` → 200,
+and anonymous `POST /api/xdr/ingest/telemetry` reached body validation.
+Contained only by production having **zero enrolled collectors**.
+
+Fixed to fail closed: identity from the verified JWT (`Depends(get_current_user)`),
+headers can no longer establish identity, tenant read from the user record,
+datastore failure → 503, bootstrap bypass deleted. Preview verified:
+all five surfaces 403 anonymously (incl. spoofed `X-Tenant-Id: default|attacker`),
+admin still 200. New suite `backend/tests/test_p0sec_rbac_fail_closed.py` 21/21.
+
+**Open**: production still runs the old backend — closing it there needs an
+owner-approved backend redeploy of the frozen Emergent project.
+**Open**: `tests/test_xdr_rbac.py::test_builtin_roles_exposed_and_expandable`
+fails in-suite (`KeyError: 'data'`) though the same call returns 200 standalone.
+**Behaviour change**: tenant-scoped non-admins now need an RBAC grant for XDR
+admin surfaces (403 `user-not-provisioned`); `/api/incidents` unaffected.
+
+### Also this session
+- **Phase 2 XDR deployed** to Vercel `nivxray-xdr-production` from
+  `conflict_310826_2116`; frontend, auth and production API binding all verified.
+- **Empty incident queue classified `EXPECTED EMPTY PRODUCTION DATASET`** —
+  `/api/incidents` projects `workspace_cases{doc_type:"xdr_incident"}`; production
+  has 48 legacy cases, 35 history, 3 investigations, 1 correlation, 1 endpoint,
+  but **0** xdr_incident docs and **0** collectors. Preview has 326. NOT seeded.
+- **Provenance audit**: architecture is **IMPORT-AND-EXTEND** — 181/222 AG files
+  byte-identical, 41 modified descendants, 56 Emergent-created, 0 deleted.
+  Root `vercel.json` (with `--frozen-lockfile`) is AG-authored.
+- **Ingest path audit**: `IMPLEMENTED BUT INTEGRATION GAP EXISTS`; single
+  production incident writer `detection_content/xdr_incident.py:411`, gated on
+  VEEE label ∈ {MALICIOUS,SUSPICIOUS} and score ≥ 55, 30-min dedupe window.
+  ENG-42's 8 observations are `provenance:["golden-corpus"]` fixtures that never
+  entered `bridge()`.
+- **Still open**: `apps/nivxray-xdr/yarn.lock` (sha `ab7aed54…`, 1785 lines) is
+  not on GitHub — the platform excludes `yarn.lock` from auto-commit; committed
+  copy is from 31 Aug and lacks `d3@^7.9.0`.
+
+
 ## 2026-09-08 · **PHASE 1 · WORKSPACE DOMAIN MIGRATION** — `WORKSPACE_MIGRATION_RUNTIME_VERIFIED`
 
 Report: `/app/memory/PHASE1_WORKSPACE_RUNTIME_ACCEPTANCE.md`

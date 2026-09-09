@@ -29,15 +29,59 @@ from server import app
 
 client = TestClient(app)
 
+
+@pytest.fixture(scope="module", autouse=True)
+def _app_started():
+    """P0-SEC (2026-09-09): `require_permission` now derives identity from the
+    verified JWT, so these tests need FastAPI startup (init_database) and a
+    real bearer token instead of the old `X-Principal-Id` header identity."""
+    with client:
+        yield
+
 TEN = f"rbac-tenant-{uuid.uuid4().hex[:8]}"
 ADMIN = "root@nivxray.com"
 ANALYST = "analyst@nivxray.com"
 
 
+def _bearer() -> str:
+    """Real JWT for the seeded platform administrator.
+
+    Header-supplied identity is no longer an authorization input (P0-SEC),
+    so every RBAC-management call must present a genuine token.
+    """
+    from deps import create_token, sync_collection
+    email = os.environ["ADMIN_EMAIL"]
+    # Provision the principal in whatever database the test run is bound to
+    # (conftest defaults DB_NAME to `nivxray_ci_local`), so the token always
+    # resolves to a real user instead of depending on startup seed order.
+    sync_collection("users").update_one(
+        {"email": email},
+        {"$set": {"email": email, "role": "admin"}}, upsert=True)
+    return create_token(email)
+
+
+def _analyst_hdrs():
+    """Headers for a REAL, authenticated, tenant-scoped analyst principal.
+
+    The enforcement tests must not run as the cross-tenant admin (who is
+    allowed by role), so an actual `users` document is provisioned for this
+    ephemeral tenant and a genuine token minted for it.
+    """
+    from deps import create_token, sync_collection
+    sync_collection("users").update_one(
+        {"email": ANALYST},
+        {"$set": {"email": ANALYST, "role": "analyst", "tenant_id": TEN}},
+        upsert=True)
+    return {"X-Tenant-Id": TEN, "X-Principal-Id": ANALYST,
+                "X-Principal-Kind": "user",
+                "Authorization": f"Bearer {create_token(ANALYST)}"}
+
+
 def _hdrs(email=ADMIN, ten=None):
     return {"X-Tenant-Id": ten or TEN,
                 "X-Principal-Id": email,
-                "X-Principal-Kind": "user"}
+                "X-Principal-Kind": "user",
+                "Authorization": f"Bearer {_bearer()}"}
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -59,7 +103,7 @@ def _skip_if_no_mongo():
 # ── 1 · Permission catalog ────────────────────────────────────────
 def test_permission_catalog_is_comprehensive():
     _skip_if_no_mongo()
-    r = client.get("/api/xdr/rbac/permissions")
+    r = client.get("/api/xdr/rbac/permissions", headers=_hdrs())
     d = r.json()["data"]
     all_p = d["all"]
     assert len(all_p) > 80  # 30+ resources × several actions each
@@ -72,7 +116,7 @@ def test_permission_catalog_is_comprehensive():
 # ── 2 · Built-in starter roles ────────────────────────────────────
 def test_builtin_roles_exposed_and_expandable():
     _skip_if_no_mongo()
-    r = client.get("/api/xdr/rbac/roles")
+    r = client.get("/api/xdr/rbac/roles", headers=_hdrs())
     roles = r.json()["data"]["roles"]
     names = {x["name"] for x in roles}
     for expected in ("platform_admin", "tenant_admin", "soc_manager",
@@ -198,7 +242,7 @@ def test_enforcement_denies_when_role_missing():
     _skip_if_no_mongo()
     # Analyst tries to create a role → 403.
     r = client.post("/api/xdr/rbac/roles",
-                          headers=_hdrs(email=ANALYST),
+                          headers=_analyst_hdrs(),
                           json={"name": "sneaky", "display_name": "Sneaky",
                                     "permissions": []})
     assert r.status_code == 403, r.text
@@ -272,7 +316,7 @@ def test_audit_chain_valid_across_rbac_lifecycle():
 def test_cannot_delete_role_with_active_assignments():
     _skip_if_no_mongo()
     # detection_engineer role has zero assignments → deletable.
-    roles = client.get("/api/xdr/rbac/roles").json()["data"]["roles"]
+    roles = client.get("/api/xdr/rbac/roles", headers=_hdrs()).json()["data"]["roles"]
     det = next(r for r in roles if r.get("name") == "detection_engineer")
     ok = client.delete(f"/api/xdr/rbac/roles/{det['id']}", headers=_hdrs())
     assert ok.status_code == 200

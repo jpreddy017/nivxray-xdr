@@ -463,19 +463,49 @@ def require_permission(permission: str, *, resource_id_header: str | None = None
 
         @router.post("/x", dependencies=[Depends(require_permission("secrets.create"))])
     """
-    def _dep(request: Request):
-        # BOOTSTRAP: if THIS tenant has no users provisioned yet, allow.
-        # This lets the first admin in a fresh tenant be seeded without
-        # a chicken-and-egg RBAC lockout.  As soon as one user is
-        # provisioned for the tenant, enforcement engages.
-        if _c_users() is None:
-            return True
-        ten, pid, pkd = _principal(request)
-        if _c_users().count_documents({"tenant_id": ten}) == 0:
-            return True
+    async def _dep(request: Request, user: dict = Depends(_deps_current_user)):
+        # P0-SEC (2026-09-09) · FAIL CLOSED.
+        #
+        # The previous implementation resolved the principal from the
+        # client-supplied `X-Tenant-Id` / `X-Principal-Id` headers and then
+        # returned True whenever `users` had no document for that tenant.
+        # `_principal()` defaults an anonymous caller to tenant "default" /
+        # `system@ingest`, and `seed_admin()` writes admins with no
+        # `tenant_id`, so that count was permanently 0 — every RBAC-gated
+        # route was open to unauthenticated callers in production.
+        #
+        # Identity now comes ONLY from the verified JWT (`get_current_user`,
+        # which raises 403 without a bearer token and 401 on an invalid or
+        # expired one, before any body validation or datastore lookup).
+        # Client headers can no longer establish identity, `system@ingest`
+        # is not reachable from an external request, and the tenant-empty
+        # bootstrap bypass is gone: the first admin is created by
+        # `deps.seed_admin()` at startup, which never traverses RBAC, so no
+        # chicken-and-egg lockout exists.
+        email = (user or {}).get("email")
+        role = (user or {}).get("role")
+        if not email:
+            raise HTTPException(status_code=403, detail={
+                "code": "ACCESS_DENIED", "permission": permission,
+                "reason": "unauthenticated"})
         rid = request.headers.get(resource_id_header) if resource_id_header else None
-        # RBAC bypass header for platform-level automation is intentionally
-        # NOT supported — every request must resolve to a real principal.
+        # Cross-tenant platform administrator — the same role gate
+        # `deps.require_admin` enforces elsewhere.
+        if role == "admin":
+            return True
+        # Tenant-scoped principal: the tenant is read from the AUTHENTICATED
+        # user record, never from a request header.
+        ten = (user or {}).get("tenant_id")
+        if not ten:
+            raise HTTPException(status_code=403, detail={
+                "code": "ACCESS_DENIED", "permission": permission,
+                "reason": "principal has no tenant scope"})
+        # Datastore unavailable => fail closed, never open.
+        if _c_users() is None:
+            raise HTTPException(status_code=503, detail={
+                "code": "AUTHZ_UNAVAILABLE", "permission": permission,
+                "reason": "authorization store unavailable"})
+        pid, pkd = email, "user"
         result = check_access(ten, pid, permission, resource_id=rid)
         if not result["allow"]:
             # Audit access denials (never fabricate; never spam on user-not-provisioned).
