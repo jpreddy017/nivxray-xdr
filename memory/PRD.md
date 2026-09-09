@@ -1,5 +1,38 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · PRODUCTION PROMOTION REQUESTED · READY, NOT PROMOTED (owner action required)
+
+Owner froze Cisco visual-parity work and ordered the working Preview promoted to
+`xdr.nivxforge.com`. Full report: `/app/memory/PRODUCTION_PROMOTION_STATUS.md`.
+
+- Preview identity: commit **`52bf787a`** on `feature/rc2-alignment`, working tree
+  **clean**. Supervisor `frontend` = `yarn dev` in `/app/apps/nivxray-xdr`, so the
+  Preview host genuinely serves the standalone NivXRay XDR app.
+- Production-scoped build + guard **PASS** (no preview origin in 122 artifacts, API
+  origin `https://nivxray.nivxforge.com` only, scope `"xdr"` declared).
+- Nav-integrity gate **1880 PASS** · branding gate **51 PASS** · backend targeted
+  **30 passed / 1 pre-existing failure**.
+- Production is materially behind: live `XdrShell` chunk is **18,794 B** vs Preview
+  **47,662 B**, and contains **0** occurrences of `xdr-ribbon`, `Control Center`,
+  `Client Management`, `Activities`, `EXTERNAL_NAVIGATION_FORBIDDEN`.
+- **BLOCKER**: `git remote -v` is empty and there is no Vercel token/CLI in this
+  container. Owner must use **Save → Save to Github**, then merge to the Vercel
+  production branch (Vercel auto-deploys). Rollback target retained:
+  `index-LG3aU4C2.js` / `XdrShell-D5KuqOEH.js`.
+- Caution recorded: `vercel.json` rewrites `/(.*)` → `/index.html`, so curl 200 on
+  `/xdr/activities` etc. proves nothing — post-deploy verification must be in-browser.
+
+### Cisco parity work completed before the freeze (all verified in Preview)
+Cisco 8-primary rail (Detections under Incidents, Activities under Investigate) ·
+`/xdr` → Control Center · light default theme · **Ribbon** (bottom, resizable,
+collapsible, Incidents app on 25 real incidents, Casebook honest NOT_IMPLEMENTED,
+observable search, Defang-on-Copy setting) · Cisco pivot-menu structure with
+verdict-time toggle · `ciscoSemantics.js` with Cisco's disposition priority
+(**Clean > Malicious > Suspicious > Common > Unknown**), verdict rule and defang.
+Blocked on owner screen captures for pixel-level parity.
+
+
+
 ## 2026-06 · **MASTER PARITY DIRECTIVE · REQUIRED OUTPUT BEFORE CODING** — DELIVERED · ASSESSMENT ONLY · STOPPED FOR OWNER APPROVAL
 
 Blueprint: `/app/memory/PARITY_ARCHITECTURE_BLUEPRINT.md` (deliverables A–H).
