@@ -641,7 +641,7 @@ def _build_evidence_pointers(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
     #   from the Console sidebar.
     pointers.append({
         "domain":   "edr",
-        "label":    "NivXForge EDR",
+        "label":    "NivXRay EDR",
         "status":   "available" if has_edr_evidence else "no_matching_evidence",
         "reason":   None if has_edr_evidence
                      else "No EDR evidence correlates to this incident yet.",
