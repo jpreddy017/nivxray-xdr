@@ -1,5 +1,42 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · PRODUCTION PROMOTED · `xdr.nivxforge.com` NOW SERVES THE VERIFIED BUILD — PASS
+
+Full record: `/app/memory/PRODUCTION_PROMOTION_STATUS.md`.
+
+- **Corrected diagnosis**: `nivxray-xdr-production` **already had**
+  `rootDirectory: apps/nivxray-xdr`. The root-build failure was a *different*
+  project (`nivxray-xdr`, root `null`) that owns **no domain**. The real gap was
+  **zero environment variables** on the production project.
+- **Changed** (only `nivxray-xdr-production`): added `NIVX_PRODUCT_SCOPE=xdr` and
+  `XDR_PROD_API_ORIGIN=https://nivxray.nivxforge.com`. `rootDirectory` left as-is.
+  Temporary protection-bypass secret created for pre-promotion testing, then
+  **revoked (0 remaining)**.
+- **Deployed prebuilt** (Build Output API) so production runs the exact verified
+  artifact: `index-B3UX7ihx.js` / `XdrShell-DsG83o93.js` (47,678 B).
+  Tested first on `…-4x5ni7r2b…vercel.app`, then production
+  `…-8jfqdwczy…vercel.app` → **aliased to `xdr.nivxforge.com`**. `XdrShell` md5
+  identical pre/post promotion: `59ee5c76b2cf3847044d344415463bb7`.
+- **Production smoke PASS**: `/` → 307 → `/xdr`; root lands on
+  `/login?returnTo=/xdr/mss-dashboard` (**Control Center landing live**); shell
+  markers `xdr-ribbon`/`Control Center`/`Client Management`/`Activities`/
+  `Threat Intelligence`/`EXTERNAL_NAVIGATION_FORBIDDEN` all **0 → 1**; bundle API
+  origin `https://nivxray.nivxforge.com` only, **0** preview refs; deep routes +
+  SPA refresh OK; 1 tab; `/edr` blocked on the XDR host by the scope guard.
+- **Untouched & verified**: NivXForge EDR serves its own chunk
+  (`index-5e0IbMeq.js`); Workspace NivXMachines 200; `nivxray-xdr` project and
+  production/tenant data unchanged.
+- **ROLLBACK**: `dpl_BF14GQG3bb4VCt7M3JP56NizCjFQ`
+  (`…-1xbqcctgd…`, `XdrShell-D5KuqOEH.js`, 18,794 B).
+- **OPEN**: authenticated verification on production. `admin@nivxray.com` is
+  preview-only — the production API returns a genuine 401, which proves the auth
+  path works but means authenticated surfaces are not yet confirmed on
+  production. Owner must sign in once with a production account.
+- `VERCEL_TOKEN` stored in `/app/backend/.env` (gitignored `*.env`, untracked).
+  It was pasted in chat; owner declined rotation.
+
+
+
 ## 2026-06 · STABILIZATION: RC5 + KB + INTELLIGENCE WIRING — DONE · PROMOTION STILL BLOCKED
 
 Detail: `/app/memory/STABILIZATION_KB_INTEL_ROUND.md`.
