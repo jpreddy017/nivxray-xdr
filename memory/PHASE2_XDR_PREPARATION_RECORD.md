@@ -34,6 +34,37 @@ not create the project, does not deploy, does not touch DNS, and waits for the
 owner's project configuration/screenshots before DNS is attached.
 
 Owner decisions applied: **1b · 2a · 3a · 4a · 5b** + HARD ISOLATION RULE.
+
+## 2026-09-09 · Lockfile publication (open gate)
+
+`apps/nivxray-xdr/yarn.lock` did **not** reach GitHub in commit `5a6af22`,
+which contained only `.emergent/emergent.yml`. The platform's auto-commit did
+not stage a lockfile-only change. Precedent shows lockfiles *can* land
+(`741b814a`, `666fbf2d` both carried one) — in each case alongside other
+files — so the method now used is to edit the lockfile **together with**
+another file in the same turn.
+
+Verification required on the resulting GitHub commit: `d3@^7.9.0` present in
+`apps/nivxray-xdr/yarn.lock`, and no files under `frontend/`.
+
+**Fallback if it still does not land** (needs owner approval, not yet done):
+commit the lockfile under a filename the platform will stage (e.g.
+`apps/nivxray-xdr/yarn.lock.phase2`) and change `installCommand` to
+`cp yarn.lock.phase2 yarn.lock && yarn install --production=false
+--frozen-lockfile`. Deterministic, but it diverges from convention, so it is
+an option rather than a recommendation.
+
+**Why no package.json-only fix exists**: the committed lockfile contains
+**zero** `d3*` entries, so any declared dependency is unsatisfiable under
+`--frozen-lockfile` no matter how `package.json` is edited.
+
+**Related cleanup candidate — NOT for Phase 2.** The app imports `d3-scale`,
+`d3-brush`, `d3-selection` and `d3-time-format`
+(`src/xdr/components/TrajectoryLifelineCanvas.jsx:36-39`) but **never `d3`
+itself** (0 imports). The umbrella `d3` package is declared solely to provide
+those four as transitive (phantom) dependencies. Declaring the four directly
+would shrink the install, but it changes dependency resolution, so it belongs
+in a separate, deliberately tested change.
 No Vercel project, DNS record or deployment was created or touched.
 
 ## Source of truth
