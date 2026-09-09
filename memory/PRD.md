@@ -14612,3 +14612,75 @@ Preview/branch deployments of this project also build against the PRODUCTION
 API origin, because that is `vercel-build.sh`'s default. No domain is attached
 to previews, but a preview build does talk to production data. Flagged for a
 separate decision; changing it was out of scope for a read-only check.
+
+---
+
+# EDR POST-DEPLOY AUDIT — READ ONLY, ROOT CAUSE FOUND (2026-06)
+
+Nothing changed: no code, DNS, Vercel config, env vars, DB, auth, redeploy or
+workaround redirect. Full record: `memory/EDR_POST_DEPLOY_AUDIT.md`.
+
+**Single root cause for BOTH faults: the EDR Vercel project deployed a commit
+that does NOT contain the Phase-2 guarded build path, so
+`scripts/vercel-build.sh` never ran.**
+
+Proof from the live hosts:
+- `edr.nivxforge.com/build-info.json` returns index.html (file ABSENT); the XDR
+  host returns real JSON. The script writes that file, so it did not run.
+- EDR `/` does NOT redirect; the `edr.nivxforge.com -> /edr` rule (commit
+  f083b8d7) is missing from the deployed vercel.json.
+- EDR bundle `index-CzHM2mqs.js` contains **0** occurrences of
+  `nivxray.nivxforge.com` (XDR bundle `index-Ckucwd-G.js` contains 1).
+  Different builds, and the EDR one has NO api origin at all.
+
+**Fault 1 (XDR branding + returnTo=/xdr/incidents)**: the bundle is UNSCOPED
+(`REACT_APP_PRODUCT_SCOPE=""`). `productScope.js` then gives
+`HOME_PATH="/xdr"` and `isForeignPath()` returns false, so `/xdr/*` renders on
+the EDR host with no wrong-host notice and the guard redirects to
+`/login?returnTo=/xdr/incidents`; the generic `/login` route defaults to
+`product="NIVXRAY_XDR"`. So it is NOT just shared branding — the deployed
+bundle really is unscoped/combined mode. (The `<title>` IS shared static text.)
+
+**Fault 2 (HTTP 405)**: `src/lib/api.js` does
+`BACKEND_URL = process.env.REACT_APP_BACKEND_URL || ""` ->
+`API_BASE = "/api"`, so axios POSTs to
+`https://edr.nivxforge.com/api/auth/login`; the SPA rewrite serves static
+index.html and a POST to a static file is **405**. Reproduced with curl (405),
+while the real API returns 422 for the same body (healthy, accepts POST).
+Cause: `apps/nivxray-xdr/.env` is gitignored (`.gitignore:113 *.env`) so it is
+not in the repo, and the only injector of the production origin is the build
+script, which did not run. `XDR_PROD_API_ORIGIN` in the dashboard did nothing
+because only that script reads it.
+
+**Build guard: NEVER RAN.** It would have FAILED this deployment (missing
+build-info.json, missing api origin). It works as designed.
+
+**Deployed commit: UNKNOWN from here — this container has NO git remote**
+(`git remote -v` empty). Owner must read it from Vercel -> Deployments ->
+Source for BOTH projects. Expected commit is local `feature/rc2-alignment`
+@ **f083b8d7**, which has NEVER been pushed. Local `main` (7f280b66) has no
+`apps/` dir and is 1568 commits behind, so creating the project from `main`
+is the likely cause of the stale build.
+
+**Minimal corrective action (no DNS change needed — DNS is correct)**:
+1. Read + report the deployed commit SHA for both Vercel projects.
+2. Publish commit f083b8d7 via the chat's **Save to Github** feature (agent
+   does not do git writes).
+3. Repoint `nivxray-edr-production` Production Branch at that ref and redeploy.
+   KEEP `NIVX_PRODUCT_SCOPE=edr` and `XDR_PROD_API_ORIGIN` as-is — they are
+   correct, they just had no consumer.
+4. Accept only if the log prints `EDR PRODUCTION BUILD GUARD · PASSED` and
+   `/build-info.json` returns real JSON with product_scope=edr.
+   FIRST confirm which ref `nivxray-xdr-production` builds from so repointing
+   cannot regress the live XDR site.
+Do NOT add a redirect, patch the API base, or commit a `.env` — all three hide
+the real fault.
+
+**GO/NO-GO: NO-GO on any code/DNS/env/Vercel-build change** — the repository is
+already correct; only the deployed commit is wrong. GO only for (a) reporting
+the commit SHAs and (b) Save to Github + repointing the EDR branch.
+
+**Standing risk while unfixed**: edr.nivxforge.com serves the full XDR console
+with no product boundary. No data is retrievable (the 405 accidentally
+contains it), but fixing the API origin WITHOUT restoring the scope would give
+EDR visitors a working XDR console. The guarded build fixes both in one step.
