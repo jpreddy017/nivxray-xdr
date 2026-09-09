@@ -63,6 +63,7 @@ COLLECTOR = cr.json()["data"]["id"]
 
 KEY = requests.post(f"{API}/xdr/api-keys", headers=ADM, json={
     "name": f"restart-proof-{uuid.uuid4().hex[:6]}",
+    "confirm_tenant_id": TENANT, "allow_new_tenant": True,
     "scopes": ["collectors.enroll"]}, timeout=60).json()["data"]["plaintext"]
 
 ENVELOPE = {"envelopes": [{

@@ -15270,3 +15270,42 @@ no cross-tenant collision ✔ auditable (`emit_audit` + claim provenance) ✔
 existing logic reused not duplicated ✔ zero frontend routing change ✔.
 
 STOPPED. Awaiting owner approval to Save to GitHub.
+
+---
+
+## 2026-06 · P1 MACHINE-CREDENTIAL HARDENING + PRODUCTION TELEMETRY ONBOARDING
+
+Owner selection honoured: onboarding = direct-to-core proof first then full
+collector runtime; telemetry source = agent-determined minimum viable genuine
+source; tenant = dedicated `nivx-prod-1`; backend origin read from Vercel;
+guardrails = no seeded/demo data + close the P1 gaps before issuing the
+production ingest credential.
+
+**Delivered**
+- `backend/services/machine_rate_limit.py` — MongoDB-only atomic fixed-window
+  limiter; wired into `xdr_rbac.authenticate_api_key()` for IP (pre-auth),
+  key and tenant windows. 429 + `Retry-After`/`RateLimit-*`; limiter fault =
+  503 FAIL CLOSED.
+- `POST /api/xdr/api-keys` requires `confirm_tenant_id` and refuses an unknown
+  tenant unless `allow_new_tenant: true`; `ApiKeysBody.jsx` type-it-again UI.
+- `xdr_ingest._raw_event_for_pipeline()` now also passes the verbatim line as
+  `message`, fixing the `linux-auditd` DSM claiming an event its own parser
+  then rejected (`UNRECOGNIZED_AUDITD`).
+- `backend/tests/test_p1_machine_credential_hardening.py` — 11/11 pass.
+- Runbook: `memory/PRODUCTION_TELEMETRY_ONBOARDING_RUNBOOK.md`.
+
+**Confirmed production values**: API origin `https://nivxray.nivxforge.com`
+(from Vercel `XDR_PROD_API_ORIGIN`), live `/api/health` 200, but the deployed
+backend **predates** this hardening (`CreateKeyBody` has no
+`confirm_tenant_id`).
+
+**Minimum viable genuine source** = a real Linux host running `auditd`
+(EXECVE) into an XDR `syslog` collector. Sensor-JSON-through-XDR-ingest is
+refused by design (attribution guard) and was NOT worked around.
+
+**BLOCKED ON OWNER**: publish this backend build to
+`nivxray.nivxforge.com` before any production ingest credential is minted.
+
+**Backlog unchanged**: P1 Cisco XDR visual parity (reference manifest received),
+P1 global search federation, P2 RC5 fixture errors (69), P2 `test_xdr_api_keys.py`
+legacy-header failures (7, pre-existing).

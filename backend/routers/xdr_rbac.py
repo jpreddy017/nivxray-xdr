@@ -69,6 +69,7 @@ from pymongo import ASCENDING, MongoClient
 
 from deps import get_current_user as _deps_current_user
 from routers.xdr_audit_log import emit_audit
+from services import machine_rate_limit as _mrl
 
 router = APIRouter(prefix="/api/xdr/rbac", tags=["xdr-rbac"])
 
@@ -485,6 +486,35 @@ def _machine_denied(permission: str, reason: str, *, status: int = 401):
         "principal_kind": "api_key", "reason": reason})
 
 
+def _throttle(scope: str, subject: str, permission: str,
+                     tenant: str | None, key_id: str | None) -> dict:
+    """Count one machine request against `scope:subject`.
+
+    FAIL CLOSED: quota exhaustion is 429, a limiter fault is 503.  A
+    protected request is never allowed through because the throttle
+    could not be evaluated.
+    """
+    try:
+        return _mrl.consume(scope, subject or "unknown")
+    except _mrl.RateLimitExceeded as ex:
+        _audit_machine_denial(tenant, key_id, permission,
+                                        f"rate-limited:{scope}")
+        raise HTTPException(status_code=429, detail={
+            "code": "RATE_LIMITED", "permission": permission,
+            "principal_kind": "api_key", "scope": scope,
+            "limit": ex.limit, "window_seconds": _mrl.WINDOW_SECONDS,
+            "retry_after": ex.retry_after},
+            headers={"Retry-After": str(ex.retry_after),
+                          "RateLimit-Limit": str(ex.limit),
+                          "RateLimit-Remaining": "0",
+                          "RateLimit-Reset": str(ex.retry_after)}) from ex
+    except _mrl.RateLimitUnavailable as ex:
+        raise HTTPException(status_code=503, detail={
+            "code": "RATE_LIMITER_UNAVAILABLE", "permission": permission,
+            "reason": str(ex)[:200], "retryable": True},
+            headers={"Retry-After": "1"}) from ex
+
+
 def _key_effective_permissions(doc: dict) -> set[str]:
     perms: set[str] = set()
     for s in doc.get("scopes") or []:
@@ -514,6 +544,10 @@ def authenticate_api_key(request: Request, raw_key: str,
     failure — there is no permissive branch.
     """
     tenant_hdr = request.headers.get("X-Tenant-Id")
+    # Throttle by source IP FIRST — this also caps brute-force probing with
+    # unknown/malformed keys, which never reach the per-key counter.
+    src_ip = request.client.host if request.client else None
+    _throttle("ip", src_ip or "unknown", permission, tenant_hdr, None)
     if not _API_KEY_RE.fullmatch(raw_key or ""):
         _audit_machine_denial(tenant_hdr, None, permission, "malformed-api-key")
         raise _machine_denied(permission, "malformed-api-key")
@@ -561,8 +595,13 @@ def authenticate_api_key(request: Request, raw_key: str,
         _audit_machine_denial(tenant_hdr, kid, permission, "scope-not-granted")
         raise _machine_denied(permission, "scope-not-granted", status=403)
 
+    # Identity is proven — now enforce the per-key and per-tenant quotas so a
+    # single leaked credential cannot flood ingest for the whole tenant.
+    key_state = _throttle("key", str(kid), permission, tenant_hdr, kid)
+    _throttle("tenant", str(doc.get("tenant_id")), permission, tenant_hdr, kid)
+    request.state.machine_rate_limit = key_state
+
     now = datetime.now(timezone.utc).isoformat()
-    src_ip = request.client.host if request.client else None
     try:
         _c_api_keys().update_one({"_id": doc["_id"]}, {
             "$set": {"last_used_at": now, "last_used_ip": src_ip},

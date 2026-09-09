@@ -177,9 +177,15 @@ def _raw_event_for_pipeline(e: CanonicalEnvelope) -> dict[str, Any]:
     verbatim line is the authority; the collector's parse rides along as
     provenance only."""
     raw = e.raw or {}
+    line = raw.get("line") or raw.get("message") or ""
     return {
         "tenant_id":            e.tenant_id,
-        "line":                 raw.get("line") or raw.get("message") or "",
+        "line":                 line,
+        # Some DSMs (linux-auditd) key their parser on `message`.  Without
+        # this the auditd DSM would claim the event in `supports()` and then
+        # its own parser would reject it as UNRECOGNIZED_AUDITD.  The value
+        # is the SAME verbatim line — nothing is invented.
+        "message":              line,
         "payload_format":       raw.get("payload_format")
                                 or (e.canonical or {}).get("payload_format"),
         "source":               e.source,

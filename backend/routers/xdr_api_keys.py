@@ -83,9 +83,33 @@ def _mask(doc: dict) -> dict:
     return {k: v for k, v in doc.items() if k not in ("hash", "_id")}
 
 
+_TENANT_EVIDENCE = ("xdr_users", "xdr_roles", "xdr_collectors", "xdr_api_keys")
+
+
+def _tenant_is_known(tenant_id: str) -> bool:
+    """True when the tenant already owns at least one control-plane object.
+
+    Used to refuse minting a credential for a mistyped tenant id.
+    """
+    if _client is None:
+        return False
+    db = _client[_DB_NAME]
+    for name in _TENANT_EVIDENCE:
+        if db[name].find_one({"tenant_id": tenant_id}, {"_id": 1}):
+            return True
+    return False
+
+
 # ── Pydantic bodies ──────────────────────────────────────────────
 class CreateKeyBody(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+    #: P1 issuance safeguard — the operator must restate the tenant the key
+    #: will be bound to.  A typo in `X-Tenant-Id` can no longer silently mint
+    #: a credential for the wrong (or a non-existent) tenant.
+    confirm_tenant_id: str = Field(min_length=1, max_length=128)
+    #: Explicitly acknowledge minting the first-ever credential for a tenant
+    #: that has no users, roles, collectors or keys yet.
+    allow_new_tenant: bool = False
     description: str | None = None
     scopes: list[str] = Field(default_factory=list,
                                                 description="Permission strings, e.g. 'lolbas.sync'")
@@ -109,6 +133,24 @@ def create_key(body: CreateKeyBody, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
     ten, pid, pkd = _principal(request)
+    # ── P1 · issuance confirmation ────────────────────────────────
+    # The tenant a key is bound to is decided here and is immutable
+    # afterwards, so it is confirmed twice and checked for existence.
+    if body.confirm_tenant_id.strip() != ten:
+        raise HTTPException(status_code=400, detail={
+            "code": "TENANT_CONFIRMATION_MISMATCH",
+            "resolved_tenant": ten,
+            "confirm_tenant_id": body.confirm_tenant_id,
+            "reason": ("confirm_tenant_id must exactly match the tenant the "
+                            "key will be minted for")})
+    if not _tenant_is_known(ten) and not body.allow_new_tenant:
+        raise HTTPException(status_code=400, detail={
+            "code": "UNKNOWN_TENANT",
+            "resolved_tenant": ten,
+            "reason": ("no users, roles, collectors or keys exist for this "
+                            "tenant — this is usually a typo.  Re-send with "
+                            "allow_new_tenant=true to mint the first "
+                            "credential for a genuinely new tenant.")})
     # Validate scopes against the canonical permission catalog.
     for s in body.scopes:
         if not _valid_permission(s):
