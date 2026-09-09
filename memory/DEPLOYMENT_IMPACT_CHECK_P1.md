@@ -108,3 +108,76 @@ byte-identical to the live deployment and the verdict becomes
 
 Not done, per instruction: no credential minted, no collector created, no
 auditd installed, no telemetry sent, no data seeded, nothing deployed.
+
+---
+
+## RE-CHECK AFTER OWNER-APPROVED LOCKFILE RESTORE (2026-06)
+
+Restore source was the **actual committed blob at `be651bce`**
+(`git show be651bce:<path>`), NOT `memory/AUTHORITATIVE_XDR_yarn.lock`.
+No `yarn install`, no lockfile regeneration, no `package.json` edit, no source
+edit, no deploy. The drifted copies were preserved first under
+`memory/lockfile_drift_backup_2026-06/` so nothing was destroyed.
+
+### Lockfile hashes (sha256)
+| File | Before | After | Target @ `be651bce` |
+|---|---|---|---|
+| `frontend/yarn.lock` | `4c9cd7f5…50ea` | `e7e9c595…6a59` | `e7e9c595…6a59` ✔ |
+| `apps/nivxray-xdr/yarn.lock` | `ab7aed54…80c6` | `aa7b43b8…aa29` | `aa7b43b8…aa29` ✔ |
+
+`git diff --quiet be651bce -- frontend/yarn.lock apps/nivxray-xdr/yarn.lock`
+→ **IDENTICAL_TO_be651bce**. `be651bce` and `HEAD` carry the same bytes for
+both files, so the restore is simultaneously HEAD-clean.
+
+### Verifications
+- `git status --porcelain` → **no modified tracked files**; only untracked
+  `memory/` artefacts remain (documentation + the drift backup; not build inputs).
+- `frontend/` source diff vs `be651bce` → **0 files**. `frontend/package.json`
+  unchanged. Workspace build inputs are now byte-identical to what produced the
+  live bundle `static/js/main.46cdaa0a.js`.
+- `apps/` diff vs `HEAD` → **0 files**.
+- Candidate runtime backend diff `be651bce..HEAD` unchanged — the same 7 files
+  reviewed above (`incidents.py`, `xdr_api_keys.py`, `xdr_ingest.py`,
+  `xdr_rbac.py`, `server.py`, `services/ingest_idempotency.py`,
+  `services/machine_rate_limit.py`) plus tests/docs. Still no `.env`,
+  `requirements.txt`, `package.json`, Dockerfile, supervisor, startup hook or
+  migration change.
+- Services healthy after the restore: preview `/api/health` 200, preview
+  `/xdr` 200, production `/api/health` 200. `node_modules` was deliberately
+  left untouched, so the preview pod keeps running exactly as before.
+- Honest limitation: a full Workspace rebuild was **not** performed, because
+  that would require the forbidden `yarn install`. Reproducibility is by
+  construction — identical `package.json` + identical `yarn.lock` + identical
+  source as the live deployment.
+
+## FINAL VERDICT: **SAFE TO DEPLOY**
+
+- **Rollback target**: Manage Publishes → Overview → rollback icon (↺) on the
+  previous deployment of `nivxray.nivxforge.com` (atomic backend + Workspace,
+  1–3 min, 3 most recent deployments eligible). Code-level: commit
+  **`be651bce`**.
+- **Exact next owner action**: approve and press Deploy to publish
+  `nivxray.nivxforge.com` from the current workspace state, then run the
+  post-deploy verification below. Nothing else is approved yet — no credential,
+  no collector, no auditd, no telemetry.
+
+```
+curl -s https://nivxray.nivxforge.com/api/openapi.json \
+ | python3 -c "import sys,json;print(list(json.load(sys.stdin)['components']['schemas']['CreateKeyBody']['properties']))"
+# expect: ['name', 'confirm_tenant_id', 'allow_new_tenant', 'description', 'scopes', 'expires_at']
+
+curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+  https://nivxray.nivxforge.com/api/xdr/ingest/telemetry \
+  -H "X-XDR-API-Key: nvx_000000000000000000000000000000000000000000000000" \
+  -H "X-Tenant-Id: probe" -H "Content-Type: application/json" -d '{"envelopes":[]}'
+# expect: 401  (machine auth path live; currently 403 "Not authenticated")
+
+curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+  https://nivxray.nivxforge.com/api/xdr/ingest/telemetry \
+  -H "Content-Type: application/json" -d '{"envelopes":[]}'
+# expect: 403  (anonymous still refused)
+
+curl -s https://nivxray.nivxforge.com/ | grep -o 'static/js/main[^"]*'
+# Workspace still serves a CRA bundle (hash may change only if the build is
+# not bit-reproducible; the app must still load and /auto-investigate → 200)
+```
