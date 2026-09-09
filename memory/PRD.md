@@ -14684,3 +14684,55 @@ the commit SHAs and (b) Save to Github + repointing the EDR branch.
 with no product boundary. No data is retrievable (the 405 accidentally
 contains it), but fixing the API origin WITHOUT restoring the scope would give
 EDR visitors a working XDR console. The guarded build fixes both in one step.
+
+---
+
+# EDR COMMIT-GAP ANALYSIS — READ ONLY (2026-06)
+
+Nothing changed. Full record: `memory/EDR_COMMIT_GAP_ANALYSIS.md`.
+
+Deployed: XDR = `conflict_310826_2116` @ **bb8a4d2** (guard PASSED);
+EDR = `main` @ **752a00f** (= local `752a00ff`, "Round 9 · P0.3 Collector
+Runtime + Snort Adapter + P0.4 Golden E2E · SHIPPED", no guard ran).
+
+1. **Proven EDR commit**: `feature/rc2-alignment` @ **f083b8d7**.
+2. **In GitHub? NO** — never pushed (no remote here). Confirmed independently
+   by the XDR build log wording `(Phase 2 is XDR only)`, which is the
+   PRE-parameterisation guard; f083b8d7 prints `(this artifact is XDR only)`
+   plus a `scope · xdr →` line. So GitHub's newest deploy-config commit
+   (bb8a4d2) predates f083b8d7.
+3. **Missing from 752a00ff — 258 commits, and these files DO NOT EXIST**:
+   `src/productScope.js`, `src/components/ProductScopeGuard.jsx`,
+   `src/productOrigins.js`, `scripts/vercel-build.sh`,
+   `scripts/verify-production-build.js`, `scripts/refuse-root-deployment.sh`.
+   `apps/nivxray-xdr/vercel.json` exists but is `buildCommand: yarn run
+   vercel-build` with rewrites only and **no redirects block**.
+   **752a00ff PREDATES THE XDR/EDR PRODUCT SPLIT ENTIRELY** — it is the
+   pre-split XDR-only app, which explains all symptoms (no scope -> HOME_PATH
+   /xdr -> XDR branding; no guard component -> /xdr/* renders on EDR host; no
+   build script -> empty API origin -> same-origin POST -> 405; no redirects
+   -> `/` does not 307 to /edr).
+4. **Sufficiency**: repointing EDR to a ref containing f083b8d7 IS sufficient
+   (DNS, domain and both env vars are already correct) but it must be pushed
+   first. ❌ **Repointing EDR to bb8a4d2 is NOT sufficient and is misleading**:
+   that script HARDCODES `SCOPE="xdr"` (its own log proves it) and its
+   vercel.json has only the xdr redirect, so the 405 would disappear while
+   edr.nivxforge.com still serves a WORKING XDR console. `NIVX_PRODUCT_SCOPE`
+   would be silently ignored.
+5. **Risk to XDR bb8a4d2**: publishing f083b8d7 to a NEW branch and pointing
+   ONLY the EDR project at it = **ZERO risk**. Pushing onto
+   `conflict_310826_2116` triggers an XDR redeploy (locally proven to pass).
+   🔴 **NEVER force-push**: bb8a4d2 is "Fix XDR frozen lockfile for D3
+   dependency" and is **absent from this workspace**; overwriting would
+   destroy it and `--frozen-lockfile` would break the XDR install (the Phase 1
+   failure class). Local `apps/nivxray-xdr/yarn.lock` is also modified and
+   uncommitted and lacks the D3 fix.
+
+**Recommended minimal action**: Save to Github -> NEW branch (e.g.
+`phase2/edr-production`) -> set that as the EDR project's Production Branch ->
+redeploy -> accept only on `EDR PRODUCTION BUILD GUARD · PASSED` and
+`/build-info.json` returning real JSON with product_scope=edr. Touch nothing on
+the XDR project, DNS, API or database. Long term, reconcile both projects onto
+one ref.
+
+STOPPED. Awaiting owner approval.
