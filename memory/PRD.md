@@ -14363,3 +14363,58 @@ legitimate repeated events with different source_event_ids.
 ## Order
 Dedup fix (DONE) -> preview proof re-run (DONE, PASS) -> production auth deploy
 -> first isolated production collector -> rate limiting / key health / issuance UX.
+
+---
+
+# P0 · DEDUPE PRODUCTION HARDENING — DONE + PROVEN (preview only) — 2026-06
+
+Both reliability gaps the owner flagged are closed. Full record:
+`memory/P0_DEDUPE_HARDENING.md`.
+
+**1. No more fail-open.** The idempotency store is a correctness dependency:
+`_coll()` now RAISES instead of returning None, and the ingest route answers
+**503 `INGEST_IDEMPOTENCY_UNAVAILABLE` (retryable)** when the store is unbound,
+the unique/TTL index cannot be built, a claim cannot be written atomically, or
+the raw-persisted marker cannot be recorded. Nothing is written on that path.
+Authentication is evaluated first and unchanged — an anonymous caller still
+gets 403 and learns nothing about store health.
+
+**2. Hardened claim lifecycle.** `release()` is DELETED. Durable states with a
+lease: `CLAIMED` -> `RAW_PERSISTED` -> `COMPLETED`, plus `NEEDS_REVIEW` when
+evidence was persisted but reasoning did not finish. Retries resolve against
+persisted state: COMPLETED -> DUPLICATE, NEEDS_REVIEW -> DUPLICATE_NEEDS_REVIEW,
+live lease -> IN_FLIGHT, expired lease + stage NONE -> RESUME_FULL, expired
+lease + RAW_PERSISTED -> RESUME_FROM_RAW (reason only, raw row NOT rewritten).
+Takeover is one conditional find_one_and_update; no in-memory lock.
+
+**3. Bounded retention that cannot break idempotency.** TTL index
+`expireAfterSeconds=0` on a DEDICATED `retention_at` field, set ONLY on a
+terminal claim; active claims carry null and are ignored by the TTL monitor.
+Horizon 14 days = 2x the collector's 7-day replay horizon. Replay after the
+window is documented and tested as a new delivery. Legacy `PROCESSED` claims
+from the first implementation stay terminal and get retention armed on contact.
+
+**4. Counter semantics owner-approved and kept**: `events_received` = unique
+accepted deliveries, `events_duplicate` = duplicates/retries. Resumed
+deliveries do not re-increment received.
+
+**Proven**: 19 fault-injection tests + 4 upgrade-guard tests + 13 idempotency
+tests = 36/36 PASS, covering store unavailable, index/claim write failure,
+crash before raw, failure after raw, failure after canonical, concurrent
+duplicates, TTL behaviour and distinct-event processing. **Real supervisor
+restart + retry proof: PASS** (`scripts/restart_retry_proof.py`) — raw 1->1,
+canonical 1->1, incidents 1->1. Full preview collector proof re-run: **PASS**.
+Auth + P0-SEC 54/54 PASS. Campaign folding unchanged (2/2 PASS).
+
+## FINAL GO/NO-GO for production auth + dedupe deploy: **GO**
+Deploy note: production has no `xdr_ingest_dedupe` collection yet, so indexes
+build on first ingest; a failure there is a safe 503, never unprotected ingest.
+
+## Remaining backlog (explicitly deferred by owner this session)
+- **P1** Production auth + dedupe deploy, then the first isolated production
+  collector.
+- **P1** `NEEDS_REVIEW` requeue surface (no UI today; visible via
+  `db.xdr_ingest_dedupe.find({status:"NEEDS_REVIEW"})`).
+- **P2** Key rate limiting · key health · issuance confirmation UX.
+- **P2** Campaign-folding decision for distinct non-endpoint events.
+- **P2** Legacy-header test suites still red (pre-existing).

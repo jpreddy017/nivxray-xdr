@@ -146,8 +146,12 @@ def test_claim_is_atomic_and_survives_repeat():
                            f"c-{uuid.uuid4().hex[:8]}", {"line": "x"})
     assert claim(ident)[0] == "FRESH"
     state, rec = claim(ident)
-    assert state == "DUPLICATE"
-    assert rec["delivery_count"] == 2 and rec["retry_count"] == 1
+    # The first claim still holds a live lease, so a second copy of the same
+    # delivery is refused rather than started.
+    assert state == "IN_FLIGHT"
+    assert rec["delivery_count"] == 2
+    assert _db[DEDUPE_COLLECTION].find_one(
+        {"key": ident["key"]})["duplicate_count"] == 1
     _db[DEDUPE_COLLECTION].delete_one({"key": ident["key"]})
 
 
@@ -190,7 +194,7 @@ def test_retry_is_recorded_as_provenance_on_the_original_incident(client, env):
     assert doc["duplicate_delivery_count"] == 2
     assert doc["last_duplicate_delivery_at"]
     rec = _db[DEDUPE_COLLECTION].find_one({"incident_id": inc_id})
-    assert rec["delivery_count"] == 3 and rec["retry_count"] == 2
+    assert rec["delivery_count"] == 3 and rec["duplicate_count"] == 2
     assert rec["canonical_event_id"] and rec["trace_id"]
 
 
@@ -272,7 +276,7 @@ def test_dedupe_record_is_persisted_not_in_memory(client, env):
     ident = event_identity(TENANT, env["collector"], "fw", sei, e["raw"])
     rec = fresh_conn[DEDUPE_COLLECTION].find_one({"key": ident["key"]})
     assert rec is not None, "claim is not durable across connections"
-    assert rec["status"] == "PROCESSED"
+    assert rec["status"] == "COMPLETED"
     idx = fresh_conn[DEDUPE_COLLECTION].index_information()
     assert any(v.get("unique") and v["key"][0][0] == "key"
                for v in idx.values()), "dedupe key is not uniquely indexed"
