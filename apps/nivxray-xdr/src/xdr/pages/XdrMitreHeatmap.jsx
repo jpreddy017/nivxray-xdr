@@ -23,7 +23,7 @@ import React, {
 } from "react";
 import { RefreshCcw, Search, ExternalLink, ChevronRight, Target,
                 ChevronDown, GitBranch } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import XdrShell from "@/xdr/XdrShell";
 import { NxKpi, NxEmptyBlock as NxEmpty, NxPill } from "@/xdr/nx";
@@ -52,7 +52,10 @@ export default function XdrMitreHeatmap() {
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefresh]  = useState(false);
   const [error, setError]         = useState(null);
-  const [q, setQ]                 = useState("");
+  // PR-XDR-0 · a pivot on an ATT&CK reference lands here with `?q=<ref>`,
+  // so the technique context survives the navigation instead of being lost.
+  const [searchParams]            = useSearchParams();
+  const [q, setQ]                 = useState(searchParams.get("q") || "");
   const [selected, setSelected]   = useState(null);
   const [openTactic, setOpenTactic] = useState(null);
   const [openParent, setOpenParent] = useState(null);

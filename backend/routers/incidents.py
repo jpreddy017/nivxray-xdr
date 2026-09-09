@@ -641,7 +641,7 @@ def _build_evidence_pointers(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
     #   from the Console sidebar.
     pointers.append({
         "domain":   "edr",
-        "label":    "NivXRay EDR",
+        "label":    "NivXForge EDR",
         "status":   "available" if has_edr_evidence else "no_matching_evidence",
         "reason":   None if has_edr_evidence
                      else "No EDR evidence correlates to this incident yet.",
@@ -702,7 +702,12 @@ def _build_evidence_pointers(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
         "status":   "available" if ioc_count > 0 else "no_matching_evidence",
         "reason":   None if ioc_count > 0
                      else "No IOCs extracted from this incident yet.",
-        "deep_link": _link_with_context("/threat-intel", case_id, doc)
+        # PR-XDR-0 · this pointer navigates a NivXRay XDR user, so it must
+        # address a canonical NivXRay XDR route. `/threat-intel` is a base-app
+        # path that does not exist in the NivXRay XDR bundle, so the console
+        # opened a tab that fell through to the catch-all. No route, API,
+        # collection or infrastructure identifier is renamed by this change.
+        "deep_link": _link_with_context("/xdr/intelligence/iocs", case_id, doc)
                         if ioc_count > 0 else None,
         "hint":     "Threat-intel enrichment for extracted IOCs.",
         "bullets":  _bullets_for_iocs(iocs) if ioc_count > 0 else [],

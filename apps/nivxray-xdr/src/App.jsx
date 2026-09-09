@@ -121,8 +121,11 @@ export default function App() {
             /xdr and /xdr/dashboard redirect to /xdr/incidents.  The
             MSS Dashboard remains a separate destination under the
             Command Center sidebar section. */}
-        <Route path="/xdr"                 element={<Navigate to="/xdr/incidents" replace />} />
-        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/incidents" replace />} />
+        {/* Cisco XDR lands on Control Center; Incidents is a peer
+            destination, not the root. Owner decision O-2. */}
+        <Route path="/xdr"                 element={<Navigate to="/xdr/mss-dashboard" replace />} />
+        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/mss-dashboard" replace />} />
+        <Route path="/xdr/control-center"  element={<Navigate to="/xdr/mss-dashboard" replace />} />
         <Route path="/xdr/mss-dashboard"   element={<Protected><XdrMssDashboardPage /></Protected>} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />

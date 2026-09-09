@@ -7,11 +7,14 @@
  *   • The left sidebar owns product navigation.  Section tree matches
  *     the owner spec (Workspace / Operations / Investigations /
  *     Intelligence / Exposure / Data / Administration).
- *   • Every sidebar entry either navigates to an in-XDR route (/xdr/*)
- *     or opens the existing NivXRay capability in a NEW BROWSER TAB.
- *     We NEVER duplicate an existing capability inside /xdr.
- *   • `/analyst` remains untouched — the Workspace entry deep-links
- *     to it as an external tab.
+ *   • Every sidebar entry navigates to an in-product NivXRay XDR route
+ *     (`/xdr/*`). PR-XDR-0 removed the `external` navigation class from
+ *     this shell entirely: no rail row may open another frontend, another
+ *     origin or a new browser tab. A capability without a native surface
+ *     is rendered `disabled` with the reason.
+ *   • Cross-product hand-off (NivXForge EDR, Workspace NivXMachines) is
+ *     NOT a rail concern — it lives in the top bar and resolves through
+ *     `productOrigins` / `WorkspaceLaunch`.
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -31,19 +34,22 @@ import { getSessionContext } from "@/nivxforge/edrApi";
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import WorkspaceLaunch from "@/components/WorkspaceLaunch";
 import XdrContextBar from "@/xdr/components/XdrContextBar";
+import XdrRibbon from "@/xdr/components/XdrRibbon";
 import "./xdr-console.css";
 import "./nx/nx-epistemic.css";
 import "./nx/nx-tokens.css";
 import "./nx/nx-theme.css";
 import { NxDensityProvider } from "./nx";
 
-// Phase 2 · theme is DARK by default; light is a preserved toggle.
+// Cisco XDR ships LIGHT as its default colour theme (Auto / Light / Dark
+// are the three published options). NivXRay XDR matches that default; the
+// user's explicit choice still wins and persists.
 const NX_THEME_KEY = "nx.theme";
 function readTheme() {
   try {
     const v = window.localStorage.getItem(NX_THEME_KEY);
-    return v === "light" ? "light" : "dark";
-  } catch { return "dark"; }
+    return v === "dark" ? "dark" : "light";
+  } catch { return "light"; }
 }
 
 // ── Sidebar tree · owner-locked ────────────────────────────────────
@@ -51,7 +57,6 @@ function readTheme() {
 // label    – exact label rendered
 // icon     – lucide icon
 // to       – route target
-// external – true → opens in a new browser tab (reserved / not yet native)
 // disabled – true → row rendered but not clickable ("Not available")
 // reserved – true → routes to native XDR reserved placeholder
 //              (transitional: capability will be built native in a
@@ -149,9 +154,13 @@ const SIDEBAR = [
     area: "investigator",
     section: "Telemetry",
     items: [
-      { key: "telemetry-studio",  label: "Telemetry Studio",  icon: Sliders,
+      // Cisco XDR names this surface ACTIVITIES and places it under
+      // Investigate. Same route, same backing telemetry — Cisco's label
+      // and Cisco's position in the rail.
+      { key: "activities",  label: "Activities",  icon: Sliders,
         to: "/xdr/admin/telemetry-studio",
-        title: "Inspect real telemetry · analyst investigation/query surface" },
+        title: "Environment activity · real telemetry the analyst can query "
+               + "and pivot from (Cisco XDR: Investigate ▸ Activities)" },
       { key: "telemetry-health",  label: "Telemetry Health",  icon: ActivityIcon,
         to: "/xdr/admin/telemetry-health",
         title: "Per-source telemetry health · are we receiving the right security telemetry?" },
@@ -198,9 +207,10 @@ const SIDEBAR = [
       { key: "correlation-rules", label: "Correlation Rules", icon: Radar,
         to: "/xdr/admin/correlation-rules",
         title: "Stateful event-stream correlation engine · analyst read/trace + author" },
-      { key: "detections", label: "Detection Engineering", icon: Radar,
+      { key: "detections", label: "Detections", icon: Radar,
         to: "/xdr/detections",
-        title: "Engineering / debugging / testing of detection execution" },
+        title: "Individual security findings derived from telemetry and "
+               + "evidence (Cisco XDR: Incidents ▸ Detections)" },
     ],
   },
   {
@@ -279,14 +289,13 @@ const ITEM_BY_KEY = Object.fromEntries(
 const RAIL = [
   { key: "control-center", label: "Control Center", icon: LayoutDashboard,
     to: "/xdr/mss-dashboard",
-    children: ["telemetry-studio", "telemetry-health",
-               "platform-health"] },
+    children: ["telemetry-health", "platform-health"] },
   { key: "incidents-primary", label: "Incidents", icon: AlertOctagon,
     to: "/xdr/incidents",
-    children: ["my-queue", "sla-aging", "response"] },
+    children: ["my-queue", "detections", "sla-aging", "response"] },
   { key: "investigate", label: "Investigate", icon: FolderSearch,
     to: "/xdr/investigations",
-    children: ["entity-search", "evidence-explorer",
+    children: ["entity-search", "activities", "evidence-explorer",
                "attack-story-rollup"] },
   { key: "intelligence", label: "Intelligence", icon: Globe,
     to: "/xdr/intelligence/threat",
@@ -294,7 +303,7 @@ const RAIL = [
   { key: "automate", label: "Automate", icon: Zap,
     to: "/xdr/respond/playbooks",
     children: ["automation-rules", "approvals", "rule-studio",
-               "detection-registry", "correlation-rules", "detections"] },
+               "detection-registry", "correlation-rules"] },
   { key: "assets-primary", label: "Assets", icon: Boxes,
     to: "/xdr/endpoints",
     children: ["assets-identity", "assets-network", "vulnerabilities",
@@ -314,7 +323,7 @@ const RAIL = [
 function useActiveKey() {
   const { pathname, search } = useLocation();
   return useMemo(() => {
-    if (pathname === "/xdr")                     return "incidents";
+    if (pathname === "/xdr")                     return "control-center";
     if (pathname.startsWith("/xdr/mss-dashboard")) return "mss-dashboard";
     if (pathname.startsWith("/xdr/incidents")) {
       return search.includes("mine=1") ? "my-queue" : "incidents";
@@ -400,7 +409,8 @@ export default function XdrShell({ children, flush = false }) {
     navigate(`/xdr/search?q=${encodeURIComponent(term)}`);
   };
 
-  const openExternal = (to) => window.open(to, "_blank", "noopener,noreferrer");
+  // PR-XDR-0: `openExternal` deleted. No surface in the NivXRay XDR shell
+  // may open another frontend or a new browser tab.
 
   return (
     <NxDensityProvider>
@@ -628,14 +638,18 @@ export default function XdrShell({ children, flush = false }) {
                     );
                   }
                   if (item.external) {
+                    // PR-XDR-0: the `external` rail class no longer exists.
+                    // Kept as a fail-closed guard so a reintroduced
+                    // `external: true` cannot silently open another
+                    // frontend — it renders disabled instead.
                     return (
-                      <button {...common} className="nav-item"
-                              onClick={() => openExternal(item.to)}
-                              title={item.title
-                                || `Opens ${item.to} in a new browser tab`}>
+                      <button {...common} className="nav-item disabled"
+                              disabled
+                              data-state="EXTERNAL_NAVIGATION_FORBIDDEN"
+                              title={"External product navigation is not "
+                                + "permitted from the NivXRay XDR rail."}>
                         <span className="ic"><Icon size={12} /></span>
                         {item.label}
-                        <span className="ext"><ExternalLink size={10} /></span>
                       </button>
                     );
                   }
@@ -667,6 +681,10 @@ export default function XdrShell({ children, flush = false }) {
           <XdrContextBar />
           {children}
         </main>
+        {/* Cisco XDR's persistent ribbon: pinned to the bottom of the
+            viewport on every page, expanded by default, collapsible to a
+            floating button, vertically resizable from its top edge. */}
+        <XdrRibbon />
       </div>
     </div>
     </NxDensityProvider>

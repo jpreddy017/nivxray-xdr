@@ -13,9 +13,31 @@
  * Zero fabrication — states come straight from the backend pointer.
  */
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Monitor, User, FileText, Network, Mail, Cloud, ArrowRight,
 } from "lucide-react";
+import { productHref, productMode } from "@/productOrigins";
+
+/**
+ * PR-XDR-0 · resolve a pointer's `deep_link` into a real destination.
+ * `/xdr/*` → in-product SPA navigation. `/edr/*` → the NivXForge EDR
+ * product, resolved through `productOrigins`. Anything else has no
+ * destination in this product and the control stays disabled rather than
+ * opening a tab that lands nowhere.
+ */
+function openTarget(p) {
+  const link = p?.deep_link;
+  if (!link || typeof link !== "string") return null;
+  if (link.startsWith("/xdr/")) return { to: link, mode: "IN_PRODUCT" };
+  if (link.startsWith("/edr")) {
+    const to = productHref("edr", link);
+    return { to,
+             mode: productMode("edr") === "CONFIGURED"
+                     ? "CROSS_PRODUCT" : "IN_PRODUCT" };
+  }
+  return null;
+}
 
 const DOMAINS = [
   { key: "endpoint",  label: "Endpoint", Icon: Monitor,
@@ -36,22 +58,29 @@ const STATUS_ORDER = ["related", "searched", "no_evidence", "not_connected"];
 
 function normalizeStatus(p) {
   if (!p) return "not_connected";
-  // Backend pointers carry `available` (bool), `bullets` (evidence list) and
-  // `reason` (why not available).  Map them onto the four semantic states.
+  // PR-XDR-0 · read the AUTHORITATIVE backend contract. The pointer carries
+  // `status` ∈ {available, no_matching_evidence, not_connected,
+  // not_available} plus `bullets` and `reason`. This tab previously keyed
+  // off `p.available`, a field the backend never emits, so an unconnected
+  // domain fell through to "SEARCHED · scope tightly bounded" — a claim
+  // that we queried a domain we cannot query.
   const bullets = Array.isArray(p.bullets) ? p.bullets : [];
-  if (p.available === false) {
-    // If the reason mentions "not connected" or "not configured",
-    // treat as NOT_CONNECTED.  Otherwise NO_EVIDENCE.
-    const r = String(p.reason || "").toLowerCase();
-    if (r.includes("not connected") || r.includes("not configured") || r.includes("integration"))
-      return "not_connected";
-    return "no_evidence";
-  }
+  const status  = String(p.status || "");
+  if (status === "available") return bullets.length > 0 ? "related" : "searched";
+  if (status === "not_connected" || status === "not_available")
+    return "not_connected";
+  if (status === "no_matching_evidence") return "no_evidence";
+  // No status field at all (older payload): fall back to the reason text.
+  const r = String(p.reason || "").toLowerCase();
+  if (r.includes("not connected") || r.includes("not configured")
+      || r.includes("integration") || r.includes("not enabled"))
+    return "not_connected";
   if (bullets.length > 0) return "related";
-  return "searched";
+  return "no_evidence";
 }
 
 export default function EvidenceTab({ incident }) {
+  const navigate = useNavigate();
   // Group pointers by domain (backend may emit synonymous keys).
   const byDomain = React.useMemo(() => {
     const alias = {
@@ -65,15 +94,16 @@ export default function EvidenceTab({ incident }) {
     const map = {};
     for (const p of (incident.evidence_pointers || [])) {
       const k = alias[p.domain] || p.domain;
-      if (!map[k]) map[k] = { bullets: [], reason: null, available: null,
-                                open_href: null };
+      if (!map[k]) map[k] = { bullets: [], reason: null, status: null,
+                                deep_link: null, domain: p.domain };
       const bullets = Array.isArray(p.bullets) ? p.bullets : [];
       map[k].bullets.push(...bullets);
-      if (p.reason)                map[k].reason = p.reason;
-      if (p.available === false)   map[k].available = false;
-      if (p.available === true && map[k].available !== false)
-                                    map[k].available = true;
-      if (p.open_href)             map[k].open_href = p.open_href;
+      if (p.reason)     map[k].reason = p.reason;
+      if (p.status)     map[k].status = p.status;
+      // PR-XDR-0 · the backend field is `deep_link`. This tab used to read
+      // `open_href`, which the backend never emits, so the Open control was
+      // dead on every domain card.
+      if (p.deep_link)  map[k].deep_link = p.deep_link;
     }
     return map;
   }, [incident.evidence_pointers]);
@@ -125,15 +155,25 @@ export default function EvidenceTab({ incident }) {
                   <button
                     type="button"
                     className="rl-domain-link"
-                    disabled={status !== "related"}
+                    disabled={!openTarget(p)}
                     data-testid={`xdr-record-evidence-${d.key}-open`}
+                    data-open-to={openTarget(p)?.to || undefined}
+                    data-open-mode={openTarget(p)?.mode || undefined}
                     onClick={() => {
-                      if (p?.open_href && typeof window !== "undefined")
-                        window.open(p.open_href, "_blank");
+                      const t = openTarget(p);
+                      if (!t) return;
+                      // PR-XDR-0 · same-product destinations stay in the SPA
+                      // (shell mounted, no new tab). A NivXForge EDR target is
+                      // a different product, so it resolves through
+                      // `productOrigins` and only opens a tab when that
+                      // product genuinely lives at another origin.
+                      if (t.mode === "CROSS_PRODUCT")
+                        window.open(t.to, "_blank", "noopener,noreferrer");
+                      else navigate(t.to);
                     }}
-                    style={{ opacity: status === "related" ? 1 : 0.4 }}
+                    style={{ opacity: openTarget(p) ? 1 : 0.4 }}
                   >
-                    {status === "related" ? "Open" : "Explore"}
+                    {openTarget(p) ? "Open" : "Explore"}
                     <ArrowRight size={11} />
                   </button>
                 </div>
