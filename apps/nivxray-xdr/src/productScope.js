@@ -56,3 +56,44 @@ export function isForeignPath(pathname) {
   const owner = productOfPath(pathname);
   return owner !== null && owner !== PRODUCT_SCOPE;
 }
+
+
+/** Product-scope-aware branding · the single source of truth for the
+ *  wordmark, product name, tagline and document title.
+ *
+ *  The login page is shared by both products, so it must never hard-code a
+ *  product identity: `/login` is the generic entry point that BOTH hostnames
+ *  land on, and a hard-coded default is exactly why edr.nivxforge.com
+ *  rendered "NIVXRAY XDR". Anything showing a product name reads from here.
+ *
+ *  An unscoped (combined/preview) build keeps the XDR identity, so preview
+ *  behaviour is unchanged.
+ */
+const BRANDS = {
+  xdr: {
+    scope: "xdr",
+    suffix: "XDR",
+    // Rendered verbatim inside the lockup, so the XDR wordmark and tagline
+    // stay byte-for-byte identical to the shipped production build.
+    taglineLead: "EXTENDED",
+    name: "NivXRay",
+    nameSuffix: "XDR",
+    subtitle: "Extended detection & response",
+    documentTitle: "NivXRay XDR",
+  },
+  edr: {
+    scope: "edr",
+    suffix: "EDR",
+    taglineLead: "ENDPOINT",
+    name: "NivXRay",
+    nameSuffix: "EDR",
+    subtitle: "Endpoint detection & response",
+    documentTitle: "NivXRay EDR",
+  },
+};
+
+/** Branding for an explicit scope; falls back to the XDR identity. */
+export const brandFor = (scope) => BRANDS[scope] || BRANDS.xdr;
+
+/** Branding for THIS deployment. */
+export const BRAND = brandFor(PRODUCT_SCOPE);

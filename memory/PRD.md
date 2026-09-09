@@ -14782,3 +14782,85 @@ agent cannot fetch or verify the push).
 repoint ONLY `nivxray-edr-production` Production Branch and redeploy; accept
 only on `EDR PRODUCTION BUILD GUARD · PASSED` + `/build-info.json` real JSON
 with `product_scope=edr`.
+
+---
+
+# P0-EDR LOGIN BRANDING FIX — UI ONLY, DONE + TESTED (2026-06)
+
+Untouched as instructed: DNS, Vercel config, branch tracking, API origin,
+authentication behaviour, backend auth, XDR production. No new login
+implementation — the existing shared login was made product-aware. No refactor.
+
+## ROOT CAUSE
+`src/App.jsx:111` renders `<Route path="/login" element={<LoginPage />} />`
+with **no `product` prop**, so `LoginPage`'s default parameter
+`product = "NIVXRAY_XDR"` applied. `/login` is the GENERIC entry point that
+BOTH hostnames land on (the auth guard sends unauthenticated users to
+`/login?returnTo=...`), so the EDR deployment always rendered XDR identity.
+The default was hard-coded and never consulted `PRODUCT_SCOPE`.
+
+Three further hard-coded spots found by the trace:
+- `src/components/brand/NivxrayBrand.jsx` — `NivxrayLockup` hard-coded
+  `NIVXRAY XDR` + `EXTENDED  DETECTION / RESPONSE`; `NivxrayBrand` hard-coded
+  the `XDR` suffix. (`NivxrayLockup` is used ONLY by LoginPage.)
+- `index.html:6` — static `<title>NivXRay XDR</title>` (shared, not scoped).
+- LoginPage footer — `<a href="/">NivXRay Workspace</a>`, an XDR-era link that
+  on the EDR host just re-enters the app (`/` -> `/edr`), i.e. misleading text.
+
+## MINIMAL FIX (5 files)
+- `src/productScope.js` — added `BRANDS` table + `brandFor(scope)` + `BRAND`
+  (single source of truth: wordmark suffix, taglineLead, name/nameSuffix,
+  subtitle, documentTitle). Reuses the EXISTING product-scope mechanism.
+  Unscoped/preview builds keep the XDR identity.
+- `src/pages/LoginPage.jsx` — default `product` now derived from
+  `PRODUCT_SCOPE`; name/subtitle rendered from the brand table; footer
+  Workspace link rendered ONLY when `WORKSPACE_URL` is configured (it is empty
+  while `cross_product_origins=0`), so no misleading XDR-era link on EDR.
+  Added `data-testid`s: `login-product-subtitle`, `login-workspace-link`,
+  `brand-lockup-tagline`; lockup testid is now `${scope}-brand-lockup` with
+  `data-brand-scope`.
+- `src/components/brand/NivxrayBrand.jsx` — lockup/wordmark read the brand
+  table; accepts an explicit `scope` override.
+- `src/main.jsx` — `document.title = BRAND.documentTitle` at boot (index.html
+  ships one static title).
+- `tests/adoption/test_login_branding_is_scope_aware.mjs` — NEW regression gate.
+
+EDR now renders: `NIVXRAY EDR` · `NivXRay EDR` ·
+`ENDPOINT DETECTION & RESPONSE` · title `NivXRay EDR`.
+(Note: the EDR card previously said "NivXForge EDR"; changed to "NivXRay EDR"
+per the owner's explicit spec.)
+
+## TESTS
+- `test_login_branding_is_scope_aware.mjs` — **25/25 PASS**. Imports
+  productScope.js three times (edr / xdr / unscoped) and asserts resolved
+  branding, that edr != xdr, that XDR strings are preserved exactly, that
+  `brandFor()` ignores ambient scope, plus source assertions that no
+  hard-coded product identity remains and that `login(email, pw)` and the
+  `returnTo` cross-product guard are UNCHANGED.
+- **EDR PRODUCTION BUILD GUARD · PASSED** (`scope · edr → edr.nivxforge.com`,
+  no xdr dependency, api origin x4, product scope declared "edr").
+- **XDR PRODUCTION BUILD GUARD · PASSED** (`scope · xdr`, no edr dependency,
+  build-info `product_scope=xdr`, `api_origin=https://nivxray.nivxforge.com`).
+- Pre-existing failure, NOT caused by this change (verified by stashing the 4
+  source files and re-running: 147 failures before AND after):
+  `tests/adoption/test_capability_registry_matches_base.mjs`.
+
+## ACCEPTANCE
+A ✔ EDR renders EDR branding (behavioural gate + guard).
+B ✔ XDR branding preserved exactly (gate asserts the literal strings; XDR
+    build guard PASSED).
+C ✔ `/login?returnTo=/edr` untouched — no routing/redirect change.
+D ✔ Authentication unchanged — no auth file touched; gate asserts the
+    credential call and returnTo guard are intact.
+E ✔ Both build guards pass.
+F ✔ Regression test added.
+
+## NOT VERIFIED VISUALLY IN THIS SESSION (honest limitation)
+A local `python -m http.server` has no SPA rewrite, so `/login` 404s and the
+browser screenshot could not render the route. Visual confirmation must happen
+on `edr.nivxforge.com` after the next deploy, which has the Vercel rewrite.
+
+## NEXT (owner)
+Deploy the EDR project from the branch carrying this change, then confirm
+`edr.nivxforge.com/login?returnTo=%2Fedr` shows NIVXRAY EDR / NivXRay EDR /
+ENDPOINT DETECTION & RESPONSE, and that xdr.nivxforge.com is unchanged.

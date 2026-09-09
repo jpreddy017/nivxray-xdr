@@ -9,12 +9,22 @@ import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { NivxrayLockup } from "@/components/brand/NivxrayBrand";
+import { WORKSPACE_URL } from "@/productOrigins";
+import { PRODUCT_SCOPE, brandFor } from "@/productScope";
 
 /** Y1 · D-3 · ONE authentication engine, TWO product entry points.
  *  `product="NIVXFORGE_EDR"` only changes identity and destination; the
  *  credential exchange and every authorisation decision stay
- *  server-side and identical. */
-export default function LoginPage({ product = "NIVXRAY_XDR" }) {
+ *  server-side and identical.
+ *
+ *  The default is derived from the DEPLOYMENT SCOPE, never hard-coded: this
+ *  component also serves the generic `/login` route, which is the entry point
+ *  BOTH hostnames land on. A hard-coded `"NIVXRAY_XDR"` default is why
+ *  edr.nivxforge.com rendered XDR branding. `/edr/login` may still pass the
+ *  product explicitly, and an unscoped build keeps the XDR identity. */
+export default function LoginPage({
+  product = PRODUCT_SCOPE === "edr" ? "NIVXFORGE_EDR" : "NIVXRAY_XDR",
+}) {
   const { login } = useAuth();
   const navigate  = useNavigate();
   const [params]  = useSearchParams();
@@ -24,6 +34,7 @@ export default function LoginPage({ product = "NIVXRAY_XDR" }) {
   const [pw, setPw]         = useState("");
   const [busy, setBusy]     = useState(false);
   const isEdr = product === "NIVXFORGE_EDR";
+  const brand = brandFor(isEdr ? "edr" : "xdr");
   const home  = isEdr ? "/edr" : "/xdr";
   const [err, setErr]       = useState(null);
 
@@ -56,17 +67,17 @@ export default function LoginPage({ product = "NIVXRAY_XDR" }) {
         data-product={product}
       >
         <div style={{ marginBottom: 18 }}>
-          <NivxrayLockup size={40} />
+          <NivxrayLockup size={40} scope={brand.scope} />
           <div data-testid="login-product-identity"
                style={{ marginTop: 9, fontSize: 12.5, fontWeight: 700,
                         letterSpacing: .3, color: "#E6E9F0" }}>
-            {isEdr ? (<>NivXForge <span style={{ color: "#22B8CF" }}>EDR</span></>)
-                   : (<>NivXRay <span style={{ color: "#22B8CF" }}>XDR</span></>)}
+            {brand.name}{" "}
+            <span style={{ color: "#22B8CF" }}>{brand.nameSuffix}</span>
           </div>
           <div style={{ marginTop: 2, fontSize: 10, color: "#78808F",
-                        letterSpacing: .5, textTransform: "uppercase" }}>
-            {isEdr ? "Endpoint detection & response"
-                   : "Extended detection & response"}
+                        letterSpacing: .5, textTransform: "uppercase" }}
+               data-testid="login-product-subtitle">
+            {brand.subtitle}
           </div>
         </div>
 
@@ -120,9 +131,16 @@ export default function LoginPage({ product = "NIVXRAY_XDR" }) {
           {busy ? "Signing in…" : "Sign in"}
         </button>
 
-        <div style={{ marginTop: 14, fontSize: 10.5, color: "#78808F" }}>
-          Signed in? You can also open <a href="/" style={{ color: "#3FC1E8", textDecoration: "underline" }}>NivXRay Workspace</a>.
-        </div>
+        {WORKSPACE_URL ? (
+          <div style={{ marginTop: 14, fontSize: 10.5, color: "#78808F" }}
+               data-testid="login-workspace-link">
+            Signed in? You can also open{" "}
+            <a href={WORKSPACE_URL}
+               style={{ color: "#3FC1E8", textDecoration: "underline" }}>
+              NivXRay Workspace
+            </a>.
+          </div>
+        ) : null}
       </form>
     </div>
   );
