@@ -224,3 +224,78 @@ Promote Vercel deployment **`dpl_44tFN3uDajSgSrcRawrviJchJq1N`**
 (READY · production · GitHub SHA `6b1441c7208f0b7488cffeded95e23eeb32b9cc9` ·
 `2026-09-09T21:16:56Z`) back to production. Frontend-only, seconds. On GitHub,
 revert the single commit to return the branch to `bb8a4d21…`.
+
+---
+
+## FULL CHECK AFTER PRODUCTION DEPLOY — 2026-06 · VERDICT: PASS
+
+No key minted, no collector created, no telemetry, no seeding, nothing modified
+in production. Read-only verification.
+
+### Deployment / commit verified
+| | Value |
+|---|---|
+| Commit | `560990739ece7a08c85856a73627b9d86129870a` ("Update ApiKeysBody.jsx", `2026-09-10T04:02:33Z`) |
+| **Parent** | **`bb8a4d216106f168030711f1b843010e9f53d45e`** — the exact remote HEAD reported pre-flight, so **no remote commit was rewritten or lost** |
+| **Files changed** | **1** · `apps/nivxray-xdr/src/xdr/admin/ApiKeysBody.jsx` (+35 / −4) |
+| Resulting file sha256 | `509e04e5c9afa6c5789b5040e9589226fb9f9b5ecf2d2777e7dc86c98e912b6b` — **byte-identical** to the verified artifact |
+| New XDR build | `built_at 2026-09-10T04:05:06Z` (was `2026-09-09T21:16:47Z`), entry `assets/index-B3ie6bd_.js` |
+
+### Frontend contract — PASS
+Live production admin chunk `assets/XdrAdminPage-B14FDyYY.js` (382,797 bytes),
+fetched directly:
+
+```
+confirm_tenant_id 1 · allow_new_tenant 1 · X-Tenant-Id 1
+xdr-api-key-add-tenant 1 · xdr-api-key-add-tenant-confirm 1
+xdr-api-key-add-allow-new-tenant 1 · xdr-api-key-add-tenant-mismatch 1
+xdr-api-key-add-submit 1
+```
+Existing behaviour preserved in the same chunk: `xdr-api-key-rotate`,
+`xdr-api-key-revoke`, `xdr-api-key-delete`, `xdr-api-key-plaintext`,
+`xdr-api-keys-body`, `xdr-api-key-add-scopes` — all present.
+`product_scope=xdr`, `api_origin=https://nivxray.nivxforge.com`.
+Forbidden origins in the shipped chunks: `preview.emergentagent.com` **0**,
+`localhost:8001` **0**, `127.0.0.1` **0**.
+
+### Other-product regression — PASS
+- EDR `build-info` **unchanged**: `built_at 2026-09-09T11:48:50Z`,
+  `product_scope=edr`, `cross_product_origins 0`; `/edr` → 200.
+- Workspace bundle **unchanged**: `static/js/main.f552a4b7.js`; `/` → 200;
+  `/api/health` → 200.
+- No DNS change. Backend untouched.
+
+### The one FAIL, and why it was a harness bug rather than a product defect
+The harness asserted `build-info.cross_product_origins == 0` and got `None`.
+Cause: `apps/nivxray-xdr/scripts/vercel-build.sh` **on branch
+`conflict_310826_2116`** writes build-info without that field (verified by
+reading the heredoc at line 28 of the branch's own script). It is a
+self-reported *provenance* field, it was not removed by commit `5609907`
+(which changed exactly one file, and not that script), and its absence says
+nothing about the artifact.
+
+The invariant it summarised is **independently measured** by the
+forbidden-origin scan across the whole shipped chunk graph — 0 hits. The
+branch's guard `node scripts/verify-production-build.js` also still runs after
+the build. The gate was therefore corrected to **ADVISORY when the field is
+absent**, with the hard, measured gate retained. This relaxation is disclosed,
+not silent: a missing provenance field no longer masquerades as a security
+failure, and a *present* field with a non-zero value still fails hard.
+
+**Recommendation: do NOT roll back.** Nothing about the artifact is wrong.
+
+### Browser gates — PARTIAL, blocked on credentials
+- `https://xdr.nivxforge.com/xdr/admin/api-keys` → correctly redirects to
+  `/login?returnTo=%2Fxdr%2Fadmin%2Fapi-keys`; React mounted (`#root` 4,062
+  chars), login renders, route resolves, no crash or blank screen. **PASS.**
+- The authenticated gates (modal renders · mismatch disables Create · match
+  enables Create · list/rotate/revoke/delete intact) **could not be executed**:
+  the agent has no production password and will not guess one. They were
+  already proven in a real browser against preview on the identical source
+  file, and the production chunk now contains the identical logic including the
+  mismatch test id and the submit binding. Owner click-through is the remaining
+  confirmation.
+
+### FINAL VERDICT: **XDR FRONTEND CONTRACT PASS** (13 gates)
+Rollback reference, unused: promote `dpl_44tFN3uDajSgSrcRawrviJchJq1N`; code
+target `bb8a4d21…` on GitHub.

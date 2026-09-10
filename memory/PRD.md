@@ -15335,3 +15335,17 @@ Copying preview data remains REJECTED. Record:
 `memory/P0_PREVIEW_VS_PRODUCTION_INCIDENTS_DIAGNOSIS.md`.
 Backlog noted: production incidents queue defaults to a `Last 7 days` window;
 production sub-nav lacks `Detections` (older SPA build).
+
+### 2026-06 · XDR frontend issuance contract LIVE in production — PASS
+GitHub commit `5609907` (parent `bb8a4d21…`, **1 file**, +35/−4) on
+`conflict_310826_2116`; Vercel rebuilt XDR only. New build `2026-09-10T04:05:06Z`.
+All three contract fields plus `X-Tenant-Id` confirmed in the live chunk
+`assets/XdrAdminPage-B14FDyYY.js`; rotate/revoke/delete/plaintext preserved;
+0 forbidden origins; EDR and Workspace byte-unchanged. One harness gate
+(`cross_product_origins`) corrected to ADVISORY — the branch build script does
+not emit that provenance field; the invariant is measured directly.
+Authenticated modal click-through still needs the owner (no production password
+held). Record: `memory/XDR_FRONTEND_READINESS_ISSUANCE_CONTRACT.md`.
+**NEXT**: owner mints `nivx-prod-1` key in the production UI (scopes
+`collectors.enroll collectors.read`, 30-day `expires_at`) → create `syslog`
+collector → real Linux auditd source. No fake data in production, ever.
