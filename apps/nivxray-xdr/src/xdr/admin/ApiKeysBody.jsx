@@ -86,9 +86,10 @@ function RevealModal({ plaintext, prefix, onClose, notice }) {
 }
 
 
-function AddKeyModal({ onClose, onCreated }) {
+function AddKeyModal({ onClose, onCreated, tenant }) {
   const [f, setF] = useState({ name: "", description: "", scopes: "",
-                                                      expires_at: "", tenant_id: "",
+                                                      expires_at: "",
+                                                      tenant_id: tenant || "",
                                                       confirm_tenant_id: "",
                                                       allow_new_tenant: false });
   const [busy, setBusy] = useState(false);
@@ -204,11 +205,17 @@ export default function ApiKeysBody() {
   const [reveal, setReveal] = useState(null);   // {plaintext, prefix, notice}
   const [tick, setTick] = useState(0);
   const [lastAudit, setLastAudit] = useState(null);
+  // Every /xdr/api-keys handler resolves its tenant from `X-Tenant-Id`
+  // (defaulting to "default"), so the WHOLE surface — list, rotate, revoke,
+  // delete — must speak the same tenant as the key was created under.
+  // Sending the header on create only made a freshly created key invisible.
+  const [tenant, setTenant] = useState("default");
+  const hdrs = () => ({ headers: { "X-Tenant-Id": tenant } });
 
   const load = async () => {
     setState({ loading: true, err: null });
     try {
-      const r = await api.get("/xdr/api-keys");
+      const r = await api.get("/xdr/api-keys", hdrs());
       const j = r?.data;
       if (j && j.ok === false) {
         setRows([]);
@@ -227,11 +234,11 @@ export default function ApiKeysBody() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tick]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tick, tenant]);
 
   const rotate = async (k) => {
     try {
-      const r = await api.post(`/xdr/api-keys/${k.id}/rotate`);
+      const r = await api.post(`/xdr/api-keys/${k.id}/rotate`, null, hdrs());
       setReveal({ plaintext: r?.data?.data?.plaintext,
                           prefix:    r?.data?.data?.prefix,
                           notice:    r?.data?.data?.reveal_notice
@@ -245,7 +252,7 @@ export default function ApiKeysBody() {
   const revoke = async (k) => {
     if (!window.confirm(`Revoke API key '${k.name}'?  This cannot be undone.`)) return;
     try {
-      const r = await api.post(`/xdr/api-keys/${k.id}/revoke`);
+      const r = await api.post(`/xdr/api-keys/${k.id}/revoke`, null, hdrs());
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
@@ -255,7 +262,7 @@ export default function ApiKeysBody() {
   const remove = async (k) => {
     if (!window.confirm(`Delete API key '${k.name}'?`)) return;
     try {
-      const r = await api.delete(`/xdr/api-keys/${k.id}`);
+      const r = await api.delete(`/xdr/api-keys/${k.id}`, hdrs());
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
@@ -287,6 +294,16 @@ export default function ApiKeysBody() {
         stats={heroStats}
         testid="ak-hero"
         actions={<>
+          <label style={{ display: "flex", alignItems: "center", gap: 5,
+                              fontSize: 10.5, color: "var(--faint)",
+                              fontFamily: "var(--mono)" }}>
+            TENANT
+            <input value={tenant} data-testid="xdr-api-key-tenant-context"
+                       onChange={(e) => setTenant(e.target.value)}
+                       placeholder="default"
+                       style={{ ...inp, display: "inline-block", width: 150,
+                                       marginTop: 0, padding: "3px 6px" }} />
+          </label>
           <button className="btn" onClick={() => setAddOpen(true)}
                        data-testid="xdr-api-key-add-btn"
                        style={{ padding: "3px 10px", fontSize: 11 }}>
@@ -330,7 +347,7 @@ export default function ApiKeysBody() {
         <div data-testid="xdr-api-key-empty"
                  style={{ padding: 10, fontSize: 11, color: "var(--faint)",
                                  fontFamily: "var(--mono)" }}>
-          NO API KEYS PROVISIONED FOR THIS TENANT YET
+          NO API KEYS PROVISIONED FOR TENANT '{tenant}' YET
         </div>
       )}
       {rows.length > 0 && (
@@ -402,7 +419,11 @@ export default function ApiKeysBody() {
 
       {addOpen && (
         <AddKeyModal onClose={() => setAddOpen(false)}
+                              tenant={tenant}
                               onCreated={(res) => {
+                                // Follow the key: switch the surface to the tenant it
+                                // was actually bound to, so the list shows it at once.
+                                if (res?.data?.tenant_id) setTenant(res.data.tenant_id);
                                 setReveal({
                                   plaintext: res?.data?.plaintext,
                                   prefix:    res?.data?.prefix,
