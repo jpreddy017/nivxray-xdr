@@ -248,3 +248,81 @@ previous deployment; code target `be651bce`.
 
 Still not done, per instruction: no key minted, no collector, no auditd, no
 telemetry, no seeding.
+
+---
+
+## POST-DEPLOY VERIFICATION — 2026-06 · VERDICT: **PRODUCTION HARDENING PASS**
+
+Deployed revision: **`e9978291`** (candidate promoted from `be651bce`).
+Harness: `scripts/prod_verify_p1_hardening.py --mode verify` (read-only,
+no credential, no writes). Full JSON: `test_reports/prod_baseline_p1.json`
+holds the pre-deploy baseline for comparison.
+
+### 11/11 gates PASS
+| Gate | Before | After |
+|---|---|---|
+| `/api/health` 200 | 200 | **200** |
+| `CreateKeyBody.confirm_tenant_id` | absent | **present** |
+| `CreateKeyBody.allow_new_tenant` | absent | **present** |
+| `TelemetryReceipt.duplicates` (idempotency live) | absent | **present** (+`resumed`) |
+| unknown API key → 401 | **403** `Not authenticated` | **401** |
+| unknown API key reason | — | **`unknown-api-key`**, `principal_kind: api_key` |
+| anonymous ingest → 403 | 403 (generic) | **403** `ACCESS_DENIED / unauthenticated` |
+| legacy-header RBAC fail-closed | 403 | **403** `collectors.read / unauthenticated` |
+| production auth alive | 401 `Invalid credentials` | **401 `Invalid credentials`** |
+| Workspace `/` 200 + CRA bundle | 200 | **200** |
+| Workspace `/auto-investigate` 200 | 200 | **200** |
+
+### Baseline delta
+- API surface: **785 paths / 275 schemas → unchanged**. Only the 3 expected
+  schemas gained fields (`CreateKeyBody`, `TelemetryReceipt`, `ReasoningOutcome`).
+- Workspace CSS: `static/css/main.d85aa4cc.css` → **unchanged**.
+- Workspace JS: `main.46cdaa0a.js` → **`main.f552a4b7.js`** (402,334 bytes, 200).
+
+### Honest correction about that bundle hash
+Earlier the impact check said restoring the lockfile would leave the Workspace
+build inputs "byte-identical to what produced the live bundle". The JS hash
+changed, so that statement was **too strong**: the previously live bundle was
+most plausibly built while the drifted lockfile was in the workspace (CRA
+content hashes track the dependency graph), or CRA is simply not bit-reproducible
+across image builds. Either way the current state is the safer one — the bundle
+now derives from the **committed** dependency declarations, i.e. it is
+reproducible from git.
+
+Verified the rebuilt Workspace actually works rather than merely returning 200:
+`/` → 307 `/login`, React mounted (`#root` 4,319 chars), login terminal renders,
+bundle contains the `auto-investigate` route and the correct API origin
+`https://nivxray.nivxforge.com`. (`/static/js/main.46cdaa0a.js` still answers
+200 only because of the SPA catch-all rewrite, not because the old asset survives.)
+
+### Rate-limit behaviour — proven WITHOUT loading production
+Headers are emitted on 429 and on success, so a 401 cannot show them. The
+positive proof is structural: `_throttle("ip", …)` runs **before** the key is
+even shape-checked, and a limiter that could not reach Mongo returns
+**503 `RATE_LIMITER_UNAVAILABLE`** (fail closed). Three consecutive unknown-key
+probes each returned **401**, so the IP window was consumed successfully on every
+one — the limiter is live and healthy. Forcing a real 429 would require ~600
+requests/minute against production ingest; deliberately not done.
+
+### No production data / tenant mutation
+- `seed_admin()` returns early for an existing admin (`deps.py:370-372`); the
+  production admin exists (bad-password login → 401 `Invalid credentials`).
+- API surface counts unchanged; no migration, no seed, no index drop in the diff.
+- Every request this agent made was read-only or refused by auth.
+- **Limitation stated plainly**: the agent has no production DB access and no
+  production password, so authenticated surfaces were not exercised. Owner
+  confirmation by logging in is the remaining check.
+
+### Other products
+- `xdr.nivxforge.com` untouched: `build-info.json` still
+  `product_scope=xdr`, `api_origin=https://nivxray.nivxforge.com`,
+  `built_at 2026-09-09T21:16:47Z`; `/xdr` → 200. (Vercel-hosted; not part of
+  this deploy.)
+- No DNS change, no EDR deploy, no XDR frontend deploy.
+
+### Rollback reference (unused)
+Manage Publishes → Overview → rollback icon (↺) on the previous deployment
+(atomic backend + Workspace). Code target: **`be651bce`**.
+
+STOPPED. No credential minted, no collector created, no auditd installed, no
+telemetry sent. Awaiting owner approval for collector enrolment.

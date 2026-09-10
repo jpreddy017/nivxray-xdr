@@ -15309,3 +15309,15 @@ refused by design (attribution guard) and was NOT worked around.
 **Backlog unchanged**: P1 Cisco XDR visual parity (reference manifest received),
 P1 global search federation, P2 RC5 fixture errors (69), P2 `test_xdr_api_keys.py`
 legacy-header failures (7, pre-existing).
+
+### 2026-06 · P1 hardening DEPLOYED to production — PASS
+Revision `be651bce` → **`e9978291`** on `nivxray.nivxforge.com`.
+11/11 production gates pass (`scripts/prod_verify_p1_hardening.py`):
+rate limiter live (503-vs-401 discriminator), issuance confirmation live,
+delivery idempotency live, machine API-key auth live (401 `unknown-api-key`,
+was 403), anonymous + legacy-header paths still fail-closed, Workspace renders
+(new JS bundle `main.f552a4b7.js`, CSS unchanged), XDR/EDR/DNS untouched.
+Record: `memory/DEPLOYMENT_IMPACT_CHECK_P1.md`.
+**NEXT (awaiting owner approval)**: mint `nivx-prod-1` ingest key → create
+`syslog` collector → point ONE real Linux host's auditd at
+`POST /api/xdr/ingest/telemetry` → prove telemetry → detection → incident.
