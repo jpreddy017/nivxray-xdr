@@ -137,3 +137,90 @@ requested, printed, copied, logged or written anywhere by the agent. When we
 reach host configuration the key will be supplied via a `systemd`
 `EnvironmentFile` with `0600` permissions (or `systemd-creds`), never as a
 command-line argument and never in shell history.
+
+---
+
+## REMOTE PRE-FLIGHT — verified against the real GitHub branch (2026-06)
+
+No Save-to-GitHub, no force push, no new branch, no whole-workspace push, no
+lockfile touched, no unrelated file touched, no backend redeploy, no key or
+collector created. Nothing written to GitHub.
+
+### Remote facts (read directly from GitHub — the repo is public)
+| | Value |
+|---|---|
+| Repo | `jpreddy017/nivxray-xdr` |
+| Branch | `conflict_310826_2116` |
+| **Remote HEAD** | **`bb8a4d216106f168030711f1b843010e9f53d45e`** |
+| HEAD message / date | "Fix XDR frozen lockfile for D3 dependency" · `2026-09-09T03:25:27Z` · 1 file changed |
+| **Remote `ApiKeysBody.jsx` sha256** | **`11208b6938ae59124eaa9dedb35eeeebffbed147a4513c29fdfdec5f2a97378a`** |
+| Expected pre-change version (our `bf53d6c0`) | `11208b69…378a` |
+| Match | **BYTE-IDENTICAL — safe to patch** |
+
+### The patch was mechanically proven against the ACTUAL remote file
+The remote file was downloaded, the patch applied in an isolated tree, and the
+result compared to our verified build:
+
+```
+patch -p1 --dry-run   → DRY RUN CLEAN
+resulting sha256      → 509e04e5c9afa6c5789b5040e9589226fb9f9b5ecf2d2777e7dc86c98e912b6b
+cmp vs verified final → IDENTICAL
+```
+
+- Patch: `memory/xdr_frontend_patch/ApiKeysBody.confirm-tenant.patch` (73 lines)
+- Final file: `memory/xdr_frontend_patch/ApiKeysBody.jsx.final`
+- **Files changed: exactly 1.** No lockfile, no `package.json`, no backend, no
+  other product, no config.
+
+### BLOCKER — the agent cannot write to GitHub
+`/root/.git-credentials` exists but the token is **invalid**:
+`GET https://api.github.com/user` → **401 `Bad credentials`**, and the same for
+the branch ref. Read access works only because the repository is public.
+`git remote -v` is empty. So the commit must be made by the owner, or a
+fine-grained PAT with `contents:write` limited to this one repo must be supplied.
+
+### Owner steps (GitHub web UI — one file, one commit)
+1. Open `apps/nivxray-xdr/src/xdr/admin/ApiKeysBody.jsx` on branch
+   `conflict_310826_2116`.
+2. Verify the file still hashes to `11208b69…378a` (it did at the time of this
+   report). If GitHub shows any other content, **STOP**.
+3. Replace the whole file with `memory/xdr_frontend_patch/ApiKeysBody.jsx.final`.
+4. Commit **directly to `conflict_310826_2116`**, message suggestion:
+   `XDR admin: confirm_tenant_id + allow_new_tenant for hardened API-key issuance`
+5. Confirm the commit shows **1 changed file**. Vercel then rebuilds the XDR
+   project only (`nivxray-edr-production` watches `phase2/edr-production`).
+
+### Full Check harness is staged and its baseline captured
+`scripts/verify_xdr_frontend_contract.py` (read-only; no credential, no key).
+Baseline → `test_reports/xdr_frontend_baseline.json`:
+
+| Probe | Pre-change value |
+|---|---|
+| XDR `build-info.built_at` | `2026-09-09T21:16:47Z` |
+| XDR `product_scope` / `api_origin` | `xdr` / `https://nivxray.nivxforge.com` |
+| XDR `cross_product_origins` | `0` |
+| chunks walked | **118** (full graph, Admin chunks first) |
+| contract present in live bundle | **NO** — `contract_hits: {}` |
+| forbidden preview/localhost origins | none |
+| EDR `build-info.built_at` | `2026-09-09T11:48:50Z` |
+| Workspace bundle | `static/js/main.f552a4b7.js` |
+| Workspace API | 200 |
+
+The empty `contract_hits` is a **true** negative, confirmed by fetching the
+admin chunk directly: `assets/XdrAdminPage-BEWHTget.js` (380,567 bytes) contains
+`xdr-api-key-add-name` and `xdr-api-keys-body` but **0** occurrences of
+`confirm_tenant_id`, `allow_new_tenant` or `xdr-api-key-add-tenant-confirm`.
+The harness was hardened to walk Admin chunks first with a 150-chunk cap so it
+cannot report a false negative after the deploy.
+
+Post-deploy the harness asserts: new `built_at`, scope/origin/cross-origin
+unchanged, all three contract strings present, no preview or localhost origin,
+**EDR build-info unchanged**, **Workspace bundle unchanged**, Workspace API 200.
+The interactive gates (modal renders, mismatch disables submit, match enables
+it, list/rotate/revoke/delete still work) are then driven in a real browser.
+
+### Rollback target
+Promote Vercel deployment **`dpl_44tFN3uDajSgSrcRawrviJchJq1N`**
+(READY · production · GitHub SHA `6b1441c7208f0b7488cffeded95e23eeb32b9cc9` ·
+`2026-09-09T21:16:56Z`) back to production. Frontend-only, seconds. On GitHub,
+revert the single commit to return the branch to `bb8a4d21…`.
