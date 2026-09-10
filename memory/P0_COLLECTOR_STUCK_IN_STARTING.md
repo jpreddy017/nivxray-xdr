@@ -83,3 +83,133 @@ indefinite `STARTING`. Two valid ways forward:
 
 **Not deployed.** This change is in the workspace only; production still runs
 the previous backend until the owner approves a deploy.
+
+---
+
+## Refresh button — reproduced, and it was NOT broken (2026-06)
+
+Instrumented the real page and counted network calls on click:
+
+```
+collector calls on initial load ......... 4
+Refresh buttons found ................... 1  (visible=True enabled=True)
+collector calls AFTER clicking Refresh .. 6   delta = +2
+  → /api/xdr/collectors
+  → /api/xdr/collectors/protocols/catalog
+```
+
+The button fires both requests correctly. It *read* as dead for two reasons:
+1. **No acknowledgement** — `busy` was tracked but nothing rendered, and a
+   refresh returning identical data is pixel-identical.
+2. The value being re-fetched was `STARTING`, which — per the defect above —
+   could never change, so Refresh legitimately changed nothing.
+
+### Fix (1 file, `apps/nivxray-xdr/src/xdr/admin/CollectorsBody.jsx`)
+- button shows `Refreshing…` and is `disabled` while in flight;
+- new `loadedAt` stamp rendered as `refreshed HH:MM:SSZ`
+  (`data-testid="col-last-refreshed"`), set on every completed load.
+
+Verified in a real browser: `refreshed 13:26:42Z` → click →
+`refreshed 13:26:47Z`. A no-op refresh is now evidently a refresh.
+
+---
+
+## BLOCKER FOUND for the next step — collector/key tenant mismatch
+
+`xdr_ingest` enforces cross-tenant isolation (lines 406-415): every envelope's
+`tenant_id` **must equal the collector's `tenant_id` on disk**, else 404 /
+mismatch.
+
+`CollectorsBody.jsx` sends **no `X-Tenant-Id`** on `api.get("/xdr/collectors")`
+or `api.post("/xdr/collectors", …)` — the same defect class as the API-keys
+surface. So `linux-audit-syslog-prod-1`, created through the production UI, is
+bound to tenant **`default`**, while the minted ingest key is bound to
+**`nivx-prod-1`**.
+
+**Consequence:** the auditd forwarder would be rejected outright. This must be
+resolved before any host work. Options for the owner:
+1. Apply the same 3-line tenant-context pattern to `CollectorsBody.jsx`, then
+   create the collector under `nivx-prod-1` (recommended — consistent, and
+   fixes listing/start/stop/enable for every non-default tenant);
+2. or mint the ingest key under tenant `default` to match the existing
+   collector (works, but abandons the dedicated proof tenant).
+
+NOT changed without approval — reporting only.
+
+---
+
+## QUICK-FIX DELIVERED — collector tenant context (2026-06) · NOT DEPLOYED
+
+Scope honoured: the cosmetic refresh-feedback change was **reverted** (verified
+`loadedAt` / `col-last-refreshed` absent). Only the correctness fix remains.
+Backend Start fix **deferred**, not deployed. No EDR / NivXMachines /
+Workspace / DNS / auth / unrelated backend change.
+
+### Files changed — 2 (one ships, one is test-only)
+| File | Ships to production? |
+|---|---|
+| `apps/nivxray-xdr/src/xdr/admin/CollectorsBody.jsx` | **YES** |
+| `apps/nivxray-xdr/tests/adoption/test_api_keys_tenant_header.mjs` | no — test, not bundled |
+
+`CollectorsBody.jsx`: surface-level `tenant` state + `hdrs()`; `X-Tenant-Id`
+now sent on list, protocols catalog, create, start, stop, test,
+enable/disable and delete; load effect re-runs on `[refresh, tenant]`; TENANT
+field (`col-tenant-context`) in the hero; tenant passed to the create modal.
+
+### Targeted tests
+Regression guard extended to **both** surfaces — `11` call sites all PASS,
+plus structural assertions for the enable/disable toggle (its URL embeds a
+nested quote so the regex cannot reach it) and the protocols catalog read.
+A real defect in the guard itself was found and fixed: the greedy `[^;]*`
+window was swallowing later call sites (11 sites reported as 9), which could
+have masked a missing header. Now a bounded 140-char window.
+
+### Production frontend build
+`NIVX_PRODUCT_SCOPE=xdr` guarded build → `XDR PRODUCTION BUILD GUARD · PASSED`
+· API origin `https://nivxray.nivxforge.com` (4 refs) · no unauthorised origin
+· scope `xdr`.
+
+### Browser proof — every request carries the tenant header
+```
+GET  tenant='default'             /xdr/collectors
+GET  tenant='default'             /xdr/collectors/protocols/catalog
+GET  tenant='verify-tenant-9042'  /xdr/collectors
+GET  tenant='verify-tenant-9042'  /xdr/collectors/protocols/catalog
+POST tenant='verify-tenant-9042'  /xdr/collectors
+GET  tenant='verify-tenant-9042'  /xdr/collectors      (post-create reload)
+GET  tenant='verify-tenant-9042'  /xdr/collectors/protocols/catalog
+requests missing the header: NONE
+collector visible immediately after create: True
+```
+
+### Cross-tenant isolation + preserved behaviour (temporary objects, deleted)
+```
+collectors under verify-tenant-9042 .. 1  [('verify-temp-auditd','verify-tenant-9042')]
+same collector visible under default . False
+api key under verify-tenant-9042 ..... 1  [('verify-temp-key','verify-tenant-9042')]
+same key visible under default ....... False
+rotate ... new prefix nvx_d50a5250, plaintext reissued True
+revoke ... {'revoked': True}
+delete ... 200
+cleanup .. key 200, collector 200, remaining in temp tenant: 0
+```
+
+### Delivery — ONE file to paste
+| | Value |
+|---|---|
+| Branch | `conflict_310826_2116` (remote HEAD `957b567969d96833021a7a3f812fcc74c964093a`) |
+| `ApiKeysBody.jsx` | already at `cdef74d1…d132c3` — **owner already committed it, nothing to do** |
+| File to change | `apps/nivxray-xdr/src/xdr/admin/CollectorsBody.jsx` |
+| Current remote hash | `1c3ae75aac2bba6e0d9b675647ed33f4ffc2404b29695255bf9b587da869df0b` |
+| Replacement | `memory/xdr_frontend_patch/CollectorsBody.jsx.final` |
+| **Expected new hash** | **`81ab07f059f0474fca982b0c66d1b2c5798a77066082755f8ddfd5d7d120f0fa`** |
+| Size / lines | 19,730 bytes · 458 lines |
+| Rollback | revert the single commit, or promote the previous Vercel deployment |
+
+### After it is live — the owner's sequence
+1. Collectors page → set `TENANT` to `nivx-prod-1` → the `default`-bound
+   `linux-audit-syslog-prod-1` will NOT appear (correct) → create the collector
+   under `nivx-prod-1`; optionally delete the stray one from the `default` view.
+2. API Keys page → `TENANT` `nivx-prod-1` → revoke the exposed key, mint the
+   replacement.
+3. Both must then show the same tenant. STOP before auditd enrolment.
