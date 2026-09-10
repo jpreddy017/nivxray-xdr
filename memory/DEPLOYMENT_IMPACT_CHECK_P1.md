@@ -326,3 +326,101 @@ Manage Publishes → Overview → rollback icon (↺) on the previous deployment
 
 STOPPED. No credential minted, no collector created, no auditd installed, no
 telemetry sent. Awaiting owner approval for collector enrolment.
+
+---
+
+## DIVERGENCE REPORT — `conflict_310826_2116` (2026-06) · NOTHING MODIFIED OR PUSHED
+
+Owner cancelled the Save to GitHub dialog. No force-push, no new branch, no
+deploy, no file modified while producing this.
+
+### Requested facts
+| | Value |
+|---|---|
+| **Remote HEAD** | `bb8a4d216106f168030711f1b843010e9f53d45e` — "Fix XDR frozen lockfile for D3 dependency" (owner-verified on GitHub) |
+| **Local HEAD** | `72c36dacc848ac9e9eff5120f1c24b89abe78df2` ("Auto-generated changes", 2026-09-10T03:09:24Z) |
+| **Merge-base** | **DOES NOT EXIST — cannot be computed** |
+| **Commits unique to remote** | **Cannot be enumerated from this pod** |
+| **Commits unique to local** | **Cannot be enumerated from this pod** |
+| **Can the one-file change be cherry-picked / rebased cleanly?** | **NO — neither operation is possible here** |
+
+### Why — the two histories are unrelated, not merely diverged
+- `git remote -v` → **empty**. This workspace has no configured GitHub remote
+  and no fetch path, so the remote cannot be read at all.
+- Neither remote SHA exists in local object storage:
+  `git cat-file -e bb8a4d21…` → **NO**; `git cat-file -e 6b1441c7…`
+  (the SHA the live XDR deployment was built from) → **NO**.
+- Local history: 1,900 commits beginning `5767e407 "Initial commit"`
+  (2026-07-09). None of our SHAs (`be651bce`, `e9978291`, …) exist on GitHub.
+- Cause: **Save to GitHub pushes a whole-workspace snapshot as a single
+  commit**, so the GitHub history is an independent lineage. There is no
+  common ancestor, which is exactly why the dialog can only offer *force-push*
+  (erases remote commits — forbidden) or *a new branch* (forbidden by the owner,
+  and Vercel does not build it).
+
+`git rebase`, `git cherry-pick`, `git merge` and `git pull` are therefore all
+unavailable for this reconciliation. Any claim to the contrary would be false.
+
+### CORRECTION — a regression I introduced with the lockfile restore
+The remote HEAD commit message names it: **"Fix XDR frozen lockfile for D3
+dependency."** That was not incidental drift — it was a deliberate fix, and my
+restore reverted it.
+
+```
+apps/nivxray-xdr/package.json declares  "d3": "^7.9.0"
+restored apps/nivxray-xdr/yarn.lock     d3 entries: 0      ← would FAIL a frozen install
+drifted backup (== memory/AUTHORITATIVE_XDR_yarn.lock)  d3@^7.9.0: present
+```
+Vercel installs with a frozen/immutable lockfile, so **pushing the restored
+lockfile would break the XDR build**. `memory/AUTHORITATIVE_XDR_yarn.lock` was
+accurately named; treating it as suspect was wrong for this file.
+
+The Workspace lockfile is stale the same way — `frontend/yarn.lock` is missing
+**21** declared dependencies (`@xyflow/react`, `dagre`, `konva`,
+`react-konva`, `typescript`, the Storybook set, …). That deploy still
+succeeded only because the Emergent build is **not** frozen: yarn silently
+re-resolved them. This is the real reason the Workspace bundle hash moved
+`main.46cdaa0a.js → main.f552a4b7.js`, and it means my earlier statement that
+the build inputs were "byte-identical" was **wrong**.
+
+Nothing has been changed in response — reporting only, as instructed.
+
+### SAFEST MINIMAL RECONCILIATION — apply the one file on GitHub
+Do **not** reconcile through this pod. Apply the change at the remote, where
+the true history lives:
+
+1. On GitHub, branch `conflict_310826_2116`, open
+   `apps/nivxray-xdr/src/xdr/admin/ApiKeysBody.jsx`.
+2. Confirm it matches the state this patch was generated against:
+   sha256 `11208b6938ae59124eaa9dedb35eeeebffbed147a4513c29fdfdec5f2a97378a`
+   (our `bf53d6c0` copy, the ancestor of the live build).
+3. Apply `memory/xdr_frontend_patch/ApiKeysBody.confirm-tenant.patch`
+   (73 lines, one file) — or paste
+   `memory/xdr_frontend_patch/ApiKeysBody.jsx.final`
+   (sha256 `509e04e5c9afa6c5789b5040e9589226fb9f9b5ecf2d2777e7dc86c98e912b6b`)
+   if step 2 confirms the file is unmodified on the remote.
+4. Commit directly to `conflict_310826_2116` (or via a PR into it).
+
+Why this is the safest option available:
+- **Every remote commit is preserved** — one commit is added, nothing rewritten.
+- **No whole-workspace snapshot**, so the stale lockfiles never reach the remote
+  and the D3 fix stays intact.
+- Touches **one file**; no backend, no other product, no unrelated file.
+- Lands on the branch Vercel builds, so **only** the XDR project rebuilds;
+  `nivxray-edr-production` watches `phase2/edr-production` and is untouched.
+- Rollback stays instant: promote `dpl_44tFN3uDajSgSrcRawrviJchJq1N` back.
+
+### Rejected alternatives
+| Option | Why rejected |
+|---|---|
+| Force Push | Permanently erases remote commits, including the D3 lockfile fix. Owner forbade it. |
+| Create Branch & Push (`conflict_100926_0839`) | Owner forbade a new branch; and Vercel does not build that branch, so it would not publish anything. |
+| Switch to `feature/rc2-alignment` | Changes the deployment path; not the XDR project's production branch. |
+| Rebase / cherry-pick locally | **Impossible** — no remote, no shared ancestry. |
+
+### Open decision for the owner
+The local lockfiles are now stale relative to `package.json`. If a
+whole-workspace push is ever wanted later, `apps/nivxray-xdr/yarn.lock` and
+`frontend/yarn.lock` must first be restored from
+`memory/lockfile_drift_backup_2026-06/` (the copies that satisfy
+`package.json`). Not doing it now — awaiting instruction.
