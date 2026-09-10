@@ -15321,3 +15321,17 @@ Record: `memory/DEPLOYMENT_IMPACT_CHECK_P1.md`.
 **NEXT (awaiting owner approval)**: mint `nivx-prod-1` ingest key → create
 `syslog` collector → point ONE real Linux host's auditd at
 `POST /api/xdr/ingest/telemetry` → prove telemetry → detection → incident.
+
+### 2026-06 · P0 diagnosis: Preview 351 incidents vs Production 0 — NO DEFECT
+Authenticated production request (Bearer token confirmed in request headers,
+`Origin: xdr.nivxforge.com`) returns `count: 0` because the production database
+genuinely holds zero incident documents. Preview's 351 exist only in the
+pod-local Mongo (`localhost:27017` / `test_database`) and are dev artifacts:
+67 in `p0f-*` throwaway proof tenants, 4 named test fixtures, 344 with no name,
+subject host = the Emergent dev container. Ruled out: deployment version, Mongo
+target, tenant scope, env config, query/projection, frontend, CORS, auth.
+**No fix required — remedy is the in-flight `nivx-prod-1` collector enrolment.**
+Copying preview data remains REJECTED. Record:
+`memory/P0_PREVIEW_VS_PRODUCTION_INCIDENTS_DIAGNOSIS.md`.
+Backlog noted: production incidents queue defaults to a `Last 7 days` window;
+production sub-nav lacks `Detections` (older SPA build).
