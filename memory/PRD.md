@@ -15349,3 +15349,18 @@ held). Record: `memory/XDR_FRONTEND_READINESS_ISSUANCE_CONTRACT.md`.
 **NEXT**: owner mints `nivx-prod-1` key in the production UI (scopes
 `collectors.enroll collectors.read`, 30-day `expires_at`) → create `syslog`
 collector → real Linux auditd source. No fake data in production, ever.
+
+### 2026-06 · P0 fix: API key created but not listed — tenant-context leak (agent defect)
+Root cause: every `/xdr/api-keys` handler resolves tenant from `X-Tenant-Id`
+(default `"default"`), and the earlier change sent that header on **create
+only**. The key persisted correctly under `nivx-prod-1` while list/rotate/
+revoke/delete queried `default` → `PROVISIONED 0`. NOT a persistence failure —
+`insert_one` (line 179) precedes the plaintext reveal (186-191).
+Fix: 1 file (`ApiKeysBody.jsx`) — explicit `TENANT` context on the surface,
+header sent on all four calls, modal pre-filled, surface follows the created
+key's tenant. Confirm-tenant guard, one-time reveal and rotate/revoke/delete
+unchanged. Proven by API repro (0 → 1) and a full real-browser acceptance run.
+Awaiting owner commit: patch `ApiKeysBody.tenant-context.patch`, expected new
+hash `cdef74d1764fb731f19a793657742f086f74b404390fe6eae7efcf3380d132c3`.
+**Exposed key**: owner must revoke the `nivx-prod-1` row after the fix ships.
+Record: `memory/P0_API_KEY_CREATED_BUT_NOT_LISTED.md`.
