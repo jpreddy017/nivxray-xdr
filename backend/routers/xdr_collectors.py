@@ -41,7 +41,10 @@ from __future__ import annotations
 
 import os
 import re
+import urllib.error
+import urllib.request
 import uuid
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -446,13 +449,61 @@ def _admin_transition(cid: str, request: Request, *, action_audit: str,
     return {"ok": True, "data": _mask(doc)}
 
 
+def _runtime_start(doc: dict) -> tuple[bool, str]:
+    """Ask the collector runtime to bind the listener for this collector.
+
+    The API core is a FastAPI app behind an HTTPS ingress — it CANNOT bind
+    UDP/TCP 514.  Transports like syslog are terminated by the separate
+    `apps/nivxray-xdr-collector` runtime.  Returns (started, reason).
+    Never lies: if no runtime is configured or it cannot be reached, that is
+    reported as a failure rather than left sitting in STARTING forever.
+    """
+    base = (os.environ.get("XDR_COLLECTOR_RUNTIME_URL") or "").rstrip("/")
+    if not base:
+        return False, ("no collector runtime configured "
+                            "(XDR_COLLECTOR_RUNTIME_URL unset) — the API core cannot "
+                            "terminate a listening transport; deploy "
+                            "apps/nivxray-xdr-collector. HTTP ingest via "
+                            "POST /api/xdr/ingest/telemetry does not require this.")
+    url = f"{base}/collectors/{doc['id']}/start"
+    payload = json.dumps({"tenant_id": doc.get("tenant_id"),
+                                        "protocol": doc.get("protocol"),
+                                        "config": doc.get("config") or {}}).encode()
+    req = urllib.request.Request(url, method="POST", data=payload,
+                                                     headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            body = json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return False, f"runtime rejected start: HTTP {e.code} {e.read()[:160].decode(errors='replace')}"
+    except Exception as e:                                        # noqa: BLE001
+        return False, f"runtime unreachable at {url}: {type(e).__name__}: {e}"
+    listening = body.get("listening") or body.get("bind")
+    if not listening:
+        return False, f"runtime accepted start but reported no listener: {str(body)[:160]}"
+    return True, f"runtime listening on {listening} · awaiting telemetry"
+
+
 @router.post("/{cid}/start",
                        dependencies=[Depends(require_permission("collectors.enable"))])
 def start_collector(cid: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
-    return _admin_transition(cid, request, action_audit="COLLECTOR_STARTED",
-                                              target="STARTING", reason="start requested")
+    ten, _pid, _pkd = _principal(request)
+    doc = _coll().find_one({"id": cid, "tenant_id": ten})
+    if not doc:
+        raise HTTPException(status_code=404, detail="collector not found")
+
+    started, reason = _runtime_start(doc)
+    res = _admin_transition(cid, request, action_audit="COLLECTOR_STARTED",
+                                        target="STARTING", reason=reason)
+    if started:
+        return res
+    # Truthful terminal outcome — never leave the operator staring at
+    # "start requested" when no runtime was ever reached.
+    return _admin_transition(cid, request,
+                                          action_audit="COLLECTOR_START_FAILED",
+                                          target="CONNECTION_FAILED", reason=reason)
 
 
 @router.post("/{cid}/stop",

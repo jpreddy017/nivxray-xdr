@@ -15364,3 +15364,18 @@ Awaiting owner commit: patch `ApiKeysBody.tenant-context.patch`, expected new
 hash `cdef74d1764fb731f19a793657742f086f74b404390fe6eae7efcf3380d132c3`.
 **Exposed key**: owner must revoke the `nivx-prod-1` row after the fix ships.
 Record: `memory/P0_API_KEY_CREATED_BUT_NOT_LISTED.md`.
+
+### 2026-06 · P0 fix: collector stuck in STARTING
+`start_collector()` persisted `STARTING`/"start requested" with **no runtime
+dispatch** — a dead end. Root truth: the FastAPI core cannot bind UDP/TCP 514;
+syslog is terminated by the separate `apps/nivxray-xdr-collector` runtime,
+which is not deployed. Fix (1 file, `routers/xdr_collectors.py`): new
+`_runtime_start()` resolves `XDR_COLLECTOR_RUNTIME_URL`, POSTs
+`/collectors/{id}/start`, and records the truthful outcome — `CONNECTION_FAILED`
+with an actionable reason when unset/unreachable/no-listener, `STARTING`
+"runtime listening on <bind> · awaiting telemetry" when it really is. CONNECTED
+untouched: still ingest-only and evidence-gated. Proven on preview: start →
+CONNECTION_FAILED (actionable), then ONE real auditd event via the real ingest
+path → 1/1/1, reasoned 1, observations_created 1, state CONNECTED. Note the
+stuck state never blocked ingestion (`xdr_ingest` writes state directly).
+NOT DEPLOYED. Record: `memory/P0_COLLECTOR_STUCK_IN_STARTING.md`.
