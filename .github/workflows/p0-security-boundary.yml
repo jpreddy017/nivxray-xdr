@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - security/p0-boundary-hardening
+    paths-ignore:
+      - P0_SECURITY_BOUNDARY_IMPLEMENTATION_REPORT.md
   workflow_dispatch:
 
 permissions:
