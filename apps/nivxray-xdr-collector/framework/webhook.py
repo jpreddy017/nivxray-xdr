@@ -31,6 +31,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
+import os
 from typing import Any, Dict, List, Optional
 
 from framework.base    import Connector, Envelope, Health, Capability
@@ -74,9 +75,13 @@ class WebhookConnector(Connector):
         sig_cfg = self.config.get("signature") or {}
         secret  = (self.config.get("credentials") or {}).get("hmac_secret")
         if not secret:
-            # No secret configured → accept but flag as unauthenticated.
-            return {"ok": True, "authenticated": False,
-                     "reason": "no_hmac_secret_configured"}
+            env = os.environ.get("XDR_COLLECTOR_ENV", "production").lower()
+            allow = os.environ.get("XDR_WEBHOOK_ALLOW_UNSIGNED_DEV", "0").lower()
+            if env in {"development", "test"} and allow in {"1", "true", "yes"}:
+                return {"ok": True, "authenticated": False,
+                        "reason": "explicit_unsigned_dev_bypass"}
+            return {"ok": False, "authenticated": False,
+                    "reason": "hmac_secret_not_configured"}
 
         header_name = sig_cfg.get("header", "X-Hub-Signature-256")
         algo        = (sig_cfg.get("algo") or "sha256").lower()
