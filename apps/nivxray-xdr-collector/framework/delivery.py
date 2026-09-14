@@ -53,7 +53,7 @@ class IngestClient:
         return float(os.environ.get("NIVX_INGEST_TIMEOUT", "10"))
 
     def configured(self) -> bool:
-        return bool(self.url)
+        return bool(self.url) and bool(self.token)
 
     def status(self) -> Dict[str, Any]:
         return {
@@ -75,10 +75,11 @@ class IngestClient:
 
         if not self.configured():
             self.failed_retryable += len(batch)
-            self.last_error = "ingest_not_configured"
+            self.last_error = ("ingest_url_not_configured" if not self.url
+                                   else "ingest_credential_not_configured")
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0,
-                     "reason":    "ingest_not_configured"}
+                     "reason":    self.last_error}
 
         try:
             headers = {"Content-Type": "application/json"}
