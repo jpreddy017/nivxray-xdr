@@ -49,6 +49,7 @@ def _app(monkeypatch, user=None):
     coll = _Collection()
     monkeypatch.setattr(mod, "_coll", lambda: coll)
     monkeypatch.setattr(mod, "emit_audit", lambda **kwargs: {"id": "audit-test"})
+    monkeypatch.setattr(mod, "check_access", lambda *args, **kwargs: {"allow": False})
     app = FastAPI()
     app.include_router(mod.router)
     if user is not None:
