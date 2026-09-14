@@ -235,6 +235,9 @@ def evaluate_detection(canonical: dict) -> dict:
 # ── Persistence + full pipeline runner ──────────────────────────
 
 CANONICAL_COLLECTION = "xdr_canonical_evidence"
+#: D8 · one row per (canonical event × matched rule), carrying the declared
+#: conditions, the observed values and the evidence reference.
+DETECTION_MATCH_COLLECTION = "xdr_detection_matches"
 
 
 async def process_event_through_pipeline(db, raw_event: dict,
@@ -317,6 +320,54 @@ async def process_event_through_pipeline(db, raw_event: dict,
             matched=detection.get("matched"),
             engine_id=detection.get("engine_id"),
             rule_id=detection.get("rule_id"))
+
+    # ── D8 · persist the citation for every match ───────────────────
+    # One row per (canonical event × matched rule). `observed_value` comes
+    # from the canonical evidence the rule actually read, and
+    # `evidence_ref` points back to it. Nothing is reconstructed later.
+    _cit_rows = []
+    for _m in (detection.get("detections") or []):
+        _c = _m.get("citation") or {}
+        _cit_rows.append({
+            "tenant_id":          canonical.get("tenant_id") or tenant_id,
+            "canonical_event_id": canonical.get("event_id"),
+            "evidence_ref":       f"{CANONICAL_COLLECTION}/"
+                                  f"{canonical.get('event_id')}",
+            "trace_id":           trace_id,
+            "raw_ref":            canonical.get("raw_ref")
+                                  or (canonical.get("provenance")
+                                      or {}).get("trace_id"),
+            "rule_id":            _m.get("rule_id"),
+            "rule_version":       _m.get("rule_version"),
+            "rule_name":          _m.get("name"),
+            "engine_id":          detection.get("engine_id"),
+            "rule_result":        "MATCH",
+            "declaration_state":  _c.get("declaration_state"),
+            "citation_completeness": _c.get("citation_completeness"),
+            "evaluated_conditions":  _c.get("evaluated_conditions") or [],
+            "matched_conditions":    _c.get("matched_conditions") or [],
+            "unmatched_conditions":  _c.get("unmatched_conditions") or [],
+            "severity":           _m.get("severity"),
+            "confidence":         _m.get("confidence"),
+            "mitre_attack":       _m.get("mitre_attack") or [],
+            "telemetry_requirements": _m.get("telemetry_requirements") or [],
+            "source":             (canonical.get("provenance")
+                                   or {}).get("source_kind"),
+            "trust_state":        (canonical.get("provenance")
+                                   or {}).get("trust_state"),
+            "evaluated_at":       t_rule,
+        })
+    if _cit_rows:
+        await db[DETECTION_MATCH_COLLECTION].insert_many(_cit_rows)
+    _s("detection_citations",
+            "EXECUTED" if _cit_rows else "NOT_CREATED",
+            rows=len(_cit_rows),
+            collection=DETECTION_MATCH_COLLECTION,
+            undeclared=[r["rule_id"] for r in _cit_rows
+                        if r["declaration_state"] == "NOT_DECLARED"],
+            unexplained=[r["rule_id"] for r in _cit_rows
+                         if r["citation_completeness"]
+                         == "NO_DECLARED_CONDITION_MATCHED_DESPITE_RULE_MATCH"])
 
     # ── Round 11 · IUE (understanding) ──────────────────────────
     iue = iue_understand(canonical, detection)

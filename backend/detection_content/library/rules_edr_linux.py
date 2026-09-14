@@ -23,7 +23,7 @@ import re
 from typing import Any, Dict, List
 
 from .models import (DetectionFixture, DetectionRuleContent, Platform,
-                     Severity, Tactic)
+                     RuleCondition, Severity, Tactic)
 
 WORLD_WRITABLE = ("/tmp/", "/var/tmp/", "/dev/shm/")
 
@@ -101,9 +101,36 @@ def _ep(process=None, cmd=None, path=None, parent=None) -> Dict[str, Any]:
             "file": {"path": path}}
 
 
+
+# ── D8 · declared conditions ────────────────────────────────────────
+# Every rule below DECLARES the canonical fields it evaluates, so a match
+# can cite the exact field, the exact observed value and the evidence that
+# supplied it. The declaration is deliberately NOT used to decide whether
+# the rule matched — `predicate` remains the sole authority, so adding a
+# declaration cannot change detection behaviour.
+_SCOPE_CONDITIONS = [
+    RuleCondition("scope.vendor", "source_vendor", "equals", "NivXForge",
+                  note="only NivXForge endpoint evidence is in scope"),
+    RuleCondition("scope.product", "source_product", "equals", "LinuxSensor",
+                  note="a Linux rule must never judge a Windows or network "
+                       "source"),
+]
+
+
 EDR_LINUX_DETECTION_RULES: List[DetectionRuleContent] = [
     DetectionRuleContent(
         rule_id="EDR-LNX-001",
+        rule_version="1",
+        conditions=_SCOPE_CONDITIONS + [
+            RuleCondition("cmd.base64_decode", "process.command_line",
+                          "matches", _B64_DECODE,
+                          note="a deliberate decode step"),
+            RuleCondition("cmd.pipe_to_shell", "process.command_line",
+                          "matches",
+                          re.compile(r"[|]\\s*(sudo\\s+)?(ba|z|k|da)?sh\\b|"
+                                     r"\\b(ba|z|k|da)?sh\\s+-c\\b", re.I),
+                          note="the decoded payload reaching an interpreter"),
+        ],
         name="Base64-decoded payload piped into a shell",
         description=("A command line that decodes base64 and feeds the "
                      "result to an interpreter. Encoding the payload is a "
@@ -132,6 +159,21 @@ EDR_LINUX_DETECTION_RULES: List[DetectionRuleContent] = [
         ]),
     DetectionRuleContent(
         rule_id="EDR-LNX-002",
+        rule_version="1",
+        conditions=_SCOPE_CONDITIONS + [
+            RuleCondition("image.world_writable", "process.executable_path",
+                          "starts_with_any", WORLD_WRITABLE,
+                          note="the image itself lives where any user can "
+                               "rewrite it"),
+            RuleCondition("image.is_interpreter", "process.executable_path",
+                          "basename_in", _INTERPRETERS,
+                          note="a script run via an interpreter shows the "
+                               "interpreter as the kernel image"),
+            RuleCondition("argv.world_writable_script",
+                          "process.command_line",
+                          "any_argument_starts_with", WORLD_WRITABLE,
+                          note="argv[1..] is the script actually executed"),
+        ],
         name="Execution from a world-writable directory",
         description=("A process whose image lives in /tmp, /var/tmp or "
                      "/dev/shm. Legitimate software is not installed "
@@ -167,6 +209,12 @@ EDR_LINUX_DETECTION_RULES: List[DetectionRuleContent] = [
         ]),
     DetectionRuleContent(
         rule_id="EDR-LNX-003",
+        rule_version="1",
+        conditions=_SCOPE_CONDITIONS + [
+            RuleCondition("cmd.fetch_pipe_shell", "process.command_line",
+                          "matches", _FETCH_PIPE_SHELL,
+                          note="curl/wget piped straight into a shell"),
+        ],
         name="Remote content fetched and piped directly to an interpreter",
         description=("curl or wget whose output is piped straight into a "
                      "shell. The payload never touches disk, so file-based "
@@ -195,6 +243,12 @@ EDR_LINUX_DETECTION_RULES: List[DetectionRuleContent] = [
         ]),
     DetectionRuleContent(
         rule_id="EDR-LNX-004",
+        rule_version="1",
+        conditions=_SCOPE_CONDITIONS + [
+            RuleCondition("cmd.reverse_shell", "process.command_line",
+                          "matches", _REVERSE_SHELL,
+                          note="/dev/tcp or nc/ncat exec form"),
+        ],
         name="Reverse-shell shaped command line",
         description=("A command line that binds an interactive shell to a "
                      "socket, via bash /dev/tcp or netcat with an exec "
@@ -222,6 +276,12 @@ EDR_LINUX_DETECTION_RULES: List[DetectionRuleContent] = [
         ]),
     DetectionRuleContent(
         rule_id="EDR-LNX-005",
+        rule_version="1",
+        conditions=_SCOPE_CONDITIONS + [
+            RuleCondition("cmd.chmod_exec", "process.command_line",
+                          "matches", _CHMOD_EXEC,
+                          note="making a file executable"),
+        ],
         name="Execute permission granted to a file in a world-writable path",
         description=("chmod +x applied to a path under /tmp, /var/tmp or "
                      "/dev/shm — the step that turns dropped content into "

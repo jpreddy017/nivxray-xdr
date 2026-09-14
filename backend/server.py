@@ -357,6 +357,8 @@ from routers.xdr_data_sources import router as xdr_data_sources_router
 app.include_router(xdr_data_sources_router)
 from routers.xdr_collectors import router as xdr_collectors_router
 app.include_router(xdr_collectors_router)
+from routers.xdr_detection_citations import router as xdr_detection_citations_router
+app.include_router(xdr_detection_citations_router)
 from routers.xdr_ingest import router as xdr_ingest_router
 app.include_router(xdr_ingest_router)
 from routers.xdr_spread import router as xdr_spread_router

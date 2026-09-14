@@ -51,6 +51,75 @@ class DetectionFixture:
 
 
 @dataclass
+class RuleCondition:
+    """D8 · a condition a rule DECLARES that it evaluates.
+
+    The declaration is the only source of truth for what gets cited. The
+    engine never infers which field caused a match after the fact: an
+    undeclared rule produces no citation and says so, because a wrong
+    citation is worse than an absent one.
+    """
+    condition_id: str
+    canonical_field: str                 # dotted path into canonical evidence
+    operator: str
+    expected: Any = None                 # value / pattern / tuple of prefixes
+    note: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        exp = self.expected
+        if hasattr(exp, "pattern"):
+            exp = exp.pattern
+        if not isinstance(exp, (str, int, float, bool, type(None))):
+            exp = list(exp) if isinstance(exp, (list, tuple)) else str(exp)
+        return {"condition_id": self.condition_id,
+                "canonical_field": self.canonical_field,
+                "operator": self.operator,
+                "expected": exp,
+                "note": self.note}
+
+
+def resolve_field(event: Dict[str, Any], path: str) -> tuple:
+    """Read a dotted path out of the canonical event.
+
+    Returns `(value, state)` where state is `PRESENT`, `NULL` or `ABSENT`.
+    The three are kept distinct on purpose: a field that was never
+    collected is not the same claim as one observed to be empty.
+    """
+    cur: Any = event
+    for part in path.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return None, "ABSENT"
+        cur = cur[part]
+    if cur is None or cur == "":
+        return cur, "NULL"
+    return cur, "PRESENT"
+
+
+def apply_operator(operator: str, observed: Any, expected: Any) -> bool:
+    if operator == "exists":
+        return True
+    if operator == "equals":
+        return observed == expected
+    if operator == "contains":
+        return isinstance(observed, str) and str(expected) in observed
+    if operator == "starts_with_any":
+        return isinstance(observed, str) and observed.startswith(
+            tuple(expected))
+    if operator == "basename_in":
+        return (isinstance(observed, str)
+                and observed.rsplit("/", 1)[-1] in tuple(expected))
+    if operator == "matches":
+        return (bool(expected.search(observed))
+                if isinstance(observed, str) else False)
+    if operator == "any_argument_starts_with":
+        if not isinstance(observed, str):
+            return False
+        return any(t.startswith(tuple(expected))
+                   for t in observed.split()[1:])
+    raise ValueError(f"unknown operator {operator!r}")
+
+
+@dataclass
 class DetectionRuleContent:
     """Authoritative representation of an enterprise detection rule."""
     rule_id: str
@@ -69,6 +138,11 @@ class DetectionRuleContent:
     mitre_attack: List[str] = field(default_factory=list)
     fixtures: List[DetectionFixture] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
+    #: D8 · bumped by the author on ANY change to predicate or conditions.
+    rule_version: str = "1"
+    #: D8 · declared conditions. Empty means "not yet declared", which is
+    #: reported honestly rather than inferred.
+    conditions: List[RuleCondition] = field(default_factory=list)
 
     def evaluate(self, canonical_event: Dict[str, Any]) -> bool:
         """Evaluate rule predicate against canonical event safely."""
@@ -76,6 +150,47 @@ class DetectionRuleContent:
             return bool(self.predicate(canonical_event))
         except Exception:
             return False
+
+    def cite(self, canonical_event: Dict[str, Any],
+             evidence_ref: Optional[str] = None) -> Dict[str, Any]:
+        """D8 · evaluate the DECLARED conditions and return the citation.
+
+        This never decides whether the rule matched — `predicate` remains
+        the sole authority, so declaring conditions cannot change detection
+        behaviour. It records which declared conditions held, on what
+        observed value, and from which evidence object.
+        """
+        if not self.conditions:
+            return {"declaration_state": "NOT_DECLARED",
+                    "evaluated_conditions": [], "matched_conditions": [],
+                    "unmatched_conditions": [],
+                    "note": ("this rule has not declared the canonical "
+                             "fields it evaluates, so no citation can be "
+                             "produced; the matched field is NOT inferred")}
+        evaluated: List[Dict[str, Any]] = []
+        for c in self.conditions:
+            observed, state = resolve_field(canonical_event,
+                                            c.canonical_field)
+            row = {**c.to_dict(), "observed_value": observed,
+                   "field_state": state, "evidence_ref": evidence_ref}
+            if state == "ABSENT":
+                row["result"] = "FIELD_ABSENT"
+            elif state == "NULL":
+                row["result"] = "FIELD_NULL"
+            else:
+                try:
+                    row["result"] = ("MATCH" if apply_operator(
+                        c.operator, observed, c.expected) else "NO_MATCH")
+                except Exception as e:                            # noqa: BLE001
+                    row["result"] = "EVALUATION_ERROR"
+                    row["error"] = str(e)[:200]
+            evaluated.append(row)
+        matched = [r for r in evaluated if r["result"] == "MATCH"]
+        return {"declaration_state": "DECLARED",
+                "evaluated_conditions": evaluated,
+                "matched_conditions": matched,
+                "unmatched_conditions": [r for r in evaluated
+                                         if r["result"] != "MATCH"]}
 
     def to_dict(self) -> Dict[str, Any]:
         return {

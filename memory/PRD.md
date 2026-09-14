@@ -15445,3 +15445,37 @@ verification.
   `CAPABILITY_UNAVAILABLE`, `verification: null`.
 - Production has never received a single event.
 - **No production-readiness claim.**
+
+
+## Step 3 — D8 detection citations + read-only endpoint · DONE (preview only)
+`memory/D8_IMPLEMENTATION_REPORT.md`.
+Rules now DECLARE the canonical fields they evaluate (`RuleCondition`);
+`predicate` remains the sole match authority so behaviour cannot drift.
+One row per (canonical event x matched rule) in **`xdr_detection_matches`**
+with condition_id / canonical_field / operator / expected / observed_value /
+field_state / result / evidence_ref.
+`citation_completeness` surfaces a rule that fired but whose declaration
+explains nothing — never back-filled by guessing.
+5 Linux endpoint rules declared + versioned; the other 93 report
+`NOT_DECLARED` honestly.
+Read-only `GET /api/xdr/detections/{event_id}/citations` — preview only,
+JWT-only, scope from the authenticated principal, `X-Tenant-Id` header grants
+nothing, `?tenant=` cannot widen scope. 18/18 endpoint checks PASS,
+18 unit acceptance tests PASS.
+Regression identical to clean tree. Storage 4.9 KB/match, written only on a
+match (3 rows / 69,285 evidence rows). Performance impact unmeasurable.
+**PARALLEL-WORK BOUNDARY respected:** no auth / JWT-tenant-binding / RBAC /
+response-security / collector-security / webhook / credential code modified.
+
+## Deployment posture (owner decision 2026-09-14)
+D1 / D9 / D8 stay in **PREVIEW**. Production has zero telemetry, zero
+incidents and no active ingest credential; a separate security-boundary
+hardening track is running outside Emergent. Reconcile before any production
+deploy.
+
+## Defect register update
+- D8 → **FIXED for declared rules** (93 rules still NOT_DECLARED, by design)
+- D4 design recommended in the D8 report §K; **not started**, awaiting review
+- Order remains: D4 -> D3/D2/D10 -> ingest-path provenance -> auditd
+  onboarding -> second domain -> cross-domain correlation -> response ->
+  independent verification
