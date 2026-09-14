@@ -178,10 +178,114 @@ class TelemetryReceipt(BaseModel):
 _REASONING_AUDIT = "xdr_live_reasoning_audit"
 
 
+#: D13 · the single reserved key under which NivX transport metadata rides
+#: on a DOCUMENT-shaped event.  One namespace, so nothing the source sent
+#: can be shadowed and nothing the source sends can impersonate provenance.
+TRANSPORT_NS = "_nivx"
+
+SHAPE_LINE = "LINE"
+SHAPE_DOCUMENT = "DOCUMENT"
+
+
+class IngestShapeCollision(Exception):
+    """A source document already carries the reserved transport key.
+
+    Fail closed. Overwriting it would let NivX metadata destroy source
+    evidence; honouring it would let source content impersonate NivX
+    provenance. Neither is acceptable, so the delivery is refused with the
+    reason recorded.
+    """
+
+    def __init__(self, key: str) -> None:
+        self.key = key
+        super().__init__(
+            f"source document carries the reserved transport key {key!r}: "
+            "refusing to overwrite source evidence or to let source "
+            "content impersonate NivX provenance")
+
+
+#: Everything a LINE envelope is allowed to contain.  A collector that
+#: delivers a verbatim line sends only the line and, optionally, the format
+#: it believes it to be.  Anything ELSE in `raw` means the payload is a
+#: source document whose own fields happen to include `message`.
+_LINE_ONLY_KEYS = frozenset({"line", "message", "payload_format"})
+
+
+def _payload_shape(e: CanonicalEnvelope) -> str:
+    """LINE when the collector delivered a verbatim line, DOCUMENT when it
+    delivered structured JSON.
+
+    The distinction is STRUCTURAL, never a guess about content:
+
+    * `raw.line` present  -> LINE. A delivered line is explicit.
+    * `raw.message` present and `raw` carries nothing else of its own
+      -> LINE. This is the older line-collector shape and it is preserved.
+    * anything else with keys -> DOCUMENT. A Windows export carrying its own
+      `message` field is a document, and treating it as a line would hand it
+      to whichever line DSM recognised the text.
+    * an empty envelope -> LINE, so its honest NO_DSM answer is unchanged.
+    """
+    raw = e.raw or {}
+    if not isinstance(raw, dict) or not raw:
+        return SHAPE_LINE
+    if isinstance(raw.get("line"), str) and raw["line"].strip():
+        return SHAPE_LINE
+    if isinstance(raw.get("message"), str) and raw["message"].strip() \
+            and not (set(raw) - _LINE_ONLY_KEYS):
+        return SHAPE_LINE
+    return SHAPE_DOCUMENT
+
+
+def _document_for_pipeline(e: CanonicalEnvelope) -> dict[str, Any]:
+    """D13 · a JSON-document envelope, shaped as the DSM registry expects.
+
+    The document is handed over exactly as the source emitted it, because
+    `supports()` and every document parser read source fields at the top
+    level.  NivX's own metadata rides under `_nivx` where it cannot shadow
+    a source field.
+
+    One field is deliberately withheld: a source-supplied `tenant_id`. The
+    authenticated tenant is the only authority on ownership, and a document
+    that could name its own tenant would be a tenant-boundary bypass. The
+    claimed value is preserved under `_nivx` as a claim, so no evidence is
+    lost — it is simply not believed.
+    """
+    doc = dict(e.raw or {})
+    if TRANSPORT_NS in doc:
+        raise IngestShapeCollision(TRANSPORT_NS)
+    withheld: dict[str, Any] = {}
+    if "tenant_id" in doc:
+        withheld["tenant_id"] = doc.pop("tenant_id")
+    doc[TRANSPORT_NS] = {
+        "payload_shape":           SHAPE_DOCUMENT,
+        "tenant_id":               e.tenant_id,
+        "collector_id":            e.collector_id,
+        "connector_id":            e.connector_id,
+        "data_source_id":          e.data_source_id,
+        "source":                  e.source,
+        "collection_method":       e.collection_method,
+        "parser_version":          e.parser_version,
+        "collection_timestamp":    e.collection_timestamp,
+        "source_timestamp":        e.source_timestamp,
+        "received_at":             e.received_at,
+        "declared_payload_format": (e.raw or {}).get("payload_format")
+                                   or (e.canonical or {}).get(
+                                       "payload_format"),
+        "source_fields_withheld":  withheld or None,
+        "withheld_reason": (
+            "a source-supplied tenant_id is recorded as a claim and never "
+            "used: the authenticated tenant is the only authority on "
+            "ownership" if withheld else None),
+    }
+    return doc
+
+
 def _raw_event_for_pipeline(e: CanonicalEnvelope) -> dict[str, Any]:
     """Assemble the raw event the DSM registry resolves against.  The
     verbatim line is the authority; the collector's parse rides along as
     provenance only."""
+    if _payload_shape(e) == SHAPE_DOCUMENT:
+        return _document_for_pipeline(e)
     raw = e.raw or {}
     line = raw.get("line") or raw.get("message") or ""
     return {
@@ -223,7 +327,8 @@ def _ingest_provenance_for(e: CanonicalEnvelope, *, nivx_received_at: str,
             tenant_id=tenant_id,
             tenant_id_source=("envelope.tenant_id, verified equal to header "
                               "X-Tenant-Id and to xdr_collectors.tenant_id"),
-            collector_id=e.collector_id, raw_ref=raw_ref),
+            collector_id=e.collector_id, raw_ref=raw_ref,
+            payload_shape=_payload_shape(e)),
     }
 
 
@@ -307,7 +412,20 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
             or tenant_id,
             raw_ref=(raw_refs[idx] if raw_refs and idx < len(raw_refs)
                      else None)) if nivx_received_at else None
-        raw_event = _raw_event_for_pipeline(e)
+        raw_event: dict[str, Any] | None = None
+        try:
+            raw_event = _raw_event_for_pipeline(e)
+        except IngestShapeCollision as ce:
+            # D13 · fail closed. Transport metadata must never overwrite
+            # source evidence, and source content must never impersonate
+            # NivX provenance.
+            outcomes.append(ReasoningOutcome(
+                source_event_id=e.source_event_id, trace_id=trace_id,
+                status="BLOCKED", blocker="ingest_shape",
+                error=str(ce)[:300]))
+            if key:
+                idem.complete(key, trace_id=trace_id, outcome="BLOCKED")
+            continue
 
         # A stitched member contributed its record to the group's canonical
         # event. It is settled honestly as STITCHED_INTO — never silently
@@ -337,12 +455,13 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
                          "line": _st["_primary_line"],
                          "message": _st["_primary_line"]}
 
-        if not raw_event["line"]:
+        if not raw_event.get("line") and TRANSPORT_NS not in raw_event:
             outcomes.append(ReasoningOutcome(
                 source_event_id=e.source_event_id, trace_id=trace_id,
                 status="NOT_ATTEMPTED",
                 blocker="no_verbatim_line",
-                error="envelope carries no raw line to re-parse"))
+                error="envelope carries neither a raw line nor a JSON "
+                      "document to re-parse"))
             if key:
                 idem.complete(key, trace_id=trace_id,
                               outcome="NOT_ATTEMPTED")

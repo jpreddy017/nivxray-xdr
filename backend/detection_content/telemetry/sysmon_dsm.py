@@ -119,7 +119,15 @@ class SysmonNormalizer:
     id = "sysmon-normalizer"
 
     def normalize(self, parsed: Dict[str, Any], dsm_id: str, collector_id: str,
-                  integration_id: str, trace_id: str) -> Dict[str, Any]:
+                  integration_id: str, trace_id: str,
+                  tenant_id: str | None = None) -> Dict[str, Any]:
+        # D13 · the authenticated tenant is the only authority on ownership.
+        # This normalizer previously hardcoded "default", which put every
+        # Sysmon event in the wrong tenant; there is NO fallback now.
+        if tenant_id is None or not str(tenant_id).strip():
+            raise ValueError(
+                "tenant_id is required: NO tenant fallback permitted")
+        resolved_tenant = str(tenant_id).strip()
         event_id = f"sysmon-{parsed['event_id']}-{uuid.uuid4().hex}"
         sysmon_eid = parsed["event_id"]
 
@@ -203,7 +211,7 @@ class SysmonNormalizer:
 
         canonical = CanonicalTelemetryEvent(
             event_id=event_id,
-            tenant_id="default",
+            tenant_id=resolved_tenant,
             source_vendor="Microsoft",
             source_product="Sysmon",
             source_event_id=str(sysmon_eid),

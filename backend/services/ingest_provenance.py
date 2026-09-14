@@ -152,7 +152,8 @@ def apply(canonical: dict[str, Any],
 def identity_block(envelope: dict[str, Any], *, path_kind: str,
                    tenant_id: str, tenant_id_source: str,
                    collector_id: str | None,
-                   raw_ref: dict[str, Any] | None) -> dict[str, Any]:
+                   raw_ref: dict[str, Any] | None,
+                   payload_shape: str | None = None) -> dict[str, Any]:
     """Who delivered this, who owns it, and what row proves it.
 
     Every claim names the field it came from. The collector-supplied source
@@ -161,6 +162,14 @@ def identity_block(envelope: dict[str, Any], *, path_kind: str,
     """
     return {
         "path_kind": path_kind,
+        # D13 · LINE or DOCUMENT, and what the collector CLAIMED the format
+        # was — recorded beside the DSM actually selected, so a declaration
+        # that disagrees with the selection is visible instead of silent.
+        "payload_shape": payload_shape,
+        "declared_payload_format": (
+            (envelope.get("raw") or {}).get("payload_format")
+            or (envelope.get("canonical") or {}).get("payload_format")),
+        "selected_dsm_id": None,
         "tenant_id": tenant_id,
         "tenant_id_source": tenant_id_source,
         "collector_id": collector_id or None,

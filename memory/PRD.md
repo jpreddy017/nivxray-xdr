@@ -15766,3 +15766,88 @@ safe-state maintenance). Every proposal is to be judged on SIEM value, XDR
 value, XSIAM/SecOps value, SOAR/response value, evidence integrity, and
 post-XDR value. Competitor capability is the minimum benchmark, not the
 design specification. NivXForge EDR stays a product in its own right.
+
+---
+
+# D13 · JSON INGEST SHAPE — COMPLETE (preview) · 2026-09-14
+
+Owner-approved gate after D12. Full report:
+`/app/memory/D13_JSON_INGEST_SHAPE_REPORT.md`. **PASS for preview scope.**
+
+## Root cause
+`CanonicalEnvelope.raw` was ALREADY `dict[str, Any]` — the wire contract
+always carried JSON. The break was one function: `_raw_event_for_pipeline`
+flattened every envelope to `{line, message, …}`, so document DSMs (whose
+`supports()` reads source fields at the TOP level) never saw their fields.
+**Four** of seven DSMs were unreachable from the real acquisition path, not
+three — `snort-eve` is JSON too and was in the same hole.
+
+## What was built
+- `_payload_shape()` — LINE vs DOCUMENT decided STRUCTURALLY on the key set,
+  never on content: `raw.line` → LINE; `raw.message` with nothing else
+  beyond `{line, message, payload_format}` → LINE (older collector shape);
+  anything else → DOCUMENT; empty → LINE (unchanged NO_DSM answer).
+- `_document_for_pipeline()` — the document is handed to the DSM exactly as
+  the source emitted it; all NivX metadata rides under the single reserved
+  key `_nivx`, where it can shadow nothing.
+- **Fail closed** on a `_nivx` collision → `BLOCKED / ingest_shape`, no
+  canonical evidence. Transport metadata must never destroy source evidence;
+  source content must never impersonate NivX provenance.
+- `provenance.ingest` now carries `payload_shape`, `declared_payload_format`
+  and `selected_dsm_id` side by side, so a declaration that disagrees with
+  the selection is visible instead of silent. `supports()` semantics
+  UNCHANGED, as authorized.
+- Sysmon tenant fix (minimal, authorized): `SysmonNormalizer` no longer
+  hardcodes `tenant_id="default"`; it takes the tenant the pipeline already
+  passes to the other normalizers and raises with NO fallback when absent.
+
+## Tenant-boundary hole found and closed
+`WindowsSecurityNormalizer`, `AWSCloudTrailNormalizer` and
+`CefLeefNormalizer` resolve the tenant as `raw.get("tenant_id") or
+tenant_id` — **payload first**. Document-first shaping would have made this
+trivially exploitable. Closed inside this gate's boundary without touching
+tenant-binding code: a source-supplied `tenant_id` is withheld from the
+DSM-facing document and preserved under `_nivx.source_fields_withheld` as a
+claim that is explicitly not believed. **RECOMMENDED FOR WORK MODE**: harden
+the three normalizers so the authenticated tenant wins outright.
+
+## Proof
+- `tests/test_d13_json_ingest_shape.py` — **37 passed**.
+- `scripts/p0_d13_json_ingest_shape_live_proof.py` — **41/41 PASS** over
+  real HTTP in preview: 3 documents + 2 lines in ONE authenticated delivery
+  (so no-regression is proven in the same request), cross-tenant isolation
+  (A=1/B=1, 0 leakage), a tenant-claiming document landing in the
+  authenticated tenant, and the collision failing closed.
+- 208 passed across D13+D12+D11+D2/D3/D10+D4+D8+normalization+adapters+
+  round11. D11 live 30/30 and D12 live 16/16 still pass.
+- In-place baseline across 7 server-importing suites: 13 failed / 60 passed
+  / 20 errors on BOTH trees, failure sets identical (33/33).
+
+## Defect register update (2026-09-14, after D13)
+| ID | Status |
+|---|---|
+| D1/D2/D3/D4/D10/D11/D12 | PASS (preview) |
+| D5 | PARTIAL |
+| D6 | OPEN — off critical path |
+| D7 | OPEN, low |
+| D8 | FIXED for 6 declared rules; 92 NOT_DECLARED |
+| D9 | PARTIAL — four bases declared platform-wide; `event_time` not re-pointed |
+| D13 | **PASS (preview)** |
+
+## Open after D13
+1. `supports()` is content matching and registry ORDER now matters more for
+   documents. A declaration-authoritative selection (fail closed on
+   disagreement) is the real answer, and is now recordable.
+2. The three normalizers still prefer a payload-supplied `tenant_id` —
+   neutralised at the ingest shape, not fixed at the source. Work Mode.
+3. `raw.line` inside a source document would still read as a delivered line
+   (structural ambiguity; no real format uses that key).
+4. No real Windows host, cloud account or IDS is connected — this gate
+   proves the PATH, not the sources.
+5. Snort's canonical projection has no `tenant_id` field of its own and uses
+   `timestamp` rather than `event_time`. Pre-existing.
+
+## Next (owner-confirmed order)
+Sysmon Tenant Binding (anything deeper than the minimal fix already made) →
+PATH/CWD canonical mapping → rule declarations in controlled batches (92
+remaining) → real-source acceptance → production acceptance testing.

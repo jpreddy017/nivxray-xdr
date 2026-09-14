@@ -329,7 +329,12 @@ async def process_event_through_pipeline(db, raw_event: dict,
     _ip = ingest_provenance
     if isinstance(_ip, dict):
         ingest_prov.apply(canonical, _ip.get("timestamps") or {})
-        canonical.setdefault("provenance", {})["ingest"] = _ip.get("identity")
+        _ident = dict(_ip.get("identity") or {})
+        # D13 · the DSM that actually claimed this event, recorded beside
+        # the format the collector declared. A disagreement is evidence,
+        # not something to reconcile silently.
+        _ident["selected_dsm_id"] = dsm.id
+        canonical.setdefault("provenance", {})["ingest"] = _ident
     _s("normalizer", "EXECUTED", normalizer_id=normalizer.id)
 
     await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
