@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install fastapi==0.115.5 httpx==0.28.1 pydantic==2.13.4 pytest==9.1.1 pytest-asyncio==1.4.0 bcrypt==4.1.3 PyJWT==2.13.0 pymongo==4.6.3 motor==3.3.1 python-dotenv==1.0.1 email-validator==2.3.0
+      - run: pip install fastapi==0.115.5 httpx==0.28.1 pydantic==2.13.4 pytest==9.1.1 pytest-asyncio==1.4.0 pytest-xdist bcrypt==4.1.3 PyJWT==2.13.0 pymongo==4.6.3 motor==3.3.1 python-dotenv==1.0.1 email-validator==2.3.0
       - run: pytest -q tests/test_xdr_response_gateway_security.py tests/test_xdr_response_evidence.py
 
   response-boundary:
@@ -29,6 +29,9 @@ jobs:
     defaults:
       run:
         working-directory: apps/nivxray-xdr-response
+    env:
+      XDR_RESPOND_ENV: test
+      XDR_RESPOND_ALLOW_UNAUTHENTICATED_DEV: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
