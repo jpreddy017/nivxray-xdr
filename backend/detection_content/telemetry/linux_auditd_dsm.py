@@ -13,7 +13,6 @@ import hashlib
 import os
 import re
 from typing import Any, Dict, List, Optional
-import uuid
 
 from .models import (
     CanonicalTelemetryEvent,
@@ -106,8 +105,40 @@ class LinuxAuditdNormalizer:
         fields = parsed["fields"]
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        # Host (no invented telemetry)
-        hostname = str(fields.get("host") or fields.get("hostname") or fields.get("node") or "")
+        # ── D2 · host identity, from authoritative telemetry only ───
+        # Declared precedence, strongest source first. Every value records
+        # WHERE it came from, and nothing is invented: no localhost, no
+        # default placeholder, no tenant name, and never the collector's own
+        # identity standing in for the endpoint.
+        raw_dict = raw if isinstance(raw, dict) else {}
+        node = str(fields.get("node") or "").strip()
+        envelope_source = str(raw_dict.get("source")
+                              or fields.get("source") or "").strip()
+        explicit_host = str(fields.get("host")
+                            or fields.get("hostname") or "").strip()
+
+        _REJECT = {"localhost", "localhost.localdomain", "127.0.0.1",
+                   "::1", "unknown", "default", "-", "none", "null"}
+
+        def _usable(v: str) -> bool:
+            return bool(v) and v.lower() not in _REJECT
+
+        if _usable(explicit_host):
+            hostname, host_source = explicit_host, "auditd:host"
+        elif _usable(node):
+            # auditd's own host naming (`name_format=hostname`) — the
+            # endpoint naming itself, not an inference.
+            hostname, host_source = node, "auditd:node"
+        elif _usable(envelope_source):
+            # The collector's label for the ORIGIN of this record. For a
+            # syslog collector the source IS the sending host, which is the
+            # explicit semantic justification for using it. It is recorded
+            # as `collector:envelope.source` so an analyst can see it is the
+            # transport's view of the origin, not the endpoint's own claim.
+            hostname, host_source = envelope_source, "collector:envelope.source"
+        else:
+            hostname, host_source = "", None
+
         host = HostEntity(
             hostname=hostname,
             host_id=hostname,
@@ -166,22 +197,30 @@ class LinuxAuditdNormalizer:
             ppid=ppid,
         )
 
-        # User / Identity
+        # ── D2 · user identity, on BOTH paths ───────────────────────
+        # The old code produced `username="uid:"` with
+        # `is_privileged=False` whenever no uid was present — asserting an
+        # unprivileged actor on no evidence. Identity is now either observed
+        # or explicitly NOT_OBSERVED, and the unstitched path behaves exactly
+        # like the stitched one so it cannot become a second, weaker truth.
         uid = str(fields.get("uid") or "")
         auid = str(fields.get("auid") or "")
         euid = str(fields.get("euid") or "")
         user_name = str(fields.get("user") or fields.get("username") or "")
-        if not user_name:
-            if uid == "0" or auid == "0":
-                user_name = "root"
-            else:
-                user_name = f"uid:{uid or auid}"
+        identity_observed = bool(user_name or uid or auid or euid)
+        if not user_name and identity_observed:
+            user_name = "root" if (uid == "0" or auid == "0") \
+                else f"uid:{uid or auid or euid}"
 
-        identity = IdentityEntity(
-            principal_id=user_name,
-            username=user_name,
-            is_privileged=(uid == "0" or euid == "0" or auid == "0"),
-        )
+        if identity_observed:
+            identity = IdentityEntity(
+                principal_id=user_name,
+                username=user_name,
+                is_privileged=(uid == "0" or euid == "0" or auid == "0"),
+            )
+        else:
+            identity = IdentityEntity(
+                principal_id="", username="", is_privileged=False)
 
         # ── D4 · stitch provenance and honest partials ──────────────
         stitched = bool(fields.get("_stitched"))
@@ -190,8 +229,7 @@ class LinuxAuditdNormalizer:
         missing_records = fields.get("_missing_records") or []
         identity_source = (fields.get("_canonical_attribution")
                            or {}).get("identity")
-        if stitched and not (uid or auid or euid or
-                            fields.get("user") or fields.get("username")):
+        if stitched and not identity_observed:
             # No record in the group supplied identity — almost always a
             # SYSCALL that never arrived. Reporting `uid:` and
             # `is_privileged=False` here would be a fabricated claim that an
@@ -219,31 +257,69 @@ class LinuxAuditdNormalizer:
         )
 
         record_types = fields.get("_record_types") or [parsed["record_type"]]
-        # D4 · a stitched group that contains EXECVE genuinely IS an
-        # execution, whichever record happened to be primary. (This is the
-        # part of D3 that falls out of stitching; the unstitched path is
-        # deliberately left as-is for the D3 gate.)
-        if stitched and "EXECVE" in record_types:
+        # D3 · an EXECVE record IS an execution, whether it arrived as part
+        # of a stitched group or on its own. The old branch required
+        # `syscall` or `exe`, neither of which an EXECVE record carries, so
+        # a lone EXECVE was mislabelled `auditd_syscall`.
+        if "EXECVE" in record_types:
+            event_type = "process_execution"
+        elif "execve" in str(fields.get("syscall", "")).lower() or exe:
             event_type = "process_execution"
         else:
-            event_type = ("process_execution"
-                          if "execve" in str(fields.get("syscall", "")).lower()
-                          or exe else "auditd_syscall")
+            event_type = "auditd_syscall"
 
-        # D4 · a stitched event needs a stable identity: the same audit event
-        # re-delivered must not become a second canonical event. Derived from
-        # tenant + collector + audit identity, never random. (The unstitched
-        # path keeps its existing uuid4 — that is the D10 gate.)
-        audit_identity = fields.get("_audit_identity")
+        # D10 · deterministic identity on BOTH paths, so replaying the same
+        # logical evidence can never create a second security object.
+        #   stitched   -> (tenant, collector, audit identity)
+        #   unstitched -> (tenant, collector, audit identity, record type)
+        #                 record type is included so a lone SYSCALL and a
+        #                 lone EXECVE of the SAME audit event stay distinct
+        #                 rather than collapsing into one.
+        #   no audit id -> hash of the verbatim line, still deterministic.
+        # Tenant and collector are always part of the material, so two
+        # tenants can never collide into one canonical event.
+        audit_identity = (fields.get("_audit_identity")
+                          or fields.get("audit_id") or "")
         if stitched and audit_identity:
-            event_id = "cev_auditd_" + hashlib.sha256(
-                f"{resolved_tenant}|{collector_id}|{audit_identity}".encode()
-            ).hexdigest()[:24]
+            id_material = f"{resolved_tenant}|{collector_id}|{audit_identity}"
+            id_basis = "tenant+collector+audit_identity"
+        elif audit_identity:
+            id_material = (f"{resolved_tenant}|{collector_id}|"
+                           f"{audit_identity}|{parsed['record_type']}")
+            id_basis = "tenant+collector+audit_identity+record_type"
         else:
-            event_id = str(uuid.uuid4())
+            verbatim = str(raw_dict.get("message") or raw_dict.get("line")
+                           or raw_dict.get("raw") or "")
+            id_material = (f"{resolved_tenant}|{collector_id}|"
+                           f"verbatim|{verbatim}")
+            id_basis = "tenant+collector+verbatim_line"
+        event_id = "cev_auditd_" + hashlib.sha256(
+            id_material.encode()).hexdigest()[:24]
 
-        extra: Dict[str, Any] = {"syscall": fields.get("syscall"),
-                                 "record_type": parsed["record_type"]}
+        extra: Dict[str, Any] = {
+            "syscall": fields.get("syscall"),
+            "record_type": parsed["record_type"],
+            # D2 provenance — where the host name came from, or that it was
+            # never observed.
+            "host_identity_source": host_source,
+            "host_identity_state": ("OBSERVED" if hostname
+                                    else "NOT_OBSERVED"),
+            # D2 provenance — identity, on both paths.
+            "identity_observed": identity_observed,
+            "identity_state": ("OBSERVED" if identity_observed
+                               else "NOT_OBSERVED"),
+            # D10 provenance — what the canonical identity was derived from.
+            "event_id_basis": id_basis,
+        }
+        if not hostname:
+            extra["host_not_observed_reason"] = (
+                "no authoritative host name was available: the audit record "
+                "carried no node/host field and the collector supplied no "
+                "origin label; a placeholder would be a fabricated claim")
+        if not identity_observed:
+            extra["identity_not_observed_reason"] = (
+                "no contributing audit record supplied uid/auid/euid; "
+                "privilege is unknown, not unprivileged")
         if stitched:
             extra.update({
                 "stitched": True,
@@ -259,15 +335,9 @@ class LinuxAuditdNormalizer:
                     fields.get("_duplicate_records") or [],
                 "stitch_unknown_record_types":
                     fields.get("_unknown_record_types") or [],
-                "identity_observed": bool(identity.username),
                 "identity_source_record": identity_source,
                 "command_line_source_record": cmd_source,
             })
-            if not identity.username:
-                extra["identity_state"] = "NOT_OBSERVED"
-                extra["identity_not_observed_reason"] = (
-                    "no contributing audit record supplied uid/auid/euid; "
-                    "privilege is unknown, not unprivileged")
 
         canonical = CanonicalTelemetryEvent(
             event_id=event_id,

@@ -15528,3 +15528,57 @@ cross-domain correlation → response → independent verification.
 Work Mode owns the security/control-plane track in parallel; Emergent must
 not touch auth, JWT/tenant binding, response security, collector-management
 security, service-to-service auth, webhook auth or credential handling.
+
+
+## Step 5 — D2 / D3 / D10 auditd correctness · DONE (preview only)
+`memory/D2_D3_D10_IMPLEMENTATION_REPORT.md`. One product file changed:
+`detection_content/telemetry/linux_auditd_dsm.py`.
+- **D2 PASS** — host precedence `auditd:host` > `auditd:node` >
+  `collector:envelope.source`, each recorded in `host_identity_source` /
+  `host_identity_state`. Placeholders (localhost/127.0.0.1/unknown/default/
+  none/null/-/blank) REFUSED as evidence; tenant name never used. Absence →
+  `NOT_OBSERVED` + reason. The user-identity half of D2 is fixed on BOTH
+  paths: `username=""` + `NOT_OBSERVED` replaces the old `uid:` +
+  `is_privileged=False` lie.
+- **D3 PASS** — `EXECVE` → `process_execution` on stitched AND unstitched.
+- **D10 PASS** — deterministic `cev_auditd_<sha256>` on every branch:
+  stitched = tenant+collector+audit_identity; single record = +record_type
+  (so a lone SYSCALL and lone EXECVE of one audit event never collapse);
+  no audit id = tenant+collector+verbatim_line. No `uuid4()` remains.
+- Tenant AND collector are in the hash material on every branch → no
+  cross-tenant/cross-collector collision (4 tests).
+- 22 unit tests (all 12 owner cases) + 24 live HTTP checks PASS.
+  Combined suite 88 passed / 4 failed — those 4 already proven pre-existing
+  against a clean tree in the D4 report.
+- Live proof: host now resolves to `d4-proof-host` via
+  `collector:envelope.source` — the empty hostname from the Step-0 audit is
+  closed on the live path.
+- Storage +206 B/event (+2.6%). sha256 replaces uuid4, so no added cost.
+- Correction logged: D2 was TWO losses (host + user identity); the D4 report
+  described only the host half as outstanding.
+
+## Defect register update (2026-09-14, after D2/D3/D10)
+| ID | Status |
+|---|---|
+| D1 | FIXED endpoint path · **XDR-ingest path outstanding — NEXT GATE** |
+| D2 | **PASS (preview)** — needs a real auditd host for production acceptance |
+| D3 | **PASS (preview)** |
+| D4 | PASS (preview) |
+| D5 | PARTIAL — stitched events carry `evidence_refs` to raw records |
+| D6 | OPEN — collector Start fix not deployed, off critical path |
+| D7 | OPEN, low |
+| D8 | FIXED for 6 declared rules; 92 NOT_DECLARED (no sweep yet) |
+| D9 | PARTIAL — basis declared, `event_time` not re-pointed |
+| D10 | **PASS (preview)** |
+
+Still open from the auditd work: PATH/CWD preserved + attributed but not
+mapped to canonical fields; cross-batch groups remain two honest partials;
+`collector:envelope.source` is only as trustworthy as the collector label
+(made visible, not solved); `host_id == hostname` (no independent machine id
+in auditd telemetry).
+
+## Next (owner-confirmed order)
+Ingest-path provenance (D1 for collector-delivered sources) → PATH/CWD
+mapping → small rule-declaration batches → real auditd-host acceptance →
+second telemetry domain → cross-domain correlation → response →
+independent verification.
