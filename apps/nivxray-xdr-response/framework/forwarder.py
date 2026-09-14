@@ -43,7 +43,7 @@ class EvidenceForwarder:
         return float(os.environ.get("NIVX_RESPONSE_EVIDENCE_TIMEOUT", "10"))
 
     def configured(self) -> bool:
-        return bool(self.url)
+        return bool(self.url) and bool(self.token)
 
     def status(self) -> Dict[str, Any]:
         return {
@@ -66,7 +66,8 @@ class EvidenceForwarder:
         if not self.configured():
             refs = _synth_refs()
             return {**refs, "forwarding_state": "not_wired",
-                     "reason": "NIVX_RESPONSE_EVIDENCE_URL is not set"}
+                     "reason": ("NIVX_RESPONSE_EVIDENCE_URL is not set" if not self.url
+                                else "NIVX_RESPONSE_EVIDENCE_TOKEN is not set")}
         try:
             headers = {"Content-Type": "application/json"}
             if self.token:
