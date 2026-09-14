@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from edr_plane.raw_events import Derivation, add_derivation, next_generation
+from services import provenance_timestamps as pts
 
 PARSER_NAME = "nivxforge-linux-sensor"
 PARSER_VERSION = "1.0.0"
@@ -79,17 +80,44 @@ def parse(line: str) -> dict[str, Any]:
     observed = _iso(ev.get("observed_at")) or datetime.now(
         timezone.utc).isoformat()
     not_observed = list(ev.get("not_observed") or ())
+    # D9 · `event_time` carries one of two genuinely different meanings. It
+    # is recorded here which one, so no consumer has to guess whether it
+    # means "when it happened" or "when we noticed".
+    activity_time = _iso(ev.get("start_time"))
 
     canonical: dict[str, Any] = {
         "source_vendor": "NivXForge",
         "source_product": "LinuxSensor",
-        "event_time": _iso(ev.get("start_time")) or observed,
+        "event_time": activity_time or observed,
         "ingest_time": datetime.now(timezone.utc).isoformat(),
+        "provenance": {
+            "timestamps": pts.block(
+                activity_occurred_at=(
+                    pts.stamp(activity_time,
+                              source="sensor:/proc start_time")
+                    if activity_time else
+                    pts.stamp(status=pts.NOT_OBSERVED,
+                              reason="this collection method observes a "
+                                     "state, not the instant it began")),
+                sensor_observed_at=pts.stamp(
+                    observed, source="sensor:observed_at"),
+                # Directive §4 — the sensor IS the collector on this path.
+                # There is no collector hop, so there is nothing to stamp.
+                # A batch-send time is NOT a collector receipt.
+                collector_received_at=pts.stamp(
+                    status=pts.NOT_APPLICABLE,
+                    reason="no collector boundary exists on the sensor "
+                           "path: the sensor delivers straight to NivX "
+                           "ingress"),
+            ),
+        },
         "additional_fields": {
             "payload_format": "nivxforge-sensor-json",
             "activity_type": activity,
             "operation": ev.get("operation"),
             "collection_method": ev.get("collection_method"),
+            "event_time_basis": ("ACTIVITY_TIME" if activity_time
+                                 else "OBSERVATION_TIME"),
             # Directive §6 — the epistemic state travels WITH the evidence.
             "epistemic_state": {
                 "not_observed": not_observed,
@@ -174,7 +202,8 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                  endpoint_id: str, hostname: Optional[str],
                  authentication: dict,
                  source_kind: Optional[str] = None,
-                 sensor_version: Optional[str] = None) -> dict[str, Any]:
+                 sensor_version: Optional[str] = None,
+                 nivx_received_at: Optional[str] = None) -> dict[str, Any]:
     """Parse → canonical → CES/CEM observation → append the derivation.
 
     Returns what actually happened. A parse failure is reported as a
@@ -209,6 +238,9 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
     canonical["raw_ref"] = {"raw_id": raw_id, "collection": "edr_raw_events"}
     canonical["host"] = {"host_id": endpoint_id, "hostname": hostname}
     canonical["provenance"] = {
+        # The stamps seeded by `parse()` are the source-side truth and must
+        # survive this assignment.
+        **(canonical.get("provenance") or {}),
         "trace_id": raw_id,
         "normalizer_id": f"{PARSER_NAME}/{NORMALIZER_VERSION}",
         # P0-3 · the attribution recorded on the raw event travels with
@@ -220,6 +252,13 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
         "sensor_version": sensor_version,
         "trust_state": "AUTHENTICATED",
     }
+    # The genuine NivX receipt time — the moment the raw row was written by
+    # the authenticated ingest handler. Passed in by the caller; never
+    # approximated here.
+    if nivx_received_at:
+        pts.put(canonical, "nivx_received_at",
+                pts.stamp(nivx_received_at,
+                          source="edr_raw_events.ingest_time"))
     # The authenticated identity travels with the evidence, so
     # "which authenticated endpoint produced this exact evidence?" is
     # answerable from the observation itself and not only from the raw row.
@@ -318,6 +357,10 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
             "trust_state": "AUTHENTICATED", "raw_id": raw_id,
             "authenticated_endpoint_id": (authentication or {}).get(
                 "authenticated_endpoint_id"),
+            # D1 · the real NivX receipt time travels with the authenticated
+            # envelope, because the pipeline re-parses the payload and would
+            # otherwise have no way to know it.
+            "nivx_received_at": nivx_received_at,
         }
         result = await process_event_through_pipeline(
             db, sensor_event, trace_id=raw_id,

@@ -15379,3 +15379,69 @@ CONNECTION_FAILED (actionable), then ONE real auditd event via the real ingest
 path → 1/1/1, reasoned 1, observations_created 1, state CONNECTED. Note the
 stuck state never blocked ingestion (`xdr_ingest` writes state directly).
 NOT DEPLOYED. Record: `memory/P0_COLLECTOR_STUCK_IN_STARTING.md`.
+
+
+---
+
+# 2026-09-14 · REAL SECURITY LOOP (owner directive — supersedes UI-first work)
+
+**Priority reset by owner:** no UI/UX, no Cisco visual parity, no Attack
+Library, no reporting/graphs. Prove NivXForge EDR + NivXRay XDR as a genuine
+end-to-end security system on REAL telemetry with REAL evidence.
+
+## Step 0 — current-state audit (read-only) · DONE
+`memory/REAL_SECURITY_LOOP_STEP0_AUDIT.md`. 25 components classified with
+evidence. Key finding: the NivXForge Linux sensor is ALREADY producing genuine
+telemetry on a real host through the one shared core pipeline. Collector
+`STARTING` confirmed NOT a blocker (ingest writes state directly).
+
+## Step 1 — read-only real-loop proof · DONE
+`memory/REAL_SECURITY_LOOP_STEP1_OWNER_ANSWER.md` +
+`REAL_SECURITY_LOOP_STEP1_READONLY_PROOF.md`.
+10 genuine events walked end to end. 9 of 10 gates PASS; Provenance FAIL.
+Real detection on real activity: `EDR-LNX-002` → SUSPICIOUS → `INC000000638`,
+two events into one incident, `REAL_SENSOR_DERIVED`.
+Defect register D1-D10 established, every entry evidence-backed.
+
+## Step 2 — D1 + D9 minimum patch (endpoint path) · DONE
+`memory/D1_D9_IMPLEMENTATION_REPORT.md`. Provenance gate PRE-PATCH 0/3 FAIL →
+POST-PATCH 10/10 PASS. Four statuses (AVAILABLE / NOT_APPLICABLE /
+NOT_OBSERVED / MISSING), stamps taken only at real boundaries, no timestamp
+fabricated or backfilled. Real per-stage latencies now measurable.
+Regression: 19 failed / 377 passed BOTH with and without the patch —
+identical sets, no regression attributable.
+
+## Production state (verified 2026-09-14)
+- Backend carries the P1 hardening; SPA carries both tenant-context patches.
+- **No active ingest credential** — both keys revoked (`aud_1799328621f54e1caf61`).
+- Stray `default` collector deleted (`aud_aee47e7e16954319b312`).
+- `col_a3e09eddb0544a31882e` (`nivx-prod-1`, DISABLED) untouched.
+- Zero incidents, zero telemetry. No seeded data. Policy intact.
+
+## Defect register
+| ID | Defect | Status |
+|---|---|---|
+| D1 | Provenance timestamps absent | **FIXED (endpoint path)** · XDR-ingest path outstanding |
+| D2 | auditd loses host + user identity | CONFIRMED, open |
+| D3 | auditd EXECVE mislabelled `auditd_syscall` | CONFIRMED, open |
+| D4 | auditd records not stitched → 3 contradictory events per execution | CONFIRMED, open · **fix first** |
+| D5 | XDR-ingest canonical lacks raw-row reference | open, low |
+| D6 | Collector Start fix not deployed | open, off critical path |
+| D7 | Two canonical identities per activity | open, low |
+| D8 | Match detail (fields + observed values) not persisted | open · **NEXT** |
+| D9 | `event_time` conflates activity vs observation time | **PARTIAL** — basis now declared |
+| D10 | auditd `event_id = uuid4()` — no stable identity | CONFIRMED, open |
+
+## Approved order (owner)
+D1/D9 → **D8** → D4 → D3/D2/D10 → auditd regression corpus → genuine auditd
+onboarding → real cross-source correlation → response → independent
+verification.
+
+## Known limitations (do not overstate)
+- Correlation is **single-domain**. Every event is endpoint-domain; sensor
+  NETWORK rows are the same sensor, not an independent domain. **No
+  cross-domain XDR claim is supportable.**
+- No verified containment has ever occurred: real isolate attempts end
+  `CAPABILITY_UNAVAILABLE`, `verification: null`.
+- Production has never received a single event.
+- **No production-readiness claim.**

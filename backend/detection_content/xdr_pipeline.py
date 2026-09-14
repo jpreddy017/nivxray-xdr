@@ -25,6 +25,7 @@ from .xdr_response_fabric import orchestrate as response_orchestrate
 from .xdr_closed_loop import recompute as closed_loop_recompute
 from .xdr_framework_mapping import resolve_mappings as framework_resolve
 from .telemetry.registry import TELEMETRY_DSM_REGISTRY
+from services import provenance_timestamps as pts
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -264,6 +265,9 @@ async def process_event_through_pipeline(db, raw_event: dict,
         _s("parser", "FAILED", code=pe.code, error=pe.message,
                     parser_id=parser.id)
         return {"stages": stages, "blocker": "parser"}
+    # D1 · stamped at the REAL parse boundary — the instant the parser
+    # returned, not a nearby convenient value.
+    t_parsed = pts.now()
     _s("parser", "EXECUTED", parser_id=parser.id,
                 fields=len(parsed))
 
@@ -278,6 +282,21 @@ async def process_event_through_pipeline(db, raw_event: dict,
     else:
         canonical = normalizer.normalize(
             parsed, dsm.id, collector_id, integration_id, trace_id)
+    # D1 · the two boundaries are stamped separately and only after the
+    # work they describe has actually completed.
+    pts.put(canonical, "parsed_at",
+            pts.stamp(t_parsed, source=f"pipeline:parser:{parser.id}"))
+    pts.put(canonical, "normalized_at",
+            pts.stamp(pts.now(),
+                      source=f"pipeline:normalizer:{normalizer.id}"))
+    # D1 · the NivX receipt boundary. The value is only ever taken from the
+    # producer that genuinely observed it — the authenticated ingest handler
+    # that wrote the raw row. If no producer supplied it, it stays MISSING.
+    _recv = (raw_event.get("_authenticated_ingest") or {}).get(
+        "nivx_received_at") or raw_event.get("nivx_received_at")
+    if _recv:
+        pts.put(canonical, "nivx_received_at",
+                pts.stamp(_recv, source="ingest:raw row ingest_time"))
     _s("normalizer", "EXECUTED", normalizer_id=normalizer.id)
 
     await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
@@ -288,6 +307,8 @@ async def process_event_through_pipeline(db, raw_event: dict,
 
     # ── Detection first (needed by IUE for capability_tags) ──────
     detection = evaluate_detection(canonical)
+    # D1 · stamped when rule evaluation actually finished.
+    t_rule = pts.now()
     if detection.get("status") == "EXECUTION_FAILED":
         _s("detection", "FAILED", detection_error=detection.get("error"))
         return {"stages": stages, "blocker": "detection",
@@ -365,6 +386,26 @@ async def process_event_through_pipeline(db, raw_event: dict,
             plane_id=spread["plane_id"])
 
     # ── Round 11 · Incident (gated materialisation) ─────────────
+    # D1 · the detection and verdict boundaries. The canonical row was
+    # persisted earlier on purpose, so evidence survives a detection fault;
+    # these two stamps are therefore APPENDED to it. Only the provenance
+    # block is written — no evidence field is ever rewritten. `verdict_at`
+    # is taken after the spread re-evaluation above, so it marks the
+    # AUTHORITATIVE verdict and not a superseded provisional one.
+    pts.put(canonical, "rule_evaluated_at",
+            pts.stamp(t_rule,
+                      source=f"pipeline:detection:{detection.get('engine_id')}"))
+    pts.put(canonical, "verdict_at",
+            pts.stamp(pts.now(),
+                      source=f"pipeline:verdict:{verdict.get('engine_id')}"))
+    _tsb = canonical["provenance"]["timestamps"]
+    await db[CANONICAL_COLLECTION].update_one(
+        {"event_id": canonical["event_id"]},
+        {"$set": {
+            "provenance.timestamps.rule_evaluated_at":
+                _tsb["rule_evaluated_at"],
+            "provenance.timestamps.verdict_at": _tsb["verdict_at"]}})
+
     incident = await materialise_incident(
         db, canonical, iue, ice, detection, verdict, trace_id,
         tenant_id=canonical.get("tenant_id") or tenant_id)

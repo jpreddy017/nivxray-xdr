@@ -294,7 +294,8 @@ async def ingest(body: TelemetryBody, request: Request,
             _db, raw_id=ev.raw_id, tenant_id=who.tenant_id,
             payload=body.payload, endpoint_id=who.endpoint_id,
             hostname=ep.get("hostname"), authentication=who.provenance(),
-            source_kind=ev.source_kind, sensor_version=ev.sensor_version)
+            source_kind=ev.source_kind, sensor_version=ev.sensor_version,
+            nivx_received_at=ev.ingest_time)
 
     return {
         **result,
