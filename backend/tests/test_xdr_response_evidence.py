@@ -237,10 +237,13 @@ async def test_list_incident_response_executions_tenant_scoped():
                                 params={"tenant_id": "acme"})
         globex = await c.get("/api/xdr/incidents/INC-9/response-executions",
                                   params={"tenant_id": "globex"})
-    assert acme.json()["count"]   == 1
-    assert globex.json()["count"] == 1
-    assert acme.json()["executions"][0]["tenant_id"]   == "acme"
-    assert globex.json()["executions"][0]["tenant_id"] == "globex"
+    assert acme.status_code == 200
+    assert acme.json()["count"] == 1
+    assert acme.json()["executions"][0]["tenant_id"] == "acme"
+    # The authenticated user belongs to acme. A client-supplied globex
+    # tenant cannot change that authority or reveal the globex record.
+    assert globex.status_code == 404
+    assert globex.json()["detail"]["error"] == "not_found"
 
 
 @pytest.mark.asyncio
