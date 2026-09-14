@@ -26,6 +26,7 @@ from .xdr_closed_loop import recompute as closed_loop_recompute
 from .xdr_framework_mapping import resolve_mappings as framework_resolve
 from .telemetry.registry import TELEMETRY_DSM_REGISTRY
 from services import provenance_timestamps as pts
+from services import ingest_provenance as ingest_prov
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -244,7 +245,8 @@ async def process_event_through_pipeline(db, raw_event: dict,
                                                        trace_id: str,
                                                        integration_id: str,
                                                        collector_id: str,
-                                                       tenant_id: str = "default") -> dict:
+                                                       tenant_id: str = "default",
+                                                       ingest_provenance: dict | None = None) -> dict:
     """
     Drive one raw event through DSM → Parser → Normalizer →
     Canonical Evidence → Sigma Detection.  Halts honestly at first
@@ -300,6 +302,15 @@ async def process_event_through_pipeline(db, raw_event: dict,
     if _recv:
         pts.put(canonical, "nivx_received_at",
                 pts.stamp(_recv, source="ingest:raw row ingest_time"))
+    # D11 · the collector-delivered transport boundaries. Supplied by the
+    # ingest handler that owns the real HTTP receipt instant, and passed
+    # alongside the raw event rather than inside it, so the stored raw
+    # evidence stays exactly what the collector sent. Absent boundaries stay
+    # NOT_OBSERVED rather than borrowing a nearby stage.
+    _ip = ingest_provenance
+    if isinstance(_ip, dict):
+        ingest_prov.apply(canonical, _ip.get("timestamps") or {})
+        canonical.setdefault("provenance", {})["ingest"] = _ip.get("identity")
     _s("normalizer", "EXECUTED", normalizer_id=normalizer.id)
 
     await db[CANONICAL_COLLECTION].insert_one(dict(canonical))

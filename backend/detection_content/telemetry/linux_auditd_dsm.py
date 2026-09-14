@@ -14,6 +14,8 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 
+from services import provenance_timestamps as pts
+
 from .models import (
     CanonicalTelemetryEvent,
     HostEntity,
@@ -69,6 +71,19 @@ class LinuxAuditdParser:
                 epoch = float(m.group(1))
                 parsed_fields["timestamp"] = datetime.fromtimestamp(epoch, timezone.utc).isoformat()
                 parsed_fields["audit_id"] = m.group(2)
+                # D11 · the audit header IS the kernel's record of when the
+                # activity happened. Marked as such so the normalizer can
+                # tell it apart from any other `timestamp` key that merely
+                # rode in on the envelope.
+                parsed_fields["_audit_epoch"] = m.group(1)
+                parsed_fields["_audit_timestamp_state"] = "OBSERVED"
+            elif "audit(" in raw_msg:
+                # The header is there and we could not read it. That is a
+                # broken source, not an absent one, and it must not quietly
+                # look the same as a record that never carried a time.
+                parsed_fields["_audit_timestamp_state"] = "MALFORMED"
+            else:
+                parsed_fields["_audit_timestamp_state"] = "ABSENT"
 
         record_type = str(parsed_fields.get("type") or parsed_fields.get("record_type") or "").upper()
         if not record_type and "syscall" not in parsed_fields and "exe" not in parsed_fields:
@@ -240,11 +255,36 @@ class LinuxAuditdNormalizer:
                 is_privileged=False,
             )
 
-        event_time = (
-            fields.get("timestamp")
-            or raw.get("timestamp")
-            or now_iso
-        )
+        # ── D11 · activity time, from the audit header or not at all ──
+        # `msg=audit(epoch:serial)` is the kernel's own record of when the
+        # syscall happened. Only that value may become activity time. Any
+        # other `timestamp` key rode in on an envelope and its origin cannot
+        # be verified, so it is never promoted to activity time.
+        audit_ts_state = str(fields.get("_audit_timestamp_state")
+                             or "NOT_DETERMINED")
+        audit_ts = fields.get("timestamp") \
+            if audit_ts_state == "OBSERVED" else None
+
+        if audit_ts:
+            event_time = audit_ts
+            event_time_basis = "ACTIVITY_TIME"
+            event_time_source = "auditd:msg=audit(epoch:serial)"
+            event_time_substituted = False
+        elif fields.get("timestamp") or raw.get("timestamp"):
+            event_time = fields.get("timestamp") or raw.get("timestamp")
+            event_time_basis = "SUPPLIED_TIMESTAMP_UNVERIFIED"
+            event_time_source = ("raw:timestamp — supplied by the delivery, "
+                                 "not readable from the audit header, so its "
+                                 "origin cannot be verified as activity time")
+            event_time_substituted = True
+        else:
+            # Kept populated for schema/rule compatibility ONLY, and said so
+            # out loud. `activity_occurred_at` stays NOT_OBSERVED below.
+            event_time = now_iso
+            event_time_basis = "INGEST_TIME_SUBSTITUTED"
+            event_time_source = ("pipeline:normalizer clock at "
+                                 f"{self.id} — no source time was observed")
+            event_time_substituted = True
 
         provenance = ProvenanceEnvelope(
             trace_id=trace_id,
@@ -310,6 +350,11 @@ class LinuxAuditdNormalizer:
                                else "NOT_OBSERVED"),
             # D10 provenance — what the canonical identity was derived from.
             "event_id_basis": id_basis,
+            # D11 provenance — what `event_time` actually means here.
+            "event_time_basis": event_time_basis,
+            "event_time_source": event_time_source,
+            "event_time_substituted": event_time_substituted,
+            "audit_timestamp_state": audit_ts_state,
         }
         if not hostname:
             extra["host_not_observed_reason"] = (
@@ -358,6 +403,28 @@ class LinuxAuditdNormalizer:
             additional_fields=extra,
         )
         out = canonical.to_dict()
+        # ── D11 · seed the eight boundaries, so a gap is visible ────
+        # Only the two this normalizer can honestly speak for are filled;
+        # the transport boundaries are the ingest handler's to measure and
+        # the pipeline stamps its own. Everything else stays MISSING rather
+        # than being quietly omitted.
+        if audit_ts:
+            activity = pts.stamp(audit_ts,
+                                 source="auditd:msg=audit(epoch:serial)")
+        else:
+            activity = pts.stamp(
+                status=pts.NOT_OBSERVED,
+                reason=("no readable audit activity time: "
+                        f"audit_timestamp_state={audit_ts_state}; "
+                        "the substituted event_time is NOT activity time"))
+        out.setdefault("provenance", {})["timestamps"] = pts.block(
+            activity_occurred_at=activity,
+            sensor_observed_at=pts.stamp(
+                status=pts.NOT_OBSERVED,
+                reason=("auditd emits no separate daemon observation time; "
+                        "only the kernel activity time is recorded in the "
+                        "record itself")),
+        )
         if stitched:
             # Every contributing raw record is referenced from the canonical
             # event, so an analyst can walk citation -> canonical field ->

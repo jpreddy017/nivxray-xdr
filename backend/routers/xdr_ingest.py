@@ -39,6 +39,7 @@ from pymongo import MongoClient
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
 from services import ingest_idempotency as idem
+from services import ingest_provenance as ing_prov
 
 router = APIRouter(prefix="/api/xdr/ingest", tags=["xdr-ingest"])
 
@@ -199,13 +200,40 @@ def _raw_event_for_pipeline(e: CanonicalEnvelope) -> dict[str, Any]:
         "collection_method":    e.collection_method,
         "parser_version":       e.parser_version,
         "collection_timestamp": e.collection_timestamp,
+        # D11 · carried verbatim so the canonical provenance can cite the
+        # collector's own claims instead of re-deriving them.
+        "source_timestamp":     e.source_timestamp,
+        "received_at":          e.received_at,
         "raw":                  raw,
+    }
+
+
+def _ingest_provenance_for(e: CanonicalEnvelope, *, nivx_received_at: str,
+                           tenant_id: str, raw_ref: dict[str, Any] | None
+                           ) -> dict[str, Any]:
+    """D11 · one envelope's ingest provenance: when each transport boundary
+    saw it, and who says so.  No boundary is ever filled from another."""
+    env = e.model_dump()
+    return {
+        "timestamps": ing_prov.transport_stamps(
+            env, nivx_received_at=nivx_received_at,
+            path_kind=ing_prov.COLLECTOR_DELIVERED),
+        "identity": ing_prov.identity_block(
+            env, path_kind=ing_prov.COLLECTOR_DELIVERED,
+            tenant_id=tenant_id,
+            tenant_id_source=("envelope.tenant_id, verified equal to header "
+                              "X-Tenant-Id and to xdr_collectors.tenant_id"),
+            collector_id=e.collector_id, raw_ref=raw_ref),
     }
 
 
 async def _run_reasoning(envelopes: list[CanonicalEnvelope],
                              tenant_id: str,
-                             keys: list[str] | None = None) -> dict[str, Any]:
+                             keys: list[str] | None = None,
+                             *,
+                             nivx_received_at: str | None = None,
+                             raw_refs: list[dict[str, Any] | None] | None = None
+                             ) -> dict[str, Any]:
     """Drive each envelope through the existing reasoning chain.
 
     The counter/state contract of this endpoint is locked and must not
@@ -217,7 +245,9 @@ async def _run_reasoning(envelopes: list[CanonicalEnvelope],
         return {"reasoned": 0, "observations_created": 0,
                 "incidents_promoted": [], "reasoning": []}
     try:
-        return await _reason_batch(envelopes, tenant_id, keys)
+        return await _reason_batch(envelopes, tenant_id, keys,
+                                   nivx_received_at=nivx_received_at,
+                                   raw_refs=raw_refs)
     except Exception as ex:                                       # noqa: BLE001
         # No claim is released.  The raw rows are already persisted, so the
         # claims stay at RAW_PERSISTED and the collector's retry RESUMES from
@@ -232,7 +262,11 @@ async def _run_reasoning(envelopes: list[CanonicalEnvelope],
 
 async def _reason_batch(envelopes: list[CanonicalEnvelope],
                             tenant_id: str,
-                            keys: list[str] | None = None) -> dict[str, Any]:
+                            keys: list[str] | None = None,
+                            *,
+                            nivx_received_at: str | None = None,
+                            raw_refs: list[dict[str, Any] | None] | None = None
+                            ) -> dict[str, Any]:
     from deps import db as _adb
     from detection_content.telemetry.auditd_stitcher import (
         plan_stitch, record_type as aud_record_type)
@@ -264,6 +298,15 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
     for idx, e in enumerate(envelopes):
         key = keys[idx] if keys and idx < len(keys) else None
         trace_id = f"live_{uuid.uuid4().hex[:16]}"
+        # D11 · the receipt instant is the ingest handler's own measurement,
+        # taken before any work began. If this call was made without one
+        # (tests, internal replay) the boundary stays MISSING — the current
+        # clock is NOT substituted for a receipt we did not witness.
+        _prov = _ingest_provenance_for(
+            e, nivx_received_at=nivx_received_at, tenant_id=e.tenant_id
+            or tenant_id,
+            raw_ref=(raw_refs[idx] if raw_refs and idx < len(raw_refs)
+                     else None)) if nivx_received_at else None
         raw_event = _raw_event_for_pipeline(e)
 
         # A stitched member contributed its record to the group's canonical
@@ -309,7 +352,8 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
                 _adb, raw_event, trace_id,
                 integration_id=e.data_source_id or e.connector_id or "unmapped",
                 collector_id=e.collector_id,
-                tenant_id=e.tenant_id or tenant_id)
+                tenant_id=e.tenant_id or tenant_id,
+                ingest_provenance=_prov)
         except Exception as ex:                                   # noqa: BLE001
             outcomes.append(ReasoningOutcome(
                 source_event_id=e.source_event_id, trace_id=trace_id,
@@ -421,6 +465,10 @@ async def ingest_telemetry(
     (backward compatibility).  Both normalise to ``TelemetryBatch``.
     """
     batch = body if isinstance(body, TelemetryBatch) else TelemetryBatch(envelopes=body)
+    # D11 · the ONE real NivX receipt instant for this delivery, taken before
+    # any lookup, validation or persistence. Every later stage measures its
+    # own boundary; none of them may stand in for this one.
+    nivx_received_at = _now()
     envelopes = batch.envelopes
     if not envelopes:
         raise HTTPException(400, detail="empty batch")
@@ -487,6 +535,9 @@ async def ingest_telemetry(
     #: attempt — reasoning is resumed WITHOUT re-persisting the raw row.
     resume: list[CanonicalEnvelope] = []
     resume_keys: list[str] = []
+    #: D11 · the raw row that proves each resumed envelope, taken from the
+    #: idempotency claim rather than re-derived.
+    resume_raw_refs: list[dict[str, Any] | None] = []
     try:
         idents = [(e, idem.event_identity(e.tenant_id, e.collector_id,
                                           e.source, e.source_event_id, e.raw))
@@ -535,6 +586,13 @@ async def ingest_telemetry(
         if decision == "RESUME_FROM_RAW":
             resume.append(e)
             resume_keys.append(ident["key"])
+            _rid = (rec or {}).get("raw_row_id")
+            resume_raw_refs.append(
+                {"collection": "xdr_canonical_events", "id": _rid,
+                 "state": "PERSISTED_BY_EARLIER_ATTEMPT"} if _rid else
+                {"state": "MISSING",
+                 "reason": ("the idempotency claim recorded RAW_PERSISTED but "
+                            "carried no raw_row_id")})
             continue
         # FRESH or RESUME_FULL — nothing was ever persisted for this claim.
         fresh.append(e)
@@ -551,6 +609,8 @@ async def ingest_telemetry(
     accepted = parse_err = norm_err = 0
     now = _now()
     persisted_ids: list[str] = []
+    #: D11 · index-aligned to `fresh`, so reasoning can cite the exact raw row.
+    fresh_raw_refs: list[dict[str, Any] | None] = []
     for e, _claim_key in zip(fresh, fresh_keys):
         if e.parser_ok and e.normalized_ok:
             accepted += 1
@@ -580,9 +640,27 @@ async def ingest_telemetry(
             "event_type":      e.event_type,
             "source_timestamp": e.source_timestamp,
         }
+        # D11 · `received_at` above keeps its compatibility fallback chain, so
+        # nothing that reads it breaks — but the substitution is now declared
+        # instead of being indistinguishable from a collector measurement.
+        if e.received_at:
+            rec["received_at_source"] = "collector:envelope.received_at"
+            rec["received_at_substituted"] = False
+        elif e.collection_timestamp:
+            rec["received_at_source"] = \
+                "collector:envelope.collection_timestamp"
+            rec["received_at_substituted"] = True
+        else:
+            rec["received_at_source"] = \
+                "ingest:http receipt POST /api/xdr/ingest/telemetry"
+            rec["received_at_substituted"] = True
+        rec["nivx_received_at"] = nivx_received_at
         if _c_events() is not None:
             r = _c_events().insert_one(rec)
             persisted_ids.append(str(r.inserted_id))
+            fresh_raw_refs.append({"collection": "xdr_canonical_events",
+                                   "id": str(r.inserted_id),
+                                   "state": "PERSISTED_BY_THIS_REQUEST"})
             # The raw row now exists.  Record it BEFORE reasoning so a retry
             # after a crash resumes instead of re-persisting it.  A failure
             # here is fatal for the request: losing this marker is what would
@@ -595,6 +673,11 @@ async def ingest_telemetry(
                     "reason": str(ex),
                     "retryable": True,
                     "stage": "raw_persisted_marker"})
+        else:
+            fresh_raw_refs.append(
+                {"state": "MISSING",
+                 "reason": "the raw event store was unavailable for this "
+                           "delivery"})
 
     # Update counters atomically.  `events_received/parsed/normalized` are
     # the LOCKED evidence for the CONNECTED gate and count UNIQUE telemetry
@@ -695,7 +778,9 @@ async def ingest_telemetry(
     # Fresh envelopes and resumed ones are reasoned together; only the fresh
     # ones had a raw row written in this request.
     reasoning = await _run_reasoning(fresh + resume, owner_ten,
-                                     fresh_keys + resume_keys)
+                                     fresh_keys + resume_keys,
+                                     nivx_received_at=nivx_received_at,
+                                     raw_refs=fresh_raw_refs + resume_raw_refs)
     reasoning["reasoning"] = list(reasoning.get("reasoning") or []) \
         + dup_outcomes
     return TelemetryReceipt(accepted=accepted, parse_errors=parse_err,

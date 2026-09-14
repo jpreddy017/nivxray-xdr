@@ -15582,3 +15582,83 @@ Ingest-path provenance (D1 for collector-delivered sources) → PATH/CWD
 mapping → small rule-declaration batches → real auditd-host acceptance →
 second telemetry domain → cross-domain correlation → response →
 independent verification.
+
+---
+
+# D11 · INGEST PATH PROVENANCE — COMPLETE (preview only) · 2026-09-14
+
+Owner-approved gate after D2/D3/D10. Full report:
+`/app/memory/D11_INGEST_PROVENANCE_REPORT.md`. **PASS for preview scope.**
+
+## What was built
+- `services/ingest_provenance.py` (NEW) — the three transport boundaries,
+  ISO-8601 validation, the improve-only merge rule, and the delivery-identity
+  block.
+- `routers/xdr_ingest.py` — the real HTTP receipt instant is captured before
+  any work begins and becomes `nivx_received_at`; `sensor_observed_at` comes
+  from `envelope.source_timestamp`; `collector_received_at` from
+  `envelope.received_at` → `collection_timestamp`. Raw-row reference carried
+  into reasoning. Raw row now declares `received_at_source` /
+  `received_at_substituted` / `nivx_received_at`.
+- `xdr_pipeline.process_event_through_pipeline(..., ingest_provenance=)` —
+  applies transport stamps + `provenance.ingest` after normalization. Passed
+  alongside the raw event, not inside it, so stored raw evidence stays exactly
+  what the collector sent (saved ~1.25 KB/event of duplication).
+- `linux_auditd_dsm.py` — parser records `_audit_timestamp_state`
+  (OBSERVED/MALFORMED/ABSENT); normalizer derives `activity_occurred_at` from
+  `msg=audit(epoch:serial)` only, and declares `event_time_basis` /
+  `event_time_source` / `event_time_substituted`.
+
+## Proof
+- `tests/test_d11_ingest_provenance.py` — 31 tests, all 14 owner cases, PASS.
+  Cases 13/14 drive the real pipeline against a throwaway Mongo database.
+- `scripts/p0_d11_ingest_provenance_live_proof.py` — 30/30 PASS over real
+  HTTP in preview. Labels: REPLAYED REAL EVIDENCE (EXECVE line) +
+  TEST/SYNTHETIC. **NOT LIVE**, nothing deployed to production.
+- Targeted regression, 17 files: 4 failed / 216 passed / 20 errors —
+  failure set **byte-identical** to a clean `git worktree` at HEAD.
+  The 4 are the known `test_xdr_detection_consolidation.py` failures; the 20
+  errors are `test_xdr_data_sources_collectors.py` setup returning
+  `ACCESS_DENIED … unauthenticated` (Work Mode's auth track, reproduces
+  clean).
+- Endpoint path (D1/D9) re-verified unchanged: 10/10 POST-PATCH, no MISSING.
+
+## Storage
++~1.6 KB per collector-delivered canonical event (timestamps 1 273 B,
+ingest identity 708 B, declarations 156 B) and +161 B per raw row.
+
+## Defect register update (2026-09-14, after D11)
+| ID | Status |
+|---|---|
+| D1 | **PASS (preview) on BOTH paths** — endpoint (D1/D9) and collector-delivered (D11) |
+| D2 | PASS (preview) |
+| D3 | PASS (preview) |
+| D4 | PASS (preview) |
+| D5 | PARTIAL — raw-envelope ref now resolvable from canonical evidence |
+| D6 | OPEN — off critical path |
+| D7 | OPEN, low |
+| D8 | FIXED for 6 declared rules; 92 NOT_DECLARED (no sweep yet) |
+| D9 | PARTIAL — basis declared on both paths, `event_time` not re-pointed |
+| D10 | PASS (preview) |
+| D11 | **PASS (preview)** |
+
+## Open after D11 (reported, not hidden)
+1. `activity_occurred_at` is auditd-only. `windows-security-evd`,
+   `microsoft-sysmon`, `aws-cloudtrail`, `cef-leef`, `snort-eve` each have a
+   real activity-time field (`TimeCreated`, `UtcTime`, `eventTime`, CEF `rt=`)
+   and none is read. Largest remaining ingest-path provenance gap.
+2. A fourth `event_time_basis` value — `SUPPLIED_TIMESTAMP_UNVERIFIED` —
+   exists beyond the two the owner named, for a `timestamp` that rode in on
+   the delivery but is not readable from the audit header. **Awaiting owner
+   ratification.**
+3. `event_time` is still the compatibility field rules read; a consumer that
+   ignores `event_time_basis` still cannot tell activity time from a
+   substitution. Same position as D9 — needs a schema decision.
+4. `collector:envelope.source` remains a collector claim (now recorded as
+   such, in words, in the evidence).
+
+## Next (owner-confirmed order, unchanged)
+PATH/CWD canonical mapping → small rule-declaration batches (92 remaining) →
+real auditd-host acceptance → production acceptance testing → second
+telemetry domain → cross-domain correlation → response + independent
+verification.

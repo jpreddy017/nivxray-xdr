@@ -45,8 +45,12 @@ def stamp(value: str | None = None, *, status: str | None = None,
     """One stamp. A value implies AVAILABLE; no value REQUIRES an explicit
     status, so an uncaptured boundary can never masquerade as a measured one."""
     if value:
-        return {"value": value, "status": status or AVAILABLE,
-                "source": source}
+        out = {"value": value, "status": status or AVAILABLE, "source": source}
+        if reason:
+            # A measured value can still carry a caveat — e.g. "no UTC offset
+            # was supplied". The caveat travels with the value or it is lost.
+            out["reason"] = reason
+        return out
     if not status or status == AVAILABLE:
         raise ValueError("a stamp without a value needs a non-AVAILABLE "
                          "status — refusing to record an empty AVAILABLE")
