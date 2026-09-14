@@ -32,6 +32,7 @@ from contextlib import asynccontextmanager
 
 from fastapi                    import FastAPI
 from fastapi.middleware.cors    import CORSMiddleware
+from security.control_auth       import CollectorControlAuthenticationMiddleware
 
 from framework.registry     import ConnectorRegistry
 from framework.runtime      import CollectorRuntime
@@ -116,6 +117,10 @@ app = FastAPI(
     redoc_url=None,
     lifespan=lifespan,
 )
+
+# P0 Option 3 · collector management is a backend-to-service boundary.
+# Webhook routes remain payload-authenticated by their HMAC connector.
+app.add_middleware(CollectorControlAuthenticationMiddleware)
 
 # CORS — the XDR Vercel frontend is the only intended browser client.
 # In production, tighten via an explicit allow-list env var.
