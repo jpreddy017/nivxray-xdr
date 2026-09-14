@@ -486,6 +486,12 @@ except Exception as _v2_exc:                             # pragma: no cover
         "v2 routers unavailable — RC5 continues unaffected (%s)", _v2_exc,
     )
 
+# P0 Option 3 · authoritative user-trust boundary for response dispatch.
+# This gateway derives tenant/principal/permissions from backend stores and
+# authenticates onward to the standalone Response Engine as a service.
+from routers.xdr_response_gateway import router as xdr_response_gateway_router
+api.include_router(xdr_response_gateway_router)
+
 app.include_router(api)
 
 # Production hardening: X-Request-ID, hard timeouts, payload caps
