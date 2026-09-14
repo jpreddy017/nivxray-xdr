@@ -50,7 +50,9 @@ from pydantic import BaseModel, Field
 from pymongo import DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit
-from routers.xdr_rbac import require_permission
+from deps import get_current_user
+from routers.xdr_rbac import check_access
+from routers.xdr_response_gateway import _tenant_for_user
 from lib.collector_catalog import CATALOG as PREDEFINED_CATALOG
 from lib.collector_catalog import catalog_by_category, summary as catalog_summary
 
@@ -71,15 +73,49 @@ def _coll():
     return _db()["xdr_collectors"] if _db() is not None else None
 
 
-# ── Principal extraction ─────────────────────────────────────────
+# ── Authoritative backend trust boundary ──────────────────────────
+_ADMIN_ROLES = {"admin", "super_admin", "platform_admin", "tenant_admin"}
+
+
+def require_collector_permission(permission: str):
+    """Authenticate the browser user and derive Collector authority server-side.
+
+    Header assertions never establish tenant, principal, role, or permission.
+    A conflicting compatibility header is rejected rather than trusted.
+    """
+    def _dep(request: Request, user=Depends(get_current_user)):
+        tenant = _tenant_for_user(user)
+        principal = str(user.get("email") or user.get("id") or "")
+        role = str(user.get("role") or "").lower()
+        asserted_tenant = request.headers.get("X-Tenant-Id")
+        asserted_principal = request.headers.get("X-Principal-Id")
+        if asserted_tenant and not hmac.compare_digest(asserted_tenant, tenant):
+            raise HTTPException(status_code=403, detail={"code": "TENANT_ASSERTION_MISMATCH"})
+        if asserted_principal and not hmac.compare_digest(asserted_principal, principal):
+            raise HTTPException(status_code=403, detail={"code": "PRINCIPAL_ASSERTION_MISMATCH"})
+        allowed = role in _ADMIN_ROLES
+        if not allowed:
+            allowed = bool(check_access(tenant, principal, permission).get("allow"))
+        if not allowed:
+            raise HTTPException(status_code=403, detail={
+                "code": "ACCESS_DENIED", "permission": permission
+            })
+        request.state.tenant_id = tenant
+        request.state.principal_id = principal
+        request.state.principal_kind = "user"
+        request.state.principal_role = role
+        return True
+    return _dep
+
+
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
-    return ten, pid, pkd
+    """Return only context established by require_collector_permission."""
+    tenant = getattr(req.state, "tenant_id", None)
+    principal = getattr(req.state, "principal_id", None)
+    kind = getattr(req.state, "principal_kind", None)
+    if not tenant or not principal or not kind:
+        raise HTTPException(status_code=401, detail={"code": "AUTHENTICATED_CONTEXT_REQUIRED"})
+    return str(tenant), str(principal), str(kind)
 
 
 # ── Canonical protocol registry — SINGLE source of truth ────────
@@ -239,7 +275,7 @@ def _transition_state(coll: dict, target: str, *, reason: str,
 
 # ── Endpoints ─────────────────────────────────────────────────────
 @router.get("",
-                     dependencies=[Depends(require_permission("collectors.read"))])
+                     dependencies=[Depends(require_collector_permission("collectors.read"))])
 def list_collectors(request: Request,
                                  protocol: str | None = Query(None),
                                  state: str | None = Query(None),
@@ -257,7 +293,7 @@ def list_collectors(request: Request,
 
 
 @router.get("/catalog",
-                     dependencies=[Depends(require_permission("collectors.read"))])
+                     dependencies=[Depends(require_collector_permission("collectors.read"))])
 def predefined_catalog():
     """Predefined collector catalog — curated templates covering
     endpoint / network / DNS / web / cloud / identity / email /
@@ -282,7 +318,7 @@ def predefined_catalog():
 
 
 @router.get("/{cid}",
-                     dependencies=[Depends(require_permission("collectors.read"))])
+                     dependencies=[Depends(require_collector_permission("collectors.read"))])
 def get_collector(cid: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -294,7 +330,7 @@ def get_collector(cid: str, request: Request):
 
 
 @router.get("/protocols/catalog",
-                     dependencies=[Depends(require_permission("collectors.read"))])
+                     dependencies=[Depends(require_collector_permission("collectors.read"))])
 def protocol_catalog():
     """Public list of collector protocols with honest implementation
     status.  Never fabricated — the UI reads this."""
@@ -313,7 +349,7 @@ def protocol_catalog():
 
 
 @router.post("",
-                       dependencies=[Depends(require_permission("collectors.create"))])
+                       dependencies=[Depends(require_collector_permission("collectors.create"))])
 def create_collector(body: CreateCollectorBody, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -369,7 +405,7 @@ def create_collector(body: CreateCollectorBody, request: Request):
 
 
 @router.put("/{cid}",
-                     dependencies=[Depends(require_permission("collectors.update"))])
+                     dependencies=[Depends(require_collector_permission("collectors.update"))])
 def update_collector(cid: str, body: UpdateCollectorBody, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -443,7 +479,7 @@ def _admin_transition(cid: str, request: Request, *, action_audit: str,
 
 
 @router.post("/{cid}/start",
-                       dependencies=[Depends(require_permission("collectors.enable"))])
+                       dependencies=[Depends(require_collector_permission("collectors.enable"))])
 def start_collector(cid: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -452,7 +488,7 @@ def start_collector(cid: str, request: Request):
 
 
 @router.post("/{cid}/stop",
-                       dependencies=[Depends(require_permission("collectors.disable"))])
+                       dependencies=[Depends(require_collector_permission("collectors.disable"))])
 def stop_collector(cid: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -461,7 +497,7 @@ def stop_collector(cid: str, request: Request):
 
 
 @router.post("/{cid}/enable",
-                       dependencies=[Depends(require_permission("collectors.enable"))])
+                       dependencies=[Depends(require_collector_permission("collectors.enable"))])
 def enable_collector(cid: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -483,7 +519,7 @@ def enable_collector(cid: str, request: Request):
 
 
 @router.post("/{cid}/disable",
-                       dependencies=[Depends(require_permission("collectors.disable"))])
+                       dependencies=[Depends(require_collector_permission("collectors.disable"))])
 def disable_collector(cid: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -492,7 +528,7 @@ def disable_collector(cid: str, request: Request):
 
 
 @router.post("/{cid}/test",
-                       dependencies=[Depends(require_permission("collectors.test"))])
+                       dependencies=[Depends(require_collector_permission("collectors.test"))])
 def test_collector(cid: str, request: Request):
     """Deterministic connectivity probe.  Records the probe outcome
     but NEVER promotes the collector to CONNECTED.  If the probe
@@ -536,7 +572,7 @@ def test_collector(cid: str, request: Request):
 
 
 @router.post("/{cid}/rotate-credential",
-                       dependencies=[Depends(require_permission("collectors.rotate"))])
+                       dependencies=[Depends(require_collector_permission("collectors.rotate"))])
 def rotate_credential(cid: str, body: dict, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
@@ -562,7 +598,7 @@ def rotate_credential(cid: str, body: dict, request: Request):
 
 
 @router.delete("/{cid}",
-                          dependencies=[Depends(require_permission("collectors.delete"))])
+                          dependencies=[Depends(require_collector_permission("collectors.delete"))])
 def delete_collector(cid: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
