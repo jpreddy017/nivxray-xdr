@@ -51,13 +51,26 @@ def test_verify_rejects_missing_header():
     assert out["reason"] == "missing_signature_header"
 
 
-def test_verify_no_secret_accepts_but_flags_unauthenticated():
+def test_verify_no_secret_fails_closed_in_production(monkeypatch):
     conn = WebhookConnector(tenant_id="acme",
                                  config={"secret_id": "wh-open"},
                                  identity="wh-open-1")
+    monkeypatch.setenv("XDR_COLLECTOR_ENV", "production")
+    monkeypatch.delenv("XDR_WEBHOOK_ALLOW_UNSIGNED_DEV", raising=False)
+    out = conn.verify(b"{}", {})
+    assert out["ok"] is False
+    assert out["reason"] == "hmac_secret_not_configured"
+
+
+def test_verify_no_secret_requires_explicit_dev_bypass(monkeypatch):
+    conn = WebhookConnector(tenant_id="acme",
+                            config={"secret_id": "wh-open"},
+                            identity="wh-open-1")
+    monkeypatch.setenv("XDR_COLLECTOR_ENV", "test")
+    monkeypatch.setenv("XDR_WEBHOOK_ALLOW_UNSIGNED_DEV", "1")
     out = conn.verify(b"{}", {})
     assert out["ok"] is True
-    assert out.get("authenticated") is False
+    assert out["reason"] == "explicit_unsigned_dev_bypass"
 
 
 def test_verify_replay_window():
