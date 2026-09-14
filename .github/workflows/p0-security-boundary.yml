@@ -72,6 +72,6 @@ jobs:
           python -m pip install --upgrade pip
           grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" requirements.txt > /tmp/p0-backend-requirements.txt
           pip install -r /tmp/p0-backend-requirements.txt --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
-          pip install pytest pytest-asyncio pytest-xdist brotli zstandard
+          pip install pytest pytest-asyncio pytest-xdist pytest-timeout brotli zstandard
       - name: Run complete configured backend regression
-        run: pytest -q
+        run: pytest -q --timeout=30
