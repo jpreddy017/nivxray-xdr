@@ -7,8 +7,10 @@ POST /api/xdr/webhooks/{secret_id}
   - Signature verification: X-Hub-Signature-256 (or override) using
     the connector's `credentials.hmac_secret`.  Failed signature →
     HTTP 401 with reason.
-  - Replay guard: optional X-Timestamp seconds-since-epoch header
-    (5-minute window).
+  - Replay guard: required X-Timestamp seconds-since-epoch header.
+    The signature covers `timestamp + "." + raw_body`; requests must be
+    within the 5-minute window and an identical authenticated request is
+    accepted only once per connector during that window.
 """
 from __future__ import annotations
 
