@@ -30,7 +30,7 @@ class CollectorControlAuthenticationMiddleware(BaseHTTPMiddleware):
 
         expected = os.environ.get("COLLECTOR_CONTROL_SERVICE_CREDENTIAL", "")
         if not expected:
-            return JSONResponse(503, content={"detail": {
+            return JSONResponse(status_code=503, content={"detail": {
                 "error": "collector_control_auth_not_configured"
             }})
         header = request.headers.get("Authorization", "")
@@ -39,13 +39,14 @@ class CollectorControlAuthenticationMiddleware(BaseHTTPMiddleware):
             supplied.encode(), expected.encode()
         ):
             return JSONResponse(
-                401, headers={"WWW-Authenticate": "Bearer"},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"},
                 content={"detail": {"error": "invalid_service_credential"}},
             )
 
         tenant = request.headers.get("X-Authenticated-Tenant", "").strip()
         if not tenant:
-            return JSONResponse(403, content={"detail": {
+            return JSONResponse(status_code=403, content={"detail": {
                 "error": "authenticated_tenant_required"
             }})
 
