@@ -21,6 +21,7 @@ from typing import Any, Dict, Optional
 import uuid
 
 from services import event_time_basis
+from services import tenant_authority
 
 from .models import (
     AuthEntity,
@@ -154,15 +155,13 @@ class WindowsSecurityNormalizer:
         collector_id: str,
         integration_id: str,
         trace_id: str,
-        tenant_id: Optional[str] = "default",
+        tenant_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         raw = parsed["raw"]
-        if tenant_id is None or (isinstance(tenant_id, str) and not tenant_id.strip()):
-            raise ValueError("tenant_id is required: NO tenant fallback permitted")
-        resolved_tenant = (raw if isinstance(raw, dict) else {}).get("tenant_id") or tenant_id
-        if not resolved_tenant or not str(resolved_tenant).strip():
-            raise ValueError("tenant_id is required: NO tenant fallback permitted")
-        resolved_tenant = str(resolved_tenant).strip()
+        # D14 · the authenticated delivery is the only authority; a
+        # payload-named tenant is an untrusted claim, recorded and unused.
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(raw))
 
         eid = parsed["event_id"]
         data = parsed["data"] if isinstance(parsed.get("data"), dict) else {}
@@ -424,6 +423,7 @@ class WindowsSecurityNormalizer:
         )
         out = canonical.to_dict()
         event_time_basis.apply(out, etb)
+        tenant_authority.record(out, _tenant_claim)
         return out
 
 

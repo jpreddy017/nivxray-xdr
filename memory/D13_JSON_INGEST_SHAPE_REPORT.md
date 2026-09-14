@@ -87,7 +87,24 @@ transport metadata destroy source evidence; honouring it would let source
 content impersonate NivX provenance. Proven live: `['BLOCKED']
 ['ingest_shape']`, 0 canonical events.
 
-## E · A tenant-boundary hole the document shape would have opened
+## E · A tenant-boundary WEAKNESS (severity amended 2026-09-14)
+
+> **CORRECTION — this section originally overstated the severity.** It
+> said the payload-first pattern "would have been trivially reachable"
+> with document-first shaping. That was wrong. On re-tracing: the
+> normalizers read `parsed["raw"]`, which is the *whole* raw event NivX
+> assembles — where `tenant_id` is already the authenticated one — while a
+> payload's own `tenant_id` sits one level deeper at
+> `raw["raw"]["tenant_id"]` and is never read. With D13's withholding in
+> place this was **defence-in-depth / trust-boundary hardening, not a
+> presently exploitable cross-tenant vulnerability**. No reachable
+> exploit path was ever demonstrated. The hardening still proceeded (D14)
+> because the invariant must live at the trust boundary rather than
+> depend indefinitely on upstream shaping remaining correct, and because
+> tenant material participates in deterministic identity (D10).
+>
+> Closed at the boundary in D14 — see
+> `/app/memory/D14_TENANT_AUTHORITY_REPORT.md`.
 
 `WindowsSecurityNormalizer`, `AWSCloudTrailNormalizer` and
 `CefLeefNormalizer` all resolve the tenant as
@@ -109,9 +126,9 @@ D11 used for the collector's origin label. Proven live: a CloudTrail
 document claiming tenant A, delivered on tenant B's authenticated key,
 landed in **B**, with the claim preserved and marked withheld.
 
-**Still recommended for Work Mode**: harden the three normalizers so the
-authenticated tenant wins outright, rather than relying on the ingest shape
-to keep the payload honest. Reported, not silently patched.
+**Done in D14** (all five normalizers, not three — `linux-auditd` had the
+same pattern and it feeds D10 identity material). Establishing the
+authenticated tenant remains Work Mode's domain and was not touched.
 
 ## F · Sysmon tenant fix (minimal, as authorized)
 
@@ -210,9 +227,8 @@ end-to-end including detection and verdict.
    the real answer, and is now recordable because
    `declared_payload_format` and `selected_dsm_id` sit side by side in the
    evidence.
-2. **The three normalizers still prefer a payload-supplied `tenant_id`.**
-   Neutralised at the ingest shape (§E) but not fixed at the source.
-   Work Mode's domain.
+2. ~~The three normalizers still prefer a payload-supplied `tenant_id`.~~
+   **CLOSED in D14** across all five normalizers, at the trust boundary.
 3. `raw.line` in a source document would still be read as a delivered line.
    No real document format uses that key, but it is a structural ambiguity
    rather than an impossibility.

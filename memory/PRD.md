@@ -15801,11 +15801,16 @@ three — `snort-eve` is JSON too and was in the same hole.
   hardcodes `tenant_id="default"`; it takes the tenant the pipeline already
   passes to the other normalizers and raises with NO fallback when absent.
 
-## Tenant-boundary hole found and closed
+## Tenant-boundary WEAKNESS (severity amended — see D14)
 `WindowsSecurityNormalizer`, `AWSCloudTrailNormalizer` and
 `CefLeefNormalizer` resolve the tenant as `raw.get("tenant_id") or
-tenant_id` — **payload first**. Document-first shaping would have made this
-trivially exploitable. Closed inside this gate's boundary without touching
+tenant_id` — **payload first**. CORRECTION: the original wording here
+("trivially exploitable") was an OVERSTATEMENT. The normalizers read the
+whole NivX-assembled raw event, where `tenant_id` is already the
+authenticated one; a payload's own value sits one level deeper and is never
+read. This was **defence-in-depth / trust-boundary hardening, not a
+presently exploitable cross-tenant vulnerability** — no reachable exploit
+path was demonstrated. Closed at the boundary in D14. Closed inside this gate's boundary without touching
 tenant-binding code: a source-supplied `tenant_id` is withheld from the
 DSM-facing document and preserved under `_nivx.source_fields_withheld` as a
 claim that is explicitly not believed. **RECOMMENDED FOR WORK MODE**: harden
@@ -15851,3 +15856,98 @@ the three normalizers so the authenticated tenant wins outright.
 Sysmon Tenant Binding (anything deeper than the minimal fix already made) →
 PATH/CWD canonical mapping → rule declarations in controlled batches (92
 remaining) → real-source acceptance → production acceptance testing.
+
+---
+
+# D14 · NORMALIZER TENANT HARDENING — COMPLETE (preview) · 2026-09-14
+
+Owner-approved gate after D13, executed as ONE gate (no intermediate
+approval checkpoints). Full report:
+`/app/memory/D14_TENANT_AUTHORITY_REPORT.md`. **PASS for preview scope.**
+
+## The invariant, now enforced in one place
+```
+authenticated delivery tenant -> authoritative tenant -> normalizer
+```
+`services/tenant_authority.py` (NEW) is the single answer to "whose evidence
+is this?". A payload-named tenant survives only as
+`tenant_claim = {state: UNTRUSTED_SOURCE_CLAIM, used: false, claim_source,
+agrees_with_authenticated, claimed_tenant_id, reason}`. It cannot override,
+select or serve as a fallback, and it reaches neither the D10 canonical
+`event_id`, nor evidence ownership, nor partitioning.
+
+Applied to ALL FIVE DSMs the owner authorized plus the sensor path:
+`linux-auditd` (worst case — tenant is D10 identity material),
+`windows-security-evd`, `aws-cloudtrail`, `cef-leef`, `microsoft-sysmon`
+(D13's local fix replaced by the shared helper), `nivxforge-linux-sensor`.
+
+Signature defaults `tenant_id = "default"` REMOVED everywhere → `None`.
+`None`/`""`/whitespace/absent/payload-fallback/`"default"` can no longer
+establish tenant authority, and a non-`str` tenant is refused so `0`/`False`
+cannot become `"0"`/`"False"`. Four legitimate test call sites were updated
+to pass the authenticated tenant explicitly — NOT repaired by restoring a
+default.
+
+## A dishonest label caught mid-gate
+The first implementation recorded `raw.tenant_id` as the claim, but on a
+NivX-assembled LINE event that field is OUR authenticated tenant (the
+collector payload sits nested one level deeper). The live proof showed
+`claim=<our own tenant>, agrees_with_authenticated=True` — our own answer
+echoing back labelled untrusted. `payload_claims()` now distinguishes the
+three shapes a normalizer can be handed (DOCUMENT with `_nivx`,
+NivX-assembled LINE with nested `raw`, or the payload itself) and reports
+only what a source or collector actually supplied.
+
+## Severity correction to D13 (owner-approved)
+D13's §E claimed the payload-first pattern "would have been trivially
+reachable". That was an OVERSTATEMENT and has been amended in both the D13
+report and above: it was defence-in-depth, not a presently exploitable
+cross-tenant vulnerability; no reachable exploit path was demonstrated.
+Hardening still proceeded because the invariant must live at the trust
+boundary, not depend on upstream shaping, and because tenant material
+participates in deterministic identity.
+
+## Proof
+- `tests/test_d14_tenant_authority.py` — **76 passed**. authenticated B +
+  payload A → B (6/6 DSMs); claim recorded untrusted/unused (6/6); clean
+  event records nothing (6/6); missing/blank/whitespace authenticated tenant
+  refused (24/24); a claim cannot rescue a missing tenant (18/18); no DSM
+  defaults its tenant (registry-wide sweep); the claimed tenant appears
+  nowhere as an owner field; a payload claim cannot move the D10 `event_id`;
+  a LEGITIMATE tenant change still does.
+- `scripts/p0_d14_tenant_authority_live_proof.py` — **26/26 PASS** over real
+  HTTP: 5 sources, all signed with tenant B's key, every payload claiming
+  tenant A → all landed in B, tenant A gained ZERO evidence (before 0 /
+  after 0), 0 rows from B's collector, blank tenant → HTTP 401 + zero
+  evidence, and one distinct `event_id` across the claimed/clean deliveries.
+- **291 passed** across D14+D13+D12+D11+D2/D3/D10+D4+D8+normalization+
+  phase2.1 adversarial+adapters+round11. D11/D12/D13 live proofs still
+  30/30 · 16/16 · 41/41.
+- In-place baseline, 7 server-importing suites: 13 failed / 60 passed / 20
+  errors on BOTH trees, failure sets identical (33/33).
+
+## Defect register (2026-09-14, after D14)
+| ID | Status |
+|---|---|
+| D1/D2/D3/D4/D10/D11/D12/D13/D14 | PASS (preview) |
+| D5 | PARTIAL · D6 OPEN (off critical path) · D7 OPEN (low) |
+| D8 | FIXED for 6 declared rules; 92 NOT_DECLARED |
+| D9 | PARTIAL — four bases declared platform-wide; `event_time` not re-pointed |
+
+## Open after D14
+1. **`snort-eve` has no tenant contract** — its normalizer takes no tenant
+   argument and its projection has no `tenant_id`; the persisted row carries
+   the tenant, the projection does not. The one DSM outside this invariant.
+2. `tenant_claim` is unindexed, so "every delivery that claimed a tenant it
+   did not own" is a collection scan today.
+3. Establishing the authenticated tenant is still the ingest guards' job —
+   Work Mode's domain, untouched here.
+4. `payload_claims()` infers shape from structure; a future fourth shape
+   would report no claim rather than a wrong one (fail-quiet on reporting,
+   never on authority).
+
+## Next (owner-confirmed order)
+Declared Source Routing (collector-declared format routes deterministically;
+declaration/content mismatch fails closed) → PATH/CWD canonical mapping →
+rule declarations in small tested families (92 remaining) → real-source
+acceptance → production acceptance testing.

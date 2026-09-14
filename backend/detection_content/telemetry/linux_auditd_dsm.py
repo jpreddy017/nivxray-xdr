@@ -15,6 +15,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from services import event_time_basis
+from services import tenant_authority
 
 from .models import (
     CanonicalTelemetryEvent,
@@ -107,15 +108,14 @@ class LinuxAuditdNormalizer:
         collector_id: str,
         integration_id: str,
         trace_id: str,
-        tenant_id: Optional[str] = "default",
+        tenant_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         raw = parsed["raw"]
-        if tenant_id is None or (isinstance(tenant_id, str) and not tenant_id.strip()):
-            raise ValueError("tenant_id is required: NO tenant fallback permitted")
-        resolved_tenant = (raw if isinstance(raw, dict) else {}).get("tenant_id") or parsed.get("tenant_id") or tenant_id
-        if not resolved_tenant or not str(resolved_tenant).strip():
-            raise ValueError("tenant_id is required: NO tenant fallback permitted")
-        resolved_tenant = str(resolved_tenant).strip()
+        # D14 · the authenticated delivery is the only authority. A tenant
+        # named in the payload is recorded as an untrusted claim and used
+        # for nothing — including the deterministic event_id below.
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(raw))
 
         fields = parsed["fields"]
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -403,6 +403,7 @@ class LinuxAuditdNormalizer:
             additional_fields=extra,
         )
         out = canonical.to_dict()
+        tenant_authority.record(out, _tenant_claim)
         # ── D11/D12 · seed the eight boundaries, so a gap is visible ──
         # Only the two this normalizer can honestly speak for are filled,
         # and the resolver guarantees `activity_occurred_at` is measured

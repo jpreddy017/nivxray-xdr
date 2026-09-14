@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from services import event_time_basis
+from services import tenant_authority
 
 from .models import (
     CanonicalTelemetryEvent,
@@ -121,13 +122,12 @@ class SysmonNormalizer:
     def normalize(self, parsed: Dict[str, Any], dsm_id: str, collector_id: str,
                   integration_id: str, trace_id: str,
                   tenant_id: str | None = None) -> Dict[str, Any]:
-        # D13 · the authenticated tenant is the only authority on ownership.
-        # This normalizer previously hardcoded "default", which put every
-        # Sysmon event in the wrong tenant; there is NO fallback now.
-        if tenant_id is None or not str(tenant_id).strip():
-            raise ValueError(
-                "tenant_id is required: NO tenant fallback permitted")
-        resolved_tenant = str(tenant_id).strip()
+        # D13/D14 · the authenticated delivery is the only authority on
+        # ownership. This normalizer previously hardcoded "default", which
+        # put every Sysmon event in the wrong tenant; there is NO fallback.
+        raw = parsed.get("raw") if isinstance(parsed.get("raw"), dict) else {}
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(raw))
         event_id = f"sysmon-{parsed['event_id']}-{uuid.uuid4().hex}"
         sysmon_eid = parsed["event_id"]
 
@@ -232,6 +232,7 @@ class SysmonNormalizer:
         )
         out = canonical.to_dict()
         event_time_basis.apply(out, etb)
+        tenant_authority.record(out, _tenant_claim)
         return out
 
 

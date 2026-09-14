@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from services import event_time_basis
+from services import tenant_authority
 
 from .models import (
     CanonicalTelemetryEvent,
@@ -355,14 +356,12 @@ class CefLeefNormalizer:
     def normalize(self, parsed: Dict[str, Any], dsm_id: str,
                   collector_id: str, integration_id: str,
                   trace_id: str,
-                  tenant_id: Optional[str] = "default") -> Dict[str, Any]:
+                  tenant_id: Optional[str] = None) -> Dict[str, Any]:
         raw = parsed["raw"] if isinstance(parsed.get("raw"), dict) else {}
-        resolved_tenant = (raw.get("tenant_id")
-                           or parsed.get("tenant_id")
-                           or tenant_id)
-        if not resolved_tenant or not str(resolved_tenant).strip():
-            raise ValueError("tenant_id is required: NO tenant fallback permitted")
-        resolved_tenant = str(resolved_tenant).strip()
+        # D14 · the authenticated delivery is the only authority; a
+        # payload-named tenant is an untrusted claim, recorded and unused.
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(raw))
 
         header = parsed["header"]
         fields: Dict[str, str] = parsed["fields"]
@@ -560,6 +559,7 @@ class CefLeefNormalizer:
         )
         out = canonical.to_dict()
         event_time_basis.apply(out, etb)
+        tenant_authority.record(out, _tenant_claim)
         # Root-level epistemic markers so no consumer can mistake a
         # missing identity for a real one.
         out["pid_state"] = epistemic.get("pid", UNKNOWN)

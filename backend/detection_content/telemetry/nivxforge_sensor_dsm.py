@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from services import tenant_authority
+
 DSM_ID = "nivxforge-linux-sensor"
 PARSER_ID = "nivxforge-linux-sensor-parser"
 NORMALIZER_ID = "nivxforge-linux-sensor-normalizer"
@@ -60,15 +62,19 @@ class NivXForgeSensorNormalizer:
     def normalize(self, parsed: Dict[str, Any], dsm_id: str = DSM_ID,
                   collector_id: str = "", integration_id: str = "",
                   trace_id: str = "",
-                  tenant_id: str = "default") -> Dict[str, Any]:
+                  tenant_id: str | None = None) -> Dict[str, Any]:
         """The parser already produced the authoritative canonical shape;
         normalization only stamps provenance so a detection can be traced
         back to the exact endpoint event that produced it."""
         canonical = dict(parsed["canonical"])
-        if not str(tenant_id or "").strip():
-            raise ValueError("tenant_id is required: NO tenant fallback "
-                             "permitted")
-        canonical["tenant_id"] = str(tenant_id).strip()
+        # D14 · the authenticated delivery is the only authority; the sensor
+        # payload may name a tenant only as an untrusted claim.
+        _sensor_raw = parsed.get("raw") if isinstance(
+            parsed.get("raw"), dict) else {}
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(_sensor_raw))
+        canonical["tenant_id"] = resolved_tenant
+        tenant_authority.record(canonical, _tenant_claim)
         # The canonical id is derived from the immutable raw event, so the
         # same endpoint event always yields the same canonical identity.
         canonical.setdefault("event_id", f"cev_{trace_id}_pl")
