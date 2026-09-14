@@ -1,5 +1,11 @@
 """End-to-end route + runtime smoke test using FastAPI ASGI transport."""
+import os
 import pytest
+
+# Legacy route smoke tests deliberately opt into the isolated test bypass.
+os.environ["XDR_COLLECTOR_ENV"] = "test"
+os.environ["XDR_COLLECTOR_ALLOW_UNAUTHENTICATED_DEV"] = "1"
+os.environ["XDR_WEBHOOK_ALLOW_UNSIGNED_DEV"] = "1"
 import httpx
 from contextlib import asynccontextmanager
 
