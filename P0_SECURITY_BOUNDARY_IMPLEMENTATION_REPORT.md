@@ -222,3 +222,168 @@ Production blockers:
 Merge recommendation: **not ready for production merge as a complete P0 claim**. The Response Option-3 boundary is suitable for owner/security review, but the branch should remain unmerged until the Collector gateway, full backend regression, webhook replay decision, and token owner action are resolved.
 
 Exact next owner decision: authorize a follow-up on this same branch for (1) the authoritative backend Collector gateway and resource-level tests, (2) webhook timestamp/replay enforcement with a defined compatibility window, and (3) full backend CI; separately assign the historical `.tok` owner to determine rotation/revocation. No deployment is needed for those steps.
+
+
+# P0.1 Closure Pass
+
+## A. Ending HEAD
+
+- P0.1 starting HEAD: `62d40e77e30294ebc7ec194aee7c7ae02062de41`
+- P0.1 code HEAD: `1f5f3b9aa24d2a169e08a137755b59f8dfb24e83`
+- The report update is documentation-only and is excluded from triggering another regression run.
+- No merge, deployment, database migration, credential rotation, history rewrite, or real response action occurred.
+
+## B. Additional files changed
+
+- `backend/routers/xdr_collectors.py`
+- `backend/tests/test_xdr_collector_gateway_security.py`
+- `apps/nivxray-xdr-collector/framework/webhook.py`
+- `apps/nivxray-xdr-collector/routes/webhooks.py`
+- `apps/nivxray-xdr-collector/tests/test_webhook.py`
+- `.github/workflows/p0-security-boundary.yml`
+- this report.
+
+No Response Engine implementation file was changed during P0.1.
+
+## C. Collector authoritative backend gateway
+
+Existing authoritative-backend routes under `/api/xdr/collectors` were hardened instead of adding a duplicate Collector implementation.
+
+Every existing protected Collector operation now uses `require_collector_permission`, which:
+
+1. validates the existing browser JWT through `get_current_user`;
+2. resolves the tenant with the same server-side tenant resolver used by the Option-3 Response gateway;
+3. takes the principal identity and role from the authenticated backend user;
+4. rejects conflicting `X-Tenant-Id` and `X-Principal-Id` compatibility headers;
+5. permits the operation only for an authoritative administrative role or a positive server-side RBAC decision;
+6. writes tenant/principal context to request state for route logic.
+
+The legacy bootstrap behavior and header/default principal are no longer used by Collector routes. Resource queries include both collector ID and authenticated tenant, returning 404 for nonexistent or foreign resources.
+
+Protected existing operations include list, read, create, update, delete, start, stop, enable, disable, test, and credential-reference rotation. No new operational capability was invented.
+
+The standalone Collector service remains protected by its backend service credential and replaces any inbound `X-Tenant-Id` with the authenticated backend tenant header.
+
+## D. Collector tenant-isolation proof
+
+The new backend suite proves:
+
+- anonymous request denied;
+- Tenant A administrative user reads Tenant A collector;
+- Tenant A cannot read Tenant B collector;
+- Tenant A cannot update Tenant B collector;
+- Tenant A cannot start Tenant B collector;
+- Tenant A cannot stop Tenant B collector;
+- forged `X-Tenant-Id` is rejected;
+- request-body `tenant_id` and role assertions cannot override the server-derived tenant;
+- insufficient role is denied;
+- foreign/nonexistent resources use the same 404 behavior.
+
+G5 is upgraded to PASS for the implemented Collector operations.
+
+## E-F. Webhook replay implementation and window
+
+Production webhook authentication now requires:
+
+- configured HMAC secret;
+- signature header;
+- `X-Timestamp`;
+- timestamp within a 300-second past/future window;
+- signature over `X-Timestamp + "." + raw_body`;
+- a request digest not previously accepted by that connector within the window.
+
+Tests prove fresh valid acceptance and denial of missing signature, missing timestamp, invalid signature, expired timestamp, excessive future skew, tampered body, and an identical replay.
+
+The replay cache is process-local and pruned to the 300-second window. It protects a single Collector process but is not shared across replicas or restarts. Distributed production deployment therefore requires a shared atomic replay store before G7 can be considered completely closed across replicas. The authentication timestamp is transport metadata only and does not alter canonical event provenance.
+
+## G. Full backend regression
+
+Final bounded workflow: [run 34865606497](https://github.com/jpreddy017/nivxray-xdr/actions/runs/34865606497).
+
+The complete configured backend command was attempted with:
+
+- repository `pytest.ini`;
+- two xdist workers;
+- tests marked `slow` excluded by the repository configuration;
+- 30-second per-test timeout;
+- ten-minute job limit.
+
+Observed result:
+
+- dependency installation: PASS;
+- collection/execution began successfully;
+- progress reached 47%;
+- numerous failures and errors were already visible between 3% and 47%;
+- the job hit its ten-minute bound and GitHub marked it CANCELLED;
+- pytest did not emit a terminal summary, so exact collected/passed/failed/skipped/error counts are unavailable.
+
+Classification: **UNKNOWN mixture / environment and pre-existing candidates; not safely attributable.** Failure identities were not emitted before cancellation, so none are labeled pre-existing or P0-introduced without evidence. This is a regression-gate failure and G10 is FAIL.
+
+## H. Focused security regression
+
+The same final code-head workflow produced:
+
+| Job | Result |
+|---|---:|
+| Backend Response + evidence + Collector gateway security | 27 passed in 3.79s |
+| Complete Response Engine suite | 32 passed in 1.80s |
+| Complete standalone Collector suite | 53 passed in 0.96s |
+| Focused total | **112 passed, 0 failed** |
+
+The handled localhost Mongo seed warning remains visible in the backend focused log; test doubles isolate the focused security assertions.
+
+## I. `.tok` classification
+
+Classification: **UNKNOWN — OWNER MUST IDENTIFY TOKEN**.
+
+Metadata-only evidence remains:
+
+- not present in the current branch tree;
+- ignored through `.tok` and `*.tok`;
+- introduced in commit `45e94bfa25c7d89f7dd68f1d0acbaad3a3dd8674`;
+- no code/configuration references found;
+- historical public-repository exposure remains;
+- filename and size are consistent with possible credential material, but contents were never inspected.
+
+Precautionary owner action: identify the system/credential owner out of band. If it was ever valid, rotation/revocation is recommended. No secret was printed, rotated, revoked, or removed from history.
+
+## J. Final G1-G10 assessment
+
+| Gate | Final | Evidence / limitation |
+|---|---|---|
+| G1 Response authentication | PASS | Frozen Option-3 tests remain green. |
+| G2 Response tenant isolation | PASS | Frozen Option-3 cross-tenant tests remain green. |
+| G3 Approval authenticity | PASS | Exact action/target binding remains green. |
+| G4 Collector authentication | PASS | Browser backend auth and service boundary tests pass. |
+| G5 Collector tenant isolation | PASS | Resource-level backend read/update/start/stop and forged-tenant tests pass. |
+| G6 Service authentication | PASS | Focused service-auth suites remain green. |
+| G7 Webhook authentication + replay | PARTIAL | All required single-process tests pass; replay cache is not shared across replicas/restarts. |
+| G8 Repository hygiene | PARTIAL | Current tree is clean; historical token identity/rotation remains owner work. |
+| G9 Security tests | PASS | 112 focused tests pass, 0 fail. |
+| G10 Existing regressions | FAIL | Full configured backend run reached 47%, showed failures/errors, and timed out without final counts. |
+
+## K. Remaining production blockers
+
+1. Full backend regression must be made CI-completable and failures classified.
+2. Multi-replica webhook deployments need a shared atomic replay store.
+3. The historical `.tok` owner must identify whether it was live and decide rotation/revocation.
+4. Real endpoint execution and independent verification remain unproven.
+5. Production service credentials and webhook sender migration to timestamp-bound signatures must be coordinated before deployment.
+
+## L. Emergent overlap
+
+No Emergent-owned D1/D9, D8, D4/auditd stitching, Rule Field Declaration, telemetry parsing, canonical telemetry/evidence semantics, or ingest-provenance file was changed. No conflict was encountered.
+
+## M. Merge recommendation
+
+**DO NOT MERGE OR DEPLOY.**
+
+Collector tenant isolation is now proven for the implemented backend operations, but P0.1 is not fully production-merge-ready because G7 and G8 remain PARTIAL and G10 is FAIL.
+
+Exact next owner decision:
+
+- authorize a dedicated regression-harness triage that first enumerates the complete backend suite and partitions deterministic unit tests from environment/live-service tests without changing expected outcomes;
+- choose a shared replay store (for example the existing Redis deployment) if Collector webhooks will run with multiple replicas;
+- assign the historical token owner to identify and, if applicable, rotate/revoke the credential.
+
+The planned NivXForge EDR capability-gap audit should start only after the owner decides whether these remaining P0 blockers must close before switching workstreams.
