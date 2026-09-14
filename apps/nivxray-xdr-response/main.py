@@ -27,6 +27,7 @@ from contextlib import asynccontextmanager
 
 from fastapi                 import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from security.service_auth import ServiceAuthenticationMiddleware
 
 from framework.registry        import ActionRegistry
 from framework.execution_store import ExecutionStore
@@ -67,6 +68,11 @@ app = FastAPI(
     redoc_url=None,
     lifespan=lifespan,
 )
+
+# P0 Option 3: authenticate the authoritative backend before any response
+# route parses or trusts dispatch context. Added after CORS below so Starlette's
+# reverse middleware order makes service auth the inner request boundary.
+app.add_middleware(ServiceAuthenticationMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
