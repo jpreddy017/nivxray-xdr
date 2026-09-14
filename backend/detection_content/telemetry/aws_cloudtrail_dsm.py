@@ -12,6 +12,8 @@ import json
 from typing import Any, Dict, List, Optional
 import uuid
 
+from services import event_time_basis
+
 from .models import (
     CanonicalTelemetryEvent,
     CloudContext,
@@ -77,8 +79,24 @@ class AWSCloudTrailNormalizer:
         event_name = str(data.get("eventName") or "")
         event_source = str(data.get("eventSource") or "")
         aws_region = str(data.get("awsRegion") or "")
-        event_time = str(data.get("eventTime") or now_iso)
+        event_time = str(data.get("eventTime") or "")
         event_id = str(data.get("eventID") or uuid.uuid4())
+        # ── D12 · CloudTrail's `eventTime` IS the activity instant ─────
+        # AWS documents it as the date and time the request was made, in
+        # UTC, so the format establishes activity occurrence. Nothing else
+        # in the record may stand in for it.
+        etb = event_time_basis.resolve(
+            activity=([(event_time, "cloudtrail:eventTime")]
+                      if event_time else ()),
+            clock=now_iso,
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "this CloudTrail record carried no eventTime; no other "
+                "field in the format names when the request was made"),
+            observation_absent_reason=(
+                "CloudTrail delivers no separate observation instant — the "
+                "service records the request time, not a sensor's view of "
+                "it"))
 
         # Extract UserIdentity
         user_identity = data.get("userIdentity") or {}
@@ -154,7 +172,7 @@ class AWSCloudTrailNormalizer:
             source_product="CloudTrail",
             source_event_id=event_id,
             event_type="cloud_audit",
-            event_time=event_time,
+            event_time=etb.event_time,
             ingest_time=now_iso,
             host=host,
             identity=identity,
@@ -169,7 +187,9 @@ class AWSCloudTrailNormalizer:
                 "response_elements": data.get("responseElements") or {},
             },
         )
-        return canonical.to_dict()
+        out = canonical.to_dict()
+        event_time_basis.apply(out, etb)
+        return out
 
 
 class AWSCloudTrailDSM:

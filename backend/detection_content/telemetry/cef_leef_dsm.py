@@ -25,6 +25,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from services import event_time_basis
+
 from .models import (
     CanonicalTelemetryEvent,
     FileEntity,
@@ -457,8 +459,49 @@ class CefLeefNormalizer:
             hashes=dict(hashes),
         )
 
-        event_time = _iso(_take("event_time", "rt", "end", "start", "devTime")) or now_iso
-        epistemic["event_time"] = OBSERVED if event_time != now_iso else UNKNOWN
+        # ── D12 · CEF/LEEF: `rt` is a RECEIPT time, not activity ───────
+        # The spec defines `rt` as when the event was received, `start`/`end`
+        # as the activity's own bounds and LEEF `devTime` as the time on the
+        # device. So only `devTime`/`start` may establish activity; `rt`
+        # becomes an observation; `end` and a generic `event_time` are
+        # supplied-but-unverified. `epistemic["event_time"]` is kept as this
+        # format's own projection of the same decision, and the cross-DSM
+        # invariant test asserts the two agree.
+        def _raw_time(*keys: str) -> tuple[str, str]:
+            value, key = _first(fields, *keys)
+            return _iso(value), key
+
+        _dev, _dev_k = _raw_time("devTime")
+        _start, _start_k = _raw_time("start")
+        _rt, _rt_k = _raw_time("rt")
+        _evt, _evt_k = _raw_time("event_time")
+        _end, _end_k = _raw_time("end")
+        etb = event_time_basis.resolve(
+            activity=[(v, s) for v, s in (
+                (_dev, "cef-leef:devTime"),
+                (_start, "cef:start")) if v],
+            observation=[(v, s) for v, s in (
+                (_rt, "cef:rt — receipt time by spec"),) if v],
+            supplied=[(v, s) for v, s in (
+                (_evt, "raw:event_time"),
+                (_end, "cef:end — the activity's end bound, not its "
+                       "occurrence")) if v],
+            clock=now_iso,
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "this CEF/LEEF record carried no devTime or start; `rt` is "
+                "a receipt time by spec and must not stand in for the "
+                "activity instant"),
+            observation_absent_reason=(
+                "this CEF/LEEF record carried no rt"))
+        event_time = etb.event_time
+        epistemic["event_time"] = (
+            UNKNOWN if etb.basis == event_time_basis.INGEST_TIME_SUBSTITUTED
+            else OBSERVED)
+        _chosen_key = {_dev: _dev_k, _start: _start_k, _rt: _rt_k,
+                       _evt: _evt_k, _end: _end_k}.get(event_time)
+        if _chosen_key:
+            sources["event_time"] = _chosen_key
 
         signature_id = str(header.get("signature_id") or "")
         source_event_id = (_take("source_event_id", "externalId", "eventId")
@@ -516,6 +559,7 @@ class CefLeefNormalizer:
             },
         )
         out = canonical.to_dict()
+        event_time_basis.apply(out, etb)
         # Root-level epistemic markers so no consumer can mistake a
         # missing identity for a real one.
         out["pid_state"] = epistemic.get("pid", UNKNOWN)

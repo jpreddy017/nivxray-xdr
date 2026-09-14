@@ -20,6 +20,8 @@ import re
 from typing import Any, Dict, Optional
 import uuid
 
+from services import event_time_basis
+
 from .models import (
     AuthEntity,
     CanonicalTelemetryEvent,
@@ -103,11 +105,18 @@ class WindowsSecurityParser:
 
         # Extract system header info
         system = sys_block if isinstance(sys_block, dict) else {}
+        # D12 · `TimeCreated` is when the logging subsystem WROTE the record.
+        # It is normally close to the action; close is not the same, and the
+        # EVTX format carries no separate activity-occurrence field. Both
+        # halves are kept apart so the normalizer can say which it has, and
+        # neither is defaulted to the current clock here.
         time_created = (
-            _get_ci(ev, "TimeCreated", "time_created", "timecreated", "timestamp")
-            or _get_ci(system, "TimeCreated", "time_created", "timecreated")
-            or datetime.now(timezone.utc).isoformat()
+            _get_ci(ev, "TimeCreated", "time_created", "timecreated")
+            or _get_ci(system, "TimeCreated", "time_created", "timecreated",
+                       "SystemTime", "systemtime")
+            or ""
         )
+        supplied_time = _get_ci(ev, "timestamp") or ""
         computer = _get_ci(ev, "Computer", "computer", "host") or _get_ci(system, "Computer", "computer", "host") or ""
 
         # EventData block can be a dict or a list of Name/Value dicts
@@ -128,6 +137,8 @@ class WindowsSecurityParser:
             "raw": ev,
             "event_id": eid_int,
             "timestamp": str(time_created),
+            "time_created": str(time_created),
+            "supplied_time": str(supplied_time),
             "computer": str(computer),
             "data": event_data,
         }
@@ -369,6 +380,30 @@ class WindowsSecurityNormalizer:
             ingest_time=now_iso,
         )
 
+        # ── D12 · Windows Security: observation, never promoted ─────────
+        # `System.TimeCreated.SystemTime` is the record-generation instant.
+        # EVTX has no separate activity-occurrence field, so this DSM
+        # deliberately declares an OBSERVATION and leaves
+        # `activity_occurred_at` NOT_OBSERVED. We would rather show an
+        # honest gap than manufacture causal ordering from a log-write time.
+        etb = event_time_basis.resolve(
+            observation=([(parsed.get("time_created"),
+                           "windows:System.TimeCreated.SystemTime")]
+                         if parsed.get("time_created") else ()),
+            supplied=([(parsed.get("supplied_time"),
+                        "raw:timestamp — a generic key supplied by the "
+                        "delivery; the EVTX format does not establish what "
+                        "instant it names")]
+                      if parsed.get("supplied_time") else ()),
+            clock=now_iso,
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "the Windows Security EVTX format carries no activity-"
+                "occurrence field; TimeCreated is the record-generation "
+                "instant and must not stand in for the activity"),
+            observation_absent_reason=(
+                "this record carried no TimeCreated/SystemTime"))
+
         canonical = CanonicalTelemetryEvent(
             event_id=str(uuid.uuid4()),
             tenant_id=resolved_tenant,
@@ -376,7 +411,7 @@ class WindowsSecurityNormalizer:
             source_product="Windows Security Log",
             source_event_id=str(eid),
             event_type=event_type,
-            event_time=parsed["timestamp"],
+            event_time=etb.event_time,
             ingest_time=now_iso,
             host=host,
             identity=identity,
@@ -387,7 +422,9 @@ class WindowsSecurityNormalizer:
             provenance=provenance,
             additional_fields=additional,
         )
-        return canonical.to_dict()
+        out = canonical.to_dict()
+        event_time_basis.apply(out, etb)
+        return out
 
 
 class WindowsSecurityDSM:

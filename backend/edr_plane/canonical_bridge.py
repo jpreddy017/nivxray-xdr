@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from edr_plane.raw_events import Derivation, add_derivation, next_generation
+from services import event_time_basis
 from services import provenance_timestamps as pts
 
 PARSER_NAME = "nivxforge-linux-sensor"
@@ -77,30 +78,35 @@ def parse(line: str) -> dict[str, Any]:
     if activity not in ("PROCESS", "FILE", "NETWORK"):
         raise ValueError(f"unknown sensor activity {activity!r}")
 
-    observed = _iso(ev.get("observed_at")) or datetime.now(
-        timezone.utc).isoformat()
+    observed = _iso(ev.get("observed_at"))
     not_observed = list(ev.get("not_observed") or ())
-    # D9 · `event_time` carries one of two genuinely different meanings. It
-    # is recorded here which one, so no consumer has to guess whether it
-    # means "when it happened" or "when we noticed".
+    # D9/D12 · `event_time` carries one of several genuinely different
+    # meanings. Which one is decided by the shared basis resolver, so this
+    # path cannot drift from every other source — and so a missing
+    # `observed_at` can no longer be filled from our own clock and then
+    # presented as `sensor:observed_at`.
     activity_time = _iso(ev.get("start_time"))
+    _clock = datetime.now(timezone.utc).isoformat()
+    etb = event_time_basis.resolve(
+        activity=([(activity_time, "sensor:/proc start_time")]
+                  if activity_time else ()),
+        observation=([(observed, "sensor:observed_at")] if observed else ()),
+        clock=_clock,
+        clock_source="pipeline:canonical_bridge clock",
+        activity_absent_reason=("this collection method observes a state, "
+                                "not the instant it began"),
+        observation_absent_reason=("the sensor event carried no observed_at; "
+                                   "when the sensor saw this was never "
+                                   "reported"))
 
     canonical: dict[str, Any] = {
         "source_vendor": "NivXForge",
         "source_product": "LinuxSensor",
-        "event_time": activity_time or observed,
+        "event_time": etb.event_time,
         "ingest_time": datetime.now(timezone.utc).isoformat(),
         "provenance": {
             "timestamps": pts.block(
-                activity_occurred_at=(
-                    pts.stamp(activity_time,
-                              source="sensor:/proc start_time")
-                    if activity_time else
-                    pts.stamp(status=pts.NOT_OBSERVED,
-                              reason="this collection method observes a "
-                                     "state, not the instant it began")),
-                sensor_observed_at=pts.stamp(
-                    observed, source="sensor:observed_at"),
+                **etb.stamps(),
                 # Directive §4 — the sensor IS the collector on this path.
                 # There is no collector hop, so there is nothing to stamp.
                 # A batch-send time is NOT a collector receipt.
@@ -116,8 +122,7 @@ def parse(line: str) -> dict[str, Any]:
             "activity_type": activity,
             "operation": ev.get("operation"),
             "collection_method": ev.get("collection_method"),
-            "event_time_basis": ("ACTIVITY_TIME" if activity_time
-                                 else "OBSERVATION_TIME"),
+            **etb.declarations(),
             # Directive §6 — the epistemic state travels WITH the evidence.
             "epistemic_state": {
                 "not_observed": not_observed,

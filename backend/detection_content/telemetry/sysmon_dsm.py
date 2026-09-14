@@ -23,6 +23,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict
 
+from services import event_time_basis
+
 from .models import (
     CanonicalTelemetryEvent,
     HostEntity,
@@ -66,7 +68,17 @@ class SysmonParser:
             raise SysmonParserError("SM_WRONG_PROVIDER", f"not Sysmon: {provider!r}")
         return {
             "event_id": eid_int,
-            "timestamp": ev.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+            # D12 · three DIFFERENT timestamps, kept apart.
+            #   UtcTime     — Sysmon's record of when the activity occurred
+            #   TimeCreated — when the ETW provider wrote the record
+            #   timestamp   — a generic key from whatever shipped the event
+            # The normalizer declares which is which; nothing is defaulted
+            # to the current clock here, because a parser that invents a
+            # time makes the invention unrecoverable downstream.
+            "utc_time": _first(ev, "utc_time", "UtcTime"),
+            "time_created": _first(ev, "time_created", "TimeCreated",
+                                   "SystemTime", "system_time"),
+            "timestamp": ev.get("timestamp") or "",
             "computer": _first(ev, "computer", "Computer"),
             "user": _first(ev, "user", "User"),
             "process": {
@@ -165,6 +177,30 @@ class SysmonNormalizer:
             normalizer_id=self.id,
         )
 
+        # ── D12 · Sysmon is the one source that genuinely carries both ──
+        # `UtcTime` is Sysmon's own record of when the activity happened;
+        # `TimeCreated` is when the ETW provider wrote the record. They are
+        # declared separately and never merged.
+        now_iso = datetime.now(timezone.utc).isoformat()
+        etb = event_time_basis.resolve(
+            activity=([(parsed.get("utc_time"), "sysmon:EventData.UtcTime")]
+                      if parsed.get("utc_time") else ()),
+            observation=([(parsed.get("time_created"),
+                           "sysmon:System.TimeCreated")]
+                         if parsed.get("time_created") else ()),
+            supplied=([(parsed.get("timestamp"),
+                        "raw:timestamp — a generic key supplied by the "
+                        "delivery; Sysmon's format does not establish it as "
+                        "the activity instant")]
+                      if parsed.get("timestamp") else ()),
+            clock=now_iso,
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "this Sysmon event carried no UtcTime; TimeCreated is the "
+                "ETW write instant and is NOT the activity instant"),
+            observation_absent_reason=(
+                "this Sysmon event carried no TimeCreated/SystemTime"))
+
         canonical = CanonicalTelemetryEvent(
             event_id=event_id,
             tenant_id="default",
@@ -172,8 +208,8 @@ class SysmonNormalizer:
             source_product="Sysmon",
             source_event_id=str(sysmon_eid),
             event_type=event_type,
-            event_time=parsed["timestamp"],
-            ingest_time=datetime.now(timezone.utc).isoformat(),
+            event_time=etb.event_time,
+            ingest_time=now_iso,
             host=host,
             identity=identity or IdentityEntity(),
             process=proc or ProcessEntity(),
@@ -186,7 +222,9 @@ class SysmonNormalizer:
                 "sysmon_registry": parsed["registry"],
             },
         )
-        return canonical.to_dict()
+        out = canonical.to_dict()
+        event_time_basis.apply(out, etb)
+        return out
 
 
 class SysmonDSM:

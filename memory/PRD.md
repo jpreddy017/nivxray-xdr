@@ -15662,3 +15662,107 @@ PATH/CWD canonical mapping → small rule-declaration batches (92 remaining) →
 real auditd-host acceptance → production acceptance testing → second
 telemetry domain → cross-domain correlation → response + independent
 verification.
+
+---
+
+# D12 · CROSS-DSM ACTIVITY TIME + BASIS RATIFICATION — COMPLETE (preview) · 2026-09-14
+
+Owner-approved gate after D11. Full report:
+`/app/memory/D12_CROSS_DSM_ACTIVITY_TIME_REPORT.md`. **PASS for preview
+scope.** Owner order was: Basis Ratification → Cross-DSM Activity Time →
+STOP. Both were delivered in this gate; PATH/CWD deliberately NOT started.
+
+## Basis ratification — enforced, not documented
+`services/event_time_basis.py` (NEW) is the ONLY place a temporal basis is
+chosen. One call returns `event_time`, its basis, AND both source-side
+boundaries, and every `Resolution` is `verify()`-ed:
+
+| Basis | activity_occurred_at |
+|---|---|
+| `ACTIVITY_TIME` | AVAILABLE (and must equal `event_time`) |
+| `OBSERVATION_TIME` (pre-existing since D9) | NOT_OBSERVED |
+| `SUPPLIED_TIMESTAMP_UNVERIFIED` | NOT_OBSERVED / MISSING |
+| `INGEST_TIME_SUBSTITUTED` | NOT_OBSERVED |
+
+The forbidden combination raises `AssertionError` on the value object, so a
+DSM author cannot opt out and a hand-built `Resolution` is caught too.
+Precedence: activity > observation > supplied > our clock. A DSM must declare
+per-field whether ITS format proves activity, and must state a reason for any
+boundary it leaves unfilled.
+
+## Per-DSM mapping (ratified, implemented)
+| DSM | activity | observation |
+|---|---|---|
+| linux-auditd | `msg=audit(epoch:serial)` | NOT_OBSERVED |
+| microsoft-sysmon | `EventData.UtcTime` | `System.TimeCreated` |
+| aws-cloudtrail | `eventTime` | NOT_OBSERVED |
+| snort-eve | `timestamp` (packet instant) | NOT_OBSERVED |
+| cef-leef | `devTime` → `start` | `rt` (receipt by spec) |
+| windows-security-evd | **NOT_OBSERVED by decision** | `System.TimeCreated.SystemTime` |
+| nivxforge-linux-sensor | `/proc start_time` | `observed_at` |
+
+## Five silent now() fabrications removed
+`sysmon_dsm:69`, `windows_security_dsm:109`, `aws_cloudtrail_dsm:80`,
+`cef_leef_dsm:460`, and — **found by this gate** —
+`edr_plane/canonical_bridge.py:80`, which filled a missing `observed_at`
+from our clock and stamped it `source="sensor:observed_at"`.
+
+## Proof
+- `tests/test_d12_cross_dsm_activity_time.py` — **51 passed**, including the
+  mandatory `test_no_dsm_invents_activity_time_when_the_source_timestamp_is_
+  gone` (every DSM × removed/corrupted) and
+  `test_every_registered_dsm_is_covered_by_this_suite`, which fails loudly
+  when a new DSM ships without a temporal declaration.
+- `scripts/p0_d12_cross_dsm_activity_time_live_proof.py` — **16/16 PASS**
+  over real HTTP in preview (auditd, CEF with devTime+rt, CEF with rt only).
+- D11 live proof still 30/30; D2/D3/D4/D8/D10 green; endpoint path 10/10.
+- Baseline comparison done by reverting the patch **in place** (the worktree
+  method cannot isolate `from server import app`): 13 failed / 27 passed on
+  both trees, failure sets identical.
+
+## Defect register update (2026-09-14, after D12)
+| ID | Status |
+|---|---|
+| D1 | PASS (preview) on both paths |
+| D2/D3/D4/D10 | PASS (preview) |
+| D5 | PARTIAL |
+| D6 | OPEN — off critical path |
+| D7 | OPEN, low |
+| D8 | FIXED for 6 declared rules; 92 NOT_DECLARED |
+| D9 | PARTIAL — four bases now declared platform-wide; `event_time` not re-pointed |
+| D11 | PASS (preview) |
+| D12 | **PASS (preview)** |
+
+## Open after D12
+1. **The collector path cannot deliver JSON-document sources.** The ingest
+   handler hands the DSM registry a verbatim LINE, so sysmon,
+   windows-security-evd and aws-cloudtrail never resolve through
+   `POST /api/xdr/ingest/telemetry`. An INGEST-SHAPE gap that will block real
+   Windows/cloud onboarding. Their temporal behaviour is proved
+   synthetically, not over the wire.
+2. `event_time` is still the field rules read; a consumer ignoring
+   `event_time_basis` cannot tell the four statements apart. Needs a schema
+   decision.
+3. Windows Security has no activity time by design — future causal/state
+   engines must treat Windows as observation-ordered.
+4. CEF `start`/`end` is an activity interval; only `start` is promoted, the
+   interval is not modelled.
+5. `sysmon_dsm.normalize()` hardcodes `tenant_id="default"` and takes no
+   tenant argument. Pre-existing; must close before Sysmon onboarding.
+
+## Next (owner-confirmed order)
+PATH/CWD canonical mapping → rule declarations in controlled batches (92
+remaining) → real-source/real-host acceptance → production acceptance
+testing → second telemetry domain → cross-domain correlation → response +
+independent verification.
+
+Strategic framing recorded by the owner: NivXRay XDR = Enterprise SIEM +
+industry-leading XDR + XSIAM-class unified SecOps + SOAR/XSOAR-class
+orchestration + the NivX evidence/provenance architecture + post-XDR
+capabilities (Security State → causal reasoning → reachability →
+counterfactual simulation → intervention optimization → proof-carrying
+authorization → execution attestation → independent verification →
+safe-state maintenance). Every proposal is to be judged on SIEM value, XDR
+value, XSIAM/SecOps value, SOAR/response value, evidence integrity, and
+post-XDR value. Competitor capability is the minimum benchmark, not the
+design specification. NivXForge EDR stays a product in its own right.

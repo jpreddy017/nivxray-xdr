@@ -14,7 +14,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 
-from services import provenance_timestamps as pts
+from services import event_time_basis
 
 from .models import (
     CanonicalTelemetryEvent,
@@ -255,36 +255,37 @@ class LinuxAuditdNormalizer:
                 is_privileged=False,
             )
 
-        # ── D11 · activity time, from the audit header or not at all ──
+        # ── D11/D12 · activity time, from the audit header or not at all ──
         # `msg=audit(epoch:serial)` is the kernel's own record of when the
         # syscall happened. Only that value may become activity time. Any
         # other `timestamp` key rode in on an envelope and its origin cannot
-        # be verified, so it is never promoted to activity time.
+        # be verified, so it is never promoted to activity time. The shared
+        # resolver enforces that consequence; this DSM only declares what
+        # its own wire format proves.
         audit_ts_state = str(fields.get("_audit_timestamp_state")
                              or "NOT_DETERMINED")
-        audit_ts = fields.get("timestamp") \
+        _audit_ts = fields.get("timestamp") \
             if audit_ts_state == "OBSERVED" else None
-
-        if audit_ts:
-            event_time = audit_ts
-            event_time_basis = "ACTIVITY_TIME"
-            event_time_source = "auditd:msg=audit(epoch:serial)"
-            event_time_substituted = False
-        elif fields.get("timestamp") or raw.get("timestamp"):
-            event_time = fields.get("timestamp") or raw.get("timestamp")
-            event_time_basis = "SUPPLIED_TIMESTAMP_UNVERIFIED"
-            event_time_source = ("raw:timestamp — supplied by the delivery, "
-                                 "not readable from the audit header, so its "
-                                 "origin cannot be verified as activity time")
-            event_time_substituted = True
-        else:
-            # Kept populated for schema/rule compatibility ONLY, and said so
-            # out loud. `activity_occurred_at` stays NOT_OBSERVED below.
-            event_time = now_iso
-            event_time_basis = "INGEST_TIME_SUBSTITUTED"
-            event_time_source = ("pipeline:normalizer clock at "
-                                 f"{self.id} — no source time was observed")
-            event_time_substituted = True
+        _other_ts = None if _audit_ts else (fields.get("timestamp")
+                                            or raw.get("timestamp"))
+        etb = event_time_basis.resolve(
+            activity=([(_audit_ts, "auditd:msg=audit(epoch:serial)")]
+                      if _audit_ts else ()),
+            supplied=([(_other_ts,
+                        "raw:timestamp — supplied by the delivery, not "
+                        "readable from the audit header, so its origin "
+                        "cannot be verified as activity time")]
+                      if _other_ts else ()),
+            clock=now_iso,
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "no readable audit activity time: "
+                f"audit_timestamp_state={audit_ts_state}; "
+                "the substituted event_time is NOT activity time"),
+            observation_absent_reason=(
+                "auditd emits no separate daemon observation time; only the "
+                "kernel activity time is recorded in the record itself"))
+        event_time = etb.event_time
 
         provenance = ProvenanceEnvelope(
             trace_id=trace_id,
@@ -350,10 +351,9 @@ class LinuxAuditdNormalizer:
                                else "NOT_OBSERVED"),
             # D10 provenance — what the canonical identity was derived from.
             "event_id_basis": id_basis,
-            # D11 provenance — what `event_time` actually means here.
-            "event_time_basis": event_time_basis,
-            "event_time_source": event_time_source,
-            "event_time_substituted": event_time_substituted,
+            # D11 provenance — what `event_time` actually means here is
+            # published by the shared basis resolver; this is the auditd
+            # -specific reason behind it.
             "audit_timestamp_state": audit_ts_state,
         }
         if not hostname:
@@ -403,28 +403,12 @@ class LinuxAuditdNormalizer:
             additional_fields=extra,
         )
         out = canonical.to_dict()
-        # ── D11 · seed the eight boundaries, so a gap is visible ────
-        # Only the two this normalizer can honestly speak for are filled;
-        # the transport boundaries are the ingest handler's to measure and
-        # the pipeline stamps its own. Everything else stays MISSING rather
-        # than being quietly omitted.
-        if audit_ts:
-            activity = pts.stamp(audit_ts,
-                                 source="auditd:msg=audit(epoch:serial)")
-        else:
-            activity = pts.stamp(
-                status=pts.NOT_OBSERVED,
-                reason=("no readable audit activity time: "
-                        f"audit_timestamp_state={audit_ts_state}; "
-                        "the substituted event_time is NOT activity time"))
-        out.setdefault("provenance", {})["timestamps"] = pts.block(
-            activity_occurred_at=activity,
-            sensor_observed_at=pts.stamp(
-                status=pts.NOT_OBSERVED,
-                reason=("auditd emits no separate daemon observation time; "
-                        "only the kernel activity time is recorded in the "
-                        "record itself")),
-        )
+        # ── D11/D12 · seed the eight boundaries, so a gap is visible ──
+        # Only the two this normalizer can honestly speak for are filled,
+        # and the resolver guarantees `activity_occurred_at` is measured
+        # only when the basis is ACTIVITY_TIME. The transport boundaries are
+        # the ingest handler's to measure and the pipeline stamps its own.
+        event_time_basis.apply(out, etb)
         if stitched:
             # Every contributing raw record is referenced from the canonical
             # event, so an analyst can walk citation -> canonical field ->

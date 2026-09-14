@@ -26,6 +26,7 @@ from .xdr_closed_loop import recompute as closed_loop_recompute
 from .xdr_framework_mapping import resolve_mappings as framework_resolve
 from .telemetry.registry import TELEMETRY_DSM_REGISTRY
 from services import provenance_timestamps as pts
+from services import event_time_basis
 from services import ingest_provenance as ingest_prov
 
 
@@ -135,7 +136,23 @@ class SnortNormalizer:
                         collector_id: str, integration_id: str,
                         trace_id: str) -> dict:
         alert = parsed.get("alert") or {}
-        return {
+        # ── D12 · the EVE timestamp IS the packet instant ──────────────
+        # Suricata/Snort EVE records the time of the packet or flow the
+        # alert was raised on, and the parser already REQUIRES and
+        # ISO-validates it, so the format establishes activity occurrence.
+        # There is no second, separate observation instant to report.
+        etb = event_time_basis.resolve(
+            activity=[(parsed["timestamp"],
+                       "snort-eve:timestamp — the packet/flow instant")],
+            clock=pts.now(),
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "unreachable: the EVE parser rejects an event without a "
+                "valid ISO timestamp"),
+            observation_absent_reason=(
+                "EVE carries one packet timestamp; the sensor reports no "
+                "separate instant at which it observed the packet"))
+        out = {
             "event_id":   str(uuid.uuid4()),
             "event_type": "network_alert",
             "timestamp":  parsed["timestamp"],
@@ -166,6 +183,8 @@ class SnortNormalizer:
                 "normalizer_id":    SnortNormalizer.id,
             },
         }
+        event_time_basis.apply(out, etb)
+        return out
 
 
 # ── Detection via P0.2e harness ──────────────────────────────────
