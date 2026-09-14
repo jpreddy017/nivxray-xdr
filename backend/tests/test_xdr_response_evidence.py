@@ -17,7 +17,8 @@ import pytest
 from fastapi import FastAPI
 from httpx   import AsyncClient, ASGITransport
 
-from routers.xdr_response_evidence import router
+from deps import get_current_user
+from routers.xdr_response_evidence import router, require_response_engine_service
 
 
 # ── Minimal in-memory Motor stand-in ─────────────────────────────────
@@ -75,6 +76,10 @@ def _app() -> FastAPI:
     app = FastAPI()
     app.state.db = _FakeDb()
     app.include_router(router, prefix="/api")
+    app.dependency_overrides[require_response_engine_service] = lambda: "response-engine"
+    app.dependency_overrides[get_current_user] = lambda: {
+        "email": "analyst@acme.example", "tenant_id": "acme", "role": "admin"
+    }
     return app
 
 
