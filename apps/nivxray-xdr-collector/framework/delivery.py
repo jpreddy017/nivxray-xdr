@@ -11,10 +11,9 @@ Callers (the delivery worker) act on the returned outcome:
                      mark DEAD_LETTER
 
 The client never silently accepts an event as delivered.  If
-`NIVX_INGEST_URL` is not configured, `deliver()` returns
-`ok=False, retryable=True, reason=ingest_not_configured` — the
-worker keeps the envelope in the outbox and reports NOT_CONFIGURED
-in health so operators fix it.
+`NIVX_INGEST_URL` or `NIVX_INGEST_TOKEN` is not configured,
+`deliver()` returns `ok=False, retryable=True); the worker keeps the
+envelope in the outbox and reports NOT_CONFIGURED so operators fix it.
 """
 from __future__ import annotations
 
@@ -75,16 +74,17 @@ class IngestClient:
 
         if not self.configured():
             self.failed_retryable += len(batch)
-            self.last_error = ("ingest_url_not_configured" if not self.url
-                                   else "ingest_credential_not_configured")
+            self.last_error = ("ingest_not_configured" if not self.url
+                               else "ingest_credential_not_configured")
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0,
                      "reason":    self.last_error}
 
         try:
-            headers = {"Content-Type": "application/json"}
-            if self.token:
-                headers["Authorization"] = f"Bearer {self.token}"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.token}",
+            }
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(self.url, json={"envelopes": batch},
                                               headers=headers)
