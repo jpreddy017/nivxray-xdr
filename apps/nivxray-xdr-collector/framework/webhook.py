@@ -23,7 +23,8 @@ Route: POST /api/xdr/webhooks/{secret_id}
 
 Security guarantees:
   • constant-time HMAC comparison
-  • timestamp replay window enforced when X-Timestamp header sent
+  • required timestamp bound into the signature and checked against a 5-minute window
+  • identical authenticated deliveries rejected within the replay window
   • 401 / 403 on failure — never 500 for a bad signature
 """
 from __future__ import annotations
@@ -68,12 +69,13 @@ class WebhookConnector(Connector):
         # Webhooks are passively "connected" once configured — they either
         # receive traffic or don't.  Health flips to ERROR on failed HMAC.
         self.health = Health.CONNECTED
+        self._accepted_requests: Dict[str, float] = {}
 
     # ── signature verification ───────────────────────────────
     def verify(self, body: bytes, headers: Dict[str, str]) -> Dict[str, Any]:
-        """Return {ok, reason?} — never raises on failure."""
+        """Verify a timestamp-bound HMAC and reject authenticated replays."""
         sig_cfg = self.config.get("signature") or {}
-        secret  = (self.config.get("credentials") or {}).get("hmac_secret")
+        secret = (self.config.get("credentials") or {}).get("hmac_secret")
         if not secret:
             env = os.environ.get("XDR_COLLECTOR_ENV", "production").lower()
             allow = os.environ.get("XDR_WEBHOOK_ALLOW_UNSIGNED_DEV", "0").lower()
@@ -84,37 +86,48 @@ class WebhookConnector(Connector):
                     "reason": "hmac_secret_not_configured"}
 
         header_name = sig_cfg.get("header", "X-Hub-Signature-256")
-        algo        = (sig_cfg.get("algo") or "sha256").lower()
-        prefix      = sig_cfg.get("prefix", "sha256=")
-
+        algo = (sig_cfg.get("algo") or "sha256").lower()
+        prefix = sig_cfg.get("prefix", "sha256=")
         provided = headers.get(header_name) or headers.get(header_name.lower())
         if not provided:
             return {"ok": False, "reason": "missing_signature_header",
-                     "header": header_name}
+                    "header": header_name}
+
+        ts = headers.get("X-Timestamp") or headers.get("x-timestamp")
+        if not ts:
+            return {"ok": False, "reason": "missing_timestamp_header"}
+        try:
+            timestamp = float(ts)
+        except (TypeError, ValueError):
+            return {"ok": False, "reason": "malformed_timestamp"}
+        now = time.time()
+        delta = now - timestamp
+        if delta > REPLAY_WINDOW_SECONDS:
+            return {"ok": False, "reason": "expired_timestamp"}
+        if delta < -REPLAY_WINDOW_SECONDS:
+            return {"ok": False, "reason": "future_timestamp"}
 
         if algo not in ("sha256", "sha1"):
             return {"ok": False, "reason": f"unsupported_algo:{algo}"}
-
         hasher = hashlib.sha256 if algo == "sha256" else hashlib.sha1
-        expected = hmac.new(secret.encode("utf-8"), body, hasher).hexdigest()
+        signed_payload = ts.encode("utf-8") + b"." + body
+        expected = hmac.new(secret.encode("utf-8"), signed_payload, hasher).hexdigest()
         expected_full = f"{prefix}{expected}"
-
         if not hmac.compare_digest(provided, expected_full) and \
-             not hmac.compare_digest(provided, expected):
+                not hmac.compare_digest(provided, expected):
             return {"ok": False, "reason": "signature_mismatch"}
 
-        # optional replay guard
-        ts = headers.get("X-Timestamp") or headers.get("x-timestamp")
-        if ts:
-            try:
-                delta = abs(time.time() - float(ts))
-                if delta > REPLAY_WINDOW_SECONDS:
-                    return {"ok": False, "reason": "replay_window_exceeded",
-                             "delta_seconds": delta}
-            except ValueError:
-                return {"ok": False, "reason": "malformed_timestamp"}
-
-        return {"ok": True, "authenticated": True}
+        replay_key = hashlib.sha256(signed_payload + provided.encode("utf-8")).hexdigest()
+        cutoff = now - REPLAY_WINDOW_SECONDS
+        self._accepted_requests = {
+            key: accepted for key, accepted in self._accepted_requests.items()
+            if accepted >= cutoff
+        }
+        if replay_key in self._accepted_requests:
+            return {"ok": False, "reason": "replayed_request"}
+        self._accepted_requests[replay_key] = now
+        return {"ok": True, "authenticated": True,
+                "replay_window_seconds": REPLAY_WINDOW_SECONDS}
 
     # ── event conversion ─────────────────────────────────────
     def envelopes_from(self, body_json: Any) -> List[Envelope]:
