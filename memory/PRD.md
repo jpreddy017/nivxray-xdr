@@ -15479,3 +15479,52 @@ deploy.
 - Order remains: D4 -> D3/D2/D10 -> ingest-path provenance -> auditd
   onboarding -> second domain -> cross-domain correlation -> response ->
   independent verification
+
+
+## Step 4 — D4 auditd record stitching · DONE (preview only)
+`memory/D4_IMPLEMENTATION_REPORT.md`.
+New `detection_content/telemetry/auditd_stitcher.py` (pure functions, no
+shared state). Stitch key = (tenant, collector, audit epoch:serial) — never
+timestamp proximity, never pid, never serial alone.
+ONE execution now becomes ONE canonical event: identity from SYSCALL +
+real command line from EXECVE on the SAME event, all 3 raw records preserved
+in `evidence_refs`, per-field attribution in `stitch_field_attribution` /
+`stitch_canonical_attribution`.
+Incomplete groups stay honestly PARTIAL — `identity_state: NOT_OBSERVED`
+replaces the old silent lie of `uid:` + `is_privileged=False`.
+Deterministic `cev_auditd_<sha>` id for stitched events (replay idempotent).
+Ingest accounting: members settle as `STITCHED_INTO` referencing the primary,
+so every envelope is still settled exactly once.
+Defect exposed and fixed: PROCTITLE (truncated `/bin/bash -c`) was
+overriding EXECVE argv — declared precedence is now argv > proctitle.
+22 unit tests + 24 live HTTP checks PASS. Regression identical to clean tree
+(4 pre-existing failures in test_xdr_detection_consolidation both ways).
+`DET-EX-006` declared for the D8-on-stitched proof; the other 93 rules remain
+NOT_DECLARED (no sweep).
+Storage: stitched event 7,878 B vs 2,401 B unstitched, but 3 events become 1
+→ ~9% per execution. Re-measure on a real host before onboarding.
+
+## Defect register update (2026-09-14, after D4)
+| ID | Status |
+|---|---|
+| D1 | FIXED endpoint path · XDR-ingest path still outstanding |
+| D2 | OPEN — host identity still lost, even on stitched events |
+| D3 | PARTIAL — correct for stitched groups; unstitched path unchanged |
+| D4 | **FIXED (preview)** — not production-accepted, needs a real auditd host |
+| D5 | PARTIAL — stitched events now carry `evidence_refs` to raw records |
+| D6 | OPEN — collector Start fix not deployed, off critical path |
+| D7 | OPEN, low |
+| D8 | FIXED for 6 declared rules (5 Linux + DET-EX-006); 92 NOT_DECLARED |
+| D9 | PARTIAL — basis declared, `event_time` not re-pointed |
+| D10 | PARTIAL — deterministic for stitched events only |
+
+Also open from D4: PATH/CWD preserved + attributed but not yet mapped into
+canonical `file.*` / working-directory fields.
+
+## Next (owner-approved order)
+D3/D2/D10 as one change → ingest-path provenance → real auditd onboarding →
+93-rule declaration sweep in controlled batches → second telemetry domain →
+cross-domain correlation → response → independent verification.
+Work Mode owns the security/control-plane track in parallel; Emergent must
+not touch auth, JWT/tenant binding, response security, collector-management
+security, service-to-service auth, webhook auth or credential handling.

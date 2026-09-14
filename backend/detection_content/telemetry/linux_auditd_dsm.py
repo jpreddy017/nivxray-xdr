@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import binascii
 from datetime import datetime, timezone
+import hashlib
 import os
 import re
 from typing import Any, Dict, List, Optional
@@ -126,7 +127,21 @@ class LinuxAuditdNormalizer:
             argv.append(arg_val)
             i += 1
 
-        cmd_line = proctitle or " ".join(argv) or comm or exe
+        # D4 · declared field precedence. EXECVE argv is the authoritative
+        # execution vector; PROCTITLE is a truncated display string (the
+        # real `curl ... | bash` argv arrives as argv, while proctitle
+        # decodes to just "/bin/bash -c"). For a stitched group argv
+        # therefore wins, with proctitle as fallback only. The unstitched
+        # path keeps its previous order — correcting that belongs to the
+        # D3/D2 auditd gate, not here.
+        if fields.get("_stitched"):
+            cmd_line = " ".join(argv) or proctitle or comm or exe
+            cmd_source = ("EXECVE" if argv else
+                          "PROCTITLE" if proctitle else
+                          "SYSCALL" if (comm or exe) else None)
+        else:
+            cmd_line = proctitle or " ".join(argv) or comm or exe
+            cmd_source = None
         proc_name = os.path.basename(exe) if exe else comm
 
         pid: Optional[int] = None
@@ -168,6 +183,25 @@ class LinuxAuditdNormalizer:
             is_privileged=(uid == "0" or euid == "0" or auid == "0"),
         )
 
+        # ── D4 · stitch provenance and honest partials ──────────────
+        stitched = bool(fields.get("_stitched"))
+        contributing = fields.get("_contributing_records") or []
+        completeness = fields.get("_completeness")
+        missing_records = fields.get("_missing_records") or []
+        identity_source = (fields.get("_canonical_attribution")
+                           or {}).get("identity")
+        if stitched and not (uid or auid or euid or
+                            fields.get("user") or fields.get("username")):
+            # No record in the group supplied identity — almost always a
+            # SYSCALL that never arrived. Reporting `uid:` and
+            # `is_privileged=False` here would be a fabricated claim that an
+            # unprivileged user did this. Say we did not observe it.
+            identity = IdentityEntity(
+                principal_id="",
+                username="",
+                is_privileged=False,
+            )
+
         event_time = (
             fields.get("timestamp")
             or raw.get("timestamp")
@@ -184,13 +218,66 @@ class LinuxAuditdNormalizer:
             ingest_time=now_iso,
         )
 
+        record_types = fields.get("_record_types") or [parsed["record_type"]]
+        # D4 · a stitched group that contains EXECVE genuinely IS an
+        # execution, whichever record happened to be primary. (This is the
+        # part of D3 that falls out of stitching; the unstitched path is
+        # deliberately left as-is for the D3 gate.)
+        if stitched and "EXECVE" in record_types:
+            event_type = "process_execution"
+        else:
+            event_type = ("process_execution"
+                          if "execve" in str(fields.get("syscall", "")).lower()
+                          or exe else "auditd_syscall")
+
+        # D4 · a stitched event needs a stable identity: the same audit event
+        # re-delivered must not become a second canonical event. Derived from
+        # tenant + collector + audit identity, never random. (The unstitched
+        # path keeps its existing uuid4 — that is the D10 gate.)
+        audit_identity = fields.get("_audit_identity")
+        if stitched and audit_identity:
+            event_id = "cev_auditd_" + hashlib.sha256(
+                f"{resolved_tenant}|{collector_id}|{audit_identity}".encode()
+            ).hexdigest()[:24]
+        else:
+            event_id = str(uuid.uuid4())
+
+        extra: Dict[str, Any] = {"syscall": fields.get("syscall"),
+                                 "record_type": parsed["record_type"]}
+        if stitched:
+            extra.update({
+                "stitched": True,
+                "stitch_audit_identity": audit_identity,
+                "stitch_record_types": record_types,
+                "stitch_completeness": completeness,
+                "stitch_missing_records": missing_records,
+                "stitch_contributing_records": contributing,
+                "stitch_field_attribution": fields.get("_field_attribution"),
+                "stitch_canonical_attribution":
+                    fields.get("_canonical_attribution"),
+                "stitch_duplicate_records":
+                    fields.get("_duplicate_records") or [],
+                "stitch_unknown_record_types":
+                    fields.get("_unknown_record_types") or [],
+                "identity_observed": bool(identity.username),
+                "identity_source_record": identity_source,
+                "command_line_source_record": cmd_source,
+            })
+            if not identity.username:
+                extra["identity_state"] = "NOT_OBSERVED"
+                extra["identity_not_observed_reason"] = (
+                    "no contributing audit record supplied uid/auid/euid; "
+                    "privilege is unknown, not unprivileged")
+
         canonical = CanonicalTelemetryEvent(
-            event_id=str(uuid.uuid4()),
+            event_id=event_id,
             tenant_id=resolved_tenant,
             source_vendor="Linux",
             source_product="Auditd",
-            source_event_id=str(fields.get("audit_id") or fields.get("syscall") or "auditd"),
-            event_type="process_execution" if "execve" in str(fields.get("syscall", "")).lower() or exe else "auditd_syscall",
+            source_event_id=str(audit_identity
+                                or fields.get("audit_id")
+                                or fields.get("syscall") or "auditd"),
+            event_type=event_type,
             event_time=str(event_time),
             ingest_time=now_iso,
             host=host,
@@ -198,9 +285,20 @@ class LinuxAuditdNormalizer:
             process=process,
             raw_ref=raw,
             provenance=provenance,
-            additional_fields={"syscall": fields.get("syscall"), "record_type": parsed["record_type"]},
+            additional_fields=extra,
         )
-        return canonical.to_dict()
+        out = canonical.to_dict()
+        if stitched:
+            # Every contributing raw record is referenced from the canonical
+            # event, so an analyst can walk citation -> canonical field ->
+            # stitched event -> the original audit record.
+            out["evidence_refs"] = [
+                {"record_type": r.get("record_type"),
+                 "audit_id": r.get("audit_id"),
+                 "line": r.get("line"),
+                 "position": r.get("position")}
+                for r in contributing]
+        return out
 
 
 class LinuxAuditdDSM:

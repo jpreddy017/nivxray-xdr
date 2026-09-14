@@ -131,6 +131,11 @@ class ReasoningOutcome(BaseModel):
     delivery_count:   int | None = None
     dedupe_key:       str | None = None
     blocker:          str | None = None
+    #: D4 · set when this envelope's auditd record was stitched into another
+    #: envelope's canonical event instead of becoming its own.
+    stitched_into_source_event_id: str | None = None
+    stitch_audit_id:  str | None = None
+    stitch_record_type: str | None = None
     detection:        str | None = None
     detections_matched: int = 0
     verdict:          str | None = None
@@ -229,6 +234,8 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
                             tenant_id: str,
                             keys: list[str] | None = None) -> dict[str, Any]:
     from deps import db as _adb
+    from detection_content.telemetry.auditd_stitcher import (
+        plan_stitch, record_type as aud_record_type)
     from detection_content.xdr_pipeline import process_event_through_pipeline
     from v2.ingestion.telemetry_bridge import (
         link_observations_to_incident,
@@ -240,10 +247,53 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
     observations = 0
     reasoned = 0
 
+    # ── D4 · auditd record stitching ─────────────────────────────────
+    # auditd emits SYSCALL + EXECVE + PROCTITLE for ONE execution. Planned
+    # here, before the pipeline, so one real execution becomes ONE canonical
+    # event instead of three that contradict each other. Index-aligned to
+    # `envelopes` so the per-envelope idempotency accounting below is
+    # untouched: every index still gets exactly one settled outcome.
+    # NOTE: no tenant-verification or authentication logic is touched; the
+    # plan is partitioned BY the tenant those checks already established.
+    _lines = [(e.raw or {}).get("line") or (e.raw or {}).get("message") or ""
+              for e in envelopes]
+    _plan = plan_stitch(_lines,
+                        [e.tenant_id for e in envelopes],
+                        [e.collector_id for e in envelopes])
+
     for idx, e in enumerate(envelopes):
         key = keys[idx] if keys and idx < len(keys) else None
         trace_id = f"live_{uuid.uuid4().hex[:16]}"
         raw_event = _raw_event_for_pipeline(e)
+
+        # A stitched member contributed its record to the group's canonical
+        # event. It is settled honestly as STITCHED_INTO — never silently
+        # dropped, and never re-parsed into a second contradictory event.
+        if _plan["roles"].get(idx) == "MEMBER":
+            _p = _plan["primary_of"][idx]
+            outcomes.append(ReasoningOutcome(
+                source_event_id=e.source_event_id, trace_id=trace_id,
+                status="STITCHED_INTO",
+                blocker=None,
+                error=None,
+                dedupe_key=key,
+                stitched_into_source_event_id=envelopes[_p].source_event_id,
+                stitch_audit_id=_plan["stitched"][_p]["_audit_identity"],
+                stitch_record_type=aud_record_type(_lines[idx])))
+            if key:
+                idem.complete(key, trace_id=trace_id,
+                              outcome="STITCHED_INTO")
+            continue
+
+        # The primary carries the stitched view: the merged key/value record
+        # plus its own verbatim line, so the parser still sees real auditd
+        # text and every contributing record travels with it.
+        _st = _plan["stitched"].get(idx)
+        if _st and len(_st["_contributing_records"]) > 1:
+            raw_event = {**raw_event, **_st,
+                         "line": _st["_primary_line"],
+                         "message": _st["_primary_line"]}
+
         if not raw_event["line"]:
             outcomes.append(ReasoningOutcome(
                 source_event_id=e.source_event_id, trace_id=trace_id,

