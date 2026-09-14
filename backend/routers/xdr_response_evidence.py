@@ -24,13 +24,16 @@ Collections (created on demand):
 from __future__ import annotations
 
 import uuid
+import hmac
+import os
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from routers.xdr_rbac import require_permission
+from deps import get_current_user
+from routers.xdr_response_gateway import _tenant_for_user
 
 router = APIRouter(prefix="/xdr", tags=["xdr-response-evidence"])
 
@@ -71,6 +74,21 @@ class ResponseEvidenceRequest(BaseModel):
     provenance:       dict[str, Any] | None = None
 
 
+
+def require_response_engine_service(request: Request) -> str:
+    """Authenticate Response Engine evidence forwarding with its own secret."""
+    expected = os.environ.get("NIVX_RESPONSE_EVIDENCE_TOKEN", "")
+    if not expected:
+        raise HTTPException(503, detail={"error": "response_evidence_auth_not_configured"})
+    header = request.headers.get("Authorization", "")
+    scheme, _, supplied = header.partition(" ")
+    if scheme.lower() != "bearer" or not supplied or not hmac.compare_digest(
+        supplied.encode("utf-8"), expected.encode("utf-8")
+    ):
+        raise HTTPException(401, detail={"error": "invalid_service_credential"},
+                            headers={"WWW-Authenticate": "Bearer"})
+    return "response-engine"
+
 def _iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -80,7 +98,7 @@ def _mint(prefix: str) -> str:
 
 
 @router.post("/response-evidence",
-                       dependencies=[Depends(require_permission("response.execute"))])
+             dependencies=[Depends(require_response_engine_service)])
 async def response_evidence(body: ResponseEvidenceRequest, request: Request):
     """Idempotent evidence sink for the Response Engine.  See module docstring."""
     db = _resolve_db(request)
@@ -168,18 +186,20 @@ async def response_evidence(body: ResponseEvidenceRequest, request: Request):
     }
 
 
-@router.get("/response-evidence/{execution_id}",
-                     dependencies=[Depends(require_permission("evidence.read"))])
+@router.get("/response-evidence/{execution_id}")
 async def get_response_evidence(execution_id: str, request: Request,
-                                        tenant_id: str | None = None):
+                                tenant_id: str | None = None,
+                                user=Depends(get_current_user)):
     """Reads the persisted triple for an execution.  Optional tenant
     filter as a defensive check on top of upstream authz."""
     db = _resolve_db(request)
     if db is None:
         raise HTTPException(503, detail={"error": "database_unavailable"})
-    q: dict[str, Any] = {"execution_id": execution_id}
-    if tenant_id:
-        q["tenant_id"] = tenant_id
+    authoritative_tenant = _tenant_for_user(user)
+    if tenant_id and not hmac.compare_digest(str(tenant_id), authoritative_tenant):
+        raise HTTPException(404, detail={"error": "not_found"})
+    q: dict[str, Any] = {"execution_id": execution_id,
+                         "tenant_id": authoritative_tenant}
     row = await db.xdr_response_executions.find_one(q)
     if not row:
         raise HTTPException(404, detail={"error": "not_found"})
@@ -188,11 +208,11 @@ async def get_response_evidence(execution_id: str, request: Request,
                  "timeline_ref", "ingested_at")}
 
 
-@router.get("/incidents/{incident_id}/response-executions",
-                     dependencies=[Depends(require_permission("evidence.read"))])
+@router.get("/incidents/{incident_id}/response-executions")
 async def list_incident_response_executions(
         incident_id: str, request: Request,
-        tenant_id: str | None = None, limit: int = 100):
+        tenant_id: str | None = None, limit: int = 100,
+        user=Depends(get_current_user)):
     """Backfill route for the Investigation Canvas.
 
     Returns every response execution whose invoker context carries the
@@ -214,9 +234,11 @@ async def list_incident_response_executions(
     # we read from ``xdr_response_evidence`` filtered by
     # ``invoker.context.incident_id`` and join in the ref triple from
     # the dedup index.
-    q: dict[str, Any] = {"invoker.context.incident_id": incident_id}
-    if tenant_id:
-        q["tenant_id"] = tenant_id
+    authoritative_tenant = _tenant_for_user(user)
+    if tenant_id and not hmac.compare_digest(str(tenant_id), authoritative_tenant):
+        raise HTTPException(404, detail={"error": "not_found"})
+    q: dict[str, Any] = {"invoker.context.incident_id": incident_id,
+                         "tenant_id": authoritative_tenant}
 
     cursor = db.xdr_response_evidence.find(q).sort("completed_at", -1)
     rows: list[dict[str, Any]] = []
@@ -254,7 +276,7 @@ async def list_incident_response_executions(
     ex_ids = [p["execution_id"] for p in projected if p["execution_id"]]
     if ex_ids:
         dedup_q: dict[str, Any] = {"execution_id": {"$in": ex_ids}}
-        if tenant_id: dedup_q["tenant_id"] = tenant_id
+        dedup_q["tenant_id"] = authoritative_tenant
         dedup_cur = db.xdr_response_executions.find(dedup_q)
         dedup_map: dict[str, dict[str, Any]] = {}
         async for d in dedup_cur:
@@ -266,7 +288,7 @@ async def list_incident_response_executions(
             p["timeline_ref"] = d.get("timeline_ref")
     return {
         "incident_id":   incident_id,
-        "tenant_id":     tenant_id,
+        "tenant_id":     authoritative_tenant,
         "count":         len(projected),
         "executions":    projected,
     }
