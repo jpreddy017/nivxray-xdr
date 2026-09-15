@@ -116,6 +116,27 @@ class CloudContext:
     #: authorization decision lives in these (policy documents, inbox-rule
     #: definitions), so a rule that evaluates them needs a field to cite.
     request_parameters: Dict[str, Any] = field(default_factory=dict)
+    #: Microsoft Phase 1 · the provider's OWN tenant identity
+    #: (M365 `OrganizationId`). Kept for source binding and correlation; it
+    #: is never the NivX tenant, which the authenticated delivery decides.
+    provider_tenant_id: str = ""
+    #: Microsoft Phase 1 · the provider's service/workload name for this
+    #: record (`Workload`: Exchange, AzureActiveDirectory, SharePoint…),
+    #: verbatim.
+    workload: str = ""
+    #: Microsoft Phase 1 · the provider's record classification
+    #: (`RecordType`, resolved to Microsoft's published name).
+    record_type: str = ""
+    #: Microsoft Phase 1 · the provider's stated outcome for the operation
+    #: (`ResultStatus`). Absent stays absent — a missing status is never
+    #: read as success.
+    result_status: str = ""
+    #: Microsoft Phase 1 · the application / service-principal identity that
+    #: performed the operation, where the provider recorded one.
+    application_id: str = ""
+    #: Microsoft Phase 1 · the provider's session identifier, where recorded.
+    #: Preserved for future cross-domain correlation, not synthesised.
+    session_id: str = ""
     resource_ids: List[str] = field(default_factory=list)
     user_agent: str = ""
 

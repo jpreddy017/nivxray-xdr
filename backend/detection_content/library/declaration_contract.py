@@ -94,11 +94,12 @@ DECLARATION_DEBT: frozenset[str] = frozenset({
     "DET-EX-001", "DET-IA-002", "DET-DE-001", "DET-DE-003", "DET-LM-002",
     "DET-IM-004", "DET-EM-002", "DET-CC-002",
     # no source exists for these at all — see TELEMETRY_GAPS
-    "DET-PS-004",     # M365 / Graph audit telemetry: no DSM
     "DET-PE-002",     # AD CS certificate telemetry (4886/4887): no DSM
     # D18 removed DET-PS-001 from this ledger by adding the registry entity
-    # it needed, and D19 removed the five cloud/identity rules the same way
-    # — each gap was closed with evidence, never with a weaker declaration.
+    # it needed, D19 removed the five cloud/identity rules the same way, and
+    # Microsoft Phase 1a removed DET-PS-004 by adding the Microsoft 365
+    # unified-audit SOURCE it was waiting for — each gap was closed with
+    # evidence, never with a weaker declaration.
 })
 
 #: Fields a rule evaluates that the canonical model cannot produce today.
@@ -107,11 +108,27 @@ DECLARATION_DEBT: frozenset[str] = frozenset({
 TELEMETRY_GAPS: Dict[str, List[str]] = {
     "DET-CR-001": ["process.target", "TargetImage"],
     "DET-LM-001": ["service_name", "registry.service_name"],
-    # D19 · these two need a SOURCE that does not exist yet, not a field.
-    # Declaring them would produce a citation pointing at nothing.
-    "DET-PS-004": ["cloud.rule_name (M365 / Graph audit telemetry — no DSM)"],
+    # D19 · this one needs a SOURCE that does not exist yet, not a field.
+    # Declaring it would produce a citation pointing at nothing.
     "DET-PE-002": ["certificate.template", "certificate.san",
                    "(AD CS 4886/4887 telemetry — no DSM)"],
+}
+
+#: Microsoft Phase 1a · standing findings where a rule's PREDICATE is
+#: narrower or broader than the technique it advertises. Declaring what a
+#: predicate already evaluates must never change what it matches, so these
+#: are recorded for a detection-content gate instead of being silently
+#: "fixed" while a telemetry gate is open.
+PREDICATE_COVERAGE_FINDINGS: Dict[str, str] = {
+    "DET-PS-004": (
+        "the rule advertises inbox rules that forward or redirect "
+        "EXTERNALLY, but its predicate tests only that a forwarding-style "
+        "parameter is present — an internal ForwardTo would match too. "
+        "Phase 1a deliberately did NOT tighten it: the Microsoft record "
+        "carries the recipient address and `ExternalAccess`, so the "
+        "evidence needed to distinguish internal from external forwarding "
+        "is now preserved and a detection-content gate can narrow the "
+        "predicate on real evidence."),
 }
 
 #: D18 · gaps CLOSED by adding real evidence rather than by lowering the
@@ -143,6 +160,13 @@ CLOSED_TELEMETRY_GAPS: Dict[str, str] = {
         "registry.action, and its command-line half moved to DET-PS-005 so "
         "observed registry evidence and command-line inference stay "
         "separate."),
+    "DET-PS-004": (
+        "cloud.rule_name never existed because NivX had NO Microsoft audit "
+        "source. Microsoft Phase 1a added the m365-unified-audit DSM "
+        "(Office 365 Management Activity API), whose Exchange records carry "
+        "the inbox-rule definition in `Parameters`; the rule now declares "
+        "cloud.action + cloud.request_parameters and cites the verbatim "
+        "recorded parameters."),
 }
 
 #: D17 · defects the contract gate FOUND and deliberately did NOT fix,
@@ -253,6 +277,7 @@ def report(rules: List[DetectionRuleContent]) -> Dict[str, Any]:
         "telemetry_gaps": TELEMETRY_GAPS,
         "closed_telemetry_gaps": sorted(CLOSED_TELEMETRY_GAPS),
         "known_fixture_defects": sorted(KNOWN_FIXTURE_DEFECTS),
+        "predicate_coverage_findings": sorted(PREDICATE_COVERAGE_FINDINGS),
         "honesty_note": (
             "a rule on the declaration debt ledger produces NO citation and "
             "says so; it is never back-filled by guessing which field "

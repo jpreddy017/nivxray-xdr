@@ -80,9 +80,10 @@ def test_declaration_coverage_moved_and_is_reported_honestly():
     declared = len(report["declared"])
     # 20 after D17 batch 1; 22 after D18 (DET-PS-001 declared on registry
     # evidence + DET-PS-005); 27 after D19 declared the five cloud/identity
-    # rules whose fields D19 first had to make real.
-    assert declared == 27, report["declaration_coverage"]
-    assert len(report["undeclared"]) == 10
+    # rules whose fields D19 first had to make real; 28 after Microsoft
+    # Phase 1a added the M365 unified-audit SOURCE that DET-PS-004 needed.
+    assert declared == 28, report["declaration_coverage"]
+    assert len(report["undeclared"]) == 9
     assert set(report["declared"]) >= set(BATCH)
 
 

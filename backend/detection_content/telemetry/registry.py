@@ -218,12 +218,19 @@ def _register_builtin_dsms(reg: TelemetryDSMRegistry) -> None:
         from .cef_leef_dsm import CefLeefDSM
         return CefLeefDSM()
 
+    # Microsoft Phase 1a · Office 365 Management Activity API records
+    # (Audit.Exchange, Audit.AzureActiveDirectory, Audit.General).
+    def _m365():
+        from .m365_unified_audit_dsm import M365UnifiedAuditDSM
+        return M365UnifiedAuditDSM()
+
     reg.try_register("windows-security-evd", _windows)
     reg.try_register("linux-auditd", _linux)
     reg.try_register("aws-cloudtrail", _cloudtrail)
     reg.try_register("microsoft-sysmon", _sysmon)
     # P1.10 · live CEF/LEEF payloads forwarded by nivxray-xdr-collector.
     reg.try_register("cef-leef", _cef_leef)
+    reg.try_register("m365-unified-audit", _m365)
 
 
 _register_builtin_dsms(TELEMETRY_DSM_REGISTRY)

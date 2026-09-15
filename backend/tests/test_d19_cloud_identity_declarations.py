@@ -256,7 +256,8 @@ def test_the_original_raw_shape_fixtures_still_pass():
 
 def test_coverage_moved_and_the_ledger_only_shrank():
     report = dc.report(RUNTIME_DETECTION_RULES)
-    assert len(report["declared"]) == 27
+    # 27 after D19; 28 once Microsoft Phase 1a gave DET-PS-004 a source.
+    assert len(report["declared"]) == 28
     assert set(report["undeclared"]) == set(dc.DECLARATION_DEBT)
     assert report["contract_problems"] == []
     assert report["declared_but_unexplained"] == []
@@ -265,8 +266,11 @@ def test_coverage_moved_and_the_ledger_only_shrank():
 
 
 # ══ 4 · what D19 refused to declare, and why ══════════════════════
+# DET-PS-004 was here too until Microsoft Phase 1a added the
+# m365-unified-audit DSM: the gap was closed by adding the SOURCE, which is
+# exactly the intended way off this ledger. DET-PE-002 still has no AD CS
+# source, so it stays.
 @pytest.mark.parametrize("rule_id,source", [
-    ("DET-PS-004", "M365 / Graph audit telemetry"),
     ("DET-PE-002", "AD CS 4886/4887 telemetry"),
 ])
 def test_a_rule_with_no_source_at_all_stays_on_the_ledger(rule_id, source):
@@ -277,6 +281,12 @@ def test_a_rule_with_no_source_at_all_stays_on_the_ledger(rule_id, source):
     citation = RULES[rule_id].cite({})
     assert citation["declaration_state"] == "NOT_DECLARED"
     assert citation["evaluated_conditions"] == []
+
+
+def test_the_m365_source_gap_was_closed_by_adding_the_source():
+    assert "DET-PS-004" not in dc.DECLARATION_DEBT
+    assert "DET-PS-004" not in dc.TELEMETRY_GAPS
+    assert "m365-unified-audit" in dc.CLOSED_TELEMETRY_GAPS["DET-PS-004"]
 
 
 def test_the_closed_gaps_record_how_each_one_was_closed():

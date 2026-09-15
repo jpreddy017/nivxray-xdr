@@ -150,8 +150,15 @@ def _pred_service_installation(ev: Dict[str, Any]) -> bool:
 
 
 def _pred_m365_inbox_rule(ev: Dict[str, Any]) -> bool:
+    # Microsoft Phase 1a · the inbox-rule definition lives in the recorded
+    # Exchange `Parameters`, which the M365 DSM puts in
+    # cloud.request_parameters verbatim. Before Phase 1a this rule read
+    # `cloud.rule_name`, which NivX never produced, so on real telemetry it
+    # could not fire at all. The legacy keys are kept first so nothing that
+    # matched before stops matching.
     action = _get_str(ev, "cloud.action", "event_kind", "action").lower()
-    rule_name = _get_str(ev, "cloud.rule_name", "command_line", "parameters").lower()
+    rule_name = _get_str(ev, "cloud.rule_name", "cloud.request_parameters",
+                         "parameters", "command_line").lower()
     if "new-inboxrule" in action or "set-inboxrule" in action or "inbox_rule" in action:
         return any(f in rule_name for f in ("forwardto", "redirectto", "deletemessage", "blindcarboncopy"))
     return False
@@ -1615,3 +1622,90 @@ def _apply_cloud_identity_batch() -> None:
 
 
 _apply_cloud_identity_batch()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# MICROSOFT SECURITY TELEMETRY · PHASE 1a — declaration on real evidence
+# ════════════════════════════════════════════════════════════════════════════
+# DET-PS-004 sat on the DECLARATION_DEBT ledger as a SOURCE gap: it read
+# `cloud.rule_name`, a field no NivX DSM has ever produced, because NivX had
+# no Microsoft audit source at all. Phase 1a added the source
+# (`m365-unified-audit`), so the rule can now be pointed at evidence that
+# genuinely exists — the Exchange `Parameters` Microsoft records, carried
+# verbatim into cloud.request_parameters — and declared.
+#
+# The rule is the first CONSUMER of the Microsoft domain, not its purpose:
+# the same DSM evidences Entra role/consent operations and Audit.General
+# workloads that no rule reads yet.
+_M365_PHASE1: Dict[str, List[RuleCondition]] = {
+    "DET-PS-004": [
+        RuleCondition("m365.inbox_rule_operation", "cloud.action",
+                      "contains_any_ci",
+                      ["new-inboxrule", "set-inboxrule", "inbox_rule"],
+                      note="an Exchange inbox-rule create or modify "
+                           "operation, as Microsoft recorded the operation "
+                           "name"),
+        RuleCondition("m365.forwarding_parameters",
+                      "cloud.request_parameters",
+                      "serialized_contains_any_ci",
+                      ["forwardto", "redirectto", "deletemessage",
+                       "blindcarboncopy"],
+                      note="whose recorded rule parameters forward, "
+                           "redirect, blind-copy or delete the message — the "
+                           "verbatim Exchange Parameters, not an inference"),
+    ],
+}
+
+_M365_PHASE1_FIXTURES: Dict[str, List[DetectionFixture]] = {
+    "DET-PS-004": [
+        DetectionFixture("positive_canonical_m365_forwarding_rule", {
+            "event_type": "cloud_audit",
+            "cloud": {"provider": "m365", "workload": "Exchange",
+                      "record_type": "ExchangeAdmin",
+                      "action": "New-InboxRule",
+                      "result_status": "True",
+                      "request_parameters": {
+                          "Name": "ext-archive",
+                          "ForwardTo": "attacker@evil.example",
+                          "StopProcessingRules": "True"}}}, True),
+        DetectionFixture("negative_canonical_benign_inbox_rule", {
+            "event_type": "cloud_audit",
+            "cloud": {"provider": "m365", "workload": "Exchange",
+                      "record_type": "ExchangeAdmin",
+                      "action": "New-InboxRule",
+                      "result_status": "True",
+                      "request_parameters": {
+                          "Name": "triage",
+                          "MoveToFolder": "Archive",
+                          "From": "newsletters@vendor.example"}}}, False),
+        DetectionFixture("negative_canonical_other_exchange_admin_op", {
+            "event_type": "cloud_audit",
+            "cloud": {"provider": "m365", "workload": "Exchange",
+                      "record_type": "ExchangeAdmin",
+                      "action": "Set-Mailbox",
+                      "request_parameters": {
+                          "Identity": "user1@corp.example",
+                          "DeliverToMailboxAndForward": "False"}}}, False),
+        DetectionFixture("negative_canonical_entra_role_assignment", {
+            "event_type": "cloud_audit",
+            "cloud": {"provider": "m365",
+                      "workload": "AzureActiveDirectory",
+                      "record_type": "AzureActiveDirectory",
+                      "action": "Add member to role.",
+                      "request_parameters": {}}}, False),
+    ],
+}
+
+
+def _apply_m365_phase1_batch() -> None:
+    for rule in ENTERPRISE_DETECTION_RULES:
+        conditions = _M365_PHASE1.get(rule.rule_id)
+        if not conditions:
+            continue
+        rule.conditions = list(conditions)
+        rule.fixtures = list(rule.fixtures) + list(
+            _M365_PHASE1_FIXTURES.get(rule.rule_id, []))
+        rule.rule_version = "2"
+
+
+_apply_m365_phase1_batch()

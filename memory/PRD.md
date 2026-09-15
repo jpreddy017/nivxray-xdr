@@ -16103,17 +16103,66 @@ Report: `memory/D21_ROUTING_VISIBILITY_REPORT.md` (2026-06 session)
 * Pre-existing failures unchanged (12 failed / 16 passed in the same two
   files).
 
+## Microsoft Security Telemetry Domain · Phase 1 (1a + 1b) · **PASS**
+Report: `memory/M365_PHASE1_MICROSOFT_TELEMETRY_REPORT.md` (2026-06)
+
+D-series infrastructure run PAUSED by owner decision after D21; emphasis
+moved to real telemetry → detection → correlation → incident.
+
+* **Source**: Office 365 Management Activity API — Audit.Exchange,
+  Audit.AzureActiveDirectory, Audit.General. DLP.All and Graph acquisition
+  deliberately out of scope.
+* **1a evidence plane (IMPLEMENTED · SYNTHETIC/REPLAY PROVEN)**: declared
+  source `m365-unified-audit` (+ aliases) → one DSM
+  (`m365_unified_audit_dsm.py`) → canonical evidence. `CreationTime` is the
+  activity basis; `contentCreated` is acquisition metadata only.
+  `OrganizationId` preserved as the PROVIDER tenant, never the NivX tenant.
+  Microsoft enum codes resolve to Microsoft's published names; undocumented
+  codes are reported, not guessed. Model additions: CloudContext
+  provider_tenant_id / workload / record_type / result_status /
+  application_id / session_id.
+* **Detection second**: DET-PS-004 declared on cloud.action +
+  cloud.request_parameters, off DECLARATION_DEBT, coverage **27/37 →
+  28/37**, citations DECLARED+CITED. Benign Microsoft administration does
+  not match. New `PREDICATE_COVERAGE_FINDINGS` ledger records that the rule
+  cannot yet tell internal from external forwarding — deliberately not
+  "fixed" inside a telemetry gate.
+* **1b acquisition (IMPLEMENTED · SYNTHETIC/REPLAY PROVEN · live
+  EXTERNAL_ACCESS_BLOCKED)**: `M365ManagementActivityConnector` inside the
+  EXISTING collector framework — OAuth2 client credentials, idempotent
+  subscription start (AF20024), NextPageUri pagination, contentUri blob
+  fetch, per-content-type checkpoint, contentId replay protection,
+  distinct throttle / expired-blob / auth-failure / transport states.
+  Latent defect fixed: `Envelope.declared_source` did not exist, so every
+  collector delivery would have been refused with DECLARATION_REQUIRED
+  since D15.
+* **Proofs**: 30 pytest (1a) + 17 pytest (1b) + 40/40 live HTTP (1a) +
+  23/23 replay (1b); D21 isolation proof re-run 50/50. Pre-existing
+  failures unchanged (12 failed / 16 passed).
+* **Reported, untouched**: `services/telemetry_adapters/` is a parallel,
+  NON-authoritative fabric with its own CanonicalEvent shape. No
+  deprecation, migration or deletion — its dependencies must be mapped
+  first.
+
 ## Next (owner-defined order)
-1. **Real source onboarding — M365 / Entra ID audit** (recommended next
-   capability, not a plumbing gate): the only blocker for `DET-PS-004` and
-   the lane where real intrusions start.
-2. **D20 — Live auditd host acceptance.** STILL ENVIRONMENT_BLOCKED: this
-   preview pod has no auditd (`/var/log/audit` absent, no `auditctl`), so a
-   genuine host must be supplied. No synthetic substitute will be presented
-   as a live host.
-3. D17/D19 batch 3 — the content/behaviour lane (8 remaining rules).
-4. AD CS 4886/4887 DSM (unblocks DET-PE-002).
-5. `DET-CR-002` predicate coverage — detection-content gate.
-6. Consolidated acceptance review of the whole D11→D21 chain BEFORE any
+0. **Owner action for REAL SOURCE PROVEN**: Entra app registration +
+   APPLICATION permission `ActivityFeed.Read` + admin consent + unified
+   audit logging enabled; then configure `microsoft_tenant_id` and the
+   server-side client secret. Never paste secrets into chat.
+1. Persist connector `vendor_state` to the collector state store so a
+   process restart resumes the exact window (currently falls back to the
+   configured lookback).
+2. Certificate (private_key_jwt) client authentication — production
+   preferred mode; abstraction present, flow not implemented.
+3. Consume the lanes the DSM already evidences: mailbox audit
+   (`ExchangeItem`) and Entra sign-in / consent / credential-add.
+4. **D20 — Live auditd host acceptance.** STILL ENVIRONMENT_BLOCKED: no
+   auditd in this preview pod. No synthetic substitute.
+5. D17/D19 batch 3 — the content/behaviour lane (8 remaining rules).
+6. AD CS 4886/4887 DSM (the last SOURCE gap, unblocks DET-PE-002).
+7. DET-PS-004 predicate coverage (internal vs external forwarding) —
+   detection-content gate.
+8. Consolidated acceptance review of D11→D21 + Microsoft Phase 1 BEFORE any
    production promotion (owner-stated precondition; no promotion planned).
+
 

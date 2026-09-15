@@ -25,6 +25,7 @@ from pydantic  import BaseModel, Field
 from framework.rest_poller import RestPollerConnector
 from framework.webhook     import WebhookConnector
 from framework.syslog      import SyslogConnector
+from framework.m365_activity import M365ManagementActivityConnector
 
 
 router = APIRouter(tags=["connectors"])
@@ -75,6 +76,26 @@ SOURCE_CATALOGUE = [
         "capabilities": [c.value for c in SyslogConnector.capabilities],
         "credentials":  [],
     },
+    {
+        "source_type":  "m365-management-activity",
+        "label":        M365ManagementActivityConnector.label,
+        "category":     "api",
+        "transport":    "https",
+        "config_schema": M365ManagementActivityConnector.configuration_schema,
+        "capabilities": [c.value for c in
+                         M365ManagementActivityConnector.capabilities],
+        "credentials":  ["client_id", "client_secret",
+                         "certificate_thumbprint",
+                         "certificate_private_key_pem"],
+        "declared_source": M365ManagementActivityConnector.DECLARED_SOURCE,
+        "auth":         "oauth2_client_credentials (app-only, admin "
+                        "consent required)",
+        "notes":        ("Office 365 Management Activity API · content "
+                         "types Audit.Exchange / "
+                         "Audit.AzureActiveDirectory / Audit.General · "
+                         "contentCreated is blob availability, never "
+                         "activity time"),
+    },
 ]
 
 
@@ -82,6 +103,7 @@ CLASS_BY_TYPE = {
     "rest":    RestPollerConnector,
     "webhook": WebhookConnector,
     "syslog":  SyslogConnector,
+    "m365-management-activity": M365ManagementActivityConnector,
 }
 
 

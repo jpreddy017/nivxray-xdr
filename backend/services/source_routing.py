@@ -69,6 +69,8 @@ SOURCE_CATALOG: dict[str, str] = {
     "aws-cloudtrail":         "aws-cloudtrail",
     "cef-leef":               "cef-leef",
     "nivxforge-linux-sensor": "nivxforge-linux-sensor",
+    #: Microsoft Phase 1 · Office 365 Management Activity API records.
+    "m365-unified-audit":     "m365-unified-audit",
 }
 
 #: Spelling variants a collector may legitimately use. Every alias resolves
@@ -88,6 +90,12 @@ SOURCE_ALIASES: dict[str, str] = {
     "leef":              "cef-leef",
     "nivxforge-sensor":  "nivxforge-linux-sensor",
     "nivxforge":         "nivxforge-linux-sensor",
+    "m365":              "m365-unified-audit",
+    "o365":              "m365-unified-audit",
+    "office365":         "m365-unified-audit",
+    "microsoft-365":     "m365-unified-audit",
+    "m365-management-activity":      "m365-unified-audit",
+    "office365-management-activity": "m365-unified-audit",
 }
 
 
