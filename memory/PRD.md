@@ -16170,31 +16170,51 @@ Report: `memory/DURABLE_ACQUISITION_GATE_REPORT.md` (2026-06)
 * Regression: collector 88 passed, backend Microsoft/D-series 220 passed,
   pre-existing failures unchanged (12/16).
 
+## Terminal Record Policy · **PASS**
+Report: `memory/TERMINAL_RECORD_POLICY_REPORT.md` (2026-06)
+
+* New batch state `completed_with_terminal_records` (never `committed`) +
+  append-only `acquisition_terminal_record` table in the existing
+  outbox.db. Acquisition no longer freezes on a permanently rejected
+  record, and nothing is silently discarded.
+* Invariant: **TERMINAL != ACCEPTED != CANONICAL EVIDENCE != SUCCESSFUL
+  DELIVERY**. Three separate buckets (accepted / terminal / waiting), with
+  the real attempt (code, reason, attempts, first/last attempt, decision
+  basis, outbox linkage) preserved.
+* Recovery reuses `outbox.replay_dead()` + one state hook: history is
+  appended, never rewritten; the record must pass the authoritative ingest
+  again; a replay request is never proof of recovery.
+* Behaviour gap found by the tests and fixed: a record replayed and then
+  rejected again produced no new history.
+* 15 pytest + **22/22 live checks** with a genuine `404` permanent
+  rejection from the real boundary; collector suite 103 passed, backend 166
+  passed, pre-existing failures unchanged (12/16).
+
 ## Next (owner-defined order)
 0. **OWNER ACTION — real Microsoft connection**: follow
-   `memory/M365_REAL_SOURCE_ONBOARDING.md` (Entra app, APPLICATION
-   permission `ActivityFeed.Read`, admin consent, audit logging on,
-   persistent `XDR_STATE_DIR`), then run `scripts/m365_preflight.py`. It
-   converts EXTERNAL_ACCESS_BLOCKED into REAL_SOURCE_PROVEN or an
-   evidence-backed failure. Never paste secrets into chat.
-1. **Owner decision needed — terminal-record policy**: a permanently
-   rejected record holds its batch and window open
-   (`BLOCKED_BY_DEAD_LETTER_RECORDS`). Options: drop with evidence,
-   quarantine, or operator release. No policy was invented.
-2. **Next telemetry domain — owner will select** based on overall coverage
-   gaps; Network/DNS/Firewall is the stated leading candidate. Microsoft
-   content expansion (Identity Lane Rules, Mailbox Audit Lane) is ON HOLD
-   by owner decision.
-3. Certificate (private_key_jwt) client authentication for Microsoft.
-4. Adopt the durable acquisition primitive in the `rest` / `webhook` /
-   `syslog` transports (they still use the in-memory dedup cache).
-5. **D20 — Live auditd host acceptance.** STILL ENVIRONMENT_BLOCKED: no
-   auditd in this preview pod. No synthetic substitute.
-6. D17/D19 batch 3 — the content/behaviour lane (8 remaining rules).
+   `memory/M365_REAL_SOURCE_ONBOARDING.md`, then run
+   `scripts/m365_preflight.py`. Converts EXTERNAL_ACCESS_BLOCKED into
+   REAL_SOURCE_PROVEN or an evidence-backed failure. Never paste secrets.
+1. **NEXT MAJOR PHASE — owner selects the next authoritative telemetry
+   domain.** Stated leading candidate: **Network / DNS / Firewall**, with
+   the objective being a NEW cross-domain capability, not another
+   connector: endpoint/M365 + network evidence → canonical evidence →
+   deterministic detections → cross-domain correlation → one
+   evidence-backed incident → investigation.
+   ON HOLD by owner decision: Microsoft Identity Lane Rules, Mailbox Audit
+   Lane, Certificate Login.
+2. Operator surface for terminal records (release/inspect) — no UI built by
+   design.
+3. Adopt the acquisition primitive in `rest` / `webhook` / `syslog`.
+4. Retention policy for committed batches + terminal history
+   (`prune_committed()` is unscheduled).
+5. **D20 — Live auditd host acceptance.** STILL ENVIRONMENT_BLOCKED.
+6. D17/D19 batch 3 — content/behaviour lane (8 remaining rules).
 7. AD CS 4886/4887 DSM (last SOURCE gap, unblocks DET-PE-002).
 8. DET-PS-004 predicate coverage (internal vs external forwarding).
-9. Consolidated acceptance review of D11→D21 + Microsoft Phase 1 + this
-   gate BEFORE any production promotion (owner-stated precondition).
+9. Consolidated acceptance review of D11→D21 + Microsoft Phase 1 + both
+   acquisition gates BEFORE any production promotion.
+
 
 
 

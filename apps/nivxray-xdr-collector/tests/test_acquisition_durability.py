@@ -22,7 +22,9 @@ import httpx
 import pytest
 
 from framework.acquisition_state import (ALREADY_COMMITTED, CLAIMED,
-                                         CLAIMED_ELSEWHERE, AcquisitionState)
+                                         CLAIMED_ELSEWHERE,
+                                         COMPLETED_WITH_TERMINAL_RECORDS,
+                                         AcquisitionState)
 from framework.base import Envelope, Health
 from framework.m365_activity import M365ManagementActivityConnector
 from framework.outbox import Outbox, OutboxStatus
@@ -310,7 +312,8 @@ async def test_a_retrying_delivery_blocks_the_commit_until_accepted(
     assert state.window("acme", "m365-1", CT)["committed_until"] is not None
 
 
-def test_a_dead_lettered_record_blocks_the_window_and_is_reported(state_dir):
+def test_a_dead_lettered_record_becomes_terminal_and_frees_the_window(
+        state_dir):
     outbox, state = _open(state_dir)
     state.claim_batch("acme", "m365-1", CT, "c1", window_end="2026-06-03T10:00:00+00:00")
     state.set_pending_window("acme", "m365-1", CT,
@@ -324,12 +327,24 @@ def test_a_dead_lettered_record_blocks_the_window_and_is_reported(state_dir):
         declared_source="m365-unified-audit"))
     outbox.mark_dead(rid, "ingest rejected permanently")
     result = state.reconcile(outbox)
-    assert result["blocked"] and result["blocked"][0]["reason"] == \
-        "BLOCKED_BY_DEAD_LETTER_RECORDS"
-    assert state.window("acme", "m365-1", CT)["committed_until"] is None
-    st = state.status("acme", "m365-1")
-    assert st["blocked"][0]["reason"].startswith(
-        "BLOCKED_BY_DEAD_LETTER_RECORDS")
+    # acquisition is NOT frozen any more...
+    done = result["completed_with_terminal_records"]
+    assert done and done[0]["terminal_records"] == 1
+    assert done[0]["state"] == COMPLETED_WITH_TERMINAL_RECORDS
+    assert result["committed_batches"] == []        # ...and NOT committed
+    assert state.window("acme", "m365-1", CT)["committed_until"] == \
+        "2026-06-03T10:00:00+00:00"
+    # ...and the rejected record is preserved with its real failure evidence
+    hist = state.terminal_records("acme", "m365-1")
+    assert len(hist) == 1
+    t = hist[0]
+    assert t["event_kind"] == "quarantined"
+    assert t["record_key"] == "r1"
+    assert t["outbox_row_id"] == rid
+    assert t["rejection_reason"] == "ingest rejected permanently"
+    assert t["decision"] == "TERMINAL_QUARANTINED"
+    assert "NOT accepted" in t["decision_basis"]
+    assert t["first_attempt_at"] and t["last_attempt_at"]
 
 
 # ── 9 · collector crash ───────────────────────────────────────────

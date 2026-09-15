@@ -250,6 +250,21 @@ class Outbox:
                     out[r["source_event_id"]] = r["status"]
         return out
 
+    def row_for_key(self, tenant_id: str, connector_id_: str,
+                        key: str) -> Optional[OutboxRow]:
+        """The row behind one idempotency key, with its failure history.
+
+        Used when a rejection becomes terminal: the quarantine evidence is
+        copied from the real delivery attempts, never reconstructed.
+        """
+        with self._lock:
+            r = self._conn.execute("""
+                SELECT * FROM envelopes
+                 WHERE tenant_id=? AND connector_id=? AND source_event_id=?
+                 LIMIT 1
+            """, (tenant_id, connector_id_, key)).fetchone()
+        return self._row(r) if r else None
+
     def by_id(self, rid: str) -> Optional[OutboxRow]:
         with self._lock:
             r = self._conn.execute("SELECT * FROM envelopes WHERE id=?",

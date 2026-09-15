@@ -48,6 +48,16 @@ DEFAULT_LEASE_SECONDS = 600
 
 ACQUIRED = "acquired"
 COMMITTED = "committed"
+#: A batch whose non-accepted records are all quarantined with immutable
+#: failure evidence. It is DONE, but it is NOT `committed`: the two must
+#: never be conflated, because this one produced fewer pieces of evidence
+#: than it acquired.
+COMPLETED_WITH_TERMINAL_RECORDS = "completed_with_terminal_records"
+
+#: Terminal-record event kinds. The table is append-only: a replay adds a
+#: new event, it never rewrites the original terminal decision.
+EVENT_QUARANTINED = "quarantined"
+EVENT_REPLAY_REQUESTED = "replay_requested"
 
 #: claim_batch outcomes
 CLAIMED = "CLAIMED"
@@ -97,6 +107,32 @@ class AcquisitionState:
         updated_at      TEXT,
         PRIMARY KEY (tenant_id, connector_id, stream)
     );
+    -- Append-only terminal/quarantine history. Rows are never UPDATEd:
+    -- a recovery attempt appends a new event so the original terminal
+    -- decision survives as proof.
+    CREATE TABLE IF NOT EXISTS acquisition_terminal_record (
+        id               TEXT PRIMARY KEY,
+        event_kind       TEXT NOT NULL,
+        tenant_id        TEXT NOT NULL,
+        connector_id     TEXT NOT NULL,
+        stream           TEXT NOT NULL,
+        batch_id         TEXT NOT NULL,
+        record_key       TEXT NOT NULL,
+        acquisition_ref  TEXT,
+        outbox_row_id    TEXT,
+        rejection_code   TEXT,
+        rejection_reason TEXT,
+        attempts         INTEGER,
+        first_attempt_at TEXT,
+        last_attempt_at  TEXT,
+        decision         TEXT,
+        decision_basis   TEXT,
+        decided_by       TEXT,
+        decided_at       TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS ix_acq_terminal_scope
+        ON acquisition_terminal_record(tenant_id, connector_id, stream,
+                                       batch_id, record_key);
     """
 
     def __init__(self, path: Optional[str] = None, *,
@@ -179,6 +215,8 @@ class AcquisitionState:
             """, (tenant_id, connector_id_, stream, batch_id)).fetchone()
             if row:
                 if row["state"] == COMMITTED:
+                    return ALREADY_COMMITTED
+                if row["state"] == COMPLETED_WITH_TERMINAL_RECORDS:
                     return ALREADY_COMMITTED
                 held_by_other = (row["claim_owner"] or "") != self.owner
                 lease_live = bool(row["claim_expires_at"]) and \
@@ -265,6 +303,8 @@ class AcquisitionState:
                 args).fetchall()
 
         committed, waiting, blocked = [], [], []
+        terminal_completed: List[Dict[str, Any]] = []
+        terminal_total = 0
         for row in rows:
             keys = json.loads(row["record_keys_json"] or "[]")
             if not keys:
@@ -279,14 +319,36 @@ class AcquisitionState:
             undelivered = [k for k, s in statuses.items()
                            if s != OutboxStatus.DELIVERED]
             if dead:
-                # Explicitly reported: a permanently rejected record holds
-                # this batch, and therefore this window, open. This gate
-                # does NOT invent a dead-letter release policy.
-                self._set_blocked(
-                    row, f"BLOCKED_BY_DEAD_LETTER_RECORDS:{len(dead)}")
-                blocked.append({"batch_id": row["batch_id"],
-                                "dead_records": len(dead),
-                                "reason": "BLOCKED_BY_DEAD_LETTER_RECORDS"})
+                # A permanent rejection is established. Quarantine each
+                # rejected record with immutable failure evidence, then let
+                # the batch complete into its OWN state — acquisition must
+                # not freeze, and this is not `committed`.
+                quarantined = 0
+                for key in dead:
+                    if self._quarantine(outbox, row, key):
+                        quarantined += 1
+                terminal_total += quarantined
+                still_open = [k for k, s in statuses.items()
+                              if s != OutboxStatus.DELIVERED
+                              and s != OutboxStatus.DEAD_LETTER]
+                if missing or still_open:
+                    # Other records are still in flight: completion waits.
+                    self._set_blocked(row, "AWAITING_REMAINING_RECORDS")
+                    waiting.append({"batch_id": row["batch_id"],
+                                    "terminal_records": len(dead),
+                                    "not_yet_accepted": len(missing)
+                                    + len(still_open)})
+                    continue
+                accepted = [k for k, s in statuses.items()
+                            if s == OutboxStatus.DELIVERED]
+                self._complete_with_terminal(row, terminal=len(dead))
+                terminal_completed.append({
+                    "batch_id": row["batch_id"],
+                    "accepted_records": len(accepted),
+                    "terminal_records": len(dead),
+                    "state": COMPLETED_WITH_TERMINAL_RECORDS,
+                    "basis": ("every non-accepted record has an immutable "
+                              "terminal record; this batch is NOT committed")})
                 continue
             if missing or undelivered:
                 self._set_blocked(row, None)
@@ -298,10 +360,15 @@ class AcquisitionState:
             committed.append(row["batch_id"])
 
         advanced = self._advance_windows(tenant_id, connector_id_)
-        return {"committed_batches": committed, "waiting": waiting,
+        return {"committed_batches": committed,
+                "completed_with_terminal_records": terminal_completed,
+                "terminal_records_quarantined": terminal_total,
+                "waiting": waiting,
                 "blocked": blocked, "windows_advanced": advanced,
                 "note": ("a window advances only when every batch inside it "
-                         "has been accepted by the authoritative ingest")}
+                         "is either committed or completed with immutable "
+                         "terminal records; TERMINAL != ACCEPTED != "
+                         "CANONICAL EVIDENCE")}
 
     def _set_blocked(self, row: sqlite3.Row, reason: Optional[str]) -> None:
         with self._lock:
@@ -311,6 +378,169 @@ class AcquisitionState:
                    AND batch_id=?
             """, (reason, row["tenant_id"], row["connector_id"],
                   row["stream"], row["batch_id"]))
+
+    # ── terminal records ─────────────────────────────────────────
+    def _quarantine(self, outbox: Any, row: sqlite3.Row,
+                    record_key: str) -> bool:
+        """Write the immutable terminal record for one rejected record.
+
+        Returns False when it is already quarantined — the history is
+        append-only, but the same rejection is not recorded twice.
+        """
+        with self._lock:
+            latest = self._conn.execute("""
+                SELECT event_kind FROM acquisition_terminal_record
+                 WHERE tenant_id=? AND connector_id=? AND stream=?
+                   AND batch_id=? AND record_key=?
+                 ORDER BY decided_at DESC, rowid DESC LIMIT 1
+            """, (row["tenant_id"], row["connector_id"], row["stream"],
+                  row["batch_id"], record_key)).fetchone()
+        # Skip only when the LATEST event is already a quarantine. A record
+        # that was replayed and then rejected again is a new, truthful
+        # rejection and must be recorded as one.
+        if latest and latest["event_kind"] == EVENT_QUARANTINED:
+            return False
+        ob = outbox.row_for_key(row["tenant_id"], row["connector_id"],
+                                record_key)
+        self._append_terminal_event(
+            EVENT_QUARANTINED, row, record_key,
+            outbox_row_id=getattr(ob, "id", None),
+            rejection_code=("INGEST_REJECTED_PERMANENTLY" if ob
+                            else "OUTBOX_ROW_MISSING"),
+            rejection_reason=(getattr(ob, "last_error", None)
+                              or "no error text was recorded"),
+            attempts=int(getattr(ob, "attempts", 0) or 0),
+            first_attempt_at=getattr(ob, "created_at", None),
+            last_attempt_at=getattr(ob, "updated_at", None),
+            decision="TERMINAL_QUARANTINED",
+            decision_basis=(
+                "delivery attempts were exhausted or permanently refused by "
+                "the authoritative ingest; the record is preserved here and "
+                "is NOT accepted, NOT canonical evidence and NOT a "
+                "successful delivery"),
+            decided_by=self.owner)
+        return True
+
+    def _append_terminal_event(self, event_kind: str, row: sqlite3.Row,
+                               record_key: str, **f: Any) -> None:
+        import uuid
+        with self._lock:
+            self._conn.execute("""
+                INSERT INTO acquisition_terminal_record
+                    (id, event_kind, tenant_id, connector_id, stream,
+                     batch_id, record_key, acquisition_ref, outbox_row_id,
+                     rejection_code, rejection_reason, attempts,
+                     first_attempt_at, last_attempt_at, decision,
+                     decision_basis, decided_by, decided_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (uuid.uuid4().hex, event_kind, row["tenant_id"],
+                  row["connector_id"], row["stream"], row["batch_id"],
+                  record_key, row["reference"], f.get("outbox_row_id"),
+                  f.get("rejection_code"), f.get("rejection_reason"),
+                  f.get("attempts"), f.get("first_attempt_at"),
+                  f.get("last_attempt_at"), f.get("decision"),
+                  f.get("decision_basis"), f.get("decided_by"),
+                  _iso(_utcnow())))
+
+    def _complete_with_terminal(self, row: sqlite3.Row,
+                                terminal: int) -> None:
+        with self._lock:
+            self._conn.execute("""
+                UPDATE acquisition_batch
+                   SET state=?, committed_at=?, claim_owner=NULL,
+                       claim_expires_at=NULL,
+                       blocked_reason=?
+                 WHERE tenant_id=? AND connector_id=? AND stream=?
+                   AND batch_id=?
+            """, (COMPLETED_WITH_TERMINAL_RECORDS, _iso(_utcnow()),
+                  f"TERMINAL_RECORDS:{terminal}", row["tenant_id"],
+                  row["connector_id"], row["stream"], row["batch_id"]))
+
+    def terminal_records(self, tenant_id: str, connector_id_: str, *,
+                         stream: Optional[str] = None,
+                         batch_id: Optional[str] = None
+                         ) -> List[Dict[str, Any]]:
+        """The append-only terminal history, scoped to one tenant."""
+        where = ["tenant_id=?", "connector_id=?"]
+        args: List[Any] = [tenant_id, connector_id_]
+        if stream:
+            where.append("stream=?")
+            args.append(stream)
+        if batch_id:
+            where.append("batch_id=?")
+            args.append(batch_id)
+        with self._lock:
+            rows = self._conn.execute(f"""
+                SELECT * FROM acquisition_terminal_record
+                 WHERE {' AND '.join(where)}
+                 ORDER BY decided_at ASC, rowid ASC
+            """, args).fetchall()
+        return [dict(r) for r in rows]
+
+    def replay_terminal_record(self, outbox: Any, tenant_id: str,
+                               connector_id_: str, stream: str,
+                               batch_id: str, record_key: str, *,
+                               requested_by: str = "operator"
+                               ) -> Dict[str, Any]:
+        """Re-admit a quarantined record for another authoritative attempt.
+
+        The original terminal decision is NEVER erased or rewritten: this
+        appends a replay event. A replay request is not proof of recovery —
+        only a fresh acceptance by the authoritative ingest can produce
+        canonical evidence.
+        """
+        with self._lock:
+            batch = self._conn.execute("""
+                SELECT * FROM acquisition_batch
+                 WHERE tenant_id=? AND connector_id=? AND stream=?
+                   AND batch_id=?
+            """, (tenant_id, connector_id_, stream, batch_id)).fetchone()
+            terminal = self._conn.execute("""
+                SELECT * FROM acquisition_terminal_record
+                 WHERE tenant_id=? AND connector_id=? AND stream=?
+                   AND batch_id=? AND record_key=? AND event_kind=?
+                 ORDER BY decided_at DESC LIMIT 1
+            """, (tenant_id, connector_id_, stream, batch_id, record_key,
+                  EVENT_QUARANTINED)).fetchone()
+        if not batch or not terminal:
+            # Includes the cross-tenant case: another tenant's terminal
+            # record is simply not visible here, so it cannot be released.
+            return {"outcome": "NOT_FOUND_IN_THIS_SCOPE",
+                    "tenant_id": tenant_id, "record_key": record_key}
+        if not outbox.replay_dead(terminal["outbox_row_id"] or ""):
+            return {"outcome": "REPLAY_NOT_POSSIBLE",
+                    "reason": ("the outbox row is not in dead_letter — it "
+                               "was already released, replayed, or never "
+                               "reached the boundary"),
+                    "record_key": record_key}
+        self._append_terminal_event(
+            EVENT_REPLAY_REQUESTED, batch, record_key,
+            outbox_row_id=terminal["outbox_row_id"],
+            rejection_code=terminal["rejection_code"],
+            rejection_reason=terminal["rejection_reason"],
+            attempts=terminal["attempts"],
+            first_attempt_at=terminal["first_attempt_at"],
+            last_attempt_at=terminal["last_attempt_at"],
+            decision="REPLAY_REQUESTED",
+            decision_basis=("re-queued for another authoritative attempt; "
+                            "the original terminal decision above is "
+                            "retained as history and this request is not "
+                            "proof of recovery"),
+            decided_by=requested_by)
+        with self._lock:
+            self._conn.execute("""
+                UPDATE acquisition_batch
+                   SET state=?, committed_at=NULL, blocked_reason=?
+                 WHERE tenant_id=? AND connector_id=? AND stream=?
+                   AND batch_id=? AND state=?
+            """, (ACQUIRED, "REOPENED_AFTER_TERMINAL_REPLAY", tenant_id,
+                  connector_id_, stream, batch_id,
+                  COMPLETED_WITH_TERMINAL_RECORDS))
+        return {"outcome": "REPLAY_REQUESTED", "record_key": record_key,
+                "batch_state": ACQUIRED,
+                "note": ("the record must pass the authoritative ingest "
+                         "again; only that acceptance can produce canonical "
+                         "evidence")}
 
     def _commit_batch(self, row: sqlite3.Row) -> None:
         with self._lock:
@@ -383,10 +613,32 @@ class AcquisitionState:
                 SELECT * FROM acquisition_window
                  WHERE tenant_id=? AND connector_id=?
             """, (tenant_id, connector_id_)).fetchall()
+            terminal = self._conn.execute("""
+                SELECT stream, batch_id, record_key, rejection_code,
+                       attempts, decided_at
+                  FROM acquisition_terminal_record
+                 WHERE tenant_id=? AND connector_id=? AND event_kind=?
+                 ORDER BY decided_at DESC LIMIT 100
+            """, (tenant_id, connector_id_, EVENT_QUARANTINED)).fetchall()
+            per_batch = self._conn.execute("""
+                SELECT stream, batch_id, COUNT(*) AS n
+                  FROM acquisition_terminal_record
+                 WHERE tenant_id=? AND connector_id=? AND event_kind=?
+                 GROUP BY stream, batch_id
+            """, (tenant_id, connector_id_, EVENT_QUARANTINED)).fetchall()
         return {
             "owner": self.owner,
             "batches": [{"stream": r["stream"], "state": r["state"],
                          "count": r["n"]} for r in batches],
+            "batch_terminal_records": [
+                {"stream": r["stream"], "batch_id": r["batch_id"],
+                 "terminal_records": r["n"]} for r in per_batch],
+            "terminal_records": [
+                {"stream": r["stream"], "batch_id": r["batch_id"],
+                 "record_key": r["record_key"],
+                 "rejection_code": r["rejection_code"],
+                 "attempts": r["attempts"], "decided_at": r["decided_at"]}
+                for r in terminal],
             "blocked": [{"batch_id": r["batch_id"], "stream": r["stream"],
                          "reason": r["blocked_reason"]} for r in blocked],
             "windows": [{"stream": r["stream"],
@@ -395,7 +647,11 @@ class AcquisitionState:
                          "next_page_ref": r["next_page_ref"]}
                         for r in windows],
             "states": ("ACQUIRED != QUEUED != DELIVERED != COMMITTED; a "
-                       "window advances only on COMMITTED"),
+                       "window advances only on COMMITTED or "
+                       "COMPLETED_WITH_TERMINAL_RECORDS, and TERMINAL != "
+                       "ACCEPTED != CANONICAL EVIDENCE != SUCCESSFUL "
+                       "DELIVERY — a terminal record may well have been "
+                       "attempted against the boundary and refused"),
         }
 
     def prune_committed(self, older_than_days: int = 30) -> int:
