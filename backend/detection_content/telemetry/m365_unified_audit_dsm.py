@@ -284,8 +284,7 @@ class M365UnifiedAuditNormalizer:
         )
 
         additional: Dict[str, Any] = {
-            "workload": workload,
-            "record_type": record_type,
+            "workload": workload,            "record_type": record_type,
             "record_type_code": data.get("RecordType"),
             "user_type": user_type,
             "user_type_code": user_type_code,
@@ -319,6 +318,12 @@ class M365UnifiedAuditNormalizer:
                 "publisher_identifier": acquisition.get(
                     "publisherIdentifier"),
                 "microsoft_tenant_id": acquisition.get("microsoftTenantId"),
+                # The transport identity this delivery was idempotent on,
+                # and whether it came from Microsoft or from NivX.
+                "record_reference": acquisition.get("recordReference"),
+                "record_reference_basis": acquisition.get(
+                    "recordReferenceBasis"),
+                "microsoft_event_id": acquisition.get("microsoftEventId"),
                 "basis": ("Office 365 Management Activity API content blob "
                           "metadata — contentCreated is when the blob became "
                           "available, not when the activity happened"),

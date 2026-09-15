@@ -13,9 +13,11 @@ from __future__ import annotations
 from typing import Any, List
 
 from framework.base       import Connector, Envelope, Health
+from framework.acquisition_state import AcquisitionState
 from framework.dedup      import DedupCache
 from framework.delivery   import IngestClient
 from framework.delivery_worker import DeliveryWorker
+from framework.m365_activity import M365ManagementActivityConnector
 from framework.outbox     import Outbox
 from framework.rest_poller import RestPollerConnector
 from framework.scheduler  import PollerScheduler
@@ -32,6 +34,16 @@ class CollectorRuntime:
         self.outbox    = Outbox()
         self.ingest    = IngestClient()
         self.worker    = DeliveryWorker(self.outbox, self.ingest)
+        # Durable acquisition state lives in the SAME store as the outbox,
+        # so "the vendor gave it to us" and "the ingest accepted it" are
+        # decided inside one durability boundary.
+        self.acquisition = AcquisitionState(
+            connection=self.outbox._conn)          # noqa: SLF001
+
+    def reconcile_acquisition(self) -> dict:
+        """Boot + post-delivery reconciliation: commit what was accepted and
+        advance only the windows that are genuinely complete."""
+        return self.acquisition.reconcile(self.outbox)
 
     # ── envelope pipeline ────────────────────────────────────
     async def deliver(self, conn: Connector, envs: List[Envelope]) -> None:
@@ -46,11 +58,25 @@ class CollectorRuntime:
                 continue
             rid, status = self.outbox.record(e)
             conn.metrics.events_accepted += 1
-            # Update per-connector "lag" telemetry — how long the
-            # oldest queued row is waiting for delivery.
+        # An envelope in the outbox is QUEUED, not ACCEPTED. Reconcile so
+        # that anything the ingest has since acknowledged can commit.
+        if isinstance(conn, M365ManagementActivityConnector):
+            self.acquisition.reconcile(self.outbox,
+                                       tenant_id=conn.tenant_id,
+                                       connector_id_=conn.identity)
 
     # ── lifecycle ─────────────────────────────────────────────
     async def start(self, conn: Connector) -> dict:
+        if isinstance(conn, M365ManagementActivityConnector):
+            conn.attach_state(self.acquisition, self.outbox)
+            self.reconcile_acquisition()
+            await conn.start()
+
+            async def _on_envs(c, envs): await self.deliver(c, envs)
+            await self.scheduler.start(conn, _on_envs)
+            return {"ok": True, "mode": "polling",
+                    "durable_acquisition_state": True,
+                    "subscriptions": conn.subscriptions_started}
         if isinstance(conn, RestPollerConnector):
             async def _on_envs(c, envs): await self.deliver(c, envs)
             await self.scheduler.start(conn, _on_envs)
@@ -71,7 +97,8 @@ class CollectorRuntime:
                  "reason": f"unsupported_connector_kind:{type(conn).__name__}"}
 
     async def stop(self, conn: Connector) -> dict:
-        if isinstance(conn, RestPollerConnector):
+        if isinstance(conn, (RestPollerConnector,
+                             M365ManagementActivityConnector)):
             await self.scheduler.stop(conn.identity)
             conn.health = Health.DISCONNECTED
             return {"ok": True}

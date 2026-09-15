@@ -85,7 +85,9 @@ class M365ManagementActivityConnector(Connector):
     }
 
     def __init__(self, tenant_id: str, config: Dict[str, Any],
-                 identity: Optional[str] = None):
+                 identity: Optional[str] = None,
+                 state: Optional[Any] = None,
+                 outbox: Optional[Any] = None):
         super().__init__(tenant_id, config)
         if identity:
             self.identity = identity
@@ -113,7 +115,23 @@ class M365ManagementActivityConnector(Connector):
         self.blobs_read: int = 0
         self.blobs_expired: int = 0
         self.blobs_duplicate: int = 0
+        self.blobs_in_flight_elsewhere: int = 0
         self.checkpoint.vendor_state = {}
+        # Durable acquisition state (generic primitive). When absent the
+        # connector still works, but its window lives only in memory — which
+        # is exactly what a restart would lose, so the runtime always
+        # attaches one.
+        self.state = state
+        self.outbox = outbox
+
+    def attach_state(self, state: Any, outbox: Any = None) -> None:
+        self.state = state
+        if outbox is not None:
+            self.outbox = outbox
+
+    @property
+    def durable(self) -> bool:
+        return self.state is not None
 
     # ── restart recovery ─────────────────────────────────────────
     def restore_checkpoint(self, vendor_state: Dict[str, Any]) -> None:
@@ -233,6 +251,11 @@ class M365ManagementActivityConnector(Connector):
 
         envelopes: List[Envelope] = []
         now = datetime.now(timezone.utc)
+        # Before acquiring anything, find out what the previous run
+        # actually got ACCEPTED — the window may only advance on that.
+        if self.state is not None and self.outbox is not None:
+            self.state.reconcile(self.outbox, tenant_id=self.tenant_id,
+                                 connector_id_=self.identity)
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             for ct in self.content_types:
                 envelopes += await self._collect_content_type(
@@ -249,6 +272,13 @@ class M365ManagementActivityConnector(Connector):
                                     token: str, content_type: str,
                                     now: datetime) -> List[Envelope]:
         state = self._state(content_type)
+        if self.state is not None:
+            # The durable record is authoritative: it knows what was
+            # ACCEPTED, which memory cannot after a restart.
+            durable = self.state.window(self.tenant_id, self.identity,
+                                        content_type)
+            state["window_start"] = durable["committed_until"]
+            state["next_page_uri"] = durable["next_page_ref"]
         start_iso = state.get("window_start")
         if start_iso:
             start = datetime.fromisoformat(start_iso)
@@ -262,6 +292,7 @@ class M365ManagementActivityConnector(Connector):
 
         out: List[Envelope] = []
         pages = 0
+        window_end_iso = end.isoformat()
         while url and pages < self.max_pages:
             pages += 1
             try:
@@ -279,6 +310,7 @@ class M365ManagementActivityConnector(Connector):
                     f"429 Too Many Requests (Retry-After="
                     f"{resp.headers.get('Retry-After')}) on {content_type}")
                 state["next_page_uri"] = url
+                self._persist_window(content_type, state)
                 return out
             if resp.status_code in (401, 403):
                 self.tokens.invalidate()
@@ -286,6 +318,7 @@ class M365ManagementActivityConnector(Connector):
                 self.metrics.last_error = (f"content list {content_type}: "
                                            f"HTTP {resp.status_code}")
                 state["next_page_uri"] = url
+                self._persist_window(content_type, state)
                 return out
             if resp.status_code >= 400:
                 self.health = Health.ERROR
@@ -293,6 +326,7 @@ class M365ManagementActivityConnector(Connector):
                                            f"HTTP {resp.status_code} "
                                            f"{(resp.text or '')[:160]}")
                 state["next_page_uri"] = url
+                self._persist_window(content_type, state)
                 return out
 
             items = resp.json()
@@ -302,24 +336,59 @@ class M365ManagementActivityConnector(Connector):
                 if not isinstance(item, dict):
                     continue
                 out += await self._read_blob(client, token, content_type,
-                                             item, state)
+                                             item, state,
+                                             window_end=window_end_iso)
             url = resp.headers.get("NextPageUri")
             state["next_page_uri"] = url or None
 
         if not state.get("next_page_uri"):
-            # The window is fully consumed — only now may it advance.
-            state["window_start"] = end.isoformat()
-            self.checkpoint.last_timestamp = end.isoformat()
+            # The window is fully READ. In durable mode it is only PENDING:
+            # it advances when the records are accepted, not now.
+            state["window_start"] = window_end_iso
+            self.checkpoint.last_timestamp = window_end_iso
+            self._persist_window(content_type, state,
+                                 pending_until=window_end_iso)
+        else:
+            self._persist_window(content_type, state)
         return out
+
+    def _persist_window(self, content_type: str, state: Dict[str, Any],
+                        pending_until: Optional[str] = None) -> None:
+        if self.state is None:
+            return
+        self.state.set_pending_window(
+            self.tenant_id, self.identity, content_type,
+            pending_until=pending_until or self.state.window(
+                self.tenant_id, self.identity, content_type)["pending_until"],
+            next_page_ref=state.get("next_page_uri"),
+            declared_source=self.DECLARED_SOURCE)
 
     async def _read_blob(self, client: httpx.AsyncClient, token: str,
                          content_type: str, item: Dict[str, Any],
-                         state: Dict[str, Any]) -> List[Envelope]:
+                         state: Dict[str, Any],
+                         window_end: Optional[str] = None) -> List[Envelope]:
         content_id = str(item.get("contentId") or "")
         content_uri = item.get("contentUri")
         if not content_uri:
             return []
-        if content_id and self._seen(state, content_id):
+        if self.state is not None and content_id:
+            # Durable claim: decides duplication and concurrency, not memory.
+            outcome = self.state.claim_batch(
+                self.tenant_id, self.identity, content_type, content_id,
+                reference=str(content_uri),
+                batch_created=item.get("contentCreated"),
+                batch_expires=item.get("contentExpiration"),
+                declared_source=self.DECLARED_SOURCE,
+                window_end=window_end)
+            if outcome == "ALREADY_COMMITTED":
+                self.blobs_duplicate += 1
+                self.metrics.events_duplicated += 1
+                return []
+            if outcome == "CLAIMED_ELSEWHERE":
+                # Another collector process holds a live lease on it.
+                self.blobs_in_flight_elsewhere += 1
+                return []
+        elif content_id and self._seen(state, content_id):
             self.blobs_duplicate += 1
             self.metrics.events_duplicated += 1
             return []
@@ -329,6 +398,8 @@ class M365ManagementActivityConnector(Connector):
             self.metrics.last_error = (f"content blob {content_id}: "
                                        f"{type(e).__name__}: {e}")
             self.metrics.events_failed += 1
+            self._release(content_type, content_id,
+                          f"BLOB_FETCH_FAILED:{type(e).__name__}")
             return []
         if resp.status_code in (404, 410):
             # Microsoft expires content after its retention window. Recorded
@@ -339,11 +410,21 @@ class M365ManagementActivityConnector(Connector):
                 f"content blob {content_id} for {content_type} is no longer "
                 f"available (HTTP {resp.status_code}); contentExpiration="
                 f"{item.get('contentExpiration')}")
+            # The vendor can never serve it again, so it must not hold the
+            # window open — but the loss is reported, not hidden.
+            if self.state is not None and content_id:
+                self.state.release_batch(
+                    self.tenant_id, self.identity, content_type, content_id,
+                    reason=f"VENDOR_CONTENT_EXPIRED_HTTP_{resp.status_code}")
+                self.state.forget_batch(self.tenant_id, self.identity,
+                                        content_type, content_id)
             return []
         if resp.status_code >= 400:
             self.metrics.events_failed += 1
             self.metrics.last_error = (f"content blob {content_id}: HTTP "
                                        f"{resp.status_code}")
+            self._release(content_type, content_id,
+                          f"BLOB_HTTP_{resp.status_code}")
             return []
         records = resp.json()
         if not isinstance(records, list):
@@ -361,18 +442,38 @@ class M365ManagementActivityConnector(Connector):
             "microsoftTenantId": self.ms_tenant,
         }
         out: List[Envelope] = []
-        for rec in records:
+        record_keys: List[str] = []
+        for ordinal, rec in enumerate(records):
             if not isinstance(rec, dict):
                 continue
             raw = dict(rec)
+            microsoft_id = str(rec.get("Id")) if rec.get("Id") else ""
+            if microsoft_id:
+                key = microsoft_id
+                reference_basis = "MICROSOFT_EVENT_ID"
+            else:
+                # A NivX-owned transport identity, deterministic so a
+                # re-acquisition of the same blob produces the same key.
+                # It is NOT presented as a Microsoft event id, and the
+                # absence of one is preserved as a source fact.
+                key = f"m365:{content_id}:{ordinal}"
+                reference_basis = ("NIVX_ACQUISITION_REFERENCE — the record "
+                                   "carried no Microsoft Id; "
+                                   "microsoft_event_id is NOT_OBSERVED")
+            record_keys.append(key)
             # NivX acquisition metadata, namespaced so it can never be
             # mistaken for a Microsoft field. The DSM reads it as
             # acquisition provenance only.
-            raw["_m365_acquisition"] = acquisition
+            raw["_m365_acquisition"] = {
+                **acquisition,
+                "recordReference": key,
+                "recordReferenceBasis": reference_basis,
+                "microsoftEventId": microsoft_id or "NOT_OBSERVED",
+            }
             out.append(Envelope(
                 tenant_id=self.tenant_id,
                 source=self.label,
-                source_event_id=str(rec.get("Id")) if rec.get("Id") else None,
+                source_event_id=key,
                 connector_id=self.identity,
                 collector_id=collector_id(),
                 collection_method="rest-poll",
@@ -389,7 +490,18 @@ class M365ManagementActivityConnector(Connector):
             ))
         self.checkpoint.last_event_id = (out[-1].source_event_id if out
                                          else self.checkpoint.last_event_id)
+        if self.state is not None and content_id:
+            # The batch now waits on the ACCEPTANCE of exactly these keys.
+            self.state.record_batch_keys(self.tenant_id, self.identity,
+                                         content_type, content_id,
+                                         record_keys)
         return out
+
+    def _release(self, content_type: str, content_id: str,
+                 reason: str) -> None:
+        if self.state is not None and content_id:
+            self.state.release_batch(self.tenant_id, self.identity,
+                                     content_type, content_id, reason=reason)
 
     # ── introspection ────────────────────────────────────────────
     def describe(self) -> Dict[str, Any]:
@@ -402,9 +514,14 @@ class M365ManagementActivityConnector(Connector):
             "subscriptions_started": self.subscriptions_started,
             "blobs_read": self.blobs_read,
             "blobs_duplicate_skipped": self.blobs_duplicate,
+            "blobs_in_flight_elsewhere": self.blobs_in_flight_elsewhere,
             "blobs_expired": self.blobs_expired,
             "credential": self.tokens.describe(),
+            "durable_acquisition_state": self.durable,
         }
+        if self.state is not None:
+            d["acquisition_state"] = self.state.status(self.tenant_id,
+                                                       self.identity)
         d["checkpoint"]["vendor_state"] = {
             ct: {"window_start": s.get("window_start"),
                  "next_page_uri": s.get("next_page_uri"),

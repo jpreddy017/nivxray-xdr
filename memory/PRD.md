@@ -16144,25 +16144,57 @@ moved to real telemetry → detection → correlation → incident.
   deprecation, migration or deletion — its dependencies must be mapped
   first.
 
+## Durable Acquisition Gate · **PASS**
+Report: `memory/DURABLE_ACQUISITION_GATE_REPORT.md` (2026-06)
+
+* **Generic primitive** `framework/acquisition_state.py` — vendor-neutral
+  `(tenant, connector, stream, batch)` claims + windows, stored in the
+  EXISTING outbox SQLite db (`acquisition_batch`, `acquisition_window`); no
+  second database. Proven with a DNS-style stream as well as M365.
+* **Commit rule**: ACQUIRED != QUEUED != DELIVERED != COMMITTED. A batch
+  commits only when every record is accepted by the authoritative ingest;
+  the window advances only on committed batches.
+* **Three latent defects fixed** (all would have broken real delivery):
+  `Envelope.declared_source` missing; the durable outbox dropped the
+  declaration; the collector sent its ingest credential as a bearer token
+  instead of `X-XDR-API-Key`. Real ingest now returns 200 for a
+  collector-driven delivery.
+* **Scenarios proven** (21 pytest + 20 live checks): restart mid-pagination
+  / before delivery / after delivery, duplicate contentId, throttling,
+  expired blob, retrying delivery, dead-letter block, crashed-owner lease
+  expiry, concurrent collectors, cross-tenant checkpoint isolation.
+* **Preflight validator** `scripts/m365_preflight.py` — 9 distinct states;
+  `REAL_SOURCE_PROVEN` requires retrieval AND acceptance, never OAuth
+  success alone; secrets never printed (asserted). Owner runbook:
+  `memory/M365_REAL_SOURCE_ONBOARDING.md`.
+* Regression: collector 88 passed, backend Microsoft/D-series 220 passed,
+  pre-existing failures unchanged (12/16).
+
 ## Next (owner-defined order)
-0. **Owner action for REAL SOURCE PROVEN**: Entra app registration +
-   APPLICATION permission `ActivityFeed.Read` + admin consent + unified
-   audit logging enabled; then configure `microsoft_tenant_id` and the
-   server-side client secret. Never paste secrets into chat.
-1. Persist connector `vendor_state` to the collector state store so a
-   process restart resumes the exact window (currently falls back to the
-   configured lookback).
-2. Certificate (private_key_jwt) client authentication — production
-   preferred mode; abstraction present, flow not implemented.
-3. Consume the lanes the DSM already evidences: mailbox audit
-   (`ExchangeItem`) and Entra sign-in / consent / credential-add.
-4. **D20 — Live auditd host acceptance.** STILL ENVIRONMENT_BLOCKED: no
+0. **OWNER ACTION — real Microsoft connection**: follow
+   `memory/M365_REAL_SOURCE_ONBOARDING.md` (Entra app, APPLICATION
+   permission `ActivityFeed.Read`, admin consent, audit logging on,
+   persistent `XDR_STATE_DIR`), then run `scripts/m365_preflight.py`. It
+   converts EXTERNAL_ACCESS_BLOCKED into REAL_SOURCE_PROVEN or an
+   evidence-backed failure. Never paste secrets into chat.
+1. **Owner decision needed — terminal-record policy**: a permanently
+   rejected record holds its batch and window open
+   (`BLOCKED_BY_DEAD_LETTER_RECORDS`). Options: drop with evidence,
+   quarantine, or operator release. No policy was invented.
+2. **Next telemetry domain — owner will select** based on overall coverage
+   gaps; Network/DNS/Firewall is the stated leading candidate. Microsoft
+   content expansion (Identity Lane Rules, Mailbox Audit Lane) is ON HOLD
+   by owner decision.
+3. Certificate (private_key_jwt) client authentication for Microsoft.
+4. Adopt the durable acquisition primitive in the `rest` / `webhook` /
+   `syslog` transports (they still use the in-memory dedup cache).
+5. **D20 — Live auditd host acceptance.** STILL ENVIRONMENT_BLOCKED: no
    auditd in this preview pod. No synthetic substitute.
-5. D17/D19 batch 3 — the content/behaviour lane (8 remaining rules).
-6. AD CS 4886/4887 DSM (the last SOURCE gap, unblocks DET-PE-002).
-7. DET-PS-004 predicate coverage (internal vs external forwarding) —
-   detection-content gate.
-8. Consolidated acceptance review of D11→D21 + Microsoft Phase 1 BEFORE any
-   production promotion (owner-stated precondition; no promotion planned).
+6. D17/D19 batch 3 — the content/behaviour lane (8 remaining rules).
+7. AD CS 4886/4887 DSM (last SOURCE gap, unblocks DET-PE-002).
+8. DET-PS-004 predicate coverage (internal vs external forwarding).
+9. Consolidated acceptance review of D11→D21 + Microsoft Phase 1 + this
+   gate BEFORE any production promotion (owner-stated precondition).
+
 
 
