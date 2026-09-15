@@ -56,7 +56,7 @@ def counts():
 
 ADM = {"Authorization": f"Bearer {jwt()}", "X-Tenant-Id": TENANT}
 cr = requests.post(f"{API}/xdr/collectors", headers=ADM, json={
-    "name": f"restart-proof-{uuid.uuid4().hex[:6]}", "protocol": "webhook",
+    "name": f"restart-proof-{uuid.uuid4().hex[:6]}", "protocol": "webhook", "authorized_sources": ["cef-leef"],
     "description": "RESTART/RETRY PROOF · throwaway"}, timeout=60)
 cr.raise_for_status()
 COLLECTOR = cr.json()["data"]["id"]
@@ -69,6 +69,7 @@ KEY = requests.post(f"{API}/xdr/api-keys", headers=ADM, json={
 ENVELOPE = {"envelopes": [{
     "tenant_id": TENANT, "collector_id": COLLECTOR,
     "collection_method": "webhook", "source": "fw",
+    "declared_source": "cef-leef",
     "connector_id": "webhook-restart-proof", "event_type": "alert",
     "source_event_id": SEI,
     "raw": {"line": CEF_LINE, "payload_format": "cef"}}]}

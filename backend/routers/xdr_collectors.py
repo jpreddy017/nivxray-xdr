@@ -54,6 +54,7 @@ from pymongo import DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
+from services import source_routing
 from lib.collector_catalog import CATALOG as PREDEFINED_CATALOG
 from lib.collector_catalog import catalog_by_category, summary as catalog_summary
 
@@ -181,6 +182,10 @@ class CreateCollectorBody(BaseModel):
     tls:          bool | None = None
     auth_kind:    str | None = None       # "none" | "basic" | "bearer" | "hmac" | "mtls"
     secret_id:    str | None = None
+    #: D15 · the ONLY declared sources this collector may send. Server-side
+    #: authority: authentication proves who is sending, this decides what
+    #: they may send. Empty means NOTHING is authorized — never "anything".
+    authorized_sources: list[str] = Field(default_factory=list)
     config:       dict[str, Any] = Field(default_factory=dict)
     tags:         list[str] = Field(default_factory=list)
 
@@ -193,6 +198,7 @@ class UpdateCollectorBody(BaseModel):
     tls:          bool | None = None
     auth_kind:    str | None = None
     secret_id:    str | None = None
+    authorized_sources: list[str] | None = None
     config:       dict[str, Any] | None = None
     tags:         list[str] | None = None
 
@@ -214,6 +220,22 @@ def _validate_create(body: CreateCollectorBody) -> None:
             "code": "UNKNOWN_PROTOCOL",
             "protocol": body.protocol,
             "allowed": sorted(PROTOCOL_REGISTRY)})
+
+
+def _authorized_sources(values: Any) -> list[str]:
+    """D15 · validate an allowlist at CONFIGURATION time.
+
+    A misspelled source must fail loudly here, not quietly authorize
+    nothing at ingest time.
+    """
+    keys, unknown = source_routing.normalize_declarations(values)
+    if unknown:
+        raise HTTPException(400, detail={
+            "code": source_routing.UNSUPPORTED_SOURCE,
+            "unknown_sources": unknown,
+            "allowed": sorted(source_routing.SOURCE_CATALOG),
+            "aliases": sorted(source_routing.SOURCE_ALIASES)})
+    return keys
 
 
 def _transition_state(coll: dict, target: str, *, reason: str,
@@ -319,6 +341,14 @@ def protocol_catalog():
                         "blocked": blocked}}}
 
 
+@router.get("/sources/catalog",
+                     dependencies=[Depends(require_permission("collectors.read"))])
+def declared_source_catalog():
+    """D15 · what a collector may DECLARE at ingest, and which single DSM
+    each declaration selects. Content never selects a DSM."""
+    return {"ok": True, "data": source_routing.catalog()}
+
+
 @router.post("",
                        dependencies=[Depends(require_permission("collectors.create"))])
 def create_collector(body: CreateCollectorBody, request: Request):
@@ -347,6 +377,8 @@ def create_collector(body: CreateCollectorBody, request: Request):
         "tls":                   bool(body.tls) if body.tls is not None else None,
         "auth_kind":             body.auth_kind,
         "secret_id":             body.secret_id,
+        # D15 · what this collector is authorized to DECLARE at ingest.
+        "authorized_sources":    _authorized_sources(body.authorized_sources),
         "config":                dict(body.config or {}),
         "tags":                  list(body.tags or []),
         "enabled":               True,
@@ -391,6 +423,9 @@ def update_collector(cid: str, body: UpdateCollectorBody, request: Request):
         v = getattr(body, k)
         if v is not None:
             patch[k] = v
+    if body.authorized_sources is not None:
+        patch["authorized_sources"] = _authorized_sources(
+            body.authorized_sources)
     if not patch:
         raise HTTPException(400, detail="no updatable fields provided")
     if "name" in patch and not _NAME_RE.match(patch["name"]):

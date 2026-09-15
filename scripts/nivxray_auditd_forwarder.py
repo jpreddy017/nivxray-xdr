@@ -93,6 +93,9 @@ def envelope(cfg: Config, line: str) -> dict:
         "tenant_id": cfg.tenant,
         "collector_id": cfg.collector,
         "collection_method": "syslog",
+        # D15 · the collector declares what it is sending; the core refuses
+        # an undeclared delivery instead of guessing from content.
+        "declared_source": "linux-auditd",
         "source": cfg.source,
         "connector_id": f"auditd@{cfg.source}",
         "event_type": "process_creation",

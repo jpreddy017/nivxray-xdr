@@ -66,6 +66,10 @@ def provision(token, tenant, name):
     code, body = call("/api/xdr/collectors", "POST", token=token,
                       tenant=tenant, body={
                           "name": name, "protocol": "rest",
+                          "authorized_sources": ["microsoft-sysmon",
+                                                 "windows-security-evd",
+                                                 "aws-cloudtrail",
+                                                 "linux-auditd", "cef-leef"],
                           "tenant_id": tenant, "confirm_tenant_id": tenant,
                           "allow_new_tenant": True})
     if code == 409:
@@ -79,6 +83,13 @@ def provision(token, tenant, name):
     else:
         print(f"  collector create -> {code} {body}")
         return None, None
+    if col:
+        # D15 · a reused collector must carry the same server-side
+        # authorization set; the allowlist is never assumed.
+        call(f"/api/xdr/collectors/{col}", "PUT", token=token,
+             tenant=tenant,
+             body={"authorized_sources": ["microsoft-sysmon", "windows-security-evd",
+                              "aws-cloudtrail", "linux-auditd", "cef-leef"]})
     code, body = call("/api/xdr/api-keys", "POST", token=token,
                       tenant=tenant, body={
                           "name": f"{name}-key-{STAMP}",
@@ -149,11 +160,13 @@ def main() -> int:
         envs.append({"tenant_id": TEN_B, "collector_id": col_b,
                      "source_event_id": f"d14:{STAMP}:{dsm_id}",
                      "collection_method": "rest", "source": "d14-host",
+                     "declared_source": dsm_id,
                      "raw": doc})
     for dsm_id, line in LINE_ATTACKS.items():
         envs.append({"tenant_id": TEN_B, "collector_id": col_b,
                      "source_event_id": f"d14:{STAMP}:{dsm_id}",
                      "collection_method": "syslog", "source": "d14-host",
+                     "declared_source": dsm_id,
                      # the line shape's own raw dict claims A too
                      "raw": {"line": line, "tenant_id": TEN_A}})
     code, body = call("/api/xdr/ingest/telemetry", "POST", key=key_b,
@@ -210,6 +223,7 @@ def main() -> int:
                           "tenant_id": "", "collector_id": col_b,
                           "source_event_id": f"d14:{STAMP}:notenant",
                           "collection_method": "rest", "source": "d14-host",
+                          "declared_source": "aws-cloudtrail",
                           "raw": dict(ATTACKS["aws-cloudtrail"],
                                       eventID=f"ct-nt-{STAMP}")}]})
     refused = code != 200
@@ -232,6 +246,7 @@ def main() -> int:
                           "source_event_id": f"d14:{STAMP}:identity",
                           "collection_method": "syslog",
                           "source": "d14-host",
+                          "declared_source": "linux-auditd",
                           "raw": {"line": clean_line}}]})
     time.sleep(2)
     rows = list(db.xdr_canonical_evidence.find(

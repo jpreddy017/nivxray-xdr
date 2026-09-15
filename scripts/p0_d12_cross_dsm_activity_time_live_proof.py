@@ -72,6 +72,7 @@ def main() -> int:
                       tenant=TENANT, body={
                           "name": "d12-proof-collector",
                           "protocol": "syslog", "tenant_id": TENANT,
+                          "authorized_sources": ["linux-auditd", "cef-leef"],
                           "confirm_tenant_id": TENANT,
                           "allow_new_tenant": True})
     if code == 409:
@@ -86,6 +87,10 @@ def main() -> int:
         print(f"  collector create -> {code} {body}")
         return 1
     check("collector ready", bool(col_id), col_id)
+    if col_id:
+        call(f"/api/xdr/collectors/{col_id}", "PUT", token=token,
+             tenant=TENANT,
+             body={"authorized_sources": ["linux-auditd", "cef-leef"]})
 
     code, body = call("/api/xdr/api-keys", "POST", token=token,
                       tenant=TENANT, body={
@@ -122,8 +127,11 @@ def main() -> int:
     envs = [{"tenant_id": TENANT, "collector_id": col_id,
              "source_event_id": f"d12:{STAMP}:{i}",
              "collection_method": "syslog", "source": "d12-proof-host",
+             # D15 · every delivery declares its source explicitly.
+             "declared_source": ("linux-auditd" if name.startswith("linux")
+                                 else "cef-leef"),
              "raw": {"line": line}}
-            for i, (_, line, _, _, _) in enumerate(cases)]
+            for i, (name, line, _, _, _) in enumerate(cases)]
     code, body = call("/api/xdr/ingest/telemetry", "POST", key=key,
                       tenant=TENANT, body={"envelopes": envs})
     check("ingest accepted", code == 200, f"HTTP {code} {str(body)[:200]}")

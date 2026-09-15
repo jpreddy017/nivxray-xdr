@@ -115,6 +115,50 @@ class TelemetryDSMRegistry:
                 continue
         return None
 
+    # ── D15 · declared-source routing support ───────────────────────
+    def get(self, dsm_id: str) -> Optional[Any]:
+        """The ONE DSM with this id, or None when it never loaded.
+
+        Declared routing selects BY id. A missing id is a code failure and
+        must look like one (`load_failures()`), never like a data mismatch
+        that another DSM may absorb.
+        """
+        for d in self._dsms:
+            if (getattr(d, "id", None) or d.__class__.__name__) == dsm_id:
+                return d
+        return None
+
+    def compatible(self, dsm: Any, ev: Dict[str, Any]) -> bool:
+        """Does this payload match what the declared DSM interprets?
+
+        Used to VALIDATE a declaration — never to pick a DSM. A raising
+        `supports()` fails closed and is recorded.
+        """
+        try:
+            return bool(dsm.supports(ev))
+        except BaseException as exc:  # noqa: BLE001 — fail closed, stay observable
+            dsm_id = getattr(dsm, "id", None) or dsm.__class__.__name__
+            self._resolve_failures.append({
+                "dsm_id": dsm_id,
+                "status": "SUPPORTS_ERROR",
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:400],
+            })
+            log.error(
+                "DSM supports() FAILED · dsm_id=%s %s: %s — failing closed",
+                dsm_id, type(exc).__name__, str(exc)[:400])
+            return False
+
+    def recognize(self, ev: Dict[str, Any]) -> List[str]:
+        """Every DSM that WOULD have claimed this payload by content.
+
+        Reported as mismatch EVIDENCE when a declaration is refused. It
+        selects nothing: a payload crafted to resemble another source is
+        exactly why content may not choose.
+        """
+        return [(getattr(d, "id", None) or d.__class__.__name__)
+                for d in self._dsms if self.compatible(d, ev)]
+
     # ── observability ───────────────────────────────────────────────
     def list(self) -> List[Dict[str, Any]]:
         """Identities of loaded DSMs.  Shape unchanged from pre-P0-2."""

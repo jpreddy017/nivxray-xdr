@@ -40,6 +40,7 @@ from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
 from services import ingest_idempotency as idem
 from services import ingest_provenance as ing_prov
+from services import source_routing
 
 router = APIRouter(prefix="/api/xdr/ingest", tags=["xdr-ingest"])
 
@@ -64,6 +65,13 @@ def _c_data_sources():
 
 def _c_events():
     return _db()["xdr_canonical_events"] if _db() is not None else None
+
+
+def _c_routing_blocks():
+    """D15 · refused routing decisions. Evidence that a delivery was
+    blocked and why — kept apart from canonical evidence, which a blocked
+    delivery never produces."""
+    return _db()["xdr_ingest_routing_blocks"] if _db() is not None else None
 
 
 def _principal(req: Request) -> tuple[str, str, str]:
@@ -91,6 +99,11 @@ class CanonicalEnvelope(BaseModel):
     data_source_id:       str | None  = None
     source_event_id:      str | None  = None
     collection_method:    str                           # syslog/webhook/rest/…
+    #: D15 · what THIS delivery declares itself to be. The authenticated
+    #: collector must declare it, the declaration must be inside the
+    #: collector's server-side authorized set, and content may only validate
+    #: it. Absent -> DECLARATION_REQUIRED; content is never used to guess.
+    declared_source:      str | None  = None
     canonical_schema:     str | None  = None
     raw:                  dict[str, Any] = Field(default_factory=dict)
     normalized:           dict[str, Any] | None = None
@@ -137,6 +150,11 @@ class ReasoningOutcome(BaseModel):
     stitched_into_source_event_id: str | None = None
     stitch_audit_id:  str | None = None
     stitch_record_type: str | None = None
+    #: D15 · the routing decision that produced (or refused) this outcome.
+    declared_source:  str | None = None
+    selected_dsm_id:  str | None = None
+    routing_result:   str | None = None
+    mismatch_reason:  str | None = None
     detection:        str | None = None
     detections_matched: int = 0
     verdict:          str | None = None
@@ -162,6 +180,10 @@ class TelemetryReceipt(BaseModel):
     #: Envelopes whose raw row already existed from an incomplete earlier
     #: attempt: reasoning was resumed WITHOUT re-persisting the raw row.
     resumed:              int = 0
+    #: D15 · envelopes refused by declared-source routing. They create no
+    #: raw row, no canonical event, no detection and no incident, and they
+    #: never count toward the CONNECTED gate.
+    routing_blocked:      int = 0
     # ── P1.10 · live reasoning ───────────────────────────────────
     reasoned:             int = 0
     observations_created: int = 0
@@ -337,7 +359,8 @@ async def _run_reasoning(envelopes: list[CanonicalEnvelope],
                              keys: list[str] | None = None,
                              *,
                              nivx_received_at: str | None = None,
-                             raw_refs: list[dict[str, Any] | None] | None = None
+                             raw_refs: list[dict[str, Any] | None] | None = None,
+                             routings: list[dict[str, Any]] | None = None
                              ) -> dict[str, Any]:
     """Drive each envelope through the existing reasoning chain.
 
@@ -352,7 +375,7 @@ async def _run_reasoning(envelopes: list[CanonicalEnvelope],
     try:
         return await _reason_batch(envelopes, tenant_id, keys,
                                    nivx_received_at=nivx_received_at,
-                                   raw_refs=raw_refs)
+                                   raw_refs=raw_refs, routings=routings)
     except Exception as ex:                                       # noqa: BLE001
         # No claim is released.  The raw rows are already persisted, so the
         # claims stay at RAW_PERSISTED and the collector's retry RESUMES from
@@ -370,7 +393,8 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
                             keys: list[str] | None = None,
                             *,
                             nivx_received_at: str | None = None,
-                            raw_refs: list[dict[str, Any] | None] | None = None
+                            raw_refs: list[dict[str, Any] | None] | None = None,
+                            routings: list[dict[str, Any]] | None = None
                             ) -> dict[str, Any]:
     from deps import db as _adb
     from detection_content.telemetry.auditd_stitcher import (
@@ -402,6 +426,8 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
 
     for idx, e in enumerate(envelopes):
         key = keys[idx] if keys and idx < len(keys) else None
+        _routing = (routings[idx] if routings and idx < len(routings)
+                    else None)
         trace_id = f"live_{uuid.uuid4().hex[:16]}"
         # D11 · the receipt instant is the ingest handler's own measurement,
         # taken before any work began. If this call was made without one
@@ -472,7 +498,8 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
                 integration_id=e.data_source_id or e.connector_id or "unmapped",
                 collector_id=e.collector_id,
                 tenant_id=e.tenant_id or tenant_id,
-                ingest_provenance=_prov)
+                ingest_provenance=_prov,
+                routing=_routing)
         except Exception as ex:                                   # noqa: BLE001
             outcomes.append(ReasoningOutcome(
                 source_event_id=e.source_event_id, trace_id=trace_id,
@@ -536,6 +563,9 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
         outcomes.append(ReasoningOutcome(
             source_event_id=e.source_event_id, trace_id=trace_id,
             status="REASONED", blocker=result.get("blocker"),
+            declared_source=(_routing or {}).get("declared_source"),
+            selected_dsm_id=(_routing or {}).get("selected_dsm_id"),
+            routing_result=(_routing or {}).get("routing_result"),
             detection=detection.get("status"),
             detections_matched=len(detection.get("detections") or []),
             verdict=verdict.get("label"),
@@ -566,6 +596,84 @@ async def _reason_batch(envelopes: list[CanonicalEnvelope],
             "observations_created": observations,
             "incidents_promoted": promoted,
             "reasoning": outcomes}
+
+
+# ── D15 · declared source routing gate ───────────────────────────
+def route_batch(envelopes: list[CanonicalEnvelope], *,
+                authorized: list[str], tenant_id: str,
+                collector_id: str, nivx_received_at: str | None = None
+                ) -> tuple[list[tuple[CanonicalEnvelope, dict[str, Any]]],
+                           list[ReasoningOutcome], list[dict[str, Any]]]:
+    """``(routed, blocked_outcomes, block_rows)`` — the ingestion authority.
+
+        authenticated collector identity
+          → the collector's server-side authorized source set
+          → this delivery's EXPLICIT declaration
+          → declaration / allowlist validation
+          → DSM selection
+          → content compatibility validation
+          → canonical evidence
+
+    Content may only VALIDATE the declaration. There is no registry-order
+    fall-through and no content-inferred fallback, so a refused delivery
+    gets NO raw row, NO idempotency claim, NO canonical evidence, no
+    detection and no incident — and never counts toward the CONNECTED gate.
+    The refusal itself is kept as evidence.
+    """
+    from detection_content.xdr_pipeline import DSM_REGISTRY
+
+    routed: list[tuple[CanonicalEnvelope, dict[str, Any]]] = []
+    blocked: list[ReasoningOutcome] = []
+    rows: list[dict[str, Any]] = []
+    for e in envelopes:
+        try:
+            probe = _raw_event_for_pipeline(e)
+        except IngestShapeCollision as ce:
+            # D13 already refuses this payload. Routing never ran, and it is
+            # not reported as though it had.
+            routed.append((e, source_routing.not_evaluated(
+                declared=e.declared_source, authorized=authorized,
+                reason=f"refused before routing: {ce}"[:400])))
+            continue
+        decision, _dsm = source_routing.route(
+            declared=e.declared_source, authorized=authorized,
+            raw_event=probe, registry=DSM_REGISTRY)
+        if decision["routing_result"] == source_routing.ACCEPTED:
+            routed.append((e, decision))
+            continue
+        btrace = f"blocked_{uuid.uuid4().hex[:16]}"
+        blocked.append(ReasoningOutcome(
+            source_event_id=e.source_event_id, trace_id=btrace,
+            status="BLOCKED", blocker="source_routing",
+            declared_source=decision.get("declared_source"),
+            selected_dsm_id=decision.get("selected_dsm_id"),
+            routing_result=decision.get("routing_result"),
+            mismatch_reason=decision.get("mismatch_reason"),
+            error=str(decision.get("reason"))[:300]))
+        raw = e.raw if isinstance(e.raw, dict) else {}
+        rows.append({
+            "tenant_id":        tenant_id,
+            "collector_id":     collector_id,
+            "source_event_id":  e.source_event_id,
+            "trace_id":         btrace,
+            "at":               _now(),
+            "nivx_received_at": nivx_received_at,
+            "collection_method": e.collection_method,
+            "payload_shape":    _payload_shape(e),
+            "declared_payload_format": raw.get("payload_format"),
+            # Mismatch evidence, bounded on purpose: the payload's own field
+            # names and a short excerpt prove the disagreement without
+            # copying an unbounded body into a control record.
+            "payload_keys":     sorted(str(k) for k in raw),
+            "payload_excerpt":  str(raw.get("line")
+                                    or raw.get("message") or "")[:300],
+            "routing":          decision,
+            "honesty_note": (
+                "no raw row, no idempotency claim and no canonical evidence "
+                "exist for this delivery; it does not count toward the "
+                "CONNECTED gate"),
+        })
+    return routed, blocked, rows
 
 
 # ── Endpoint ──────────────────────────────────────────────────────
@@ -642,26 +750,40 @@ async def ingest_telemetry(
             "header_tenant":   ten_hdr,
             "collector_tenant": owner_ten})
 
+    # ── D15 · declared source routing · FAIL CLOSED ───────────────
+    authorized = source_routing.authorized_sources(coll_doc)
+    routed, routing_blocked, block_rows = route_batch(
+        envelopes, authorized=authorized, tenant_id=owner_ten,
+        collector_id=cid, nivx_received_at=nivx_received_at)
+    if block_rows and _c_routing_blocks() is not None:
+        _c_routing_blocks().insert_many(block_rows)
+
     # ── P0 · delivery idempotency ─────────────────────────────────
     # Partition the batch BEFORE anything is persisted.  A recognised retry
     # produces no raw row, no canonical event, no detection and no incident;
     # the original provenance chain is reported back instead.
     fresh: list[CanonicalEnvelope] = []
     fresh_keys: list[str] = []
+    #: D15 · index-aligned routing decision for every envelope that will be
+    #: reasoned, so the decision travels with the evidence it produced.
+    fresh_routings: list[dict[str, Any]] = []
     dup_outcomes: list[ReasoningOutcome] = []
     dup_incident_ids: list[str] = []
     #: Envelopes whose raw row already exists from a previous, incomplete
     #: attempt — reasoning is resumed WITHOUT re-persisting the raw row.
     resume: list[CanonicalEnvelope] = []
     resume_keys: list[str] = []
+    resume_routings: list[dict[str, Any]] = []
     #: D11 · the raw row that proves each resumed envelope, taken from the
     #: idempotency claim rather than re-derived.
     resume_raw_refs: list[dict[str, Any] | None] = []
     try:
-        idents = [(e, idem.event_identity(e.tenant_id, e.collector_id,
-                                          e.source, e.source_event_id, e.raw))
-                  for e in envelopes]
-        claims = [(e, ident, *idem.claim(ident)) for e, ident in idents]
+        idents = [(e, route_dec,
+                   idem.event_identity(e.tenant_id, e.collector_id,
+                                       e.source, e.source_event_id, e.raw))
+                  for e, route_dec in routed]
+        claims = [(e, route_dec, ident, *idem.claim(ident))
+                  for e, route_dec, ident in idents]
     except idem.IdempotencyUnavailable as ex:
         raise HTTPException(503, detail={
             "code": "INGEST_IDEMPOTENCY_UNAVAILABLE",
@@ -671,7 +793,7 @@ async def ingest_telemetry(
                                     "raw → detection → incident without "
                                     "exactly-once protection.")})
 
-    for e, ident, decision, rec in claims:
+    for e, route_dec, ident, decision, rec in claims:
         if decision in ("DUPLICATE", "DUPLICATE_NEEDS_REVIEW", "IN_FLIGHT"):
             rec = rec or {}
             why = {
@@ -705,6 +827,7 @@ async def ingest_telemetry(
         if decision == "RESUME_FROM_RAW":
             resume.append(e)
             resume_keys.append(ident["key"])
+            resume_routings.append(route_dec)
             _rid = (rec or {}).get("raw_row_id")
             resume_raw_refs.append(
                 {"collection": "xdr_canonical_events", "id": _rid,
@@ -716,6 +839,7 @@ async def ingest_telemetry(
         # FRESH or RESUME_FULL — nothing was ever persisted for this claim.
         fresh.append(e)
         fresh_keys.append(ident["key"])
+        fresh_routings.append(route_dec)
 
     # Retry provenance on the ORIGINAL incident: the same event was seen
     # again.  Additive counters only — no state, priority or verdict change.
@@ -806,7 +930,10 @@ async def ingest_telemetry(
               "events_parsed":   len(fresh) - parse_err,
               "events_normalized": accepted,
               "events_error":    parse_err + norm_err,
-              "events_duplicate": len(dup_outcomes)}
+              "events_duplicate": len(dup_outcomes),
+              # D15 · refused by declared-source routing. Counted apart so a
+              # blocked delivery can never look like telemetry.
+              "events_routing_blocked": len(routing_blocked)}
     _c_collectors().update_one(
         {"_id": coll_doc["_id"]},
         {"$inc": inc, "$set": {"last_event_at": now, "updated_at": now}})
@@ -899,13 +1026,17 @@ async def ingest_telemetry(
     reasoning = await _run_reasoning(fresh + resume, owner_ten,
                                      fresh_keys + resume_keys,
                                      nivx_received_at=nivx_received_at,
-                                     raw_refs=fresh_raw_refs + resume_raw_refs)
+                                     raw_refs=fresh_raw_refs + resume_raw_refs,
+                                     routings=fresh_routings
+                                     + resume_routings)
     reasoning["reasoning"] = list(reasoning.get("reasoning") or []) \
-        + dup_outcomes
+        + dup_outcomes + routing_blocked
     return TelemetryReceipt(accepted=accepted, parse_errors=parse_err,
                                               normalize_errors=norm_err,
                                               collector_state=new_state,
                                               collector_state_reason=reason,
                                               duplicates=len(dup_outcomes),
                                               resumed=len(resume),
+                                              routing_blocked=len(
+                                                  routing_blocked),
                                               **reasoning)

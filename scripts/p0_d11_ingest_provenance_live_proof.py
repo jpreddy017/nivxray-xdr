@@ -105,6 +105,7 @@ def main() -> int:
                       tenant=TENANT, body={
                           "name": "d11-proof-collector",
                           "protocol": "syslog",
+                          "authorized_sources": ["linux-auditd"],
                           "tenant_id": TENANT,
                           "confirm_tenant_id": TENANT,
                           "allow_new_tenant": True})
@@ -121,6 +122,10 @@ def main() -> int:
         col = (body.get("data") or body)
         col_id = col.get("id") or (col.get("collector") or {}).get("id")
     check("collector created", bool(col_id), col_id)
+    if col_id:
+        # D15 · re-assert the declared-source allowlist on reuse.
+        call(f"/api/xdr/collectors/{col_id}", "PUT", token=token,
+             tenant=TENANT, body={"authorized_sources": ["linux-auditd"]})
 
     code, body = call("/api/xdr/api-keys", "POST", token=token,
                       tenant=TENANT, body={
@@ -144,6 +149,7 @@ def main() -> int:
     envs = [{"tenant_id": TENANT, "collector_id": col_id,
              "source_event_id": f"auditd:{AUD}:{name}",
              "collection_method": "syslog", "source": "d11-proof-host",
+             "declared_source": "linux-auditd",
              "source_timestamp": SENSOR_TS,
              "received_at": COLLECTOR_TS,
              "raw": {"line": line, "payload_format": "auditd"}}
@@ -152,6 +158,7 @@ def main() -> int:
     envs.append({"tenant_id": TENANT, "collector_id": col_id,
                  "source_event_id": f"auditd:{AUD_B}:syscall",
                  "collection_method": "syslog", "source": "d11-proof-host",
+                 "declared_source": "linux-auditd",
                  "raw": {"line": BARE, "payload_format": "auditd"}})
     code, body = call("/api/xdr/ingest/telemetry", "POST", key=key,
                       tenant=TENANT, body={"envelopes": envs})
@@ -290,6 +297,7 @@ def main() -> int:
                           "source_event_id": f"auditd:{aud_c}:syscall",
                           "collection_method": "syslog",
                           "source": "d11-proof-host",
+                          "declared_source": "linux-auditd",
                           "source_timestamp": "yesterday afternoon",
                           "raw": {"line": bad_line,
                                   "payload_format": "auditd"}}]})

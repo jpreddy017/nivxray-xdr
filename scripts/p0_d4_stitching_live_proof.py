@@ -81,6 +81,7 @@ def main() -> int:
                       tenant=TENANT, body={
                           "name": "d4-proof-collector",
                           "protocol": "syslog",
+                          "authorized_sources": ["linux-auditd"],
                           "tenant_id": TENANT,
                           "confirm_tenant_id": TENANT,
                           "allow_new_tenant": True})
@@ -99,6 +100,9 @@ def main() -> int:
         col = (body.get("data") or body)
         col_id = col.get("id") or (col.get("collector") or {}).get("id")
     check("collector created", bool(col_id), col_id)
+    if col_id:
+        call(f"/api/xdr/collectors/{col_id}", "PUT", token=token,
+             tenant=TENANT, body={"authorized_sources": ["linux-auditd"]})
 
     code, body = call("/api/xdr/api-keys", "POST", token=token,
                       tenant=TENANT, body={
@@ -123,6 +127,7 @@ def main() -> int:
     envs = [{"tenant_id": TENANT, "collector_id": col_id,
              "source_event_id": f"auditd:{AUD}:{name}",
              "collection_method": "syslog", "source": "d4-proof-host",
+             "declared_source": "linux-auditd",
              "raw": {"line": line, "payload_format": "auditd"}}
             for name, line in (("syscall", SYSCALL), ("execve", EXECVE),
                                ("proctitle", PROCTITLE))]

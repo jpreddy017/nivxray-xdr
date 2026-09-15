@@ -75,6 +75,10 @@ def env(client):
         r = client.post("/api/xdr/collectors",
                         headers={**auth, "X-Tenant-Id": ten},
                         json={"name": f"dedupe-{uuid.uuid4().hex[:8]}",
+                              # D15 · a collector may only send what it is
+                              # registered to send, and every delivery must
+                              # declare it explicitly.
+                              "authorized_sources": ["cef-leef"],
                               "protocol": "webhook"})
         assert r.status_code == 200, r.text
         out[key] = r.json()["data"]["id"]
@@ -83,6 +87,9 @@ def env(client):
         _db["xdr_collectors"].delete_many({"tenant_id": ten})
         _db["xdr_canonical_events"].delete_many({"tenant_id": ten})
         _db["xdr_canonical_evidence"].delete_many({"tenant_id": ten})
+        # D8 · a citation must always resolve to the evidence it cites, so
+        # the citations go with the evidence they point at.
+        _db["xdr_detection_matches"].delete_many({"tenant_id": ten})
         _db["workspace_cases"].delete_many({"tenant_id": ten})
         _db[DEDUPE_COLLECTION].delete_many({"tenant_id": ten})
 
@@ -90,6 +97,7 @@ def env(client):
 def _env(collector, tenant=TENANT, sei="evt-1", line=CEF_LINE, source="fw"):
     return {"tenant_id": tenant, "collector_id": collector,
             "collection_method": "webhook", "source": source,
+            "declared_source": "cef-leef",
             "connector_id": "webhook-dedupe", "parser_version": "cef-leef/1.0",
             "event_type": "alert", "source_event_id": sei,
             "source_timestamp": "2026-06-10T12:40:11Z",

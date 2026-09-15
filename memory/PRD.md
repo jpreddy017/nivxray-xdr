@@ -15951,3 +15951,84 @@ Declared Source Routing (collector-declared format routes deterministically;
 declaration/content mismatch fails closed) → PATH/CWD canonical mapping →
 rule declarations in small tested families (92 remaining) → real-source
 acceptance → production acceptance testing.
+
+
+---
+
+# SESSION 2026-09-15 · D15 → D16 → D17 (PREVIEW ONLY, no deploy, no merge)
+
+Owner directive: accelerated execution through already-defined gates, one
+PASS/FAIL record per gate, no production deployment.
+
+## D15 — Snort tenant contract + Declared Source Routing · **PASS**
+Report: `memory/D15_DECLARED_SOURCE_ROUTING_REPORT.md`
+
+Ingestion authority is now:
+```
+authenticated collector -> collector-authorized source set (server-side)
+  -> explicit per-request declaration -> declaration/allowlist validation
+  -> DSM selection -> content compatibility validation -> canonical evidence
+```
+* `services/source_routing.py` (NEW) · catalog, allowlist contract, `route()`
+* `xdr_ingest.route_batch()` gate runs BEFORE persistence and BEFORE the
+  idempotency claim; refusals get no raw row, no evidence, no counters
+  (`events_routing_blocked`), and are kept in `xdr_ingest_routing_blocks`
+* codes are distinct: `DECLARATION_REQUIRED`, `SOURCE_NOT_AUTHORIZED`,
+  `UNSUPPORTED_SOURCE`, `SOURCE_FORMAT_MISMATCH`, `SOURCE_DSM_UNAVAILABLE`
+* `authorized_sources` on `xdr_collectors` (create/update, validated) +
+  `GET /api/xdr/collectors/sources/catalog`
+* snort-eve joined the D14 tenant contract (was the last DSM outside it)
+* no registry-order fall-through, no content-inferred fallback, no grace path
+* 54 pytest + 60/60 live HTTP checks; D11–D14 + D4 live proofs re-run PASS
+* KNOWN LIMIT (documented): internal non-HTTP pipeline callers still resolve
+  by content and are labelled
+  `CONTENT_RESOLVED_INTERNAL_CALLER_NOT_INGEST_PATH`
+
+## D16 — auditd PATH/CWD → canonical file & directory evidence · **PASS**
+Report: `memory/D16_PATH_CWD_MAPPING_REPORT.md`
+
+* canonical `file` entity populated for auditd for the first time;
+  `additional_fields.path_mapping` carries every PATH item with its own
+  `record_ref`, plus `working_directory`
+* no invented paths (`VERBATIM_ABSOLUTE` / `DERIVED_FROM_OBSERVED_CWD` /
+  `NOT_RESOLVABLE`), no collapsed PATH records, object kind claimed only for
+  `nametype=PARENT`, action only from CREATE/DELETE
+* standalone CWD/PATH records are now accepted (they were refused as "not
+  auditd") and labelled `STANDALONE_RECORD_NO_PROCESS_CONTEXT`
+* 26 pytest + 30/30 live HTTP checks; D10 identity and D4 stitching unchanged
+
+## D17 — Rule declaration contract + batch 1 · **PASS**
+Report: `memory/D17_RULE_DECLARATION_REPORT.md`
+
+* `detection_content/library/declaration_contract.py` (NEW): canonical-field
+  list derived from the evidence model, operator/note validation, citation
+  proof against each rule's own fixtures, and a FROZEN `DECLARATION_DEBT`
+  ledger — a new undeclared rule now FAILS the gate
+* batch 1 = Windows/ESXi endpoint command-line family (14 rules); coverage
+  6/36 -> 20/36; `rule_version` 1 -> 2 on the batch
+* new case-insensitive operators so declarations describe predicates
+  faithfully: `contains_ci`, `contains_any_ci`, `contains_all_ci`,
+  `basename_in_ci`, `basename_contains_any_ci`
+* gate findings: `DET-CR-002` predicate-coverage defect RECORDED not fixed
+  (fixing it would change detection behaviour); `DET-EX-006` unexplained
+  declaration fixed with a canonical fixture; 299 orphaned citation rows in
+  the preview DBs purged and their root cause (test teardown) fixed
+* 84 pytest + live HTTP proof (declared rule -> incident -> complete
+  citation); `test_d8_detection_citations.py` now 18/18
+
+## Regression status (unchanged by this session)
+12 pre-existing failures verified identical on a stashed clean tree:
+`test_xdr_content_pipeline.py` (8) and `test_xdr_detection_consolidation.py`
+(4). Plus, in the ingest/auth subset, `test_collector_api_key_adversarial_
+regression.py` (5), `tests/edr/test_p1_10_live_contract.py` (5),
+`tests/edr/test_cross_tenant.py` (1) and 24 errors in
+`test_xdr_data_sources_collectors.py` — all Work Mode control-plane territory,
+deliberately untouched.
+
+## Next (owner-defined order)
+1. D17 batch 2 — cloud/identity event-lane rule declarations (7 rules).
+2. D17 batch 3 — content/behaviour lane (8 rules).
+3. Registry entity in the canonical model (unblocks `DET-PS-001`).
+4. `DET-CR-002` predicate coverage — detection-content gate, not a
+   declaration gate.
+5. Real auditd-host acceptance with live hosts (P2).

@@ -102,6 +102,32 @@ def apply_operator(operator: str, observed: Any, expected: Any) -> bool:
         return observed == expected
     if operator == "contains":
         return isinstance(observed, str) and str(expected) in observed
+    # D17 · the case-insensitive operators. Every command-line predicate in
+    # the library lowercases before comparing, so a case-SENSITIVE
+    # declaration would report NO_MATCH on the very event that fired the
+    # rule. Adding the operator is what lets a declaration describe the
+    # predicate faithfully instead of approximately.
+    if operator == "contains_ci":
+        return (isinstance(observed, str)
+                and str(expected).lower() in observed.lower())
+    if operator == "contains_any_ci":
+        return (isinstance(observed, str)
+                and any(str(e).lower() in observed.lower()
+                        for e in expected))
+    if operator == "contains_all_ci":
+        return (isinstance(observed, str)
+                and all(str(e).lower() in observed.lower()
+                        for e in expected))
+    if operator == "basename_in_ci":
+        if not isinstance(observed, str):
+            return False
+        base = observed.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        return base in {str(e).lower() for e in expected}
+    if operator == "basename_contains_any_ci":
+        if not isinstance(observed, str):
+            return False
+        base = observed.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        return any(str(e).lower() in base for e in expected)
     if operator == "starts_with_any":
         return isinstance(observed, str) and observed.startswith(
             tuple(expected))

@@ -60,12 +60,17 @@ def collector(client):
     hdrs = _auth(client)
     r = client.post("/api/xdr/collectors", headers=hdrs,
                     json={"name": f"harden-{uuid.uuid4().hex[:8]}",
+                          # D15 · declared-source routing: this collector is
+                          # registered for CEF/LEEF only.
+                          "authorized_sources": ["cef-leef"],
                           "protocol": "webhook"})
     assert r.status_code == 200, r.text
     yield r.json()["data"]["id"]
     _db["xdr_collectors"].delete_many({"tenant_id": TENANT})
     _db["xdr_canonical_events"].delete_many({"tenant_id": TENANT})
     _db["xdr_canonical_evidence"].delete_many({"tenant_id": TENANT})
+    # D8 · citations are removed with the evidence they cite.
+    _db["xdr_detection_matches"].delete_many({"tenant_id": TENANT})
     _db["workspace_cases"].delete_many({"tenant_id": TENANT})
     _claims.delete_many({"tenant_id": TENANT})
 
@@ -73,6 +78,7 @@ def collector(client):
 def _env(collector, sei, line=CEF_LINE):
     return {"tenant_id": TENANT, "collector_id": collector,
             "collection_method": "webhook", "source": "fw",
+            "declared_source": "cef-leef",
             "connector_id": "webhook-harden", "event_type": "alert",
             "source_event_id": sei,
             "raw": {"line": line, "payload_format": "cef"}}

@@ -11,14 +11,17 @@ import binascii
 from datetime import datetime, timezone
 import hashlib
 import os
+import posixpath
 import re
 from typing import Any, Dict, List, Optional
 
 from services import event_time_basis
 from services import tenant_authority
 
+from .auditd_stitcher import kv_fields
 from .models import (
     CanonicalTelemetryEvent,
+    FileEntity,
     HostEntity,
     IdentityEntity,
     NetworkEntity,
@@ -32,6 +35,226 @@ class LinuxAuditdParserError(Exception):
         self.code = code
         self.message = message
         super().__init__(f"{code}: {message}")
+
+
+# ── D16 · PATH / CWD -> canonical file & directory evidence ─────────
+# auditd already delivers this: `type=CWD cwd="/home/u"` names the working
+# directory, and one `type=PATH item=N name=… nametype=…` record names EACH
+# object the syscall touched. None of it reached canonical evidence before
+# D16, so no rule could cite a file path that auditd had actually observed.
+#
+# Three rules, all of them refusals rather than conveniences:
+#   * a path is NEVER invented. A relative name with no observed CWD stays
+#     unresolved and says so.
+#   * PATH records are NEVER collapsed. Each `item` is kept as its own
+#     entry, in item order, with the record that produced it.
+#   * auditd does not say whether a NORMAL path is a file or a directory,
+#     so the object kind stays NOT_OBSERVED. Only `nametype=PARENT` is
+#     recorded as a directory, because that is what auditd means by it.
+
+#: The PATH attributes worth carrying into canonical evidence, verbatim.
+_PATH_ATTRS = ("inode", "dev", "mode", "ouid", "ogid", "rdev", "objtype",
+               "cap_fp", "cap_fi", "cap_fe", "cap_fver")
+
+#: auditd `nametype` values whose action is unambiguous. NORMAL and UNKNOWN
+#: are deliberately absent: they do not name an action.
+_NAMETYPE_ACTION = {"CREATE": "create", "DELETE": "delete"}
+
+_UNUSABLE_NAMES = {"", "(null)", "(none)", "-", "?"}
+
+
+def _path_records(fields: Dict[str, Any], record_type: str
+                  ) -> List[Dict[str, Any]]:
+    """Every PATH record of this audit event, unmerged, in arrival order.
+
+    A stitched group merges only the FIRST record of each type, so later
+    PATH records are re-read from their preserved verbatim lines. That is
+    what keeps a multi-PATH event from collapsing into a single path.
+    """
+    out: List[Dict[str, Any]] = []
+    contributing = fields.get("_contributing_records") or []
+    for rec in contributing:
+        if str(rec.get("record_type") or "").upper() != "PATH":
+            continue
+        kv = kv_fields(str(rec.get("line") or ""))
+        out.append({"kv": kv,
+                    "record_ref": {"record_type": "PATH",
+                                   "audit_id": rec.get("audit_id"),
+                                   "position": rec.get("position", 0),
+                                   "line": rec.get("line")}})
+    if out or contributing:
+        return out
+    # Unstitched delivery: a lone PATH record, already flattened by the
+    # parser. Its own fields ARE the record.
+    if record_type == "PATH":
+        out.append({"kv": {k: v for k, v in fields.items()
+                           if isinstance(v, str)},
+                    "record_ref": {"record_type": "PATH",
+                                   "audit_id": fields.get("audit_id"),
+                                   "position": 0,
+                                   "line": str(fields.get("message")
+                                               or fields.get("line") or "")}})
+    return out
+
+
+def _entry(kv: Dict[str, Any], record_ref: Dict[str, Any],
+           cwd: Optional[str]) -> Dict[str, Any]:
+    """One PATH record, mapped without inventing anything."""
+    name = _unhex_if_needed(str(kv.get("name") or ""))
+    nametype = str(kv.get("nametype") or "").upper()
+    item: Optional[int]
+    try:
+        item = int(kv.get("item"))
+    except (TypeError, ValueError):
+        item = None
+
+    entry: Dict[str, Any] = {
+        "item": item,
+        "path": name or None,
+        "name": posixpath.basename(name) if name else None,
+        "nametype": nametype or None,
+        "kind": ("DIRECTORY" if nametype == "PARENT" else "PATH_OBJECT"),
+        "kind_state": ("OBSERVED" if nametype == "PARENT"
+                       else "OBJECT_KIND_NOT_OBSERVED"),
+        "kind_reason": (None if nametype == "PARENT" else
+                        "auditd names the path but not whether the object "
+                        "is a file or a directory; only nametype=PARENT "
+                        "states a directory"),
+        "action": _NAMETYPE_ACTION.get(nametype) or None,
+        "action_basis": (f"auditd:PATH nametype={nametype}"
+                         if nametype in _NAMETYPE_ACTION else None),
+        "action_state": ("OBSERVED" if nametype in _NAMETYPE_ACTION
+                         else "NOT_OBSERVED"),
+        "record_ref": record_ref,
+    }
+    for attr in _PATH_ATTRS:
+        if kv.get(attr) is not None:
+            entry[attr] = kv[attr]
+
+    if not name or name in _UNUSABLE_NAMES:
+        entry.update({
+            "path": None,
+            "name": None,
+            "path_state": "NOT_OBSERVED",
+            "path_not_observed_reason": (
+                f"this PATH record carried no usable name "
+                f"({name!r} means absent to auditd); a path is never "
+                "substituted from another record"),
+            "absolute_path": None,
+            "absolute_path_state": "NOT_RESOLVABLE",
+        })
+        return entry
+
+    entry["path_state"] = "OBSERVED"
+    if name.startswith("/"):
+        entry.update({"absolute_path": posixpath.normpath(name),
+                      "absolute_path_basis": "VERBATIM_ABSOLUTE",
+                      "absolute_path_state": "OBSERVED"})
+    elif cwd:
+        # Derived, and labelled as derived: auditd emitted a relative name
+        # and a working directory, and joining them is the only thing that
+        # makes the two records mean anything together. The filesystem is
+        # never consulted — no realpath, no symlink resolution, no stat.
+        entry.update({
+            "absolute_path": posixpath.normpath(posixpath.join(cwd, name)),
+            "absolute_path_basis": "DERIVED_FROM_OBSERVED_CWD",
+            "absolute_path_state": "DERIVED",
+            "absolute_path_resolved_from": {"cwd": cwd, "relative_name": name},
+        })
+    else:
+        entry.update({
+            "absolute_path": None,
+            "absolute_path_basis": None,
+            "absolute_path_state": "NOT_RESOLVABLE",
+            "absolute_path_not_resolvable_reason": (
+                "the PATH name is relative and no CWD record was delivered "
+                "for this audit event; an absolute path is NOT guessed"),
+        })
+    return entry
+
+
+def _project_paths(fields: Dict[str, Any], record_type: str
+                   ) -> Dict[str, Any]:
+    """``{file_entity, mapping}`` — canonical file/directory evidence.
+
+    `mapping` is the per-field provenance: where the working directory came
+    from, every PATH item with its own record reference, and why a primary
+    file was or was not chosen.
+    """
+    attribution = fields.get("_canonical_attribution") or {}
+    raw_cwd = _unhex_if_needed(str(fields.get("cwd") or ""))
+    cwd_ok = bool(raw_cwd) and raw_cwd not in _UNUSABLE_NAMES
+    cwd_block: Dict[str, Any]
+    if cwd_ok:
+        cwd_block = {
+            "path": raw_cwd,
+            "state": "OBSERVED",
+            "source": "auditd:CWD cwd=",
+            "source_record": attribution.get("working_directory")
+            or ("CWD" if record_type == "CWD" else None),
+        }
+    else:
+        cwd_block = {
+            "path": None,
+            "state": "NOT_OBSERVED",
+            "reason": ("no CWD record was delivered for this audit event; "
+                       "the working directory is unknown, not '/'"),
+        }
+
+    records = _path_records(fields, record_type)
+    items = [_entry(r["kv"], r["record_ref"], raw_cwd if cwd_ok else None)
+             for r in records]
+    items.sort(key=lambda e: (e["item"] is None, e["item"] or 0,
+                              e["record_ref"].get("position") or 0))
+
+    directories = [e for e in items if e["kind"] == "DIRECTORY"
+                   and e["path_state"] == "OBSERVED"]
+    objects = [e for e in items if e["kind"] != "DIRECTORY"
+               and e["path_state"] == "OBSERVED"]
+    unusable = [e for e in items if e["path_state"] != "OBSERVED"]
+
+    primary = objects[0] if objects else None
+    if primary is not None:
+        basis = ("LOWEST_PATH_ITEM_EXCLUDING_PARENT"
+                 if len(objects) > 1 else "SINGLE_PATH_OBJECT")
+    else:
+        basis = None
+
+    mapping: Dict[str, Any] = {
+        "working_directory": cwd_block,
+        "path_records_observed": len(records),
+        "path_items": items,
+        "directory_paths": [e["absolute_path"] or e["path"]
+                            for e in directories],
+        "primary_file_basis": basis,
+        "unusable_path_records": len(unusable),
+        "collapse_note": (
+            "every PATH record is kept as its own item, in item order, with "
+            "the record that produced it; several paths are never merged "
+            "into one, and the canonical `file` entity names ONLY the "
+            "primary item"),
+    }
+    if primary is None:
+        mapping["primary_file_reason"] = (
+            "no PATH record delivered a usable non-parent path, so the "
+            "canonical file entity stays empty rather than naming a "
+            "directory or an invented path"
+            if records else
+            "this audit event delivered no PATH record")
+
+    file_entity = FileEntity()
+    if primary is not None:
+        file_entity = FileEntity(
+            path=primary["absolute_path"] or primary["path"] or "",
+            name=primary["name"] or "",
+            action=primary["action"] or "",
+        )
+        mapping["file_path_state"] = (
+            "OBSERVED" if primary["absolute_path_state"] == "OBSERVED"
+            else primary["absolute_path_state"])
+        mapping["file_path_item"] = primary["item"]
+        mapping["file_path_record_ref"] = primary["record_ref"]
+    return {"file": file_entity, "mapping": mapping}
 
 
 def _unhex_if_needed(s: str) -> str:
@@ -298,6 +521,8 @@ class LinuxAuditdNormalizer:
         )
 
         record_types = fields.get("_record_types") or [parsed["record_type"]]
+        # D16 · PATH / CWD -> canonical file & directory evidence.
+        _paths = _project_paths(fields, parsed["record_type"])
         # D3 · an EXECVE record IS an execution, whether it arrived as part
         # of a stitched group or on its own. The old branch required
         # `syscall` or `exe`, neither of which an EXECVE record carries, so
@@ -306,6 +531,14 @@ class LinuxAuditdNormalizer:
             event_type = "process_execution"
         elif "execve" in str(fields.get("syscall", "")).lower() or exe:
             event_type = "process_execution"
+        elif parsed["record_type"] in ("PATH", "CWD") \
+                and len(record_types) == 1:
+            # D16 · a PATH or CWD record delivered on its own is real auditd
+            # evidence, and it is labelled as the fragment it is instead of
+            # being refused as "not auditd" or dressed up as a syscall.
+            event_type = ("auditd_path_record"
+                          if parsed["record_type"] == "PATH"
+                          else "auditd_cwd_record")
         else:
             event_type = "auditd_syscall"
 
@@ -355,7 +588,17 @@ class LinuxAuditdNormalizer:
             # published by the shared basis resolver; this is the auditd
             # -specific reason behind it.
             "audit_timestamp_state": audit_ts_state,
+            # D16 provenance — the working directory, every PATH item and
+            # the record each one came from.
+            "path_mapping": _paths["mapping"],
+            "working_directory": _paths["mapping"]["working_directory"],
         }
+        if event_type in ("auditd_path_record", "auditd_cwd_record"):
+            extra["fragment_state"] = "STANDALONE_RECORD_NO_PROCESS_CONTEXT"
+            extra["fragment_reason"] = (
+                "this record arrived without the SYSCALL/EXECVE records of "
+                "its audit event, so process and identity context were "
+                "never delivered — they are absent, not unprivileged")
         if not hostname:
             extra["host_not_observed_reason"] = (
                 "no authoritative host name was available: the audit record "
@@ -398,6 +641,7 @@ class LinuxAuditdNormalizer:
             host=host,
             identity=identity,
             process=process,
+            file=_paths["file"],
             raw_ref=raw,
             provenance=provenance,
             additional_fields=extra,
@@ -434,13 +678,17 @@ class LinuxAuditdDSM:
         if not isinstance(ev, dict):
             return False
         # Direct key checks
-        if ev.get("type") in ("SYSCALL", "EXECVE", "PROCTITLE", "AVC"):
+        if ev.get("type") in ("SYSCALL", "EXECVE", "PROCTITLE", "AVC",
+                              "CWD", "PATH"):
             return True
         if "syscall" in ev and ("exe" in ev or "comm" in ev):
             return True
         # Check raw string
         msg = str(ev.get("message") or ev.get("raw") or "")
-        return "type=SYSCALL" in msg or "type=EXECVE" in msg or "type=PROCTITLE" in msg
+        # D16 · CWD and PATH are auditd records too. Refusing them as "not
+        # auditd" discarded the only file evidence the source ever sent.
+        return any(f"type={t}" in msg for t in
+                   ("SYSCALL", "EXECVE", "PROCTITLE", "CWD", "PATH"))
 
     def select_parser(self) -> LinuxAuditdParser:
         return LinuxAuditdParser()

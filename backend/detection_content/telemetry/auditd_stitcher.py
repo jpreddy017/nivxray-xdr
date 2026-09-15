@@ -109,6 +109,18 @@ def _kv(line: str) -> dict[str, str]:
     return out
 
 
+def kv_fields(line: str) -> dict[str, str]:
+    """The key/value view of ONE verbatim auditd record.
+
+    D16 · a stitched group merges only the FIRST record of each type, so a
+    multi-PATH event keeps its later PATH records verbatim and unmerged. The
+    normalizer re-reads them through this function rather than from the
+    merged view, which is what stops several PATH records from collapsing
+    into one.
+    """
+    return _kv(line)
+
+
 def stitch_group(group: dict[str, Any]) -> dict[str, Any]:
     """Combine one group into a single stitched record + its provenance.
 
