@@ -31,13 +31,16 @@ from .models import (
     NetworkEntity,
     ProcessEntity,
     ProvenanceEnvelope,
+    RegistryEntity,
 )
+from . import registry_evidence
 
 
 
 # Event IDs this DSM parses and normalizes.  4624/4625 added 2026-09-05
 # (P0-3 telemetry coverage correction) — authentication/logon evidence.
-SUPPORTED_EVENT_IDS = (4688, 4768, 4769, 4624, 4625)
+# 4657 added 2026-09-15 (D18) — OBSERVED registry value modification.
+SUPPORTED_EVENT_IDS = (4688, 4768, 4769, 4624, 4625, 4657)
 
 def _windows_basename(path_value: str) -> str:
     """Executable name from a Windows path.
@@ -179,6 +182,7 @@ class WindowsSecurityNormalizer:
         process = ProcessEntity()
         network = NetworkEntity()
         auth = AuthEntity()
+        registry = RegistryEntity()
         additional: Dict[str, Any] = {}
         event_type = "windows_security_event"
 
@@ -252,6 +256,10 @@ class WindowsSecurityNormalizer:
                 failure_reason=status if auth_status == "FAILURE" else "",
                 ticket_options=ticket_options,
                 ticket_encryption=enc_type,
+                # D19 · 4768 states the pre-authentication type; "0" means
+                # none was used. Recorded verbatim, never defaulted.
+                preauth_type=str(_get_ci(data, "PreAuthType",
+                                         "PreAuthenticationType") or ""),
             )
             additional["encryption_type"] = enc_type
 
@@ -369,6 +377,43 @@ class WindowsSecurityNormalizer:
             if not succeeded and sub_status:
                 additional["sub_status"] = sub_status
 
+        elif eid == 4657:
+            # ── D18 · a registry VALUE was modified, as observed by the ──
+            # Windows auditing subsystem. The actor comes from the same
+            # record or is absent; nothing is attributed by proximity.
+            event_type = "registry_value_modified"
+            registry, reg_mapping = registry_evidence.from_windows_4657(data)
+            proc_name = str(_get_ci(data, "ProcessName") or "")
+            user_name = str(_get_ci(data, "SubjectUserName") or "")
+            domain = str(_get_ci(data, "SubjectDomainName") or "")
+            if proc_name:
+                process = ProcessEntity(
+                    name=_windows_basename(proc_name),
+                    executable_path=proc_name,
+                )
+            if user_name:
+                identity = IdentityEntity(
+                    principal_id=(f"{domain}\\{user_name}"
+                                  if domain else user_name),
+                    username=user_name,
+                    domain=domain,
+                    user_sid=str(_get_ci(data, "SubjectUserSid") or ""),
+                    logon_id=str(_get_ci(data, "SubjectLogonId") or ""),
+                )
+            reg_mapping["associations"] = registry_evidence.associations(
+                device=hostname, device_source="windows:Computer",
+                process_path=proc_name,
+                process_source="windows:EventData.ProcessName",
+                process_id=_get_ci(data, "ProcessId"),
+                username=user_name,
+                identity_source="windows:EventData.SubjectUserName")
+            reg_mapping["raw_reference"] = {
+                "windows_event_id": eid,
+                "object_name": registry.key_path,
+                "handle_id": str(_get_ci(data, "HandleId") or ""),
+            }
+            additional["registry_mapping"] = reg_mapping
+
         provenance = ProvenanceEnvelope(
             trace_id=trace_id,
             collector_id=collector_id,
@@ -416,6 +461,7 @@ class WindowsSecurityNormalizer:
             identity=identity,
             process=process,
             network=network,
+            registry=registry,
             authentication=auth,
             raw_ref=raw,
             provenance=provenance,

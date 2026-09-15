@@ -37,14 +37,14 @@ SUPPORTED_OPERATORS = frozenset({
     "exists", "equals", "contains", "contains_ci", "contains_any_ci",
     "contains_all_ci", "basename_in", "basename_in_ci",
     "basename_contains_any_ci", "starts_with_any", "matches",
-    "any_argument_starts_with",
+    "any_argument_starts_with", "serialized_contains_any_ci",
 })
 
 #: Operators whose `expected` must be an iterable of values.
 _SEQUENCE_OPERATORS = frozenset({
     "contains_any_ci", "contains_all_ci", "basename_in", "basename_in_ci",
     "basename_contains_any_ci", "starts_with_any",
-    "any_argument_starts_with",
+    "any_argument_starts_with", "serialized_contains_any_ci",
 })
 
 #: Root aliases `CanonicalTelemetryEvent.to_dict()` adds for backward
@@ -93,21 +93,56 @@ DECLARATION_DEBT: frozenset[str] = frozenset({
     # content / behaviour lanes — next batches
     "DET-EX-001", "DET-IA-002", "DET-DE-001", "DET-DE-003", "DET-LM-002",
     "DET-IM-004", "DET-EM-002", "DET-CC-002",
-    # cloud / identity event lanes — next batches
-    "DET-PS-004", "DET-PE-002", "DET-PE-003", "DET-CR-004", "DET-CR-005",
-    "DET-CR-006", "DET-EM-001",
-    # blocked by a telemetry gap, not by authoring effort: their primary
-    # field is not in the canonical evidence model at all
-    "DET-PS-001",     # registry.path / TargetObject — no registry entity
+    # no source exists for these at all — see TELEMETRY_GAPS
+    "DET-PS-004",     # M365 / Graph audit telemetry: no DSM
+    "DET-PE-002",     # AD CS certificate telemetry (4886/4887): no DSM
+    # D18 removed DET-PS-001 from this ledger by adding the registry entity
+    # it needed, and D19 removed the five cloud/identity rules the same way
+    # — each gap was closed with evidence, never with a weaker declaration.
 })
 
 #: Fields a rule evaluates that the canonical model cannot produce today.
 #: Declared per rule so the gap is visible instead of looking like an
 #: unfinished declaration.
 TELEMETRY_GAPS: Dict[str, List[str]] = {
-    "DET-PS-001": ["registry.path", "registry.value"],
     "DET-CR-001": ["process.target", "TargetImage"],
     "DET-LM-001": ["service_name", "registry.service_name"],
+    # D19 · these two need a SOURCE that does not exist yet, not a field.
+    # Declaring them would produce a citation pointing at nothing.
+    "DET-PS-004": ["cloud.rule_name (M365 / Graph audit telemetry — no DSM)"],
+    "DET-PE-002": ["certificate.template", "certificate.san",
+                   "(AD CS 4886/4887 telemetry — no DSM)"],
+}
+
+#: D18 · gaps CLOSED by adding real evidence rather than by lowering the
+#: bar. Kept visible so the history of a rule's citability is auditable.
+CLOSED_TELEMETRY_GAPS: Dict[str, str] = {
+    "DET-PE-003": (
+        "cloud.policy never existed; D19 added CloudContext.request_"
+        "parameters (verbatim CloudTrail requestParameters) and the rule now "
+        "declares it, searched as text by serialized_contains_any_ci."),
+    "DET-CR-004": (
+        "the rule read `event_id`, which on canonical evidence is NivX's own "
+        "evidence id, and looked for RC4 in ticket_options. D19 pointed it "
+        "at source_event_id and authentication.ticket_encryption, which is "
+        "where the Windows DSM has always put them."),
+    "DET-CR-005": (
+        "preauth_type existed in the 4768 record and nowhere in the model; "
+        "D19 added AuthEntity.preauth_type from Windows PreAuthType."),
+    "DET-CR-006": (
+        "the rule read network.destination_ip, a spelling that exists in no "
+        "evidence model; the canonical field is network.dest_ip."),
+    "DET-EM-001": (
+        "principal_kind existed nowhere; D19 added CloudContext."
+        "principal_type carrying the provider's own vocabulary verbatim "
+        "(AWSService / AssumedRole / IAMUser)."),
+    "DET-PS-001": (
+        "registry.path had no canonical home until D18 added the registry "
+        "entity (Sysmon 12/13/14, Windows Security 4657). The rule now "
+        "declares registry.key_path / registry.target_object / "
+        "registry.action, and its command-line half moved to DET-PS-005 so "
+        "observed registry evidence and command-line inference stay "
+        "separate."),
 }
 
 #: D17 · defects the contract gate FOUND and deliberately did NOT fix,
@@ -216,6 +251,7 @@ def report(rules: List[DetectionRuleContent]) -> Dict[str, Any]:
         "contract_problems": problems,
         "declared_but_unexplained": unexplained,
         "telemetry_gaps": TELEMETRY_GAPS,
+        "closed_telemetry_gaps": sorted(CLOSED_TELEMETRY_GAPS),
         "known_fixture_defects": sorted(KNOWN_FIXTURE_DEFECTS),
         "honesty_note": (
             "a rule on the declaration debt ledger produces NO citation and "

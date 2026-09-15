@@ -78,8 +78,11 @@ def test_a_declared_rule_still_listed_as_debt_fails_the_gate():
 def test_declaration_coverage_moved_and_is_reported_honestly():
     report = dc.report(RUNTIME_DETECTION_RULES)
     declared = len(report["declared"])
-    assert declared == 20, report["declaration_coverage"]
-    assert len(report["undeclared"]) == 16
+    # 20 after D17 batch 1; 22 after D18 (DET-PS-001 declared on registry
+    # evidence + DET-PS-005); 27 after D19 declared the five cloud/identity
+    # rules whose fields D19 first had to make real.
+    assert declared == 27, report["declaration_coverage"]
+    assert len(report["undeclared"]) == 10
     assert set(report["declared"]) >= set(BATCH)
 
 
@@ -249,12 +252,21 @@ def test_a_rule_off_the_batch_is_untouched():
 
 # ══ 6 · telemetry gaps are named, not disguised ═══════════════════
 def test_a_rule_blocked_by_a_telemetry_gap_says_so_instead_of_pretending():
-    assert "DET-PS-001" in dc.DECLARATION_DEBT
-    assert dc.TELEMETRY_GAPS["DET-PS-001"] == ["registry.path",
-                                               "registry.value"]
-    # and the fields it needs really are absent from the model
-    for field in dc.TELEMETRY_GAPS["DET-PS-001"]:
-        assert field not in dc.CANONICAL_FIELDS
+    # the gaps that remain name fields the model genuinely cannot produce
+    assert dc.TELEMETRY_GAPS
+    for rule_id, gaps in dc.TELEMETRY_GAPS.items():
+        for field in gaps:
+            assert field not in dc.CANONICAL_FIELDS, (rule_id, field)
+
+
+def test_a_gap_closed_by_new_evidence_is_recorded_as_closed():
+    # D18 closed DET-PS-001 by ADDING registry evidence, not by weakening
+    # the declaration. The history stays auditable.
+    assert "DET-PS-001" in dc.CLOSED_TELEMETRY_GAPS
+    assert "DET-PS-001" not in dc.DECLARATION_DEBT
+    assert "DET-PS-001" not in dc.TELEMETRY_GAPS
+    assert RULES["DET-PS-001"].conditions
+    assert "registry.key_path" in dc.CANONICAL_FIELDS
 
 
 def test_every_declared_gap_names_a_field_the_model_cannot_produce():

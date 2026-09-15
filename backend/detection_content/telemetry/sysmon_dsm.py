@@ -33,7 +33,9 @@ from .models import (
     NetworkEntity,
     ProcessEntity,
     ProvenanceEnvelope,
+    RegistryEntity,
 )
+from . import registry_evidence
 
 
 class SysmonParserError(Exception):
@@ -110,6 +112,11 @@ class SysmonParser:
                 "key": _first(ev, "registry_key", "TargetObject"),
                 "value": _first(ev, "registry_value"),
                 "data": _first(ev, "registry_data", "Details"),
+                # D18 · Sysmon states the operation in EventType, and names
+                # the rename target in NewName. Both are carried through so
+                # the normalizer never has to guess the operation.
+                "event_type": _first(ev, "registry_event_type", "EventType"),
+                "new_name": _first(ev, "registry_new_name", "NewName"),
             },
             "channel": ev.get("channel") or "",
             "raw": ev,
@@ -176,6 +183,30 @@ class SysmonNormalizer:
                 dns_query=n.get("dns_query", ""),
             )
 
+        # ── D18 · registry evidence, only where the registry was OBSERVED ──
+        registry = RegistryEntity()
+        registry_mapping: Dict[str, Any] | None = None
+        r = parsed.get("registry") or {}
+        if sysmon_eid in (12, 13, 14) and r.get("key"):
+            registry, registry_mapping = registry_evidence.from_sysmon(
+                event_id=sysmon_eid,
+                target_object=str(r.get("key") or ""),
+                details=str(r.get("data") or ""),
+                event_type=str(r.get("event_type") or ""),
+                new_name=str(r.get("new_name") or ""))
+            registry_mapping["associations"] = registry_evidence.associations(
+                device=parsed["computer"], device_source="sysmon:Computer",
+                process_path=p.get("image", ""),
+                process_source="sysmon:EventData.Image",
+                process_id=p.get("pid") or None,
+                username=parsed["user"] or "",
+                identity_source="sysmon:EventData.User")
+            registry_mapping["raw_reference"] = {
+                "sysmon_event_id": sysmon_eid,
+                "channel": parsed.get("channel", ""),
+                "target_object": str(r.get("key") or ""),
+            }
+
         prov = ProvenanceEnvelope(
             trace_id=trace_id,
             integration_id=integration_id,
@@ -222,12 +253,15 @@ class SysmonNormalizer:
             identity=identity or IdentityEntity(),
             process=proc or ProcessEntity(),
             network=net or NetworkEntity(),
+            registry=registry,
             raw_ref={"sysmon_event_id": sysmon_eid, "channel": parsed.get("channel", "")},
             provenance=prov,
             additional_fields={
                 "channel": parsed.get("channel", ""),
                 "sysmon_file": parsed["file"],
                 "sysmon_registry": parsed["registry"],
+                **({"registry_mapping": registry_mapping}
+                   if registry_mapping else {}),
             },
         )
         out = canonical.to_dict()

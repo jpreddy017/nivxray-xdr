@@ -67,6 +67,25 @@ class FileEntity:
 
 
 @dataclass
+class RegistryEntity:
+    """D18 · OBSERVED registry activity.
+
+    Populated only from telemetry that actually watched the registry
+    (Sysmon 12/13/14, Windows Security 4657). A command line that merely
+    mentions a registry path never fills this in — that is an inference
+    about a process, and it stays on the process.
+    """
+    hive: str = ""
+    key_path: str = ""
+    value_name: str = ""
+    value_data: str = ""
+    value_type: str = ""
+    action: str = ""      # create_key|delete_key|rename_key|set_value|…
+    target_object: str = ""   # the source's verbatim object string
+    new_key_path: str = ""    # rename target, when the source named one
+
+
+@dataclass
 class AuthEntity:
     auth_type: str = ""  # kerberos, ntlm, oauth, saml, ssh_key
     logon_type: Optional[int] = None
@@ -75,6 +94,10 @@ class AuthEntity:
     failure_reason: str = ""
     ticket_options: str = ""
     ticket_encryption: str = ""
+    #: D19 · Kerberos pre-authentication type as the source stated it
+    #: (Windows 4768 `PreAuthType`). "0" means no pre-auth was used, which
+    #: is what AS-REP roasting needs — so the field must exist to be cited.
+    preauth_type: str = ""
 
 
 @dataclass
@@ -85,6 +108,14 @@ class CloudContext:
     service: str = ""
     action: str = ""
     principal_arn: str = ""
+    #: D19 · the principal TYPE as the provider stated it (CloudTrail
+    #: `userIdentity.type`: IAMUser, AssumedRole, AWSService, Root…).
+    #: Verbatim — provider vocabularies are not translated into each other.
+    principal_type: str = ""
+    #: D19 · the request parameters the provider recorded, verbatim. A cloud
+    #: authorization decision lives in these (policy documents, inbox-rule
+    #: definitions), so a rule that evaluates them needs a field to cite.
+    request_parameters: Dict[str, Any] = field(default_factory=dict)
     resource_ids: List[str] = field(default_factory=list)
     user_agent: str = ""
 
@@ -116,6 +147,7 @@ class CanonicalTelemetryEvent:
     process: ProcessEntity = field(default_factory=ProcessEntity)
     network: NetworkEntity = field(default_factory=NetworkEntity)
     file: FileEntity = field(default_factory=FileEntity)
+    registry: RegistryEntity = field(default_factory=RegistryEntity)
     authentication: AuthEntity = field(default_factory=AuthEntity)
     cloud: CloudContext = field(default_factory=CloudContext)
     raw_ref: Dict[str, Any] = field(default_factory=dict)

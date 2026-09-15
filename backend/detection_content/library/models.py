@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import json
 from typing import Any, Callable, Dict, List, Optional
 
 
@@ -123,6 +124,21 @@ def apply_operator(operator: str, observed: Any, expected: Any) -> bool:
             return False
         base = observed.replace("\\", "/").rsplit("/", 1)[-1].lower()
         return base in {str(e).lower() for e in expected}
+    # D19 · a cloud authorization decision lives inside a structured
+    # request-parameter document. It is searched as TEXT, and the
+    # declaration says so rather than pretending to understand the schema.
+    if operator == "serialized_contains_any_ci":
+        if observed in (None, "", {}, []):
+            return False
+        try:
+            blob = json.dumps(observed, default=str).lower()
+        except (TypeError, ValueError):
+            blob = str(observed).lower()
+        # JSON escaping is an artefact of serialising, not part of the
+        # policy text: `"Action":"*"` must not become unmatchable as
+        # `\"Action\":\"*\"` simply because it arrived nested as a string.
+        blob = blob.replace('\\"', '"').replace("\\\\", "\\")
+        return any(str(e).lower() in blob for e in expected)
     if operator == "basename_contains_any_ci":
         if not isinstance(observed, str):
             return False

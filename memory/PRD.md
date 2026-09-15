@@ -16032,3 +16032,64 @@ deliberately untouched.
 4. `DET-CR-002` predicate coverage — detection-content gate, not a
    declaration gate.
 5. Real auditd-host acceptance with live hosts (P2).
+
+
+# SESSION 2026-09-15 (cont.) · D18 → D19 (PREVIEW ONLY, no deploy, no merge)
+
+## D18 — Registry Evidence · **PASS**
+Report: `memory/D18_REGISTRY_EVIDENCE_REPORT.md`
+
+* `telemetry/models.py` · **`RegistryEntity`** on `CanonicalTelemetryEvent`
+  (hive, key_path, value_name, value_data, value_type, action,
+  target_object, new_key_path)
+* `telemetry/registry_evidence.py` (NEW) · Sysmon 12/13/14 + Windows **4657**
+  mapping with per-field provenance (OBSERVED / DERIVED / NOT_OBSERVED),
+  hive resolution and actor/device/identity association
+* Windows Security DSM now supports **4657** (`registry_value_modified`)
+* **The line held:** a command line that mentions the registry is NOT
+  registry telemetry. DET-PS-001 reads observed registry fields only; the
+  command-line half became **DET-PS-005**, declared on
+  `process.command_line` and described as an inference. Same technique
+  (T1547.001), zero shared declared fields, coverage unchanged
+* DET-PS-001 removed from the declaration-debt ledger; `CLOSED_TELEMETRY_
+  GAPS` records how the gap was closed
+* benign registry activity stays benign (themes, Explorer settings,
+  uninstall entries, service config, a Run key READ with no operation)
+* Sysmon 13 and Windows 4657 describing the same write converge on the same
+  `registry.target_object` from independent field layouts
+* 54 pytest + 41/41 live HTTP checks; coverage 20/36 -> 22/37
+
+## D19 — Declaration Batch Two · cloud & identity lanes · **PASS**
+Report: `memory/D19_CLOUD_IDENTITY_DECLARATIONS_REPORT.md`
+
+* The gate found these five rules read fields NivX has NEVER produced
+  (`cloud.policy`, `preauth_type`, `principal_kind`,
+  `network.destination_ip`, and `event_id` for a Windows EventID) — on real
+  telemetry they could not fire at all
+* Evidence fixed FIRST, smallest genuine prerequisites only:
+  `AuthEntity.preauth_type` (Windows 4768 PreAuthType),
+  `CloudContext.principal_type` + `CloudContext.request_parameters`
+  (CloudTrail, verbatim), operator `serialized_contains_any_ci`
+* Predicates pointed at the canonical fields with every raw-shape key kept;
+  then DET-PE-003, DET-CR-004, DET-CR-005, DET-CR-006, DET-EM-001 declared
+* DET-PS-004 (no M365/Graph DSM) and DET-PE-002 (no AD CS DSM) stay on the
+  ledger as SOURCE gaps — nothing was invented to make them look supported
+* 35 pytest + 26/26 live HTTP checks; coverage 22/37 -> **27/37**
+
+## Regression status (unchanged)
+649 passed across 26 files; the same 12 pre-existing failures
+(`test_xdr_content_pipeline` 8, `test_xdr_detection_consolidation` 4),
+verified identical on a stashed clean tree. Work Mode control-plane suites
+untouched.
+
+## Next (owner-defined order)
+1. **D20 — Live auditd host acceptance.** BLOCKED ON ENVIRONMENT: this
+   preview pod has no auditd (`/var/log/audit` absent, no `auditctl`), so a
+   genuine host must be supplied or the gate scoped to a host the owner
+   controls. No synthetic substitute will be presented as a live host.
+2. D21 — Routing Visibility (operator view over
+   `xdr_ingest_routing_blocks`).
+3. D17/D19 batch 3 — the content/behaviour lane (8 remaining rules).
+4. Sources that do not exist yet: M365/Graph audit DSM (unblocks
+   DET-PS-004), AD CS 4886/4887 DSM (unblocks DET-PE-002).
+5. `DET-CR-002` predicate coverage — detection-content gate.

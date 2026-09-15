@@ -144,6 +144,10 @@ class AWSCloudTrailNormalizer:
             service=event_source.replace(".amazonaws.com", ""),
             action=event_name,
             principal_arn=user_arn,
+            principal_type=ident_type,
+            request_parameters=(data.get("requestParameters")
+                                if isinstance(data.get("requestParameters"),
+                                              dict) else {}),
             resource_ids=resource_ids,
             user_agent=str(data.get("userAgent") or ""),
         )

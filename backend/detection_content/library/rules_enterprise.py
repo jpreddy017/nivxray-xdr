@@ -40,7 +40,8 @@ def _get_str(ev: Dict[str, Any], *keys: str) -> str:
 # ════════════════════════════════════════════════════════════════════════════
 
 def _pred_encoded_powershell(ev: Dict[str, Any]) -> bool:
-    cmd = _get_str(ev, "command_line", "process.command_line", "CommandLine").lower()
+    cmd = _get_str(ev, "process.command_line", "command_line",
+                   "CommandLine").lower()
     proc = _get_str(ev, "image", "process.name", "Image").lower()
     if "powershell" in proc or "pwsh" in proc or "powershell" in cmd:
         return any(flag in cmd for flag in ("-enc ", "-encodedcommand", "-e ", " -enc"))
@@ -99,10 +100,37 @@ def _pred_linux_pipe_to_bash(ev: Dict[str, Any]) -> bool:
 # ════════════════════════════════════════════════════════════════════════════
 
 def _pred_registry_run_key(ev: Dict[str, Any]) -> bool:
-    path = _get_str(ev, "registry.path", "file.path", "TargetObject", "command_line").lower()
+    # D18 · OBSERVED registry telemetry only. The command-line source was
+    # removed from this rule on purpose: `reg add …\Run` is an observed
+    # PROCESS with an inferred intent, and it now has its own rule
+    # (DET-PS-005) so an investigation can tell the two apart.
+    path = _get_str(ev, "registry.key_path", "registry.target_object",
+                    "TargetObject", "registry_key", "ObjectName").lower()
+    if not path:
+        return False
     if "currentversion\\run" in path or "currentversion\\runonce" in path:
-        return any(act in _get_str(ev, "action", "event_kind").lower() for act in ("create", "set", "write", "modify", "reg.exe")) or "reg add" in path
+        action = _get_str(ev, "registry.action", "action", "EventType",
+                          "event_kind", "OperationType").lower()
+        return any(act in action for act in
+                   ("set_value", "create_key", "create_value", "rename_key",
+                    "create", "set", "write", "modif", "rename"))
     return False
+
+
+def _pred_registry_run_key_from_command_line(ev: Dict[str, Any]) -> bool:
+    # D18 · the INFERENCE half. This fires on an observed process whose
+    # command line asks for Run-key persistence. It is NOT registry
+    # telemetry, it cites `process.command_line`, and it says so.
+    cmd = _get_str(ev, "process.command_line", "command_line",
+                   "CommandLine").lower()
+    if not cmd:
+        return False
+    if "currentversion\\run" not in cmd and "currentversion\\runonce" \
+            not in cmd:
+        return False
+    return any(tool in cmd for tool in
+               ("reg add", "reg.exe add", "reg import", "set-itemproperty",
+                "new-itemproperty"))
 
 
 def _pred_scheduled_task_creation(ev: Dict[str, Any]) -> bool:
@@ -140,8 +168,12 @@ def _pred_adcs_esc1_abuse(ev: Dict[str, Any]) -> bool:
 
 
 def _pred_cloud_role_escalation(ev: Dict[str, Any]) -> bool:
+    # D19 · the policy document lives in the provider's recorded request
+    # parameters. Before D19 this rule read `cloud.policy`, which NivX never
+    # produced, so it could only ever fire on a hand-made dict.
     action = _get_str(ev, "cloud.action", "event_kind", "action")
-    policy = _get_str(ev, "cloud.policy", "parameters", "details").lower()
+    policy = _get_str(ev, "cloud.request_parameters", "cloud.policy",
+                      "parameters", "details").lower()
     if action in ("PutUserPolicy", "AttachUserPolicy", "PutRolePolicy", "AttachRolePolicy"):
         return '"*"' in policy or "administratoraccess" in policy or "iam:*" in policy
     return False
@@ -193,9 +225,18 @@ def _pred_ntds_dit_vss_extraction(ev: Dict[str, Any]) -> bool:
 
 
 def _pred_kerberoasting_spn(ev: Dict[str, Any]) -> bool:
-    event_id = _get_str(ev, "security.event_id", "event_id")
-    ticket_opt = _get_str(ev, "ticket_options", "parameters.ticket_options", "details").lower()
-    service_name = _get_str(ev, "service_name", "identity.service_name", "TargetUserName").lower()
+    # D19 · on canonical evidence the Windows EventID is `source_event_id`,
+    # the RC4 marker is in `authentication.ticket_encryption`, and the SPN is
+    # `authentication.service_name`. The raw-shape keys are kept so nothing
+    # that worked before stops working.
+    event_id = _get_str(ev, "source_event_id", "security.event_id",
+                        "event_id")
+    ticket_opt = (_get_str(ev, "authentication.ticket_encryption",
+                           "authentication.ticket_options", "ticket_options",
+                           "parameters.ticket_options", "details")).lower()
+    service_name = _get_str(ev, "authentication.service_name", "service_name",
+                            "identity.service_name",
+                            "TargetUserName").lower()
     if event_id == "4769":
         # RC4 request (0x17) against non-machine SPN
         return ("0x17" in ticket_opt or "ticket_encryption_type: 0x17" in ticket_opt) and not service_name.endswith("$")
@@ -203,15 +244,20 @@ def _pred_kerberoasting_spn(ev: Dict[str, Any]) -> bool:
 
 
 def _pred_asrep_roasting(ev: Dict[str, Any]) -> bool:
-    event_id = _get_str(ev, "security.event_id", "event_id")
-    preauth = _get_str(ev, "preauth_type", "parameters.preauth_type", "details")
+    event_id = _get_str(ev, "source_event_id", "security.event_id",
+                        "event_id")
+    preauth = _get_str(ev, "authentication.preauth_type", "preauth_type",
+                       "parameters.preauth_type", "details")
     if event_id == "4768":
         return preauth in ("0", "none", "no_preauth")
     return False
 
 
 def _pred_cloud_imds_theft(ev: Dict[str, Any]) -> bool:
-    dst_ip = _get_str(ev, "dst_ip", "network.destination_ip", "DestinationIp")
+    # D19 · the canonical field is `network.dest_ip`; the old
+    # `network.destination_ip` spelling exists nowhere in the evidence model.
+    dst_ip = _get_str(ev, "network.dest_ip", "dst_ip",
+                      "network.destination_ip", "DestinationIp")
     url = _get_str(ev, "url", "network.url", "http.url").lower()
     cmd = _get_str(ev, "command_line", "process.command_line", "CommandLine").lower()
     if dst_ip == "169.254.169.254" or "169.254.169.254" in url or "169.254.169.254" in cmd:
@@ -302,9 +348,14 @@ def _pred_high_velocity_mass_encryption(ev: Dict[str, Any]) -> bool:
 # ════════════════════════════════════════════════════════════════════════════
 
 def _pred_non_human_spn_abuse(ev: Dict[str, Any]) -> bool:
-    principal_kind = _get_str(ev, "principal_kind", "identity.kind").lower()
+    # D19 · `cloud.principal_type` carries the provider's OWN vocabulary
+    # (CloudTrail: AWSService / AssumedRole / IAMUser). Provider terms are
+    # matched verbatim rather than translated into each other.
+    principal_kind = _get_str(ev, "cloud.principal_type", "principal_kind",
+                              "identity.kind").lower()
     action = _get_str(ev, "cloud.action", "action").lower()
-    if principal_kind in ("service_principal", "workload_identity", "managed_identity"):
+    if principal_kind in ("service_principal", "workload_identity",
+                          "managed_identity", "awsservice", "assumedrole"):
         # Service principal altering credentials or adding credentials to other apps
         return any(a in action for a in ("addkey", "addpassword", "updatecredentials", "createaccesskey"))
     return False
@@ -1258,3 +1309,309 @@ def _apply_declaration_batch() -> None:
 
 
 _apply_declaration_batch()
+
+
+# ── D18 · registry evidence · declarations + the inference counterpart ─────
+# DET-PS-001 could not be declared before D18: its primary field simply did
+# not exist in the canonical evidence model. Now that OBSERVED registry
+# telemetry is canonical (Sysmon 12/13/14, Windows Security 4657), the rule
+# declares the registry fields it actually evaluates.
+#
+# The command-line half moved OUT of DET-PS-001 into DET-PS-005. Coverage is
+# unchanged — `reg add …\Run` still fires a rule — but the two now cite
+# different evidence, because "the registry was written" and "a process
+# asked for the registry to be written" are different claims.
+
+_REG_RUN_KEYS = ["currentversion\\run", "currentversion\\runonce"]
+_REG_WRITE_ACTIONS = ["set_value", "create_key", "create_value",
+                      "rename_key", "create", "set", "write", "modif",
+                      "rename"]
+
+ENTERPRISE_DETECTION_RULES.append(DetectionRuleContent(
+    rule_id="DET-PS-005",
+    name="Registry Run Key Persistence Requested via Command Line",
+    description=(
+        "Detects a process asking for Run/RunOnce persistence on its command "
+        "line (reg.exe, reg import, Set/New-ItemProperty). This is an "
+        "INFERENCE from observed process telemetry — it is not evidence that "
+        "the registry was actually written. When registry auditing or Sysmon "
+        "13 is present, DET-PS-001 carries the observed registry evidence."),
+    tactic=Tactic.PERSISTENCE,
+    technique_id="T1547.001",
+    technique_name="Registry Run Keys / Startup Folder",
+    platform=Platform.WINDOWS,
+    severity=Severity.MEDIUM,
+    confidence="medium",
+    lane="endpoint",
+    predicate=_pred_registry_run_key_from_command_line,
+    telemetry_requirements=["process_creation", "command_line"],
+    mitre_attack=["T1547.001"],
+    conditions=[
+        RuleCondition("cmd.run_key", "process.command_line",
+                      "contains_any_ci", _REG_RUN_KEYS,
+                      note="a Run or RunOnce key is named on the command "
+                           "line"),
+        RuleCondition("cmd.write_tool", "process.command_line",
+                      "contains_any_ci",
+                      ["reg add", "reg.exe add", "reg import",
+                       "set-itemproperty", "new-itemproperty"],
+                      note="with a tool that writes the registry"),
+    ],
+    fixtures=[
+        DetectionFixture("positive", _canon(
+            "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run "
+            "/v Updater /d C:\\temp\\evil.exe /f",
+            "C:\\Windows\\System32\\reg.exe"), True),
+        DetectionFixture("negative_query_only", _canon(
+            "reg query HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "C:\\Windows\\System32\\reg.exe"), False),
+        DetectionFixture("negative_other_key", _canon(
+            "reg add HKLM\\Software\\Contoso\\Settings /v Theme /d dark /f",
+            "C:\\Windows\\System32\\reg.exe"), False),
+    ],
+))
+
+_D18_REGISTRY_DECLARATIONS: Dict[str, List[RuleCondition]] = {
+    "DET-PS-001": [
+        RuleCondition("registry.run_key", "registry.key_path",
+                      "contains_any_ci", _REG_RUN_KEYS,
+                      note="the OBSERVED registry key is Run or RunOnce"),
+        RuleCondition("registry.target_object", "registry.target_object",
+                      "contains_any_ci", _REG_RUN_KEYS,
+                      note="or the source's verbatim object string names it"),
+        RuleCondition("registry.write_action", "registry.action",
+                      "contains_any_ci", _REG_WRITE_ACTIONS,
+                      note="and the observed operation writes the key or "
+                           "value"),
+    ],
+}
+
+#: D18 · canonical registry fixtures. The pre-D18 Sysmon-shaped fixtures are
+#: KEPT, so the raw-shape behaviour stays proved and unchanged.
+_D18_REGISTRY_FIXTURES: Dict[str, List[DetectionFixture]] = {
+    "DET-PS-001": [
+        DetectionFixture("positive_canonical", {
+            "event_type": "registry_event",
+            "registry": {
+                "hive": "HKLM",
+                "key_path": "HKLM\\Software\\Microsoft\\Windows\\"
+                            "CurrentVersion\\Run",
+                "value_name": "Updater",
+                "value_data": "C:\\temp\\evil.exe",
+                "action": "set_value",
+                "target_object": "HKLM\\Software\\Microsoft\\Windows\\"
+                                 "CurrentVersion\\Run\\Updater"}}, True),
+        DetectionFixture("negative_canonical_benign_key", {
+            "event_type": "registry_event",
+            "registry": {
+                "hive": "HKCU",
+                "key_path": "HKCU\\Software\\Microsoft\\Windows\\"
+                            "CurrentVersion\\Themes",
+                "value_name": "CurrentTheme",
+                "action": "set_value",
+                "target_object": "HKCU\\Software\\Microsoft\\Windows\\"
+                                 "CurrentVersion\\Themes\\CurrentTheme"}},
+            False),
+        DetectionFixture("negative_canonical_read_only", {
+            "event_type": "registry_event",
+            "registry": {
+                "key_path": "HKLM\\Software\\Microsoft\\Windows\\"
+                            "CurrentVersion\\Run",
+                "action": "",
+                "target_object": "HKLM\\Software\\Microsoft\\Windows\\"
+                                 "CurrentVersion\\Run"}}, False),
+        DetectionFixture("negative_command_line_only", {
+            # the honesty case: a command line that MENTIONS the Run key is
+            # not observed registry evidence, so the observed-registry rule
+            # must stay silent on it
+            "event_type": "process_execution",
+            "process": {"command_line":
+                        "reg add HKCU\\Software\\Microsoft\\Windows\\"
+                        "CurrentVersion\\Run /v x /d y /f"},
+            "command_line": "reg add HKCU\\Software\\Microsoft\\Windows\\"
+                            "CurrentVersion\\Run /v x /d y /f"}, False),
+    ],
+}
+
+
+def _apply_registry_declaration_batch() -> None:
+    for rule in ENTERPRISE_DETECTION_RULES:
+        conditions = _D18_REGISTRY_DECLARATIONS.get(rule.rule_id)
+        if not conditions:
+            continue
+        rule.conditions = list(conditions)
+        rule.fixtures = list(rule.fixtures) + list(
+            _D18_REGISTRY_FIXTURES.get(rule.rule_id, []))
+        rule.rule_version = "2"
+
+
+_apply_registry_declaration_batch()
+
+
+# ── D19 · declaration batch 2 · cloud & identity event lanes ──────────────
+# The gate found what the ledger had been hiding: these rules were not merely
+# undeclared, they read fields NivX has never produced. `cloud.policy`,
+# `preauth_type`, `principal_kind` and `network.destination_ip` exist in no
+# evidence model, so on real telemetry the rules could not fire at all —
+# declaring them as-is would have produced citations pointing at nothing.
+#
+# D18's lesson applied again: fix the evidence first. The smallest genuine
+# prerequisites were added (AuthEntity.preauth_type from Windows 4768
+# PreAuthType; CloudContext.principal_type and request_parameters from
+# CloudTrail userIdentity.type / requestParameters), the predicates were
+# pointed at the canonical fields — raw-shape keys kept, so nothing that
+# worked before stops working — and only then were the rules declared.
+#
+# Two rules stay on the ledger because NivX has NO source for them:
+#   DET-PS-004  needs M365 / Graph audit telemetry — no DSM exists
+#   DET-PE-002  needs AD CS certificate telemetry (4886/4887) — no DSM
+# They are recorded as SOURCE gaps, not as unfinished authoring.
+
+_D19_BATCH_2: Dict[str, List[RuleCondition]] = {
+    "DET-PE-003": [
+        RuleCondition("cloud.iam_write_action", "cloud.action", "contains_any_ci",
+                      ["putuserpolicy", "attachuserpolicy", "putrolepolicy",
+                       "attachrolepolicy"],
+                      note="an IAM policy write recorded by the provider"),
+        RuleCondition("cloud.wildcard_policy", "cloud.request_parameters",
+                      "serialized_contains_any_ci",
+                      ["\"*\"", "administratoraccess", "iam:*"],
+                      note="whose recorded request parameters grant wildcard "
+                           "or administrator permissions"),
+    ],
+    "DET-CR-004": [
+        RuleCondition("kerberos.tgs_event", "source_event_id", "equals",
+                      "4769",
+                      note="a Kerberos service-ticket request (4769)"),
+        RuleCondition("kerberos.rc4_encryption",
+                      "authentication.ticket_encryption", "contains_ci",
+                      "0x17",
+                      note="issued with RC4-HMAC, the encryption "
+                           "kerberoasting needs"),
+        RuleCondition("kerberos.spn", "authentication.service_name",
+                      "exists", None,
+                      note="against the SPN named in the request (a machine "
+                           "account SPN ending in $ is excluded by the "
+                           "predicate)"),
+    ],
+    "DET-CR-005": [
+        RuleCondition("kerberos.as_event", "source_event_id", "equals",
+                      "4768",
+                      note="a Kerberos authentication-service request (4768)"),
+        RuleCondition("kerberos.no_preauth", "authentication.preauth_type",
+                      "contains_any_ci", ["0", "none", "no_preauth"],
+                      note="for an account with pre-authentication disabled, "
+                           "which is what AS-REP roasting requires"),
+    ],
+    "DET-CR-006": [
+        RuleCondition("imds.dest_ip", "network.dest_ip", "equals",
+                      "169.254.169.254",
+                      note="a connection to the instance metadata service"),
+        RuleCondition("imds.credential_path", "process.command_line",
+                      "contains_any_ci",
+                      ["iam/security-credentials", "169.254.169.254"],
+                      note="or a process asking it for credentials"),
+    ],
+    "DET-EM-001": [
+        RuleCondition("cloud.non_human_principal", "cloud.principal_type",
+                      "contains_any_ci",
+                      ["service_principal", "workload_identity",
+                       "managed_identity", "awsservice", "assumedrole"],
+                      note="the provider states the actor is a non-human "
+                           "principal"),
+        RuleCondition("cloud.credential_action", "cloud.action",
+                      "contains_any_ci",
+                      ["addkey", "addpassword", "updatecredentials",
+                       "createaccesskey"],
+                      note="and the recorded action adds or changes "
+                           "credentials"),
+    ],
+}
+
+_D19_BATCH_2_FIXTURES: Dict[str, List[DetectionFixture]] = {
+    "DET-PE-003": [
+        DetectionFixture("positive_canonical", {
+            "event_type": "aws_api_call",
+            "cloud": {"provider": "aws", "action": "PutUserPolicy",
+                      "principal_type": "IAMUser",
+                      "request_parameters": {
+                          "userName": "dev1",
+                          "policyDocument": '{"Statement":[{"Effect":'
+                                            '"Allow","Action":"*",'
+                                            '"Resource":"*"}]}'}}}, True),
+        DetectionFixture("negative_canonical", {
+            "event_type": "aws_api_call",
+            "cloud": {"provider": "aws", "action": "PutUserPolicy",
+                      "principal_type": "IAMUser",
+                      "request_parameters": {
+                          "userName": "dev1",
+                          "policyDocument": '{"Statement":[{"Effect":'
+                                            '"Allow","Action":'
+                                            '"s3:GetObject"}]}'}}}, False)],
+    "DET-CR-004": [
+        DetectionFixture("positive_canonical", {
+            "event_type": "kerberos_service_ticket_request",
+            "source_event_id": "4769",
+            "authentication": {"ticket_encryption": "0x17",
+                               "service_name": "MSSQLSvc/sql.corp"}}, True),
+        DetectionFixture("negative_canonical_machine_spn", {
+            "event_type": "kerberos_service_ticket_request",
+            "source_event_id": "4769",
+            "authentication": {"ticket_encryption": "0x17",
+                               "service_name": "DC01$"}}, False),
+        DetectionFixture("negative_canonical_aes", {
+            "event_type": "kerberos_service_ticket_request",
+            "source_event_id": "4769",
+            "authentication": {"ticket_encryption": "0x12",
+                               "service_name": "MSSQLSvc/sql.corp"}},
+            False)],
+    "DET-CR-005": [
+        DetectionFixture("positive_canonical", {
+            "event_type": "kerberos_tgt_request",
+            "source_event_id": "4768",
+            "authentication": {"preauth_type": "0"}}, True),
+        DetectionFixture("negative_canonical", {
+            "event_type": "kerberos_tgt_request",
+            "source_event_id": "4768",
+            "authentication": {"preauth_type": "2"}}, False)],
+    "DET-CR-006": [
+        DetectionFixture("positive_canonical", {
+            "event_type": "process_execution",
+            "network": {"dest_ip": "169.254.169.254"},
+            "process": {"command_line":
+                        "curl http://169.254.169.254/latest/meta-data/"
+                        "iam/security-credentials/role1"},
+            "command_line": "curl http://169.254.169.254/latest/meta-data/"
+                            "iam/security-credentials/role1"}, True),
+        DetectionFixture("negative_canonical", {
+            "event_type": "process_execution",
+            "network": {"dest_ip": "10.0.0.1"},
+            "process": {"command_line": "curl http://internal-portal.corp/"},
+            "command_line": "curl http://internal-portal.corp/"}, False)],
+    "DET-EM-001": [
+        DetectionFixture("positive_canonical", {
+            "event_type": "aws_api_call",
+            "cloud": {"provider": "aws", "action": "CreateAccessKey",
+                      "principal_type": "AWSService",
+                      "request_parameters": {"userName": "svc-deploy"}}},
+            True),
+        DetectionFixture("negative_canonical", {
+            "event_type": "aws_api_call",
+            "cloud": {"provider": "aws", "action": "GetSecretValue",
+                      "principal_type": "AWSService",
+                      "request_parameters": {}}}, False)],
+}
+
+
+def _apply_cloud_identity_batch() -> None:
+    for rule in ENTERPRISE_DETECTION_RULES:
+        conditions = _D19_BATCH_2.get(rule.rule_id)
+        if not conditions:
+            continue
+        rule.conditions = list(conditions)
+        rule.fixtures = list(rule.fixtures) + list(
+            _D19_BATCH_2_FIXTURES.get(rule.rule_id, []))
+        rule.rule_version = "2"
+
+
+_apply_cloud_identity_batch()
