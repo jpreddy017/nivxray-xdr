@@ -16082,14 +16082,38 @@ Report: `memory/D19_CLOUD_IDENTITY_DECLARATIONS_REPORT.md`
 verified identical on a stashed clean tree. Work Mode control-plane suites
 untouched.
 
+## D21 — Routing Visibility · read-only operator surface · **PASS**
+Report: `memory/D21_ROUTING_VISIBILITY_REPORT.md` (2026-06 session)
+
+* New GET-only router `/api/xdr/ingest/routing/{deliveries,summary,catalog}`
+  projects decisions already made: accepted from
+  `xdr_canonical_evidence.provenance.routing`, refused from
+  `xdr_ingest_routing_blocks.routing`. No new routing authority; no write
+  verb exists (405), limit capped at 200 (422 beyond).
+* New admin page `/xdr/admin/ingest-routing` — counts, six filters, last-N
+  table, per-row expansion (collector allowlist, authority, payload shape,
+  trace, verbatim reason, why a refusal has no evidence).
+* Tenant scope from the authenticated principal only; `X-Tenant-Id` ignored,
+  `?tenant_id=` honoured for cross-tenant roles only and explicitly reported
+  as ignored otherwise.
+* 15 pytest + **50/50 live HTTP checks** with two REAL tenants and two REAL
+  analyst logins: header spoof, query spoof and both together all return the
+  caller's own tenant; foreign collector id → 0 rows; foreign summary → own
+  counts.
+* Pre-existing failures unchanged (12 failed / 16 passed in the same two
+  files).
+
 ## Next (owner-defined order)
-1. **D20 — Live auditd host acceptance.** BLOCKED ON ENVIRONMENT: this
+1. **Real source onboarding — M365 / Entra ID audit** (recommended next
+   capability, not a plumbing gate): the only blocker for `DET-PS-004` and
+   the lane where real intrusions start.
+2. **D20 — Live auditd host acceptance.** STILL ENVIRONMENT_BLOCKED: this
    preview pod has no auditd (`/var/log/audit` absent, no `auditctl`), so a
-   genuine host must be supplied or the gate scoped to a host the owner
-   controls. No synthetic substitute will be presented as a live host.
-2. D21 — Routing Visibility (operator view over
-   `xdr_ingest_routing_blocks`).
+   genuine host must be supplied. No synthetic substitute will be presented
+   as a live host.
 3. D17/D19 batch 3 — the content/behaviour lane (8 remaining rules).
-4. Sources that do not exist yet: M365/Graph audit DSM (unblocks
-   DET-PS-004), AD CS 4886/4887 DSM (unblocks DET-PE-002).
+4. AD CS 4886/4887 DSM (unblocks DET-PE-002).
 5. `DET-CR-002` predicate coverage — detection-content gate.
+6. Consolidated acceptance review of the whole D11→D21 chain BEFORE any
+   production promotion (owner-stated precondition; no promotion planned).
+

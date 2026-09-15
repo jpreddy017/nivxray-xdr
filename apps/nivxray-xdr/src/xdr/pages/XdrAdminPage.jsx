@@ -38,6 +38,7 @@ import SecretsBody from "@/xdr/admin/SecretsBody";
 import ContentPackLolbasBody from "@/xdr/admin/ContentPackLolbasBody";
 import DataSourcesBody       from "@/xdr/admin/DataSourcesBody";
 import CollectorsBody        from "@/xdr/admin/CollectorsBody";
+import IngestRoutingBody     from "@/xdr/admin/IngestRoutingBody";
 import DetectionRegistryBody from "@/xdr/admin/DetectionRegistryBody";
 import CorrelationRulesBody  from "@/xdr/admin/CorrelationRulesBody";
 import PlatformOverviewBody  from "@/xdr/admin/PlatformOverviewBody";
@@ -209,6 +210,7 @@ function AdminBody({ section }) {
          || section.kind === "webhooks"
          || section.kind === "data_sources_native"
          || section.kind === "collectors_native"
+         || section.kind === "ingest_routing"
          || section.kind === "detection_registry"
          || section.kind === "correlation_rules"
          || section.kind === "response_strategies") {
@@ -367,6 +369,8 @@ function AdminBody({ section }) {
               ? <DataSourcesBody />
               : section.kind === "collectors_native"
               ? <CollectorsBody />
+              : section.kind === "ingest_routing"
+              ? <IngestRoutingBody refreshNonce={refreshNonce} />
               : section.kind === "detection_registry"
               ? <DetectionRegistryBody />
               : section.kind === "correlation_rules"
