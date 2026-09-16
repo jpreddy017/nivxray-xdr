@@ -16765,3 +16765,68 @@ NOT created: collector, forwarder.json, ingest.key, tenant config.
 `_COLLECTED_PRODUCTS` still {"linux"}. W1 = NOT CLOSED. Next owner action:
 replace the file, verify the new hash, repeat 2.2 static inspection, re-run
 2.3 -DryRun on the real laptop.
+
+## 2026-06 · W1 PHASE 2.3 REAL-WINDOWS DRYRUN PASS · LOGGING-FORMAT HOTFIX
+
+OWNER RESULT (genuine Windows 10 Pro 19045 / PowerShell 5.1.19041.6456):
+corrected artifact c969d5e0... downloaded from commit 300472ec..., verified
+15659 bytes / SHA256 match, static HTTPS/TLS inspection PASS, then
+`-DryRun` executed. PROVEN: 5.1 parse, 5.1 EXECUTION, genuine Sysmon
+EventLog read (5000 pending), real EID 11 extraction, envelope
+construction, top-level contract (tenant_id, collector_id, source_event_id,
+collection_method, source, connector_id, declared_source, parser_version,
+raw), verbatim raw evidence (EID 11 keys incl. ProcessGuid + TargetFilename
++ CreationUtcTime), 5-envelope dryrun JSON (7553 bytes).
+NOT ATTEMPTED (correctly): credential read, network transmission, bookmark
+advancement.
+  => REAL WINDOWS -> SYSMON -> REAL FORWARDER -> LOCAL ENVELOPE = PROVEN.
+
+DEFECT FOUND BY THE OWNER'S RUN: PowerShell `-f` binds TIGHTER than `+`, so
+`("A {0}" + "B" -f $x)` formats only the SECOND literal; arguments are
+swallowed and `{0}` prints verbatim. An AST sweep found the construct in
+THREE places, not the two visible ones:
+  line 231 GAP RECORDED: records {0}..{1}            (owner saw)
+  line 318 DRY RUN - {0} envelope(s) written to {1}  (owner saw)
+  line 368 sent={0} accepted={1} ... collector_state={7}  <- NEVER YET RUN
+The third is the receipt line for EVERY authenticated batch: without this
+fix the first real transmission would have logged eight literal
+placeholders instead of what the server accepted. The other 8 format
+expressions in the file were already correct.
+
+TWO SECOND-ORDER FINDINGS from the same run (diagnostics only; delivery,
+exactly-once and bookmark semantics untouched; flagged to the owner as
+revertible):
+  1. FALSE GAP on a first run: the test was `count >= MaxEvents AND firstId
+     > bookmark+1`; with bookmark 0 and a channel that had already rolled
+     (oldest record ~53k of 58k), records that were never available were
+     reported as "not delivered". Now, with no bookmark, it logs the honest
+     "earliest available record is N ... NOT counted as a gap".
+  2. `-DryRun` was writing gap.jsonl. The gap-file write is now guarded by
+     `-not $DryRun`; the warning still prints.
+
+NEW GATE: `scripts/windows/Test-ForwarderFormatStrings.ps1` - AST sweep for
+(a) `+` whose right operand is a format expression, (b) `-f` on a string
+with no {n}, (c) placeholder/argument count mismatch, then (d) RENDERS every
+format string with synthetic args and fails if any {n} survives. Negative
+control against the previous committed artifact reports exactly the 3
+defects; a test asserts the gate fails on a deliberately broken snippet.
+
+RESULTS: source/compatibility gate 24 passed (was 16) · contract test 24/24
+· regression 191 passed / 1 skipped.
+
+CORRECTED ARTIFACT: scripts/windows/NivXRay-SysmonForwarder.ps1
+  bytes 16214 | lines 416 | ASCII, no BOM, LF
+  SHA256 LF       71c5c5949c470b9ae918b34ad6916877b3da86d3b66a0c7f432731b75d135cd3
+  SHA256 CRLF     3798cc8556188976ea4a7da05437e941c80bc9e059e2830053134f0b937ea7e6
+  SHA256 CRLF+BOM 0f5010808c7f3af154e4102b28177925c566794b7f166e59e990260bda395f92
+  supersedes      c969d5e0... (correct parse, broken log rendering)
+Report: `memory/W1_PHASE2_3_LOGGING_FORMAT_HOTFIX.md`.
+
+Unchanged: HTTPS guard, TLS floor, no cert-validation callback, key ACL
+refusal, key never logged, tenant authority, declared-source routing, 7
+supported EIDs, verbatim EventData, _nivx* refusal, bookmark-after-
+accounting, refused.jsonl, receipt `data` unwrapping.
+No collector/credential/tenant config/forwarder.json/ingest.key created.
+`_COLLECTED_PRODUCTS` still {"linux"}. W1 = NOT CLOSED. Next: owner replaces
+the file, hash-checks, re-runs -DryRun expecting RENDERED values, then
+PHASE 3 (authenticated collector + one ACL'd key).

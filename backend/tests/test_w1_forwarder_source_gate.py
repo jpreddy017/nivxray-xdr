@@ -32,8 +32,9 @@ import pytest
 FORWARDER = "/app/scripts/windows/NivXRay-SysmonForwarder.ps1"
 PARSER = "/app/scripts/windows/Test-ForwarderParse.ps1"
 GENERATOR = "/app/scripts/windows/Test-ForwarderEnvelope.ps1"
+FORMAT_GATE = "/app/scripts/windows/Test-ForwarderFormatStrings.ps1"
 PWSH = "/opt/pwsh/pwsh"
-PS_FILES = [FORWARDER, PARSER, GENERATOR]
+PS_FILES = [FORWARDER, PARSER, GENERATOR, FORMAT_GATE]
 
 
 def _bytes(path):
@@ -114,11 +115,38 @@ def test_the_security_properties_are_still_in_the_source():
     # do not shadow a cmdlet name that exists on some hosts
     assert "function Write-Log" not in src
     assert "gap.jsonl" in src and "refused.jsonl" in src
+    # a first run with no bookmark must not report a false gap for records
+    # that had already rolled out of the channel
+    assert "if ($AfterRecordId -eq 0)" in src
+    assert "are NOT counted as a gap" in src
+    # and a dry run must not write diagnostics state
+    assert "if (-not $DryRun) {\n        New-Item -ItemType Directory " in src
     # the key must never reach a log line or an error message
     import re
     for line in src.splitlines():
         if "Write-ForwarderLog" in line or "throw" in line:
             assert not re.search(r"\$[kK]ey\b(?!Path)", line), line.strip()
+
+
+@pytest.mark.skipif(not os.path.exists(PWSH),
+                    reason="no PowerShell runtime available in this pod")
+@pytest.mark.parametrize("path", PS_FILES)
+def test_every_log_format_string_actually_renders(path):
+    """`-f` binds tighter than `+`.
+
+    `"records {0}..{1} " + "raise -MaxEvents" -f $a, $b` formats only the
+    SECOND literal, so the placeholders in the first are printed verbatim
+    and the arguments are swallowed. The owner's real Windows run printed
+    `GAP RECORDED: records {0}..{1}` for exactly this reason. The gate walks
+    the AST for that precedence pattern, for `-f` on a string with no
+    placeholder, for an argument-count mismatch, and finally renders every
+    format string with synthetic arguments to prove no `{n}` survives.
+    """
+    r = subprocess.run([PWSH, "-NoProfile", "-File", FORMAT_GATE,
+                        "-Path", path],
+                       capture_output=True, text=True, timeout=180)
+    assert r.returncode == 0, r.stdout[-1500:]
+    assert "FORMAT_OK" in r.stdout
 
 
 def _analyzer_available():
@@ -144,6 +172,27 @@ def test_psscriptanalyzer_reports_no_5_1_syntax_incompatibility(path):
     r = subprocess.run([PWSH, "-NoProfile", "-Command", cmd],
                        capture_output=True, text=True, timeout=240)
     assert "NO_FINDINGS" in r.stdout, r.stdout[-1500:]
+
+
+def test_the_format_gate_catches_the_defect_it_exists_for():
+    """A gate nobody has seen fail is not a gate."""
+    if not os.path.exists(PWSH):
+        pytest.skip("no PowerShell runtime available in this pod")
+    broken = ('Write-Host ("records {0}..{1} were not delivered - " +\n'
+              '            "raise the cap" -f $a, $b)\n')
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".ps1",
+                                     delete=False) as fh:
+        fh.write(broken)
+        path = fh.name
+    try:
+        r = subprocess.run([PWSH, "-NoProfile", "-File", FORMAT_GATE,
+                            "-Path", path],
+                           capture_output=True, text=True, timeout=180)
+        assert r.returncode == 1
+        assert "FORMAT_BINDS_TO_RIGHT_OPERAND_ONLY" in r.stdout
+    finally:
+        os.unlink(path)
 
 
 def test_powershell_5_1_pitfalls_are_avoided():

@@ -221,16 +221,31 @@ function Get-PendingEvents {
   $sorted = @($evts | Sort-Object { [int64]$_.RecordId })
   $firstId = [int64]$sorted[0].RecordId
   if ($sorted.Count -ge $MaxEvents -and $firstId -gt ($AfterRecordId + 1)) {
-    # only reachable on the newest-first fallback path
-    New-Item -ItemType Directory -Force $StateDir | Out-Null
-    Add-Content -Path (Join-Path $StateDir 'gap.jsonl') -Value (
-      @{ kind = 'BACKLOG_WINDOW_EXCEEDED'
-         skipped_from = ($AfterRecordId + 1); skipped_to = ($firstId - 1)
-         observed_at = (Get-Date).ToUniversalTime().ToString('o') } |
-      ConvertTo-Json -Compress)
-    Write-ForwarderLog WARN ("GAP RECORDED: records {0}..{1} were not delivered - " +
-                    "raise -MaxEvents or shorten -PollSeconds" -f
-                    ($AfterRecordId + 1), ($firstId - 1))
+    if ($AfterRecordId -eq 0) {
+      # FIRST RUN, no bookmark: records older than $firstId are not records
+      # this forwarder failed to deliver - they had already rolled out of
+      # the channel before it ever ran. Saying "not delivered" would be a
+      # false gap, so the earliest AVAILABLE record is stated instead.
+      Write-ForwarderLog INFO (
+        ("first run, no bookmark: the channel's earliest available record " +
+         "is {0} and the fetch window is {1}. Records before {0} were never " +
+         "available to this forwarder and are NOT counted as a gap.") -f
+        $firstId, $MaxEvents)
+    } else {
+      # a genuine hole: we had a bookmark and the records after it are gone
+      if (-not $DryRun) {
+        New-Item -ItemType Directory -Force $StateDir | Out-Null
+        Add-Content -Path (Join-Path $StateDir 'gap.jsonl') -Value (
+          @{ kind = 'BACKLOG_WINDOW_EXCEEDED'
+             skipped_from = ($AfterRecordId + 1); skipped_to = ($firstId - 1)
+             observed_at = (Get-Date).ToUniversalTime().ToString('o') } |
+          ConvertTo-Json -Compress)
+      }
+      Write-ForwarderLog WARN (
+        ("GAP RECORDED: records {0}..{1} were not delivered - raise " +
+         "-MaxEvents or shorten -PollSeconds") -f
+        ($AfterRecordId + 1), ($firstId - 1))
+    }
   }
   return $sorted
 }
@@ -315,9 +330,9 @@ function Invoke-ForwardCycle {
     $out = Join-Path $StateDir ('dryrun-{0}.json' -f
              (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ'))
     ($envs | ConvertTo-Json -Depth 8) | Set-Content -Encoding UTF8 $out
-    Write-ForwarderLog INFO ("DRY RUN - {0} envelope(s) written to {1}. Nothing was " +
-                    "sent, no key was read, the bookmark was not moved." -f
-                    $envs.Count, $out)
+    Write-ForwarderLog INFO (
+      ("DRY RUN - {0} envelope(s) written to {1}. Nothing was sent, no key " +
+       "was read, the bookmark was not moved.") -f $envs.Count, $out)
     $envs | ForEach-Object {
       $raw = $_.raw
       $algos = ''
@@ -365,17 +380,18 @@ function Invoke-ForwardCycle {
       }
     }
     Write-RefusedRows -Rows $refused
-    Write-ForwarderLog INFO ("sent={0} accepted={1} duplicates={2} resumed={3} " +
-                    "routing_blocked={4} reasoned={5} refused_recorded={6} " +
-                    "collector_state={7}" -f
-                    $envs.Count,
-                    (Get-Prop $receipt 'accepted' 0),
-                    (Get-Prop $receipt 'duplicates' 0),
-                    (Get-Prop $receipt 'resumed' 0),
-                    (Get-Prop $receipt 'routing_blocked' 0),
-                    (Get-Prop $receipt 'reasoned' 0),
-                    $refused.Count,
-                    (Get-Prop $receipt 'collector_state' 'UNKNOWN'))
+    Write-ForwarderLog INFO (
+      ("sent={0} accepted={1} duplicates={2} resumed={3} " +
+       "routing_blocked={4} reasoned={5} refused_recorded={6} " +
+       "collector_state={7}") -f
+      $envs.Count,
+      (Get-Prop $receipt 'accepted' 0),
+      (Get-Prop $receipt 'duplicates' 0),
+      (Get-Prop $receipt 'resumed' 0),
+      (Get-Prop $receipt 'routing_blocked' 0),
+      (Get-Prop $receipt 'reasoned' 0),
+      $refused.Count,
+      (Get-Prop $receipt 'collector_state' 'UNKNOWN'))
     # The bookmark advances only after the server accounted for this chunk.
     Set-Bookmark -RecordId ([int64]($chunk[-1].RecordId))
     $i += $chunk.Count
