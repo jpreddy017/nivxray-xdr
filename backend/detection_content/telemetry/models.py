@@ -35,6 +35,23 @@ class IdentityEntity:
 
 @dataclass
 class ProcessEntity:
+    """N2.1 · process evidence, with the identity the SOURCE gave us.
+
+    A PID is not a process: the OS reuses it within minutes. A process is
+    (where it ran, which PID, which lifetime) — which is why
+    `attribution_state` exists. It has exactly three honest values:
+
+      SOURCE_PROCESS_IDENTITY     the source stated an identity that is
+                                  unique for the process's lifetime
+                                  (Sysmon `ProcessGuid`, or a minted
+                                  `process_iid` = endpoint + pid + start)
+      PID_ONLY_NOT_AUTHORITATIVE  a PID with no lifetime evidence. Usable
+                                  as context, NEVER as attribution
+      NOT_OBSERVED                the owning process was not resolved
+
+    `attribution_reason` keeps WHY, so a downstream reader never has to
+    guess whether an absence is a collection gap or an absence of activity.
+    """
     name: str = ""
     pid: Optional[int] = None
     ppid: Optional[int] = None
@@ -43,6 +60,22 @@ class ProcessEntity:
     command_line: str = ""
     integrity_level: str = ""
     hashes: Dict[str, str] = field(default_factory=dict)
+    #: Source-minted process identity. `process_guid` is globally unique on
+    #: its own; `process_iid` is unique WITHIN its endpoint.
+    process_guid: str = ""
+    parent_process_guid: str = ""
+    process_iid: str = ""
+    start_time: str = ""
+    attribution_state: str = "NOT_OBSERVED"
+    attribution_reason: str = ""
+    field_provenance: Dict[str, str] = field(default_factory=dict)
+
+
+#: The three honest attribution states, in one place so no module invents
+#: a fourth.
+PROCESS_ATTRIBUTION_AUTHORITATIVE = "SOURCE_PROCESS_IDENTITY"
+PROCESS_ATTRIBUTION_PID_ONLY = "PID_ONLY_NOT_AUTHORITATIVE"
+PROCESS_ATTRIBUTION_NOT_OBSERVED = "NOT_OBSERVED"
 
 
 @dataclass

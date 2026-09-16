@@ -105,6 +105,11 @@ class NivXForgeSensorNormalizer:
             canonical["host"] = {**(canonical.get("host") or {}),
                                  "host_id": endpoint_id or None,
                                  "hostname": raw.get("hostname") or None}
+        # N2.1 · same binding rule on the XDR ingest path: the endpoint
+        # scope comes from the authenticated envelope, never from the
+        # event's shape.
+        from edr_plane.canonical_bridge import bind_process_identity
+        bind_process_identity(canonical, endpoint_id)
         extra = dict(canonical.get("additional_fields") or {})
         if endpoint_id:
             extra["endpoint_id"] = endpoint_id

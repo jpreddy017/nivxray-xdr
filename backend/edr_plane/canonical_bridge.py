@@ -27,6 +27,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from edr_plane.contracts.identity import ProcessIdentity
 from edr_plane.raw_events import Derivation, add_derivation, next_generation
 from services import event_time_basis
 from services import provenance_timestamps as pts
@@ -155,6 +156,29 @@ def parse(line: str) -> dict[str, Any]:
             "parent_name": ev.get("parent_image"),
             "parent_executable_path": ev.get("parent_image_path"),
         }
+        # N2.1 · the PROCESS lane already collects the start identity, so
+        # the same lifetime-bound identity is declared here and minted at
+        # binding — one identity model for process AND network evidence.
+        if ev.get("pid") and (ev.get("start_ticks") is not None
+                              or ev.get("start_time")):
+            canonical["process"].update({
+                "start_time": ev.get("start_time"),
+                "attribution_state": "ENDPOINT_SCOPE_PENDING",
+                "attribution_reason": (
+                    "the sensor read this process's start identity from "
+                    "/proc/<pid>/stat; the endpoint scope is applied at "
+                    "binding"),
+                "field_provenance": {
+                    "pid": "sensor:/proc/<pid>",
+                    "start_time": "sensor:/proc/<pid>/stat field 22"},
+            })
+        elif ev.get("pid"):
+            canonical["process"].update({
+                "attribution_state": "PID_ONLY_NOT_AUTHORITATIVE",
+                "attribution_reason": (
+                    "no process start identity accompanied this event; a "
+                    "PID is reused and is not a process identity"),
+            })
         canonical["identity"] = {"username": ev.get("user")}
         # The process START IDENTITY travels with the evidence. Without it
         # a consumer holds a pid, and a pid alone is not a process — it is
@@ -195,11 +219,91 @@ def parse(line: str) -> dict[str, Any]:
             "dest_port": ev.get("remote_port"),
             "direction": ev.get("direction"),
         }
-        # The owning PID, when the socket inode resolved. Absent is absent.
-        if ev.get("pid"):
-            canonical["process"] = {"pid": ev["pid"]}
+        # ── N2.1 · the owning process, and how well we know it ──────────
+        # The inode→PID resolution is real evidence. A PID by itself is
+        # not a process identity, so the START identity decides whether
+        # this connection can be ATTRIBUTED or only described.
+        pid = ev.get("pid")
+        start_ticks = ev.get("process_start_ticks")
+        start_time = ev.get("process_start_time")
+        if pid and start_ticks is not None:
+            canonical["process"] = {
+                "pid": pid,
+                "start_time": start_time,
+                # `process_iid` needs the endpoint scope, which this parser
+                # does not have. `bind_process_identity()` mints it the
+                # moment the authenticated endpoint is known.
+                "attribution_state": "ENDPOINT_SCOPE_PENDING",
+                "attribution_reason": (
+                    "the socket inode resolved to a PID and its start "
+                    "identity was read in the same collection pass; the "
+                    "endpoint scope is applied at binding"),
+                "field_provenance": {
+                    "pid": "sensor:/proc/net socket inode → pid",
+                    "start_time": "sensor:/proc/<pid>/stat field 22",
+                },
+            }
+            canonical["additional_fields"]["process_start_ticks"] = start_ticks
+            canonical["additional_fields"]["process_start_time"] = start_time
+        elif pid:
+            canonical["process"] = {
+                "pid": pid,
+                "attribution_state": "PID_ONLY_NOT_AUTHORITATIVE",
+                "attribution_reason": (
+                    "the owning PID resolved but its start identity did "
+                    "not (the process most likely exited between the inode "
+                    "map and the /proc read). A PID is reused, so this is "
+                    "context and must never be read as attribution"),
+                "field_provenance": {
+                    "pid": "sensor:/proc/net socket inode → pid"},
+            }
+        else:
+            canonical["process"] = {
+                "attribution_state": "NOT_OBSERVED",
+                "attribution_reason": (
+                    "the socket inode did not resolve to an owning process "
+                    "in this collection pass; which process held this "
+                    "socket was not observed, and no process is named"),
+            }
         canonical["additional_fields"]["tcp_state"] = ev.get("tcp_state")
 
+    return canonical
+
+
+def bind_process_identity(canonical: dict[str, Any],
+                          endpoint_id: Optional[str]) -> dict[str, Any]:
+    """Apply the ENDPOINT scope to a pending process identity.
+
+    A `process_iid` is unique only within its endpoint — two hosts hold the
+    same PID at the same instant every day. So the identity is minted here,
+    where the authenticated endpoint is known, and a process identity that
+    never gets an endpoint scope is downgraded rather than trusted.
+    """
+    proc = canonical.get("process")
+    if not isinstance(proc, dict):
+        return canonical
+    state = proc.get("attribution_state")
+    if state not in ("ENDPOINT_SCOPE_PENDING", None):
+        return canonical
+    if state is None:
+        return canonical
+    if not endpoint_id or proc.get("pid") is None:
+        proc["attribution_state"] = "PID_ONLY_NOT_AUTHORITATIVE"
+        proc["attribution_reason"] = (
+            "process start identity was observed, but no authenticated "
+            "endpoint scope was bound to this evidence; a process identity "
+            "without its endpoint is not unique and is not attribution")
+        return canonical
+    proc["process_iid"] = ProcessIdentity.mint(
+        endpoint_id=endpoint_id, pid=proc["pid"],
+        start_time=proc.get("start_time"))
+    proc["attribution_state"] = "SOURCE_PROCESS_IDENTITY"
+    proc["attribution_reason"] = (
+        "endpoint + pid + process start identity were all observed, so "
+        "this connection is bound to one process LIFETIME and survives PID "
+        "reuse and process restart")
+    proc.setdefault("field_provenance", {})["process_iid"] = (
+        "nivx:ProcessIdentity.mint(endpoint_id, pid, start_time)")
     return canonical
 
 
@@ -242,6 +346,9 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
     canonical["event_id"] = f"cev_{raw_id[4:]}_{gen}"
     canonical["raw_ref"] = {"raw_id": raw_id, "collection": "edr_raw_events"}
     canonical["host"] = {"host_id": endpoint_id, "hostname": hostname}
+    # N2.1 · the authenticated endpoint is known here, so a pending process
+    # identity becomes a real one (or is honestly downgraded).
+    bind_process_identity(canonical, endpoint_id)
     canonical["provenance"] = {
         # The stamps seeded by `parse()` are the source-side truth and must
         # survive this assignment.
@@ -275,6 +382,16 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
     # as a duplicate observation and does NOT create a second piece of
     # evidence — otherwise a sensor restart would look like a burst of new
     # activity that never happened.
+    # N2.1 · the endpoint's OWN address, as observed on its own
+    # authenticated evidence. Recorded as a time-bounded observation, never
+    # as an identity — see `endpoint_address_observation`.
+    if canonical.get("additional_fields", {}).get("activity_type") \
+            == "NETWORK":
+        from edr_plane import endpoint_address_observation as eao
+        await eao.record_from_canonical(
+            db, tenant_id=tenant_id, endpoint_id=endpoint_id,
+            canonical=canonical)
+
     act_id = activity_identity(json.loads(payload), endpoint_id)
     canonical["additional_fields"]["activity_identity"] = act_id
     prior = await db[COLLECTIONS["shadow_observations"]].find_one(

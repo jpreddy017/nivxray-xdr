@@ -276,3 +276,67 @@ NETWORK_DNS_CORRELATION_SCENARIOS: List[Dict[str, Any]] = [
         "license": "NivXRay Public Content",
     },
 ]
+
+
+#: ── N2.1 · endpoint/process → network attribution ────────────────────────
+#: The difference from CORR-NET-002 is the whole point of the gate: this
+#: rule groups on the ENDPOINT and the PROCESS as well as the peer address,
+#: and both of its conditions require
+#: `process_attribution_state == SOURCE_PROCESS_IDENTITY`. A signal with
+#: only a PID, or with no observed process, therefore cannot match either
+#: condition and never enters the window — address and time coincidence is
+#: structurally incapable of producing this relationship.
+#:
+#: The process→activity edge itself is never inferred here: it is taken
+#: from sources that state process and activity in the SAME record (Sysmon
+#: EID 3/22 with ProcessGuid, or the NivXForge sensor's socket-inode
+#: resolution with the process start identity), which is also what bounds
+#: the relationship to the process's real lifetime.
+ENDPOINT_PROCESS_NETWORK_SCENARIOS: List[Dict[str, Any]] = [
+    {
+        "id": "CORR-EP-001",
+        "name": "Process Resolved A Domain Then Connected To The "
+                "Resolved Address",
+        "description": (
+            "One identified process on one identified endpoint resolved a "
+            "domain to an address and then connected to THAT address. The "
+            "relationship rests on four facts together — same endpoint, "
+            "same process identity, same resolved address, DNS first — and "
+            "it cites both canonical event ids. Neither a shared address "
+            "nor a shared instant can produce it, and a process known only "
+            "by PID cannot enter it at all."
+        ),
+        "severity_hint": "informational",
+        "enabled": False,
+        "state": "DISABLED",
+        "conditions": [
+            {
+                "id": "A_PROC_DNS",
+                "operator": "EVENT_MATCH",
+                "match": {
+                    "event_kind": "dns_query",
+                    "dns_answer_state": "ADDRESS_ANSWERED",
+                    "process_attribution_state": "SOURCE_PROCESS_IDENTITY",
+                },
+            },
+            {
+                "id": "B_PROC_CONN",
+                "operator": "EVENT_MATCH",
+                "match": {
+                    "event_kind": ["network_connect", "network_alert"],
+                    "process_attribution_state": "SOURCE_PROCESS_IDENTITY",
+                },
+            },
+        ],
+        "operators": {
+            "type": "SEQUENCE",
+            "sequence": ["A_PROC_DNS", "B_PROC_CONN"],
+            "window_seconds": 900,
+            "threshold": 1,
+        },
+        "group_by": ["endpoint_id", "process_key", "network_peer_ip"],
+        "attack_techniques": ["T1071.001", "T1568"],
+        "source": "NivXRay-Endpoint-N2",
+        "license": "NivXRay Public Content",
+    },
+]

@@ -16343,3 +16343,50 @@ recommendation only, needing separate approval.
 
 Owner's stated progression after N2.1: **focused Investigation UI phase**,
 then cross-domain correlation / richer detections / additional sources.
+
+## 2026-06 · GATE N2.1 — ENDPOINT/PROCESS → NETWORK ATTRIBUTION (IMPLEMENTED, preview)
+
+Owner authorised N2.1 (A–E). Delivered:
+* **A** Sysmon `ProcessGuid`/`ParentProcessGuid` preserved into canonical
+  evidence and `raw_ref` with provenance (EID 1/3/22) — previously parsed
+  then discarded.
+* **B** NivXForge sensor NETWORK events now carry the owning process's
+  START identity (`/proc/<pid>/stat` field 22); a process that exits first
+  yields `not_observed: ["owning_process_start_identity"]`.
+* **C** Canonical `ProcessEntity` gains `process_guid`,
+  `parent_process_guid`, `process_iid`, `start_time`, `attribution_state`,
+  `attribution_reason`, `field_provenance`. Three states only:
+  SOURCE_PROCESS_IDENTITY / PID_ONLY_NOT_AUTHORITATIVE / NOT_OBSERVED.
+  `bind_process_identity()` mints `process_iid` where the authenticated
+  endpoint is known and downgrades honestly where it is not.
+* **D** `edr_plane/endpoint_address_observation.py` — endpoint-owned
+  address observations with lifecycle + provenance,
+  `binding_policy = TIME_BOUNDED_OBSERVATION_NOT_IDENTITY`;
+  `lookup()` returns `usable_for_attribution: False` in EVERY branch.
+  CORR-EP-001 does not consult it.
+* **E** `CORR-EP-001` (SEQUENCE, group_by endpoint_id|process_key|
+  network_peer_ip), seeded DISABLED. Both conditions require
+  SOURCE_PROCESS_IDENTITY, and weaker evidence carries no `process_key`, so
+  address+time coincidence is structurally incapable of matching.
+* Signals also carry `endpoint_identity_basis`
+  (AUTHENTICATED_ENDPOINT_ID vs HOSTNAME_INFERRED).
+
+Proof: `tests/test_n2_endpoint_process_attribution.py` 33 passed;
+`scripts/p0_n2_endpoint_process_attribution_proof.py` PASS (28 checks, live
+HTTP + real DB) incl. the relationship citing BOTH canonical event ids and
+all eight false-join controls. Report:
+`memory/N2_1_ENDPOINT_PROCESS_ATTRIBUTION_REPORT.md`.
+Regression: 1311 passed; all 20 failures / 41 errors verified identical on
+a stashed tree (pre-existing Work-Mode/RBAC, live-fixture, analyzer tracks).
+
+Remaining breaks (unchanged): IP → device identity ABSENT by design;
+Linux Process → DNS ABSENT at source; Zeek flows carry no process;
+short-lived connections may be missed by /proc polling; cross-source
+(endpoint ↔ Zeek) joins not attempted (need NAT mapping + clock tolerance).
+Live sources: Sysmon ABSENT, NivXForge host EXTERNAL_ACCESS_BLOCKED, Zeek
+EXTERNAL_ACCESS_BLOCKED.
+
+Owner direction after N2.1: **do NOT default to the Investigation UI**;
+re-review security gaps and pick whichever gives the largest increase in
+real XDR capability (likely cross-domain correlation / stronger detection
+content, or another authoritative telemetry domain).

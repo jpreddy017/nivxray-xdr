@@ -632,6 +632,10 @@ _BUNDLED_RULES.extend(ENTERPRISE_CORRELATION_SCENARIOS)
 from detection_content.correlation_library import NETWORK_DNS_CORRELATION_SCENARIOS
 _BUNDLED_RULES.extend(NETWORK_DNS_CORRELATION_SCENARIOS)
 
+# N2.1 · endpoint/process → network attribution. Also seeded DISABLED.
+from detection_content.correlation_library import ENDPOINT_PROCESS_NETWORK_SCENARIOS
+_BUNDLED_RULES.extend(ENDPOINT_PROCESS_NETWORK_SCENARIOS)
+
 
 def _seed_bundled_rules() -> int:
     """Insert bundled rules idempotently.  Returns the number of new

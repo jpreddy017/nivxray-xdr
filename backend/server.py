@@ -873,6 +873,10 @@ async def _startup():
         await _ensure_resp(_raw_db)
         await _ensure_enr(_raw_db)
         await _ensure_rej(_raw_db)
+        # N2.1 · endpoint address OBSERVATIONS (evidence, not identity).
+        from edr_plane.endpoint_address_observation import (
+            ensure_indexes as _ensure_addr)
+        await _ensure_addr(_raw_db)
         # P0-D · the activity-identity lookup that keeps a re-observation
         # from becoming a second piece of evidence.
         await _raw_db["v2_shadow_observations"].create_index(

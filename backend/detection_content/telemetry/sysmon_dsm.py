@@ -27,6 +27,8 @@ from services import event_time_basis
 from services import tenant_authority
 
 from .models import (
+    PROCESS_ATTRIBUTION_AUTHORITATIVE,
+    PROCESS_ATTRIBUTION_PID_ONLY,
     CanonicalTelemetryEvent,
     HostEntity,
     IdentityEntity,
@@ -184,7 +186,7 @@ class SysmonNormalizer:
 
         proc = None
         p = parsed["process"]
-        if p.get("image"):
+        if p.get("image") or p.get("guid"):
             def _pid_or_none(v):
                 try: return int(v) if v not in ("", None) else None
                 except Exception: return None
@@ -196,6 +198,42 @@ class SysmonNormalizer:
                 executable_path=p.get("image", ""),
                 command_line=p.get("command_line", ""),
             )
+            # ── N2.1 · stop discarding the identity Sysmon already gave ──
+            # `ProcessGuid` is Sysmon's own lifetime-unique process
+            # identity and it is stamped on EID 1, 3 AND 22 — so
+            # process→connection and process→DNS are proven INSIDE one
+            # record. It was parsed here and then dropped, which is why
+            # NivX could not attribute network activity to a process on a
+            # source that had already done the work.
+            guid = str(p.get("guid") or "").strip()
+            parent_guid = str(p.get("parent_guid") or "").strip()
+            if guid:
+                proc.process_guid = guid
+                proc.field_provenance["process_guid"] = \
+                    "sysmon:EventData.ProcessGuid"
+                proc.attribution_state = PROCESS_ATTRIBUTION_AUTHORITATIVE
+                proc.attribution_reason = (
+                    "Sysmon stamped ProcessGuid on this record, and the "
+                    "activity it describes is in the SAME record — the "
+                    "source itself binds process and activity. A GUID is "
+                    "unique on its own and needs no endpoint scope")
+            elif proc.pid is not None:
+                proc.attribution_state = PROCESS_ATTRIBUTION_PID_ONLY
+                proc.attribution_reason = (
+                    "this Sysmon record carried no ProcessGuid; a PID is "
+                    "reused by the OS and is context, not attribution")
+            else:
+                proc.attribution_reason = (
+                    "this Sysmon record named no process")
+            if parent_guid:
+                proc.parent_process_guid = parent_guid
+                proc.field_provenance["parent_process_guid"] = \
+                    "sysmon:EventData.ParentProcessGuid"
+            if p.get("image"):
+                proc.field_provenance["executable_path"] = \
+                    "sysmon:EventData.Image"
+            if proc.pid is not None:
+                proc.field_provenance["pid"] = "sysmon:EventData.ProcessId"
 
         net = None
         n = parsed["network"]
@@ -304,7 +342,15 @@ class SysmonNormalizer:
             process=proc or ProcessEntity(),
             network=net or NetworkEntity(),
             registry=registry,
-            raw_ref={"sysmon_event_id": sysmon_eid, "channel": parsed.get("channel", "")},
+            raw_ref={"sysmon_event_id": sysmon_eid,
+                     "channel": parsed.get("channel", ""),
+                     # N2.1 · the source's own identity stays reachable on
+                     # the evidence, not only inside the parser.
+                     "process_guid": str(
+                         (parsed.get("process") or {}).get("guid") or ""),
+                     "parent_process_guid": str(
+                         (parsed.get("process") or {}).get(
+                             "parent_guid") or "")},
             provenance=prov,
             additional_fields={
                 "channel": parsed.get("channel", ""),

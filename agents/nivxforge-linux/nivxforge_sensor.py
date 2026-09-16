@@ -330,6 +330,45 @@ def _inode_pid_map() -> dict[str, int]:
     return m
 
 
+def _proc_start_identity(pid: int) -> dict:
+    """The owning process's START IDENTITY, re-read from /proc.
+
+    N2.1 · the inode map gives a PID, and a PID is reused by the kernel
+    within minutes. Without the start counter the connection can only be
+    attributed to "whatever holds that PID right now", which is exactly the
+    fabrication this sensor refuses to make elsewhere. Field 22 of
+    /proc/<pid>/stat is the same value the PROCESS lane already uses, so a
+    connection and its process resolve to the SAME identity.
+
+    The process may exit between reading the inode map and this read. That
+    is an honest negative, not a reason to guess.
+    """
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+        start_ticks = int(stat[stat.rindex(")") + 2:].split()[19])
+    except (OSError, ValueError, IndexError):
+        return {"process_start_ticks": None, "process_start_time": None}
+    boot, hz = _boot_and_hz()
+    return {
+        "process_start_ticks": start_ticks,
+        "process_start_time": (datetime.fromtimestamp(
+            boot + start_ticks / hz, timezone.utc).isoformat()
+            if boot else None),
+    }
+
+
+def _boot_and_hz() -> tuple[float, int]:
+    try:
+        boot = 0.0
+        for line in Path("/proc/stat").read_text().splitlines():
+            if line.startswith("btime"):
+                boot = float(line.split()[1])
+                break
+        return boot, os.sysconf("SC_CLK_TCK")
+    except (OSError, ValueError):
+        return 0.0, 100
+
+
 def _hexip(raw: str) -> str:
     if len(raw) == 8:
         b = bytes.fromhex(raw)
@@ -370,6 +409,15 @@ def collect_network(seen: set[str]) -> list[dict]:
                 continue
             seen.add(key)
             listening = state == "0A"
+            pid = inode_pid.get(inode)
+            # N2.1 · a PID alone is not a process. The start identity is
+            # read for the resolved PID so the connection can be bound to a
+            # process LIFETIME rather than to a reusable number.
+            start = (_proc_start_identity(pid) if pid else
+                     {"process_start_ticks": None, "process_start_time": None})
+            unresolved = ([] if inode in inode_pid else ["owning_process"])
+            if pid and start["process_start_ticks"] is None:
+                unresolved.append("owning_process_start_identity")
             out.append({
                 "activity": "NETWORK",
                 "operation": "CONNECTION_OBSERVED",
@@ -380,10 +428,10 @@ def collect_network(seen: set[str]) -> list[dict]:
                 "remote_port": None if listening else rport_i,
                 "direction": "LISTEN" if listening else "OUTBOUND",
                 "tcp_state": state,
-                "pid": inode_pid.get(inode),
+                "pid": pid,
+                **start,
                 "not_observed": (["remote_ip", "remote_port"] if listening
-                                 else []) + ([] if inode in inode_pid
-                                             else ["owning_process"]),
+                                 else []) + unresolved,
             })
     return out
 

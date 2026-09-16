@@ -51,6 +51,33 @@ def _net(canonical: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _process_keys(canonical: Dict[str, Any]) -> Dict[str, Any]:
+    """N2.1 · the process identity, and how well the source knows it.
+
+    `process_key` is present ONLY when the source itself bound process and
+    activity — a Sysmon `ProcessGuid` on the same record, or a minted
+    `process_iid` (endpoint + pid + start). A PID-only or unobserved
+    process contributes NO key, so process-grouped correlation cannot
+    silently fall back on address and time.
+    """
+    proc = canonical.get("process") or {}
+    if not isinstance(proc, dict):
+        return {"process_attribution_state": "NOT_OBSERVED"}
+    state = proc.get("attribution_state") or "NOT_OBSERVED"
+    out: Dict[str, Any] = {
+        "process_attribution_state": state,
+        "process_attribution_reason": proc.get("attribution_reason") or "",
+    }
+    if state == "SOURCE_PROCESS_IDENTITY":
+        key = proc.get("process_guid") or proc.get("process_iid")
+        if key:
+            out["process_key"] = key
+            out["process_image"] = (proc.get("executable_path")
+                                    or proc.get("name") or "")
+            out["process_pid"] = proc.get("pid")
+    return out
+
+
 def signals_from_canonical(canonical: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Zero or more correlation signals for one canonical network event."""
     if not isinstance(canonical, dict):
@@ -61,6 +88,18 @@ def signals_from_canonical(canonical: Dict[str, Any]) -> List[Dict[str, Any]]:
     event_id = canonical.get("event_id")
     at = canonical.get("event_time") or canonical.get("timestamp")
     host = canonical.get("host") or {}
+    extra = canonical.get("additional_fields") or {}
+    authenticated_endpoint = (extra.get("endpoint_id")
+                              if isinstance(extra, dict) else None)
+    endpoint_id = authenticated_endpoint or host.get("host_id") or ""
+    # Honest about WHAT that scope is: an authenticated endpoint_id is
+    # identity; a hostname reported inside a log record is not, and is
+    # labelled so a reader never mistakes one for the other.
+    endpoint_basis = ("AUTHENTICATED_ENDPOINT_ID" if authenticated_endpoint
+                      else "HOSTNAME_INFERRED" if endpoint_id else
+                      "NOT_OBSERVED")
+    proc_fields = _process_keys(canonical)
+    proc_fields["endpoint_identity_basis"] = endpoint_basis
     base: Dict[str, Any] = {
         "signal_kind": "event",
         "at": at,
@@ -76,6 +115,8 @@ def signals_from_canonical(canonical: Dict[str, Any]) -> List[Dict[str, Any]]:
         answers = [str(ip) for ip in net["dns_response_ips"] if ip]
         common = {
             "client_ip": client_ip,
+            "endpoint_id": endpoint_id,
+            **proc_fields,
             "dns_query": net["dns_query"],
             "dns_rcode": net["dns_rcode"],
             "dns_query_type": net["dns_query_type"],
@@ -100,6 +141,8 @@ def signals_from_canonical(canonical: Dict[str, Any]) -> List[Dict[str, Any]]:
         return [{**base, "dst_ip": net["dest_ip"],
                  "fields": {
                      "client_ip": client_ip,
+                     "endpoint_id": endpoint_id,
+                     **proc_fields,
                      "network_peer_ip": net["dest_ip"],
                      "dest_port": net["dest_port"],
                      "protocol": net["protocol"],
