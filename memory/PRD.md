@@ -16468,3 +16468,43 @@ Target shapes when UI work resumes:
 Next decision point per owner: **Store Rule Triage** (0 of 98 authored
 rules can fire) vs real-source onboarding / detection content.
 M365 onboarding proceeds separately owner-side; X1 never depended on it.
+
+## 2026-06 · X1 ACCEPTED/LOCKED · STORE RULE TRIAGE (read-only) DELIVERED
+
+Owner accepted X1. Read-only triage of all 98 enabled `xdr_detection_rules`
+delivered: `memory/STORE_RULE_TRIAGE_REPORT.md`.
+
+Prior classification REPRODUCED exactly via the existing binder
+(52 STORE_CONTENT_INCOMPLETE / 23 LICENSE_BLOCKED / 22 NO_TELEMETRY /
+1 UNSUPPORTED / 0 BOUND), then re-interpreted:
+
+  A READY NOW            0
+  B SMALL GAP           14   (DNS TLD rule, O365 forwarding, 2 IOC
+                              watchlists, 10 correlation mirrors that
+                              already fire elsewhere)
+  C TELEMETRY BLOCKED   34   (Windows process/registry content, proxy,
+                              AWS/Okta, 13 Snort/Suricata IDS signatures,
+                              brute-force needing 4624/4625)
+  D LICENSE BLOCKED     23   (11 TestVendor fixtures, 9 YARA, 2 Snort, 1)
+  E UNSAFE/INVALID      27   (12 MITRE reference entries, 15 test fixtures)
+
+Key findings: duplicates/fixtures inflate the estate — `proprietary demo`
+×11, `Rundll32 with remote payload` ×5, `lifecycle test` ×5, `gate refusal
+candidate` ×5, `dry-run test` ×5. The real estate is ~43 distinct authored
+detections, mostly waiting on Windows telemetry. The only store rule whose
+product we collect (a Linux PHP-webshell YARA rule) is licence-blocked, not
+telemetry-blocked.
+
+Owner decision surfaced: `_COLLECTED_PRODUCTS = {"linux"}` gates rules on
+`logsource.product`, so a DNS rule authored as `product: windows` cannot
+evaluate Zeek DNS evidence even though `network.dns_query` is the same
+observed value. Option (a) keep the strict product gate; option (b) gate on
+evidence-field presence for product-neutral categories (dns, network) only.
+
+Recommended smallest gate **DCR-1**: bind canonical DNS/network/hash fields
+into the authored-rule field namespace, bind the 2 IOC watchlist rules, and
+stop counting MITRE reference entries / correlation mirrors / test fixtures
+as authored detections. Tests required per rule: positive, benign-negative
+(incl. absent-field → no match), the invariant chain predicate → observed
+value → canonical evidence_ref → cited detection, tenant isolation,
+regression.
