@@ -16424,3 +16424,47 @@ fabrication risk), beaconing (needs real volume), Windows credential/
 persistence/lateral content (telemetry is the gate), firewall enforcement
 (needs appliance), EDR prevention (separate product track), response
 breadth (already strongest), buyer-facing evidence page (deferred).
+
+## 2026-06 · STANDING ARCHITECTURE RULE (owner-set, applies to all future work)
+
+NivXRay XDR must aim beyond current industry-leading XDR/XSIAM capability,
+but advanced capability must NOT translate into analyst complexity.
+Internally: deep telemetry + deterministic engines + evidence graph +
+correlation + automation + verification. Externally: simple, progressive,
+task-oriented UX. A routine analyst task should need one obvious action or
+a short guided workflow; advanced controls live behind drill-down.
+**Complexity belongs in the platform, not in the analyst's workflow.**
+Target shapes when UI work resumes:
+  Add Integration → Sandbox → Authenticate → Test → Enable
+  Add Device → Choose method → Enroll/Test → Enable
+  "Why suspicious?" → evidence chain immediately visible
+  Contain → impact/approval → execute → independently verify
+
+## 2026-06 · GATE X1 — ENTITY RESOLUTION + MULTI-EVIDENCE INCIDENT (IMPLEMENTED, preview)
+
+* `services/entity_resolution.py` — ONE entity service (endpoint, process,
+  user, ip, domain, file_hash, application, cloud_identity) with
+  identity_state AUTHORITATIVE / DECLARED / NOT_OBSERVED, deterministic
+  tenant-scoped `entity_id`, and `NEVER_AUTHORITATIVE = (ip, domain)`.
+  A PID-only process produces no entity.
+* Relationship truth model with all six states: AUTHORITATIVE / SUPPORTED /
+  AMBIGUOUS / CONTRADICTED / UNRESOLVED / FORBIDDEN. `address_identifies_
+  endpoint` is stored as FORBIDDEN so the refusal is explicit.
+* `services/multi_evidence_incident.py` — composition rule: evidence
+  composes into one incident ONLY via a shared AUTHORITATIVE entity.
+  Contradictions keep both sides; retraction sets UNRESOLVED and keeps
+  evidence refs; `trace()` proves every relationship cites canonical
+  evidence.
+* Proof: `tests/test_x1_entity_resolution_incident.py` 22 passed (real DB);
+  `scripts/p0_x1_entity_incident_proof.py` PASS (25 checks) on evidence
+  ingested through the real route — two Sysmon records composed into ONE
+  incident citing both event ids, while a Zeek flow to the SAME address at
+  the SAME instant did NOT join.
+  Report: `memory/X1_ENTITY_RESOLUTION_INCIDENT_REPORT.md`.
+* NOT done by design: pipeline wiring (would change behaviour for every
+  tenant — own gate), narrative/story, UI, entity lifecycle/merge-on-later-
+  evidence, lateral movement + identity correlation (now unblocked).
+
+Next decision point per owner: **Store Rule Triage** (0 of 98 authored
+rules can fire) vs real-source onboarding / detection content.
+M365 onboarding proceeds separately owner-side; X1 never depended on it.

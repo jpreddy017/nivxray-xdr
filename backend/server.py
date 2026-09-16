@@ -877,6 +877,10 @@ async def _startup():
         from edr_plane.endpoint_address_observation import (
             ensure_indexes as _ensure_addr)
         await _ensure_addr(_raw_db)
+        # X1 · entity resolution + multi-evidence incidents.
+        from services.multi_evidence_incident import (
+            ensure_indexes as _ensure_x1)
+        await _ensure_x1(_raw_db)
         # P0-D · the activity-identity lookup that keeps a re-observation
         # from becoming a second piece of evidence.
         await _raw_db["v2_shadow_observations"].create_index(
