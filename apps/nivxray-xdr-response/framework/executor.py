@@ -60,6 +60,12 @@ class Executor:
         self.registry  = registry
         self.store     = store
         self.forwarder = forwarder
+        # P0-1 · the acting analyst's bearer, held IN MEMORY ONLY, keyed by
+        # execution key. It is deliberately never written to the store: a
+        # credential must not be persisted, and an execution resumed after
+        # a restart therefore fails closed with `no_acting_principal`
+        # rather than acting without a real principal.
+        self._bearers: Dict[str, str] = {}
 
     # ── target resolution ───────────────────────────────────────────
     def resolve_target(self, action: ActionSpec, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -173,6 +179,8 @@ class Executor:
             "state":             STATE_QUEUED,
         })
         key = self.store.key_of(tenant, invoker["kind"], invoker["id"], exec_id)
+        if authz.get("bearer"):
+            self._bearers[key] = str(authz["bearer"])
 
         # 5. If approval required and NOT pre-approved → park in WAITING_APPROVAL.
         #    Do NOT return 403 — the execution is pending, not rejected.
@@ -277,7 +285,15 @@ class Executor:
                 adapter_out = await spec.adapter(params,
                                                        {"invoker":   invoker,
                                                          "tenant_id": tenant,
-                                                         "canonical": canonical})
+                                                         "canonical": canonical,
+                                                         # P0-1 · a real product adapter
+                                                         # needs the action identity and
+                                                         # the acting principal; it must
+                                                         # never assert a tenant itself.
+                                                         "action_id":    spec.action_id,
+                                                         "execution_id": exec_id,
+                                                         "bearer":       self._bearers.get(key),
+                                                         "reason":       row.get("approval_reason")})
         except Exception as e:                                  # noqa: BLE001
             adapter_out = {"ok": False,
                               "error": f"{type(e).__name__}: {e}"}
@@ -450,6 +466,12 @@ class Executor:
                                                         and st != STATE_SUCCEEDED
                         else None,
         }
+        # P0-1 · the authoritative lifecycle, DERIVED from this same row —
+        # no new column, no new store. It is what keeps `approved`,
+        # `dispatched`, `executing`, `executed` and `verified` distinct, so
+        # a consumer can never read acceptance as containment.
+        from framework.lifecycle import project as _project_lifecycle
+        spec_row["response_lifecycle"] = _project_lifecycle(row)
         if extra: spec_row.update(extra)
         return spec_row
 

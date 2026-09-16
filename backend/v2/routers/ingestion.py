@@ -135,6 +135,40 @@ async def seed_golden(dataset_id: str,
     await _persist_case(_db, cid, name=f"Golden · {ds.label}")
     inserted = await _persist_events(_db, cid, records, ingest_job_id=job_id)
     metrics.events_persisted = inserted
+
+    # ── Wiring Fix (a) · owner-authorized · NIVXRAY_XDR_ARCHITECTURAL_BINDING_CHECK.md §3
+    # Route each persisted event through the AUTHORITATIVE reasoning fabric.
+    # No parallel pipeline. No new engines. evidence_id / entity ids / provenance
+    # preserved via xdr_pipeline's normalizer contract. Fail-closed per event.
+    try:
+        import dataclasses as _dc
+        from detection_content.xdr_pipeline import process_event_through_pipeline
+        integration_id = f"golden-corpus:{dataset_id}"
+        collector_id = "v2_ingestion.seed_golden"
+        pipeline_results: list[dict] = []
+        for rec in records:
+            if hasattr(rec, "model_dump"):
+                raw = rec.model_dump()
+            elif _dc.is_dataclass(rec):
+                raw = _dc.asdict(rec)
+            elif isinstance(rec, dict):
+                raw = dict(rec)
+            else:
+                raw = getattr(rec, "__dict__", {}) or {}
+            trace_id = f"{job_id}-{uuid.uuid4().hex[:8]}"
+            try:
+                result = await process_event_through_pipeline(
+                    _db, raw_event=raw, trace_id=trace_id,
+                    integration_id=integration_id, collector_id=collector_id,
+                )
+                pipeline_results.append({"trace_id": trace_id, "stages": result.get("stages", []),
+                                         "blocker": result.get("blocker")})
+            except Exception as pe:
+                pipeline_results.append({"trace_id": trace_id, "error": f"{type(pe).__name__}: {str(pe)[:200]}"})
+        metrics.pipeline_traces = pipeline_results
+    except Exception as e:  # pragma: no cover — surfaced honestly to owner
+        metrics.pipeline_error = f"{type(e).__name__}: {str(e)[:240]}"
+
     metrics.finish()
 
     return {

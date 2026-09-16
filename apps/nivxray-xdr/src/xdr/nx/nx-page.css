@@ -111,11 +111,11 @@
   color: var(--nx-purple);
   border-radius: 8px;
 }
-.nx-kpi-icon-critical { background: #FEF2F2; color: var(--nx-critical); }
-.nx-kpi-icon-high     { background: #FFF7ED; color: var(--nx-high); }
-.nx-kpi-icon-medium   { background: #FFFBEB; color: var(--nx-medium); }
-.nx-kpi-icon-benign   { background: #ECFDF5; color: var(--nx-benign); }
-.nx-kpi-icon-info     { background: #EFF6FF; color: var(--nx-low); }
+.nx-kpi-icon-critical { background: var(--nx-critical-bg); color: var(--nx-critical); }
+.nx-kpi-icon-high     { background: var(--nx-suspicious-bg); color: var(--nx-high); }
+.nx-kpi-icon-medium   { background: var(--nx-medium-bg); color: var(--nx-medium); }
+.nx-kpi-icon-benign   { background: var(--nx-benign-bg); color: var(--nx-benign); }
+.nx-kpi-icon-info     { background: var(--nx-info-bg); color: var(--nx-low); }
 
 .nx-kpi-body { min-width: 0; }
 .nx-kpi-value {
@@ -301,10 +301,10 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
-.nx-pill-benign   { color: var(--nx-benign);   background: #ECFDF5; border: 1px solid #A7F3D0; }
-.nx-pill-amber    { color: var(--nx-medium);   background: #FFFBEB; border: 1px solid #FCD34D; }
-.nx-pill-critical { color: var(--nx-critical); background: #FEF2F2; border: 1px solid #FCA5A5; }
-.nx-pill-info     { color: var(--nx-low);      background: #EFF6FF; border: 1px solid #BFDBFE; }
+.nx-pill-benign   { color: var(--nx-benign);   background: var(--nx-benign-bg); border: 1px solid var(--nx-benign-bd); }
+.nx-pill-amber    { color: var(--nx-medium);   background: var(--nx-medium-bg); border: 1px solid var(--nx-medium-bd); }
+.nx-pill-critical { color: var(--nx-critical); background: var(--nx-critical-bg); border: 1px solid var(--nx-critical); }
+.nx-pill-info     { color: var(--nx-low);      background: var(--nx-info-bg); border: 1px solid var(--nx-low-bd); }
 .nx-pill-purple   { color: var(--nx-purple);   background: var(--nx-purple-dim); border: 1px solid rgba(109,78,224,0.24); }
 .nx-pill-faint    { color: var(--nx-muted);    background: var(--nx-surf-inset); border: 1px solid var(--nx-bd-quiet); }
 

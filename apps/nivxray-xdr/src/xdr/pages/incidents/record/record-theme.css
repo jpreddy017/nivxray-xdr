@@ -14,37 +14,37 @@
 
 .xdr-record-l3 {
   /* Light workspace tokens (Defender-parity) */
-  --rl-bg:            #F5F6F8;
-  --rl-surface:       #FFFFFF;
-  --rl-surface-2:     #FAFBFC;
-  --rl-surface-3:     #F1F3F6;
-  --rl-border:        #E2E5EA;
-  --rl-border-hi:     #CBD0D8;
-  --rl-text:          #1B1F26;
-  --rl-text-dim:      #4B5563;
-  --rl-muted:         #6B7280;
-  --rl-faint:         #9CA3AF;
+  --rl-bg:            var(--nx-surf-canvas);
+  --rl-surface:       var(--nx-surf-primary);
+  --rl-surface-2:     var(--nx-surf-inset);
+  --rl-surface-3:     var(--nx-surf-hover);
+  --rl-border:        var(--nx-bd-quiet);
+  --rl-border-hi:     var(--nx-bd-strong);
+  --rl-text:          var(--nx-text);
+  --rl-text-dim:      var(--nx-text-dim);
+  --rl-muted:         var(--nx-muted);
+  --rl-faint:         var(--nx-faint);
 
   /* Accent + semantic */
-  --rl-purple:        #6D4EE0;
-  --rl-purple-dim:    #EDE7FF;
-  --rl-purple-hover:  #5B3ED1;
-  --rl-red:           #DC2626;
-  --rl-orange:        #EA580C;
-  --rl-amber:         #D97706;
-  --rl-green:         #059669;
-  --rl-blue:          #2563EB;
+  --rl-purple:        var(--nx-purple);
+  --rl-purple-dim:    var(--nx-purple-dim);
+  --rl-purple-hover:  var(--nx-purple-hover);
+  --rl-red:           var(--nx-critical);
+  --rl-orange:        var(--nx-high);
+  --rl-amber:         var(--nx-medium);
+  --rl-green:         var(--nx-benign);
+  --rl-blue:          var(--nx-low);
 
   /* Dark analyst canvas tokens */
-  --rd-bg:            #0E1017;
-  --rd-panel:         #151823;
-  --rd-panel-2:       #1B1F2D;
-  --rd-border:        #262B3A;
-  --rd-text:          #E7E9EF;
-  --rd-text-dim:      #B4B9C6;
-  --rd-muted:         #78808F;
-  --rd-faint:         #4A5162;
-  --rd-purple:        #A88BFF;
+  --rd-bg:            var(--nx-surf-canvas);
+  --rd-panel:         var(--nx-surf-primary);
+  --rd-panel-2:       var(--nx-surf-raised);
+  --rd-border:        var(--nx-bd-quiet);
+  --rd-text:          var(--nx-text);
+  --rd-text-dim:      var(--nx-text-dim);
+  --rd-muted:         var(--nx-muted);
+  --rd-faint:         var(--nx-faint);
+  --rd-purple:        var(--nx-purple);
 
   --rs-mono: 'IBM Plex Mono','SFMono-Regular',Consolas,ui-monospace,monospace;
   --rs-sans: 'Inter','Segoe UI',system-ui,sans-serif;
@@ -200,8 +200,8 @@
   margin: 4px 0 0;
   padding: 6px 10px;
   color: var(--rl-red);
-  background: #FEF2F2;
-  border: 1px solid #FCA5A5;
+  background: var(--nx-critical-bg);
+  border: 1px solid var(--nx-critical);
   border-radius: 4px;
   font-family: var(--rs-mono);
   font-size: 11px;
@@ -358,11 +358,11 @@
   color: var(--rl-muted);
   background: var(--rl-surface-2);
 }
-.xdr-record-l3 .rl-state.ok      { color: var(--rl-green);  border-color: var(--rl-green);  background: #ECFDF5; }
-.xdr-record-l3 .rl-state.miss    { color: var(--rl-amber);  border-color: var(--rl-amber);  background: #FFFBEB; }
+.xdr-record-l3 .rl-state.ok      { color: var(--rl-green);  border-color: var(--rl-green);  background: var(--nx-benign-bg); }
+.xdr-record-l3 .rl-state.miss    { color: var(--rl-amber);  border-color: var(--rl-amber);  background: var(--nx-medium-bg); }
 .xdr-record-l3 .rl-state.discon  { color: var(--rl-muted);  }
 .xdr-record-l3 .rl-state.na      { color: var(--rl-faint);  }
-.xdr-record-l3 .rl-state.err     { color: var(--rl-red);    border-color: var(--rl-red);    background: #FEF2F2; }
+.xdr-record-l3 .rl-state.err     { color: var(--rl-red);    border-color: var(--rl-red);    background: var(--nx-critical-bg); }
 
 /* ── Table helpers (light) ────────────────────────────────────── */
 .xdr-record-l3 .rl-table {
@@ -428,8 +428,8 @@
 .xdr-record-l3 .rl-error {
   padding: 10px 14px;
   color: var(--rl-red);
-  background: #FEF2F2;
-  border: 1px solid #FCA5A5;
+  background: var(--nx-critical-bg);
+  border: 1px solid var(--nx-critical);
   border-radius: 6px;
   font-family: var(--rs-mono);
   font-size: 11.5px;
@@ -533,9 +533,9 @@
   padding: 2px 7px; border-radius: 3px;
   text-transform: uppercase;
 }
-.xdr-record-l3 .rl-domain-status.related       { background: #ECFDF5; color: var(--rl-green); }
-.xdr-record-l3 .rl-domain-status.searched      { background: #EFF6FF; color: var(--rl-blue); }
-.xdr-record-l3 .rl-domain-status.no_evidence   { background: #FFFBEB; color: var(--rl-amber); }
+.xdr-record-l3 .rl-domain-status.related       { background: var(--nx-benign-bg); color: var(--rl-green); }
+.xdr-record-l3 .rl-domain-status.searched      { background: var(--nx-info-bg); color: var(--rl-blue); }
+.xdr-record-l3 .rl-domain-status.no_evidence   { background: var(--nx-medium-bg); color: var(--rl-amber); }
 .xdr-record-l3 .rl-domain-status.not_connected { background: var(--rl-surface-3); color: var(--rl-muted); }
 .xdr-record-l3 .rl-domain-sub   { font-family: var(--rs-mono); font-size: 11px; color: var(--rl-text-dim); line-height: 1.5; }
 .xdr-record-l3 .rl-domain-count { font-family: var(--rs-mono); font-size: 22px; font-weight: 800; color: var(--rl-text); line-height: 1; }
@@ -586,8 +586,8 @@
   padding: 1px 6px; border-radius: 3px;
   letter-spacing: 0.3px; text-transform: uppercase;
 }
-.xdr-record-l3 .rl-technique-conf.high   { background: #ECFDF5; color: var(--rl-green); }
-.xdr-record-l3 .rl-technique-conf.medium { background: #FFFBEB; color: var(--rl-amber); }
+.xdr-record-l3 .rl-technique-conf.high   { background: var(--nx-benign-bg); color: var(--rl-green); }
+.xdr-record-l3 .rl-technique-conf.medium { background: var(--nx-medium-bg); color: var(--rl-amber); }
 .xdr-record-l3 .rl-technique-conf.low    { background: var(--rl-surface-3); color: var(--rl-muted); }
 
 /* Attack story timeline */
@@ -642,38 +642,58 @@
   text-align: center; text-transform: uppercase;
   align-self: flex-start;
 }
-.xdr-record-l3 .rl-reco-prio.critical { background: #FEF2F2; color: var(--rl-red);    border: 1px solid #FCA5A5; }
-.xdr-record-l3 .rl-reco-prio.high     { background: #FFF7ED; color: var(--rl-orange); border: 1px solid #FDBA74; }
-.xdr-record-l3 .rl-reco-prio.medium   { background: #FFFBEB; color: var(--rl-amber);  border: 1px solid #FCD34D; }
-.xdr-record-l3 .rl-reco-prio.low      { background: #EFF6FF; color: var(--rl-blue);   border: 1px solid #93C5FD; }
+.xdr-record-l3 .rl-reco-prio.critical { background: var(--nx-critical-bg); color: var(--rl-red);    border: 1px solid var(--nx-critical); }
+.xdr-record-l3 .rl-reco-prio.high     { background: var(--nx-suspicious-bg); color: var(--rl-orange); border: 1px solid var(--nx-high-bd); }
+.xdr-record-l3 .rl-reco-prio.medium   { background: var(--nx-medium-bg); color: var(--rl-amber);  border: 1px solid var(--nx-medium-bd); }
+.xdr-record-l3 .rl-reco-prio.low      { background: var(--nx-info-bg); color: var(--rl-blue);   border: 1px solid var(--nx-low-bd); }
 .xdr-record-l3 .rl-reco-body h5   { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--rl-text); }
 .xdr-record-l3 .rl-reco-body p    { margin: 0; font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; }
 .xdr-record-l3 .rl-reco-basis     { margin-top: 6px; font-family: var(--rs-mono); font-size: 10.5px; color: var(--rl-faint); }
 
 /* Auto-Investigation status card */
+/* Owner review 2026-09-05: the provenance attribution used to be
+   forced into a 90px disc, so a long gateway label overflowed the
+   circle and read as broken.  Provenance is metadata — it belongs in
+   a single-line eyebrow pill above the narration, never in a badge
+   whose geometry fights its own text. */
 .xdr-record-l3 .rl-ai-status {
   border: 1px solid var(--rl-border);
   background: var(--rl-surface);
   border-radius: 8px;
-  padding: 18px 20px;
-  display: grid;
-  grid-template-columns: 90px 1fr;
-  gap: 20px; align-items: center;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px; align-items: stretch;
   margin-bottom: 12px;
 }
 .xdr-record-l3 .rl-ai-status .badge {
-  width: 90px; height: 90px;
-  border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--rs-mono);
-  font-size: 11px; font-weight: 800;
-  letter-spacing: 0.5px; text-align: center;
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border: 1px solid var(--nx-bd-strong);
+  background: var(--nx-surf-inset);
+  color: var(--nx-muted);
 }
-.xdr-record-l3 .rl-ai-status.not_run  .badge { background: var(--rl-surface-3); color: var(--rl-muted); border: 3px solid var(--rl-border-hi); }
-.xdr-record-l3 .rl-ai-status.complete .badge { background: #ECFDF5;             color: var(--rl-green); border: 3px solid var(--rl-green); }
-.xdr-record-l3 .rl-ai-status.partial  .badge { background: #FFFBEB;             color: var(--rl-amber); border: 3px solid var(--rl-amber); }
-.xdr-record-l3 .rl-ai-status.failed   .badge { background: #FEF2F2;             color: var(--rl-red);   border: 3px solid var(--rl-red); }
-.xdr-record-l3 .rl-ai-status.running  .badge { background: #EFF6FF;             color: var(--rl-blue);  border: 3px solid var(--rl-blue); }
+.xdr-record-l3 .rl-ai-status .badge::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; flex: 0 0 5px;
+}
+.xdr-record-l3 .rl-ai-status.observed .badge {
+  background: var(--nx-provenance-bg);
+  color: var(--nx-provenance);
+  border-color: var(--nx-provenance);
+}
+.xdr-record-l3 .rl-ai-status.not_run  .badge { background: var(--nx-surf-inset); color: var(--rl-muted); border-color: var(--rl-border-hi); }
+.xdr-record-l3 .rl-ai-status.complete .badge { background: var(--nx-benign-bg);             color: var(--rl-green); border-color: var(--rl-green); }
+.xdr-record-l3 .rl-ai-status.partial  .badge { background: var(--nx-medium-bg);             color: var(--rl-amber); border-color: var(--rl-amber); }
+.xdr-record-l3 .rl-ai-status.failed   .badge { background: var(--nx-critical-bg);             color: var(--rl-red);   border: 3px solid var(--rl-red); }
+.xdr-record-l3 .rl-ai-status.running  .badge { background: var(--nx-info-bg);             color: var(--rl-blue);  border: 3px solid var(--rl-blue); }
 .xdr-record-l3 .rl-ai-status .txt h5 { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--rl-text); }
 .xdr-record-l3 .rl-ai-status .txt p  { margin: 0; font-size: 12px; color: var(--rl-text-dim); line-height: 1.55; }
 
@@ -759,8 +779,8 @@
 }
 .xdr-record-l3 .rl-hero-owner.unassigned {
   color: var(--rl-amber);
-  border-color: #FCD34D;
-  background: #FFFBEB;
+  border-color: var(--nx-medium-bd);
+  background: var(--nx-medium-bg);
   font-family: var(--rs-mono);
   font-weight: 700;
   font-size: 10.5px;
@@ -1092,4 +1112,71 @@
   color: var(--rl-muted);
   font-family: var(--rs-sans);
   font-size: 11.5px;
+}
+
+/* ── Grouped investigation navigation (owner-approved IA 2026-09-05) ─
+ * The group label is the analyst's QUESTION; the tabs beneath it are
+ * the answers.  Reading the strip left→right is the investigation:
+ * what happened → why we believe it → what proves it → what next. */
+.xdr-record-l3 .rl-tabs--grouped {
+  display: flex; align-items: stretch; gap: 0;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--nx-bd-quiet);
+  background: var(--nx-surf-primary);
+  padding: 0;
+}
+.xdr-record-l3 .rl-tabgroup {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 16px 6px;
+  border-right: 1px solid var(--nx-bd-quiet);
+}
+.xdr-record-l3 .rl-tabgroup:last-child { border-right: none; }
+.xdr-record-l3 .rl-tabgroup__label {
+  font: 700 8.5px/1 var(--nx-font-mono);
+  letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--nx-faint);
+  cursor: help;
+}
+.xdr-record-l3 .rl-tabgroup__tabs { display: flex; align-items: center; gap: 2px; }
+.xdr-record-l3 .rl-tabs--grouped .rl-tab {
+  border: none; background: transparent;
+  padding: 5px 9px 6px;
+  border-radius: 5px;
+  color: var(--nx-muted);
+  font: 600 12px/1.2 var(--nx-font-body);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 140ms ease, background-color 140ms ease,
+                    border-color 140ms ease;
+}
+.xdr-record-l3 .rl-tabs--grouped .rl-tab:hover {
+  color: var(--nx-text); background: var(--nx-surf-hover);
+}
+.xdr-record-l3 .rl-tabs--grouped .rl-tab.active {
+  color: var(--nx-text);
+  background: var(--nx-purple-dim);
+  border-bottom-color: var(--nx-purple);
+}
+/* Attack Story is the PRIMARY narrative — it is visually the entry
+   point of the record, not just another tab. */
+.xdr-record-l3 .rl-tabs--grouped .rl-tab--primary {
+  color: var(--nx-text);
+  font-weight: 700;
+}
+.xdr-record-l3 .rl-tabs--grouped .rl-tab--primary::before {
+  content: "▸ ";
+  color: var(--nx-purple);
+}
+.xdr-record-l3 .rl-tabs--grouped .rl-tab .count {
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  font: 700 9px/14px var(--nx-font-mono);
+  color: var(--nx-text-dim);
+}
+.xdr-record-l3 .rl-tabs--grouped .rl-tab.active .count {
+  border-color: var(--nx-purple);
+  color: var(--nx-purple);
 }

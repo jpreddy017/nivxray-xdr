@@ -19,6 +19,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { AlertOctagon } from "lucide-react";
+import OpenInEdr from "@/xdr/components/OpenInEdr";
 
 import { useAuth } from "@/lib/auth";
 import { getIncident, transitionIncidentState } from "@/lib/incidentsApi";
@@ -34,7 +35,14 @@ import EvidenceTab           from "./incidents/record/tabs/EvidenceTab";
 import AutoInvestigationTab  from "./incidents/record/tabs/AutoInvestigationTab";
 import MitreTab              from "./incidents/record/tabs/MitreTab";
 import AttackStoryTab        from "./incidents/record/tabs/AttackStoryTab";
-import RecommendationsTab    from "./incidents/record/tabs/RecommendationsTab";
+import AttackGraphTab        from "./incidents/record/tabs/AttackGraphTab";
+import ReportTab             from "./incidents/record/tabs/ReportTab";
+import {
+  MitreTabV2,
+  RecordHeaderV2,
+  IncidentOverviewV2,
+  isDesignV2EnabledFor,
+} from "@/xdr/design";
 import NotesTab              from "./incidents/record/tabs/NotesTab";
 import TimelineTab           from "./incidents/record/tabs/TimelineTab";
 import RelatedTab            from "./incidents/record/tabs/RelatedTab";
@@ -44,7 +52,10 @@ import "./incidents/queue-theme.css";
 import "./incidents/record/record-theme.css";
 
 
-const DEFAULT_TAB = "executive";
+// Owner-approved default journey (2026-09-05): the record OPENS on the
+// narrative — "what happened" — not on an executive block.  Attack
+// Story is the primary analyst surface.
+const DEFAULT_TAB = "attack_story";
 const TAB_KEYS = new Set(RECORD_TABS.map(t => t.key));
 
 
@@ -116,26 +127,54 @@ export default function XdrIncidentDetailPage() {
         )}
         {!loading && !error && incident && (
           <>
-            <RecordHeader
-              incident={incident}
-              onOpenRespond={() => setDrawer(true)}
-            />
+            {isDesignV2EnabledFor("incident-header")
+              ? <RecordHeaderV2
+                  incident={incident}
+                  onOpenRespond={() => setDrawer(true)}
+                />
+              : <RecordHeader
+                  incident={incident}
+                  onOpenRespond={() => setDrawer(true)}
+                />}
             <LifecycleStrip
               state={incident.state}
               onTransition={handleTransition}
             />
+            {/* Y2 · M-4/N-2 · pivot into the endpoint product with the
+                incident's OWN endpoint identity, carried, never guessed. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10,
+                          padding: "6px 0" }}
+                 data-testid="xdr-incident-product-pivots">
+              <span style={{ fontSize: 9.6, letterSpacing: .7,
+                             color: "var(--muted)",
+                             textTransform: "uppercase" }}>
+                Source product
+              </span>
+              <OpenInEdr
+                device={incident?.endpoint_campaign?.endpoint_id
+                  || incident?.endpoint_campaign?.hostname
+                  || (incident?.assets?.hosts || incident?.hosts || [])[0]}
+                incidentId={incident?.id}
+                tenant={incident?.tenant_id}
+                testid="xdr-incident-open-in-edr" />
+            </div>
             <RecordTabs current={tab} onChange={setTab} />
             <div
               className="rl-tabpanel"
               data-testid={`xdr-record-tabpanel-${tab}`}
             >
-              {tab === "executive"          && <ExecutiveTab         incident={incident} />}
+              {tab === "executive"          && (isDesignV2EnabledFor("incident-overview")
+                ? <IncidentOverviewV2 incident={incident} />
+                : <ExecutiveTab       incident={incident} />)}
               {tab === "technical"          && <TechnicalTab         incident={incident} />}
               {tab === "evidence"           && <EvidenceTab          incident={incident} />}
               {tab === "auto_investigation" && <AutoInvestigationTab incident={incident} />}
-              {tab === "mitre"              && <MitreTab             incident={incident} />}
+              {tab === "mitre"              && (isDesignV2EnabledFor("mitre")
+                ? <MitreTabV2 incident={incident} />
+                : <MitreTab   incident={incident} />)}
               {tab === "attack_story"       && <AttackStoryTab       incident={incident} />}
-              {tab === "recommendations"    && <RecommendationsTab   incident={incident} />}
+              {tab === "attack_graph"       && <AttackGraphTab       incident={incident} onNavigateTab={setTab} />}
+              {tab === "report"             && <ReportTab            incident={incident} />}
               {tab === "notes"              && <NotesTab             incident={incident} />}
               {tab === "timeline"           && <TimelineTab          incident={incident} />}
               {tab === "related"            && <RelatedTab           incident={incident} />}

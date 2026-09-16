@@ -1,0 +1,22 @@
+=== SMOKE TEST · RC2.0 ===
+Date: 2026-07-19T06:36:29+00:00
+API: https://greeting-app-5782.preview.emergentagent.com
+
+-- GET /api/v2/plugins --
+plugins: 12
+
+-- POST /api/v2/analyze/report?fmt=md --
+   http_code=200 size=4574B  file=/tmp/out.md
+-- POST /api/v2/analyze/report?fmt=json --
+   http_code=200 size=11386B  file=/tmp/out.json
+-- POST /api/v2/analyze/report?fmt=txt --
+   http_code=200 size=4310B  file=/tmp/out.txt
+-- POST /api/v2/analyze/report?fmt=pdf --
+   http_code=200 size=8689B  file=/tmp/out.pdf
+
+-- POST /api/v2/analyze (Meterpreter case) --
+   terminal=family-identified  verdict=malicious  risk=95/100
+   family=Meterpreter/MSFvenom stager (85%)
+   chain=['extract-wrapper', 'base64-decode', 'xor-brute']
+   ioc.ips=['149.28.81.19']
+   mitre=['T1059.001', 'T1027', 'T1027', 'T1055.012']

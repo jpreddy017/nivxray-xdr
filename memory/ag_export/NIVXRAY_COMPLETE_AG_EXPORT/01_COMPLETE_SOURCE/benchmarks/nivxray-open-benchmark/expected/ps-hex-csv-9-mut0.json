@@ -1,0 +1,9 @@
+{
+  "id": "ps-hex-csv-9-mut0",
+  "category": "ps-hex-csv",
+  "expected_keywords": [
+    "rundll32",
+    "advpack"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

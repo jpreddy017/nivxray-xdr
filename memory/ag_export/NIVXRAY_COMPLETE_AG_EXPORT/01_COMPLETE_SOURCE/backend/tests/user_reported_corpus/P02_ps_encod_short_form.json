@@ -1,0 +1,11 @@
+{
+  "id": "P02",
+  "label": "PS -encod short-form (tweet-tweet)",
+  "reported_at": "2026-08-05",
+  "input": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+  "expected_terminal_state": "recovered",
+  "expected_decoded_output": "Write-Host \"tweet, tweet!\"",
+  "min_confidence": 50,
+  "expected_chain_contains": ["decoder-powershell-encoded-command"],
+  "notes": "PS short-form switch prefix. Fixed by ps_normalizer regex extension + Rule 18 OUTPUT-panel discipline."
+}

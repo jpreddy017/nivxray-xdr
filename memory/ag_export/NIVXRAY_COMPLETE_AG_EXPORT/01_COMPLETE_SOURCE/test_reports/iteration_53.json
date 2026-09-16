@@ -1,0 +1,31 @@
+{
+  "summary": "Independent regression suite for PR-2.1 hotfix (evidence-backed Behavior claims in ▼ POWERSHELL NORMALIZATION & RUNTIME RECONSTRUCTION block). Wrote 9 new tests hitting live /api/decode/smart and /api/analyze/async against the exact user-shared benign EncodedCommand payload. All 9 tests pass. L0 damage-prevention runners re-verified: DCS strict=17/17 byte-identical, R1 strict=107/107 byte-identical. Canonical verdict invariant holds (verdict_card.verdict == risk.verdict, verdict_card.risk_score == risk.score). Rule-14 equivalence (decode vs analyze/async) holds after analysis completes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/analyze/status/{job_id}", "issue": "Race window: when status first transitions to 'done', verdict_card may still be a snapshot from an earlier phase (risk.verdict='Suspicious') before it converges to the final value ('Partial'). A ~1-2s settle delay resolves it. Consider writing verdict_card atomically with the status='done' transition."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_evidence_backed_behavior.py",
+    "/app/test_reports/pytest/evidence_backed_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Make /api/analyze/status/{job_id} finalization atomic — set verdict_card and status='done' in the same write to eliminate the transient Suspicious→Partial visibility window."
+  ],
+  "critical_code_review_comments": [
+    "ps_normalizer.py:285-297 — evidence-backed behavior gating looks correct. Note: `_obs_case_norm = any('case' in t.lower() for t in trace)` matches ANY trace entry containing 'case' (including 'mixed-case'). Guarded by `and not _obs_mixed_case` for the case-insensitive line so no false positive; but it also matches 'Casing' etc. Fine given current trace vocabulary but brittle if trace strings change — consider matching a stable prefix like 'case-normalize'.",
+    "The Behavior list unconditionally appends 'Safe built-in — no malicious behavior' whenever a sim result exists. That is evidence-backed here (Write-Host is a safe built-in and the simulator only returns non-None for safe built-ins) but is semantically an inferred claim, not a directly-observed trace step; keep this consistent with Rule-13 wording."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_evidence_backed_behavior.py"
+  ],
+  "success_rate": {"backend": "100% (9/9 evidence-backed tests + L0 DCS 17/17 + R1 107/107)", "frontend": "not tested (backend only requested)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None. Tests are stateless — only hit /api/decode/smart and /api/analyze/async with the user-provided PowerShell EncodedCommand payload.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test file /app/backend/tests/test_evidence_backed_behavior.py is authoritative for PR-2.1 hotfix. It logs in via /api/auth/login (module-scoped fixture) and asserts: (1) Behavior list does NOT include 'Mixed-case obfuscation' on lowercase input, (2) does NOT include 'Comma-separated token obfuscation' when no comma, (3) DOES include 'Base64 UTF-16LE EncodedCommand wrapper (T1027.010)', (4) DOES include 'Safe built-in — no malicious behavior', (5) runtime simulation shows decoded literal, (6) mixed-case variant does not crash, (7) verdict invariant vc.verdict==risk.verdict and vc.risk_score==risk.score, (8) Rule-14 decode/analyze equivalence with a settle sleep to avoid a status-vs-verdict-card race. IMPORTANT: The PS block content lives in response.output_raw (NOT response.output — response.output only contains ▼ DECODED OUTPUT). External URL (REACT_APP_BACKEND_URL) has intermittent 502s during backend hot-reloads; retry once if that happens.",
+  "rca of the issue": "Original bug: ps_normalizer.py unconditionally appended 'Mixed-case obfuscation' and 'Case-insensitive PowerShell normalization' to the Behavior list even when no case-related trace step ran, violating ARB Rule-13 (Evidence-Verdict Separation). Fix (lines 279-299) gates each behavior claim on a matching trace observation: _obs_mixed_case, _obs_comma, _obs_case_norm. Verified with fresh tests: benign lowercase input `powershell -EncodedCommand <UTF-16LE b64 of Write-Host \"This comes from an encoded PS command!\">` now yields ONLY: `Base64 UTF-16LE EncodedCommand wrapper (T1027.010)` + `Safe built-in — no malicious behavior`. No spurious mixed-case or comma claims."
+}

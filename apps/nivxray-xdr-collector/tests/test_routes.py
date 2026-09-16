@@ -34,7 +34,9 @@ async def test_source_types_catalogue_lists_all_three_transports():
         r = await c.get("/api/xdr/source-types")
     assert r.status_code == 200
     st = {s["source_type"] for s in r.json()["source_types"]}
-    assert st == {"rest", "webhook", "syslog"}
+    # Phase 1b added the Microsoft 365 Management Activity source alongside
+    # the three generic transports.
+    assert st == {"rest", "webhook", "syslog", "m365-management-activity"}
 
 
 @pytest.mark.asyncio

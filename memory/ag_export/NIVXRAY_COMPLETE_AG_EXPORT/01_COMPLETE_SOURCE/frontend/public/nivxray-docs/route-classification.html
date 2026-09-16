@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NivXRay · API Route Classification (ADR-0009)</title>
+<style>:root {
+  --bg:#0f1218; --fg:#e6edf3; --muted:#8b96a5; --accent:#7ee787;
+  --card:#161b22; --border:#30363d; --code-bg:#1c2128; --link:#79c0ff;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,ui-sans-serif,system-ui,sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+main { max-width:920px; margin:0 auto; padding:56px 40px 120px; }
+nav.topbar { background:#0b0e13; border-bottom:1px solid var(--border);
+  padding:14px 40px; display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:10; }
+nav.topbar a { color:var(--link); text-decoration:none; margin-right:16px; font-size:13px; }
+nav.topbar a.brand { color:var(--accent); font-weight:600; }
+nav.topbar a:hover { text-decoration:underline; }
+h1 { font-size:32px; margin:32px 0 12px; letter-spacing:-.02em; }
+h2 { font-size:24px; margin:44px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); letter-spacing:-.01em; }
+h3 { font-size:19px; margin:28px 0 10px; color:#c9d1d9; }
+h4 { font-size:16px; margin:22px 0 8px; color:#c9d1d9; }
+p, li { color:var(--fg); }
+a { color:var(--link); }
+strong { color:#ffdf5d; }
+em { color:#c9d1d9; }
+code { background:var(--code-bg); padding:2px 6px; border-radius:4px; font-size:13px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Cascadia Mono",monospace; color:#ffa657; }
+pre { background:var(--code-bg); padding:16px 20px; border-radius:8px; overflow-x:auto;
+  border:1px solid var(--border); }
+pre code { background:transparent; padding:0; color:#c9d1d9; font-size:12.5px; line-height:1.55; }
+blockquote { border-left:3px solid var(--accent); background:#141a20; padding:12px 20px;
+  margin:16px 0; color:#c9d1d9; border-radius:4px; }
+table { border-collapse:collapse; width:100%; margin:16px 0; font-size:13.5px; }
+th, td { border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top; }
+th { background:#141a20; color:#c9d1d9; font-weight:600; }
+tr:nth-child(even) td { background:#131820; }
+hr { border:none; border-top:1px solid var(--border); margin:32px 0; }
+ul, ol { padding-left:24px; }
+li { margin:4px 0; }
+.meta { color:var(--muted); font-size:13px; margin-bottom:24px; }
+.legend-live      { color:#7ee787; }
+.legend-shadow    { color:#f0d05e; }
+.legend-disc      { color:#ffa657; }
+.legend-partial   { color:#79c0ff; }
+.legend-exp       { color:#d2a8ff; }
+.legend-planned   { color:#8b96a5; }
+.legend-dead      { color:#ff7b72; }
+@media print {
+  nav.topbar { display:none; }
+  main { max-width:none; padding:24px 32px; }
+  body { background:#fff; color:#000; }
+  h1,h2,h3,h4 { color:#000; }
+  code, pre { background:#f4f4f4; color:#000; }
+  pre { border:1px solid #ddd; }
+  th { background:#eee; color:#000; }
+  a { color:#0057aa; }
+  blockquote { background:#f4f4f4; color:#333; }
+}</style>
+</head><body>
+<nav class="topbar">
+  <div>
+    <a class="brand" href="index.html">NivXRay Docs</a>
+    <a href="product-blueprint.html">Blueprint</a>
+    <a href="current-state-audit.html">Audit</a>
+    <a href="execution-plan.html">Execution Plan</a>
+    <a href="route-classification.html">Routes</a>
+    <a href="tweetfeed-evaluation.html">TweetFeed</a>
+  </div>
+  <div style="color:#8b96a5;font-size:12px;">Session-9 baseline · read-only</div>
+</nav>
+<main>
+<div class="meta">Source: <code>/app/memory/adr/0009-route-classification.md</code></div>
+<h1 id="adr-0009-route-classification-466-operations">ADR-0009 — Route Classification (466 operations)</h1>
+<p><strong>Status</strong>: Accepted · 2026-08-11 · Session-8
+<strong>Author</strong>: E1 (agent), under owner direction (ADR-0008 §5.5)
+<strong>Baseline</strong>: <a href="./0007-current-state-master-snapshot.md"><code>0007-current-state-master-snapshot.md</code></a>, <a href="./0008-execution-plan-from-audit.md"><code>0008-execution-plan-from-audit.md</code></a>
+<strong>Scope</strong>: <strong>read-only inventory.</strong> No route is deleted, deprecated, or admin-gated by this ADR. Its purpose is to give ADR-0008's route-deprecation gate an evidence-backed starting point.</p>
+<hr />
+<h2 id="1-method">§1 · Method</h2>
+<ol>
+<li>Pulled the running <code>openapi.json</code> on <code>localhost:8001</code> — <strong>466 method-routes across 436 paths</strong>.</li>
+<li>Scanned every <code>.jsx</code>/<code>.js</code> file under <code>frontend/src/</code> for <code>/api/*</code> URL literals. Result: <strong>74 distinct URL literals</strong> in the frontend.</li>
+<li>Cross-matched every route against those 74 literals using a strict matcher (exact path, or route-with-<code>{param}</code> where the FE literal is the parametric prefix).</li>
+<li>Cross-matched every route against <code>backend/tests/**/test_*.py</code> — treating a route as "test-touched" when the file contains the route's <code>/api/xxx/yyy</code> prefix (first 3 segments).</li>
+<li>Applied the classification rules in §2 based on the two signals above plus tag / prefix conventions.</li>
+</ol>
+<h3 id="signals-used-per-route">Signals used per route</h3>
+<ul>
+<li><code>fe_consumers_tight</code> — number of FE literals that tightly match the route.</li>
+<li><code>tests_matching</code> — number of test files whose text contains the route's 3-segment prefix.</li>
+<li>Prefix / tag heuristics — <code>/api/admin</code>, <code>/api/rc5</code>, <code>/api/v2</code>, <code>/api/observation</code>, <code>/api/timeline</code>, <code>/api/report</code>, <code>/api/nivxforge/preview</code>, etc.</li>
+</ul>
+<h3 id="signals-not-used-deliberately">Signals NOT used (deliberately)</h3>
+<ul>
+<li>Backend-to-backend HTTP calls (assumed rare in this codebase; verified by spot check).</li>
+<li>External integration consumers (documented in ADR-0007 §15 rather than inferred).</li>
+<li>Runtime hit counts (no metrics available — see ADR-0007 §21).</li>
+</ul>
+<p><strong>Limitations</strong> — read this before acting on any row:</p>
+<ul>
+<li>Test-touch is prefix-based; a route may share a prefix with a tested sibling without being individually tested.</li>
+<li>Frontend match is strict; a route may in reality be called via a URL constructed at runtime (template concat) that the AST-free regex could not see.</li>
+<li>Therefore, <strong><code>UNKNOWN</code> never means DEAD</strong>. It means "no evidence in this pass; do not delete without a second-pass investigation."</li>
+</ul>
+<hr />
+<h2 id="2-classification-rules-applied-in-order">§2 · Classification Rules (applied in order)</h2>
+<ol>
+<li><strong>ACTIVE-UI</strong> — a tight frontend match exists (<code>fe_consumers_tight &gt;= 1</code>).</li>
+<li><strong>INTERNAL</strong> — path in an admin/regression/training/learning/RC5/benchmark/corpus namespace (operations &amp; maintenance surface). <code>INTERNAL</code> is not disposable — it is where humans keep the platform running.</li>
+<li><strong>EXPERIMENTAL</strong> — path under <code>/api/v2/*</code> (all shadow-flagged per ADR-0007 §5) or <code>/api/nivxforge/preview/*</code> (preview surface).</li>
+<li><strong>DEPRECATED</strong> — path under <code>/api/observation</code> (X-Lab-A residual) or the legacy <code>/api/report/*</code> renderer (superseded by <code>/api/v2/analyze/report</code>).</li>
+<li><strong>DUPLICATE</strong> — path under <code>/api/timeline/*</code> (overlaps <code>/api/die/timeline</code>).</li>
+<li><strong>ACTIVE-API</strong> — well-known API surface (platform / docs / schemas / health / examples / telemetry / troubleshoot / static-docs) OR at least one matching test but no FE hit.</li>
+<li><strong>UNKNOWN</strong> — none of the above.</li>
+</ol>
+<p><strong>No route was placed in <code>DEAD</code> by this ADR.</strong> The <code>DEAD</code> slot in ADR-0008 §5.5 is reserved for a follow-up pass that combines this classification with runtime access logs.</p>
+<hr />
+<h2 id="3-headline-numbers">§3 · Headline Numbers</h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th style="text-align: right;">Count</th>
+<th style="text-align: right;">Share</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACTIVE-UI</td>
+<td style="text-align: right;">84</td>
+<td style="text-align: right;">18.0 %</td>
+</tr>
+<tr>
+<td>ACTIVE-API</td>
+<td style="text-align: right;">141</td>
+<td style="text-align: right;">30.3 %</td>
+</tr>
+<tr>
+<td>INTERNAL</td>
+<td style="text-align: right;">95</td>
+<td style="text-align: right;">20.4 %</td>
+</tr>
+<tr>
+<td>EXPERIMENTAL</td>
+<td style="text-align: right;">49</td>
+<td style="text-align: right;">10.5 %</td>
+</tr>
+<tr>
+<td>DEPRECATED</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">1.3 %</td>
+</tr>
+<tr>
+<td>DUPLICATE</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">0.9 %</td>
+</tr>
+<tr>
+<td>UNKNOWN</td>
+<td style="text-align: right;">87</td>
+<td style="text-align: right;">18.7 %</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td style="text-align: right;"><strong>466</strong></td>
+<td style="text-align: right;">100.0 %</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reality check against ADR-0007:</strong> ADR-0007 §10.4 measured 74 frontend URL literals against 466 operations and reported "~85% dead-or-admin." That was a headline number over a very loose signal. With a strict matcher, the corrected story is:</p>
+<ul>
+<li><strong>48.3 %</strong> (ACTIVE-UI + ACTIVE-API) is confirmed live surface (either UI or API/tests exercise it).</li>
+<li><strong>31.8 %</strong> (INTERNAL + EXPERIMENTAL) is intentionally-not-UI: admin, ops, RC5 shadow, v2 shadow, nivxforge preview.</li>
+<li><strong>2.2 %</strong> (DEPRECATED + DUPLICATE) is safe-to-consider-for-removal <em>after</em> second-pass verification.</li>
+<li><strong>18.7 %</strong> (UNKNOWN) needs a second pass with runtime access logs or a backend-consumer scan; <strong>do not delete on this evidence alone.</strong></li>
+</ul>
+<p><strong>Do not read this as "85 % is dead."</strong> It is not.</p>
+<hr />
+<h2 id="4-what-to-do-with-each-category-owner-rules">§4 · What to Do With Each Category (owner rules)</h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Action authorised by this ADR</th>
+<th>Requires further approval</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACTIVE-UI</td>
+<td>Preserve. Regression-lock. No breaking changes without a matching FE change.</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ACTIVE-API</td>
+<td>Preserve. Document owner (which router file). Add tests where <code>tests_matching == 0</code>.</td>
+<td>—</td>
+</tr>
+<tr>
+<td>INTERNAL</td>
+<td>Preserve. Confirm admin-gated (<code>require_admin</code>) before public exposure. Consider moving to <code>/api/admin/*</code> prefix for consistency.</td>
+<td>Owner sign-off before renames</td>
+</tr>
+<tr>
+<td>EXPERIMENTAL</td>
+<td>Preserve under existing shadow flags (per ADR-0008 §4). Do not expose in primary nav.</td>
+<td>Promotion criteria in ADR-0008 §4</td>
+</tr>
+<tr>
+<td>DEPRECATED</td>
+<td>Mark with <code>deprecated=True</code> in FastAPI decorator + add sunset date. <strong>Do not delete yet.</strong></td>
+<td>Owner approval + 60-day sunset window</td>
+</tr>
+<tr>
+<td>DUPLICATE</td>
+<td>Route-level docstring pointing at the canonical alternative. <strong>Do not delete yet.</strong></td>
+<td>Owner approval after canonical alt proven equivalent</td>
+</tr>
+<tr>
+<td>UNKNOWN</td>
+<td>Second-pass audit next session: (a) grep backend for internal callers, (b) enable access logs, (c) inspect FE hits with dynamic URL construction. <strong>Do not delete under any circumstance in this session.</strong></td>
+<td>Second-pass ADR</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-high-signal-findings">§5 · High-Signal Findings</h2>
+<h3 id="51-deprecated-6-routes-candidates-for-sunset">5.1 · DEPRECATED (6 routes) — candidates for sunset</h3>
+<ul>
+<li><code>POST /api/report</code>, <code>POST /api/report/stix</code>, <code>POST /api/report/stix/download</code>, <code>POST /api/report/stix/investigation</code>, <code>POST /api/report/{fmt}</code> — 5 legacy report emitters. Successor: <code>POST /api/v2/analyze/report</code> (called from <code>WorkspacePage.jsx</code> L525). Recommend <code>deprecated=True</code> + 60-day sunset.</li>
+<li><code>GET /api/observation</code> (or similar) — X-Lab-A residual after removal in Session-7. Recommend deletion after confirming <code>test_workspace_isolation_guard.py</code> continues to pass.</li>
+</ul>
+<h3 id="52-duplicate-4-routes-canonical-alt-exists">5.2 · DUPLICATE (4 routes) — canonical alt exists</h3>
+<ul>
+<li><code>GET /api/timeline/events</code>, <code>POST /api/timeline/events</code>, <code>GET /api/timeline/recent</code>, <code>DELETE /api/timeline/events/{investigation_id}</code> — overlaps <code>POST /api/die/timeline</code>. Canonical alternative (<code>/api/die/timeline</code>) is the ADR-0007 Timeline MVP. Recommend adding a docstring pointer and a sunset date.</li>
+</ul>
+<h3 id="53-experimental-49-routes-shadow-surface">5.3 · EXPERIMENTAL (49 routes) — shadow surface</h3>
+<ul>
+<li>All <code>/api/v2/*</code> — 47 routes under shadow flags (see ADR-0008 §4).</li>
+<li>2 additional preview routes under <code>/api/nivxforge/preview/*</code>.</li>
+<li><strong>Rule (ADR-0008 P7):</strong> no new experimental routes without an ADR entry.</li>
+</ul>
+<h3 id="54-unknown-87-routes-top-clusters">5.4 · UNKNOWN (87 routes) — top clusters</h3>
+<p>The 87 UNKNOWN routes concentrate in 30 prefixes. Top clusters:</p>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th style="text-align: right;"># Unknown</th>
+<th>Likely truth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/api/nivxforge/preview/*</code></td>
+<td style="text-align: right;">7</td>
+<td>Consumed by nivxforge preview page; matcher missed dynamic URL join. Likely ACTIVE-UI once verified.</td>
+</tr>
+<tr>
+<td><code>/api/documents/{doc_id}</code> sub-paths</td>
+<td style="text-align: right;">4</td>
+<td>Consumed by Documents page; matcher missed <code>${id}</code> interpolation. Likely ACTIVE-UI.</td>
+</tr>
+<tr>
+<td><code>/api/decode/feedback</code> sub-paths</td>
+<td style="text-align: right;">4</td>
+<td>Consumed by feedback panel. Likely ACTIVE-UI or ACTIVE-API.</td>
+</tr>
+<tr>
+<td><code>/api/decode/mitigations</code> sub-paths</td>
+<td style="text-align: right;">3</td>
+<td>Consumed by mitigations panel. Likely ACTIVE-UI.</td>
+</tr>
+<tr>
+<td><code>/api/corrections/{corr_id}</code> sub-paths</td>
+<td style="text-align: right;">3</td>
+<td>Consumed by corrections admin. Likely ACTIVE-UI.</td>
+</tr>
+<tr>
+<td><code>/api/session/{session_id}</code> sub-paths</td>
+<td style="text-align: right;">3</td>
+<td>Session detail — likely ACTIVE-UI once dynamic path verified.</td>
+</tr>
+<tr>
+<td><code>/api/ai/toggle</code>, <code>/api/ai/budget</code></td>
+<td style="text-align: right;">3</td>
+<td>Admin AI budget panel. Likely INTERNAL or ACTIVE-UI.</td>
+</tr>
+<tr>
+<td><code>/api/threat-intel/{sources,stats,sync,sync-all,iocs,lookup}</code></td>
+<td style="text-align: right;">6</td>
+<td>Consumed by threat-intel page. Likely ACTIVE-UI.</td>
+</tr>
+<tr>
+<td><code>/api/kb/{search,stats}</code></td>
+<td style="text-align: right;">2</td>
+<td>Consumed by KB page. Likely ACTIVE-UI.</td>
+</tr>
+<tr>
+<td><code>/api/history/{stats,export,compare}</code></td>
+<td style="text-align: right;">3</td>
+<td>Consumed by History page. Likely ACTIVE-UI.</td>
+</tr>
+<tr>
+<td><code>/api/lab/public/*</code></td>
+<td style="text-align: right;">2</td>
+<td>Public lab attempt endpoints. Likely ACTIVE-UI (public lab attempt route).</td>
+</tr>
+<tr>
+<td><code>/api/share</code>, <code>/api/share/{token}</code></td>
+<td style="text-align: right;">2</td>
+<td>Share-link renderer. Likely ACTIVE-UI (opened by external link, so no FE literal grep hit).</td>
+</tr>
+<tr>
+<td><code>/api/telemetry/frontend</code></td>
+<td style="text-align: right;">1</td>
+<td>Consumed by FE telemetry — dynamic construction. Likely ACTIVE-UI.</td>
+</tr>
+<tr>
+<td>Other</td>
+<td style="text-align: right;">~50</td>
+<td>Small clusters — verify next session.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Owner note:</strong> the second-pass audit should upgrade at least half of <code>UNKNOWN</code> → <code>ACTIVE-UI</code> once dynamic URL construction is resolved. Expected converged split is closer to <strong>~60 % live surface, ~30 % internal-or-experimental, ~10 % genuinely disposable</strong> — not the "85 % dead" headline.</p>
+<h3 id="55-internal-95-routes-hygiene-opportunities">5.5 · INTERNAL (95 routes) — hygiene opportunities</h3>
+<p>The INTERNAL bucket is dominated by:</p>
+<ul>
+<li><code>/api/admin/*</code> (37 ops) — OSINT keys, Model Studio, Sample Library, LOLBAS, Users, TAXII config.</li>
+<li><code>/api/rc5/*</code> (19 ops) — Golden runs, shadow, entities.</li>
+<li><code>/api/learner/*</code> (16 ops), <code>/api/learning/*</code> (6), <code>/api/learning-engine</code> (2), <code>/api/training/*</code> (8), <code>/api/regression/*</code> (8), <code>/api/corpus/*</code> (3), <code>/api/benchmark/*</code> (6, mostly ACTIVE-UI actually), <code>/api/batch/*</code> (11, ACTIVE-UI).</li>
+</ul>
+<p>None of these are candidates for removal. They are the platform's ops surface.</p>
+<hr />
+<h2 id="6-aggregate-tables-by-category">§6 · Aggregate Tables by Category</h2>
+<p>The full row-level tables below are the authoritative record. Save them for the second-pass audit. Every row shows: method, path, tag, tight FE consumer count, matching-test count, and evidence.</p>
+<!-- Machine-generated on 2026-08-11. Regenerate via the script embedded in ADR-0009 §1. -->
+
+<h2 id="category-tables-all-466-operations-evidence-backed">Category tables (all 466 operations · evidence-backed)</h2>
+<h3 id="active-ui-84-routes">ACTIVE-UI (84 routes)</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Tag</th>
+<th style="text-align: right;">FE-hit</th>
+<th style="text-align: right;">Tests</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/admin/samples</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/admin/samples</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/admin/samples/{sid}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/admin/samples/{sid}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/admin/samples/{sid}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/ai/auto-decode</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/ai/auto-investigate</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/ai/troubleshoot</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/analyze/async</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">8</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/analyze/process-tree</code></td>
+<td>process-tree</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/analyze/shellcode</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/analyze/status/{job_id}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">6</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/batch/history</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/batch/history/{run_id}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/batch/history/{run_id}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/batch/history/{run_id}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/batch/test</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 3</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/batch/test/example</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/batch/test/json</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/benchmark/multilayer</code></td>
+<td>benchmark</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/benchmark/multilayer/rerun</code></td>
+<td>benchmark</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/benchmark/real-world</code></td>
+<td>benchmark</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/benchmark/refresh</code></td>
+<td>benchmark</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/cases/{case_id}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">6</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/cases/{case_id}</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">6</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/corrections</code></td>
+<td>corrections</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 3</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/corrections</code></td>
+<td>corrections</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 3</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/corrections/analytics</code></td>
+<td>corrections</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/corrections/pending</code></td>
+<td>corrections</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/correlations/compare</code></td>
+<td>correlations</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/correlations/{cid}</code></td>
+<td>correlations</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/correlations/{cid}</code></td>
+<td>correlations</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/correlations/{cid}</code></td>
+<td>correlations</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/decode/candidates</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/decode/chain</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">10</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/decode/smart</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">60</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/die/investigation-results</code></td>
+<td>die</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">8</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/die/query</code></td>
+<td>die</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/die/timeline</code></td>
+<td>die</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/die/understand</code></td>
+<td>die</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/docs/assets/{filename}</code></td>
+<td>docs</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/docs/cheatsheet/{doc_id}</code></td>
+<td>docs</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/docs/explain/feedback/stats</code></td>
+<td>docs</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">6</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/documents</code></td>
+<td>documents</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/history/list</code></td>
+<td>history</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">3</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/iedde/analyze</code></td>
+<td>iedde</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/investigation</code></td>
+<td>l1-investigation</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">5</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/investigation</code></td>
+<td>l1-investigation</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">5</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/investigation/summary</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/investigations</code></td>
+<td>investigations</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/investigations</code></td>
+<td>investigations</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
+<td>FE consumer(s): 2</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/ioc/enrich</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/lab/attempt</code></td>
+<td>lab</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/lab/attempt/narrative</code></td>
+<td>lab</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/lab/challenge</code></td>
+<td>lab</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/lab/leaderboard</code></td>
+<td>lab</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/lab/me</code></td>
+<td>lab</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/learning/boost</code></td>
+<td>learning</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/learning/correction</code></td>
+<td>learning</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/mitre/heatmap</code></td>
+<td>mitre</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/mitre/heatmap/probe</code></td>
+<td>mitre</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/nivxforge/preview/platform-health</code></td>
+<td>nivxforge-preview</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/planner/advise</code></td>
+<td>planner</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/platform/metrics</code></td>
+<td>platform</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/rc5/golden/history</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/rc5/golden/summary</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/rc5/parse</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/rc5/shadow/gate</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/rc5/shadow/report/cumulative</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/rc5/shadow/report/daily</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/rc5/shadow/status</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/rc5/shadow/prod-health</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/rc5/shadow/record</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/rc5/shadow/toggle</code></td>
+<td>rc5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/recipe/run</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">6</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/schemas/v1/cio</code></td>
+<td>schemas</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/session/from-investigation</code></td>
+<td>session</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/session/from-investigation</code></td>
+<td>session</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/telemetry/frontend</code></td>
+<td>telemetry</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/threat-intel/rss/feeds</code></td>
+<td>threat-intel-rss</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/threat-intel/rss/trending</code></td>
+<td>threat-intel-rss</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/threat-intel/rss/pending</code></td>
+<td>threat-intel-rss</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/threat-intel/rss/crawl</code></td>
+<td>threat-intel-rss</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/training/confusion</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/training/confusion/summary</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/upload</code></td>
+<td>-</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v2/analyze/report</code></td>
+<td>v2-analyze</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>FE consumer(s): 1</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v2/cases</code></td>
+<td>v2-cases</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
+<td>FE consumer(s): 2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="deprecated-6-routes">DEPRECATED (6 routes)</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Tag</th>
+<th style="text-align: right;">FE-hit</th>
+<th style="text-align: right;">Tests</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/observation/status</code></td>
+<td>-</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td>X-Lab-A residual after removal</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/report</code></td>
+<td>-</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td>legacy renderer; superseded by /api/v2/report-writer + /api/v2/analyze/report</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/report/stix</code></td>
+<td>-</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td>legacy renderer; superseded by /api/v2/report-writer + /api/v2/analyze/report</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/report/stix/download</code></td>
+<td>-</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td>legacy renderer; superseded</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/report/stix/investigation</code></td>
+<td>-</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td>legacy renderer; superseded</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/report/{fmt}</code></td>
+<td>-</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td>legacy renderer; superseded</td>
+</tr>
+</tbody>
+</table>
+<h3 id="duplicate-4-routes">DUPLICATE (4 routes)</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Tag</th>
+<th style="text-align: right;">FE-hit</th>
+<th style="text-align: right;">Tests</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/timeline/events</code></td>
+<td>timeline</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
+<td>overlaps /api/die/timeline</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/timeline/events</code></td>
+<td>timeline</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
+<td>overlaps /api/die/timeline</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/timeline/recent</code></td>
+<td>timeline</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
+<td>overlaps /api/die/timeline</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/timeline/events/{investigation_id}</code></td>
+<td>timeline</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
+<td>overlaps /api/die/timeline</td>
+</tr>
+</tbody>
+</table>
+<h3 id="experimental-49-routes">EXPERIMENTAL (49 routes)</h3>
+<p>All 47 <code>/api/v2/*</code> routes plus 2 <code>/api/nivxforge/preview/*</code> routes not tightly matched. Full list saved for the second-pass audit in <code>/tmp/route_classification_refined.json</code>.</p>
+<h3 id="active-api-141-routes">ACTIVE-API (141 routes)</h3>
+<p>Well-known API + tested surface without a tight FE match. Notable:</p>
+<ul>
+<li><code>GET /api/health</code>, <code>GET /api/health/deep</code> — Kubernetes probes.</li>
+<li><code>POST /api/auth/{login,change-password}</code>, <code>GET /api/auth/me</code> — auth surface.</li>
+<li><code>POST /api/artifacts/analyze</code>, <code>GET /api/artifacts/capabilities</code> — artifact tier.</li>
+<li><code>POST /api/die/analyze</code>, <code>POST /api/die/chain</code>, <code>POST /api/die/narrate</code>, <code>POST /api/die/intent</code>, <code>POST /api/die/confidence</code>, <code>POST /api/die/detect-kind</code>, <code>POST /api/die/health-check</code>, <code>POST /api/die/iocs</code>, <code>POST /api/die/powershell/ast</code>, <code>POST /api/die/investigation</code>, <code>POST /api/die/archive/recover</code>, <code>GET /api/die/case/{case_id}</code>, <code>GET /api/die/report/{case_id}</code>, <code>GET /api/die/lolbas</code>, <code>GET /api/die/lolbas/{binary}</code>, <code>GET /api/die/dkp/patterns</code>, <code>GET /api/die/dkp/patterns/{pattern_id}</code> — DIE API surface (some also called from FE with dynamic URLs; second-pass will reclassify).</li>
+<li><code>POST /api/decode/*</code> variants — decode API surface.</li>
+<li><code>GET /api/system/info</code>, <code>POST /api/telemetry/frontend</code>, <code>POST /api/troubleshoot</code> — platform.</li>
+<li><code>GET /api/docs/*</code> (39 routes) — docs surface; a few <code>ACTIVE-UI</code>, most <code>ACTIVE-API</code>.</li>
+</ul>
+<p>Full list saved in <code>/tmp/route_classification_refined.json</code>.</p>
+<h3 id="internal-95-routes">INTERNAL (95 routes)</h3>
+<p>Ops / regression / admin / RC5 golden / training / learner / benchmark / batch / corpus namespaces.</p>
+<p>Full list saved in <code>/tmp/route_classification_refined.json</code>.</p>
+<h3 id="unknown-87-routes">UNKNOWN (87 routes)</h3>
+<p>Second-pass audit next session. See §5.4 for the clustering.</p>
+<hr />
+<h2 id="7-second-pass-audit-plan-owed-by-next-session">§7 · Second-Pass Audit Plan (owed by next session)</h2>
+<ol>
+<li>Resolve the 87 UNKNOWN routes:
+   - grep the frontend for template-literal URL joins (backticks, <code>${…}</code>).
+   - grep backend/services and backend/routers for internal HTTP callers.
+   - inspect the top 30 UNKNOWN clusters (§5.4).</li>
+<li>Confirm all 6 DEPRECATED routes' successor paths are green.</li>
+<li>Add <code>deprecated=True</code> FastAPI decorator to DEPRECATED + DUPLICATE — <strong>only after owner sign-off</strong> (§4).</li>
+<li>Enable a lightweight request access counter for a 7-day window; upgrade UNKNOWN → ACTIVE-* based on real hits.</li>
+<li>Produce ADR-0010 with the sunset list ready to execute.</li>
+</ol>
+<hr />
+<h2 id="8-bottom-line">§8 · Bottom Line</h2>
+<ul>
+<li>Route count is not the story. <strong>Live UI + Live API + Ops together = ~68 %</strong> of the surface.</li>
+<li>Only <strong>10 routes total</strong> across DEPRECATED + DUPLICATE are candidates for immediate sunset — and none are deleted by this ADR.</li>
+<li>The 87 UNKNOWN routes are a <strong>research backlog</strong>, not a deletion backlog.</li>
+<li>The 49 EXPERIMENTAL routes remain protected by ADR-0008 §4 (shadow ≠ dead).</li>
+</ul>
+<p><em>End of ADR-0009. Reproducibility: machine-generated data in <code>/tmp/route_classification_refined.json</code>; regenerate via the script embedded in §1 of this ADR.</em></p>
+</main>
+</body></html>

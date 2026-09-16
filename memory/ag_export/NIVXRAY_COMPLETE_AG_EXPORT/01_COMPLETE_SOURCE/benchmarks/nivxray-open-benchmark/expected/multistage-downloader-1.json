@@ -1,0 +1,27 @@
+{
+  "id": "multistage-downloader-1",
+  "algorithm": "Base64+GZip+AES-CBC (C2 key)",
+  "key_status": "c2-derived",
+  "recoverable_stages": [
+    "base64-decode",
+    "gzip-decompress"
+  ],
+  "runtime_stages": [
+    "c2-key-fetch",
+    "aes-cbc-decrypt"
+  ],
+  "expected_verdict": "malicious",
+  "expected_iocs": [
+    "c2.example.io"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140",
+    "T1071.001",
+    "T1059.001"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

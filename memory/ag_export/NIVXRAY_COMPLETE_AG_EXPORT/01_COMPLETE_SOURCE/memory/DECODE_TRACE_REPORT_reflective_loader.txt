@@ -1,0 +1,110 @@
+══════════════════════════════════════════════════════════════════════════════
+  NIVXRAY · DECODE TRACE REPORT
+══════════════════════════════════════════════════════════════════════════════
+
+INPUT
+  ├── SHA-256/16      : f562d6106bd36618
+  ├── Length          : 7,624 chars
+  ├── Atomic IOC kind : (none)
+  └── Preview         : %COMSPEC% /b /c start /b /min powershell -nop -w hidden -encodedcommand JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0A…
+
+↓
+
+STAGE 1 · INPUT UNDERSTANDING (IU)
+  Classification : None
+  Confidence     : 90
+  Language       : None
+  Capabilities   : []
+
+↓
+
+STAGE 2 · COMMAND RECONSTRUCTION (CRE)
+  Effective payload : sha=f562d6106bd36618  len=7,624
+  Preview           : %COMSPEC% /b /c start /b /min powershell -nop -w hidden -encodedcommand JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0A…
+
+↓
+
+STAGE 3 · RECURSIVE TRANSFORMATION ENGINE (RTE)
+  stop_reason      : no_transformation
+  depth            : 2   layers: 3   steps: 2
+  determinism_hash : c9bd417f63f75657
+
+  LAYERS:
+    L0  sha=f562d6106bd36618  len=  7624  kind=None
+        preview: %COMSPEC% /b /c start /b /min powershell -nop -w hidden -encodedcommand JABzAD0ATgBlAHcALQBPAGIAagBl…
+    L1  sha=9909599ad32cfefa  len=  2832  kind=None
+        preview: $s=New-Object IO.MemoryStream(,[Convert]::FromBase64String("H4sIAAAAAAAAAK1X63OiShb/HP8KPqRKLU2Cj5g4…
+    L2  sha=21c8fc58a3205cd8  len=  3583  kind=None
+        preview: Set-StrictMode -Version 2⏎⏎$DoIt = @'⏎function func_get_proc_address {⏎→Param ($var_module, $var_pro…
+
+  STEPS:
+    step 0  ps_encoded_command                   L0→L1  conf=98  changed=True
+    step 1  ps_indirect_compression_stream       L1→L2  conf=94  changed=True
+
+  DIAGNOSTICS:
+    [   INFO] DX2002  NO_FURTHER_DETERMINISTIC_TRANSFORMATION  (root)
+             The Recursive Transformation Engine could not find any deterministic transformation to apply to the current layer. This is the principled convergence state; the
+
+  → FINAL ARTEFACT : sha=21c8fc58a3205cd8  len=3583
+
+↓
+
+STAGE 4 · SEMANTIC INTENT (Investigation Brain input)
+  Input-to-brain    : sha=21c8fc58a3205cd8  len=3583
+  Intents fired     : 3
+    [  high]    defense_evasion  conf=90  Evade defensive tooling via RWX shellcode allocation.
+        signatures: ['RWX shellcode allocation']
+        mitre     : ['T1055']
+    [  high]    defense_evasion  conf=90  Evade defensive tooling via Delegate-invoked function pointer.
+        signatures: ['Delegate-invoked function pointer']
+        mitre     : ['T1055']
+    [  high]    defense_evasion  conf=90  Evade defensive tooling via Reflective Win32 API resolution.
+        signatures: ['Reflective Win32 API resolution']
+        mitre     : ['T1055']
+  determinism_hash  : ac38925b2dc06500
+
+↓
+
+STAGE 5 · BEHAVIOR GRAPH
+  schema       : None
+  nodes/edges  : 3 / 2
+
+↓
+
+STAGE 6 · VERDICT UPLIFT
+  band         : malicious   confidence: 90
+  composition  : ['defense_evasion']
+  reason       : High-risk adversarial intent chain detected: defense_evasion. Behaviour is consistent with malicious execution.
+
+↓
+
+STAGE 7 · ANALYST REPORT
+  executive summary : 232 chars
+  mitre / iocs / recs : 1 / 0 / 1
+
+══════════════════════════════════════════════════════════════════════════════
+  UI PAYLOAD MAPPING (from LIVE deployed API)
+══════════════════════════════════════════════════════════════════════════════
+  endpoint            : https://greeting-app-5782.preview.emergentagent.com/api/decode/smart
+  response keys       : 40 keys
+  ui `output` sha/len : f26166ff0e5eca7c  4468
+  ui `output` starts  : ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━⏎▼ INVESTIGATION BRAIN · RTE DECODER TRACE⏎━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━⏎  stop_reason:      no_t…
+  ui has RTE header?  : True
+  ui `output_legacy`  : len=1893 · ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━⏎▼ DECODED OUTPUT⏎━━━━━━━━━━━━━━━━…
+  investigation.rte   : stop=no_transformation  depth=2  artefacts=3
+  investigation.verdict.band : malicious  conf: 90
+  investigation.intent count : 3
+  legacy verdict_v2 / _card  : None  /  Malicious
+
+══════════════════════════════════════════════════════════════════════════════
+  FOUR DIAGNOSTIC QUESTIONS (evidence-based)
+══════════════════════════════════════════════════════════════════════════════
+  Q1  artifacts[] contains decoded PowerShell?           YES · Decoder produced ≥ 2 layers
+  Q2  API `output` field carries decoded PowerShell?      YES (len=4468)
+  Q3  UI payload contains the RTE brain-block header?     YES
+  Q4  If artifacts[] partial, last decoder / stop_reason  ps_indirect_compression_stream / no_transformation
+      root diagnostic: DX2002  NO_FURTHER_DETERMINISTIC_TRANSFORMATION
+
+══════════════════════════════════════════════════════════════════════════════
+  investigation determinism_hash : 3f62435a8bd20068
+══════════════════════════════════════════════════════════════════════════════

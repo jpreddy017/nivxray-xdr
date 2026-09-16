@@ -15,8 +15,23 @@ import React from "react";
 import { NxChip, NxHonestyChip } from "@/xdr/nx";
 
 /* Priority — filled semantic chip.  P?/absent → dashed unknown. */
+// Owner-locked priority ladder (2026-09-05):
+//   P1 = CRITICAL · P2 = HIGH · P3 = MEDIUM · P4 = LOW · P5 = INFORMATIONAL
+// Four visually distinct steps, each with its own hue AND its own
+// severity glyph, so rank survives greyscale and colour-blindness.
 const PRIORITY_TONE = {
-  P1: "critical", P2: "high", P3: "medium", P4: "benign", P5: "on_hold",
+  P1: "pri-1", P2: "pri-2", P3: "pri-3", P4: "pri-4", P5: "pri-5",
+};
+const PRIORITY_LABEL = {
+  P1: "P1 · CRITICAL", P2: "P2 · HIGH", P3: "P3 · MEDIUM",
+  P4: "P4 · LOW", P5: "P5 · INFORMATIONAL",
+};
+// Rank glyph — filled blocks descending.  Colour is never the only
+// carrier of priority.
+const PRIORITY_GLYPH = {
+  P1: "\u25B0\u25B0\u25B0\u25B0", P2: "\u25B0\u25B0\u25B0\u25B1",
+  P3: "\u25B0\u25B0\u25B1\u25B1", P4: "\u25B0\u25B1\u25B1\u25B1",
+  P5: "\u25B1\u25B1\u25B1\u25B1",
 };
 export function PriorityChip({ code, onClick }) {
   const tone = code && PRIORITY_TONE[code];
@@ -28,16 +43,26 @@ export function PriorityChip({ code, onClick }) {
       size="sm"
       onClick={onClick}
       data-testid={`chip-priority-${code}`}
+      data-priority-rank={code}
+      title={PRIORITY_LABEL[code]}
     >
+      <span aria-hidden="true"
+             style={{ fontFamily: "var(--nx-font-mono)", fontSize: "0.82em",
+                         letterSpacing: "-0.06em", marginRight: 4,
+                         opacity: 0.9 }}>
+        {PRIORITY_GLYPH[code]}
+      </span>
       {code}
     </NxChip>
   );
 }
 
 /* Severity — filled tinted chip.  unknown → dashed. */
+// Severity uses the SAME four-step ladder as priority so the two
+// columns can never contradict each other visually.
 const SEVERITY_TONE = {
   critical: "critical", high: "high", medium: "medium",
-  low: "benign", info: "low",
+  low: "low", informational: "neutral", info: "neutral",
 };
 export function SeverityChip({ value, onClick }) {
   const k = String(value || "unknown").toLowerCase();

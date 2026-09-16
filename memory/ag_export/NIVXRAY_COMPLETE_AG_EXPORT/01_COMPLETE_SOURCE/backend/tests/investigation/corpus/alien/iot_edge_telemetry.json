@@ -1,0 +1,15 @@
+{
+  "gw_serial": "EDG-9C4A-11F2",
+  "sensor_kind": "temperature",
+  "reading_c": 21.6,
+  "battery_pct": 74,
+  "firmware_slug": "iothub-firmware-2.1.9",
+  "mqtt_topic": "sites/plant-b/line-3/temp",
+  "uplink_rssi_dbm": -76,
+  "gateway_ip": "192.168.42.9",
+  "device_mac": "AA:BB:CC:11:22:33",
+  "sample_epoch_ms": 1738368000000,
+  "provisioning_cert": "-----BEGIN CERTIFICATE-----\nMIIB...==\n-----END CERTIFICATE-----",
+  "site_geohash": "gcpvj0",
+  "anomaly_flag": "none"
+}

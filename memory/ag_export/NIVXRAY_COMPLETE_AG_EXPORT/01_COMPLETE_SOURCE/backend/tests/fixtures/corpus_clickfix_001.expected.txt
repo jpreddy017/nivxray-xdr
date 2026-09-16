@@ -1,0 +1,1 @@
+http://clickfix-1.example.test/verify.hta

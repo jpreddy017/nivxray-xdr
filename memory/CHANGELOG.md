@@ -1,6 +1,1827 @@
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
+
+## 2026-09-08 · P0-3 — Blindness/Staleness Detection + Linux Sensor Recovery — SHIPPED
+
+NivXForge can now detect and state when its OWN telemetry pipeline has
+gone blind, and the Linux sensor that had been silent since
+2026-09-06 is delivering real telemetry again under supervision.
+Report `memory/P0_3_SENSOR_RECOVERY.md` · proof
+`scripts/p0_3_sensor_recovery_proof.py` **41 PASS · 0 FAIL · 0 BLOCKED**.
+
+**Root cause** — not a sensor bug: the sensor was never a supervised
+program and its durable state (credential, outbox, dedup set) lived on a
+path that did not survive container recreation. The platform could not
+notice, because no state, route or UI could say "we are receiving
+nothing".
+
+**Backend**
+- `services/edr/endpoint_health.py` — dimension C, the single delivery
+  freshness authority: `DELIVERING` / `STALE` / `BLIND_NO_DELIVERY` with
+  a `basis` (`NEVER_DELIVERED`, `DELIVERY_CEASED`, `CREDENTIAL_REVOKED`,
+  `LINK_ALIVE_NO_NEW_EVIDENCE`, `DELIVERY_BACKLOGGED_AT_SENSOR`,
+  `DELIVERY_LATE_LINK_UNCONFIRMED`). Thresholds derived from the sensor's
+  own declared cadence; the formula travels with every answer.
+- `services/edr/telemetry_freshness.py` (new) — fleet/endpoint projection
+  with an enrolment-registry fallback so an enrolled-but-never-reported
+  endpoint is addressable (`ENROLMENT_REGISTRY_DIRECT`).
+- `GET /api/edr/telemetry/freshness[?endpoint=]`.
+- `POST /api/edr/agent/heartbeat` — liveness only; never advances
+  `last_telemetry_at`, never counts as an event, creates no raw event.
+- `routers/edr.py::_window_honesty()` — the process tree now discloses
+  what exists OUTSIDE the requested window.
+- `enroll()` no longer erases the delivery record on re-enrolment.
+- `canonical_bridge` + `nivxforge_sensor_dsm` now carry the authenticated
+  sensor attribution, so live-sensor incidents are no longer born
+  `PROVENANCE_UNKNOWN`.
+
+**Sensor / ops**
+- `nivxforge_sensor` is a supervised program with persistent state and
+  idempotent enrolment; SIGKILL-proven to resume the same endpoint id.
+- Heartbeat at the start of each cycle with `queue_depth`; drain bounded
+  to 200 events per cycle (nothing dropped, remainder reported as a
+  backlog).
+
+**Frontend**
+- `nivxforge/components/TelemetryFreshness.jsx` (new) on Endpoint
+  Overview and Process Tree.
+- Process Tree honours `?hours=`, gained a window control and now reads
+  "EVIDENCE EXISTS OUTSIDE THIS WINDOW" with real counts instead of
+  "NO MATCHING EVIDENCE".
+
+**Not shipped, stated**: no alerting (blindness is a console state, not a
+notification); batch ingest; endpoint isolation stays
+`BLOCKED_ENVIRONMENT` (`CAP_NET_ADMIN`).
+
+## 2026-09-01 · Round 46 — Analyst Intelligence Overlay (v1) — SHIPPED
+
+Governance layer over machine-derived interpretation.  Canonical
+evidence, detections, ATT&CK mappings, confidence and finding
+identity remain immutable.  Analysts edit only the narrative.
+
+**Backend**
+- New service `services.intelligence_overlay` with immutable audit
+  collection (`xdr_intelligence_overlay_audit`) separate from the
+  overlay row (`xdr_intelligence_overlays`) — no unbounded embedded
+  arrays.
+- `machine_source_hash` (sha256) captured on every write so
+  regenerated machine content surfaces as MACHINE SOURCE UPDATED.
+- Reason mandatory on create / edit / revert.
+- `revert` preserves history via a `reverted` audit event; never
+  hard-deletes.
+- Concurrency: 409 on `expected_version` mismatch with
+  `{stored_version, your_version}` body.
+- REST router mounted at `/api/incidents/{id}/intelligence/…`
+  with `get_current_user` on every write.
+
+**Frontend**
+- `components/IntelligenceOverlayEditor.jsx` — compact inline
+  editor with EDIT / REVERT / HISTORY controls, audit-trail
+  panel, mandatory reason field, and provenance badges
+  (`NIVXRAY GENERATED` · `ANALYST EDITED · v{n}` ·
+  `MACHINE SOURCE UPDATED · v{n}`).
+- `AutoInvestigationTab.jsx` — every finding row now renders a
+  restrained *Analyst Interpretation* panel below the machine
+  summary.  The machine value is always shown alongside as
+  *"NivXRay machine value: …"* so the edited narrative never
+  masquerades as canonical evidence.
+
+**Tests — `test_xdr_round46_intelligence_overlay.py`** (15 tests)
+- Effective value fallback semantics
+- Reason mandatory
+- Analyst identity mandatory
+- Unsupported target / field rejected
+- Finding overlay locked to `summary` only
+- Full governance shape stored (author_id · author_email · reason ·
+  version · machine_source_hash · created_at / updated_at)
+- Effective uses analyst when hash matches
+- Effective falls back to machine when source drifts
+- Presentation badge never claims EVIDENCE-DERIVED / NIVXRAY
+  GENERATED once analyst content exists
+- Edit increments version; audit entry appended to immutable
+  audit collection (not embedded)
+- Machine value never mutated across edits (hard invariant)
+- Version conflict raises 409
+- Revert preserves history and effective returns machine value
+- Revert without active overlay raises 404
+- Report + PDF fully backward-compatible when no overlay exists
+
+**E2E verified on R35 EDR incident (preview):**
+edited detection_intel finding summary · badge flipped to
+`ANALYST EDITED · v1` · audit shows `admin@nivxray.com` + reason ·
+machine value visible below in muted footer · 11 unedited findings
+kept `NIVXRAY GENERATED` badge · 0 spurious drift badges.
+
+**Not yet wired (backlog · next drops):**
+- Executive Summary overlay
+- Attack Story per-step narrative overlay
+- Report composer + PDF renderer effective-value integration
+
+**Cumulative regression: 283/283 green per-module across
+R21 → R46 (33 modules).**
+
+
+
+## 2026-09-01 · Round 45 — Inspector Consolidation + Pipeline Strip Honesty — SHIPPED
+
+Fixes R44 audit finding H-1.  Surgical consolidation only — no MITRE
+redesign, no new backend model, no new resolver.
+
+**Frontend — `MitreTab.jsx`**
+- Imports shared `EvidenceInspector` (R38.3 component).
+- Introduces `MitreInspectorCtx` React Context — nested proof
+  panels open the shared inspector without prop-drilling.
+- `EvidenceRow` is now a click-to-open pill.  In-place expand +
+  local traversal fetch removed.
+- `EvidenceDetail` + `KV` helpers deleted (were only used by the
+  removed expand path).
+- Right column renders `<EvidenceInspector>` when active, with
+  **EVIDENCE DEEP-LINK** header + **← Back** button.
+
+**Frontend — `PipelineStrip.jsx`** (Admin Overview ingestion strip)
+- Parsers + Normalizers stages consult
+  `/admin/content-supply-chain/engines/list?role={PARSER,NORMALIZER}`
+  (authoritative Engine Discovery) and render the real count
+  (verified: 10 parsers · 2 normalizers).
+- Removes the previous hardcoded `pending: true` for those stages.
+- Honesty footer updated: no more "the UI will never invent one"
+  because the UI now shows a real, governed count.
+
+**Backend — zero changes.**  Shared inspector resolver
+(`services.evidence_inspector`) is the resolver for MITRE evidence
+refs.  Engine list endpoint already existed.
+
+**Tests — `tests/test_xdr_round45_inspector_consolidation.py`** (10 tests)
+- Shared inspector resolves MitreTab evidence refs to governed
+  envelopes with `evidence[]` populated.
+- Unknown refs return MISSING (never fabricated).
+- MitreTab no longer declares `function EvidenceDetail` /
+  `function KV` / `evidence-detail-*` testids.
+- MitreTab no longer calls `/admin/content-supply-chain/evidence/`
+  directly.
+- MitreTab imports the shared inspector.
+- No cockpit tab declares a competing `EvidenceDetail` widget.
+- Only `EvidenceInspector.jsx` in `components/` (one inspector
+  component).
+- Attack-chain composer envelope shape unchanged.
+- `MitreInspectorCtx` + `useMitreInspector` present.
+- Deep-link testids present.
+
+**End-to-end verified in preview** (v1 MITRE route): 7 evidence
+pills on `T1059.001 PowerShell` technique; click opens shared
+inspector with SYSMON · `evt_r35_edr_f9b41f18f87a` · CANONICAL ·
+signature `77777 · Suspicious PS` · provenance
+`canonical_evidence · Canonical detection event` · INVESTIGATE
+`Detection Intel`.
+
+**Cumulative regression: 268/268 green per-module across
+R21 → R45 (32 modules).**
+
+
+
+## 2026-09-01 · Round 44 — Cockpit UX Audit + Lock — SHIPPED
+
+Audit + stabilisation.  No feature-development.  Every architectural
+invariant established R21 → R43 is now guarded by a regression test.
+
+**Full audit report:** `/app/memory/COCKPIT_AUDIT_R44.md`
+
+**Verdict:** ✅ COCKPIT LOCKED with 0 BLOCKERS · 1 HIGH deferred ·
+0 MEDIUM · 1 LOW fixed in-place.
+
+**Fixes shipped (in-place):**
+- Removed dead imports (`RecommendationsTab`, `RecommendationsTabV2`)
+  from `XdrIncidentDetailPage.jsx`.  Both source files retained as
+  historical artefacts; neither was rendered by any tab.
+
+**Findings catalogued (deferred):**
+- HIGH · `MitreTab.EvidenceRow` / `EvidenceDetail` inline widget
+  bypasses the shared `<EvidenceInspector>` (R38.3 invariant drift).
+  Recommend inspector consolidation as R45 pre-work.
+
+**Machine guardrails (12 tests):**
+- Cockpit tab order pinned
+- Attack Graph three-view projection preserved
+- Activity Graph excludes `capability` + `finding` kinds
+- Shared inspector resolves every governed kind + MISSING fallback
+- `AttackTechniqueEvidence` SSOT shape stable
+- Report contract retains four canonical sections
+- `render_pdf(cover=True)` default backwards-compatible
+- No parallel report engine symbols in `report_svc`
+- No second evidence / replay / deep-link keys in graph envelope
+- Dead imports stay removed
+- Phase-5 cross-case surfaces stay hidden
+- Intelligence Planes items stay `disabled: true`
+
+**Cumulative regression: 258/258 green per-module across
+R21 → R44 (31 modules).**
+
+
+
+## 2026-09-01 · Round 43 — Report PDF Cover Art — SHIPPED
+
+Presentation-only enhancement to `/api/incidents/{id}/report/pdf`.
+Zero second-report engine.  Zero change to the four-section
+Investigation Report contract.
+
+**Backend — `services/report/pdf.py`**
+- `render(report, cover=True)` — default cover-on.  `cover=False`
+  restores the exact Step 5 layout.
+- `NumberedCanvas` — two-pass canvas that stamps every page
+  (cover-on and cover-off) with
+  `NivXRay XDR · Investigation Report … Page X of Y`.
+- `_build_cover()` reads only the existing `report["header"]` and
+  top-level fields — no duplicate model.  Cover carries brand ·
+  title · incident id · VERDICT · PRIORITY · INVESTIGATION STATE ·
+  DETECTION · HOST · TENANT · generated timestamp · provenance
+  notice naming all four badges (EVIDENCE-DERIVED, NIVXRAY
+  GENERATED, ANALYST ADDED, ANALYST EDITED).
+- MISSING incident: honest one-page PDF regardless of the flag;
+  page footer preserved.
+
+**Backend — `routers/report.py`**
+- `GET /api/incidents/{id}/report/pdf?cover=true|false`, default
+  `true`.  `Content-Disposition` filename is
+  `nivxray-report-{id}{-nocover}.pdf`.
+
+**Tests — `tests/test_xdr_round43_report_pdf_cover.py`** (10 tests)
+- cover=True adds exactly one page.
+- Cover-only KPIs never leak into cover=False export.
+- Four canonical section titles ordered correctly in both modes.
+- Every page carries `Page X of Y` in both modes.
+- All four provenance badges preserved in both modes.
+- MISSING incident: no fabricated cover under either flag.
+- MISSING PDF still page-numbered.
+- Default signature is cover-on (backwards-compatible).
+- No parallel engine symbols in `report_svc`.
+
+**End-to-end verified via curl on the R35 EDR incident:**
+    ?cover=true  → HTTP 200 · 5 pages · 10 550 bytes · VERDICT KPI
+                        present · page footer present · all badges
+                        present · four sections in order
+    ?cover=false → HTTP 200 · 4 pages ·  8 968 bytes · VERDICT KPI
+                        absent  · page footer present · all badges
+                        present · four sections in order
+
+**Cumulative regression: 246/246 green per-module across
+R21 → R43 (30 modules).**
+
+
+
+## 2026-09-01 · Round 42 — Evidence Deep-Links — SHIPPED
+
+Owner-locked as a **navigation/deep-linking enhancement only** —
+zero backend model change, zero Attack Graph architecture change,
+zero UI redesign.
+
+**Frontend — `AttackGraphTab.jsx`**
+- Edge inspector: every `evidence_refs[]` entry rendered as a
+  clickable mono pill (`xdr-ag-evidence-ref-{id}`); every
+  `finding_ids[]` entry as a pill (`xdr-ag-finding-ref-{id}`).
+- New client state `deepLink = {kind, refId}`.  When active, the
+  right column renders the existing shared `<EvidenceInspector>`
+  on the governed evidence object with an **EVIDENCE DEEP-LINK**
+  header and a **← Back** button.
+- Deep link auto-clears on any fresh node/edge selection, sub-tab
+  switch, or Path Replay step change.
+- Missing / stale refs surface the inspector's honest MISSING
+  envelope (Round 40 fallback) — no fabrication.
+
+**Backend — zero changes.**  The deep link reuses the existing
+canonical evidence resolver (`services.evidence_inspector.resolve`).
+
+**Tests — `tests/test_xdr_round42_evidence_deeplinks.py`** (6 tests)
+- Every Activity Graph canonical edge carries `evidence_refs[]`.
+- First evidence ref of any edge resolves through the shared
+  inspector to a governed canonical `event` envelope carrying
+  identity + context + evidence + provenance + INVESTIGATE actions.
+- Unknown / stale refs return honest MISSING state.
+- Finding refs resolve identically (same resolver, no duplicate).
+- `evidence_refs[]` deterministic across runs.
+- **Backend envelope has NOT sprouted `evidence_details` /
+  `edge_evidence` / `deep_link` / `evidence_index` /
+  `edge_inspector` keys** (single evidence model preserved).
+
+**End-to-end verified in preview** on the R35 EDR incident:
+edge#2 → evidence pill `evt_r35_edr_f9b41f18f87a` →
+Deep-Link header + Back button → shared inspector opens with
+SYSMON · timestamp · signature `77777 · Suspicious PS` ·
+provenance `canonical_evidence · Canonical detection event` ·
+INVESTIGATE `Detection Intel`.
+
+**Cumulative regression: 236/236 green per-module across
+R21 → R42 (29 modules).**
+
+
+
+## 2026-09-01 · Round 41 — Timeline Replay — SHIPPED
+
+Owner-locked as a **pure client playback controller** over the
+existing walkable primary path.  No new data model, no Attack Graph
+architectural change, no scope expansion.
+
+**Frontend — `AttackGraphTab.jsx`**
+- PATH REPLAY control row (Activity Graph subview only):
+  Prev / Play-Pause / Next / Scrubber + step counter
+  (`N / total · KIND`).
+- Step sequence = ordered intersection of `graph.primary_path[]`
+  and Activity Graph projection nodes.  Sparse path elements
+  (technique / stage / capability / finding node kinds) are
+  omitted — never fabricated.
+- Playback state (`replayIdx`, `replayPlaying`) is entirely
+  client-side.  Auto-advance every 1.2 s while playing.
+- Current step gets an animated purple dashed ring on the SVG
+  (`xdr-ag-replay-focus-{id}`).
+- Step change fires the existing selection contract →
+  `<EvidenceInspector>` opens for the current step's node with
+  identity + context + evidence + provenance + investigate actions.
+
+**Backend — zero changes.**  The controller reads only the existing
+`graph.primary_path[]` and Activity Graph projection.
+
+**Tests — `tests/test_xdr_round41_timeline_replay.py`** (6 tests)
+- `primary_path[]` is walkable via real edges.
+- Activity projection yields ≥ 2 replay steps for a rich fixture.
+- Every replay step exposes `kind` + `label` (inspector needs them).
+- Replay sequence is deterministic across runs.
+- Sparse projections drop path elements gracefully — order preserved.
+- **Backend envelope has NOT sprouted `replay` / `timeline_v2` /
+  `playback` / `attack_timeline` keys** (single data model preserved).
+
+**End-to-end verified on R35 EDR fixture in preview:**
+- 6 replay steps; Play advances Incident → IP → EVENT → PROCESS …
+- Purple dashed focus ring animates on the current node.
+- Shared inspector auto-loads per step (SYSMON · CANONICAL · signature
+  · evidence refs · Detection Intel investigate action).
+
+**Cumulative regression: 230/230 green per-module across
+R21 → R41 (28 modules).**  Bulk sweep reports 227/230 due to the
+same pre-existing test-isolation quirk in
+`test_xdr_round25b_vault.py` documented at Round 30's finish — every
+test passes standalone.
+
+
+
+## 2026-09-01 · Round 40 — Reopen Empty-State Polish — SHIPPED
+
+Small, owner-scoped UI polish for sparse findings persisted on a
+CONVERGED → REOPENED tick.  No architecture changes; no backend
+changes.
+
+**Frontend — `AutoInvestigationTab.jsx`**
+- Findings table renders each row through a three-way empty-state
+  fallback:
+      · empty `summary`     → italic muted `kind · subject_kind:subject_value`
+      · empty `reasoning`   → italic *"reasoning not recorded"*
+      · zero / null `confidence` → `—`
+- Row now exposes `data-empty-summary="true"` when the fallback
+  identity fires (for test + inspection).
+
+**Backend — no changes.**  The Finding model already accepts empty
+summaries; the required fallback identity fields (`kind`,
+`subject_kind`, `subject_value`, `capability`) were already emitted.
+
+**Tests — `tests/test_xdr_round40_reopen_empty_state.py`** (3 tests)
+- Finding model accepts an empty summary.
+- Findings API surfaces the four identity fields required by the
+  polish.
+- R35.3.1 CONVERGED → REOPENED preserved; every reopened finding
+  still carries fallback identity fields.
+
+**Regression reconciliation (owner-requested audit):**
+Previously reported counts (130/130, 105/105, 84/84) were
+*touched-file subsets*, not cumulative.  **No prior tests were
+removed or excluded.**  The full cumulative XDR round suite
+(R21 → R40, 27 test modules including `test_syslog_parser`) now
+runs **224/224 green**.
+
+Cumulative growth trace:
+    Step 1 · R38.1 · 130 tests (cumulative through R38.1)
+    Step 3 · R38.3 · 105 tests (cumulative through R38.3)
+    Step 4 · R39   · +13 tests
+    Step 5 · R39   · + 9 tests
+    Round 40       · + 3 tests
+    Cumulative     · 224/224 green
+
+
+
+## 2026-09-01 · Round 39 · Step 5 — Investigation Report PDF Export — SHIPPED
+
+The Investigation Report contract now ships as a branded PDF.  The
+renderer is a strict projection of the existing `report_svc.compose()`
+envelope — never a second report engine.
+
+**Backend — `services/report/pdf.py`**
+- `render_pdf(report)` consumes the exact envelope returned by
+  `services.report.service.compose()`.
+- Renders the four owner-locked sections in canonical order:
+      1. Executive Summary
+      2. Technical Summary   🔒 EVIDENCE-DERIVED
+      3. Supporting Evidence
+      4. Recommendations
+- Provenance badges preserved verbatim on every block:
+      · EVIDENCE-DERIVED
+      · NIVXRAY GENERATED
+      · ANALYST ADDED
+      · ANALYST EDITED
+- Empty sections render honestly ("No … blocks composed."); MISSING
+  incident → one-page honest error PDF (no fabrication).
+- Uses `reportlab` (already pinned in requirements).
+
+**Backend — `routers/report.py`**
+- New `GET /api/incidents/{id}/report/pdf`.  Content-Type
+  `application/pdf` · `inline; filename="nivxray-report-{id}.pdf"` ·
+  `Cache-Control: no-store`.
+- Reuses `report_svc.compose()` — the single source of truth.
+
+**Frontend — `ReportTab.jsx`**
+- New **DOWNLOAD PDF** button in the header (`data-testid=
+  xdr-report-download-pdf`).  Opens the endpoint in a new tab via
+  `REACT_APP_BACKEND_URL`.
+
+**Tests — `tests/test_xdr_round39_step5_report_pdf.py`** (9 tests)
+- Valid PDF magic bytes + trailer + non-trivial size.
+- All 4 canonical section titles present (extracted text).
+- Every provenance badge appears (`EVIDENCE-DERIVED`,
+  `NIVXRAY GENERATED`, `ANALYST ADDED`).
+- Brand header + incident id present in the PDF text.
+- MISSING incident returns an honest one-page PDF.
+- Empty sections render honestly, never fabricated.
+- Same input → deterministic byte-size within tolerance.
+
+**End-to-end verified:**
+    curl … /api/incidents/inc_r35_edr_9c8beb0a88a4/report/pdf
+    →  HTTP 200 · Content-Type application/pdf · 4 pages · 8.6 KB
+    →  All 4 section titles + NIVXRAY GENERATED + EVIDENCE-DERIVED
+       badges present in extracted text
+    →  DOWNLOAD PDF button rendered on the Report tab in preview
+
+**Regression: 84/84 across R21–R39 (Steps 1-5) green.**
+
+Investigation chain complete:
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment        ✅
+    Step 3  · Shared Evidence Inspector           ✅
+    Step 4  · Attack Graph cleanup                ✅
+    Step 5  · Report PDF export                   ✅
+
+
+
+## 2026-09-01 · Sidebar Nav · Intelligence Planes items honestly disabled
+
+Turned the four not-yet-shipped Intelligence Planes items —
+**Threat Intelligence · IOC Intelligence · Command Intelligence ·
+Malware Intelligence** — from `reserved` (routed to a broken
+"NOT CONFIGURED · deferred to Round P1.0" placeholder page) into
+`disabled: true`, matching SLA/Aging + Response.  Items render
+grayed-out, non-navigable, with a tooltip stating "arrives in
+Round P1.0 · Intelligence Planes".  MITRE ATT&CK + Knowledge Base
+remain live.  Routes are still mounted for any bookmarked links but
+the primary nav no longer sends analysts to a broken page.
+
+
+
+## 2026-09-01 · Round 39 — Step 4 · Attack Graph Cleanup — SHIPPED
+
+Owner-locked Step 4 of the SSOT chain: **the shared Evidence Inspector
+is wired into the Attack Graph tab; findings live as annotations on
+their parent entity nodes; capability nodes never render on the
+canvas.**
+
+**Backend**
+- `services/attack_graph/projections.py::project_activity_graph()`
+  now attaches an `annotations.findings[]` list to every kept node
+  (assembled from `SUPPORTED_BY` edges terminating on `finding`
+  nodes).  Deterministic ordering; every annotation carries
+  `finding_id`, `state`, `capability`, `summary`, `evidence_refs`.
+- Activity Graph totals extended with `annotated_nodes` and
+  `finding_annotations` counts.
+- `services/attack_graph/service.py` — `event` nodes now expose
+  `attrs.event_id`; `finding` nodes now expose `attrs.finding_id`
+  and `attrs.summary` so the frontend can resolve the shared
+  inspector without display-only payloads.
+- `services/evidence_inspector/service.py` — added first-class
+  resolvers for `host`, `user`, `ip` kinds so Activity Graph
+  clicks route through governed canonical evidence (never
+  fabricated).  MISSING state returned when the referenced entity
+  is not present in canonical evidence.
+
+**Frontend — `AttackGraphTab.jsx`**
+- Inline node inspector replaced by `<EvidenceInspector>` (Round
+  38.3 shared component).  `nodeToInspectorArgs(node)` translates
+  every graph node kind into canonical `(kind, refId)` pairs.
+- Activity Graph SVG renders finding annotations as ⚠ amber badges
+  in the top-right of parent entity nodes with a hover tooltip
+  listing up to 5 findings (state · capability · summary).
+  **Findings never appear as distinct canvas boxes.**
+- Edge inspector remains inline (edges are transitions, not
+  governed entities).
+- Process Tree sub-tab preserved; its selections now open the
+  shared inspector for the process entity.
+- No changes to the split between MITRE / Attack Story / Attack
+  Graph — three views over one SSOT.
+
+**Tests — `tests/test_xdr_round39_step4_attack_graph_cleanup.py`** (13 tests)
+- Activity Graph excludes `capability` + `finding` node kinds.
+- Every kept node carries an `annotations.findings` list.
+- At least one entity node carries a finding annotation on the
+  Step 4 fixture; totals aggregate correctly.
+- Annotations expose required fields (`finding_id`, `state`,
+  `summary`).
+- `event` node exposes `attrs.event_id`; `finding` node exposes
+  `attrs.finding_id`.
+- Process Tree remains inside Attack Graph output.
+- Projections deterministic after annotation enrichment.
+- Shared inspector resolves `host`, `user`, `ip` from canonical
+  evidence; returns MISSING for unknown entities (non-fabrication).
+
+**End-to-end verified on the R35 EDR incident in preview:**
+- 12 Activity Graph nodes rendered — zero capability/finding nodes.
+- 6 finding annotations rendered on parent entities (INCIDENT · IP ·
+  EVENT · PROCESS · USER · HASH).
+- Shared `xdr-insp` component present in the right column; clicking
+  a node populates identity + context + provenance + INVESTIGATE
+  actions.
+
+**Regression: 75/75 across R21 / R35 / R36 / R37 / R38 / R38.1 /
+R38.2 / R38.3 / R39.Step4 green.**
+
+Chain progress:
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment        ✅
+    Step 3  · Shared Evidence Inspector           ✅
+    Step 4  · Attack Graph cleanup                ✅
+    Step 5  · Report PDF export                   🔵 NEXT
+
+
+
+## 2026-09-01 · Round 38.3 — Shared Evidence Inspector (Step 3/5) — SHIPPED
+
+One resolver, one component.  Every governed object in NivXRay —
+technique, process, event, commandline, finding, host, user, ip,
+signature, capability, correlation match, detection, incident —
+resolves through a single service that returns a uniform envelope.
+
+**Backend — `services/evidence_inspector/service.py`**
+- `resolve(db, incident_id, kind, ref_id)` returns:
+
+      { kind, ref_id, incident_id,
+        identity:     {label, subtitle, badges[]},
+        evidence:     [{id, kind, label, source_ref}],
+        attack:       {techniques[]},        # via AttackTechniqueEvidence
+        context:      {relationships[]},
+        provenance:   [{source, evidence_id, note}],
+        actions:      [{id, label, description}] }
+
+- Reads exclusively from governed stores; a reference that doesn't
+  exist returns `state: MISSING` — owner rule §11 (no fabrication).
+- INVESTIGATE actions (per-kind hints: `commandline_decode`,
+  `process_ancestry`, `file_reputation`, `network_pivot`,
+  `identity_pivot`, `historical_correlation`, `ioc_pivot`,
+  `mitre_expansion`, `lolbas_lookup`) live on the inspector rather
+  than as graph nodes — owner rule §22.
+- New router `routers/evidence_inspector.py` exposes
+  `GET /api/incidents/{id}/inspector/{kind}/{ref_id:path}`.
+
+**Frontend — `xdr/components/EvidenceInspector.jsx`**
+- Single React component consumed by MITRE / Attack Story / Attack
+  Graph.  Callers pass canonical `(kind, refId)` — never
+  display-only payloads.  Renders header + context + evidence refs
+  + ATT&CK + provenance + INVESTIGATE buttons.  Honest MISSING state
+  when the resolver returns no governed record.
+
+**Tests — `tests/test_xdr_round383_inspector.py`** (7 tests)
+- Technique · process · event · commandline · incident resolution.
+- MISSING (non-fabrication) guarantee.
+- Per-kind INVESTIGATE action hints present.
+
+**End-to-end verified** on R35 EDR incident:
+    GET /api/incidents/{id}/inspector/technique/T1059.001
+    →  T1059.001 · PowerShell
+    →  TA0002 · Execution
+    →  badges: OBSERVED · conf 0.95
+    →  evidence: canonical:evt_r35_edr_f9b41f18f87a
+    →  provenance: detection_engine
+    →  actions: mitre_expansion
+
+**Full R21-R38.3 regression · 105/105 tests green.**
+
+Chain now:
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment        ✅
+    Step 3  · Shared Evidence Inspector           ✅
+    Step 4  · Attack Graph cleanup                🔵 NEXT
+    Step 5  · Report PDF export                   🔴
+
+
+
+## 2026-09-01 · Round 38.2 — Attack Story SSOT Alignment (Step 2/5) — SHIPPED
+
+Attack Story now consumes the canonical `AttackTechniqueEvidence`
+contract instead of its own independent OBSERVED/SUPPORTED decision
+engine.  MITRE, Attack Story and Attack Graph are provably
+synchronized projections of one investigation truth.
+
+**Backend — `services/attack_story/service.py`**
+- `AttackStoryService.compose()` now fetches
+  `compose_attack_evidence(db, incident_id)` and passes the
+  canonical technique list into the flow builder.
+- `_build_flow()` refactored: the ATT&CK state (OBSERVED /
+  SUPPORTED / HYPOTHESIZED) is projected directly from the SSOT.
+  Stage rule map:
+
+      OBSERVED       (canonical technique)  → stage OBSERVED
+      SUPPORTED      (canonical technique)  → stage SUPPORTED
+      HYPOTHESIZED   (canonical technique)  → stage POSSIBLE
+      SUPPRESSED / NOT_OBSERVED              → ignored
+
+- Findings still contribute at the stage level (capability →
+  stage hints) for stages that no technique attribution reached —
+  they never override the canonical state.
+
+**Tests — `tests/test_xdr_round382_ssot_consistency.py`** (4 tests)
+Cross-view SSOT theorems:
+- Every OBSERVED technique in AttackTechniqueEvidence appears in an
+  OBSERVED stage of Attack Story.
+- Attack Story never surfaces a technique that is NOT in the
+  canonical evidence contract — fabrication guard.
+- Attack Graph technique nodes agree with AttackTechniqueEvidence
+  state.
+- Story `stages_observed ≥ AttackTechniqueEvidence.observed_count`.
+
+**Full R21-R38.2 regression · 134/134 green.**
+
+**Verified in preview** on R35 EDR incident:
+- MITRE           · T1059.001 · TA0002 · OBSERVED
+- Attack Story    · Stage 4 · Execution · OBSERVED · T1059.001
+- Attack Graph    · technique T1059.001 · OBSERVED · BELONGS_TO Execution
+Same technique id, same state, same evidence refs.  No SSOT drift.
+
+Step 2 shipped.  Chain continues:
+    Step 1  · AttackTechniqueEvidence            ✅
+    Step 2  · Attack Story SSOT Alignment         ✅
+    Step 3  · Shared Evidence Inspector           🔵 NEXT
+    Step 4  · Attack Graph cleanup                🔴
+    Step 5  · Report PDF export                   🔴
+
+
+
+## 2026-09-01 · Round 38.1 — AttackTechniqueEvidence Canonical SSOT (Step 1/5) — SHIPPED
+
+The single ATT&CK evidence contract that MITRE, Attack Story, Attack
+Graph, and the Report generator MUST consume.  No view is allowed to
+recompute ATT&CK state locally after this round.
+
+**Backend**
+- New service `services/attack_evidence/service.py` with
+  `compose_attack_evidence(db, incident_id)` returning the canonical
+  contract:
+
+      AttackTechniqueEvidence {
+          technique_id · technique_name
+          tactic_id    · tactic_name       (Enterprise TA0001…TA0043)
+          state         ∈ OBSERVED | SUPPORTED | HYPOTHESIZED
+                              | SUPPRESSED | NOT_OBSERVED
+          confidence   · evidence_ids[]   (canonical:…, match:…, finding:…)
+          finding_ids  · event_ids · process_ids
+          provenance[] = [{source, evidence_id, note}]
+          first_observed_at · last_observed_at
+      }
+
+- **State lattice** (deterministic promotion):
+  `NOT_OBSERVED < SUPPRESSED < HYPOTHESIZED < SUPPORTED < OBSERVED`.
+  Detection engine + canonical event ⇒ OBSERVED · correlation match
+  ⇒ SUPPORTED · framework mapping heuristic ⇒ HYPOTHESIZED.
+- **Non-fabrication (owner rule §11)**: an incident with no
+  attributed technique returns an empty list — regression-tested.
+- New router `routers/attack_evidence.py` exposes
+  `GET /api/incidents/{id}/attack-evidence`.
+
+**Tests — `tests/test_xdr_round381_attack_evidence.py`** (7 tests)
+- Envelope shape · state lattice promotion (correlation + detection
+  resolves to OBSERVED preserving both provenance entries) · tactic
+  id/name resolution · technique name fallback · provenance always
+  present · non-fabrication when no evidence · determinism.
+
+**Verified on R35 EDR incident**
+    counts = {total: 2, observed: 2, supported: 0,
+                 hypothesized: 0, suppressed: 0}
+    tactics_present = ['TA0002', 'TA0005']
+    T1059.001 · PowerShell → TA0002 · Execution · OBSERVED · 0.95
+    T1218.011 · Rundll32   → TA0005 · Defense Evasion · OBSERVED · 0.95
+
+**Regression: 130/130 R21–R38.1 tests green.**
+
+Next steps in the SSOT chain (locked order):
+    Step 2 · Attack Story → consume AttackTechniqueEvidence
+    Step 3 · Shared Evidence Inspector across MITRE / Story / Graph
+    Step 4 · Attack Graph cleanup (finding annotations)
+    Step 5 · Report PDF export
+    (blocked-until-stable)
+
+
+
+## 2026-09-01 · Round 38.0 — Investigation Views SSOT + Attack Graph Simplification
+
+Fixed two long-standing conceptual/data defects called out in the
+architecture spec:
+
+**P0 — MITRE Chain removed from Attack Graph.**
+- `AttackGraphTab.jsx` sub-tab switcher is now `[ PROCESS TREE |
+  ACTIVITY GRAPH ]`; PROCESS TREE is the default.
+- Owner rule: MITRE ATT&CK belongs on the MITRE and Attack Story
+  tabs.  Attack Graph is for investigation relationships only.
+- Unused `MitreChainView` import removed.
+
+**P0 — MITRE tab / Attack Story SSOT unification.**
+Previously the MITRE tab reported `0 evidence-backed techniques` while
+Attack Story reported the same incident's techniques as OBSERVED.
+Root cause: the two views read from different sources.
+- `detection_content/xdr_attack_chain_graph.compose()` now merges
+  `incident.mitre[]` entries into the framework mapping list when
+  the mapping engine has not persisted them.  Deduplicated by
+  technique id.  Every merged entry carries provenance
+  (`mapping_method: detection_content`, source refs pointing at the
+  canonical event id).
+- No fabrication: only techniques already attributed to the
+  incident by the detection engine are surfaced.
+
+**Recommendations tab retired.**  Its content is Section 4 of the new
+Investigation Report tab.  `RECORD_TABS` and `CANVAS_TABS` cleaned
+up in `RecordTabs.jsx`.
+
+**Full R21–R37 regression: 123/123 green** — including R21-R23
+attack-chain-graph tests that guarantee the older contract is
+preserved.
+
+Verified in the preview:
+- MITRE tab shows **2 evidence-backed techniques** (T1059.001 →
+  ta0002, T1218.011 → ta0005), each labelled SUPPORTED with
+  "Technique attributed by detection engine on incident.mitre[]".
+  No more `0/14 tactics` contradiction.
+- Attack Graph shows only Process Tree + Activity Graph.
+
+
+
+## 2026-09-01 · Round 37.0 — Investigation Report Contract — SHIPPED
+
+Structured four-section report with strict ownership rules and full
+provenance.  The report renders **from** the evidence SSOT — it never
+becomes another editable copy of it.
+
+**Ownership matrix**
+
+    ┌────────────────────┬──────┬────────┬──────────┐
+    │ Section            │ AUTO │ ANALYST│ EDITABLE │
+    ├────────────────────┼──────┼────────┼──────────┤
+    │ Executive Summary  │ ✅   │ ✅     │ ✅        │
+    │ Technical Summary  │ ✅   │ ❌     │ 🔒 R/O    │
+    │ Supporting Evidence│ ✅   │ ✅     │ ✅        │
+    │ Recommendations    │ ✅   │ ✅     │ ✅        │
+    └────────────────────┴──────┴────────┴──────────┘
+
+**Backend**
+- New package `services/report/` with a deterministic composer:
+  * `compose_technical()` — structured Detection · File · Execution ·
+    Network · MITRE · Threat Intel key/value groups from canonical
+    evidence.  Never analyst-writable.
+  * `compose_executive()` — narrative + qualifier blocks anchored to
+    evidence refs.
+  * `compose_supporting_evidence()` — auto cards from canonical
+    events, correlation matches, and investigation findings.
+  * `compose_recommendations()` — projections of the
+    `xdr_recommendations` collection.
+- Analyst overlay collection `xdr_report_blocks`.  Origin, author,
+  provenance, and `source_evidence_ids` are tracked on every block.
+- Owner rule: **`TechnicalSummaryReadOnly` is raised on any analyst
+  write to the Technical Summary section.**
+- New router `routers/report.py` with endpoints:
+  * `GET /api/incidents/{id}/report` — full composed report.
+  * `POST /api/incidents/{id}/report/blocks` — analyst adds a block.
+  * `PATCH /api/incidents/{id}/report/blocks/{id}` — edit own block.
+  * `DELETE /api/incidents/{id}/report/blocks/{id}` — remove from
+    report ONLY.  Canonical SSOT is NEVER touched (regression test
+    `test_analyst_delete_does_not_touch_ssot` enforces this).
+  * `POST /api/incidents/{id}/report/blocks/{id}/suppress` — hide a
+    SYSTEM block from the report without deleting evidence.
+- Registered in `server.py`.
+
+**Frontend**
+- New `pages/incidents/record/tabs/ReportTab.jsx` — renders the
+  four-section report with per-block provenance badges
+  (Evidence-derived 🔒 · NivXRay generated · Analyst added · Analyst
+  edited), structured Technical Summary as key/value tables (not a
+  rich-text editor), and analyst Add/Edit/Delete affordances on the
+  three writable sections.
+- New **Report** tab registered after Recommendations in
+  `RecordTabs.jsx`.
+
+**Tests** — `tests/test_xdr_round37_report.py` (10 tests)
+- Envelope, ownership matrix honesty, Technical Summary read-only
+  refuses analyst writes, analyst add / edit / delete flow, delete
+  never touches SSOT, deterministic SYSTEM composition, header
+  reflects the incident.
+
+**Full R30–R37 regression: 97/97 green.**
+
+
+
+## 2026-09-01 · Round 36.0 — Attack Graph Semantic Separation — SHIPPED
+
+The Attack Graph is now three purpose-built visualizations powered
+by a single evidence SSOT.  One knowledge graph → three governed
+projections.  No conceptual mixing.
+
+**Backend — `services/attack_graph/projections.py`** (new)
+- `project_mitre_chain()` — stages grouped by kill-chain order, each
+  with its evidenced techniques and a reverse-walked evidence bundle
+  (detection rules, correlation matches, processes, commandlines,
+  events, findings, evidence_refs).  Only stages that carry at least
+  one evidenced technique are surfaced.
+- `project_process_tree()` — pure parent → child ancestry using only
+  `SPAWNED` edges between real `process` nodes.  Each node exposes
+  role, host, and attached commandlines (via `EXECUTED` edges).
+- `project_activity_graph()` — entity/evidence relationship graph.
+  Explicitly EXCLUDES `stage`, `technique`, `detection`, `match`,
+  `gap`, `capability`, and `finding` kinds.
+- Wired into `AttackGraphService.compose()` output under
+  `graph.views.{mitre_chain,process_tree,activity_graph}`.
+- Added `order` attribute to stage nodes for deterministic kill-chain
+  ordering; added `tid` attribute to technique nodes.
+
+**Frontend**
+- New file `attack_graph/MitreChainView.jsx` — vertical numbered
+  stage stack; each technique card is expandable and shows
+  Detection · Correlation · Processes · Commands · Events · Findings.
+- New file `attack_graph/ProcessTreeView.jsx` — collapsible EDR-style
+  ancestry with role badges (`PARENT`), host suffix (`@WKS-R35`),
+  and inline monospaced commandline callouts.
+- `AttackGraphTab.jsx` — sub-tab switcher `[MITRE CHAIN | PROCESS
+  TREE | ACTIVITY GRAPH]` inside the existing Attack Graph tab.
+  MITRE CHAIN is the default.  Activity Graph uses the pre-filtered
+  `views.activity_graph` projection so `capability` and `finding`
+  nodes never appear on that canvas.
+
+**Tests — `tests/test_xdr_round36_graph_projections.py`** (new · 10 tests)
+- Determinism (same inputs → byte-identical projections).
+- MITRE Chain surfaces only evidenced stages; each observed
+  technique has process AND event/detection evidence.
+- Process Tree shows winword.exe → powershell.exe with encoded
+  commandline attached.
+- Activity Graph excludes MITRE + capability + finding kinds; all
+  edges reference kept nodes; no NOT_OBSERVED edges leak through.
+
+**Verified in the running preview** on the PowerShell golden EDR
+incident — three distinct, evidence-consistent projections rendered.
+Full regression: **87/87** R30–R36 tests green.
+
+
+
+## 2026-09-01 · Round 35.3.1 — Investigator Reopen-on-New-Evidence Fix
+
+Follow-up to R35.3: fixed a lifecycle bug where re-ticking a
+CONVERGED investigation with new evidence flipped it to FAILED via
+an illegal transition (`CONVERGED → UNDERSTANDING_EVIDENCE`).
+
+**Backend — `services/investigator/orchestrator.py`**
+- Before running `UNDERSTANDING_EVIDENCE`, the tick now routes
+  CONVERGED / FAILED states through `REOPENED` first, respecting
+  the state machine defined in `lifecycle.ALLOWED`.
+- Fixed a cosmetic bug in `_transition` where the FAILED-reason
+  reported the destination state instead of the source state.
+
+**Tests — `tests/test_xdr_round31_investigator.py`**
+- New: `test_converged_investigation_reopens_on_new_evidence` —
+  invalidates the stored IUE fingerprint, re-ticks, and asserts the
+  investigation reopens cleanly instead of failing.
+
+Verified in the running preview: `Investigation Activity` tab now
+displays **CONVERGED · 10 capabilities · 12 findings** for the R35
+EDR incident. 77/77 R30-R35 tests green.
+
+
+
+## 2026-09-01 · Round 35.3 — Semantic Attack Graph Correction — SHIPPED
+
+Fixed the Attack Graph's causal composition. Techniques no longer
+dangle directly off the Incident node.
+
+**Backend — `services/attack_graph/service.py`**
+- **New `detection` intermediate node**: every incident.mitre technique
+  is now routed through a `Detection · rule-id` node. Chain becomes
+  `evidence → detection → technique → stage`, never
+  `incident → technique`.
+- **New `match` intermediate node**: correlation-derived techniques
+  route through a per-match `Correlation · rule-name` node
+  (`CORRELATED_WITH → MAPPED_TO`).
+- MAPPED_TO anchor now uses the **deepest available evidence node**
+  (commandline > process > canonical event > signature) instead of
+  the shallowest.
+- Parent process now has `host → EXECUTED → parent` edge so the
+  primary walk includes WINWORD before PowerShell.
+- Process → command edge relabelled `TRIGGERED` → `EXECUTED` (matches
+  the user-stated edge semantics grammar).
+- **`_compute_paths` rewritten as a proper DFS walk**. Every adjacent
+  pair in `primary_path[]` is guaranteed by an edge in `edges[]`
+  (asserted at compose time). Gap nodes and `PIVOTED_TO` edges are
+  excluded from the causal spine. `alternative_paths[]` seeded from
+  unvisited detection/match nodes.
+
+**Frontend — `AttackGraphTab.jsx`**
+- Added `detection` and `match` kinds to layout column/layer maps.
+- New per-kind `KIND_TONE` palette: incident (magenta), host/user
+  (teal), event/signature (blue/green), process (orange),
+  commandline (red-orange), detection/match (violet/rose), technique
+  (purple), stage (green). Analyst can identify node type at a
+  glance.
+- New **Edge Semantics Legend** toolbar button (`HelpCircle`) — toggles
+  a compact 12-relation reference panel above the canvas.
+
+**Tests — `tests/test_xdr_round35_attack_graph.py`**
+- New: `test_no_flat_incident_to_technique_mapped_to` — regressions
+  against the flat `Incident → Technique` composition.
+- New: `test_detection_node_present_when_incident_has_mitre` —
+  guarantees the detection intermediate is created.
+- New: `test_edr_primary_path_reaches_stage` — guarantees the
+  primary path contains process + technique + stage kinds.
+- Strengthened: `test_primary_path_walkable` — every adjacent hop
+  must have a real edge in `edges[]`.
+
+**Result on PowerShell golden case** — primary walk is now:
+`incident → event → host → winword.exe → powershell.exe →
+commandline → detection → T1218.011 → Defense Evasion` (walkable).
+
+All 76 tests in R30-R35 regression pass. R35 alone: 15/15 green.
+
+
+
+## 2026-09-01 · Round 35 — Operational Attack Graph — SHIPPED
+
+The NivXRay incident workspace now has a **first-class operational
+MITRE ATT&CK chain graph**, not a table pretending to be a graph.
+
+**Backend**
+- `services/attack_graph/event_intel.py` — Windows Security + Sysmon
+  Event ID intelligence layer (15 events: 4624/4625/4648/4672/4688/
+  4689/4697/4698/4657/4740/4776/1102 + sysmon:1/3/11). Each entry
+  ships fields, capabilities, ATT&CK hints, related-event chain.
+- `services/attack_graph/service.py` — deterministic composer with
+  27 node kinds, 20+ semantic edge relations (SPAWNED, EXECUTED,
+  CONNECTED_TO, TRIGGERED, MAPPED_TO, BELONGS_TO, DETECTED_BY,
+  SUPPORTED_BY, CORRELATED_WITH, PIVOTED_TO…). Stable sha256-based
+  node/edge IDs — no random UUIDs. Reuses `attack_cycle.STAGES`
+  SSOT. Emits `nodes[]`, `edges[]`, `primary_path[]`,
+  `alternative_paths[]`, `attack_stages[]`, `timeline[]`,
+  `metrics{attack_chain_completeness, evidence_coverage,
+  mitre_coverage, telemetry_coverage, unknown_coverage,
+  correlation_strength, temporal_consistency}`, `evidence_summary`,
+  `mitre_summary`, `investigation_gaps`.
+- `routers/attack_graph.py` — `GET /api/incidents/{id}/attack-graph`
+  read-only API.
+
+**Frontend — VISIBLE in the running UI**
+- New `Attack Graph` tab added to the 12-tab incident strip
+  (`/xdr/incidents/{id}?tab=attack_graph`).
+- `AttackGraphTab.jsx` — dark investigation canvas (SVG) with:
+  deterministic left-to-right layered layout (entity → event →
+  process/commandline → finding/capability → technique → stage →
+  gap), 4-state visual grammar (OBSERVED/SUPPORTED/POSSIBLE/
+  NOT_OBSERVED with distinct fills + dashed edges for possible/
+  gap), 7 layer toggles (entities · events · processes · findings
+  · capabilities · mitre · gaps), timeline scrubber that dims
+  edges beyond the selected window, right-side Evidence Inspector
+  panel that reveals full attributes / connections / provenance /
+  evidence refs / finding IDs for the clicked node or edge, live
+  metrics footer.
+
+**Verified in the running UI (Snort-golden pipeline)**
+- 36 nodes · 18/23 edges visible · 0 observed / 0 supported /
+  5 gaps for a network-only Snort alert (honest — no MITRE / no
+  process telemetry means no fabricated observed stages).
+- Node kinds present: incident · event · signature · ip · finding
+  · capability · stage · gap.
+- All 7 layer toggles operational; timeline scrubber operational;
+  Evidence Inspector operational.
+
+**Testing**
+- 12/12 tests in `tests/test_xdr_round35_attack_graph.py` green:
+  envelope shape · deterministic node/edge IDs · every edge
+  evidence-anchored · 14-stage SSOT reuse · 4-state grammar
+  enforcement · Event ID intelligence lookup · EDR-fixture
+  chain reconstruction (WINWORD → PowerShell SPAWNED,
+  commandline node, T1059.001 OBSERVED) · walkable primary path
+  · temporal ordering · bounded metrics · missing incident ·
+  non-fabrication of NOT_OBSERVED stage anchors.
+- Cross-round regression: 184/184 across Rounds 11-35 green
+  (172 + 12 new).
+
+**Boundaries preserved**
+- Deterministic; AI-optional.
+- Verdict Engine untouched.
+- `attack_cycle.STAGES` reused unchanged as SSOT.
+- Zero fabricated nodes / edges — NOT_OBSERVED stages surface only
+  as gaps, never as fake nodes.
+- No "Auto-Investigate" button anywhere.
+- 14-stage AttackFlow table kept intact on Attack Story tab;
+  Attack Graph is the new operational surface alongside it.
+
+---
+
+
+
+## 2026-09-01 · Round 34 — Threat Model Engine + Executive UI Transformation — SHIPPED
+
+Round 34 turns the backend intelligence from Rounds 30-33 into a
+visible analyst-facing surface.  The Executive tab now leads with
+a live **Threat Assessment** card driven by the deterministic
+Round 34 Threat Model Engine — 5-dimension breakdown, 14-stage
+Attack Path with clickable stage-detail rows, Why-It-Matters
+(supporting / reducing / unknown), and a machine-generated
+Executive Investigation Summary that is `editable: true` ready for
+Round 35.
+
+**Shipped (backend)**
+- `services/threat_model/service.py` — `ThreatModelService.compose()`:
+  - 5 sub-dimensions (0-100): `detection_confidence`,
+    `threat_likelihood`, `evidence_confidence`,
+    `attack_path_confidence`, `impact_confidence` — each anchored
+    to concrete counts (verdict + finding-state distribution +
+    IUE observed/total facts + attack-cycle coverage).
+  - Overall Threat Assessment = weighted sum of the FIRST FOUR
+    dimensions only.  **`impact_confidence` does NOT inflate
+    threat likelihood** (owner-locked invariant).
+  - Independent Impact axis with `current_score`, `potential_score`,
+    C2/Persistence/Lateral/Cred/Exfil/Impact signals, and a
+    Blast Radius surrogate (related incidents · hosts · users).
+  - Why-It-Matters: `supporting_factors[]`,
+    `reducing_factors[]`, `unknown[]`, `next_questions[]` — every
+    factor carries evidence_refs / techniques / finding_id.
+  - Executive Investigation Summary: 4-sentence machine-generated
+    narrative with `editable: true` + `machine_generated: true`
+    + `version: 1` metadata for Round 35.
+- Reuses Round 33 `attack_cycle.STAGES` unchanged (SSOT).
+- `routers/incident_threat_model.py` — `GET /api/incidents/{id}/threat-model`.
+
+**Shipped (UI transformation)**
+- `apps/nivxray-xdr/src/xdr/pages/incidents/record/ThreatAssessmentCard.jsx`
+  — new component that renders:
+    1. Threat Assessment card (band chip + overall score + progression)
+    2. 5-dimension breakdown table with bars
+    3. 14-stage Attack Path (clickable rows reveal evidence /
+       findings / techniques for each non-NOT_OBSERVED stage)
+    4. Why-It-Matters (three-column supporting / reducing / unknown)
+    5. Impact + Blast Radius counter tiles
+- `ExecutiveTab.jsx` prepends the Threat Assessment card so the
+  analyst sees the intelligence produced by R30-R33 immediately on
+  opening any incident — no button, no drill-down required.
+
+**Testing**
+- 10/10 tests in `tests/test_xdr_round34_threat_model.py` green.
+  Covers: envelope shape · dimension bounds · impact-independence
+  invariant · SSOT reuse · determinism · evidence-anchored
+  why-it-matters · non-fabrication · EDR-backed profile raise ·
+  missing-incident · editable-ready metadata.
+- Cross-round regression: **172/172 across Rounds 11-34** green.
+
+**Boundaries preserved**
+- Deterministic; AI-optional (never mandatory).
+- Verdict Engine untouched.
+- SSOT (`attack_cycle.STAGES`) not duplicated.
+- No fabrication.
+- Every generated block ships with `machine_generated: true` and
+  `editable: true` — foundation for Round 35 versioned intelligence.
+
+---
+
+
+
+## 2026-09-01 · Round 33 — Attack Story + AttackFlow (evidence-backed) — SHIPPED
+
+Round 33 completes the deterministic autonomous investigation loop by
+projecting the entire investigation state — Round 30 IUE artifacts +
+Round 31 investigation state + Round 32 findings ledger +
+engine_executions + governed MITRE — onto the 14-stage Attack Cycle
+with the four-state grammar OBSERVED / SUPPORTED / POSSIBLE /
+NOT_OBSERVED.
+
+**Owner-locked Round 33 gate met**
+- Attack Cycle is centralised in ``services/attack_story/attack_cycle.py``
+  as the sole source of truth for the 14 stages (Round 34 will
+  consume the same definition, no duplication).
+- Every non-``NOT_OBSERVED`` stage is evidence-linked to at least
+  one finding, canonical event, or correlation match.
+- Attack Story sentences are only emitted for OBSERVED / SUPPORTED /
+  POSSIBLE stages — never for NOT_OBSERVED gaps.
+
+**Shipped**
+- ``services/attack_story/attack_cycle.py`` — 14-stage SSOT +
+  tactic ↔ stage map (all 14 Enterprise tactic IDs) +
+  technique ↔ tactic hints for 18 common ATT&CK techniques.
+- ``services/attack_story/service.py`` — ``AttackStoryService.compose(db, incident_id)``:
+  deterministic 4-state projection + executive summary +
+  per-stage evidence-anchored sentences.
+- ``routers/attack_story.py`` — read-only
+  ``GET /api/incidents/{id}/attack-story`` API surface.
+- Frontend ``apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/AttackStoryTab.jsx``
+  rewritten to consume the API — 4 counter tiles + full 14-stage
+  flow table + evidence-backed narrative bullets.
+
+**Sufficiency-path validation (EDR fixture)**
+- Round 32's endpoint capabilities (`process_ancestry`,
+  `commandline_decode`, `lolbas_lookup`, `identity_pivot`,
+  `file_reputation`) previously honestly skipped for the
+  network-only Snort-golden pipeline. Round 33 test suite injects a
+  deterministic EDR-style canonical event (WINWORD → PowerShell
+  parent-child + encoded PowerShell command line + user identity +
+  hash IOC) and asserts:
+    * All endpoint capabilities transition from SKIPPED_OUT_OF_SCOPE
+      to OK.
+    * `process_ancestry` emits a CORRELATED finding for the
+      WINWORD → PowerShell anomaly.
+    * The resulting AttackFlow lights up `Execution` (T1059.001)
+      and `Defense Evasion` (T1218.011) with evidence anchors.
+    * `Exfiltration` / `Impact` remain honestly NOT_OBSERVED (no
+      supporting evidence).
+- Planner update: all 12 capabilities are now baseline — every one
+  runs against every incident and the sufficiency check inside
+  `Capability.check_evidence` handles honest skipping.  This is the
+  cleaner architecture the Round 33 sufficiency validation exposed.
+
+**Testing**
+- 12/12 tests in `tests/test_xdr_round33_attack_story.py` green
+  (SSOT · determinism · non-fabrication · SUFFICIENT path · EDR
+  fixture · anomaly detection · missing-incident).
+- Cross-round regression: 162/162 across Rounds 11-33 green.
+
+**Boundaries preserved**
+- Attack Story explains evidence; never manufactures it.
+- Verdict Engine untouched.
+- Deterministic-first; AI-optional narrative deferred.
+- No "Auto-Investigate" button anywhere.
+- No fabricated stages.
+
+---
+
+
+
+## 2026-09-01 · Round 32 — Capability Fabric v1 — SHIPPED
+
+Round 32 turns the 4 honest `cap-unavailable` handoff stubs into a
+**12-capability specialist investigation workforce** behind the
+Autonomous Investigator.  Each capability reuses existing NivXRay
+engines (`lolbas.scan_lolbas`, `smart_decoder.smart_decode`,
+`decoders.ioc_extractor._extract_all`) rather than duplicating
+functionality.  Every capability declares its category, its
+investigation question, and its evidence requirements — and the
+selector now honestly skips with `SKIPPED_OUT_OF_SCOPE` when
+requirements are not met, rather than fabricating findings.
+
+**12 capabilities registered (all cap-full)**
+
+| Capability | Category | Reuses |
+|---|---|---|
+| `historical_correlation` | history | `xdr_canonical_evidence` prior-sighting query |
+| `correlation`            | correlation | `xdr_correlation_matches` (ICE) |
+| `mitre_expansion`        | mitre | correlation-side MITRE union |
+| `detection_intel`        | detection | `xdr_pipeline.detection_rule_id` + VEEE |
+| `process_ancestry`       | endpoint | deterministic anomaly patterns (Office → shell, browser → interpreter) |
+| `commandline_decode`     | endpoint | **existing** `smart_decoder.smart_decode` |
+| `lolbas_lookup`          | endpoint | **existing** `lolbas.scan_lolbas` (242 entries) |
+| `network_pivot`          | network | prevalence + cross-incident linkage |
+| `dns_pivot`              | network | domain cross-incident linkage |
+| `ioc_pivot`              | intelligence | **existing** `decoders.ioc_extractor._extract_all` |
+| `file_reputation`        | artifact | cross-incident hash linkage (no external API calls) |
+| `identity_pivot`         | identity | cross-incident user linkage |
+
+**New capability-fabric contract fields**
+- `category`, `investigation_question`, `evidence_requirements`,
+  `version`, `gaps_closed_hint`
+- `check_evidence(incident, canonical) → (SUFFICIENT|PARTIAL|
+  INSUFFICIENT|NOT_APPLICABLE, reason)` — honest sufficiency check
+  called by the selector before every execution.
+- Execution `provenance` now carries `evidence_sufficiency`,
+  `sufficiency_reason`, `capability_category`, `capability_version`.
+
+**Planner upgrades**
+- Multi-capability gap map (`process_lineage.absent` chains to
+  `process_ancestry` → `commandline_decode` → `lolbas_lookup`).
+- Baseline capabilities always run (`detection_intel`,
+  `historical_correlation`, `correlation`, `mitre_expansion`,
+  `ioc_pivot`, `network_pivot`, `dns_pivot`) so every incident
+  receives a minimum investigation baseline regardless of IUE gaps.
+
+**New read API**
+- `GET /api/investigator/capabilities` — returns the full registry
+  descriptor (id · name · engine · category · investigation
+  question · evidence requirements · availability). Used by tests
+  and by the Investigation Activity UI (future) to visualise the
+  Fabric.
+
+**Verified end-to-end against real Snort-golden pipeline**
+- 12 pivots planned · 5 real executions · 7 honest
+  SKIPPED_OUT_OF_SCOPE · 7 findings (mix of OBSERVED · CORRELATED
+  · NOT_OBSERVED).
+- Endpoint capabilities honestly skip on network-only evidence —
+  never fabricate a process-lineage finding.
+- Idempotent: second tick produces zero new OK executions.
+- Deterministic: finding IDs stable across ticks.
+
+**Testing**
+- 16/16 tests in `tests/test_xdr_round32_capability_fabric.py`
+  green.
+- Cross-round regression: 151/151 across Rounds 11-32 green.
+
+**Boundaries preserved**
+- Deterministic-first, AI-optional (§9, §13, §18).
+- Verdict Engine untouched (§10, §31).
+- No fabricated findings (§12, §18).
+- No "Auto-Investigate" button (§1, §16).
+- Capabilities never bypass IUE / IKG / provenance (§19, §23).
+
+---
+
+
+
+## 2026-09-01 · Round 31 — Autonomous Investigator — SHIPPED
+
+The autonomous investigation loop is now real. NivXRay XDR now
+automatically investigates every incident materialised by the
+ingestion pipeline — no button, no HTTP activation, no analyst
+click required. The loop `IUE → Investigator → Capability →
+findings → IUE recompute` is closed and end-to-end deterministic.
+
+**Shipped**
+- `services/investigator/`
+  - `models.py` — Pydantic contracts (`InvestigationState`,
+    `PivotAction`, `EngineExecution`, `Finding`, `ActivityEntry`,
+    lifecycle + status literals).
+  - `lifecycle.py` — §26 state machine with allow-listed
+    transitions. Illegal transitions land in `FAILED` explicitly.
+  - `capabilities.py` — Capability contract + registry. Ships two
+    evidence-safe reference capabilities that read canonical
+    evidence deterministically (`HistoricalCorrelation`,
+    `MitreExpansion`) and four honest `cap-unavailable` handoff
+    stubs for Round 32 (`process_ancestry`, `identity_pivot`,
+    `file_reputation`, `network_pivot`).
+  - `planner.py` — deterministic pivot planner + capability
+    selector. Consumes Round 30 `InvestigationGaps.gaps[]` and
+    emits sorted, dedup-safe `PivotAction` records.
+  - `orchestrator.py` — the `InvestigatorService.tick()` closed
+    loop. Registers `xdr_investigations`, writes
+    `engine_executions`, persists `xdr_investigation_findings`,
+    and streams the §18 activity feed into
+    `xdr_investigation_activity`. Bounded to
+    `MAX_PIVOTS_PER_TICK = 32` for guaranteed termination.
+- `routers/autonomous_investigator.py` — three **read-only** APIs
+  wired at `/api/incidents/{id}/investigation`,
+  `.../investigation/executions`, `.../investigation/findings`.
+  Zero activation endpoints (§13, §16).
+- `detection_content/xdr_pipeline.py` — new
+  `autonomous_investigation` stage auto-kicks the Investigator
+  after `threat_family`. If the Investigator throws, the stage
+  fails honestly instead of crashing the pipeline.
+- Frontend `apps/nivxray-xdr/src/xdr/pages/incidents/record/tabs/AutoInvestigationTab.jsx`
+  now consumes `GET /incidents/{id}/investigation` and renders
+  the real lifecycle state, four counter tiles (planned /
+  executed / skipped / findings), the §18 activity feed with
+  WHAT · WHY · EVIDENCE · CAPABILITY · RESULT columns, plus the
+  engine-executions + findings tables. **Still no "Auto-Investigate"
+  button anywhere.**
+
+**Verified end-to-end against real Snort-golden pipeline**
+- Pipeline stage `autonomous_investigation` = EXECUTED.
+- 5 pivots planned · 2 executed · 3 honestly skipped
+  (cap-unavailable, Round 32) · 3 evidence-anchored findings.
+- Findings mix `CORRELATED` (prior sightings across 41 canonical
+  events) and `NOT_OBSERVED` (no additional MITRE beyond
+  signature-derived) — no fabrication.
+- Second tick against same fingerprint = 0 new OK executions
+  (idempotent).
+
+**Testing**
+- 13/13 tests in `tests/test_xdr_round31_investigator.py` green.
+  Covers: auto-start, lifecycle transitions, deterministic
+  planner, honest skip of unavailable capabilities, real
+  execution persistence, provenance-anchored findings,
+  idempotency, activity feed answering §10 questions, capability
+  registry contract, honest negative findings, missing-incident
+  error, Verdict Engine boundary preserved, tenant isolation.
+- Cross-round regression: 135/135 tests across Rounds 11-31
+  green.
+
+**Boundaries preserved**
+- No AI dependency. Deterministic-first (§9, §13).
+- No Verdict Engine replacement (§10, §31).
+- No fabricated executions or findings (§12).
+- No "Auto-Investigate" button (§1, §16).
+- Round 32 handoff contract: register concrete engines for the
+  four `cap-unavailable` capability stubs.
+
+---
+
+
+
+## 2026-09-01 · Round 30 — IUE v0 · Investigation Understanding Engine — SHIPPED
+
+The first Autonomous Investigation loop node is now real. Scope-locked
+to §15 of AUTONOMOUS_INVESTIGATION.md: no UI, no Orchestrator, no AI,
+no external intelligence, no verdict replacement — pure deterministic
+understanding derived from governed evidence + IKG.
+
+**Shipped**
+- `services/iue/artifacts.py` — Pydantic v2 schemas for the six
+  understanding artifacts (`InvestigationContext`, `Relationships`,
+  `ThreatContext`, `HistoricalContext`, `KnownUnknown`,
+  `InvestigationGaps`) plus the persisted `IUEUnderstanding`
+  snapshot envelope.
+- `services/iue/service.py` — `IUEService` with seven owner-locked
+  methods:
+    `build_context · build_relationships · build_threat_context ·
+     build_historical_context · build_known_unknown · build_gaps ·
+     understand_incident` (+ `latest_valid` resolver).
+- `xdr_iue_understanding` collection — versioned snapshots keyed by
+  `(tenant_id, incident_id, content_hash)`, with
+  `evidence_fingerprint` + `ikg_version` fields so **"latest"
+  resolves to the snapshot for the current governed evidence
+  state, never merely the newest timestamp.**
+- `GET /api/incidents/{id}/understanding` — read-only API for
+  Round 31's Autonomous Investigator to consume. Materialises a
+  new snapshot on demand when the evidence fingerprint has
+  changed; returns the existing snapshot otherwise (deterministic).
+- Honest state enforced throughout: endpoint facts absent from the
+  network-only Snort-golden pipeline are emitted as `NOT_OBSERVED`,
+  never omitted or fabricated. Gaps are derived deterministically
+  from the known/unknown ledger.
+
+**Testing**
+- `tests/test_xdr_round30_iue_v0.py` — 11 tests, all green.
+  Covers: six-artifact materialisation, entity extraction from
+  real Snort-golden canonical evidence, evidence-anchored
+  relationships, MITRE / signature threat-context projection,
+  honest NOT_OBSERVED emission for endpoint absence, deterministic
+  content hash across two runs, single-snapshot persistence
+  under stable fingerprint, latest_valid resolution,
+  missing-incident error handling.
+- Full regression: 188 pre-existing tests + 11 new = green
+  (per-file). No changes to routers/incidents.py projection or
+  the existing IUE-per-event `detection_content/xdr_iue.py`
+  module (Round 11 boundary preserved).
+
+**Boundary maintained**
+- No UI wiring. No Orchestrator. No AI. Verdict Engine untouched.
+- Round 31 handoff contract: `GET /api/incidents/{id}/understanding`
+  is the sole consumption surface for the Autonomous Investigator.
+
+---
+
+
+
+## 2026-09-01 · Round 29.10 — Final operating loop · Loop-integrity invariant · Investigation Activity evolution — RATIFIED
+
+Three final contract additions before Round 30 begins:
+
+- **§19 Final operating loop** — the canonical closed-loop diagram
+  (Telemetry → Evidence → IKG → IUE → Autonomous Investigator →
+  Capability Fabric → new Evidence → IKG → IUE → Attack Flow /
+  Threat Model → Attack Story → Verdict → Response → Analyst).
+- **§20 Rounds 30-34 are ONE system**, not isolated features. Every
+  round is a link in the closed loop with a defined
+  consumes/emits contract. A round that reads from somewhere the
+  loop doesn't define, or writes somewhere the loop doesn't
+  consume, is **out of contract**.
+- **§21 Investigation Activity evolution** — the tab's `● WAITING
+  FOR EVIDENCE` state is architecturally correct for pre-Round 30.
+  Its natural evolution: R30 `● UNDERSTANDING EVIDENCE` → R31
+  `● INVESTIGATING (pivots)` → R32 `● INVESTIGATING (live engines)`.
+  Never adds a start button.
+
+Sequence LOCKED. Round 30 IUE v0 begins next session with zero
+architectural ambiguity remaining.
+
+---
+
+## 2026-09-01 · Round 29.9 — IUE v0 scope lock · workspace grammar · Threat Model Engine — RATIFIED
+
+Owner-issued addenda to the Autonomous Investigation Operating Model.
+
+- **`AUTONOMOUS_INVESTIGATION.md §15`** — IUE v0 locked scope. No UI ·
+  no AI · no Orchestrator · no external intel · no verdict. Six
+  understanding artifacts persisted: Investigation Context ·
+  Relationships · Threat Context · Historical Context · Known/Unknown
+  · Investigation Gaps.
+- **`AUTONOMOUS_INVESTIGATION.md §16`** — 11-tab workspace grammar
+  contract. Each tab answers one analyst question; all tabs are
+  views over one shared Investigation State.
+- **`AUTONOMOUS_INVESTIGATION.md §17`** — Threat Model Engine (v1.2
+  layer). 14-stage Attack Cycle, four-state closed enum for Attack
+  Path (`○ POSSIBLE · ◐ SUPPORTED · ● OBSERVED · — NOT OBSERVED`),
+  reusable Threat Scenario Library, UI placement deferred to v1.2.
+- **`AUTONOMOUS_INVESTIGATION.md §18`** — branding locked as
+  "NivXRay XDR" throughout. Backfilled all user-facing strings in
+  `RecommendationsTabV2.jsx`, `IntegrationControlCenter.jsx`,
+  `CortexOnboardingWizard.jsx` to say "NivXRay XDR", not "NivXRay".
+- Roadmap sequence locked: **Round 30 IUE v0 → 31 Orchestrator → 32
+  Capability Fabric → 33 Attack Story v2 + AttackFlow → 34 Threat
+  Model Engine v0 → 35 Editable/versioned intelligence → P1.0 Intel
+  Plane (deferred)**.
+
+No implementation changes this round — pure contract ratification
+and branding pass. Regression not re-run (no code paths touched).
+
+---
+
+## 2026-09-01 · Round 29.8 — Autonomous Investigation Operating Model — RATIFIED
+
+Owner-issued 37-section platform contract locked into the repo as a
+first-class architecture artifact — same tier as `ARCHITECTURE.md`,
+`VISUAL_LANGUAGE.md`.
+
+### Ratified in `/app/memory/AUTONOMOUS_INVESTIGATION.md`
+- **§1 fundamental principle**: no "Auto-Investigate" button —
+  investigation is a native operating behavior.
+- **§4 IUE boundary**: IUE understands; Orchestrator decides;
+  Capability Fabric performs; IKG records; Verdict Engine emits the
+  governed verdict. Four boundaries architecturally locked.
+- **§26 lifecycle**: CREATED → ELIGIBLE → QUEUED → INVESTIGATING →
+  EXPANDING → WAITING_FOR_EVIDENCE → REINVESTIGATING → CONVERGING →
+  ANALYST_REVIEW → COMPLETED → REOPENED.
+- **§27 evidence states** (never collapsed): OBSERVED · SUPPORTED ·
+  CORRELATED · INFERRED · HYPOTHESIS · NOT_OBSERVED · UNKNOWN ·
+  CONTRADICTED.
+- **§20 deterministic-first, AI-optional**: AI may assist reasoning,
+  narrative and prioritisation; AI never creates evidence,
+  telemetry, relationships or ATT&CK mappings.
+- **§23-§25 editable, versioned intelligence**: canonical evidence
+  immutable; all generated intelligence (summary, findings, story,
+  recommendations, timeline, ATT&CK) editable with analyst identity,
+  timestamp, reason preserved as versions.
+- **§31 verdict boundary**, **§33 response boundary**, **§13-§14
+  cross-source/cross-incident**, **§17 human investigation controls
+  are entity-scoped, never machine-start**.
+
+### First UI change against the contract
+- Tab renamed **`Auto-Investigation` → `Investigation Activity`**
+  (§16). File: `AutoInvestigationTab.jsx` + `RecordTabs.jsx`.
+- Status label grammar migrated to §26 lifecycle. `NOT_RUN` no
+  longer surfaced; renders as `● WAITING FOR EVIDENCE`.
+  `RUNNING → ● INVESTIGATING`, `COMPLETE → ● CONVERGED`,
+  `PARTIAL → ● CONVERGED · PARTIAL`, `FAILED → ● FAILED`.
+- Copy rewritten to communicate STATE, not activation. Explicit
+  callout: *"No 'Auto-Investigate' button. Per the NivXRay XDR
+  Autonomous Investigation Operating Model, investigation is a
+  native operating behavior — the analyst never starts the
+  machine."*
+- Bottom hint points analysts at the correct human-investigation
+  entry points (entity panels on Related + Attack Story tabs, §17).
+
+### Rollout order queued (rounds ahead)
+1. ✅ Ratify contract + rename tab (this round).
+2. ⏳ IUE service scaffolding — consumes Evidence Plane, emits §5
+   understanding artifacts.
+3. ⏳ Investigation Orchestrator scaffolding — writes to
+   `engine_executions`.
+4. ⏳ Investigation Capability Fabric v0 — Detection / Correlation /
+   MITRE mapping as first plugins.
+5. ⏳ Attack Story v2 + AttackFlow (Visual Language v1.2).
+6. ⏳ Editable / versioned intelligence layer (§23-§25).
+7. ⏳ Cross-incident intelligence (§14).
+8. ⏳ AI-optional narrative layer (§9, §22).
+
+### Acceptance
+- Tab renamed and re-worded per contract · confirmed via screenshot.
+- Empty-state honest: `● WAITING FOR EVIDENCE` (never mocked
+  COMPLETE).
+- 46/46 backend regression green.
+- Command Band still displays real populated incident data from the
+  Round 29.7 projection fix.
+
+---
+
+## 2026-09-01 · Round 29.7 — Populated-state proof · Pipeline → Projection → Composition — SHIPPED
+
+Owner-directed pivot: stop optimising for empty screenshots; prove
+the composition works against real pipeline output.  Delivered in
+one round without touching the visual language.
+
+### 1 · Populated-state seed harness (existing real pipeline)
+Instead of fabricating a fixture, drove the deterministic
+`POST /api/admin/content-supply-chain/e2e/snort-golden` endpoint.
+It runs the real code path — Suricata golden alert → collector →
+DSM → parser → normaliser → canonical evidence → correlation
+(no match) → incident promotion → MITRE mapping → attack-chain
+graph — producing the real populated incident
+`inc_8886942a92194bb8a3e4` `Suspicious — sig 2027865 → 10.1.2.3`
+(`P3 · Medium`, verdict `suspicious/60`, technique `T1573.002 ·
+Asymmetric Cryptography` in tactic `command-and-control`).
+
+### 2 · API projection fix (`routers/incidents.py::_project_detail`)
+Owner-mapped fields now emitted at the API boundary:
+
+| Owner-declared mapping                                    | Status |
+|-----------------------------------------------------------|--------|
+| `title` → `name` (fallback when name absent / "(unnamed)")| ✅     |
+| `xdr_pipeline.canonical_event_id` → `canonical_evidence_ids` | ✅  |
+| `xdr_pipeline.ice_matches` → `correlation_match_ids`      | ✅     |
+| `xdr_pipeline.source_provenance.integration_id` → `source_integration_id` | ✅ |
+| `verdict_card.verdict` → `verdict_stage2.label` (fallback)| ✅     |
+| Derive `evidence_count` (canonical + correlation)         | ✅     |
+| Derive `assets.hosts / users / processes / files / network` from `iocs` | ✅ |
+
+The frontend now consumes **one** flat shape; no duplicate security
+truth in the UI.  Every projected value traces to the pipeline;
+every absent value is emitted absent, never fabricated.
+
+### 3 · Populated Overview visual proof
+Before → After on `inc_8886942a92194bb8a3e4?tab=executive`:
+- Title `(unnamed)` → **`Suspicious — sig 2027865 → 10.1.2.3`**
+- Verdict chip `● Verdict pending` → **`● Suspicious`**
+- Evidence KPI `—` → **`1`**
+- Evidence column *Canonical events* `No data yet.` → **`1`**
+- Deep-link `see all 1 →` now live
+- Provenance *Telemetry* `not present` → **`integration-snort-ref`**
+- Provenance *Canonical* `not present` → **`1 event(s)`**
+- Attack Story band: real `» COMMAND-AND-CONTROL · Asymmetric
+  Cryptography` with observed-green rail
+- MITRE column: real `T1573.002 · Asymmetric Cryptography` +
+  `see all 1 →`
+- Correlation / MITRE (top-level `mitre[]`) honestly `not present`
+  because Snort golden fires no correlation rule and the case doc
+  carries no top-level `mitre[]` — mapping lives in the graph.
+
+### 4 · Empty state (Suitable incident) still correct
+- `evidence_count: 0` (honest zero, no fabrication)
+- Composition still collapses to the compact one-line hint strip
+  per v1.1 §C2
+- Verdict now correctly surfaces `malicious/90` from `verdict_card`
+  (previously mis-rendered as "Verdict pending" because stage2 was
+  empty)
+
+### 5 · Regression
+- 46/46 backend tests green (adds
+  `test_xdr_round21_attack_graph.py` to the batch).
+- `?design=v1` legacy escape hatch preserved.
+- No frontend visual changes this round — the language is the same;
+  the API is finally speaking it.
+
+### Order confirmed for the next rounds
+1. ✅ Populated-state proof + projection contract (this round)
+2. ⏳ Richer multi-technique golden fixture (stress test)
+3. ⏳ Visual Language v1.2 — AttackFlow primitive
+4. ⏳ Attack Story Tab v2 + Investigation Graph Tab v2
+5. ⏳ VEEE v1.2 automation
+
+---
+
+## 2026-09-01 · Round 29.6 — Visual Language v1.1 · Composition Language — SHIPPED
+
+Elevated the analyst experience from a component library to a
+**composition language**. v1.0 (vocabulary) defined the words;
+v1.1 defines the sentences. NivXRay XDR now has a formal contract
+for how words compose into an XDR investigation workspace.
+
+### New contract (appended to `/app/memory/VISUAL_LANGUAGE.md`)
+- **§12 Composition primitives (not cards)** — 11 primitives:
+  Command Band · Vitals Rail · Attack Story band · Graph mini ·
+  Entity cluster · Timeline · Compact list · Evidence drawer ·
+  Contextual panel · Inline state chip · Relationship line.
+  A surface MUST use ≥3 distinct primitives (VEEE V-COMP-1).
+- **§13 Flagship Incident Overview composition** — analyst scan
+  path (7 questions map to fixed viewport positions), empty-state
+  wireframe, populated wireframe, 8 composition rules C1–C8.
+- **§13.5 VEEE v1.1 additions** — six composition-level checks
+  (V-COMP-1 … V-COMP-6). A surface FAILS VEEE if it renders more
+  than one "NOT PRESENT" card, if the KPI rail lives outside the
+  Command Band, if the Overview duplicates deep-dive tab content,
+  or if `TRUTH STATE / PROVENANCE / RELATIONSHIPS` appears as a
+  section heading.
+- **§14 Rollout order** — flagship first, then Alerts, Cases, TI,
+  Response inherit the same composition patterns.
+
+### Frontend — flagship implementation
+- **`RecordHeaderV2.jsx` rebuilt** as ONE compact card, five rows
+  (Row 1: glyph + title + sev pill; Row 2: id + soft state chips;
+  Row 3: meta; hairline; Row 4: **vitals rail INSIDE the band**
+  with `Ⓔ Evidence · ⚠ Alerts · Ⓗ Hosts · Ⓤ Users · Ⓕ Files ·
+  Ⓣ MITRE · Ⓒ Correlation`, followed by `[Respond] [⋯]`).
+  Fixes v1.1 C3 — no more "band + separate KPI card + buttons"
+  waste. Total header footprint 218px empty · 240px populated.
+- **`IncidentOverviewV2.jsx` new** — the flagship composition. Wired
+  into the Executive tab via `incident-overview` surface flip.
+  Renders Attack Story band + Investigation Graph mini + 4-column
+  bottom cluster (Evidence · Entities · MITRE · Recommendations) +
+  compact Provenance footer. Adaptive: with zero evidence the
+  entire body collapses to a single hint strip (v1.1 C2). Compact
+  Provenance footer with `ProvenanceGlyph` (v1.1 C7).
+- **`tokens.css`** — five new composition classes: `.evops-cmd`
+  (single card, KPI-inside), `.evops-empty-strip`, `.evops-story`,
+  `.evops-graph`, `.evops-cluster`, `.evops-prov-foot`.
+- **`AlertGlyph`** added to the KPI rail (previously the Alerts
+  metric was missing).
+- **`glyphs.jsx`** unchanged — 17 native glyphs remain the alphabet.
+- **`XdrIncidentDetailPage.jsx`** — surface-flip now covers
+  `incident-overview`; `?design=v1` still renders untouched legacy
+  `ExecutiveTab` + legacy `RecordHeader`.
+
+### VEEE v1.1 pass — flagship empty-evidence run
+- V-COMP-1 ✅  Command Band + Empty Strip + Provenance Footer (3+)
+- V-COMP-2 ✅  Empty state = ONE strip, not four cards
+- V-COMP-3 ✅  KPI rail inside the band
+- V-COMP-4 ✅  No duplicated deep-dive content
+- V-COMP-5 ✅  Scan path preserved (severity → title → verdict →
+             vitals → response)
+- V-COMP-6 ✅  No "PROVENANCE / TRUTH STATE / RELATIONSHIPS" as a
+             section heading — Provenance is a compact footer
+- v1.0 §7.2  ✅  Hierarchy · Consistency · State grammar ·
+             Composition · Semantic tone · Empty-state efficiency
+- **Fabrication regression fixed**: `MITRE 8 technique(s)` in the
+  Provenance line replaced with honest `MITRE not present` (mapping
+  is derived — cannot be present when every upstream layer is).
+
+### Acceptance gates
+- Incident Overview V2 renders by default · legacy under
+  `?design=v1`. Verified.
+- Backend pytest regression: 37/37 XDR round tests green.
+- Console clean; hot reload stable.
+
+---
+
+## 2026-09-01 · Round 29.5 — Visual Language v1.0 · Vocabulary — SHIPPED
+
+Elevated the Round 29 UI work to a **platform-level design contract**.
+NivXRay XDR now has a first-class Visual Language System, sitting
+alongside the Evidence Plane / Investigation Graph / Verdict Engine /
+Integration Fabric as a permanent architecture artifact.
+
+### New artifacts
+- **`/app/memory/VISUAL_LANGUAGE.md`** — the contract. 11 sections
+  covering non-negotiables, tokens, security-ontology glyph
+  vocabulary, component language, composition rules (per surface
+  type), honest-state visual grammar (9 states), data-visualisation
+  grammar, VEEE evaluation rulebook, iteration loop, rollout order,
+  and governance. Discussions of colour choice are out of scope
+  ("the token has the answer"); discussions of new security concepts
+  add a glyph to §2 and the library.
+- **`apps/nivxray-xdr/src/xdr/design/glyphs.jsx`** — first custom
+  NivXRay XDR SVG glyph library. 17 native glyphs on a 24×24 grid
+  with 1.5px stroke, `currentColor` inheritance, renders correctly
+  at 12/16/24/32 px: Incident · Alert · Detection · Host · User ·
+  Process · File · Network · Domain · IP · Evidence · Technique ·
+  Tactic · Response · Verdict · Provenance · Correlation. Barrel-
+  exported through `design/index.js`. Lucide remains permitted for
+  utility (chevrons, close, refresh, external-link, more) but is
+  BLOCKED for ontology-level concepts.
+
+### Round 29 surfaces re-emitted against v1.0
+- **`RecordHeaderV2.jsx`** — Investigation Command Header rewritten
+  to consume the glyph library:
+  - **Title dominant** (24px 800 "Suitable"); severity supporting
+    via a slim `P1 · CRITICAL` pill next to it. The 72×72 score
+    box is deleted — that was the "P1 giant box" the reviewer
+    flagged.
+  - **Glyph-led KPI rail** — every metric label sits next to its
+    security-ontology glyph (EvidenceGlyph, HostGlyph, UserGlyph,
+    FileGlyph, TechniqueGlyph, CorrelationGlyph). Populated values
+    render at 28px 700; absent values render at 20px 500 italic
+    muted `—` (v1.0 §5 NOT_PRESENT).
+  - Priority-coloured left rail + priority-coloured glyph on the
+    title row: severity communicated through visual grammar, never
+    a decorative filled block.
+  - Respond action uses the ResponseGlyph (bolt inside shield);
+    Generate Report uses the EvidenceGlyph.
+- **`MitreTabV2.jsx`** — every technique row and every tactic-
+  coverage cell now leads with the native TechniqueGlyph /
+  TacticGlyph.
+- **`tokens.css`** — command header CSS reworked to remove the
+  score box, promote the title, and give the KPI numerals dominant
+  weight (28px). Priority pill styling added.
+
+### VEEE §7.2 manual gate — flagship incident record
+- Hierarchy ✅   (severity → identity → verdict → evidence → response)
+- Consistency ✅  (32/32 ontology renders came from the custom
+                  library; 0 Lucide substitutions at the ontology
+                  layer)
+- State grammar ✅ (absent `—` vs populated numerals differ in
+                   weight, size, and colour by design token)
+- Composition ✅  (§4.1 Command Band pattern only)
+- Semantic tone ✅ (purple only on Respond + `actioned`; red only
+                   on P1 + malicious)
+- Empty-state efficiency ✅ (empty incident renders in <500px
+                            vertical)
+
+### Acceptance gates
+- MITRE V2 renders by default · legacy renders under `?design=v1`.
+- Incident Header V2 renders by default · legacy renders under
+  `?design=v1`.
+- Backend pytest regression: 37/37 XDR round tests green.
+- Console clean; hot reload stable.
+
+### Rollout — what v1.0 unlocks (queued rounds)
+1. Attack Story tab v2 (Attack Story Node component)
+2. Overview tab v2 (Command Band + Vitals + Attack Story +
+   Investigation Graph + 4-panel bottom grid)
+3. Investigation Graph node (glyph-led)
+4. Response console → all response cards inherit v1.0
+5. Alerts, Cases, TI, Reports — each surface renders v1.0-conformant
+   by construction because the glyph library + composition rules
+   already exist.
+
+---
+
+## 2026-09-01 · Round 29 — Analyst UI Grammar (superseded by 29.5) — SHIPPED
+
+Full visual rebuild after the dark-navy iteration was rejected.
+NivXRay XDR remains a WHITE/LIGHT enterprise SOC console — security
+state provides the ONLY colour, never a decorative fill.
+
+### Frontend (`/app/apps/nivxray-xdr`)
+- **`RecordHeaderV2.jsx` — Investigation Command Header (light).**
+  Single-row composition on ≥1400px viewport:
+
+  `[Severity Score]  [Title + ID + soft chips + meta]  [KPI band]  [Actions]`
+
+  - **Severity Score badge** — priority-coloured 72×72 square,
+    priority label (P1 / P2 / P3 / P4 / P5) + severity word
+    (CRITICAL / HIGH / MEDIUM / LOW / INFO). Ready to consume an
+    authoritative numeric risk score when the model emits one.
+  - **Soft dot-chips**: `● Priority P1 · ● In Progress ·
+    ● Verdict pending`. Colours mapped through a closed enum
+    (`critical`, `high`, `progress`, `pending`, `resolved`,
+    `benign`, `malicious`).
+  - **Inline KPI band**: 5 compact cells — Evidence · Assets ·
+    Users · MITRE · Correlation. Values large (22px). Absent
+    values render as `—` in muted italic. MITRE / Correlation
+    cells are gated on `evidence_count > 0`, so the header can
+    never contradict its own provenance.
+  - **Actions column**: Respond (primary purple, capability-
+    gated), Generate Report (`cap-standby · PHASE_5`), More
+    Actions (`cap-standby · PHASE_3_PLUS`).
+  - Meta line inline (First seen · Last activity · Owner · Tenant).
+    Owner and tenant live here as *metadata*, never as OWNS /
+    SCOPED_TO relationship rows in the primary canvas.
+  - Wraps gracefully to 2/3 rows on smaller viewports.
+- **Deleted from the header**: the earlier `TRUTH STATE /
+  PROVENANCE / RELATIONSHIPS` sections. Those are internal
+  primitives, not primary page sections.
+- **`MitreTabV2.jsx` — Tactic Coverage strip + Technique table.**
+  - 14-tactic Coverage grid (Reconnaissance → Impact), evidence-
+    derived counts only. Zero-count tactics render honest `—`
+    gaps; observed tactics get a green left rule and highlight.
+  - **`TechniqueRow` table** (one dense row per evidence-backed
+    technique): id · name + rationale · tactic · rollup
+    (`N evidence · N host · N user`) · confidence pill · Open
+    action to attack.mitre.org.
+  - Sub-technique + shared-entity/shared-evidence edges rendered
+    as `<Relationship state="…">` beneath the table.
+  - Honest empty state below the coverage strip — the analyst
+    reads the gap-shape first, then the reason.
+- **`tokens.css`** — completely reworked Round 29 section:
+  - `.evops-cmd` (light card, priority-coloured left rail)
+  - `.evops-cmd__score`, `.evops-cmd__ident`, `.evops-cmd__chips`,
+    `.evops-cmd__meta`, `.evops-cmd__kpis`, `.evops-cmd__actions`
+  - `.evops-tactics` (14-cell coverage strip)
+  - `.evops-tech-table` + `.evops-tech-row` (MITRE table rows)
+- **`index.js`** — barrel exports `MitreTabV2`, `RecordHeaderV2`;
+  `MIGRATED_SURFACES` set: `integrations`, `recommendations`,
+  `mitre`, `incident-header`.
+- **`XdrIncidentDetailPage.jsx`** — surface-aware default flip via
+  `isDesignV2EnabledFor(...)`. `?design=v1` renders untouched
+  legacy `MitreTab` + legacy `RecordHeader`.
+
+### Design language established (NivXRay XDR identity)
+- White is the foundation. Security state provides the colour.
+  Investigation provides the visual impact.
+- Priority communicated as a coloured left rail on the header +
+  score-badge border — never a filled block or gradient.
+- Dot-chips instead of uppercase pills inside the header — they
+  read as *state*, not as inline data tags.
+- Dense inline KPI band, not a stacked full-width vitals grid.
+- Analyst read target: ≤10 seconds to answer severity, identity,
+  state, evidence weight, MITRE coverage, next action.
+
+### Acceptance gates verified
+- MITRE V2 renders by default · legacy renders under `?design=v1`.
+- Incident Header V2 renders by default · legacy renders under
+  `?design=v1`.
+- Unmigrated surfaces (tabs, lifecycle strip, executive tab …)
+  unchanged.
+- MITRE / Correlation KPIs resolve to `—` when
+  `evidence_count == 0`; header never fabricates coverage.
+- Tactic Coverage strip renders 14 cells with honest gaps.
+- Backend pytest regression: 37/37 XDR round tests
+  (25b/26/26.5/27/28/28.x/28.x.2) green.
+
+### Explicitly NOT in Round 29 (queued for follow-up rounds)
+The reference composition included an Attack Story timeline,
+Investigation Graph, right-side Incident Details rail, and a
+four-panel Overview (Evidence Summary / Top Entities / MITRE
+ATT&CK / Recommendations). These are separate surfaces that
+belong to the **Attack Story tab v2 / Overview tab redesign**
+rounds. Round 29 delivered the Header + MITRE surfaces only, per
+scope.
+
+---
+
 ## 2026-02-34 · NivXRay Enterprise Visual System v1 — SHIPPED
 
 Product-wide design-system pass.  Every `/xdr/*` route now reads
@@ -4479,3 +6300,1045 @@ Contract §5 out-of-scope discipline held.
 **Next slice · P0.15C-3** — Jump-to-Source overlay
 (click command → open image → highlight
 `provenance.bounding_box`).  Bbox data already emitted by VEEE.
+
+---
+
+## 2026-09-05 · NivXForge EDR + Sandbox Existing-Asset Reconciliation (audit + design only, NO code changes)
+
+**Owner instruction**: reconcile what already exists in the AG export / project
+BEFORE fixing the Device Trajectory routing defect or resuming the Investigation
+UI redesign. No premature implementation, no mock telemetry, no fabricated
+endpoint or sandbox data.
+
+### Evidence-backed findings
+- **AG export == this repository.** `01_COMPLETE_SOURCE/` diffs clean against
+  live `/app` apart from this session's own edits. Every EDR/Sandbox *code* file
+  in `07_EDR/EDR_MANIFEST.json` (199) and `08_SANDBOX/SANDBOX_MANIFEST.json` (17)
+  is `PRE_EXISTING`; every `AG_CREATED` file is documentation or the single-file
+  HTML prototype. **There was no hidden EDR/Sandbox codebase to merge.**
+- **EDR is runtime-empty.** `GET /api/edr/endpoints` → `count:0`,
+  `note:"no_matching_evidence"`. Mongo: 484 `workspace_cases`, 209 with
+  `ssot.investigation_object`, **0** with `.host`, **0** with `.device.hostname`.
+  `_extract_host()` therefore returns `None` for every document → the Device
+  Trajectory canvas has never had a device to render. The prior AG truth audit's
+  `IMPLEMENTED` status for Device Trajectory / Process Tree is **code-existence
+  only** and is superseded on that point.
+- **The real device substrate is elsewhere.** `v2_shadow_observations`: 639 docs
+  / 36 cases, `process_iid` 639/639, **`event.device_iid` 223/639**, with kinds
+  covering process / file / registry / network / service / memory / kernel. The
+  endpoint plane is reading the wrong substrate.
+- **Sandbox = DESIGN + PROTOTYPE ONLY.** No sandbox router, VM orchestrator or
+  detonation service exists anywhere in `/app/backend`. What is real: the 6
+  static analyzers (`artifact_intelligence/analyzers/`), the 59-decoder chain,
+  IOC + ATT&CK mapping.
+- **Device Trajectory defect is two defects.** (1) `/edr/trajectory` is not
+  registered in `App.jsx` → falls through `<Route path="*">` → `/xdr/incidents`;
+  7 call sites dead-end there. (2) Even the live canvas path cannot resolve a
+  device because the UI binds to the empty SSOT host field instead of
+  `device_iid`. → Correction first (routing + identity binding), extension second.
+- `/api/edr/*` scopes by `user_email` only, not the `resolve_tenant_scope()`
+  helper used by the fixed incident queue.
+
+### Deliverables written (`/app/docs/uiux/`)
+- `NIVXFORGE_EDR_SANDBOX_CURRENT_STATE_AND_INDUSTRY_PARITY.md`
+- `NIVXFORGE_EDR_SANDBOX_CAPABILITY_GAP_MATRIX.md`
+- `NIVXFORGE_EDR_SANDBOX_IMPLEMENTATION_ROADMAP.md`
+- `NIVXFORGE_EDR_TARGET_UX_ARCHITECTURE.md` (design agent · 37-surface availability tiers)
+- `NIVXFORGE_SANDBOX_TARGET_UX_ARCHITECTURE.md` (design agent · staged DESIGN-ONLY shell)
+- `NIVXFORGE_EDR_SANDBOX_DESIGN_DECISIONS.md` (design agent · reuse/extend/reject log)
+
+Design-agent P4 colour error corrected in place: priority ladder is fixed by
+owner mandate at P1 `#EF4444` / P2 `#F97316` / P3 `#EAB308` / P4 `#3B82F6` **blue**
+per `nx-theme.css:132-136`; the proposed `#14B8A6` teal was rejected.
+
+### Agreed sequencing (not yet implemented)
+1. **Phase 1** — resolver route + Device Identity Resolution over the existing
+   223 `device_iid`s + tenant-scope correction + first-class zero-device state.
+2. **Phase 2** — file / network / registry / services lanes + causality canvas +
+   Entity 360 + trajectory scrubber (all projections over IRG kinds already persisted).
+3. **Phase 3** — event search, response execution truth pass, and the Sandbox
+   "Static Detonation Report" (real static half shipped; dynamic tabs render ⊘).
+4. Phases 4–6 — forensics/live-query/memory, dynamic sandbox, agent plane.
+
+**Deferred unchanged**: queue bulk actions, saved searches, number deep links.
+
+## 2026-09-05 · NivXForge EDR runtime activation — Phase 1 (P0) · SHIPPED & VERIFIED
+
+Executed the audit's Phase 1 exactly: routing correction → identity rebinding →
+end-to-end runtime proof. No EDR agent built, no telemetry manufactured.
+
+**Root cause 1 — dead route.** `/edr/trajectory` was never registered in
+`App.jsx`; 7 call sites fell through `<Route path="*">` to the Incident Queue.
+Fixed with a **resolver** (`xdr/pages/EdrTrajectoryResolver.jsx`) that redirects
+into the single authoritative canvas `/xdr/endpoints/:device/trajectory` — no
+third trajectory implementation. `incident_id` survives the redirect. Nothing
+resolvable → `⊘ CAPABILITY UNAVAILABLE — NO ENDPOINT ENTITY`, never a silent
+bounce.
+
+**Root cause 2 — wrong substrate.** The endpoint plane read
+`ssot.investigation_object.host` (empty in 484/484 cases). New
+`backend/services/edr/device_identity.py` (DIR) projects the pre-existing
+`v2_shadow_observations` IRG substrate: `event.device_iid` → AUTHORITATIVE,
+`event.raw.computer` → INFERRED, neither → not a device. `GET /api/edr/endpoints`
+went from `count:0` to **7 real devices** (WKS-01, FILE-SRV-01, SRV-DC01, FIN-07,
+ENG-42, HR-11, WKS-07). Hostname matching is case-insensitive; `dev_*` IIDs and
+hostnames both resolve to the same identity.
+
+**Also fixed**: `/api/edr/*` now shares `resolve_tenant_scope()` with the
+incident queue instead of a raw `user_email` ownership filter (the IRG substrate
+carries no `tenant_id`, so it is exposed to cross-tenant SOC roles only —
+stricter, never looser). `/xdr/endpoints` is a real page again instead of a
+redirect to the queue. Trajectory gained an `All` window (`all_time=true`)
+because the observations are dated 2026-02-25, and the empty state now
+distinguishes "nothing in this window (45 observations exist)" from "nothing
+ever observed" from "identity unresolved".
+
+**Verified end-to-end** (`/app/test_reports/iteration_82.json`): FIN-07 renders
+45 real observations across process/file/network/registry with real paths, users
+and command lines, each carrying `evidence_ref.type=v2_shadow_observation`.
+Backend 10/10 new + 37/37 regression; frontend 20/20 across 8 surfaces; zero
+console errors; anti-fabrication cross-check against Mongo passed.
+
+**Truth-model correction recorded**: Device Trajectory `IMPLEMENTED` (code only)
+→ `CODE/UX IMPLEMENTED · RUNTIME DATA PATH NOT OPERATIONAL` → **`LIVE against the currently available persisted v2_shadow_observations substrate; production endpoint-agent telemetry is NOT yet implemented`**.
+The 7 projected devices are a **golden-corpus / validation substrate**, not production
+customer endpoint data. Cross-tenant SOC visibility is permitted ONLY because the
+substrate carries no tenant identity. Tenant binding becomes MANDATORY before any
+real customer telemetry enters a customer-visible production EDR plane.
+Sandbox remains `Static foundation IMPLEMENTED · dynamic NOT IMPLEMENTED · UX
+DESIGN/PROTOTYPE ONLY`.
+
+**Next**: Phase 2 — file/network/registry/services lanes, process ancestry
+causality canvas, Entity 360, timeline scrubber (all projections over IRG kinds
+already persisted). Not started.
+
+## 2026-09-05 · P1 item 1 — Endpoint Lanes (Files / Network / Registry / Services)
+
+`xdr/components/EndpointLanes.jsx`, mounted below the trajectory canvas on
+`/xdr/endpoints/:device/trajectory`. Adds **no data source**: it projects the
+same `/api/edr/device-trajectory` payload the canvas already consumes, so every
+row is a persisted `v2_shadow_observations` document with a live
+`evidence_ref`. Verified on FIN-07: Files 5 · Network 10 · Registry 5 ·
+Services 0 (honest `◇ NO EVIDENCE`). Absent columns render `◇`, never a
+placeholder — e.g. network observations genuinely carry no `raw.user`.
+
+Each row shows its **Source Case**, which makes the golden corpus's repeated
+case copies self-explanatory (the same event is persisted once per case copy —
+real duplication in the corpus, not synthesis, so it is shown rather than
+silently de-duplicated).
+
+Also appended two batches of Cisco Secure Endpoint reference notes to
+`docs/uiux/NIVXFORGE_EDR_TARGET_UX_ARCHITECTURE.md` (Device Trajectory header
+composition, dual-ribbon navigator, process lifelines + compromise time-slice
+band, actor→target Events ledger, File Trajectory, artifact context menu,
+Event Details field order). Two independent validations of our Honest State
+model recorded there: the vendor also prints `unknown` for an unobserved parent,
+and `executing as Not Available` rather than blanking a missing field.
+
+**Roadmap wording corrected as instructed**: Device Trajectory is now recorded
+as "LIVE against the currently available persisted v2_shadow_observations
+substrate; production endpoint-agent telemetry is NOT yet implemented", and the
+7 devices are labelled a golden-corpus / validation substrate with tenant
+binding MANDATORY before customer telemetry.
+
+**Next in the approved order**: Process Ancestry → Entity 360 → Timeline
+Scrubber → EDR end-to-end revalidation → tenant binding.
+
+## 2026-09-05 · P1.5 Timeline Scrubber (delivered early, on direct instruction) + P1.2 Process Ancestry
+
+### P1.5 — Cisco AMP-style brushing engine · DONE
+`xdr/components/TimelineRibbon.jsx` (dual-handle brush over the observed extent,
+density bins, compromise pins) + interaction layer inside
+`TrajectoryTimelineCanvas.jsx`. All five interactions verified live on FIN-07:
+in-canvas **brush-zoom** (45 → 20 events), **wheel zoom anchored at cursor**
+(13:59:30–14:00:51 → 13:59:41–14:00:23), **shift+drag pan**
+(→ 13:59:54–14:00:35), **double-click reset**, **ribbon handle/band drag**.
+Axis label precision now follows zoom (seconds under 5 min, hours under 36 h,
+date above). `onTimeWindowChange` equivalent is implemented as a single lifted
+`view` state, so canvas + Endpoint Lanes + Process Ancestry all filter from one
+window; the lanes header prints the active window. New honest state
+`◇ NO OBSERVATIONS IN SELECTED WINDOW` with a Reset-to-All action, distinct
+from "nothing ever observed".
+
+Sequenced ahead of P1.3/P1.4 because the owner issued the scrubber contract as a
+direct standalone instruction. P1.3 (Entity 360) and P1.4 (Compromise Band)
+remain **unstarted**, per the gating rule.
+
+### P1.2 — Process Ancestry · DONE, with a substrate finding
+`xdr/lib/processAncestry.js` + `xdr/components/ProcessAncestryTree.jsx`.
+Implements the deterministic contract (2A direct `parent_iid`, 2B PPID temporal
+match, 2C zero-fabrication anchor, PID-reuse → `? UNCERTAIN_RELATIONSHIP`).
+
+**SUBSTRATE FINDING — the specified algorithm cannot fully execute on this data.**
+Verified across all 7 devices / 114 process observations:
+- `raw.pid` and `raw.ppid` exist in **0** documents. There are no PIDs at all.
+- Lineage is expressed only as `process.parent_iid → process.iid`.
+- **0 of 114** `parent_iid` values resolve to an observed process — on every
+  device (WKS-01 21 obs, FIN-07 25, ENG-42 40, SRV-DC01 10, FILE-SRV-01 10,
+  WKS-07 6, HR-11 2 — all `resolved_edges=0`).
+
+So the honest ancestry today is a **flat forest**: FIN-07 renders 5 observed
+processes under 5 separate `[ROOT / PARENT NOT OBSERVED · proc_…]` anchors.
+Branches 2B and 2C-by-PPID are implemented to contract but are **unreachable**
+until PID-bearing telemetry exists; they are not simulated. The anchor is keyed
+on the identity the child actually recorded (`parent_iid`), not a guessed PPID.
+
+`parent_name` (e.g. "explorer.exe") IS persisted — but on the **child's**
+record. It is the child's claim about its parent, not an observation of it, so
+it renders as `claimed "explorer.exe" ◇ INFERRED FROM CHILD RECORD` and is
+never promoted into an observed node label.
+
+Acceptance against the 6 scenarios:
+- A (direct lineage) · **NOT TESTABLE** — no resolvable edge exists in the substrate
+- B (forked lineage) · **NOT TESTABLE** — same cause
+- C (unobserved parent) · **PASS** — 5 dashed anchors, no fabricated binary names
+- D (missing command line) · implemented; not exercised (all 114 obs carry one).
+  The same mechanism is visible via `◇ PID/PPID NOT CAPTURED IN OBSERVATION`
+- E (provenance) · **PASS** — side-sheet shows `evt_36157ee27adf0d64`,
+  `proc_62f9a3754e89`, `parent_iid proc_cddeafea638f`, `dev_baaa72285d27`,
+  `CORP\alice`, real path + SHA-256, all 5 source cases, zero console errors
+- F (14:00Z burst scrubbing) · **PASS** — brush/wheel/pan de-cluster the burst
+
+Inline command decode is marked `⊘ INLINE DECODE NOT WIRED` — the 59-decoder
+runtime is operational but has no per-process decode endpoint, so no
+placeholder plaintext is shown.
+
+**Anti-fabrication**: every rendered process name, path, user, hash, IID and
+case was cross-checked against the persisted document.
+
+## 2026-09-05 · CORRECTION — removed invented chart interactions, built the AMP Navigator
+
+**Owner rejected my P1.5 implementation. Correct call — I invented web-chart
+gimmicks that AMP does not have and that trap the SOC viewport.**
+
+### Removed
+- Mouse-wheel zoom (native `wheel` listener with `preventDefault`) — deleted.
+  `grep -c wheel TrajectoryTimelineCanvas.jsx` = **0**.
+- `shift+drag` pan, in-canvas drag brush, double-click reset, the whole
+  interaction backdrop rect and the live brush rect.
+- The instruction banner "drag = zoom · shift+drag = pan · wheel = zoom at
+  cursor · dbl-click = reset" and the "Reset to All" button on the canvas header.
+- `xdr/components/TimelineRibbon.jsx` deleted entirely.
+
+The canvas is now a pure render surface again: clicks select an event, nothing
+else. No canvas gesture changes time.
+
+### Built · `xdr/components/TrajectoryNavigator.jsx`
+All temporal navigation now lives in one collapsible Navigator, AMP structure
+top-to-bottom:
+1. **Filters + scoped search** — `/regex/gim`, IPv4 CIDR, SHA-256, file/process
+   name. Compiles safely (never throws); invalid regex reports `invalid regex`.
+2. **Activity sparkline** — per-day event volume across the 30 days.
+3. **30-day ribbon** — day cells anchored on the latest observed day.
+   **Red dot** = compromise/high-severity day. **Blue dot** = search-hit day.
+   Days with no observations render dimmed, never interpolated. Click a day to
+   load it.
+4. **24-hour ribbon** — the selected day with a dual-handle sliding window
+   (left handle → start, right handle → end, band → shift preserving duration),
+   hour ticks, per-observation dots (blue when matched), and a `Full day` reset.
+
+One lifted `view` state still drives canvas + Endpoint Lanes + Process Ancestry,
+so a Navigator drag filters everything at once.
+
+### Verified live on FIN-07
+- **No wheel hijack**: wheel over the canvas scrolls the viewport
+  (`scrollY 0 → 600`) and the window label is byte-identical before and after.
+- Navigator present, 30 day cells, window label `2026-02-25 · 13:59:30Z → 14:00:51Z`.
+- Search: `/powershell|certutil/i` → 25 matches + blue day dot;
+  `185.220.0.0/16` → 0 matches (honest — no such address in the substrate);
+  SHA-256 `5168c4ae…` → 5 matches; `/[unclosed/` → `invalid regex`.
+- Dual-handle drag → `13:59:30Z → 14:02:12Z`; `Full day` → `13:58:09Z → 14:02:12Z`.
+
+### NOT done — directive item 3
+**Process lifelines are not built.** The canvas still renders categorical
+swimlanes (SYSTEM/PROCESS/FILE/NETWORK/REGISTRY) with event glyphs, not
+per-process/per-file horizontal lifelines with causal branching and semantic
+glyphs (`+` created, `▷` executed, `→` moved, `•` scanned, red/yellow/green
+fills). That is the next task and I am not claiming it.
+
+Worth flagging for that work: AMP's lifelines require parent→child causality,
+and this substrate has **0 resolvable lineage edges and no PIDs** (see the P1.2
+entry). Lifelines will therefore render as independent per-artifact rows with no
+branching until lineage-complete telemetry exists — the rows are honest, the
+branches cannot be drawn without fabrication.
+
+## 2026-09-05 · Navigator fixes from owner screenshot + AMP doc details
+
+**Bug the owner caught**: selecting a day rendered the window label as
+`00:00:00Z → 00:00:00Z`, because the end of a full day is midnight of the NEXT
+day and I sliced both to `HH:mm:ss`. Now prints
+`00:00:00Z → 24:00:00Z (full day)`. Verified on WKS-01.
+
+**Dot sizing (AMP doc: "the size of the dots are relative to the number of
+events per day")** — previously every dot was a fixed 5px, so 27 observations
+inside one minute rendered as a single small dot indistinguishable from one
+event. Now:
+- 30-day ribbon: compromise and search-hit dot diameters scale with their
+  per-day counts, each with a count tooltip.
+- 24-hour ribbon: observations are binned at 6-minute resolution and collapse
+  into one dot whose radius scales with the bin count. Verified: WKS-01's
+  cluster renders `r=6` with tooltip `27 observations` instead of a lone 2.2px dot.
+
+**Drag-and-drop SHA-256 (AMP doc feature I had missed)** — dropping a file on
+the search field computes its SHA-256 with `crypto.subtle` **locally** and
+inserts the digest as the query. The file is never uploaded; only the digest is
+used. Falls back to `⊘ SHA-256 unavailable — requires a secure context` rather
+than failing silently.
+
+**Honest relabel**: the `Full day` button actually snapped to the day's
+*observed* extent (13:58:58Z → 14:02:04Z), not 00:00→24:00, because the view
+clamps to the observed span. Renamed to **`Fit to observations`** so the label
+matches the behaviour. Clicking a day cell still gives the true full day.
+
+Also recorded from the AMP documentation for the upcoming lifelines work:
+IoC event series are highlighted **yellow** in the trajectory with a separate
+compromise event describing the type; clicking that compromise event highlights
+the individual triggering events with a **blue halo** and shows the indicator +
+tactics/techniques in Event Details. Search terms AMP scopes to Device
+Trajectory: detection name, SHA-256, filename, file path, URL, remote IP,
+user name, iOS bundle ID — ours covers all except URL and bundle ID, which the
+substrate does not carry.
+
+## 2026-09-05 · Navigator made OPERATIONAL (was visually accurate but inert)
+
+Owner was right: the ribbons rendered correctly but drove nothing. Click
+handlers now bind the Navigator to the canvas window and the Activity Details
+drawer, per the AMP contract.
+
+**30-day ribbon · day cell click** → selects that day and opens the full
+`00:00:00Z → 24:00:00Z`. If the day carries a compromise, it instead snaps a
+±30 min window around the **first compromise event** and selects that event so
+Activity Details opens on it. Double-click a day → tightest observed window on
+that day (with 5% padding) + selects the first event.
+
+**24-hour ribbon · dot click** → ±15 min bracket around the cluster and selects
+the cluster's **primary (earliest) observation**, which populates Activity
+Details. Double-click → collapses to the cluster's own min/max span. Dots now
+render last in the SVG with `pointerEvents: auto` and `cursor: pointer`, so they
+stay clickable above the selection band and handles (the band keeps its
+drag behaviour).
+
+Fixed while wiring: a non-compromise day click was calling both `onSelectDay`
+and `onWindowChange`, and the second re-clamped the full day back to the
+observed extent. The page now owns full-day selection exclusively.
+
+### Verified live on WKS-01 (dev_ad0efe27ff18)
+- Day cell click → `2026-02-25 · 00:00:00Z → 24:00:00Z (full day)`
+- Hour dot click (the 27-observation cluster) → window `13:58:58Z → 14:02:04Z`
+  **and** Activity Details populated with real persisted values:
+  `wininit.exe` · `PROCESS · OBSERVATION` · `2026-02-25 14:00:00Z` ·
+  device `WKS-01` · path `C:\Windows\System32\wininit.exe` · user `CORP\alice` ·
+  command `wininit.exe` · incident `case_golden_clean_workstation_fc1…`
+  The canvas node is simultaneously selected (selection ring visible).
+- Dot double-click → `13:59:56Z → 14:01:05Z` (tightest cluster span)
+
+### Partial — stated, not claimed
+**Canvas → Ribbon reverse binding is only half-satisfied.** Clicking a canvas
+event selects it and populates Activity Details, and because the event is by
+definition inside the current window the bracket already encompasses it — so no
+bracket move is needed. But the corresponding **dot is not highlighted** on the
+24-hour ribbon. That highlight is outstanding.
+
+### Terminology corrected per owner instruction
+Process Ancestry is now recorded everywhere as: **"visualization framework
+implemented; authoritative PID/PPID lineage not currently observed in the
+available substrate."** Never "complete". Branching stays evidence-gated —
+0 of 114 process observations carry resolvable lineage.
+
+### Resequenced backlog (owner's order)
+P1.1 Endpoint Lanes ✅ · P1.2 Navigator/Scrubber ✅ · P1.3 Process Ancestry
+⚠️ evidence-blocked (honest unrooted lifelines retained) · **P1.4 Entity 360 →
+P1.5 Compromise Band → P1.6 Events Ledger → P1.7 Sandbox Bridge (static
+pivot only)** — all four not started.
+
+## 2026-09-05 · Navigator handle affordance corrected (owner: "not there in Cisco AMP")
+
+The 24-hour ribbon handles were 8px full-height solid mint rects. When the
+window narrowed, the band collapsed and the two handles merged into one solid
+green slab — an artefact of my own invention, not an AMP affordance.
+
+Replaced with the AMP edge-marker pattern: a 1px edge line plus a small
+triangle above and below each edge. The 10px drag target is now a
+**transparent** rect, so nothing is painted for the hit area and a narrow
+window renders as two thin markers instead of a slab.
+
+Verified on WKS-01: full day → `00:00:00Z → 24:00:00Z`; narrowed to
+`13:59:56Z → 14:01:05Z` (the case that produced the slab) now shows thin
+triangle markers; right-handle drag still works → `13:59:56Z → 14:02:04Z`.
+
+## 2026-09-05 · 24-hour ribbon rebuilt to the AMP layout (owner: "make it same as Cisco AMP")
+
+Structural differences from AMP that I had wrong, now corrected:
+
+| | Before (mine) | Now (AMP) |
+|---|---|---|
+| Ribbon body | one continuous dark strip | **24 bordered hour cells**, matching the 30-day grid |
+| Hour labels | drawn *inside* the strip | **below** the ribbon (`0:00 1 2 … 23`) with the date (`FEB 25`) beneath the left edge |
+| Shading | painted the *selected* band, dimmed outside with near-black | **greys the UNSELECTED span**, selection stays clear |
+| Handles | full-height solid mint rects (the green slab) | 1px selection outline + **small triangles above and below**; drag target is a transparent 10px rect |
+| Day cells | filled mint block when selected | transparent cell with a thin mint border; inactive cells no longer dimmed |
+
+**Second defect found and fixed while verifying**: the left handle appeared
+dead. Cause was mine — `applyView` clamped to the *observed extent*
+(13:58:58–14:02:04), so once the window touched that edge the handle could not
+move. When a day is selected the Navigator now owns the full 24h domain and
+clamps to the **day**, not the extent.
+
+### Verified on WKS-01
+- Day cell click → `00:00:00Z → 24:00:00Z (full day)`
+- Right handle drag → `00:00:00Z → 15:12:59Z`
+- Left handle drag → `06:03:42Z → 15:12:59Z`  (both handles now traverse the day)
+- Hour dot click → `13:58:58Z → 14:02:04Z` + Activity Details populated
+- Selection renders as a thin outlined box with triangle markers — no slab at
+  any window width
+
+Still open: the ribbon-dot highlight when an event is clicked on the canvas
+(the second half of the two-way binding), and P1.4 Entity 360 → P1.5 Compromise
+Band → P1.6 Events Ledger → P1.7 Sandbox Bridge.
+
+## 2026-09-05 · Removed the caliper widget — it was my invention, not AMP
+
+Owner: "that green bounding box with dual-end triangle calipers is an arbitrary
+custom canvas-brush widget. It does not exist in Cisco Secure Endpoint."
+Correct. I had been iterating on my own scrubber metaphor instead of AMP's.
+
+**Removed**
+- The mint outline bounding box around the active window.
+- The top/bottom triangle calipers (▲▼) at both window edges — 0 `<polygon>`
+  elements remain in the hour ribbon (asserted).
+- The `2026-02-25 · 00:00:00Z → 24:00:00Z (full day)` label line and its now-dead
+  `windowLabel` memo.
+
+**Replaced with the AMP model**
+- Unselected span is masked with **diagonal hatching** (SVG `<pattern>`,
+  45°, over a dark fill). The active window is simply left **clear** — no
+  outline, no fill, no border.
+- A single **vertical cursor line** marks the active timestamp, driven by the
+  selected event (`cursorTs`, derived from `selectedId`), rendered only when
+  that timestamp falls inside the displayed day.
+- Selected day on the 30-day ribbon is now a **solid dark-blue fill**
+  (`#1d3557` / `#2e5d8f` border) instead of a mint outline; its date label
+  brightens rather than turning mint.
+- Drag remains available but **unpainted**: transparent 10px edge targets for
+  resize and a transparent band target for shift. The interaction survives;
+  the widget chrome does not.
+
+**Verified on WKS-01**: label element count 0 · caliper polygons 0 · hatch
+pattern present · cursor line present after a dot click · `27 / 27 events` ·
+right-edge drag still changes the window. Activity Details still populated with
+persisted values (`wininit.exe` · `C:\Windows\System32\wininit.exe` ·
+`CORP\alice` · `case_golden_clean_workstation_fc1…`).
+
+**Outstanding from this directive** (not built, not claimed): process lifelines
+with semantic glyphs stemming from horizontal process lines, the Events Ledger
+actor→target mirror, and the yellow compromise band. Lifelines remain gated on
+absent PID/PPID lineage; the Ledger and band are not gated and are next.
+
+## 2026-09-05 · NEXT SESSION START HERE — full AMP clone spec received (NOT STARTED)
+
+Owner supplied a complete engineering spec: "clone Cisco AMP UI/UX with the
+current colour tone". Approved scope, nothing built yet.
+
+**Colour mapping is fixed by the owner** (use verbatim, do not re-derive):
+canvas `#0B0F14` · panel `#11161D` · sub-panel `#161C24` · borders `#212B36` /
+gridlines `#1A222C` · malicious `#FF3838` (tint `rgba(255,56,56,.18)`) ·
+telemetry/search `#00D2D3` · IOC band `rgba(243,156,18,.12)` border `#F39C12` ·
+halo `0 0 0 3px rgba(0,210,211,.7)` · text `#E6EDF3`/`#8B949E`/`#484F58` ·
+mono `JetBrains Mono`.
+
+**Build order (owner's, and dependency-correct)**
+1. **Process lifelines canvas** — replace the 5 categorical swimlanes with one
+   row per observed process/file, gutter label `name [PE]/[Link]/[GZ]`, the IOC
+   row label on solid `#FF3838`, orthogonal step connectors
+   (`M x1 y1 H x2 V y2`), node glyphs `[PE]` `[File]` `[Net]` `[IOC]`, vertical
+   sub-minute tick labels. **Connectors stay unlinked** — 0 of 114 process
+   observations have resolvable lineage and there are no PIDs. Rows are honest;
+   stems are evidence-gated.
+2. **Events Ledger** — actor→target text mirror right of the canvas. NOT gated,
+   our lane data already carries both sides. Cheapest real win.
+3. **IOC amber band + cyan halo** — band across the triggering span, halo on
+   contributing markers. Needs a case→event mapping; `incidents_in_window`
+   already links cases.
+4. **Prose Activity Details** — replace the key/value grid with a generated
+   sentence via `analyst_narrative.py`, ending in explicit
+   "Unknown disposition. Unknown parent disposition." lines.
+5. **Entity 360** + Isolation drawer (unlock code / actor / timeline all
+   `⊘ RESPONSE DRIVER NOT REGISTERED`).
+6. **File Trajectory** (multi-host) — `Computers with matching activity`, per-host
+   match counts, Entry Point, Created By, Network Profile. P2; needs a
+   hash→host projection we do not have yet.
+
+**Do NOT**: install D3 (the spec suggests it; our canvas is already plain
+SVG/Canvas and works — do not add a dep for this), fabricate PIDs/lineage,
+or claim lifelines "complete" while stems are absent.
+
+Current state is good: Navigator (30-day + 24-hour, hatch mask, cursor line,
+dot click → ±15 min + Activity Details), Endpoint Lanes, Process Ancestry with
+honest unrooted roots, 7 real devices, 0 fabricated values.
+
+
+## 2026-09-05 · NivXForge EDR — 360° Device Trajectory Engine + Endpoint Entity 360 (Phases A–D)
+
+Owner-approved sequence A → B → C → D. Cisco Secure Endpoint (AMP) as the UX
+benchmark; implementation NivXForge-native, strict Honest State (zero fabrication).
+
+### Phase A · D3 lifeline canvas (`xdr/components/TrajectoryLifelineCanvas.jsx` — NEW)
+- Replaced the old disconnected-dot canvas. d3-scale/d3-brush/d3-time-format own the
+  temporal scale, ticks (vertical labels) and the brush; React owns state and nodes.
+- Per-process swimlanes (`PROCESSES`) + per-target swimlanes (`ARTIFACTS & NETWORK`),
+  28px rows, 220px sticky gutter, `name [TYPE]` labels (type = literal observed
+  extension, never an inferred `[PE]`).
+- Continuous execution tracks: quiet `#30363D` line across the whole visible window,
+  observed span overdrawn brighter — no zero-width lifelines.
+- Overlap discipline: 14px horizontal jitter per lifeline + drop-tick at the true
+  instant, severity z-ordering (malicious > attributed > benign), double-click a
+  cluster to zoom the shared window to its exact ms span.
+- Orthogonal actor→target connectors (both endpoints from ONE observation record).
+- Process→process lineage: 0 of 5 declared `parent_iid` resolve to an observed
+  `process_iid`, so NO edge is drawn — a dashed ghost-root marker + tooltip replaces
+  the previous repeated `[ROOT / PARENT NOT OBSERVED]` text clutter.
+- Amber IOC correlation bands (`rgba(243,156,18,0.12)`); cyan `#00D2D3` halo on the
+  selected compromise window with the rest dimmed (never removed).
+- Auto-fit viewport: domain = observed min/max ± max(5%, 60s).
+
+### Phase B · Entity 360 (`xdr/pages/XdrEntity360Page.jsx` — NEW, route `/xdr/endpoints/:device`)
+- Master-detail: identity rail (hostname + INFERRED badge, authoritative `device_iid`,
+  observation count, first/last seen, observed users, telemetry providers) + tabbed
+  workspace (Overview · Device Trajectory · Endpoint Lanes · Process Ancestry).
+- Owns ALL shared temporal state — navigator, canvas, compromise band, ledger and the
+  lane/ancestry tabs can never disagree about the window.
+- Fail-honest response shelf: 7 actions rendered DISABLED under
+  `⊘ RESPONSE DRIVER NOT REGISTERED` (aria-describedby + per-button reason).
+- Sensor/OS/IP/policy/health and vulnerabilities render explicit epistemic tokens.
+- `/xdr/endpoints/:device/trajectory` preserved as a thin wrapper opening the
+  trajectory tab. Breadcrumb `Investigator › Endpoints › Host › <tab>`.
+- Focus mode in `XdrShell`: on any `/xdr/endpoints/:device*` route the product nav
+  leaves the layout (width 0) and returns as a floating overlay drawer (☰ toggle +
+  scrim) so the canvas gets full width; restored to 220px elsewhere.
+
+### Phase C · Compromise Band + Events Ledger + prose inspector
+- `CompromiseBand.jsx`: IOC windows derived from the observations' own timestamps;
+  click = halo, double-click = scope window. Case-reference table marks every row
+  `◇ CASE RECORD NOT PERSISTED` (0/36 shadow case_ids exist in workspace_cases) and
+  collapses N identical unpersisted references into one expandable line.
+- `EventsLedger.jsx`: `[Timestamp UTC ms][Actor][Glyph][Target][ATT&CK][Disposition]`,
+  bidirectional hover with the canvas, row click centres the canvas, per-row kebab
+  (`edr-ledger-row-actions-*`) for keyboard-accessible pivots. Disposition is always
+  `? UNKNOWN DISPOSITION` — the substrate has no disposition field.
+- `ActivityDetailsPanel.jsx` + backend `services/edr/observation_narrative.py` and
+  `GET /api/edr/observation-narrative`: deterministic, evidence-gated PROSE (no LLM).
+  Documented why `compose_analyst_narrative(cio)` could NOT be reused (its input is a
+  CIO; wrapping one observation in a fake CIO would be fabrication).
+- Dedup honesty: the same `event.iid` replayed across case references collapses to one
+  observation (45→9 on FIN-07, 64→8 on ENG-42) and mitre/labels are UNIONED across
+  copies so merging never discards evidence.
+
+### Phase D · Static Analysis Bridge (verified contract, no mocks)
+- `StaticAnalysisBridge.jsx` + `ArtifactContextMenu.jsx`. Contract verified from code:
+  `GET /api/v2/decoded-artifacts/{sha256}` (+ `/stats/summary`, 169 artifacts).
+- TWO lookups: (1) sensor-recorded file digest, (2) sha256 of the observed command
+  line — verified to be the store's own key scheme (`sha256(command_line) == artifact.sha256`).
+- Always banners `STATIC MALWARE ANALYSIS ONLY · DYNAMIC DETONATION RUNTIME NOT CONFIGURED`.
+  404 → `◇ NO STATIC ANALYSIS RECORD` (evidence), transport failure →
+  `⊘ CAPABILITY UNAVAILABLE — STATIC ANALYSIS API CONTRACT NOT VERIFIED`.
+  No submit path: `⊘ SENSOR OFFLINE — NO ACQUISITION DRIVER`.
+
+### Filter matrix
+- `TrajectoryFiltersModal.jsx`: the complete Cisco filter taxonomy (Activity /
+  Lifecycle / Disposition / Modifiers). Criteria with a real backing signal are live;
+  the rest are shown DISABLED with the reason (no prevention engine, no quarantine
+  vault, no policy plane, no disposition field …) so nothing silently filters to zero.
+
+### Backend
+- `services/edr/device_identity.py`: projection now also emits `provider`, `event_id`,
+  `rule_label`, `parent_image`, `artefact_iids`; added `find_observation()`.
+- `routers/edr.py`: `GET /api/edr/observation-narrative?device=&event_iid=`.
+
+### Verification
+- Testing agent iteration 83: 13/13 flows PASS, zero bugs; all four review notes
+  addressed afterwards (404 no longer thrown, kebab pivots, per-button aria, collapsed
+  case block). Honest states verified on `does-not-exist-host` (⊘ identity unresolved)
+  and FIN-07 @ 1h (◇ no evidence).
+- Dependency added: `d3` (apps/nivxray-xdr).
+
+### Still NOT IMPLEMENTED (deliberately)
+- Production endpoint-agent telemetry, response drivers, dynamic sandbox detonation
+  (hypervisor runtime / in-guest hooking / PCAP), fleet-wide File Trajectory (P2).
+
+
+## 2026-09-05 · P1.8 Fleet File Trajectory (multi-endpoint artifact spread)
+
+Route `/xdr/intelligence/files/:key` — key is `sha256:<hex>` | `name:<leaf>` | `path:<path>`.
+Backend `services/edr/file_trajectory.py` (`fleet_trajectory`, `spread_index`) +
+`GET /api/edr/file-trajectory`, `GET /api/edr/fleet-spread-index`.
+
+- Counting per owner correction: `event.iid` deduplicated FIRST, provenance unioned.
+  `UNIQUE EVIDENCE EVENTS` is authoritative (14 for powershell.exe); `RAW OBSERVATIONS`
+  (58) is explicitly labelled raw. Per-endpoint match counts are unique events.
+- Fleet metrics: affected endpoints (distinct authoritative `device_iid` = 3),
+  first/last observed, entry point with ALL ties surfaced
+  (`? 2 ENDPOINTS TIE ON THE EARLIEST TIMESTAMP — NO SINGLE ENTRY POINT IS CLAIMED`),
+  `Created by` only where a `file_create`/`file_write` with an observed actor exists
+  (else `◇ PARENT CREATOR NOT OBSERVED`).
+- `Computers with matching activity` ledger: hostname INFERRED badge + `device_iid`,
+  unique/raw counts, `◇ NOT REPORTED` OS, provenance case refs each
+  `◇ CASE RECORD NOT PERSISTED`, `⊘ NO RESPONSE DRIVER`, filter box, 10/25/50
+  pagination, and `Trajectory →` pivot to
+  `/xdr/endpoints/:device/trajectory?focus=<key>`.
+- Fleet event history (chronological, per-endpoint links) + Fleet spread index
+  (49 observable artifacts ranked by endpoint spread; powershell.exe 3, winword.exe 2).
+- Bidirectional pivots: Device Trajectory context menu (`edr-ctx-file-trajectory`, no
+  longer disabled) and Activity Details (`edr-details-fleet-trajectory`) → fleet view;
+  `?focus=` return pivot pre-fills the navigator search and auto-selects that host's
+  earliest matching observation.
+- Sidebar focus mode extended to the fleet route (full-width canvas, ☰ overlay drawer,
+  breadcrumb `Investigator › Endpoints › Fleet File Trajectory`).
+
+### CORRECTION shipped with P1.8 — digest semantics (was a false claim)
+- `event.raw.sha256` is IDENTICAL to the document's `input_sha256` on all 639 records:
+  it digests the ingested observation, NOT a file. `artefacts.file[].sha256` is empty
+  on all 53 file artefacts, so the substrate holds ZERO file content digests.
+- Projection now emits `file_sha256` (content digest, currently always null),
+  `input_digest` (record digest) and `file_paths`; the legacy `sha256` field is
+  hard-nulled. Activity Details shows
+  `FILE SHA-256 · ◇ NO FILE CONTENT DIGEST OBSERVED` and a separate
+  `EVIDENCE DIGEST · ? RECORD DIGEST · NOT A FILE HASH`. The narrative composer adds
+  the evidence-integrity sentence. Static Analysis Bridge now runs THREE lookups
+  (content digest · command-line digest · observation record digest).
+- Consequently the fleet view is labelled `? PATH/NAME KEYED — CONTENT-BLIND` and a
+  `sha256:` lookup answers an honest zero state.
+- Tenant boundary restated on the page: `v2_shadow_observations` carries no
+  `tenant_id`; validation / golden-corpus visibility only, no invented tenant.
+
+### Verification
+- Testing agent iteration 84: all 14 acceptance items PASS (backend + frontend), zero
+  defects. Per-endpoint unique counts sum to 14 == authoritative total, never 58.
+- Post-test UI fixes: ledger Provenance/Response column overlap resolved, Pivot column
+  no longer clipped at 1920px.
+
+
+## 2026-09-05 (later) · P1.8 scope lock + 7-tab restructure + forensic terminology
+
+Owner directive: P1.8 is "Fleet File Trajectory — Evidence-First Cross-Endpoint
+File/Artifact Investigation" and must NOT grow into a second correlation engine.
+Attack Traversal & Attack Lifecycle are a SEPARATE planned capability.
+
+- Restructured the fleet page into the mandated tabs: **Overview · Fleet Activity ·
+  Timeline · Processes · Network · Artifacts · Evidence** (all populated from the
+  same deduped event set; no new backend calls).
+  - Processes: actor rollup (endpoints, unique events, event kinds, users, DECLARED
+    parents marked `? PARENT NOT OBSERVED`, ATT&CK) — counts only, never lineage.
+  - Network: observed network events; port/protocol `◇ NOT CAPTURED`; no host-to-host
+    traversal inferred; `◇ NO NETWORK OBSERVATIONS` zero state.
+  - Artifacts: recorded target objects with per-target endpoint counts and
+    `◇ NOT OBSERVED` content digest.
+  - Evidence: **Match basis** (which persisted fields joined, plus
+    `? TEMPORAL RELATIONSHIP NOT USED AS A JOIN`,
+    `? SHARED IDENTITY NOT USED AS A JOIN`) + per-event provenance ledger.
+- Forensic terminology corrections (no "patient zero", no invented objective):
+  - `EARLIEST OBSERVED HOST` replaces "entry point", with
+    `? EARLIEST OBSERVED HOST — ORIGIN NOT ESTABLISHED` / tie notice and the reason.
+  - `OBSERVED WINDOW` + `? TRUE ATTACK START UNKNOWN` / `? TRUE ATTACK END UNKNOWN`
+    (telemetry may begin after compromise).
+  - `LATERAL HOPS ◇ NOT ESTABLISHED` metric — cross-host causality is out of scope.
+  - Fleet Activity carries `◇ COHORT ONLY — LATERAL RELATIONSHIP NOT ESTABLISHED`
+    whenever a name/path appears on >1 endpoint: a cohort is never an edge.
+  - New `What this view does NOT establish` panel: objective, initial access,
+    cross-host causality, lateral movement, process lineage, file content identity,
+    disposition, and `⊘ ATTACK TRAVERSAL / LIFECYCLE NOT IMPLEMENTED`.
+- Locked architecture recorded in
+  `docs/uiux/NIVXRAY_ATTACK_TRAVERSAL_AND_LIFECYCLE.md`: typed `artifactRef`
+  (sha256 | path_name | artifact_id | process | command | other) with an epistemic
+  state so SHA-256 is not a hard requirement; per-stage lifecycle epistemics; hop
+  explanation + traversal status (`◆ CONFIRMED` / `? INFERRED` / `◇ COHORT ONLY` /
+  `⊘ UNAVAILABLE`) and traversal basis (filename alone can never create an edge);
+  the 7-W matrix plus `UNKNOWN?`; and the rule that it must be a PROJECTION over
+  IUE/ICE/IKG/VEEE/Security State — never `AttackLifecycleEngine`. Sequence locked:
+  P1.8 ✅ → P1.8a Spread Watchlist → P1.9 Investigation Export → P2 Sensor
+  Foundation → P2.x Attack Traversal & Lifecycle.
+- Sidebar focus mode extended to the fleet route; layout fixes (badge wrapping,
+  case-reference column capping).
+- Verified by screenshot across all 7 tabs, the cohort notice and the sha256 zero
+  state. Backend unchanged since iteration 84 (all 14 acceptance items PASS).
+
+
+## 2026-09-05 (close) · P1.8 CLOSED · future-ready traversal pivot
+
+- Added the navigation contract without the capability: a DISABLED
+  `⊘ Investigate Attack Traversal` control in the Fleet File Trajectory header
+  (`fleet-attack-traversal-pivot`, aria-disabled, reason in the tooltip) plus a
+  dashed `NAVIGATION CONTRACT` block on Overview listing the nine future surfaces
+  as `⊘` — Trace to Origin · Trace Forward · Host Traversal · Process Chain ·
+  Network Traversal · Identity · ATT&CK progression · Attack Lifecycle · Blast
+  Radius. Nothing is navigable and nothing is simulated.
+- **P1.8 CLOSED.** No further expansion. Remaining truth boundary intact:
+  `? PATH/NAME KEYED — CONTENT-BLIND`, `? EARLIEST OBSERVED HOST — ORIGIN NOT
+  ESTABLISHED`, `LATERAL HOPS ◇ NOT ESTABLISHED`, `◇ COHORT ONLY`,
+  `? PARENT NOT OBSERVED`, `? UNKNOWN DISPOSITION`, `⊘ NO RESPONSE DRIVER`.
+- Next operational capabilities (unchanged order): Investigation Export ·
+  Spread Watchlist · Saved Hunts · Sensor Foundation. Then
+  P2.x — Unified Artifact Trajectory & Attack Traversal Projection, whose visual
+  benchmark is the owner-supplied UNC6692 / STAC 6451 / ClickFix attack-flow
+  diagrams, generated dynamically with every node, edge and technique
+  evidence-backed and every gap shown as UNKNOWN.
+
+
+## 2026-09-05 · P1.9 Investigation Export (client-side, evidence-first)
+
+Decisions as locked by the owner: JSON + Markdown + CSV; client-side download only;
+self-contained SHA-256 only; evidence-only (no canvas rendering). NO server-side
+persistence, NO object storage, NO export-event collection, NO new endpoints.
+
+- `xdr/lib/investigationExport.js` — builds an EVIDENCE MANIFEST, not a narrative:
+  contract + mode, the exact scope predicate, count reconciliation, evidence rows
+  under a fixed 24-field allowlist, the honest-state limitations verbatim (14
+  statements), the contract exclusion list (9 classes), and a self-contained
+  SHA-256 over a sorted-key canonicalisation of the payload.
+- `xdr/components/ExportMenu.jsx` — Export control with the three formats and a
+  post-export receipt (rows exported · digest prefix · redaction count).
+- Wired into BOTH surfaces:
+  - Device Trajectory / Entity 360 → scope = device_ref, device_iid, hostname,
+    identity_confidence, window selector, window start/end UTC, active filters,
+    search query, selected compromise window, active tab.
+  - Fleet File Trajectory → scope = key_type, key, correlation mode, matched_on
+    fields, observed window, active tab, endpoint filter; also exports the
+    per-endpoint rollup.
+- Mode `SOC / INTERNAL FORENSIC EXPORT`: forensic fields (user, hostname, path,
+  command line, IPs) are PRESERVED. Secrets are not: high-confidence credential
+  patterns (password/secret/apikey/token assignments, URL userinfo, PRIVATE KEY
+  blocks) are replaced with `[REDACTED:SECRET]` / `[REDACTED:PRIVATE_KEY]` and the
+  count is reported in the manifest. Deterministic external sanitisation remains a
+  future capability.
+- `observation_record_digest` is exported as a named forensic digest with the
+  statement that it digests the ingested record, not a file.
+- Verified by downloading and parsing the real files: Entity 360 JSON (9 rows == 9
+  unique events, 45 raw reported not exported, 24 allowlisted fields, 14
+  limitations, digest bc8d2ecf…), Entity 360 Markdown (scope table, evidence table
+  with `? UNKNOWN` disposition, per-event detail, limitations section, exported_by
+  admin@nivxray.com), Fleet CSV (14 rows, scope + digest + reconciliation in the
+  header comments) and the on-screen receipt. Backend untouched.
+
+---
+
+## 2026-06-06 · P0-F.12 — Cisco AMP Device Trajectory clone (NivXForge EDR)
+
+`/xdr/edr/device-trajectory` is now a 100% observable clone of the Cisco
+AMP / Secure Endpoint Device Trajectory, driven only by canonical
+NivXForge evidence. Legacy `/edr/trajectory` untouched and operational.
+
+**Defects fixed**
+- **Deep activity rows rendered empty.** The lane catalogue was built
+  only from documents inside the requested time window, so lane indices
+  were renumbered per window and rows 300–324 could address rows that
+  did not exist in that window. The axis is now endpoint-wide and
+  invariant to the viewport (`ENDPOINT_WIDE_INVARIANT_TO_VIEWPORT`)
+  with a `lane_axis_version` for real catalogue growth.
+- **The trajectory read as disconnected rows.** Ordering was
+  `(group, depth, first_seen)`, putting every root first and its
+  children hundreds of rows away. It is now a depth-first **lineage
+  pre-order** over observed `process_iid`/`parent_iid`.
+- **"parent not observed" was a blanket fallback.** Three truths are now
+  named: `OBSERVED`, `PARENT_NOT_REPORTED_BY_SENSOR`,
+  `PARENT_NOT_OBSERVED_VISIBILITY_GAP`. Parents outside the viewport
+  still resolve (`parent_lane_index` computed on the full axis).
+- **The sensor's display label was rendered as a detection.**
+  `raw.rule_label` ("bash · process create") is a display label, not a
+  rule; carried as `display_label`, with `rule_label` populated only
+  when `raw.rule_id` exists. "Detected …" is stated only when something
+  actually detected the observation. (Also closes part of the P1 hash /
+  label honesty issue: `event_content_digest` is explicitly labelled as
+  not a file hash, and `file_sha256` comes only from file artefacts.)
+- **Event identity collisions** (8 duplicates per 406 in Stage 1):
+  `event_iid` is now canonical id + digest of distinguishing fields.
+- **Request timeouts** on first paint: the projection is built once per
+  endpoint and cached 90 s (derived values only, no second store).
+
+**Backend** — `edr_plane/trajectory_window.py` rewritten:
+lineage pre-order axis, `parent_lane_index` / `parent_label` /
+`parent_state` / `end_state`, `disposition` (never CLEAN), `detected_by`
+(engine, rule, component, basis; telemetry-only stated explicitly),
+30-day `activity.days` + 240×6-minute `activity.day_bins`,
+`event_type_counts`, filters (`kinds`, `dispositions`, `q`) that rebuild
+a filter-scoped axis, and `_computer_header()` in `routers/edr.py`
+declaring every uncollected field.
+
+**Frontend** — `nivxforge/trajectory/`: `EdrDeviceTrajectoryPage.jsx`,
+`AmpCanvas.jsx`, `AmpNavigator.jsx`, `AmpFilterBar.jsx`,
+`AmpComputerHeader.jsx`, `AmpEventDetails.jsx`, `AmpIcons.jsx`,
+`ampModel.js`. Cisco stack: title row → collapsed computer strip +
+filter strip → full-width Navigator (sparkline · 30-day · 24-hour with
+dual handles) → workspace (gutter + lifelines + lineage connectors +
+activity icons + compromise markers/bands + time & activity scrollbars)
+→ right-hand **Event Details** (severity chip, red "Detected …",
+description, MITRE|ATT&CK Tactics/Techniques, Observables, Observed
+Activity, **Detected By**, Process, File & network, Activity,
+Provenance, pivots). Design tokens from `design_guidelines.json`.
+
+**Proof** — `scripts/p0_f12_amp_trajectory_proof.py` 17/17 PASS on live
+evidence. Frontend: `test_reports/iteration_96/97/98.json` — iteration 98
+~100%, zero issues, alignment pixel-flush at 1920×1080 / 1600×900 /
+1440×900.
+
+**Conformance + declared differences**: `memory/AMP_TRAJECTORY_CONFORMANCE.md`
+(supersedes the deleted AMP_TRAJECTORY_GAP_CHECKLIST.md).
+
+### 2026-06-06 (later) · AMP clone · interaction model corrections
+
+Against the operator's live Cisco Secure Endpoint console screenshots:
+
+- **Right pane is now Cisco's master/detail**: default **Activity**
+  (`amp-activity-panel`, the window's activity, actor → artefact →
+  time), clicking an event marker drills into **Activity Details**
+  (`amp-details-panel`) with a **back arrow** (`amp-details-back`) that
+  restores the list. In place — no modal, no navigation away, and the
+  trajectory viewport is never disturbed. The previous "Event Details
+  only" pane and the earlier standalone events list are gone.
+- **The mouse wheel no longer navigates the trajectory at all** (not
+  zoom, time, activity axis or Navigator). Attached natively and
+  non-passively so no ancestor scrolls instead; verified inert with
+  zero console errors.
+- **Both Cisco consoles ship**: the dark current Secure Endpoint theme
+  (default) and the light classic AMP theme, via `amp-theme-toggle`,
+  persisted in `nvf-amp-theme`. Both palettes live in `ampModel.js`.
+- Footer copy corrected to describe the real navigation model; React
+  border shorthand/long-hand mixing removed from the filter bar and
+  Navigator.
+
+Verified: `test_reports/iteration_99.json` (all critical flows pass);
+the three findings it raised are fixed and re-verified — wheel inert,
+0 console errors, light and dark both legible.
+
+### 2026-06-06 (later still) · P0-F.13 · Cisco endpoint context + navigation
+
+- **Show details drawer** (`amp-show-details` → `amp-details-drawer`):
+  the endpoint properties moved out of a tall card into Cisco's
+  right-side drawer, so the header is a one-line strip and the
+  trajectory gets the page. It never navigates away.
+- **Actions menu** (`amp-actions-button`): Events, Process Tree,
+  Campaign Story, Live Query, Take System Snapshot, Start Isolation
+  wired to real NivXForge capabilities; Scan, Diagnose Connector, Move
+  to Group and Device Audit Log disabled with the reason on hover.
+- **Detection → Trajectory contract**: `?at=<ISO>` (optionally
+  `&process_iid=`) opens the trajectory at that instant and selects the
+  nearest observation exactly once, so a later analyst selection is
+  never overridden. `?event=<event_iid>` still selects exactly.
+- **Row labels carry the PID** (`python3.11 (81757) [Proc]`) plus one
+  lineage guide tick per ancestor level, so identical process names
+  stay traceable. `pid` added to the lane catalogue.
+- **Activity quick filters**: All / Processes / Files / Network /
+  Detections with counts — a view filter on the list only, never on the
+  trajectory.
+- **Wheel mapping** per the owner's final instruction: wheel = activity
+  axis, shift/horizontal = time, ctrl/cmd = zoom. Verified: rows moved
+  0–36 → 6–42 and the window moved 00:00 → 14:07 with 0 console errors.
+
+
+## P0-F.13.1 — Final Cisco Secure Endpoint baseline conformance pass (2026-06, iteration_101)
+
+Owner choices: proceed as planned (1a); Activity-pane quick-filter tabs
+REMOVED, header `Filters` menu RETAINED (2a).
+
+Corrected against the Cisco reference:
+
+* **30-day Navigator** — the flat polyline is now a continuous
+  activity-density curve (log-scaled, smooth cubic) over the real
+  per-day observation counts, with per-day gridlines, a day-cell grid
+  whose blue bar height is the day's density, and a red top strip whose
+  thickness is the day's malicious + detection count. A day with
+  nothing observed sits on the baseline; it is never interpolated
+  upwards. Each cell carries `data-observations` / `data-compromise`.
+* **24-hour scrubber** — time OUTSIDE the window is now drawn with a
+  diagonal hatch (`url(#amp-nav-hatch)`), so it reads as OUT OF VIEW
+  rather than empty; the theme-broken hardcoded light grey is gone.
+  Added a precise temporal selection cursor on the window edge with its
+  UTC time.
+* **Central graph** — parent→child links are elbows (SVG path leaving
+  the parent's lifeline at the child's start instant and turning into
+  the child's lifeline) with a junction node, so the plot reads as a
+  tree. Row sections are bracketed (`[ System ]`, `[ Files & Network ]`)
+  with a strong rule at the boundary, and the gutter header follows the
+  top visible section.
+* **Activity pane** — NivXForge quick-filter tabs removed from the
+  baseline presentation (the code path is gone from the panel; the
+  header `Filters` menu remains, as in Cisco).
+* **Header + page** — full-width computer strip, then a full-width
+  `Search Device Trajectory` + `Filters` control strip ABOVE the
+  Navigator. `isolation_state` and the epistemic state chip moved into
+  the Show details drawer. All debug text removed from the production
+  UI (`rows N-M of N`, cached counts, lane-axis version); the same
+  values are now `data-*` attributes on `amp-workspace`.
+
+Defects found by test and fixed (root causes, not patches):
+
+1. **The 24-hour band could not be dragged at all.** The band spanned
+   edge to edge, so the right handle's hit rect was clipped outside the
+   SVG (`elementFromPoint` returned the parent div), and the 7 px bin
+   hit-targets were painted ON TOP of the band and swallowed the
+   pointerdown. Fixed with a 9 px inset, bin targets moved behind the
+   band, and drag tracked on window-level pointer/mouse listeners
+   instead of `setPointerCapture` on a 12 px handle (which emitted
+   `pointerleave` and cancelled the drag immediately). The band's click
+   still centres on the nearest observed bin, and dragging past midnight
+   now rolls the selected day instead of stalling.
+2. **Deep rows rendered nothing at the bottom of the axis.**
+   `laneStart` was clamped to `totalLanes - 1` (490 of 491), leaving one
+   addressable row. Clamped to `totalLanes - rows` in the wheel, drag,
+   scrollbar and focus paths; the bottom of the axis now lands on rows
+   453-488 and shows `[ Files & Network ]`.
+3. **`Filters (1)` on a fresh load** counted the default 24-hour
+   timeframe as a filter. The timeframe is a window, not a filter.
+
+Verified: `test_reports/iteration_101.json` — 14/14 acceptance items
+PASS, `baseline_signoff: PASS`, both themes legible, 0 console errors.
+Backend untouched: `scripts/p0_f12_amp_trajectory_proof.py` 17/17 PASS.
+The trajectory remains a read-only projection over canonical evidence —
+no second telemetry/trajectory/detection store, no mock data,
+relationships only from authoritative `process_iid`/`parent_iid`.
+
+Still explicitly NOT started (owner instruction): Fleet File
+Trajectory, and any NivXRay enrichment inside the trajectory.
+
+
+## P0-F.13.2 / .3 — Trajectory architecture audit + platform shell restoration (2026-09-07)
+
+Owner vote: **`/xdr/edr/device-trajectory` (AMP renderer) is the canonical
+operational Device Trajectory.**
+
+Audit (`test_reports/p0_f13_2*.json` + `P0_F13_2*_AUDIT.md`):
+
+* The two sidebar entries were never two engines. Both projections read
+  `v2_shadow_observations`; `/api/edr/device-trajectory` is the XDR
+  case/entity-context projection (58 name-grouped lifelines, 5 swim-lanes,
+  Entity 360) and `/api/edr/endpoints/{id}/trajectory` is the operational
+  per-`process_iid` projection (491 lanes). No second telemetry, evidence,
+  trajectory or detection store exists. `ARCHITECTURAL_DUPLICATION = NO`
+  at the engine level, resolved at the navigation level.
+* Three complaints from the screenshots were proven to be DATASET facts,
+  not renderer defects: 446/446 process lanes are `END_NOT_OBSERVED` (no
+  `process_exit` is collected) so lifelines dash open; the host's whole
+  event vocabulary is `network_connect` 3731 / `process_create` 262 /
+  `detection` 4 / `file_write` 3, so the System section is legitimately
+  one glyph; Files & Network is real at rows 453-488.
+
+Implemented:
+
+* **Canvas visibility hatch** — `amp-canvas-hatch-before/after` hatch the
+  part of the window outside the endpoint's observed evidence range and
+  label it `no sensor coverage`. "No visibility" is not "nothing
+  happened".
+* **Selected-event temporal guide** — `amp-temporal-guide` drops a dashed
+  guide plus an `hh:mm:ss` chip at the observation's exact timestamp.
+* **Platform shell restored** — the EDR plane renders inside `XdrShell`
+  (`flush`), so global search, the global navigation incl. Administration,
+  and the user context are the platform's. `NivXForgeConsole` no longer
+  paints a second top bar and owns only the endpoint sub-nav, now with a
+  single `Device Trajectory` entry.
+* **Customer/organisation identity** — the pill printed
+  `user.tenant || user.email`. It now shows the server-resolved customer
+  over the principal, in the Cisco position (icon · name · chevron); the
+  initials chip is gone and Sign out moved into that dropdown. The
+  decorative notification bell was deleted rather than left ringing at
+  nothing; Help opens the real Knowledge Base.
+* **Entry context** — `GET /api/edr/context` (`DIRECT_EDR` vs
+  `XDR_PIVOT`). Tenant context (who owns the data) and investigation
+  context (why the analyst is here) are separate keys. The browser may
+  name an incident; the server validates it against
+  `resolve_tenant_scope`, inherits its tenant, and reports
+  `endpoint_reference.state` from
+  `workspace_cases.endpoint_campaign.hostname`. `?tenant=` is ignored and
+  never echoed. Cross-tenant attempts fail closed with
+  `INCIDENT_TENANT_OUT_OF_SCOPE`.
+* **Customer-scoped login proven** — `analyst@nivx-live.com` (role
+  `analyst`, `tenant_id=nivx-live`, seeded by
+  `scripts/seed_customer_scoped_analyst.py`) shows `nivx-live` in the
+  pill (`SINGLE_AUTHORIZED_TENANT`) and only its own customer in the
+  dropdown.
+* Owner instruction honoured: the legacy Device Trajectory header
+  controls (breadcrumbs, 1h/6h/24h/7d/30d/All, Fit to observations,
+  Refresh, Export, XDR case-context link) were implemented and then
+  **removed** — "Dont add Device Trajectory things to Device
+  Trajectory · AMP".
+
+Disclosed limitation (not hidden, not faked): `device_identity.list_devices`
+returns `[]` for any principal without a cross-tenant role, because the
+observation substrate carries no `tenant_id` and no enrolment-time customer
+attribution exists. A customer-scoped login therefore sees an empty endpoint
+inventory, and the page now says exactly that. **Next real work:** attribute
+endpoints to a customer at enrolment and carry it into the observation
+envelope.
+
+Verified: `test_reports/iteration_102.json` — backend 6/6, frontend 13/13,
+11/11 EDR routes render inside the shell with one top bar and no console
+errors; P0-F.13.1 mechanics re-verified (wheel/shift/ctrl, drag, navigator
+handles and band, Files & Network deep rows, Activity -> Details -> Back,
+no debug footer). Navigator controls individually exercised: zoom in/out,
+step back/forward and collapse all change state; `fit-day` is a correct
+no-op when the window already spans the day.
+
+
+## P0-F.13.4 — Customer endpoint attribution (2026-09-07)
+
+Owner decisions: **1a** (hide legacy unattributed observations from
+customer-scoped principals, keep them for cross-tenant roles, labelled,
+never attributed) and **2a** (seed a `default`-scoped analyst so the
+boundary is proven from BOTH sides).
+
+The enrolment plane was already correct — this was a missing join, not a
+missing pipeline:
+
+* `edr_endpoints` holds 128 durable records, each with `tenant_id`, minted
+  by the authenticated enrolment flow.
+* The authenticated telemetry path already stamps `tenant_id` and
+  `connector_id` (= the authenticated `endpoint_id`) onto every
+  `collector-live` observation.
+* `device_identity.list_devices` ignored all of it: `if not cross_tenant:
+  return []` then `_obs.find({})`. Customers saw nothing; only that blunt
+  early return prevented a leak.
+
+Implemented (no new store, no telemetry mutation, no seeding of evidence):
+
+* `list_devices` / `resolve` / `observations` now take the **authorisation
+  scope** instead of a boolean. `_is_cross_tenant(user)` returns that scope
+  under its original name, so every call site passes it unchanged.
+* **Ownership cross-check**: `connector_id → edr_endpoints.tenant_id`
+  compared with the observation's own `tenant_id`. Disagreement, or a
+  device with observations in two tenants, yields
+  `TENANT_MISMATCH_FAILED_CLOSED` / `TENANT_CONFLICT_FAILED_CLOSED` with
+  `tenant_id: null` — released to nobody. One real device in this corpus
+  hits that path.
+* Attribution states surfaced on every `/api/edr/endpoints` row:
+  `ATTRIBUTED_AUTHENTICATED_ENDPOINT`, `ATTRIBUTED_TENANT_ONLY`,
+  `UNATTRIBUTED_LEGACY_OBSERVATION`, and the two failed-closed states.
+* The whole (small) collection is read before filtering so a device split
+  across tenants is *detected* rather than silently sliced by a predicate.
+* Closed a real bypass: `/api/edr/process-tree` called
+  `dir_svc.resolve(endpoint_id, cross_tenant=True)` unconditionally. It now
+  takes the caller's scope and returns `ENDPOINT_NOT_RESOLVED` otherwise.
+
+Proof — `scripts/p0_f13_4_tenant_attribution_proof.py` →
+`test_reports/p0_f13_4_tenant_attribution_proof.json`: **16/16 PASS**.
+
+| item | result |
+|---|---|
+| A enrolment creates ownership | 6 of 14 devices carry a server-resolved tenant |
+| B one endpoint → one tenant | conflicted devices carry `tenant_id: null` |
+| C `default` analyst | 1 device, tenants `['default']` |
+| D `nivx-live` analyst | 5 devices, tenants `['nivx-live']` |
+| C∩D | empty — no overlap |
+| E cross-tenant access | trajectory `ENDPOINT_NOT_RESOLVED`, 0 events, 0 process-tree nodes |
+| F/G/H pivot | `XDR_PIVOT` + `REFERENCES_THIS_ENDPOINT`; `DIRECT_EDR` has no incident |
+| H2 cross-tenant pivot | `INCIDENT_TENANT_OUT_OF_SCOPE` |
+| manipulation | `?tenant=` / `organization_id` / `customer` change nothing and are never echoed |
+| I/J/K | no duplicate registry or store; trajectory still reads `nivxray::edr_plane::trajectory_window` |
+| legacy | 7 devices labelled `UNATTRIBUTED_LEGACY_OBSERVATION`, cross-tenant only |
+
+UI verified not frozen: `analyst@default.com` logs in, the pill reads
+`default`, the picker offers exactly its own endpoint, and the trajectory
+opens with all 491 rows and 6356 observations.
+
+Accounts (also in `memory/test_credentials.md`):
+`analyst@default.com` / `DefaultCo!Analyst2026` ·
+`analyst@nivx-live.com` / `NivxLive!Analyst2026`.
+
+Next per owner order: P0-F.13.5 Detection → Trajectory handoff, then
+P0-F.13.6 process-exit collection, then P0-F.14 Fleet File Trajectory.

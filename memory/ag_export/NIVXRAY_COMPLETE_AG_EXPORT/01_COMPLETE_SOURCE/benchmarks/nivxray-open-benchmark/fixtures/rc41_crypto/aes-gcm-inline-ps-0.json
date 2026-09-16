@@ -1,0 +1,44 @@
+{
+  "id": "aes-gcm-inline-ps-0",
+  "category": "ps-crypto",
+  "algorithm": "AES-GCM",
+  "command_line": "$key=[Convert]::FromBase64String('R0NNS2V5MjAyNkdDTUtleTIwMjY=');$nonce=[Convert]::FromBase64String('bm9uY2UtezB9'); $aes=[System.Security.Cryptography.AesGcm]::new($key); $c=[Convert]::FromBase64String('Q0lQSEVSX0dDTV8w');$tag=[byte[]]::new(16); $plain=[byte[]]::new($c.Length); $aes.Decrypt($nonce, $c, $tag, $plain); IEX ([Text.Encoding]::UTF8.GetString($plain))",
+  "stage_ladder": [
+    {
+      "name": "base64-decode-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "base64-decode-nonce",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "base64-decode-ciphertext",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "aes-gcm-decrypt",
+      "recoverable": false,
+      "reason": "AesGcm requires .NET runtime primitive; static recovery surfaces the algorithm identifier + tag length."
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": null,
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

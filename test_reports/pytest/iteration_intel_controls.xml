@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="28" time="9.508" timestamp="2026-09-02T05:26:16.191733+00:00" hostname="agent-env-630704a1-621f-478b-9b86-a321772d01bf"><testcase classname="tests.test_intelligence_policy" name="test_global_all_on_and_no_override_yields_full_online" time="0.000" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_global_defaults_for_fresh_tenant" time="0.148" /><testcase classname="tests.test_intelligence_policy" name="test_incident_override_may_narrow_online_llm" time="0.000" /><testcase classname="tests.test_intelligence_policy" name="test_incident_can_never_bypass_global_off" time="0.000" /><testcase classname="tests.test_intelligence_policy" name="test_online_llm_implicit_off_when_online_ai_off" time="0.000" /><testcase classname="tests.test_intelligence_policy" name="test_offline_and_narration_are_always_on_regardless" time="0.000" /><testcase classname="tests.test_intelligence_policy" name="test_snapshot_captures_effective_immutably" time="0.000" /><testcase classname="tests.test_intelligence_policy" name="test_gateway_blocks_cloud_when_snapshot_online_llm_off" time="0.001" /><testcase classname="tests.test_intelligence_policy" name="test_gateway_allows_cloud_when_snapshot_online_llm_on" time="0.001" /><testcase classname="tests.test_intelligence_policy" name="test_gateway_snapshot_isolates_in_flight_from_later_policy_change" time="0.001" /><testcase classname="tests.test_intelligence_policy" name="test_service_persists_global_and_writes_audit" time="0.001" /><testcase classname="tests.test_intelligence_policy" name="test_incident_override_and_effective" time="0.001" /><testcase classname="tests.test_intelligence_policy" name="test_clear_incident_override_reverts_to_inherit" time="0.001" /><testcase classname="tests.test_intelligence_policy" name="test_no_emergent_terminology_leaks_into_defaults" time="0.000" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_put_global_persists" time="0.134" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_effective_implicit_llm_off_when_ai_off" time="0.230" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_incident_cannot_widen_global" time="0.194" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_incident_narrows_llm" time="0.180" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_narration_deterministic_when_llm_off" time="0.558" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_narration_llm_cloud_when_llm_on" time="5.872" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_global_history_append_only_under_tenant_scope_id" time="0.302" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_global_history_at_spec_scope_id_global" time="0.289"><failure message="AssertionError: global history at spec scope_id='global' is empty (0 -&gt; 0); audit rows are written with scope_id=tenant_id instead&#10;assert 0 &gt;= (0 + 2)&#10; +  where 0 = len([])">self = &lt;test_intelligence_policy_live.TestIntelligencePolicyLive object at 0xfc79873c5e10&gt;
+client = &lt;requests.sessions.Session object at 0xfc799576e0d0&gt;
+
+    def test_global_history_at_spec_scope_id_global(self, client):
+        """BUG: spec + frontend call .../policy/global/global/history but the
+        service writes audit rows with scope_id=tenant_id, so this always
+        returns an empty list (UI 'Show History' is permanently empty)."""
+        before = client.get(
+            f"{API}/intelligence/policy/global/global/history",
+            timeout=60)
+        assert before.status_code == 200, before.text
+        n0 = len(before.json()["history"])
+    
+        _put_global(client, "on", "off", reason="TEST_audit_1")
+        _put_global(client, "on", "on", reason="TEST_audit_2")
+    
+        after = client.get(
+            f"{API}/intelligence/policy/global/global/history", timeout=60)
+        assert after.status_code == 200
+        hist = after.json()["history"]
+&gt;       assert len(hist) &gt;= n0 + 2, (
+            "global history at spec scope_id='global' is empty "
+            f"({n0} -&gt; {len(hist)}); audit rows are written with "
+            "scope_id=tenant_id instead")
+E       AssertionError: global history at spec scope_id='global' is empty (0 -&gt; 0); audit rows are written with scope_id=tenant_id instead
+E       assert 0 &gt;= (0 + 2)
+E        +  where 0 = len([])
+
+tests/test_intelligence_policy_live.py:236: AssertionError</failure></testcase><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_incident_history" time="0.191" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_history_bad_scope_rejected" time="0.080" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_clear_override_writes_clear_audit" time="0.261" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_health" time="0.076" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_rbac_denies_unprivileged_principal" time="0.158" /><testcase classname="tests.test_intelligence_policy_live.TestIntelligencePolicyLive" name="test_rbac_allows_tenant_admin" time="0.284" /></testsuite></testsuites>

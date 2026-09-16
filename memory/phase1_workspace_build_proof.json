@@ -1,0 +1,162 @@
+[
+  {
+    "check": "artefact targets the production API",
+    "pass": true,
+    "detail": "22 prod refs \u00b7 0 preview refs"
+  },
+  {
+    "check": "v2 shadow flags ship disabled",
+    "pass": true,
+    "detail": "{\"TRAJECTORY_ENGINE\": [\"disabled\"], \"CASE_ENGINE\": [\"disabled\"], \"VERDICT_ENGINE_V3\": [\"disabled\"]}"
+  },
+  {
+    "check": "removed route absent from bundle \u00b7 /edr/trajectory",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "removed route absent from bundle \u00b7 /nivxforge",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "removed route absent from bundle \u00b7 /nivxforge/dashboard",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "removed route absent from bundle \u00b7 /xdr",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /investigations",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /investigations/:id",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /investigation-summary",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /analyst",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /investigate",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /benchmark",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /history",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /auto-investigate",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "retained route present in bundle \u00b7 /v2/workspace",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "without the SPA rewrite a deep link 404s (why rewrites are mandatory)",
+    "pass": true,
+    "detail": "status 404"
+  },
+  {
+    "check": "with the SPA rewrite the deep link is served",
+    "pass": true,
+    "detail": "status 200"
+  },
+  {
+    "check": "unauthenticated / is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /auto-investigate is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /history is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /admin is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /benchmark is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /investigations is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /analyst is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /investigate is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /lab is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /batch-test is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "unauthenticated /heatmap is gated to /login",
+    "pass": true,
+    "detail": "landed /login"
+  },
+  {
+    "check": "Q5 \u00b7 /benchmark now requires authentication",
+    "pass": true,
+    "detail": "/login"
+  },
+  {
+    "check": "removed nav item absent from DOM \u00b7 nav-xdr",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "removed nav item absent from DOM \u00b7 nav-investigations",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "removed nav item absent from DOM \u00b7 nav-nivxforge",
+    "pass": true,
+    "detail": ""
+  }
+]

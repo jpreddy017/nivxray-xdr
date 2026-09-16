@@ -1,0 +1,15 @@
+{
+  "installCommand": "cd apps/nivxray-xdr && yarn install --production=false --frozen-lockfile",
+  "buildCommand": "cd apps/nivxray-xdr && node ./node_modules/vite/bin/vite.js build",
+  "outputDirectory": "apps/nivxray-xdr/dist",
+  "framework": null,
+  "build": {
+    "env": {
+      "NPM_CONFIG_PRODUCTION": "false",
+      "YARN_PRODUCTION": "false"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

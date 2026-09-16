@@ -17,6 +17,7 @@ operational Incident record consumed by ``/incidents`` and
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,6 +28,51 @@ from deps import get_current_user, get_current_user_optional, sync_collection
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 _col = sync_collection("workspace_cases")
+
+
+# ── P0-W · TENANT AUTHORIZATION ON EVERY SINGLE-INCIDENT LOOKUP ──────
+# The queue was correctly scoped through `services.dashboard_lenses._scope`,
+# but every by-id route resolved `{"id": incident_id}` with NO tenant
+# predicate — a direct-object-reference leak across the whole incident
+# plane, on both the read and the write paths (and two write routes
+# accepted an ANONYMOUS principal).  These helpers reuse the SAME
+# authoritative scope resolver the queue uses; they add no new
+# authorization model.
+#
+# Not-found semantics are deliberate: an out-of-scope incident is
+# indistinguishable from a non-existent one, so the response never
+# discloses that another customer's incident exists.
+
+def _incident_scope_predicate(email: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Mongo predicate fragment for what this principal may address."""
+    from services.dashboard_lenses import resolve_tenant_scope
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        return None
+    if scope.get("all_tenants"):
+        return {}
+    return {"tenant_id": {"$in": scope["tenant_ids"]}}
+
+
+def _authorized_incident(incident_id: str, user: Optional[Dict[str, Any]],
+                         projection: Optional[Dict[str, Any]] = None):
+    """Resolve ONE incident inside the caller's tenant authorization.
+
+    Returns `(doc, query)`. The query MUST be reused as the filter of any
+    subsequent write so the mutation cannot escape the same scope.
+    """
+    pred = _incident_scope_predicate((user or {}).get("email"))
+    if pred is None:
+        raise HTTPException(status_code=404,
+                            detail={"error": "incident_not_found",
+                                    "id": incident_id})
+    query = {"id": incident_id, **pred}
+    doc = _col.find_one(query, projection) if projection else _col.find_one(query)
+    if not doc:
+        raise HTTPException(status_code=404,
+                            detail={"error": "incident_not_found",
+                                    "id": incident_id})
+    return doc, query
 
 
 # ── Lifecycle state machine ──────────────────────────────────────────
@@ -122,6 +168,13 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
     evidence = (stage2.get("evidence") or []) if isinstance(stage2, dict) else []
     evidence_count = len(evidence)
 
+    # P0-F.2 · a consolidated endpoint campaign retains one row per
+    # contributing observation; the list must show all of them or
+    # consolidation reads as evidence loss.
+    _rows = ((doc.get("endpoint_campaign") or {}).get("detections") or [])
+    if _rows:
+        evidence_count = max(evidence_count, len(_rows))
+
     # ── MITRE techniques · union of evidence[].technique_id + mitre + techniques
     tech_set = set()
     for e in evidence:
@@ -136,8 +189,11 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "id":          doc.get("id"),
-        "number":      _short_number(doc.get("id")),
-        "name":        doc.get("name") or "(unnamed)",
+        # Persisted human-facing number is authoritative for display;
+        # the id-derived short form remains only as a pre-backfill
+        # fallback so an un-numbered document never renders blank.
+        "number":      doc.get("incident_number") or _short_number(doc.get("id")),
+        "name":        doc.get("name") or doc.get("title") or "(unnamed)",
         # ── Investigation-aware queue columns (15) ──────────────────
         "priority":    {"code": priority_code, "label": priority_label},
         "severity":    doc.get("incident_severity")
@@ -156,7 +212,19 @@ def _project_row(doc: Dict[str, Any]) -> Dict[str, Any]:
         "sla_due_at":       doc.get("sla_due_at"),
         # aging = now - created_at, expressed in ISO seconds
         "aging_seconds":    _aging_seconds(doc.get("created_at")),
-        "assignee":    doc.get("incident_assignee") or doc.get("user_email"),
+        # P0-2b (owner review 2026-09-05): ASSIGNMENT ONLY.
+        # `user_email` records who saved the case, not who owns the
+        # work — falling back to it made 17 incidents display a
+        # phantom owner that no assignment filter could ever match.
+        "assignee":    doc.get("incident_assignee"),
+        # Human-facing number; `id` stays the authoritative identity.
+        "incident_number": doc.get("incident_number"),
+        # Owner directive 2026-06 · an analyst must be able to tell a real
+        # incident from a seeded or synthetic one without asking anyone.
+        "provenance":       doc.get("provenance") or "PROVENANCE_UNKNOWN",
+        "provenance_basis": doc.get("provenance_basis") or
+                            ("no provenance recorded on this incident"),
+        "provenance_is_real": bool(doc.get("provenance_is_real")),
         "state":       doc.get("incident_state") or "new",
         "last_activity": updated,
         # Auto-Investigation state · reads engine_executions, else NOT_RUN.
@@ -254,17 +322,97 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
     # it; otherwise it is 'unavailable' with a human-readable reason.
     evidence_pointers = _build_evidence_pointers(doc)
 
+    # ── Round 29.6 · Pipeline projection ────────────────────────────
+    # The Overview / Command Band read a flat shape.  Unpack the
+    # authoritative pipeline record from `xdr_pipeline` into
+    # top-level fields WITHOUT fabricating anything — an absent
+    # sub-field yields an absent projection field.
+    pipeline = doc.get("xdr_pipeline") or {}
+    prov     = pipeline.get("source_provenance") or {}
+
+    canonical_event_id = pipeline.get("canonical_event_id")
+    canonical_evidence_ids = [canonical_event_id] if canonical_event_id else []
+
+    ice_matches = pipeline.get("ice_matches") or []
+    correlation_match_ids = [
+        m.get("id") or m.get("match_id") or m.get("rule_id")
+        for m in (ice_matches if isinstance(ice_matches, list) else [])
+        if isinstance(m, dict) and (m.get("id") or m.get("match_id") or m.get("rule_id"))
+    ]
+
+    source_integration_id = prov.get("integration_id")
+
+    # Stage-2 verdict label — if the case has no explicit stage2 doc,
+    # fall back to the closed-loop verdict_card.
+    if not stage2 or not stage2.get("label"):
+        vcard_verdict = (vcard.get("verdict") or "").lower()
+        if vcard_verdict in ("malicious", "suspicious", "benign"):
+            stage2 = dict(stage2)
+            stage2["label"] = vcard_verdict
+            if vcard.get("confidence") is not None:
+                stage2.setdefault("risk_score", vcard.get("confidence"))
+
+    # Human-facing name — `workspace_cases` writes the incident's
+    # display label into `title`; use it when `name` is absent.
+    display_name = doc.get("name") or doc.get("title") or "(unnamed)"
+
+    # Evidence count — the honest lower-bound is
+    #   1 canonical event  +  N correlation matches.
+    evidence_count = (1 if canonical_event_id else 0) + len(correlation_match_ids)
+
+    # P0-F.2 · a consolidated endpoint campaign retains one row per
+    # contributing observation, so the count must reflect ALL of them —
+    # otherwise consolidation would look like evidence loss.
+    campaign = doc.get("endpoint_campaign") or {}
+    campaign_rows = campaign.get("detections") or []
+    if campaign_rows:
+        canonical_evidence_ids = sorted({
+            r.get("canonical_event_id") for r in campaign_rows
+            if r.get("canonical_event_id")} | set(canonical_evidence_ids))
+        evidence_count = len(canonical_evidence_ids) + len(
+            correlation_match_ids)
+
+    # Investigative assets — derived only from what the case's iocs +
+    # provenance already contain.  Never fabricated.
+    iocs = doc.get("iocs") or {}
+    def _len(v): return len(v) if isinstance(v, list) else (1 if v else 0)
+    assets = {
+        "hosts":     _len(iocs.get("host") or iocs.get("hosts")),
+        "users":     _len(iocs.get("user") or iocs.get("users")),
+        "processes": _len(iocs.get("process") or iocs.get("processes")),
+        "files":     _len(iocs.get("file") or iocs.get("files")
+                            or iocs.get("hash") or iocs.get("hashes")),
+        "network":   _len(iocs.get("ip") or iocs.get("ips"))
+                       + _len(iocs.get("domain") or iocs.get("domains"))
+                       + _len(iocs.get("url") or iocs.get("urls")),
+    }
+
     return {
         "id":          doc.get("id"),
-        "number":      _short_number(doc.get("id")),
-        "name":        doc.get("name") or "(unnamed)",
+        # Persisted human-facing number is authoritative for display;
+        # the id-derived short form remains only as a pre-backfill
+        # fallback so an un-numbered document never renders blank.
+        "number":      doc.get("incident_number") or _short_number(doc.get("id")),
+        "name":        display_name,
         "priority":    {"code": priority_code, "label": priority_label},
         "severity":    doc.get("incident_severity")
                           or _derive_severity(stage2, vcard),
         "verdict_stage2": stage2 or None,
         "verdict_card":   vcard or None,
         "tenant":      doc.get("tenant_id") or doc.get("user_email") or "default",
-        "assignee":    doc.get("incident_assignee") or doc.get("user_email"),
+        # P0-2b (owner review 2026-09-05): ASSIGNMENT ONLY.
+        # `user_email` records who saved the case, not who owns the
+        # work — falling back to it made 17 incidents display a
+        # phantom owner that no assignment filter could ever match.
+        "assignee":    doc.get("incident_assignee"),
+        # Human-facing number; `id` stays the authoritative identity.
+        "incident_number": doc.get("incident_number"),
+        # Owner directive 2026-06 · an analyst must be able to tell a real
+        # incident from a seeded or synthetic one without asking anyone.
+        "provenance":       doc.get("provenance") or "PROVENANCE_UNKNOWN",
+        "provenance_basis": doc.get("provenance_basis") or
+                            ("no provenance recorded on this incident"),
+        "provenance_is_real": bool(doc.get("provenance_is_real")),
         "state":       doc.get("incident_state") or "new",
         "state_history": history,
         # ── Phase-1 operational extensions ──────────────────────────
@@ -279,8 +427,35 @@ def _project_detail(doc: Dict[str, Any]) -> Dict[str, Any]:
         "engine":      doc.get("engine"),
         "chain_ids":   doc.get("chain_ids") or [],
         "mitre":       doc.get("mitre") or [],
-        "iocs":        doc.get("iocs") or {},
+        "iocs":        iocs,
         "evidence_pointers": evidence_pointers,
+        # ── Round 29.6 pipeline-derived fields ──────────────────────
+        "evidence_count":         evidence_count,
+        "canonical_evidence_ids": canonical_evidence_ids,
+        "correlation_match_ids":  correlation_match_ids,
+        "source_integration_id":  source_integration_id,
+        "assets":                 assets,
+        # ── Y2 · M-4 · the endpoint identity the incident ITSELF
+        # recorded, projected so the product pivot into NivXForge EDR
+        # carries an authoritative endpoint instead of a hostname the UI
+        # scraped out of a title. `assets` above is a COUNT map, so it
+        # can never serve this purpose. Nothing is derived or inferred:
+        # if the campaign recorded no endpoint, this is null and the
+        # pivot control states that plainly.
+        "endpoint_campaign": ({
+            "endpoint_id": (doc.get("endpoint_campaign") or {})
+                           .get("endpoint_id"),
+            "hostname":    (doc.get("endpoint_campaign") or {})
+                           .get("hostname"),
+            "device_iid":  (doc.get("endpoint_campaign") or {})
+                           .get("device_iid"),
+            "rule_ids":    list((doc.get("endpoint_campaign") or {})
+                                .get("rule_ids") or []),
+            "first_activity_at": (doc.get("endpoint_campaign") or {})
+                                 .get("first_activity_at"),
+            "last_activity_at": (doc.get("endpoint_campaign") or {})
+                                .get("last_activity_at"),
+        } if doc.get("endpoint_campaign") else None),
         # ── Owner reference §incident-header + §overview additions ────
         # Every derived block below is evidence-backed only.  If the
         # underlying data is absent, the block is empty and the UI
@@ -527,7 +702,12 @@ def _build_evidence_pointers(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
         "status":   "available" if ioc_count > 0 else "no_matching_evidence",
         "reason":   None if ioc_count > 0
                      else "No IOCs extracted from this incident yet.",
-        "deep_link": _link_with_context("/threat-intel", case_id, doc)
+        # PR-XDR-0 · this pointer navigates a NivXRay XDR user, so it must
+        # address a canonical NivXRay XDR route. `/threat-intel` is a base-app
+        # path that does not exist in the NivXRay XDR bundle, so the console
+        # opened a tab that fell through to the catch-all. No route, API,
+        # collection or infrastructure identifier is renamed by this change.
+        "deep_link": _link_with_context("/xdr/intelligence/iocs", case_id, doc)
                         if ioc_count > 0 else None,
         "hint":     "Threat-intel enrichment for extracted IOCs.",
         "bullets":  _bullets_for_iocs(iocs) if ioc_count > 0 else [],
@@ -633,7 +813,24 @@ async def list_incidents(
     verdict: Optional[str] = None,
     confidence: Optional[str] = None,
     customer: Optional[str] = None,
+    assignment: Optional[str] = None,
     detection_source: Optional[str] = None,
+    # ── Column search (owner-approved 2026-09-05) · server-side, never
+    # a filter over the currently loaded page ─────────────────────────
+    number: Optional[str] = None,
+    name: Optional[str] = None,
+    assignee: Optional[str] = None,
+    # ── Negative predicates · explicit allow-list, NOT dynamic ───────
+    # These are applied strictly INSIDE the tenant authorization scope:
+    #   tenant authorization → positive → negative → assignment.
+    # An exclusion can never widen what a principal may see.
+    exclude_customer: Optional[str] = None,
+    exclude_assignee: Optional[str] = None,
+    exclude_detection_source: Optional[str] = None,
+    exclude_priority: Optional[str] = None,
+    exclude_severity: Optional[str] = None,
+    exclude_verdict: Optional[str] = None,
+    exclude_mitre: Optional[str] = None,
     technique: Optional[str] = None,
     sort: str = "updated_at",
     order: str = "desc",
@@ -645,11 +842,18 @@ async def list_incidents(
     READ MODEL — never runs an engine, never fabricates a value.
     """
     from services.dashboard_lenses import (
-        build_predicate, is_never_match, get_lens,
+        build_predicate, is_never_match, get_lens, resolve_tenant_scope,
     )
     # Clear the per-request engine-execution cache.
     _ENGINE_EXEC_CACHE.clear()
     email = (user or {}).get("email")
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        # Honest empty state — visibility is tenant-authorized.
+        return {"incidents": [], "count": 0, "lens": lens,
+                "applied_filters": {},
+                "scope": {"authorized": False},
+                "invariant": "queue == projection · never engine"}
 
     if lens:
         if not get_lens(lens):
@@ -661,15 +865,59 @@ async def list_incidents(
                     "applied_filters": {},
                     "invariant": "queue == projection · never engine"}
     else:
-        q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
-        if email:
-            q["user_email"] = email
+        q: Dict[str, Any] = {
+            # P0-2 · queue purity (owner-authorised 2026-09-05): the
+            # incident queue surfaces incidents only.  Analysis cases live
+            # in the same ratified store but are a different doc_type.
+            "doc_type": "xdr_incident",
+            # Pipeline incidents persist `title`; analysis cases persist
+            # `name`.  Gating on `name` alone hid 191 of 198 incidents.
+            "$and": [{"$or": [
+                {"name":  {"$exists": True, "$ne": ""}},
+                {"title": {"$exists": True, "$ne": ""}},
+            ]}],
+        }
+        # P0-2b: tenant authorization, NOT ownership.  `user_email`
+        # (who saved the case) is never a visibility gate.
+        if not scope.get("all_tenants"):
+            q["tenant_id"] = {"$in": scope["tenant_ids"]}
 
     applied: Dict[str, Any] = {}
+    if assignment:
+        unassigned_clause = [
+            {"incident_assignee": {"$exists": False}},
+            {"incident_assignee": None},
+            {"incident_assignee": ""},
+        ]
+        if assignment == "unassigned":
+            clause: Dict[str, Any] = {"$or": unassigned_clause}
+        elif assignment == "mine":
+            if not email:
+                return {"incidents": [], "count": 0, "lens": lens,
+                        "applied_filters": {"assignment": "mine"},
+                        "invariant": "queue == projection · never engine"}
+            clause = {"incident_assignee": email}
+        elif assignment == "team":
+            clause = {"incident_assignee": {"$nin": [None, "", email]}}
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "unknown_assignment", "assignment": assignment,
+                        "allowed": ["unassigned", "mine", "team"]})
+        q = {"$and": [q, clause]}
+        applied["assignment"] = assignment
     if state:            q["incident_state"]    = state;     applied["state"] = state
     if priority:         q["incident_priority"] = priority;  applied["priority"] = priority
     if severity:         q["incident_severity"] = severity;  applied["severity"] = severity
-    if customer:         q["tenant_id"]         = customer;  applied["customer"] = customer
+    if customer:
+        if not scope.get("all_tenants") and customer not in scope.get("tenant_ids", []):
+            # Cross-tenant read attempt — deny, never leak.
+            return {"incidents": [], "count": 0, "lens": lens,
+                    "applied_filters": {"customer": customer},
+                    "scope": {"authorized": True, "cross_tenant_denied": True},
+                    "invariant": "queue == projection · never engine"}
+        q["tenant_id"] = customer
+        applied["customer"] = customer
     if verdict:
         q["verdict_stage2.label"] = verdict
         applied["verdict"] = verdict
@@ -695,16 +943,94 @@ async def list_incidents(
             q = {"$and": [q, {"$or": clauses}]}
         else:
             q["$or"] = clauses
-        applied["technique"] = t
+    if technique:
+        applied["technique"] = technique.upper()
+
+    # ── COLUMN SEARCH · server-side, case-insensitive, anchored where
+    # anchoring is meaningful (numbers) and contains elsewhere. ───────
+    def _and(clause: Dict[str, Any]) -> None:
+        nonlocal q
+        q = {"$and": [q, clause]}
+
+    if number:
+        # Accept "137", "INC137", "inc000000137" or a raw authoritative id.
+        raw = number.strip()
+        opts = [{"incident_number": {"$regex": re.escape(raw), "$options": "i"}},
+                {"id": {"$regex": re.escape(raw), "$options": "i"}}]
+        digits = re.sub(r"\D", "", raw)
+        if digits:
+            from services.incident_numbering import format_incident_number
+            opts.append({"incident_number": format_incident_number(int(digits))})
+        _and({"$or": opts})
+        applied["number"] = raw
+    if name:
+        rx = {"$regex": re.escape(name.strip()), "$options": "i"}
+        _and({"$or": [{"title": rx}, {"name": rx}]})
+        applied["name"] = name.strip()
+    if assignee:
+        _and({"incident_assignee": {"$regex": re.escape(assignee.strip()),
+                                        "$options": "i"}})
+        applied["assignee"] = assignee.strip()
+
+    # ── NEGATIVE PREDICATES · allow-listed fields only ──────────────
+    def _csv(v):
+        return [x.strip() for x in str(v).split(",") if x.strip()]
+
+    if exclude_customer:
+        # Exclusion NEVER touches the tenant authorization clause that
+        # `_scope`/`resolve_tenant_scope` already applied — it can only
+        # ever remove rows from an already-authorized set.
+        _and({"tenant_id": {"$nin": _csv(exclude_customer)}})
+        applied["exclude_customer"] = exclude_customer
+    if exclude_assignee:
+        vals = _csv(exclude_assignee)
+        if "__unassigned__" in vals:
+            _and({"incident_assignee": {"$nin": [None, ""],
+                                            "$exists": True}})
+        else:
+            _and({"incident_assignee": {"$nin": vals}})
+        applied["exclude_assignee"] = exclude_assignee
+    if exclude_detection_source:
+        vals = _csv(exclude_detection_source)
+        _and({"$and": [{"verdict_stage2.engine": {"$nin": vals}},
+                          {"engine": {"$nin": vals}}]})
+        applied["exclude_detection_source"] = exclude_detection_source
+    if exclude_priority:
+        _and({"incident_priority": {"$nin": _csv(exclude_priority)}})
+        applied["exclude_priority"] = exclude_priority
+    if exclude_severity:
+        _and({"incident_severity": {"$nin": _csv(exclude_severity)}})
+        applied["exclude_severity"] = exclude_severity
+    if exclude_verdict:
+        # `verdict_stage2.label` is persisted lower-case; the UI shows it
+        # upper-case, so compare on a normalised value.
+        vals = _csv(exclude_verdict)
+        _and({"verdict_stage2.label":
+                  {"$nin": [v.lower() for v in vals] + [v.upper() for v in vals]}})
+        applied["exclude_verdict"] = exclude_verdict
+    if exclude_mitre:
+        vals = [v.upper() for v in _csv(exclude_mitre)]
+        _and({"$and": [
+            {"verdict_stage2.evidence.technique_id": {"$nin": vals}},
+            {"mitre.technique_id": {"$nin": vals}},
+            {"techniques": {"$nin": vals}},
+        ]})
+        applied["exclude_mitre"] = exclude_mitre
 
     projection = {
-        "_id": 0, "id": 1, "name": 1, "user_email": 1, "tenant_id": 1,
+        "_id": 0, "id": 1, "incident_number": 1, "name": 1, "title": 1, "doc_type": 1,
+        "provenance": 1, "provenance_basis": 1, "provenance_is_real": 1,
+        "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "verdict_stage2": 1,
         "verdict_card": 1, "incident_state": 1, "incident_assignee": 1,
         "incident_priority": 1, "incident_severity": 1,
         "high_fidelity": 1, "customer_engaged": 1,
         "on_hold_reason": 1, "on_hold_until": 1, "sla_due_at": 1,
         "mitre": 1, "techniques": 1, "engine": 1,
+        # P0-F.2 · needed for the honest evidence count on a consolidated
+        # endpoint campaign. Count only — the rows themselves are not
+        # projected into the queue.
+        "endpoint_campaign.detections.canonical_event_id": 1,
     }
     sort_field = _SORTABLE.get(sort, "updated_at")
     sort_dir = -1 if (order or "desc").lower() == "desc" else 1
@@ -729,12 +1055,40 @@ async def list_incidents(
 @router.get("/{incident_id}")
 async def get_incident(incident_id: str,
                           user=Depends(get_current_user_optional)):
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found",
-                                       "id": incident_id})
+    doc, _q = _authorized_incident(incident_id, user)
     return _project_detail(doc)
+
+
+# ── Round 30 · IUE v0 · Investigation Understanding read API ────────
+@router.get("/{incident_id}/understanding")
+async def get_incident_understanding(incident_id: str,
+                                          user=Depends(get_current_user_optional)):
+    """Return the latest **valid** IUE understanding snapshot for the
+    incident (the one whose ``evidence_fingerprint`` matches the
+    current governed evidence state).  Read-only; deterministic.
+
+    If no snapshot has been persisted yet for the current fingerprint,
+    IUE v0 materialises one on demand (still deterministic — same
+    evidence in, same snapshot out).  This endpoint is the sole
+    consumption contract for Round 31's Autonomous Investigator.
+    """
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    from services.iue.service import IUEService
+
+    # Verify the incident exists AND is inside the caller's tenant scope.
+    _doc, _q = _authorized_incident(incident_id, user, {"_id": 0, "id": 1})
+
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    try:
+        async_db = client[os.environ["DB_NAME"]]
+        latest = await IUEService.latest_valid(async_db, incident_id)
+        if latest is None:
+            latest = await IUEService.understand_incident(
+                async_db, incident_id, persist=True)
+        return latest.model_dump(mode="python")
+    finally:
+        client.close()
 
 
 # ── LIFECYCLE ────────────────────────────────────────────────────────
@@ -753,10 +1107,7 @@ async def patch_state(incident_id: str,
                               detail={"error": "invalid_state",
                                        "target_state": target,
                                        "allowed": list(LIFECYCLE_STATES)})
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found"})
+    doc, scoped_q = _authorized_incident(incident_id, user)
     current = (doc.get("incident_state") or "new").lower()
     if current == target:
         # Idempotent — no history entry, no DB write.
@@ -774,11 +1125,11 @@ async def patch_state(incident_id: str,
         "note": (body.note or "").strip()[:500] or None,
     }
     _col.update_one(
-        {"id": incident_id},
+        scoped_q,
         {"$set":  {"incident_state": target, "updated_at": now},
          "$push": {"incident_state_history": entry}},
     )
-    doc = _col.find_one({"id": incident_id})
+    doc = _col.find_one(scoped_q)
     return _project_detail(doc)
 
 
@@ -790,18 +1141,15 @@ class AssigneePatch(BaseModel):
 async def patch_assignee(incident_id: str,
                             body: AssigneePatch,
                             user=Depends(get_current_user)):
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found"})
+    doc, scoped_q = _authorized_incident(incident_id, user)
     now = datetime.now(timezone.utc).isoformat()
     new_assignee = (body.assignee or "").strip() or None
     _col.update_one(
-        {"id": incident_id},
+        scoped_q,
         {"$set": {"incident_assignee": new_assignee,
                     "updated_at": now}},
     )
-    doc = _col.find_one({"id": incident_id})
+    doc = _col.find_one(scoped_q)
     return _project_detail(doc)
 
 
@@ -833,10 +1181,7 @@ async def patch_operations(incident_id: str,
     Analyst-authored values are stored alongside (never overwriting)
     the deterministic verdict-derived values in ``_project_row``.
     """
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found"})
+    doc, scoped_q = _authorized_incident(incident_id, user)
     updates: Dict[str, Any] = {}
     if body.priority is not None:
         updates["incident_priority"] = body.priority
@@ -855,6 +1200,38 @@ async def patch_operations(incident_id: str,
     if not updates:
         return _project_detail(doc)
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-    _col.update_one({"id": incident_id}, {"$set": updates})
-    doc = _col.find_one({"id": incident_id})
+    _col.update_one(scoped_q, {"$set": updates})
+    doc = _col.find_one(scoped_q)
     return _project_detail(doc)
+
+
+@router.get("/provenance/summary")
+def provenance_summary(user: dict = Depends(get_current_user)) -> dict:
+    """Provenance distribution inside the caller's tenant authorization.
+
+    Owner directive 2026-06: the console must be able to state how many
+    incidents are real without anyone having to ask an engineer.
+    """
+    from services import incident_provenance as prov
+    from services.dashboard_lenses import resolve_tenant_scope
+    scope = resolve_tenant_scope((user or {}).get("email"))
+    if not scope.get("authorized"):
+        raise HTTPException(status_code=403,
+                            detail={"error": "TENANT_SCOPE_UNAUTHORIZED"})
+    tenants = None if scope.get("all_tenants") else scope["tenant_ids"]
+    out = prov.summary(_db_sync_for_provenance(), tenants)
+    out["vocabulary"] = {k: v for k, v in prov.MEANING.items()}
+    out["real_classes"] = list(prov.REAL_CLASSES)
+    out["scope"] = "all_tenants" if tenants is None else tenants
+    return out
+
+
+class _SyncDb:
+    """Minimal mapping so the provenance service stays storage-agnostic."""
+
+    def __getitem__(self, name):
+        return sync_collection(name)
+
+
+def _db_sync_for_provenance():
+    return _SyncDb()

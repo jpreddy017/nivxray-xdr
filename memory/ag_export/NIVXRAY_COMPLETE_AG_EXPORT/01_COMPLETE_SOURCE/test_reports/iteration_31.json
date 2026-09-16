@@ -1,0 +1,21 @@
+{
+  "summary": "Backend-only verification of RC5 obfuscation-only cap fix in rc22_adapter. All requested tests pass: 11/11 unit invariants for pure helper (task said 7 — file has 11: 5 parametrized chain-length + 6 discrete cases, all PASS), 88/88 golden corpus at 100.0% (including new GC-291..GC-296 benign obfuscation family AND legacy malicious samples GC-200 Emotet, GC-202 CobaltStrike/mshta, GC-203 Empire, GC-277 LockBit, GC-280 Bumblebee — still Malicious/Suspicious as required, cap did NOT silence them), full RC5 regression 709 passed / 0 failed / 2 xfailed (exceeds ≥705 baseline). Adapter integration confirmed: `_apply_obfuscation_only_cap` defined at module level (line 56), invoked in try_orchestrator_first before dict build (line 330), and `verdict_cap_reason` field emitted in return dict (line 353). Generic behavior verified — helper does not receive chain length, cap logic is signal-based only.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/rc5/unit/invariants/test_obfuscation_only_benign.py",
+    "/app/backend/engine/golden_corpus_obfuscation_family.py",
+    "/app/backend/rc22_adapter.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Task spec said 7 tests but file contains 11 (5 parametrized + 6 discrete). All pass — spec mismatch is cosmetic; likely additional coverage was added. Worth confirming with main agent that this is intentional.",
+    "Malicious samples (GC-200/202/203/277/280) confirmed unaffected by the cap — they carry LOLBAS or non-T1027 MITRE (T1059/T1105/T1218), so signal-based guard correctly prevents downgrade. Fix is genuinely generic, no 'SOC Challenge' string match."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "n/a"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "RC5 baseline is now 709 passed + 2 xfailed with SEMANTIC_ENGINE_V2=true. Golden corpus is 88 samples (added GC-291..GC-296 obfuscation-benign family). Obfuscation-only cap invariant lives in backend/rc22_adapter.py::_apply_obfuscation_only_cap and invariant tests in tests/rc5/unit/invariants/test_obfuscation_only_benign.py."
+}

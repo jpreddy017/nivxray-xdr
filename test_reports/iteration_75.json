@@ -1,0 +1,43 @@
+{
+  "summary": "Phase 2 Final Integration Gate validated end-to-end. Backend: 98/98 offline pytest (test_narration_gateway, _phase15, test_phase2_verdict_gap, test_phase2_final_gate, test_telemetry_adapters, test_phase2_operationalisation, test_mitre_catalogue) pass. New live-API suite (10 tests) authored and executed against REACT_APP_BACKEND_URL: 9 passed / 1 skipped (no zero-lane deterministic case reachable via live route), 0 failed. Verified GET /api/narration/incident/{id}/cross-lane-story returns 200 kind=cross_lane_story, grounded=true, llm_cloud/cloud:emergent-claude Claude prose, no fabricated T-IDs beyond context, honest coverage-gap prose for an incident with zero canonical_events, and 404 for unknown id. Verified POST /api/telemetry/verdict-inputs persists exactly 1 verdict_input (correlation_confidence=0.85) + 2 evidence_graph_edges with provenance.attck_promotion=false, persistence summary matches spec exactly, no forbidden verdict-authority fields in Mongo docs (xdr_verdict_inputs / xdr_evidence_graph_edges), 3x idempotency holds (1 input / 2 edges), endpoint-only single-lane payload yields 0/0, payload without incident_id returns persistence=null, unauthenticated call rejected 403. GET /api/narration/providers: cloud/offline/deterministic all list cross_lane_story. Frontend: provider-neutral badges confirmed on both Executive and Attack Story tabs with raw slugs preserved in data-*-raw.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/intelligence-overlays/?incident_id=...&target_kind=exec_summary", "issue": "Returns 404 (x2) on every incident record page load — trailing-slash/route mismatch. Pre-existing, unrelated to this gate, but pollutes the console with errors on the Executive tab."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Incident record · Attack Story tab", "issues": ["Provider pill renders visually uppercased by CSS text-transform ('PROVIDER: ANTHROPIC · CLAUDE'). textContent is correct ('provider: Anthropic · Claude') so assertions pass, but the mid-dot + uppercase reads slightly odd vs the Executive panel which renders lowercase 'provider: Anthropic · Claude'. Cosmetic inconsistency only."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/live/test_phase2_final_gate_live.py",
+    "/app/test_reports/pytest/phase2_gate_live.xml",
+    "/app/test_reports/pytest/phase2_final_gate.xml"
+  ],
+  "action_items": [
+    "OPTIONAL (honest-state nitpick): For incident 36d8cd4d (zero canonical_events) the cloud narrator opens with 'This incident reflects correlated activity across multiple detection lanes, but the specific cross-lane canonical evidence ... is not available'. The clause 'reflects correlated activity across multiple detection lanes' asserts multi-lane correlation that does NOT exist. Tighten the CROSS_LANE_STORY cloud prompt to forbid asserting cross-lane correlation when composer_input.cross_lane.lanes is empty (the deterministic narrator already handles this correctly per unit tests).",
+    "OPTIONAL: _strip_verdict_authority() in verdict_consumer.py only strips top-level keys. If the bridge ever nests a verdict field (e.g. inside signals{} or provenance{}), it will leak. Consider a recursive strip so a future bridge refactor cannot grant scoring authority.",
+    "OPTIONAL: providerLabels.js maps cognis-offline:ollama -> 'Ollama · Local Model Runtime', which names a vendor and is inconsistent with the stated provider-neutral goal (cloud maps to a model family). Consider 'Local Model Runtime' or 'Offline LLM'.",
+    "LOW: fix the /api/intelligence-overlays/ 404 on the exec-summary tab."
+  ],
+  "critical_code_review_comments": [
+    "URL slug note for docs/QA: the incident record tab key is `attack_story` (underscore), NOT `attack-story`. `?tab=attack-story` silently falls back to the Executive tab — the review request URL was wrong, the app behaviour is correct. Consider normalising hyphen/underscore in RecordTabs.jsx so shared deep links do not silently land on the wrong tab.",
+    "narration.py _build_incident_context() pushes canonical_ids into evidence_ids so the grounding validator accepts them. This is deliberate and documented, but it means the grounding validator can no longer distinguish endpoint evidence from cross-lane hints; keep the invariant test in test_phase2_final_gate.py as the guard.",
+    "compose_attack_evidence returns non-ATT&CK technique ids (observed 'POWERSHELL' on incident 36d8cd4d). The cross-lane-story grounding check passes because it validates against that same set, so a malformed catalogue entry propagates into narration technique pills. Pre-existing, worth a separate catalogue-hygiene fix.",
+    "POST /api/telemetry/verdict-inputs takes an untyped `payload: dict` — no Pydantic model. incident_id/window_minutes/events are unvalidated; a non-string incident_id is str()-coerced into a Mongo key. Add a request model."
+  ],
+  "updated_files": [
+    "/app/backend/tests/live/test_phase2_final_gate_live.py"
+  ],
+  "success_rate": {"backend": "100% (98/98 offline pytest; 9/9 executed live API tests, 1 skipped)", "frontend": "100% (provider-neutral badges + raw attrs + refresh verified on Executive and Attack Story tabs)"},
+  "seed_data_creation": "Ephemeral TEST_inc_<uuid> incident ids used for verdict-input persistence/idempotency tests; all xdr_verdict_inputs and xdr_evidence_graph_edges docs deleted in-test. No seeded/production data modified.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK — POST /api/auth/login returns {access_token}; verified working.",
+  "context_for_next_testing_agent": "New live suite at /app/backend/tests/live/test_phase2_final_gate_live.py. Run with `cd /app/backend && python -m pytest tests/live/test_phase2_final_gate_live.py -q -p no:randomly -n0` (pytest.ini enables xdist; -n0 is required for the asyncio Mongo assertions). IMPORTANT correlation contract: correlate() keys actors off actor.id or actor.email ONLY (actor.user is ignored) — payloads using actor.user produce zero correlation groups. 3 lanes + 3 events => correlation_confidence 0.85 and exactly 2 edges. Frontend tab slug is ?tab=attack_story (underscore). Verified incident with zero canonical_events: 36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed; no incident in Mongo currently has canonical_events populated, so the multi-lane cross-lane-story path is only covered by offline unit tests.",
+  "rca_of_the_issue": "No defects in the shipped gate. Initial 3 live-test failures were my own fixture error (actor.user instead of actor.id) — correlation.py::_actor_key reads actor['id'] or actor['email'], so the payload produced <2 lanes per actor bucket and correctly emitted 0 inputs/0 edges. Fixture corrected; all assertions then passed."
+}

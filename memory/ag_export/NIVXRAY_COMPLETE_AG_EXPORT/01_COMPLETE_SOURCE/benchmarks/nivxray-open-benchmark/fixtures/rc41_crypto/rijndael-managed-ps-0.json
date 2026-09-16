@@ -1,0 +1,44 @@
+{
+  "id": "rijndael-managed-ps-0",
+  "category": "ps-crypto",
+  "algorithm": "RijndaelManaged",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('RijndaelKey2026NivX'); $iv=[Text.Encoding]::UTF8.GetBytes('RijndaelIV202610'); $r = New-Object System.Security.Cryptography.RijndaelManaged; $r.Key = $k; $r.IV = $iv; $r.Mode = 'CBC'; $r.Padding = 'PKCS7'; $c = [Convert]::FromBase64String('UklKTl8w'); $dec = $r.CreateDecryptor(); $plain = $dec.TransformFinalBlock($c, 0, $c.Length); IEX ([Text.Encoding]::UTF8.GetString($plain))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-iv-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "base64-cipher-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "rijndael-cbc-decrypt",
+      "recoverable": false,
+      "reason": "RijndaelManaged CBC requires .NET runtime; algorithm + key material surfaced but not executed."
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": null,
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "Empire-style RijndaelManaged inline crypto.",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

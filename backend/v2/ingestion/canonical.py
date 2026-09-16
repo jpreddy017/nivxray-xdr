@@ -183,6 +183,17 @@ def _resolve_kind(ces: CanonicalEventRecord) -> str:
         return "registry_value_set"
     if ces.file_path and ces.image:
         return "file_write"
+    if ces.file_path:
+        # A file event with NO observed actor is still a file event. Some
+        # collection methods (inotify, mtime polling, and any sensor
+        # without syscall-level fidelity) can see that a path changed but
+        # genuinely cannot see WHICH process changed it. Requiring an
+        # actor here silently reclassified those to "detection", which hid
+        # real file activity from the file lane — a visibility gap created
+        # by the classifier rather than by the telemetry. The missing
+        # actor is reported separately as NOT_OBSERVED and is never
+        # attributed to a guess.
+        return "file_write"
     if ces.image and ces.command_line:
         return "process_create"
     return "detection"
@@ -306,6 +317,12 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
             "target":        ces.file_path or ces.dns_query or ces.dst_ip or ces.registry_key or ces.url,
             "command_line":  ces.command_line,
             "parent_image":  _basename(ces.parent_image),
+            # Real observed identifiers. They were being dropped here, so
+            # ancestry could be linked but never shown: an analyst could
+            # see the tree without seeing which pid was which.
+            "pid":           ces.process_id or None,
+            "ppid":          ces.parent_process_id or None,
+            "image_path":    ces.image or None,
             "sha256":        hashlib.sha256(evt_key.encode()).hexdigest(),
         },
         "process": {

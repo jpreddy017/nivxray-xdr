@@ -1,0 +1,8 @@
+{
+  "id": "ps-regex-swap-4-mut4",
+  "category": "ps-regex-swap",
+  "expected_keywords": [
+    "certut"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

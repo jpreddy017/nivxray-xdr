@@ -9,6 +9,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, HardDrive, Radar, Search } from "lucide-react";
+import OpenInEdr from "@/xdr/components/OpenInEdr";
 
 import XdrShell from "@/xdr/XdrShell";
 import { listEndpoints } from "@/nivxforge/edrApi";
@@ -56,19 +57,23 @@ export default function XdrEndpointsPage() {
     const needle = (q || "").trim().toLowerCase();
     if (!needle) return rows || [];
     return (rows || []).filter((r) =>
-      [r.host, r.tenant, r.engine, r.worst_label]
+      [r.host, r.hostname, r.device_iid, r.tenant, r.engine, r.worst_label]
         .filter(Boolean).join(" ").toLowerCase().includes(needle),
     );
   }, [rows, q]);
 
-  const openTrajectory = (host) =>
-    navigate(`/xdr/endpoints/${encodeURIComponent(host)}/trajectory`);
+  const openEntity360 = (row) =>
+    navigate(`/xdr/endpoints/${encodeURIComponent(row.device_ref || row.host)}`);
+  const openTrajectory = (row) =>
+    navigate(`/xdr/endpoints/${encodeURIComponent(row.device_ref || row.host)}/trajectory`);
 
   return (
     <XdrShell>
       <h1 className="page-h1" data-testid="xdr-endpoints-heading">Endpoints</h1>
       <div className="page-sub">
-        Devices projected from saved cases.  Row → native Device Trajectory canvas.
+        Endpoint entities projected from <span className="mono">v2_shadow_observations</span>{" "}
+        (authoritative <span className="mono">device_iid</span>) and from saved cases
+        (hostname only · <b>INFERRED</b>).  Row → Device Trajectory canvas.
       </div>
 
       {loading && (
@@ -108,6 +113,8 @@ export default function XdrEndpointsPage() {
             <thead>
               <tr>
                 <th>Host</th>
+                <th>Identity</th>
+                <th>Observations</th>
                 <th>Worst Verdict</th>
                 <th>Risk</th>
                 <th>Incidents</th>
@@ -121,17 +128,38 @@ export default function XdrEndpointsPage() {
               {filtered.map((r) => {
                 const sev = SEV_CLASS[r.worst_label] || "sev-info";
                 return (
-                  <tr key={r.host}
+                  <tr key={r.device_ref || r.host}
                         className="rowlink"
-                        onClick={() => openTrajectory(r.host)}
-                        data-testid={`xdr-endpoints-row-${r.host}`}>
+                        onClick={() => openEntity360(r)}
+                        data-testid={`xdr-endpoints-row-${r.device_ref || r.host}`}>
                     <td style={{ color: "var(--text)", fontWeight: 700 }}>
                       <HardDrive size={11}
                                     style={{ color: "var(--mint)",
                                               verticalAlign: "middle",
                                               marginRight: 6 }} />
-                      {r.host}
+                      {r.hostname || r.host}
                     </td>
+                    <td>
+                      <span className="nx-ep"
+                              data-ep={r.identity_confidence === "authoritative"
+                                        ? "evidence_present" : "unknown"}
+                              data-known={r.identity_confidence === "authoritative"
+                                        ? "true" : "false"}
+                              title={r.device_iid
+                                      ? `Authoritative endpoint entity · ${r.device_iid}`
+                                      : "Hostname string with no bound endpoint entity IID"}
+                              data-testid={`xdr-endpoints-identity-${r.device_ref || r.host}`}>
+                        {r.identity_confidence === "authoritative"
+                          ? "◆ AUTHORITATIVE" : "◇ INFERRED"}
+                      </span>
+                      {r.device_iid && (
+                        <div className="mono" style={{ color: "var(--faint)",
+                                                            fontSize: 9.5, marginTop: 2 }}>
+                          {r.device_iid}
+                        </div>
+                      )}
+                    </td>
+                    <td className="mono">{r.observation_count ?? 0}</td>
                     <td>
                       <span className={`badge ${sev}`}>
                         {SEV_LABEL[r.worst_label] || r.worst_label}
@@ -150,12 +178,30 @@ export default function XdrEndpointsPage() {
                     <td className="mono" style={{ color: "var(--muted)" }}>
                       {fmtDate(r.last_seen)}
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {/* Y2 · D-4 · Computers is owned by NivXForge EDR;
+                          the XDR asset view PIVOTS OUT to it. */}
+                      <span style={{ marginRight: 5 }}>
+                        <OpenInEdr compact
+                                   device={r.device_iid}
+                                   tenant={r.tenant}
+                                   testid={`xdr-endpoints-open-in-edr-${
+                                     r.device_ref || r.host}`} />
+                      </span>
+                      <button
+                        className="btn"
+                        style={{ padding: "3px 8px", marginRight: 5 }}
+                        onClick={(e) => { e.stopPropagation(); openEntity360(r); }}
+                        data-testid={`xdr-endpoints-view-360-${r.device_ref || r.host}`}
+                        title="Open the Endpoint Entity 360 workspace"
+                      >
+                        <HardDrive size={11} /> Entity 360
+                      </button>
                       <button
                         className="btn primary"
                         style={{ padding: "3px 8px" }}
-                        onClick={(e) => { e.stopPropagation(); openTrajectory(r.host); }}
-                        data-testid={`xdr-endpoints-view-trajectory-${r.host}`}
+                        onClick={(e) => { e.stopPropagation(); openTrajectory(r); }}
+                        data-testid={`xdr-endpoints-view-trajectory-${r.device_ref || r.host}`}
                         title="Open native XDR trajectory canvas"
                       >
                         <Radar size={11} /> View Trajectory

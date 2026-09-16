@@ -24,6 +24,14 @@ from server import app  # noqa: E402
 
 client = TestClient(app)
 
+# P0-2b: incident visibility is tenant-authorized, so the queue serves an
+# honest empty state to anonymous callers.  Tests authenticate as the seeded
+# admin (a cross-tenant MSS role).
+from deps import get_current_user_optional  # noqa: E402
+
+app.dependency_overrides[get_current_user_optional] = lambda: {
+    "email": "admin@nivxray.com", "role": "admin"}
+
 
 def _db():
     from pymongo import MongoClient
@@ -52,6 +60,7 @@ def clean():
 def _seed(db, cid, **kw):
     now = _iso(datetime.now(timezone.utc))
     doc = {"id": cid, "name": kw.get("name", "q2-case"),
+             "doc_type": "xdr_incident",
              "user_email": kw.get("user_email"),
              "tenant_id":  kw.get("tenant", "acme"),
              "created_at": kw.get("created_at", now),

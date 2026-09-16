@@ -67,7 +67,7 @@ def _skip_if_no_mongo():
 def test_create_key_returns_plaintext_once():
     _skip_if_no_mongo()
     r = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                          json={"name": "ci-runner", "scopes": ["lolbas.sync",
+                          json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "ci-runner", "scopes": ["lolbas.sync",
                                                                                           "audit.read"]})
     assert r.status_code == 200, r.text
     d = r.json()["data"]
@@ -88,16 +88,16 @@ def test_create_key_returns_plaintext_once():
 def test_duplicate_name_rejected():
     _skip_if_no_mongo()
     client.post("/api/xdr/api-keys", headers=_hdrs(),
-                    json={"name": "dup-key", "scopes": []})
+                    json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "dup-key", "scopes": []})
     r = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                          json={"name": "dup-key", "scopes": []})
+                          json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "dup-key", "scopes": []})
     assert r.status_code == 409
 
 
 def test_invalid_scope_rejected():
     _skip_if_no_mongo()
     r = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                          json={"name": "bad-scope", "scopes": ["fake.thing"]})
+                          json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "bad-scope", "scopes": ["fake.thing"]})
     assert r.status_code == 400
 
 
@@ -105,7 +105,7 @@ def test_invalid_scope_rejected():
 def test_verify_and_rotate_invalidates_old():
     _skip_if_no_mongo()
     created = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                                    json={"name": "rot-key", "scopes": ["audit.read"]})
+                                    json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "rot-key", "scopes": ["audit.read"]})
     plaintext_v1 = created.json()["data"]["plaintext"]
     kid = created.json()["data"]["id"]
 
@@ -130,7 +130,7 @@ def test_expired_key_never_verifies():
     _skip_if_no_mongo()
     past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     r = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                          json={"name": "expired-key", "scopes": [],
+                          json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "expired-key", "scopes": [],
                                     "expires_at": past})
     plaintext = r.json()["data"]["plaintext"]
     assert ak.verify_api_key(plaintext) is None
@@ -140,7 +140,7 @@ def test_expired_key_never_verifies():
 def test_revoke_disables_verification():
     _skip_if_no_mongo()
     created = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                                    json={"name": "to-revoke", "scopes": []})
+                                    json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "to-revoke", "scopes": []})
     kid       = created.json()["data"]["id"]
     plaintext = created.json()["data"]["plaintext"]
     assert ak.verify_api_key(plaintext) is not None
@@ -154,7 +154,7 @@ def test_revoke_disables_verification():
 def test_delete_removes_and_audits():
     _skip_if_no_mongo()
     created = client.post("/api/xdr/api-keys", headers=_hdrs(),
-                                    json={"name": "to-delete", "scopes": []})
+                                    json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "to-delete", "scopes": []})
     kid = created.json()["data"]["id"]
     r = client.delete(f"/api/xdr/api-keys/{kid}", headers=_hdrs())
     assert r.status_code == 200 and r.json()["data"]["deleted"] is True
@@ -169,7 +169,7 @@ def test_delete_removes_and_audits():
 def test_rbac_denies_analyst_creating_key():
     _skip_if_no_mongo()
     r = client.post("/api/xdr/api-keys", headers=_hdrs(email=ANALYST),
-                          json={"name": "sneaky", "scopes": []})
+                          json={"confirm_tenant_id": TEN, "allow_new_tenant": True, "name": "sneaky", "scopes": []})
     assert r.status_code == 403
     assert r.json()["detail"]["code"] == "ACCESS_DENIED"
     assert r.json()["detail"]["permission"] == "api_keys.create"

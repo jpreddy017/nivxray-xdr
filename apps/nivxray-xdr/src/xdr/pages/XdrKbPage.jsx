@@ -24,6 +24,7 @@ export default function XdrKbPage() {
   const [q,       setQ]       = useState("");
   const [refresh, setRefresh] = useState(0);
   const [openEntry, setOpenEntry] = useState(null);
+  const [serverTotal, setServerTotal] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,8 +37,14 @@ export default function XdrKbPage() {
         ]);
         if (cancelled) return;
         setStats(s?.data || null);
-        const rows = e?.data?.entries || e?.data || [];
+        // Authoritative shape from routers/kb.py: {total, items, limit, skip}.
+        // This page previously read `entries` and fell back to the raw object,
+        // which is not an array — so 334 real entries rendered as "NO ENTRIES".
+        const body = e?.data || {};
+        const rows = body.items || body.entries
+                       || (Array.isArray(body) ? body : []);
         setEntries(Array.isArray(rows) ? rows : []);
+        setServerTotal(Number.isFinite(body.total) ? body.total : null);
       } catch (x) {
         setErr(x?.response?.data?.detail || x?.message || "load failed");
       } finally {
@@ -50,9 +57,10 @@ export default function XdrKbPage() {
   const filtered = useMemo(() => {
     if (!q) return entries;
     const qs = q.toLowerCase();
-    return entries.filter((e) =>
-      `${e.title || ""} ${e.slug || ""} ${(e.tags || []).join(" ")}`
-        .toLowerCase().includes(qs));
+    return entries.filter((e) => (
+      `${e.title || ""} ${e.slug || ""} ${e.verdict || ""} `
+      + `${(e.mitre_ids || []).join(" ")} ${(e.tactics || []).join(" ")}`
+    ).toLowerCase().includes(qs));
   }, [entries, q]);
 
   const viewEntry = async (slug) => {
@@ -87,13 +95,21 @@ export default function XdrKbPage() {
         </div>
 
         {/* Stats */}
+        {/* Stats · every value below comes from /api/kb/stats verbatim.
+            `total_entries`, `distinct_tags` and `last_update` were read here
+            before but the KB service does not emit them, so two tiles showed
+            "—" and the total silently fell back to the (empty) row count. */}
         <div style={statsGrid}>
-          <Stat label="Total entries" value={stats?.total_entries ?? entries.length}
+          <Stat label="Total entries" value={stats?.total ?? serverTotal ?? "—"}
                     testid="xdr-kb-stat-total" />
-          <Stat label="Distinct tags" value={stats?.distinct_tags ?? "—"}
-                    testid="xdr-kb-stat-tags" color="var(--cyan)" />
-          <Stat label="Last update" value={stats?.last_update?.slice(0,10) ?? "—"}
-                    testid="xdr-kb-stat-updated" />
+          <Stat label="Malicious verdicts"
+                    value={stats?.by_verdict?.Malicious ?? "—"}
+                    testid="xdr-kb-stat-malicious" color="var(--cyan)" />
+          <Stat label="Top ATT&CK technique"
+                    value={stats?.top_mitre?.[0]
+                             ? `${stats.top_mitre[0].id} · ${stats.top_mitre[0].count}`
+                             : "—"}
+                    testid="xdr-kb-stat-top-mitre" />
         </div>
 
         {err && <div style={errBox} data-testid="xdr-kb-error">{err}</div>}
@@ -109,15 +125,21 @@ export default function XdrKbPage() {
         </div>
 
         <div style={{ color: "var(--faint)", fontSize: 10.5,
-                                fontFamily: "var(--mono)", marginBottom: 6 }}>
-          {busy ? "Loading…" : `${filtered.length} of ${entries.length} entries`}
+                                fontFamily: "var(--mono)", marginBottom: 6 }}
+                  data-testid="xdr-kb-count">
+          {busy ? "Loading…"
+                : (serverTotal !== null && serverTotal > entries.length
+                     ? `${filtered.length} of ${entries.length} loaded · `
+                       + `${serverTotal} total in the KB `
+                       + `(the service caps a page at ${entries.length})`
+                     : `${filtered.length} of ${entries.length} entries`)}
         </div>
 
         {/* Entries table */}
         <div style={{ border: "1px solid var(--border)", borderRadius: 3,
                                 overflow: "hidden" }}>
           <div style={rowHead}>
-            <div>Slug</div><div>Title</div><div>Tags</div><div>Updated</div>
+            <div>Slug</div><div>Title</div><div>ATT&CK</div><div>Last seen</div>
           </div>
           {filtered.map((e) => (
             <div key={e.slug || e.id} style={rowBody}
@@ -125,16 +147,24 @@ export default function XdrKbPage() {
                        onClick={() => viewEntry(e.slug || e.id)}>
               <div style={{ color: "var(--cyan)" }}>{e.slug || e.id}</div>
               <div>{e.title || "—"}</div>
+              {/* KB items carry `mitre_ids`, not `tags`, and `last_seen` /
+                  `refreshed_at`, not `updated_at` — so those two columns
+                  rendered "—" on every row. */}
               <div style={{ color: "var(--amber)", fontSize: 10 }}>
-                {(e.tags || []).slice(0, 4).join(", ") || "—"}
+                {(e.mitre_ids || e.tactics || []).slice(0, 4).join(", ") || "—"}
               </div>
               <div style={{ color: "var(--faint)", fontSize: 10 }}>
-                {(e.updated_at || e.created_at || "").slice(0, 10) || "—"}
+                {(e.last_seen || e.refreshed_at || e.first_seen || "")
+                    .slice(0, 10) || "—"}
               </div>
             </div>
           ))}
           {!busy && filtered.length === 0 && (
-            <div style={emptyRow}>NO ENTRIES — the KB is empty or unreachable</div>
+            <div style={emptyRow} data-testid="xdr-kb-empty">
+              {err ? "KB UNREACHABLE — see the error above"
+                   : (q ? `NO ENTRIES MATCH "${q}"`
+                        : "NO ENTRIES RETURNED by /api/kb/entries")}
+            </div>
           )}
         </div>
 

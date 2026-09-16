@@ -1,0 +1,21 @@
+id: T05_lsass_dump_lolbas
+title: Malicious — LSASS memory dump via comsvcs.dll
+provenance: LOLBAS · MITRE T1003.001
+input: 'rundll32.exe C:\Windows\System32\comsvcs.dll MiniDump 1234 C:\Temp\lsass.dmp full'
+expected_verdict: malicious
+must_fire_intents:
+  - credential_access
+must_not_fire:
+  - staging
+forbidden_words_in_verdict:
+  - campaign
+  - APT
+  - actor
+must_admit_unknown: false
+expected_confidence_band: high
+expected_mitre:
+  - T1003.001
+min_recommendations: 1
+notes: >
+  The comsvcs.dll MiniDump primitive is the textbook fileless LSASS
+  dump. Verdict must be malicious with credential_access cited.

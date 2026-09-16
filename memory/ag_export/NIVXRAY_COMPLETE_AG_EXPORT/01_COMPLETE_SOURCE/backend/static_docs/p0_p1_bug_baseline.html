@@ -1,0 +1,236 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>NivXRay · P0/P1 Bug Baseline</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm; }
+  html,body { margin:0; padding:0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a; line-height: 1.55; font-size: 13.5px;
+    max-width: 1000px; margin: 40px auto; padding: 0 32px 80px; background:#fff;
+  }
+  h1 { font-size: 26px; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-top: 32px; }
+  h2 { font-size: 19px; color: #1e293b; margin-top: 28px; border-left: 4px solid #f59e0b; padding-left: 12px; }
+  h3 { font-size: 15px; color: #334155; margin-top: 20px; }
+  code { font-family: "JetBrains Mono", Menlo, Consolas, monospace; background: #f1f5f9; color: #b91c1c; padding: 1px 5px; border-radius: 3px; font-size: 88%; }
+  pre { background:#0f172a; color:#e2e8f0; padding: 12px 14px; border-radius: 6px; overflow-x:auto; font-size: 11.5px; line-height:1.5; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 11.5px; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; color: #0f172a; font-weight: 600; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  blockquote { border-left: 4px solid #f59e0b; background:#fffbeb; padding: 10px 16px; margin: 12px 0; color: #713f12; }
+  hr { border: none; border-top: 1px solid #cbd5e1; margin: 24px 0; }
+  strong { color: #0f172a; }
+  .cover { text-align: center; padding: 30px 0 16px; border-bottom: 3px solid #f59e0b; margin-bottom: 20px; }
+  .cover .title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .cover .sub { color: #64748b; margin-top: 6px; font-size: 13px; }
+  .print-hint { background: #fef3c7; border:1px solid #fcd34d; padding: 10px 14px; border-radius: 6px; color: #78350f; font-size: 12.5px; margin: 14px 0 24px; }
+  @media print { .print-hint { display:none; } body { max-width:100%; padding: 0; margin: 0; } }
+</style></head><body>
+<div class="cover">
+  <div class="title">NivXRay · P0/P1 Bug Baseline</div>
+  <div class="sub">Pre-migration snapshot · 2026-08-09</div>
+</div>
+<div class="print-hint">
+  <strong>Save as PDF:</strong> <code>⌘ Cmd + P</code> or <code>Ctrl + P</code> → Save as PDF.
+</div>
+<h1 id="nivxray-p0p1-bug-baseline-pre-migration">NivXRay · P0/P1 Bug Baseline (Pre-Migration)</h1>
+<p><em>Date: 2026-08-09 · Author: E1 · Applies to: git HEAD <code>52007cbd</code></em></p>
+<blockquote>
+<p><strong>Purpose</strong>: ADR-004 Amendment A1 requires a known-good behavioral baseline BEFORE Verdict Engine migration begins. This document captures every P0/P1 defect currently observable on HEAD, so post-migration parity tests can distinguish <code>preserved / fixed / introduced</code> outcomes.</p>
+<p><strong>Scope</strong>: Correctness bugs, security risks, freezes/hangs, workspace UX defects, provenance losses observed during this session. Not an exhaustive audit — a defect-hunt pass focused on user-visible issues.</p>
+</blockquote>
+<hr />
+<h2 id="p0-correctness-security-blockers">P0 · Correctness / Security / Blockers</h2>
+<h3 id="p0-01-ssrf-on-url-acquisition">P0-01 · SSRF on URL acquisition</h3>
+<ul>
+<li><strong>Where</strong>: <code>services/ida/acquisition.py</code> — <code>httpx.get(url, follow_redirects=True)</code></li>
+<li><strong>Risk</strong>: User-supplied URL can point at <code>169.254.169.254</code> (cloud metadata), RFC1918 IPs, or <code>localhost:8001</code></li>
+<li><strong>Evidence</strong>: No allow-list, no IP resolution + block, no host filter observed</li>
+<li><strong>Fix effort</strong>: 4 hours (resolve-then-verify + block private IP ranges)</li>
+<li><strong>Regression test needed</strong>: <code>test_ssrf_blocked.py</code> — assert 400/403 for metadata IP / 127.0.0.1 / RFC1918</li>
+<li><strong>Blocks migration?</strong> No, but MUST be fixed before any customer exposure</li>
+</ul>
+<h3 id="p0-02-3-verdict-engines-produce-potentially-divergent-verdicts">P0-02 · 3 verdict engines produce potentially divergent verdicts</h3>
+<ul>
+<li><strong>Where</strong>: <code>services/uaie/orchestrator.py</code>, <code>nivxforge/investigation/verdict_engine.py</code>, <code>backend/v2/verdict/engine.py</code></li>
+<li><strong>Evidence</strong>: Verification grep §Q1 (see ADR-004)</li>
+<li><strong>Risk</strong>: Same input may produce different verdicts depending on which endpoint is called. Deterministic-first claim is compromised.</li>
+<li><strong>Fix effort</strong>: This IS ADR-004 migration step 1</li>
+<li><strong>Regression test needed</strong>: <code>test_verdict_engine_parity.py</code> — same 20 corpus inputs through all 3 engines, snapshot outputs, diff. This test becomes the migration gate.</li>
+</ul>
+<h3 id="p0-03-original-360-audit-contained-8-false-not-implemented-claims">P0-03 · Original 360° audit contained ~8 false "NOT IMPLEMENTED" claims</h3>
+<ul>
+<li><strong>Where</strong>: <code>memory/CURRENT_STATE_AUDIT.md</code> (v1)</li>
+<li><strong>Status</strong>: RESOLVED via reconciliation. Superseded by <code>CURRENT_STATE_AUDIT_RECONCILIATION.md</code>.</li>
+<li><strong>Note</strong>: Kept here so future agents don't re-inherit the wrong baseline.</li>
+</ul>
+<hr />
+<h2 id="p1-high-severity-but-not-blocking">P1 · High-severity but not blocking</h2>
+<h3 id="p1-01-workspace-freeze-page-unresponsive-dialog-on-7-kb-inputs">P1-01 · Workspace freeze / Page Unresponsive dialog on 7 KB+ inputs</h3>
+<ul>
+<li><strong>Where</strong>: <code>frontend/src/pages/WorkspacePage.jsx</code> (3,982 LOC monolith)</li>
+<li><strong>Root cause chain</strong>:</li>
+<li><code>autoInvestigate()</code> fires <code>/die/understand</code> + <code>/die/analyze</code> + <code>/die/narrate</code> in parallel with <code>/decode/chain</code></li>
+<li>3-4 promise chains resolve within ~100 ms</li>
+<li>React 18 cannot auto-batch across async boundaries</li>
+<li>Each setState re-reconciles the 3,982-line JSX tree</li>
+<li>Combined reconciliation &gt; 15 s → Chrome fires "Page Unresponsive"</li>
+<li><strong>Mitigations shipped this session</strong>:</li>
+<li>SSE stream coalescing (<code>WorkspacePage.jsx::runAnalysis</code> — 200 ms flush window, <code>startTransition</code>)</li>
+<li>Auto-chain detection routes multi-layer inputs directly to <code>/decode/chain</code>, skipping the 3 parallel calls</li>
+<li>Workspace-level error boundary catches component crashes</li>
+<li>Global <code>window.error</code> + <code>unhandledrejection</code> handlers prevent uncaught throws from blanking the tab</li>
+<li><strong>Remaining gap</strong>: The paste itself can still produce a ~3.6 s long task from React reconciling a 7 KB controlled textarea. Not a freeze (well below 15 s) but still slow.</li>
+<li><strong>Real fix</strong>: Migration step 10 (WorkspacePage.jsx split). Deferred by design because it must ride on a stable API surface.</li>
+<li><strong>Regression test needed</strong>: Playwright test that pastes 7 KB blob, clicks AUTO INVESTIGATE, asserts no <code>longtask &gt; 15000 ms</code>.</li>
+</ul>
+<h3 id="p1-02-defanged-iocs-not-extracted-at-top-level">P1-02 · Defanged IOCs not extracted at top-level</h3>
+<ul>
+<li><strong>Where</strong>: <code>services/artifact_splitter.py::split_artifacts</code> (or wherever IOC extraction happens for article body)</li>
+<li><strong>Evidence</strong>: The Sophos article's <code>149[.]28[.]81[.]19</code> (defanged) appears 3× in reader comments; top-level IOC extractor returned 0 IPs. Only the chain decoder's <code>peeled_iocs</code> surfaced the C2 IP.</li>
+<li><strong>Impact</strong>: Any DFIR blog post with defanged IPs is under-extracted at the top-level IOC panel</li>
+<li><strong>Fix effort</strong>: ~2 hours (refang <code>[.]</code> → <code>.</code> and <code>hxxp</code> → <code>http</code> before regex extraction)</li>
+<li><strong>Regression test needed</strong>: <code>test_defanged_ioc_extraction.py</code></li>
+</ul>
+<h3 id="p1-03-v2investigationpipeline-canonical-not-wired-to-workspace">P1-03 · <code>v2/investigation/pipeline</code> (canonical) not wired to workspace</h3>
+<ul>
+<li><strong>Where</strong>: <code>frontend/src/pages/WorkspacePage.jsx::autoInvestigate</code></li>
+<li><strong>Evidence</strong>: Verification grep §Q2 — WorkspacePage calls <code>/api/decode/*</code> and <code>/api/v2/analyze/report</code> only. No route through <code>v2/investigation/pipeline</code>.</li>
+<li><strong>Impact</strong>: The "canonical" pipeline picked in ADR-004 is not on the user path. Every workspace investigation still runs through legacy paths.</li>
+<li><strong>Fix</strong>: This IS migration step 3.</li>
+</ul>
+<h3 id="p1-04-trajectory-canvas-reads-from-bkb-projection-not-evidence-graph">P1-04 · Trajectory canvas reads from BKB projection, not evidence graph</h3>
+<ul>
+<li><strong>Where</strong>: <code>frontend/src/components/investigation/TrajectoryDiagram.jsx</code> ← consumes clusters from <code>routers/cases.py:343</code> ← <code>services/ice/correlate::enrich_clusters_in_place</code></li>
+<li><strong>Impact</strong>: The canonical evidence graph (<code>engine/evidence_graph.py</code>) is not visible in the analyst's primary visualization</li>
+<li><strong>Fix</strong>: This IS migration step 4.</li>
+</ul>
+<h3 id="p1-05-comspec-and-start-b-min-wrappers-were-dropping-commands-until-today">P1-05 · <code>%COMSPEC%</code> and <code>start /b /min</code> wrappers were dropping commands until today</h3>
+<ul>
+<li><strong>Status</strong>: FIXED this session (canonicalizer + <code>_HEAD_START</code> regex + <code>_consider</code> 32 KB cap)</li>
+<li><strong>Regression test added</strong>: <code>tests/test_url_classifier_powershell_bug.py</code> (13 tests locking the fix)</li>
+<li><strong>Keep</strong>: yes — this is the "known good" behavior to preserve during migration</li>
+</ul>
+<h3 id="p1-06-cmd-c-foo-bar-baz-was-collapsing-to-cmd-c-foo-single-token-inner">P1-06 · <code>cmd /c foo bar baz</code> was collapsing to <code>cmd /c foo</code> (single-token inner)</h3>
+<ul>
+<li><strong>Where</strong>: <code>services/canonicalizer/__init__.py</code> line 236 (before fix)</li>
+<li><strong>Status</strong>: FIXED this session</li>
+<li><strong>Regression test needed</strong>: <code>test_canonicalizer_multi_token_inner.py</code> (does not yet exist explicitly)</li>
+</ul>
+<h3 id="p1-07-bpowershellb-regex-matched-url-path-substring-misclassifying-urls">P1-07 · <code>\bpowershell\b</code> regex matched URL path substring, misclassifying URLs</h3>
+<ul>
+<li><strong>Where</strong>: <code>services/die/input_understanding.py</code></li>
+<li><strong>Status</strong>: FIXED this session</li>
+<li><strong>Regression test</strong>: <code>tests/test_url_classifier_powershell_bug.py</code> (shipped)</li>
+</ul>
+<h3 id="p1-08-encodedcommand-payload-decoded-but-not-surfaced-in-analyst-text">P1-08 · <code>-EncodedCommand</code> payload decoded but not surfaced in analyst text</h3>
+<ul>
+<li><strong>Where</strong>: <code>services/ida/artifact_router.py::investigate_artifact</code> (before fix)</li>
+<li><strong>Status</strong>: FIXED this session — <code>recovered_payload</code> + <code>decode_stages</code> + <code>peeled_iocs</code> now rendered in Command Analysis panel</li>
+</ul>
+<h3 id="p1-09-autohotkey-stager-false-positive-from-base64-substring">P1-09 · <code>AutoHotkey stager</code> false positive from base64 substring</h3>
+<ul>
+<li><strong>Where</strong>: <code>services/ida/behaviors.py::classify_command</code> (line 295)</li>
+<li><strong>Root cause</strong>: <code>"ahk" in h</code> matched base64 substring when head was the entire wrapped command</li>
+<li><strong>Status</strong>: FIXED this session (tightened to <code>\b(?:autohotkey|ahk)(?:\.exe|_l)?\b</code>)</li>
+<li><strong>Regression test needed</strong>: <code>test_ahk_false_positive.py</code></li>
+</ul>
+<h3 id="p1-10-sophos-community-url-imperva-protected-acquisition-fails">P1-10 · Sophos community URL (Imperva-protected) acquisition fails</h3>
+<ul>
+<li><strong>Where</strong>: <code>services/ida/acquisition.py</code></li>
+<li><strong>Status</strong>: FIXED this session — Wayback Machine fallback added; Playwright given real Chromium UA</li>
+<li><strong>Regression test needed</strong>: <code>test_wayback_fallback.py</code> (mock httpx returning tiny anti-bot page)</li>
+</ul>
+<hr />
+<h2 id="p2-medium-severity-deferred-but-documented">P2 · Medium-severity (deferred, but documented)</h2>
+<ul>
+<li>89 memory/*.md files — curation debt, blocks fast fork onboarding</li>
+<li>34 frontend pages — audit + delete unused</li>
+<li>No structured logging / no Prometheus metrics</li>
+<li>No PDF report export UI wired (backend module exists — <code>engine/report_pdf.py</code>)</li>
+<li>No BKB admin UI</li>
+<li>No audit log of analyst actions</li>
+<li>Multiple provenance modules coexist (Amendment A2 review pending)</li>
+<li>Golden corpus fragmented across 3 locations</li>
+</ul>
+<hr />
+<h2 id="baseline-snapshot-required-before-migration-step-1">Baseline snapshot required BEFORE migration step 1</h2>
+<p>The following behavioral snapshots must be captured (using vendor corpus) and committed to the repo as "before" state:</p>
+<ol>
+<li><strong>Verdict snapshot</strong> — verdict + confidence + top techniques for each of the 20 pinned Tier-1 corpus reports. Saved as <code>backend/corpus/vendor/v1/reports/baseline_verdicts.json</code>.</li>
+<li><strong>Chain decode snapshot</strong> — for each PowerShell-encoded corpus entry, the full 4-stage output (stage names + byte counts + peeled_iocs). Saved as <code>backend/corpus/vendor/v1/reports/baseline_chain_decodes.json</code>.</li>
+<li><strong>BKB projection snapshot</strong> — for each canonical behavior, the full technique/tactic list. Saved as <code>backend/corpus/vendor/v1/reports/baseline_bkb_projections.json</code>.</li>
+<li><strong>IOC extraction snapshot</strong> — full IOC set (grouped by type) for each corpus entry. Saved as <code>backend/corpus/vendor/v1/reports/baseline_iocs.json</code>.</li>
+</ol>
+<p>Effort: ~2-3 days to build the harness + capture. Post-migration these become the parity gates for every step.</p>
+<hr />
+<h2 id="test-files-that-must-exist-before-adr-004-migration-step-1-begins">Test files that MUST exist before ADR-004 migration step 1 begins</h2>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Path</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Verdict parity (3-way)</td>
+<td><code>backend/tests/test_verdict_engine_parity.py</code></td>
+<td><strong>MISSING — create</strong></td>
+</tr>
+<tr>
+<td>Defanged IOC extraction</td>
+<td><code>backend/tests/test_defanged_ioc_extraction.py</code></td>
+<td><strong>MISSING — create</strong></td>
+</tr>
+<tr>
+<td>Canonicalizer multi-token inner</td>
+<td><code>backend/tests/test_canonicalizer_multi_token_inner.py</code></td>
+<td><strong>MISSING — create</strong></td>
+</tr>
+<tr>
+<td>AHK false positive</td>
+<td><code>backend/tests/test_ahk_false_positive.py</code></td>
+<td><strong>MISSING — create</strong></td>
+</tr>
+<tr>
+<td>Wayback fallback</td>
+<td><code>backend/tests/test_wayback_fallback.py</code></td>
+<td><strong>MISSING — create</strong></td>
+</tr>
+<tr>
+<td>SSRF blocked</td>
+<td><code>backend/tests/test_ssrf_blocked.py</code></td>
+<td><strong>MISSING — create</strong></td>
+</tr>
+<tr>
+<td>URL vs PowerShell classifier</td>
+<td><code>backend/tests/test_url_classifier_powershell_bug.py</code></td>
+<td>✅ EXISTS (13 tests)</td>
+</tr>
+<tr>
+<td>BKB CI gate</td>
+<td><code>backend/tests/test_bkb_ci_gate.py</code></td>
+<td>✅ EXISTS</td>
+</tr>
+<tr>
+<td>Quality dashboard floors</td>
+<td><code>backend/tests/test_quality_dashboard.py</code></td>
+<td>✅ EXISTS</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="recommendation">Recommendation</h2>
+<p>Complete Step 0 (P0/P1 bug baseline) in this order:</p>
+<ol>
+<li><strong>Fix P0-01 (SSRF)</strong> — 4 hours. Non-negotiable before any customer-facing test.</li>
+<li><strong>Capture 4 baseline snapshots</strong> — 2-3 days. These are the parity gates.</li>
+<li><strong>Create the 6 missing regression tests</strong> — 1-2 days. These lock the fixes already shipped this session.</li>
+<li><strong>Fix P1-02 (defanged IOC)</strong> — 2 hours. Low-effort correctness improvement.</li>
+</ol>
+<p>Then and only then start ADR-004 migration step 1 (Verdict Engine).</p>
+<p>Estimated Step 0 duration: <strong>3-5 working days</strong>.</p>
+<p><em>End of P0/P1 Bug Baseline.</em></p>
+</body></html>

@@ -1,0 +1,22 @@
+{
+  "id": "custom-hex-wrapper-rc4-1",
+  "algorithm": "CustomHex+RC4",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "custom-hex-slash-decode",
+    "base64-decode",
+    "rc4-decrypt-inline-key",
+    "utf8-decode"
+  ],
+  "runtime_stages": [],
+  "expected_verdict": "malicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete"
+}

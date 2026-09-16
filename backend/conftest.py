@@ -56,6 +56,16 @@ for _k, _v in _TEST_FLAG_DEFAULTS.items():
 os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
 os.environ.setdefault("DB_NAME",   "nivxray_ci_local")
 
+# ─── NivXForge EDR endpoint-agent authentication (P0-A.2) ────────────
+# A TEST-ONLY pepper. Production reads EDR_AUTH_PEPPER from the
+# environment and `security.digest()` raises rather than fall back to an
+# unkeyed digest, so this default only ever applies under pytest.
+os.environ.setdefault(
+    "EDR_AUTH_PEPPER",
+    "pytest-only-pepper-not-a-production-secret-0000000000000000")
+os.environ.setdefault("EDR_ENROLLMENT_TOKEN_TTL_SECONDS", "900")
+os.environ.setdefault("EDR_AGENT_SESSION_TTL_SECONDS", "300")
+
 # ─── Admin credentials for endpoint tests ────────────────────────────
 os.environ.setdefault("ADMIN_EMAIL",    "admin@nivxray.com")
 os.environ.setdefault("ADMIN_PASSWORD", "ci-only-not-a-real-secret")

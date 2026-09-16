@@ -1,0 +1,368 @@
+{
+  "$defs": {
+    "EpistemicState": {
+      "description": "Directive \u00a76. The six \u2014 and only six \u2014 states an evidence field\nmay resolve to.",
+      "enum": [
+        "OBSERVED",
+        "NOT_OBSERVED",
+        "NOT_COLLECTED",
+        "NOT_SUPPORTED",
+        "PARSER_FAILED",
+        "UNKNOWN"
+      ],
+      "title": "EpistemicState",
+      "type": "string"
+    },
+    "NetworkDirection": {
+      "enum": [
+        "INBOUND",
+        "OUTBOUND",
+        "LISTEN",
+        "UNKNOWN"
+      ],
+      "title": "NetworkDirection",
+      "type": "string"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Directive \u00a75 \u2014 every layer is additive and versioned.",
+      "properties": {
+        "analysis_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis Version"
+        },
+        "detection_content_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detection Content Version"
+        },
+        "normalizer_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalizer Version"
+        },
+        "parser_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Name"
+        },
+        "parser_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Version"
+        },
+        "raw_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "raw_id in edr_raw_events. The immutable original.",
+          "title": "Raw Ref"
+        },
+        "replay_generation": {
+          "default": 0,
+          "description": "0 = original ingest. Incremented per replay so a re-reasoned event never masquerades as a new one.",
+          "title": "Replay Generation",
+          "type": "integer"
+        },
+        "sensor_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sensor Version"
+        },
+        "source": {
+          "description": "collector / sensor / adapter identity",
+          "title": "Source",
+          "type": "string"
+        },
+        "verdict_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verdict Version"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "$id": "nivxforge-edr/wave0/v1/network_identity.schema.json",
+  "additionalProperties": false,
+  "description": "Contract 5.\n\nA remote IP is a network peer. It is NEVER an endpoint and it is NEVER\na process \u2014 the two fabrications this codebase has already had to fix\nonce.",
+  "properties": {
+    "bytes_received": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Bytes Received"
+    },
+    "bytes_sent": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Bytes Sent"
+    },
+    "connection_iid": {
+      "title": "Connection Iid",
+      "type": "string"
+    },
+    "direction": {
+      "$ref": "#/$defs/NetworkDirection",
+      "default": "UNKNOWN"
+    },
+    "dns_answers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Dns Answers",
+      "type": "array"
+    },
+    "dns_query": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Dns Query"
+    },
+    "domain": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Domain"
+    },
+    "endpoint_id": {
+      "title": "Endpoint Id",
+      "type": "string"
+    },
+    "field_state_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+      "title": "Field State Reasons",
+      "type": "object"
+    },
+    "field_states": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EpistemicState"
+      },
+      "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+      "title": "Field States",
+      "type": "object"
+    },
+    "local_ip": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Local Ip"
+    },
+    "local_port": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Local Port"
+    },
+    "process_iid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Process Iid"
+    },
+    "protocol": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Protocol"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "remote_ip": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Remote Ip"
+    },
+    "remote_port": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Remote Port"
+    },
+    "url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Url"
+    }
+  },
+  "required": [
+    "connection_iid",
+    "endpoint_id"
+  ],
+  "title": "NetworkIdentity",
+  "type": "object",
+  "x-nivxforge-contract": "network_identity",
+  "x-nivxforge-epistemic-states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "x-nivxforge-evidence-fields": [
+    "process_iid",
+    "protocol",
+    "local_ip",
+    "local_port",
+    "remote_ip",
+    "remote_port",
+    "domain",
+    "url",
+    "dns_query",
+    "bytes_sent",
+    "bytes_received"
+  ]
+}

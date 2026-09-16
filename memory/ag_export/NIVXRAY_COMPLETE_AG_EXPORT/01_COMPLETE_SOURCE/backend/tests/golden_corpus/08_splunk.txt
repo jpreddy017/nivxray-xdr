@@ -1,0 +1,5 @@
+{"_time": "2026-07-24T07:02:44Z", "sourcetype": "WinEventLog:Security", "search_name": "Suspicious rundll32 launched from Outlook", "host": "OPS-LT-31", "src_user": "leo.tan", "process_name": "rundll32.exe", "process_command_line": "rundll32.exe C:\\Users\\leo.tan\\AppData\\Local\\Temp\\reader.dll,Update", "file_hash": "deadbeef1122334455667788990011223344556677889900aabbccddeeff0011"}
+
+Attacker URL: https://185.142.223.16/loader.php
+References:
+https://splunk.com/enterprise-security

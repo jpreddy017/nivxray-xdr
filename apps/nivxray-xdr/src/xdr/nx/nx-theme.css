@@ -1,0 +1,371 @@
+/* ═══════════════════════════════════════════════════════════════════
+ * NivXRay XDR · PHASE 2 · COMPLETE THEME TOKEN SYSTEM
+ * Owner-authorised 2026-09-05 (OWNER DECISION — EXPAND UI REDESIGN NOW)
+ *
+ * DARK is the default console theme.  LIGHT is preserved as a working
+ * toggle (analytical / print-export mode) — it is NOT removed.
+ *
+ *   .xdr-console                        → DARK   (default)
+ *   .xdr-console[data-nx-theme="light"] → LIGHT  (toggle)
+ *
+ * This file is loaded AFTER nx-tokens.css and therefore owns the final
+ * value of every surface / text / border / semantic token.  A component
+ * that hard-codes a colour cannot theme and is a grammar violation.
+ *
+ * ── REJECTED PATTERNS (owner review 2026-09-05) ───────────────────
+ * The following are explicitly designed AGAINST and must not reappear:
+ *   ✗ flat single-value near-black slab with no surface layering
+ *   ✗ generic SaaS violet pills as the only accent
+ *   ✗ ASCII tree glyphs (└──) substituting for real hierarchy
+ *   ✗ low-contrast grey body text on black
+ *   ✗ everything set in uppercase mono, so nothing has priority
+ *   ✗ uniform row rhythm that weights a permission the same as a mode
+ *   ✗ full-bleed inputs with no field affordance
+ * Depth comes from FOUR distinct elevations, hierarchy from type scale
+ * and spacing, and accent from a restrained ink + one signal colour.
+ * ─────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* ══ DARK · default ═══════════════════════════════════════════════ */
+.xdr-console {
+  color-scheme: dark;
+
+  /* ── Type system · Deterministic Obsidian & Kinetic Amber ─────
+   * Display   = Outfit          (geometric, engineered, non-Inter)
+   * Body      = IBM Plex Sans   (IBM's data-density workhorse)
+   * Technical = JetBrains Mono  (every machine fact is monospaced) */
+  --nx-font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --nx-font-body:    'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+  --nx-font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  --sans:            var(--nx-font-body);
+  --mono:            var(--nx-font-mono);
+
+  /* ── Surfaces · 4 real elevations (not one slab) ─────────────── */
+  --nx-surf-canvas:    #0B0E14;   /* deepest — application ground   */
+  --nx-surf-primary:   #121721;   /* dominant work surface           */
+  --nx-surf-inset:     #0E131C;   /* controls, sub-sections, wells   */
+  --nx-surf-raised:    #1A212D;   /* popovers, dropdowns, drawers    */
+  --nx-surf-hover:     #222B3A;
+  --nx-surf-selected:  rgba(245, 158, 11, 0.14);
+
+  --nx-app:            var(--nx-surf-canvas);
+  --nx-app-alt:        var(--nx-surf-primary);
+  --nx-workspace:      var(--nx-surf-primary);
+  --nx-workspace-alt:  var(--nx-surf-inset);
+  --nx-elevated:       var(--nx-surf-raised);
+  --nx-inset:          var(--nx-surf-inset);
+
+  /* ── Borders / seams ────────────────────────────────────────── */
+  --nx-bd-quiet:       rgba(255, 255, 255, 0.08);
+  --nx-bd-strong:      rgba(255, 255, 255, 0.14);
+  --nx-divider:        var(--nx-bd-quiet);
+  --nx-divider-strong: var(--nx-bd-strong);
+
+  /* ── Text · WCAG-checked on --nx-surf-primary ───────────────── */
+  --nx-text:      #F1F5F9;   /* 13.6:1 */
+  --nx-text-dim:  #CBD5E1;   /*  9.6:1 */
+  --nx-muted:     #94A3B8;   /*  6.1:1 */
+  --nx-faint:     #7C8AA0;   /*  4.9:1 — metadata floor            */
+
+  /* ── Elevation · dark needs light-lift, not heavy shadow ────── */
+  --nx-shadow-1: 0 1px 0 rgba(255, 255, 255, 0.03);
+  --nx-shadow-2: 0 2px 10px rgba(0, 0, 0, 0.45);
+  --nx-shadow-3: 0 12px 34px rgba(0, 0, 0, 0.55);
+
+  /* ── Brand ink ──────────────────────────────────────────────── */
+  --nx-purple:       #F59E0B;
+  --nx-purple-hover: #D97706;
+  --nx-purple-dim:   rgba(245, 158, 11, 0.15);
+  --nx-purple-ring:  rgba(56, 189, 248, 0.55);
+  --nx-purple-soft:  #FCD34D;
+
+  --nx-teal:      #06B6D4;
+  --nx-teal-dim:  rgba(6, 182, 212, 0.15);
+
+  /* ── Severity ───────────────────────────────────────────────── */
+  --nx-critical: #FCA5A5; --nx-critical-bg: #451218; --nx-critical-bd: #991B1B; --nx-critical-glyph: #EF4444;
+  --nx-high:     #FDBA74; --nx-high-bg:     #3B1E08; --nx-high-bd:     #9A3412; --nx-high-glyph:     #F97316;
+  --nx-medium:   #FDE047; --nx-medium-bg:   #322D08; --nx-medium-bd:   #854D0E; --nx-medium-glyph:   #EAB308;
+  --nx-low:      #99F6E4; --nx-low-bg:      #0B2D2B; --nx-low-bd:      #115E59; --nx-low-glyph:      #14B8A6;
+
+  /* ── Disposition ────────────────────────────────────────────── */
+  --nx-malicious:  #EF4444; --nx-malicious-bg:  #451218; --nx-malicious-bd:  #991B1B;
+  --nx-suspicious: #F97316; --nx-suspicious-bg: #3B1E08; --nx-suspicious-bd: #9A3412;
+  --nx-benign:     #10B981; --nx-benign-bg:     #06251C; --nx-benign-bd:     #115E59;
+
+  /* ── Info / provenance ──────────────────────────────────────── */
+  --nx-info:      #93C5FD;
+  --nx-info-bg:   #0F2840;
+  --nx-provenance:    #3B82F6;
+  --nx-provenance-bg: #0F2840;
+
+  /* ── Epistemic scale · dark-tuned (grammar unchanged) ───────── */
+  --nx-ep-present:    #10B981; --nx-ep-present-bg: rgba( 61,214,140,0.14); --nx-ep-present-bd: #2E8F60;
+  --nx-ep-none:       #93A1B4; --nx-ep-none-bg:    rgba(147,161,180,0.13); --nx-ep-none-bd:    #556274;
+  --nx-ep-unknown:    #FDE047; --nx-ep-unknown-bg: rgba(242,193, 78,0.13); --nx-ep-unknown-bd: #8E7130;
+  --nx-ep-notrun:     #A5B4FC; --nx-ep-notrun-bg:  rgba(169,139,250,0.13); --nx-ep-notrun-bd:  #6B54B0;
+  --nx-ep-nocap:      #8896A8; --nx-ep-nocap-bg:   rgba(136,150,168,0.11); --nx-ep-nocap-bd:   #4E5A6B;
+  --nx-ep-noconn:     #D9A343; --nx-ep-noconn-bg:  rgba(217,163, 67,0.13); --nx-ep-noconn-bd:  #7E6127;
+
+  /* ── §3 RELATIONSHIP GRAMMAR · locked ────────────────────────
+   * Colour + line + marker together answer ONE question:
+   *   "how strongly is this relationship backed?"
+   * Never reused for disposition or severity.  A relationship with
+   * no authoritative backing does not render at all. */
+  --nx-rel-observed:     #94A3B8;   /* solid 1px · recorded edge     */
+  --nx-rel-supported:    #10B981;   /* solid 2px + ◆ · corroborated  */
+  --nx-rel-inferred:     #F59E0B;   /* dashed + ◇ · engine-derived   */
+  --nx-rel-possible:     #06B6D4;   /* dotted + ? · candidate        */
+  --nx-rel-gap:          #64748B;   /* broken neutral · unknown      */
+  --nx-rel-contradicted: #EF4444;   /* strike + ⊘ · negative evidence*/
+
+  /* ── Graph canvas ───────────────────────────────────────────── */
+  --nx-on-accent:  #0B0E14;
+  --nx-focus:      #38BDF8;
+
+  /* ── Priority ladder · five UNMISTAKABLY different hues ───────
+   * Owner review 2026-09-05: P1 and P2 both read as red because the
+   * chip reused the pale severity text colours as its fill.  The
+   * ladder now owns saturated, well-separated fills and is paired
+   * with a rank glyph so it survives greyscale. */
+  --nx-pri-1: #EF4444;   /* P1 · CRITICAL      · red    */
+  --nx-pri-2: #F97316;   /* P2 · HIGH          · orange */
+  --nx-pri-3: #EAB308;   /* P3 · MEDIUM        · amber  */
+  --nx-pri-4: #3B82F6;   /* P4 · LOW           · blue   */
+  --nx-pri-5: #94A3B8;   /* P5 · INFORMATIONAL · slate  */
+  --nx-graph-bg:   #090C12;
+  --nx-graph-grid: rgba(255, 255, 255, 0.035);
+}
+
+/* ══ LIGHT · preserved toggle ═════════════════════════════════════ */
+.xdr-console[data-nx-theme="light"] {
+  color-scheme: light;
+
+  --nx-surf-canvas:    #F8FAFC;
+  --nx-surf-primary:   #FFFFFF;
+  --nx-surf-inset:     #F1F5F9;
+  --nx-surf-raised:    #FFFFFF;
+  --nx-surf-hover:     #E2E8F0;
+  --nx-surf-selected:  rgba(217, 119, 6, 0.12);
+
+  --nx-app:            #0F172A;
+  --nx-app-alt:        #111827;
+  --nx-workspace:      var(--nx-surf-primary);
+  --nx-workspace-alt:  var(--nx-surf-inset);
+  --nx-elevated:       #FFFFFF;
+  --nx-inset:          var(--nx-surf-inset);
+
+  --nx-bd-quiet:       #E2E8F0;
+  --nx-bd-strong:      #CBD5E1;
+  --nx-divider:        var(--nx-bd-quiet);
+  --nx-divider-strong: var(--nx-bd-strong);
+
+  --nx-text:      #0F172A;
+  --nx-text-dim:  #475569;
+  --nx-muted:     #475569;
+  --nx-faint:     #64748B;
+
+  --nx-shadow-1: 0 1px 2px rgba(15, 20, 30, 0.05);
+  --nx-shadow-2: 0 2px 8px rgba(15, 20, 30, 0.09);
+  --nx-shadow-3: 0 10px 28px rgba(15, 20, 30, 0.14);
+
+  --nx-purple:       #D97706;
+  --nx-purple-hover: #92400E;
+  --nx-purple-dim:   #FEF3C7;
+  --nx-purple-ring:  rgba(2, 132, 199, 0.45);
+  --nx-purple-soft:  #B45309;
+
+  --nx-teal:      #0891B2;
+  --nx-teal-dim:  #CCFBF1;
+
+  --nx-critical: #991B1B; --nx-critical-bg: #FEE2E2; --nx-critical-bd: #E87070;
+  --nx-high:     #B4470B; --nx-high-bg:     #FFEDD5; --nx-high-bd:     #E88C48;
+  --nx-medium:   #92610A; --nx-medium-bg:   #FEF3C7; --nx-medium-bd:   #D9AC3A;
+  --nx-low:      #1D4ED8; --nx-low-bg:      #DBEAFE; --nx-low-bd:      #7FAEF5;
+
+  --nx-malicious:  var(--nx-critical); --nx-malicious-bg:  #FEF2F2; --nx-malicious-bd:  #EE9A9A;
+  --nx-suspicious: var(--nx-high);     --nx-suspicious-bg: #FFF7ED; --nx-suspicious-bd: #F0AE72;
+  --nx-benign:     #06795D;            --nx-benign-bg:     #ECFDF5; --nx-benign-bd:     #7CD9B0;
+
+  --nx-info:      #0B6FA4;
+  --nx-info-bg:   #E0F2FE;
+  --nx-provenance:    #0B6FA4;
+  --nx-provenance-bg: #E0F2FE;
+
+  --nx-ep-present:    #06795D; --nx-ep-present-bg: #E7F8F0; --nx-ep-present-bd: #56C29A;
+  --nx-ep-none:       #4E5A6B; --nx-ep-none-bg:    #EEF0F3; --nx-ep-none-bd:    #97A1B0;
+  --nx-ep-unknown:    #8A5A06; --nx-ep-unknown-bg: #FEF6E0; --nx-ep-unknown-bd: #D9A93A;
+  --nx-ep-notrun:     #5B3ED1; --nx-ep-notrun-bg:  #EFE9FF; --nx-ep-notrun-bd:  #A48CF0;
+  --nx-ep-nocap:      #56606E; --nx-ep-nocap-bg:   #F0F1F4; --nx-ep-nocap-bd:   #9AA3B0;
+  --nx-ep-noconn:     #855A08; --nx-ep-noconn-bg:  #FDF3DC; --nx-ep-noconn-bd:  #D2A23C;
+
+  --nx-rel-observed:     #475569;
+  --nx-rel-supported:    #059669;
+  --nx-rel-inferred:     #B45309;
+  --nx-rel-possible:     #0891B2;
+  --nx-rel-gap:          #A2ABB8;
+  --nx-rel-contradicted: #DC2626;
+
+  --nx-on-accent:  #FFFFFF;
+  --nx-focus:      #0284C7;
+
+  --nx-pri-1: #DC2626;
+  --nx-pri-2: #EA580C;
+  --nx-pri-3: #CA8A04;
+  --nx-pri-4: #2563EB;
+  --nx-pri-5: #64748B;
+  --nx-graph-bg:   #FBFBF9;
+  --nx-graph-grid: rgba(15, 23, 42, 0.05);
+}
+
+/* ══ Base surface application ═════════════════════════════════════ */
+.xdr-console {
+  background: var(--nx-surf-canvas);
+  color: var(--nx-text);
+}
+.xdr-console .main { background: var(--nx-surf-canvas); }
+
+/* ══ Theme toggle control ════════════════════════════════════════ */
+.nx-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--nx-bd-strong);
+  background: var(--nx-surf-inset);
+  color: var(--nx-muted);
+  font: 700 9.5px/1 var(--sans, system-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+.nx-theme-toggle:hover {
+  color: var(--nx-text);
+  border-color: var(--nx-purple);
+  background: var(--nx-purple-dim);
+}
+.nx-theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--nx-purple-ring);
+}
+
+/* ══ Relationship legend primitives (Attack Story + Evidence Graph) */
+.nx-rel-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 6px 18px;
+}
+.nx-rel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 10.5px/1.4 var(--mono, monospace);
+  color: var(--nx-muted);
+}
+.nx-rel-row b {
+  color: var(--nx-text-dim);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.nx-rel-swatch { width: 34px; height: 0; flex: 0 0 34px; }
+.nx-rel-swatch--observed     { border-top: 1px solid var(--nx-rel-observed); }
+.nx-rel-swatch--supported    { border-top: 2px solid var(--nx-rel-supported); }
+.nx-rel-swatch--inferred     { border-top: 1px dashed var(--nx-rel-inferred); }
+.nx-rel-swatch--possible     { border-top: 1px dotted var(--nx-rel-possible); }
+.nx-rel-swatch--gap          { border-top: 2px dashed var(--nx-rel-gap); opacity: 0.7; }
+.nx-rel-swatch--contradicted { border-top: 1px solid var(--nx-rel-contradicted); position: relative; }
+
+/* ══ Redesign primitives · surface + hierarchy ═══════════════════ */
+.nx-panel {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: var(--nx-r-card, 8px);
+  box-shadow: var(--nx-shadow-1);
+}
+.nx-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--nx-bd-quiet);
+}
+.nx-panel__title {
+  font: 700 12.5px/1.3 var(--sans, system-ui);
+  color: var(--nx-text);
+  letter-spacing: 0.01em;
+}
+.nx-panel__sub {
+  font: 500 10.5px/1.4 var(--mono, monospace);
+  color: var(--nx-faint);
+}
+.nx-panel__body { padding: 12px 14px; }
+
+/* Progressive-disclosure drawer — diagnostics never lead the view. */
+.nx-drawer {
+  border-top: 1px solid var(--nx-bd-quiet);
+  background: var(--nx-surf-inset);
+}
+.nx-drawer__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: transparent;
+  border: none;
+  color: var(--nx-muted);
+  font: 700 10px/1 var(--sans, system-ui);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+.nx-drawer__toggle:hover { color: var(--nx-text); background: var(--nx-surf-hover); }
+.nx-drawer__toggle:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--nx-purple-ring); }
+.nx-drawer__body {
+  padding: 4px 12px 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px 16px;
+}
+.nx-metric { display: flex; flex-direction: column; gap: 2px; }
+.nx-metric__k {
+  font: 700 9.5px/1 var(--sans, system-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nx-faint);
+}
+.nx-metric__v { font: 700 12px/1 var(--mono, monospace); color: var(--nx-text-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-theme-toggle, .nx-drawer__toggle { transition: none; }
+}
+
+/* ── Priority ladder rendering (owner spec 2026-09-05) ─────────────
+ * Priority is an ACCENT, never a large filled block:
+ *   text / icon → full colour
+ *   badge       → very low-opacity tint + coloured border
+ *   table row   → never tinted as a whole
+ * Priority (red/orange/amber/BLUE), verdict (red/orange/GREEN/neutral)
+ * and epistemic state (green/slate/amber/violet) are three separate
+ * scales and must never borrow each other's colours. */
+.xdr-console [data-priority-rank] {
+  background: color-mix(in srgb, var(--nx-tone) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nx-tone) 55%, transparent);
+  color: var(--nx-tone);
+  font-weight: 700;
+}
+.xdr-console [data-priority-rank="P1"] { --nx-tone: var(--nx-pri-1); }
+.xdr-console [data-priority-rank="P2"] { --nx-tone: var(--nx-pri-2); }
+.xdr-console [data-priority-rank="P3"] { --nx-tone: var(--nx-pri-3); }
+.xdr-console [data-priority-rank="P4"] { --nx-tone: var(--nx-pri-4); }
+.xdr-console [data-priority-rank="P5"] { --nx-tone: var(--nx-pri-5); }
+/* Light mode keeps the same grammar — tint + border + coloured text —
+   so a screenshot of either theme reads identically. */
+.xdr-console[data-nx-theme="light"] [data-priority-rank] {
+  background: color-mix(in srgb, var(--nx-tone) 10%, #FFFFFF);
+}

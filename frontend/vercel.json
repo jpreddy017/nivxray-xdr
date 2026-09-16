@@ -1,0 +1,18 @@
+{
+  "installCommand": "yarn install --production=false",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "build",
+  "framework": null,
+  "build": {
+    "env": {
+      "NPM_CONFIG_PRODUCTION": "false",
+      "YARN_PRODUCTION": "false"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

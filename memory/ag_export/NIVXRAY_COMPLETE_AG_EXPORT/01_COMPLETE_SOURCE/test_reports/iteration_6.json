@@ -1,0 +1,24 @@
+{
+  "summary": "Retest of the sticky-header overlay fix on ChainReplayView. All 4 flows PASS with real mouse clicks (no force, no synthetic .click()). Top RESTORE/CLOSE buttons now sit at y=103 (safely below the ~90px sticky header offset applied via window.scrollTo in rehydrateFromHistory + scrollMarginTop:80 on the card root). Bottom duplicate RESTORE/CLOSE buttons render at y=550, are hit-testable, and functional. elementFromPoint at every button center returns the BUTTON itself (isSelfOrChild=true) — no more HEADER interception. Restore-to-workspace correctly unmounts the replay and mounts ChainStageEditor with the 2 stages pre-populated (Stage 0: 'powershell -e ZQBjAGgAbwAgAGgAaQA=', Stage 1: 'IEX (New-Object Net.WebClient).DownloadString(...)'). Close correctly unmounts the replay.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_chain_persistence.py (from iter_5, unchanged)"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Pre-existing hydration warning: <span> child of <option> in ai-provider dropdown at WorkspacePage.jsx:761 (unrelated to this fix). Should be cleaned up eventually.",
+    "WorkspacePage.jsx still 1372 lines — over the 700-line soft limit. Consider extracting useChainReplay hook.",
+    "Fix is clean and minimal: (a) scrollMarginTop:80 on ChainReplayView root, (b) replaced scrollIntoView with window.scrollTo(rect.top + scrollY - 90) in rehydrateFromHistory, (c) duplicate action row at bottom of card with -bottom suffixed testids. Handlers reuse the same onRestore/onClose props — no logic duplication."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not retested (per instructions)", "frontend": "100% — all 4 button flows (top-restore, top-close, bottom-restore, bottom-close) pass with real mouse clicks"},
+  "test_credentials": "admin@nivxray.com / NivXRay#2026! (worked)",
+  "seed_data_creation": "Reused existing chain history records from iter_5 seed (~58 total). No new data created in this iteration.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sticky-header overlay bug on ChainReplayView is FIXED. All 4 action buttons (top+bottom RESTORE/CLOSE) are pointer-clickable via real mouse clicks and functionally complete the restore/close flows. Backend chain persistence pytest suite is unchanged from iter_5 (6/6 pass). No open issues on P0 Chain Persistence.",
+  "rca of the issue": "Iter_5 issue was root-caused to setTimeout scrollIntoView({block:'start'}) placing the card-head at y=13 behind the ~40px fixed HEADER. Main agent fixed by (1) offsetting scroll target: window.scrollTo(top - 90) instead of scrollIntoView, (2) belt-and-suspenders scrollMarginTop:80 on the card root, (3) adding a duplicate action row at bottom of the aggregate section as a safety net. Verified: card-head buttons now render at y=103 with elementFromPoint returning the button (no HEADER interception), and real mouse clicks succeed on all 4 buttons."
+}

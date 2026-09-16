@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-utf8short-2-mut0",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('n1x');    $b=[byte[]](6,69,12,30,11,87,65,82,74,64,93,23,13,80,20,65);    for($i=0;$i -lt $b.Length;$i++){ $b[$i] -bxor $k[$i % $k.Length] }",
+  "expected_keywords": [
+    "c2.local"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

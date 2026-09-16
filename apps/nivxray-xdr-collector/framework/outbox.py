@@ -34,6 +34,7 @@ from datetime    import datetime, timezone
 from typing      import Any, Dict, Iterable, List, Optional, Tuple
 
 from framework.base import Envelope
+from framework.identity import collector_id
 
 
 # ── Status enum ────────────────────────────────────────────────────
@@ -76,6 +77,11 @@ class OutboxRow:
     event_type:          str
     raw:                 Dict[str, Any]
     canonical:           Dict[str, Any]
+    #: D15 · the declaration this delivery must present at the
+    #: authoritative ingest boundary. Without it the boundary refuses the
+    #: delivery (DECLARATION_REQUIRED), so the outbox must carry it or a
+    #: durable delivery silently loses its declaration.
+    declared_source:     Optional[str]
     status:              str
     attempts:            int
     next_attempt_at:     str
@@ -89,7 +95,7 @@ class OutboxRow:
             source               = self.source,
             source_event_id      = self.source_event_id,
             connector_id         = self.connector_id,
-            collector_id         = "collector-local",
+            collector_id         = collector_id(),
             collection_method    = self.collection_method,
             parser_version       = self.parser_version,
             source_timestamp     = self.source_timestamp,
@@ -97,6 +103,7 @@ class OutboxRow:
             event_type           = self.event_type,
             raw                  = self.raw,
             canonical            = self.canonical,
+            declared_source      = self.declared_source,
         )
 
 
@@ -120,6 +127,7 @@ class Outbox:
         event_type           TEXT,
         raw_json             TEXT,
         canonical_json       TEXT,
+        declared_source      TEXT,
         status               TEXT NOT NULL,
         attempts             INTEGER NOT NULL DEFAULT 0,
         next_attempt_at      TEXT NOT NULL,
@@ -159,6 +167,13 @@ class Outbox:
     def _init_schema(self) -> None:
         with self._lock:
             self._conn.executescript(self._SCHEMA)
+            # Additive migration for databases written before the
+            # declaration column existed.
+            cols = {r["name"] for r in self._conn.execute(
+                "PRAGMA table_info(envelopes)")}
+            if "declared_source" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE envelopes ADD COLUMN declared_source TEXT")
 
     def _reset_stuck_delivering(self) -> None:
         """Restart-recovery: anything left in DELIVERING is put back
@@ -196,17 +211,59 @@ class Outbox:
                 (id, tenant_id, connector_id, source, source_event_id,
                     collection_method, parser_version, source_timestamp,
                     collection_timestamp, event_type, raw_json, canonical_json,
+                    declared_source,
                     status, attempts, next_attempt_at, last_error,
                     created_at, updated_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (rid, env.tenant_id, env.connector_id, env.source,
                     env.source_event_id, env.collection_method,
                     env.parser_version, env.source_timestamp,
                     env.collection_timestamp, env.event_type,
                     json.dumps(env.raw, default=str),
                     json.dumps(env.canonical or {}, default=str),
+                    env.declared_source,
                     OutboxStatus.QUEUED, 0, now, None, now, now))
             return rid, OutboxStatus.QUEUED
+
+    def statuses_for(self, tenant_id: str, connector_id_: str,
+                        keys: Iterable[str]) -> Dict[str, str]:
+        """Current status per idempotency key.
+
+        Used by the durable acquisition state to decide whether a vendor
+        batch has actually been ACCEPTED by the authoritative ingest — a
+        key with no row is reported as absent rather than assumed accepted.
+        """
+        out: Dict[str, str] = {}
+        keys = [k for k in keys if k]
+        if not keys:
+            return out
+        with self._lock:
+            for i in range(0, len(keys), 500):
+                chunk = keys[i:i + 500]
+                marks = ",".join("?" * len(chunk))
+                rows = self._conn.execute(f"""
+                    SELECT source_event_id, status FROM envelopes
+                     WHERE tenant_id=? AND connector_id=?
+                       AND source_event_id IN ({marks})
+                """, (tenant_id, connector_id_, *chunk)).fetchall()
+                for r in rows:
+                    out[r["source_event_id"]] = r["status"]
+        return out
+
+    def row_for_key(self, tenant_id: str, connector_id_: str,
+                        key: str) -> Optional[OutboxRow]:
+        """The row behind one idempotency key, with its failure history.
+
+        Used when a rejection becomes terminal: the quarantine evidence is
+        copied from the real delivery attempts, never reconstructed.
+        """
+        with self._lock:
+            r = self._conn.execute("""
+                SELECT * FROM envelopes
+                 WHERE tenant_id=? AND connector_id=? AND source_event_id=?
+                 LIMIT 1
+            """, (tenant_id, connector_id_, key)).fetchone()
+        return self._row(r) if r else None
 
     def by_id(self, rid: str) -> Optional[OutboxRow]:
         with self._lock:
@@ -376,6 +433,8 @@ class Outbox:
             event_type=r["event_type"],
             raw=json.loads(r["raw_json"] or "{}"),
             canonical=json.loads(r["canonical_json"] or "{}"),
+            declared_source=(r["declared_source"]
+                             if "declared_source" in r.keys() else None),
             status=r["status"], attempts=int(r["attempts"]),
             next_attempt_at=r["next_attempt_at"],
             last_error=r["last_error"],

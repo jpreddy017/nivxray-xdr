@@ -106,7 +106,8 @@ DENIED_ROUTES = [
 
     # API Keys
     ("POST",   "/api/xdr/api-keys",
-      {"name": "x", "scopes": ["lolbas.read"]},
+      {"name": "x", "scopes": ["lolbas.read"],
+       "confirm_tenant_id": "acme", "allow_new_tenant": True},
       "api_keys.create"),
     ("GET",    "/api/xdr/api-keys", None, "api_keys.read"),
 

@@ -1,0 +1,23 @@
+{
+  "id": "benign-admin-8",
+  "category": "benign",
+  "algorithm": "schtasks-benign",
+  "command_line": "schtasks /query /fo LIST /v",
+  "stage_ladder": [
+    {
+      "name": "plain-cli-parse",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "n/a",
+  "expected_plaintext": "schtasks /query /fo LIST /v",
+  "expected_iocs": [],
+  "expected_lolbins": [],
+  "expected_mitre": [],
+  "expected_verdict": "benign",
+  "expected_confidence_min": 0.0,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

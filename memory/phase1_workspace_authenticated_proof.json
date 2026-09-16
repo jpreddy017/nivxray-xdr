@@ -1,0 +1,217 @@
+[
+  {
+    "check": "authentication works on the cleaned build",
+    "pass": true,
+    "detail": "/"
+  },
+  {
+    "check": "removed nav item absent after login \u00b7 nav-xdr",
+    "pass": true,
+    "detail": "count 0"
+  },
+  {
+    "check": "removed nav item absent after login \u00b7 nav-investigations",
+    "pass": true,
+    "detail": "count 0"
+  },
+  {
+    "check": "removed nav item absent after login \u00b7 nav-nivxforge",
+    "pass": true,
+    "detail": "count 0"
+  },
+  {
+    "check": "retained nav item present \u00b7 WORKSPACE",
+    "pass": true,
+    "detail": "count 1"
+  },
+  {
+    "check": "retained nav item present \u00b7 HISTORY",
+    "pass": true,
+    "detail": "count 1"
+  },
+  {
+    "check": "retained nav item present \u00b7 BATCH",
+    "pass": true,
+    "detail": "count 1"
+  },
+  {
+    "check": "retained nav item present \u00b7 HEATMAP",
+    "pass": true,
+    "detail": "count 1"
+  },
+  {
+    "check": "retained nav item present \u00b7 TOOLS",
+    "pass": true,
+    "detail": "count 1"
+  },
+  {
+    "check": "retained nav item present \u00b7 LEARN",
+    "pass": true,
+    "detail": "count 1"
+  },
+  {
+    "check": "retained nav item present \u00b7 ADMIN",
+    "pass": true,
+    "detail": "count 1"
+  },
+  {
+    "check": "retained surface renders \u00b7 Workspace (Decoder / Analyze) (/)",
+    "pass": true,
+    "detail": "landed / \u00b7 16491 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Auto Investigate (/auto-investigate)",
+    "pass": true,
+    "detail": "landed /auto-investigate \u00b7 513 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Command Analyzer (/analyze)",
+    "pass": true,
+    "detail": "landed /analyze \u00b7 565 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 History (/history)",
+    "pass": true,
+    "detail": "landed /history \u00b7 28402 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Batch (/batch-test)",
+    "pass": true,
+    "detail": "landed /batch-test \u00b7 712 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Heatmap (/heatmap)",
+    "pass": true,
+    "detail": "landed /heatmap \u00b7 7937 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Learn \u00b7 Practice Lab (/lab)",
+    "pass": true,
+    "detail": "landed /lab \u00b7 549 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Learn \u00b7 Knowledge Base (/kb)",
+    "pass": true,
+    "detail": "landed /kb \u00b7 9417 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Learn \u00b7 Docs (/docs)",
+    "pass": true,
+    "detail": "landed /docs \u00b7 26026 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Admin (/admin)",
+    "pass": true,
+    "detail": "landed /admin \u00b7 30986 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Admin \u00b7 Documents (/documents)",
+    "pass": true,
+    "detail": "landed /documents \u00b7 3227 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Threat Intel (/threat-intel)",
+    "pass": true,
+    "detail": "landed /threat-intel \u00b7 16916 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 IEDDE trace (/iedde)",
+    "pass": true,
+    "detail": "landed /iedde \u00b7 88 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Compare (/compare)",
+    "pass": true,
+    "detail": "landed /compare \u00b7 241 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Platform Health (/platform)",
+    "pass": true,
+    "detail": "landed /platform \u00b7 1718 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Battery (/battery)",
+    "pass": true,
+    "detail": "landed /battery \u00b7 1410 chars"
+  },
+  {
+    "check": "retained surface renders \u00b7 Benchmark (now authenticated) (/benchmark)",
+    "pass": true,
+    "detail": "landed /benchmark \u00b7 2796 chars"
+  },
+  {
+    "check": "Q1 \u00b7 investigation deep link still routes (not bounced) \u00b7 /investigations",
+    "pass": true,
+    "detail": "landed /investigations"
+  },
+  {
+    "check": "Q1 \u00b7 investigation deep link still routes (not bounced) \u00b7 /investigation-summary",
+    "pass": true,
+    "detail": "landed /investigation-summary"
+  },
+  {
+    "check": "Q1 \u00b7 a REAL investigation detail deep link resolves",
+    "pass": true,
+    "detail": "landed /investigations/6a72169b3d98eb14810c9506"
+  },
+  {
+    "check": "Quick Open palette still opens (Ctrl+K)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "Quick Open still lists results (it reads /investigations)",
+    "pass": true,
+    "detail": "25 rows"
+  },
+  {
+    "check": "History page renders its drawer",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "History still reports its record total",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "removed surface no longer reachable \u00b7 /nivxforge",
+    "pass": true,
+    "detail": "landed /"
+  },
+  {
+    "check": "removed surface no longer reachable \u00b7 /nivxforge/dashboard",
+    "pass": true,
+    "detail": "landed /"
+  },
+  {
+    "check": "removed surface no longer reachable \u00b7 /nivxforge/investigate",
+    "pass": true,
+    "detail": "landed /"
+  },
+  {
+    "check": "removed surface no longer reachable \u00b7 /nivxforge/governance",
+    "pass": true,
+    "detail": "landed /"
+  },
+  {
+    "check": "removed surface no longer reachable \u00b7 /edr/trajectory",
+    "pass": true,
+    "detail": "landed /"
+  },
+  {
+    "check": "removed surface no longer reachable \u00b7 /xdr",
+    "pass": true,
+    "detail": "landed /"
+  },
+  {
+    "check": "Q4 \u00b7 /v2/* route resolves but renders its flag-off state",
+    "pass": true,
+    "detail": "body starts: 'nivxray\\ndecoder / threat-lab\\ncorpus \u00b7 88/88\\n\u2502\\nworkspace\\nhistory\\nbatch\\nheatmap\\nto'"
+  },
+  {
+    "check": "no uncaught page errors across the whole sweep",
+    "pass": true,
+    "detail": "0 errors: []"
+  }
+]

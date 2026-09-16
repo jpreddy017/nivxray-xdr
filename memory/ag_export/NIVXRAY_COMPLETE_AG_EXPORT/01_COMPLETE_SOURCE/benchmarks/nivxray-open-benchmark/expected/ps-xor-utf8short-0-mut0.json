@@ -1,0 +1,8 @@
+{
+  "id": "ps-xor-utf8short-0-mut0",
+  "category": "ps-xor-inline",
+  "expected_keywords": [
+    "whoami"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

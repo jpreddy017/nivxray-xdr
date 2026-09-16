@@ -1,0 +1,11 @@
+{
+  "id": "ps-encoded-4",
+  "category": "ps-encoded",
+  "command_line": "powershell.exe -NoProfile -EncodedCommand JABiAD0AWwBDAG8AbgB2AGUAcgB0AF0AOgA6AEYAcgBvAG0AQgBhAHMAZQA2ADQAUwB0AHIAaQBuAGcAKAAnAFMARwBWAHMAYgBHADgAPQAnACkAOwAgAGkAZQB4ACAAJABiAA==",
+  "expected_keywords": [
+    "hello",
+    "sgvsbg8="
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

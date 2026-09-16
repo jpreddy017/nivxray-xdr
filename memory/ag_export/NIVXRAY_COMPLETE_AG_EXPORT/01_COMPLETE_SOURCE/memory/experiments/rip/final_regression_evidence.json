@@ -1,0 +1,361 @@
+{
+  "gate_verdict": "PASS",
+  "total_fails": 0,
+  "corpus_hash": "8dcfc3c774a7558fb279f95a26cf6dff890d5505691fd8fd108b4bb2782ea2e5",
+  "cases": [
+    {
+      "case_id": "rip-01-ps-enc-launcher",
+      "payload_sha256": "731bd216c032aea9d47d7e42265e84f9f77f0b5e792fe64913e102928ea381ed",
+      "size": 262,
+      "verdict": "Malicious",
+      "risk_score": 76,
+      "risk_level": "high",
+      "mitre_ids": [
+        "T1027",
+        "T1027.010",
+        "T1059.001"
+      ],
+      "lolbins": [
+        "powershell.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "ok",
+        "elapsed_ms": 0.082,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 1,
+      "die_techniques": [
+        "T1027",
+        "T1059.001",
+        "T1105",
+        "T1140",
+        "T1562.001",
+        "T1564.003"
+      ],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 301,
+      "narrate_actions_count": 9,
+      "narrate_progression_count": 0,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-02-mshta-remote-hta",
+      "payload_sha256": "6bd6c4ad6a38b5c77fdc08c770b2f0eeaae2ed351e3dbaec5a00280979240051",
+      "size": 42,
+      "verdict": "Malicious",
+      "risk_score": 100,
+      "risk_level": "high",
+      "mitre_ids": [
+        "T1218.005",
+        "T1566.001"
+      ],
+      "lolbins": [
+        "mshta.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "timeout",
+        "elapsed_ms": 501.53,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 241,
+      "narrate_actions_count": 2,
+      "narrate_progression_count": 0,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-03-certutil-urlcache",
+      "payload_sha256": "6ca80b2268fb1c0afbc44dc01daa594f9f11e83ee98020e33fd075e9ec92bb84",
+      "size": 91,
+      "verdict": "Malicious",
+      "risk_score": 73,
+      "risk_level": "high",
+      "mitre_ids": [
+        "T1105"
+      ],
+      "lolbins": [
+        "Update.exe",
+        "certutil.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "timeout",
+        "elapsed_ms": 501.217,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [
+        "T1105"
+      ],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 276,
+      "narrate_actions_count": 4,
+      "narrate_progression_count": 1,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-04-squiblydoo",
+      "payload_sha256": "e5c17655cdde343af1202f5175dcd4c2fa877e667c132bd72b9c5127c5e339aa",
+      "size": 69,
+      "verdict": "Malicious",
+      "risk_score": 96,
+      "risk_level": "high",
+      "mitre_ids": [
+        "T1105",
+        "T1218.010"
+      ],
+      "lolbins": [
+        "Scrobj.dll",
+        "regsvr32.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "timeout",
+        "elapsed_ms": 501.139,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 241,
+      "narrate_actions_count": 3,
+      "narrate_progression_count": 1,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-05-wmic-process",
+      "payload_sha256": "f851fdce414877a4f0a96a941202c7452c954ed0eeddd39efdcdd1055a78bd99",
+      "size": 166,
+      "verdict": "Malicious",
+      "risk_score": 100,
+      "risk_level": "high",
+      "mitre_ids": [
+        "T1047",
+        "T1059.001",
+        "T1059.003",
+        "T1105"
+      ],
+      "lolbins": [
+        "cmd.exe",
+        "powershell.exe",
+        "wmic.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "timeout",
+        "elapsed_ms": 501.705,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [
+        "T1059.001",
+        "T1105",
+        "T1564.003"
+      ],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 301,
+      "narrate_actions_count": 8,
+      "narrate_progression_count": 1,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-06-benign-recon-ps",
+      "payload_sha256": "06f5fd7a2a3e90a39b6dfa8651692290fb121c80768cff9e5a082c6dd28545cc",
+      "size": 173,
+      "verdict": "Benign",
+      "risk_score": 9,
+      "risk_level": "safe",
+      "mitre_ids": [
+        "T1119"
+      ],
+      "lolbins": [],
+      "ti_lookup_meta": {
+        "status": "ok",
+        "elapsed_ms": 0.094,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [],
+      "narrate_populated": false,
+      "narrate_exec_summary_len": 0,
+      "narrate_actions_count": 0,
+      "narrate_progression_count": 0,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-07-netsh-fw-off",
+      "payload_sha256": "ef3e3e77978fbef2d47ea0e3c00e64a84cd00d22b9c317fefcd18a00e6b029c6",
+      "size": 43,
+      "verdict": "Low Risk",
+      "risk_score": 17,
+      "risk_level": "low",
+      "mitre_ids": [
+        "T1562.004"
+      ],
+      "lolbins": [
+        "netsh.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "ok",
+        "elapsed_ms": 0.135,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [
+        "T1562.004"
+      ],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 241,
+      "narrate_actions_count": 1,
+      "narrate_progression_count": 0,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-08-nested-b64-ps",
+      "payload_sha256": "fa9b32daed2a53b3953f1be59e4344a55d21c1c96a975f2f6a68a0ccee12c946",
+      "size": 385,
+      "verdict": "Malicious",
+      "risk_score": 84,
+      "risk_level": "high",
+      "mitre_ids": [
+        "T1027",
+        "T1059.001",
+        "T1140"
+      ],
+      "lolbins": [
+        "powershell.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "ok",
+        "elapsed_ms": 0.09,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 2,
+      "die_techniques": [
+        "T1027",
+        "T1059.001",
+        "T1105",
+        "T1140",
+        "T1564.003"
+      ],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 301,
+      "narrate_actions_count": 8,
+      "narrate_progression_count": 1,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-09-too-short",
+      "payload_sha256": "2b64c6d9afd8a34ed0dbf35f7de171a8825a50d9f42f05e98fe2b1addf00ab44",
+      "size": 3,
+      "verdict": "Benign",
+      "risk_score": 0,
+      "risk_level": "safe",
+      "mitre_ids": [],
+      "lolbins": [],
+      "ti_lookup_meta": {
+        "status": "ok",
+        "elapsed_ms": 0.107,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [],
+      "narrate_populated": false,
+      "narrate_exec_summary_len": 0,
+      "narrate_actions_count": 0,
+      "narrate_progression_count": 0,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-10-empty-input",
+      "payload_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "verdict": null,
+      "risk_score": null,
+      "risk_level": null,
+      "mitre_ids": [],
+      "lolbins": [],
+      "ti_lookup_meta": null,
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [],
+      "narrate_populated": false,
+      "narrate_exec_summary_len": 0,
+      "narrate_actions_count": 0,
+      "narrate_progression_count": 0,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-11-bitsadmin-transfer",
+      "payload_sha256": "82a91ddd0230d71e9f6098bd9dc2a3d9e50b9e20ba7eb5404885d4847a34f7d3",
+      "size": 97,
+      "verdict": "Malicious",
+      "risk_score": 83,
+      "risk_level": "high",
+      "mitre_ids": [
+        "T1074.001",
+        "T1105",
+        "T1197"
+      ],
+      "lolbins": [
+        "bitsadmin.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "timeout",
+        "elapsed_ms": 501.266,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [
+        "T1105"
+      ],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 276,
+      "narrate_actions_count": 4,
+      "narrate_progression_count": 1,
+      "gate_fails": []
+    },
+    {
+      "case_id": "rip-12-rundll32-poweliks",
+      "payload_sha256": "09b75d290d88fa8f3a7731b26d6ad358da2aafa84a9d2b4078b3a8adc3529213",
+      "size": 243,
+      "verdict": "Malicious",
+      "risk_score": 78,
+      "risk_level": "high",
+      "mitre_ids": [
+        "T1021.002",
+        "T1218.005",
+        "T1218.011"
+      ],
+      "lolbins": [
+        "rundll32.exe"
+      ],
+      "ti_lookup_meta": {
+        "status": "ok",
+        "elapsed_ms": 0.109,
+        "deadline_ms": 500.0
+      },
+      "ti_hits": 0,
+      "die_decoded_layers": 0,
+      "die_techniques": [
+        "T1027",
+        "T1059.007",
+        "T1105"
+      ],
+      "narrate_populated": true,
+      "narrate_exec_summary_len": 301,
+      "narrate_actions_count": 6,
+      "narrate_progression_count": 0,
+      "gate_fails": []
+    }
+  ]
+}

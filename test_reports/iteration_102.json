@@ -1,0 +1,101 @@
+{
+  "summary": "P0-F.13.3 verification: EDR plane nested inside XdrShell (11-route sweep), AMP header baseline reversion, single-column customer menu, server-validated XDR pivot context banner, new canvas 'no sensor coverage' hatch, selected-event temporal guide, theme sync, deep links, and backend /api/edr/context + /api/xdr/rbac/session-context. Backend: 6/6 PASS. Frontend: all acceptance items PASS.",
+  "acceptance_matrix": {
+    "1_global_shell_11_route_sweep": {
+      "result": "PASS",
+      "note": "11/11 EDR routes render inside XdrShell with xdr-shell, xdr-topbar-search, xdr-tenant-pill, nivxforge-console, nvf-sidebar, nvf-main all present; nvf-main non-empty text (138-1730 chars); exactly ONE .topbar per route; zero console errors on any route.",
+      "routes_tested": ["/xdr/edr/device-trajectory?device=dev_42e8c6dc74b9","/edr","/edr/detections","/edr/process-tree","/edr/campaign-story","/edr/files","/edr/network","/edr/hunting","/edr/forensics","/edr/live-query","/edr/response"]
+    },
+    "2_edr_sub_nav_11_items": {
+      "result": "PASS",
+      "note": "nvf-nav-* count=11: [Overview, Detections, Device Trajectory, Process Tree, Campaign Story, Files, Network, Threat Hunting, Forensics, Live Query, Response]. No 'Device Trajectory · AMP' duplicate."
+    },
+    "3_global_search_from_edr": {
+      "result": "PASS",
+      "note": "Typing into xdr-topbar-search + Enter navigates to /xdr/incidents?q=test-query and incident queue renders. amp-filter-search remains present alongside it."
+    },
+    "4_customer_pill_and_single_column_menu": {
+      "result": "PASS",
+      "note": "Pill reads 'CUSTOMER · ALL CUSTOMERS' with data-customer-basis=CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER. Menu opens single-column: 9 rows, unique X=[1434], each row width=298 (>=200), row text 'name\\nN open' (e.g. 'default\\n241 open'). Long v2_shadow_observations paragraph NOT present in menu."
+    },
+    "5_amp_header_reverted_to_baseline": {
+      "result": "PASS",
+      "note": "Forbidden ABSENT: amp-breadcrumbs, amp-window-presets, amp-window-1h, amp-fit-observations, amp-refresh, amp-export-button. Required PRESENT: dt-heading, amp-theme-toggle, amp-legacy-link ('Use Legacy Device Trajectory'), amp-fullscreen-toggle."
+    },
+    "6_canvas_no_sensor_coverage_hatch": {
+      "result": "PASS",
+      "note": "amp-canvas-hatch-after present inside amp-canvas with fill=url(#amp-canvas-hatch), width=349.23 (>0). Text node 'no sensor coverage' present inside the SVG. Because amp-fit-observations was intentionally removed, could not use it; hatch confirmed present on default 24h window."
+    },
+    "7_selected_event_temporal_guide": {
+      "result": "PASS",
+      "note": "Clicking amp-activity-row-* shows amp-temporal-guide with data-at=<observation ts> (e.g. 2026-09-06T06:01:51.930000+00:00). Clicking a different row updates data-at."
+    },
+    "8_server_validated_xdr_pivot_context": {
+      "result": "PASS",
+      "sub_results": {
+        "valid_pivot": "PASS — banner data-entry-context=XDR_PIVOT, data-endpoint-reference=REFERENCES_THIS_ENDPOINT, shows INC000000293, customer 'default', verdict 'suspicious', DETECTIONS 7 · EDR-LNX-002, hostname agent-env-630704a1-621f-478b-9b86-a321772d01bf. edr-return-to-incident href=/xdr/incidents/inc_2305c71cd8f54dc38e55.",
+        "bogus_incident": "PASS — edr-context-error rendered with text 'CONTEXT◇ INCIDENT_NOT_FOUND'. No fabricated customer name shown.",
+        "wrong_endpoint": "PASS — Using inc_3cf06d55a75a4963a3c6: data-endpoint-reference=ENDPOINT_NOT_REFERENCED_BY_INCIDENT with notice 'REFERENCE◇ this incident does not reference this endpoint'."
+      }
+    },
+    "9_backend_api_edr_context": {
+      "result": "PASS",
+      "note": "6/6 pytest cases PASS (xdr_pivot, direct_edr, bogus_incident=INCIDENT_NOT_FOUND, unauthenticated=403, ignores query-string tenant '&tenant=EVIL' does not appear in response, endpoint_reference.state=REFERENCES_THIS_ENDPOINT with basis=workspace_cases.endpoint_campaign.hostname, verdict/detections/rule verified)."
+    },
+    "10_backend_session_context": {
+      "result": "PASS",
+      "note": "Response envelope {ok:true, data:{...}}. principal.email=admin@nivxray.com, tenant_scope.all_tenants=true, customers list contains 'default' with open_incidents=241, matches /api/xdr/mss/customer-operations default open_incidents=241."
+    },
+    "11_regression_wheel_and_workspace_attrs": {
+      "result": "PASS",
+      "note": "Plain wheel over amp-canvas: data-row-start 0->4, amp-nav-window text unchanged, window.scrollY=0. amp-workspace exposes data-row-start/-end/-total/-lane-axis-version (rs=4, re=28, rt=491, lav=4d58c1df305bef37). amp-status absent, amp-activity-tabs absent."
+    },
+    "12_regression_theme_sync": {
+      "result": "PASS",
+      "note": "Initial state: xdr=dark, amp=dark. Click xdr-theme-toggle -> both 'light', localStorage nx.theme='light'. Click amp-theme-toggle -> both 'dark', nx.theme='dark'. After reload: xdr=amp=dark and nx.theme='dark' persisted."
+    },
+    "13_regression_deep_links": {
+      "result": "PASS",
+      "note": "?device=dev_42e8c6dc74b9&at=2026-09-06T12:14:07Z opens amp-details-panel and amp-nav-window shows 'window 30.0 min · 2026-09-06 11:59:07 → 2026-09-06 12:29:07 UTC'."
+    }
+  },
+  "route_sweep_table": {
+    "/xdr/edr/device-trajectory?device=dev_42e8c6dc74b9": "PASS",
+    "/edr": "PASS",
+    "/edr/detections": "PASS",
+    "/edr/process-tree": "PASS",
+    "/edr/campaign-story": "PASS",
+    "/edr/files": "PASS",
+    "/edr/network": "PASS",
+    "/edr/hunting": "PASS",
+    "/edr/forensics": "PASS",
+    "/edr/live-query": "PASS",
+    "/edr/response": "PASS"
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_edr_context_p0_f13_3.py",
+    "/app/test_reports/pytest/iter102_backend.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor: edr-context-error surfaces the code INCIDENT_NOT_FOUND in innerText but does not expose it as a `data-error-code` attribute; a DOM-attribute mirror would be cleaner for automation than string parsing.",
+    "Minor observation: on default 24h load the Activity pane rendered 0 amp-activity-row-* items in this session (because the hatched no-sensor region dominates the window), so the amp-filter-search count-change assertion could not be exercised end-to-end. Element itself is present and accepts input; a shorter window or auto-fit-on-load would make this trivially testable, but owner explicitly rejected 'Fit to observations' so this is acceptable.",
+    "Enhancement (still open from iter_101): add data-glyph on amp-event-* <g> for semantic type, so tests don't have to peek at DOM shape."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_edr_context_p0_f13_3.py (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (13/13 acceptance items)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0-F.13.3 PASS. The structural nesting of all 11 EDR routes inside XdrShell is stable (single topbar per route, zero console errors, non-empty nvf-main). AMP header baseline (title + theme + legacy link + fullscreen) confirmed; forbidden legacy header controls (breadcrumbs, presets, fit, refresh, export) are absent. Customer menu is single-column. XDR pivot banner supports all three server-validated states: REFERENCES_THIS_ENDPOINT (inc_2305c71cd8f54dc38e55), INCIDENT_NOT_FOUND (bogus id), ENDPOINT_NOT_REFERENCED_BY_INCIDENT (inc_3cf06d55a75a4963a3c6). Backend /api/edr/context ignores query-string tenant. session-context matches mss/customer-operations counts (default=241). Theme is unified via localStorage 'nx.theme' + 'nx-theme' event, both toggles are one truth and persist over reload.",
+  "rca_of_the_issue": "N/A — no defects found."
+}

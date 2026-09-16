@@ -1,0 +1,40 @@
+{
+  "summary": "P0-A.1 ENDPOINT HEALTH — frontend regression pass. All 13 review checks verified against the live preview at 1920x950 across three representative endpoints (ENG-42 dev_a0267ae20737 · 64 obs, dev_c52108804b98 no-hostname · 1 obs, HYD-FW05 dev_43a4192d7e35 · 1 obs, HYD-SRV32 dev_53818be204fb · bound incident). Two-dimension health rendering, epistemic-honesty note, isolation-unknown, Sensor & Platform ⊘/◇ tokens, drawer persistence across tabs, section collapsibility with correct default open/closed states, actions menu grouping/disabled tooltips/ESC+outside-click dismissal, related-incident pivot navigation, no-hostname fallback title, list page, and Device Trajectory canvas all render as specified. Zero console errors on any page. Zero horizontal overflow with drawer open. No regressions vs iteration_87 baseline.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_checks": [
+    "Show details toggle opens/closes right drawer; grid collapses 1fr 318px ↔ 1fr; canvas returns to full width on close.",
+    "Health section renders BOTH rows as separate Fields: 'Agent link (lifecycle) = NO_AGENT / no agent record is bound to this endpoint' AND 'Telemetry health (evidence) = STALE / last telemetry Xs ago (threshold 3600s)'. Never collapsed. No 'CONNECTED', 'OK', 'Healthy', green all-clear anywhere.",
+    "Evidence sufficiency = PARTIAL and Parser failures / dropped = 0 / 0 render; never blank/undefined.",
+    "endpoint-drawer-visibility = 'VISIBILITY DEGRADED'.",
+    "endpoint-drawer-health-note present, literal text contains both 'not evidence' and 'visibility gap' semantics ('Absence of telemetry is a visibility gap, not evidence that nothing happened. This endpoint's evidence completeness is reduced; its security verdict is unchanged.').",
+    "Sensor & Platform badge = '⊘ NO AGENT'. Every field renders ◇ or ⊘ token with reason (OS, connector version, install date, IP, policy/group, host firewall, connector health, live query). Zero occurrences of 'undefined', 'null', 'N/A', bare '-' in drawer.",
+    "endpoint-drawer-isolation-state = '⊘ ISOLATION STATE UNKNOWN — RESPONSE DRIVER NOT REGISTERED'. No enabled Start/Release isolation control anywhere.",
+    "Section defaults: identity/health/sensor/isolation aria-expanded=true; antivirus/vulnerabilities aria-expanded=false. Toggling opens antivirus & vulnerabilities to show '⊘ NO AV PLANE BOUND' and '⊘ NO EXPOSURE DATA BOUND'. All toggles clean, no errors.",
+    "Drawer persists across all four tabs (overview/trajectory/lanes/ancestry) with health values intact; stays closed across tab switch when closed.",
+    "Actions dropdown: 4 groups (DEVICE ACTIONS / INVESTIGATE / RESPONSE / PIVOTS-LINKS). Pinned footer states '10 disabled — capability not registered on this platform. Shown, never simulated.' Disabled items carry tooltip/reason. Closes on Escape and on outside click. Enabled items navigate (verified 'Related incident' on HYD-SRV32 navigates to /xdr/incidents/inc_7742fe7120174204be36).",
+    "No-hostname endpoint dev_c52108804b98: page heading and drawer title both fall back to device ref 'dev_c52108804b98' (no literal 'null'/blank). Hostname field renders '◇ NO HOSTNAME OBSERVED'. Health rows resolve normally.",
+    "1-obs (HYD-FW05) vs 64-obs (ENG-42): both show correct observation counts (1 persisted / 64 persisted) and both carry identical two-dimension health rows. High-observation endpoint is NOT presented as healthy.",
+    "Layout at 1920x950 with drawer open: document.scrollWidth == innerWidth (1920); no horizontal overflow; badges wrap. Device Trajectory usable.",
+    "Endpoint list page renders 12 rows without error. Device Trajectory, Process Ancestry, Endpoint Lanes tabs render without console errors.",
+    "iteration_87 correction confirmed: HYD-SRV32 (dev_53818be204fb) IS bound to incident inc_7742fe7120174204be36; 'Related incident' pivot enabled and navigates correctly."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Nit: EndpointActionsMenu Item renders data-state attribute only in the disabled branch. The 'available' branch omits it (data-state=None in DOM). If tests want to distinguish available/unavailable purely via data-state, add data-state='available' to the enabled branch too. Not a functional bug — the disabled branch already uses aria-disabled='true' and disabled attribute.",
+    "Nit: XdrEntity360Page renders 'INFERRED' badge next to the hostname string inside the drawer's Hostname field even when identity is otherwise AUTHORITATIVE (device_iid present). Semantically the string origin IS inferred so this is defensible, but on a fully authoritative endpoint (ENG-42) the drawer shows both '◆ AUTHORITATIVE' as identity confidence AND an 'INFERRED' badge next to the hostname value — could confuse an analyst. Consider a shorter marker like '(observation-derived)' or a tooltip-only affordance."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (skipped per request)", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "P0-A.1 drawer + health binding is now the regression baseline (was iteration_87 pre-health-binding). If P0-A.2 (enrollment/auth) lands, the same endpoints should transition to agent_lifecycle=CONNECTED or NEVER_ENROLLED honestly, and telemetry_health should still render as its own independent dimension — verify a CONNECTED-but-no-telemetry case does NOT collapse to a green healthy summary. Also re-verify the 'INFERRED' badge behaviour on the drawer Hostname field after any identity model changes.",
+  "rca of the issue": "n/a — no bug found"
+}

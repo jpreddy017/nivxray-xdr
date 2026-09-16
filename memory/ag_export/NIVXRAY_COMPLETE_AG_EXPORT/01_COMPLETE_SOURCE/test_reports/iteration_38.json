@@ -1,0 +1,22 @@
+{
+  "summary": "R4 Deterministic Investigation Report Generator validated end-to-end. Backend: 6/6 R4 pytest suite passes; 7/7 live API tests pass (JSON envelope with schema_version=r4.0, 10 sections in exact order, 64-hex signature; text/plain Markdown with case_id + SHA-256 + all numbered section headings; byte-identical JSON & MD determinism across two consecutive requests; dominant_process='cmd.exe' (15 events), no synthetic proc_shadow_* leakage in ancestry top_processes; empty case returns 200 with 10 sections, event_total=0 and valid signature; RC5 /api/rc5/parse still returns 200 with valid response). Frontend: GENERATE REPORT amber CTA, ReportModal, monospace MD preview containing SHA-256, sidebar signature (64-hex), all 10 TOC entries present, COPY JSON / COPY MD flip to '✓ COPIED' after click, DOWNLOAD .md and .json fire real download events with correct filenames (case_dfir_bumblebee_akira_2026.report.md/.json), close button and backdrop click both dismiss the modal.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": { "ui_bugs": [], "integration_issues": [], "design_issues": [] },
+  "test_report_links": [
+    "/app/backend/tests/rc5/api/test_v2_report.py",
+    "/app/backend/tests/rc5/api/test_r4_live.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Feature-flag guard (503 when NIVX_FLAG_TRAJECTORY_ENGINE unset) was verified by code inspection in /app/backend/v2/routers/report.py (lines 20-22) rather than by unsetting the env var live, to avoid destabilizing the running backend. If the main agent wants live coverage, add an ASGI-app-level pytest that clears the flag via monkeypatch and calls the endpoint via TestClient.",
+    "Full-suite fast gate reports 1402 passed / 27 failed with default xdist config. The 27 failures appear unrelated to R4 (LiteLLM timeouts in adversarial/wrapper/rc42 suites and one auth token test in test_rc42_smart_decode_flows) and predate this delivery — flagging so the main agent can confirm."
+  ],
+  "updated_files": ["/app/backend/tests/rc5/api/test_r4_live.py (new)"],
+  "success_rate": { "backend": "100% (R4 suites)", "frontend": "100%" },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used pre-seeded case_dfir_bumblebee_akira_2026 (53 observations).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "R4 signature observed for the seeded case: 450880eb24ac7916cc860399ff4d28546bb7d14f542a61353db82dc8bf3ae8a8. generated_at is derived from newest observation (2026-07-22T13:04:54.385950+00:00). Live E2E tests live at /app/backend/tests/rc5/api/test_r4_live.py — remember to restart backend if a prior test run left LiteLLM calls in-flight (adversarial regression suite can wedge the event loop; `sudo supervisorctl restart backend` clears it).",
+  "rca of the issue": "N/A — no regressions found."
+}

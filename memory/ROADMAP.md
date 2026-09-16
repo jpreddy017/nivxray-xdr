@@ -1,3 +1,249 @@
+# NivXRay XDR — Post-Maturity P0 Gate (locked 2026-09-02)
+
+**Baseline accepted:** Composite 66/100 · Technical Engineering 79 ·
+Evidence Integrity 94 · Detection & Investigation 58 · XDR
+Correlation 55 · Production Readiness 52. **Do NOT start Phase 3.
+Do NOT add cosmetic / UI features.** First close the P0 gates below.
+
+## Locked P0 execution order
+
+| # | Gate | Status |
+|---|---|---|
+| **P0-0** | Decoder / deobfuscation integration verification | ✅ **AUDIT DONE 2026-09-02 · Verdict B** · **Plumbing SHIPPED 2026-09-02** — recursive engine wired into `services/canonicalizer/canonicalize()` via new thin bridge `services/decoder_bridge/` (~130 LOC, ZERO new decoder code). `CanonicalCommand` now carries `decoded_layers[]`, `decoded_iocs[]`, `decoded_final`. Each layer is a canonical CHILD with `provenance.decoded_from=<parent>` and `attck_promotion=false`. IOCs stamped with `decoded_layer_id`. Live smoke on `powershell -EncodedCommand` returned 1 layer + 1 URL IOC with full provenance chain. 12 new pytest green + 238/238 core regression. `test_rc41_crypto_regression.py` 100 errors → 101 clean skips (integration test now degrades gracefully). |
+| **P0-1** | 70-scenario labelled ground-truth corpus (20 benign · 15 suspicious · 20 malware · 15 obfuscation · 6 end-to-end chains) with expected verdict + severity + ATT&CK + IOCs + decoded layers per row.  Runs as `pytest tests/corpus --run-metrics` emitting precision, recall, F1, verdict-confidence calibration. | ⏸ **NOT STARTED · awaiting owner GO** |
+| **P0-2** | Real telemetry connectors — live HTTP pollers for Okta System Log, Entra Sign-in, AWS CloudTrail behind the existing `SourcePoller` abstraction. Credentials remain outside the codebase; unconfigured pollers must honestly report `not_provisioned`. | ⏸ **NOT STARTED · awaiting owner GO** |
+| **P0-3** | Performance / load testing — Locust or k6 against top-10 endpoints under 100 concurrent analysts. Publish p50 / p95 / p99 per endpoint. Add narration cache so LLM path drops from ~5.5 s to sub-second on repeats. | ⏸ **NOT STARTED · awaiting owner GO** |
+| **P0-4** | Evidence → detection → correlation → verdict validation — using P0-1 corpus, prove: (1) known input → expected evidence, (2) evidence → expected detections, (3) detections → correlated investigations, (4) investigations → correct verdicts, (5) verdicts are evidence-backed, (6) narration is grounded in that evidence, (7) same input → deterministic result, (8) performance measured at realistic concurrency. Report **PASS/FAIL** per criterion. No marketing language. | ⏸ **NOT STARTED · depends on P0-1 and P0-2** |
+
+## Architecture decision · LOCKED 2026-09-02
+
+**Cloud LLM = optional provider · never a dependency.**
+
+```
+                  NivXRay Evidence
+                         │
+                         ▼
+                Deterministic Core
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+        Verdict / ATT&CK       Evidence Graph
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+                 Local / Offline LLM         ◄─  first-class
+                         │                        requirement
+                         ▼
+                 Grounding Validator
+                         │
+                         ▼
+              Executive Summary · Attack Story ·
+              Investigation Summary · Analyst Explanation
+```
+
+**Invariants:**
+- The LLM **explains** evidence. It does not **create** evidence.
+- The offline LLM path must be exercised as the default in
+  self-contained deployments (no cloud egress required).
+- Cloud LLM is a Model-Gateway *provider*, never a Cognis
+  dependency.
+- Grounding Validator is inserted between LLM output and Final
+  Output — every LLM response is checked against the governed
+  evidence-id whitelist before it leaves the box.
+
+## Detection maturity target
+
+Current: **58/100**.  
+Target after P0-0..P0-4: **70–75/100 with measurable ground truth.**  
+Only after that is a jump to composite 78–82 defensible.
+
+## Anti-drift rules (owner-locked)
+
+- Do NOT chase composite 80/100 by adding features.
+- Do NOT accept a capability as "implemented" from code existence alone.
+- Do NOT let the Cognis / Model Gateway become a security authority.
+- Do NOT proceed to Phase 3 Response Automation until P0-1..P0-4 have
+  measurable PASS results.
+- Do NOT begin any P0 item without explicit owner GO.
+
+
+# NivXRay XDR — Owner-Locked Sequencing (2026-09-02)
+
+> Formal owner directive: Intelligence Controls are in REVIEW.
+> **Do NOT authorize the next task from status alone.** Wait for
+> explicit acceptance before starting item #2.
+
+## Locked sequencing (do NOT reorder)
+
+1. **Intelligence Controls** — ✅ FORMALLY ACCEPTED 2026-09-02 · CLOSED
+2. **Attack Chain redesign** — ✅ SHIPPED 2026-09-02 · in REVIEW
+3. **P0-0 Decoder audit + Decoder-in-Pipeline plumbing** — ✅ SHIPPED 2026-09-02 (bridge SUPERSEDED — see P0-1B below)
+4. **P0-1 Labelled corpus** — ✅ FORMALLY ACCEPTED 2026-09-02 as immutable baseline · 76 scenarios · verdict 0.614 · ATT&CK F1 0.823 · IOC F1 0.881 · decoder-layer 1.000 · malicious F1 0.806 · **0 benign FPs · 7 malware FNs**
+5. **P0-1A Surface Detection Fix Pass** — 🔥 **AUTHORISED · NEXT TURN**
+   - Add explicit `UNCERTAIN` state at command surface
+   - Post-decode IOC re-scan (fixes obf-02 caret URL)
+   - Persistence-cluster promotion (fixes mal-08 / mal-09)
+   - Local-account-creation detection (fixes mal-13)
+   - Lateral-copy detection (fixes mal-18)
+   - Reflective-PE-load detection (fixes obf-13)
+   - Correct E2E incident-verdict measurement at incident scope
+   - **ZERO new decoder implementations · no LLM changes · no fabricated evidence · preserve NO EVIDENCE → NO CLAIM**
+   - After: rerun the immutable 76-scenario corpus, report every changed scenario + TP/FP/FN/TN deltas, then STOP
+6. **P0-1B Universal Command Deobfuscation Engine** — ⏸ QUEUED (supersedes previous "defer" decision)
+   - 🔒 **SCOPE CONTRACT: `/app/memory/P0_1B_SCOPE.md` (owner-locked 2026-09-02). MUST be read before starting Phase 1 or Phase 2. Headline rule: "tommy-aa.lol proves the specific capability; the complete corpus proves the engine." NEVER optimize for one command.**
+   - **XDR-owned engine** — NO bridge · NO runtime dependency on old NivXRay decoder / CyberChef / CMD-DeObfuscator / Invoke-Obfuscation / Invoke-DOSfuscation / PowerDecode / BatchDeobfuscator
+   - External projects are SOURCE / REFERENCE / PARITY CORPUS only
+   - Phase 1: complete source inventory in `UNIVERSAL_DECODER_SOURCE_INVENTORY.md` + `UNIVERSAL_DECODER_COVERAGE_MATRIX.md` + `UNIVERSAL_DECODER_LICENSE_MATRIX.md`
+   - Phase 2: build the UNION (NivXRay + CyberChef + CMD-DeObfuscator + Invoke-DOSfuscation + Invoke-Obfuscation + PowerDecode-static + Batch deobfuscation + Bash/sh)
+   - Classify every discovered op: DECODER / DEOBFUSCATOR / TRANSFORM / PARSER / STATIC-ANALYZER / IOC / DETECTION / TEST-CORPUS / DYNAMIC (reject) / UI (reject) / IRRELEVANT (reject)
+   - Only static-safe A–H capabilities enter the engine
+   - Phase 3: single XDR-owned `UniversalDecoderEngine` under `services/decoder/` with CMD / PowerShell / Bash / Base / Compression / Crypto / Recursive / Extraction sub-engines
+   - **Mandatory regression**: the `where c*d.e?e … h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f` sample must reconstruct semantically (cmd.exe · curl.exe · powershell.exe · https://tommy-aa.lol/f) — never executed
+   - **Absolute invariants**: DECODED ≠ EXECUTED · LLM never authoritatively decodes · no dynamic execution of any language · every layer keeps full provenance with `static_only=true, execution=false, attck_promotion=false`
+   - License hygiene: preserve Apache-2.0 / MIT / GPL obligations; if GPL is incompatible, extract behavioural knowledge + test vectors + write clean-room XDR-native implementation
+7. **P0-2 Real Pollers** (Okta / Entra / CloudTrail) — ⏸ DO NOT START until P0-1A is accepted AND P0-1B command-deobfuscation is materially closed. Sequence: Detection surface → Command semantic reconstruction → Real pollers → Load testing.
+8. **Phase 3 Response Automation** — ⏸ NO
+9. **Any new UI feature work** — ⏸ NO
+
+### Immutable P0-1 baseline (never rewrite)
+- 76 scenarios · 20 benign · 15 suspicious · 20 malware · 15 obfuscation · 6 e2e
+- verdict 0.614 · severity 0.657 · ATT&CK P 0.752 R 0.909 F1 0.823 · IOC P 0.868 R 0.895 F1 0.881
+- decoder-layer 1.000 · decoder-substring 0.974 · malicious-class P 0.926 R 0.714 F1 0.806
+- 0 benign FPs · 7 malware FNs (mal-08/09/13/16/17/18/20) · 6 e2e NOT MEASURABLE at command scope
+- Primary goal for P0-1A: **reduce the 7 malware FNs without introducing benign FPs** — do NOT chase 100% verdict accuracy cosmetically.
+
+### Anti-inflation rules
+- Do NOT rewrite the P0-1 baseline numbers.
+- Do NOT relabel a scenario to make it pass.
+- Do NOT chase composite maturity by adding UI.
+- Do NOT let LLM narration touch decoding authority.
+- Do NOT accept a capability as "implemented" from code presence alone.
+   (compact investigation-node visual, restrained semantic palette,
+   semantic edges + arrowheads, evidence-first hierarchy; reuse
+   existing IKG / EvidenceInspector / canvas — NO new engine)
+3. **Provider Registry** — abstract Anthropic / OpenAI / Gemini /
+   offline runtimes behind the Model Gateway so Emergent is not a
+   permanent identity; API keys live in Administration only
+4. **Phase 2 final evidence gate re-verify** — confirm Verdict Engine
+   consumes cross-lane inputs · Evidence Graph edges have
+   `attck_promotion=false` · Cross-Lane Story remains grounded
+5. **Phase 3 Response Automation** — only after (1)–(4) formally
+   accepted
+
+## Blocking invariants (never negotiate)
+
+- AI/LLM can **explain** NivXRay XDR's security truth; it cannot
+  **create** that truth.
+- Cognis / Narration Gateway / any registered LLM MUST NOT become
+  a verdict, ATT&CK, evidence, correlation, IKG or audit authority.
+- Deterministic Narration Engine is ALWAYS available regardless of
+  policy, credits, cloud outage, or offline-runtime absence.
+- Master-permission invariant: `online_ai=off` ⇒ `online_llm=off`
+  at BOTH the resolver AND storage layers.
+- Intelligence policy NEVER changes the deterministic security core.
+
+## Deferred hygiene (owner-offered, non-blocking)
+
+- **Role Interceptor** — axios client sends `X-Principal-Role` so
+  policy audit rows stop recording `changed_by_role="unknown"`.
+  Small · isolated · will not touch product architecture.
+  **Awaiting owner OK — do not build unsolicited.**
+
+---
+
+## Backlog · Universal Security Ingestion & Evidence Fabric
+_(Owner analysis captured 2026-09-02 · NOT authorized to build yet)_
+
+**Strategic principle (owner-locked):**
+> Wazuh's model: "Can I decode and detect this event?"
+> NivXRay XDR's model: "Can I turn this telemetry into governed
+> evidence, connect it to other evidence, determine what is actually
+> observed, identify what evidence is missing, and prove why the
+> resulting investigation reached its conclusion?"
+>
+> Wazuh becomes ONE telemetry source among many. NivXRay XDR is
+> the higher-order investigation / correlation / evidence layer.
+
+**Do NOT build (would fracture SSOT):**
+- Separate Wazuh-style decoder engine
+- Separate alert authority
+- Separate correlation engine
+- Separate evidence graph
+- Separate verdict engine
+- Separate ATT&CK engine
+- Separate AI investigation engine
+
+**Target architecture (evolves current pipeline; NO new authorities):**
+```
+Source
+  ↓  Collector / Adapter               (Ingestion Fabric)
+  ↓  Artifact / Event Identification
+  ↓  Parser / Decoder / Normalizer     (Parser Registry)
+  ↓  Canonical Evidence + Provenance
+  ↓  Evidence Classification + State   (RAW → PARTIAL → NORMALIZED → CANONICAL → EVIDENCE_READY)
+  ↓  Evidence Graph / IKG
+  ↓  Correlation / ICE
+  ↓  Existing Verdict Engine           ← sole verdict authority
+  ↓  Incident
+  ↓  IUE (Investigation Understanding Engine)
+  ↓  Cognis (assistive narration only)
+  ↓  Investigation / Response
+```
+
+### P0 (foundational)
+- Universal Ingestion Fabric (endpoint · identity · network · cloud ·
+  SaaS · security-products · applications) — extends existing
+  Telemetry Adapter Framework, no parallel pipeline
+- Adapter Registry (per-source: provider, type, adapter, parser,
+  normalizer, schema, health, last-event, event-rate, error-rate,
+  coverage, provenance)
+- Canonical Event / Evidence transformation contract
+  (source-agnostic PROCESS_EXECUTION / IDENTITY_AUTH / CLOUD_API etc.)
+- Parser / Normalizer Registry with test corpora + versioning
+- Unknown / partial parsing preservation (never silently discard —
+  RAW → PARTIAL → NORMALIZED → CANONICAL → EVIDENCE_READY)
+- Ingestion Health promoted to a security-intelligence surface
+- Evidence provenance (source_id, vendor, adapter, adapter version,
+  raw_ref, ingested_at, source_event_time) — already partly present
+
+### P1 (high value)
+- **Wazuh Adapter** — first-class NivXRay ingestion source;
+  a firing Wazuh rule becomes EVIDENCE, never an automatic verdict
+- Detection Coverage vs Ingestion Coverage split (per source /
+  domain / ATT&CK tactic)
+- Evidence Readiness first-class concept — per incident and per
+  domain, feeds verdict-confidence INTERPRETATION (does NOT change
+  verdict authority)
+- Source Coverage Matrix (Endpoint · Identity · Cloud · Network ·
+  EDR × ingested / normalized / evidence / detection / investigation)
+- Ingestion → IUE evidence-gap loop (IUE names missing evidence;
+  new evidence flows back into correlation, re-evaluation)
+- Parser test-corpus + parser versioning
+
+### P2 (differentiators)
+- Parser / Decoder marketplace
+- Automated parser assistance (Cognis SUGGESTS parsers, never
+  writes canonical evidence)
+- Cross-source schema learning
+- Ingestion quality analytics
+- Evidence-gap-driven live telemetry requests
+
+**Owner rule — Wazuh rule ingestion:**
+```
+Wazuh Rule → Detection Signal → Canonical Evidence →
+NivXRay Correlation → Existing Verdict Engine
+```
+A Wazuh rule firing is EVIDENCE. It is not `MALICIOUS`.
+
+**Owner rule — TI enrichment (VirusTotal / URLHaus / MISP / etc.):**
+Enrichment remains SUPPORTING evidence. It does not manufacture
+maliciousness.
+
+---
+
+_Older M2-era roadmap follows below (2026-02-15 baseline)._
+
+
 # NivXRay · Roadmap · Product Hardening Phase
 _Baseline: M2 Hero build (approved). New capability development frozen._
 
@@ -11,6 +257,44 @@ _Baseline: M2 Hero build (approved). New capability development frozen._
 > Perfect one workflow → observe analyst → improve workflow → only then add capability.
 
 No feature moves to the next phase until the phase it lives in is production-quality.
+
+---
+
+## XDR Operational Fabric — Round Status (updated 2026-09-01)
+
+| Round | Description | Status |
+|-------|-------------|--------|
+| 24.9  | Evidence Operations Design System (tokens + 5 primitives) | ✅ SHIPPED |
+| 24.95 | Collector Landing (HTTP transports → main backend)         | ✅ SHIPPED |
+| 25a   | Cortex Vendor Wizard (generalized framework)               | ✅ SHIPPED |
+| 25b   | Credential Vault (envelope encryption)                      | ✅ SHIPPED |
+| 26    | Cortex Ingest Fabric (webhook, poller, parser)              | ✅ SHIPPED |
+| 26.5  | Incident Promotion Policy + Poller Scheduler                | ✅ SHIPPED |
+| 27    | Response Console + Golden BYO-EDR E2E                       | ✅ SHIPPED |
+| 27 UI | Recommendations tab → v2 default                            | ✅ SHIPPED |
+| 28    | Multi-Vendor Adapter Framework + Stub                       | ✅ SHIPPED |
+| 28.x  | CrowdStrike Falcon Adapter                                  | ✅ SHIPPED |
+| 28.x.2| MDE + SentinelOne Adapters                                  | ✅ SHIPPED |
+| **29**| **Analyst UI Grammar (MITRE Tab + Incident Header v2)**     | **✅ SHIPPED (2026-09-01)** |
+| **29.5**| **NivXRay XDR Visual Language System v1.0 (foundation)** | **✅ SHIPPED (2026-09-01)** |
+| **29.6**| **Visual Language v1.1 · Composition + Flagship Overview** | **✅ SHIPPED (2026-09-01)** |
+| **29.7**| **Populated-state proof · Pipeline → API Projection → Composition** | **✅ SHIPPED (2026-09-01)** |
+| **29.8**| **Autonomous Investigation Operating Model · ratified as platform contract** | **✅ SHIPPED (2026-09-01)** |
+| 30    | **IUE v0** · locked scope · Evidence Plane → Investigation Context / Relationships / Threat / Historical / Known-Unknown / Gaps · **no UI · no AI · no Orchestrator · no external intel · no verdict** | **✅ SHIPPED (2026-09-01)** |
+| 31    | **Autonomous Investigator** · closed loop `IUE → Planner → Selector → Capability → Findings` · auto-kicked by pipeline · **no button, no fabrication** | **✅ SHIPPED (2026-09-01)** |
+| 32    | **Capability Fabric v1** · 12 real capabilities · evidence-sufficiency selector · reuses existing engines (LOLBAS · smart_decoder · IOC extractor) | **✅ SHIPPED (2026-09-01)** |
+| 33    | **Attack Story + AttackFlow v1** · 14-stage centralised cycle · OBSERVED/SUPPORTED/POSSIBLE/NOT_OBSERVED · evidence-anchored narrative · SUFFICIENT-path EDR fixture | **✅ SHIPPED (2026-09-01)** |
+| 34    | **Threat Model Engine + Executive UI** · 5-dimension assessment · Impact independent axis · Blast Radius · Why-It-Matters · Executive Threat Assessment card | **✅ SHIPPED (2026-09-01)** |
+| 35    | **Operational Attack Graph** · 27 node kinds · 20+ semantic edges · Event ID intelligence · 4-state visual grammar · timeline scrubber · Evidence Inspector · interactive SVG canvas | **✅ SHIPPED (2026-09-01)** |
+| 34.5  | Scenario Library (Phishing · Ransomware · Credential Theft · LOL · Supply Chain matchers on top of Round 34 flow) | ⏳ NEXT |
+| 35    | Editable / versioned intelligence layer (§23-§25) — turns `machine_generated: true` fields into analyst-editable + audited versions | ⏳ QUEUED |
+| P1.0  | Intelligence Plane (STIX/TAXII/OSINT enrichment layer)      | ⏳ DEFERRED — after Investigation stack   |
+| 30    | Certification (real sandbox E2E + cross-vendor equivalence) | ⏳ QUEUED |
+| P2    | Investigation Report Export (PDF + JSON)                    | 📥 BACKLOG |
+| P2    | Native NivXRay Agent Management Plane                       | 📥 BACKLOG |
+
+**Migrated design-system surfaces (v2 default; `?design=v1` = legacy escape):**
+`integrations`, `recommendations`, `mitre`, `incident-header`.
 
 ---
 
@@ -1100,3 +1384,79 @@ P0-C2 ACDE Phase 1 → Phase 6                      ← incremental architectura
 ```
 
 **No item may jump the queue.** Rule 20 anchors this sequence.
+
+
+## 2026-09-05 · NivXForge EDR remaining backlog
+- ~~P1.8: Multi-endpoint (fleet-wide) File Trajectory~~ — DONE 2026-09-05 (name/path
+  keyed; content-digest keyed impossible until file digests are captured).
+- ~~P1.9: Investigation Export~~ — DONE 2026-09-05 (JSON + Markdown + CSV,
+  client-side, self-contained SHA-256, evidence-only).
+- P1.10: Spread Watchlist — flag artifacts whose endpoint count grows.
+- P1.11: Saved Hunts — persist a filter + search pair and re-run it fleet-wide.
+- P1.12: Sensor Foundation — the unlock for P2.x Attack Traversal Projection.
+- FUTURE: External Handover / Sanitised Export — deterministic redaction and
+  pseudonymisation of forensic fields; server-recorded attested exports.
+- P1.10: Saved Hunts (persist a filter + search and re-run it on any endpoint).
+- P2.x: **Attack Traversal & Attack Lifecycle** — cross-host causal reconstruction
+  (lateral movement, defense evasion, identity, network, ATT&CK progression, blast
+  radius, lifecycle). Architecture LOCKED in
+  docs/uiux/NIVXRAY_ATTACK_TRAVERSAL_AND_LIFECYCLE.md. Must be a PROJECTION over
+  IUE/ICE/IKG/VEEE/Security State — never a new engine. Blocked on Sensor Foundation.
+- P2: Dynamic sandbox detonation hypervisor runtime — must NOT be faked.
+- P2: In-guest monitoring agents & hooking engine; remote evidence collection;
+  memory/volatile evidence.
+- P2: Response driver plane (isolation / quarantine / process termination) — until it
+  exists the controls stay disabled under ⊘ RESPONSE DRIVER NOT REGISTERED.
+- P3: PID/PPID capture in the observation contract — would make process→process
+  lineage resolvable and light up the orthogonal lineage links already implemented.
+
+## 2026-06-06 · after P0-F.12 (Cisco AMP Device Trajectory clone)
+
+DONE: P0-F.12 Cisco AMP Device Trajectory clone — lineage pre-order
+axis, viewport-invariant deep rows, Navigator (30-day + 24-hour),
+Event Details + Detected By, filters, fullscreen. 17/17 backend proof,
+frontend ~100% (iteration 98). See memory/AMP_TRAJECTORY_CONFORMANCE.md.
+
+### P0 remaining
+- P0-F.10b · real-host CAP_NET_ADMIN isolation validation (backend and
+  policy are complete; only real-host execution proof is outstanding).
+
+### P1
+- Hash integrity across the rest of the product: the trajectory now
+  separates `event_content_digest` from `file_sha256`, but other views
+  still surface event digests where an analyst may read them as file
+  hashes.
+- Response From Incident: Incident → Process → Kill → Watch verification.
+- Script execution attribution: attribute to the script, not the
+  interpreter (`/usr/bin/dash`).
+- Sensor misses short-lived one-shot commands (polling gap).
+- Live Attack Replay.
+- Content remediation: 52 incomplete / unbound Mongo detection rules.
+
+### P2
+- EDR capabilities: quarantine, forensic snapshot, live query, hunting.
+- Windows NivXForge agent.
+- File Trajectory (fleet-wide) parity with the device clone.
+
+## 2026-06-06 · after P0-F.13
+
+DONE: P0-F.13 Cisco endpoint context + navigation (wheel mapping, Show
+details drawer, Actions menu, Detection → Trajectory anchoring, PID +
+lineage guides, Activity quick filters). iteration_100 all pass.
+
+### Next, in the owner's stated order
+1. Validate P0-F.13 against the Cisco screenshots (owner review).
+2. **P0-F.14 · Fleet File Trajectory** — a SECOND projection over the
+   same authoritative evidence (file/hash → every endpoint that touched
+   it). Must NOT clone trajectory data into another store. Do not start
+   until P0-F.13 is accepted.
+3. Only after the Cisco baseline is accepted: NivXRay-specific
+   enrichment (IKG, Attack Story, verdicts, XDR correlation) — the
+   owner will specify.
+
+### Carried forward
+- P0-F.10b real-host CAP_NET_ADMIN isolation validation.
+- P1: hash/label honesty sweep across the rest of the product; response
+  from incident; script-vs-interpreter attribution; short-lived process
+  visibility gap; live attack replay; 52 unbound detection rules.
+- P2: quarantine, forensic snapshot, live query, hunting; Windows agent.

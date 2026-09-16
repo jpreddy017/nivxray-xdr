@@ -24,6 +24,7 @@ from typing import Any, Dict, Iterable, List
 import httpx
 
 from framework.base import Envelope
+from framework.identity import collector_id, tenant_id
 
 
 class IngestOutcome:
@@ -52,6 +53,11 @@ class IngestClient:
     def timeout(self) -> float:
         return float(os.environ.get("NIVX_INGEST_TIMEOUT", "10"))
 
+    @property
+    def auth_mode(self) -> str:
+        """`api_key` (default) or `bearer` for a user JWT."""
+        return (os.environ.get("NIVX_INGEST_AUTH_MODE") or "api_key").lower()
+
     def configured(self) -> bool:
         return bool(self.url)
 
@@ -60,6 +66,7 @@ class IngestClient:
             "configured":         self.configured(),
             "url_set":            bool(self.url),
             "token_set":          bool(self.token),
+            "auth_mode":          self.auth_mode,
             "delivered":          self.delivered,
             "failed_retryable":   self.failed_retryable,
             "failed_fatal":       self.failed_fatal,
@@ -82,8 +89,27 @@ class IngestClient:
 
         try:
             headers = {"Content-Type": "application/json"}
+            # The authoritative boundary authenticates a collector with
+            # `X-XDR-API-Key` + `X-Tenant-Id` (xdr_rbac.require_permission).
+            # Sending the same value as a bearer token routes it down the
+            # JWT path instead, where it can only ever fail — and presenting
+            # BOTH is rejected as ambiguous-credentials. So the credential
+            # goes in the key header unless an operator explicitly says the
+            # configured value is a user JWT.
             if self.token:
-                headers["Authorization"] = f"Bearer {self.token}"
+                if self.auth_mode == "bearer":
+                    headers["Authorization"] = f"Bearer {self.token}"
+                else:
+                    headers["X-XDR-API-Key"] = self.token
+            # The core's tenant-isolation guard compares this header
+            # against the enrolled collector's tenant. Derive it from
+            # the batch so a mis-set env can never masquerade.
+            batch_tenants = {b.get("tenant_id") for b in batch if b.get("tenant_id")}
+            headers["X-Tenant-Id"] = (batch_tenants.pop()
+                                      if len(batch_tenants) == 1
+                                      else tenant_id())
+            headers["X-Principal-Id"] = f"collector:{collector_id()}"
+            headers["X-Principal-Kind"] = "system"
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(self.url, json={"envelopes": batch},
                                               headers=headers)

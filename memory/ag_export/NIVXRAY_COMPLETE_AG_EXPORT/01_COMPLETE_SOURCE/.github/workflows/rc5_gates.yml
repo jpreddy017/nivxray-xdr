@@ -1,0 +1,162 @@
+name: RC5 Semantic Engine Gates
+
+# Phase 1 CI enforcement — locks the architectural invariants defined in
+# /app/memory/RC5_SEMANTIC_ENGINE_SPEC.md (v2). These gates protect the
+# ExecGraph / SIR schemas from silent drift as later phases land.
+#
+# Runs on every PR + push to protected branches touching backend code
+# or this workflow.
+
+on:
+  pull_request:
+    branches: [main, feature/rc2, feature/rc2.1b, feature/rc4, feature/rc4.5, feature/rc5]
+    paths:
+      - 'backend/engine/**'
+      - 'backend/tests/rc5/**'
+      - 'backend/routers/ops.py'
+      - 'backend/deps.py'
+      - '.github/workflows/rc5_gates.yml'
+  push:
+    branches: [main, feature/rc2, feature/rc2.1b, feature/rc4, feature/rc4.5, feature/rc5]
+    paths:
+      - 'backend/engine/**'
+      - 'backend/tests/rc5/**'
+      - 'backend/routers/ops.py'
+      - 'backend/deps.py'
+      - '.github/workflows/rc5_gates.yml'
+
+jobs:
+  rc5-gates:
+    runs-on: ubuntu-latest
+    # Feb-2026 · bumped from 10 → 20 to accommodate the growing corpus.
+    # `slow` tests (multi-pass corpus determinism, 88-sample parametric
+    # coverage) are excluded from the default gate below and run via a
+    # separate nightly workflow. The fast slice completes in ~30-60 s on
+    # a GitHub-hosted runner, so 20 min is generous headroom.
+    # Bumped 20 → 40 (Feb-2026) after CI cancels at the 99% mark on
+    # cold-cache GitHub runners. Local pytest completes the same
+    # suite in <30 s but shared runners can serialise Mongo bring-up
+    # and async teardown of FastAPI startup events. 40 minutes is a
+    # comfortable ceiling; the per-test guard below prevents any
+    # single test from stealing the whole budget.
+    timeout-minutes: 40
+
+    # Provide MongoDB for the API tests under tests/rc5/api/ which
+    # exercise real FastAPI routes backed by motor/pymongo.
+    services:
+      mongo:
+        image: mongo:6
+        ports: ["27017:27017"]
+
+    env:
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME:   nivxray_ci
+      SEMANTIC_ENGINE_V2: "true"
+      ADMIN_EMAIL:    "admin@nivxray.com"
+      ADMIN_PASSWORD: "ci-only-not-a-real-secret"
+      # v2 platform feature flags — MUST be set for R4/R1.2/R2.5 tests
+      # to exercise the endpoints they cover. Local dev sets these in
+      # backend/.env; CI has no such file so we mirror them here.
+      NIVX_FLAG_TRAJECTORY_ENGINE: "shadow"
+      NIVX_FLAG_CASE_ENGINE:       "shadow"
+      NIVX_FLAG_ADAPTERS:          "shadow"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Diagnostic: prove which ADMIN_EMAIL the runner sees. If it shows
+      # anything other than admin@nivxray.com, there's a repo-level
+      # variable/secret polluting the process; the tests defensively
+      # override it (see tests/rc5/api/test_diag_endpoint.py `client`
+      # fixture) but this echo makes the source visible in the log.
+      - name: Diagnostic · dump inherited ADMIN_EMAIL
+        run: |
+          echo "ADMIN_EMAIL from workflow env: ${ADMIN_EMAIL:-<unset>}"
+          echo "ADMIN_PASSWORD present: $([ -n \"$ADMIN_PASSWORD\" ] && echo yes || echo no)"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install minimal deps (no LLM stack needed for RC5 gates)
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" \
+            requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt \
+            --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+
+      # ─── § 12 Architectural Invariants (6 gates) ────────────────────
+      - name: Invariant · § 12.1 · Graph immutability
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_graph_immutability.py -q --no-header
+
+      - name: Invariant · § 12.2 · No raw-output parsing by detectors
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_no_raw_output_parsing.py -q --no-header
+
+      - name: Invariant · § 12.3 · Evidence-ref integrity
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_evidence_ref_integrity.py -q --no-header
+
+      - name: Invariant · § 6 · Confidence propagation rules
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_confidence_rules.py -q --no-header
+
+      - name: Invariant · § 12.5 · Plugin API frozen
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_plugin_api_frozen.py -q --no-header
+
+      - name: Invariant · § 12.6 · --no-ai deterministic parity
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_no_ai_deterministic.py -q --no-header
+
+      # ─── Unit tests — SIR + ExecGraph schema locks ─────────────────
+      - name: Unit · SIR schema (25 tests)
+        working-directory: backend
+        run: python -m pytest tests/rc5/unit/semantic_ir/ -q --no-header
+
+      - name: Unit · ExecGraph schema (30 tests)
+        working-directory: backend
+        run: python -m pytest tests/rc5/unit/exec_graph/ -q --no-header
+
+      # ─── Full RC5 suite in one shot (catches config drift) ─────────
+      # Feb-2026 · `-m "not slow"` skips corpus-determinism (3× full
+      # corpus) + corpus-coverage (88 parametric samples × 3 tests).
+      # Those run in a nightly `rc5-gates-nightly.yml` job. Belt-and-
+      # braces even though `pytest.ini` addopts already excludes slow —
+      # explicit here so the intent is visible in the workflow file.
+      - name: All RC5 tests (fast slice)
+        working-directory: backend
+        # SERIAL run — xdist causes a 99%-cancel teardown deadlock on
+        # GitHub runners when combined with FastAPI's async lifespan +
+        # Motor's connection close (see thread teardown races upstream
+        # in pytest-xdist#754). Serial completes in 2–3 min on CI vs
+        # <30 s locally; well within the 40-min timeout-minutes budget.
+        # Per-test --timeout=60 kills any single hang (belt-and-braces).
+        #
+        # `-n 0` is REQUIRED to override pytest.ini's `addopts = -n 2
+        # --dist loadscope`. Without it, xdist still spawns 2 workers
+        # even though we don't pass `-n 2` here, reproducing the same
+        # `[gw0] node down: Not properly terminated` teardown deadlock.
+        # See pytest.ini's own comment: "Serial = `-n 0`".
+        run: python -m pytest tests/rc5/ -q --no-header -m "not slow" -n 0 --timeout=60 --timeout-method=thread -p no:cacheprovider
+
+      # ─── § 13 Kill-list — protects the deprecation contract ────────
+      # Runs the two Python-based kill-list gates that check for NEW
+      # imports of `_KEYWORD_MITRE_MAP` / `_KEYWORD_LOLBAS_HITS` outside
+      # the legacy `operations.py`. These tests use precise regex on
+      # `import` statements and skip themselves via `pathlib` — a plain
+      # bash grep would false-positive on docstrings and the tests'
+      # own regex patterns.
+      - name: Kill-list · no new imports of retired keyword maps
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/rc5/unit/mitre_v2/test_mitre_invariants.py::test_no_new_import_of_KEYWORD_MITRE_MAP_in_engine_or_routers \
+            tests/rc5/unit/lolbin_v2/test_lolbin_v2.py::test_no_new_import_of_KEYWORD_LOLBAS_HITS_in_engine \
+            -q --no-header

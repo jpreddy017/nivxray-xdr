@@ -1,0 +1,47 @@
+{
+  "id": "SCN-2026-FP-001",
+  "category": "false_positive",
+  "title": "Vulnerability scanner triggers encoded-PS rule",
+  "description": "An enterprise vulnerability scanner (Tenable) runs a signed PowerShell probe that legitimately uses an encoded command. The rule fires but every corroborating facet points to sanctioned software.",
+  "raw_events": [
+    { "kind": "process_create", "ts": "2026-02-10T04:05:00Z",
+      "image": "powershell.exe", "parent_image": "TenableNessusService.exe",
+      "user": "SYSTEM", "host": "SRV-SCAN-01",
+      "command_line": "powershell.exe -EncodedCommand JAA..." }
+  ],
+  "normalized_evidence": [
+    { "type": "process", "image": "powershell.exe",
+      "parent": "TenableNessusService.exe", "user": "SYSTEM",
+      "host": "SRV-SCAN-01",
+      "hash_sha256": "aa11...powershell", "parent_signer": "Tenable, Inc." }
+  ],
+  "expected_entities": {
+    "hosts": ["SRV-SCAN-01"], "users": ["SYSTEM"],
+    "processes": ["TenableNessusService.exe", "powershell.exe"], "iocs": []
+  },
+  "expected_correlations": [],
+  "expected_rules_matched": [
+    { "rule_id": "encoded_powershell", "match": "matched",
+      "fields": { "command_line": "powershell.exe -EncodedCommand ..." },
+      "technique": "T1059.001" }
+  ],
+  "expected_mitre": [],
+  "expected_attack_story": [
+    "Tenable vulnerability scanner spawned encoded PowerShell probe.",
+    "Probe returned within expected duration and produced no follow-on activity."
+  ],
+  "expected_verdict": {
+    "verdict": "false_positive", "confidence": 0.91,
+    "severity": "info",
+    "reason": "Sanctioned software (Tenable, Inc.) + system-account + no network / persistence"
+  },
+  "expected_severity": "info",
+  "expected_recommendations": [
+    { "kind": "enrich",     "action": "add_allowlist_exception",     "priority": "medium" },
+    { "kind": "investigate","action": "review_scanner_schedule",     "priority": "low" }
+  ],
+  "expected_playbook": null,
+  "expected_response_outcome": { "state": "NOT_REQUIRED" },
+  "expected_report_sections": ["executive_summary", "tp_fp_determination",
+                                                 "supporting_evidence", "final_conclusion"]
+}

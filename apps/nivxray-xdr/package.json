@@ -7,13 +7,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "vercel-build": "yarn install --production=false --frozen-lockfile && node ./node_modules/vite/bin/vite.js build",
+    "vercel-build": "bash scripts/vercel-build.sh",
     "preview": "vite preview --port 3100",
     "lint": "eslint . --ext js,jsx"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.2",
     "axios": "^1.7.7",
+    "d3": "^7.9.0",
     "js-yaml": "^5.4.1",
     "lucide-react": "^0.446.0",
     "react": "^18.3.1",

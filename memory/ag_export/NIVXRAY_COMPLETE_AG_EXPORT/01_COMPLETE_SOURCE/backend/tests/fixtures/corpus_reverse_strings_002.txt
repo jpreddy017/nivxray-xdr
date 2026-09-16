@@ -1,0 +1,1 @@
+-join ('gnirtSdaolnwoD'[-1..-14])
