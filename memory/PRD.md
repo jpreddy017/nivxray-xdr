@@ -16390,3 +16390,37 @@ Owner direction after N2.1: **do NOT default to the Investigation UI**;
 re-review security gaps and pick whichever gives the largest increase in
 real XDR capability (likely cross-domain correlation / stronger detection
 content, or another authoritative telemetry domain).
+
+## 2026-06 · N2.1 ACCEPTED/LOCKED · SECURITY CAPABILITY GAP REVIEW DELIVERED
+
+Owner accepted N2.1 for preview scope. Locked invariants: PID ≠ PROCESS
+IDENTITY · IP OBSERVATION ≠ ENDPOINT IDENTITY · TEMPORAL COINCIDENCE ≠
+CAUSAL ATTRIBUTION · NETWORK CORRELATION ≠ PROCESS ATTRIBUTION.
+Classifications: Sysmon ProcessGuid preservation IMPLEMENTED · canonical
+process identity IMPLEMENTED · Linux process→network SYNTHETIC/REPLAY
+PROVEN · endpoint address observation IMPLEMENTED/NOT IDENTITY ·
+CORR-EP-001 SYNTHETIC/REPLAY PROVEN + DISABLED · real Sysmon ABSENT · real
+NivXForge endpoint EXTERNAL_ACCESS_BLOCKED · Linux process→DNS ABSENT ·
+endpoint↔Zeek attribution NOT PROVEN.
+
+Read-only gap review delivered: `memory/SECURITY_CAPABILITY_GAP_REVIEW.md`
+(14 areas × 9 dimensions, prerequisite graph, reusable primitives).
+Two reframing findings: (1) `edr_plane/capability/inventory.py:255` — of 98
+authored store rules **0 can fire today** (23 LICENSE_BLOCKED, 52
+STORE_CONTENT_INCOMPLETE, 22 NO_TELEMETRY, 1 UNSUPPORTED); the in-code
+library is 32 rules (2 network). (2) An incident is anchored to ONE
+canonical event — there is no object that says "these detections across
+these sources are one attack", and entity keys live in three places with
+no single resolution service.
+
+**Recommended next gate: X1 — Entity Resolution + Multi-Evidence
+Incident**, with one real source onboarding running in parallel (owner
+side). Rationale: X1 is the only prerequisite for four other areas
+(lateral movement, identity↔endpoint, network↔endpoint, cross-domain
+story), needs no new telemetry or unblocked environment, and is the point
+where NivXRay becomes an XDR rather than an evidence platform.
+Recommended NOT to start now: endpoint↔Zeek attribution (highest
+fabrication risk), beaconing (needs real volume), Windows credential/
+persistence/lateral content (telemetry is the gate), firewall enforcement
+(needs appliance), EDR prevention (separate product track), response
+breadth (already strongest), buyer-facing evidence page (deferred).
