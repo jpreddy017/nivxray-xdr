@@ -16307,3 +16307,39 @@ Next (owner-gated): (1) owner review of N1; (2) real Zeek source — a sensor
 host or an owner-supplied pcap; (3) Cross Domain Story once genuine
 endpoint evidence joins network evidence; (4) real Microsoft onboarding
 (owner-side, unchanged).
+
+## 2026-06 · N1 ACCEPTED/LOCKED (preview) · N2 ASSESSMENT DELIVERED
+
+Owner accepted Gate N1 for preview scope. Classifications locked: canonical
+DNS/network model IMPLEMENTED; GAP-1/2/3 CLOSED; Zeek DSM + routing
+IMPLEMENTED; DNS→resolved-IP→connection SYNTHETIC/REPLAY PROVEN; NXDOMAIN
+content IMPLEMENTED/DISABLED BY DEFAULT; genuine Zeek live source
+EXTERNAL_ACCESS_BLOCKED; endpoint/process attribution NOT PROVEN; device
+identity attribution NOT PROVEN; cross-domain story NOT STARTED.
+Owner ruling: an owner-supplied pcap is parser/source validation only and
+may NEVER close live-sensor acceptance.
+
+N2 (Endpoint/Process → Network attribution) assessment delivered read-only:
+`memory/N2_ENDPOINT_PROCESS_NETWORK_ASSESSMENT.md`. Decisive answer: NO
+today. Two different reasons —
+* Windows/Sysmon: `ProcessGuid`/`ParentProcessGuid` are parsed at
+  `sysmon_dsm.py:90,94` and then **dropped** (verified: absent from
+  canonical, additional_fields and raw_ref). `ProcessEntity` has no identity
+  field. The authoritative key already exists at the source on EID 1/3/22.
+* Linux/NivXForge: `collect_network()` resolves the owning PID via socket
+  inode but emits **no process start identity**, so `ProcessIdentity.mint`
+  correctly refuses; and the sensor collects **no DNS** at all.
+Also located precisely: `EndpointIdentity.local_ips` is a contract field
+populated by nothing, which is exactly why client-IP → device binding is
+FORBIDDEN today.
+
+Proposed smallest gate **N2.1** (NOT started, awaiting approval): canonical
+process identity fields + `attribution_state`; Sysmon carries the GUIDs;
+`canonical_bridge` mints `process_iid` for NETWORK only with start identity
+(otherwise the honest negative); signal projection carries process keys;
+ONE rule `CORR-EP-001` (SEQUENCE, group_by endpoint|process|peer address)
+seeded DISABLED. Sensor change (start identity on NETWORK events) is a
+recommendation only, needing separate approval.
+
+Owner's stated progression after N2.1: **focused Investigation UI phase**,
+then cross-domain correlation / richer detections / additional sources.
