@@ -16218,3 +16218,47 @@ Report: `memory/TERMINAL_RECORD_POLICY_REPORT.md` (2026-06)
 
 
 
+
+---
+
+## 2026-06 · NETWORK / DNS / FIREWALL TELEMETRY PHASE — ASSESSMENT ONLY (owner-approved)
+
+Owner decision: Terminal Record Policy **ACCEPTED / LOCKED**; acquisition-correctness
+phase CLOSED. Next phase = network/DNS/firewall **security capability**, first action
+**assessment & design only**, then STOP for approval.
+
+Delivered: `memory/NETWORK_TELEMETRY_PHASE_ASSESSMENT.md` (read-only; no code, no DSM,
+no rule, no migration, no deploy; `git status` shows only that document added).
+
+Findings (summary):
+* Existing network-relevant capability: `snort-eve` (EVE alerts), `cef-leef`
+  (firewall CEF/LEEF, proven over a real wire but not from a real appliance),
+  `microsoft-sysmon` EID 3 + 22, NivXForge sensor NETWORK, collector syslog
+  UDP/TCP transport, declared-source routing, D12 time bases, stateful
+  13-operator correlation engine (zero enabled rules).
+* Decisive gap **GAP-1**: canonical `NetworkEntity` has no DNS answer /
+  response-IP field, and Sysmon `QueryResults` is parsed then dropped — so
+  `Domain → Destination IP` cannot be stored. Plus GAP-2/GAP-3 (investigator
+  network + DNS pivots read shapes no DSM emits), GAP-4..GAP-9.
+* Recommended first source: **Zeek `dns.log` + `conn.log` (JSON) over the
+  existing syslog receiver, declared source `zeek-json`, one DSM** — the only
+  candidate that authoritatively closes DNS→IP→flow, obtainable free today,
+  vendor-neutral. Runner-up: PAN-OS via existing `cef-leef` if a licensed
+  appliance exists.
+* XDR chain honesty: after this source, `DNS → Domain → Dest IP → Connection →
+  Detection` becomes provable; `Endpoint → Process` prefix and
+  `network-observation → host identity` remain authoritative BREAKS
+  (Sysmon = SYNTHETIC/REPLAY PROVEN, NivXForge live = EXTERNAL_ACCESS_BLOCKED,
+  no IP↔host inventory).
+* Legacy `services/telemetry_adapters` inventoried: **no network adapter exists**;
+  touched nothing.
+
+Proposed smallest gate **N1** (NOT started, awaiting approval): additive
+`NetworkEntity` fields · one `zeek-json` DSM with narrow `supports()` · catalog +
+allowlist entry · existing transport · fix GAP-1/2/3 · exactly two deterministic
+detections (NXDOMAIN burst `THRESHOLD`, DNS→IP→connection `SEQUENCE`) · real-source
+proof or honest SYNTHETIC label.
+
+Explicitly NOT started per owner: Terminal Record UI, Cross Domain Story, further
+Microsoft detection expansion, real Microsoft onboarding (owner-side), production
+change / merge / deploy, anything in NivXForge EDR / Work Mode.
