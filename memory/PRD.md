@@ -16697,3 +16697,71 @@ be a bounded 15–30 min window.
 STILL TRUE: `_COLLECTED_PRODUCTS = {"linux"}`. W1 = NOT CLOSED. Next owner
 action = Phase 2 review + `-DryRun` on the laptop (no secret, no collector,
 bookmark untouched), then Phase 3 (collector + one key, ACL'd key file).
+
+## 2026-06 · W1 PHASE 2.3 FAIL (owner laptop) -> COMPATIBILITY HOTFIX SHIPPED
+
+OWNER RESULT: Phase 2.3 FAILED BEFORE EXECUTION on the genuine laptop
+(Windows PowerShell 5.1.19041.6456) with a ParserError at line 84 and line
+198. Transfer was clean (laptop SHA256 == canonical LF artifact). No
+credential existed; nothing was transmitted. Do NOT classify 2.3 as PASS.
+
+ROOT CAUSE (ours, reproduced here): a BOM-less .ps1 is decoded by Windows
+PowerShell 5.1 using the machine ANSI code page, so the 5 non-ASCII bytes in
+the artifact (em dashes + a middle dot, in comments and two `throw` strings)
+became mojibake and broke quoting. Reproduced deterministically by decoding
+the exact failed artifact as windows-1252 and parsing it: 13 parser errors at
+lines 84/83/198 - exactly the owner's failures. utf-8 decode: 0 errors.
+The 21/21 contract test validated the SERVER-SIDE envelope contract only and
+structurally could not see this (disclosed at the time; now closed).
+
+FIX (narrow, no security property weakened):
+  1. the forwarder is now PURE ASCII -> parses identically under utf-8,
+     windows-1252, iso-8859-1 and windows-1251. No BOM dependency.
+  Four further 5.1-hostile constructs found in the same audit, each of which
+  would have failed LATER with a credential in play:
+  2. positional `Add-Member BatchSize 200` -> explicit -NotePropertyName /
+     -NotePropertyValue.
+  3. `Set-StrictMode -Version Latest` + optional property reads
+     (`$cfg.$f`, `$receipt.accepted`, `$o.status`, `$state.LastRecordId`)
+     THROW when the field is absent -> all optional reads now go through a
+     new `Get-Prop` helper, so the config-error and server-refusal paths
+     report instead of crashing.
+  4. the ingest route wraps its receipt in `data`; the script read
+     `$receipt.accepted` at the top level, so the receipt would have been
+     misread and the refusal loop would have seen nothing -> now unwraps
+     `data`. A genuine Phase 4 bug caught before Phase 4.
+  5. TLS 1.3 flag assignment wrapped in try/catch with a TLS 1.2 fallback
+     (assigning an OS-unsupported protocol value throws).
+  6. `Write-Log` -> `Write-ForwarderLog` (analyzer: shadows a cmdlet name).
+  7. EventData read via SelectSingleNode/ChildNodes (dotted XML access also
+     throws under StrictMode when EventData is absent).
+
+NEW GATE: `backend/tests/test_w1_forwarder_source_gate.py` (16 passed) -
+pure-ASCII/LF/no-BOM for every scripts/windows/*.ps1; real PowerShell parse
+under 4 code pages; PSScriptAnalyzer `PSUseCompatibleSyntax` TargetVersions
+5.1 + 7.0 = NO FINDINGS; security properties still present; no key in any
+log/throw line; 5.1 pitfalls absent.
+REPLICA GAP CLOSED: `scripts/windows/Test-ForwarderEnvelope.ps1` loads
+ConvertTo-Envelope/ConvertTo-RawEvent/Get-Prop out of the REAL artifact via
+the PowerShell AST and builds envelopes from Windows EventLog XML;
+`p0_w1_forwarder_contract_check.py` now posts THOSE envelopes to the live
+route (24/24 PASS, up from 21) and additionally proves a source field named
+`_nivx_collector_id` is DROPPED not renamed, and EventData is verbatim.
+
+TOOLING: PowerShell 7.4.6 (linux-arm64) installed at /opt/pwsh/pwsh +
+PSScriptAnalyzer 1.25.0. HONEST LIMIT: PS7 on Linux is NOT Windows
+PowerShell 5.1 - runtime compatibility on 5.1 is proven only by the owner's
+-DryRun on the laptop. Not claimed from a Linux parse.
+
+CORRECTED ARTIFACT: scripts/windows/NivXRay-SysmonForwarder.ps1
+  bytes 15659 | lines 400 | ASCII, no BOM, LF
+  SHA256 LF       c969d5e0092dc5178ad522ec102979313c7864a3ff9264fd809724a1e0eacc5b
+  SHA256 CRLF     9c54a79eea2134585bdec35b81a2fdadc62b9a966777ec685218b44dd7dbdc54
+  SHA256 CRLF+BOM 1bbd213dd5c2886deafdcb2280b58c8eeadddcdbc9daddf1daef7ad00664fd6a
+  supersedes      586c4f12... (FAILED 5.1 parse)
+Report: `memory/W1_PHASE2_3_POWERSHELL_COMPAT_HOTFIX.md`.
+
+NOT created: collector, forwarder.json, ingest.key, tenant config.
+`_COLLECTED_PRODUCTS` still {"linux"}. W1 = NOT CLOSED. Next owner action:
+replace the file, verify the new hash, repeat 2.2 static inspection, re-run
+2.3 -DryRun on the real laptop.

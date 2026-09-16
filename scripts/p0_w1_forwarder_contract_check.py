@@ -31,6 +31,8 @@ ADMIN = ("admin@nivxray.com", "uulVDp5cCSB3Hva99s7UUAwK")
 METHOD = "windows_eventlog_pull"
 VERSION = "nivx-sysmon-forwarder/1.0"
 HOSTNAME = f"CONTRACT-{STAMP}"
+PS_ENVELOPES = os.environ.get("W1_PS_ENVELOPES", "/tmp/ps_envelopes.json")
+PS_GENERATED = False
 ok = True
 
 
@@ -73,6 +75,36 @@ def envelope(col, raw):
             "parser_version": VERSION, "raw": raw}
 
 
+def load_ps_envelopes():
+    """Prefer envelopes built by the ARTIFACT'S OWN PowerShell code.
+
+    scripts/windows/Test-ForwarderEnvelope.ps1 loads ConvertTo-Envelope out
+    of the real .ps1 via the PowerShell AST and writes its output here, so
+    this check stops being a Python replica of the contract.
+    """
+    global PS_GENERATED, HOSTNAME
+    import subprocess
+    pwsh, gen = "/opt/pwsh/pwsh", "/app/scripts/windows/Test-ForwarderEnvelope.ps1"
+    fwd = "/app/scripts/windows/NivXRay-SysmonForwarder.ps1"
+    if os.path.exists(pwsh) and os.path.exists(gen):
+        r = subprocess.run([pwsh, "-NoProfile", "-File", gen,
+                            "-ForwarderPath", fwd, "-OutFile", PS_ENVELOPES],
+                           capture_output=True, text=True, timeout=180)
+        if r.returncode != 0:
+            print("   PowerShell envelope generation FAILED:",
+                  (r.stderr or r.stdout)[:300])
+            return None
+    if not os.path.exists(PS_ENVELOPES):
+        return None
+    envs = json.load(open(PS_ENVELOPES))
+    raws = {int(e["raw"]["event_id"]): e["raw"] for e in envs}
+    if not {1, 13, 22}.issubset(raws):
+        return None
+    PS_GENERATED = True
+    HOSTNAME = raws[1]["Computer"]
+    return raws
+
+
 def main():
     print(f"== W1 PHASE 2 · FORWARDER ENVELOPE CONTRACT CHECK · {BASE} ==")
     _, body = call("/api/auth/login", "POST",
@@ -98,6 +130,10 @@ def main():
     check("scoped ingest key minted", bool(key))
     if not key:
         return 1
+
+    ps = load_ps_envelopes()
+    print(f"   envelope source: "
+          f"{'POWERSHELL ARTIFACT CODE (Test-ForwarderEnvelope.ps1)' if ps else 'python replica'}")
 
     eid1 = {"event_id": 1, "provider": "Microsoft-Windows-Sysmon",
             "channel": "Microsoft-Windows-Sysmon/Operational",
@@ -146,6 +182,19 @@ def main():
              "QueryStatus": "0",
              "QueryResults": "type:  1 93.184.216.34;",
              "Image": "C:\\Windows\\System32\\svchost.exe"}
+
+    if ps:
+        eid1, eid13, eid22 = ps[1], ps[13], ps[22]
+        check("the artifact's own code built these envelopes", True,
+              f"host={HOSTNAME}")
+        check("a source field in the reserved _nivx namespace was DROPPED, "
+              "not renamed",
+              not any(k.startswith("_nivx") for k in eid1),
+              str([k for k in eid1 if k.startswith("_nivx")]))
+        check("EventData was carried verbatim (no field renamed or added)",
+              {"OriginalFileName", "ParentCommandLine", "Hashes",
+               "ProcessGuid", "RuleName", "LogonGuid"}.issubset(eid1),
+              f"{len(eid1)} fields")
 
     print("\n== 1 · THE FORWARDER'S EXACT ENVELOPE SHAPE ==")
     code, body = call("/api/xdr/ingest/telemetry", "POST", key=key,
@@ -206,8 +255,10 @@ def main():
               c1["event_time"])
     if c13:
         check("registry evidence is reachable by the Sigma field names",
-              c13["registry"]["target_object"].endswith("Run\\Contract")
-              and c13["registry"]["value_data"].endswith("contract.exe"))
+              c13["registry"]["target_object"] == eid13["TargetObject"]
+              and c13["registry"]["value_data"] == eid13["Details"],
+              f'{c13["registry"]["target_object"][-22:]} / '
+              f'{c13["registry"]["value_data"][-16:]}')
     if c22:
         check("DNS query + answer preserved",
               c22["network"]["dns_query"] == "example.com"
@@ -218,7 +269,8 @@ def main():
                       tenant=TEN, body={"envelopes": [envelope(col, eid1)]})
     d2 = body.get("data") or body
     n = canon.count_documents({"tenant_id": TEN, "host.hostname": HOSTNAME,
-                               "source_event_id": "1"})
+                               "source_event_id": "1",
+                               "provenance.collector_id": col})
     check("a replayed record is a DUPLICATE and creates no second record",
           d2.get("duplicates") == 1 and n == 1,
           f"duplicates={d2.get('duplicates')} canonical_rows={n}")
