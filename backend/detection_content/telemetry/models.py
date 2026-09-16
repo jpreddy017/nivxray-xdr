@@ -47,13 +47,54 @@ class ProcessEntity:
 
 @dataclass
 class NetworkEntity:
+    """N1 · OBSERVED network and DNS activity.
+
+    Every field below exists because an authoritative source states it. A
+    field a source did not state stays at its empty default and is simply
+    absent from `field_provenance` — the two are never confused, and no
+    value is derived to make a detection convenient.
+
+    `field_provenance` maps a canonical field name to the EXACT wire field
+    that produced it (`"dns_response_ips": "zeek:dns.log answers"`), so a
+    rule that cites a network field can always be traced to the source's
+    own vocabulary.
+    """
     src_ip: str = ""
     src_port: Optional[int] = None
     dest_ip: str = ""
     dest_port: Optional[int] = None
     protocol: str = ""
-    direction: str = ""  # inbound, outbound, internal
+    direction: str = ""  # inbound, outbound, internal — only when STATED
     dns_query: str = ""
+    #: N1 · DNS answer side. `dns_response_ips` is the join that makes
+    #: domain → contacted address provable; before N1 it had nowhere to live,
+    #: so Sysmon's QueryResults was parsed and then discarded.
+    dns_query_type: str = ""
+    dns_rcode: str = ""
+    dns_response_ips: List[str] = field(default_factory=list)
+    dns_response_records: List[str] = field(default_factory=list)
+    dns_response_ttls: List[float] = field(default_factory=list)
+    dns_authoritative: Optional[bool] = None
+    dns_rejected: Optional[bool] = None
+    dns_transaction_id: Optional[int] = None
+    #: N1 · flow volume and outcome, as the observing sensor measured them.
+    bytes_sent: Optional[int] = None
+    bytes_received: Optional[int] = None
+    packets_sent: Optional[int] = None
+    packets_received: Optional[int] = None
+    duration_ms: Optional[float] = None
+    conn_state: str = ""
+    conn_history: str = ""
+    #: N1 · cross-source join keys. `flow_id` is the sensor's own identifier
+    #: for this flow; `community_id` is the vendor-neutral flow hash, and it
+    #: is recorded ONLY when the source actually emitted one.
+    flow_id: str = ""
+    community_id: str = ""
+    #: N1 · WHICH network device observed this. Kept out of `host` on
+    #: purpose: the sensor that saw a flow is not the endpoint that made it.
+    sensor_device_id: str = ""
+    sensor_device_name: str = ""
+    field_provenance: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

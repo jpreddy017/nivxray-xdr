@@ -123,6 +123,33 @@ class SysmonParser:
         }
 
 
+def _sysmon_query_results(value: Any) -> Dict[str, list]:
+    """Split Sysmon's `QueryResults` into address answers and other records.
+
+    Nothing is inferred: an entry is an address only when it parses as one.
+    An empty / `-` result set yields two empty lists, which is the honest
+    representation of "the query returned no address".
+    """
+    import ipaddress as _ipaddress
+    import re as _re
+    ips: list = []
+    records: list = []
+    if not value:
+        return {"ips": ips, "records": records}
+    for part in str(value).split(";"):
+        entry = _re.sub(r"^type:\s*\d+\s+", "", part.strip()).strip()
+        if not entry or entry == "-":
+            continue
+        candidate = entry[len("::ffff:"):] if entry.lower().startswith(
+            "::ffff:") else entry
+        try:
+            _ipaddress.ip_address(candidate)
+            ips.append(candidate)
+        except ValueError:
+            records.append(entry)
+    return {"ips": ips, "records": records}
+
+
 class SysmonNormalizer:
     id = "sysmon-normalizer"
 
@@ -182,6 +209,29 @@ class SysmonNormalizer:
                 protocol=n.get("protocol", ""),
                 dns_query=n.get("dns_query", ""),
             )
+            # ── N1/GAP-1 · Sysmon EID 22 `QueryResults` ────────────────
+            # The answer side was parsed and then discarded for want of a
+            # canonical field, which meant Sysmon could never evidence
+            # `domain → resolved IP`. Microsoft writes it as
+            # `type:  5 cdn.example.com;type:  1 93.184.216.34;` and
+            # IPv4 answers as `::ffff:93.184.216.34`.
+            answers = _sysmon_query_results(n.get("dns_answer"))
+            if answers["ips"] or answers["records"]:
+                net.dns_response_ips = answers["ips"]
+                net.dns_response_records = answers["records"]
+                net.field_provenance.update({
+                    k: "sysmon:EventData.QueryResults"
+                    for k, v in (("dns_response_ips", answers["ips"]),
+                                 ("dns_response_records", answers["records"]))
+                    if v})
+            if n.get("src_ip"):
+                net.field_provenance["src_ip"] = "sysmon:EventData.SourceIp"
+            if n.get("dst_ip"):
+                net.field_provenance["dest_ip"] = \
+                    "sysmon:EventData.DestinationIp"
+            if n.get("dns_query"):
+                net.field_provenance["dns_query"] = \
+                    "sysmon:EventData.QueryName"
 
         # ── D18 · registry evidence, only where the registry was OBSERVED ──
         registry = RegistryEntity()

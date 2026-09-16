@@ -71,6 +71,8 @@ SOURCE_CATALOG: dict[str, str] = {
     "nivxforge-linux-sensor": "nivxforge-linux-sensor",
     #: Microsoft Phase 1 · Office 365 Management Activity API records.
     "m365-unified-audit":     "m365-unified-audit",
+    #: N1 · Zeek / Corelight conn + dns JSON records.
+    "zeek-json":              "zeek-json",
 }
 
 #: Spelling variants a collector may legitimately use. Every alias resolves
@@ -96,6 +98,14 @@ SOURCE_ALIASES: dict[str, str] = {
     "microsoft-365":     "m365-unified-audit",
     "m365-management-activity":      "m365-unified-audit",
     "office365-management-activity": "m365-unified-audit",
+    #: N1 · every spelling resolves to the SAME single Zeek DSM. An alias
+    #: widens nothing: authorization is still checked against the catalog
+    #: key, and the payload must still be compatible with that one DSM.
+    "zeek":       "zeek-json",
+    "bro":        "zeek-json",
+    "corelight":  "zeek-json",
+    "zeek-conn":  "zeek-json",
+    "zeek-dns":   "zeek-json",
 }
 
 

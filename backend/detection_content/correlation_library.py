@@ -195,3 +195,84 @@ ENTERPRISE_CORRELATION_SCENARIOS: List[Dict[str, Any]] = [
         "license": "NivXRay Proprietary Architecture",
     },
 ]
+
+
+#: ── N1 · Network / DNS content ───────────────────────────────────────────
+#: Both scenarios are seeded **DISABLED**. New network content must not
+#: change detection behaviour for every tenant the moment it ships; it is
+#: enabled explicitly for a controlled proof or by an operator decision.
+#:
+#: Signals come from `detection_content.telemetry.network_signals`, which
+#: projects canonical network evidence one-signal-per-DNS-answer so that the
+#: entity key itself (client address + peer address) carries the join.
+NETWORK_DNS_CORRELATION_SCENARIOS: List[Dict[str, Any]] = [
+    {
+        "id": "CORR-NET-001",
+        "name": "DNS Resolution Failure Burst (NXDOMAIN) From One Client",
+        "description": (
+            "A single client address produced a burst of NXDOMAIN answers "
+            "inside the window. Evidence consistent with DGA behaviour, a "
+            "misconfigured resolver or a dead C2 domain list — correlation "
+            "evidence only, never a verdict. Each counted signal cites the "
+            "canonical DNS event it came from."
+        ),
+        "severity_hint": "medium",
+        "enabled": False,
+        "state": "DISABLED",
+        "conditions": [
+            {
+                "id": "A_NXDOMAIN",
+                "operator": "EVENT_MATCH",
+                "match": {"event_kind": "dns_query", "dns_rcode": "NXDOMAIN"},
+            },
+        ],
+        "operators": {
+            "type": "THRESHOLD",
+            "window_seconds": 300,
+            "threshold": 10,
+        },
+        "group_by": ["client_ip"],
+        "attack_techniques": ["T1568.002"],
+        "source": "NivXRay-Network-N1",
+        "license": "NivXRay Public Content",
+    },
+    {
+        "id": "CORR-NET-002",
+        "name": "DNS Answer Followed By Connection To The Resolved Address",
+        "description": (
+            "The same client resolved a domain to an address and then "
+            "connected to THAT address within the window. The relationship "
+            "is established by three facts together — same client, same "
+            "resolved address, DNS first — and the match cites both "
+            "canonical event ids. A shared address alone is deliberately "
+            "not sufficient."
+        ),
+        "severity_hint": "informational",
+        "enabled": False,
+        "state": "DISABLED",
+        "conditions": [
+            {
+                "id": "A_DNS_ANSWER",
+                "operator": "EVENT_MATCH",
+                "match": {"event_kind": "dns_query",
+                          "dns_answer_state": "ADDRESS_ANSWERED"},
+            },
+            {
+                "id": "B_CONNECTION",
+                "operator": "EVENT_MATCH",
+                "match": {"event_kind": ["network_connect", "network_alert"]},
+            },
+        ],
+        "operators": {
+            "type": "SEQUENCE",
+            "sequence": ["A_DNS_ANSWER", "B_CONNECTION"],
+            "window_seconds": 900,
+            "threshold": 1,
+        },
+        # The entity key IS the join: one client, one peer address.
+        "group_by": ["client_ip", "network_peer_ip"],
+        "attack_techniques": ["T1071.001"],
+        "source": "NivXRay-Network-N1",
+        "license": "NivXRay Public Content",
+    },
+]

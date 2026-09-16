@@ -627,6 +627,11 @@ _BUNDLED_RULES: list[dict] = [
 from detection_content.correlation_library import ENTERPRISE_CORRELATION_SCENARIOS
 _BUNDLED_RULES.extend(ENTERPRISE_CORRELATION_SCENARIOS)
 
+# N1 · network / DNS content. Seeded DISABLED by its own declaration — see
+# `_seed_bundled_rules`, which honours an explicit `enabled` / `state`.
+from detection_content.correlation_library import NETWORK_DNS_CORRELATION_SCENARIOS
+_BUNDLED_RULES.extend(NETWORK_DNS_CORRELATION_SCENARIOS)
+
 
 def _seed_bundled_rules() -> int:
     """Insert bundled rules idempotently.  Returns the number of new
@@ -642,8 +647,11 @@ def _seed_bundled_rules() -> int:
             **r,
             "id":         _mint_rule_id(),
             "tenant_id":  "*",             # bundled = platform-wide
-            "enabled":    True,
-            "state":      "VALIDATED",
+            # A rule pack may seed itself DISABLED. New content that would
+            # change detection behaviour for every tenant on the day it
+            # ships has to be turned on deliberately.
+            "enabled":    bool(r.get("enabled", True)),
+            "state":      r.get("state", "VALIDATED"),
             "version":    1,
             "source":     "NivXRay-native",
             "license":    "NivXRay Public Content",

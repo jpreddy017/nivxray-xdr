@@ -107,6 +107,22 @@ SAMPLES: dict[str, dict] = {
         "expect_activity_source": "sensor:/proc start_time",
         "expect_observation_source": "sensor:observed_at",
     },
+    # N1 · Zeek is a passive wire sensor: the packet it timestamps IS the
+    # activity, exactly as the Suricata/Snort EVE instant is. `_write_ts`
+    # is when Zeek wrote the record and stays an observation.
+    "zeek-json": {
+        "event": {"_path": "dns", "_system_name": "zeek-d12",
+                  "ts": 1780308000.0, "_write_ts": 1780308001.5,
+                  "uid": "Cd12zeek", "id.orig_h": "10.0.0.7",
+                  "id.orig_p": 51000, "id.resp_h": "10.0.0.1",
+                  "id.resp_p": 53, "proto": "udp", "query": "example.test",
+                  "qtype_name": "A", "rcode_name": "NOERROR",
+                  "answers": ["198.51.100.20"], "TTLs": [60.0]},
+        "time_keys": ["ts"],
+        "proves_activity": True,
+        "expect_activity_source": "zeek:dns.log ts",
+        "expect_observation_source": "zeek:dns.log _write_ts",
+    },
 }
 
 

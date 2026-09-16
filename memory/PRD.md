@@ -16262,3 +16262,48 @@ proof or honest SYNTHETIC label.
 Explicitly NOT started per owner: Terminal Record UI, Cross Domain Story, further
 Microsoft detection expansion, real Microsoft onboarding (owner-side), production
 change / merge / deploy, anything in NivXForge EDR / Work Mode.
+
+## 2026-06 · GATE N1 — ZEEK NETWORK/DNS TELEMETRY (IMPLEMENTED, preview only)
+
+Owner authorised Gate N1 with GAP-1/2/3 folded into acceptance. Delivered:
+
+* `zeek-json` DSM (conn + dns, dispatch on `_path`, fail-closed `supports()`),
+  registered through the existing DSM registry; catalog key + aliases
+  (`zeek`, `bro`, `corelight`, `zeek-conn`, `zeek-dns`) in `source_routing`.
+* `NetworkEntity` extended additively with ONLY Zeek-supplied fields
+  (DNS qtype/rcode/answers/TTLs/AA/rejected/trans_id, bytes+packets by
+  direction, duration, conn_state/history, flow_id, community_id, sensor
+  identity) plus `field_provenance` naming the exact wire field.
+* GAP-1 closed on both sides: Zeek `answers` and Sysmon EID 22
+  `QueryResults` now reach `network.dns_response_ips`.
+* GAP-2/GAP-3 closed: network + historical pivots read BOTH canonical
+  network shapes; DNS pivot reads `network.dns_query`.
+* Two correlation scenarios, seeded **DISABLED**: `CORR-NET-001` NXDOMAIN
+  burst (THRESHOLD, per client) and `CORR-NET-002` DNS answer → connection
+  to the resolved address (SEQUENCE, grouped client+peer address).
+  `_seed_bundled_rules` now honours a pack's own enabled/state.
+* Signal projection `telemetry/network_signals.py` (one signal per DNS
+  answer) so the entity key itself carries the join.
+
+Proof: `backend/tests/test_n1_zeek_network_telemetry.py` 62 passed;
+D12 platform guard now covers zeek (55 passed);
+`scripts/p0_n1_zeek_network_live_proof.py` PASS over real HTTP (27 checks,
+including the SUPPORTED relationship citing BOTH canonical event ids,
+cross-tenant 403, replay dedupe, and all four false-join controls).
+Report: `memory/N1_ZEEK_NETWORK_TELEMETRY_REPORT.md`.
+
+Real source: **EXTERNAL_ACCESS_BLOCKED** — genuine Zeek attempted and
+machine-checked; no CAP_NET_RAW in this container (tcpdump + AF_PACKET both
+denied) and no zeek package available, so no traffic can be genuinely
+observed here. Nothing claimed in its place.
+
+Chain after N1: `DNS Query → Domain → Resolved IP → Connection → Detection`
+is proven at implementation level with the CLIENT ADDRESS as network
+identity. Preserved breaks: Endpoint→Process (Zeek cannot supply),
+client IP → device identity (no asset/DHCP inventory), user attribution,
+TI verdicts, firewall allow/deny.
+
+Next (owner-gated): (1) owner review of N1; (2) real Zeek source — a sensor
+host or an owner-supplied pcap; (3) Cross Domain Story once genuine
+endpoint evidence joins network evidence; (4) real Microsoft onboarding
+(owner-side, unchanged).
