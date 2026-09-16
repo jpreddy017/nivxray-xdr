@@ -16644,3 +16644,56 @@ ONLY because real telemetry arrived.
 NEXT: owner supplies a genuine Windows/Sysmon feed → close W1 → re-run the
 12-rule table on genuine evidence. Then reassess (cross-endpoint/lateral
 movement vs M365 identity/email) from what W1 actually unlocked.
+
+## 2026-06 · W1 PHASE 1 PASS (owner, real laptop) · PHASE 2 FORWARDER DELIVERED
+
+PHASE 1 (owner-executed on a genuine physical Windows 10 Pro laptop, build
+19045, AMD64, WORKGROUP): Sysmon 15.22 installed (Authenticode Valid,
+Microsoft Windows Publisher), config SHA256
+0BAE60B361373E09C3B834EE68CA52B9412D9A9239036F25DE5A2EBC39C9A7AC,
+Sysmon64 Running/Automatic + SysmonDrv Running/Boot, channel enabled with
+58 467 records. 15-min distribution: EID 12 = 22 728 · EID 13 = 2 041 ·
+EID 11 = 24 · EID 3 = 36 · EID 1 = 14 · EID 22 = 8 · EID 14 NOT_OBSERVED
+(must stay NOT_OBSERVED, never inferred). Genuine EID 1 records proved
+ProcessGuid + ParentImage + ParentCommandLine + OriginalFileName + MD5 +
+SHA256 present.
+  => REAL WINDOWS HOST / SYSMON / LOCAL TELEMETRY / SHA256 SOURCE = PROVEN.
+  => remaining blocker is now specifically TRANSPORT into NivXRay XDR.
+Runbook file: `memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md`.
+
+PHASE 2 (agent, no laptop change, no secret): the repo had no Windows agent
+and collector `protocol: "wef"` is registered SCAFFOLD, so the smallest
+honest path is a host-side PowerShell reader that POSTs to the EXISTING
+authenticated route with `protocol: "rest"` (IMPLEMENTED, https).
+New: `scripts/windows/NivXRay-SysmonForwarder.ps1` — transport only (NivX
+re-parses `raw`); reads ONLY the 7 DSM-supported EIDs; forwards EventData
+VERBATIM; exactly-once via `source_event_id = <Computer>|<EventRecordID>` +
+durable bookmark advanced only after the server accounts for a chunk;
+forward XPath fetch (`EventRecordID > bookmark`, oldest first) so a backlog
+is drained in order; refusals appended to `state\refused.jsonl` and any
+skipped range to `state\gap.jsonl` (never silent); HTTPS enforced, TLS 1.2+,
+NO certificate-validation bypass; refuses to read the key file if
+Everyone/Users/Authenticated Users can read it; key never logged;
+`connector_id = nivx-sysmon-forwarder/1.0@<HOST>` so provenance names the
+transport instance. Defaults MaxEvents=5000, BatchSize=200 (~5 000 rec/min
+capacity vs the owner's measured ~1 657/min → ~3x headroom).
+Proof: `scripts/p0_w1_forwarder_contract_check.py` PASS 21/21 against the
+live route using the byte-for-byte envelope shape the script emits —
+accepted=3/REASONED, collector CONNECTED on evidence (3/3/3),
+`collection_method: windows_eventlog_pull` accepted verbatim, canonical
+ProcessGuid/parent identity + OriginalFileName≠process.name + parent cmdline
++ SHA256/MD5 + registry target_object/value_data + DNS query/answer,
+provenance naming collector/transport/DSM, replay = DUPLICATE with no second
+row, and the refusals: wrong declared_source → routing_blocked, tenant
+mismatch → 403, no key → 403, unsupported EID → BLOCKED.
+Report: `memory/W1_PHASE2_WINDOWS_FORWARDER.md`.
+
+RECORDED, NOT APPLIED (per owner): EID 12 is ~91% of the laptop's volume and
+no store rule reads it (`win_persistence_registry_run_key` reads EID 13).
+No filtering added during W1; volume/tuning is a post-acceptance item. A
+sustained run writes ~100k canonical rows/hour, so the acceptance run should
+be a bounded 15–30 min window.
+
+STILL TRUE: `_COLLECTED_PRODUCTS = {"linux"}`. W1 = NOT CLOSED. Next owner
+action = Phase 2 review + `-DryRun` on the laptop (no secret, no collector,
+bookmark untouched), then Phase 3 (collector + one key, ACL'd key file).
