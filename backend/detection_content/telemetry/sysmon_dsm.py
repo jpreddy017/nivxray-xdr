@@ -30,6 +30,7 @@ from .models import (
     PROCESS_ATTRIBUTION_AUTHORITATIVE,
     PROCESS_ATTRIBUTION_PID_ONLY,
     CanonicalTelemetryEvent,
+    FileEntity,
     HostEntity,
     IdentityEntity,
     NetworkEntity,
@@ -91,9 +92,18 @@ class SysmonParser:
                 "pid": _first(ev, "process_id", "ProcessId"),
                 "guid": _first(ev, "process_guid", "ProcessGuid"),
                 "command_line": _first(ev, "command_line", "CommandLine"),
+                # W1 · PE metadata name. Sysmon states it separately from
+                # the on-disk image, and so do we.
+                "original_file_name": _first(ev, "original_file_name",
+                                             "OriginalFileName"),
                 "parent_image": _first(ev, "parent_image", "ParentImage"),
+                "parent_command_line": _first(ev, "parent_command_line",
+                                              "ParentCommandLine"),
                 "parent_pid": _first(ev, "parent_process_id", "ParentProcessId"),
                 "parent_guid": _first(ev, "parent_process_guid", "ParentProcessGuid"),
+                # W1 · Sysmon's own hash set, verbatim. Splitting happens
+                # below so a malformed digest is REFUSED, not carried.
+                "hashes_raw": _first(ev, "hashes", "Hashes"),
             },
             "network": {
                 "src_ip": _first(ev, "src_ip", "SourceIp"),
@@ -109,6 +119,10 @@ class SysmonParser:
                 "hash_sha256": _first(ev, "file_hash_sha256"),
                 "hash_md5": _first(ev, "file_hash_md5"),
                 "hash_sha1": _first(ev, "file_hash_sha1"),
+                # W1 · Sysmon writes file hashes into the SAME `Hashes`
+                # field it uses for an image hash; which entity it belongs
+                # to is decided by the event id, in the normalizer.
+                "hashes_raw": _first(ev, "hashes", "Hashes"),
             },
             "registry": {
                 "key": _first(ev, "registry_key", "TargetObject"),
@@ -123,6 +137,45 @@ class SysmonParser:
             "channel": ev.get("channel") or "",
             "raw": ev,
         }
+
+
+def _sysmon_hashes(value: Any) -> Dict[str, Dict[str, str]]:
+    """W1 · split Sysmon's `Hashes` into per-algorithm digests.
+
+    Sysmon writes `SHA1=…,MD5=…,SHA256=…,IMPHASH=…` (and a bare digest for
+    single-algorithm configurations). A digest is accepted ONLY when it is
+    hex of the exact length its algorithm defines — a truncated or
+    non-hex value is a malformed observation, and carrying it would let a
+    watchlist compare against something the endpoint never computed.
+
+    Returns `{"hashes": {...}, "rejected": {...}}`; both may be empty,
+    which is the honest representation of "no hash was observed".
+    """
+    widths = {"md5": 32, "sha1": 40, "sha256": 64, "imphash": 32}
+    out: Dict[str, str] = {}
+    rejected: Dict[str, str] = {}
+    if value in (None, ""):
+        return {"hashes": out, "rejected": rejected}
+    parts = [p.strip() for p in str(value).split(",") if p.strip()]
+    for part in parts:
+        if "=" in part:
+            algo, _, digest = part.partition("=")
+            algo = algo.strip().lower()
+        else:
+            digest = part
+            algo = next((a for a, w in widths.items()
+                         if len(digest.strip()) == w and a != "imphash"), "")
+        digest = digest.strip()
+        if algo not in widths:
+            rejected[algo or "unknown"] = digest[:80]
+            continue
+        low = digest.lower()
+        if len(low) != widths[algo] or any(c not in "0123456789abcdef"
+                                           for c in low):
+            rejected[algo] = digest[:80]
+            continue
+        out[algo] = low
+    return {"hashes": out, "rejected": rejected}
 
 
 def _sysmon_query_results(value: Any) -> Dict[str, list]:
@@ -198,6 +251,41 @@ class SysmonNormalizer:
                 executable_path=p.get("image", ""),
                 command_line=p.get("command_line", ""),
             )
+            # ── W1 · fields Sysmon states and the DSM used to discard ──
+            # `OriginalFileName` is PE metadata, NOT the on-disk name: a
+            # renamed binary keeps it, which is exactly what masquerading
+            # content reads. It gets its own canonical field so nothing
+            # has to guess, and it stays ABSENT when Sysmon omitted it.
+            if p.get("original_file_name"):
+                proc.original_file_name = p["original_file_name"]
+                proc.field_provenance["original_file_name"] = \
+                    "sysmon:EventData.OriginalFileName"
+            if p.get("parent_image"):
+                proc.parent_executable_path = p["parent_image"]
+                proc.field_provenance["parent_executable_path"] = \
+                    "sysmon:EventData.ParentImage"
+            if p.get("parent_command_line"):
+                proc.parent_command_line = p["parent_command_line"]
+                proc.field_provenance["parent_command_line"] = \
+                    "sysmon:EventData.ParentCommandLine"
+            # Sysmon's `Hashes` on EID 1 are the hashes OF THE IMAGE that
+            # started, so they belong to the process. On file events they
+            # describe the file — that mapping is made below, per event id,
+            # and never by guessing.
+            if sysmon_eid == 1:
+                split = _sysmon_hashes(p.get("hashes_raw"))
+                if split["hashes"]:
+                    proc.hashes = dict(split["hashes"])
+                    for algo in split["hashes"]:
+                        proc.field_provenance[f"hashes.{algo}"] = (
+                            f"sysmon:EventData.Hashes({algo.upper()}) — "
+                            f"the hash of the image that was executed")
+                if split["rejected"]:
+                    proc.field_provenance["hashes_rejected"] = (
+                        "sysmon:EventData.Hashes carried "
+                        + ", ".join(sorted(split["rejected"]))
+                        + " that is not a valid digest for its algorithm; "
+                        "it was REFUSED rather than stored")
             # ── N2.1 · stop discarding the identity Sysmon already gave ──
             # `ProcessGuid` is Sysmon's own lifetime-unique process
             # identity and it is stamped on EID 1, 3 AND 22 — so
@@ -271,6 +359,32 @@ class SysmonNormalizer:
                 net.field_provenance["dns_query"] = \
                     "sysmon:EventData.QueryName"
 
+        # ── W1 · file evidence, where the source OBSERVED a file ──────
+        # Sysmon EID 11 names the file it watched being created. It was
+        # parsed and then left only in `additional_fields`, so canonical
+        # `file.*` was empty and no rule could cite it.
+        file_entity = FileEntity()
+        f = parsed.get("file") or {}
+        if sysmon_eid == 11 and f.get("path"):
+            file_entity = FileEntity(
+                path=f["path"],
+                name=str(f["path"]).split("\\")[-1],
+                action="create",
+                field_provenance={
+                    "path": "sysmon:EventData.TargetFilename",
+                    "name": "sysmon:EventData.TargetFilename (basename)",
+                    "action": "sysmon:EventID 11 (FileCreate)"})
+            split = _sysmon_hashes(f.get("hashes_raw"))
+            explicit = {k: v for k, v in (
+                ("sha256", f.get("hash_sha256")), ("md5", f.get("hash_md5")),
+                ("sha1", f.get("hash_sha1"))) if v}
+            for algo, digest in {**split["hashes"], **explicit}.items():
+                file_entity.hashes[algo] = str(digest).lower()
+                file_entity.field_provenance[f"hashes.{algo}"] = (
+                    f"sysmon:EventData.Hashes({algo.upper()})"
+                    if algo in split["hashes"]
+                    else f"sysmon:EventData.file_hash_{algo}")
+
         # ── D18 · registry evidence, only where the registry was OBSERVED ──
         registry = RegistryEntity()
         registry_mapping: Dict[str, Any] | None = None
@@ -341,6 +455,7 @@ class SysmonNormalizer:
             identity=identity or IdentityEntity(),
             process=proc or ProcessEntity(),
             network=net or NetworkEntity(),
+            file=file_entity,
             registry=registry,
             raw_ref={"sysmon_event_id": sysmon_eid,
                      "channel": parsed.get("channel", ""),

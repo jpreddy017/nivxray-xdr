@@ -57,7 +57,12 @@ _SEVERITY_FROM_LEVEL = {"critical": "critical", "high": "high",
 #: read it — see `dcr1_product_neutral`.
 _FIELD_MAP = {
     "Image": (("process", "executable_path"),),
-    "OriginalFileName": (("process", "name"),),
+    # W1 · `OriginalFileName` is PE metadata, not the on-disk name. It used
+    # to be mapped onto `process.name`, which for Sysmon is basename(Image)
+    # — so a renamed-binary rule judged the very value the attacker
+    # controls. It now reads its own canonical field, and an unobserved
+    # OriginalFileName produces no match.
+    "OriginalFileName": (("process", "original_file_name"),),
     "CommandLine": (("process", "command_line"),),
     "ParentImage": (("process", "parent_executable_path"),),
     "ParentCommandLine": (("process", "parent_command_line"),),
@@ -66,8 +71,11 @@ _FIELD_MAP = {
     "DestinationIp": (("network", "dest_ip"),),
     "DestinationPort": (("network", "dest_port"),),
     "SourceIp": (("network", "src_ip"),),
-    "TargetObject": (("registry", "key"),),
-    "Details": (("registry", "value"),),
+    # W1 · the D18 registry entity names these `target_object` /
+    # `value_data`; the old paths (`registry.key` / `registry.value`) exist
+    # on no canonical record, so a registry rule could never fire.
+    "TargetObject": (("registry", "target_object"), ("registry", "key_path")),
+    "Details": (("registry", "value_data"),),
     # DCR-1 · canonical fields N1 (Zeek) and N2.1 already emit.
     "QueryName": (("network", "dns_query"),),
     "SourcePort": (("network", "src_port"),),

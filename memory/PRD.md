@@ -16571,3 +16571,76 @@ from the number of mappings added. Candidates: Windows/Sysmon real-source
 onboarding (unblocks 9 SigmaHQ process_creation rules + brute force),
 canonical hash mapping for Sysmon, M365 Entra onboarding (owner-side),
 richer DNS/C2 behavioural detections, X1 pipeline wiring.
+
+## 2026-06 · GATE W1 (HOST-INDEPENDENT HALF) DELIVERED — REAL_SOURCE_BLOCKED
+
+Owner accepted + LOCKED DCR-1, then approved the host-independent half of W1.
+Report: `memory/W1_REAL_WINDOWS_SYSMON_ONBOARDING_REPORT.md`.
+
+STATUS SPLIT (deliberate):
+  W1 engineering readiness  : PASS (REPLAY/SYNTHETIC proven)
+  W1 real-source acceptance : REAL_SOURCE_BLOCKED
+  W1 overall                : NOT CLOSED
+
+Measured: 0 enrolled Windows collectors with a heartbeat, 0 canonical Sysmon
+records from a non-proof host. No Windows host is reachable from this
+environment.
+
+OUR OWN DEFECTS FIXED (all host-independent):
+  * `Hashes` was never parsed → Sysmon hashes now reach
+    `process.hashes` (EID 1 = the executed image's hashes) / `file.hashes`,
+    with per-field provenance. A digest is accepted ONLY if hex of the exact
+    width for its algorithm; malformed digests are REFUSED and the refusal is
+    recorded in `field_provenance["hashes_rejected"]`.
+  * `ParentImage` was dropped → `process.parent_executable_path`.
+  * `ParentCommandLine` was never parsed → `process.parent_command_line`.
+  * **`OriginalFileName` semantic defect**: Sigma `OriginalFileName` was mapped
+    to `process.name` = basename(Image), so a renamed-binary rule judged the
+    attacker-controlled on-disk name. Sysmon's OriginalFileName now has its own
+    canonical field + provenance and the conflation is REMOVED. Absent → no
+    match.
+  * EID 11 `TargetFilename` → canonical `file` entity (path/name/action) with
+    `FileEntity.field_provenance` (new).
+  * `TargetObject`/`Details` were mapped to `registry.key`/`registry.value`,
+    which exist on NO canonical record → now `registry.target_object` /
+    `registry.value_data` (D18 names).
+
+Files: `telemetry/sysmon_dsm.py` (parser + normalizer + `_sysmon_hashes`),
+`telemetry/models.py` (ProcessEntity: original_file_name,
+parent_executable_path, parent_command_line; FileEntity: field_provenance),
+`rule_store_binding.py` (field-map corrections only).
+
+`_COLLECTED_PRODUCTS` is STILL `{"linux"}`. Widening it is the live-source
+acceptance step and was deliberately NOT done.
+
+12 Windows behaviour rules assessed individually (the triage's 9 SigmaHQ
+process_creation + 2 Office parent/child + registry Run key; `Rundll32 with
+remote payload` = 5 identical copies of 1 detection). **0 of 9 (0 of 12)
+became genuinely fireable.** What changed: the remaining blocker is now exactly
+ONE thing (real Windows telemetry) instead of three — 3 of the 12 could not
+have fired even WITH telemetry because of the ParentImage / TargetObject
+mapping defects. A PROJECTION (product gate lifted in memory, then restored)
+shows all 12 bind, each matches its own behaviour on DSM-produced canonical
+evidence, and none matches a benign explorer→notepad record.
+
+Hash acceptance (replay): a Sysmon SHA256 reaches `process.hashes.sha256` and
+is consumed by `ioc_file_hash_watchlist` citing the exact observed digest and
+`evidence_ref`; missing → no match, wrong → no match, malformed → refused.
+
+Proof: `scripts/p0_w1_sysmon_onboarding_proof.py` PASS 40/40 (15 Sysmon
+records over the real ingest route) with an explicit REAL_SOURCE_BLOCKED
+banner · `backend/tests/test_w1_sysmon_field_preservation.py` 18 passed ·
+DCR-1+N1+N2.1+X1+p0_f3+W1 = 167 passed / 1 skipped · before/after wider sweep
+differs only by a flaky NivXForge decoder-battery case (28 of its 40 fail on a
+clean tree) → no regression attributable to W1.
+
+The report carries the full OWNER-SIDE RUNBOOK to close W1: Sysmon config
+(EIDs 1/3/11/12-14/22, HashAlgorithms must include SHA256), collector
+enrolment + single ingest key, the exact accepted envelope/`raw` shape with
+`declared_source: microsoft-sysmon`, and the verification procedure. Step 3 of
+that procedure — adding `"windows"` to `_COLLECTED_PRODUCTS` — must be done
+ONLY because real telemetry arrived.
+
+NEXT: owner supplies a genuine Windows/Sysmon feed → close W1 → re-run the
+12-rule table on genuine evidence. Then reassess (cross-endpoint/lateral
+movement vs M365 identity/email) from what W1 actually unlocked.

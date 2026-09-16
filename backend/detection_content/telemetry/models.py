@@ -59,6 +59,16 @@ class ProcessEntity:
     executable_path: str = ""
     command_line: str = ""
     integrity_level: str = ""
+    #: W1 · the PE metadata name the vendor compiled into the binary
+    #: (Sysmon `OriginalFileName`). It is NOT `name`: a renamed executable
+    #: keeps its OriginalFileName, which is precisely what masquerading
+    #: detections read. Collapsing the two destroys that distinction, so
+    #: this field stays separate and stays ABSENT when unobserved.
+    original_file_name: str = ""
+    #: W1 · the parent's full image path and command line, as the source
+    #: stated them. `parent_name` remains the basename for compatibility.
+    parent_executable_path: str = ""
+    parent_command_line: str = ""
     hashes: Dict[str, str] = field(default_factory=dict)
     #: Source-minted process identity. `process_guid` is globally unique on
     #: its own; `process_iid` is unique WITHIN its endpoint.
@@ -138,6 +148,9 @@ class FileEntity:
     target_path: str = ""
     hashes: Dict[str, str] = field(default_factory=dict)
     size_bytes: Optional[int] = None
+    #: W1 · maps a canonical file field to the EXACT wire field that
+    #: produced it, so file evidence is as traceable as network evidence.
+    field_provenance: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
