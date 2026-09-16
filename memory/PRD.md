@@ -16508,3 +16508,66 @@ as authored detections. Tests required per rule: positive, benign-negative
 (incl. absent-field → no match), the invariant chain predicate → observed
 value → canonical evidence_ref → cited detection, tenant isolation,
 regression.
+
+## 2026-06 · GATE DCR-1 DELIVERED — detection content recovery (3 rules now fire)
+
+Owner decision: **option (b), narrowed** — an explicit product-neutral
+ALLOWLIST, not a field-presence bypass. DCR-1 executed exactly as scoped.
+Report: `memory/DCR1_DETECTION_CONTENT_RECOVERY_REPORT.md`.
+
+New: `detection_content/dcr1_product_neutral.py` (allowlist contract:
+`{dns, network}`, each with a CLOSED field set + closed admissible
+`event_type` set + provenance/tenant requirement), `ioc_watchlist.py` (the
+IOC lane's own contract: 3 declared namespaces, named canonical paths,
+per-predicate evidence-type admissibility, explicit ANY_OF semantics,
+tenant-scoped entries), `detection_estate.py` (accounting only — nothing
+moved or deleted). Modified: `rule_store_binding.py` (`_FIELD_MAP` extended
+with the canonical fields N1/N2.1 already emit, multi-path; neutral binding
++ evaluation gates; IOC binding; every store match now carries a D8
+citation). No new evaluator.
+
+Binder state before → after: BOUND 0 → 3 · NO_TELEMETRY 22 → 21 ·
+STORE_CONTENT_INCOMPLETE 52 → 50 · LICENSE_BLOCKED 23 → 23 (untouched).
+
+Genuinely fireable now (3):
+  * `net_dns_susp_tld` — a `product: windows` DNS rule evaluating **Zeek
+    dns.log** evidence WITHOUT the evidence being represented as Windows.
+  * `ioc_file_hash_watchlist` — canonical `process/file.hashes.sha256`
+    from the cef-leef DSM.
+  * `ioc_network_watchlist` — canonical `network.dns_query` /
+    `network.dest_ip` from Zeek dns.log + conn.log.
+Plus 13 correlation mirrors correctly reattributed to the correlation
+engine that already runs them (reporting defect, zero security gap).
+
+Still blocked by owner decision: **O365 mailbox forwarding** —
+source-specific, `Operation`/`Parameters` deliberately NOT mapped so it
+cannot appear supported by replay. Revisit after genuine M365/Entra
+onboarding.
+
+Hashes are NOT a neutral category: `sha256` is mapped and still grants no
+cross-product rights (asserted in tests). Process/execution stays strictly
+product-gated; a DNS rule that also reads `CommandLine` is refused.
+
+Detection estate (retires "0 of 98"): 101 store rows = 45 distinct authored
+detections + 4 duplicate copies + 12 MITRE reference entries + 13
+correlation mirrors + 27 test fixtures. `binding_report()` now returns this
+as `detection_estate` and states that `authored_rules` counts store ROWS.
+
+Proof: `scripts/p0_dcr1_detection_recovery_proof.py` PASS (38 checks, all
+evidence through the authenticated ingest route) ·
+`backend/tests/test_dcr1_detection_content_recovery.py` 21 passed ·
+`test_p0_f3_rule_store_binding` + N1/N2.1/X1 green · before/after sweep of
+`-k "pipeline or sigma or detection or library or citation"` shows an
+IDENTICAL failure set (the known Work-Mode/control-plane baseline), zero new
+failures. `test_d12 ...every_registered_dsm_is_covered` fails identically on
+a clean tree (m365 DSM not yet in that suite) — pre-existing.
+
+NOT done by design: no new telemetry, no Windows onboarding, no YARA/file
+scanner, no IDS engine, no licence re-evaluation, no M365 mapping, no
+lateral movement, no X1 live wiring, no UI, no merge, no deployment.
+
+Next gate to be chosen by the owner from the RECOVERED CAPABILITY (3), not
+from the number of mappings added. Candidates: Windows/Sysmon real-source
+onboarding (unblocks 9 SigmaHQ process_creation rules + brute force),
+canonical hash mapping for Sysmon, M365 Entra onboarding (owner-side),
+richer DNS/C2 behavioural detections, X1 pipeline wiring.
