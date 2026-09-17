@@ -17124,3 +17124,29 @@ Next gate procedure written: `memory/W1_PHASE3_ENFORCEMENT_ACTIVATION_PROCEDURE.
 
 STATUS: BOOTSTRAP GATE CLOSED · ENFORCEMENT OFF (activation pending owner) ·
 W1 STILL PAUSED · no collector, key, forwarder config or telemetry.
+
+## 2026-09-17 · PRODUCTION SECRET ADDED (no republish)
+
+NIVX_TENANT_REGISTRY_ENFORCE=true added to /app/backend/.env line 18 (this is
+the Emergent custom-key store: "add secrets by asking the agent"). NOT live in
+production until the owner re-publishes. No code change, no other secret
+touched (EDR_AUTH_PEPPER untouched), no org/tenant/collector/key/telemetry/DB
+change.
+
+SIDE EFFECT MEASURED (preview only, because backend/.env is also the preview
+runtime config): preview enforcement went ON at the backend restart and
+preview's live Linux EDR sensor - which enrols under the unregistered literal
+tenant "default" - now fails closed: repeated
+`path=/api/edr/agent/session status=403`. This is the B5 defect being enforced,
+and the first real-world proof of fail-closed tenancy.
+Preview distinct tenants: xdr_collectors ['default','nivx-live', ~many p08-*
+test], xdr_api_keys ['default','nivx-live', test], edr_endpoints ['default'
+x222 docs], xdr_users test tenants only. Production is clean (1 org, 1 tenant,
+0 collectors, 0 keys).
+
+OWNER DECISION PENDING (preview only, does not block the production republish):
+  A. adopt preview's live tenants "default" and "nivx-live" via
+     tenant_registry.adopt_legacy (additive, ids preserved) -> preview sensor
+     resumes and we get an enforcement-ON rehearsal; OR
+  B. leave preview failing closed until production is verified; OR
+  C. remove the key again (would also remove it from the deployment secret set).
