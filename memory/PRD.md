@@ -16830,3 +16830,45 @@ No collector/credential/tenant config/forwarder.json/ingest.key created.
 `_COLLECTED_PRODUCTS` still {"linux"}. W1 = NOT CLOSED. Next: owner replaces
 the file, hash-checks, re-runs -DryRun expecting RENDERED values, then
 PHASE 3 (authenticated collector + one ACL'd key).
+
+## 2026-09-17 · W1 PHASE 3 PRODUCTION ALIGNMENT — ACCEPTED (verification only)
+
+Production backend https://nivxray.nivxforge.com republished by owner.
+build = 8e473e4 · recorded rollback build = 5567f46.
+
+Pre-republish baseline (memory/W1_PHASE3_PRE_REPUBLISH_SNAPSHOT.txt): 785
+OpenAPI paths, declared_source ABSENT, routing_blocked ABSENT, five
+D15/routing paths ABSENT, sources/catalog anon 404.
+
+Post-republish (memory/W1_PHASE3_POST_REPUBLISH_ACCEPTANCE.md): 790 paths,
+all five paths PRESENT, declared_source PRESENT, routing_blocked PRESENT,
+sources/catalog anon 403, routing/summary anon 403, ingest no-credential 403,
+unknown nvx_ key 401, /api/auth/me 403, login with nonexistent account 401,
+/api/ 200, /api/health 200, bogus route 404. Contract equality with the
+accepted candidate: prod_only=[] preview_only=[] paths-hash identical,
+0 schema bodies differing. Candidate gates: 255 passed / 15 skipped.
+
+Earlier steps this session: Phase 3.0 backend inspection
+(memory/W1_PHASE3_0_INSPECTION.md) and the production alignment plan
+(memory/W1_PHASE3_PRODUCTION_ALIGNMENT_PLAN.md).
+
+Frontend: xdr.nivxforge.com remains the separate Vercel SPA (server: Vercel),
+untouched and expected to differ from the Emergent preview UI. The
+"COLLECTOR RUNTIME NOT DEPLOYED" / VITE_XDR_COLLECTOR_URL badge refers to the
+separate collector runtime service and is independent of the W1 REST path.
+
+W1 = NOT CLOSED. No Windows telemetry transmitted. _COLLECTED_PRODUCTS still
+{"linux"}. No collector, API key, forwarder.json or ingest.key created.
+
+BACKLOG
+- P0 next (owner approval required): W1 PHASE 3.1 — one Windows collector
+  (protocol=rest, authorized_sources=["microsoft-sysmon"], one tenant), one
+  scoped ingest key, DESKTOP-A9HGFJJ configuration, tiny bounded batch,
+  source_event_id trace to canonical evidence, detection verification.
+- P1: B3 — machine-path audit attribution must derive from
+  request.state.principal_id set by authenticate_api_key(); ignore
+  client-supplied X-Principal-Id / X-Principal-Kind on the machine path.
+- P1: endpoint hash coverage on real Sysmon hashes; Office attack chain;
+  M365 real-source onboarding; lateral movement detections.
+- P2: investigation UI / evidence integrity presentation.
+- P3: pre-existing Work-Mode control-plane pytest failures (ignored by design).
