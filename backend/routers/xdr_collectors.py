@@ -55,6 +55,7 @@ from pymongo import DESCENDING, MongoClient
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
 from services import source_routing
+from services import tenant_registry
 from lib.collector_catalog import CATALOG as PREDEFINED_CATALOG
 from lib.collector_catalog import catalog_by_category, summary as catalog_summary
 
@@ -77,8 +78,20 @@ def _coll():
 
 # ── Principal extraction ─────────────────────────────────────────
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
+    """B4 · the tenant is RESOLVED against the authoritative registry.
+
+    Creating a collector used to establish tenancy as a side effect: any
+    `X-Tenant-Id` string was accepted verbatim and the resulting document then
+    satisfied the key-minting guard. With enforcement on, an unregistered or
+    inactive tenant is refused here and a collector can no longer bring a
+    tenant into existence.
+    """
+    raw = (req.headers.get("X-Tenant-Id")
+                or getattr(req.state, "tenant_id", None) or "")
+    try:
+        ten = tenant_registry.authoritative(raw, purpose="xdr.collectors")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
     pid = (req.headers.get("X-Principal-Id")
                 or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
     pkd = (req.headers.get("X-Principal-Kind")

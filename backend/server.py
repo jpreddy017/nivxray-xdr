@@ -348,6 +348,10 @@ from routers.xdr_rbac import router as xdr_rbac_router
 app.include_router(xdr_rbac_router)
 from routers.xdr_api_keys import router as xdr_api_keys_router
 app.include_router(xdr_api_keys_router)
+from routers.xdr_tenancy import (organizations_router as xdr_organizations_router,
+                                 tenants_router as xdr_tenants_router)
+app.include_router(xdr_organizations_router)
+app.include_router(xdr_tenants_router)
 from routers.xdr_webhooks import router as xdr_webhooks_router
 app.include_router(xdr_webhooks_router)
 # P0-8 · Data Sources + Collectors + Ingest telemetry (evidence-backed

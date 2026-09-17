@@ -16965,3 +16965,44 @@ tenant string later adopted as legacy, or Option 2 build registry steps 1-6
 first then enrol; (2) organization slug + tenant identifier; (3) whether B5 and
 B4 close before the first production endpoint exists.
 Nothing created. W1 NOT CLOSED. _COLLECTED_PRODUCTS still {"linux"}.
+
+## 2026-09-17 · ORG/TENANT AUTHORITY IMPLEMENTED (preview only, not deployed)
+
+Report: `memory/PLATFORM_ORG_TENANT_AUTHORITY_IMPLEMENTATION.md`.
+IMPLEMENTED · TESTED · NOT DEPLOYED · NOT BOOTSTRAPPED · W1 STILL PAUSED.
+
+New: services/tenant_registry.py (single tenancy authority), routers/
+xdr_tenancy.py (/api/xdr/organizations, /api/xdr/tenants behind tenants.manage
+/ tenants.read), collections `organizations` + `tenants`, ids org_/ten_ =
+secrets.token_hex(13). Preview OpenAPI 790 -> 795 paths.
+
+Converged on one resolver (no duplicated logic): xdr_collectors._principal,
+xdr_api_keys._principal + create_key, xdr_audit_log._principal,
+xdr_ingest._principal, edr_enrollment._tenant + _agent_tenant,
+security_state evaluate. Untouched: D14 tenant_authority, D15 source_routing,
+ingest_idempotency, all DSMs, detection_content, edr_plane/response, EDR
+credential mechanism (EDR_AUTH_PEPPER).
+
+B4 CLOSED, B5 CLOSED (both proven by test). allow_new_tenant deprecated (still
+parses; refused only when enforcing) - physical removal is a later cleanup.
+NEW B6 (open, not fixed): /api/v2/security-state/* has NO authentication
+dependency and takes tenant_id from the body; registry validation added, auth
+left untouched. B3 still open.
+
+Tests: new suite 20 passed; regression with flag OFF 275 passed / 15 skipped
+(was 255/15 -> +20, zero regressions); EDR suites 62 passed with 1 PRE-EXISTING
+failure (tests/edr/test_cross_tenant.py::test_v11_body_tenant_id_never_trusted,
+fails identically with changes stashed). Flag ON over
+test_collector_api_key_auth + test_d15: 81 passed / 6 failed - all six are
+positive-path tests using the UNREGISTERED tenant string p0f-keyauth-test, i.e.
+correct enforcement. Operational rule: register/adopt every tenant in use
+BEFORE switching NIVX_TENANT_REGISTRY_ENFORCE on in any environment.
+
+No tenant_id value is ever rewritten; event_identity() untouched and asserted
+unchanged. adopt_legacy() keeps the existing string as the tenant id, is
+idempotent and never automatic. Rollback = unset the flag or roll back build.
+
+NEXT (owner approval): republish production with flag OFF -> verify 795 paths
+-> owner creates org nivxmachines (VENDOR) + tenant internal-validation
+(INTERNAL_VALIDATION, products XDR+EDR) -> enable enforcement -> resume W1
+Phase 3.1 under the generated ten_*.

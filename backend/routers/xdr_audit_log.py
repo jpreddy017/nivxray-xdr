@@ -24,6 +24,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from pymongo import ASCENDING, DESCENDING, MongoClient
 
+from services import tenant_registry
+
 router = APIRouter(prefix="/api/xdr/audit-log", tags=["xdr-audit-log"])
 
 # ── Mongo binding (sync pymongo — audit log is not perf-critical and
@@ -135,8 +137,12 @@ def _principal(req: Request) -> tuple[str, str, str]:
     """Best-effort principal extraction.  Falls back to `demo` when
     no auth middleware has set the request state.  A future JWT
     verifier will replace this with real claim extraction."""
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
+    raw = (req.headers.get("X-Tenant-Id")
+                or getattr(req.state, "tenant_id", None) or "")
+    try:
+        ten = tenant_registry.authoritative(raw, purpose="xdr.audit")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
     pid = (req.headers.get("X-Principal-Id")
                 or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
     pkd = (req.headers.get("X-Principal-Kind")

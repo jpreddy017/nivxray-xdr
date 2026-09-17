@@ -57,6 +57,8 @@ from ..response_safety.safety_gate import ResponseSafetyGate
 from ..response_safety.verification import ResponseVerificationEngine
 from ..ledger.ledger import SecurityStateLedger
 
+from services import tenant_registry
+
 
 router = APIRouter(prefix="/api/v2/security-state", tags=["Security State & Causal Intelligence"])
 
@@ -131,6 +133,15 @@ class StageInterventionRequest(BaseModel):
 @router.post("/evaluate")
 def evaluate_security_state(req: EvaluateStateRequest) -> Dict[str, Any]:
     """Evaluate, version, and persist immutable security states for enterprise entities."""
+    # The tenant arrives in the body on this plane, so it is resolved against
+    # the authoritative registry: an unregistered or inactive tenant can never
+    # acquire security state. (This endpoint's missing authentication is
+    # tracked separately as B6 and is NOT changed here.)
+    try:
+        tenant_registry.authoritative(req.tenant_id,
+                                      purpose="security_state.evaluate")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
     ledger_key = f"{req.tenant_id}:{req.case_id}"
     evaluated_states: List[Dict[str, Any]] = []
 

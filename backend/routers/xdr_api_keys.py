@@ -35,6 +35,7 @@ from pymongo import DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import _valid_permission, require_permission
+from services import tenant_registry
 
 router = APIRouter(prefix="/api/xdr/api-keys", tags=["xdr-api-keys"])
 
@@ -52,8 +53,17 @@ def _coll():
 
 # ── Principal ────────────────────────────────────────────────────
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
+    """Tenant resolved against the authoritative registry (B4).
+
+    Minting a credential never establishes tenancy: with enforcement on an
+    unregistered or inactive tenant is refused before any key is generated.
+    """
+    raw = (req.headers.get("X-Tenant-Id")
+                or getattr(req.state, "tenant_id", None) or "")
+    try:
+        ten = tenant_registry.authoritative(raw, purpose="xdr.api_keys")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
     pid = (req.headers.get("X-Principal-Id")
                 or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
     pkd = (req.headers.get("X-Principal-Kind")
@@ -107,8 +117,10 @@ class CreateKeyBody(BaseModel):
     #: will be bound to.  A typo in `X-Tenant-Id` can no longer silently mint
     #: a credential for the wrong (or a non-existent) tenant.
     confirm_tenant_id: str = Field(min_length=1, max_length=128)
-    #: Explicitly acknowledge minting the first-ever credential for a tenant
-    #: that has no users, roles, collectors or keys yet.
+    #: DEPRECATED (tenant registry) — tenancy is created only by
+    #: `POST /api/xdr/tenants`. Kept for one release so nothing that still
+    #: sends it breaks; with `NIVX_TENANT_REGISTRY_ENFORCE` on, sending
+    #: `true` is refused instead of silently bootstrapping a tenant.
     allow_new_tenant: bool = False
     description: str | None = None
     scopes: list[str] = Field(default_factory=list,
@@ -144,6 +156,14 @@ def create_key(body: CreateKeyBody, request: Request):
             "reason": ("confirm_tenant_id must exactly match the tenant the "
                             "key will be minted for")})
     if not _tenant_is_known(ten) and not body.allow_new_tenant:
+        if tenant_registry.enforcing():
+            # Unreachable in practice: `_principal()` already refused an
+            # unregistered tenant. Kept so the failure can never invert into
+            # "mint anyway" if the guard above is ever relaxed.
+            raise HTTPException(status_code=403, detail={
+                "code": "TENANT_NOT_FOUND",
+                "resolved_tenant": ten,
+                "reason": tenant_registry.IMPLICIT_TENANT_FORBIDDEN})
         raise HTTPException(status_code=400, detail={
             "code": "UNKNOWN_TENANT",
             "resolved_tenant": ten,
@@ -151,6 +171,14 @@ def create_key(body: CreateKeyBody, request: Request):
                             "tenant — this is usually a typo.  Re-send with "
                             "allow_new_tenant=true to mint the first "
                             "credential for a genuinely new tenant.")})
+    if body.allow_new_tenant and tenant_registry.enforcing():
+        # DEPRECATED path. Creating tenancy while minting a credential is
+        # exactly the implicit-tenancy defect B4 describes.
+        raise HTTPException(status_code=400, detail={
+            "code": "ALLOW_NEW_TENANT_DEPRECATED",
+            "resolved_tenant": ten,
+            "reason": ("allow_new_tenant is deprecated: " +
+                            tenant_registry.IMPLICIT_TENANT_FORBIDDEN)})
     # Validate scopes against the canonical permission catalog.
     for s in body.scopes:
         if not _valid_permission(s):

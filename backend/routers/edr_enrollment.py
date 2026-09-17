@@ -31,13 +31,47 @@ from edr_plane.enrollment import rejection
 from edr_plane.enrollment.store import EnrollmentError
 from edr_plane.enrollment.transport import (get_authenticated_endpoint,
                                             transport_status)
+from services import tenant_registry
 
 admin = APIRouter(prefix="/edr/enrollment", tags=["nivxforge-edr-enrollment"])
 agent = APIRouter(prefix="/edr/agent", tags=["nivxforge-edr-agent"])
 
 
-def _tenant(user: dict) -> str:
-    return (user or {}).get("customer") or "default"
+def _tenant(user: dict, req: Request | None = None) -> str:
+    """B5 · the authoritative tenant for the EDR admin plane.
+
+    The previous implementation read `users["customer"]` and fell back to the
+    literal `"default"`. No code anywhere writes `customer` onto a user
+    document, so EVERY enrolment token was minted into `"default"` — a second,
+    accidental tenancy authority diverging from NivXRay XDR. The tenant now
+    comes from the same explicit `X-Tenant-Id` header the XDR control plane
+    uses and is resolved against the one authoritative registry. NivXForge EDR
+    credentials themselves are unchanged: this is authority convergence, not a
+    credential-system change.
+    """
+    raw = ""
+    if req is not None:
+        raw = (req.headers.get("X-Tenant-Id") or "").strip()
+    if not raw:
+        # Documented compatibility fallback, only reachable with enforcement
+        # off (see services/tenant_registry.authoritative).
+        raw = ((user or {}).get("customer") or "").strip()
+    try:
+        return tenant_registry.authoritative(raw, purpose="edr.enrollment")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
+
+
+def _agent_tenant(tenant_id: str) -> str:
+    """Tenant presented by a sensor. The one-time token / credential is
+    tenant-scoped, so a wrong value already fails to match; the registry adds
+    "and it must be a registered, ACTIVE tenant". Enrolment never creates
+    tenancy."""
+    try:
+        return tenant_registry.authoritative(tenant_id,
+                                             purpose="edr.agent")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
 
 
 def _fail(e: EnrollmentError):
@@ -55,7 +89,7 @@ class MintTokenBody(BaseModel):
 
 
 @admin.post("/tokens")
-async def mint_token(body: MintTokenBody,
+async def mint_token(body: MintTokenBody, request: Request,
                      user: dict = Depends(get_current_user)) -> dict:
     """Mint a one-time, short-TTL enrolment token.
 
@@ -63,22 +97,24 @@ async def mint_token(body: MintTokenBody,
     Mongo, not in a log, and not in any later GET.
     """
     return await store.mint_enrollment_token(
-        _db, tenant_id=_tenant(user),
+        _db, tenant_id=_tenant(user, request),
         issued_by=(user or {}).get("email") or "unknown",
         label=body.label, ttl_seconds=body.ttl_seconds)
 
 
 @admin.get("/tokens")
-async def list_tokens(user: dict = Depends(get_current_user)) -> dict:
-    rows = await store.list_tokens(_db, tenant_id=_tenant(user))
+async def list_tokens(request: Request,
+                      user: dict = Depends(get_current_user)) -> dict:
+    rows = await store.list_tokens(_db, tenant_id=_tenant(user, request))
     return {"tokens": rows, "count": len(rows),
             "note": ("Metadata only. No route returns a token's plaintext "
                      "or its stored digest.")}
 
 
 @admin.get("/endpoints")
-async def list_enrolled(user: dict = Depends(get_current_user)) -> dict:
-    rows = await store.list_endpoints(_db, tenant_id=_tenant(user))
+async def list_enrolled(request: Request,
+                        user: dict = Depends(get_current_user)) -> dict:
+    rows = await store.list_endpoints(_db, tenant_id=_tenant(user, request))
     return {
         "endpoints": rows, "count": len(rows),
         "transport": transport_status(),
@@ -91,11 +127,11 @@ async def list_enrolled(user: dict = Depends(get_current_user)) -> dict:
 
 
 @admin.post("/endpoints/{endpoint_id}/rotate")
-async def rotate(endpoint_id: str,
+async def rotate(endpoint_id: str, request: Request,
                  user: dict = Depends(get_current_user)) -> dict:
     try:
         return await store.rotate_credential(
-            _db, tenant_id=_tenant(user), endpoint_id=endpoint_id,
+            _db, tenant_id=_tenant(user, request), endpoint_id=endpoint_id,
             rotated_by=(user or {}).get("email") or "unknown")
     except EnrollmentError as e:
         _fail(e)
@@ -108,11 +144,11 @@ class RevokeBody(BaseModel):
 
 
 @admin.post("/endpoints/{endpoint_id}/revoke")
-async def revoke(endpoint_id: str, body: RevokeBody,
+async def revoke(endpoint_id: str, body: RevokeBody, request: Request,
                  user: dict = Depends(get_current_user)) -> dict:
     try:
         return await store.revoke_endpoint(
-            _db, tenant_id=_tenant(user), endpoint_id=endpoint_id,
+            _db, tenant_id=_tenant(user, request), endpoint_id=endpoint_id,
             revoked_by=(user or {}).get("email") or "unknown",
             reason=body.reason)
     except EnrollmentError as e:
@@ -159,6 +195,7 @@ async def enroll(body: EnrollBody, request: Request) -> dict:
     in that precedence because it is the only attribute an attacker can
     trivially change.
     """
+    _agent_tenant(body.tenant_id)
     try:
         endpoint_id = EndpointIdentity.mint(
             tenant_id=body.tenant_id, processor_id=body.processor_id,
@@ -194,6 +231,7 @@ class SessionBody(BaseModel):
 @agent.post("/session")
 async def open_session(body: SessionBody, request: Request) -> dict:
     """Exchange the durable credential for a short-lived scoped session."""
+    _agent_tenant(body.tenant_id)
     try:
         return await store.open_session(
             _db, tenant_id=body.tenant_id,

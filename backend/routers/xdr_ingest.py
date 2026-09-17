@@ -41,6 +41,7 @@ from routers.xdr_rbac import require_permission
 from services import ingest_idempotency as idem
 from services import ingest_provenance as ing_prov
 from services import source_routing
+from services import tenant_registry
 
 router = APIRouter(prefix="/api/xdr/ingest", tags=["xdr-ingest"])
 
@@ -75,8 +76,15 @@ def _c_routing_blocks():
 
 
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
+    # The tenant still comes from the authenticated delivery (the API key sets
+    # `request.state.tenant_id`); the registry only adds "and it must be a
+    # registered, ACTIVE tenant". Telemetry never establishes tenancy.
+    raw = (req.headers.get("X-Tenant-Id")
+                or getattr(req.state, "tenant_id", None) or "")
+    try:
+        ten = tenant_registry.authoritative(raw, purpose="xdr.ingest")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
     pid = (req.headers.get("X-Principal-Id")
                 or getattr(req.state, "principal_id", None) or "system@ingest")
     pkd = (req.headers.get("X-Principal-Kind")
