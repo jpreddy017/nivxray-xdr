@@ -17150,3 +17150,43 @@ OWNER DECISION PENDING (preview only, does not block the production republish):
      resumes and we get an enforcement-ON rehearsal; OR
   B. leave preview failing closed until production is verified; OR
   C. remove the key again (would also remove it from the deployment secret set).
+
+## 2026-09-17 · PREVIEW LEGACY ADOPTION + ENFORCEMENT REHEARSAL — PASS
+
+Preview only. NIVX_TENANT_REGISTRY_ENFORCE=true kept ON. Production untouched
+(no republish; prod openapi 200, anon ingest 403, anon tenants 403).
+
+Legitimacy established BEFORE adopting (not adopted because the string exists):
+- `default` = preview runtime identity: 222 edr_endpoints, 117k+ canonical
+  evidence docs, 27 collectors with activity through 2026-09-16, and the ONE
+  genuine live sensor ep_2d57cbe6f80152062109 (LINUX, REPORTING, 115,890
+  events, heartbeat 06:03:07 immediately before enforcement went on).
+- `nivx-live` = preview live-source identity: collector hyd-branch-syslog-cef
+  (152 events) + d21 proof collector, 9 canonical evidence docs.
+- NOT adopted: 25 p08-*/p0f-*/TEST_* fixture strings (of 42 distinct collector
+  tenants) - they stay unregistered and fail closed.
+
+Adopted under NEW preview org org_529e0c37d097e270d0647e101f
+("nivxmachines-preview", VENDOR, ACTIVE):
+  default   -> LEGACY_ADOPTED, ACTIVE, id preserved (True)
+  nivx-live -> LEGACY_ADOPTED, ACTIVE, id preserved (True)
+Repeat adoption returned the same id/kind (idempotent).
+
+Sensor before/after: before = repeating `path=/api/edr/agent/session
+status=403` (96 occurrences logged). After = session 200, heartbeat 200,
+telemetry 151x200; live endpoint event_count 115,890 -> 116,042, heartbeat
+advanced to 06:11:28. No tenant_id was rewritten (endpoints still 222 under
+`default`; evidence count grew only because live telemetry resumed).
+
+Fail-closed still holds with enforcement ON: authoritative('ten_definitely_not
+_registered') and authoritative('p08-06d224ee') both raise TENANT_NOT_FOUND
+(403); POST /api/edr/agent/session with an unregistered tenant -> 403
+TENANT_NOT_FOUND; with the registered `default` tenant but a bad credential ->
+401 AGENT_CREDENTIAL_INVALID (tenant authority and credential authority are
+separate and both fail closed).
+
+SCOPE NOTE: restored sensor communication proves TENANT-AUTHORITY COMPATIBILITY
+ONLY. It is not endpoint protection, not containment, not verification.
+
+NEXT: owner authorizes production republish of e2d8f54 with enforcement on ->
+A-I acceptance -> then W1 collector/key -> exactly 5 genuine Sysmon events.
