@@ -68,6 +68,9 @@ from pydantic import BaseModel, Field
 from pymongo import ASCENDING, MongoClient
 
 from deps import get_current_user as _deps_current_user
+import jwt as _jwt
+from deps import JWT_ALG as _JWT_ALG
+from deps import JWT_SECRET as _JWT_SECRET
 from routers.xdr_audit_log import emit_audit
 from services import machine_rate_limit as _mrl
 
@@ -614,6 +617,104 @@ def authenticate_api_key(request: Request, raw_key: str,
     request.state.principal_id   = f"apikey:{kid}"
     request.state.principal_kind = "api_key"
     return {k: v for k, v in doc.items() if k not in ("hash", "_id")}
+
+
+def verified_actor(request: Request) -> tuple[str | None, str | None]:
+    """B3 · the audit actor, from VERIFIED authentication only.
+        AUDIT ACTOR = VERIFIED AUTHENTICATED PRINCIPAL
+        never       = CLIENT CLAIM
+
+    Precedence: the machine principal stamped on `request.state` by
+    `authenticate_api_key()`, else the `sub` of a bearer token verified with
+    the same secret/algorithm as `deps.get_current_user`. Client-supplied
+    `X-Principal-Id` / `X-Principal-Kind` are never consulted here; when a
+    caller sends them they are parked on `request.state.principal_claim` as
+    explicitly non-authoritative metadata and influence nothing.
+
+    Returns `(None, None)` when no verified identity exists, so each caller
+    keeps its own honest default instead of inheriting a claim.
+    """
+    claim = request.headers.get("X-Principal-Id")
+    if claim:
+        try:
+            request.state.principal_claim = {
+                "claimed_principal_id": claim,
+                "claimed_principal_kind": request.headers.get("X-Principal-Kind"),
+                "used": False,
+                "reason": ("client-supplied attribution is recorded as a claim "
+                                "only; the verified principal is authoritative")}
+        except Exception:                                        # noqa: BLE001,S110
+            pass
+    pid = getattr(request.state, "principal_id", None)
+    if pid:
+        return str(pid), str(getattr(request.state, "principal_kind", None)
+                             or "api_key")
+    auth = request.headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
+        try:
+            claims = _jwt.decode(auth.split(None, 1)[1], _JWT_SECRET,
+                                 algorithms=[_JWT_ALG])
+            sub = claims.get("sub")
+            if sub:
+                return str(sub), "user"
+        except Exception:                                        # noqa: BLE001
+            return None, None
+    return None, None
+
+
+def authorize_tenant(request: Request, tenant_id: str, *, purpose: str) -> str:
+    """B6 · a tenant named in a request body is a REQUEST, not an authority.
+
+        authenticated principal
+          -> authoritative tenant resolution (registry: exists + ACTIVE,
+             organization ACTIVE)
+          -> principal authorized for that tenant
+          -> operation
+
+    Machine principals may only act in the tenant their credential is bound
+    to. Human principals may act in the tenants their VERIFIED user record
+    authorises — a cross-tenant role (`_CROSS_TENANT_ROLES`) keeps the
+    platform-wide authority it already has elsewhere. No security-state
+    specific authority is introduced.
+    """
+    from services import tenant_registry
+    from services.dashboard_lenses import resolve_tenant_scope
+
+    try:
+        resolved = tenant_registry.authoritative(tenant_id, purpose=purpose)
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(status_code=e.http, detail=e.detail()) from None
+
+    machine_tenant = getattr(request.state, "tenant_id", None)
+    principal_kind = getattr(request.state, "principal_kind", None)
+    if principal_kind == "api_key":
+        if machine_tenant != resolved:
+            raise HTTPException(status_code=403, detail={
+                "code": "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL",
+                "reason": ("the credential is bound to another tenant; a "
+                                "request body may name a tenant but never "
+                                "authorise one"),
+                "requested_tenant": resolved})
+        return resolved
+
+    email, _kind = verified_actor(request)
+    if not email:
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED", "reason": "unauthenticated",
+            "requested_tenant": resolved})
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED", "reason": "principal not authorized",
+            "requested_tenant": resolved})
+    if scope.get("all_tenants"):
+        return resolved
+    if resolved not in (scope.get("tenant_ids") or []):
+        raise HTTPException(status_code=403, detail={
+            "code": "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL",
+            "reason": "principal is not authorized for this tenant",
+            "requested_tenant": resolved})
+    return resolved
 
 
 # ── Enforcement dependency ────────────────────────────────────────

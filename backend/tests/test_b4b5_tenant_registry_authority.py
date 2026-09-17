@@ -45,10 +45,14 @@ ORGS = "/api/xdr/organizations"
 TENANTS = "/api/xdr/tenants"
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def client():
-    # No lifespan context: the app's shutdown hooks block for minutes in this
-    # environment and these tests exercise route logic, not startup.
+    # No lifespan context and no async DB binding: the app's shutdown hooks
+    # block for minutes here, and binding Motor outside a persistent loop
+    # poisons sibling suites that share an xdist worker. Every HTTP test in
+    # this module drives the MACHINE principal, whose path is synchronous;
+    # human-principal authority is asserted directly against
+    # `routers.xdr_rbac.authorize_tenant`.
     return TestClient(app)
 
 
@@ -277,3 +281,167 @@ def test_evidence_identity_semantics_are_untouched():
 
 def test_registry_never_seeds_a_default_tenant():
     assert reg.get_tenant("default") is None
+
+
+class _FakeState:
+    pass
+
+
+class _FakeReq:
+    def __init__(self, headers, state=None):
+        self.headers = headers
+        self.state = state or _FakeState()
+
+
+# ── B6 · security-state authentication + tenant authority ─────────
+SS = "/api/v2/security-state"
+
+
+def test_b6_security_state_denies_unauthenticated(client, enforce):
+    for method, path, kw in (
+            ("post", f"{SS}/evaluate",
+             {"json": {"tenant_id": "ten_whatever", "case_id": "c1",
+                       "entity_refs": []}}),
+            ("get", f"{SS}/case-x?tenant_id=ten_whatever", {}),
+            ("get", f"{SS}/streaming/status?tenant_id=ten_whatever", {}),
+            ("post", f"{SS}/case-x/interventions/stage",
+             {"json": {"tenant_id": "ten_whatever", "action_id": "a",
+                       "target_entity_id": "e"}}),
+    ):
+        r = getattr(client, method)(path, **kw)
+        assert r.status_code in (401, 403), f"{path} -> {r.status_code}"
+        assert "ACCESS_DENIED" in r.text or "Not authenticated" in r.text
+
+
+def test_b6_security_state_denies_unregistered_tenant(client, enforce,
+                                                      org_and_tenant):
+    """A VALID machine credential still cannot reach an unregistered tenant."""
+    _org, ten = org_and_tenant
+    raw = _mint_key(ten["id"], ["incidents.read"])
+    try:
+        r = client.get(f"{SS}/streaming/status?tenant_id=ten_not_registered_b6",
+                       headers={"X-XDR-API-Key": raw, "X-Tenant-Id": ten["id"]})
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"]["code"] == "TENANT_NOT_FOUND"
+    finally:
+        _keys.delete_many({"tenant_id": ten["id"]})
+
+
+def test_b6_security_state_denies_inactive_tenant(client, enforce,
+                                                  org_and_tenant):
+    _org, ten = org_and_tenant
+    raw = _mint_key(ten["id"], ["incidents.read"])
+    reg.set_state("tenant", ten["id"], "SUSPENDED")
+    try:
+        r = client.get(f"{SS}/streaming/status?tenant_id={ten['id']}",
+                       headers={"X-XDR-API-Key": raw, "X-Tenant-Id": ten["id"]})
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"]["code"] == "TENANT_NOT_ACTIVE"
+    finally:
+        _keys.delete_many({"tenant_id": ten["id"]})
+
+
+def test_b6_cross_tenant_human_principal_is_authorized(enforce,
+                                                       org_and_tenant):
+    """The cross-tenant role keeps the authority it already has elsewhere —
+    resolved from the VERIFIED token, never from a header claim."""
+    from deps import create_token
+    from routers.xdr_rbac import authorize_tenant
+    _org, ten = org_and_tenant
+    req = _FakeReq({"Authorization": f"Bearer {create_token('admin@nivxray.com')}",
+                    "X-Principal-Id": "attacker@evil.test"})
+    assert authorize_tenant(req, ten["id"], purpose="test") == ten["id"]
+
+
+def test_b6_tenant_scoped_human_principal_cannot_reach_another_tenant(
+        enforce, org_and_tenant):
+    from fastapi import HTTPException
+    from deps import create_token
+    from routers.xdr_rbac import authorize_tenant
+    _org, ten = org_and_tenant
+    other = reg.create_tenant(
+        organization_id=_org["id"], slug=f"o2-{uuid.uuid4().hex[:8]}",
+        display_name="Other2", kind="LAB", products=[], created_by="pytest")
+    email = f"scoped-{uuid.uuid4().hex[:8]}@nivxray.test"
+    _db["users"].insert_one({"email": email, "password": "x",
+                             "role": "analyst", "tenant_id": ten["id"]})
+    try:
+        req = _FakeReq({"Authorization": f"Bearer {create_token(email)}"})
+        assert authorize_tenant(req, ten["id"], purpose="test") == ten["id"]
+        with pytest.raises(HTTPException) as e:
+            authorize_tenant(req, other["id"], purpose="test")
+        assert e.value.detail["code"] == "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL"
+    finally:
+        _db["users"].delete_one({"email": email})
+        _db["tenants"].delete_one({"id": other["id"]})
+
+
+def test_b6_machine_principal_cannot_name_another_tenant(client, enforce,
+                                                         org_and_tenant):
+    """A credential bound to tenant A may not act on tenant B by naming it."""
+    _org, ten = org_and_tenant
+    other = reg.create_tenant(
+        organization_id=_org["id"], slug=f"o-{uuid.uuid4().hex[:8]}",
+        display_name="Other", kind="LAB", products=[], created_by="pytest")
+    raw = _mint_key(ten["id"], ["incidents.read"])
+    try:
+        r = client.get(f"{SS}/streaming/status?tenant_id={other['id']}",
+                       headers={"X-XDR-API-Key": raw,
+                                "X-Tenant-Id": ten["id"]})
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"]["code"] == "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL"
+        # the same credential on its OWN tenant is permitted
+        ok = client.get(f"{SS}/streaming/status?tenant_id={ten['id']}",
+                        headers={"X-XDR-API-Key": raw,
+                                 "X-Tenant-Id": ten["id"]})
+        assert ok.status_code == 200, ok.text
+    finally:
+        _keys.delete_many({"tenant_id": ten["id"]})
+        _db["tenants"].delete_one({"id": other["id"]})
+
+
+# ── B3 · audit actor = verified principal, never a client claim ───
+def test_b3_verified_actor_ignores_client_claim_headers():
+    from routers.xdr_rbac import verified_actor
+    req = _FakeReq({"X-Principal-Id": "attacker@evil.test",
+                    "X-Principal-Kind": "user"})
+    pid, kind = verified_actor(req)
+    assert pid is None and kind is None
+    claim = getattr(req.state, "principal_claim", None)
+    assert claim and claim["claimed_principal_id"] == "attacker@evil.test"
+    assert claim["used"] is False
+
+
+def test_b3_verified_actor_prefers_machine_principal_state():
+    from routers.xdr_rbac import verified_actor
+    st = _FakeState()
+    st.principal_id = "apikey:key_real"
+    st.principal_kind = "api_key"
+    req = _FakeReq({"X-Principal-Id": "attacker@evil.test"}, st)
+    assert verified_actor(req) == ("apikey:key_real", "api_key")
+
+
+def test_b3_verified_actor_reads_only_a_verified_bearer_token():
+    from deps import create_token
+    from routers.xdr_rbac import verified_actor
+    good = _FakeReq({"Authorization": f"Bearer {create_token('a@b.test')}",
+                     "X-Principal-Id": "attacker@evil.test"})
+    assert verified_actor(good) == ("a@b.test", "user")
+    forged = _FakeReq({"Authorization": "Bearer not.a.real.token"})
+    assert verified_actor(forged) == (None, None)
+
+
+def test_b3_ingest_actor_is_never_the_client_claim():
+    from routers.xdr_ingest import _principal
+    spoofed = _FakeReq({"X-Tenant-Id": "ten_x",
+                        "X-Principal-Id": "apikey:key_of_someone_else",
+                        "X-Principal-Kind": "api_key"})
+    _ten, pid, pkd = _principal(spoofed)
+    assert pid == "system@ingest" and pkd == "system"
+    st = _FakeState()
+    st.principal_id = "apikey:key_real"
+    st.principal_kind = "api_key"
+    authed = _FakeReq({"X-Tenant-Id": "ten_x",
+                       "X-Principal-Id": "apikey:key_of_someone_else"}, st)
+    _ten2, pid2, pkd2 = _principal(authed)
+    assert pid2 == "apikey:key_real" and pkd2 == "api_key"

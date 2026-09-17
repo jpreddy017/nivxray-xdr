@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from routers.xdr_audit_log import emit_audit
-from routers.xdr_rbac import require_permission
+from routers.xdr_rbac import require_permission, verified_actor
 from services import tenant_registry as reg
 
 organizations_router = APIRouter(prefix="/api/xdr/organizations",
@@ -23,29 +23,10 @@ tenants_router = APIRouter(prefix="/api/xdr/tenants", tags=["xdr-tenancy"])
 
 
 def _actor(request: Request) -> str:
-    """Attribution for the audit record.
-
-    Machine principals are stamped on `request.state` by
-    `authenticate_api_key()`. For a human principal the identity is read from
-    the VERIFIED bearer token (same secret/algorithm as `deps.get_current_user`
-    — a client-supplied `X-Principal-Id` header is deliberately not trusted
-    here, which is also the direction B3 will take for the ingest path).
-    """
-    pid = getattr(request.state, "principal_id", None)
-    if pid:
-        return str(pid)
-    auth = request.headers.get("Authorization") or ""
-    if auth.lower().startswith("bearer "):
-        try:
-            import jwt as _jwt
-            from deps import JWT_ALG, JWT_SECRET
-            claims = _jwt.decode(auth.split(None, 1)[1], JWT_SECRET,
-                                 algorithms=[JWT_ALG])
-            if claims.get("sub"):
-                return str(claims["sub"])
-        except Exception:                                  # noqa: BLE001
-            pass
-    return "unknown"
+    """Attribution for the audit record — verified principal only (B3 pattern,
+    shared implementation in `routers.xdr_rbac.verified_actor`)."""
+    pid, _kind = verified_actor(request)
+    return pid or "unknown"
 
 
 def _fail(e: reg.TenantRegistryError):

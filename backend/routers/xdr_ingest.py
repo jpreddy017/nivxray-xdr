@@ -37,7 +37,7 @@ from pydantic import BaseModel, Field
 from pymongo import MongoClient
 
 from routers.xdr_audit_log import emit_audit
-from routers.xdr_rbac import require_permission
+from routers.xdr_rbac import require_permission, verified_actor
 from services import ingest_idempotency as idem
 from services import ingest_provenance as ing_prov
 from services import source_routing
@@ -85,10 +85,13 @@ def _principal(req: Request) -> tuple[str, str, str]:
         ten = tenant_registry.authoritative(raw, purpose="xdr.ingest")
     except tenant_registry.TenantRegistryError as e:
         raise HTTPException(status_code=e.http, detail=e.detail()) from None
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "system@ingest")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "system")
+    # B3 · audit attribution comes from VERIFIED authentication only. The
+    # machine principal is stamped on request.state by authenticate_api_key();
+    # a client-supplied X-Principal-Id / X-Principal-Kind is parked as a
+    # non-authoritative claim by verified_actor() and never becomes the actor.
+    v_pid, v_pkd = verified_actor(req)
+    pid = v_pid or "system@ingest"
+    pkd = v_pkd or "system"
     return ten, pid, pkd
 
 

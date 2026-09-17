@@ -17006,3 +17006,48 @@ NEXT (owner approval): republish production with flag OFF -> verify 795 paths
 -> owner creates org nivxmachines (VENDOR) + tenant internal-validation
 (INTERNAL_VALIDATION, products XDR+EDR) -> enable enforcement -> resume W1
 Phase 3.1 under the generated ten_*.
+
+## 2026-09-17 · B6 + B3 SECURITY CLOSURE (preview only, not deployed)
+
+Report sections appended to
+`memory/PLATFORM_ORG_TENANT_AUTHORITY_IMPLEMENTATION.md`
+("B6 SECURITY CLOSURE", "B3 SECURITY CLOSURE").
+
+B6 CLOSED: security_state/routers/router.py now carries router-level
+dependencies [require_permission("incidents.read"), _authorized_tenant] so all
+14 /api/v2/security-state/* operations require authentication and run the
+tenant through the authoritative registry AND the new shared
+routers.xdr_rbac.authorize_tenant() principal-authorization contract (machine
+key -> only its bound tenant; cross-tenant human role -> as resolve_tenant_scope
+already grants; tenant-scoped human -> only its own tenants; otherwise 403).
+No analytical semantics changed.
+
+B3 CLOSED: new routers.xdr_rbac.verified_actor() is the single actor resolver
+(machine state -> verified bearer sub -> (None, None)); xdr_ingest._principal
+and xdr_tenancy._actor both use it. X-Principal-Id/X-Principal-Kind are parked
+on request.state.principal_claim as {"used": false} metadata and never become
+the actor.
+
+Tests: new suite 30 passed with the flag OFF and 30 passed with the flag ON.
+Full regression with the flag OFF across 14 suites: 341 passed / 15 skipped /
+0 errors / 1 failure = the PRE-EXISTING stale
+edr/test_cross_tenant::test_v11_body_tenant_id_never_trusted (its refusal
+assertion passes; only its "response must echo the tenant" assertion is stale
+because P0-SEC refuses unauthenticated traffic earlier. Authentication order
+NOT changed). Pre-existing failures in tests/test_xdr_api_keys.py (7) and
+tests/test_xdr_rbac_enforcement.py (21 errors) proven identical with changes
+stashed. Flag-ON runs need tenants adopted in DB nivxray_ci_local (conftest
+sets DB_NAME).
+
+NEW B7 (open, owner decision, no code written): with enforcement ON every
+tenant-scoped control-plane call must name a tenant, so a cross-tenant admin
+listing without X-Tenant-Id gets 403 TENANT_REQUIRED. Accept "callers always
+send X-Tenant-Id" or add an explicit cross-tenant listing contract before
+enabling enforcement in production. Does not block the republish (flag ships
+OFF).
+
+STATUS: B4 CLOSED · B5 CLOSED · B6 CLOSED · B3 CLOSED · B7 OPEN ·
+NOT DEPLOYED · NOT BOOTSTRAPPED · W1 STILL PAUSED.
+Next gate: republish (flag OFF) -> verify -> create NivXMachines VENDOR org +
+internal-validation tenant -> enable enforcement -> resume W1 Phase 3.1 ->
+first 5 genuine Windows Sysmon events.
