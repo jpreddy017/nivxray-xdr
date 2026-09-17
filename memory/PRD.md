@@ -17051,3 +17051,44 @@ NOT DEPLOYED · NOT BOOTSTRAPPED · W1 STILL PAUSED.
 Next gate: republish (flag OFF) -> verify -> create NivXMachines VENDOR org +
 internal-validation tenant -> enable enforcement -> resume W1 Phase 3.1 ->
 first 5 genuine Windows Sysmon events.
+
+## 2026-09-17 · PRODUCTION ACCEPTANCE · PUBLISH 100 / BUILD e2d8f54 — PASS
+
+Report: `memory/W1_PHASE3_POST_REPUBLISH_ACCEPTANCE_PUBLISH100.md`.
+Live build e2d8f54 (publish 100) · rollback 8e473e4 (publish 99) · older
+baseline 5567f46 (publish 98).
+
+790 -> 795 paths, all five tenancy paths present, declared_source and
+routing_blocked present, 14 security-state ops. Build identity proven by
+OpenAPI equality with the accepted candidate (candidate_only=[], prod_only=[],
+path hash identical, 0 schema bodies differing) => B3/B4/B5/B6, D14, D15,
+DCR-1 and the W1 Sysmon DSM are present in production.
+
+Anonymous fail-closed: orgs GET 403, tenants POST/GET 403, security-state
+status/case/evaluate 403 (was 200 before B6 => B6 proven live), ingest
+no-credential 403, unknown key 401, sources/catalog 403, routing/summary 403,
+/api/auth/me 403, login nonexistent 401, bogus route 404, / 200 html.
+
+AUTO-SEED = NONE proven: server.py and deps.py contain no reference to
+tenant_registry / create_organization / create_tenant / adopt_legacy, so no
+startup hook or migration can create tenancy. ENFORCEMENT = OFF asserted by
+absence of NIVX_TENANT_REGISTRY_ENFORCE; needs one owner-side authenticated
+read (GET /api/xdr/tenants with X-Tenant-Id -> expect count 0, enforcing
+false) to close on the record. That is the ONLY remaining item.
+
+B7 decided: Option A (tenant-scoped calls must supply X-Tenant-Id; cross-tenant
+role never implies a tenant). No code change needed - current behaviour already
+matches.
+
+UI follow-up recorded (NOT authorized yet): Vite investigation page hardcodes
+tenant_id=default (XdrInvestigationWorkspacePage.jsx:179) and
+frontend/src/v2/pages/SecurityStateTab.jsx:48-54 passes tenantId; after the
+real ten_* exists these must use the selected tenant.
+
+NEXT (owner approval): production bootstrap = create NivXMachines VENDOR org +
+internal-validation tenant, record org_*/ten_*, enable enforcement, re-test
+boundaries, then W1 Phase 3.1 collector + minimum-scope key + DESKTOP-A9HGFJJ
+config + exactly 5 genuine Sysmon events traced end to end.
+AFTER W1: inventory Admin -> Add Devices / Add Integration / endpoint inventory
+/ enrollment packages and turn the manual procedure into a Cisco/Cortex/
+Defender-style onboarding experience.
