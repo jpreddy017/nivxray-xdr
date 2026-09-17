@@ -16897,3 +16897,34 @@ Nothing created. No collector, key, forwarder.json, ingest.key, telemetry or
 bookmark movement. _COLLECTED_PRODUCTS still {"linux"}. W1 NOT CLOSED.
 Next: owner executes the runbook, reports non-secret evidence, then Phase 3.2
 = one bounded authenticated transmission (5 events) traced by source_event_id.
+
+## 2026-09-17 · W1 PHASE 3.1 · TENANT BOOTSTRAP INSPECTION (read-only)
+
+Owner stopped 3.1A because production session-context returned role=admin,
+all_tenants=true, tenant_ids=[], customers=[], active_customer=null,
+basis=CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER. Inspection report:
+`memory/W1_PHASE3_1_TENANT_BOOTSTRAP_INSPECTION.md`.
+
+Findings: there is NO tenant/customer entity or CRUD anywhere (no tenants or
+customers collection/router; "tenants" is only an RBAC permission word).
+tenant_id is a document attribute. session-context `customers` is DERIVED from
+workspace_cases incident documents, so [] just means "no incidents yet"; a
+cross-tenant role intentionally carries no tenant_ids and no active customer.
+`default` is only a fallback literal, never a persisted tenant. An
+authoritative tenant is established by the FIRST control-plane object minted
+with that tenant_id (_TENANT_EVIDENCE = xdr_users/xdr_roles/xdr_collectors/
+xdr_api_keys); therefore create collector first, then the key mints without
+allow_new_tenant. allow_new_tenant only overrides the UNKNOWN_TENANT guard; it
+creates no tenant/customer object. No API enumerates tenants - existence can
+only be probed per candidate read-only. Zero-write authority proof =
+POST ingest with {"envelopes":[]} -> 400 empty batch (auth/tenant/scope/rate
+limit all pass first). DO NOT use /api/xdr/collector/ingest-preflight: it
+delivers a SYNTHETIC envelope.
+
+New backlog item B4: create_collector accepts an unvalidated, unevidenced
+X-Tenant-Id (no existence check, no format check) while create_key requires
+tenant evidence - asymmetric orphan risk. Not changed.
+
+Owner decision still required: the dedicated tenant identifier for
+DESKTOP-A9HGFJJ (precedent: `nivx-prod-1` style, e.g. `nivx-prod-win-1`).
+Nothing created. W1 NOT CLOSED. _COLLECTED_PRODUCTS still {"linux"}.
