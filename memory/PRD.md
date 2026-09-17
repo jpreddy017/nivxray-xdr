@@ -16872,3 +16872,28 @@ BACKLOG
   M365 real-source onboarding; lateral movement detections.
 - P2: investigation UI / evidence integrity presentation.
 - P3: pre-existing Work-Mode control-plane pytest failures (ignored by design).
+
+## 2026-09-17 · W1 PHASE 3.1 — STOPPED BEFORE CREDENTIAL CREATION (by design)
+
+Agent cannot execute 3.1A/3.1B: both endpoints are RBAC-gated and need a
+PRODUCTION bearer JWT that this workspace does not hold (production login
+rejects workspace values with 401), and `POST /api/xdr/api-keys` returns the
+plaintext key in the HTTP response body (routers/xdr_api_keys.py:186-191),
+which would place one-time secret material into agent output. Per the owner's
+security rule the agent STOPPED and produced the owner-side procedure instead:
+`memory/W1_PHASE3_1_COLLECTOR_ENROLMENT_RUNBOOK.md`.
+
+Runbook covers: TLS1.2 + Read-Host session, tenant discovery via
+GET /api/xdr/rbac/session-context (control-plane tenant comes from the
+X-Tenant-Id header, defaults to "default" if omitted), one collector
+(protocol=rest, tls=true, authorized_sources=["microsoft-sysmon"], state stays
+ADOPTED because CONNECTED is refused to the admin API), one key
+(scopes=["collectors.enroll"] only, confirm_tenant_id, 72h expiry, plaintext
+written straight to ingest.key without echoing), forwarder.json with
+BatchSize=5, and the icacls procedure (SYSTEM + BUILTIN\Administrators only;
+forwarder refuses Everyone / BUILTIN\Users / Authenticated Users).
+
+Nothing created. No collector, key, forwarder.json, ingest.key, telemetry or
+bookmark movement. _COLLECTED_PRODUCTS still {"linux"}. W1 NOT CLOSED.
+Next: owner executes the runbook, reports non-secret evidence, then Phase 3.2
+= one bounded authenticated transmission (5 events) traced by source_event_id.
