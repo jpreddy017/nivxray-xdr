@@ -17092,3 +17092,35 @@ config + exactly 5 genuine Sysmon events traced end to end.
 AFTER W1: inventory Admin -> Add Devices / Add Integration / endpoint inventory
 / enrollment packages and turn the manual procedure into a Cisco/Cortex/
 Defender-style onboarding experience.
+
+## 2026-09-17 · PRODUCTION TENANCY BOOTSTRAP — CLOSED (owner-executed)
+
+organization_id = org_55f6dc202dbf8995369db989ad (NivXMachines, VENDOR, ACTIVE)
+tenant_id       = ten_e759b7288598bd882e3dcac49d (Internal Validation,
+                  INTERNAL_VALIDATION, ACTIVE, products XDR+EDR)
+organization_count 1 · tenant_count 1 · collectors 0 · api_keys 0 ·
+enforcing false · acceptance-probe persisted false · probe audit rows 0.
+Tenancy came ONLY from POST /api/xdr/tenants - no collector, key, endpoint or
+telemetry created it.
+
+Next gate procedure written: `memory/W1_PHASE3_ENFORCEMENT_ACTIVATION_PROCEDURE.md`
+- Mechanism: Deployments -> app -> side panel -> Secrets -> add
+  NIVX_TENANT_REGISTRY_ENFORCE=true -> Save -> REDEPLOY (save alone does not
+  take effect). Zero downtime rolling update, 2-5 min. Secrets are NOT
+  versioned and NOT part of a build rollback, so flag and build are separate
+  levers. enforcing() reads os.environ per call (no app caching).
+- MANDATORY pre-flight: list EDR endpoints/tokens + collectors + api_keys under
+  tenant "default"; all must be zero, otherwise adopt (LEGACY_ADOPTED, id
+  preserved) or stop. Do not activate over live objects.
+- Accepted consequences: tenant-scoped calls without X-Tenant-Id ->
+  TENANT_REQUIRED (B7 option A); the Security State tab fails closed until the
+  hardcoded tenant_id=default callers name ten_e759... (UI change not
+  authorized yet).
+- Acceptance set A-I covers enforcing=true, tenant ACTIVE, admin+exact tenant
+  succeeds, unknown tenant TENANT_NOT_FOUND, missing tenant TENANT_REQUIRED,
+  B6 security-state authority, B4 no implicit tenancy, B5 EDR same authority,
+  B3 no spoofed audit actor.
+- Rollback: set the flag false / delete it -> Save -> Redeploy.
+
+STATUS: BOOTSTRAP GATE CLOSED · ENFORCEMENT OFF (activation pending owner) ·
+W1 STILL PAUSED · no collector, key, forwarder config or telemetry.
