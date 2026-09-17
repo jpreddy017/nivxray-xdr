@@ -16928,3 +16928,40 @@ tenant evidence - asymmetric orphan risk. Not changed.
 Owner decision still required: the dedicated tenant identifier for
 DESKTOP-A9HGFJJ (precedent: `nivx-prod-1` style, e.g. `nivx-prod-win-1`).
 Nothing created. W1 NOT CLOSED. _COLLECTED_PRODUCTS still {"linux"}.
+
+## 2026-09-17 · ARCHITECTURE GATE · ORG/TENANT AUTHORITY (inspect + design only)
+
+W1 Phase 3.1 paused by owner before any production object. Design report:
+`memory/PLATFORM_ORG_TENANT_AUTHORITY_DESIGN.md` (nothing implemented).
+
+PROVEN: four independent tenant-resolution rules with three separate "default"
+fallbacks - XDR control plane (X-Tenant-Id header), XDR incident plane
+(resolve_tenant_scope over the `users` login store), EDR admin plane
+(edr_enrollment._tenant = users["customer"] or "default"), security_state
+(transport AuthenticatedPrincipal). Two machine-credential systems
+(xdr_api_keys nvx_ SHA-256 vs edr enr/eak/est HMAC+pepper). Two user stores
+(`users` login vs `xdr_users` RBAC). No organizations/tenants collection, no
+CRUD, no lifecycle state anywhere. tenant_id participates in
+ingest_idempotency.event_identity() and the EDR raw-event dedupe digest, so a
+tenant value can never be rewritten in place.
+
+NEW BACKLOG B5 (proven defect): no code writes `customer` onto a user document,
+so EVERY EDR enrolment token today is minted into the literal tenant "default"
+(routers/edr_enrollment.py:39-40). An XDR collector enrolled into an explicit
+tenant and an EDR sensor from the same console would land in different tenants
+with no error.
+
+RECOMMENDED: Organization -> Tenant (two levels, fixed depth), immutable opaque
+ids org_/ten_, existing tenant_id field keeps carrying the value (no schema
+replacement, no digest change), one new services/tenant_registry.py consulted
+by all four resolution sites, new /api/xdr/organizations + /api/xdr/tenants
+behind the already-reserved tenants.manage permission, additive legacy adoption
+(never rename), enforcement behind NIVX_TENANT_REGISTRY_ENFORCE, deprecate
+allow_new_tenant. Collector/key/endpoint/telemetry/incident must never create
+tenancy.
+
+OWNER DECISION PENDING: (1) Option 1 resume W1 now under a deliberately chosen
+tenant string later adopted as legacy, or Option 2 build registry steps 1-6
+first then enrol; (2) organization slug + tenant identifier; (3) whether B5 and
+B4 close before the first production endpoint exists.
+Nothing created. W1 NOT CLOSED. _COLLECTED_PRODUCTS still {"linux"}.
