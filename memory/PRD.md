@@ -17639,3 +17639,28 @@ No code, config, deployment, credential or telemetry touched. No replay executed
   `xdr_canonical_evidence.event_time` read-only before writing code. Also found:
   `CanonicalEnvelope.parser_ok`/`normalized_ok` DEFAULT to True and the forwarder
   never sends them, so those CONNECTED-gate counters assert an unmeasured outcome.
+- **W1 CLOSED — OWNER SIGN-OFF 2026-09-18, 6/6 PASS.** `memory/W1_EVIDENCE_PACKAGE.md`
+  is the FROZEN authoritative W1 baseline (§8 records the sign-off and its
+  conditions). W1-E2 must always be quoted verbatim: "PASS — stored production
+  evidence + validated dedupe contract; duplicate replay not behaviorally
+  re-observed during W1." NEVER shorten it to imply a production replay occurred —
+  none did. Option B cancelled. No replay authorised. W1 must not be reopened;
+  extra Windows channels (Security/Application/System/PowerShell/Defender) become a
+  separate **Windows Multi-Channel Evidence Collector** milestone.
+- **TIMELINE CHECK (step 2) COMPLETE — NO DEFECT ON THE EVIDENCE PLANE.**
+  `memory/W1_TIMELINE_CHECK.md`, probe `scripts/w1_timeline_check_probe.py`
+  (preview only). `xdr_canonical_evidence.event_time = EventData.UtcTime`, basis
+  `ACTIVITY_TIME`, `event_time_substituted=false`, `activity_occurred_at` AVAILABLE,
+  `sensor_observed_at = System.TimeCreated`, `ingest_time` separate; `to_dict()` sets
+  the legacy `timestamp` key to the same activity value, and every consumer
+  (ICE, IUE, entity resolution, spread watchlist) therefore reads ACTIVITY time.
+  The only surface showing 10:01 is the routing **delivery log**, correctly labelled
+  `at_basis=provenance.timestamps.nivx_received_at`. The nulls the owner saw are on
+  `xdr_canonical_events`, the raw projection the code itself marks "not the SSOT".
+  Residual gaps for the Source Time Fix decision: (1) source→NivX latency is never
+  computed/stored though both boundaries exist; (2) raw-projection
+  `source_timestamp` null; (3) Sysmon `UtcTime` is offset-naive
+  ("2026-09-18 08:38:17.569") while `event_time_format_state` still says ISO_8601 —
+  a cross-source timeline would sort naive against offset-aware values, which is the
+  likeliest real hazard for Attack Progress; (4) `parser_ok`/`normalized_ok` default
+  True. NOTHING FIXED — awaiting owner review.

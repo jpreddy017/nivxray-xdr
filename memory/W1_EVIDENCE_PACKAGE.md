@@ -750,3 +750,41 @@ Awaiting owner review of this status before anything else proceeds.
 ### Follow-up finding — RECORDED, NOT FIXED
 See `memory/W1_FOLLOWUP_TEMPORAL_NORMALIZATION.md`. Deliberately excluded from
 W1-E1 closure and from the W1 verdict.
+
+---
+
+## 8 · W1 FROZEN — OWNER SIGN-OFF 2026-09-18
+
+**W1 ACCEPTED 6/6 PASS by the owner. This document is the authoritative W1
+baseline and is FROZEN.** Amendments require owner authorisation.
+
+```
+W1-A  PASS   ingestion truth
+W1-B  PASS   Sysmon DSM / canonical normalization
+W1-C  PASS   field-level provenance
+W1-D  PASS   authoritative tenant attribution
+W1-E1 PASS   delivery identity persistence
+W1-E2 PASS   stored production evidence + validated dedupe contract;
+             duplicate replay not behaviorally re-observed during W1
+W1-F  PASS   collector-state truth
+```
+
+Binding conditions of the sign-off:
+* the W1-E2 sentence is to be quoted **in full, verbatim**. It must NEVER be
+  shortened to "production replay passed" or anything implying a production
+  duplicate replay occurred. **No replay was performed at any point in W1.**
+* **Option B (read-only evidence endpoint) remains CANCELLED.**
+* **No replay is authorised.**
+* W1 is closed at exactly five genuine Sysmon events from `DESKTOP-A9HGFJJ`.
+  No seeded, fake or demo data was used anywhere in W1.
+* W1 is NOT to be reopened or extended. Additional Windows channels
+  (Security / Application / System / PowerShell / Defender) belong to a
+  separate future milestone — **Windows Multi-Channel Evidence Collector** —
+  and must not be folded into W1.
+
+Owner-set order of subsequent work: **1 W1 sign-off (done) → 2 Timeline Check
+(read-only, no code) → 3 Source Time Fix (only if 2 confirms a gap) →
+4 Dedupe Gate Repair (test-infrastructure only).**
+
+Step 2 result: `memory/W1_TIMELINE_CHECK.md` — no temporal defect on the
+evidence plane; `event_time` is ACTIVITY_TIME from `EventData.UtcTime`.
