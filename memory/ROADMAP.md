@@ -1522,3 +1522,24 @@ dataflow model · artifact graph with provenance and explicit stop reasons ·
 R-7 canonical fan-out · LOLBAS call-site repair (catalog already exists) ·
 OSINT bridge (providers already exist) · D-11 ATT&CK records · D-12 IOC records
 · evidence-driven Executive Summary · `analysis_completeness` object.
+
+## 2026-06 (session 3) · DUAL-CONSOLE WAVES (all blocked on A0 approval)
+
+| wave | content | gate |
+|---|---|---|
+| **A0** | owner approval of the dual-console architecture + both reference catalogues | **OPEN NOW** |
+| A1 | `NxConsoleShell` + `NxConsoleSwitch`; Analyst rail rebuilt; admin surfaces removed from the analyst rail (routes kept + redirected) | A0 |
+| A2 | Analyst Wave 2 (Attack Story · Timeline · Evidence · Entities · Detections · MITRE · Activity · Entity 360) | A0 + UX0 Wave 1 approval |
+| B1 | `/admin/login` + Admin Overview (platform health, never SOC graphs) | A0 |
+| B2 | Admin Data & Telemetry (resolve the duplicate data-sources page first) | B1 |
+| B3 | Access Management + Effective Access + Access Simulator | B1 + RBAC-1 grant/restriction/scope contract |
+| B4 | Detection Engineering + Automation & Response (migrated from the analyst rail) | B1 |
+| B5 | Developer/Integration + Platform (SSO, retention, updates) | backend contracts |
+| C | route consolidation + dead-code removal (full mandated sequence) | all above |
+
+**Auth/RBAC lane prerequisite (not UX):** `console.soc.access` /
+`console.admin.access` permissions, and the owner decision on separate token
+audiences per console.
+
+**Still outstanding from the owner:** the exact byte-for-byte obfuscated
+PowerShell sample for the permanent D-19 Command Intelligence fixture.

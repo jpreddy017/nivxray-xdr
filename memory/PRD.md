@@ -18008,3 +18008,56 @@ beyond the earlier RCA:
 - Analysis Completeness is kept **separate from Confidence** by owner decision;
   it is not derived from confidence and confidence is not derived from it.
 - No production route replaced. Wave 2 not started.
+
+## 2026-06 (session 3) · OWNER ARCHITECTURE DECISION — DUAL CONSOLE (DISCOVERY ONLY)
+
+New product decision recorded: NivXRay XDR becomes **two purpose-built console
+experiences with two login entry points** — Analyst/Investigator Console and
+Administration Console — over **one** identity, tenant, authorization, audit
+and response-approval authority, sharing `xdr/nx/`.
+
+Delivered as **discovery + reference design only. No implementation.**
+- `memory/DUAL_CONSOLE_DISCOVERY.md` — items 1–5 and 10–15:
+  route inventory of all 74 routes + 26 admin sections classified
+  ANALYST (31) / ADMIN (26 sections) / SHARED / MISPLACED (6) / DUPLICATE (10);
+  proposed Analyst IA and Admin IA; auth + tenant + RBAC authority discovery;
+  dual-login architecture; shared Nx component requirements; API/data gaps;
+  migration + deep-link implications; 10 named security risks; A0→C wave plan;
+  HEAD/worktree state.
+- `memory/CONSOLE_REFERENCE_CATALOGUES.md` — items 6–9: separate Analyst (16
+  surfaces) and Admin (16 surfaces) catalogues, a per-surface 7-vendor
+  comparison, and the ADOPT(14) / ADAPT(9) / REJECT(11) / NOT-VERIFIED(5)
+  decision set.
+
+Key findings:
+- **The platform already has exactly one identity authority** (`routers/auth.py`
+  — one `/api/auth/login`, one user store, one token issuer, one rate limiter)
+  **and one authorization authority** (`routers/xdr_rbac.py` — permissions,
+  roles, users, groups, `users/{id}/effective`, `POST /simulate`,
+  `me/effective`, enforced by one `require_permission()` factory accepting
+  mutually exclusive USER-JWT or MACHINE-API-key principals). Two logins must
+  therefore be two *entry experiences*, never two auth stacks.
+- Proposed: a `console` session claim ("soc"/"admin") that is a **destination,
+  not a permission**, plus two new server-enforced permissions
+  `console.soc.access` / `console.admin.access`. Administrator ≠ SOC
+  privileges. URL knowledge grants nothing. Token-audience separation is
+  recommended but belongs to the auth/RBAC lane.
+- The Administration Console **already exists as data and APIs** (26
+  `adminMeta` sections behind one generic body) but has no purpose-built
+  information architecture — that is the real gap.
+- 6 misplaced surfaces identified for migration to Admin (rule-studio,
+  detect/tuning, respond/playbooks, respond/automation-rules, the duplicate
+  analyst-side data-sources page, Client Management) — with redirects and an
+  in-analyst deep-link path preserved, nothing deleted.
+- No single vendor wins both consoles: **Cortex** wins the investigation shell,
+  **Elastic** wins collector/integration onboarding, **Microsoft** wins
+  permissions + entity + hunting, **Cisco** wins the XDR rail, evidence and
+  intelligence pivot. Effective Access, canonical evidence, provenance,
+  Analysis Completeness and response verification have no vendor primary and
+  remain NivXRay-original surfaces.
+- 5 patterns marked NOT-VERIFIED (Falcon RTR / host groups / API clients,
+  SentinelOne storyline, OpenSOAR single-scroll) are **not adopted** until a
+  current official reference is confirmed.
+
+STOPPED for owner architecture approval. Nothing implemented; `git status`
+shows only the earlier UX0 Wave 1 additive files plus the new memory documents.
