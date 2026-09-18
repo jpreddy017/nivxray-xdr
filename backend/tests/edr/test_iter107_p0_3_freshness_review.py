@@ -154,11 +154,20 @@ class TestWindowHonesty:
         assert w720 >= w1, f"expected 720h >= 1h; got {w720} vs {w1}"
 
     def test_evidence_outside_window(self, admin_h):
+        """`dev_a0267ae20737` is ENG-42 — an UNATTRIBUTED legacy device. A
+        tenant-scoped process tree therefore fails closed, and the
+        outside-window statement is asserted on the cross-tenant projection
+        that can still see the evidence."""
         r = requests.get(f"{BASE}/api/edr/process-tree",
                          params={"endpoint_id": OUTSIDE_WINDOW_DEV, "hours": 24},
                          headers=admin_h, timeout=30)
         assert r.status_code == 200, r.text[:300]
-        body = r.json()
+        assert r.json().get("reason") in ("identity_unresolved",
+                                          "ENDPOINT_NOT_RESOLVED")
+
+        from routers.edr import _project_endpoint_process_tree
+        body = _project_endpoint_process_tree(
+            OUTSIDE_WINDOW_DEV, 24, {"all_tenants": True, "tenant_ids": []})
         assert body.get("reason") == "evidence_outside_window", f"reason={body.get('reason')}"
         w = body.get("window") or {}
         assert w.get("state") == "EVIDENCE_OUTSIDE_WINDOW", w.get("state")

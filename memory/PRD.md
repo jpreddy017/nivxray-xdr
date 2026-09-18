@@ -17245,3 +17245,26 @@ response/isolation core set.
   pre-existing env-dependent failure (no enforcement fixture + `.env` has the
   flag on). Passes with the flag pinned off. One-line hermetic fix identified,
   not applied.
+
+### 2026-06 · Frontend contract fix + P6 preview acceptance (candidate only)
+Owner-directed sequence executed: frontend contract fix → stale-test
+reinterpretation + hermetic test fix → regression → P6 preview A–I → STOP.
+Report: `W1_PHASE3_FRONTEND_FIX_AND_P6_PREVIEW_ACCEPTANCE.md`.
+**P6 preview A–I: ALL PASS (Gate H included).** Production untouched.
+
+Open P0/P1 after this step:
+- **P0 · owner review of P6, then production republish decision**, then
+  production A–I re-run. NOT attempted.
+- **P1 · W1 Phase 3.1** under `ten_e759b7288598bd882e3dcac49d`: Windows
+  collector → minimum-scope ingest credential → DESKTOP-A9HGFJJ → exactly 5
+  genuine Sysmon events → canonical evidence/provenance → detection
+  evaluation. STILL PAUSED.
+- **P1 · deferred R2 item** — there is currently NO HTTP route returning
+  unattributed legacy evidence. The separately-named unattributed view was
+  deferred; until it exists that evidence is service-layer only.
+- **P2 · `collectorApi.js:77,85`** `tenantId = "default"` function default
+  (XDR collector plane) — silent fallback, needs its own decision.
+- **P2 · `session_context.authorised_incident`** `... or "default"` display
+  label — left alone by owner decision (cosmetic, not authorization).
+- **P2 · browser validation of the EDR console** requires a Vercel preview
+  deploy; not authorized in this step.

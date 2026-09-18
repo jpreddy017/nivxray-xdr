@@ -39,62 +39,98 @@ def auth(token):
     return {"Authorization": f"Bearer {token}", "X-Tenant-Id": "default"}
 
 
+def _legacy_corpus_rows():
+    """The golden-corpus devices as the CROSS-TENANT projection sees them.
+
+    B7/R2 · these 7 hosts are `UNATTRIBUTED_LEGACY_OBSERVATION`:
+    `v2_shadow_observations` carries no `tenant_id` for them. An explicitly
+    tenant-scoped request therefore CANNOT be answered with them — that is the
+    mis-attribution the production Gate H finding exposed. The evidence still
+    exists and is still readable, so its existence is asserted here against the
+    cross-tenant projection instead of against a tenant-scoped HTTP read.
+
+    (There is deliberately no HTTP route that returns unattributed evidence
+    yet; the separately-named unattributed view is a deferred, separately
+    approved change.)
+    """
+    from services.edr import device_identity as dir_svc
+    rows = dir_svc.list_devices({"all_tenants": True, "tenant_ids": []})
+    return {r["hostname"]: r for r in rows if r.get("hostname") in EXPECTED_HOSTS}
+
+
+def test_legacy_corpus_still_exists_unowned_on_the_cross_tenant_path():
+    """Evidence narrowed, never destroyed."""
+    corpus = _legacy_corpus_rows()
+    assert set(corpus) == set(EXPECTED_HOSTS), \
+        f"legacy corpus lost: {set(EXPECTED_HOSTS) - set(corpus)}"
+    for host, row in corpus.items():
+        assert row["tenant_attribution"] == "UNATTRIBUTED_LEGACY_OBSERVATION", \
+            f"{host}: {row['tenant_attribution']}"
+        assert row["tenant_id"] is None, f"{host} was given an owner by inference"
+        assert row["identity_confidence"] == "authoritative"
+        assert row["device_iid"].startswith("dev_")
+        assert row["observation_count"] > 0
+        assert row["lane_counts"]
+
+
 def test_endpoints_returns_seven_authoritative(auth):
+    """Under an EXPLICIT tenant the projection is attributed-only.
+
+    Previously this asserted the 7 legacy hosts came back. They carry no
+    owner, so returning them to a caller that named a tenant is exactly the
+    Gate H mis-attribution. Their existence is asserted by
+    `test_legacy_corpus_still_exists_unowned_on_the_cross_tenant_path`.
+    """
     r = requests.get(f"{BASE_URL}/api/edr/endpoints", headers=auth, timeout=20)
     assert r.status_code == 200, r.text
     data = r.json()
     rows = [d for d in data["endpoints"]
             if d.get("source") == "v2_shadow_observations"]
-    # The 7 golden-corpus endpoints must ALL still resolve authoritatively.
-    # The total is no longer pinned at 7: since P1.10 activated real
-    # telemetry ingestion, live CEF/LEEF sources legitimately register
-    # additional endpoints, and asserting an exact total would make a
-    # working ingestion path look like a regression.
-    corpus = [d for d in rows if d["hostname"] in EXPECTED_HOSTS]
-    assert {d["hostname"] for d in corpus} == set(EXPECTED_HOSTS), \
-        f"corpus endpoints missing: {set(EXPECTED_HOSTS) - {d['hostname'] for d in corpus}}"
-    assert len(rows) >= 7, f"expected at least 7 IRG rows, got {len(rows)}"
+    leaked = {d["hostname"] for d in rows} & set(EXPECTED_HOSTS)
+    assert not leaked, f"unowned legacy hosts released under a tenant: {leaked}"
     for row in rows:
+        assert row["tenant_attribution"].startswith("ATTRIBUTED")
+        assert row["tenant_id"] == auth["X-Tenant-Id"]
         assert row["identity_confidence"] == "authoritative"
         assert row["device_iid"] and row["device_iid"].startswith("dev_")
         assert row["observation_count"] > 0
         assert row.get("lane_counts")
-    for row in corpus:
-        assert row["hostname"] in EXPECTED_HOSTS
 
 
 def test_device_trajectory_by_iid(auth):
+    """FIN-07 is unowned, so a tenant-scoped trajectory must fail closed.
+
+    The 45 IRG events still exist — asserted against the cross-tenant
+    projection below, not claimed as this tenant's evidence.
+    """
     r = requests.get(f"{BASE_URL}/api/edr/device-trajectory",
                      params={"device": "dev_baaa72285d27", "all_time": "true"},
                      headers=auth, timeout=30)
     assert r.status_code == 200, r.text
     d = r.json()
-    assert d["reason"] == "ok"
-    assert d["identity"]["resolved"] is True
-    assert d["identity"]["device_iid"] == "dev_baaa72285d27"
-    assert d["identity"]["hostname"] == "FIN-07"
-    assert d["identity"]["identity_confidence"] == "authoritative"
-    # 45 IRG events for FIN-07
-    irg = [e for e in d["events"]
-           if e.get("evidence_ref", {}).get("type") == "v2_shadow_observation"]
-    assert len(irg) == 45, f"expected 45 IRG events, got {len(irg)}"
-    lanes = d["lane_counts"]
-    assert lanes.get("process", 0) > 0
-    assert lanes.get("file", 0) > 0
+    assert d["identity"]["resolved"] is False
+    assert d["reason"] == "identity_unresolved"
+    assert d["events"] == []
+    assert _legacy_corpus_rows()["FIN-07"]["observation_count"] == 45
 
 
 @pytest.mark.parametrize("host", ["fin-07", "FIN-07", "Fin-07"])
 def test_hostname_case_insensitive(auth, host):
+    """Case-insensitive matching is asserted on the projection that can see
+    the device at all; the tenant-scoped read fails closed for every casing,
+    which is the contract, not a resolver regression."""
     r = requests.get(f"{BASE_URL}/api/edr/device-trajectory",
                      params={"device": host, "all_time": "true"},
                      headers=auth, timeout=30)
     assert r.status_code == 200
-    d = r.json()
-    assert d["identity"]["resolved"] is True
-    assert d["identity"]["device_iid"] == "dev_baaa72285d27"
-    irg = [e for e in d["events"]
-           if e.get("evidence_ref", {}).get("type") == "v2_shadow_observation"]
-    assert len(irg) == 45
+    assert r.json()["identity"]["resolved"] is False
+
+    from services.edr import device_identity as dir_svc
+    identity = dir_svc.resolve(host, {"all_tenants": True, "tenant_ids": []})
+    assert identity is not None, f"{host!r} no longer resolves cross-tenant"
+    assert identity["device_iid"] == "dev_baaa72285d27"
+    assert identity["hostname"] == "FIN-07"
+    assert identity["identity_confidence"] == "authoritative"
 
 
 def test_identity_unresolved_honest_state(auth):
@@ -111,30 +147,37 @@ def test_identity_unresolved_honest_state(auth):
 
 
 def test_window_semantics_empty_but_identified(auth):
+    """FIN-07 is unowned: the tenant-scoped read fails closed, and the window
+    semantics are asserted where the device is visible at all."""
     r = requests.get(f"{BASE_URL}/api/edr/device-trajectory",
                      params={"device": "dev_baaa72285d27", "hours": 24},
                      headers=auth, timeout=15)
     assert r.status_code == 200
-    d = r.json()
-    # observations dated 2026-02-25 → default 24h window returns empty
-    irg = [e for e in d["events"]
-           if e.get("evidence_ref", {}).get("type") == "v2_shadow_observation"]
-    assert len(irg) == 0
-    assert d["identity"]["resolved"] is True
-    assert d["identity"]["observation_count"] == 45
-    assert d["identity"]["observed_first_seen"]
-    assert d["identity"]["observed_last_seen"]
+    assert r.json()["identity"]["resolved"] is False
+
+    row = _legacy_corpus_rows()["FIN-07"]
+    # observations dated 2026-02-25 → outside a 24h window, but the identity
+    # and its counts are still known and dated, never blank.
+    assert row["observation_count"] == 45
+    assert row["first_seen"] and row["last_seen"]
 
 
 def test_evidence_provenance_on_events(auth):
+    """Provenance is asserted on the projection that can return the events.
+
+    A tenant-scoped request gets nothing for an unowned device, so asserting
+    provenance through it would only prove the fail-closed path.
+    """
     r = requests.get(f"{BASE_URL}/api/edr/device-trajectory",
                      params={"device": "dev_baaa72285d27", "all_time": "true"},
                      headers=auth, timeout=30)
-    d = r.json()
-    irg = [e for e in d["events"]
-           if e.get("evidence_ref", {}).get("type") == "v2_shadow_observation"]
-    assert irg
-    for e in irg:
+    assert r.json()["identity"]["resolved"] is False
+
+    from services.edr import device_identity as dir_svc
+    wide = {"all_tenants": True, "tenant_ids": []}
+    events = dir_svc.observations("dev_baaa72285d27", wide, None)
+    assert events
+    for e in events:
         ref = e["evidence_ref"]
         assert ref["type"] == "v2_shadow_observation"
         assert "event_iid" in ref
@@ -160,7 +203,15 @@ def test_regression_detections_and_process_tree(auth):
     if isinstance(items, dict):
         items = items.get("items", [])
     assert items, "no incidents found for regression"
-    incident_id = items[0].get("id") or items[0].get("incident_id")
+    # P3 · an incident is tenant evidence, so it must be read under the tenant
+    # that owns it. Picking the first row of a cross-tenant list and then
+    # naming another tenant correctly returns 404 (existence in another tenant
+    # is not disclosed), which is the contract, not a regression.
+    tenant = auth["X-Tenant-Id"]
+    owned = [i for i in items if i.get("tenant_id") == tenant]
+    if not owned:
+        pytest.skip(f"no incident owned by tenant {tenant!r} in this corpus")
+    incident_id = owned[0].get("id") or owned[0].get("incident_id")
     assert incident_id
 
     r = requests.get(f"{BASE_URL}/api/edr/detections",

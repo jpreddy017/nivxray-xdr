@@ -7367,3 +7367,27 @@ tenant and silently ignored a supplied `X-Tenant-Id`.
   weakened. Frontend `nivxforge/edrApi.js` sends no `X-Tenant-Id` and is now
   403 TENANT_REQUIRED — NOT fixed, needs its own authorisation.
 - Production untouched: publish 100 / build 8833215. W1 Phase 3 paused.
+
+## 2026-06 · FRONTEND TENANT CONTRACT + P6 PREVIEW A–I (candidate/preview only)
+- NEW `apps/nivxray-xdr/src/lib/tenant.js` — single active-tenant source:
+  `?tenant=` → `localStorage.nvx_tenant`. **No "default" fallback, no
+  hardcoded tenant id, no client-side registry check.**
+- `apps/nivxray-xdr/src/lib/api.js` — one axios interceptor attaches
+  `X-Tenant-Id` to every request; yields to a call site that already set it.
+  `edrApi.js` untouched; all 9 EDR console surfaces covered.
+- Removed the two hardcoded `tenant_id=default` usages:
+  `XdrInvestigationWorkspacePage.jsx` and `frontend/src/v2/pages/SecurityStateTab.jsx`
+  (now reports `NO_TENANT_CONTEXT`; evaluate/stage handlers refuse without a tenant).
+- `yarn build` on the XDR SPA: exit 0. Browser validation of the EDR console
+  NOT possible here (Vercel-hosted, not preview-served) — stated, not claimed.
+- 9 stale tests re-pointed: unattributed legacy evidence asserted on the
+  CROSS-TENANT projection; explicit-tenant reads asserted attributed-only. The
+  7 legacy hosts were NOT given artificial owners.
+- `test_b3_ingest_actor_is_never_the_client_claim` made hermetic via the
+  existing `relaxed` fixture; assertion unchanged. b4b5 now 30/0.
+- Regression: R4 gate 152/0 · tests/edr 22 failed (0 new, 1 baseline fixed) ·
+  core tenant/RBAC/audit/response/isolation set 48 → 48 identical.
+- **P6 preview A–I under `NIVX_TENANT_REGISTRY_ENFORCE=true`: A–I ALL PASS.**
+  Gate H PASS including the response/write plane. Tenant count 5 → 5 across G.
+  Zero persistent objects created.
+- Production untouched (publish 100 / build 8833215). W1 Phase 3 paused.

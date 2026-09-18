@@ -4,7 +4,11 @@ import api from "@/lib/api";
 
 export default function SecurityStateTab({ inv }) {
   const caseId = inv?.case_id || "";
-  const tenantId = inv?.tenant_id || "default";
+  // B7 Option A · this fell back to the literal `default`, so a case with no
+  // tenant on it queried another tenancy. There is no default tenant: the
+  // investigation's own tenant is the only authority, and its absence is
+  // reported instead of substituted.
+  const tenantId = inv?.tenant_id || null;
 
   const [activeSubView, setActiveSubView] = useState("state"); // 'state' | 'causality' | 'reachability' | 'counterfactual' | 'provenance'
   const [selectedWorldId, setSelectedWorldId] = useState("world_a");
@@ -41,6 +45,12 @@ export default function SecurityStateTab({ inv }) {
   // Fetch live security state on mount / caseId change
   useEffect(() => {
     if (!caseId) return;
+    if (!tenantId) {
+      setErr("NO_TENANT_CONTEXT — this investigation carries no tenant, so no "
+             + "security state can be requested. There is no default tenant.");
+      setLiveState(null);
+      return;
+    }
     setLoading(true);
     setErr(null);
 
@@ -96,6 +106,10 @@ export default function SecurityStateTab({ inv }) {
 
   // Handler to trigger backend evaluation if not yet evaluated
   const handleTriggerEvaluation = async () => {
+    if (!tenantId) {
+      setErr("NO_TENANT_CONTEXT — evaluation requires an explicit tenant.");
+      return;
+    }
     setEvaluating(true);
     try {
       const res = await api.post("/v2/security-state/evaluate", {
@@ -124,6 +138,10 @@ export default function SecurityStateTab({ inv }) {
   // Intervention Staging Handler
   const handleStageAction = async (statusTarget) => {
     setExecutionBlockedNotice(false);
+    if (!tenantId) {
+      setErr("NO_TENANT_CONTEXT — staging requires an explicit tenant.");
+      return;
+    }
     if (statusTarget === "EXECUTE") {
       setExecutionBlockedNotice(true);
       return;

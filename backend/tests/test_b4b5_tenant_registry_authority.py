@@ -431,7 +431,12 @@ def test_b3_verified_actor_reads_only_a_verified_bearer_token():
     assert verified_actor(forged) == (None, None)
 
 
-def test_b3_ingest_actor_is_never_the_client_claim():
+def test_b3_ingest_actor_is_never_the_client_claim(relaxed):
+    """Hermetic: this asserts ACTOR authenticity, not tenancy, so the
+    enforcement flag is pinned. Without `relaxed` the result depended on
+    whether the ambient `.env` had `NIVX_TENANT_REGISTRY_ENFORCE` set, and
+    `ten_x` is deliberately not a registered tenant. The assertion itself is
+    unchanged."""
     from routers.xdr_ingest import _principal
     spoofed = _FakeReq({"X-Tenant-Id": "ten_x",
                         "X-Principal-Id": "apikey:key_of_someone_else",

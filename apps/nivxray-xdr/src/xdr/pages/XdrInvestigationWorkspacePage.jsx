@@ -19,6 +19,7 @@ import {
 
 import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
+import { activeTenant } from "@/lib/tenant";
 
 const BAND_COLORS = {
   critical:      { fg: "var(--nx-critical)", bg: "rgba(239, 68, 68, 0.15)",  border: "rgba(239, 68, 68, 0.35)" },
@@ -175,14 +176,25 @@ export default function XdrInvestigationWorkspacePage() {
       .catch(() => setCaseArtifacts([]))
       .finally(() => setArtifactsLoading(false));
 
-    setSecurityStateLoading(true);
-    api.get(`/v2/security-state/${encodeURIComponent(caseId)}?tenant_id=default`)
-      .then((res) => {
-        const states = res.data?.states || [];
-        setSecurityStateData(states[0] || res.data);
-      })
-      .catch(() => setSecurityStateData(null))
-      .finally(() => setSecurityStateLoading(false));
+    // B7 Option A · this named the literal `default`, so the panel read a
+    // tenancy the operator had not selected. The tenant is now the operator's
+    // ACTIVE selection and there is no fallback: with nothing selected the
+    // panel reports the absence rather than querying a tenant it invented.
+    const tenantId = activeTenant();
+    if (!tenantId) {
+      setSecurityStateData(null);
+      setSecurityStateLoading(false);
+    } else {
+      setSecurityStateLoading(true);
+      api.get(`/v2/security-state/${encodeURIComponent(caseId)}`
+              + `?tenant_id=${encodeURIComponent(tenantId)}`)
+        .then((res) => {
+          const states = res.data?.states || [];
+          setSecurityStateData(states[0] || res.data);
+        })
+        .catch(() => setSecurityStateData(null))
+        .finally(() => setSecurityStateLoading(false));
+    }
   }, [caseId, profile]);
 
   useEffect(() => {
