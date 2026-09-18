@@ -353,6 +353,92 @@ PASS bar: exactly 5 rows; `record_id` ascending and ending at 1696992;
 `source_event_id` of the form `DESKTOP-A9HGFJJ|<record_id>`; `provider`
 containing `Sysmon`; `sysmon_event_id ∈ {1,3,11,12,13,14,22}`.
 
+#### 3.3 · CORRECTION 2 (2026-06) — §3.2 WITHDRAWN, two defects
+
+Owner-executed result: §3.2 returned **zero rows, no error** — `ReadEvent()`
+answered `$null` on the first call, so the structured query matched nothing.
+Two separate defects, one of which is a **correctness** defect that would have
+produced the WRONG five even if it had returned rows:
+
+1. **Wrong identity predicate (correctness).** `Get-PendingEvents` does not
+   select "the records after the bookmark" — it selects
+   `*[System[EventRecordID > $AfterRecordId and (EventID=1 or EventID=3 or
+   EventID=11 or EventID=12 or EventID=13 or EventID=14 or EventID=22)]]`
+   (`NivXRay-SysmonForwarder.ps1:204-206`). The transmitted five are therefore
+   the five highest **supported-EventID** records at or below 1696992, not the
+   five highest records of any kind. §3 and §3.2 both omitted the EventID
+   predicate and are wrong on that point.
+2. **Query form.** The forwarder's own proven form is `Get-WinEvent -LogName
+   -FilterXPath` with **whitespace around the relational operator**
+   (`EventRecordID > n`). §3.2 emitted `EventRecordID<=1696992` with no
+   spaces into an `EventLogQuery`; the event-log XPath parser matched nothing
+   and, via `EventLogReader`, failed silently rather than throwing.
+
+#### 3.4 · W1-E1 · authoritative (mirrors the forwarder's own query) + diagnostics
+
+Same channel, same relational form, same EventID predicate as the code that
+selected the five. Bounded by `-MaxEvents 5`, newest-first, so the service
+returns the five highest matching records ≤ 1696992 and nothing else. Fields
+are read from `ToXml()`, so no description is ever rendered. If zero rows come
+back it prints the query, the count, the channel's newest/oldest record ids and
+the underlying error instead of returning silently.
+
+```powershell
+$L5  = 1696992
+$ch  = 'Microsoft-Windows-Sysmon/Operational'
+$ids = ((1,3,11,12,13,14,22) | ForEach-Object { "EventID=$_" }) -join ' or '
+$xpath = "*[System[EventRecordID <= $L5 and ($ids)]]"
+"channel : $ch"
+"xpath   : $xpath"
+
+$evts = @()
+try   { $evts = @(Get-WinEvent -LogName $ch -FilterXPath $xpath -MaxEvents 5 -ErrorAction Stop) }
+catch { "QUERY ERROR : $($_.Exception.GetType().FullName): $($_.Exception.Message)" }
+"records returned : $($evts.Count)"
+
+if ($evts.Count -gt 0) {
+  $evts | ForEach-Object {
+    $x = [xml]$_.ToXml()
+    [pscustomobject]@{
+      source_event_id = '{0}|{1}' -f $x.Event.System.Computer,
+                                     $x.Event.System.EventRecordID
+      sysmon_event_id = [int]$x.Event.System.EventID
+      provider        = $x.Event.System.Provider.Name
+      time_created    = $x.Event.System.TimeCreated.SystemTime
+      record_id       = [int64]$x.Event.System.EventRecordID
+    }
+  } | Sort-Object record_id | Format-Table -AutoSize
+} else {
+  "--- diagnostics (read-only) ---"
+  try { "newest RecordId in channel : $((Get-WinEvent -LogName $ch -MaxEvents 1 -ErrorAction Stop).RecordId)" }
+  catch { "newest probe error : $($_.Exception.Message)" }
+  try { "oldest RecordId available  : $((Get-WinEvent -LogName $ch -Oldest -MaxEvents 1 -ErrorAction Stop).RecordId)" }
+  catch { "oldest probe error : $($_.Exception.Message)" }
+  try { $li = Get-WinEvent -ListLog $ch -ErrorAction Stop
+        "log mode / records / maxMB : $($li.LogMode) / $($li.RecordCount) / $([math]::Round($li.MaximumSizeInBytes/1MB,1))" }
+  catch { "listlog error : $($_.Exception.Message)" }
+  try { "exact-id probe rows        : $(@(Get-WinEvent -LogName $ch -FilterXPath "*[System[EventRecordID = $L5]]" -MaxEvents 1 -ErrorAction Stop).Count)" }
+  catch { "exact-id probe error : $($_.Exception.Message)" }
+  try { "no-EventID-filter probe    : $(@(Get-WinEvent -LogName $ch -FilterXPath "*[System[EventRecordID <= $L5]]" -MaxEvents 1 -ErrorAction Stop).Count)" }
+  catch { "no-EventID probe error : $($_.Exception.Message)" }
+}
+
+"--- forwarder log corroboration (local file read) ---"
+Select-String -Path 'C:\ProgramData\NivXRay\logs\forwarder.log' `
+              -Pattern 'pending records after bookmark' |
+  Select-Object -Last 3 -ExpandProperty Line
+```
+
+PASS bar: exactly 5 rows; `record_id` ascending, ending at **1696992**;
+`source_event_id` = `DESKTOP-A9HGFJJ|<record_id>`; `provider` contains
+`Sysmon`; `sysmon_event_id ∈ {1,3,11,12,13,14,22}`.
+
+Diagnostic readings that would explain a second zero: `oldest RecordId
+available > 1696992` means the channel has rolled and the five are no longer
+on the endpoint (identity must then come from the receipt JSON, not the log);
+`no-EventID-filter probe = 1` while the full query returns 0 would isolate the
+EventID predicate; a non-empty `QUERY ERROR` names the parser fault outright.
+
 ---
 
 ## 4 · IF — AND ONLY IF — YOU CHOOSE TO CLOSE W1-E2 BEHAVIOURALLY
