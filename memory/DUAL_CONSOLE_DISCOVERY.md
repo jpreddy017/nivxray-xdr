@@ -300,3 +300,142 @@ No production route, page, auth or RBAC file was modified for this report.
 ## STOP
 Discovery and reference design complete. **Awaiting owner architecture
 approval.** No dual-console implementation self-authorized.
+
+---
+
+# AMENDMENT 1 — MULTITENANT / MDR (owner-approved 2026-06)
+
+Status: architecture **APPROVED WITH AMENDMENT**. This amendment is normative;
+where it differs from the text above, the amendment wins.
+Full authorization semantics live in **`TENANT_SCOPE_AUTHORIZATION_CONTRACT.md`**.
+
+## A1 · The corrected model — two independent dimensions
+**Dual Console is one dimension. Multi-Tenant Operation is another.**
+Analyst/Admin separation is *not* tenant/customer separation and must never be
+implemented as if it were.
+```
+                     NIVXRAY IDENTITY
+                            │
+                  Authentication / SSO
+                            │
+                     TENANT AUTHORITY
+                            │
+                Effective Access / RBAC
+                            │
+        ┌───────────────────┴───────────────────┐
+  SOC / ANALYST CONSOLE                  ADMIN CONSOLE
+        │                                       │
+  Scope Navigator                        Tenant Management
+        │                                Access Management
+ ┌──────┼───────┐                        Telemetry · Config · Audit
+Single Group  All
+Tenant Scope Authorized
+        │
+        ▼  Cross-Tenant Incident Queue
+        ▼  Cortex-style Split Investigation
+        ▼  Evidence → Conclusion → Response → Verification
+```
+
+## A2 · Correction to §4 — the tenant authority already exists
+The original §4 under-stated this. Live code already contains a **server-side
+tenant authority** that must be consumed, never re-implemented:
+`services/dashboard_lenses.resolve_tenant_scope()` (authorized tenant set),
+`dashboard_lenses._scope()` (**the single authoritative queue predicate**),
+`services/session_context.tenant_context()` (returns `customers[]` +
+`active_customer{value, basis}` — *"Nothing here trusts the browser"*),
+`session_context.list_customers()` (real customers from the case corpus, not a
+tenant table), and the owner-locked `EDR_TENANT_BOUNDARY` rule.
+It exposes **six authoritative `basis` values**: `EXPLICIT_REQUEST_TENANT`,
+`INHERITED_FROM_INCIDENT`, `SINGLE_AUTHORIZED_TENANT`,
+`MULTIPLE_AUTHORIZED_TENANTS`, `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER`,
+`NOT_AUTHORIZED`.
+**These six are the Scope Navigator's state machine.** The current shell
+collapses two into the static `ALL CUSTOMERS` label and the rest into
+`◇ NOT RESOLVED` — precisely the defect the owner flagged.
+
+## A3 · New defect found — T-RISK-1 (precondition of this amendment)
+`routers/xdr_rbac.py:332` falls back to the literal tenant `"default"` when no
+tenant can be resolved. Harmless single-tenant; a **silent cross-tenant read**
+under MDR. Must **fail closed** via `resolve_tenant_scope()`. Auth/RBAC lane,
+before Wave A1 ships.
+
+## A4 · Scope Navigator replaces the static tenant pill
+Cortex Tenant Navigator + Defender Tenant Groups, normalised through `xdr/nx/`.
+Three operating scopes: **Single Tenant** · **Tenant Group (`APAC · 12`)** ·
+**All Authorized Tenants (`· 37`)**, plus Search / Favorites / Recent.
+Only server-authorized tenants are listed. When
+`basis == INHERITED_FROM_INCIDENT` the Navigator is **read-only with a stated
+lock reason** — the existing pivot rule is a security property, not UX.
+Effective scope is **always** `requested ∩ authorized`; denials are named, never
+silently dropped. Tenant groups **never** confer access.
+
+## A5 · Analyst IA additions to §2
+`CONTROL CENTER` becomes tenant-scope aware (cross-tenant when authorized).
+Scope Navigator sits in the top utility bar of the SOC console only.
+`TENANT EVIDENCE HEALTH` is added as a top-bar indicator resolving to a
+per-tenant table (`HEALTHY` · `HEALTHY · EVIDENCE INCOMPLETE` ·
+`COLLECTION GAP` · `AUTHENTICATION FAILED` · `NOT CONFIGURED`).
+Tenant-aware search, filters, saved views, hunting and reporting are required
+wherever backend authorization permits.
+
+## A6 · Incident queue contract (owner item 7)
+Multitenant scope columns:
+`Priority | Customer | Incident | Verdict | Risk | Status | Device | User |
+MITRE | Source | Updated`.
+`Customer` is hidden in single-tenant scope. Unavailable columns render honest
+absence (incident `Risk`/score is `NOT AVAILABLE` today). Surviving
+capabilities: search · time range · My Queue · saved views · sorting · column
+selection · bulk selection · provenance. Every cross-tenant row **must** carry
+a resolved `tenant_id`; a blank tenant cell is a defect.
+
+## A7 · Tenant identity stays visible (owner items 9–10)
+The Cortex-fidelity workspace header gains an authoritative customer line
+above the incident identity (`ACME HEALTHCARE` / `INC-2916` /
+`Critical · In Progress`), mandatory when entered from a cross-tenant queue.
+Consequential response dialogs state **Customer · Resource · Reason ·
+Approval**; the response service re-validates tenant+resource scope
+**independently at approve and again at dispatch**, so a UI scope change can
+never retarget an approved action.
+`REQUESTED ≠ APPROVED ≠ DISPATCHED ≠ EXECUTED ≠ VERIFIED` unchanged.
+
+## A8 · Admin IA additions to §3
+`CUSTOMERS / TENANTS` becomes a first-class group:
+`Tenants · Tenant Groups · Tenant Access · Tenant Resource Scope ·
+Tenant Evidence Health · Entitlements · Data Isolation`.
+Admin reference model for this group: **Cortex Gateway + Defender multitenant
+administration + Cisco Security Cloud organization management**.
+`Effective Access` and `Tenant Evidence Health` are the two **flagship** Admin
+differentiators — together they give the consoles distinct signatures:
+Analyst = *Evidence → Provenance → Conclusion → Response → Verification*;
+Admin = *Tenant → Configuration → Authority → Effective Access → Health → Audit*.
+
+## A9 · Login model correction to §5 (owner item 15)
+Two entry experiences (`/login` SOC, `/admin/login` Administration, or the
+`xdr.` / `admin.xdr.` hostname split) over **one** identity authority.
+**No separate credentials for the same human** — an MDR analyst must reach 30
+customers with one identity, not 30 logins.
+Sequence: `Authenticate Identity → Resolve Console Authorization → Resolve
+Authorized Tenants → Resolve Resource Scope → Enter Requested Console`.
+Tenant selection is **after** identity, never before it. `console.soc.access` /
+`console.admin.access` are approved and owned by the auth/RBAC lane; the
+`console` token claim is a destination, never a grant.
+
+## A10 · Shared Nx additions to §10
+`NxScopeNavigator` (six-basis state machine, three scopes, search/favorites/
+recent, read-only when locked) · `NxTenantBadge` (persistent customer identity
+in investigation + response) · `NxTenantEvidenceHealth` · `NxScopeDeniedNotice`
+(names denied tenants instead of silently shrinking a group) ·
+`NxGrantChain` (Effective Access provenance tree) · `NxTenantConfirmDialog`
+(Customer · Resource · Reason · Approval).
+
+## A11 · Wave plan amendment to §14
+New gate **A0.5 — Tenant/Scope contract implementation** sits between A0 and
+A1/B1 and is **auth/RBAC-lane work**: C1–C9 contracts, `console.*` permissions,
+and T-RISK-1 fail-closed. A1 (`NxConsoleShell` + `NxScopeNavigator`) and B1
+(`/admin/login` + Admin Overview) may not ship cross-tenant surfaces before
+A0.5 lands. The 12 acceptance tests in the contract document are the gate.
+
+## A12 · Command Intelligence isolation reaffirmed (owner item 19)
+This approval grants nothing to the Command Intelligence decoder lane. R-4/R-5
+remain unauthorized, the exact PowerShell fixture remains outstanding, and CI
+semantic reconstruction must not be mixed into dual-console/RBAC/tenant work.

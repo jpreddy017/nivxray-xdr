@@ -1543,3 +1543,27 @@ audiences per console.
 
 **Still outstanding from the owner:** the exact byte-for-byte obfuscated
 PowerShell sample for the permanent D-19 Command Intelligence fixture.
+
+## 2026-06 (session 4) · A0.5 INSERTED — TENANT/SCOPE CONTRACT GATE
+
+| wave | content | owner status |
+|---|---|---|
+| A0 | dual-console architecture + both catalogues | **APPROVED** |
+| **A0.5** | **auth/RBAC lane:** C1–C9 tenant/scope contracts · `console.soc.access` / `console.admin.access` · **T-RISK-1 fail-closed** (`xdr_rbac.py:332` `"default"` fallback) · 12 acceptance tests | **REQUIRED BEFORE A1/B1 cross-tenant surfaces** |
+| A1 | `NxConsoleShell` + `NxScopeNavigator` + `NxTenantBadge`; analyst rail rebuilt; admin surfaces redirected out of the analyst rail | approved, gated on A0.5 |
+| A2 | Analyst Wave 2 (Attack Story · Timeline · Evidence · Entities · Detections · MITRE · Activity · Entity 360) + cross-tenant incident queue columns | gated on A1 |
+| B1 | `/admin/login` + Admin Overview (platform health, never SOC graphs) | approved, gated on A0.5 |
+| B2 | **Customers/Tenants first-class:** Tenants · Tenant Groups · Tenant Access · Tenant Resource Scope · Tenant Evidence Health · Entitlements · Data Isolation | gated on A0.5 + C3/C5 |
+| B3 | **Effective Access (flagship)** + Access Simulator — must call the production resolver | gated on RBAC-1 (C6/C7) |
+| B4 | Detection Engineering + Automation & Response (migrated from the analyst rail) | gated on B1 |
+| B5 | Developer/Integration + Platform (SSO, retention, updates) | backend contracts |
+| C | route consolidation + dead-code removal (full mandated sequence) | all above |
+
+**Flagship differentiators approved:** Effective Access (grant chain) paired
+with Tenant Evidence Health.
+
+**Command Intelligence (separate lane, unchanged):** R-4 evaluator · R-5
+dataflow · R-7 canonical fan-out · LOLBAS + OSINT call-site repair · D-11/D-12
+records · evidence-driven Executive Summary · `analysis_completeness`.
+**Still outstanding from the owner:** the exact byte-for-byte obfuscated
+PowerShell sample for the permanent D-19 fixture.

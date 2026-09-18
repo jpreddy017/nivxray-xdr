@@ -146,3 +146,52 @@ as one product.
 Both catalogues delivered for owner architecture approval. No surface may be
 implemented until its row above is approved and its NivXRay capability/data
 mapping is locked.
+
+---
+
+# AMENDMENT 1 — TENANT / MULTITENANT SURFACES (owner-approved 2026-06)
+
+Locked reference model for the tenant dimension:
+**Cortex XDR/XSIAM** → Tenant Navigator, tenant-oriented context, dense SOC
+workspace · **Microsoft Defender XDR** → Tenant Groups, multitenant SOC,
+cross-tenant operational queues, RBAC/permissions, entity/hunting ·
+**Cisco XDR / Security Cloud** → organization-first architecture, global XDR
+rail, SSO/organization context · **Elastic** → collector/integration onboarding
+where already validated · **NivXRay** → Canonical Evidence, Provenance,
+Analysis Completeness, Negative Explainability, Effective Access provenance,
+Tenant Evidence Health, Command Intelligence, Verified Response.
+All adopted patterns are normalised through `xdr/nx/`. No vendor collage.
+
+## A · ANALYST CONSOLE — new tenant surfaces
+
+| # | NivXRay surface | Primary ref | Exact screen / source | Secondary | Structure to adopt | Interaction to adopt | REJECT | NivX difference | Contract | Missing backend truth |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A17 | **Scope / Tenant Navigator** | **Cortex XDR** `DOC` cortex-docs "Tenant Navigator" — view and switch between authorized tenants, organised by CSP account, with Settings/notifications/help remaining global | **Defender** `DOC` learn.microsoft.com multitenant management + **Tenant Groups** (group tenants by customer / business unit / geography and change the active view) | top-bar control → panel with Search · ★ Favorites · Tenant Groups · Recently accessed | switch without re-authenticating; group changes the active view | listing a tenant because it exists; a static `ALL CUSTOMERS` label | six authoritative `basis` values drive the control; read-only + stated reason when `INHERITED_FROM_INCIDENT`; denied tenants are **named** | C1, C2 | `/scope/authorized`, `/scope/select`, groups |
+| A18 | **Cross-Tenant Incident Queue** | **Microsoft Defender XDR** `DOC` multitenant case queue — adds Tenant + Tenant ID, supports tenant search/sort/filter, row preview flyouts, and moving between cases from different tenants without losing queue context | **Cortex** `OWNER-SCREENSHOT` queue density | `Priority · Customer · Incident · Verdict · Risk · Status · Device · User · MITRE · Source · Updated`; `Customer` hidden in single-tenant scope | row → split workspace without losing MDR context; tenant filter chip | a blank tenant cell; fabricated Risk | RBAC still limits visible rows; every row carries resolved tenant provenance | C4 | incident risk/score → `NOT AVAILABLE` |
+| A19 | **Cross-Tenant Control Center** | **Cisco XDR** `DOC` control center | Defender multitenant home `DOC` | scope-aware tiles; per-tenant breakdown on drill | tile → cross-tenant filtered queue | one tenant's numbers presented as the whole estate | tiles cite the query and the scope that produced them | C1, C4 | per-tile provenance |
+| A20 | **Tenant Evidence Health** | **Microsoft Defender XDR** `DOC` multitenant status indicator (surfaces data-loading / permission problems and identifies affected tenants) | Elastic Fleet health `DOC` | top-bar indicator → per-tenant table: Customer · Condition · Reason · Last event | click → affected tenants + exact telemetry reason | `healthy` by assumption; missing metrics as `0` | states `HEALTHY` / `HEALTHY · EVIDENCE INCOMPLETE` / `COLLECTION GAP` / `AUTHENTICATION FAILED` / `NOT CONFIGURED`; **CONNECTED only after real telemetry** | C5 | per-tenant last-event + reason |
+| A21 | **Persistent tenant identity in investigation** | **NivXRay original** (no vendor makes this prominent) | Cortex header `OWNER-SCREENSHOT` | customer line above incident identity in the workspace header | always visible; mandatory when entered cross-tenant | discovering the customer only by reading a field | prevents the worst MDR error: acting on the wrong customer | — | tenant name on incident payload |
+| A22 | **Tenant-confirmed response** | **NivXRay original** | Defender Action Center `DOC` | dialog: Customer · Resource · Reason · Approval | confirm → approve → dispatch, each re-validated server-side | letting a UI scope change retarget an approved action | `REQUESTED ≠ APPROVED ≠ DISPATCHED ≠ EXECUTED ≠ VERIFIED` | C8 | tenant+resource re-validation at approve **and** dispatch |
+
+## B · ADMIN CONSOLE — tenant management becomes first class
+
+| # | NivXRay admin surface | Primary ref | Exact screen / source | Secondary | Adopt | REJECT | NivX difference | Contract |
+|---|---|---|---|---|---|---|---|---|
+| B2a | **Tenants / Customers** | **Cortex Gateway** `DOC` cortex-docs — centralized administrative entry for activating/managing tenants, users, roles and user groups; XDR 5.x main/child multi-tenant structures | **Cisco Security Cloud Control** `DOC` (sign in → create organization → register products → configure user access/policies) | tenant table + lifecycle + parent/child structure | a tenant table that implies access | tenant existence is never proof of access or of telemetry | C3 |
+| B2b | **Tenant Groups** | **Microsoft Defender XDR** `DOC` Tenant Groups | — | group CRUD + membership + which authorized set is in view | groups that grant access | **effective scope = requested ∩ authorized**, always | C3 |
+| B2c | **Tenant Access** | **Defender** `DOC` multitenant access via Entra B2B / GDAP | Cortex CSP account org `DOC` | who may see which tenant, and from which grant | inferring access from group membership | shows the grant chain, not just the result | C6 |
+| B2d | **Tenant Resource Scope** | **Cortex XSIAM SBAC** `DOC` — scope-based access control limiting access to specific assets, cases, endpoints or dataset rows | **Defender** data scopes `DOC` | scope object attached to an assignment | scope as a UI filter | scope is a server-enforced security boundary | C7 |
+| B2e | **Data Isolation** | **NivXRay original** | — | per-tenant isolation statement + evidence | claiming isolation without evidence | consumes the owner-locked `EDR_TENANT_BOUNDARY`; unattributed observations stay `UNATTRIBUTED_LEGACY_OBSERVATION` and are never assigned to a customer by inference | — |
+| B2f | **Entitlements** | **Cortex Gateway** `DOC` | Trend account admin `DOC` | per-tenant entitlement table | entitlement implying capability | capability truth stays authoritative | — |
+| B9a | **Effective Access (flagship)** | **NivXRay original** (analogues: Defender permission preview `DOC`, Cortex SBAC scope view `DOC`) | — | grant chain: permission → group → role → permission → resource scope, + changed-by / when / audit ref / effective-now | a parallel UI-only resolver | **must consume the production resolver** (`resolve_tenant_scope` + `_resolve_user_permissions`); a simulator that can disagree with production is worse than none | C6 |
+| B9b | **Access Simulator** | **Cortex XSIAM** role-permission matrix `DOC` | Defender `DOC` | `User × Console × Tenant × Resource × Action → ALLOW/DENY + chain` | a second "simulator-only" algorithm | `POST /api/xdr/rbac/simulate` already exists server-side; UI only | — |
+
+## Amendment REJECT additions
+`Separate credentials per customer` — an MDR analyst must reach 30 customers
+with one identity, not 30 logins. ·
+`Tenant selection before identity` — identity first, then what they may access;
+Cortex, Cisco and Microsoft all resolve organization/tenant *after* identity. ·
+`Static ALL CUSTOMERS label` — replaced by a real scope control driven by the
+six authoritative `basis` values. ·
+`Tenant groups as an access mechanism` — grouping only, never a grant. ·
+`Silently shrinking a group to the authorized subset` — denials are named.

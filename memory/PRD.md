@@ -18061,3 +18061,56 @@ Key findings:
 
 STOPPED for owner architecture approval. Nothing implemented; `git status`
 shows only the earlier UX0 Wave 1 additive files plus the new memory documents.
+
+## 2026-06 (session 4) · ARCHITECTURE APPROVED WITH MULTITENANT / MDR AMENDMENT
+
+Owner approved the dual-console architecture, both reference catalogues, the
+Cortex-fidelity incident workspace as the analyst foundation, Effective Access
+as a flagship admin surface, and `console.soc.access` / `console.admin.access`
+for the auth/RBAC lane — subject to a mandatory multitenant amendment that had
+to be incorporated before Wave A1/B1. **Amendment incorporated; no
+implementation.**
+
+Governing correction: **Dual Console is one dimension; Multi-Tenant Operation
+is another.** Analyst/Admin separation is not tenant/customer separation.
+
+Delivered:
+- `memory/TENANT_SCOPE_AUTHORIZATION_CONTRACT.md` (new) — the explicit
+  tenant/scope authorization contract: chain `Identity → Console Authorization
+  → Authorized Tenants → Active Scope → Resource Scope → Permission → Action
+  → (Approval) → Verification`; `ScopeSelection` vs `EffectiveScope` models;
+  9 hard rules; console-permission semantics; response safety; Effective
+  Access / Access Simulator resolver rule; contracts C1–C9; 12 acceptance tests.
+- `memory/DUAL_CONSOLE_DISCOVERY.md` — AMENDMENT 1 (A1–A12).
+- `memory/CONSOLE_REFERENCE_CATALOGUES.md` — AMENDMENT 1: 6 new analyst tenant
+  surfaces (A17–A22) and 9 new admin tenant surfaces (B2a–B2f, B9a–B9b), with
+  the locked Cortex/Defender/Cisco/Elastic/NivXRay tenant reference model.
+
+Key findings of this pass:
+- **The tenant authority already exists server-side** and must be consumed, not
+  re-implemented: `services/dashboard_lenses.resolve_tenant_scope()`,
+  `dashboard_lenses._scope()` (the single authoritative queue predicate),
+  `services/session_context.tenant_context()` / `list_customers()`, and the
+  owner-locked `EDR_TENANT_BOUNDARY`. It exposes **six authoritative `basis`
+  values** which are now the Scope Navigator's state machine. The current shell
+  collapses them into a static `ALL CUSTOMERS` / `◇ NOT RESOLVED` label — the
+  defect the owner flagged.
+- **T-RISK-1 (new defect):** `routers/xdr_rbac.py:332` falls back to the literal
+  tenant `"default"` when no tenant resolves — harmless single-tenant, a silent
+  cross-tenant read under MDR. Must fail closed. Auth/RBAC lane, **precondition
+  of Wave A1**.
+- Effective scope is **always** `requested ∩ authorized`; tenant groups never
+  confer access; denied tenants are named, never silently dropped; pivot-
+  inherited tenant context stays locked; unattributed observations are never
+  assigned to a customer by inference.
+- Effective Access and Access Simulator must call the **production** resolver —
+  a simulator that can disagree with production is worse than none.
+- New gate **A0.5 · Tenant/Scope contract implementation** (auth/RBAC lane:
+  C1–C9, `console.*`, T-RISK-1) now sits between A0 and A1/B1. No cross-tenant
+  surface may ship before it, and the contract's 12 acceptance tests are the gate.
+- Command Intelligence remains isolated: R-4/R-5 unauthorized, exact PowerShell
+  fixture still outstanding.
+
+Console signatures locked:
+Analyst = Evidence → Provenance → Conclusion → Response → Verification.
+Admin = Tenant → Configuration → Authority → Effective Access → Health → Audit.
