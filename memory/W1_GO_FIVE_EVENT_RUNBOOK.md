@@ -150,7 +150,7 @@ BUILTIN\Administrators only.
 ## STEP 4 · DRY RUN FIRST — NO NETWORK, NO BOOKMARK MOVEMENT
 
 ```powershell
-cd <repo>\scripts\windows
+Set-Location C:\NivX\forwarder
 .\NivXRay-SysmonForwarder.ps1 -DryRun -MaxEvents 5
 ```
 Confirms parsing, the `microsoft-sysmon` declaration, supported event ids
@@ -214,12 +214,19 @@ records — a local state file on your laptop, no platform mutation — and
 re-deliver:
 
 ```powershell
-$bm = 'C:\ProgramData\NivXRay\state\sysmon.bookmark'
-$cur = (Get-Content $bm -Raw).Trim(); "bookmark now : $cur"
+$bm  = 'C:\ProgramData\NivXRay\state\sysmon-bookmark.json'
+$cur = Get-Content $bm -Raw
+$cur                                     # note LastRecordId before changing it
 # the five record ids came from the STEP 4 dry run; rewind to the one BEFORE the first
-[IO.File]::WriteAllText($bm, '<record_id immediately before the first of the five>')
+@{ LastRecordId = <record_id immediately before the first of the five>
+   UpdatedUtc   = (Get-Date).ToUniversalTime().ToString('o') } |
+  ConvertTo-Json | Set-Content -Encoding UTF8 $bm
+
+Set-Location C:\NivX\forwarder
 .\NivXRay-SysmonForwarder.ps1 -MaxEvents 5
-[IO.File]::WriteAllText($bm, $cur)    # restore
+
+[IO.File]::WriteAllText($bm, $cur)       # restore the original bookmark
+Get-Content $bm -Raw
 ```
 Expected receipt: `accepted=0 duplicates=5`, and re-running **6a** must show
 `events_received` **still 5** with `duplicate_delivery_count = 5`. Identity is
