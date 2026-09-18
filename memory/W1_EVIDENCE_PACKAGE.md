@@ -441,7 +441,114 @@ EventID predicate; a non-empty `QUERY ERROR` names the parser fault outright.
 
 ---
 
-## 4 · IF — AND ONLY IF — YOU CHOOSE TO CLOSE W1-E2 BEHAVIOURALLY
+## 4 · W1-E2 · SAME-FIVE ENDPOINT REPLAY — **WITHDRAWN 2026-09-18, UNEXECUTABLE**
+
+The §4 procedure below assumed the five records were still in the local Sysmon
+channel. They are not. Owner-executed §3.4 diagnostics:
+
+```
+records returned           : 0
+newest RecordId in channel : 1827133
+oldest RecordId available  : 1751184
+log mode / records / maxMB : Circular / 75950 / 64
+```
+Transmission was `2026-09-18T10:01:42Z`; at `~11:36Z` the channel had advanced
+to 1827133 — **130,141 records in ~95 minutes** against a 75,950-record
+circular capacity. `1696988–1696992` are below the oldest surviving record
+1751184 and were overwritten. This is expected behaviour of a 64 MB circular
+channel on a busy host; it says nothing about the transmission, which W1-A…D
+and F already proved.
+
+Consequences:
+* rewinding the bookmark can no longer re-read those five records, so the
+  procedure below **cannot be run** and must not be attempted. Rewinding now
+  would forward *different*, newer events — i.e. new telemetry, not a replay.
+* the only remaining behavioural route is to replay the **stored** envelopes:
+  production still holds each `raw` payload in `xdr_canonical_events`, and the
+  dedupe identity is `sha256(raw)` with no transport fields, so re-posting a
+  stored raw reproduces the identical key. That requires §3.5 first.
+* **retention clock:** `complete()` arms `retention_at = now + 14 days`
+  (`ingest_idempotency.py:267-292`). Elapsed at time of writing: ~95 minutes.
+  So the five claims are live, but any behavioural proof must happen inside
+  that 14-day window — after it, the TTL purges the claims and a replay would
+  be counted as **new** telemetry (`events_received` 5 → 10), which would
+  damage the W1-A evidence. This is now the real deadline on W1-E2.
+
+### 3.5 · W1-E1 · THE FIVE IDENTITIES ARE PERSISTED IN PRODUCTION — DB READ REQUIRED
+
+Not recoverable from the receipt: the forwarder logs only the aggregate line
+(`Write-ForwarderLog`), and `Write-RefusedRows` writes **only** non-accounted
+outcomes — `refused_recorded=0`, so nothing was written
+(`NivXRay-SysmonForwarder.ps1:296-304`). `$receipt` was function-scoped inside
+`Invoke-ForwardCycle` and is gone from the session.
+
+But production **did** persist them, twice:
+
+| collection | field | written by |
+|---|---|---|
+| `xdr_ingest_dedupe` | `source_event_id` (+ `key`, `status`, `delivery_count`, `duplicate_count`, `trace_id`, `canonical_event_id`, `retention_at`) | `event_identity()` / `claim()` / `complete()` |
+| `xdr_live_reasoning_audit` | `outcomes[].source_event_id` — the full `ReasoningOutcome` set, i.e. the receipt itself | `xdr_ingest.py:597-605` |
+| `xdr_canonical_events` | `source_event_id` + the `raw` payload | `xdr_ingest.py:880-917` |
+
+**No HTTP endpoint reads any of the three.** Verified: `xdr_canonical_events`
+appears only inside `xdr_ingest.py`; `xdr_ingest_dedupe` and
+`xdr_live_reasoning_audit` appear in no router at all. So W1-E1 is closable
+only by an owner-executed **read-only query against the production database**
+(no new telemetry, no replay, no code change), or by adding a read-only admin
+endpoint (a code change, which is out of scope until authorised).
+
+Owner-executed, production DB, `find` only — no insert/update/delete/drop.
+Use the production store, never `test_database`.
+
+```javascript
+// E1-a · PRIMARY — closes W1-E1 identity and, on stored-record evidence, W1-E2
+db.xdr_ingest_dedupe.find(
+  { tenant_id: "ten_e759b7288598bd882e3dcac49d",
+    collector_id: "col_2c20bb28ac744be48f67" },
+  { _id: 0, source_event_id: 1, key: 1, source: 1, status: 1, stage: 1,
+    outcome: 1, delivery_count: 1, duplicate_count: 1, payload_digest: 1,
+    trace_id: 1, canonical_event_id: 1, observation_id: 1, incident_id: 1,
+    raw_row_id: 1, first_seen_at: 1, completed_at: 1, retention_at: 1 }
+).sort({ first_seen_at: 1 })
+
+// E1-b · CORROBORATION — the persisted receipt
+db.xdr_live_reasoning_audit.find(
+  { tenant_id: "ten_e759b7288598bd882e3dcac49d" },
+  { _id: 0, at: 1, envelopes: 1, reasoned: 1, observations_created: 1,
+    incidents_promoted: 1, "outcomes.source_event_id": 1,
+    "outcomes.trace_id": 1, "outcomes.status": 1,
+    "outcomes.selected_dsm_id": 1, "outcomes.routing_result": 1,
+    "outcomes.dedupe_key": 1 }
+).sort({ at: -1 }).limit(1)
+
+// E1-c · OPTIONAL — the five raw rows (also the source material for a
+// stored-envelope replay, if W1-E2 is to be closed behaviourally)
+db.xdr_canonical_events.find(
+  { tenant_id: "ten_e759b7288598bd882e3dcac49d",
+    collector_id: "col_2c20bb28ac744be48f67" },
+  { _id: 1, source_event_id: 1, source: 1, collection_method: 1,
+    parser_ok: 1, normalized_ok: 1, nivx_received_at: 1,
+    received_at_source: 1, received_at_substituted: 1, ingested_at: 1 }
+).sort({ ingested_at: 1 })
+```
+
+**PASS bar · W1-E1** (from E1-a): exactly **5** documents; five distinct
+`key`s; `source_event_id` of the form `DESKTOP-A9HGFJJ|<record_id>` ascending
+and **ending at 1696992**; `source = microsoft-sysmon`; every `trace_id`
+matching one of the five trace ids already returned by the W1-C query.
+E1-b must independently show `envelopes: 5`, `reasoned: 5` and the same five
+ids with `status: REASONED`.
+
+**PASS bar · W1-E2 on stored-record evidence** (same query): all five
+`status = COMPLETED`, `delivery_count = 1`, `duplicate_count = 0`,
+`canonical_event_id` non-null, `retention_at` ≈ transmission + 14 days, and a
+unique index on `key` (`db.xdr_ingest_dedupe.getIndexes()` → `uniq_event_key`,
+`unique: true`). With the contract probe already at 34/34 on the identical
+module, that fixes every input to the dedupe decision and makes
+`DUPLICATE` the only reachable outcome for a replay. The one thing it still
+does not contain is an *observed* duplicate — that needs the replay.
+
+## 4 · (superseded — retained for the record)
 
 **Not executed by me.** This replays the **same five already-ingested
 events**; it never advances the bookmark past its current value and never
