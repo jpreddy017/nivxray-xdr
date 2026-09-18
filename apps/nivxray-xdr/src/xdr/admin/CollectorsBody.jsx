@@ -19,6 +19,7 @@ import { Plus, RefreshCcw, Play, Square, Power, PowerOff, PlayCircle,
                  Trash2, CheckCircle2, AlertTriangle, XCircle, Cpu,
                  ChevronRight } from "lucide-react";
 import api from "@/lib/api";
+import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
 
@@ -37,6 +38,28 @@ const STATE_COLOR = {
 };
 
 
+// A refusal from this control plane is STRUCTURED (`{code, reason, …}`).
+// Rendering that object as a React child throws React #31 and unmounts the
+// route, so it is turned into text here — the refusal stays fail-closed, it
+// just becomes readable.
+function refusalText(e) {
+  const detail = e?.response?.data?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (detail && typeof detail === "object") {
+    const code = detail.code || detail.error || "";
+    const text = [code, detail.reason || detail.message || ""]
+      .filter(Boolean).join(" — ");
+    const hint = code === "TENANT_REQUIRED"
+      ? " Name the authoritative tenant above — there is no default tenant."
+      : code === "TENANT_NOT_FOUND" || code === "TENANT_NOT_ACTIVE"
+        ? " Use a registered, ACTIVE tenant."
+        : "";
+    return (text || "Request refused.") + hint;
+  }
+  return e?.message || "load failed";
+}
+
+
 export default function CollectorsBody() {
   const [rows,      setRows]      = useState([]);
   const [protocols, setProtocols] = useState({});
@@ -46,13 +69,19 @@ export default function CollectorsBody() {
   const [showAdd,   setShowAdd]   = useState(false);
   const [openId,    setOpenId]    = useState(null);
   const [refresh,   setRefresh]   = useState(0);
-  // Every /xdr/collectors handler resolves its tenant from `X-Tenant-Id`
-  // (defaulting to "default").  `xdr_ingest` then enforces that an envelope's
-  // tenant equals the collector's tenant on disk, so a collector created
-  // without this header lands in "default" and no key from another tenant can
-  // ever feed it.  The whole surface must speak one tenant.
-  const [tenant,    setTenant]    = useState("default");
-  const hdrs = () => ({ headers: { "X-Tenant-Id": tenant } });
+  // Tenant comes from the EXISTING tenant contract (`lib/tenant`), never from
+  // a literal in this file.
+  //
+  // This used to be `useState("default")`. The registry has no `default`
+  // tenant, so in production every load answered
+  // `403 {code:"TENANT_NOT_FOUND", reason, tenant_id}`, that OBJECT was put in
+  // `err` and rendered as a React child, and React #31 unmounted the whole
+  // tree — the Collectors route went black on arrival. Preview only survived
+  // because its registry still carries a legacy `default` entry.
+  const [tenant,    setTenant]    = useState(() => activeTenant() || "");
+  // No tenant selected ⇒ send no header ⇒ the backend answers TENANT_REQUIRED.
+  // Fail-closed is preserved; it is simply now READABLE.
+  const hdrs = () => (tenant ? { headers: { "X-Tenant-Id": tenant } } : {});
 
   useEffect(() => {
     (async () => {
@@ -66,7 +95,8 @@ export default function CollectorsBody() {
         setProtocols(cat?.data?.data?.protocols || {});
         setCounts(cat?.data?.data?.counts || {});
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "load failed");
+        setRows([]);
+        setErr(refusalText(e));
       } finally { setBusy(false); }
     })();
   }, [refresh, tenant]);
@@ -115,8 +145,12 @@ export default function CollectorsBody() {
                               fontFamily: "var(--mono)" }}>
             TENANT
             <input value={tenant} data-testid="col-tenant-context"
-                       onChange={(e) => setTenant(e.target.value)}
-                       placeholder="default"
+                       onChange={(e) => {
+                         const next = e.target.value.trim();
+                         setTenant(next);
+                         setActiveTenant(next || null);
+                       }}
+                       placeholder="authoritative tenant"
                        style={{ width: 150, padding: "3px 6px", fontSize: 11,
                                        border: "1px solid var(--border)", borderRadius: 3,
                                        background: "var(--panel2)", color: "var(--text)",

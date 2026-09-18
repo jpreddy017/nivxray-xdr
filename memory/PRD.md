@@ -17399,3 +17399,32 @@ tenant-scoped collector loading → explicit authorisation → production
 promotion → W1 GO (DESKTOP-A9HGFJJ, minimum-scope ingest key, five genuine
 Sysmon events).
 
+
+### 2026-06 · COLLECTORS ROUTE BLACK SCREEN — FIXED (candidate/preview only)
+Report: `COLLECTORS_ROUTE_BLACK_SCREEN_RCA.md`. Base commit `f3fea7c4`.
+- Reproduced in a PRODUCTION-MODE bundle (dev/preview could not reproduce):
+  `PAGEERROR: Minified React error #31 · object with keys {code, reason,
+  tenant_id}` → unhandled during render → React unmounts the tree → black page.
+- Root cause chain in `CollectorsBody.jsx`: hardcoded `useState("default")` →
+  production registry has no `default` → `403 {code:TENANT_NOT_FOUND,…}` →
+  the OBJECT stored in `err` → rendered as a React child at line 144.
+  Preview survived only because its registry still has a legacy `default`.
+  Integrations was immune (refusals already formatted); ingest-routing takes
+  scope from the session, not a header.
+- Fix (1 file, +44/−10): tenant initialised from the existing `activeTenant()`
+  contract (hardcoded default REMOVED), no header sent when unset (backend
+  answers TENANT_REQUIRED), local `refusalText()` renders `CODE — reason` +
+  remedy, input writes through `setActiveTenant`.
+- Proven in a production bundle with 0 page errors: no tenant → readable
+  TENANT_REQUIRED and the page renders; unknown tenant → TENANT_NOT_FOUND and
+  the page renders; ACTIVE tenant → loads, no error; Integrations unaffected.
+  `yarn build` exit 0; production-build guard PASSED including the new
+  collector-base check.
+- REPORTED, NOT TOUCHED (same defect class): `ApiKeysBody.jsx:212` hardcodes
+  `useState("default")` with an object error fallback — `/xdr/admin/api-keys`
+  will black-screen in production for the identical reason. Also render `{err}`
+  with object-capable values: ClosedLoopPanel, ContentPackLolbasBody,
+  CorrelationRulesBody, DataSourcesBody, DetectionRegistryBody, SecretsBody,
+  UsersRolesBody.
+- Backend untouched, no republish, Vercel NOT promoted, **W1 HELD**.
+
