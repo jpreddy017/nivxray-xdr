@@ -25,6 +25,7 @@ os.environ.setdefault("DB_NAME", "test_database")
 from routers import xdr_ingest as ing  # noqa: E402
 from server import app  # noqa: E402
 from services import ingest_idempotency as idem  # noqa: E402
+from services import tenant_registry as reg  # noqa: E402
 
 _db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
 _claims = _db[idem.COLLECTION]
@@ -45,6 +46,23 @@ CEF_LINE = (
 def client():
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="module", autouse=True)
+def registered_tenant():
+    """B4/B5 · tenancy comes only from the registry service, never as a side
+    effect of creating a collector.  Registering `TENANT` up front is what the
+    enforced registry requires; `tenant_id=` is its own adoption path."""
+    org = reg.create_organization(slug=f"harden-org-{uuid.uuid4().hex[:8]}",
+                                  display_name="Dedupe Hardening Org",
+                                  kind="VENDOR", created_by="pytest")
+    reg.create_tenant(organization_id=org["id"],
+                      slug=f"t-{uuid.uuid4().hex[:8]}", display_name=TENANT,
+                      kind="INTERNAL_VALIDATION", products=["XDR"],
+                      created_by="pytest", tenant_id=TENANT)
+    yield
+    _db["tenants"].delete_one({"id": TENANT})
+    _db["organizations"].delete_one({"id": org["id"]})
 
 
 def _auth(c):

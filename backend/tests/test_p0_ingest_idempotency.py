@@ -25,6 +25,7 @@ from pymongo import MongoClient
 os.environ.setdefault("DB_NAME", "test_database")
 
 from server import app  # noqa: E402
+from services import tenant_registry as reg  # noqa: E402
 from services.ingest_idempotency import (  # noqa: E402
     COLLECTION as DEDUPE_COLLECTION, claim, event_identity)
 
@@ -56,6 +57,29 @@ LEEF_LINE = (
 def client():
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="module", autouse=True)
+def registered_tenants():
+    """B4/B5 · tenancy is established ONLY by the registry service.
+
+    Without this the collector fixture is refused `403 TENANT_NOT_FOUND`, which
+    is the registry working correctly — the drift was in the test, not the
+    product.  `tenant_id=` is the registry's own adoption path, so the module's
+    tenant constants stay stable for every assertion below.
+    """
+    org = reg.create_organization(slug=f"dedupe-org-{uuid.uuid4().hex[:8]}",
+                                  display_name="Dedupe Proof Org",
+                                  kind="VENDOR", created_by="pytest")
+    for tid in (TENANT, TENANT_B):
+        reg.create_tenant(organization_id=org["id"],
+                          slug=f"t-{uuid.uuid4().hex[:8]}",
+                          display_name=tid, kind="INTERNAL_VALIDATION",
+                          products=["XDR"], created_by="pytest",
+                          tenant_id=tid)
+    yield
+    _db["tenants"].delete_many({"id": {"$in": [TENANT, TENANT_B]}})
+    _db["organizations"].delete_one({"id": org["id"]})
 
 
 def _login(c):

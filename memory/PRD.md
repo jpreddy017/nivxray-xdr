@@ -17773,3 +17773,32 @@ Key findings:
   industry-absent **VERIFY INGESTION** nine-step screen with per-row authoritative
   backend field mapping (exists vs BUILD) — dedupe read API, per-stream counters,
   latency, gap records and rule-binding are the BUILD items.
+
+## 2026-09-18 · W2 RESEARCH CLOSED · ARCHITECTURE RATIFIED · W2-0 COMPLETE
+Owner ratified Path 2 and all five decisions; broad W2 industry research is CLOSED.
+Contracts frozen in `memory/W2_CONTRACTS_FROZEN.md` (C-1..C-11), including the owner's
+binding refinement: **TWO checkpoints** — the Windows acquisition position may advance
+only once the event is durably recoverable in the local outbox, and the accounting
+position only on authoritative server accounting; event survivability is owned by the
+outbox, never by Windows circular-log retention. Telemetry Integrity Events
+(COLLECTION_GAP) are a platform primitive and `HEALTHY · EVIDENCE INCOMPLETE` is a
+required state. Backpressure states NORMAL/BACKLOG/PAUSED/DEGRADED/DROPPING/RECOVERING
+with `dropped = 0` measured, not assumed. Server-owned versioned collector profiles;
+raw YAML is NOT a customer-facing contract. WEF/WEC remains a separate milestone.
+**W2-0 DONE — evidence in `memory/W2_0_EVIDENCE.md`:**
+- Dedupe fixtures repaired: `test_p0_ingest_idempotency.py` + `test_p0_dedupe_hardening.py`
+  went **7 passed/25 errors → 32 passed/0 errors**. Root cause was test drift, not a
+  product defect: the fixtures created collectors for unregistered tenants and the
+  enforced registry correctly refused them. Fix registers the tenants through
+  `services.tenant_registry` using its own `tenant_id=` adoption parameter; no product
+  code touched, no check weakened, no assertion changed.
+- `scripts/w2_regression_harness.py` — one command, per-gate PASS/FAIL, report at
+  `/app/test_reports/w2_regression_latest.json`. First run **VERDICT PASS 5/5**:
+  dedupe_contract (34/34), ingest_idempotency, dedupe_hardening (32 together),
+  collector_plane_auth (112), tenant_registry_authority (30) = 208 checks green.
+  Each gate declares which W2 gate it defends.
+- Honest limits recorded: preview DB only; W2-C/C2/E2/F2/F3/G/H/I cannot be armed until
+  the W2-1 engine exists; `parser_ok`/`normalized_ok` are still collector-asserted.
+**NEXT: awaiting owner authorisation for W2-1** (native acquisition engine, strict
+subscriptions, per-channel bookmark XML, durable outbox/backpressure, gap detection,
+Sysmon regression then PowerShell; Security moved to W2-2 per owner direction).
