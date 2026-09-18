@@ -324,7 +324,13 @@ export default function XdrIncidentDetailPage() {
           </div>
         )}
 
-        <div data-testid={`incident-tab-${tab}`}>
+        {/* `record-theme.css` is scoped ENTIRELY under `.xdr-record-l3`, and
+            no surface carried that class after the workspace rewrite — so
+            every tab still using the legacy `rl-*` classes (Notes, Closure,
+            Executive, Related, Threat Assessment) rendered as unstyled text
+            with undefined colours. The scope is restored here until those
+            components finish migrating to `xdr/nx`. */}
+        <div className="xdr-record-l3" data-testid={`incident-tab-${tab}`}>
           {tab === "overview" && (
             <div className="inv">
               {/* Assessment · completeness · evidence — three DIFFERENT

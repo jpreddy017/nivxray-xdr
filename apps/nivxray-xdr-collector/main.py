@@ -40,6 +40,7 @@ from framework.store        import ConnectorStore
 from framework.rest_poller  import RestPollerConnector
 from framework.webhook      import WebhookConnector
 from framework.syslog       import SyslogConnector
+from framework.windows_eventlog import WindowsEventLogConnector
 
 from routes.connectors       import router as connectors_router
 from routes.collectors       import router as collectors_router
@@ -54,6 +55,10 @@ _CLASS_BY_TYPE = {
     "rest":    RestPollerConnector,
     "webhook": WebhookConnector,
     "syslog":  SyslogConnector,
+    # W2-1 · native multi-channel Windows Event Log acquisition. On a
+    # non-Windows collector host it binds the UnsupportedPlatformReader and
+    # reports every channel as unread — it never fabricates an event.
+    "windows-eventlog": WindowsEventLogConnector,
 }
 
 

@@ -118,8 +118,16 @@ class CanonicalEnvelope(BaseModel):
     canonical_schema:     str | None  = None
     raw:                  dict[str, Any] = Field(default_factory=dict)
     normalized:           dict[str, Any] | None = None
-    parser_ok:            bool = True
-    normalized_ok:        bool = True
+    #: W2 · PROCESSING OUTCOME — MEASURED, NEVER ASSUMED.
+    #: These used to default to ``True``, so a collector that said nothing
+    #: about its own parsing was counted as a successful parse and a
+    #: successful normalization. That made `events_parsed` /
+    #: `events_normalized` — the LOCKED evidence behind the CONNECTED gate —
+    #: describe an assumption instead of processing.
+    #: ``None`` now means the collector DID NOT DECLARE an outcome. It is
+    #: counted as unmeasured: never as success, never as an error.
+    parser_ok:            bool | None = None
+    normalized_ok:        bool | None = None
     received_at:          str | None  = None
     # ── collector provenance (contract §2.1) ─────────────────────
     source:               str | None  = None            # human label of origin
@@ -134,6 +142,42 @@ class CanonicalEnvelope(BaseModel):
 
     def normalized_view(self) -> dict[str, Any] | None:
         return self.normalized if self.normalized is not None else self.canonical
+
+    # ── W2 · measured processing outcome ─────────────────────────
+    #: The core does not re-guess the collector's parser. It measures the
+    #: one thing it can observe first-hand — whether this delivery actually
+    #: carries a normalized view — and otherwise reports the collector's
+    #: own declaration, or UNMEASURED when there is none.
+    def measured_normalized(self) -> bool | None:
+        view = self.normalized_view()
+        if isinstance(view, dict) and view:
+            return True
+        if self.normalized_ok is False:
+            return False
+        if self.normalized_ok is True:
+            # The collector claims success but delivered no normalized view.
+            # The observation wins: there is nothing normalized here.
+            return False
+        return None
+
+    def measured_parsed(self) -> bool | None:
+        if self.parser_ok is not None:
+            return self.parser_ok
+        return None
+
+    def outcome_provenance(self) -> dict[str, Any]:
+        return {
+            "parser_ok_declared":     self.parser_ok,
+            "normalized_ok_declared": self.normalized_ok,
+            "parser_ok_basis": ("COLLECTOR_DECLARED" if self.parser_ok is not None
+                                else "NOT_DECLARED"),
+            "normalized_ok_basis": (
+                "CORE_OBSERVED_NORMALIZED_VIEW"
+                if isinstance(self.normalized_view(), dict)
+                and self.normalized_view() else
+                "COLLECTOR_DECLARED" if self.normalized_ok is not None
+                else "NOT_DECLARED"),
+        }
 
 
 class TelemetryBatch(BaseModel):
@@ -181,6 +225,11 @@ class TelemetryReceipt(BaseModel):
     accepted:             int
     parse_errors:         int
     normalize_errors:     int
+    #: W2 · deliveries whose parsing / normalization outcome was NOT
+    #: measured. They are not accepted and they are not errors — they are
+    #: unknown, and they are reported as unknown.
+    parse_unmeasured:     int = 0
+    normalize_unmeasured: int = 0
     collector_state:      str
     collector_state_reason: str
     # ── P0 · delivery idempotency ────────────────────────────────
@@ -861,17 +910,25 @@ async def ingest_telemetry(
              "$set": {"last_duplicate_delivery_at": _now()}})
 
     accepted = parse_err = norm_err = 0
+    parse_unmeasured = norm_unmeasured = 0
     now = _now()
     persisted_ids: list[str] = []
     #: D11 · index-aligned to `fresh`, so reasoning can cite the exact raw row.
     fresh_raw_refs: list[dict[str, Any] | None] = []
     for e, _claim_key in zip(fresh, fresh_keys):
-        if e.parser_ok and e.normalized_ok:
+        p_ok = e.measured_parsed()
+        n_ok = e.measured_normalized()
+        if p_ok is None:
+            parse_unmeasured += 1
+        if n_ok is None:
+            norm_unmeasured += 1
+        if p_ok is True and n_ok is True:
             accepted += 1
-        elif not e.parser_ok:
+        elif p_ok is False:
             parse_err += 1
-        elif not e.normalized_ok:
+        elif n_ok is False:
             norm_err += 1
+        # p_ok/n_ok None with no failure -> counted ONLY as unmeasured.
         # Persist the canonical event (minimal projection — this is
         # not the SSOT; the authoritative event fabric is elsewhere).
         # Retention/rotation is handled by an out-of-band sweeper.
@@ -884,8 +941,9 @@ async def ingest_telemetry(
             "canonical_schema": e.canonical_schema,
             "raw":             e.raw,
             "normalized":      e.normalized_view(),
-            "parser_ok":       e.parser_ok,
-            "normalized_ok":   e.normalized_ok,
+            "parser_ok":       p_ok,
+            "normalized_ok":   n_ok,
+            "processing_outcome": e.outcome_provenance(),
             "received_at":     e.received_at or e.collection_timestamp or now,
             "ingested_at":     now,
             "source":          e.source,
@@ -937,10 +995,17 @@ async def ingest_telemetry(
     # the LOCKED evidence for the CONNECTED gate and count UNIQUE telemetry
     # only — a retry is recorded honestly in its own `events_duplicate`
     # counter so the state machine cannot be inflated by redelivery.
+    #: `events_parsed` counted `len(fresh) - parse_err`, which credited every
+    #: undeclared delivery as parsed. It now counts only MEASURED successes,
+    #: and the undeclared ones are reported in their own counters so the
+    #: CONNECTED gate can never be satisfied by an assumption.
+    measured_parsed_ok = sum(1 for e in fresh if e.measured_parsed() is True)
     inc = {"events_received": len(fresh),
-              "events_parsed":   len(fresh) - parse_err,
+              "events_parsed":   measured_parsed_ok,
               "events_normalized": accepted,
               "events_error":    parse_err + norm_err,
+              "events_parse_unmeasured": parse_unmeasured,
+              "events_normalize_unmeasured": norm_unmeasured,
               "events_duplicate": len(dup_outcomes),
               # D15 · refused by declared-source routing. Counted apart so a
               # blocked delivery can never look like telemetry.
@@ -1017,18 +1082,22 @@ async def ingest_telemetry(
             if not e.data_source_id:
                 continue
             b = by_ds.setdefault(e.data_source_id,
-                                                {"r": 0, "p": 0, "n": 0, "err": 0})
+                                                {"r": 0, "p": 0, "n": 0, "err": 0,
+                                                 "unm": 0})
             b["r"] += 1
-            if e.parser_ok:                 b["p"] += 1
-            if e.parser_ok and e.normalized_ok: b["n"] += 1
-            if not e.parser_ok or not e.normalized_ok: b["err"] += 1
+            p_ok, n_ok = e.measured_parsed(), e.measured_normalized()
+            if p_ok is True:                        b["p"] += 1
+            if p_ok is True and n_ok is True:       b["n"] += 1
+            if p_ok is False or n_ok is False:      b["err"] += 1
+            if p_ok is None or n_ok is None:        b["unm"] += 1
         for ds_id, b in by_ds.items():
             _c_data_sources().update_one(
                 {"id": ds_id, "tenant_id": owner_ten},
                 {"$inc": {"events_received":   b["r"],
                                 "events_parsed":     b["p"],
                                 "events_normalized": b["n"],
-                                "events_error":      b["err"]},
+                                "events_error":      b["err"],
+                                "events_unmeasured": b["unm"]},
                   "$set": {"last_telemetry_at": now, "updated_at": now}},
             )
 
@@ -1044,6 +1113,8 @@ async def ingest_telemetry(
         + dup_outcomes + routing_blocked
     return TelemetryReceipt(accepted=accepted, parse_errors=parse_err,
                                               normalize_errors=norm_err,
+                                              parse_unmeasured=parse_unmeasured,
+                                              normalize_unmeasured=norm_unmeasured,
                                               collector_state=new_state,
                                               collector_state_reason=reason,
                                               duplicates=len(dup_outcomes),

@@ -205,7 +205,13 @@ def create_data_source(body: CreateDataSourceBody, request: Request):
         "events_parsed":         0,
         "events_normalized":     0,
         "events_error":          0,
+        # W2 · deliveries whose parse/normalization outcome the
+        # collector never declared. Unknown is its own count: it is
+        # never folded into parsed, normalized or error.
+        "events_parse_unmeasured":     0,
+        "events_normalize_unmeasured": 0,
         "created_at":            now,
+
         "updated_at":            now,
         "created_by":            pid,
     }
