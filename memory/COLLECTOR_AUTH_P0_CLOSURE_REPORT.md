@@ -132,16 +132,12 @@ depend on implicitly is asserted explicitly.
 
 - Anonymous `GET /api/xdr/collector/collectors` → **403 `ACCESS_DENIED`
   `collectors.read` / unauthenticated** (was 200 with a pod hostname).
-- Admin session, tenant `default` selected → Integrations Control Center loads:
-  `collector/connectors` and `collector/outbox/health` return **200** with the
-  bearer attached, panel shows the honest `NO INTEGRATIONS CONFIGURED` /
+- Admin session with **no tenant selected** → the surface now renders the real
+  refusal and offers an in-product remedy (see §8), not `[object Object]`.
+- Admin session with a tenant selected from the registry dropdown →
+  `collector/connectors` + `collector/outbox/health` return **200** with the
+  bearer attached; panel shows the honest `NO INTEGRATIONS CONFIGURED` /
   `NOT_CONFIGURED` state.
-- Admin session with **no tenant selected** → collector calls return 403
-  `TENANT_REQUIRED` and the panel renders `COLLECTOR CALL FAILED
-  [object Object]`. The refusal is correct; the rendering is not. This is the
-  missing Tenant Picker (P2 backlog) plus a poor error formatter — **left
-  untouched, outside this closure's scope**, reported rather than silently
-  fixed.
 
 ## 6 · WHAT THIS DOES AND DOES NOT CHANGE
 
@@ -159,9 +155,82 @@ separately.
 ## 7 · STATUS
 ```
 implementation        DONE (candidate/preview only)
-files changed         9 (3 new)
+files changed         11 (3 new)
 tests                 112 + 107 + 258 passed · build exit 0 · OpenAPI 795
 production republish  NOT PERFORMED - awaiting separate owner approval
 W1                    HELD (no collector, no ingest key, no Sysmon)
 ```
 STOP for owner review.
+
+---
+
+## 8 · FINAL CANDIDATE ADDENDUM — OPERATOR-FACING CLOSURE (owner decision)
+
+Folded into THIS candidate. No second deployment cycle. Scope kept local to
+`IntegrationControlCenter`; no shared frontend refactor, no Tenant Management,
+no organization administration, no UI redesign, no onboarding work.
+`telemetry-health` stays PRODUCT_METADATA + `collectors.read`, tenant-independent,
+as approved.
+
+### 8.1 · Why the page `Refresh` button did nothing (root cause)
+`XdrAdminPage.jsx:258` increments `refreshNonce` and calls `load()`. For the
+Integrations section `load()` only fetches `/admin/osint/services` and sets
+`populated`; the surface itself is `IntegrationControlCenter`, which fetched on
+MOUNT only. The component never unmounts, so the nonce reached nothing — the
+button re-fetched a projection the panel does not render. Sibling bodies
+(`EdrEnrollmentBody`, `EdrResponseBody`) already received `refreshNonce`; this
+one did not. Fixed by passing the nonce and re-running the loader on change.
+The in-band `Refresh` was additionally suppressed unless `state === "ready"`,
+so in the failure state there was no working refresh at all; it is now
+available whenever the collector runtime is configured.
+
+### 8.2 · `[object Object]`
+`load()` stored the STRUCTURED refusal (`{code, reason}`) and `ErrorSection`
+rendered `String(message)`. A new local `formatRefusal()` renders
+`CODE — reason` plus a one-line remedy. Verified in a real session:
+
+```
+TENANT_REQUIRED — no tenant named for xdr.collector: the authoritative tenant
+must be presented explicitly; there is no default tenant
+Select the authoritative tenant above — there is no default tenant.
+```
+
+### 8.3 · Minimal tenant selector (`TenantBar`)
+In the Integrations header. Options come from the authoritative registry as the
+AUTHENTICATED PRINCIPAL sees it (`GET /api/xdr/tenants`, which needs a session
+and no tenant header, so there is no chicken-and-egg), filtered to `ACTIVE`,
+labelled by `display_name` — **the operator never types an opaque `ten_*` id**.
+Selecting one persists the existing `nvx_tenant` context via the existing
+`setActiveTenant` and re-runs the projection. No tenant id, slug, organization
+id or customer name is hardcoded anywhere in the client; the browser does not
+decide which tenants exist or whether one is ACTIVE. With nothing selected the
+surface stays fail-closed and states why.
+
+`"default"` is no longer used by this suite or by the UI demonstration. The
+backend suite now DISCOVERS a registered ACTIVE tenant (and a non-ACTIVE one)
+from the registry instead of hardcoding anything.
+
+**One honest observation:** the PREVIEW registry still contains legacy-adopted
+ACTIVE entries (`Preview Runtime (legacy default)`, `Preview Live Sources`,
+`p0f-keyauth-*`), so the dropdown lists them — the selector reflects registry
+truth rather than hiding it, and that is preview data, not a reintroduction of
+the default model. `Smoke Validation` is ARCHIVED and is correctly excluded.
+In production the dropdown will show the single ACTIVE tenant by its display
+name.
+
+### 8.4 · Verified in a real browser session (no DevTools, no localStorage edit)
+```
+no tenant selected      -> 403 TENANT_REQUIRED, rendered as text + remedy
+tenant dropdown         -> populated from GET /api/xdr/tenants (ACTIVE only)
+select a tenant         -> panel loads · roster + evidence health · 0 errors
+page-level Refresh      -> reloads the surface · 0 errors (previously inert)
+```
+Retests after the addendum: `test_collector_plane_auth.py` **112 passed** ·
+`yarn build` **exit 0**.
+
+Files added by the addendum: `IntegrationControlCenter.jsx` (formatter,
+`TenantBar`, nonce handling), `XdrAdminPage.jsx` (one prop),
+`tests/test_collector_plane_auth.py` (registry-discovered tenants).
+
+**STILL NOT REPUBLISHED. W1 HELD.**
+

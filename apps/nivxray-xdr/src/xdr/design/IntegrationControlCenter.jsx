@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 
 import * as C from "@/xdr/admin/collectorApi";
+import api from "@/lib/api";
+import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import Entity from "./Entity";
 import EvidenceState from "./EvidenceState";
 import Action, { ActionGroup } from "./Action";
@@ -114,7 +116,7 @@ const CATALOG = [
 ];
 
 // ── Component ────────────────────────────────────────────────
-export default function IntegrationControlCenter() {
+export default function IntegrationControlCenter({ refreshNonce }) {
   const [state, setState] = useState("loading");
   const [error, setError] = useState(null);
   const [rows,  setRows]  = useState([]);
@@ -122,6 +124,7 @@ export default function IntegrationControlCenter() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [wizardCategory, setWizardCategory] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [tenant, setTenant] = useState(activeTenant());
 
   const load = useCallback(async () => {
     setError(null);
@@ -138,12 +141,29 @@ export default function IntegrationControlCenter() {
       if (e?.code === "COLLECTOR_RUNTIME_NOT_DEPLOYED") {
         setState("not_deployed");
       } else {
-        setError(e?.response?.data?.detail || e?.message || "Load failed.");
+        // The collector plane refuses with a STRUCTURED detail
+        // (`{code, reason}`). Storing that object and rendering `String(...)`
+        // printed `[object Object]`, which hid the actual reason — usually
+        // `TENANT_REQUIRED`. Format it here, where the shape is known.
+        setError(formatRefusal(e));
         setState("error");
       }
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+  // The page header's Refresh increments a nonce. Without this the button
+  // did nothing on this surface: the component never unmounts, so its own
+  // mount-effect never re-ran.
+  useEffect(() => {
+    if (refreshNonce === undefined || refreshNonce === null) return;
+    load();
+  }, [refreshNonce, load]);
+
+  const onSelectTenant = useCallback(async (tenantId) => {
+    setActiveTenant(tenantId);
+    setTenant(tenantId || null);
+    await load();
+  }, [load]);
   useEffect(() => {
     if (state !== "ready") return;
     const t = setInterval(() => {
@@ -173,8 +193,12 @@ export default function IntegrationControlCenter() {
     <div className="evops evops-canvas" data-testid="evops-integrations">
       <Band
         source={state === "not_deployed" ? null : "collector/*  ·  health/outbox"}
-        onRefresh={state === "ready" ? load : null}
+        onRefresh={state === "not_deployed" ? null : load}
       />
+
+      {state !== "not_deployed" && (
+        <TenantBar selected={tenant} onSelect={onSelectTenant} />
+      )}
 
       {state === "not_deployed" && <CollectorNotDeployed />}
       {state === "loading"      && <LoadingSection />}
@@ -577,10 +601,91 @@ function ErrorSection({ message, onRetry }) {
       </div>
       <div className="evops-empty">
         <div className="evops-empty__title">Unable to load capability state</div>
-        <div className="evops-empty__reason">
-          {String(message || "The collector API did not return a payload.")}
+        <div className="evops-empty__reason" data-testid="evops-error-reason">
+          {message || "The collector API did not return a payload."}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Structured refusal formatting (local to this surface) ────
+// The collector control plane answers `{"detail": {"code": ..., "reason": ...}}`.
+// Rendering that object printed `[object Object]`.
+function formatRefusal(e) {
+  const detail = e?.response?.data?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (detail && typeof detail === "object") {
+    const code = detail.code || detail.error || "";
+    const reason = detail.reason || detail.message || "";
+    const hint = code === "TENANT_REQUIRED"
+      ? " Select the authoritative tenant above — there is no default tenant."
+      : code === "ACCESS_DENIED"
+        ? " This session is not authorised for the collector control plane."
+        : "";
+    const text = [code, reason].filter(Boolean).join(" — ");
+    return (text || "Request refused.") + hint;
+  }
+  return e?.message || "Load failed.";
+}
+
+// ── Tenant selection (minimal · registry-driven) ─────────────
+// Every collector control-plane call is tenant-scoped and the backend has no
+// default tenant, so an operator with no selection is refused
+// `TENANT_REQUIRED`. The options come from the authoritative registry as the
+// AUTHENTICATED PRINCIPAL sees it (`GET /api/xdr/tenants`) — no tenant id,
+// slug, organization or customer name is hardcoded here, and the browser
+// never decides which tenants exist or whether one is ACTIVE.
+function TenantBar({ selected, onSelect }) {
+  const [tenants, setTenants] = useState(null);
+  const [failure, setFailure] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    api.get("/xdr/tenants")
+      .then((r) => {
+        if (!alive) return;
+        const all = r?.data?.data?.tenants || r?.data?.tenants || [];
+        setTenants(all.filter((t) => t.state === "ACTIVE"));
+      })
+      .catch((e) => { if (alive) setFailure(formatRefusal(e)); });
+    return () => { alive = false; };
+  }, []);
+
+  return (
+    <div className="evops-section" data-testid="evops-tenant-bar">
+      <div className="evops-section__head">
+        <div className="evops-section__eyebrow">Authoritative tenant</div>
+        <div className="evops-section__spacer" />
+        {selected
+          ? <EvidenceState state="verified" label="Tenant selected" />
+          : <EvidenceState state="unavailable" label="No tenant selected" />}
+        <select
+          className="btn"
+          style={{ padding: "3px 8px", minWidth: 220 }}
+          value={selected || ""}
+          onChange={(ev) => onSelect(ev.target.value || null)}
+          data-testid="evops-tenant-select"
+        >
+          <option value="">— select tenant —</option>
+          {(tenants || []).map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.display_name || t.slug || t.id}
+            </option>
+          ))}
+        </select>
+      </div>
+      {failure && (
+        <div className="evops-empty__reason" data-testid="evops-tenant-error">
+          Tenant registry unavailable for this session: {failure}
+        </div>
+      )}
+      {!failure && tenants && tenants.length === 0 && (
+        <div className="evops-empty__reason" data-testid="evops-tenant-empty">
+          This principal holds no ACTIVE tenant. Tenancy is established in the
+          platform registry, never by this console.
+        </div>
+      )}
     </div>
   );
 }

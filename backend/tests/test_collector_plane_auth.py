@@ -24,6 +24,7 @@ telemetry and no key.
 """
 from __future__ import annotations
 
+import functools
 import os
 import sys
 
@@ -52,9 +53,39 @@ ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
 UNPRIVILEGED_EMAIL = "analyst@default.com"
 UNPRIVILEGED_PASSWORD = "DefaultCo!Analyst2026"
 
-TENANT_OK = "default"                                  # registered · ACTIVE
 TENANT_UNKNOWN = "ten_definitely_not_registered_0000"
-TENANT_ARCHIVED = "ten_813aa3160190401f7723ce1c4e"     # registered · ARCHIVED
+
+
+@functools.lru_cache(maxsize=1)
+def _registry() -> list:
+    """Tenants as the AUTHENTICATED ADMIN sees them.
+
+    No tenant id, slug or name is hardcoded in this suite: the platform
+    registry is the only authority on which tenants exist and which are
+    ACTIVE. `"default"` is deliberately NOT used, here or anywhere — that
+    model was eliminated.
+    """
+    token = _login(ADMIN_EMAIL, ADMIN_PASSWORD)
+    r = requests.get(f"{BASE_URL}/api/xdr/tenants",
+                     headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    return (body.get("data") or body).get("tenants") or []
+
+
+def _tenant_ok() -> str:
+    """A registered, ACTIVE tenant, chosen from the registry."""
+    for t in _registry():
+        if t.get("state") == "ACTIVE" and t.get("id") != "default":
+            return t["id"]
+    pytest.skip("no ACTIVE tenant in the registry to probe with")
+
+
+def _tenant_archived() -> str:
+    for t in _registry():
+        if t.get("state") and t["state"] != "ACTIVE":
+            return t["id"]
+    pytest.skip("no non-ACTIVE tenant in the registry to probe with")
 
 #: A concrete, parameter-complete request per declared operation.
 SAMPLES: dict[tuple, dict] = {
@@ -149,7 +180,7 @@ def _code(r: requests.Response) -> str:
 
 def _connector_count(admin: dict) -> int:
     r = requests.get(f"{BASE_URL}{PREFIX}/connectors",
-                     headers={**admin, "X-Tenant-Id": TENANT_OK}, timeout=30)
+                     headers={**admin, "X-Tenant-Id": _tenant_ok()}, timeout=30)
     assert r.status_code == 200, r.text
     return r.json()["count"]
 
@@ -238,7 +269,7 @@ def test_a_valid_tenant_never_substitutes_for_authentication(op):
     credential — `GET /api/xdr/tenants` hands them out — so an anonymous
     caller presenting a real, ACTIVE tenant must still be refused for
     AUTHENTICATION and must not receive a tenant-authority answer."""
-    r = _call(op, {"X-Tenant-Id": TENANT_OK})
+    r = _call(op, {"X-Tenant-Id": _tenant_ok()})
     assert r.status_code in (401, 403), f"{op} -> {r.status_code} {r.text}"
     assert _code(r) not in ("TENANT_REQUIRED", "TENANT_NOT_FOUND",
                             "TENANT_NOT_ACTIVE"), (
@@ -253,7 +284,7 @@ def test_anonymous_mutation_attempts_created_nothing(admin):
     for op in _NON_MACHINE_OPS:
         if SAMPLES[op].get("mutating"):
             _call(op, {})
-            _call(op, {"X-Tenant-Id": TENANT_OK})
+            _call(op, {"X-Tenant-Id": _tenant_ok()})
     assert _connector_count(admin) == before
 
 
@@ -262,7 +293,7 @@ def test_anonymous_mutation_attempts_created_nothing(admin):
 # ══════════════════════════════════════════════════════════════════
 @pytest.mark.parametrize("op", _NON_MACHINE_OPS, ids=lambda o: f"{o[0]} {o[1]}")
 def test_authenticated_without_collectors_permission_is_refused(op, unprivileged):
-    r = _call(op, {**unprivileged, "X-Tenant-Id": TENANT_OK})
+    r = _call(op, {**unprivileged, "X-Tenant-Id": _tenant_ok()})
     assert r.status_code == 403, f"{op} -> {r.status_code} {r.text}"
     assert _code(r) == "ACCESS_DENIED", f"{op} -> {r.text}"
 
@@ -286,14 +317,14 @@ def test_human_control_refuses_an_unknown_tenant(op, admin):
 
 @pytest.mark.parametrize("op", _READ_OPS, ids=lambda o: f"{o[0]} {o[1]}")
 def test_human_control_refuses_a_non_active_tenant(op, admin):
-    r = _call(op, {**admin, "X-Tenant-Id": TENANT_ARCHIVED})
+    r = _call(op, {**admin, "X-Tenant-Id": _tenant_archived()})
     assert r.status_code == 403, f"{op} -> {r.status_code} {r.text}"
     assert _code(r) == "TENANT_NOT_ACTIVE", f"{op} -> {r.text}"
 
 
 @pytest.mark.parametrize("op", _READ_OPS, ids=lambda o: f"{o[0]} {o[1]}")
 def test_authorised_principal_with_the_authoritative_tenant_is_served(op, admin):
-    r = _call(op, {**admin, "X-Tenant-Id": TENANT_OK})
+    r = _call(op, {**admin, "X-Tenant-Id": _tenant_ok()})
     assert r.status_code in (200, 404), f"{op} -> {r.status_code} {r.text}"
 
 
@@ -322,14 +353,14 @@ def test_unknown_machine_api_key_is_refused():
     """The machine lane is wired and fails closed. No key is minted here."""
     r = requests.get(f"{BASE_URL}{PREFIX}/connectors",
                      headers={"X-XDR-API-Key": "nvx_" + "0" * 48,
-                              "X-Tenant-Id": TENANT_OK}, timeout=30)
+                              "X-Tenant-Id": _tenant_ok()}, timeout=30)
     assert r.status_code in (401, 403), f"{r.status_code} {r.text}"
 
 
 def test_presenting_both_a_jwt_and_an_api_key_is_ambiguous(admin):
     r = requests.get(f"{BASE_URL}{PREFIX}/connectors",
                      headers={**admin, "X-XDR-API-Key": "nvx_" + "0" * 48,
-                              "X-Tenant-Id": TENANT_OK}, timeout=30)
+                              "X-Tenant-Id": _tenant_ok()}, timeout=30)
     assert r.status_code in (401, 403), f"{r.status_code} {r.text}"
     assert "ambiguous" in r.text.lower()
 
@@ -349,14 +380,14 @@ def test_inject_is_refused_even_for_an_authorised_admin_without_the_flag(op, adm
     """`NIVX_COLLECTOR_TEST_PLANE` is not set on this deployment, so
     fabricated evidence cannot enter the canonical pipeline even with a
     valid admin session and the debug header."""
-    r = _call(op, {**admin, "X-Tenant-Id": TENANT_OK})
+    r = _call(op, {**admin, "X-Tenant-Id": _tenant_ok()})
     assert r.status_code == 403, f"{r.status_code} {r.text}"
     assert _code(r) == "TEST_PLANE_DISABLED", r.text
 
 
 def test_inject_without_the_debug_header_is_still_refused(admin):
     r = requests.post(f"{BASE_URL}{PREFIX}/connectors/probe/inject",
-                      headers={**admin, "X-Tenant-Id": TENANT_OK},
+                      headers={**admin, "X-Tenant-Id": _tenant_ok()},
                       json={"payload": {"probe": True}}, timeout=30)
     assert r.status_code == 403, r.text
 
@@ -367,7 +398,7 @@ def test_inject_without_the_debug_header_is_still_refused(admin):
 def test_collector_identity_discloses_no_infrastructure_hostname(admin):
     import socket
     r = requests.get(f"{BASE_URL}{PREFIX}/collectors",
-                     headers={**admin, "X-Tenant-Id": TENANT_OK}, timeout=30)
+                     headers={**admin, "X-Tenant-Id": _tenant_ok()}, timeout=30)
     assert r.status_code == 200, r.text
     row = r.json()["collectors"][0]
     assert "host" not in row, row

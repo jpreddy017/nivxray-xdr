@@ -17339,3 +17339,27 @@ production verification (anonymous collector 403 + authenticated 200) -> W1 GO
 -> DESKTOP-A9HGFJJ collector + minimum-scope ingest key -> exactly 5 genuine
 Sysmon events.
 
+
+### 2026-06 · COLLECTOR AUTH P0 · FINAL CANDIDATE ADDENDUM (operator-facing)
+Folded into the SAME candidate (no extra deployment cycle). Scope local to
+`IntegrationControlCenter`; no shared frontend refactor, no Tenant Management.
+- **Page `Refresh` was inert on Integrations — root cause found**:
+  `XdrAdminPage` incremented `refreshNonce` but never passed it to
+  `IntegrationControlCenter`, which fetched on mount only and never unmounts.
+  Nonce now passed + loader re-runs; the in-band Refresh is no longer hidden
+  outside the `ready` state.
+- **`[object Object]` fixed**: structured refusals (`{code, reason}`) are
+  formatted locally (`formatRefusal`) as `CODE — reason` + a one-line remedy.
+  Verified: `TENANT_REQUIRED — ... Select the authoritative tenant above`.
+- **Minimal `TenantBar`** in the Integrations header: ACTIVE tenants from
+  `GET /api/xdr/tenants` (authenticated, no tenant header needed), labelled by
+  `display_name` so no operator types an opaque `ten_*`; selection persists via
+  the existing `setActiveTenant` (`nvx_tenant`) and reloads. Nothing hardcoded —
+  no id, slug, org or customer name in the client.
+- `"default"` removed from the suite and the UI demonstration: the backend
+  tests now DISCOVER an ACTIVE and a non-ACTIVE tenant from the registry.
+- `telemetry-health` left as approved: PRODUCT_METADATA + `collectors.read`.
+- Retests: 112 passed · `yarn build` exit 0 · browser-verified end to end with
+  no DevTools/localStorage intervention.
+**STILL NOT REPUBLISHED. W1 HELD.**
+

@@ -332,7 +332,7 @@ function AdminBody({ section }) {
             )}
             {section.kind === "integrations"
               ? (isDesignV2EnabledFor("integrations")
-                  ? <IntegrationControlCenter />
+                  ? <IntegrationControlCenter refreshNonce={refreshNonce} />
                   : <IntegrationsBody />)
               : section.kind === "engines"
               ? <EnginesBody />
