@@ -17664,3 +17664,48 @@ No code, config, deployment, credential or telemetry touched. No replay executed
   a cross-source timeline would sort naive against offset-aware values, which is the
   likeliest real hazard for Attack Progress; (4) `parser_ok`/`normalized_ok` default
   True. NOTHING FIXED — awaiting owner review.
+
+## 2026-09-18 · NEXT MILESTONE OPENED IN DISCOVERY ONLY — WINDOWS MULTI-CHANNEL EVIDENCE COLLECTOR
+Report: `memory/WINDOWS_MULTICHANNEL_DISCOVERY_AUDIT.md`. Read-only audit, nothing
+implemented. W1 stays CLOSED/FROZEN; the generic "Source Time Fix" defect is
+WITHDRAWN (evidence plane already uses `EventData.UtcTime` as ACTIVITY_TIME), while
+the timezone-safety issue (offset-naive Sysmon `UtcTime` labelled ISO_8601) is RETAINED.
+Key findings:
+- Forwarder is single-channel by construction: `$script:Channel`, `$script:Declared`
+  and the EventID filter are three hard-coded constants and the checkpoint is ONE
+  scalar in `sysmon-bookmark.json`. Multi-channel = EXTEND, not CONFIGURE. It has no
+  outbox, no retry, no backpressure.
+- The multi-stream durable acquisition engine ALREADY EXISTS in
+  `apps/nivxray-xdr-collector` (`AcquisitionState` keyed by (tenant, connector,
+  stream) with claim/release/reconcile/quarantine, SQLite `Outbox`, `DedupCache`,
+  scheduler, and `M365ManagementActivityConnector` as the reference pattern) — it
+  simply has no Windows Event Log reader. Owner decision pending: Path 1 extend the
+  PS forwarder / Path 2 build a Windows connector in the collector service / Path 3
+  WEF-WEC first. Agent reading: Path 2 is the architecture, Path 1 a tactical bridge.
+- DSM coverage: 9 DSMs loaded, 0 load failures. ADOPT `microsoft-sysmon`;
+  `windows-security-evd` exists but covers only 4688/4768/4769/4624/4625/4657 (EXTEND);
+  System, Application, PowerShell, Defender, AppLocker, WMI, TaskScheduler and
+  ForwardedEvents have NO acquisition path, parser or DSM (BUILD). D15 is fail-closed,
+  so each channel needs a declared source AND a DSM before one event can land.
+- Detection content is AHEAD of collection (rule library mentions PowerShell 19x,
+  WMI 20x with no source able to feed them), and W1's five events were RULE_NO_MATCH —
+  so rule-to-channel binding must be an acceptance gate (W2-H) or the milestone adds
+  telemetry that detects nothing.
+- `EventRecordID` is per-channel, so `<Computer>|<RecordID>` becomes ambiguous with a
+  second channel. No false-suppression risk (payload digest differs) but the identity
+  should become channel-qualified — a declared contract change needing its own evidence.
+- Temporal: Sysmon is the only Windows source with a real activity field; Security EVTX
+  has none and correctly declares OBSERVATION_TIME with `activity_occurred_at`
+  NOT_OBSERVED. A mixed timeline must never flatten the two.
+- WEF/WEC unsupported; if added, `Computer` must come from the forwarded record and
+  identity must be origin-qualified, and one collector would represent many endpoints.
+- Proposed gates W2-0 design ratification, W2-A declaration/refusal, W2-B DSM
+  correctness, W2-C checkpoint isolation, W2-D cross-channel identity, W2-E temporal
+  honesty, W2-F durability under failure, W2-G least privilege, W2-H detection value.
+- Residual priority: (1) timezone safety — blocker for the Attack Progress timeline,
+  (2) computed latency, (3) raw-projection `source_timestamp`, (4) truthful
+  `parser_ok`/`normalized_ok`, plus dedupe fixture repair RECOMMENDED BEFORE W2
+  implementation because W2-D/W2-F lean on that currently disarmed gate.
+- Open questions blocking W2-0: path choice, channel priority, identity scheme,
+  channel retention policy (64 MB circular rolled 130k records in ~95 min on this
+  host), fixture repair first.
