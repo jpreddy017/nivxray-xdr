@@ -17802,3 +17802,41 @@ raw YAML is NOT a customer-facing contract. WEF/WEC remains a separate milestone
 **NEXT: awaiting owner authorisation for W2-1** (native acquisition engine, strict
 subscriptions, per-channel bookmark XML, durable outbox/backpressure, gap detection,
 Sysmon regression then PowerShell; Security moved to W2-2 per owner direction).
+
+## 2026-09-18 · OWNER LOCK — ENTERPRISE UI/UX PARITY IS A PRODUCT REQUIREMENT
+Benchmark continuously against Cisco XDR, Cortex XDR/XSIAM, Defender XDR, Falcon,
+Elastic Security/Fleet, Sophos Central (+ SentinelOne where relevant). Target =
+100% enterprise-class capability/maturity parity, NOT pixel copying. Applies to the
+WHOLE SPA, not just Administration. Deliverable produced (read-only, no UI code
+changed): `memory/NIVXRAY_XDR_ENTERPRISE_UI_BLUEPRINT.md`.
+Measured inventory: 239 JS/JSX files, ~60,029 lines JSX, 62 routes, 168 distinct
+`/api/...` paths.
+Findings: (A) **three parallel component systems** — `xdr/nx/` (the real design
+system: NxPageShell/NxSurface/NxChip/NxEmpty/NxProvenance + nx-tokens/nx-theme),
+`xdr/design/` (a SECOND token set at 1082 lines + *V2 components + vendor-named
+`CortexOnboardingWizard`), and `xdr/components/` plus a duplicate
+`components/incidents/` tree, while `styles/globals.css` is only 21 lines → promote
+`nx/` to the single system. (B) telemetry onboarding is fragmented across EIGHT
+surfaces (DataSourcesBody, CollectorsBody, IntegrationsBody, IngestRoutingBody,
+ParsersBody, NormalizationBody, data-sources-native, telemetry-health — the last
+filed under Investigate), i.e. we reproduced the exact fragmentation Cortex publicly
+says it is escaping → highest-value consolidation. (C) engineering terminology in
+customer-facing nav across 27 admin sections (engines, engine role, corpus, golden
+pipeline trace, closed loop, capability truth). (D) duplicate destinations: 3
+dashboards, 2 rule studios, 3 KB routes, 4 trajectory routes, 2 investigation
+workspaces (1115 + 2128 lines). (E) honest-state discipline ALREADY exists
+(`unavailable + reason`, disabled rail items, XdrReservedPage, NxEmpty) and must be
+preserved — it is already ahead of the benchmarks.
+Blueprint: single shell + one rail with **Data Sources promoted out of Admin**;
+design-system-first consolidation; one enterprise DataTable standard; layered
+contextual flyouts; entity model (Device/User/Process/File/Hash/IP/Domain/URL/
+Detection/Incident/Evidence); Data Sources IA (Overview/Sources/Add/Collectors/
+Integrations/Coverage/Health/Verify); **Verify Ingestion** as the differentiator with
+`HEALTHY · EVIDENCE INCOMPLETE` per C-4/C-10. Route classification proposed for all
+62 routes (KEEP/RESTYLE/REFACTOR/CONSOLIDATE/REBUILD/DEFER).
+BUILD backend contracts the UI needs before wiring: per-stream counters, latency
+P50/P95/P99, dedupe observability API, COLLECTION_GAP records, rule-to-channel
+bindings, measured parser_ok/normalized_ok, collector queue/drop metrics.
+Slice 1 proposed (needs approval): design-system consolidation → global shell →
+Data Sources end-to-end. W2-1 stays independently controlled; UI must NOT claim
+PowerShell/Security/multi-channel before W2 proves it. STOPPED for owner approval.
