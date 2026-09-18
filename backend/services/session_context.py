@@ -64,16 +64,27 @@ def list_customers(email: Optional[str], limit: int = 25) -> List[Dict[str, Any]
 
 
 def tenant_context(email: Optional[str],
-                   inherited_tenant: Optional[str] = None) -> Dict[str, Any]:
+                   inherited_tenant: Optional[str] = None,
+                   explicit_tenant: Optional[str] = None) -> Dict[str, Any]:
     """Principal + tenant authorisation + the resolved active customer.
 
     ``inherited_tenant`` is only ever passed by the server after it has
     itself read the tenant off an authorised incident document.
+
+    P3 · B5/B7 · ``explicit_tenant`` is the registry-resolved
+    ``X-Tenant-Id`` the caller named. It NARROWS the reported scope and the
+    customer list to that one tenant, so a cross-tenant principal asking
+    about a tenant is not answered with the whole estate.
     """
     scope = resolve_tenant_scope(email)
     customers = list_customers(email) if scope.get("authorized") else []
+    if explicit_tenant:
+        customers = [c for c in customers
+                     if c.get("customer") == explicit_tenant]
 
-    if inherited_tenant:
+    if explicit_tenant:
+        active, basis = explicit_tenant, "EXPLICIT_REQUEST_TENANT"
+    elif inherited_tenant:
         active, basis = inherited_tenant, "INHERITED_FROM_INCIDENT"
     elif not scope.get("authorized"):
         active, basis = None, "NOT_AUTHORIZED"
@@ -88,8 +99,11 @@ def tenant_context(email: Optional[str],
         "principal": {"email": email, "role": scope.get("role")},
         "tenant_scope": {
             "authorized": bool(scope.get("authorized")),
-            "all_tenants": bool(scope.get("all_tenants")),
-            "tenant_ids": scope.get("tenant_ids") or [],
+            "all_tenants": False if explicit_tenant
+                           else bool(scope.get("all_tenants")),
+            "tenant_ids": ([explicit_tenant] if explicit_tenant
+                           else scope.get("tenant_ids") or []),
+            "explicit_tenant": explicit_tenant,
         },
         "customers": customers,
         "active_customer": {"value": active, "basis": basis},

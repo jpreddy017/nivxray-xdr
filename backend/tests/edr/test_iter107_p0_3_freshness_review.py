@@ -26,22 +26,23 @@ OUTSIDE_WINDOW_DEV = "dev_a0267ae20737"
 FORGED = "dev_ffffffffffff"
 
 
-def _login(email, password):
+def _login(email, password, tenant):
     r = requests.post(f"{BASE}/api/auth/login", json={"email": email, "password": password}, timeout=60)
     assert r.status_code == 200, f"login failed {r.status_code}: {r.text[:200]}"
     tok = r.json().get("access_token") or r.json().get("token")
     assert tok
-    return {"Authorization": f"Bearer {tok}"}
+    # B7 Option A · tenant-scoped EDR routes require an explicit tenant.
+    return {"Authorization": f"Bearer {tok}", "X-Tenant-Id": tenant}
 
 
 @pytest.fixture(scope="module")
 def admin_h():
-    return _login(*ADMIN)
+    return _login(*ADMIN, "default")
 
 
 @pytest.fixture(scope="module")
 def analyst_h():
-    return _login(*ANALYST_LIVE)
+    return _login(*ANALYST_LIVE, "nivx-live")
 
 
 # --- Freshness API ---

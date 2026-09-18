@@ -167,6 +167,12 @@ def resolve_tenant_scope(email: str | None) -> Dict[str, Any]:
     - anonymous          → ``{"authorized": False}`` (honest empty state)
     - cross-tenant role  → ``{"all_tenants": True}``
     - everyone else      → ``{"tenant_ids": [...]}``
+
+    P5 · B5/B7 · a user carrying neither ``tenant_ids`` nor ``tenant_id``
+    previously fell back to the literal ``"default"``, a scope concept that
+    exists nowhere in the tenant registry. It now returns an honest EMPTY
+    tenant list: authorised as a principal, holding no tenant. There is no
+    default tenant.
     """
     if not email:
         return {"authorized": False}
@@ -179,8 +185,8 @@ def resolve_tenant_scope(email: str | None) -> Dict[str, Any]:
     if role in _CROSS_TENANT_ROLES:
         return {"authorized": True, "all_tenants": True, "role": role}
     tenants = [t for t in (user.get("tenant_ids") or []) if t]
-    if not tenants:
-        tenants = [str(user.get("tenant_id") or "default")]
+    if not tenants and user.get("tenant_id"):
+        tenants = [str(user["tenant_id"])]
     return {"authorized": True, "all_tenants": False,
             "tenant_ids": tenants, "role": role}
 

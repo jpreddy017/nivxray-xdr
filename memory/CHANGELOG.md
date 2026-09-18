@@ -7342,3 +7342,28 @@ Accounts (also in `memory/test_credentials.md`):
 
 Next per owner order: P0-F.13.5 Detection → Trajectory handoff, then
 P0-F.13.6 process-exit collection, then P0-F.14 Fleet File Trajectory.
+
+## 2026-06 · B5/B7 EDR TENANT CONVERGENCE — P0–P5 (candidate/preview only)
+Root cause of production Gate H: B5 convergence had been applied to
+`routers/edr_enrollment.py` only; 32 further EDR routes never called
+`services.tenant_registry`, so `NIVX_TENANT_REGISTRY_ENFORCE=true` could not
+reach them. `GET /api/edr/endpoints` accepted an authenticated request with no
+tenant and silently ignored a supplied `X-Tenant-Id`.
+
+- NEW `backend/routers/edr_tenancy.py` — `edr_tenant` dependency,
+  `sensor_tenant`, `edr_scope` (narrow-only intersection), `ROUTE_CLASSIFICATION`.
+- 43 live `/api/edr/*` operations classified: 21+5 TENANT_SCOPED,
+  3+5 SENSOR_SCOPED, 8+1 PRODUCT_METADATA.
+- Retired 8 `"default"` tenancy literals, including 5 on the EDR **response/
+  write** plane (`edr_response.py`) and `edr_wave0._tenant()`.
+- R2: an explicit tenant never returns `UNATTRIBUTED_LEGACY_OBSERVATION` or
+  `*_FAILED_CLOSED` rows; the evidence is preserved, never mis-attributed.
+- R5: `dashboard_lenses.resolve_tenant_scope` no longer invents `["default"]`.
+- NEW `backend/tests/test_edr_route_tenant_authority.py` — 152 passed. Fails
+  when a new `/api/edr` route is unclassified (failed-closed by default).
+- Zero regression across the tenant/RBAC/audit/response/isolation core set
+  (48 pre-existing failures identical before and after).
+- 9 stale-by-design test assertions left RED for owner decision; no assertion
+  weakened. Frontend `nivxforge/edrApi.js` sends no `X-Tenant-Id` and is now
+  403 TENANT_REQUIRED — NOT fixed, needs its own authorisation.
+- Production untouched: publish 100 / build 8833215. W1 Phase 3 paused.

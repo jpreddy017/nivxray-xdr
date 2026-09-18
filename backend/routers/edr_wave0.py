@@ -17,16 +17,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from deps import db as _db, get_current_user
 from edr_plane import raw_events as raw
+from routers.edr_tenancy import edr_tenant
 from edr_plane.capability import INVENTORY, SENSOR_REGISTRY, by_id, summary, taxonomy
 from edr_plane.contracts import schema_export
 from edr_plane.contracts.epistemic import (EPISTEMIC_GLYPH, EpistemicState,
                                      FORBIDDEN_EQUIVALENCES)
 
 router = APIRouter(prefix="/edr/wave0", tags=["nivxforge-edr-wave0"])
-
-
-def _tenant(user: dict) -> str:
-    return (user or {}).get("customer") or "default"
 
 
 @router.get("/capabilities")
@@ -145,9 +142,10 @@ async def detection_rule_bindings(refresh: bool = False,
 
 
 @router.get("/raw-events/stats")
-async def raw_event_stats(user: dict = Depends(get_current_user)
+async def raw_event_stats(user: dict = Depends(get_current_user),
+                          tenant_id: str = Depends(edr_tenant)
                           ) -> dict[str, Any]:
-    return await raw.stats(_db, tenant_id=_tenant(user))
+    return await raw.stats(_db, tenant_id=tenant_id)
 
 
 @router.get("/raw-events/replay-candidates")
@@ -155,9 +153,10 @@ async def replay_candidates(
     parser_state: Optional[str] = Query(None),
     limit: int = Query(50, le=500),
     user: dict = Depends(get_current_user),
+    tenant_id: str = Depends(edr_tenant),
 ) -> dict[str, Any]:
     rows = await raw.replay_candidates(
-        _db, tenant_id=_tenant(user), parser_state=parser_state, limit=limit)
+        _db, tenant_id=tenant_id, parser_state=parser_state, limit=limit)
     return {
         "candidates": rows, "count": len(rows),
         "note": ("These raw events are byte-preserved and can be re-reasoned "

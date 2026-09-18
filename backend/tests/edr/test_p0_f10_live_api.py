@@ -37,7 +37,9 @@ def token():
 
 @pytest.fixture(scope="module")
 def h(token):
-    return {**UA, "Authorization": f"Bearer {token}"}
+    # B7 Option A · tenant-scoped EDR routes require an explicit tenant.
+    return {**UA, "Authorization": f"Bearer {token}",
+            "X-Tenant-Id": "default"}
 
 
 # ── auth ───────────────────────────────────────────────────────────────

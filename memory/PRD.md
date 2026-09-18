@@ -17190,3 +17190,58 @@ ONLY. It is not endpoint protection, not containment, not verification.
 
 NEXT: owner authorizes production republish of e2d8f54 with enforcement on ->
 A-I acceptance -> then W1 collector/key -> exactly 5 genuine Sysmon events.
+
+## 2026-06 · A–I PRODUCTION ACCEPTANCE + B5/B7 EDR CONVERGENCE (P0–P5)
+
+Production republish activated `NIVX_TENANT_REGISTRY_ENFORCE=true`.
+**Production is now publish 100 / build 8833215** (previous 99/`e2d8f54`,
+older 98/`8e473e4`). Build-identity re-proved: prod OpenAPI == pod OpenAPI
+(795 paths, path-hash `a0ca692d8710c7ff`, 0 schema bodies differing).
+
+### A–I owner acceptance (final)
+`A PASS · B PASS · C PASS · D PASS · E PASS · F PASS · G PASS · H FAIL ·
+I PASS`
+- Gate F initially mis-tested against `/api/security-state/...` (404). Correct
+  route is `/api/v2/security-state/streaming/status?tenant_id=...`. Re-run PASS.
+- Gate I: spoofed `X-Principal-Id: attacker@evil.test` produced 0 attributed
+  audit rows.
+- Gate H was the SOLE blocker.
+
+### Gate H root cause
+B5 convergence covered `routers/edr_enrollment.py` only. `GET /api/edr/endpoints`
+(`routers/edr.py:630`) had no tenant parameter and never called
+`services.tenant_registry`, so enforcement could not reach it; a supplied
+`X-Tenant-Id` was silently ignored. Not a leak (unattributed rows are released
+to cross-tenant roles only) but a B7 contract violation.
+Reports: `W1_PHASE3_GATE_H_B5_B7_ROOT_CAUSE.md`,
+`W1_PHASE3_EDR_TENANT_CONVERGENCE_PLAN.md`,
+`W1_PHASE3_EDR_CONVERGENCE_P0_P5_REPORT.md`.
+
+### Implemented on candidate/preview (P0–P5) — NOT in production
+See CHANGELOG 2026-06 entry. 43 EDR operations classified; 8 `"default"`
+tenancy literals retired (5 on the response/write plane); new mandatory
+route-authority gate (152 passed); zero regression in the tenant/RBAC/audit/
+response/isolation core set.
+
+### P0 / P1 backlog (owner decision required, in order)
+- **P0 · P6 preview acceptance** — full A–I re-run under enforcement on the
+  candidate, then a production republish decision. NOT authorized yet.
+- **P0 · Frontend explicit tenant** — `apps/nivxray-xdr/src/nivxforge/edrApi.js`
+  sends no `X-Tenant-Id`; every EDR console surface is now 403 TENANT_REQUIRED
+  against the candidate. Also `XdrInvestigationWorkspacePage.jsx:179` and
+  `SecurityStateTab.jsx:48-54` hardcode `tenant_id=default`. NOT authorized.
+- **P0 · 9 stale-by-design test assertions** — `test_iteration_82_activation.py`
+  (7), `test_iter107_...test_evidence_outside_window`,
+  `test_p0_f13_5...test_unresolvable_endpoint_fails_closed`. Left RED
+  deliberately; no assertion weakened. Owner decides the reinterpretation.
+- **P1 · W1 Phase 3.1** — authoritative `ten_e759b7288598bd882e3dcac49d` →
+  Windows collector → minimum-scope ingest credential → DESKTOP-A9HGFJJ →
+  exactly 5 genuine Sysmon events → canonical evidence/provenance →
+  detection evaluation. STILL PAUSED.
+- **P2 · `session_context.authorised_incident`** still labels a tenant
+  `... or "default"` (display label, not a tenancy resolution). Out of the
+  approved R5 scope; flagged.
+- **P2 · `test_b4b5...test_b3_ingest_actor_is_never_the_client_claim`** —
+  pre-existing env-dependent failure (no enforcement fixture + `.env` has the
+  flag on). Passes with the flag pinned off. One-line hermetic fix identified,
+  not applied.

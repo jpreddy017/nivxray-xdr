@@ -20,8 +20,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from deps import get_current_user, sync_collection
+from routers.edr_tenancy import edr_scope, edr_tenant
 from services.activity.projector import build_inventory
-from services.dashboard_lenses import resolve_tenant_scope
 from services.edr import device_identity as dir_svc
 from services.edr import endpoint_query as eq
 from services.edr import observation_narrative as narrative_svc
@@ -34,7 +34,7 @@ router = APIRouter(prefix="/edr", tags=["edr"])
 _col = sync_collection("workspace_cases")
 
 
-def _case_scope(user) -> Optional[Dict[str, Any]]:
+def _case_scope(user, tenant_id: str) -> Dict[str, Any]:
     """Tenant-authorised case filter for the EDR projections.
 
     P0 · 2026-09-05: the EDR routes previously filtered on
@@ -42,30 +42,32 @@ def _case_scope(user) -> Optional[Dict[str, Any]]:
     gate — the same defect that hid 180 of 198 incidents from the queue.
     They now share ``resolve_tenant_scope()`` with the incident plane.
 
-    Returns ``None`` when the caller is not authorised (honest empty).
+    P2 · B5/B7 · the caller's authorisation is now INTERSECTED with the
+    explicit, registry-resolved tenant, so a cross-tenant principal that
+    names a tenant is answered about that tenant only. Authority narrows;
+    it never widens. ``edr_scope`` raises rather than returning ``None``,
+    so an unauthorised caller can no longer be answered with an empty
+    projection that reads like "no evidence".
     """
-    scope = resolve_tenant_scope((user or {}).get("email"))
-    if not scope.get("authorized"):
-        return None
-    q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
-    if not scope.get("all_tenants"):
-        q["tenant_id"] = {"$in": scope["tenant_ids"]}
-    return q
+    scope = edr_scope(tenant_id, user)
+    return {"name": {"$exists": True, "$ne": ""},
+            "tenant_id": {"$in": scope["tenant_ids"]}}
 
 
-def _is_cross_tenant(user) -> Any:
-    """The principal's authorisation scope.
+def _tenant_scope(user, tenant_id: str) -> Dict[str, Any]:
+    """The principal's authorisation NARROWED to the explicit tenant.
 
-    Returns the scope object the EDR identity plane needs, not a bare
-    boolean: a customer-scoped analyst must be able to see ITS OWN
-    endpoints, which a boolean cannot express. Kept under the original
-    name so every existing call site passes the scope unchanged.
+    Returns the scope object the EDR identity plane already consumes
+    (``device_identity._norm_scope``, ``endpoint_query.resolve_endpoint``,
+    ``telemetry_freshness.fleet_freshness``), so one resolution propagates
+    to every query site instead of each site inventing a filter.
+
+    Because ``all_tenants`` is always False here,
+    ``device_identity.list_devices`` already excludes
+    ``UNATTRIBUTED_LEGACY_OBSERVATION`` and both ``*_FAILED_CLOSED`` rows:
+    an explicit tenant request is never answered with unowned evidence.
     """
-    scope = resolve_tenant_scope((user or {}).get("email"))
-    if not scope.get("authorized"):
-        return {"all_tenants": False, "tenant_ids": []}
-    return {"all_tenants": bool(scope.get("all_tenants")),
-            "tenant_ids": list(scope.get("tenant_ids") or [])}
+    return edr_scope(tenant_id, user)
 
 
 def _extract_host(doc: Dict[str, Any]) -> Optional[str]:
@@ -396,19 +398,28 @@ def _project_endpoint_process_tree(endpoint_id: str,
 
 
 # ── HTTP surfaces ────────────────────────────────────────────────────
-def _load(incident_id: str) -> Dict[str, Any]:
-    doc = _col.find_one({"id": incident_id})
+def _load(incident_id: str, tenant_id: str) -> Dict[str, Any]:
+    """The incident, read WITHIN the explicit tenant.
+
+    P3 · B5/B7 · an incident is tenant evidence, so the lookup is
+    tenant-partitioned. A caller naming another tenant's incident gets the
+    same `incident_not_found` it would get for an id that does not exist —
+    existence in another tenant is not disclosed.
+    """
+    doc = _col.find_one({"id": incident_id, "tenant_id": tenant_id})
     if not doc:
         raise HTTPException(status_code=404,
                               detail={"error": "incident_not_found",
-                                       "id": incident_id})
+                                       "id": incident_id,
+                                       "tenant_id": tenant_id})
     return doc
 
 
 @router.get("/detections")
 async def list_detections(incident_id: str,
-                             user=Depends(get_current_user)):
-    doc = _load(incident_id)
+                          user=Depends(get_current_user),
+                          tenant_id: str = Depends(edr_tenant)):
+    doc = _load(incident_id, tenant_id)
     rows = _project_detections(doc)
     return {
         "incident_id": incident_id,
@@ -422,7 +433,8 @@ async def list_detections(incident_id: str,
 
 @router.get("/endpoint-detections")
 async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
-                                   user=Depends(get_current_user)):
+                                  user=Depends(get_current_user),
+                                  tenant_id: str = Depends(edr_tenant)):
     """P0-F · read-only projection of the AUTHORITATIVE detection records.
 
     It creates no detection store and holds no detection state: every row
@@ -436,7 +448,7 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
     `device_iid` and its platform-minted `endpoint_id` return the same
     detections instead of one of them reading as "no rule fired".
     """
-    scope = resolve_tenant_scope((user or {}).get("email"))
+    scope = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(endpoint_id, scope)
     if not res:
         return {**eq.unresolved_envelope(endpoint_id),
@@ -511,7 +523,8 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
 async def get_process_tree(incident_id: str | None = None,
                            endpoint_id: str | None = None,
                            hours: int = 24,
-                           user=Depends(get_current_user)):
+                           user=Depends(get_current_user),
+                           tenant_id: str = Depends(edr_tenant)):
     """Root-first process ancestry.
 
     Two pivots, one projection contract:
@@ -522,19 +535,21 @@ async def get_process_tree(incident_id: str | None = None,
     """
     if endpoint_id:
         return _project_endpoint_process_tree(endpoint_id, hours,
-                                              _is_cross_tenant(user))
+                                              _tenant_scope(user, tenant_id))
     if not incident_id:
         raise HTTPException(
             status_code=422,
             detail={"error": "pivot_required",
                     "reason": "supply either endpoint_id or incident_id",
                     "note": "No tree is invented without a pivot."})
-    doc = _load(incident_id)
+    doc = _load(incident_id, tenant_id)
     return _project_process_tree(doc)
 
 
 @router.get("/campaign-story")
-async def campaign_story(incident_id: str, user=Depends(get_current_user)):
+async def campaign_story(incident_id: str,
+                         user=Depends(get_current_user),
+                         tenant_id: str = Depends(edr_tenant)):
     """P0-F.7 · one intrusion, told once, from the authoritative records.
 
     A read model: endpoint → process activity → detection → evidence →
@@ -545,8 +560,7 @@ async def campaign_story(incident_id: str, user=Depends(get_current_user)):
     from deps import db as _db
     from edr_plane.campaign_story import build_story
     story = await build_story(
-        _db, tenant_id=(user.get("tenant_id") or "default"),
-        incident_id=incident_id)
+        _db, tenant_id=tenant_id, incident_id=incident_id)
     if story.get("error"):
         raise HTTPException(status_code=404, detail=story)
     return story
@@ -555,13 +569,14 @@ async def campaign_story(incident_id: str, user=Depends(get_current_user)):
 
 @router.get("/observation-narrative")
 async def observation_narrative(device: str, event_iid: str,
-                                user=Depends(get_current_user)):
+                                user=Depends(get_current_user),
+                                tenant_id: str = Depends(edr_tenant)):
     """Evidence-gated prose for a single persisted observation.
 
     Returns ``resolved: false`` rather than an invented sentence when the
     device reference or the ``event.iid`` does not resolve.
     """
-    scope = _is_cross_tenant(user)
+    scope = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(device, scope)
     doc = (dir_svc.find_observation(device, event_iid, scope, refs=res.refs)
            if res else None)
@@ -583,7 +598,8 @@ async def observation_narrative(device: str, event_iid: str,
 
 @router.get("/file-trajectory")
 async def file_trajectory(key: str, key_type: str = "name",
-                          user=Depends(get_current_user)):
+                          user=Depends(get_current_user),
+                          tenant_id: str = Depends(edr_tenant)):
     """P1.8 · Fleet (multi-endpoint) artifact trajectory.
 
     `key_type` is one of `sha256` (content digest over
@@ -591,14 +607,19 @@ async def file_trajectory(key: str, key_type: str = "name",
     `path` (exact image or file path).  The response always states which
     fields were matched and why a content-digest correlation may be
     impossible on this substrate.
+
+    P3 · B5/B7 · the substrate is read WITHIN the explicit tenant, so
+    observations that carry no owner are not returned as this tenant's
+    artefact spread.
     """
-    return file_traj_svc.fleet_trajectory(key_type, key)
+    return file_traj_svc.fleet_trajectory(key_type, key, tenant_id=tenant_id)
 
 
 @router.get("/fleet-spread-index")
-async def fleet_spread_index(user=Depends(get_current_user)):
+async def fleet_spread_index(user=Depends(get_current_user),
+                             tenant_id: str = Depends(edr_tenant)):
     """Every observable artifact and the number of endpoints it appears on."""
-    return file_traj_svc.spread_index()
+    return file_traj_svc.spread_index(tenant_id=tenant_id)
 
 
 # ── XDR Endpoints projection (Slice 6 · read-only) ───────────────────
@@ -609,7 +630,8 @@ async def fleet_spread_index(user=Depends(get_current_user)):
 # ── P0-3 · telemetry freshness / blindness ──────────────────────────
 @router.get("/telemetry/freshness")
 async def telemetry_freshness(endpoint: str | None = None,
-                              user=Depends(get_current_user)):
+                              user=Depends(get_current_user),
+                              tenant_id: str = Depends(edr_tenant)):
     """Is this product's own telemetry pipeline delivering, or are we blind?
 
     The console previously had no way to ask this, so a fleet that had
@@ -618,23 +640,15 @@ async def telemetry_freshness(endpoint: str | None = None,
     authority in `services/edr/endpoint_health.py`, against thresholds
     derived from each sensor's OWN declared cadence.
     """
-    scope = resolve_tenant_scope((user or {}).get("email"))
-    if not scope.get("authorized"):
-        return {"engine_id": "nivxray::edr_plane::telemetry_freshness",
-                "endpoints": [], "count": 0, "fleet": None,
-                "reason": "not_authorized"}
-    return fresh_svc.fleet_freshness(scope, endpoint=endpoint)
+    return fresh_svc.fleet_freshness(_tenant_scope(user, tenant_id),
+                                     endpoint=endpoint)
 
 
 
 @router.get("/endpoints")
-async def list_endpoints(user=Depends(get_current_user)):
-    q = _case_scope(user)
-    if q is None:
-        return {"endpoints": [], "count": 0,
-                "source": "v2_shadow_observations · workspace_cases",
-                "reason": "not_authorized",
-                "note": "no_matching_evidence"}
+async def list_endpoints(user=Depends(get_current_user),
+                         tenant_id: str = Depends(edr_tenant)):
+    q = _case_scope(user, tenant_id)
     projection = {
         "_id": 0, "id": 1, "name": 1, "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "ssot": 1,
@@ -698,7 +712,7 @@ async def list_endpoints(user=Depends(get_current_user)):
     # See services/edr/device_identity.py.  This is the substrate that
     # actually carries `device_iid`; the SSOT host field is empty in
     # every persisted case.
-    for dev in dir_svc.list_devices(_is_cross_tenant(user)):
+    for dev in dir_svc.list_devices(_tenant_scope(user, tenant_id)):
         rows.append({
             "host":                dev.get("hostname") or dev.get("device_iid"),
             "device_ref":          dev.get("device_ref"),
@@ -796,6 +810,7 @@ async def endpoint_trajectory_window(
     dispositions: Optional[str] = None,
     hist_day: Optional[str] = None,
     user=Depends(get_current_user),
+    tenant_id: str = Depends(edr_tenant),
 ):
     """A WINDOWED, endpoint-scoped trajectory read.
 
@@ -806,7 +821,7 @@ async def endpoint_trajectory_window(
     from deps import db as _db
     from edr_plane import trajectory_window as tw
 
-    res = eq.resolve_endpoint(endpoint_id, _is_cross_tenant(user))
+    res = eq.resolve_endpoint(endpoint_id, _tenant_scope(user, tenant_id))
     if not res:
         return {"engine_id": tw.ENGINE_ID, "endpoint": None, "events": [],
                 "lane_axis": {"total_lanes": 0, "lanes": []},
@@ -877,6 +892,7 @@ async def get_device_trajectory(
     hours: int = 24,
     all_time: bool = False,
     user=Depends(get_current_user),
+    tenant_id: str = Depends(edr_tenant),
 ):
     """Return a device-scoped trajectory aggregation for the XDR
     3-pane canvas.  Aggregates, in this order of authority:
@@ -899,7 +915,7 @@ async def get_device_trajectory(
     since = now - timedelta(hours=hours)
     since_iso = None if all_time else since.isoformat()
 
-    cross_tenant = _is_cross_tenant(user)
+    cross_tenant = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(device, cross_tenant)
     identity = res.identity if res else None
 
@@ -920,7 +936,7 @@ async def get_device_trajectory(
                                     "source": "v2_shadow_observations"}
 
     # 2/3) Case-derived detections + activity, matched on hostname.
-    q = _case_scope(user)
+    q = _case_scope(user, tenant_id)
     docs: List[Dict[str, Any]] = []
     if q is not None:
         host_needle = (identity or {}).get("hostname") or device
@@ -1116,14 +1132,16 @@ async def get_device_trajectory(
 @router.get("/context")
 async def edr_entry_context(endpoint_id: Optional[str] = None,
                             incident_id: Optional[str] = None,
-                            user=Depends(get_current_user)) -> Dict[str, Any]:
+                            user=Depends(get_current_user),
+                            tenant_id: str = Depends(edr_tenant)
+                            ) -> Dict[str, Any]:
     from services.session_context import authorised_incident, tenant_context
 
     errors: List[str] = []
     investigation: Optional[Dict[str, Any]] = None
     inherited: Optional[str] = None
 
-    _res = (eq.resolve_endpoint(endpoint_id, _is_cross_tenant(user))
+    _res = (eq.resolve_endpoint(endpoint_id, _tenant_scope(user, tenant_id))
             if endpoint_id else None)
     identity = _res.identity if _res else None
 
@@ -1180,7 +1198,8 @@ async def edr_entry_context(endpoint_id: Optional[str] = None,
                 "href": f"/xdr/incidents/{doc.get('id')}",
             }
 
-    ctx = tenant_context((user or {}).get("email"), inherited_tenant=inherited)
+    ctx = tenant_context((user or {}).get("email"), inherited_tenant=inherited,
+                         explicit_tenant=tenant_id)
     ctx.update({
         "engine_id": "nivxray::edr_plane::entry_context",
         "entry_context": "XDR_PIVOT" if investigation else "DIRECT_EDR",
@@ -1223,8 +1242,10 @@ def _ms_iso(ms: int) -> str:
 # ═══════════════════════════════════════════════════════════════════
 @router.get("/endpoints/{endpoint_id}/linked-incidents")
 async def linked_incidents(endpoint_id: str,
-                           user=Depends(get_current_user)) -> Dict[str, Any]:
-    scope = _is_cross_tenant(user)
+                           user=Depends(get_current_user),
+                           tenant_id: str = Depends(edr_tenant)
+                           ) -> Dict[str, Any]:
+    scope = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(endpoint_id, scope)
     if not res:
         return {"engine_id": "nivxray::edr_plane::linked_incidents",
@@ -1242,7 +1263,7 @@ async def linked_incidents(endpoint_id: str,
     refs = res.refs
     q: Dict[str, Any] = {"endpoint_campaign": {"$exists": True},
                          **res.predicate("workspace_cases")}
-    tscope = resolve_tenant_scope((user or {}).get("email"))
+    tscope = scope
     if not tscope.get("all_tenants"):
         q["tenant_id"] = {"$in": tscope.get("tenant_ids") or []}
 
@@ -1309,13 +1330,15 @@ async def trajectory_focus(endpoint_id: str,
                            event_iid: Optional[str] = None,
                            detection_id: Optional[str] = None,
                            incident_id: Optional[str] = None,
-                           user=Depends(get_current_user)) -> Dict[str, Any]:
+                           user=Depends(get_current_user),
+                           tenant_id: str = Depends(edr_tenant)
+                           ) -> Dict[str, Any]:
     from services.session_context import authorised_incident
     from deps import db as _db
     from edr_plane import trajectory_window as tw
 
 
-    scope = _is_cross_tenant(user)
+    scope = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(endpoint_id, scope)
     if not res:
         return {"engine_id": "nivxray::edr_plane::trajectory_focus",

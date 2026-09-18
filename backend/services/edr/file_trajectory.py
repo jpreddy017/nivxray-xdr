@@ -30,6 +30,28 @@ from services.edr.device_identity import _obs, _event_of, _hostname  # noqa: F40
 KEY_TYPES = ("sha256", "name", "path")
 
 
+def _tenant_predicate(tenant_id: Optional[str]) -> Dict[str, Any]:
+    """P3 · B5/B7 · read the substrate WITHIN the explicit tenant.
+
+    ``v2_shadow_observations`` carries no ``tenant_id`` on historic records,
+    so a tenant-scoped read legitimately matches nothing: unattributed legacy
+    evidence is not this tenant's artefact spread. The answer is an honest
+    zero, not a fleet-wide projection relabelled as the caller's.
+    """
+    return {} if not tenant_id else {"tenant_id": tenant_id}
+
+
+def _tenant_scope_note(tenant_id: Optional[str]) -> Dict[str, Any]:
+    return {
+        "explicit_tenant": tenant_id,
+        "basis": "v2_shadow_observations.tenant_id",
+        "note": ("Observations that carry no tenant_id are NOT returned under "
+                 "an explicit tenant. They remain in the store as "
+                 "UNATTRIBUTED_LEGACY_OBSERVATION evidence and are never "
+                 "attributed to the requested tenant by inference."),
+    }
+
+
 def _leaf(p: Optional[str]) -> Optional[str]:
     if not p:
         return None
@@ -76,7 +98,8 @@ def _matches(ev: Dict[str, Any], doc: Dict[str, Any],
     return False, ""
 
 
-def fleet_trajectory(key_type: str, key: str) -> Dict[str, Any]:
+def fleet_trajectory(key_type: str, key: str,
+                     tenant_id: Optional[str] = None) -> Dict[str, Any]:
     if key_type not in KEY_TYPES:
         return {"ok": False, "reason": "unsupported_key_type",
                 "key_type": key_type, "key": key}
@@ -85,7 +108,7 @@ def fleet_trajectory(key_type: str, key: str) -> Dict[str, Any]:
     raw_count = 0
     matched_on: Dict[str, int] = {}
 
-    for doc in _obs.find({}, {"_id": 0}):
+    for doc in _obs.find(_tenant_predicate(tenant_id), {"_id": 0}):
         ev = _event_of(doc)
         if not ev:
             continue
@@ -224,7 +247,8 @@ def fleet_trajectory(key_type: str, key: str) -> Dict[str, Any]:
     # Does the supplied key exist as an evidence-integrity digest?
     integrity_hits = 0
     if key_type == "sha256":
-        integrity_hits = _obs.count_documents({"input_sha256": key.lower()})
+        integrity_hits = _obs.count_documents(
+            {**_tenant_predicate(tenant_id), "input_sha256": key.lower()})
 
     return {
         "ok": True,
@@ -255,6 +279,7 @@ def fleet_trajectory(key_type: str, key: str) -> Dict[str, Any]:
                                "input_sha256 on every record: it is the digest of "
                                "the ingested observation, not of a file."),
         },
+        "tenant_scope": _tenant_scope_note(tenant_id),
         "tenant_boundary": ("v2_shadow_observations carries no tenant_id; this view "
                             "is validation / golden-corpus substrate visibility only. "
                             "No tenant is assigned to historic observations."),
@@ -267,11 +292,11 @@ def fleet_trajectory(key_type: str, key: str) -> Dict[str, Any]:
     }
 
 
-def spread_index() -> Dict[str, Any]:
+def spread_index(tenant_id: Optional[str] = None) -> Dict[str, Any]:
     """Every observable artifact name and the endpoints it appears on —
     the honest replacement for a hash-keyed fleet index."""
     idx: Dict[str, Dict[str, Any]] = {}
-    for doc in _obs.find({}, {"_id": 0}):
+    for doc in _obs.find(_tenant_predicate(tenant_id), {"_id": 0}):
         ev = _event_of(doc)
         if not ev:
             continue
@@ -299,5 +324,6 @@ def spread_index() -> Dict[str, Any]:
     rows.sort(key=lambda r: (-r["endpoints"], -r["unique_events"], r["name"]))
     return {"ok": True, "count": len(rows), "rows": rows,
             "substrate": "v2_shadow_observations",
+            "tenant_scope": _tenant_scope_note(tenant_id),
             "note": ("Keyed on observed process names and file-path leaves because "
                      "no content digests are populated in this substrate.")}

@@ -17,7 +17,9 @@ def token():
 
 @pytest.fixture(scope="module")
 def h(token):
-    return {"Authorization": f"Bearer {token}"}
+    # B7 Option A · the two tenant-scoped wave0 routes require an explicit
+    # tenant; the eight PRODUCT_METADATA routes ignore it by design.
+    return {"Authorization": f"Bearer {token}", "X-Tenant-Id": "default"}
 
 
 def test_auth_required_capabilities():

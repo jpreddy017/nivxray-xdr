@@ -99,7 +99,8 @@ async def test_unresolvable_endpoint_fails_closed(monkeypatch):
     out = await edr.trajectory_focus("dev_does_not_exist",
                                      raw_event_id=TARGET_RAW,
                                      user={"email": "a@b.c",
-                                           "role": "analyst"})
+                                           "role": "analyst"},
+                                     tenant_id="default")
     assert out["state"] == "ENDPOINT_NOT_RESOLVED"
     assert out["focus"] is None
 
