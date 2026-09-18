@@ -14,6 +14,7 @@ import { BookOpen, Search, RefreshCcw, FileText } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 export default function XdrKbPage() {
@@ -46,7 +47,7 @@ export default function XdrKbPage() {
         setEntries(Array.isArray(rows) ? rows : []);
         setServerTotal(Number.isFinite(body.total) ? body.total : null);
       } catch (x) {
-        setErr(x?.response?.data?.detail || x?.message || "load failed");
+        setErr(apiErrorText(x, "load failed"));
       } finally {
         if (!cancelled) setBusy(false);
       }
@@ -69,7 +70,7 @@ export default function XdrKbPage() {
       const r = await api.get(`/kb/entries/${encodeURIComponent(slug)}`);
       setOpenEntry(r?.data || null);
     } catch (x) {
-      setErr(x?.response?.data?.detail || x?.message);
+      setErr(apiErrorText(x));
     }
   };
 

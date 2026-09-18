@@ -214,7 +214,7 @@ export default function App() {
         {/* Cisco XDR places Activities under Investigate. The surface itself
             is the telemetry studio, so the canonical route redirects rather
             than duplicating the page. Typing /xdr/activities now resolves. */}
-        <Route path="/xdr/activities"      element={<Navigate to="/xdr/admin/telemetry-studio" replace />} />
+        <Route path="/xdr/activities"      element={<Navigate to="/xdr/hunting" replace />} />
         <Route path="/xdr"                 element={<Navigate to="/xdr/control-center" replace />} />
         <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/control-center" replace />} />
         {/* B2-NAV · navigation label, page identity and route now agree. */}

@@ -30,6 +30,7 @@ import IncidentContextStrip from "@/xdr/components/IncidentContextStrip";
 import { DOMAIN_META } from "@/xdr/domains/domainMeta";
 import { getIncident } from "@/lib/incidentsApi";
 import { isCrossOrigin, productHref } from "@/productOrigins";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const STATE_BADGE = {
   not_observed:    { label: "NOT OBSERVED",    color: "var(--yellow)" },
@@ -65,8 +66,7 @@ export default function XdrIncidentDomainPage() {
         const data = await getIncident(id);
         if (!cancel) setIncident(data);
       } catch (e) {
-        if (!cancel) setError(e?.response?.data?.detail || e?.message
-                                  || "Failed to load incident.");
+        if (!cancel) setError(apiErrorText(e, "Failed to load incident."));
       } finally {
         if (!cancel) setLoading(false);
       }

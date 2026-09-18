@@ -18,6 +18,7 @@ import api from "@/lib/api";
 import { NxVerdict, NxProvenanceChip, NxEmpty } from "@/xdr/nx";
 import { Panel, TechnicalDetails } from "./Ux0Parts";
 import { CI_SAMPLE } from "./ux0Fixtures";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const STATUS_COPY = {
   RECOVERED: "Every layer resolved to a fixed point.",
@@ -46,7 +47,7 @@ export default function Ux0CommandIntel({ initial = CI_SAMPLE, compact = false }
       });
       setRes(r?.data || null);
     } catch (x) {
-      setErr(x?.response?.data?.detail || x?.message || "analysis failed");
+      setErr(apiErrorText(x, "analysis failed"));
       setRes(null);
     } finally { setBusy(false); }
   }, [input]);

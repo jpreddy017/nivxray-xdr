@@ -34,6 +34,7 @@ import { useAuth } from "@/lib/auth";
 import ExportMenu from "@/xdr/components/ExportMenu";
 import { getFileTrajectory, getFleetSpreadIndex } from "@/nivxforge/edrApi";
 import { fmtUtc, TELEMETRY_CYAN } from "@/xdr/lib/trajectoryModel";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const PAGE_SIZES = [10, 25, 50];
 const TRUTH_BANNER = "NivXRay EDR — LIVE against persisted v2_shadow_observations "
@@ -105,7 +106,7 @@ export default function XdrFleetFileTrajectoryPage() {
     try {
       setData(await getFileTrajectory(keyValue, keyType));
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Lookup failed.");
+      setError(apiErrorText(e, "Lookup failed."));
       setData(null);
     } finally { setLoading(false); }
   }, [keyValue, keyType]);

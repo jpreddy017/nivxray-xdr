@@ -19,6 +19,7 @@ import { getAuthorizedScope, selectScope } from "@/lib/scopeApi";
 import { setActiveTenant } from "@/lib/tenant";
 import { getMssCustomerOperations } from "@/lib/incidentsApi";
 import "@/xdr/nx/nx-cc.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 export default function XdrClientManagementPage() {
   const navigate = useNavigate();
@@ -34,12 +35,12 @@ export default function XdrClientManagementPage() {
       const s = await getAuthorizedScope();
       setScope(s);
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load.");
+      setError(apiErrorText(e, "Failed to load."));
     }
     try {
       setOps(await getMssCustomerOperations());
     } catch (e) {
-      setOps({ error: e?.response?.data?.detail || e?.message });
+      setOps({ error: apiErrorText(e) });
     }
     setLoading(false);
   }, []);
@@ -54,7 +55,7 @@ export default function XdrClientManagementPage() {
         navigate(`/xdr/incidents?customer=${encodeURIComponent(tenantId)}`);
       }
     } catch (e) {
-      setDenied({ tenantId, detail: e?.response?.data?.detail || e?.message });
+      setDenied({ tenantId, detail: apiErrorText(e) });
     }
   };
 

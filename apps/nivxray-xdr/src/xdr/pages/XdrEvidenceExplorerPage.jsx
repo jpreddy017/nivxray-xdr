@@ -14,6 +14,7 @@ import {
 
 import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const CATEGORIES = [
   { id: "all", label: "All Evidence" },
@@ -91,7 +92,7 @@ export default function XdrEvidenceExplorerPage() {
 
       setArtifacts(loaded);
     } catch (err) {
-      setError(err?.response?.data?.detail || err?.message || "Failed to load forensic evidence artifacts.");
+      setError(apiErrorText(err, "Failed to load forensic evidence artifacts."));
       setArtifacts([]);
     } finally {
       setLoading(false);

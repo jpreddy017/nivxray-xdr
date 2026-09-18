@@ -50,6 +50,7 @@ import ResponseStrategiesBody from "@/xdr/admin/ResponseStrategiesBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
 import AdminErrorBoundary from "@/xdr/admin/AdminErrorBoundary";
 import api from "@/lib/api";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 // ── Small state helpers ─────────────────────────────────────────
 function HonestBadge({ label, color = "var(--faint)", testid }) {
@@ -240,7 +241,7 @@ function AdminBody({ section }) {
       if (e && e.code === "COLLECTOR_RUNTIME_NOT_DEPLOYED") {
         setState("collector_not_deployed");
       } else {
-        setError(e?.response?.data?.detail || e?.message || "Request failed.");
+        setError(apiErrorText(e, "Request failed."));
         setState("error");
       }
     }

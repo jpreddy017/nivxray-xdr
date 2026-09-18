@@ -13,6 +13,7 @@ import OpenInEdr from "@/xdr/components/OpenInEdr";
 
 import XdrShell from "@/xdr/XdrShell";
 import { listEndpoints } from "@/nivxforge/edrApi";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const SEV_CLASS = {
   malicious:  "sev-critical",
@@ -46,7 +47,7 @@ export default function XdrEndpointsPage() {
       setRows(data.endpoints || []);
       setMeta({ source: data.source, note: data.note });
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load endpoints.");
+      setError(apiErrorText(e, "Failed to load endpoints."));
     } finally {
       setLoading(false);
     }

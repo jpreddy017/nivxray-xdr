@@ -24,6 +24,7 @@ import {
   NxInvSection, NxInvTable, NxInvEmpty, NxInvFilters, NxInvTech,
   NxInvValue, ABSENCE, fmtTime,
 } from "@/xdr/nx";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const CATEGORIES = [
   { key: "process",   label: "Process",   match: /process|exec|command|parent|child/i },
@@ -59,7 +60,7 @@ export default function TimelineTab({ incident }) {
       .then(({ data }) => { if (live) setStory(data); })
       .catch((e) => {
         if (live) setStoryErr(e?.response?.data?.detail?.reason
-          || e?.response?.data?.detail || e?.message || "unavailable");
+          || apiErrorText(e, "unavailable"));
       })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };

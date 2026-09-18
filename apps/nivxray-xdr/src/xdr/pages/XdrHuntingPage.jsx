@@ -25,6 +25,7 @@ import {
 } from "@/xdr/nx";
 import "@/xdr/nx/nx-inv.css";
 import "@/xdr/nx/nx-workspace.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const UNSUPPORTED = [
   { k: "Saved hunts", state: ABSENCE.NOT_AVAILABLE,
@@ -56,7 +57,7 @@ export default function XdrHuntingPage() {
     setBusy(true); setErr(null); setSel(null);
     api.get("/xdr/search", { params: { q: value.trim() } })
       .then(({ data: d }) => setData(d))
-      .catch((e) => setErr(e?.response?.data?.detail || e?.message || String(e)))
+      .catch((e) => setErr(apiErrorText(e) || String(e)))
       .finally(() => setBusy(false));
   }, []);
 
@@ -127,11 +128,16 @@ export default function XdrHuntingPage() {
             traces to a canonical record; nothing is inferred and nothing is
             indexed twice.
           </span>
-          <button className="inv-chip" style={{ marginLeft: "auto" }}
-                  data-testid="xdr-hunting-activities"
-                  onClick={() => navigate("/xdr/activities")}>
+          {/* An estate-wide activity feed does not exist in this build:
+              `/api/activity/inventory` is case-scoped. The control states
+              that instead of navigating somewhere unrelated. */}
+          <span className="inv-chip" style={{ marginLeft: "auto",
+                  cursor: "default", opacity: .7 }}
+                title="Environment activity: NOT AVAILABLE — no estate-wide event stream exists in this build; the activity inventory is incident-scoped and appears on the incident's Activity tab."
+                data-testid="xdr-hunting-activities">
             <Radar size={11} /> Environment activity
-          </button>
+            <span className="inv-chip__n">NOT AVAILABLE</span>
+          </span>
         </div>
 
         <form onSubmit={(e) => { e.preventDefault();

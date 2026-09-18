@@ -18,6 +18,7 @@ import XdrShell from "@/xdr/XdrShell";
 import { listIncidents } from "@/lib/incidentsApi";
 import { API_BASE } from "@/lib/api";
 import "@/xdr/nx/nx-cc.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const UNSUPPORTED = [
   { k: "Scheduled reports", state: "NOT AVAILABLE",
@@ -45,7 +46,7 @@ export default function XdrReportsPage() {
                                         limit: 200 });
       setRows(res.incidents || []);
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load.");
+      setError(apiErrorText(e, "Failed to load."));
       setRows([]);
     } finally { setLoading(false); }
   }, []);

@@ -31,6 +31,7 @@ import {
 } from "@/lib/incidentsApi";
 import { getResponseEngineHealth, getPendingApprovals } from "@/nivxforge/edrApi";
 import "@/xdr/nx/nx-cc.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const ATTN = [
   { id: "critical",         label: "Critical",    icon: AlertOctagon,  tone: "critical" },
@@ -73,7 +74,7 @@ export default function XdrControlCenterPage() {
     setLoading(true); setError(null);
     const settle = (p) => p.then((v) => ({ ok: true, v }))
                             .catch((e) => ({ ok: false,
-                              e: e?.response?.data?.detail || e?.message }));
+                              e: apiErrorText(e) }));
     try {
       const [k, q, c, d, dt, a, rh, pa] = await Promise.all([
         settle(getMssKpis()), settle(getMssSocQueue(14)),

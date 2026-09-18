@@ -21,6 +21,7 @@ import { ChevronDown, Lock, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getAuthorizedScope, selectScope, scopeLabel } from "@/lib/scopeApi";
 import { activeTenant, setActiveTenant } from "@/lib/tenant";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 /** The resource the current route binds scope to, if any. */
 function useBoundIncident() {
@@ -50,7 +51,7 @@ export default function XdrScopeNavigator() {
     getAuthorizedScope()
       .then((d) => { if (live) setAuthorized(d); })
       .catch((e) => {
-        if (live) setAuthorized({ error: e?.response?.data?.detail || e?.message });
+        if (live) setAuthorized({ error: apiErrorText(e) });
       });
     return () => { live = false; };
   }, []);

@@ -16,6 +16,7 @@ import { getObservationNarrative } from "@/nivxforge/edrApi";
 import {
   glyphFor, severityTier, TIER_COLOR, TIER_MALICIOUS, typeTag, shortHash,
 } from "@/xdr/lib/trajectoryModel";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 function Row({ k, v }) {
   return (
@@ -63,7 +64,7 @@ export default function ActivityDetailsPanel({
         if (!cancel) setNarr({ status: data.resolved ? "ok" : "unresolved", data });
       } catch (e) {
         if (!cancel) setNarr({ status: "error",
-                               error: e?.response?.data?.detail || e?.message });
+                               error: apiErrorText(e) });
       }
     })();
     return () => { cancel = true; };

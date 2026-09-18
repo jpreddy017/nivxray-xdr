@@ -30,6 +30,7 @@ import React, { useEffect, useState } from "react";
 import { X, FlaskConical, Loader2 } from "lucide-react";
 
 import { getDecodedArtifact, getDecodedArtifactStats } from "@/nivxforge/edrApi";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const BANNER = "STATIC MALWARE ANALYSIS ONLY · DYNAMIC DETONATION RUNTIME NOT CONFIGURED";
 
@@ -63,7 +64,7 @@ function HashLookup({ title, sha256, keyNote, storeSize, testid }) {
         const code = e?.response?.status;
         if (cancel) return;
         setState({ status: "unavailable",
-                   error: e?.response?.data?.detail || e?.message, code });
+                   error: apiErrorText(e), code });
       }
     })();
     return () => { cancel = true; };

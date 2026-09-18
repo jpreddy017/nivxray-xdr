@@ -14,6 +14,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { CheckCircle2, ShieldAlert, Loader2, Radar, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 import AnnotationsEditor from "../AnnotationsEditor";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 // Round 23.5 · Locked evidence-state palette (shared with MitreTab).
@@ -83,8 +84,7 @@ export default function RecommendationsTab({ incident }) {
         if (!cancelled) setData(r.data);
         await refreshAnnotations();
       } catch (e) {
-        if (!cancelled) setErr(e?.response?.data?.detail
-                                          || e?.message || "unavailable");
+        if (!cancelled) setErr(apiErrorText(e, "unavailable"));
       } finally {
         if (!cancelled) setLoading(false);
       }

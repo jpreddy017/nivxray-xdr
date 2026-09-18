@@ -26,6 +26,7 @@ import {
 } from "@/xdr/nx";
 import "@/xdr/nx/nx-inv.css";
 import "@/xdr/nx/nx-workspace.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const KINDS = ["ip", "domain", "url", "sha256", "md5", "sha1"];
 
@@ -88,7 +89,7 @@ export default function XdrIocIntelPage() {
         const r = await api.get("/ioc/health");
         if (!dead) setHealth(r?.data || null);
       } catch (x) {
-        if (!dead) setErr(x?.response?.data?.detail || x?.message || "load failed");
+        if (!dead) setErr(apiErrorText(x, "load failed"));
       }
     })();
     return () => { dead = true; };
@@ -103,7 +104,7 @@ export default function XdrIocIntelPage() {
         { kind, value: value.trim(), use_cache: true });
       setResult(r?.data || null);
     } catch (x) {
-      setRunErr(x?.response?.data?.detail || x?.message || "enrichment failed");
+      setRunErr(apiErrorText(x, "enrichment failed"));
     } finally { setRun(false); }
   };
 

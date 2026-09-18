@@ -26,6 +26,7 @@ import {
 } from "@/xdr/nx";
 import "@/xdr/nx/nx-inv.css";
 import "@/xdr/nx/nx-workspace.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const KINDS = ["", "ip", "domain", "url", "sha256", "md5", "sha1"];
 const fmt = (n) => (Number.isFinite(n) ? n.toLocaleString() : null);
@@ -60,7 +61,7 @@ export default function XdrThreatIntelPage() {
         setSources(Array.isArray(src?.data) ? src.data : (src?.data?.sources || []));
         setFeeds(fs?.data?.sources || []);
       } catch (x) {
-        if (!dead) setErr(x?.response?.data?.detail || x?.message || "load failed");
+        if (!dead) setErr(apiErrorText(x, "load failed"));
       } finally { if (!dead) setBusy(false); }
     })();
     return () => { dead = true; };
@@ -77,7 +78,7 @@ export default function XdrThreatIntelPage() {
         setRows(r?.data?.items || []);
         setTotal(Number.isFinite(r?.data?.total) ? r.data.total : null);
       } catch (x) {
-        if (!dead) setErr(x?.response?.data?.detail || x?.message);
+        if (!dead) setErr(apiErrorText(x));
       }
     })();
     return () => { dead = true; };

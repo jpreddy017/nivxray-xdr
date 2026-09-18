@@ -28,6 +28,7 @@ import {
   listIncidents, getIncident, bulkAssign, bulkState, listSavedViews,
 } from "@/lib/incidentsApi";
 import "@/xdr/nx/nx-entity.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const STATE_TABS = [
   { key: "",            label: "All open" },
@@ -225,8 +226,7 @@ export default function XdrIncidentsPage() {
       setInv(res.invariant || null);
     } catch (e) {
       setError(e?.response?.data?.detail?.error
-        || e?.response?.data?.detail
-        || e?.message || "Failed to load incidents.");
+        || apiErrorText(e, "Failed to load incidents."));
     } finally { setLoading(false); }
   }, [urlState, urlLens]);
 
@@ -243,8 +243,7 @@ export default function XdrIncidentsPage() {
     getIncident(openRow.id)
       .then((d) => { if (live) setDetail(d); })
       .catch((e) => {
-        if (live) setDError(e?.response?.data?.detail || e?.message
-                            || "Load failed.");
+        if (live) setDError(apiErrorText(e, "Load failed."));
       })
       .finally(() => { if (live) setDLoading(false); });
     return () => { live = false; };

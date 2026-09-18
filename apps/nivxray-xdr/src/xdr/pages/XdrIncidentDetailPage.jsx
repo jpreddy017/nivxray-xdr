@@ -69,6 +69,7 @@ import "./incidents/queue-theme.css";
 import "./incidents/record/record-theme.css";
 import "@/xdr/nx/nx-entity.css";
 import "@/xdr/nx/nx-inv.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const TABS = [
   { key: "overview",   label: "Overview" },
@@ -152,8 +153,7 @@ export default function XdrIncidentDetailPage() {
     setLoading(true); setError(null);
     try { setIncident(await getIncident(id)); }
     catch (e) {
-      setError(e?.response?.data?.detail || e?.message
-        || "This incident could not be loaded.");
+      setError(apiErrorText(e, "This incident could not be loaded."));
     } finally { setLoading(false); }
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -168,8 +168,7 @@ export default function XdrIncidentDetailPage() {
     setBusy(target);
     try { await transitionIncidentState(id, target, null); await load(); }
     catch (e) {
-      setError(e?.response?.data?.detail || e?.message
-        || "The state transition was refused.");
+      setError(apiErrorText(e, "The state transition was refused."));
     } finally { setBusy(null); }
   };
 

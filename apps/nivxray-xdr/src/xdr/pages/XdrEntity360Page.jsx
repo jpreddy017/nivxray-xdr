@@ -41,6 +41,7 @@ import {
   dedupeObservations, compromiseSpans, caseReferences, tsOf, fmtUtc,
   severityTier, TIER_MALICIOUS, GLYPHS,
 } from "@/xdr/lib/trajectoryModel";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const WINDOWS = [
   { key: 1, label: "1h" }, { key: 6, label: "6h" }, { key: 24, label: "24h" },
@@ -114,7 +115,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
     try {
       setData(await getDeviceTrajectory(deviceRef, hours));
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load endpoint entity.");
+      setError(apiErrorText(e, "Failed to load endpoint entity."));
       setData(null);
     } finally { setLoading(false); }
   }, [deviceRef, hours]);

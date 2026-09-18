@@ -24,6 +24,7 @@ import api from "@/lib/api";
 import EvidenceInspector from "@/xdr/components/EvidenceInspector";
 import { attackHrefFor, attackLinkTitle }
   from "@/xdr/mitre/attackLink";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 // Round 45 · Inspector consolidation.
@@ -79,8 +80,7 @@ export default function MitreTab({ incident }) {
           `/admin/content-supply-chain/incidents/${incident.id}/attack-chain-graph`);
         if (!cancelled) setData(r.data);
       } catch (e) {
-        if (!cancelled) setErr(e?.response?.data?.detail
-                                          || e?.message || "unavailable");
+        if (!cancelled) setErr(apiErrorText(e, "unavailable"));
       } finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };

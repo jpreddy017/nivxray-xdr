@@ -18,6 +18,7 @@ import { RefreshCw, ArrowRight, Search } from "lucide-react";
 import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
 import "@/xdr/nx/nx-cc.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const BANDS = ["all", "critical", "malicious", "suspicious", "low",
                "informational", "benign", "unknown"];
@@ -95,8 +96,7 @@ export default function XdrInvestigationsListPage() {
       }
       setCases(casesList);
     } catch (err) {
-      setError(err?.response?.data?.detail || err?.message
-        || "Failed to load investigations.");
+      setError(apiErrorText(err, "Failed to load investigations."));
     } finally { setLoading(false); }
   }, []);
 

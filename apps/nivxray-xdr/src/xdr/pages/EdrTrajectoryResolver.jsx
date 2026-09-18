@@ -22,6 +22,7 @@ import { Loader2, Radar } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import { listEndpoints } from "@/nivxforge/edrApi";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 export default function EdrTrajectoryResolver() {
   const [params] = useSearchParams();
@@ -65,7 +66,7 @@ export default function EdrTrajectoryResolver() {
         if (!cancel) {
           setState({
             status: "unresolved",
-            error: e?.response?.data?.detail || e?.message,
+            error: apiErrorText(e),
             candidates: 0,
           });
         }

@@ -1,5 +1,112 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · CONTROLLED-PARALLEL WAVE 1 — LANE A (P0) · LANE B (CORTEX INVESTIGATION UX) · LANE C (SPA) · RAIL INTEGRITY
+
+Master backlog now lives in `/app/memory/NIVXRAY_XDR_MASTER_OPEN_WORK_REGISTER.md`
+(9 programs A–I, status vocabulary `DONE|IN PROGRESS|PARTIAL|OPEN|PAUSED|HELD|BLOCKED`,
+`PAUSED` never reported as `DONE`). The old 16-item list is carried there as the
+active execution subset.
+
+### LANE A — P0 stability (DONE)
+- **The crash that blanked every incident page is fixed.** `XdrScopeNavigator`
+  returned an **async** `resolve()` from `useEffect`; React called `destroy()` on
+  the Promise, threw, and unmounted `XdrShell` — `/xdr/incidents/<id>` rendered 0
+  characters. The effect now builds the request and calls `resolve(request)`.
+- `XdrScopeNavigator` is wrapped in `NxErrorBoundary` — **fault containment only**:
+  it grants no tenant, unlocks no incident scope and hides no denial
+  (`SCOPE CONTROL ERROR · NO SCOPE GRANTED`).
+- **REG4 PASS**: on an incident the pill reads `default` with
+  `data-customer-basis=INHERITED_FROM_INCIDENT`, `data-scope-locked=true` and the
+  `· Incident locked` suffix; off-incident it reads **All Authorized Tenants**.
+- **REG5 PASS end-to-end**: 8 GET + PUT (save) + DELETE (revert) on
+  `/intelligence/overlays`, all 200, badge → `ANALYST EDITED`. The reported
+  `payload.append` defect does not exist in the codebase — it was a downstream
+  symptom of the shell crash.
+
+### LANE B — Cortex-class investigation UX (DONE)
+- **Entities workspace rebuilt** (`EntitiesGraphTab.jsx` + `NxGraphCanvas.jsx` +
+  `nx-workspace.css`): Graph|Table switch · entity-class filters with
+  authoritative counts (`—`, never 0) · left Graph Controls + Analysis Overlays
+  (overlays with no data are **disabled**, not faked) + Export Graph · dominant
+  node-card canvas with **semantic edges** where an edge with no
+  `evidence_refs` is drawn dashed and marked `inferred` · right Entity Details
+  (Details|Relationships|Evidence(n)|Context) · bottom related-event lanes +
+  `View in Timeline →`. The 1,643-line legacy graph is preserved under
+  progressive disclosure — nothing was deleted.
+- **OWNER CORRECTION applied**: wheel-zoom and drag-pan are **removed**. The
+  canvas is a real scroll container with always-visible 14px scrollbars on both
+  axes; zoom is explicit (+/- buttons, Center, Fit to view) and the HUD/legend
+  stay pinned. Verified: `scrollWidth 1152 > clientWidth 1098`,
+  `scrollHeight 1787 > clientHeight 778`, wheel leaves zoom at 100%, drag pans
+  nothing, fit → 44%.
+- **Findings surface** (`FindingsTab.jsx`): dense
+  `Finding|Category|Capability|State|Confidence|Evidence|Entities|MITRE|Source|Time|Actions`
+  table → contextual pane (Summary · Evidence · Entities · MITRE ·
+  Interpretation · Provenance). The analyst overlay editor appears **once**, in
+  the pane; system assessment and analyst interpretation stay separate facts.
+  Chips inspect in the pane; only the explicit `Evidence →` action pivots away.
+- **Capability labels centralized** (`nx/capabilityLabels.js`): analysts read
+  *Detection Intelligence*, the backend id `detection_intel` is never renamed and
+  stays in Provenance (unmapped ids are marked `UNMAPPED LABEL`).
+- **Activity table completed**: `Time|Type|Activity|Capability|Result|State|
+  Findings|Duration|Conf.|Evidence|Actor-source|Actions` plus an
+  `Event log | Capability runs` switch; Capability Runs carries
+  Capability|Engine|Status|Duration|Findings|Evidence|Started|Completed with row
+  expansion. Absent durations read `NOT RECORDED`, never `0 ms`.
+
+### LANE C — SPA modernization (Hunting · TI · IOC)
+- **Hunting**: dense result table → contextual pane (Details|Context|Technical)
+  → authoritative-record pivot; entity-type filter chips; honest
+  `NO MATCHING RECORD`; unsupported/not-indexed capabilities moved under
+  disclosures. `NO_MATCH` and `RESULTS` both verified live.
+- **Threat Intelligence**: 117,225 indicators · 9 of 11 sources · 3 source
+  errors surfaced verbatim (HTTP 429/403/401) · per-type chips act as filters ·
+  indicator table with a contextual pane.
+- **IOC Intelligence**: 7 of 7 providers with the governing credential;
+  enrichment now answers as a **per-provider table** (or states
+  `NO PER-PROVIDER ATTRIBUTION`) instead of a raw JSON dump; the verbatim
+  response stays under Technical details. `Cache` reads `NOT RECORDED` honestly.
+
+### OWNER REPORT: "few of the tabs are not getting navigate / not landing on correct page" — FIXED
+Full audit of all **41 rail destinations** and every internal
+`to=`/`navigate()`/`href` literal against the router and the admin section keys:
+**41/41 rail PASS · 0 dead internal links**. Repairs:
+- `Administration ▸ Detection Rules` → `/xdr/admin/detection-rules` was **not an
+  admin section key** and rendered *"Unknown admin section"*. Row retired
+  (detection content is owned by Automate); the deep link redirects to
+  `/xdr/admin/detection-registry`.
+- `Hunting ▸ Activities` bounced through `/xdr/activities` into
+  **Administration ▸ Telemetry Studio**, which is *LLM decoding configuration*,
+  not events. There is **no estate-wide activity API** in this build
+  (`/api/activity/inventory` is case-scoped), so the row was **withdrawn rather
+  than pointed somewhere unrelated**; `/xdr/activities` now redirects to
+  `/xdr/hunting` and the Hunting header states
+  `Environment activity — NOT AVAILABLE` with the reason. The row returns when
+  Program H-01 delivers the real event table.
+- Administration overview footers: `/xdr/admin/data-sources-native` →
+  `/xdr/data-sources`, `/xdr/admin/detection-content` →
+  `/xdr/admin/detection-registry`, `/xdr/intelligence/ioc` →
+  `/xdr/intelligence/iocs`.
+- Entity 360 *Fleet file trajectory* navigated to `/xdr/intelligence/files` with
+  **no file key** (catch-all bounce → home); it now declares
+  `no_evidence` with the reason.
+
+### SECOND CONSOLE-KILLING CRASH FOUND AND CLOSED AT THE CLASS LEVEL
+`/xdr/exposure` blanked the entire console: `Promise.all` rejected on a
+fail-closed `403 {code: TENANT_REQUIRED, …}` and that **object** was rendered as
+a React child. Fixed three ways — `Promise.allSettled` with per-surface refusal
+reporting, a new single refusal reader `xdr/nx/apiError.js` (`apiErrorText()`)
+applied across **34 files**, and `XdrShell` now wraps its page slot in
+`NxErrorBoundary` so a page throw can never unmount the rail again. This is the
+same class as the earlier DataSources 403 crash; it is now structurally closed.
+
+### Fences respected
+T-RISK-3 repair **HELD** · T-RISK-4/5 not touched · W1 **FROZEN** · W2-1 and
+Command Intelligence R-4/R-5 remain **PAUSED** (registered as full Programs B and
+C, never reported as done) · no production data copied, migrated or synthesised ·
+no backend weakened for the UI.
+
+
 ## 2026-06 · PRODUCTION ZERO-DATA · ROOT CAUSE = TWO DIFFERENT DATABASES (not a code defect)
 
 Full record: `/app/memory/PRODUCTION_ZERO_DATA_ROOT_CAUSE.md`.

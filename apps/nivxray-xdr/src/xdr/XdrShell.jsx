@@ -104,15 +104,14 @@ const NAV = [
     to: "/xdr/hunting",
     title: "Analyst-initiated interrogation of the authoritative stores",
     children: [
-      // The analyst event experience (Program H) is not built yet. Until it
-      // is, this row goes DIRECTLY to the surface that really holds the
-      // environment event stream and says so in its label — it no longer
-      // bounces through `/xdr/activities` into a page whose section reads
-      // "Administration".
-      { key: "telemetry-studio", label: "Environment Activity · Telemetry Studio",
-        icon: Sliders,
-        to: "/xdr/admin/telemetry-studio",
-        title: "Environment activity · real telemetry to query and pivot from · lives under Administration in this build" },
+      // There is NO estate-wide analyst activity/event surface in this build:
+      // `/api/activity/inventory` is case-scoped and Administration ▸
+      // Telemetry Studio is LLM decoding CONFIGURATION, not events. The
+      // previous row bounced the analyst into Administration, which was
+      // simply wrong, so the row is withdrawn rather than pointed at an
+      // unrelated page. It returns when Program H delivers the real event
+      // table (Time · Host · Channel · Provider · Event ID · … ) over real
+      // telemetry. Hunting itself remains the interrogation surface.
     ],
   },
   {
@@ -450,7 +449,12 @@ export default function XdrShell({ children, flush = false }) {
               customer / endpoint / incident / evidence context that must
               survive a pivot. It states context, never grants it. */}
           <XdrContextBar />
-          {children}
+          {/* Every page mounts its own shell, so a throw inside a page used
+              to unmount the rail with it (DataSources 403, Exposure 403).
+              One boundary here contains any page failure: the navigation,
+              the context bar and the ribbon survive, and the failure is
+              stated instead of leaving a blank document. */}
+          <NxErrorBoundary>{children}</NxErrorBoundary>
         </main>
         {/* Cisco XDR's persistent ribbon: pinned to the bottom of the
             viewport on every page, expanded by default, collapsible to a

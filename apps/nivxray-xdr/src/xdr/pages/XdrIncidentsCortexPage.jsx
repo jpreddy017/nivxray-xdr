@@ -23,6 +23,7 @@ import { NxEmpty } from "@/xdr/nx";
 import { listIncidents, getIncident } from "@/lib/incidentsApi";
 import "@/xdr/ux0/ux0.css";
 import "@/xdr/ux0/ux0-cortex.css";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const NA = <em className="cx-na">NOT AVAILABLE</em>;
 const NOT_OBSERVED = <em className="cx-na">NOT OBSERVED</em>;
@@ -89,8 +90,7 @@ export default function XdrIncidentsCortexPage() {
       setInvariant(res.invariant || null);
     } catch (e) {
       setError(e?.response?.data?.detail?.error
-        || e?.response?.data?.detail
-        || e?.message || "Failed to load incidents.");
+        || apiErrorText(e, "Failed to load incidents."));
       setRows([]);
     } finally { setLoading(false); }
   }, [params]);
@@ -128,8 +128,7 @@ export default function XdrIncidentsCortexPage() {
     getIncident(selected.id)
       .then((d) => { if (live) setDetail(d); })
       .catch((e) => {
-        if (live) setDError(e?.response?.data?.detail || e?.message
-          || "Load failed.");
+        if (live) setDError(apiErrorText(e, "Load failed."));
       })
       .finally(() => { if (live) setDLoading(false); });
     return () => { live = false; };

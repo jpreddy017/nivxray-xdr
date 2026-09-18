@@ -30,6 +30,7 @@ import {
   getMssAnalystWorkload, getMssCustomerOperations,
   getMssAutoInvestigation, getMssDetectionOverview, getMssRecentActivity,
 } from "@/lib/incidentsApi";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 const LENS_META = {
@@ -78,7 +79,7 @@ export default function XdrMssDashboardPage() {
       setKpi(k); setDist(d); setQueue(q); setWork(w); setCust(c);
       setAuto(a); setDet(dt); setAct(ac);
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load MSS dashboard.");
+      setError(apiErrorText(e, "Failed to load MSS dashboard."));
     } finally { setL(false); }
   }, []);
   useEffect(() => { load(); }, [load]);

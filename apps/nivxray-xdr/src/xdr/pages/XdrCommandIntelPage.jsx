@@ -15,6 +15,7 @@ import { Terminal, Zap } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 export default function XdrCommandIntelPage() {
   const [params] = useSearchParams();
@@ -33,7 +34,7 @@ export default function XdrCommandIntelPage() {
       });
       setRes(r?.data || null);
     } catch (x) {
-      setErr(x?.response?.data?.detail || x?.message || "analysis failed");
+      setErr(apiErrorText(x, "analysis failed"));
     } finally { setBusy(false); }
   };
 

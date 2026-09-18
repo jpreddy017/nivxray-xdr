@@ -31,6 +31,7 @@ import { listIncidents } from "@/lib/incidentsApi";
 import api from "@/lib/api";
 import { attackHrefFor, attackLinkTitle }
   from "@/xdr/mitre/attackLink";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const AUTO_REFRESH_MS = 60_000;
 
@@ -80,7 +81,7 @@ export default function XdrMitreHeatmap() {
       setIncidents(incs?.incidents || incs || []);
       setSynced(new Date().toISOString());
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load coverage.");
+      setError(apiErrorText(e, "Failed to load coverage."));
     } finally {
       setLoading(false); setRefresh(false); inflight.current = false;
     }

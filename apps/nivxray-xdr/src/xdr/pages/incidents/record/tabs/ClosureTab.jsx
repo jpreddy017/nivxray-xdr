@@ -15,6 +15,7 @@ import { Check, Loader2 } from "lucide-react";
 
 import { transitionIncidentState, LIFECYCLE_TRANSITIONS }
   from "@/lib/incidentsApi";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const CLOSURE_DISPOSITIONS = [
   "TRUE_POSITIVE",
@@ -65,8 +66,7 @@ export default function ClosureTab({ incident, onUpdated }) {
       setNote("");
     } catch (e) {
       setErr(e?.response?.data?.detail?.error
-        || e?.response?.data?.detail
-        || e?.message || "Closure failed.");
+        || apiErrorText(e, "Closure failed."));
     } finally { setBusy(null); }
   };
 
