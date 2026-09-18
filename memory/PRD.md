@@ -17508,3 +17508,37 @@ rebuild of `3njhqYa5K` from candidate `9ae7bdac2140…`.
   selection, header Refresh works, api-keys tenant field empty (not `default`).
 - **W1 still HELD** pending those five owner clicks.
 
+
+### 2026-06 · W1 GO — RUNBOOK ISSUED (owner-executed; agent cannot run it)
+Runbook: `W1_GO_FIVE_EVENT_RUNBOOK.md`. Production sync gate CLOSED by owner
+acceptance + 7/7 smoke PASS.
+- Agent cannot execute: `POST /api/xdr/collectors` and `/api/xdr/api-keys` need
+  a production JWT this workspace does not hold; `create_key` returns the
+  plaintext in the response body (secret would land in the transcript); and the
+  five events must originate from the real Sysmon channel on DESKTOP-A9HGFJJ.
+- DELTA published against `W1_PHASE3_1_COLLECTOR_ENROLMENT_RUNBOOK.md`, which
+  is now wrong in two places: there is NO default tenant (omitting
+  `X-Tenant-Id` → `TENANT_REQUIRED`; unregistered → `TENANT_NOT_FOUND`), and
+  the tenant must be resolved from `GET /api/xdr/tenants`, not
+  `rbac/session-context`.
+- Verified against the deployed code/OpenAPI: forwarder posts
+  `POST /api/xdr/ingest/telemetry` gated by `collectors.enroll`
+  (`xdr_ingest.py:691-693`) with `X-XDR-API-Key` + `X-Tenant-Id`; Collector
+  Auth P0 hardened `/api/xdr/collector/*` (a DIFFERENT surface) and does not
+  affect the forwarder path. `collectors.enroll` is a valid catalog action.
+  All read endpoints used in the proof exist in production OpenAPI.
+- "Exactly five" is enforced by `-MaxEvents 5` (truncates the pending set) plus
+  `BatchSize=5` (one request); bookmark advances only over those five; no
+  `-Loop`, no backlog, no Sysmon config change, no detection tuning.
+- Acceptance criteria W1-A..W1-F defined: ingestion (accepted=5,
+  events_received=5), canonical normalization (Sysmon DSM selected,
+  reasoned=5), provenance (collector_id + declared_source + routing_authority
+  + ingest_time), tenant attribution (rows bound to the ACTIVE tenant; unknown
+  tenant refused, leaks nothing), identity/dedup (re-delivery → accepted=0,
+  duplicates=5, events_received still 5), collector-state truth (CONNECTED
+  only via the ingest path — the admin API refuses it).
+- Minimum-scope credential: `scopes = ['collectors.enroll']`, 72 h expiry,
+  `confirm_tenant_id`, plaintext written straight to an ACL'd file
+  (SYSTEM + Administrators only), never echoed.
+- STATUS: awaiting the owner's evidence package; W1 NOT closed until A–F prove.
+
