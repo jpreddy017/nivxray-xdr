@@ -17736,3 +17736,40 @@ Key findings:
   evidence; NivX differentiator = the **Verify Ingestion** walk
   source→collected→authenticated→received→parsed→normalized→canonicalized→evidence→detection-ready.
   Full IA/wireframes/field-mapping DELIBERATELY HELD for the owner's next image batch.
+- **W2 RESEARCH PASS 2 DELIVERED (research only, 2026-09-18):**
+  `memory/W2_RESEARCH_PASS2_PRODUCTION_DESIGN.md`. Recommended as the LAST research
+  pass — all foundational contracts are now evidence-supported.
+  New documented facts: (P1) `EvtSubscribeStrict` makes `EvtSubscribe` fail
+  `ERROR_NOT_FOUND` on a missing bookmark and is REQUIRED to receive
+  `ERROR_EVT_QUERY_RESULT_STALE` (Win32 15011) via `EvtSubscribeActionError`;
+  without strict Windows silently starts at "the closest event" = silent gap (the W1
+  trap, now named); a documented defect to avoid is re-subscribing with the same
+  stale bookmark then falling back to `EvtSubscribeToFutureEvents`, which drops the
+  whole gap window. (P2) Winlogbeat = bookmark registry, `registry_flush` 5s default,
+  `batch_read_size` 512 (Windows caps ~1024), `ignore_older` incompatible with
+  `xml_query`, `ignore_missing_channel` true, `record_number` explicitly LEGACY.
+  (P3) Cortex = profiles + versioned packages + Administration upgrade + Action
+  Center audit, with a documented footgun: custom config erased on upgrade → we use
+  declarative server-owned profiles, never raw YAML in console. (P4) CrowdStrike =
+  per-sink disk queue with `fullAction: pause`, `dropped_bytes` as an explicit
+  data-loss metric, and `xmlOnly` ~65.7 MB/s vs rendered ~24.5 MB/s (~2.7x) which
+  QUANTIFIES our no-rendering choice.
+  Contracts proposed: identity `origin_computer|channel|event_record_id` (metadata
+  kept separately); checkpoint = per-channel bookmark XML committed after server
+  accounting; **COLLECTION GAP as first-class evidence** (BOOKMARK_STALE /
+  LOG_CLEARED / SUBSCRIPTION_NOT_FOUND / BACKLOG_WINDOW_EXCEEDED / QUEUE_PAUSED /
+  CHANNEL_UNREADABLE) so evidence completeness is queryable and a gapped channel
+  shows "HEALTHY · EVIDENCE INCOMPLETE", never plain Healthy; time/durability/security
+  contracts as recorded. Gates now A,B,C,C2,D,E,E2,F,F2,**F3 backpressure honesty**,
+  G,H,**I profile/upgrade integrity**.
+  Implementation plan: Wave 0 fixture repair → Wave 1 engine (Sysmon regression +
+  PowerShell) → Wave 2 breadth + profiles + custom channels → Wave 3 fleet/upgrade →
+  Wave 4 DEFERRED WEF/WEC. AWAITING OWNER RATIFICATION (W2-0). Nothing implemented.
+- **UI reference board pass 2** (Cortex Collectors Administration, Splunk Local Event
+  Logs two-pane picker, Elastic Fleet Add agent policy-first flow, Defender Endpoints
+  Onboarding OS→method→monitor + Offboarding). Proposed IA: XDR Data Sources
+  (Overview/Sources/Add/Collectors/Integrations/Coverage/Health) and NivXForge
+  Endpoints (Devices/Add/Deployment/Policies/Health/Offboarding), plus the
+  industry-absent **VERIFY INGESTION** nine-step screen with per-row authoritative
+  backend field mapping (exists vs BUILD) — dedupe read API, per-stream counters,
+  latency, gap records and rule-binding are the BUILD items.
