@@ -104,9 +104,15 @@ const NAV = [
     to: "/xdr/hunting",
     title: "Analyst-initiated interrogation of the authoritative stores",
     children: [
-      { key: "activities", label: "Activities", icon: Sliders,
-        to: "/xdr/activities",
-        title: "Environment activity · real telemetry to query and pivot from" },
+      // The analyst event experience (Program H) is not built yet. Until it
+      // is, this row goes DIRECTLY to the surface that really holds the
+      // environment event stream and says so in its label — it no longer
+      // bounces through `/xdr/activities` into a page whose section reads
+      // "Administration".
+      { key: "telemetry-studio", label: "Environment Activity · Telemetry Studio",
+        icon: Sliders,
+        to: "/xdr/admin/telemetry-studio",
+        title: "Environment activity · real telemetry to query and pivot from · lives under Administration in this build" },
     ],
   },
   {
@@ -205,8 +211,11 @@ const NAV = [
     children: [
       { key: "integrations", label: "Integrations", icon: Plug,
         to: "/xdr/admin/integrations" },
-      { key: "detection-rules", label: "Detection Rules", icon: Zap,
-        to: "/xdr/admin/detection-rules" },
+      // `Detection Rules → /xdr/admin/detection-rules` was REMOVED: that key
+      // is not an admin section and the row landed on "Unknown admin
+      // section". Detection content is owned by Automate (Rule Studio ·
+      // Detection Registry · Correlation Rules) and nothing was lost — a
+      // second row to the same destination would only split the IA.
       { key: "response-policies", label: "Response Policies",
         icon: ArrowRightLeft, to: "/xdr/admin/response-policies" },
       { key: "response-strategies", label: "Response Strategies", icon: Layers,

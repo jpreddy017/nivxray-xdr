@@ -167,7 +167,7 @@ export default function PlatformOverviewBody() {
         <SectionCard
           title="IOC Composition"
           subtitle="Breakdown by indicator type"
-          footer={<LinkOut to="/xdr/intelligence/ioc" label="View IOC Intelligence" />}
+          footer={<LinkOut to="/xdr/intelligence/iocs" label="View IOC Intelligence" />}
         >
           <IocCompositionBlock loading={loading} data={ioc} />
         </SectionCard>
@@ -199,7 +199,7 @@ export default function PlatformOverviewBody() {
         <SectionCard
           title="Data Sources Health"
           subtitle="Status of configured data inputs"
-          footer={<LinkOut to="/xdr/admin/data-sources-native"
+          footer={<LinkOut to="/xdr/data-sources"
                              label="Manage Data Sources" />}
           span={2}
         >
@@ -209,7 +209,7 @@ export default function PlatformOverviewBody() {
         <SectionCard
           title="Detection Content Summary"
           subtitle="Overview of detection content by category"
-          footer={<LinkOut to="/xdr/admin/detection-content"
+          footer={<LinkOut to="/xdr/admin/detection-registry"
                              label="Manage Detection Registry" />}
           span={2}
         >

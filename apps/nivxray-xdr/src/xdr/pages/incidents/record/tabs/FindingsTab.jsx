@@ -179,7 +179,8 @@ export default function FindingsTab({ incident, onNavigateTab }) {
                     whiteSpace: "nowrap", textOverflow: "ellipsis" }}
                   title={(r.evidence_refs || []).join("\n")}
                   onClick={(e) => { e.stopPropagation();
-                                    pivotEvidence(r.evidence_refs[0]); }}
+                                    setSel(r.finding_id);
+                                    setPaneTab("evidence"); }}
                   data-testid={`inv-findings-ev-${r.finding_id}`}>
             {r.evidence_refs[0]}
             {r.evidence_refs.length > 1 && ` +${r.evidence_refs.length - 1}`}
@@ -191,7 +192,8 @@ export default function FindingsTab({ incident, onNavigateTab }) {
                     fontSize: 9.8, maxWidth: 160, overflow: "hidden",
                     whiteSpace: "nowrap", textOverflow: "ellipsis" }}
                   onClick={(e) => { e.stopPropagation();
-                    onNavigateTab && onNavigateTab("entities"); }}
+                                    setSel(r.finding_id);
+                                    setPaneTab("entities"); }}
                   data-testid={`inv-findings-entity-${r.finding_id}`}>
             {r._entity}
           </button>
@@ -201,7 +203,8 @@ export default function FindingsTab({ incident, onNavigateTab }) {
         ? <button className="inv-chip" style={{ padding: "1px 7px",
                     fontSize: 9.8 }}
                   onClick={(e) => { e.stopPropagation();
-                    onNavigateTab && onNavigateTab("mitre"); }}
+                                    setSel(r.finding_id);
+                                    setPaneTab("mitre"); }}
                   data-testid={`inv-findings-mitre-${r.finding_id}`}>
             {r._mitre.join(" ")}
           </button>
@@ -212,6 +215,30 @@ export default function FindingsTab({ incident, onNavigateTab }) {
     { key: "created_at", label: "Time", width: 148,
       render: (r) => <NxInvValue value={fmtTime(r.created_at)} mono
                                  absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "actions", label: "Actions", width: 132,
+      render: (r) => (
+        <span style={{ display: "inline-flex", gap: 4 }}>
+          <button className="inv-chip" style={{ padding: "1px 6px",
+                    fontSize: 9.4 }}
+                  onClick={(e) => { e.stopPropagation();
+                                    setSel(r.finding_id);
+                                    setPaneTab("summary"); }}
+                  data-testid={`inv-findings-inspect-${r.finding_id}`}>
+            Inspect
+          </button>
+          <button className="inv-chip" style={{ padding: "1px 6px",
+                    fontSize: 9.4 }}
+                  disabled={!(r.evidence_refs || []).length}
+                  title={(r.evidence_refs || []).length
+                    ? "Open this finding's evidence in the Evidence tab"
+                    : ABSENCE.EVIDENCE_INCOMPLETE}
+                  onClick={(e) => { e.stopPropagation();
+                                    pivotEvidence(r.evidence_refs?.[0]); }}
+                  data-testid={`inv-findings-pivot-${r.finding_id}`}>
+            Evidence →
+          </button>
+        </span>
+      ) },
   ];
 
   return (

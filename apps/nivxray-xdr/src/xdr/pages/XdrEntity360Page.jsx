@@ -312,8 +312,15 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
         reason: "◇ NO INCIDENT IS BOUND TO THIS ENDPOINT — no incident has "
                 + "been promoted from its observations.",
         run: () => navigate(`/xdr/incidents/${incidentId}`) },
+      // Fleet file trajectory is keyed on a FILE, and this endpoint view
+      // binds no file hash — the route is `/xdr/intelligence/files/:key`.
+      // Offering it without a key sent the analyst to the catch-all, which
+      // bounced them home. It is now declared for what it is.
       { id: "fleet-file-trajectory", label: "Fleet file trajectory",
-        state: "available", run: () => navigate("/xdr/intelligence/files") },
+        state: "no_evidence",
+        reason: "◇ NO FILE IS BOUND TO THIS VIEW — fleet file trajectory is "
+                + "keyed on a file hash; open it from a file or hash entity.",
+        run: () => {} },
       { id: "spread-watchlist", label: "Spread watchlist",
         state: "available", run: () => navigate("/xdr/endpoints") },
       { id: "audit-log", label: "Device audit log", state: "no_evidence",

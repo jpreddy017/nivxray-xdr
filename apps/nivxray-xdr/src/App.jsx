@@ -317,6 +317,12 @@ export default function App() {
             NivXRay backend API where available and surfaces four
             distinct honest states otherwise. */}
         <Route path="/xdr/admin"          element={<Protected><XdrAdminPage /></Protected>} />
+        {/* Retired rail target. `detection-rules` was never an admin section
+            key, so the row rendered "Unknown admin section". Old deep links
+            resolve to the registry that actually owns detection content. */}
+        <Route path="/xdr/admin/detection-rules"
+               element={<Navigate to="/xdr/admin/detection-registry" replace />} />
+
         <Route path="/xdr/admin/:section" element={<Protected><XdrAdminPage /></Protected>} />
 
         {/* NivXForge EDR Console — pivots to /edr/trajectory in the
