@@ -346,6 +346,8 @@ from routers.xdr_lolbas import router as xdr_lolbas_router
 app.include_router(xdr_lolbas_router)
 from routers.xdr_rbac import router as xdr_rbac_router
 app.include_router(xdr_rbac_router)
+from routers.xdr_scope import router as xdr_scope_router
+app.include_router(xdr_scope_router)
 from routers.xdr_api_keys import router as xdr_api_keys_router
 app.include_router(xdr_api_keys_router)
 from routers.xdr_tenancy import (organizations_router as xdr_organizations_router,

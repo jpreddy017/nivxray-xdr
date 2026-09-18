@@ -94,14 +94,79 @@ def test_effective_analyst_tenant_scoped(analyst_token):
 @pytest.mark.parametrize("path", [
     "/api/xdr/rbac/permissions",
     "/api/xdr/rbac/roles",
-    "/api/xdr/rbac/users",
-    "/api/xdr/rbac/groups",
     "/api/xdr/rbac/session-context",
 ])
 def test_rbac_admin_200(admin_token, path):
+    """Tenant-INDEPENDENT surfaces: the catalogue, the role library and the
+    principal's own session context are not scoped to one customer."""
     r = requests.get(f"{BASE}{path}",
                      headers={"Authorization": f"Bearer {admin_token}"}, timeout=15)
     assert r.status_code == 200, f"{path} -> {r.status_code}: {r.text[:200]}"
+
+
+# ─── A0.5 · T-RISK-1 · tenant-scoped surfaces require a named tenant ───
+#
+# REPAIRED 2026-06 (A0.5, Category A). These two paths were previously
+# asserted to answer 200 for a cross-tenant administrator that named NO
+# tenant. That only worked because `xdr_rbac._principal()` substituted the
+# literal tenant `"default"` — the T-RISK-1 defect. The old expectation
+# therefore *encoded the unsafe fallback*, so it is replaced (not weakened)
+# by the authoritative contract:
+#
+#     no tenant named      → 403 TENANT_REQUIRED   (fail closed)
+#     authorized tenant    → 200
+#
+# Before: 200 (operating in tenant "default"). After: 403 / 200 as below.
+
+@pytest.mark.parametrize("path", [
+    "/api/xdr/rbac/users",
+    "/api/xdr/rbac/groups",
+])
+def test_tenant_scoped_rbac_requires_a_named_tenant(admin_token, path):
+    r = requests.get(f"{BASE}{path}",
+                     headers={"Authorization": f"Bearer {admin_token}"}, timeout=15)
+    assert r.status_code == 403, f"{path} -> {r.status_code}: {r.text[:200]}"
+    detail = r.json()["detail"]
+    assert detail["code"] == "TENANT_REQUIRED", detail
+    assert detail["fail_closed"] is True, detail
+    assert detail["risk"] == "T-RISK-1", detail
+
+
+@pytest.mark.parametrize("path", [
+    "/api/xdr/rbac/users",
+    "/api/xdr/rbac/groups",
+])
+def test_tenant_scoped_rbac_200_with_authorized_tenant(admin_token, path):
+    scope = requests.get(f"{BASE}/api/xdr/scope/authorized",
+                         headers={"Authorization": f"Bearer {admin_token}"},
+                         timeout=15)
+    assert scope.status_code == 200, scope.text
+    tenants = scope.json()["data"]["tenants"]
+    assert tenants, "no authorized tenant to exercise the scoped surface"
+    ten = tenants[0]["customer"]
+    r = requests.get(f"{BASE}{path}",
+                     headers={"Authorization": f"Bearer {admin_token}",
+                              "X-Tenant-Id": ten}, timeout=15)
+    assert r.status_code == 200, f"{path}@{ten} -> {r.status_code}: {r.text[:200]}"
+
+
+def test_unauthorized_tenant_is_refused_for_a_scoped_principal(analyst_token):
+    """The analyst is authorized for `nivx-live` only; naming another
+    customer is a denial, never that customer's records.
+
+    Either denial is correct: `require_permission` refuses first when the
+    principal holds no RBAC grant for the surface, and the tenant authority
+    refuses when it does. Both are asserted as a denial that returns no
+    records — the outcome, not the order, is the contract.
+    """
+    r = requests.get(f"{BASE}/api/xdr/rbac/users",
+                     headers={"Authorization": f"Bearer {analyst_token}",
+                              "X-Tenant-Id": "default"}, timeout=15)
+    assert r.status_code == 403, r.text
+    code = r.json()["detail"]["code"]
+    assert code in ("TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL",
+                    "ACCESS_DENIED"), r.text
+    assert "ok" not in r.json(), r.text          # no record set was returned
 
 
 # ─── Anonymous & header-spoof fail-closed on control plane ───

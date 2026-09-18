@@ -43,6 +43,7 @@ import DetectionRegistryBody from "@/xdr/admin/DetectionRegistryBody";
 import CorrelationRulesBody  from "@/xdr/admin/CorrelationRulesBody";
 import PlatformOverviewBody  from "@/xdr/admin/PlatformOverviewBody";
 import UsersRolesBody from "@/xdr/admin/UsersRolesBody";
+import IntelligencePolicyBody from "@/xdr/admin/IntelligencePolicyBody";
 import ApiKeysBody from "@/xdr/admin/ApiKeysBody";
 import WebhooksBody from "@/xdr/admin/WebhooksBody";
 import ResponseStrategiesBody from "@/xdr/admin/ResponseStrategiesBody";
@@ -214,7 +215,8 @@ function AdminBody({ section }) {
          || section.kind === "ingest_routing"
          || section.kind === "detection_registry"
          || section.kind === "correlation_rules"
-         || section.kind === "response_strategies") {
+         || section.kind === "response_strategies"
+         || section.kind === "intelligence_policy") {
       // Fully client-side (each fetches from base API on mount).
       setPayload(null);
       setState("populated");
@@ -363,6 +365,8 @@ function AdminBody({ section }) {
               ? <ContentPackLolbasBody />
               : section.kind === "users_roles"
               ? <UsersRolesBody />
+              : section.kind === "intelligence_policy"
+              ? <IntelligencePolicyBody />
               : section.kind === "api_keys"
               ? <ApiKeysBody />
               : section.kind === "webhooks"

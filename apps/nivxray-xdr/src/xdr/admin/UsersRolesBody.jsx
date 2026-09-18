@@ -25,6 +25,7 @@ import {
 import api from "@/lib/api";
 import { refusalText } from "@/lib/refusal";
 import AdminHero from "@/xdr/admin/AdminHero";
+import AdminTenantGate from "@/xdr/admin/AdminTenantGate";
 
 
 // ── Small helpers ─────────────────────────────────────────────────
@@ -703,6 +704,15 @@ function ModalShell({ title, onClose, wide, children }) {
 
 // ── Main body ────────────────────────────────────────────────────
 export default function UsersRolesBody() {
+  return (
+    <AdminTenantGate label="Users & Roles">
+      <UsersRolesContent />
+    </AdminTenantGate>
+  );
+}
+
+
+function UsersRolesContent() {
   const [tab, setTab] = useState("users");
   const [tick, setTick] = useState(0);
   const [roles, setRoles] = useState([]);

@@ -20,7 +20,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import api from "@/lib/api";
 import ExecutiveSummaryPanel from "@/xdr/design/ExecutiveSummaryPanel";
-import IntelligenceControlPanel from "@/xdr/components/IntelligenceControlPanel";
+import IncidentIntelligenceContext from "@/xdr/intelligence/IncidentIntelligenceContext";
 import {
   EvidenceGlyph, HostGlyph, UserGlyph, ProcessGlyph, FileGlyph,
   NetworkGlyph, DomainGlyph, TechniqueGlyph, TacticGlyph,
@@ -100,12 +100,12 @@ export default function IncidentOverviewV2({ incident }) {
               provider produced the prose. */}
       <ExecutiveSummaryPanel incidentId={incident?.id} />
 
-      {/* NivXRay XDR Intelligence · Incident-scope Governance.
-              May only NARROW the MSS/Global ceiling. */}
+      {/* Intelligence context for THIS investigation — no global policy
+              editing inside an incident. An incident may only narrow the
+              tenant ceiling, and that control is disclosed, not displayed. */}
       {incident?.id && (
         <div style={{ marginTop: 12 }} data-testid="xdr-incident-intelligence-slot">
-          <IntelligenceControlPanel scope="incident"
-                                                                    incidentId={incident.id} />
+          <IncidentIntelligenceContext incidentId={incident.id} />
         </div>
       )}
 

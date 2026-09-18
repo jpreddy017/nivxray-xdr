@@ -155,6 +155,12 @@ export const ADMIN_SECTIONS = [
     integration: "Response Policy engine (arrives with Slice 11)",
   },
   {
+    key: "intelligence-policy", label: "Intelligence Policy", icon: Cpu,
+    subtitle: "Which intelligence NivXRay is permitted to use for this tenant · three modes · audited reason on every change. Policy ≠ Provisioning ≠ Availability ≠ Effective state; each is reported separately and never as the other.",
+    api: null, kind: "intelligence_policy", connected: true,
+    authoritative: true,
+  },
+  {
     key: "users-roles", label: "Users & Roles", icon: Users,
     subtitle: "Enterprise RBAC · users · custom + built-in roles (L1/L2/L3/SME/Manager/Admin/Auditor) · granular resource×action permissions · access simulator · every mutation audit-logged and server-enforced.",
     api: null, kind: "users_roles", connected: true,

@@ -177,7 +177,27 @@ _RESOURCES: dict[str, dict[str, Any]] = {
         "actions": ["read", "update", "override"],
         "group":   "Intelligence",
     },
+    # A0.5-5 · CONSOLE AUTHORIZATION.
+    # `console.soc.access` and `console.admin.access` are INDEPENDENT
+    # permissions delivered by this authoritative RBAC system. They are not
+    # React flags, and neither implies the other. A `console` session claim
+    # names a DESTINATION; only the permission is authority.
+    "console": {
+        "actions": ["soc.access", "admin.access"],
+        "group":   "Platform",
+    },
 }
+
+# Console permissions are deliberately EXCLUDED from wildcard expansion
+# (`*.*`, `console.*`, `*.access`) so that entering a console is always an
+# explicit grant and can never be inherited from a broad administrative
+# wildcard. Independence is enforced by the catalogue, not by convention.
+_NO_WILDCARD_PERMISSIONS = frozenset({
+    "console.soc.access", "console.admin.access",
+})
+
+CONSOLE_PERMISSIONS = {"soc": "console.soc.access",
+                              "admin": "console.admin.access"}
 
 
 def _all_permissions() -> list[str]:
@@ -328,31 +348,116 @@ _BUILTIN_ROLE_BY_NAME = {r["name"]: r for r in _BUILTIN_ROLES}
 
 
 # ── Principal extraction ──────────────────────────────────────────
-def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
-    return ten, pid, pkd
+# A0.5 · FAIL CLOSED (owner-authorized 2026-06).
+#
+# T-RISK-1  unresolved tenant    → literal "default"            — CLOSED
+# T-RISK-2  unresolved principal → literal "admin@nivxray.com"   — CLOSED
+#
+# The previous implementation read the tenant AND the principal from
+# client-supplied `X-Tenant-Id` / `X-Principal-Id` headers and, when they
+# were absent, substituted the literal tenant `"default"` and the literal
+# identity `"admin@nivxray.com"`. Under the multitenant/MDR model that is
+# two distinct fail-open defects in one authorization boundary:
+#   · absence of a tenant became a real tenant's data (silent cross-tenant
+#     read/write, since every route below queries on this tenant);
+#   · absence of an identity became the PLATFORM ADMINISTRATOR's identity,
+#     so provenance in the audit log could be forged or fabricated.
+#
+# Now:
+#   · identity comes only from `verified_actor()` — the machine principal
+#     stamped by `authenticate_api_key()` or the `sub` of a bearer token
+#     verified with the same secret/algorithm as `deps.get_current_user`.
+#     Client `X-Principal-Id` / `X-Principal-Kind` are recorded as a
+#     non-authoritative claim and influence nothing.
+#   · the tenant is resolved by the EXISTING tenant authority
+#     (`services.session_context.authorize_requested_tenant`, which reads
+#     `dashboard_lenses.resolve_tenant_scope`). `X-Tenant-Id` is a REQUEST:
+#     it can only ever narrow to a tenant the principal is authorized for.
+#   · no resolvable tenant/principal → DENY. There is no default tenant and
+#     absence of identity never increases privilege.
+def resolve_principal(req: Request) -> tuple[str, str, str]:
+    pid, pkd = verified_actor(req)
+    if not pid:
+        _audit_scope_denial(None, None, "principal",
+                                     "T-RISK-2:unverified-principal")
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED", "reason": (
+                "no verified principal; a client-supplied identity header "
+                "is never an identity"),
+            "risk": "T-RISK-2", "fail_closed": True})
+    requested = req.headers.get("X-Tenant-Id")
+
+    # MACHINE principal — the credential is already pinned to exactly one
+    # tenant by `authenticate_api_key()`; it has no scope navigator and no
+    # console. Its tenant is read off `request.state`, never a header.
+    if pkd == "api_key":
+        ten = getattr(req.state, "tenant_id", None)
+        if not ten:
+            _audit_scope_denial(None, pid, "principal",
+                                         "machine-tenant-not-resolved")
+            raise HTTPException(status_code=403, detail={
+                "code": "TENANT_NOT_RESOLVED", "reason": (
+                    "machine principal has no authenticated tenant binding"),
+                "risk": "T-RISK-1", "fail_closed": True})
+        return str(ten), str(pid), "api_key"
+
+    from services.session_context import (ScopeDenied,
+                                                             authorize_requested_tenant)
+    try:
+        ten, basis = authorize_requested_tenant(pid, requested)
+    except ScopeDenied as e:
+        _audit_scope_denial(requested, pid, "principal",
+                                     f"T-RISK-1:{e.code}:{e.basis}")
+        raise HTTPException(status_code=e.http,
+                                     detail={**e.detail(), "risk": "T-RISK-1"}) from None
+    req.state.effective_tenant_id = ten
+    req.state.tenant_resolution_basis = basis
+    return str(ten), str(pid), "user"
+
+
+def _audit_scope_denial(tenant: str | None, principal: str | None,
+                                     resource_id: str, reason: str) -> None:
+    """Every scope/identity denial is audited (A0.5-9 · contract C9)."""
+    try:
+        emit_audit(tenant_id=tenant or "unresolved",
+                          principal_id=principal or "unresolved",
+                          principal_kind="user",
+                          action="ACCESS_DENIED", resource_kind="tenant_scope",
+                          resource_id=resource_id, outcome="FAILURE",
+                          metadata={"reason": reason, "fail_closed": True})
+    except Exception:  # noqa: BLE001,S110
+        pass
+
+
+#: Single authoritative principal/tenant resolver for every tenant-scoped
+#: XDR control-plane router. Siblings delegate here so the T-RISK-1 /
+#: T-RISK-2 fallbacks cannot reappear as a per-router copy.
+_principal = resolve_principal
 
 
 # ── Permission resolution ─────────────────────────────────────────
 def _expand_wildcard(perm: str) -> set[str]:
-    """Expand `*.*`, `resource.*`, `*.action` to concrete permissions."""
+    """Expand `*.*`, `resource.*`, `*.action` to concrete permissions.
+
+    A0.5-5 · console permissions are never produced by a wildcard, so
+    `console.soc.access` / `console.admin.access` must always be granted
+    by name. Administrator ⇏ SOC access; SOC access ⇏ administrator.
+    """
+    if perm in _NO_WILDCARD_PERMISSIONS:
+        return {perm}
     if perm == "*.*":
-        return set(_all_permissions())
+        return set(_all_permissions()) - _NO_WILDCARD_PERMISSIONS
     try:
         r, a = perm.split(".", 1)
     except ValueError:
         return set()
     if r == "*":
         return {f"{res}.{a}" for res, meta in _RESOURCES.items()
-                    if a in meta["actions"]}
+                    if a in meta["actions"]} - _NO_WILDCARD_PERMISSIONS
     if a == "*":
         meta = _RESOURCES.get(r)
-        return {f"{r}.{ac}" for ac in (meta["actions"] if meta else [])}
+        return ({f"{r}.{ac}" for ac in (meta["actions"] if meta else [])}
+                    - _NO_WILDCARD_PERMISSIONS)
     return {perm}
 
 
@@ -813,6 +918,55 @@ def require_permission(permission: str, *, resource_id_header: str | None = None
                 "reason": result["reason"]})
         return True
     return _dep
+
+
+# ── A0.5-5 · Console authorization ────────────────────────────────
+#: The legacy cross-tenant `role == "admin"` JWT short-circuit in
+#: `require_permission` is PRESERVED (A0.5 is not an auth redesign), so a
+#: platform administrator holds both consoles as a declared break-glass
+#: authority — reported as `PLATFORM_ADMIN_BREAK_GLASS`, never inferred
+#: from one console to the other.
+def require_console(console: str):
+    """Enforce `console.soc.access` / `console.admin.access`.
+
+    Independent permissions. A `console=` claim on a session/URL names a
+    DESTINATION and grants nothing; only this permission is authority.
+    """
+    permission = CONSOLE_PERMISSIONS[console]
+    return require_permission(permission)
+
+
+def console_authorization(user: dict | None) -> dict:
+    """Which consoles this VERIFIED principal may enter, and why.
+
+    A projection of the production resolver (`check_access` →
+    `_resolve_user_permissions`) — never a second algorithm.
+    """
+    email = (user or {}).get("email")
+    role = (user or {}).get("role")
+    if not email:
+        return {"soc": False, "admin": False, "basis": "NOT_AUTHENTICATED",
+                     "authority": "server",
+                     "note": "no verified principal"}
+    if role == "admin":
+        return {"soc": True, "admin": True,
+                     "basis": "PLATFORM_ADMIN_BREAK_GLASS",
+                     "authority": "server",
+                     "note": ("cross-tenant platform administrator · this is a "
+                                    "declared platform authority, not an inference "
+                                    "from one console to the other")}
+    ten = (user or {}).get("tenant_id")
+    if not ten:
+        return {"soc": False, "admin": False, "basis": "NO_TENANT_SCOPE",
+                     "authority": "server",
+                     "note": "principal holds no tenant scope"}
+    out = {"authority": "server", "basis": "TENANT_SCOPED_RBAC_GRANT",
+              "reasons": {}}
+    for name, perm in CONSOLE_PERMISSIONS.items():
+        res = check_access(ten, email, perm)
+        out[name] = bool(res["allow"])
+        out["reasons"][name] = res["reason"]
+    return out
 
 
 # ── Pydantic bodies ───────────────────────────────────────────────

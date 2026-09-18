@@ -22,6 +22,10 @@ const DataSourcesPage         = lazy(() => import("@/xdr/datasources/DataSources
 // E2E-3 · ONE authoritative asset inventory. `/xdr/endpoints` redirects here.
 const AssetsPage              = lazy(() => import("@/xdr/assets/AssetsPage"));
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
+// Wave B2 · `/xdr/incidents` is now the Cortex-structured workspace on REAL
+// queue data. The previous table queue stays reachable at
+// `/xdr/incidents/_table` so no capability is lost while it is reviewed.
+const XdrIncidentsCortexPage  = lazy(() => import("@/xdr/pages/XdrIncidentsCortexPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 // E2E-UX0 · non-destructive design prototype at `/xdr/_ux0-preview`.
 const Ux0PreviewPage          = lazy(() => import("@/xdr/ux0/Ux0PreviewPage"));
@@ -181,7 +185,8 @@ export default function App() {
         <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/mss-dashboard" replace />} />
         <Route path="/xdr/control-center"  element={<Navigate to="/xdr/mss-dashboard" replace />} />
         <Route path="/xdr/mss-dashboard"   element={<Protected><XdrMssDashboardPage /></Protected>} />
-        <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
+        <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsCortexPage /></Protected>} />
+        <Route path="/xdr/incidents/_table" element={<Protected><XdrIncidentsPage /></Protected>} />
         {/* E2E-UX0 · additive visual acceptance environment. Replaces no
             production route; awaiting owner visual approval. */}
         <Route path="/xdr/_ux0-preview"    element={<Protected><Ux0PreviewPage /></Protected>} />

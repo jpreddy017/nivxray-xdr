@@ -126,11 +126,12 @@ def _c_corr_rules():
     return _db()["xdr_correlation_rules"] if _db() is not None else None
 
 
+# A0.5 · delegated to the SINGLE authority (`routers.xdr_rbac`). The local
+# copy carried the T-RISK-1 `"default"` tenant fallback and the T-RISK-2
+# `"admin@nivxray.com"` identity fallback; both now fail closed.
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id") or "default")
-    pid = (req.headers.get("X-Principal-Id") or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind") or "user")
-    return ten, pid, pkd
+    from routers.xdr_rbac import resolve_principal
+    return resolve_principal(req)
 
 
 def _hash_payload(payload: Any) -> str:

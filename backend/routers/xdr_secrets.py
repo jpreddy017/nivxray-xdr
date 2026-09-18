@@ -117,14 +117,12 @@ def _mask(doc: dict) -> dict:
 
 
 # ── Principal / tenant extraction ─────────────────────────────────
+# A0.5 · delegated to the SINGLE authority (`routers.xdr_rbac`). The local
+# copy carried the T-RISK-1 `"default"` tenant fallback and the T-RISK-2
+# `"admin@nivxray.com"` identity fallback; both now fail closed.
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
-    return ten, pid, pkd
+    from routers.xdr_rbac import resolve_principal
+    return resolve_principal(req)
 
 
 # ── Pydantic bodies ───────────────────────────────────────────────

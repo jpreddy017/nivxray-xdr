@@ -143,11 +143,30 @@ def _principal(req: Request) -> tuple[str, str, str]:
         ten = tenant_registry.authoritative(raw, purpose="xdr.audit")
     except tenant_registry.TenantRegistryError as e:
         raise HTTPException(status_code=e.http, detail=e.detail()) from None
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
+    pid = _verified_principal(req)
+    pkd = ("api_key" if getattr(req.state, "principal_kind", None) == "api_key"
+              else "user")
     return ten, pid, pkd
+
+
+def _verified_principal(req: Request) -> str:
+    """A0.5 · T-RISK-2 · identity from VERIFIED authentication only.
+
+    The previous body read `X-Principal-Id` and, when absent, substituted
+    the literal `"admin@nivxray.com"` — in the AUDIT router, which meant
+    provenance itself could be forged or fabricated.
+    """
+    from fastapi import HTTPException
+
+    from routers.xdr_rbac import verified_actor
+    pid, _ = verified_actor(req)
+    if not pid:
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED",
+            "reason": ("no verified principal; a client-supplied identity "
+                            "header is never an identity"),
+            "risk": "T-RISK-2", "fail_closed": True})
+    return str(pid)
 
 
 # ── Lazy RBAC dependency (avoids circular import with xdr_rbac
