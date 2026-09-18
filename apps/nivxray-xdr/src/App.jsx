@@ -12,6 +12,7 @@ import { HOME_PATH } from "@/productScope";
 import ProductScopeGuard from "@/components/ProductScopeGuard";
 
 import { useAuth } from "@/lib/auth";
+import { useAccess } from "@/xdr/access/AccessProvider";
 import LoginPage from "@/pages/LoginPage";
 
 const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
@@ -22,6 +23,8 @@ const DataSourcesPage         = lazy(() => import("@/xdr/datasources/DataSources
 const AssetsPage              = lazy(() => import("@/xdr/assets/AssetsPage"));
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
+// E2E-UX0 · non-destructive design prototype at `/xdr/_ux0-preview`.
+const Ux0PreviewPage          = lazy(() => import("@/xdr/ux0/Ux0PreviewPage"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
 const XdrEntity360Page        = lazy(() => import("@/xdr/pages/XdrEntity360Page"));
 const XdrFleetFileTrajectoryPage =
@@ -89,6 +92,43 @@ function Protected({ children }) {
   return children;
 }
 
+/**
+ * Route authorization (owner directive §24).
+ *
+ * Hiding a rail item is UX; this is the route layer. The BACKEND remains the
+ * security boundary — every admin API already answers 403 — but an analyst
+ * who types an admin URL should not get to enumerate the administration
+ * surface tree. Three-valued `canAny`: `false` denies, `true`/`null` allows
+ * (a transient authorization read must never lock an authorized operator out
+ * of their own console).
+ */
+function RequirePermission({ anyOf, label, children }) {
+  const access = useAccess();
+  if (access.loading) return null;
+  if (access.canAny(anyOf) !== false) return children;
+  return (
+    <XdrShellGuardShell>
+      <div className="nx-page" data-testid="route-not-authorized">
+        <div className="nx-empty nx-empty--noicon" role="alert">
+          <div className="nx-empty__title">
+            You are not authorized for {label}
+          </div>
+          <div className="nx-empty__hint">
+            Your effective permissions do not include any of{" "}
+            <code>{(anyOf || []).join(", ")}</code>.
+            {access.basis
+              ? ` Authorization basis: ${access.basis}.`
+              : ""}{" "}
+            This is an authorization decision, not a missing feature and not an
+            empty dataset — the server enforces the same answer on every API
+            call behind this page.
+          </div>
+        </div>
+      </div>
+    </XdrShellGuardShell>
+  );
+}
+
 function RouteFallback() {
   return (
     <div
@@ -140,6 +180,9 @@ export default function App() {
         <Route path="/xdr/control-center"  element={<Navigate to="/xdr/mss-dashboard" replace />} />
         <Route path="/xdr/mss-dashboard"   element={<Protected><XdrMssDashboardPage /></Protected>} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
+        {/* E2E-UX0 · additive visual acceptance environment. Replaces no
+            production route; awaiting owner visual approval. */}
+        <Route path="/xdr/_ux0-preview"    element={<Protected><Ux0PreviewPage /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
         <Route path="/xdr/incidents/:id/domain/:domainKey"
                                             element={<Protected><XdrIncidentDomainPage /></Protected>} />

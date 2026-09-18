@@ -52,6 +52,20 @@ function presetOf(values) {
 }
 
 // ---- Component ----------------------------------------------------
+/** A FastAPI `detail` is often an object (`{code, permission, reason}`), and
+ *  rendering an object as a React child throws. This is the one place the
+ *  panel turns any error shape into a readable line — never a crash. */
+function errText(e) {
+  const d = e?.response?.data?.detail ?? e?.detail ?? e;
+  if (d == null) return "Request failed.";
+  if (typeof d === "string") return d;
+  if (typeof d === "object") {
+    return d.reason || d.message || d.detail || d.code
+      || (e?.message ?? JSON.stringify(d));
+  }
+  return String(d);
+}
+
 export default function IntelligenceControlPanel({
   scope,               // "global" | "incident"
   incidentId,          // required when scope === "incident"
@@ -92,7 +106,7 @@ export default function IntelligenceControlPanel({
         setGlobalPol(ef.data.global);
       }
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || String(e));
+      setError(errText(e));
     } finally { setLoading(false); }
   };
 
@@ -125,8 +139,7 @@ export default function IntelligenceControlPanel({
         setError("You do not have permission to change this policy. " +
                          "Ask a tenant_admin or soc_manager.");
       } else {
-        setError(typeof detail === "string" ? detail :
-                         JSON.stringify(detail || e));
+        setError(errText(e));
       }
     } finally { setSavingKey(null); }
   };
@@ -140,7 +153,7 @@ export default function IntelligenceControlPanel({
         `?reason=${encodeURIComponent(reason || "cleared")}`);
       await load();
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message);
+      setError(errText(e));
     } finally { setSavingKey(null); }
   };
 
@@ -152,7 +165,7 @@ export default function IntelligenceControlPanel({
           `/intelligence/policy/${scopeKind}/${scopeId}/history`);
         setHistory(data.history || []);
       } catch (e) {
-        setError(e?.response?.data?.detail || e?.message);
+        setError(errText(e));
       }
     }
   };
