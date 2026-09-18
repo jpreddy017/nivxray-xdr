@@ -1,86 +1,218 @@
 /**
- * TimelineTab · Layer 3.
+ * Timeline · the investigation timeline.
  *
- * Combines two authoritative surfaces:
- *   · Lifecycle state history (`incident.state_history` — already
- *     persisted by /api/incidents/:id/state).
- *   · Canonical activity inventory (via the existing ActivityTab
- *     which consumes /api/activity/inventory).
+ * ONE chronological table over every authoritative time-bearing fact this
+ * platform holds for the incident:
  *
- * The rendering is honest: an incident without transitions or
- * activity gets an explicit empty state rather than fabricated
- * events.
+ *   · reconstructed attack milestones  (`GET /api/incidents/{id}/attack-story`)
+ *   · lifecycle transitions            (`incident.state_history`)
+ *
+ * Nothing is merged that does not carry its own timestamp, and no row is
+ * synthesised to make the timeline look busier. Device Trajectory is
+ * mounted underneath this tab as engine depth by the workspace, so the
+ * analyst never leaves the investigation to replay the endpoint.
+ *
+ * Time fidelity: activity time, sensor observation time and ingestion time
+ * are DIFFERENT facts. Where a record carries more than one they are
+ * reported separately in the expanded row and never flattened.
  */
-import React from "react";
-import { CircleDot, ArrowRight } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import ActivityTab from "@/components/incidents/tabs/ActivityTab";
+import api from "@/lib/api";
+import {
+  NxInvSection, NxInvTable, NxInvEmpty, NxInvFilters, NxInvTech,
+  NxInvValue, ABSENCE, fmtTime,
+} from "@/xdr/nx";
 
-function fmtISO(iso) {
-  if (!iso) return "—";
-  const s = String(iso);
-  return s.length >= 16 ? s.slice(0, 16).replace("T", " ") : s;
+const CATEGORIES = [
+  { key: "process",   label: "Process",   match: /process|exec|command|parent|child/i },
+  { key: "file",      label: "File",      match: /file|artifact|hash|write|drop/i },
+  { key: "network",   label: "Network",   match: /network|dns|http|c2|beacon|socket|ip/i },
+  { key: "registry",  label: "Registry",  match: /registry|regkey|persistence/i },
+  { key: "identity",  label: "Identity",  match: /identity|user|account|logon|credential|privilege/i },
+  { key: "system",    label: "System",    match: /system|service|driver|boot|wmi|scheduled/i },
+  { key: "lifecycle", label: "Lifecycle", match: /^lifecycle$/i },
+];
+
+function categorise(text, explicit) {
+  if (explicit) {
+    const hit = CATEGORIES.find((c) => c.key === String(explicit).toLowerCase());
+    if (hit) return hit.key;
+  }
+  const hay = String(text || "");
+  const hit = CATEGORIES.find((c) => c.key !== "lifecycle" && c.match.test(hay));
+  return hit ? hit.key : null;
 }
 
 export default function TimelineTab({ incident }) {
-  const history = incident.state_history || [];
+  const [story, setStory] = useState(null);
+  const [storyErr, setStoryErr] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState([]);
+
+  useEffect(() => {
+    if (!incident?.id) return undefined;
+    let live = true;
+    setLoading(true); setStoryErr(null);
+    api.get(`/incidents/${encodeURIComponent(incident.id)}/attack-story`)
+      .then(({ data }) => { if (live) setStory(data); })
+      .catch((e) => {
+        if (live) setStoryErr(e?.response?.data?.detail?.reason
+          || e?.response?.data?.detail || e?.message || "unavailable");
+      })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [incident?.id]);
+
+  const rows = useMemo(() => {
+    const out = [];
+    const steps = story?.steps || story?.story?.steps
+      || incident?.attack_story?.steps || [];
+    steps.forEach((s, i) => {
+      const activity = s.summary || s.title || s.stage || s.description;
+      out.push({
+        id: `step-${i}`,
+        at: s.time || s.timestamp || s.at || s.observed_at || null,
+        observed_at: s.observed_at || null,
+        ingested_at: s.ingested_at || null,
+        entity: s.entity || s.host || s.process || s.device || null,
+        activity,
+        category: categorise(`${s.stage} ${activity}`, s.category || s.lane),
+        source: s.source || s.detection_source || story?.engine || null,
+        detection: s.technique || s.rule_id || null,
+        evidence: s.evidence_id || s.evidence_ref
+          || (Array.isArray(s.evidence_ids) ? s.evidence_ids.join(", ") : null),
+        kind: "Attack milestone",
+        raw: s,
+      });
+    });
+    (incident?.state_history || []).forEach((h, i) => {
+      out.push({
+        id: `lc-${i}`,
+        at: h.at || h.ts || null,
+        entity: h.by || h.actor || null,
+        activity: `Incident moved ${h.from || "—"} → ${h.to || "—"}`,
+        category: "lifecycle",
+        source: "Analyst action",
+        detection: null,
+        evidence: null,
+        note: h.note || h.reason || null,
+        kind: "Lifecycle transition",
+        raw: h,
+      });
+    });
+    return out.sort((a, b) => {
+      const ta = Date.parse(a.at || "") || 0;
+      const tb = Date.parse(b.at || "") || 0;
+      return tb - ta;
+    });
+  }, [story, incident]);
+
+  const counts = useMemo(() => {
+    const c = {};
+    rows.forEach((r) => { if (r.category) c[r.category] = (c[r.category] || 0) + 1; });
+    return c;
+  }, [rows]);
+
+  const visible = filters.length === 0
+    ? rows : rows.filter((r) => filters.includes(r.category));
+
+  const columns = [
+    { key: "at", label: "Time", width: 158,
+      render: (r) => <NxInvValue value={fmtTime(r.at)} mono
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "entity", label: "Entity", width: 190,
+      render: (r) => <NxInvValue value={r.entity} mono
+                                 absent={ABSENCE.NOT_ATTRIBUTED} /> },
+    { key: "activity", label: "Activity",
+      render: (r) => <NxInvValue value={r.activity}
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "category", label: "Category", width: 92,
+      render: (r) => (r.category
+        ? (CATEGORIES.find((c) => c.key === r.category)?.label || r.category)
+        : <span className="inv-tb__na">NOT CATEGORISED</span>) },
+    { key: "source", label: "Source", width: 150,
+      render: (r) => <NxInvValue value={r.source} mono
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "detection", label: "Detection", width: 110,
+      render: (r) => <NxInvValue value={r.detection} mono
+                                 absent={ABSENCE.NOT_OBSERVED} /> },
+    { key: "evidence", label: "Evidence", width: 130,
+      render: (r) => <NxInvValue value={r.evidence} mono
+                                 absent={ABSENCE.EVIDENCE_INCOMPLETE} /> },
+  ];
+
+  const detail = (r) => (
+    <dl className="inv-kv">
+      <dt>Record</dt><dd>{r.kind}</dd>
+      <dt>Activity time</dt>
+      <dd className="mono"><NxInvValue value={fmtTime(r.at)}
+                                       absent={ABSENCE.NOT_RECORDED} /></dd>
+      <dt>Sensor observed</dt>
+      <dd className="mono"><NxInvValue value={fmtTime(r.observed_at)}
+                                       absent={ABSENCE.NOT_RECORDED} /></dd>
+      <dt>Ingested</dt>
+      <dd className="mono"><NxInvValue value={fmtTime(r.ingested_at)}
+                                       absent={ABSENCE.NOT_RECORDED} /></dd>
+      {r.note && <><dt>Note</dt><dd>{r.note}</dd></>}
+      <dt>Evidence reference</dt>
+      <dd className="mono"><NxInvValue value={r.evidence}
+                                       absent={ABSENCE.EVIDENCE_INCOMPLETE} /></dd>
+    </dl>
+  );
 
   return (
-    <div data-testid="xdr-record-timeline">
-      {/* Lifecycle state history */}
-      <div className="rl-section">
-        <div className="rl-section-title">Lifecycle state history</div>
-        {history.length === 0
-          ? <div className="rl-empty">
-              NO TRANSITIONS — this incident is still in its initial
-              state; no state transitions have been recorded.
-            </div>
-          : <table className="rl-table">
-              <thead><tr>
-                <th style={{ width: 160 }}>Timestamp</th>
-                <th>Transition</th>
-                <th>Actor</th>
-                <th>Note</th>
-              </tr></thead>
-              <tbody>
-                {history.map((h, i) => (
-                  <tr key={i} data-testid={`xdr-record-timeline-hist-${i}`}>
-                    <td className="mono">{fmtISO(h.at || h.ts)}</td>
-                    <td className="mono">
-                      <CircleDot size={11} style={{ display: "inline",
-                                                        verticalAlign: "-1px",
-                                                        marginRight: 4,
-                                                        color: "var(--rl-muted)" }} />
-                      {h.from || "—"}
-                      <ArrowRight size={11} style={{ display: "inline",
-                                                         verticalAlign: "-2px",
-                                                         margin: "0 6px",
-                                                         color: "var(--rl-purple)" }} />
-                      <span style={{ color: "var(--rl-purple)", fontWeight: 700 }}>
-                        {h.to || "—"}
-                      </span>
-                    </td>
-                    <td className="mono">{h.by || h.actor || "—"}</td>
-                    <td>{h.note || h.reason || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>}
-      </div>
+    <div className="inv" data-testid="xdr-record-timeline">
+      <NxInvSection
+        title="Investigation timeline"
+        subtitle={loading ? "reading the authoritative records…"
+          : `${visible.length} of ${rows.length} record(s)`}
+        testid="inv-timeline">
+        <NxInvFilters testid="inv-timeline-filters" active={filters}
+                      onChange={setFilters}
+                      options={CATEGORIES.map((c) => ({ key: c.key,
+                        label: c.label, count: counts[c.key] || 0 }))} />
+        <NxInvTable testid="inv-timeline-table" columns={columns}
+                    rows={visible} rowKey={(r) => r.id} detail={detail}
+                    empty={
+                      <NxInvEmpty
+                        testid="inv-timeline-empty"
+                        title={rows.length === 0
+                          ? "No time-stamped activity has been established for this incident"
+                          : "No record matches the selected categories"}
+                        body={rows.length === 0
+                          ? "A timeline is built only from records that carry their own timestamp. This incident has neither a reconstructed attack sequence nor a recorded lifecycle transition yet."
+                          : "Clear the category filters to see every record."}
+                        points={rows.length === 0 ? [
+                          "Device Trajectory below replays the endpoint event stream when an endpoint identity is bound to this incident.",
+                          "Evidence that carries no time is reported under the Evidence tab, not invented here.",
+                        ] : []} />
+                    } />
+        <NxInvTech label="Technical details · timeline sources"
+                   testid="inv-timeline-tech">
+          <dl className="inv-kv">
+            <dt>Attack-story read</dt>
+            <dd className="mono">
+              GET /api/incidents/{incident?.id}/attack-story
+              {storyErr ? ` — ${typeof storyErr === "object"
+                ? JSON.stringify(storyErr) : storyErr}` : " — ok"}
+            </dd>
+            <dt>Lifecycle read</dt>
+            <dd className="mono">
+              incident.state_history · {(incident?.state_history || []).length} entry(ies)
+            </dd>
+          </dl>
+        </NxInvTech>
+      </NxInvSection>
 
-      {/* Canonical activity inventory (reused) */}
-      <div className="rl-section" data-testid="xdr-record-timeline-activity">
-        <div className="rl-section-title">Canonical activity inventory</div>
-        <div className="canvas-inner"
-              style={{ background: "transparent", padding: 0 }}>
-          <div className="xdr-console" style={{
-            background: "transparent",
-            padding: 0, minHeight: 0,
-          }}>
-            <ActivityTab incident={incident} />
-          </div>
+      <NxInvSection title="Canonical activity inventory"
+                    subtitle="every observation NivXRay holds for the entities in this incident"
+                    testid="xdr-record-timeline-activity">
+        <div className="inv-sec__b--pad">
+          <ActivityTab incident={incident} />
         </div>
-      </div>
+      </NxInvSection>
     </div>
   );
 }

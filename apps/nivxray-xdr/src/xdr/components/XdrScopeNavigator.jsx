@@ -80,12 +80,24 @@ export default function XdrScopeNavigator() {
   }, [incidentId]);
 
   useEffect(() => {
+    // Incident context WINS. Sending a stored tenant selection alongside an
+    // incident made the server answer SCOPE_LOCKED_TO_INCIDENT, which the
+    // pill then printed as "NOT AUTHORIZED" — the analyst was authorized,
+    // the scope was simply locked. Inside an incident we ask for the
+    // authorized scope and let the resolver bind it to the incident.
     const t = activeTenant();
+    if (incidentId) return resolve({ kind: "all_authorized" });
     resolve(t ? { kind: "tenant", tenantId: t } : { kind: "all_authorized" });
-  }, [resolve]);
+  }, [resolve, incidentId]);
 
-  const locked = Boolean(eff?.locked);
-  const label = denied ? "NOT AUTHORIZED" : scopeLabel(eff);
+  // A denial that names the incident lock is a LOCK, not a loss of
+  // authority — it is rendered as such.
+  const lockDenied = denied
+    && (denied.basis === "INHERITED_FROM_INCIDENT" || denied.locked);
+  const locked = Boolean(eff?.locked) || Boolean(lockDenied);
+  const label = lockDenied
+    ? ((denied.tenant_ids || [])[0] || "◇ NOT RESOLVED")
+    : denied ? "NOT AUTHORIZED" : scopeLabel(eff);
   const tenants = authorized?.tenants || [];
 
   const pick = async (tenantId) => {
@@ -128,8 +140,8 @@ export default function XdrScopeNavigator() {
           <span style={{ fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
                          overflow: "hidden", textOverflow: "ellipsis",
                          maxWidth: 210 }}
-                data-testid="xdr-scope-label">
-            {label}
+                data-testid="xdr-tenant-pill-label">
+            <span data-testid="xdr-scope-label">{label}</span>
             {locked && (
               <span style={{ fontWeight: 600, color: "var(--muted)" }}
                     data-testid="xdr-scope-lock-suffix">

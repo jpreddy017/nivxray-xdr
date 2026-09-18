@@ -91,7 +91,7 @@ export default function XdrContextBar() {
   const cust = sess?.active_customer;
   const custLabel = cust?.value
     || (cust?.basis === "CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER"
-      ? "ALL CUSTOMERS" : "◇ NOT RESOLVED");
+      ? "All Authorized Tenants" : "◇ NOT RESOLVED");
 
   return (
     <div data-testid="xdr-context-bar"

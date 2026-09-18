@@ -6,6 +6,7 @@
  * so we get consistent visual maturity without per-page CSS.
  */
 import React from "react";
+import NxErrorBoundary from "./NxErrorBoundary";
 import "./nx-page.css";
 
 export default function NxPageShell({
@@ -28,7 +29,7 @@ export default function NxPageShell({
           {action && <div className="nx-page-hero-action">{action}</div>}
         </header>
       )}
-      {children}
+      <NxErrorBoundary>{children}</NxErrorBoundary>
     </div>
   );
 }

@@ -231,7 +231,7 @@ export default function NivXForgeConsole({ activeTab, children }) {
             {sess?.active_customer?.value
               || (sess?.active_customer?.basis
                 === "CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER"
-                ? "ALL CUSTOMERS" : "◇ NOT RESOLVED")}
+                ? "All Authorized Tenants" : "◇ NOT RESOLVED")}
           </span>
         </span>
         {/* EDR → XDR product pivot. Resolved through `productOrigins` so

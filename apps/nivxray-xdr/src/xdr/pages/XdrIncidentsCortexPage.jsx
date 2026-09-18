@@ -45,6 +45,9 @@ const AGO = (iso) => {
   return `Updated ${Math.floor(s / 86400)} days ago`;
 };
 
+// Tab parity · the split view offers EXACTLY the tabs the full workspace
+// offers (`XdrIncidentDetailPage.TABS`). A capability must not appear or
+// disappear depending on which mode the analyst is in.
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "story", label: "Attack Story" },
@@ -55,6 +58,7 @@ const TABS = [
   { key: "mitre", label: "MITRE" },
   { key: "response", label: "Response" },
   { key: "activity", label: "Activity" },
+  { key: "report", label: "Report" },
 ];
 
 export default function XdrIncidentsCortexPage() {

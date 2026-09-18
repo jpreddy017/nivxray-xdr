@@ -17,6 +17,13 @@ export { NxSurface, NxKpi, NxPill }         from "./NxSurface";
 export { NxEmpty as NxEmptyBlock }          from "./NxSurface";
 export { NxEmpty, NxSkeleton }              from "./NxEmpty";
 export { NxDensityProvider, useNxDensity }  from "./NxDensity";
+export { default as NxErrorBoundary }       from "./NxErrorBoundary";
+
+// Investigation experience · one table, one empty state, one absence
+// vocabulary, one place for engine detail. Every incident tab composes
+// these instead of inventing its own presentation.
+export { NxInvSection, NxInvTable, NxInvEmpty, NxInvFilters, NxInvTech,
+         NxInvMetrics, NxInvValue, ABSENCE, fmtTime } from "./NxInv";
 
 // Slice 1 · enterprise primitives. One table, one flyout, one status
 // grammar, one tab bar — every page composes these instead of its own.

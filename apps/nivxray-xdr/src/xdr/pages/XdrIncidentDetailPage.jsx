@@ -26,12 +26,14 @@ import {
   NxPageShell, NxEntityHeader, NxFact, NxTabs, NxChip, NxEmpty, NxSkeleton,
   NxVerdict, NxLifecycle, NxPriority, NxRisk, NxConfidence,
   NxProvenanceChip, NxAttackChain, NxMetric,
+  NxInvSection, NxInvMetrics, NxInvValue, NxInvTech, ABSENCE,
 } from "@/xdr/nx";
 import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
 import OpenInEdr from "@/xdr/components/OpenInEdr";
 import IncidentIntelligenceContext from "@/xdr/intelligence/IncidentIntelligenceContext";
 
 import ExecutiveTab         from "./incidents/record/tabs/ExecutiveTab";
+import ActivityWorklogTab   from "./incidents/record/tabs/ActivityWorklogTab";
 import TechnicalTab         from "./incidents/record/tabs/TechnicalTab";
 import EvidenceTab          from "./incidents/record/tabs/EvidenceTab";
 import AutoInvestigationTab from "./incidents/record/tabs/AutoInvestigationTab";
@@ -65,6 +67,7 @@ const InvestigationEngine = lazy(
 import "./incidents/queue-theme.css";
 import "./incidents/record/record-theme.css";
 import "@/xdr/nx/nx-entity.css";
+import "@/xdr/nx/nx-inv.css";
 
 const TABS = [
   { key: "overview",   label: "Overview" },
@@ -263,6 +266,13 @@ export default function XdrIncidentDetailPage() {
               <NxPriority priority={incident.priority}
                           testid="incident-priority" />
               <NxLifecycle value={incident.state} testid="incident-state" />
+              <NxChip tone="neutral" variant="dashed"
+                      data-testid="incident-completeness"
+                      title="Analysis completeness is NOT confidence. An incident can be high confidence and still evidence-incomplete.">
+                {incident.analysis_completeness
+                  || incident.completeness?.state
+                  || ABSENCE.EVIDENCE_INCOMPLETE}
+              </NxChip>
             </>
           }
           actions={actions}
@@ -316,52 +326,108 @@ export default function XdrIncidentDetailPage() {
 
         <div data-testid={`incident-tab-${tab}`}>
           {tab === "overview" && (
-            <>
-              <IncidentIntelligenceContext incidentId={incident.id} />
-              <section className="nx-sec">
-                <h3 className="nx-sec-title">Verdict, cited</h3>
-                <dl className="nx-kv">
+            <div className="inv">
+              {/* Assessment · completeness · evidence — three DIFFERENT
+                  questions, never collapsed into one another. An
+                  investigation may be HIGH CONFIDENCE and still
+                  EVIDENCE INCOMPLETE. */}
+              <NxInvSection title="Assessment"
+                            subtitle="what we believe, how sure we are, and how complete the analysis is"
+                            testid="incident-overview-assessment">
+                <NxInvMetrics testid="incident-overview-metrics" items={[
+                  { key: "verdict", label: "Verdict",
+                    value: vc.verdict || incident.severity || null,
+                    absent: ABSENCE.NOT_EVALUATED },
+                  { key: "confidence", label: "Confidence",
+                    value: vc.confidence ?? incident.confidence ?? null,
+                    absent: ABSENCE.NOT_EVALUATED },
+                  { key: "completeness", label: "Analysis completeness",
+                    value: incident.analysis_completeness
+                      || incident.completeness?.state || null,
+                    absent: ABSENCE.NOT_EVALUATED,
+                    sub: "independent of confidence" },
+                  { key: "risk", label: "Risk",
+                    value: incident.verdict_stage2?.risk_score
+                      ?? incident.verdict?.risk_score ?? null,
+                    absent: ABSENCE.NOT_EVALUATED },
+                  { key: "evidence", label: "Evidence",
+                    value: incident.evidence_count ?? null,
+                    absent: ABSENCE.EVIDENCE_INCOMPLETE },
+                  { key: "priority", label: "Priority",
+                    value: incident.priority?.label || incident.priority || null,
+                    absent: ABSENCE.NOT_EVALUATED },
+                ]} />
+              </NxInvSection>
+
+              <NxInvSection title="Why this verdict"
+                            subtitle="derivation, engine and provenance — cited"
+                            testid="incident-overview-verdict" pad>
+                <dl className="inv-kv">
                   <dt>Verdict</dt>
                   <dd><NxVerdict value={vc.verdict || incident.severity} /></dd>
                   <dt>Derivation</dt>
-                  <dd>{vc.reason || <Absent>No derivation recorded</Absent>}</dd>
+                  <dd><NxInvValue value={vc.reason}
+                        absent="NOT RECORDED — no derivation was stored" /></dd>
                   <dt>Engine</dt>
-                  <dd>{vc.engine || <Absent />}</dd>
+                  <dd className="mono"><NxInvValue value={vc.engine}
+                        absent={ABSENCE.NOT_RECORDED} /></dd>
                   <dt>Provenance</dt>
-                  <dd>{incident.provenance_basis || <Absent />}</dd>
+                  <dd><NxInvValue value={incident.provenance_basis}
+                        absent={ABSENCE.EVIDENCE_INCOMPLETE} /></dd>
                 </dl>
-              </section>
-              <section className="nx-sec">
-                <h3 className="nx-sec-title">What was affected</h3>
-                <div className="nx-grid4">
-                  {["hosts", "users", "processes", "files", "network"].map((k) => (
-                    <NxMetric key={k} label={k} value={assets[k] ?? null}
-                              reason="Not counted on this record"
-                              testid={`incident-asset-${k}`} />
-                  ))}
+              </NxInvSection>
+
+              <NxInvSection title="What was affected"
+                            subtitle="counts come from the incident record — an uncounted class is not zero"
+                            testid="incident-overview-affected">
+                <NxInvMetrics testid="incident-overview-assets" items={
+                  ["hosts", "users", "processes", "files", "network"].map((k) => ({
+                    key: k, label: k, value: assets[k] ?? null,
+                    absent: ABSENCE.NOT_OBSERVED,
+                  }))} />
+              </NxInvSection>
+
+              <NxInvSection title="Incident summary"
+                            subtitle="evidence-backed narrative and recommended next inspection"
+                            testid="incident-overview-summary">
+                <div className="inv-sec__b--pad">
+                  <ExecutiveTab incident={incident} />
                 </div>
-              </section>
-              <ExecutiveTab incident={incident} />
-              <EngineDepth title="Why this verdict"
-                           hint="Deterministic verdict derivation and the causal security-state machine, as the engine recorded them."
+              </NxInvSection>
+
+              <NxInvSection title="Intelligence context"
+                            subtitle="effective intelligence applied to this incident"
+                            testid="incident-overview-intel">
+                <div className="inv-sec__b--pad">
+                  <IncidentIntelligenceContext incidentId={incident.id} />
+                </div>
+              </NxInvSection>
+
+              <EngineDepth title="Technical reasoning · verdict engine and causal state machine"
+                           hint="The deterministic verdict derivation and the causal security-state machine, exactly as the engine recorded them."
                            caseId={incident.id}
                            capabilities={["verdict", "security_state"]} />
-            </>
+            </div>
           )}
 
           {tab === "story" && (
-            <>
-              <section className="nx-sec">
-                <h3 className="nx-sec-title">Attack progression</h3>
-                <NxAttackChain nodes={incident.attack_progression}
-                               testid="incident-attack-chain" />
-              </section>
+            <div className="inv">
+              {(incident.attack_progression || []).length > 0 && (
+                <NxInvSection title="Attack chain"
+                              subtitle="the stages evidence places this incident in"
+                              testid="incident-story-chain">
+                  <div className="inv-sec__b--pad">
+                    <NxAttackChain nodes={incident.attack_progression}
+                                   testid="incident-attack-chain" />
+                  </div>
+                </NxInvSection>
+              )}
               <AttackStoryTab incident={incident} />
               <EngineDepth title="How it unfolded"
                            hint="Reconstructed causal narrative and process ancestry for this incident."
                            caseId={incident.id}
                            capabilities={["story", "process"]} />
-            </>
+            </div>
           )}
 
           {tab === "timeline"   && (
@@ -383,28 +449,65 @@ export default function XdrIncidentDetailPage() {
             </>
           )}
           {tab === "entities"   && (
-            <>
-              <AttackGraphTab incident={incident} onNavigateTab={setTab} />
-              <RelatedTab incident={incident} />
+            <div className="inv">
+              <NxInvSection title="Entities"
+                            subtitle="every entity class this incident touches — an uncounted class is not zero"
+                            testid="incident-entities-inventory">
+                <NxInvMetrics testid="incident-entities-metrics" items={[
+                  { key: "devices", label: "Devices",
+                    value: assets.hosts ?? null, absent: ABSENCE.NOT_OBSERVED },
+                  { key: "users", label: "Users",
+                    value: assets.users ?? null, absent: ABSENCE.NOT_OBSERVED },
+                  { key: "processes", label: "Processes",
+                    value: assets.processes ?? null, absent: ABSENCE.NOT_OBSERVED },
+                  { key: "files", label: "Files / hashes",
+                    value: assets.files ?? null, absent: ABSENCE.NOT_OBSERVED },
+                  { key: "network", label: "IPs / domains / URLs",
+                    value: assets.network ?? null, absent: ABSENCE.NOT_OBSERVED },
+                ]} />
+              </NxInvSection>
+
+              <NxInvSection title="Related entities"
+                            subtitle="pivot into any entity's own 360 view"
+                            testid="incident-entities-related">
+                <div className="inv-sec__b--pad">
+                  <RelatedTab incident={incident} />
+                </div>
+              </NxInvSection>
+
+              <NxInvSection title="Relationships"
+                            subtitle="process ancestry and the activity graph, in this incident's context"
+                            testid="incident-entities-relationships">
+                <div className="inv-sec__b--pad">
+                  <AttackGraphTab incident={incident} onNavigateTab={setTab} />
+                </div>
+              </NxInvSection>
+
               <EngineDepth title="Evidence graph (IKG)"
-                           hint="Entity and relationship graph the investigation was derived from."
+                           hint="The entity and relationship graph this investigation was derived from."
                            caseId={incident.id}
                            capabilities={["graph"]} />
-            </>
+            </div>
           )}
-          {tab === "detections" && <TechnicalTab  incident={incident} />}
+          {tab === "detections" && <TechnicalTab incident={incident} />}
           {tab === "mitre"      && (
-            <>
-              <MitreTab incident={incident} />
+            <div className="inv">
+              <NxInvSection title="ATT&CK coverage"
+                            subtitle="a technique appears only where evidence substantiates it"
+                            testid="incident-mitre-sec">
+                <div className="inv-sec__b--pad">
+                  <MitreTab incident={incident} />
+                </div>
+              </NxInvSection>
               <EngineDepth title="Engine technique mapping"
                            hint="ATT&CK techniques the causal engine attributed to this incident."
                            caseId={incident.id}
                            capabilities={["attack"]} />
-            </>
+            </div>
           )}
           {tab === "response"   && (
             <>
-              <section className="nx-sec">
+              <section className="nx-sec" data-testid="incident-response-authority">
                 <h3 className="nx-sec-title">Response authority</h3>
                 <p style={{ fontSize: 12, color: "var(--nx-text-dim)",
                             margin: "0 0 10px", lineHeight: 1.6 }}>
@@ -425,17 +528,56 @@ export default function XdrIncidentDetailPage() {
                   Open response drawer <ArrowUpRight size={13} />
                 </button>
               </section>
-              <RecommendationsTab incident={incident} />
+              <NxInvSection title="Response actions"
+                            subtitle="recommended · requested · approved · dispatched · executed · verified"
+                            testid="incident-response-actions">
+                <div className="inv-sec__b--pad">
+                  <RecommendationsTab incident={incident} />
+                </div>
+              </NxInvSection>
             </>
           )}
           {tab === "activity"   && (
-            <>
-              <AutoInvestigationTab incident={incident} />
-              <NotesTab incident={incident} />
-              <ClosureTab incident={incident} onUpdated={load} />
-            </>
+            <div className="inv">
+              <ActivityWorklogTab incident={incident} onNavigateTab={setTab} />
+              <NxInvSection title="Analyst notes"
+                            subtitle="attributed to the principal who wrote them"
+                            testid="incident-activity-notes">
+                <div className="inv-sec__b--pad">
+                  <NotesTab incident={incident} />
+                </div>
+              </NxInvSection>
+              <NxInvSection title="Closure"
+                            subtitle="how this incident was concluded"
+                            testid="incident-activity-closure">
+                <div className="inv-sec__b--pad">
+                  <ClosureTab incident={incident} onUpdated={load} />
+                </div>
+              </NxInvSection>
+              {/* The previous prose feed is preserved as engine detail —
+                  it is no longer a second, longer copy of the table above. */}
+              <NxInvSection title="Engine detail"
+                            subtitle="findings, overlays and the raw investigation feed"
+                            testid="incident-activity-auto">
+                <NxInvTech label="Autonomous investigation feed (engine view)"
+                           testid="incident-activity-auto-tech">
+                  <AutoInvestigationTab incident={incident} />
+                </NxInvTech>
+              </NxInvSection>
+            </div>
           )}
-          {tab === "report"     && <ReportTab incident={incident} />}
+          {tab === "report"     && (
+            <div className="inv">
+              <NxInvSection
+                title="Investigation report"
+                subtitle="evidence-derived sections are read-only; analyst sections are editable and attributed"
+                testid="incident-report-sec">
+                <div className="inv-sec__b--pad">
+                  <ReportTab incident={incident} />
+                </div>
+              </NxInvSection>
+            </div>
+          )}
         </div>
       </NxPageShell>
 

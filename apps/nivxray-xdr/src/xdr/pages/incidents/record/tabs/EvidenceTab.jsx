@@ -1,194 +1,260 @@
 /**
- * EvidenceTab · Layer 3 v2 · light-first domain evidence cards.
+ * Evidence · the incident evidence workspace.
  *
- * Reads authoritative `incident.evidence_pointers` (already
- * projected by the backend) and renders each of the six SOC domains
- * as a light card with a semantic status pill:
+ * Coverage first, then the evidence itself:
  *
- *   RELATED       — the domain has produced evidence for this case
- *   SEARCHED      — the domain was queried but produced no hits
- *   NO EVIDENCE   — the domain applies but no evidence was found
- *   NOT CONNECTED — the underlying integration is not configured
+ *   1. a compact per-domain coverage strip that preserves the four
+ *      DISTINCT truths the backend reports —
+ *        RELATED        the domain produced evidence
+ *        SEARCHED       the domain was queried and produced no hit
+ *        NO EVIDENCE    the domain applies, nothing was found
+ *        NOT CONNECTED  the integration does not exist here
+ *      `NOT CONNECTED` is not 0 and `NO EVIDENCE` is not `NOT AVAILABLE`;
+ *   2. one evidence table over every authoritative pointer bullet, with
+ *      the domain filter driven by the strip above.
  *
- * Zero fabrication — states come straight from the backend pointer.
+ * Source of truth: `incident.evidence_pointers` exactly as the backend
+ * projected it. No bullet is rewritten and no count is inferred.
  */
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Monitor, User, FileText, Network, Mail, Cloud, ArrowRight,
-} from "lucide-react";
-import { productHref, productMode } from "@/productOrigins";
 
-/**
- * PR-XDR-0 · resolve a pointer's `deep_link` into a real destination.
- * `/xdr/*` → in-product SPA navigation. `/edr/*` → the NivXForge EDR
- * product, resolved through `productOrigins`. Anything else has no
- * destination in this product and the control stays disabled rather than
- * opening a tab that lands nowhere.
- */
+import { productHref, productMode } from "@/productOrigins";
+import {
+  NxInvSection, NxInvTable, NxInvEmpty, NxInvTech, NxInvValue,
+  ABSENCE, fmtTime,
+} from "@/xdr/nx";
+
 function openTarget(p) {
   const link = p?.deep_link;
   if (!link || typeof link !== "string") return null;
   if (link.startsWith("/xdr/")) return { to: link, mode: "IN_PRODUCT" };
   if (link.startsWith("/edr")) {
     const to = productHref("edr", link);
-    return { to,
-             mode: productMode("edr") === "CONFIGURED"
-                     ? "CROSS_PRODUCT" : "IN_PRODUCT" };
+    return { to, mode: productMode("edr") === "CONFIGURED"
+      ? "CROSS_PRODUCT" : "IN_PRODUCT" };
   }
   return null;
 }
 
 const DOMAINS = [
-  { key: "endpoint",  label: "Endpoint", Icon: Monitor,
-    sub: "Forge EDR · process · file · registry · trajectory" },
-  { key: "identity",  label: "Identity", Icon: User,
-    sub: "ITDR · authentication · privilege" },
-  { key: "file",      label: "Files",    Icon: FileText,
-    sub: "Artifact intelligence · IUE lane C" },
-  { key: "network",   label: "Network",  Icon: Network,
-    sub: "NDR · DNS · flow · beacon" },
-  { key: "email",     label: "Email",    Icon: Mail,
-    sub: "Message · sender · attachment · URL" },
-  { key: "cloud",     label: "Cloud",    Icon: Cloud,
-    sub: "IaaS · SaaS control plane · CASB" },
+  { key: "endpoint", label: "Endpoint", sub: "process · file · registry · trajectory" },
+  { key: "identity", label: "Identity", sub: "authentication · privilege" },
+  { key: "file",     label: "Files",    sub: "artifacts · hashes · decoded payloads" },
+  { key: "network",  label: "Network",  sub: "DNS · flow · beacon" },
+  { key: "email",    label: "Email",    sub: "message · sender · attachment" },
+  { key: "cloud",    label: "Cloud",    sub: "control plane · SaaS" },
 ];
 
-const STATUS_ORDER = ["related", "searched", "no_evidence", "not_connected"];
+const STATUS_LABEL = {
+  related: "RELATED", searched: "SEARCHED",
+  no_evidence: "NO EVIDENCE", not_connected: "NOT CONNECTED",
+};
+const STATUS_MEANING = {
+  related: "this domain produced evidence for the incident",
+  searched: "the domain was queried and returned no matching evidence",
+  no_evidence: "the domain applies to this incident but nothing was found",
+  not_connected: "no integration for this domain exists in this deployment, "
+               + "so it was never queried — this is not zero evidence",
+};
 
 function normalizeStatus(p) {
   if (!p) return "not_connected";
-  // PR-XDR-0 · read the AUTHORITATIVE backend contract. The pointer carries
-  // `status` ∈ {available, no_matching_evidence, not_connected,
-  // not_available} plus `bullets` and `reason`. This tab previously keyed
-  // off `p.available`, a field the backend never emits, so an unconnected
-  // domain fell through to "SEARCHED · scope tightly bounded" — a claim
-  // that we queried a domain we cannot query.
   const bullets = Array.isArray(p.bullets) ? p.bullets : [];
-  const status  = String(p.status || "");
+  const status = String(p.status || "");
   if (status === "available") return bullets.length > 0 ? "related" : "searched";
-  if (status === "not_connected" || status === "not_available")
-    return "not_connected";
+  if (status === "not_connected" || status === "not_available") return "not_connected";
   if (status === "no_matching_evidence") return "no_evidence";
-  // No status field at all (older payload): fall back to the reason text.
   const r = String(p.reason || "").toLowerCase();
   if (r.includes("not connected") || r.includes("not configured")
-      || r.includes("integration") || r.includes("not enabled"))
-    return "not_connected";
+      || r.includes("integration") || r.includes("not enabled")) return "not_connected";
   if (bullets.length > 0) return "related";
   return "no_evidence";
 }
 
+/** A bullet may be a string or a record. Read it, never reshape it. */
+function bulletRow(domain, b, i) {
+  if (b && typeof b === "object") {
+    return {
+      id: `${domain}-${i}`, domain,
+      at: b.at || b.time || b.observed_at || b.timestamp || null,
+      type: b.type || b.kind || b.evidence_type || null,
+      entity: b.entity || b.host || b.device || b.subject || null,
+      value: b.value || b.text || b.detail || b.summary || b.title || null,
+      source: b.source || b.engine || b.detected_by || null,
+      state: b.state || b.status || b.confidence || null,
+      provenance: b.provenance || b.evidence_id || b.ref || null,
+      raw: b,
+    };
+  }
+  return { id: `${domain}-${i}`, domain, at: null, type: null, entity: null,
+           value: String(b), source: null, state: null, provenance: null, raw: b };
+}
+
 export default function EvidenceTab({ incident }) {
   const navigate = useNavigate();
-  // Group pointers by domain (backend may emit synonymous keys).
-  const byDomain = React.useMemo(() => {
-    const alias = {
-      edr: "endpoint",  endpoint: "endpoint",
-      itdr: "identity", identity: "identity",
-      file: "file",     files:    "file",
-      ndr:  "network",  network:  "network",
-      email:"email",
-      cloud:"cloud",
-    };
+  const [filter, setFilter] = useState(null);
+
+  const byDomain = useMemo(() => {
+    const alias = { edr: "endpoint", endpoint: "endpoint", itdr: "identity",
+                    identity: "identity", file: "file", files: "file",
+                    ndr: "network", network: "network", email: "email",
+                    cloud: "cloud" };
     const map = {};
     for (const p of (incident.evidence_pointers || [])) {
       const k = alias[p.domain] || p.domain;
       if (!map[k]) map[k] = { bullets: [], reason: null, status: null,
-                                deep_link: null, domain: p.domain };
-      const bullets = Array.isArray(p.bullets) ? p.bullets : [];
-      map[k].bullets.push(...bullets);
-      if (p.reason)     map[k].reason = p.reason;
-      if (p.status)     map[k].status = p.status;
-      // PR-XDR-0 · the backend field is `deep_link`. This tab used to read
-      // `open_href`, which the backend never emits, so the Open control was
-      // dead on every domain card.
-      if (p.deep_link)  map[k].deep_link = p.deep_link;
+                              deep_link: null, domain: p.domain };
+      map[k].bullets.push(...(Array.isArray(p.bullets) ? p.bullets : []));
+      if (p.reason) map[k].reason = p.reason;
+      if (p.status) map[k].status = p.status;
+      if (p.deep_link) map[k].deep_link = p.deep_link;
     }
     return map;
   }, [incident.evidence_pointers]);
 
+  const rows = useMemo(() => {
+    const out = [];
+    DOMAINS.forEach((d) => {
+      const p = byDomain[d.key];
+      (p?.bullets || []).forEach((b, i) => out.push(bulletRow(d.key, b, i)));
+    });
+    return out;
+  }, [byDomain]);
+
+  const visible = filter ? rows.filter((r) => r.domain === filter) : rows;
+  const related = DOMAINS.filter((d) => normalizeStatus(byDomain[d.key]) === "related");
+
+  const columns = [
+    { key: "at", label: "Time", width: 150,
+      render: (r) => <NxInvValue value={fmtTime(r.at)} mono
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "domain", label: "Domain", width: 96,
+      render: (r) => DOMAINS.find((d) => d.key === r.domain)?.label || r.domain },
+    { key: "type", label: "Evidence type", width: 140,
+      render: (r) => <NxInvValue value={r.type} mono
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "entity", label: "Entity", width: 170,
+      render: (r) => <NxInvValue value={r.entity} mono
+                                 absent={ABSENCE.NOT_ATTRIBUTED} /> },
+    { key: "value", label: "Observed value",
+      render: (r) => <NxInvValue value={r.value} absent={ABSENCE.NO_DATA} /> },
+    { key: "source", label: "Source", width: 140,
+      render: (r) => <NxInvValue value={r.source} mono
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "state", label: "State", width: 110,
+      render: (r) => <NxInvValue value={r.state} mono
+                                 absent={ABSENCE.NOT_EVALUATED} /> },
+    { key: "provenance", label: "Provenance", width: 150,
+      render: (r) => <NxInvValue value={r.provenance} mono
+                                 absent={ABSENCE.EVIDENCE_INCOMPLETE} /> },
+  ];
+
   return (
-    <div data-testid="xdr-record-evidence">
-      <div className="rl-section" style={{ marginBottom: 12 }}>
-        <div className="rl-section-title">Incident evidence across domains</div>
-        <div className="rl-domain-grid" data-testid="xdr-record-evidence-grid">
-          {DOMAINS.map(d => {
+    <div className="inv" data-testid="xdr-record-evidence">
+      <NxInvSection title="Evidence coverage"
+                    subtitle="which domains were asked, and what they answered"
+                    testid="xdr-record-evidence-grid">
+        <div className="inv-cov">
+          {DOMAINS.map((d) => {
             const p = byDomain[d.key];
             const status = normalizeStatus(p);
-            const count = (p?.bullets?.length) || 0;
+            const count = p?.bullets?.length || 0;
+            const selectable = count > 0;
             return (
-              <div key={d.key} className={`rl-domain-card ${status}`}
-                    data-testid={`xdr-record-evidence-${d.key}`}
-                    data-status={status}>
-                <div className="rl-domain-head">
-                  <span className="rl-domain-icon"><d.Icon size={16} /></span>
-                  <span className="rl-domain-name">{d.label}</span>
-                  <span className={`rl-domain-status ${status}`}>
-                    {status === "related"      && "RELATED"}
-                    {status === "searched"     && "SEARCHED"}
-                    {status === "no_evidence"  && "NO EVIDENCE"}
-                    {status === "not_connected" && "NOT CONNECTED"}
-                  </span>
-                </div>
-                <div className="rl-domain-sub">{d.sub}</div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <span className={`rl-domain-count ${count === 0 ? "dim" : ""}`}>
-                    {count === 0
-                      ? (status === "not_connected" ? "—" : "0")
-                      : count}
-                  </span>
-                  <span style={{ fontSize: 10.5, color: "var(--rl-muted)",
-                                  fontFamily: "var(--rs-mono)" }}>
-                    {count === 1 ? "detection" : "detections"}
-                    {status === "searched" && " · scope tightly bounded"}
-                    {status === "not_connected" && " · integration required"}
-                  </span>
-                </div>
-                {p?.reason && status !== "related" && (
-                  <div style={{ fontSize: 11, color: "var(--rl-text-dim)",
-                                  fontFamily: "var(--rs-mono)", lineHeight: 1.55 }}>
-                    {p.reason}
-                  </div>
-                )}
-                <div className="rl-domain-actions">
-                  <button
-                    type="button"
-                    className="rl-domain-link"
-                    disabled={!openTarget(p)}
-                    data-testid={`xdr-record-evidence-${d.key}-open`}
-                    data-open-to={openTarget(p)?.to || undefined}
-                    data-open-mode={openTarget(p)?.mode || undefined}
-                    onClick={() => {
-                      const t = openTarget(p);
-                      if (!t) return;
-                      // PR-XDR-0 · same-product destinations stay in the SPA
-                      // (shell mounted, no new tab). A NivXForge EDR target is
-                      // a different product, so it resolves through
-                      // `productOrigins` and only opens a tab when that
-                      // product genuinely lives at another origin.
-                      if (t.mode === "CROSS_PRODUCT")
-                        window.open(t.to, "_blank", "noopener,noreferrer");
-                      else navigate(t.to);
-                    }}
-                    style={{ opacity: openTarget(p) ? 1 : 0.4 }}
-                  >
-                    {openTarget(p) ? "Open" : "Explore"}
-                    <ArrowRight size={11} />
-                  </button>
-                </div>
-              </div>
+              <button key={d.key} className="inv-cov__i"
+                      aria-pressed={filter === d.key}
+                      disabled={!selectable}
+                      title={`${STATUS_LABEL[status]} — ${STATUS_MEANING[status]}`
+                        + (p?.reason ? ` · ${p.reason}` : "")}
+                      onClick={() => setFilter(filter === d.key ? null : d.key)}
+                      data-testid={`xdr-record-evidence-${d.key}`}
+                      data-status={status}>
+                <span className="inv-cov__k">{d.label}</span>
+                <span className="inv-cov__v">
+                  {status === "not_connected"
+                    ? <span className="inv-tb__na" style={{ fontSize: 11 }}>
+                        not queried</span>
+                    : `${count} item(s)`}
+                </span>
+                <span className="inv-cov__s" data-s={status}>
+                  {STATUS_LABEL[status]}
+                </span>
+              </button>
             );
           })}
         </div>
-        <div style={{ marginTop: 10, fontSize: 10.5, color: "var(--rl-faint)",
-                        fontFamily: "var(--rs-mono)", letterSpacing: 0.2 }}>
-          Evidence counts sourced from authoritative NivXRay APIs · never fabricated.
-        </div>
-      </div>
+      </NxInvSection>
+
+      <NxInvSection
+        title="Evidence"
+        subtitle={filter
+          ? `${visible.length} item(s) · filtered to ${
+              DOMAINS.find((d) => d.key === filter)?.label}`
+          : `${rows.length} item(s) across ${related.length} domain(s)`}
+        actions={filter && (
+          <button className="inv-chip" onClick={() => setFilter(null)}
+                  data-testid="xdr-record-evidence-clear-filter">
+            Clear filter
+          </button>
+        )}
+        testid="inv-evidence">
+        <NxInvTable testid="inv-evidence-table" columns={columns} rows={visible}
+                    rowKey={(r) => r.id}
+                    detail={(r) => (
+                      <dl className="inv-kv">
+                        <dt>Domain</dt><dd>{r.domain}</dd>
+                        <dt>Provenance</dt>
+                        <dd className="mono">
+                          <NxInvValue value={r.provenance}
+                                      absent={ABSENCE.EVIDENCE_INCOMPLETE} />
+                        </dd>
+                        <dt>Record</dt>
+                        <dd className="mono">
+                          {typeof r.raw === "object"
+                            ? JSON.stringify(r.raw) : String(r.raw)}
+                        </dd>
+                      </dl>
+                    )}
+                    empty={
+                      <NxInvEmpty
+                        testid="inv-evidence-empty"
+                        title="No evidence item is attached to this incident"
+                        body="The coverage strip above states which domains were asked and what each answered. A domain reported NOT CONNECTED was never queried, so its silence is not a finding."
+                        points={DOMAINS.map((d) => {
+                          const st = normalizeStatus(byDomain[d.key]);
+                          return `${d.label}: ${STATUS_LABEL[st]} — ${STATUS_MEANING[st]}`;
+                        })} />
+                    } />
+
+        {related.length > 0 && (
+          <div className="inv-filters">
+            {DOMAINS.map((d) => {
+              const t = openTarget(byDomain[d.key]);
+              if (!t) return null;
+              return (
+                <button key={d.key} className="inv-chip"
+                        data-testid={`xdr-record-evidence-${d.key}-open`}
+                        data-open-to={t.to} data-open-mode={t.mode}
+                        onClick={() => {
+                          if (t.mode === "CROSS_PRODUCT")
+                            window.open(t.to, "_blank", "noopener,noreferrer");
+                          else navigate(t.to);
+                        }}>
+                  Inspect {d.label} evidence →
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <NxInvTech label="Technical details · evidence pointers"
+                   testid="inv-evidence-tech">
+          <pre>{JSON.stringify(incident.evidence_pointers || [], null, 1)}</pre>
+        </NxInvTech>
+      </NxInvSection>
     </div>
   );
 }
 
-// Ordering helper if consumers want to sort domains by status severity.
-export { STATUS_ORDER };
+export const STATUS_ORDER = ["related", "searched", "no_evidence", "not_connected"];

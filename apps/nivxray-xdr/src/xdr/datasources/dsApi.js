@@ -37,9 +37,19 @@ async function settle(label, fn) {
   try {
     return { label, ok: true, data: await fn(), error: null };
   } catch (e) {
-    const detail = e?.response?.data?.error?.reason
+    const raw = e?.response?.data?.error?.reason
       || e?.response?.data?.detail
       || e?.note || e?.message || String(e);
+    // A fail-closed backend answers with a DETAIL OBJECT
+    // (`{code, reason, fail_closed}`). Handing that object to React as a
+    // child crashed the whole Data Sources page — and with it the shell.
+    // The reason is preserved; only its shape is normalised here, at the
+    // boundary, so no renderer has to defend itself.
+    const detail = typeof raw === "string" ? raw
+      : (raw && typeof raw === "object"
+          ? (raw.reason || raw.error || raw.code || raw.message
+             || JSON.stringify(raw))
+          : String(raw));
     return { label, ok: false, data: null, error: detail };
   }
 }
