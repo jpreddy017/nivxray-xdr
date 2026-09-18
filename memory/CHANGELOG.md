@@ -7391,3 +7391,30 @@ tenant and silently ignored a supplied `X-Tenant-Id`.
   Gate H PASS including the response/write plane. Tenant count 5 → 5 across G.
   Zero persistent objects created.
 - Production untouched (publish 100 / build 8833215). W1 Phase 3 paused.
+
+## 2026-06 · COLLECTOR PLANE "default" CLOSURE (pre-production, candidate only)
+Owner-requested narrow closure of `collectorApi.js:77,85` traced through to the
+SERVER side of the collector plane and found the same implicit default there:
+- `apps/nivxray-xdr-collector/routes/connectors.py:111` — `x_tenant_id or
+  "default"`; `POST /connectors` with no header PERSISTED a connector under an
+  unregistered tenant. Now resolves via `tenant_registry.authoritative(
+  purpose="xdr.collector.connectors")`; absent → TENANT_REQUIRED.
+- `apps/nivxray-xdr-collector/routes/preflight.py:70` — `x_tenant_id or
+  "preflight"` injected a synthetic envelope with an invented tenant into the
+  real ingest pipeline. Now registry-resolved, and the tenant is checked
+  BEFORE the runtime/configuration report (authority before capability).
+- `apps/nivxray-xdr-collector/framework/identity.py:18` — `NIVX_TENANT_ID or
+  "default"` made a mis-deployed collector label its telemetry `default`.
+  Now returns "" so the core refuses with TENANT_REQUIRED.
+- Client: `requireTenant()` (NO_TENANT_CONTEXT) on `ingestPreflight` /
+  `createConnector`; the collector axios instance gets the same one-place
+  `X-Tenant-Id` interceptor; the two wizard tenant fields no longer pre-fill
+  `"default"`.
+Live preview: connectors + preflight refuse TENANT_REQUIRED /
+TENANT_NOT_FOUND / TENANT_NOT_ACTIVE; valid tenant 200. Every POST refused, so
+nothing created (connectors count 0, tenant registry 5 → 5).
+Tests: collector suite 105/0 (was 103/1, +2 new) · authority suites 258/0 ·
+tests/edr 22 failed (0 new) · core set 48 identical · XDR build exit 0.
+Candidate: HEAD 0fc9be8a + 7 uncommitted files; cumulative vs e7195597 =
+27 files, +1145/-183; `/api/*` path count unchanged at 795.
+PRODUCTION NOT REPUBLISHED — awaiting owner approval.

@@ -13,6 +13,8 @@
  */
 import axios from "axios";
 
+import { activeTenant } from "@/lib/tenant";
+
 const CUSTOM_URL   = import.meta.env.VITE_XDR_COLLECTOR_URL || "";
 // vite.config.js exposes REACT_APP_BACKEND_URL via `process.env.*`
 // (bridged from REACT_APP_NIVXRAY_API_URL).  Use that channel so the
@@ -32,6 +34,19 @@ const COLLECTOR_BASE = CUSTOM_URL
 const client = COLLECTOR_BASE
   ? axios.create({ baseURL: COLLECTOR_BASE, timeout: 8000 })
   : null;
+
+// The collector plane is tenant-scoped. This client is a separate axios
+// instance, so it needs the same one-place header attachment as `lib/api.js`:
+// no call site can then forget the tenant, and none can substitute a default.
+if (client) {
+  client.interceptors.request.use((config) => {
+    if (config.headers["X-Tenant-Id"] == null) {
+      const tenant = activeTenant();
+      if (tenant) config.headers["X-Tenant-Id"] = tenant;
+    }
+    return config;
+  });
+}
 
 function notDeployed() {
   const err = new Error("collector_runtime_not_deployed");
@@ -74,18 +89,39 @@ export async function getOutboxHealth() {
   const { data } = await client.get("/outbox/health");
   return data;
 }
-export async function ingestPreflight(tenantId = "default") {
+/**
+ * The authoritative tenant for a collector-plane operation.
+ *
+ * B7 Option A · previously `tenantId = "default"`, so a preflight probe and a
+ * connector CREATE could both name a tenant the operator never selected and
+ * that the registry does not hold. Collector creation must never create or
+ * infer tenancy. There is no default tenant, so an absent selection is an
+ * explicit client-side refusal rather than a substituted value.
+ */
+function requireTenant(tenantId) {
+  const tenant = (tenantId || activeTenant() || "").trim();
+  if (!tenant) {
+    const err = new Error(
+      "NO_TENANT_CONTEXT — select an authoritative tenant first. "
+      + "Collector operations are tenant-scoped and there is no default tenant.");
+    err.code = "NO_TENANT_CONTEXT";
+    throw err;
+  }
+  return tenant;
+}
+
+export async function ingestPreflight(tenantId) {
   if (!client) notDeployed();
   const { data } = await client.post("/ingest-preflight", null,
-                                          { headers: { "X-Tenant-Id": tenantId } });
+                                          { headers: { "X-Tenant-Id": requireTenant(tenantId) } });
   return data;
 }
 
 // ── CRUD + control ────────────────────────────────────────
-export async function createConnector(body, tenantId = "default") {
+export async function createConnector(body, tenantId) {
   if (!client) notDeployed();
   const { data } = await client.post("/connectors", body,
-                                          { headers: { "X-Tenant-Id": tenantId } });
+                                          { headers: { "X-Tenant-Id": requireTenant(tenantId) } });
   return data;
 }
 export async function updateConnector(id, patch) {

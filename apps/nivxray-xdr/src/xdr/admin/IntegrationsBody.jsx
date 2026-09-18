@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 
 import * as C from "@/xdr/admin/collectorApi";
+import { activeTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
 
@@ -470,7 +471,7 @@ function ConnectorWizard({ category, editing, onClose, onCreated }) {
   const [cfg,     setCfg]     = useState(() => (editing?.config || {}));
   const [saving,  setSaving]  = useState(false);
   const [err,     setErr]     = useState(null);
-  const [tenant,  setTenant]  = useState("default");
+  const [tenant,  setTenant]  = useState(activeTenant() || "");
 
   const patch = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
   const patchCred = (k, v) =>

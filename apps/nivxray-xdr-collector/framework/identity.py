@@ -12,7 +12,12 @@ def collector_id() -> str:
 
 
 def tenant_id() -> str:
-    """Deployment tenant. The core rejects telemetry whose tenant does
-    not match the enrolled collector's tenant, so this must be set to
-    the tenant the collector was enrolled under."""
-    return os.environ.get("NIVX_TENANT_ID") or "default"
+    """Deployment tenant, from ``NIVX_TENANT_ID``.
+
+    B7 Option A · this returned ``"default"`` when unset, so a mis-deployed
+    collector labelled its telemetry with a tenant that does not exist in the
+    NivXRay registry. There is no default tenant: an unset value returns the
+    empty string and the core refuses the batch with ``TENANT_REQUIRED``,
+    which is the honest outcome. Telemetry never establishes tenancy.
+    """
+    return os.environ.get("NIVX_TENANT_ID") or ""

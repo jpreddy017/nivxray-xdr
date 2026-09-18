@@ -108,7 +108,31 @@ CLASS_BY_TYPE = {
 
 
 def _tenant(x_tenant_id: Optional[str]) -> str:
-    return x_tenant_id or "default"
+    """The authoritative tenant for a connector operation.
+
+    B7 Option A · this returned ``x_tenant_id or "default"``, so a connector
+    CREATE with no header persisted a record under a tenant the registry does
+    not hold — collector creation inferring tenancy, which is exactly what the
+    Organization -> Tenant authority forbids. The header is now resolved
+    through the registry when this package is mounted inside the NivXRay
+    backend, and refused outright when absent.
+    """
+    raw = (x_tenant_id or "").strip()
+    try:
+        from services import tenant_registry            # mounted in the core
+    except ImportError:                                  # standalone deployment
+        if not raw:
+            raise HTTPException(403, detail={
+                "code": "TENANT_REQUIRED",
+                "reason": ("no tenant named for xdr.collector.connectors: the "
+                           "authoritative tenant must be presented "
+                           "explicitly; there is no default tenant")})
+        return raw
+    try:
+        return tenant_registry.authoritative(
+            raw, purpose="xdr.collector.connectors")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(e.http, detail=e.detail()) from None
 
 
 # ── catalogue ─────────────────────────────────────────────────

@@ -17268,3 +17268,15 @@ Open P0/P1 after this step:
   label — left alone by owner decision (cosmetic, not authorization).
 - **P2 · browser validation of the EDR console** requires a Vercel preview
   deploy; not authorized in this step.
+
+### 2026-06 · Collector-plane default closure · PRODUCTION CANDIDATE READY
+Report: `W1_PHASE3_PRODUCTION_CANDIDATE_REPORT.md`. Three server-side implicit
+defaults closed in the collector plane (connectors, preflight, collector
+deployment identity) plus the client fallbacks. Candidate HEAD `0fc9be8a` +
+7 uncommitted files. **NOT republished — awaiting owner approval.**
+
+P0 next: owner approves production republish → production A–I re-run →
+confirm the console carries the authoritative tenant (no picker UI yet; use
+`?tenant=<ten_*>`) → W1 Phase 3.1 (collector, minimum-scope key,
+DESKTOP-A9HGFJJ with `NIVX_TENANT_ID` set to the authoritative tenant, exactly
+5 genuine Sysmon events, end-to-end trace).
